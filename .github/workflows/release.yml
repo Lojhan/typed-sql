@@ -28,7 +28,17 @@ jobs:
           node-version: 22.14
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - id: pending_changesets
+        name: Detect pending changesets
+        shell: bash
+        run: |
+          if compgen -G '.changeset/*.md' | grep -qv '^.changeset/README.md$'; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+          fi
       - uses: changesets/action/version@v2
+        if: steps.pending_changesets.outputs.present == 'true'
         with:
           script: pnpm version-packages
 
