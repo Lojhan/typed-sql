@@ -78,7 +78,7 @@ await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "
 
 try {
   await mustRun(engine, [
-    "run", "--detach", "--rm",
+    "run", "--detach",
     "--name", containerName,
     "--publish", `127.0.0.1:${port}:5432`,
     "--env", "POSTGRES_DB=typed_sql_e2e",
@@ -87,12 +87,22 @@ try {
     imageName,
   ]);
   containerStarted = true;
-  await waitForPort(port, { host: "127.0.0.1", timeout: 60_000 });
-  await waitForExpectedResult(
-    async () => (await run(engine, ["exec", containerName, "pg_isready", "--username", "typed_sql", "--dbname", "typed_sql_e2e"])).code,
-    0,
-    { interval: 250, timeout: 60_000, strict: true },
-  );
+  try {
+    await waitForPort(port, { host: "127.0.0.1", timeout: 60_000 });
+    await waitForExpectedResult(
+      async () => (await run(engine, ["exec", containerName, "pg_isready", "--username", "typed_sql", "--dbname", "typed_sql_e2e"])).code,
+      0,
+      { interval: 250, timeout: 60_000, strict: true },
+    );
+  } catch (error) {
+    const state = await run(engine, ["inspect", "--format", "{{json .State}}", containerName]);
+    const logs = await run(engine, ["logs", containerName]);
+    throw new Error([
+      error instanceof Error ? error.message : String(error),
+      `Container state: ${state.stdout}${state.stderr}`,
+      `Container logs:\n${logs.stdout}${logs.stderr}`,
+    ].join("\n"));
+  }
 
   await describe("developer PostgreSQL flow", async () => {
     await it("generates a package through the public CLI", async () => {
@@ -207,5 +217,5 @@ try {
     });
   });
 } finally {
-  if (containerStarted) await run(engine, ["stop", "--time", "5", containerName]);
+  if (containerStarted) await run(engine, ["rm", "--force", containerName]);
 }

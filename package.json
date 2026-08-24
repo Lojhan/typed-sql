@@ -17,7 +17,7 @@
     "verify": "pnpm test && pnpm build",
     "clean": "tsc -b --clean",
     "e2e:postgres": "pnpm build && pnpm --filter @typed-sql/e2e-postgres e2e",
-    "test": "pnpm typecheck && poku --config=poku.config.js --reporter=compact --enforce",
+    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && poku --config=poku.config.js --reporter=compact --enforce",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
     "version-packages": "changeset version"
