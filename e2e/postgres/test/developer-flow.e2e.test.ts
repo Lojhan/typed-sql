@@ -41,6 +41,7 @@ const generatedDirectory = join(packageDirectory, "generated");
 const generatedDatabaseDirectory = join(generatedDirectory, "db");
 const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
 const generatedModulePath = join(generatedDatabaseDirectory, "index.ts");
+const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", "cli", "src", "cli.js");
 const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
 const port = Number(process.env.TYPED_SQL_E2E_PORT ?? "55432");
 const containerName = `typed-sql-e2e-postgres-${process.pid}`;
@@ -70,7 +71,7 @@ async function mustRun(command: string, args: readonly string[], cwd = packageDi
   return result;
 }
 
-const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun("pnpm", ["exec", "typed-sql", ...args]);
+const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(process.execPath, [cliFile, ...args]);
 
 await rm(generatedDirectory, { recursive: true, force: true });
 log(`Building ${imageName} from the digest-pinned Containerfile`);
@@ -208,8 +209,8 @@ try {
         "--set", "ON_ERROR_STOP=1",
         "--command", "ALTER TABLE public.projects ADD COLUMN archived boolean NOT NULL DEFAULT false",
       ]);
-      const result = await run("pnpm", [
-        "exec", "typed-sql", "drift", "--schema", generatedSnapshotPath,
+      const result = await run(process.execPath, [
+        cliFile, "drift", "--schema", generatedSnapshotPath,
         "--provider", "postgres", "--url", connectionString, "--schemas", "public",
       ]);
       strict.strictEqual(result.code, 1);

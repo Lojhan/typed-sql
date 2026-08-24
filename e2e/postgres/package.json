@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "e2e": "tsc --project tsconfig.test.json --noEmit --pretty false && poku --config=poku.config.js --reporter=compact --enforce",
-    "generate": "typed-sql generate --provider postgres --url postgresql://typed_sql:typed_sql_e2e@127.0.0.1:55432/typed_sql_e2e --schemas public --out generated/db",
-    "generate:snapshot": "typed-sql generate --snapshot schema/catalog.snapshot.json --out generated/db",
-    "check": "typed-sql check --file src/query.ts --schema generated/db/schema.json --project tsconfig.json",
-    "drift": "typed-sql drift --schema generated/db/schema.json --provider postgres --url postgresql://typed_sql:typed_sql_e2e@127.0.0.1:55432/typed_sql_e2e --schemas public"
+    "generate": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --provider postgres --url postgresql://typed_sql:typed_sql_e2e@127.0.0.1:55432/typed_sql_e2e --schemas public --out generated/db",
+    "generate:snapshot": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --snapshot schema/catalog.snapshot.json --out generated/db",
+    "check": "node ../../packages/cli/dist/packages/cli/src/cli.js check --file src/query.ts --schema generated/db/schema.json --project tsconfig.json",
+    "drift": "node ../../packages/cli/dist/packages/cli/src/cli.js drift --schema generated/db/schema.json --provider postgres --url postgresql://typed_sql:typed_sql_e2e@127.0.0.1:55432/typed_sql_e2e --schemas public"
   },
   "dependencies": {
     "@typed-sql/cli": "workspace:*",
