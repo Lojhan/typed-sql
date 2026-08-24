@@ -1,5 +1,11 @@
 # @typed-sql/ast
 
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- 16e2475: Prove npm trusted publishing and provenance after the initial registry bootstrap.
+
 ## 1.0.0-beta.0
 
 ### Major Changes
