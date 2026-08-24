@@ -1,4 +1,5 @@
-import { db, sql } from "./generated/db/index.js";
+import { sql } from "@typed-sql/postgres";
+import { db } from "./database.js";
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends

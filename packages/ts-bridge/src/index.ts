@@ -38,12 +38,15 @@ export interface NativeTypeInspection {
   readonly typeText: string;
 }
 
+export interface TypeScriptInspectionInput {
+  readonly fileName: string;
+  readonly projectFile?: string;
+  readonly analysis: BridgeAnalysis;
+}
+
 export interface TypeScriptBridge {
-  inspectFile(input: {
-    readonly fileName: string;
-    readonly projectFile?: string;
-    readonly analysis: BridgeAnalysis;
-  }): Promise<readonly NativeTypeInspection[]>;
+  inspectFile(input: TypeScriptInspectionInput): Promise<readonly NativeTypeInspection[]>;
+  inspectFiles(inputs: readonly TypeScriptInspectionInput[]): Promise<ReadonlyMap<string, readonly NativeTypeInspection[]>>;
   close(): Promise<void>;
 }
 

@@ -6,6 +6,7 @@
     { "path": "./packages/ast" },
     { "path": "./packages/schema" },
     { "path": "./packages/postgres" },
+    { "path": "./packages/mysql" },
     { "path": "./packages/compiler" },
     { "path": "./packages/ts-bridge" },
     { "path": "./packages/language-server" },

@@ -1,7 +1,8 @@
 # Releasing
 
 typed-sql uses Changesets and publishes public packages independently under the `@typed-sql`
-scope. Public package versions begin at `0.2.0`; pre-1.0 breaking API changes require a minor release.
+scope. Version 1.0 freezes the package, schema, diagnostics, and dialect contracts; breaking changes
+require a major release.
 
 ## Change flow
 
@@ -44,4 +45,4 @@ Publishing is blocked unless all of these pass:
 - 95% statement/line/function and 90% branch coverage for gated compiler-critical packages;
 - forbidden-driver and grammar-neutral dependency contracts;
 - all public tarballs pack cleanly and install in an isolated no-driver consumer;
-- real PostgreSQL container generation, execution, and drift flow in CI.
+- real PostgreSQL and MySQL container generation, execution, and drift flows in CI.

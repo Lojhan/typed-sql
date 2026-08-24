@@ -1,12 +1,14 @@
 import { describe, it, strict } from "poku";
-import { parseSelect } from "../../ast/src/index.js";
+import { parseSelect, parseStatement } from "../../ast/src/index.js";
 import {
   resolveSelect,
+  resolveStatement,
 } from "../src/resolver.js";
 import { rowTypeLiteral } from "../../core/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
 
 const schema = {
+  formatVersion: 1,
   dialect: "postgres",
   tables: {
     users: {
@@ -107,7 +109,7 @@ await describe("query resolver", async () => {
              CASE WHEN age IS NULL THEN 0 ELSE age END AS safe_age
       FROM users
     `), schema);
-    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.diagnostics.map((diagnostic) => diagnostic.code), ["TSQ203"]);
     strict.deepStrictEqual(result.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })), [
       { name: "text_value", tsType: "string", nullable: false },
       { name: "missing", tsType: "unknown", nullable: true },
@@ -115,7 +117,7 @@ await describe("query resolver", async () => {
       { name: "has_age", tsType: "boolean", nullable: false },
       { name: "negative_id", tsType: "number", nullable: false },
       { name: "next_id", tsType: "number", nullable: false },
-      { name: "mixed", tsType: "number", nullable: false },
+      { name: "mixed", tsType: "unknown", nullable: true },
       { name: "maybe_age", tsType: "number", nullable: true },
       { name: "safe_age", tsType: "number", nullable: true },
     ]);
@@ -160,5 +162,120 @@ await describe("query resolver", async () => {
     const mismatch = resolveSelect(parseSelect("SELECT id FROM users"), { ...schema, dialect: "mysql" });
     strict.strictEqual(mismatch.diagnostics[0]?.code, "TSQ007");
     strict.strictEqual(rowTypeLiteral([{ name: "value", tsType: "string", nullable: true, range: { start: 0, end: 1, line: 1, column: 1 } }]), '{ "value": string | null; }');
+  });
+
+  await it("expands stars and models JOIN USING as one unambiguous property", () => {
+    const result = resolveSelect(parseSelect(`
+      SELECT *
+      FROM users u
+      LEFT JOIN ages a USING (id)
+    `), {
+      ...schema,
+      tables: {
+        users: schema.tables.users,
+        ages: {
+          ...schema.tables.ages,
+          columns: {
+            id: { name: "id", databaseType: "integer", tsType: "number", nullable: false },
+            label: schema.tables.ages.columns.label,
+          },
+        },
+      },
+    });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.columns.map(({ name, nullable }) => ({ name, nullable })), [
+      { name: "id", nullable: false },
+      { name: "name", nullable: false },
+      { name: "age", nullable: true },
+      { name: "label", nullable: true },
+    ]);
+  });
+
+  await it("resolves CTEs, derived tables, correlated scalar subqueries, EXISTS, and IN", () => {
+    const result = resolveStatement(parseStatement(`
+      WITH named AS (
+        SELECT u.id, u.name FROM users u WHERE EXISTS (SELECT 1 AS one FROM ages a WHERE a.user_id = u.id)
+      )
+      SELECT n.id,
+             n.name,
+             (SELECT a.label FROM ages a WHERE a.user_id = n.id LIMIT 1) AS label
+      FROM (SELECT id, name FROM named) n
+      WHERE n.id IN (SELECT user_id FROM ages)
+    `), schema);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })), [
+      { name: "id", tsType: "number", nullable: false },
+      { name: "name", tsType: "string", nullable: false },
+      { name: "label", tsType: "string", nullable: true },
+    ]);
+  });
+
+  await it("infers data-changing RETURNING rows and uses never for command-only statements", () => {
+    const insert = resolveStatement(parseStatement("INSERT INTO users (name, age) VALUES ('Ada', 37) RETURNING id, name"), schema);
+    strict.strictEqual(insert.resultKind, "rows");
+    strict.deepStrictEqual(insert.columns.map(({ name, tsType }) => ({ name, tsType })), [
+      { name: "id", tsType: "number" },
+      { name: "name", tsType: "string" },
+    ]);
+    const update = resolveStatement(parseStatement("UPDATE users u SET age = age + 1 WHERE u.id = $1 RETURNING u.*"), schema);
+    strict.strictEqual(update.resultKind, "rows");
+    strict.strictEqual(update.columns.length, 3);
+    const deletion = resolveStatement(parseStatement("DELETE FROM users WHERE id = $1"), schema);
+    strict.strictEqual(deletion.resultKind, "command");
+    strict.deepStrictEqual(deletion.columns, []);
+    const mismatch = resolveStatement(parseStatement("INSERT INTO users (name) VALUES ('Ada', 'extra')"), schema);
+    strict.ok(mismatch.diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"));
+  });
+
+  await it("resolves arrays, JSON operators, filtered windows, and exact overloads", () => {
+    const richSchema = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        events: {
+          name: "events",
+          columns: {
+            payload: { name: "payload", databaseType: "jsonb", tsType: "unknown", nullable: false },
+            scores: { name: "scores", databaseType: "integer[]", tsType: "readonly (number)[]", nullable: false, array: true },
+            active: { name: "active", databaseType: "boolean", tsType: "boolean", nullable: false },
+            team_id: { name: "team_id", databaseType: "integer", tsType: "number", nullable: false },
+          },
+        },
+      },
+      functions: {
+        "label_for(integer)": { name: "label_for", argumentTypes: ["integer"], databaseReturnType: "text", returnType: "string", nullable: false },
+        "label_for(text)": { name: "label_for", argumentTypes: ["text"], databaseReturnType: "text", returnType: "string", nullable: true },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(parseSelect(`
+      SELECT ARRAY[1, 2] AS ids,
+             payload->>'name' AS name,
+             scores || ARRAY[3] AS all_scores,
+             COUNT(*) FILTER (WHERE active) OVER (PARTITION BY team_id) AS active_count,
+             label_for(team_id) AS team_label
+      FROM events
+    `), richSchema);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.columns.map(({ name, tsType }) => ({ name, tsType })), [
+      { name: "ids", tsType: "readonly (number)[]" },
+      { name: "name", tsType: "string" },
+      { name: "all_scores", tsType: "readonly (number)[]" },
+      { name: "active_count", tsType: "bigint" },
+      { name: "team_label", tsType: "string" },
+    ]);
+  });
+
+  await it("fails recursive CTEs and ambiguous overloads safely", () => {
+    const recursive = resolveStatement(parseStatement("WITH RECURSIVE n(value) AS (SELECT 1 AS value) SELECT value FROM n"), schema);
+    strict.strictEqual(recursive.diagnostics[0]?.code, "TSQ210");
+    const overloaded = resolveSelect(parseSelect("SELECT mystery($1) AS value"), {
+      ...schema,
+      functions: {
+        "mystery(integer)": { name: "mystery", argumentTypes: ["integer"], returnType: "number", nullable: false },
+        "mystery(text)": { name: "mystery", argumentTypes: ["text"], returnType: "string", nullable: false },
+      },
+    });
+    strict.strictEqual(overloaded.diagnostics[0]?.code, "TSQ204");
+    strict.strictEqual(overloaded.columns[0]?.tsType, "unknown");
   });
 });

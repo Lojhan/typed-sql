@@ -54,6 +54,7 @@ function isConfig(value: unknown): value is TypedSqlConfig<SchemaSnapshot, unkno
   const candidate = value as Partial<TypedSqlConfig<SchemaSnapshot, unknown>>;
   return candidate.dialect?.contractVersion === DIALECT_CONTRACT_VERSION
     && typeof candidate.dialect.id === "string"
+    && typeof candidate.dialect.sqlModule === "string"
     && typeof candidate.dialect.analyze === "function"
     && typeof candidate.dialect.validateSnapshot === "function"
     && typeof candidate.schema?.file === "string"

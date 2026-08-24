@@ -5,7 +5,7 @@ This package exercises typed-sql as a developer would use it:
 1. build a PostgreSQL 18.4 image from a digest-pinned `Containerfile`;
 2. initialize enums, a domain, tables, a view, a function, and seed rows;
 3. run `typed-sql generate` against the real catalog;
-4. inspect `generated/db/schema.json` and the generated TypeScript module;
+4. inspect `generated/db/schema.json` and its schema-only TypeScript metadata module;
 5. run `typed-sql check` against `src/query.ts` with TypeScript 7;
 6. ask the TypeScript 7.1 preview bridge for the native `Query<{ ... }>` type;
 7. execute the query through application-owned `pg` and `createPgDatabase`;
@@ -54,7 +54,8 @@ pnpm check
 
 `schema/catalog.snapshot.json` is a credential-free mirror of the E2E catalog and makes editor
 setup deterministic. `pnpm generate` remains the live-introspection path and replaces the generated
-package with the current database catalog.
+schema artifacts with the current database catalog. Application queries continue to import `sql`
+from `@typed-sql/postgres`.
 
 The username/password are fixed test-only credentials and must not be reused outside this local
 ephemeral environment.

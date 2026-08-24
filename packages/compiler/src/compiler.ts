@@ -35,14 +35,14 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (schema.dialect !== dialect.id) {
     throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
   }
-  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index));
+  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), [dialect.sqlModule]);
   const compiled: CompiledQuery[] = [];
   const diagnostics: SqlDiagnostic[] = [];
   for (const query of extracted) {
     const resolved = dialect.analyze(query.sql, schema, options.typePolicy);
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-      compiled.push({ query, rowType: rowTypeLiteral(resolved.columns) });
+      compiled.push({ query, rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns) });
     }
   }
   let transformedSource = source;

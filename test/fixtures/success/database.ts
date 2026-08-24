@@ -1,5 +1,4 @@
-export { sql } from "../../../../../packages/core/src/index.js";
-import { createDatabase } from "../../../../../packages/core/src/index.js";
+import { createDatabase } from "@typed-sql/core";
 
 export const db = createDatabase({
   async execute(): Promise<readonly unknown[]> {

@@ -5,5 +5,5 @@
     "declaration": false,
     "noEmit": true
   },
-  "include": ["query.ts", "generated/**/*.ts"]
+  "include": ["query.ts", "database.ts"]
 }

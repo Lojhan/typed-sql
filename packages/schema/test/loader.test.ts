@@ -6,6 +6,7 @@ import {
   loadGeneratedSchemaSnapshot,
   loadSchemaSnapshot,
   loadTypePolicy,
+  migrateSchemaSnapshot,
   parseSchemaSnapshot,
   parseTypePolicy,
 } from "../src/index.js";
@@ -49,6 +50,11 @@ const policy = {
 } as const;
 
 await describe("schema snapshot loader", async () => {
+  await it("migrates unversioned pre-1.0 snapshots to stable format 1", () => {
+    const { formatVersion: _formatVersion, ...legacy } = fullSnapshot;
+    strict.deepStrictEqual(migrateSchemaSnapshot(legacy), fullSnapshot);
+    strict.strictEqual(parseSchemaSnapshot(legacy).formatVersion, 1);
+  });
   await it("loads complete snapshots, generated metadata, and policies", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-loader-"));
     try {

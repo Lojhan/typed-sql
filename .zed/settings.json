@@ -1,10 +1,10 @@
 {
   "languages": {
     "TypeScript": {
-      "language_servers": ["typed-sql"]
+      "language_servers": ["typescript-ls", "typed-sql"]
     },
     "TSX": {
-      "language_servers": ["typed-sql"]
+      "language_servers": ["typescript-ls", "typed-sql"]
     }
   },
   "lsp": {

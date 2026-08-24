@@ -2,7 +2,9 @@ import { describe, it, strict } from "poku";
 import {
   createDatabase,
   defineConfig,
+  diagnosticRegistry,
   DIALECT_CONTRACT_VERSION,
+  isTypedSqlDiagnosticCode,
   renderQuery,
   rowTypeLiteral,
   sql,
@@ -69,11 +71,12 @@ await describe("runtime SQL tag", async () => {
 });
 
 await describe("core contracts", async () => {
-  const schema = { dialect: "test", tables: {} } satisfies SchemaSnapshot;
+  const schema = { formatVersion: 1, dialect: "test", tables: {} } satisfies SchemaSnapshot;
   const dialect: DialectPlugin<SchemaSnapshot, Record<string, never>> = {
     contractVersion: DIALECT_CONTRACT_VERSION,
     id: "test",
     packageVersion: "1.0.0",
+    sqlModule: "@example/typed-sql-test",
     defaultTypePolicy: {},
     placeholder: (index) => `?${index}`,
     analyze: () => ({ columns: [], diagnostics: [] }),
@@ -89,6 +92,13 @@ await describe("core contracts", async () => {
       schema: { file: "schema.json" },
       outDir: "generated",
     }), /Unsupported typed-sql dialect contract/);
+  });
+
+  await it("publishes the stable diagnostic registry", () => {
+    strict.strictEqual(diagnosticRegistry.TSQ301.category, "drift");
+    strict.strictEqual(isTypedSqlDiagnosticCode("TSQ401"), true);
+    strict.strictEqual(isTypedSqlDiagnosticCode("TSQ999"), false);
+    strict.ok(Object.isFrozen(diagnosticRegistry));
   });
 
   await it("renders deterministic TypeScript row literals", () => {

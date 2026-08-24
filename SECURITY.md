@@ -1,16 +1,31 @@
 # Security policy
 
-## Reporting a vulnerability
+## Reporting
 
-Do not open a public issue for suspected SQL injection, credential disclosure, unsafe generated
-code, parser denial of service, or dependency compromise.
+Do not open a public issue for a suspected vulnerability. Use the repository's private
+[GitHub security advisory](https://github.com/Lojhan/typed-sql/security/advisories/new). Include the
+affected package/version, a minimal reproduction, impact, and any proposed mitigation. Maintainers
+will acknowledge a report within seven days and coordinate disclosure after a fix is available.
 
-Use a private GitHub security advisory:
+Security fixes target the latest stable release. Pre-1.0 releases receive fixes when practical but
+do not have a long-term support promise.
 
-<https://github.com/Lojhan/typed-sql/security/advisories/new>
+## Threat model and trust boundary
 
-Include a minimal reproduction, affected version or commit, and expected impact. Maintainers will
-acknowledge a complete report within seven days and coordinate disclosure after a fix is available.
+typed-sql analyzes application source and database catalog snapshots during development. SQL text,
+snapshots, config modules, migration files, TypeScript projects, and database responses are treated
+as untrusted input. Database credentials and executable config files remain application-controlled.
 
-Only the latest published minor line will receive security fixes before 1.0. The supported-version
-policy will be expanded before the stable release.
+- The tokenizer caps a query at 1,000,000 characters and 100,000 tokens.
+- The parser caps recursive nesting at 128 levels. Limit violations produce `TSQ002`.
+- Editor caches and workspace scans are bounded, and long-running requests support cancellation.
+- Generated files contain catalog metadata and type policy, never connection strings.
+- Interpolated query values become driver parameters. `sql.raw()` is deliberately unsafe and must
+  receive trusted static SQL; it is not an escaping API.
+- Identifiers must use `sql.ident()`, which delegates quoting to the selected dialect renderer.
+- Grammar packages do not install database drivers. Driver adapters load an application-owned
+  driver only when their explicit `/pg` or `/mysql2` subpath is invoked.
+
+Config files are executable TypeScript and therefore have the same authority as other application
+build scripts. Do not run typed-sql against an untrusted repository outside an appropriate sandbox.
+Live introspection should use a least-privilege, read-only database account where possible.

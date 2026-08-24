@@ -166,6 +166,38 @@ const serverFile = join(
 );
 
 await describe("typed-sql stdio language server", async () => {
+  await it("preloads typed overlays for unopened project files", async () => {
+    const client = new ProtocolClient(serverFile, workspaceDirectory);
+    const e2eDirectory = join(workspaceDirectory, "e2e", "postgres");
+    const e2eQueryFile = join(e2eDirectory, "src", "query.ts");
+    const source = await readFile(e2eQueryFile, "utf8");
+    const uri = pathToFileURL(e2eQueryFile).href;
+    try {
+      await client.request("initialize", {
+        processId: process.pid,
+        rootUri: pathToFileURL(workspaceDirectory).href,
+        workspaceFolders: [{ uri: pathToFileURL(workspaceDirectory).href, name: "typed-sql" }],
+        capabilities: {},
+        initializationOptions: {
+          configPath: join(e2eDirectory, "typed-sql.config.ts"),
+          schemaPath: join(e2eDirectory, "generated", "db", "schema.json"),
+          projectFile: join(e2eDirectory, "tsconfig.json"),
+          nativePreview: true,
+        },
+      });
+      client.notify("initialized", {});
+      const hover = await client.request("textDocument/hover", {
+        textDocument: { uri },
+        position: positionAt(source, source.indexOf("query")),
+      }) as { readonly contents?: unknown };
+      const text = JSON.stringify(hover.contents ?? "");
+      strict.ok(text.includes("id: bigint"), text);
+      strict.ok(!text.includes("unknown"), text);
+    } finally {
+      await client.close();
+    }
+  });
+
   await it("makes inferred rows part of the TypeScript 7 semantic program", async () => {
     const client = new ProtocolClient(serverFile, workspaceDirectory);
     const source = await readFile(queryFile, "utf8");
@@ -220,18 +252,37 @@ await describe("typed-sql stdio language server", async () => {
       strict.ok(actualHover.includes("age: bigint | null"), actualHover);
       strict.ok(!actualHover.includes("unknown"), actualHover);
 
+      const completion = await client.request("textDocument/completion", {
+        textDocument: { uri },
+        position: positionAt(source, source.indexOf("user.name") + "user.".length),
+      }) as { readonly items?: readonly { readonly label?: string }[] };
+      strict.deepStrictEqual(completion.items?.map((item) => item.label).sort(), ["age", "id", "name"]);
+
+      const definition = await client.request("textDocument/definition", {
+        textDocument: { uri },
+        position: positionAt(source, source.indexOf("users AS") + 1),
+      }) as { readonly uri?: string };
+      strict.strictEqual(definition.uri, pathToFileURL(schemaFile).href);
+
       const changedDiagnosticsPromise = client.notification("textDocument/publishDiagnostics", (params) =>
         (params as { readonly uri?: string; readonly version?: number }).uri === uri
         && (params as { readonly version?: number }).version === 2);
       client.notify("textDocument/didChange", {
         textDocument: { uri, version: 2 },
-        contentChanges: [{ text: source.replace("user.name", "user.missing") }],
+        contentChanges: [{ text: source.replace("user.name", "user.nam") }],
       });
       const changedDiagnostics = await changedDiagnosticsPromise as {
-        readonly diagnostics?: readonly { readonly code?: string; readonly source?: string }[];
+        readonly diagnostics?: readonly { readonly code?: string; readonly source?: string; readonly range?: unknown; readonly data?: unknown }[];
       };
-      strict.ok(changedDiagnostics.diagnostics?.some((diagnostic) =>
-        diagnostic.source === "typed-sql" && diagnostic.code === "TSQ101"));
+      const unknown = changedDiagnostics.diagnostics?.find((diagnostic) =>
+        diagnostic.source === "typed-sql" && diagnostic.code === "TSQ101");
+      strict.ok(unknown !== undefined);
+      const actions = await client.request("textDocument/codeAction", {
+        textDocument: { uri },
+        range: unknown?.range,
+        context: { diagnostics: [unknown] },
+      }) as readonly { readonly title?: string; readonly isPreferred?: boolean }[];
+      strict.ok(actions.some((action) => action.title === "Replace with name" && action.isPreferred === true));
     } finally {
       await client.close();
     }

@@ -2,9 +2,9 @@
 
 The roadmap is gate-based: versions advance when their acceptance criteria pass, not on a calendar.
 
-Current implementation: the 0.1 foundation and 0.2 modular-package engineering gates are complete.
-The first npm bootstrap and trusted-publisher configuration remain maintainer operations; active
-language work starts at 0.3.
+Current implementation: all engineering gates through the 1.0 stable contract are complete. The
+remaining release operations are the maintainer-controlled npm bootstrap/trusted-publisher setup
+and protected workflow dispatch.
 
 ## 0.1 — open-source foundation
 
@@ -68,6 +68,6 @@ language work starts at 0.3.
 ## Release mechanics
 
 Changesets records package-level semantic changes. Merges to `main` update a release pull request;
-publishing remains manual until the 0.2 package graph and isolated-tarball tests are complete. npm
-trusted publishing with provenance replaces long-lived registry tokens before the first public
-package release.
+publishing is a protected manual workflow after all quality and real-database gates pass. npm
+trusted publishing with provenance replaces long-lived registry tokens; no registry token is stored
+in the repository or workflow.

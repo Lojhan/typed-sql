@@ -1,0 +1,22 @@
+name: typed-sql-e2e-mysql
+
+services:
+  mysql:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/typed-sql-e2e-mysql:8.4.11
+    environment:
+      MYSQL_DATABASE: typed_sql_e2e
+      MYSQL_PASSWORD: typed_sql_e2e
+      MYSQL_ROOT_PASSWORD: typed_sql_root
+      MYSQL_USER: typed_sql
+    ports:
+      - "127.0.0.1:${TYPED_SQL_MYSQL_E2E_PORT:-53306}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--host=127.0.0.1", "--user=typed_sql", "--password=typed_sql_e2e"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+    tmpfs:
+      - /var/lib/mysql

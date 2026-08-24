@@ -15,6 +15,7 @@ const publicPackages = [
   "config",
   "schema",
   "postgres",
+  "mysql",
   "compiler",
   "cli",
   "ts-bridge",
@@ -53,6 +54,8 @@ await describe("packed public packages", async () => {
           overrides: {
             ...dependencies,
             tsx: `link:${join(workspace, "node_modules", "tsx")}`,
+            "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
+            "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
             "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
             "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
             "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,
@@ -66,10 +69,12 @@ await describe("packed public packages", async () => {
       });
       await writeFile(join(consumer, "verify.mjs"), `
         import { createRequire } from "node:module";
-        import { sql } from "@typed-sql/core";
-        import { postgres } from "@typed-sql/postgres";
+        import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
         import { loadPgDriver } from "@typed-sql/postgres/pg";
+        import { mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
+        import { mysqlRenderer } from "@typed-sql/mysql/runtime";
+        import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
         import { compileSource } from "@typed-sql/compiler";
         import "@typed-sql/ast";
         import "@typed-sql/config";
@@ -80,12 +85,27 @@ await describe("packed public packages", async () => {
         const require = createRequire(import.meta.url);
         try { require.resolve("pg"); throw new Error("pg was installed transitively"); }
         catch (error) { if (error.message === "pg was installed transitively") throw error; }
+        try { require.resolve("mysql2"); throw new Error("mysql2 was installed transitively"); }
+        catch (error) { if (error.message === "mysql2 was installed transitively") throw error; }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
+        if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
+        if (postgres().sqlModule !== "@typed-sql/postgres") throw new Error("PostgreSQL sqlModule contract failed");
+        if (mysql().sqlModule !== "@typed-sql/mysql") throw new Error("MySQL sqlModule contract failed");
+        if (postgresTypePolicy.bigint !== "bigint" || mysqlTypePolicy.bigint !== "bigint") throw new Error("type policy export failed");
         if (postgresRenderer.placeholder(2) !== "$2") throw new Error("runtime import failed");
-        if (sql\`SELECT \${1}\`.segments.length !== 3) throw new Error("core import failed");
+        if (mysqlRenderer.placeholder(2) !== "?") throw new Error("MySQL runtime import failed");
+        if (postgresSql\`SELECT \${1}\`.segments.length !== 3 || mysqlSql\`SELECT \${1}\`.segments.length !== 3) throw new Error("dialect sql export failed");
         if (typeof compileSource !== "function") throw new Error("compiler import failed");
+        const compiled = compileSource({
+          source: 'import { sql } from "@typed-sql/postgres"; const query = sql\`SELECT 1 AS value\`;',
+          dialect: postgres(),
+          schema: { formatVersion: 1, dialect: "postgres", tables: {} },
+        });
+        if (compiled.queries.length !== 1 || !compiled.transformedSource.includes("sql<{")) throw new Error("packed package-root inference failed");
         try { await loadPgDriver(); throw new Error("missing pg did not fail"); }
         catch (error) { if (!String(error.message).includes("pnpm add pg")) throw error; }
+        try { await loadMySql2Driver(); throw new Error("missing mysql2 did not fail"); }
+        catch (error) { if (!String(error.message).includes("pnpm add mysql2")) throw error; }
       `);
       await execFile(process.execPath, [join(consumer, "verify.mjs")], { cwd: consumer, env: isolatedEnvironment });
       strict.ok(true);

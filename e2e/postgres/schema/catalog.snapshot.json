@@ -1,5 +1,7 @@
 {
+  "formatVersion": 1,
   "dialect": "postgres",
+  "dialectVersion": "1.0.0",
   "version": "18.4",
   "tables": {
     "users": {

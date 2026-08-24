@@ -1,17 +1,32 @@
 {
-  "name": "@typed-sql/vscode",
+  "name": "typed-sql",
   "displayName": "typed-sql",
   "description": "TypeScript 7-native SQL inference, hover information, and diagnostics.",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
-  "publisher": "typed-sql",
+  "publisher": "lojhan",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/vscode"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
   "license": "MIT",
   "type": "module",
   "engines": {
     "vscode": "^1.134.0"
   },
-  "categories": ["Programming Languages", "Linters"],
-  "extensionKind": ["workspace"],
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
   "main": "./bundle/extension.cjs",
   "activationEvents": [
     "onLanguage:typescript",
@@ -47,7 +62,8 @@
     }
   },
   "scripts": {
-    "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --external:tsx/* --sourcemap"
+    "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --external:tsx/* --sourcemap",
+    "package:vsix": "node -e \"require('node:fs').mkdirSync('../../artifacts',{recursive:true})\" && pnpm build:bundle && vsce package --no-dependencies --out ../../artifacts/typed-sql-vscode.vsix"
   },
   "dependencies": {
     "@typed-sql/config": "workspace:*",
@@ -57,6 +73,7 @@
   },
   "devDependencies": {
     "@types/vscode": "1.134.0",
+    "@vscode/vsce": "3.9.2",
     "esbuild": "0.28.2"
   }
 }

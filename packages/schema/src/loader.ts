@@ -9,6 +9,7 @@ import type {
   TableSnapshot,
   TypePolicy,
 } from "./model.js";
+import { SCHEMA_FORMAT_VERSION } from "./model.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -107,7 +108,11 @@ export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
   const tables: Record<string, TableSnapshot> = {};
   for (const [name, table] of Object.entries(value.tables)) tables[name] = parseTable(table, `schema.tables.${name}`);
   const snapshot: SchemaSnapshot = {
-    ...(value.formatVersion === undefined ? {} : value.formatVersion === 1 ? { formatVersion: 1 as const } : (() => { throw new TypeError(`Unsupported schema.formatVersion ${String(value.formatVersion)}`); })()),
+    formatVersion: value.formatVersion === undefined
+      ? SCHEMA_FORMAT_VERSION
+      : value.formatVersion === SCHEMA_FORMAT_VERSION
+        ? SCHEMA_FORMAT_VERSION
+        : (() => { throw new TypeError(`Unsupported schema.formatVersion ${String(value.formatVersion)}; this release supports format ${SCHEMA_FORMAT_VERSION}`); })(),
     dialect: value.dialect,
     ...(typeof value.dialectVersion === "string" ? { dialectVersion: value.dialectVersion } : {}),
     tables,
@@ -117,6 +122,14 @@ export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
     ...(value.functions === undefined ? {} : { functions: parseObjectMap(value.functions, "schema.functions", parseFunction) }),
   };
   return snapshot;
+}
+
+/**
+ * Migrates an unversioned pre-1.0 snapshot to the stable v1 format and validates
+ * already-versioned input. Future format migrations are added here.
+ */
+export function migrateSchemaSnapshot(value: unknown): SchemaSnapshot {
+  return parseSchemaSnapshot(value);
 }
 
 export async function loadSchemaSnapshot(path: string): Promise<SchemaSnapshot> {

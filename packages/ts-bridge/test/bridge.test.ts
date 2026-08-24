@@ -14,7 +14,9 @@ const testDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(testDirectory, "../../..");
 const fixtureDirectory = join(workspaceDirectory, "test", "fixtures", "success");
 const queryFile = join(fixtureDirectory, "query.ts");
+const secondQueryFile = join(fixtureDirectory, "query-two.ts");
 const projectFile = join(fixtureDirectory, "tsconfig.json");
+const secondProjectFile = join(fixtureDirectory, "tsconfig.two.json");
 const schemaFile = join(fixtureDirectory, "schema.json");
 
 await describe("TypeScript 7 editor bridge", async () => {
@@ -41,6 +43,24 @@ await describe("TypeScript 7 editor bridge", async () => {
       strict.ok(inspections[0]?.typeText.includes("id: number"));
       strict.ok(inspections[0]?.typeText.includes("age: bigint | null"));
       strict.ok(!inspections[0]?.typeText.includes("unknown"));
+    } finally {
+      await bridge.close();
+    }
+  });
+
+  await it("applies unopened multi-file overlays in one project snapshot", async () => {
+    const secondSource = await readFile(secondQueryFile, "utf8");
+    const secondAnalysis = analyzeSource(secondSource, schema as PostgresSchemaSnapshot, postgres());
+    const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
+    try {
+      const inspections = await bridge.inspectFiles([
+        { fileName: queryFile, projectFile, analysis },
+        { fileName: secondQueryFile, projectFile: secondProjectFile, analysis: secondAnalysis },
+      ]);
+      strict.strictEqual(inspections.size, 2);
+      strict.ok(inspections.get(queryFile)?.[0]?.typeText.includes("age: bigint | null"));
+      strict.ok(inspections.get(secondQueryFile)?.[0]?.typeText.includes("user_id: number"), inspections.get(secondQueryFile)?.[0]?.typeText);
+      strict.ok(!inspections.get(secondQueryFile)?.[0]?.typeText.includes("unknown"));
     } finally {
       await bridge.close();
     }

@@ -1,0 +1,93 @@
+{
+  "formatVersion": 1,
+  "dialect": "mysql",
+  "dialectVersion": "1.0.0",
+  "version": "8.4.11",
+  "tables": {
+    "projects": {
+      "schema": "typed_sql_e2e",
+      "name": "projects",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "varchar(120)",
+          "tsType": "string",
+          "nullable": false
+        },
+        "budget": {
+          "name": "budget",
+          "databaseType": "decimal(14,2)",
+          "tsType": "string",
+          "nullable": true
+        }
+      }
+    },
+    "users": {
+      "schema": "typed_sql_e2e",
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "varchar(255)",
+          "tsType": "string",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "enum('active','suspended')",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "active"
+        },
+        "profile": {
+          "name": "profile",
+          "databaseType": "json",
+          "tsType": "unknown",
+          "nullable": false
+        },
+        "active": {
+          "name": "active",
+          "databaseType": "tinyint(1)",
+          "tsType": "boolean",
+          "nullable": false,
+          "defaultExpression": "1"
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "datetime",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "CURRENT_TIMESTAMP"
+        }
+      }
+    }
+  },
+  "functions": {
+    "typed_sql_e2e.user_count()": {
+      "schema": "typed_sql_e2e",
+      "name": "user_count",
+      "argumentTypes": [],
+      "databaseReturnType": "bigint",
+      "returnType": "bigint",
+      "nullable": true
+    }
+  }
+}

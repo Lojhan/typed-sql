@@ -11,13 +11,13 @@ export interface ExtractedQuery {
 
 const importPattern = /import\s*\{([\s\S]*?)\}\s*from\s*["']([^"']+)["']/g;
 
-function importedSqlNames(source: string): ReadonlySet<string> {
+function importedSqlNames(source: string, sqlModules: ReadonlySet<string>): ReadonlySet<string> {
   const names = new Set<string>();
   for (const match of source.matchAll(importPattern)) {
     const specifiers = match[1];
     const moduleName = match[2];
     if (specifiers === undefined || moduleName === undefined) continue;
-    if (!moduleName.includes("generated") && moduleName !== "@typed-sql/core") continue;
+    if (!sqlModules.has(moduleName)) continue;
     for (const specifier of specifiers.split(",")) {
       const parts = specifier.trim().split(/\s+as\s+/);
       if (parts[0] === "sql") names.add(parts[1] ?? "sql");
@@ -120,8 +120,12 @@ function extractTemplate(
   return undefined;
 }
 
-export function extractStaticQueries(source: string, placeholderFor: (index: number) => string): readonly ExtractedQuery[] {
-  const names = importedSqlNames(source);
+export function extractStaticQueries(
+  source: string,
+  placeholderFor: (index: number) => string,
+  sqlModules: readonly string[] = ["@typed-sql/core"],
+): readonly ExtractedQuery[] {
+  const names = importedSqlNames(source, new Set(sqlModules));
   if (names.size === 0) return [];
   const queries: ExtractedQuery[] = [];
   let index = 0;

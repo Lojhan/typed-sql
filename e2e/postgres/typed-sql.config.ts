@@ -1,8 +1,8 @@
 import { defineConfig } from "@typed-sql/core";
-import { postgres } from "@typed-sql/postgres";
+import { postgres, typePolicy } from "@typed-sql/postgres";
 import { pg } from "@typed-sql/postgres/pg";
 
-const dialect = postgres();
+const dialect = postgres({ typePolicy });
 
 export default defineConfig({
   dialect,
@@ -14,10 +14,10 @@ export default defineConfig({
         return `postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
       },
       schemas: ["public"],
-      typePolicy: dialect.defaultTypePolicy,
+      typePolicy,
     }),
   },
   outDir: "./generated/db",
   projects: ["./tsconfig.json"],
-  typePolicy: dialect.defaultTypePolicy,
+  typePolicy,
 });

@@ -10,6 +10,7 @@ import {
 } from "../src/index.js";
 
 const schema = {
+  formatVersion: 1,
   dialect: "postgres",
   tables: {
     users: {
@@ -32,7 +33,9 @@ await describe("schema package generation", async () => {
       const jsonSource = await readFile(join(directory, "schema.json"), "utf8");
       strict.ok(moduleSource.includes("export const schema"));
       strict.ok(moduleSource.includes(first.schemaHash));
-      strict.ok(moduleSource.includes('export { sql } from "@typed-sql/core"'));
+      strict.ok(moduleSource.includes("Schema metadata only"));
+      strict.ok(!moduleSource.includes("export { sql }"));
+      strict.ok(!moduleSource.includes("export const typePolicy"));
       strict.ok(!moduleSource.includes("createGeneratedDatabase"));
       strict.ok(jsonSource.includes(first.typePolicyHash));
 

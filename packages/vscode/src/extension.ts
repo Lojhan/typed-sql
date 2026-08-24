@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
@@ -25,6 +25,7 @@ interface DocumentAnalysis {
   readonly version: number;
   readonly schemaPath: string;
   readonly schemaModified: number;
+  readonly snapshot: SchemaSnapshot;
   readonly analysis: BridgeAnalysis;
 }
 
@@ -36,10 +37,19 @@ const languageSelector: vscode.DocumentSelector = [
 const schemaCache = new Map<string, CachedSchema>();
 const analysisCache = new Map<string, DocumentAnalysis>();
 const inspectionCache = new Map<string, readonly NativeTypeInspection[]>();
+const diagnosticSuggestions = new Map<string, string>();
+const MAX_CACHE_ENTRIES = 256;
+const MAX_SCHEMA_CACHE_ENTRIES = 16;
 const output = vscode.window.createOutputChannel("typed-sql");
 let diagnostics: vscode.DiagnosticCollection;
 let nativeBridgePromise: Promise<NativePreviewTypeScriptBridge | undefined> | undefined;
 let nativeBridgeStatus = "not connected";
+
+function cacheSet<K, V>(cache: Map<K, V>, key: K, value: V, maximum: number): void {
+  cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > maximum) cache.delete(cache.keys().next().value!);
+}
 
 function configuredPath(document: vscode.TextDocument, value: string): string | undefined {
   if (isAbsolute(value)) return value;
@@ -53,7 +63,7 @@ async function schemaAt(path: string): Promise<CachedSchema> {
   if (cached !== undefined && cached.modified === file.mtimeMs) return cached;
   const snapshot = await loadSchemaSnapshot(path);
   const result = { modified: file.mtimeMs, snapshot };
-  schemaCache.set(path, result);
+  cacheSet(schemaCache, path, result, MAX_SCHEMA_CACHE_ENTRIES);
   return result;
 }
 
@@ -82,6 +92,7 @@ async function documentAnalysis(document: vscode.TextDocument): Promise<Document
       version: document.version,
       schemaPath,
       schemaModified: schema.modified,
+      snapshot: schema.snapshot,
       analysis: analyzeSource(
         document.getText(),
         loaded.config.dialect.validateSnapshot(schema.snapshot),
@@ -89,7 +100,7 @@ async function documentAnalysis(document: vscode.TextDocument): Promise<Document
         loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
       ),
     };
-    analysisCache.set(key, result);
+    cacheSet(analysisCache, key, result, MAX_CACHE_ENTRIES);
     return result;
   } catch (error) {
     output.appendLine(`Unable to analyze ${document.uri.fsPath}: ${error instanceof Error ? error.message : String(error)}`);
@@ -111,6 +122,7 @@ async function refreshDiagnostics(document: vscode.TextDocument): Promise<void> 
     diagnostics.delete(document.uri);
     return;
   }
+  for (const key of diagnosticSuggestions.keys()) if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
   diagnostics.set(document.uri, result.analysis.diagnostics.map((item) => {
     const diagnostic = new vscode.Diagnostic(
       new vscode.Range(document.positionAt(item.range.start), document.positionAt(item.range.end)),
@@ -119,8 +131,79 @@ async function refreshDiagnostics(document: vscode.TextDocument): Promise<void> 
     );
     diagnostic.source = "typed-sql";
     diagnostic.code = item.code;
+    if (item.suggestion !== undefined) diagnosticSuggestions.set(`${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`, item.suggestion);
     return diagnostic;
   }));
+}
+
+function tableForAlias(sqlText: string, alias: string, snapshot: SchemaSnapshot) {
+  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const match = new RegExp(`(?:FROM|JOIN)\\s+(?:[A-Za-z_$][\\w$]*\\.)?([A-Za-z_$][\\w$]*)(?:\\s+(?:AS\\s+)?${escaped})\\b`, "iu").exec(sqlText);
+  const tableName = match?.[1];
+  return tableName === undefined ? undefined : Object.values(snapshot.tables).find((table) => table.name.toLowerCase() === tableName.toLowerCase());
+}
+
+async function provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.CompletionItem[]> {
+  const result = await documentAnalysis(document);
+  if (result === undefined || token.isCancellationRequested) return [];
+  const offset = document.offsetAt(position);
+  const query = queryAtPosition(result.analysis, offset);
+  if (query === undefined) return [];
+  const before = document.getText().slice(query.sourceRange.start, offset);
+  const qualifier = /([A-Za-z_$][\w$]*)\.[A-Za-z_$\w]*$/u.exec(before)?.[1];
+  const selected = qualifier === undefined ? undefined : tableForAlias(document.getText().slice(query.sourceRange.start, query.sourceRange.end), qualifier, result.snapshot);
+  const tables = selected === undefined ? Object.values(result.snapshot.tables) : [selected];
+  const items = new Map<string, vscode.CompletionItem>();
+  if (qualifier === undefined) {
+    for (const table of tables) items.set(table.name, new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class));
+    for (const keyword of ["SELECT", "FROM", "WHERE", "JOIN", "GROUP BY", "ORDER BY", "INSERT", "UPDATE", "DELETE", "RETURNING"]) {
+      items.set(keyword, new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword));
+    }
+  }
+  for (const table of tables) {
+    for (const column of Object.values(table.columns)) {
+      const item = new vscode.CompletionItem(column.name, vscode.CompletionItemKind.Field);
+      item.detail = `${column.databaseType}${column.nullable ? " nullable" : " not null"} — ${column.tsType}`;
+      items.set(column.name, item);
+    }
+  }
+  return [...items.values()];
+}
+
+async function provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Location | undefined> {
+  const result = await documentAnalysis(document);
+  if (result === undefined || token.isCancellationRequested) return undefined;
+  const offset = document.offsetAt(position);
+  if (queryAtPosition(result.analysis, offset) === undefined) return undefined;
+  const range = document.getWordRangeAtPosition(position, /[A-Za-z0-9_$]+/u);
+  if (range === undefined) return undefined;
+  const word = document.getText(range);
+  const schemaText = await readFile(result.schemaPath, "utf8");
+  const match = schemaText.indexOf(JSON.stringify(word));
+  if (match < 0) return undefined;
+  const schemaDocument = await vscode.workspace.openTextDocument(vscode.Uri.file(result.schemaPath));
+  return new vscode.Location(
+    schemaDocument.uri,
+    new vscode.Range(schemaDocument.positionAt(match + 1), schemaDocument.positionAt(match + word.length + 1)),
+  );
+}
+
+function provideCodeActions(document: vscode.TextDocument, _range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext): vscode.CodeAction[] {
+  const actions: vscode.CodeAction[] = [];
+  for (const diagnostic of context.diagnostics) {
+    if (diagnostic.source !== "typed-sql") continue;
+    const key = `${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`;
+    const suggestion = diagnosticSuggestions.get(key);
+    const replacement = suggestion === undefined ? undefined : /^Did you mean ([A-Za-z_$][\w$]*)\?$/u.exec(suggestion)?.[1];
+    if (replacement === undefined) continue;
+    const action = new vscode.CodeAction(`Replace with ${replacement}`, vscode.CodeActionKind.QuickFix);
+    action.isPreferred = true;
+    action.diagnostics = [diagnostic];
+    action.edit = new vscode.WorkspaceEdit();
+    action.edit.replace(document.uri, diagnostic.range, replacement);
+    actions.push(action);
+  }
+  return actions;
 }
 
 async function connectNativeBridge(): Promise<NativePreviewTypeScriptBridge | undefined> {
@@ -163,7 +246,7 @@ async function inspectWithNativeBridge(
   if (bridge === undefined) return undefined;
   try {
     const inspections = await bridge.inspectFile({ fileName: document.uri.fsPath, analysis: result.analysis });
-    inspectionCache.set(key, inspections);
+    cacheSet(inspectionCache, key, inspections, MAX_CACHE_ENTRIES);
     return inspections;
   } catch (error) {
     nativeBridgeStatus = "resolver fallback (preview request failed)";
@@ -210,6 +293,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     diagnostics,
     output,
     vscode.languages.registerHoverProvider(languageSelector, { provideHover }),
+    vscode.languages.registerCompletionItemProvider(languageSelector, { provideCompletionItems }, "."),
+    vscode.languages.registerDefinitionProvider(languageSelector, { provideDefinition }),
+    vscode.languages.registerCodeActionsProvider(languageSelector, { provideCodeActions }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
     vscode.commands.registerCommand("typedSql.showBridgeStatus", async () => {
       await nativeBridge();
       await vscode.window.showInformationMessage(`typed-sql TypeScript bridge: ${nativeBridgeStatus}`);
@@ -218,10 +304,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.workspace.onDidSaveTextDocument((document) => { void refreshDiagnostics(document); }),
     vscode.workspace.onDidChangeTextDocument(({ document }) => {
       analysisCache.delete(document.uri.toString());
+      for (const key of inspectionCache.keys()) if (key.startsWith(`${document.uri.toString()}@`)) inspectionCache.delete(key);
       void refreshDiagnostics(document);
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       analysisCache.delete(document.uri.toString());
+      for (const key of diagnosticSuggestions.keys()) if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
       diagnostics.delete(document.uri);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {

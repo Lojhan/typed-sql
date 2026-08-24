@@ -1,0 +1,25 @@
+{
+  "name": "@typed-sql/e2e-mysql",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "tsc --project tsconfig.test.json --noEmit --pretty false && poku --config=poku.config.js --reporter=compact --enforce",
+    "generate": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --config typed-sql.config.ts",
+    "generate:snapshot": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --config typed-sql.config.ts --snapshot schema/catalog.snapshot.json",
+    "check": "node ../../packages/cli/dist/packages/cli/src/cli.js check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json",
+    "drift": "node ../../packages/cli/dist/packages/cli/src/cli.js drift --config typed-sql.config.ts"
+  },
+  "dependencies": {
+    "@typed-sql/cli": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/mysql": "workspace:*",
+    "@typed-sql/ts-bridge": "workspace:*",
+    "mysql2": "3.24.1"
+  },
+  "devDependencies": {
+    "poku": "4.5.0",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  }
+}

@@ -11,6 +11,7 @@ const policy: PostgresTypePolicy = {
   unknown: "never",
 };
 const schema = {
+  formatVersion: 1,
   dialect: "postgres",
   tables: {},
   enums: { mood: ["happy", "sad"], "app.state": ["on", "off"] },

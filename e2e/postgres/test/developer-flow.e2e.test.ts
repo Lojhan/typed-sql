@@ -1,23 +1,18 @@
 import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { pathToFileURL, fileURLToPath } from "node:url";
+import { fileURLToPath } from "node:url";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
-import type { SqlTag } from "@typed-sql/core";
+import { Pool } from "pg";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
-import { postgres, type PostgresSchemaSnapshot, type PostgresTypePolicy } from "@typed-sql/postgres";
+import { postgres, sql, typePolicy, type PostgresSchemaSnapshot } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 
 interface CommandResult {
   readonly code: number;
   readonly stdout: string;
   readonly stderr: string;
-}
-
-interface GeneratedModule {
-  readonly sql: SqlTag;
-  readonly typePolicy: PostgresTypePolicy;
 }
 
 interface GeneratedSnapshot {
@@ -42,7 +37,6 @@ const workspaceDirectory = resolve(packageDirectory, "../..");
 const generatedDirectory = join(packageDirectory, "generated");
 const generatedDatabaseDirectory = join(generatedDirectory, "db");
 const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
-const generatedModulePath = join(generatedDatabaseDirectory, "index.ts");
 const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", "cli", "src", "cli.js");
 const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
 const port = Number(process.env.TYPED_SQL_E2E_PORT ?? "55432");
@@ -177,16 +171,58 @@ try {
         strict.ok(inspections[0]?.typeText.includes("status: \"active\" | \"suspended\""));
         strict.ok(inspections[0]?.typeText.includes("budget: string | null"));
         strict.ok(!inspections[0]?.typeText.includes("unknown"));
+        strict.strictEqual(inspections.length, 4);
+        strict.ok(inspections[1]?.typeText.includes("plan: string | null"));
+        strict.ok(inspections[1]?.typeText.includes("project_count: bigint | null"));
+        strict.ok(inspections[1]?.typeText.includes("total_budget: string | null"));
+        strict.ok(!inspections[1]?.typeText.includes("unknown"));
+        strict.ok(inspections[2]?.typeText.includes("id: bigint"));
+        strict.ok(inspections[2]?.typeText.includes("status: \"active\" | \"suspended\""));
+        strict.ok(!inspections[2]?.typeText.includes("unknown"));
+        strict.strictEqual(inspections[3]?.typeText, "Query<never>");
       } finally {
         await bridge.close();
       }
     });
 
-    await it("executes through the generated core tag and application-owned pg adapter", async () => {
-      const generated = await import(`${pathToFileURL(generatedModulePath).href}?run=${Date.now()}`) as GeneratedModule;
-      const database = await createPgDatabase({ connectionString, typePolicy: generated.typePolicy });
+    await it("matches prepared PostgreSQL result metadata for advanced inferred queries", async () => {
+      const pool = new Pool({ connectionString });
       try {
-        const query = generated.sql<{
+        const result = await pool.query({
+          name: "typed-sql-project-totals",
+          text: `
+            WITH project_totals AS (
+              SELECT owner_id, COUNT(*) AS project_count, SUM(budget) AS total_budget
+              FROM projects
+              GROUP BY owner_id
+            )
+            SELECT users.id,
+                   users.profile->>'plan' AS plan,
+                   project_totals.project_count,
+                   project_totals.total_budget
+            FROM users
+            LEFT JOIN project_totals ON project_totals.owner_id = users.id
+            WHERE users.id >= $1
+            ORDER BY users.id
+          `,
+          values: [1],
+        });
+        strict.deepStrictEqual(result.fields.map((field) => [field.name, field.dataTypeID]), [
+          ["id", 20], ["plan", 25], ["project_count", 20], ["total_budget", 1700],
+        ]);
+        strict.deepStrictEqual(result.rows, [
+          { id: "1", plan: "pro", project_count: "1", total_budget: "12500.50" },
+          { id: "2", plan: "free", project_count: null, total_budget: null },
+        ]);
+      } finally {
+        await pool.end();
+      }
+    });
+
+    await it("executes through the dialect package tag and application-owned pg adapter", async () => {
+      const database = await createPgDatabase({ connectionString, typePolicy });
+      try {
+        const query = sql<{
           id: bigint;
           email: string;
           status: "active" | "suspended";
@@ -206,10 +242,60 @@ try {
           { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
         ]);
         const total = await database.transaction(async (transaction) => {
-          const result = await transaction.execute(generated.sql<{ total: bigint }>`SELECT active_user_count() AS total`);
+          const result = await transaction.execute(sql<{ total: bigint }>`SELECT active_user_count() AS total`);
           return result[0]?.total;
         });
         strict.strictEqual(total, 1n);
+
+        const aggregateRows = await database.execute(sql<{
+          id: bigint;
+          plan: string | null;
+          project_count: bigint | null;
+          total_budget: string | null;
+        }>`
+          WITH project_totals AS (
+            SELECT owner_id, COUNT(*) AS project_count, SUM(budget) AS total_budget
+            FROM projects
+            GROUP BY owner_id
+          )
+          SELECT users.id,
+                 users.profile->>'plan' AS plan,
+                 project_totals.project_count,
+                 project_totals.total_budget
+          FROM users
+          LEFT JOIN project_totals ON project_totals.owner_id = users.id
+          ORDER BY users.id
+        `);
+        strict.deepStrictEqual(aggregateRows, [
+          { id: 1n, plan: "pro", project_count: 1n, total_budget: "12500.50" },
+          { id: 2n, plan: "free", project_count: null, total_budget: null },
+        ]);
+
+        const inserted = await database.transaction(async (transaction) => {
+          const created = await transaction.execute(sql<{
+            id: bigint;
+            email: string;
+            status: "active" | "suspended";
+          }>`
+            INSERT INTO users (email, status)
+            VALUES (${`transaction-${process.pid}@example.com`}, ${"active"}::account_status)
+            RETURNING id, email, status
+          `);
+          const changed = await transaction.execute(sql<{ id: bigint; plan: string | null }>`
+            UPDATE users
+            SET profile = ${'{"plan":"enterprise"}'}::jsonb
+            WHERE id = ${created[0]!.id}
+            RETURNING id, profile->>'plan' AS plan
+          `);
+          strict.deepStrictEqual(changed, [{ id: created[0]!.id, plan: "enterprise" }]);
+          return created[0]!;
+        });
+        strict.strictEqual(inserted.status, "active");
+
+        const deleted = await database.execute(sql<{ id: bigint }>`
+          DELETE FROM users WHERE id = ${inserted.id} RETURNING id
+        `);
+        strict.deepStrictEqual(deleted, [{ id: inserted.id }]);
       } finally {
         await database.close();
       }

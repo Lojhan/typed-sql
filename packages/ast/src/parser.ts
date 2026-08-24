@@ -1,18 +1,37 @@
-import { SqlTokenizeError, tokenize } from "./tokenizer.js";
+import { SqlTokenizeError, tokenize, type TokenizeOptions } from "./tokenizer.js";
 import {
   mergeRanges,
+  type BetweenExpression,
   type CaseBranch,
+  type CommonTableExpression,
+  type DeleteStatement,
   type Expression,
   type Identifier,
+  type InsertStatement,
   type JoinClause,
   type JoinKind,
+  type NamedTableReference,
+  type NamedWindow,
   type OrderByItem,
   type SelectItem,
   type SelectStatement,
   type SourceRange,
+  type Statement,
   type TableReference,
   type Token,
+  type TypeName,
+  type UpdateAssignment,
+  type UpdateStatement,
+  type ValuesClause,
+  type WindowSpecification,
+  type WithClause,
 } from "./types.js";
+
+export const DEFAULT_MAX_PARSE_DEPTH = 128;
+
+export interface ParseOptions extends TokenizeOptions {
+  readonly maxDepth?: number;
+}
 
 export class SqlParseError extends Error {
   readonly code: string;
@@ -27,35 +46,109 @@ export class SqlParseError extends Error {
 }
 
 const precedence = new Map<string, number>([
-  ["OR", 1], ["AND", 2], ["=", 3], ["!=", 3], ["<>", 3], ["<", 3],
-  ["<=", 3], [">", 3], [">=", 3], ["IS", 3], ["LIKE", 3],
-  ["||", 4], ["+", 5], ["-", 5], ["*", 6], ["/", 6], ["%", 6],
+  ["OR", 1],
+  ["AND", 2],
+  ["=", 3], ["!=", 3], ["<>", 3], ["<", 3], ["<=", 3], [">", 3], [">=", 3],
+  ["IS", 3], ["LIKE", 3], ["ILIKE", 3], ["SIMILAR TO", 3], ["~", 3], ["~*", 3], ["!~", 3], ["!~*", 3],
+  ["@>", 3], ["<@", 3], ["?", 3], ["?|", 3], ["?&", 3], ["&&", 3],
+  ["||", 4], ["->", 4], ["->>", 4], ["#>", 4], ["#>>", 4],
+  ["+", 5], ["-", 5], ["*", 6], ["/", 6], ["%", 6], ["^", 7],
+]);
+
+const typeContinuationWords = new Set([
+  "BIT", "CHARACTER", "DOUBLE", "INTERVAL", "PRECISION", "TIME", "TIMESTAMP",
+  "VARYING", "WITH", "WITHOUT", "ZONE",
 ]);
 
 class Parser {
+  readonly #source: string;
   readonly #tokens: readonly Token[];
+  readonly #maxDepth: number;
+  readonly #syntax: "postgres" | "mysql";
   #index = 0;
+  #depth = 0;
 
-  constructor(source: string) {
-    this.#tokens = tokenize(source);
+  constructor(source: string, options: ParseOptions) {
+    this.#source = source;
+    this.#tokens = tokenize(source, options);
+    this.#maxDepth = options.maxDepth ?? DEFAULT_MAX_PARSE_DEPTH;
+    this.#syntax = options.syntax ?? "postgres";
+    if (!Number.isSafeInteger(this.#maxDepth) || this.#maxDepth < 1) throw new TypeError("maxDepth must be a positive safe integer");
   }
 
-  parseSelect(): SelectStatement {
-    const start = this.#expectKeyword("SELECT").range;
-    const distinct = this.#matchKeyword("DISTINCT");
+  parse(): Statement {
+    const statement = this.#parseStatement();
+    this.#matchPunctuation(";");
+    this.#expect("eof", "end of query");
+    return statement;
+  }
+
+  #parseStatement(): Statement {
+    return this.#nested(() => {
+      const withClause = this.#current().value === "WITH" ? this.#parseWithClause() : undefined;
+      if (this.#current().value === "SELECT") return this.#parseSelect(withClause);
+      if (this.#current().value === "INSERT") return this.#parseInsert(withClause);
+      if (this.#current().value === "UPDATE") return this.#parseUpdate(withClause);
+      if (this.#current().value === "DELETE") return this.#parseDelete(withClause);
+      throw this.#error(`Expected SELECT, INSERT, UPDATE, or DELETE, found ${this.#current().text || "end of query"}`, this.#current().range);
+    });
+  }
+
+  #parseWithClause(): WithClause {
+    const start = this.#expectKeyword("WITH").range;
+    const recursive = this.#matchKeyword("RECURSIVE");
+    const queries: CommonTableExpression[] = [];
+    do {
+      const name = this.#parseIdentifier();
+      const columns: Identifier[] = [];
+      if (this.#matchPunctuation("(")) {
+        if (!this.#matchPunctuation(")")) {
+          do columns.push(this.#parseIdentifier()); while (this.#matchPunctuation(","));
+          this.#expectPunctuation(")");
+        }
+      }
+      this.#expectKeyword("AS");
+      this.#expectPunctuation("(");
+      const statement = this.#parseStatement();
+      const close = this.#expectPunctuation(")");
+      queries.push({ name, columns, statement, range: mergeRanges(name.range, close.range) });
+    } while (this.#matchPunctuation(","));
+    return { recursive, queries, range: mergeRanges(start, queries.at(-1)?.range ?? start) };
+  }
+
+  #parseSelect(withClause?: WithClause): SelectStatement {
+    const start = withClause?.range ?? this.#current().range;
+    this.#expectKeyword("SELECT");
+    let distinct = false;
+    const distinctOn: Expression[] = [];
+    if (this.#matchKeyword("DISTINCT")) {
+      distinct = true;
+      if (this.#matchKeyword("ON")) {
+        this.#expectPunctuation("(");
+        distinctOn.push(...this.#parseExpressionList());
+        this.#expectPunctuation(")");
+      }
+    } else this.#matchKeyword("ALL");
     const columns = this.#parseSelectList();
     let from: TableReference | undefined;
     const joins: JoinClause[] = [];
     let where: Expression | undefined;
     const groupBy: Expression[] = [];
     let having: Expression | undefined;
-    const orderBy: OrderByItem[] = [];
+    const windows: NamedWindow[] = [];
+    let orderBy: OrderByItem[] = [];
     let limit: Expression | undefined;
     let offset: Expression | undefined;
 
     if (this.#matchKeyword("FROM")) {
       from = this.#parseTableReference();
-      while (this.#isJoinStart()) joins.push(this.#parseJoin());
+      while (true) {
+        if (this.#matchPunctuation(",")) {
+          const table = this.#parseTableReference();
+          joins.push({ kind: "cross", table, range: table.range });
+        } else if (this.#isJoinStart()) joins.push(this.#parseJoin());
+        else break;
+      }
     }
     if (this.#matchKeyword("WHERE")) where = this.#parseExpression();
     if (this.#matchKeyword("GROUP")) {
@@ -63,34 +156,144 @@ class Parser {
       groupBy.push(...this.#parseExpressionList());
     }
     if (this.#matchKeyword("HAVING")) having = this.#parseExpression();
-    if (this.#matchKeyword("ORDER")) {
-      this.#expectKeyword("BY");
+    if (this.#matchKeyword("WINDOW")) {
       do {
-        const expression = this.#parseExpression();
-        const direction = this.#matchKeyword("ASC") ? "asc" : this.#matchKeyword("DESC") ? "desc" : undefined;
-        const end = this.#previous().range;
-        orderBy.push({ expression, ...(direction === undefined ? {} : { direction }), range: mergeRanges(expression.range, end) });
+        const name = this.#parseIdentifier();
+        this.#expectKeyword("AS");
+        const specification = this.#parseWindowSpecification();
+        windows.push({ name, specification, range: mergeRanges(name.range, specification.range) });
       } while (this.#matchPunctuation(","));
     }
-    if (this.#matchKeyword("LIMIT")) limit = this.#parseExpression();
+    if (this.#matchKeyword("ORDER")) {
+      this.#expectKeyword("BY");
+      orderBy = this.#parseOrderByList();
+    }
+    if (this.#matchKeyword("LIMIT")) {
+      limit = this.#parseExpression();
+      if (this.#syntax === "mysql" && this.#matchPunctuation(",")) {
+        offset = limit;
+        limit = this.#parseExpression();
+      }
+    }
     if (this.#matchKeyword("OFFSET")) offset = this.#parseExpression();
 
-    this.#matchPunctuation(";");
-    const end = this.#previous().kind === "eof" ? columns.at(-1)?.range ?? start : this.#previous().range;
-    this.#expect("eof", "end of query");
+    const end = this.#previous().range;
     return {
       kind: "select",
+      ...(withClause === undefined ? {} : { with: withClause }),
       distinct,
+      distinctOn,
       columns,
       ...(from === undefined ? {} : { from }),
       joins,
       ...(where === undefined ? {} : { where }),
       groupBy,
       ...(having === undefined ? {} : { having }),
+      windows,
       orderBy,
       ...(limit === undefined ? {} : { limit }),
       ...(offset === undefined ? {} : { offset }),
       range: mergeRanges(start, end),
+    };
+  }
+
+  #parseInsert(withClause?: WithClause): InsertStatement {
+    const start = withClause?.range ?? this.#expectKeyword("INSERT").range;
+    if (withClause !== undefined) this.#expectKeyword("INSERT");
+    this.#expectKeyword("INTO");
+    const table = this.#parseNamedTableReference(true);
+    const columns: Identifier[] = [];
+    if (this.#matchPunctuation("(")) {
+      if (!this.#matchPunctuation(")")) {
+        do columns.push(this.#parseIdentifier()); while (this.#matchPunctuation(","));
+        this.#expectPunctuation(")");
+      }
+    }
+    let source: ValuesClause | SelectStatement | { readonly kind: "default-values"; readonly range: SourceRange };
+    if (this.#matchKeyword("DEFAULT")) {
+      const sourceStart = this.#previous().range;
+      const end = this.#expectKeyword("VALUES").range;
+      source = { kind: "default-values", range: mergeRanges(sourceStart, end) };
+    } else if (this.#matchKeyword("VALUES")) {
+      const sourceStart = this.#previous().range;
+      const rows: Expression[][] = [];
+      do {
+        this.#expectPunctuation("(");
+        const row = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
+        const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+        rows.push(row);
+        if (close.value !== ")") throw this.#error("Expected ) after VALUES row", close.range);
+      } while (this.#matchPunctuation(","));
+      source = { kind: "values", rows, range: mergeRanges(sourceStart, this.#previous().range) };
+    } else if (this.#current().value === "SELECT" || this.#current().value === "WITH") {
+      const statement = this.#parseStatement();
+      if (statement.kind !== "select") throw this.#error("INSERT source must be SELECT or VALUES", statement.range);
+      source = statement;
+    } else throw this.#error("Expected VALUES, DEFAULT VALUES, or SELECT after INSERT target", this.#current().range);
+    const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
+    return {
+      kind: "insert",
+      ...(withClause === undefined ? {} : { with: withClause }),
+      table,
+      columns,
+      source,
+      returning,
+      range: mergeRanges(start, this.#previous().range),
+    };
+  }
+
+  #parseUpdate(withClause?: WithClause): UpdateStatement {
+    const start = withClause?.range ?? this.#expectKeyword("UPDATE").range;
+    if (withClause !== undefined) this.#expectKeyword("UPDATE");
+    const table = this.#parseNamedTableReference(true);
+    this.#expectKeyword("SET");
+    const assignments: UpdateAssignment[] = [];
+    do {
+      const column = this.#parseIdentifier();
+      this.#expectOperator("=");
+      const value = this.#parseExpression();
+      assignments.push({ column, value, range: mergeRanges(column.range, value.range) });
+    } while (this.#matchPunctuation(","));
+    let from: TableReference | undefined;
+    const joins: JoinClause[] = [];
+    if (this.#matchKeyword("FROM")) {
+      from = this.#parseTableReference();
+      while (this.#isJoinStart()) joins.push(this.#parseJoin());
+    }
+    const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
+    const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
+    return {
+      kind: "update",
+      ...(withClause === undefined ? {} : { with: withClause }),
+      table,
+      assignments,
+      ...(from === undefined ? {} : { from }),
+      joins,
+      ...(where === undefined ? {} : { where }),
+      returning,
+      range: mergeRanges(start, this.#previous().range),
+    };
+  }
+
+  #parseDelete(withClause?: WithClause): DeleteStatement {
+    const start = withClause?.range ?? this.#expectKeyword("DELETE").range;
+    if (withClause !== undefined) this.#expectKeyword("DELETE");
+    this.#expectKeyword("FROM");
+    const table = this.#parseNamedTableReference(true);
+    const using: TableReference[] = [];
+    if (this.#matchKeyword("USING")) {
+      do using.push(this.#parseTableReference()); while (this.#matchPunctuation(","));
+    }
+    const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
+    const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
+    return {
+      kind: "delete",
+      ...(withClause === undefined ? {} : { with: withClause }),
+      table,
+      using,
+      ...(where === undefined ? {} : { where }),
+      returning,
+      range: mergeRanges(start, this.#previous().range),
     };
   }
 
@@ -107,6 +310,23 @@ class Parser {
   }
 
   #parseTableReference(): TableReference {
+    const lateral = this.#matchKeyword("LATERAL");
+    const start = lateral ? this.#previous().range : this.#current().range;
+    if (this.#matchPunctuation("(")) {
+      if (!this.#isStatementStart()) {
+        throw this.#error("A parenthesized FROM item must be a SELECT subquery", this.#current().range);
+      }
+      const statement = this.#parseStatement();
+      if (statement.kind !== "select") throw this.#error("FROM subquery must be SELECT", statement.range);
+      this.#expectPunctuation(")");
+      this.#matchKeyword("AS");
+      const alias = this.#parseIdentifier();
+      return { kind: "subquery", query: statement, alias, lateral, range: mergeRanges(start, alias.range) };
+    }
+    return this.#parseNamedTableReference(true, lateral, start);
+  }
+
+  #parseNamedTableReference(allowAlias: boolean, lateral = false, start = this.#current().range): NamedTableReference {
     const first = this.#parseIdentifier();
     let schema: Identifier | undefined;
     let name = first;
@@ -115,18 +335,20 @@ class Parser {
       name = this.#parseIdentifier();
     }
     let alias: Identifier | undefined;
-    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-    else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") alias = this.#parseIdentifier();
+    if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier();
+    else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")) alias = this.#parseIdentifier();
     return {
+      kind: "table",
       name,
       ...(schema === undefined ? {} : { schema }),
       ...(alias === undefined ? {} : { alias }),
-      range: mergeRanges(first.range, alias?.range ?? name.range),
+      lateral,
+      range: mergeRanges(start, alias?.range ?? name.range),
     };
   }
 
   #isJoinStart(): boolean {
-    return ["JOIN", "INNER", "LEFT", "RIGHT", "FULL"].includes(this.#current().value);
+    return ["JOIN", "INNER", "LEFT", "RIGHT", "FULL", "CROSS"].includes(this.#current().value);
   }
 
   #parseJoin(): JoinClause {
@@ -136,12 +358,23 @@ class Parser {
     else if (this.#matchKeyword("LEFT")) kind = "left";
     else if (this.#matchKeyword("RIGHT")) kind = "right";
     else if (this.#matchKeyword("FULL")) kind = "full";
+    else if (this.#matchKeyword("CROSS")) kind = "cross";
     this.#matchKeyword("OUTER");
     this.#expectKeyword("JOIN");
     const table = this.#parseTableReference();
-    this.#expectKeyword("ON");
-    const on = this.#parseExpression();
-    return { kind, table, on, range: mergeRanges(start, on.range) };
+    if (kind === "cross") return { kind, table, range: mergeRanges(start, table.range) };
+    if (this.#matchKeyword("ON")) {
+      const on = this.#parseExpression();
+      return { kind, table, on, range: mergeRanges(start, on.range) };
+    }
+    if (this.#matchKeyword("USING")) {
+      this.#expectPunctuation("(");
+      const using: Identifier[] = [];
+      do using.push(this.#parseIdentifier()); while (this.#matchPunctuation(","));
+      const close = this.#expectPunctuation(")");
+      return { kind, table, using, range: mergeRanges(start, close.range) };
+    }
+    throw this.#error("JOIN requires ON or USING", this.#current().range);
   }
 
   #parseExpressionList(): readonly Expression[] {
@@ -150,31 +383,101 @@ class Parser {
     return expressions;
   }
 
+  #parseOrderByList(): OrderByItem[] {
+    const orderBy: OrderByItem[] = [];
+    do {
+      const expression = this.#parseExpression();
+      const direction = this.#matchKeyword("ASC") ? "asc" : this.#matchKeyword("DESC") ? "desc" : undefined;
+      let nulls: "first" | "last" | undefined;
+      if (this.#matchKeyword("NULLS")) nulls = this.#matchKeyword("FIRST") ? "first" : (this.#expectKeyword("LAST"), "last");
+      orderBy.push({
+        expression,
+        ...(direction === undefined ? {} : { direction }),
+        ...(nulls === undefined ? {} : { nulls }),
+        range: mergeRanges(expression.range, this.#previous().range),
+      });
+    } while (this.#matchPunctuation(","));
+    return orderBy;
+  }
+
   #parseExpression(minimum = 0): Expression {
-    let left = this.#parseUnary();
-    while (true) {
-      if (this.#matchOperator("::")) {
-        const databaseType = this.#parseIdentifier();
-        left = { kind: "cast", expression: left, databaseType, syntax: "postgres", range: mergeRanges(left.range, databaseType.range) };
-        continue;
+    return this.#nested(() => {
+      let left = this.#parseUnary();
+      while (true) {
+        if (this.#syntax === "postgres" && this.#matchOperator("::")) {
+          const databaseType = this.#parseTypeName(false);
+          left = { kind: "cast", expression: left, databaseType, syntax: "postgres", range: mergeRanges(left.range, databaseType.range) };
+          continue;
+        }
+
+        const negated = this.#current().value === "NOT" && ["IN", "BETWEEN", "LIKE", "ILIKE", "SIMILAR"].includes(this.#peekToken(1).value);
+        const special = negated ? this.#peekToken(1).value : this.#current().value;
+        if (special === "IN") {
+          const strength = 3;
+          if (strength < minimum) break;
+          if (negated) this.#advance();
+          this.#advance();
+          const start = left.range;
+          this.#expectPunctuation("(");
+          let values: readonly Expression[] | SelectStatement;
+          if (this.#isStatementStart()) {
+            const statement = this.#parseStatement();
+            if (statement.kind !== "select") throw this.#error("IN subquery must be SELECT", statement.range);
+            values = statement;
+          } else {
+            if (this.#current().value === ")") throw this.#error("IN requires at least one value", this.#current().range);
+            values = this.#parseExpressionList();
+          }
+          const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+          left = { kind: "in", expression: left, values, negated, range: mergeRanges(start, close.range) };
+          continue;
+        }
+        if (special === "BETWEEN") {
+          const strength = 3;
+          if (strength < minimum) break;
+          if (negated) this.#advance();
+          this.#advance();
+          const lower = this.#parseExpression(strength + 1);
+          this.#expectKeyword("AND");
+          const upper = this.#parseExpression(strength + 1);
+          left = { kind: "between", expression: left, lower, upper, negated, range: mergeRanges(left.range, upper.range) } satisfies BetweenExpression;
+          continue;
+        }
+
+        let operator = this.#current().value.toUpperCase();
+        if (special === "SIMILAR") operator = negated ? "NOT SIMILAR TO" : "SIMILAR TO";
+        else if (negated) operator = `NOT ${special}`;
+        const strength = precedence.get(operator.replace(/^NOT /u, ""));
+        if (strength === undefined || strength < minimum) break;
+        if (negated) this.#advance();
+        this.#advance();
+        if (operator.endsWith("SIMILAR TO")) this.#expectKeyword("TO");
+        if (operator === "IS") {
+          if (this.#matchKeyword("NOT")) operator = "IS NOT";
+          if (this.#matchKeyword("DISTINCT")) {
+            this.#expectKeyword("FROM");
+            operator += " DISTINCT FROM";
+          }
+        }
+        const right = this.#parseExpression(strength + 1);
+        left = { kind: "binary", left, operator, right, range: mergeRanges(left.range, right.range) };
       }
-      const operator = this.#current().value.toUpperCase();
-      const strength = precedence.get(operator);
-      if (strength === undefined || strength < minimum) break;
-      this.#advance();
-      let completeOperator = operator;
-      if (operator === "IS" && this.#matchKeyword("NOT")) completeOperator = "IS NOT";
-      const right = this.#parseExpression(strength + 1);
-      left = { kind: "binary", left, operator: completeOperator, right, range: mergeRanges(left.range, right.range) };
-    }
-    return left;
+      return left;
+    });
   }
 
   #parseUnary(): Expression {
     const token = this.#current();
-    if (this.#matchKeyword("NOT") || this.#matchOperator("+") || this.#matchOperator("-")) {
+    if (this.#matchKeyword("NOT") || this.#matchOperator("+") || this.#matchOperator("-") || this.#matchOperator("~")) {
       const expression = this.#parseUnary();
       return { kind: "unary", operator: token.value.toUpperCase(), expression, range: mergeRanges(token.range, expression.range) };
+    }
+    if (this.#matchKeyword("EXISTS")) {
+      this.#expectPunctuation("(");
+      const statement = this.#parseStatement();
+      if (statement.kind !== "select") throw this.#error("EXISTS requires a SELECT subquery", statement.range);
+      const close = this.#expectPunctuation(")");
+      return { kind: "exists", query: statement, range: mergeRanges(token.range, close.range) };
     }
     return this.#parsePrimary();
   }
@@ -182,15 +485,40 @@ class Parser {
   #parsePrimary(): Expression {
     const token = this.#current();
     if (this.#matchPunctuation("(")) {
-      const expression = this.#parseExpression();
+      if (this.#isStatementStart()) {
+        const statement = this.#parseStatement();
+        if (statement.kind !== "select") throw this.#error("Scalar subquery must be SELECT", statement.range);
+        const close = this.#expectPunctuation(")");
+        return { kind: "subquery", query: statement, range: mergeRanges(token.range, close.range) };
+      }
+      const first = this.#parseExpression();
+      if (this.#matchPunctuation(",")) {
+        const elements = [first];
+        do elements.push(this.#parseExpression()); while (this.#matchPunctuation(","));
+        const close = this.#expectPunctuation(")");
+        return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
+      }
       this.#expectPunctuation(")");
-      return expression;
+      return first;
+    }
+    if (this.#matchKeyword("ARRAY")) {
+      this.#expectPunctuation("[");
+      const elements = this.#matchPunctuation("]") ? [] : [...this.#parseExpressionList()];
+      const close = this.#previous().value === "]" ? this.#previous() : this.#expectPunctuation("]");
+      return { kind: "array", elements, range: mergeRanges(token.range, close.range) };
+    }
+    if (this.#matchKeyword("ROW")) {
+      this.#expectPunctuation("(");
+      const elements = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
+      const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+      return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
     }
     if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
     if (this.#matchKeyword("FALSE")) return { kind: "literal", value: false, range: token.range };
+    if (this.#matchKeyword("DEFAULT")) return { kind: "column", column: { name: "DEFAULT", quoted: false, range: token.range }, range: token.range };
     if (token.kind === "number") {
       this.#advance();
       return { kind: "literal", value: Number(token.value), range: token.range };
@@ -206,32 +534,115 @@ class Parser {
     if (this.#matchOperator("*")) return { kind: "star", range: token.range };
     if (this.#isIdentifierLike(token)) {
       const first = this.#parseIdentifier(true);
-      if (this.#matchPunctuation("(")) {
-        const args: Expression[] = [];
-        if (!this.#matchPunctuation(")")) {
-          do args.push(this.#parseExpression()); while (this.#matchPunctuation(","));
-          const close = this.#expectPunctuation(")");
-          return { kind: "call", name: first, arguments: args, range: mergeRanges(first.range, close.range) };
-        }
-        return { kind: "call", name: first, arguments: args, range: mergeRanges(first.range, this.#previous().range) };
-      }
+      if (this.#matchPunctuation("(")) return this.#parseCall(undefined, first);
       if (this.#matchPunctuation(".")) {
         if (this.#matchOperator("*")) return { kind: "star", relation: first, range: mergeRanges(first.range, this.#previous().range) };
-        const column = this.#parseIdentifier();
-        return { kind: "column", relation: first, column, range: mergeRanges(first.range, column.range) };
+        const second = this.#parseIdentifier(true);
+        if (this.#matchPunctuation("(")) return this.#parseCall(first, second);
+        return { kind: "column", relation: first, column: second, range: mergeRanges(first.range, second.range) };
       }
       return { kind: "column", column: first, range: first.range };
     }
     throw this.#error(`Expected expression, found ${token.text || "end of query"}`, token.range);
   }
 
+  #parseCall(schema: Identifier | undefined, name: Identifier): Expression {
+    const distinct = this.#matchKeyword("DISTINCT");
+    const args: Expression[] = [];
+    let close: Token;
+    if (this.#matchPunctuation(")")) close = this.#previous();
+    else {
+      do args.push(this.#parseExpression()); while (this.#matchPunctuation(","));
+      close = this.#expectPunctuation(")");
+    }
+    let filter: Expression | undefined;
+    if (this.#syntax === "postgres" && this.#matchKeyword("FILTER")) {
+      this.#expectPunctuation("(");
+      this.#expectKeyword("WHERE");
+      filter = this.#parseExpression();
+      close = this.#expectPunctuation(")");
+    }
+    let over: Identifier | WindowSpecification | undefined;
+    if (this.#matchKeyword("OVER")) {
+      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") over = this.#parseIdentifier();
+      else over = this.#parseWindowSpecification();
+      close = { ...close, range: over.range };
+    }
+    return {
+      kind: "call",
+      name,
+      ...(schema === undefined ? {} : { schema }),
+      arguments: args,
+      distinct,
+      ...(filter === undefined ? {} : { filter }),
+      ...(over === undefined ? {} : { over }),
+      range: mergeRanges(schema?.range ?? name.range, close.range),
+    };
+  }
+
+  #parseWindowSpecification(): WindowSpecification {
+    const start = this.#expectPunctuation("(").range;
+    const partitionBy: Expression[] = [];
+    let orderBy: OrderByItem[] = [];
+    if (this.#matchKeyword("PARTITION")) {
+      this.#expectKeyword("BY");
+      partitionBy.push(...this.#parseExpressionList());
+    }
+    if (this.#matchKeyword("ORDER")) {
+      this.#expectKeyword("BY");
+      orderBy = this.#parseOrderByList();
+    }
+    const close = this.#expectPunctuation(")");
+    return { partitionBy, orderBy, range: mergeRanges(start, close.range) };
+  }
+
   #parseCast(start: SourceRange): Expression {
     this.#expectPunctuation("(");
     const expression = this.#parseExpression();
     this.#expectKeyword("AS");
-    const databaseType = this.#parseIdentifier();
+    const databaseType = this.#parseTypeName(true);
     const close = this.#expectPunctuation(")");
     return { kind: "cast", expression, databaseType, syntax: "cast", range: mergeRanges(start, close.range) };
+  }
+
+  #parseTypeName(stopAtClose: boolean): TypeName {
+    const start = this.#current();
+    if (!this.#isIdentifierLike(start)) throw this.#error(`Expected identifier, found ${start.text || "end of query"}`, start.range);
+    this.#advance();
+    let end = start;
+    let schemaSeparatorAllowed = true;
+    while (true) {
+      if (schemaSeparatorAllowed && this.#matchPunctuation(".")) {
+        this.#parseIdentifier(true);
+        end = this.#previous();
+        schemaSeparatorAllowed = false;
+        continue;
+      }
+      schemaSeparatorAllowed = false;
+      if (this.#matchPunctuation("(")) {
+        let depth = 1;
+        while (depth > 0) {
+          const token = this.#current();
+          if (token.kind === "eof") throw this.#error("Unterminated type modifier", token.range);
+          this.#advance();
+          if (token.value === "(") depth += 1;
+          else if (token.value === ")") depth -= 1;
+          end = token;
+        }
+        continue;
+      }
+      if (this.#isIdentifierLike(this.#current()) && typeContinuationWords.has(this.#current().value.toUpperCase())) {
+        end = this.#advance();
+        continue;
+      }
+      if (this.#matchPunctuation("[")) {
+        end = this.#expectPunctuation("]");
+        continue;
+      }
+      break;
+    }
+    if (stopAtClose && this.#current().value !== ")") throw this.#error(`Expected ) after type name, found ${this.#current().text}`, this.#current().range);
+    return { name: this.#source.slice(start.range.start, end.range.end).trim(), range: mergeRanges(start.range, end.range) };
   }
 
   #parseCase(start: SourceRange): Expression {
@@ -245,8 +656,7 @@ class Parser {
       branches.push({ when, then, range: mergeRanges(whenStart, then.range) });
     }
     if (branches.length === 0) throw this.#error("CASE requires at least one WHEN branch", this.#current().range);
-    let elseExpression: Expression | undefined;
-    if (this.#matchKeyword("ELSE")) elseExpression = this.#parseExpression();
+    const elseExpression = this.#matchKeyword("ELSE") ? this.#parseExpression() : undefined;
     const end = this.#expectKeyword("END");
     return {
       kind: "case",
@@ -270,8 +680,16 @@ class Parser {
     return token.kind === "identifier" || token.kind === "quoted-identifier" || token.kind === "keyword";
   }
 
+  #isStatementStart(): boolean {
+    return ["SELECT", "INSERT", "UPDATE", "DELETE", "WITH"].includes(this.#current().value);
+  }
+
   #current(): Token {
     return this.#tokens[this.#index] ?? this.#tokens[this.#tokens.length - 1]!;
+  }
+
+  #peekToken(offset: number): Token {
+    return this.#tokens[this.#index + offset] ?? this.#tokens[this.#tokens.length - 1]!;
   }
 
   #previous(): Token {
@@ -314,6 +732,12 @@ class Parser {
     return token;
   }
 
+  #expectOperator(operator: string): Token {
+    const token = this.#current();
+    if (!this.#matchOperator(operator)) throw this.#error(`Expected ${operator}, found ${token.text || "end of query"}`, token.range);
+    return token;
+  }
+
   #expectPunctuation(value: string): Token {
     const token = this.#current();
     if (!this.#matchPunctuation(value)) throw this.#error(`Expected ${value}, found ${token.text || "end of query"}`, token.range);
@@ -327,16 +751,35 @@ class Parser {
     return token;
   }
 
-  #error(message: string, range: SourceRange): SqlParseError {
-    return new SqlParseError(message, range);
+  #nested<T>(fn: () => T): T {
+    this.#depth += 1;
+    if (this.#depth > this.#maxDepth) {
+      this.#depth -= 1;
+      throw this.#error(`SQL exceeds the ${this.#maxDepth} level parser nesting limit`, this.#current().range, "TSQ002");
+    }
+    try { return fn(); } finally { this.#depth -= 1; }
+  }
+
+  #error(message: string, range: SourceRange, code = "TSQ001"): SqlParseError {
+    return new SqlParseError(message, range, code);
   }
 }
 
-export function parseSelect(source: string): SelectStatement {
+function parse(source: string, options: ParseOptions): Statement {
   try {
-    return new Parser(source).parseSelect();
+    return new Parser(source, options).parse();
   } catch (error) {
-    if (error instanceof SqlTokenizeError) throw new SqlParseError(error.message, error.range);
+    if (error instanceof SqlTokenizeError) throw new SqlParseError(error.message, error.range, error.code);
     throw error;
   }
+}
+
+export function parseStatement(source: string, options: ParseOptions = {}): Statement {
+  return parse(source, options);
+}
+
+export function parseSelect(source: string, options: ParseOptions = {}): SelectStatement {
+  const statement = parse(source, options);
+  if (statement.kind !== "select") throw new SqlParseError(`Expected SELECT, found ${statement.kind.toUpperCase()}`, statement.range);
+  return statement;
 }

@@ -1,15 +1,30 @@
 {
   "name": "@typed-sql/postgres",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "PostgreSQL grammar, schema introspection, type resolution, and driver-neutral runtime codecs for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
-  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/postgres" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/postgres"
+  },
   "homepage": "https://github.com/Lojhan/typed-sql#readme",
-  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
-  "engines": { "node": ">=22.11" },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map"],
-  "publishConfig": { "access": "public", "provenance": true },
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "sideEffects": false,
   "type": "module",
   "scripts": {
@@ -24,6 +39,7 @@
   "dependencies": {
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*"
+    "@typed-sql/schema": "workspace:*",
+    "@types/pg": "8.23.1"
   }
 }

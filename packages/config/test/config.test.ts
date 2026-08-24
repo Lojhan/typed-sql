@@ -31,6 +31,7 @@ await describe("typed-sql config", async () => {
           contractVersion: 1,
           id: "fixture",
           packageVersion: "1.0.0",
+          sqlModule: "@example/typed-sql-fixture",
           defaultTypePolicy: {},
           placeholder(index) { return "?" + index; },
           analyze() { return { columns: [], diagnostics: [] }; },

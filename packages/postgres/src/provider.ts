@@ -224,7 +224,7 @@ export class PostgresSchemaProvider implements SchemaProvider {
         };
       }
 
-      const partialSchema: SchemaSnapshot = { dialect: "postgres", tables: {}, enums, domains };
+      const partialSchema: SchemaSnapshot = { formatVersion: 1, dialect: "postgres", tables: {}, enums, domains };
       const tables: Record<string, TableSnapshot> = {};
       for (const row of columnResult.rows) {
         const tableKey = qualifiedKey(row.schema_name, row.table_name);
@@ -260,6 +260,7 @@ export class PostgresSchemaProvider implements SchemaProvider {
 
       const version = versionResult.rows[0]?.server_version;
       return {
+        formatVersion: 1,
         dialect: "postgres",
         ...(version === undefined ? {} : { version }),
         tables,

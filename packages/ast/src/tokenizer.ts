@@ -1,20 +1,42 @@
 import type { SourceRange, Token, TokenKind } from "./types.js";
 
+export const DEFAULT_MAX_SQL_LENGTH = 1_000_000;
+export const DEFAULT_MAX_TOKENS = 100_000;
+
+export interface TokenizeOptions {
+  readonly maxSqlLength?: number;
+  readonly maxTokens?: number;
+  readonly syntax?: "postgres" | "mysql";
+}
+
 const keywords = new Set([
-  "ALL", "AND", "AS", "ASC", "BETWEEN", "BY", "CASE", "CAST", "COALESCE",
-  "COUNT", "DESC", "DISTINCT", "ELSE", "END", "FALSE", "FROM", "FULL",
-  "GROUP", "HAVING", "INNER", "IS", "JOIN", "LEFT", "LIKE", "LIMIT", "MAX",
-  "MIN", "NOT", "NULL", "OFFSET", "ON", "OR", "ORDER", "OUTER", "RIGHT",
-  "SELECT", "SUM", "THEN", "TRUE", "WHEN", "WHERE",
+  "ALL", "AND", "ARRAY", "AS", "ASC", "BETWEEN", "BY", "CASE", "CAST",
+  "COALESCE", "CONFLICT", "COUNT", "CROSS", "DEFAULT", "DELETE", "DESC",
+  "DISTINCT", "DO", "ELSE", "END", "EXCEPT", "EXCLUDED", "EXISTS", "FALSE",
+  "FILTER", "FIRST", "FROM", "FULL", "GROUP", "HAVING", "ILIKE", "IN",
+  "INNER", "INSERT", "INTERSECT", "INTO", "IS", "JOIN", "LAST", "LATERAL",
+  "LEFT", "LIKE", "LIMIT", "MAX", "MIN", "NOT", "NOTHING", "NULL", "NULLS",
+  "OFFSET", "ON", "OR", "ORDER", "OUTER", "OVER", "PARTITION", "RECURSIVE",
+  "RETURNING", "RIGHT", "ROW", "SELECT", "SET", "SIMILAR", "SUM", "THEN",
+  "TO", "TRUE", "UNION", "UPDATE", "USING", "VALUES", "WHEN", "WHERE", "WINDOW",
+  "WITH",
 ]);
+
+const operators = [
+  "#>>", "->>", "::", "<=", ">=", "!=", "<>", "||", "->", "#>", "@>",
+  "<@", "?|", "?&", "&&", "!~*", "!~", "~*", "=", "<", ">", "+", "-",
+  "*", "/", "%", "^", "~", "?", "&", "|", "#",
+] as const;
 
 export class SqlTokenizeError extends Error {
   readonly range: SourceRange;
+  readonly code: string;
 
-  constructor(message: string, range: SourceRange) {
+  constructor(message: string, range: SourceRange, code = "TSQ001") {
     super(message);
     this.name = "SqlTokenizeError";
     this.range = range;
+    this.code = code;
   }
 }
 
@@ -24,14 +46,33 @@ interface Position {
   readonly column: number;
 }
 
+function isWordStart(value: string): boolean {
+  return value === "_" || /\p{L}/u.test(value);
+}
+
+function isWordPart(value: string): boolean {
+  return value === "_" || value === "$" || /[\p{L}\p{N}]/u.test(value);
+}
+
 class Scanner {
   readonly #source: string;
+  readonly #maxTokens: number;
   #index = 0;
   #line = 1;
   #column = 1;
+  #parameterIndex = 0;
+  readonly #syntax: "postgres" | "mysql";
 
-  constructor(source: string) {
+  constructor(source: string, options: TokenizeOptions) {
+    const maxSqlLength = options.maxSqlLength ?? DEFAULT_MAX_SQL_LENGTH;
+    if (!Number.isSafeInteger(maxSqlLength) || maxSqlLength < 1) throw new TypeError("maxSqlLength must be a positive safe integer");
+    this.#maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    if (!Number.isSafeInteger(this.#maxTokens) || this.#maxTokens < 1) throw new TypeError("maxTokens must be a positive safe integer");
+    if (source.length > maxSqlLength) {
+      throw new SqlTokenizeError(`SQL exceeds the ${maxSqlLength} character parser limit`, { start: 0, end: source.length, line: 1, column: 1 }, "TSQ002");
+    }
     this.#source = source;
+    this.#syntax = options.syntax ?? "postgres";
   }
 
   scan(): readonly Token[] {
@@ -39,6 +80,9 @@ class Scanner {
     while (!this.#atEnd()) {
       this.#skipTrivia();
       if (this.#atEnd()) break;
+      if (tokens.length >= this.#maxTokens) {
+        throw new SqlTokenizeError(`SQL exceeds the ${this.#maxTokens} token parser limit`, this.#range(this.#position()), "TSQ002");
+      }
       tokens.push(this.#scanToken());
     }
     const position = this.#position();
@@ -50,23 +94,30 @@ class Scanner {
     const start = this.#position();
     const char = this.#peek();
 
-    if (/[A-Za-z_]/.test(char)) return this.#scanWord(start);
+    if ((char === "E" || char === "e") && this.#peek(1) === "'") {
+      this.#advance();
+      return this.#scanString(start, true);
+    }
+    if (isWordStart(char)) return this.#scanWord(start);
     if (/[0-9]/.test(char)) return this.#scanNumber(start);
-    if (char === "'") return this.#scanString(start);
-    if (char === '"') return this.#scanQuotedIdentifier(start);
+    if (char === "'") return this.#scanString(start, false, "'");
+    if (char === '"' && this.#syntax === "mysql") return this.#scanString(start, false, '"');
+    if (char === '"') return this.#scanQuotedIdentifier(start, '"');
+    if (char === "`" && this.#syntax === "mysql") return this.#scanQuotedIdentifier(start, "`");
     if (char === "$" && /[0-9]/.test(this.#peek(1))) return this.#scanParameter(start);
+    if (char === "$" && this.#dollarQuoteDelimiter() !== undefined) return this.#scanDollarString(start);
+    if (char === "?" && this.#syntax === "mysql") {
+      this.#advance();
+      this.#parameterIndex += 1;
+      return this.#token("parameter", "?", String(this.#parameterIndex), start);
+    }
 
-    const two = char + this.#peek(1);
-    if (["::", "<=", ">=", "!=", "<>", "||"].includes(two)) {
-      this.#advance();
-      this.#advance();
-      return this.#token("operator", two, two, start);
+    const operator = operators.find((candidate) => this.#source.startsWith(candidate, this.#index));
+    if (operator !== undefined) {
+      for (let offset = 0; offset < operator.length; offset += 1) this.#advance();
+      return this.#token("operator", operator, operator, start);
     }
-    if (["=", "<", ">", "+", "-", "*", "/", "%"].includes(char)) {
-      this.#advance();
-      return this.#token("operator", char, char, start);
-    }
-    if (["(", ")", ",", ".", ";"].includes(char)) {
+    if (["(", ")", ",", ".", ";", "[", "]"].includes(char)) {
       this.#advance();
       return this.#token("punctuation", char, char, start);
     }
@@ -76,7 +127,7 @@ class Scanner {
   }
 
   #scanWord(start: Position): Token {
-    while (/[A-Za-z0-9_$]/.test(this.#peek())) this.#advance();
+    while (isWordPart(this.#peek())) this.#advance();
     const text = this.#source.slice(start.index, this.#index);
     const upper = text.toUpperCase();
     const kind: TokenKind = keywords.has(upper) ? "keyword" : "identifier";
@@ -89,37 +140,69 @@ class Scanner {
       this.#advance();
       while (/[0-9]/.test(this.#peek())) this.#advance();
     }
+    if ((this.#peek() === "e" || this.#peek() === "E") && /[+\-0-9]/.test(this.#peek(1))) {
+      this.#advance();
+      if (this.#peek() === "+" || this.#peek() === "-") this.#advance();
+      if (!/[0-9]/.test(this.#peek())) throw new SqlTokenizeError("Invalid numeric exponent", this.#range(start));
+      while (/[0-9]/.test(this.#peek())) this.#advance();
+    }
     const text = this.#source.slice(start.index, this.#index);
     return this.#token("number", text, text, start);
   }
 
-  #scanString(start: Position): Token {
+  #scanString(start: Position, escaped: boolean, quote = "'"): Token {
     this.#advance();
     let value = "";
     while (!this.#atEnd()) {
       const char = this.#advance();
-      if (char === "'") {
-        if (this.#peek() === "'") {
+      if (char === quote) {
+        if (this.#peek() === quote) {
           this.#advance();
-          value += "'";
+          value += quote;
           continue;
         }
         return this.#token("string", this.#source.slice(start.index, this.#index), value, start);
       }
-      value += char;
+      if (escaped && char === "\\" && !this.#atEnd()) {
+        const next = this.#advance();
+        value += next === "n" ? "\n" : next === "r" ? "\r" : next === "t" ? "\t" : next;
+      } else value += char;
     }
     throw new SqlTokenizeError("Unterminated string literal", this.#range(start));
   }
 
-  #scanQuotedIdentifier(start: Position): Token {
+  #scanDollarString(start: Position): Token {
+    const delimiter = this.#dollarQuoteDelimiter()!;
+    for (let index = 0; index < delimiter.length; index += 1) this.#advance();
+    const contentStart = this.#index;
+    const close = this.#source.indexOf(delimiter, contentStart);
+    if (close === -1) {
+      while (!this.#atEnd()) this.#advance();
+      throw new SqlTokenizeError("Unterminated dollar-quoted string literal", this.#range(start));
+    }
+    while (this.#index < close) this.#advance();
+    const value = this.#source.slice(contentStart, close);
+    for (let index = 0; index < delimiter.length; index += 1) this.#advance();
+    return this.#token("string", this.#source.slice(start.index, this.#index), value, start);
+  }
+
+  #dollarQuoteDelimiter(): string | undefined {
+    if (this.#peek() !== "$") return undefined;
+    let offset = 1;
+    while (/[A-Za-z0-9_]/.test(this.#peek(offset))) offset += 1;
+    if (this.#peek(offset) !== "$") return undefined;
+    return this.#source.slice(this.#index, this.#index + offset + 1);
+  }
+
+  #scanQuotedIdentifier(start: Position, quote: '"' | "`"): Token {
     this.#advance();
     let value = "";
     while (!this.#atEnd()) {
       const char = this.#advance();
-      if (char === '"') {
-        if (this.#peek() === '"') {
+      if (char === quote) {
+        if (this.#peek() === quote) {
           this.#advance();
-          value += '"';
+          value += quote;
           continue;
         }
         return this.#token("quoted-identifier", this.#source.slice(start.index, this.#index), value, start);
@@ -133,6 +216,7 @@ class Scanner {
     this.#advance();
     while (/[0-9]/.test(this.#peek())) this.#advance();
     const text = this.#source.slice(start.index, this.#index);
+    if (text === "$0") throw new SqlTokenizeError("PostgreSQL parameters start at $1", this.#range(start));
     return this.#token("parameter", text, text.slice(1), start);
   }
 
@@ -140,7 +224,7 @@ class Scanner {
     let moved = true;
     while (moved) {
       moved = false;
-      while (/\s/.test(this.#peek())) {
+      while (/\s/u.test(this.#peek())) {
         moved = true;
         this.#advance();
       }
@@ -152,10 +236,19 @@ class Scanner {
         moved = true;
         this.#advance();
         this.#advance();
-        while (!this.#atEnd() && !(this.#peek() === "*" && this.#peek(1) === "/")) this.#advance();
-        if (this.#atEnd()) throw new SqlTokenizeError("Unterminated block comment", this.#range(start));
-        this.#advance();
-        this.#advance();
+        let depth = 1;
+        while (!this.#atEnd() && depth > 0) {
+          if (this.#peek() === "/" && this.#peek(1) === "*") {
+            depth += 1;
+            this.#advance();
+            this.#advance();
+          } else if (this.#peek() === "*" && this.#peek(1) === "/") {
+            depth -= 1;
+            this.#advance();
+            this.#advance();
+          } else this.#advance();
+        }
+        if (depth > 0) throw new SqlTokenizeError("Unterminated block comment", this.#range(start));
       }
     }
   }
@@ -174,9 +267,7 @@ class Scanner {
     if (char === "\n") {
       this.#line += 1;
       this.#column = 1;
-    } else {
-      this.#column += 1;
-    }
+    } else this.#column += 1;
     return char;
   }
 
@@ -193,6 +284,6 @@ class Scanner {
   }
 }
 
-export function tokenize(source: string): readonly Token[] {
-  return new Scanner(source).scan();
+export function tokenize(source: string, options: TokenizeOptions = {}): readonly Token[] {
+  return new Scanner(source, options).scan();
 }

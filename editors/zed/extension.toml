@@ -1,7 +1,7 @@
 id = "typed-sql"
 name = "typed-sql"
 description = "TypeScript 7-native SQL inference, hover information, and diagnostics."
-version = "0.0.1"
+version = "1.0.0"
 schema_version = 1
 authors = ["typed-sql contributors"]
 repository = "https://github.com/Lojhan/typed-sql"

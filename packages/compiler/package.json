@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/compiler",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Dialect-neutral TypeScript source extraction and typed SQL compilation.",
   "license": "MIT",
   "author": "Lojhan",

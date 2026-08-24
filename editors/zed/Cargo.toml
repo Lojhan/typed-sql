@@ -1,6 +1,6 @@
 [package]
 name = "typed-sql-zed"
-version = "0.0.1"
+version = "1.0.0"
 edition = "2024"
 
 [lib]

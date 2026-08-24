@@ -1,9 +1,9 @@
-import { API, type Checker } from "@typed-sql/typescript-preview/unstable/async";
+import { API, type Checker, type Snapshot } from "@typed-sql/typescript-preview/unstable/async";
 import { SyntaxKind, type Node, type SourceFile } from "@typed-sql/typescript-preview/unstable/ast";
 import type {
-  BridgeAnalysis,
   BridgeQuery,
   NativeTypeInspection,
+  TypeScriptInspectionInput,
   TypeScriptBridge,
 } from "./index.js";
 
@@ -43,35 +43,47 @@ export class NativePreviewTypeScriptBridge implements TypeScriptBridge {
     return new NativePreviewTypeScriptBridge(new API(options), false);
   }
 
-  async inspectFile(input: {
-    readonly fileName: string;
-    readonly projectFile?: string;
-    readonly analysis: BridgeAnalysis;
-  }): Promise<readonly NativeTypeInspection[]> {
+  async inspectFile(input: TypeScriptInspectionInput): Promise<readonly NativeTypeInspection[]> {
+    return (await this.inspectFiles([input])).get(input.fileName) ?? [];
+  }
+
+  async inspectFiles(inputs: readonly TypeScriptInspectionInput[]): Promise<ReadonlyMap<string, readonly NativeTypeInspection[]>> {
+    if (inputs.length === 0) return new Map();
+    const openFiles = [...new Set(inputs.map((input) => input.fileName))];
+    const openProjects = [...new Set(inputs.flatMap((input) => input.projectFile === undefined ? [] : [input.projectFile]))];
     const snapshot = await this.#api.updateSnapshot(this.#fromLanguageServer
       ? undefined
       : {
-          openFiles: [input.fileName],
-          ...(input.projectFile === undefined ? {} : { openProjects: [input.projectFile] }),
+          openFiles,
+          ...(openProjects.length === 0 ? {} : { openProjects }),
         });
     try {
-      const inspections: NativeTypeInspection[] = [];
-      await this.#api.runWithTemporaryFileUpdate(
-        snapshot,
-        input.fileName,
-        input.analysis.transformedSource,
-        async (temporarySnapshot) => {
-          const project = await temporarySnapshot.getDefaultProjectForFile(input.fileName)
-            ?? temporarySnapshot.getProjects()[0];
-          if (project === undefined) throw new Error(`TypeScript preview did not load a project for ${input.fileName}`);
-          const sourceFile = await project.program.getSourceFile(input.fileName);
-          if (sourceFile === undefined) throw new Error(`TypeScript preview did not load ${input.fileName}`);
-          for (const query of input.analysis.queries) {
-            inspections.push(await this.#inspectQuery(project.checker, sourceFile, query));
+      const result = new Map<string, readonly NativeTypeInspection[]>();
+      const withUpdates = async (index: number, current: Snapshot): Promise<void> => {
+        const input = inputs[index];
+        if (input === undefined) {
+          for (const candidate of inputs) {
+            const inspections: NativeTypeInspection[] = [];
+            const project = (candidate.projectFile === undefined ? undefined : current.getProject(candidate.projectFile)
+              ?? current.getProjects().find((item) => item.configFileName === candidate.projectFile))
+              ?? await current.getDefaultProjectForFile(candidate.fileName)
+              ?? current.getProjects()[0];
+            if (project === undefined) throw new Error(`TypeScript preview did not load a project for ${candidate.fileName}`);
+            const sourceFile = await project.program.getSourceFile(candidate.fileName);
+            if (sourceFile === undefined) throw new Error(`TypeScript preview did not load ${candidate.fileName}`);
+            for (const query of candidate.analysis.queries) {
+              inspections.push(await this.#inspectQuery(project.checker, sourceFile, query));
+            }
+            result.set(candidate.fileName, inspections);
           }
-        },
-      );
-      return inspections;
+          return;
+        }
+        await this.#api.runWithTemporaryFileUpdate(current, input.fileName, input.analysis.transformedSource, async (updated) => {
+          await withUpdates(index + 1, updated);
+        });
+      };
+      await withUpdates(0, snapshot);
+      return result;
     } finally {
       await snapshot.dispose();
     }

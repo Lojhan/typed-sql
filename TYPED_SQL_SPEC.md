@@ -1,6 +1,6 @@
 # typed-sql specification
 
-Status: 0.2 implementation contract. The 1.0 guarantees remain gated by
+Status: 1.0 release-candidate contract. Its gates and evidence are tracked in
 [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ## Goal
@@ -15,8 +15,8 @@ the CLI, and editors without changing the runtime SQL authoring model.
 2. The application explicitly installs its dialect and driver; no driver is a regular dependency
    of core, compiler, config, CLI, schema, language server, or grammar roots.
 3. SQL values remain values in a grammar-neutral IR until a selected renderer emits placeholders.
-4. Generated artifacts contain schema/type metadata and the core tag only—never credentials,
-   clients, pools, or driver imports.
+4. Generated artifacts contain schema metadata only—never application APIs, credentials, clients,
+   pools, or driver imports.
 5. CLI, CI, and editors call the same dialect `analyze` contract and use the same diagnostics.
 6. Snapshot format, dialect contract, diagnostic codes, and type policy are versioned boundaries.
 
@@ -28,8 +28,10 @@ the CLI, and editors without changing the runtime SQL authoring model.
 | `@typed-sql/ast` | Current PostgreSQL tokenizer/parser implementation. It is not a core dependency. |
 | `@typed-sql/schema` | Dialect-neutral snapshot validation, deterministic hashes/generation, drift. |
 | `@typed-sql/config` | Discovery/loading of `typed-sql.config.*`. |
-| `@typed-sql/postgres` | PostgreSQL parser composition, resolver, catalogs, policy, codecs. |
+| `@typed-sql/postgres` | PostgreSQL `sql`/policy application API, parser composition, resolver, catalogs, codecs. |
 | `@typed-sql/postgres/pg` | Lazy adapter for application-owned `pg`. |
+| `@typed-sql/mysql` | MySQL `sql`/policy application API, parser composition, resolver, catalogs, codecs. |
+| `@typed-sql/mysql/mysql2` | Lazy adapter for application-owned `mysql2`. |
 | `@typed-sql/compiler` | Neutral TypeScript source scanning and dialect dispatch. |
 | `@typed-sql/cli` | Config-driven generate/check/drift commands. |
 | `@typed-sql/ts-bridge` | TypeScript 7 overlay and native preview transport. |
@@ -37,9 +39,10 @@ the CLI, and editors without changing the runtime SQL authoring model.
 
 ## Dialect contract v1
 
-A dialect has a stable id/package version, default policy, parameter placeholder function, SQL
-analysis function, and snapshot validator. `defineConfig` rejects a different contract version.
-The compiler does not branch on dialect ids.
+A dialect has a stable id/package version, an exact `sqlModule` package entrypoint, default policy,
+parameter placeholder function, SQL analysis function, and snapshot validator. `defineConfig`
+rejects a different contract version. The compiler recognizes only the configured `sqlModule` and
+does not branch on dialect ids or assume `@typed-sql/*` package names.
 
 `analyze(sql, snapshot, policy)` returns resolved columns plus diagnostics. Each resolved column has
 a property name, TypeScript type expression, nullability, and source range. Error diagnostics block
@@ -60,6 +63,8 @@ OID parsers, provides transactions/savepoints, and closes a pool only when it ow
 Snapshot format 1 records dialect id/version, server version, tables/columns, enums, domains, and
 functions. Generated metadata contains generator version plus deterministic schema and policy
 SHA-256 hashes. Drift compares canonical current schema/policy hashes with generated metadata.
+The generated TypeScript module exports only schema and metadata for inspection; application code
+imports `sql` and the default `typePolicy` from its installed dialect root.
 
 The schema package treats type policy as opaque dialect-owned serializable data. PostgreSQL owns
 the PostgreSQL policy shape and defaults.
@@ -75,9 +80,10 @@ The checked-in CLI transform is the CI correctness mechanism; editor availabilit
 
 Compiler-critical packages enforce package-local coverage thresholds with Poku and `@pokujs/c8`.
 Contract tests inspect dependency graphs and packed archives. Every public tarball installs in a
-temporary consumer where `pg` is absent and the missing-driver path is actionable. The PostgreSQL E2E
-is the acceptance authority for live catalogs, generated developer artifacts, native TypeScript
-types, execution, and drift.
+temporary consumer where `pg` and `mysql2` are absent and both missing-driver paths are actionable.
+The packed real-database E2E is the acceptance authority for PostgreSQL and MySQL live catalogs,
+generated developer artifacts, exact downstream TypeScript types, native preview types, execution,
+and drift.
 
 The supported SQL surface is normative in
 [`docs/POSTGRESQL_SUPPORT.md`](./docs/POSTGRESQL_SUPPORT.md); broader syntax belongs to later

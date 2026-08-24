@@ -48,7 +48,7 @@ export interface FunctionSnapshot {
 }
 
 export interface SchemaSnapshot {
-  readonly formatVersion?: 1;
+  readonly formatVersion: 1;
   readonly dialect: string;
   readonly dialectVersion?: string;
   readonly version?: string;
@@ -72,18 +72,22 @@ export interface ResolvedColumn {
   readonly name: string;
   readonly tsType: string;
   readonly nullable: boolean;
+  readonly databaseType?: string;
   readonly range: SourceRange;
 }
 
 export interface DialectAnalysis {
   readonly columns: readonly ResolvedColumn[];
   readonly diagnostics: readonly SqlDiagnostic[];
+  readonly resultKind?: "rows" | "command";
 }
 
 export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly contractVersion: typeof DIALECT_CONTRACT_VERSION;
   readonly id: string;
   readonly packageVersion: string;
+  /** Exact package entrypoint from which applications import the dialect's `sql` tag. */
+  readonly sqlModule: string;
   readonly defaultTypePolicy: Policy;
   placeholder(index: number): string;
   analyze(sql: string, snapshot: Snapshot, policy?: Policy): DialectAnalysis;

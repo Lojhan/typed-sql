@@ -42,3 +42,58 @@ jobs:
       - run: pnpm e2e:postgres
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+
+  mysql-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm e2e:mysql
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
+
+  packed-real-databases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm e2e:packed
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
+
+  editor-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter ./packages/vscode package:vsix
+      - run: rustup target add wasm32-wasip2
+      - run: cargo test --manifest-path editors/zed/Cargo.toml
+      - run: cargo build --release --target wasm32-wasip2 --manifest-path editors/zed/Cargo.toml
+      - run: cp editors/zed/target/wasm32-wasip2/release/typed_sql_zed.wasm artifacts/typed-sql-zed.wasm
+      - uses: actions/upload-artifact@v6
+        with:
+          name: typed-sql-editor-artifacts
+          path: artifacts/

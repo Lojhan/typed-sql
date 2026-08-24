@@ -1,5 +1,5 @@
+import { sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
-import { sql, typePolicy } from "../generated/db/index.js";
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends
@@ -14,6 +14,37 @@ const query = sql`
   FROM users AS user_account
   LEFT JOIN projects AS project ON user_account.id = project.owner_id
   ORDER BY user_account.id
+`;
+
+const cteQuery = sql`
+  WITH project_totals AS (
+    SELECT project.owner_id,
+           COUNT(*) AS project_count,
+           SUM(project.budget) AS total_budget
+    FROM projects AS project
+    GROUP BY project.owner_id
+  )
+  SELECT user_account.id,
+         user_account.profile->>'plan' AS plan,
+         project_totals.project_count,
+         project_totals.total_budget
+  FROM users AS user_account
+  LEFT JOIN project_totals ON project_totals.owner_id = user_account.id
+  WHERE EXISTS (
+    SELECT 1 AS present
+    FROM active_users
+    WHERE active_users.id = user_account.id
+  )
+`;
+
+const insertQuery = sql`
+  INSERT INTO users (email, status)
+  VALUES (${"new@example.com"}, ${"active"}::account_status)
+  RETURNING id, email, status
+`;
+
+const commandQuery = sql`
+  UPDATE users SET profile = ${'{"plan":"enterprise"}'}::jsonb WHERE id = ${1n}
 `;
 
 async function verifyGeneratedTypes(): Promise<void> {
@@ -33,6 +64,32 @@ async function verifyGeneratedTypes(): Promise<void> {
   type ResultIsExact = Assert<Equal<Actual, Expected>>;
   const checked: ResultIsExact = true;
   void checked;
+
+  const cteRows = await database.execute(cteQuery);
+  type CteActual = (typeof cteRows)[number];
+  type CteExpected = {
+    id: bigint;
+    plan: string | null;
+    project_count: bigint | null;
+    total_budget: string | null;
+  };
+  const cteChecked: Assert<Equal<CteActual, CteExpected>> = true;
+  void cteChecked;
+
+  const insertedRows = await database.execute(insertQuery);
+  type InsertedActual = (typeof insertedRows)[number];
+  type InsertedExpected = {
+    id: bigint;
+    email: string;
+    status: "active" | "suspended";
+  };
+  const insertChecked: Assert<Equal<InsertedActual, InsertedExpected>> = true;
+  void insertChecked;
+
+  const commandRows = await database.execute(commandQuery);
+  type CommandActual = (typeof commandRows)[number];
+  const commandChecked: Assert<Equal<CommandActual, never>> = true;
+  void commandChecked;
   await database.close();
 }
 

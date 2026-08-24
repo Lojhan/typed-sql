@@ -64,6 +64,9 @@ jobs:
       - run: npm install --global npm@11.5.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+      - run: pnpm e2e:packed
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
       - uses: changesets/action/publish@v2
         with:
           script: pnpm release

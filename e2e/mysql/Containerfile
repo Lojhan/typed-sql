@@ -1,0 +1,5 @@
+# Official mysql:8.4.11 multi-architecture manifest, pinned immutably.
+FROM docker.io/library/mysql@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+
+COPY schema/001-schema.sql /docker-entrypoint-initdb.d/001-schema.sql
+COPY schema/002-seed.sql /docker-entrypoint-initdb.d/002-seed.sql

@@ -13,8 +13,8 @@ const schemaPath = resolve(fixtureDirectory, "schema.json");
 
 await describe("TypeScript 7 compiler wrapper", async () => {
   await it("extracts static SQL and replaces interpolations with parameters", async () => {
-    const source = 'import { sql as query } from "./generated/db/index.js";\nconst q = query`SELECT id FROM users WHERE id = ${id}`;';
-    const extracted = extractStaticQueries(source, (index) => `$${index}`);
+    const source = 'import { sql as query } from "@typed-sql/postgres";\nconst q = query`SELECT id FROM users WHERE id = ${id}`;';
+    const extracted = extractStaticQueries(source, (index) => `$${index}`, ["@typed-sql/postgres"]);
     strict.strictEqual(extracted.length, 1);
     strict.strictEqual(extracted[0]?.sql, "SELECT id FROM users WHERE id = $1");
     strict.strictEqual(extracted[0]?.parameterCount, 1);
@@ -24,6 +24,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     const placeholder = (index: number) => `?${index}`;
     strict.deepStrictEqual(extractStaticQueries("const sql = 1", placeholder), []);
     strict.deepStrictEqual(extractStaticQueries('import { sql } from "other"; sql`SELECT 1`', placeholder), []);
+    strict.deepStrictEqual(extractStaticQueries('import { sql } from "./generated/db/index.js"; sql`SELECT 1`', placeholder, ["@typed-sql/postgres"]), []);
     const source = [
       'import { sql, sql as query } from "@typed-sql/core";',
       'const ignored = "query`SELECT ignored`";',
@@ -44,15 +45,31 @@ await describe("TypeScript 7 compiler wrapper", async () => {
 
   await it("injects an inferred row type without changing SQL text", async () => {
     const schema = await loadSchemaSnapshot(schemaPath);
-    const source = 'import { sql } from "./generated/db/index.js";\nconst q = sql`SELECT id FROM users`;';
+    const source = 'import { sql } from "@typed-sql/postgres";\nconst q = sql`SELECT id FROM users`;';
     const result = compileSource({ source, schema: schema as PostgresSchemaSnapshot, dialect: postgres() });
     strict.deepStrictEqual(result.diagnostics, []);
     strict.ok(result.transformedSource.includes('sql<{ "id": number; }>`SELECT id FROM users`'));
   });
 
+  await it("injects CTE and DML RETURNING rows and command-only never results", async () => {
+    const schema = await loadSchemaSnapshot(schemaPath);
+    const source = [
+      'import { sql } from "@typed-sql/postgres";',
+      'const selected = sql`WITH chosen AS (SELECT id FROM users) SELECT id FROM chosen`;',
+      'const inserted = sql`INSERT INTO users (name) VALUES (${name}) RETURNING id`;',
+      'const deleted = sql`DELETE FROM users WHERE id = ${id}`;',
+    ].join("\n");
+    const result = compileSource({ source, schema: schema as PostgresSchemaSnapshot, dialect: postgres() });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.queries[0]?.rowType, '{ "id": number; }');
+    strict.strictEqual(result.queries[1]?.rowType, '{ "id": number; }');
+    strict.strictEqual(result.queries[2]?.rowType, "never");
+    strict.ok(result.transformedSource.includes("sql<never>`DELETE"));
+  });
+
   await it("maps SQL diagnostics back to TypeScript source", async () => {
     const schema = await loadSchemaSnapshot(schemaPath);
-    const source = 'import { sql } from "./generated/db/index.js";\nconst q = sql`SELECT missing FROM users`;';
+    const source = 'import { sql } from "@typed-sql/postgres";\nconst q = sql`SELECT missing FROM users`;';
     const result = compileSource({ source, schema: schema as PostgresSchemaSnapshot, dialect: postgres() });
     strict.strictEqual(result.diagnostics[0]?.code, "TSQ101");
     strict.strictEqual(result.diagnostics[0]?.range.line, 2);
@@ -62,12 +79,12 @@ await describe("TypeScript 7 compiler wrapper", async () => {
   await it("rejects dialect/schema mismatches and parse failures safely", async () => {
     const schema = await loadSchemaSnapshot(schemaPath);
     strict.throws(() => compileSource({
-      source: 'import { sql } from "@typed-sql/core"; sql`SELECT id FROM users`;',
+      source: 'import { sql } from "@typed-sql/postgres"; sql`SELECT id FROM users`;',
       schema: { ...schema, dialect: "mysql" } as PostgresSchemaSnapshot,
       dialect: postgres(),
     }), /cannot compile/);
     const result = compileSource({
-      source: 'import { sql } from "@typed-sql/core"; sql`SELECT`;',
+      source: 'import { sql } from "@typed-sql/postgres"; sql`SELECT`;',
       schema: schema as PostgresSchemaSnapshot,
       dialect: postgres(),
     });
@@ -111,7 +128,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-compiler-"));
     try {
       const file = join(directory, "invalid.ts");
-      await writeFile(file, 'import { sql } from "@typed-sql/core";\nconst query = sql`SELECT id FROM users`;\nconst invalid: number = "text";\n');
+      await writeFile(file, 'import { sql } from "@typed-sql/postgres";\nconst query = sql`SELECT id FROM users`;\nconst invalid: number = "text";\n');
       const invalid = await checkFile({ file, schema, dialect: postgres(), project: resolve(fixtureDirectory, "tsconfig.json") });
       strict.strictEqual(invalid.ok, false);
       strict.ok((invalid.typeScript?.output.length ?? 0) > 0);

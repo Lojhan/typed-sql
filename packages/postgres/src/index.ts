@@ -1,13 +1,13 @@
 import { DIALECT_CONTRACT_VERSION, type DialectPlugin } from "@typed-sql/core";
-import { parseSelect, SqlParseError } from "@typed-sql/ast";
+import { parseStatement, SqlParseError } from "@typed-sql/ast";
 import {
   parseSchemaSnapshot,
   type SchemaSnapshot,
 } from "@typed-sql/schema";
-import { resolveSelect } from "./resolver.js";
+import { resolveStatement } from "./resolver.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
 
-export const POSTGRES_DIALECT_VERSION = "0.2.0";
+export const POSTGRES_DIALECT_VERSION = "1.0.0";
 
 export type PostgresSchemaSnapshot = SchemaSnapshot & { readonly dialect: "postgres" };
 export interface PostgresDialectOptions {
@@ -28,6 +28,7 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
     contractVersion: DIALECT_CONTRACT_VERSION,
     id: "postgres",
     packageVersion: POSTGRES_DIALECT_VERSION,
+    sqlModule: "@typed-sql/postgres",
     defaultTypePolicy,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("PostgreSQL parameter indexes start at 1");
@@ -35,7 +36,7 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
     },
     analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
       try {
-        return resolveSelect(parseSelect(sql), snapshot, { typePolicy: policy });
+        return resolveStatement(parseStatement(sql), snapshot, { typePolicy: policy });
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
         return {
@@ -51,8 +52,9 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
 export {
   parseSchemaSnapshot,
 } from "@typed-sql/schema";
+export { sql } from "@typed-sql/core";
 export { introspectPostgres, loadPostgresDriver, PostgresSchemaProvider, postgresCatalogQueries } from "./provider.js";
-export { defaultPostgresTypePolicy, isKnownPostgresType, mapPostgresType } from "./type-policy.js";
+export { defaultPostgresTypePolicy, defaultPostgresTypePolicy as typePolicy, isKnownPostgresType, mapPostgresType } from "./type-policy.js";
 export type { PostgresTypePolicy } from "./type-policy.js";
 export type { SchemaSnapshot } from "@typed-sql/schema";
 export type {

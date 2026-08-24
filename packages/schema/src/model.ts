@@ -2,7 +2,7 @@ export type SqlDialect = string;
 export const SCHEMA_FORMAT_VERSION = 1 as const;
 
 export interface SchemaSnapshot {
-  readonly formatVersion?: typeof SCHEMA_FORMAT_VERSION;
+  readonly formatVersion: typeof SCHEMA_FORMAT_VERSION;
   readonly dialect: SqlDialect;
   readonly dialectVersion?: string;
   readonly version?: string;
