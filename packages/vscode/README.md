@@ -10,15 +10,17 @@ extension exposes `initializeAPIConnection`, it sends the typed overlay through
 authoritative result. If the preview connection is unavailable, hover falls back to the same
 resolver used by `typed-sql check`.
 
-Configure the generated snapshot relative to each workspace folder:
+The extension discovers `typed-sql.config.ts` and loads the project's installed grammar. Optional
+overrides are relative to each workspace folder:
 
 ```json
 {
+  "typedSql.configPath": "typed-sql.config.ts",
   "typedSql.schemaPath": "src/generated/db/schema.json"
 }
 ```
 
-Development setup:
+Leave both values empty to use config discovery and `schema.file`. Development setup:
 
 1. Run `pnpm build` from the repository root.
 2. Install or enable Microsoft's TypeScript 7 extension.

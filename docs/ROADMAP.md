@@ -2,6 +2,10 @@
 
 The roadmap is gate-based: versions advance when their acceptance criteria pass, not on a calendar.
 
+Current implementation: the 0.1 foundation and 0.2 modular-package engineering gates are complete.
+The first npm bootstrap and trusted-publisher configuration remain maintainer operations; active
+language work starts at 0.3.
+
 ## 0.1 — open-source foundation
 
 - public MIT repository under `Lojhan/typed-sql`;
@@ -15,7 +19,7 @@ The roadmap is gate-based: versions advance when their acceptance criteria pass,
 - extract dialect-neutral query contracts into `@typed-sql/core`;
 - extract PostgreSQL grammar/resolution into `@typed-sql/postgres`;
 - remove `pg` from every package's regular runtime dependencies;
-- accept injected structural clients and expose lazy `pg` integration behind a dedicated subpath;
+- accept injected structural clients and expose lazy application-owned `pg` integration behind a dedicated subpath;
 - add a package-graph test that fails if core or grammar gains a forbidden driver dependency;
 - pack and install every public tarball in an isolated consumer fixture.
 
@@ -38,7 +42,7 @@ The roadmap is gate-based: versions advance when their acceptance criteria pass,
 ## 0.5 — dialect contract validation
 
 - implement `@typed-sql/mysql` against the same compiler contract;
-- use `mysql2` only as an optional application-owned peer;
+- keep `mysql2` application-owned and load it only from a driver-specific subpath;
 - prove that installing one dialect does not install another dialect or driver;
 - document which semantics are portable and which are dialect-specific.
 

@@ -1,0 +1,26 @@
+{
+  "name": "@typed-sql/config",
+  "version": "0.2.0",
+  "description": "Shared typed-sql config discovery and TypeScript config loading.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/config" },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
+  "engines": { "node": ">=22.11" },
+  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map"],
+  "publishConfig": { "access": "public", "provenance": true },
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce",
+    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+  },
+  "exports": {
+    ".": "./dist/packages/config/src/index.js"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*",
+    "tsx": "4.23.12"
+  }
+}

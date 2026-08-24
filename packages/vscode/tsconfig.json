@@ -6,6 +6,8 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
+    { "path": "../config" },
+    { "path": "../core" },
     { "path": "../schema" },
     { "path": "../ts-bridge" }
   ]

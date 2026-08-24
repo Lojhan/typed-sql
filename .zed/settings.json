@@ -10,6 +10,7 @@
   "lsp": {
     "typed-sql": {
       "settings": {
+        "configPath": "e2e/postgres/typed-sql.config.ts",
         "schemaPath": "e2e/postgres/generated/db/schema.json",
         "projectFile": "e2e/postgres/tsconfig.json",
         "nativePreview": true

@@ -8,7 +8,7 @@ This package exercises typed-sql as a developer would use it:
 4. inspect `generated/db/schema.json` and the generated TypeScript module;
 5. run `typed-sql check` against `src/query.ts` with TypeScript 7;
 6. ask the TypeScript 7.1 preview bridge for the native `Query<{ ... }>` type;
-7. execute the query through `createGeneratedDatabase`;
+7. execute the query through application-owned `pg` and `createPgDatabase`;
 8. verify clean drift, alter the live schema, and verify `TSQ301`.
 
 From the repository root, with Podman running:

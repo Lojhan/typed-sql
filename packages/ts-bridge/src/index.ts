@@ -1,5 +1,5 @@
 import { compileSource } from "@typed-sql/compiler";
-import type { SchemaSnapshot } from "@typed-sql/schema";
+import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 
 export interface OffsetRange {
   readonly start: number;
@@ -58,8 +58,18 @@ function bindingBefore(source: string, tagStart: number): QueryBinding | undefin
   return { name, range: { start, end: start + name.length } };
 }
 
-export function analyzeSource(source: string, schema: SchemaSnapshot): BridgeAnalysis {
-  const compilation = compileSource(source, schema);
+export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
+  source: string,
+  schema: Snapshot,
+  dialect: DialectPlugin<Snapshot, Policy>,
+  typePolicy?: Policy,
+): BridgeAnalysis {
+  const compilation = compileSource({
+    source,
+    schema,
+    dialect,
+    ...(typePolicy === undefined ? {} : { typePolicy }),
+  });
   const insertions = compilation.queries.map(({ query, rowType }) => ({
     position: query.insertionPosition,
     length: rowType.length + 2,

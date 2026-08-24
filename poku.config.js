@@ -1,7 +1,7 @@
 import { defineConfig } from "poku";
 
 export default defineConfig({
-  include: ["test"],
+  include: ["packages"],
   filter: /\.test\.ts$/,
   exclude: /fixtures/,
   isolation: "process",

@@ -14,6 +14,8 @@ Requirements:
 ```sh
 pnpm install --frozen-lockfile
 pnpm verify
+pnpm coverage
+pnpm test:pack
 ```
 
 Run the real database flow with:
@@ -25,6 +27,10 @@ TYPED_SQL_CONTAINER_ENGINE=docker pnpm e2e:postgres
 Tests use Poku and are ordinary TypeScript programs. Add compiler behavior as a focused fixture and
 assert both the inferred type and diagnostics. Unsupported or dynamic SQL must resolve to
 `Query<unknown>` rather than `any` or an optimistic inferred type.
+
+Tests belong to the package that owns the behavior. Compiler-critical packages enforce 95% line,
+statement, and function coverage plus 90% branch coverage with the official Poku c8 integration.
+Changes to package boundaries must keep the packed-consumer and forbidden-driver contracts green.
 
 ## Changes and releases
 

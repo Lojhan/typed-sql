@@ -8,11 +8,13 @@ integration, and developer tooling.
 | Package | Responsibility | Runtime driver dependency |
 | --- | --- | --- |
 | `@typed-sql/core` | SQL tag, `Query<Row>`, database and compiler contracts | None |
+| `@typed-sql/config` | Neutral project config discovery/loading | None |
+| `@typed-sql/schema` | Snapshot format, generation, hashes and drift | None |
 | `@typed-sql/compiler` | Dialect-neutral extraction, transforms and diagnostics | None |
-| `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver and codecs | Optional `pg` peer only |
-| `@typed-sql/mysql` | MySQL grammar, catalog model, resolver and codecs | Optional `mysql2` peer only |
+| `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver and codecs | None; app installs `pg` |
+| `@typed-sql/mysql` | MySQL grammar, catalog model, resolver and codecs | None; app installs `mysql2` |
 | `@typed-sql/cli` | Generation, checking and provider discovery | None by default |
-| `@typed-sql/language-server` | TypeScript semantic proxy and editor protocol | None |
+| `@typed-sql/language-server` | Configured-dialect TypeScript semantic proxy and editor protocol | None |
 
 Applications opt into one dialect and one driver:
 
@@ -28,18 +30,19 @@ Core, compiler, schema-model and grammar entrypoints must not list `pg`, `mysql2
 under `dependencies` or `optionalDependencies`. A dialect package may:
 
 1. refer to a driver's public types with erased `import type` declarations;
-2. declare the driver as an optional peer with a broad tested compatibility range;
-3. load the peer lazily only from a driver-specific adapter or accept a structurally typed driver
+2. keep the driver/type package in development dependencies only, never publish it as a dependency
+   or peer that a package manager may auto-install;
+3. load the application dependency lazily only from a driver-specific adapter or accept a structurally typed driver
    instance supplied by the application;
 4. list the driver under `devDependencies` for its own tests.
 
 The normal grammar/parser/resolver import path must work when no driver is installed. Calling live
-introspection or runtime execution without the selected peer must fail with an actionable install
+introspection or runtime execution without the selected application driver must fail with an actionable install
 message.
 
 This avoids hidden database clients, duplicate pools, unnecessary install size, and driver-version
-ownership by typed-sql. npm also documents that an optional peer is not automatically installed,
-which preserves explicit application ownership of the driver.
+ownership by typed-sql. The packed-consumer gate verifies the driver is actually absent rather than
+relying on package-manager-specific optional-peer behavior.
 
 ## Dialect contract
 
@@ -55,6 +58,7 @@ Every dialect implements a stable contract covering:
 
 The compiler consumes this contract and never branches on a concrete driver. Generated snapshots
 record their dialect, dialect package version, server version, type policy and deterministic hashes.
+The schema layer treats type policy as opaque data; its shape and defaults belong to the dialect.
 
 ## Correctness boundary
 

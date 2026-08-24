@@ -107,7 +107,9 @@ export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
   const tables: Record<string, TableSnapshot> = {};
   for (const [name, table] of Object.entries(value.tables)) tables[name] = parseTable(table, `schema.tables.${name}`);
   const snapshot: SchemaSnapshot = {
+    ...(value.formatVersion === undefined ? {} : value.formatVersion === 1 ? { formatVersion: 1 as const } : (() => { throw new TypeError(`Unsupported schema.formatVersion ${String(value.formatVersion)}`); })()),
     dialect: value.dialect,
+    ...(typeof value.dialectVersion === "string" ? { dialectVersion: value.dialectVersion } : {}),
     tables,
     ...(typeof value.version === "string" ? { version: value.version } : {}),
     ...(value.enums === undefined ? {} : { enums: parseStringArrays(value.enums, "schema.enums") }),
@@ -139,13 +141,7 @@ export async function loadGeneratedSchemaSnapshot(path: string): Promise<Generat
 
 export function parseTypePolicy(value: unknown): TypePolicy {
   if (!isRecord(value)) throw new TypeError("Type policy must be an object");
-  if (!["bigint", "string", "number"].includes(String(value.bigint))) throw new TypeError("typePolicy.bigint is invalid");
-  if (!["string", "number", "Decimal"].includes(String(value.numeric))) throw new TypeError("typePolicy.numeric is invalid");
-  if (!["Date", "string"].includes(String(value.date))) throw new TypeError("typePolicy.date is invalid");
-  if (!["unknown", "JsonValue", "string"].includes(String(value.json))) throw new TypeError("typePolicy.json is invalid");
-  if (!["string-union", "string"].includes(String(value.enums))) throw new TypeError("typePolicy.enums is invalid");
-  if (!["unknown", "never"].includes(String(value.unknown))) throw new TypeError("typePolicy.unknown is invalid");
-  return value as unknown as TypePolicy;
+  return value;
 }
 
 export async function loadTypePolicy(path: string): Promise<TypePolicy> {

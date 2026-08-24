@@ -28,10 +28,15 @@
     "configuration": {
       "title": "typed-sql",
       "properties": {
+        "typedSql.configPath": {
+          "type": "string",
+          "default": "",
+          "description": "typed-sql config path. Empty discovers typed-sql.config.ts from the workspace folder."
+        },
         "typedSql.schemaPath": {
           "type": "string",
-          "default": "src/generated/db/schema.json",
-          "description": "Generated schema snapshot path, relative to the workspace folder containing the TypeScript file."
+          "default": "",
+          "description": "Optional generated schema override. Empty uses schema.file from typed-sql.config.ts."
         },
         "typedSql.nativePreview": {
           "type": "boolean",
@@ -42,9 +47,11 @@
     }
   },
   "scripts": {
-    "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --sourcemap"
+    "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --external:tsx/* --sourcemap"
   },
   "dependencies": {
+    "@typed-sql/config": "workspace:*",
+    "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*"
   },

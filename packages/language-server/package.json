@@ -1,7 +1,15 @@
 {
   "name": "@typed-sql/language-server",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Grammar-agnostic TypeScript 7 language server for typed-sql.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/language-server" },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
+  "engines": { "node": ">=22.11" },
+  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map"],
+  "publishConfig": { "access": "public", "provenance": true },
   "type": "module",
   "bin": {
     "typed-sql-language-server": "./dist/packages/language-server/src/server.js"
@@ -10,9 +18,12 @@
     ".": "./dist/packages/language-server/src/index.js"
   },
   "scripts": {
+    "test": "poku test --reporter=compact --enforce",
     "start": "node dist/packages/language-server/src/server.js --stdio"
   },
   "dependencies": {
+    "@typed-sql/config": "workspace:*",
+    "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
     "vscode-jsonrpc": "9.0.1",

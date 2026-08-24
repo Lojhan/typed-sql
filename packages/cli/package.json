@@ -1,11 +1,21 @@
 {
   "name": "@typed-sql/cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Config-driven typed-sql generation, checking, and schema drift CLI.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/cli" },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
+  "engines": { "node": ">=22.11" },
+  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map"],
+  "publishConfig": { "access": "public", "provenance": true },
   "type": "module",
   "bin": { "typed-sql": "./dist/packages/cli/src/cli.js" },
   "dependencies": {
     "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/config": "workspace:*",
+    "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*"
   }
 }

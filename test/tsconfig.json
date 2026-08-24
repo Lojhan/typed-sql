@@ -4,12 +4,14 @@
     "noEmit": true,
     "rootDir": ".."
   },
-  "include": ["**/*.test.ts"],
+  "include": ["../packages/*/test/**/*.test.ts", "contracts/**/*.test.ts"],
   "exclude": ["fixtures"],
   "references": [
+    { "path": "../packages/core" },
+    { "path": "../packages/config" },
     { "path": "../packages/ast" },
     { "path": "../packages/schema" },
-    { "path": "../packages/runtime" },
+    { "path": "../packages/postgres" },
     { "path": "../packages/compiler" },
     { "path": "../packages/ts-bridge" },
     { "path": "../packages/language-server" }

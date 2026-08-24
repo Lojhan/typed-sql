@@ -1,6 +1,8 @@
 import { stat } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
-import { loadSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
+import { fromConfig, loadConfig } from "@typed-sql/config";
+import type { SchemaSnapshot } from "@typed-sql/core";
+import { loadSchemaSnapshot } from "@typed-sql/schema";
 import {
   analyzeSource,
   queryAtPosition,
@@ -39,12 +41,10 @@ let diagnostics: vscode.DiagnosticCollection;
 let nativeBridgePromise: Promise<NativePreviewTypeScriptBridge | undefined> | undefined;
 let nativeBridgeStatus = "not connected";
 
-function configuredSchemaPath(document: vscode.TextDocument): string | undefined {
-  const configured = vscode.workspace.getConfiguration("typedSql", document.uri).get<string>("schemaPath");
-  if (configured === undefined || configured.trim().length === 0) return undefined;
-  if (isAbsolute(configured)) return configured;
+function configuredPath(document: vscode.TextDocument, value: string): string | undefined {
+  if (isAbsolute(value)) return value;
   const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-  return folder === undefined ? undefined : resolve(folder.uri.fsPath, configured);
+  return folder === undefined ? undefined : resolve(folder.uri.fsPath, value);
 }
 
 async function schemaAt(path: string): Promise<CachedSchema> {
@@ -58,10 +58,20 @@ async function schemaAt(path: string): Promise<CachedSchema> {
 }
 
 async function documentAnalysis(document: vscode.TextDocument): Promise<DocumentAnalysis | undefined> {
-  const schemaPath = configuredSchemaPath(document);
-  if (schemaPath === undefined) return undefined;
   const key = document.uri.toString();
   try {
+    const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+    if (folder === undefined) return undefined;
+    const settings = vscode.workspace.getConfiguration("typedSql", document.uri);
+    const configSetting = settings.get<string>("configPath", "").trim();
+    const loaded = await loadConfig({
+      cwd: folder.uri.fsPath,
+      ...(configSetting.length === 0 ? {} : { file: configuredPath(document, configSetting)! }),
+    });
+    const schemaSetting = settings.get<string>("schemaPath", "").trim();
+    const schemaPath = schemaSetting.length === 0
+      ? fromConfig(loaded.directory, loaded.config.schema.file)
+      : configuredPath(document, schemaSetting)!;
     const schema = await schemaAt(schemaPath);
     const cached = analysisCache.get(key);
     if (cached !== undefined
@@ -72,7 +82,12 @@ async function documentAnalysis(document: vscode.TextDocument): Promise<Document
       version: document.version,
       schemaPath,
       schemaModified: schema.modified,
-      analysis: analyzeSource(document.getText(), schema.snapshot),
+      analysis: analyzeSource(
+        document.getText(),
+        loaded.config.dialect.validateSnapshot(schema.snapshot),
+        loaded.config.dialect,
+        loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+      ),
     };
     analysisCache.set(key, result);
     return result;

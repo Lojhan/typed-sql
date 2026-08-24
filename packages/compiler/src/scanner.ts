@@ -1,4 +1,4 @@
-import type { SourceRange } from "@typed-sql/ast";
+import type { SourceRange } from "@typed-sql/core";
 
 export interface ExtractedQuery {
   readonly tagName: string;
@@ -17,7 +17,7 @@ function importedSqlNames(source: string): ReadonlySet<string> {
     const specifiers = match[1];
     const moduleName = match[2];
     if (specifiers === undefined || moduleName === undefined) continue;
-    if (!moduleName.includes("generated") && moduleName !== "@typed-sql/runtime") continue;
+    if (!moduleName.includes("generated") && moduleName !== "@typed-sql/core") continue;
     for (const specifier of specifiers.split(",")) {
       const parts = specifier.trim().split(/\s+as\s+/);
       if (parts[0] === "sql") names.add(parts[1] ?? "sql");
@@ -76,7 +76,13 @@ function interpolationEnd(source: string, start: number): number {
   return source.length;
 }
 
-function extractTemplate(source: string, tagName: string, tagStart: number, backtick: number): ExtractedQuery | undefined {
+function extractTemplate(
+  source: string,
+  tagName: string,
+  tagStart: number,
+  backtick: number,
+  placeholderFor: (index: number) => string,
+): ExtractedQuery | undefined {
   let index = backtick + 1;
   let sql = "";
   let parameterCount = 0;
@@ -101,7 +107,7 @@ function extractTemplate(source: string, tagName: string, tagStart: number, back
     }
     if (char === "$" && source[index + 1] === "{") {
       parameterCount += 1;
-      const placeholder = `$${parameterCount}`;
+      const placeholder = placeholderFor(parameterCount);
       sql += placeholder;
       for (let offset = 0; offset < placeholder.length; offset += 1) sqlOffsetMap.push(index);
       index = interpolationEnd(source, index + 2);
@@ -114,7 +120,7 @@ function extractTemplate(source: string, tagName: string, tagStart: number, back
   return undefined;
 }
 
-export function extractStaticQueries(source: string): readonly ExtractedQuery[] {
+export function extractStaticQueries(source: string, placeholderFor: (index: number) => string): readonly ExtractedQuery[] {
   const names = importedSqlNames(source);
   if (names.size === 0) return [];
   const queries: ExtractedQuery[] = [];
@@ -134,7 +140,7 @@ export function extractStaticQueries(source: string): readonly ExtractedQuery[] 
       let cursor = index;
       while (/\s/.test(source[cursor] ?? "")) cursor += 1;
       if (source[cursor] !== "`") continue;
-      const query = extractTemplate(source, name, start, cursor);
+      const query = extractTemplate(source, name, start, cursor, placeholderFor);
       if (query !== undefined) {
         queries.push(query);
         index = query.range.end;

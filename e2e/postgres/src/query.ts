@@ -1,4 +1,5 @@
-import { createGeneratedDatabase, sql } from "../generated/db/index.js";
+import { createPgDatabase } from "@typed-sql/postgres/pg";
+import { sql, typePolicy } from "../generated/db/index.js";
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends
@@ -16,7 +17,10 @@ const query = sql`
 `;
 
 async function verifyGeneratedTypes(): Promise<void> {
-  const database = createGeneratedDatabase({ connectionString: "postgresql://unused-at-typecheck" });
+  const database = await createPgDatabase({
+    connectionString: "postgresql://unused-at-typecheck",
+    typePolicy,
+  });
   const rows = await database.execute(query);
 
   type Actual = (typeof rows)[number];

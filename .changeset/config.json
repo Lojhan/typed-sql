@@ -7,7 +7,7 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["typed-sql-workspace", "@typed-sql/e2e-postgres", "@typed-sql/vscode"],
+  "ignore": ["@typed-sql/e2e-postgres", "@typed-sql/vscode"],
   "privatePackages": {
     "version": false,
     "tag": false

@@ -1,7 +1,10 @@
-export type SqlDialect = "postgres" | "mysql" | "sqlite";
+export type SqlDialect = string;
+export const SCHEMA_FORMAT_VERSION = 1 as const;
 
 export interface SchemaSnapshot {
+  readonly formatVersion?: typeof SCHEMA_FORMAT_VERSION;
   readonly dialect: SqlDialect;
+  readonly dialectVersion?: string;
   readonly version?: string;
   readonly tables: Readonly<Record<string, TableSnapshot>>;
   readonly enums?: Readonly<Record<string, readonly string[]>>;
@@ -51,14 +54,7 @@ export interface FunctionSnapshot {
   readonly setReturning?: boolean;
 }
 
-export interface TypePolicy {
-  readonly bigint: "bigint" | "string" | "number";
-  readonly numeric: "string" | "number" | "Decimal";
-  readonly date: "Date" | "string";
-  readonly json: "unknown" | "JsonValue" | "string";
-  readonly enums: "string-union" | "string";
-  readonly unknown: "unknown" | "never";
-}
+export type TypePolicy = Readonly<Record<string, unknown>>;
 
 export interface SchemaInput {
   readonly url?: string;
@@ -69,12 +65,3 @@ export interface SchemaInput {
 export interface SchemaProvider {
   introspect(input: SchemaInput): Promise<SchemaSnapshot>;
 }
-
-export const defaultPostgresTypePolicy: TypePolicy = {
-  bigint: "bigint",
-  numeric: "string",
-  date: "Date",
-  json: "unknown",
-  enums: "string-union",
-  unknown: "unknown",
-};

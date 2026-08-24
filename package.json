@@ -14,18 +14,24 @@
   "scripts": {
     "build": "node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter @typed-sql/vscode build:bundle",
     "changeset": "changeset",
-    "verify": "pnpm test && pnpm build",
+    "verify": "pnpm test && pnpm coverage && pnpm build",
     "clean": "tsc -b --clean",
     "e2e:postgres": "pnpm build && pnpm --filter @typed-sql/e2e-postgres e2e",
-    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && poku --config=poku.config.js --reporter=compact --enforce",
+    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm test:contracts",
+    "test:contracts": "poku test/contracts --reporter=compact --enforce",
+    "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
+    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/postgres coverage",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.1",
+    "@pokujs/c8": "^2.0.0",
     "@types/node": "^24.3.0",
     "@types/pg": "8.23.1",
+    "pg": "8.23.0",
     "poku": "4.5.0",
     "tsx": "4.23.12",
     "typescript": "7.0.2"

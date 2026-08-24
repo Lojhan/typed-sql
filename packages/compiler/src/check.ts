@@ -2,13 +2,14 @@ import { access, readFile, unlink, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
-import { loadSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
-import type { SqlDiagnostic } from "@typed-sql/ast";
+import type { DialectPlugin, SchemaSnapshot, SqlDiagnostic } from "@typed-sql/core";
 import { compileSource } from "./compiler.js";
 
-export interface CheckFileOptions {
+export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly file: string;
   readonly schema: string | SchemaSnapshot;
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+  readonly typePolicy?: Policy;
   readonly project?: string;
   readonly runTypeScript?: boolean;
 }
@@ -58,11 +59,18 @@ async function tscBinary(start: string): Promise<string> {
   }
 }
 
-export async function checkFile(options: CheckFileOptions): Promise<CheckFileResult> {
+export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(options: CheckFileOptions<Snapshot, Policy>): Promise<CheckFileResult> {
   const file = resolve(options.file);
   const source = await readFile(file, "utf8");
-  const schema = typeof options.schema === "string" ? await loadSchemaSnapshot(resolve(options.schema)) : options.schema;
-  const compilation = compileSource(source, schema);
+  const schema = typeof options.schema === "string"
+    ? options.dialect.validateSnapshot(JSON.parse(await readFile(resolve(options.schema), "utf8")) as unknown)
+    : options.dialect.validateSnapshot(options.schema);
+  const compilation = compileSource({
+    source,
+    dialect: options.dialect,
+    schema,
+    ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+  });
   const hasSqlErrors = compilation.diagnostics.some((diagnostic) => diagnostic.severity === "error");
   if (hasSqlErrors || options.runTypeScript === false) {
     return { transformedSource: compilation.transformedSource, sqlDiagnostics: compilation.diagnostics, ok: !hasSqlErrors };

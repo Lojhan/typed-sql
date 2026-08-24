@@ -1,16 +1,13 @@
 #!/usr/bin/env node
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { checkFile } from "@typed-sql/compiler";
+import { fromConfig, loadConfig } from "@typed-sql/config";
+import type { SchemaSnapshot } from "@typed-sql/core";
 import {
   checkSchemaDrift,
-  defaultPostgresTypePolicy,
   generateSchemaPackage,
-  introspectPostgres,
   loadGeneratedSchemaSnapshot,
-  loadSchemaSnapshot,
-  loadTypePolicy,
-  type SchemaSnapshot,
-  type TypePolicy,
 } from "@typed-sql/schema";
 
 interface ParsedArguments {
@@ -42,32 +39,25 @@ function required(options: Readonly<Record<string, string>>, name: string): stri
   return value;
 }
 
-async function policyFrom(options: Readonly<Record<string, string>>): Promise<TypePolicy> {
-  return options.policy === undefined ? defaultPostgresTypePolicy : loadTypePolicy(resolve(options.policy));
-}
-
-async function schemaFrom(options: Readonly<Record<string, string>>, snapshotOption = "snapshot"): Promise<SchemaSnapshot> {
-  const snapshot = options[snapshotOption];
-  if (snapshot !== undefined) return loadSchemaSnapshot(resolve(snapshot));
-  const provider = required(options, "provider");
-  if (provider !== "postgres") throw new Error(`Unsupported schema provider ${provider}`);
-  const includeSchemas = options.schemas?.split(",").map((schema) => schema.trim()).filter(Boolean);
-  return introspectPostgres(
-    { url: required(options, "url") },
-    {
-      typePolicy: await policyFrom(options),
-      ...(includeSchemas === undefined || includeSchemas.length === 0 ? {} : { includeSchemas }),
-    },
-  );
+async function readSnapshot(path: string, validate: (value: unknown) => SchemaSnapshot): Promise<SchemaSnapshot> {
+  return validate(JSON.parse(await readFile(path, "utf8")) as unknown);
 }
 
 async function main(): Promise<void> {
   const parsed = parseArguments(process.argv.slice(2));
+  const loaded = await loadConfig({ ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }) });
+  const config = loaded.config;
+  const dialect = config.dialect;
+  const policy = config.typePolicy ?? dialect.defaultTypePolicy;
+  const schemaFile = fromConfig(loaded.directory, parsed.options.schema ?? config.schema.file);
+
   if (parsed.command === "check") {
     const file = resolve(required(parsed.options, "file"));
     const result = await checkFile({
       file,
-      schema: resolve(required(parsed.options, "schema")),
+      schema: schemaFile,
+      dialect,
+      typePolicy: policy,
       ...(parsed.options.project === undefined ? {} : { project: resolve(parsed.options.project) }),
     });
     for (const diagnostic of result.sqlDiagnostics) {
@@ -78,27 +68,37 @@ async function main(): Promise<void> {
     if (!result.ok) process.exitCode = 1;
     return;
   }
+
   if (parsed.command === "generate") {
-    const policy = await policyFrom(parsed.options);
-    const snapshot = await schemaFrom(parsed.options);
-    const metadata = await generateSchemaPackage(snapshot, { outDir: resolve(required(parsed.options, "out")), typePolicy: policy });
+    const current = parsed.options.snapshot !== undefined
+      ? await readSnapshot(resolve(parsed.options.snapshot), (value) => dialect.validateSnapshot(value))
+      : config.schema.provider === undefined
+        ? await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value))
+        : await config.schema.provider.introspect();
+    const metadata = await generateSchemaPackage(current as never, {
+      outDir: fromConfig(loaded.directory, parsed.options.out ?? config.outDir),
+      typePolicy: policy,
+      dialectVersion: dialect.packageVersion,
+    });
     process.stdout.write(`Generated schema ${metadata.schemaHash}\n`);
     return;
   }
+
   if (parsed.command === "drift") {
-    const generated = await loadGeneratedSchemaSnapshot(resolve(required(parsed.options, "schema")));
-    const policy = await policyFrom(parsed.options);
-    const current = await schemaFrom(parsed.options, "current-snapshot");
-    const drift = checkSchemaDrift(generated, current, policy);
+    if (config.schema.provider === undefined) throw new Error("typed-sql drift requires schema.provider in typed-sql.config.ts");
+    const generated = await loadGeneratedSchemaSnapshot(schemaFile);
+    const current = await config.schema.provider.introspect();
+    const drift = checkSchemaDrift(generated, current as never, policy);
     if (drift.drifted) {
       process.stderr.write(`error TSQ301: Schema drift detected (schemaChanged=${drift.schemaChanged}, typePolicyChanged=${drift.typePolicyChanged})\n`);
       process.exitCode = 1;
     } else process.stdout.write("No schema drift detected\n");
     return;
   }
-  process.stdout.write("typed-sql check --file <query.ts> --schema <schema.json> [--project tsconfig.json]\n");
-  process.stdout.write("typed-sql generate (--snapshot <schema.json> | --provider postgres --url <url>) --out <directory> [--policy policy.json]\n");
-  process.stdout.write("typed-sql drift --schema <generated/schema.json> (--current-snapshot <schema.json> | --provider postgres --url <url>)\n");
+
+  process.stdout.write("typed-sql check --config typed-sql.config.ts --file <query.ts> [--project tsconfig.json]\n");
+  process.stdout.write("typed-sql generate --config typed-sql.config.ts [--out <directory>]\n");
+  process.stdout.write("typed-sql drift --config typed-sql.config.ts\n");
 }
 
 main().catch((error: unknown) => {

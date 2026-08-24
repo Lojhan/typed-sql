@@ -1,0 +1,11 @@
+{
+  "all": true,
+  "include": ["src/**/*.ts"],
+  "reporter": ["text", "json-summary"],
+  "reports-dir": "../../coverage/postgres",
+  "check-coverage": true,
+  "statements": 95,
+  "lines": 95,
+  "functions": 95,
+  "branches": 90
+}

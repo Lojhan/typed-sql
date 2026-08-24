@@ -1,14 +1,27 @@
 {
   "name": "@typed-sql/ts-bridge",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "TypeScript 7 semantic bridge for typed-sql query inference.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/ts-bridge" },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
+  "engines": { "node": ">=22.11" },
+  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map"],
+  "publishConfig": { "access": "public", "provenance": true },
+  "sideEffects": false,
   "type": "module",
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce"
+  },
   "exports": {
     ".": "./dist/packages/ts-bridge/src/index.js",
     "./native-lsp": "./dist/packages/ts-bridge/src/native-lsp.js",
     "./native-preview": "./dist/packages/ts-bridge/src/native-preview.js"
   },
   "dependencies": {
+    "@typed-sql/core": "workspace:*",
     "@typed-sql/compiler": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@typed-sql/typescript-preview": "npm:typescript@7.1.0-dev.20260824.1"

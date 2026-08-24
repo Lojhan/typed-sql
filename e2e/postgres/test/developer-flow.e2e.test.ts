@@ -3,9 +3,11 @@ import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
-import type { PostgresDatabase, SqlTag } from "@typed-sql/runtime";
+import type { SqlTag } from "@typed-sql/core";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
+import { postgres, type PostgresSchemaSnapshot, type PostgresTypePolicy } from "@typed-sql/postgres";
+import { createPgDatabase } from "@typed-sql/postgres/pg";
 
 interface CommandResult {
   readonly code: number;
@@ -14,8 +16,8 @@ interface CommandResult {
 }
 
 interface GeneratedModule {
-  readonly createGeneratedDatabase: (options: { readonly connectionString: string }) => PostgresDatabase;
   readonly sql: SqlTag;
+  readonly typePolicy: PostgresTypePolicy;
 }
 
 interface GeneratedSnapshot {
@@ -128,8 +130,7 @@ try {
   await describe("developer PostgreSQL flow", async () => {
     await it("generates a package through the public CLI", async () => {
       const result = await cli(
-        "generate", "--provider", "postgres", "--url", connectionString,
-        "--schemas", "public", "--out", generatedDatabaseDirectory,
+        "generate", "--config", join(packageDirectory, "typed-sql.config.ts"),
       );
       strict.ok(result.stdout.includes("Generated schema"));
       log(`Generated developer package at ${generatedDatabaseDirectory}`);
@@ -154,8 +155,8 @@ try {
 
     await it("checks inferred application types with TypeScript 7", async () => {
       await cli(
-        "check", "--file", join(packageDirectory, "src/query.ts"),
-        "--schema", generatedSnapshotPath,
+        "check", "--config", join(packageDirectory, "typed-sql.config.ts"),
+        "--file", join(packageDirectory, "src/query.ts"),
         "--project", join(packageDirectory, "tsconfig.json"),
       );
     });
@@ -164,7 +165,7 @@ try {
       const sourcePath = join(packageDirectory, "src/query.ts");
       const source = await readFile(sourcePath, "utf8");
       const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
-      const analysis = analyzeSource(source, snapshot);
+      const analysis = analyzeSource(source, snapshot as PostgresSchemaSnapshot, postgres());
       const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
       try {
         const inspections = await bridge.inspectFile({
@@ -181,9 +182,9 @@ try {
       }
     });
 
-    await it("executes through the generated runtime package", async () => {
+    await it("executes through the generated core tag and application-owned pg adapter", async () => {
       const generated = await import(`${pathToFileURL(generatedModulePath).href}?run=${Date.now()}`) as GeneratedModule;
-      const database = generated.createGeneratedDatabase({ connectionString });
+      const database = await createPgDatabase({ connectionString, typePolicy: generated.typePolicy });
       try {
         const query = generated.sql<{
           id: bigint;
@@ -216,8 +217,7 @@ try {
 
     await it("reports no drift for the unchanged database", async () => {
       const result = await cli(
-        "drift", "--schema", generatedSnapshotPath,
-        "--provider", "postgres", "--url", connectionString, "--schemas", "public",
+        "drift", "--config", join(packageDirectory, "typed-sql.config.ts"),
       );
       strict.ok(result.stdout.includes("No schema drift detected"));
     });
@@ -230,8 +230,7 @@ try {
         "--command", "ALTER TABLE public.projects ADD COLUMN archived boolean NOT NULL DEFAULT false",
       ]);
       const result = await run(process.execPath, [
-        cliFile, "drift", "--schema", generatedSnapshotPath,
-        "--provider", "postgres", "--url", connectionString, "--schemas", "public",
+        cliFile, "drift", "--config", join(packageDirectory, "typed-sql.config.ts"),
       ]);
       strict.strictEqual(result.code, 1);
       strict.ok(result.stderr.includes("TSQ301"));

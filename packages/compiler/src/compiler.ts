@@ -1,5 +1,9 @@
-import { parseSelect, SqlParseError, type SqlDiagnostic } from "@typed-sql/ast";
-import { resolveSelect, rowTypeLiteral, type SchemaSnapshot } from "@typed-sql/schema";
+import {
+  rowTypeLiteral,
+  type DialectPlugin,
+  type SchemaSnapshot,
+  type SqlDiagnostic,
+} from "@typed-sql/core";
 import { extractStaticQueries, mapSqlRange, type ExtractedQuery } from "./scanner.js";
 
 export interface CompiledQuery {
@@ -13,23 +17,32 @@ export interface CompileSourceResult {
   readonly diagnostics: readonly SqlDiagnostic[];
 }
 
+export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
+  readonly source: string;
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+  readonly schema: Snapshot;
+  readonly typePolicy?: Policy;
+}
+
 function mapDiagnostic(source: string, query: ExtractedQuery, diagnostic: SqlDiagnostic): SqlDiagnostic {
   return { ...diagnostic, range: mapSqlRange(source, query, diagnostic.range) };
 }
 
-export function compileSource(source: string, schema: SchemaSnapshot): CompileSourceResult {
-  const extracted = extractStaticQueries(source);
+export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
+  options: CompileSourceOptions<Snapshot, Policy>,
+): CompileSourceResult {
+  const { source, dialect, schema } = options;
+  if (schema.dialect !== dialect.id) {
+    throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
+  }
+  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index));
   const compiled: CompiledQuery[] = [];
   const diagnostics: SqlDiagnostic[] = [];
   for (const query of extracted) {
-    try {
-      const statement = parseSelect(query.sql);
-      const resolved = resolveSelect(statement, schema);
-      diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
+    const resolved = dialect.analyze(query.sql, schema, options.typePolicy);
+    diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
+    if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       compiled.push({ query, rowType: rowTypeLiteral(resolved.columns) });
-    } catch (error) {
-      if (!(error instanceof SqlParseError)) throw error;
-      diagnostics.push({ code: error.code, message: error.message, severity: "error", range: mapSqlRange(source, query, error.range) });
     }
   }
   let transformedSource = source;

@@ -12,7 +12,9 @@ replaces Zed's normal TypeScript server for TypeScript and TSX in this worktree.
 5. Open `e2e/postgres/src/query.ts` and hover `query`, `rows`, and `Actual`.
 
 The repository's `.zed/settings.json` lists only `typed-sql` for TypeScript and TSX and points it at
-the E2E schema. Do not add `"..."`, `vtsls`, or `typescript-language-server` to those arrays: those
+the E2E config/schema. The config imports the installed PostgreSQL grammar; the language server does
+not hard-code it. Do not add `"..."`, `vtsls`, or `typescript-language-server` to those arrays: those
 servers see the original tag signature and will report `Query<unknown>` alongside the transformed
-result. For another worktree, configure `schemaPath` under `lsp.typed-sql.settings` and set
+result. For another worktree, configure `configPath` under `lsp.typed-sql.settings` (and use
+`schemaPath` only as an override) and set
 `lsp.typed-sql.binary.path` to an installed `typed-sql-language-server` executable.

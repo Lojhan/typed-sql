@@ -3,16 +3,19 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  changesets:
+  version:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -22,9 +25,37 @@ jobs:
           version: 10.32.1
       - uses: actions/setup-node@v6
         with:
-          node-version: 22.11
+          node-version: 22.14
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: changesets/action@v2
+      - uses: changesets/action/version@v2
         with:
-          version-script: pnpm version-packages
+          script: pnpm version-packages
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.5.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - uses: changesets/action/publish@v2
+        with:
+          script: pnpm release
+          create-github-releases: true
+          push-git-tags: true

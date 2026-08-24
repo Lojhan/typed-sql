@@ -2,7 +2,9 @@ import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
+import { fromConfig, loadConfig } from "@typed-sql/config";
+import type { SchemaSnapshot } from "@typed-sql/core";
+import { loadSchemaSnapshot } from "@typed-sql/schema";
 import {
   analyzeSource,
   queryAtPosition,
@@ -19,6 +21,7 @@ import {
 } from "vscode-languageserver/node";
 
 export interface TypedSqlLanguageServerSettings {
+  readonly configPath?: string;
   readonly schemaPath?: string;
   readonly projectFile?: string;
   readonly nativePreview?: boolean;
@@ -75,6 +78,7 @@ export function settingsFrom(value: unknown): TypedSqlLanguageServerSettings {
     : object;
   return {
     ...(typeof candidate.schemaPath === "string" ? { schemaPath: candidate.schemaPath } : {}),
+    ...(typeof candidate.configPath === "string" ? { configPath: candidate.configPath } : {}),
     ...(typeof candidate.projectFile === "string" ? { projectFile: candidate.projectFile } : {}),
     ...(typeof candidate.nativePreview === "boolean" ? { nativePreview: candidate.nativePreview } : {}),
   };
@@ -176,7 +180,13 @@ export class TypedSqlLanguageService {
 
   async #documentAnalysis(document: TextDocument): Promise<DocumentAnalysis | undefined> {
     if (document.uri.startsWith("file:") === false) return undefined;
-    const schemaPath = this.#configuredPath(this.#settings.schemaPath ?? defaultSettings.schemaPath);
+    const loaded = await loadConfig({
+      cwd: this.#rootDirectory,
+      ...(this.#settings.configPath === undefined ? {} : { file: this.#configuredPath(this.#settings.configPath) }),
+    });
+    const schemaPath = this.#settings.schemaPath === undefined
+      ? fromConfig(loaded.directory, loaded.config.schema.file)
+      : this.#configuredPath(this.#settings.schemaPath);
     const schema = await this.#schemaAt(schemaPath);
     const cached = this.#analysisCache.get(document.uri);
     if (cached !== undefined
@@ -187,7 +197,12 @@ export class TypedSqlLanguageService {
       version: document.version,
       schemaPath,
       schemaModified: schema.modified,
-      analysis: analyzeSource(document.getText(), schema.snapshot),
+      analysis: analyzeSource(
+        document.getText(),
+        loaded.config.dialect.validateSnapshot(schema.snapshot),
+        loaded.config.dialect,
+        loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+      ),
     };
     this.#analysisCache.set(document.uri, result);
     return result;
