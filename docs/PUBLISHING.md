@@ -80,7 +80,6 @@ pnpm release:artifacts
 Publish one package at a time in this order:
 
 ```sh
-export NPM_CONFIG_PROVENANCE=false
 pnpm --filter @typed-sql/core publish --access public --tag next --no-git-checks
 pnpm --filter @typed-sql/ast publish --access public --tag next --no-git-checks
 pnpm --filter @typed-sql/schema publish --access public --tag next --no-git-checks
@@ -91,12 +90,12 @@ pnpm --filter @typed-sql/mysql publish --access public --tag next --no-git-check
 pnpm --filter @typed-sql/ts-bridge publish --access public --tag next --no-git-checks
 pnpm --filter @typed-sql/cli publish --access public --tag next --no-git-checks
 pnpm --filter @typed-sql/language-server publish --access public --tag next --no-git-checks
-unset NPM_CONFIG_PROVENANCE
 ```
 
-The bootstrap runs on a maintainer machine, so it explicitly disables the packages' CI provenance
-setting. `1.0.0-beta.0` reserves and proves the package graph but will not carry a provenance
-attestation. The next OIDC release will.
+The bootstrap runs on a maintainer machine. `1.0.0-beta.0` reserves and proves the package graph but
+will not carry a provenance attestation. Do not set `publishConfig.provenance`: current npm trusted
+publishing generates provenance automatically in GitHub Actions, while forcing it locally makes npm
+attempt unsupported local provenance generation. The next OIDC release will carry the attestation.
 
 If a command fails, inspect the error and resume with that package. Never bump or republish packages
 that succeeded: an npm name/version pair is immutable.
