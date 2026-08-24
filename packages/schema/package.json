@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/schema",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "description": "Versioned typed-sql schema snapshots, deterministic generation, and drift checks.",
   "license": "MIT",
   "author": "Lojhan",

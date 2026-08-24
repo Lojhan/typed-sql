@@ -1,5 +1,13 @@
 # @typed-sql/compiler
 
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- 16e2475: Prove npm trusted publishing and provenance after the initial registry bootstrap.
+- Updated dependencies [16e2475]
+  - @typed-sql/core@1.0.0-beta.1
+
 ## 1.0.0-beta.0
 
 ### Major Changes
