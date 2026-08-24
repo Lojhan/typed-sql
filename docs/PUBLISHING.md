@@ -64,7 +64,7 @@ Every first publication must be public and use the prerelease tag:
 npm publish --access public --tag next
 ```
 
-Do not publish any beta package as `latest`.
+Always request `next` for beta publications. Do not intentionally promote a later beta to `latest`.
 
 ## Phase 3: first registry bootstrap
 
@@ -96,6 +96,12 @@ The bootstrap runs on a maintainer machine. `1.0.0-beta.0` reserves and proves t
 will not carry a provenance attestation. Do not set `publishConfig.provenance`: current npm trusted
 publishing generates provenance automatically in GitHub Actions, while forcing it locally makes npm
 attempt unsupported local provenance generation. The next OIDC release will carry the attestation.
+
+For a package's first-ever version, npm may create both `next` and the required initial `latest` tag
+even though the publish command specifies `--tag next`. When no alternative version exists, npm
+rejects removal of that sole `latest` tag with HTTP 400. Record the bootstrap state and leave both
+tags on `1.0.0-beta.0`; subsequent beta releases move only `next`, and stable `1.0.0` replaces
+`latest`.
 
 If a command fails, inspect the error and resume with that package. Never bump or republish packages
 that succeeded: an npm name/version pair is immutable.
