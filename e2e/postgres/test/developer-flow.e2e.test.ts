@@ -89,10 +89,30 @@ try {
   ]);
   containerStarted = true;
   try {
+    const initializationComplete = "PostgreSQL init process complete; ready for start up.";
+    const acceptingConnections = "database system is ready to accept connections";
+    await waitForExpectedResult(
+      async () => {
+        const logs = await run(engine, ["logs", containerName]);
+        const output = `${logs.stdout}${logs.stderr}`;
+        const initializationIndex = output.lastIndexOf(initializationComplete);
+        return initializationIndex >= 0 && output.indexOf(acceptingConnections, initializationIndex) > initializationIndex;
+      },
+      true,
+      { interval: 250, timeout: 60_000, strict: true },
+    );
     await waitForPort(port, { host: "127.0.0.1", timeout: 60_000 });
     await waitForExpectedResult(
-      async () => (await run(engine, ["exec", containerName, "pg_isready", "--username", "typed_sql", "--dbname", "typed_sql_e2e"])).code,
-      0,
+      async () => {
+        const result = await run(engine, [
+          "exec", containerName,
+          "psql", "--username", "typed_sql", "--dbname", "typed_sql_e2e",
+          "--tuples-only", "--no-align",
+          "--command", "SELECT count(*) FROM public.users",
+        ]);
+        return result.code === 0 ? result.stdout.trim() : "";
+      },
+      "2",
       { interval: 250, timeout: 60_000, strict: true },
     );
   } catch (error) {
