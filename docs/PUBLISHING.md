@@ -153,6 +153,12 @@ should produce `1.0.0-beta.1`.
 Dispatch the Release workflow with channel `beta`. The workflow must authenticate only through
 OIDC, publish under `next`, create signed GitHub tags/releases, and attach npm provenance. Confirm:
 
+Changesets normally requires its prerelease identifier (`beta`) to also be the npm dist-tag. The
+repository's beta publish adapter temporarily marks prerelease state as exiting only while
+`changeset publish --tag next` runs, then restores the original file even on failure. This preserves
+`1.0.0-beta.N` versions and the public `next` channel. The workflow deliberately omits setup-node's
+`registry-url` option so its generated token placeholder cannot suppress npm's OIDC exchange.
+
 ```sh
 npm view @typed-sql/core@next version dist.tarball
 npm view @typed-sql/language-server@next version dist.tarball
