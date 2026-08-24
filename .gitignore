@@ -1,0 +1,16 @@
+node_modules/
+dist/
+bundle/
+target/
+*.tsbuildinfo
+.typed-sql-*
+e2e/*/generated/
+.DS_Store
+*.pcap
+*.pcapng
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+editors/zed/extension.wasm

@@ -1,0 +1,20 @@
+{
+  "dialect": "postgres",
+  "version": "16",
+  "tables": {
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": { "name": "id", "databaseType": "integer", "tsType": "number", "nullable": false },
+        "name": { "name": "name", "databaseType": "text", "tsType": "string", "nullable": false },
+        "age": { "name": "age", "databaseType": "integer", "tsType": "number", "nullable": true }
+      }
+    },
+    "ages": {
+      "name": "ages",
+      "columns": {
+        "user_id": { "name": "user_id", "databaseType": "integer", "tsType": "number", "nullable": false }
+      }
+    }
+  }
+}

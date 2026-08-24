@@ -1,0 +1,55 @@
+{
+  "name": "@typed-sql/vscode",
+  "displayName": "typed-sql",
+  "description": "TypeScript 7-native SQL inference, hover information, and diagnostics.",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "typed-sql",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.134.0"
+  },
+  "categories": ["Programming Languages", "Linters"],
+  "extensionKind": ["workspace"],
+  "main": "./bundle/extension.cjs",
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onCommand:typedSql.showBridgeStatus"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "typedSql.showBridgeStatus",
+        "title": "typed-sql: Show TypeScript Bridge Status"
+      }
+    ],
+    "configuration": {
+      "title": "typed-sql",
+      "properties": {
+        "typedSql.schemaPath": {
+          "type": "string",
+          "default": "src/generated/db/schema.json",
+          "description": "Generated schema snapshot path, relative to the workspace folder containing the TypeScript file."
+        },
+        "typedSql.nativePreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use the TypeScript 7.1 preview API connection for authoritative transformed-source type hovers when available."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --sourcemap"
+  },
+  "dependencies": {
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/ts-bridge": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.134.0",
+    "esbuild": "0.28.2"
+  }
+}

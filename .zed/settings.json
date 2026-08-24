@@ -1,0 +1,19 @@
+{
+  "languages": {
+    "TypeScript": {
+      "language_servers": ["typed-sql"]
+    },
+    "TSX": {
+      "language_servers": ["typed-sql"]
+    }
+  },
+  "lsp": {
+    "typed-sql": {
+      "settings": {
+        "schemaPath": "e2e/postgres/generated/db/schema.json",
+        "projectFile": "e2e/postgres/tsconfig.json",
+        "nativePreview": true
+      }
+    }
+  }
+}

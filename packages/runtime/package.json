@@ -1,0 +1,13 @@
+{
+  "name": "@typed-sql/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/packages/runtime/src/index.js"
+  },
+  "dependencies": {
+    "@typed-sql/ast": "workspace:*",
+    "pg": "8.23.0"
+  }
+}

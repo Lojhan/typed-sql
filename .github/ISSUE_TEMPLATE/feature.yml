@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a grammar, dialect, editor, runtime, or architecture improvement.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the developer problem and why existing behavior is insufficient.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Include example SQL and TypeScript APIs where useful.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Core/compiler
+        - PostgreSQL
+        - MySQL
+        - Runtime adapter
+        - CLI/editor
+        - Documentation
+    validations:
+      required: true

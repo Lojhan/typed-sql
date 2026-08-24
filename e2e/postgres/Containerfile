@@ -1,0 +1,5 @@
+# Official postgres:18.4-bookworm, pinned to its immutable multi-architecture digest.
+FROM docker.io/library/postgres@sha256:83b9631dbb4121d9235ef910018272798b7d3041ef5b716aa481122d4c49353f
+
+COPY schema/001-schema.sql /docker-entrypoint-initdb.d/001-schema.sql
+COPY schema/002-seed.sql /docker-entrypoint-initdb.d/002-seed.sql

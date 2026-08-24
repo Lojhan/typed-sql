@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/ast" },
+    { "path": "./packages/schema" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/compiler" },
+    { "path": "./packages/ts-bridge" },
+    { "path": "./packages/language-server" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/vscode" },
+    { "path": "./test" }
+  ]
+}

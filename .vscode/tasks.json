@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "typed-sql: build",
+      "type": "process",
+      "command": "pnpm",
+      "args": ["build"],
+      "group": "build",
+      "problemMatcher": "$tsc"
+    }
+  ]
+}

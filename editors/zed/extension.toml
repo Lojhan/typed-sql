@@ -1,0 +1,12 @@
+id = "typed-sql"
+name = "typed-sql"
+description = "TypeScript 7-native SQL inference, hover information, and diagnostics."
+version = "0.0.1"
+schema_version = 1
+authors = ["typed-sql contributors"]
+repository = "https://github.com/Lojhan/typed-sql"
+
+[language_servers.typed-sql]
+name = "typed-sql"
+languages = ["TypeScript", "TSX"]
+language_ids = { TypeScript = "typescript", TSX = "typescriptreact" }

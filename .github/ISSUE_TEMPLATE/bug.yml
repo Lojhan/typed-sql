@@ -1,0 +1,34 @@
+name: Bug report
+description: Report incorrect inference, diagnostics, runtime behavior, or tooling.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include production credentials. Use a private security advisory for vulnerabilities.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include minimal SQL, schema snapshot, TypeScript source, and commands.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: typed-sql commit/version, TypeScript version, database and driver versions.
+    validations:
+      required: true

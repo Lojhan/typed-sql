@@ -1,0 +1,16 @@
+{
+  "name": "@typed-sql/ts-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/packages/ts-bridge/src/index.js",
+    "./native-lsp": "./dist/packages/ts-bridge/src/native-lsp.js",
+    "./native-preview": "./dist/packages/ts-bridge/src/native-preview.js"
+  },
+  "dependencies": {
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/typescript-preview": "npm:typescript@7.1.0-dev.20260824.1"
+  }
+}

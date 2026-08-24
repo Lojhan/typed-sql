@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "types": ["node", "vscode"]
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../schema" },
+    { "path": "../ts-bridge" }
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "dialect": "postgres",
+  "version": "18.4",
+  "tables": {
+    "users": {
+      "schema": "public",
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "email_address",
+          "tsType": "string",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "account_status",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "'active'::account_status"
+        },
+        "profile": {
+          "name": "profile",
+          "databaseType": "jsonb",
+          "tsType": "unknown",
+          "nullable": false,
+          "defaultExpression": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "timestamp with time zone",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "CURRENT_TIMESTAMP"
+        }
+      }
+    },
+    "projects": {
+      "schema": "public",
+      "name": "projects",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "uuid",
+          "tsType": "string",
+          "nullable": false
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "character varying(120)",
+          "tsType": "string",
+          "nullable": false
+        },
+        "budget": {
+          "name": "budget",
+          "databaseType": "numeric(14,2)",
+          "tsType": "string",
+          "nullable": true
+        },
+        "tags": {
+          "name": "tags",
+          "databaseType": "text[]",
+          "tsType": "readonly (string)[]",
+          "nullable": false,
+          "array": true,
+          "defaultExpression": "'{}'::text[]"
+        }
+      }
+    },
+    "active_users": {
+      "schema": "public",
+      "name": "active_users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": true
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "email_address",
+          "tsType": "string",
+          "nullable": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "timestamp with time zone",
+          "tsType": "Date",
+          "nullable": true
+        }
+      }
+    }
+  },
+  "enums": {
+    "account_status": ["active", "suspended"]
+  },
+  "domains": {
+    "email_address": {
+      "name": "email_address",
+      "databaseType": "text",
+      "tsType": "string",
+      "nullable": true
+    }
+  },
+  "functions": {
+    "active_user_count()": {
+      "name": "active_user_count",
+      "schema": "public",
+      "argumentTypes": [],
+      "databaseReturnType": "bigint",
+      "returnType": "bigint",
+      "nullable": true,
+      "setReturning": false
+    }
+  }
+}

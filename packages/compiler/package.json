@@ -1,0 +1,11 @@
+{
+  "name": "@typed-sql/compiler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./dist/packages/compiler/src/index.js" },
+  "dependencies": {
+    "@typed-sql/ast": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
+  }
+}

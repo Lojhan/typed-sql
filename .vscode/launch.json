@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "typed-sql extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode",
+        "${workspaceFolder}/e2e/postgres"
+      ],
+      "outFiles": ["${workspaceFolder}/packages/vscode/bundle/**/*.js"],
+      "preLaunchTask": "typed-sql: build"
+    }
+  ]
+}

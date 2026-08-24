@@ -1,0 +1,22 @@
+{
+  "name": "@typed-sql/language-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "typed-sql-language-server": "./dist/packages/language-server/src/server.js"
+  },
+  "exports": {
+    ".": "./dist/packages/language-server/src/index.js"
+  },
+  "scripts": {
+    "start": "node dist/packages/language-server/src/server.js --stdio"
+  },
+  "dependencies": {
+    "@typed-sql/schema": "workspace:*",
+    "@typed-sql/ts-bridge": "workspace:*",
+    "vscode-jsonrpc": "9.0.1",
+    "vscode-languageserver": "10.1.0",
+    "vscode-languageserver-textdocument": "1.0.12"
+  }
+}

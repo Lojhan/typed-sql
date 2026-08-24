@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".."
+  },
+  "include": ["**/*.test.ts"],
+  "exclude": ["fixtures"],
+  "references": [
+    { "path": "../packages/ast" },
+    { "path": "../packages/schema" },
+    { "path": "../packages/runtime" },
+    { "path": "../packages/compiler" },
+    { "path": "../packages/ts-bridge" },
+    { "path": "../packages/language-server" }
+  ]
+}
