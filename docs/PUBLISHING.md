@@ -117,8 +117,9 @@ npm view @typed-sql/language-server dist-tags versions dependencies
 
 ## Phase 4: configure trusted publishing
 
-Use npm `12.0.2` (the `npm trust` command requires at least `11.15.0`), authenticate interactively,
-and create the same trust relationship for each package. The trusted publisher values are:
+Use npm `11.15.0` or newer and authenticate interactively. Node `24.10.0` can use npm `11.19.0`;
+npm `12.0.2` requires Node `24.15.0` or newer. Create the same trust relationship for each package.
+The trusted publisher values are:
 
 - GitHub owner: `Lojhan`
 - repository: `typed-sql`
