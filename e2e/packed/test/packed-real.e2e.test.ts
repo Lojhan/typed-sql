@@ -96,6 +96,10 @@ await describe("packed real-database consumers", async () => {
       await waitForPort(postgresPort, { host: "127.0.0.1", timeout: 90_000 });
       await waitForPort(mysqlPort, { host: "127.0.0.1", timeout: 90_000 });
       await waitForExpectedResult(async () => (await run(engine, ["exec", postgresContainer, "pg_isready", "--username", "typed_sql", "--dbname", "typed_sql_e2e"])).code, 0, { interval: 250, timeout: 90_000, strict: true });
+      await waitForExpectedResult(async () => {
+        const logs = await run(engine, ["logs", mysqlContainer]);
+        return `${logs.stdout}${logs.stderr}`.toLowerCase().includes("mysql init process done. ready for start up.");
+      }, true, { interval: 250, timeout: 90_000, strict: true });
       await waitForExpectedResult(async () => (await run(engine, ["exec", mysqlContainer, "mysqladmin", "ping", "--host=127.0.0.1", "--user=typed_sql", "--password=typed_sql_e2e"])).code, 0, { interval: 250, timeout: 90_000, strict: true });
 
       for (const name of ["postgres", "mysql"]) await mkdir(join(consumer, name, "src"), { recursive: true });

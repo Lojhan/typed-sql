@@ -73,7 +73,7 @@ try {
   try {
     await waitForExpectedResult(async () => {
       const logs = await run(engine, ["logs", containerName]);
-      return `${logs.stdout}${logs.stderr}`.includes("ready for connections");
+      return `${logs.stdout}${logs.stderr}`.toLowerCase().includes("mysql init process done. ready for start up.");
     }, true, { interval: 250, timeout: 90_000, strict: true });
     await waitForPort(port, { host: "127.0.0.1", timeout: 90_000 });
     await waitForExpectedResult(async () => {
