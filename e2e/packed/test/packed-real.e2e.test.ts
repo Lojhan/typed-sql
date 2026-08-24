@@ -76,6 +76,7 @@ await describe("packed real-database consumers", async () => {
         tsx: `link:${join(workspace, "node_modules", "tsx")}`,
         typescript: `link:${join(workspace, "node_modules", "typescript")}`,
         "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
+        "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
         "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
       };
       await write(join(consumer, "package.json"), `${JSON.stringify({
