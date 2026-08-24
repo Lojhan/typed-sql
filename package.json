@@ -22,11 +22,15 @@
     "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm test:contracts",
     "test:contracts": "poku test/contracts --reporter=compact --enforce",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
+    "release:artifacts": "pnpm build && pnpm test:pack",
+    "release:assert": "node scripts/assert-release-channel.mjs",
+    "release:beta": "pnpm release:assert beta && changeset publish --tag next",
+    "release:stable": "pnpm release:assert stable && changeset publish --tag latest",
+    "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --prod --audit-level high",
     "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
-    "version-packages": "changeset version",
-    "release": "changeset publish"
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.1",

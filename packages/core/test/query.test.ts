@@ -75,7 +75,7 @@ await describe("core contracts", async () => {
   const dialect: DialectPlugin<SchemaSnapshot, Record<string, never>> = {
     contractVersion: DIALECT_CONTRACT_VERSION,
     id: "test",
-    packageVersion: "1.0.0",
+    grammarVersion: "1.0.0",
     sqlModule: "@example/typed-sql-test",
     defaultTypePolicy: {},
     placeholder: (index) => `?${index}`,

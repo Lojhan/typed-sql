@@ -7,7 +7,7 @@ const schema = { formatVersion: 1, dialect: "performance", tables: {} } as const
 const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
   contractVersion: 1,
   id: "performance",
-  packageVersion: "1.0.0",
+  grammarVersion: "1.0.0",
   sqlModule: "@example/typed-sql-performance",
   defaultTypePolicy: {},
   placeholder: (index) => `$${index}`,

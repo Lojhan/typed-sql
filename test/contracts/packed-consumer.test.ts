@@ -34,6 +34,7 @@ await describe("packed public packages", async () => {
       for (const directory of publicPackages) {
         const packageManifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8")) as {
           readonly name: string;
+          readonly version: string;
         };
         const before = new Set(await readdir(tarballs));
         await execFile("pnpm", ["--silent", "--filter", packageManifest.name, "pack", "--pack-destination", tarballs], { cwd: workspace });
@@ -44,6 +45,21 @@ await describe("packed public packages", async () => {
         strict.ok(!listing.includes("package/src/"), `${packageManifest.name} published source files`);
         strict.ok(!listing.includes("package/test/"), `${packageManifest.name} published tests`);
         strict.ok(!listing.includes(".tsbuildinfo"), `${packageManifest.name} published build state`);
+        for (const document of ["package/README.md", "package/LICENSE", "package/CHANGELOG.md", "package/package.json"]) {
+          strict.ok(listing.includes(document), `${packageManifest.name} tarball must include ${document}`);
+        }
+        const packedManifest = JSON.parse(
+          (await execFile("tar", ["-xOf", join(tarballs, archive), "package/package.json"])).stdout,
+        ) as {
+          readonly name: string;
+          readonly version: string;
+          readonly dependencies?: Readonly<Record<string, string>>;
+        };
+        strict.strictEqual(packedManifest.name, packageManifest.name);
+        strict.strictEqual(packedManifest.version, packageManifest.version);
+        for (const dependency of Object.values(packedManifest.dependencies ?? {})) {
+          strict.ok(!dependency.startsWith("workspace:"), `${packageManifest.name} published an unresolved workspace dependency`);
+        }
       }
 
       await writeFile(join(consumer, "package.json"), `${JSON.stringify({

@@ -85,7 +85,8 @@ export interface DialectAnalysis {
 export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly contractVersion: typeof DIALECT_CONTRACT_VERSION;
   readonly id: string;
-  readonly packageVersion: string;
+  /** Version of the grammar/snapshot semantics, independent of the npm artifact version. */
+  readonly grammarVersion: string;
   /** Exact package entrypoint from which applications import the dialect's `sql` tag. */
   readonly sqlModule: string;
   readonly defaultTypePolicy: Policy;

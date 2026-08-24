@@ -1,6 +1,6 @@
 # Diagnostic codes
 
-Diagnostic meanings are stable from 1.0. New codes may be added in minor releases; removing a code
+Diagnostic meanings become stable at 1.0. New codes may be added in minor releases; removing a code
 or changing its meaning requires a major release. The machine-readable registry is exported as
 `diagnosticRegistry` from `@typed-sql/core`.
 

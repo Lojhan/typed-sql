@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     const metadata = await generateSchemaPackage(current as never, {
       outDir: fromConfig(loaded.directory, parsed.options.out ?? config.outDir),
       typePolicy: policy,
-      dialectVersion: dialect.packageVersion,
+      dialectVersion: dialect.grammarVersion,
     });
     process.stdout.write(`Generated schema ${metadata.schemaHash}\n`);
     return;

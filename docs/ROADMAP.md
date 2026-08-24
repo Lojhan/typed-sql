@@ -2,9 +2,10 @@
 
 The roadmap is gate-based: versions advance when their acceptance criteria pass, not on a calendar.
 
-Current implementation: all engineering gates through the 1.0 stable contract are complete. The
-remaining release operations are the maintainer-controlled npm bootstrap/trusted-publisher setup
-and protected workflow dispatch.
+Current implementation: the public package graph is at `1.0.0-beta.0`. The engineering gates below
+are implemented and exercised in CI; stable 1.0 still requires registry bootstrap, external beta
+use, a soak period, final API review, and the acceptance criteria in
+[`PUBLISHING.md`](./PUBLISHING.md).
 
 ## 0.1 — open-source foundation
 
@@ -64,6 +65,10 @@ and protected workflow dispatch.
 5. PostgreSQL static-query inference and runtime codecs pass real-database compatibility suites.
 6. Unsupported SQL fails safely as a diagnostic or `Query<unknown>`—never `any`.
 7. Releases are reproducible, provenance-attested, changelogged and covered by a security policy.
+
+The repository meeting these engineering conditions is necessary but not sufficient for a stable
+release. The beta must also prove installation, editor integration, and database behavior outside
+workspace fixtures before `latest` can point to 1.0.0.
 
 ## Release mechanics
 

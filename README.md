@@ -1,37 +1,101 @@
 # typed-sql
 
-typed-sql is a TypeScript 7 SQL compiler that turns static SQL templates into exact query-row
-types from a versioned database snapshot. SQL remains the authoring language; the compiler, CLI,
-Zed language server, and VS Code extension all consume the same installed dialect plugin.
+### Write SQL. Hover the query. Get the exact row type.
 
-Version 1.0 defines the stable contract. PostgreSQL and MySQL inference, catalog
-generation, editor integration, driver adapters, and drift detection are exercised against real
-digest-pinned database containers. Review the dialect support matrices before adopting it.
+[![CI](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![TypeScript 7](https://img.shields.io/badge/TypeScript-7.0.2-3178c6.svg)](./docs/COMPATIBILITY.md)
+[![PostgreSQL and MySQL](https://img.shields.io/badge/dialects-PostgreSQL%20%7C%20MySQL-336791.svg)](./docs/ARCHITECTURE.md)
 
-## Why the package split matters
+typed-sql is a TypeScript 7 SQL compiler. It reads ordinary static SQL templates, resolves them
+against a versioned snapshot of your real database, and makes the inferred result flow through your
+application—without a query builder, generated query wrappers, or imports from a generated folder.
 
-Applications choose both their dialect and their driver. Installing a grammar never silently
-installs a database client:
+```ts
+import { sql, typePolicy } from "@typed-sql/postgres";
+import { createPgDatabase } from "@typed-sql/postgres/pg";
 
-```sh
-pnpm add @typed-sql/core @typed-sql/postgres pg
-pnpm add @typed-sql/core @typed-sql/mysql mysql2
-pnpm add -D @typed-sql/cli typescript@7.0.2
+const dashboardQuery = sql`
+  WITH project_totals AS (
+    SELECT organization_id, count(*) AS project_count, sum(budget) AS total_budget
+    FROM projects
+    GROUP BY organization_id
+  )
+  SELECT
+    organizations.id AS organization_id,
+    organizations.name,
+    project_totals.project_count,
+    project_totals.total_budget,
+    organization_health(organizations.id) AS health
+  FROM organizations
+  LEFT JOIN project_totals ON project_totals.organization_id = organizations.id
+  ORDER BY organizations.name
+`;
+
+const database = await createPgDatabase({
+  connectionString: process.env.DATABASE_URL!,
+  typePolicy,
+});
+
+const rows = await database.execute(dashboardQuery);
 ```
 
-- `@typed-sql/core` owns `sql`, `Query<Row>`, the neutral query IR, and the dialect contract.
-- `@typed-sql/postgres` owns PostgreSQL grammar, resolution, catalogs, codecs, and the optional
-  `@typed-sql/postgres/pg` integration.
-- `@typed-sql/mysql` owns the equivalent MySQL surface and optional
-  `@typed-sql/mysql/mysql2` integration.
-- `pg` and `mysql2` are not declared by library packages. The application owns driver version, installation, pool,
-  configuration, and lifecycle.
-- A grammar may install declarations-only support such as `@types/pg` so its optional adapter is
-  typecheckable immediately; this never installs or loads the runtime driver.
-- CLI and editor packages discover the dialect from `typed-sql.config.ts`; they do not depend on
-  PostgreSQL.
+Hover `rows`:
 
-## Configure and generate
+```ts
+readonly {
+  organization_id: string;
+  name: string;
+  project_count: bigint | null;
+  total_budget: string | null;
+  health: "healthy" | "attention" | "idle" | null;
+}[]
+```
+
+That type is not handwritten. It comes from the SQL, join nullability, aggregate semantics,
+PostgreSQL function catalog, enum definition, configured runtime codecs, and your generated schema
+snapshot. Change the query or schema and the type changes with it.
+
+> **Release status:** `1.0.0-beta` is being prepared for the first npm publication. The compiler,
+> dialects, real-database E2E, packed-consumer flow, and editor language server are implemented. See
+> [Publishing](./docs/PUBLISHING.md) for the remaining registry bootstrap steps.
+
+## Why typed-sql feels different
+
+- **SQL stays SQL.** CTEs, joins, subqueries, aggregates, window functions, database functions, DML,
+  and dialect-specific syntax remain visible to your database team.
+- **Types reach application values.** The query is `Query<Row>` and `database.execute(query)` is
+  `readonly Row[]`; inference is not limited to a decorative SQL hover.
+- **The database is the source of truth.** The CLI introspects real PostgreSQL or MySQL catalogs into
+  a deterministic, reviewable snapshot.
+- **No generated application API.** Application code imports `sql` from its installed dialect
+  package. Generated files contain schema metadata only.
+- **Drivers belong to the application.** Installing a grammar never installs `pg` or `mysql2`.
+- **Unsupported SQL fails safely.** Ambiguous, dynamic, invalid, or unsupported SQL becomes a
+  diagnostic or `Query<unknown>`—never `any` and never an optimistic lie.
+- **One compiler everywhere.** CLI checks, Zed, VS Code, and third-party grammar plugins share the
+  same dialect contract, schema model, inference engine, and diagnostic codes.
+
+## Install the beta
+
+PostgreSQL:
+
+```sh
+pnpm add @typed-sql/core@next @typed-sql/postgres@next pg
+pnpm add -D @typed-sql/cli@next @typed-sql/language-server@next typescript@7.0.2
+```
+
+MySQL:
+
+```sh
+pnpm add @typed-sql/core@next @typed-sql/mysql@next mysql2
+pnpm add -D @typed-sql/cli@next @typed-sql/language-server@next typescript@7.0.2
+```
+
+The driver is deliberately explicit. `@typed-sql/postgres` contains PostgreSQL grammar, catalog,
+resolution, and codecs; `pg` is your runtime dependency. The MySQL boundary works the same way.
+
+## Configure the database contract
 
 Create `typed-sql.config.ts`:
 
@@ -40,10 +104,8 @@ import { defineConfig } from "@typed-sql/core";
 import { postgres, typePolicy } from "@typed-sql/postgres";
 import { pg } from "@typed-sql/postgres/pg";
 
-const dialect = postgres({ typePolicy });
-
 export default defineConfig({
-  dialect,
+  dialect: postgres({ typePolicy }),
   schema: {
     file: "src/generated/db/schema.json",
     provider: pg({
@@ -58,7 +120,7 @@ export default defineConfig({
 });
 ```
 
-Then generate and check:
+Generate the snapshot, verify a query through TypeScript 7, and detect schema drift:
 
 ```sh
 pnpm exec typed-sql generate
@@ -66,71 +128,114 @@ pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
 pnpm exec typed-sql drift
 ```
 
-Credentials stay in the config callback/environment and are not written to generated files.
-Generation produces a deterministic `schema.json` plus a schema-only `index.ts` for inspection.
-Application code never imports generated files; CLI and editor tooling associate the configured
-schema with the dialect package's `sql` export.
+Credentials remain in your config callback or environment. They are never written to generated
+files. Commit the generated snapshot so schema changes and type-policy changes are reviewable.
 
-## Query and execute
+## Execute with the driver you chose
+
+Interpolations become driver parameters. Identifiers and intentionally raw fragments are explicit:
 
 ```ts
-import { sql, typePolicy } from "@typed-sql/postgres";
-import { createPgDatabase } from "@typed-sql/postgres/pg";
-
+const accountId = 42n;
 const query = sql`
-  SELECT account.id, account.email
+  SELECT account.id, account.email, account.status
   FROM accounts AS account
-  WHERE account.id = ${1n}
+  WHERE account.id = ${accountId}
 `;
 
-const database = await createPgDatabase({
-  connectionString: process.env.DATABASE_URL!,
-  typePolicy,
-});
+const rows = await database.execute(query);
 
-try {
-  const rows = await database.execute(query);
-  // readonly { id: bigint; email: string }[] in transformed TypeScript 7 programs
-} finally {
-  await database.close();
-}
+const byColumn = sql`SELECT ${sql.ident("display_name")} FROM accounts`;
+const trustedMigrationFragment = sql.raw("CURRENT_TIMESTAMP");
 ```
 
-Ordinary interpolations become values. Use `sql.ident()` for quoted identifiers and reserve
-`sql.raw()` for trusted static SQL. Dynamic/unsupported SQL must fail safely with a diagnostic or
-`Query<unknown>`; it must never become `any` or a confidently wrong row type.
+Use `sql.raw()` only for trusted static SQL. It is intentionally not an escaping API.
 
-## TypeScript 7 and editors
+## Editor experience
 
-The workspace strictly pins TypeScript `7.0.2` for builds and a separately aliased `7.1.0-dev`
-snapshot for the native semantic bridge. `scripts/require-typescript-7.mjs` rejects a non-7.x
-compiler. The preview bridge applies an in-memory query overlay, asks TypeScript for the real type,
-and maps positions back to the unchanged source.
+The typed-sql language server is a complete TypeScript 7 semantic proxy: it applies the inferred
+query overlay in memory, asks the native TypeScript checker for the real program type, and maps
+hover/diagnostic positions back to the unchanged source.
 
-For Zed, build and install `editors/zed` as a dev extension. For VS Code, launch the included
-extension development configuration. Both discover `typed-sql.config.ts`; optional `configPath`,
-`schemaPath`, and `projectFile` settings are only overrides. See the
-[Zed guide](./editors/zed/README.md) and [language-server guide](./packages/language-server/README.md).
+- **Zed:** the repository includes a native extension and a project-local configuration. The
+  typed-sql server replaces the ordinary TypeScript server so Zed does not show a competing
+  `Query<unknown>`. See the [Zed guide](./editors/zed/README.md).
+- **VS Code:** the experimental extension provides inferred hovers, SQL diagnostics, completion,
+  definitions, quick fixes, cancellation, and bounded caches. See the
+  [VS Code guide](./packages/vscode/README.md).
+- **Any LSP client:** run `typed-sql-language-server --stdio` and provide the config/schema/project
+  settings documented by [`@typed-sql/language-server`](./packages/language-server/README.md).
 
-## Develop and verify
+TypeScript `7.0.2` is the correctness compiler. A separately pinned `7.1` preview lives behind an
+isolated process boundary for the editor bridge, so upstream API churn cannot leak into the grammar
+or query contract. [Why TypeScript 7 matters](./docs/TYPESCRIPT_7.md) explains what became possible,
+what was already possible with older compiler plugins, and which upstream surface is still unstable.
 
-Requirements are Node.js 22.11+, pnpm 10.32.1, and Podman or Docker for the real database suite.
+## Packages
+
+| Package | What it owns | Installs a DB driver? |
+| --- | --- | --- |
+| [`@typed-sql/core`](./packages/core/README.md) | `sql`, `Query<Row>`, neutral query IR, database and dialect contracts | No |
+| [`@typed-sql/postgres`](./packages/postgres/README.md) | PostgreSQL grammar, catalog introspection, resolver, codecs, optional `/pg` adapter | No |
+| [`@typed-sql/mysql`](./packages/mysql/README.md) | MySQL grammar, catalog introspection, resolver, codecs, optional `/mysql2` adapter | No |
+| [`@typed-sql/cli`](./packages/cli/README.md) | `generate`, `check`, and `drift` commands | No |
+| [`@typed-sql/language-server`](./packages/language-server/README.md) | Grammar-neutral TypeScript/LSP semantic proxy | No |
+| [`@typed-sql/compiler`](./packages/compiler/README.md) | Static-query extraction, source transformation, and checking | No |
+| [`@typed-sql/schema`](./packages/schema/README.md) | Versioned snapshots, deterministic generation, hashes, migrations, and drift | No |
+| [`@typed-sql/config`](./packages/config/README.md) | Config discovery and executable TypeScript config loading | No |
+| [`@typed-sql/ast`](./packages/ast/README.md) | Bounded SQL tokenizer, parser, AST, and source ranges | No |
+| [`@typed-sql/ts-bridge`](./packages/ts-bridge/README.md) | In-memory TypeScript 7 query overlays and preview-process bridge | No |
+
+This split is a contract, not an organizational preference. The compiler does not know package
+names, database engines, or drivers. It loads the installed dialect from the project config.
+
+## Supported SQL
+
+PostgreSQL and MySQL both cover the static application surface needed for serious projects:
+
+- aliases, stars, schema-qualified tables, and outer-join nullability;
+- CTEs, derived/correlated/scalar subqueries, and common expressions;
+- grouping, aggregates, windows, `CASE`, casts, enums, domains, JSON, arrays, dates, and binary data;
+- catalog/user functions with conservative overload and nullability handling;
+- `INSERT`, `UPDATE`, `DELETE`, and supported result surfaces;
+- parameterized execution and nested transaction/savepoint adapters.
+
+The exact dialect boundaries are versioned in the
+[PostgreSQL matrix](./docs/POSTGRESQL_SUPPORT.md) and [MySQL matrix](./docs/MYSQL_SUPPORT.md).
+
+## Proof, not promises
+
+The release gate exercises what users actually install:
+
+- package-owned Poku suites with 95% statement/line/function and 90% branch gates on critical code;
+- 2,000 deterministic parser fuzz inputs and explicit parser/token resource limits;
+- TypeScript `7.0.2` transformed-program checks and an isolated `7.1` preview semantic bridge;
+- real, digest-pinned PostgreSQL `18.4` and MySQL `8.4.11` containers;
+- catalog generation, exact type assertions, runtime execution, clean drift, and failing drift;
+- packed tarballs installed in fresh consumers with no workspace links and no hidden drivers;
+- fresh packed PostgreSQL and MySQL applications using application-owned `pg` and `mysql2`;
+- VSIX packaging plus native Zed WASM build and tests.
+
+Run the same local gates:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm verify
 pnpm e2e:postgres
 pnpm e2e:mysql
+pnpm e2e:packed
 ```
 
-`pnpm verify` runs package-owned Poku tests, TypeScript 7 checks, coverage gates, public-package
-graph rules, isolated tarball installation, and builds. The PostgreSQL E2E builds a digest-pinned
-image, initializes a real schema, introspects it through the public CLI, checks types, executes the
-query through the application-owned driver, and proves both clean and failing drift paths.
+## Project contract
 
-Read [Architecture](./docs/ARCHITECTURE.md), [Roadmap](./docs/ROADMAP.md),
-[Contributing](./CONTRIBUTING.md), [Releasing](./docs/RELEASING.md), and
-[Security](./SECURITY.md) for the public project contract. The stable
-[diagnostics](./docs/DIAGNOSTICS.md), [compatibility matrix](./docs/COMPATIBILITY.md),
-[PostgreSQL support](./docs/POSTGRESQL_SUPPORT.md), [MySQL support](./docs/MYSQL_SUPPORT.md), and
-[1.0 migration guide](./docs/MIGRATING_TO_1.0.md) are versioned alongside the implementation.
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Compatibility and performance](./docs/COMPATIBILITY.md)
+- [Why TypeScript 7 matters](./docs/TYPESCRIPT_7.md)
+- [Diagnostic code registry](./docs/DIAGNOSTICS.md)
+- [Roadmap to 1.0](./docs/ROADMAP.md)
+- [Migration to 1.0](./docs/MIGRATING_TO_1.0.md)
+- [Publishing and registry bootstrap](./docs/PUBLISHING.md)
+- [Security policy](./SECURITY.md)
+- [Contributing](./CONTRIBUTING.md)
+
+typed-sql is open source under the [MIT License](./LICENSE).

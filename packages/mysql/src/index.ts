@@ -22,7 +22,7 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
   return Object.freeze({
     contractVersion: DIALECT_CONTRACT_VERSION,
     id: "mysql",
-    packageVersion: MYSQL_DIALECT_VERSION,
+    grammarVersion: MYSQL_DIALECT_VERSION,
     sqlModule: "@typed-sql/mysql",
     defaultTypePolicy,
     placeholder(index: number): string {

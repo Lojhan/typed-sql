@@ -1,0 +1,17 @@
+{
+  "channel": "beta",
+  "series": "1.0.0",
+  "npmTag": "next",
+  "packages": [
+    "@typed-sql/core",
+    "@typed-sql/ast",
+    "@typed-sql/schema",
+    "@typed-sql/config",
+    "@typed-sql/compiler",
+    "@typed-sql/postgres",
+    "@typed-sql/mysql",
+    "@typed-sql/ts-bridge",
+    "@typed-sql/cli",
+    "@typed-sql/language-server"
+  ]
+}

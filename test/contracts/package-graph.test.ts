@@ -20,6 +20,7 @@ interface PackageManifest {
 const directory = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(directory, "../..");
 const forbiddenDrivers = new Set(["pg", "mysql2", "better-sqlite3", "sqlite3"]);
+const publicPackages = ["ast", "core", "config", "schema", "postgres", "mysql", "compiler", "cli", "ts-bridge", "language-server"] as const;
 
 async function manifest(packageName: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(join(workspace, "packages", packageName, "package.json"), "utf8")) as PackageManifest;
@@ -91,15 +92,43 @@ await describe("public package graph", async () => {
     }
   });
 
-  await it("publishes consistent Lojhan-owned 1.0 package metadata", async () => {
-    for (const packageName of ["ast", "core", "config", "schema", "postgres", "mysql", "compiler", "cli", "ts-bridge", "language-server"]) {
+  await it("publishes consistent Lojhan-owned release metadata", async () => {
+    const releaseManifest = JSON.parse(await readFile(join(workspace, "release-manifest.json"), "utf8")) as {
+      readonly channel: "beta" | "stable";
+      readonly series: string;
+      readonly packages: readonly string[];
+    };
+    const betaPattern = new RegExp(`^${releaseManifest.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
+    const expectedLicense = await readFile(join(workspace, "LICENSE"), "utf8");
+    strict.deepStrictEqual(releaseManifest.packages.slice().sort(), publicPackages.map((name) => `@typed-sql/${name}`).sort());
+    const releaseOrder = new Map(releaseManifest.packages.map((name, index) => [name, index]));
+    for (const packageName of publicPackages) {
       const packageManifest = await manifest(packageName);
-      strict.strictEqual(packageManifest.version, "1.0.0");
+      if (releaseManifest.channel === "beta") {
+        strict.ok(betaPattern.test(packageManifest.version ?? ""), `${packageManifest.name} must be in the declared beta series`);
+      } else strict.strictEqual(packageManifest.version, releaseManifest.series);
       strict.notStrictEqual(packageManifest.private, true);
       strict.strictEqual(packageManifest.license, "MIT");
       strict.strictEqual(packageManifest.author, "Lojhan");
       strict.ok(packageManifest.repository?.url?.includes("github.com/Lojhan/typed-sql"));
-      strict.ok(packageManifest.files?.every((entry) => entry.startsWith("dist/")));
+      strict.ok(packageManifest.files?.some((entry) => entry.startsWith("dist/")));
+      for (const document of ["README.md", "LICENSE", "CHANGELOG.md"]) {
+        strict.ok(packageManifest.files?.includes(document), `${packageManifest.name} must publish ${document}`);
+      }
+      strict.strictEqual(
+        await readFile(join(workspace, "packages", packageName, "LICENSE"), "utf8"),
+        expectedLicense,
+        `${packageManifest.name} must ship the complete repository license`,
+      );
+      for (const dependency of Object.keys(packageManifest.dependencies ?? {})) {
+        const dependencyIndex = releaseOrder.get(dependency);
+        if (dependencyIndex !== undefined) {
+          strict.ok(
+            dependencyIndex < (releaseOrder.get(packageManifest.name) ?? -1),
+            `${dependency} must precede ${packageManifest.name} in bootstrap order`,
+          );
+        }
+      }
     }
     strict.ok(!(await source("core")).toLowerCase().includes("vitable"));
   });

@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/postgres",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.0",
   "description": "PostgreSQL grammar, schema introspection, type resolution, and driver-neutral runtime codecs for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
@@ -19,7 +19,10 @@
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts",
-    "dist/**/*.map"
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public",

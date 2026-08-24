@@ -27,7 +27,7 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
   return Object.freeze({
     contractVersion: DIALECT_CONTRACT_VERSION,
     id: "postgres",
-    packageVersion: POSTGRES_DIALECT_VERSION,
+    grammarVersion: POSTGRES_DIALECT_VERSION,
     sqlModule: "@typed-sql/postgres",
     defaultTypePolicy,
     placeholder(index: number): string {

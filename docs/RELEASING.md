@@ -1,48 +1,51 @@
 # Releasing
 
-typed-sql uses Changesets and publishes public packages independently under the `@typed-sql`
-scope. Version 1.0 freezes the package, schema, diagnostics, and dialect contracts; breaking changes
-require a major release.
+typed-sql uses Changesets to version independently published packages under the `@typed-sql` scope.
+The current channel and version are declared in [`release-manifest.json`](../release-manifest.json).
+The complete one-time npm bootstrap and stable-promotion procedure is in
+[`PUBLISHING.md`](./PUBLISHING.md).
 
 ## Change flow
 
-1. Add a package-scoped changeset with `pnpm changeset`.
-2. Merge to `main`. The `release.yml` version job creates or updates the Version Packages PR.
-3. Review generated versions/changelogs and merge that PR.
-4. Run the protected **Release** workflow manually. It reruns `pnpm verify`, publishes with npm
-   trusted publishing, pushes tags, and creates GitHub releases.
+1. Add a package-scoped changeset with `pnpm changeset` for every user-visible change.
+2. Merge the change to `main`.
+3. Review and merge the Version Packages PR created by `release.yml`.
+4. Wait for all required CI checks on the exact version commit.
+5. Dispatch the protected Release workflow with the channel matching the version:
+   - `beta` for `1.0.0-beta.*`, published under `next`;
+   - `stable` only after prerelease mode has been exited, published under `latest`.
 
-The version job has no npm/OIDC authority. The publish job has `id-token: write`, runs only on a
-GitHub-hosted runner, and is protected by the `npm` GitHub environment.
+The version job has no npm/OIDC authority. The publish job runs on a GitHub-hosted runner, has
+`id-token: write`, is restricted to protected `main`, and requires approval through the `npm`
+environment.
 
-## npm trusted publisher setup
-
-For every public package, configure the npm trusted publisher with:
-
-- owner: `Lojhan`;
-- repository: `typed-sql`;
-- workflow filename: `release.yml`;
-- environment: `npm`;
-- allowed action: `npm publish`.
-
-The workflow uses Node 24 and npm 11.5.1 because current npm trusted publishing requires Node
-22.14+ and npm 11.5.1+. No long-lived npm token is configured. Trusted GitHub publishing adds
-provenance automatically for public packages from a public repository.
-
-An npm package must exist before its trusted publisher can be configured. Bootstrap each package
-once from a maintainer machine with short-lived interactive authentication, then configure OIDC
-before using the workflow. After OIDC succeeds, disallow automation tokens in npm package settings.
-
-References: [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/) and
-[Changesets publish action](https://github.com/changesets/action/blob/main/publish/README.md).
-
-## Release gates
+## Required gates
 
 Publishing is blocked unless all of these pass:
 
-- TypeScript 7 typecheck/build;
+- TypeScript 7 typecheck and build;
 - package-owned Poku suites;
-- 95% statement/line/function and 90% branch coverage for gated compiler-critical packages;
+- 95% statement/line/function and 90% branch coverage for compiler-critical packages;
 - forbidden-driver and grammar-neutral dependency contracts;
-- all public tarballs pack cleanly and install in an isolated no-driver consumer;
-- real PostgreSQL and MySQL container generation, execution, and drift flows in CI.
+- public tarballs containing compiled output, declarations, README, LICENSE, and CHANGELOG;
+- isolated tarball installation without database drivers;
+- real PostgreSQL and MySQL generation, inference, execution, and drift flows;
+- packed real-database consumers with no workspace links;
+- production dependency audit with no high-severity advisory.
+
+## Trusted publishing
+
+Every package trusts the same GitHub Actions identity:
+
+- owner: `Lojhan`
+- repository: `typed-sql`
+- workflow: `release.yml`
+- environment: `npm`
+- allowed action: `npm publish`
+
+The release job uses Node 24 and npm 12.0.2. OIDC creates short-lived credentials and npm
+attaches provenance because both repository and packages are public. No long-lived npm token belongs
+in GitHub or the repository.
+
+After trusted publishing is operational, package settings should require 2FA and disallow
+traditional tokens. See [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/).

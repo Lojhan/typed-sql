@@ -1,6 +1,6 @@
 # typed-sql specification
 
-Status: 1.0 release-candidate contract. Its gates and evidence are tracked in
+Status: 1.0 beta contract. Its stable-release gates and evidence are tracked in
 [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ## Goal
@@ -39,8 +39,9 @@ the CLI, and editors without changing the runtime SQL authoring model.
 
 ## Dialect contract v1
 
-A dialect has a stable id/package version, an exact `sqlModule` package entrypoint, default policy,
-parameter placeholder function, SQL analysis function, and snapshot validator. `defineConfig`
+A dialect has a stable id/grammar version, an exact `sqlModule` package entrypoint, default policy,
+parameter placeholder function, SQL analysis function, and snapshot validator. The grammar version
+tracks snapshot semantics independently of npm patch/prerelease versions. `defineConfig`
 rejects a different contract version. The compiler recognizes only the configured `sqlModule` and
 does not branch on dialect ids or assume `@typed-sql/*` package names.
 
@@ -75,6 +76,8 @@ The build compiler is strictly TypeScript 7.0. The semantic bridge uses an exact
 snapshot until the relevant native API stabilizes. It creates an in-memory transformed snapshot,
 asks TypeScript for authoritative query/downstream types, and maps all positions to original source.
 The checked-in CLI transform is the CI correctness mechanism; editor availability is not required.
+The preview API boundary and its pre-7 alternatives are documented in
+[`docs/TYPESCRIPT_7.md`](./docs/TYPESCRIPT_7.md).
 
 ## Verification requirements
 

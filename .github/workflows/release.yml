@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: npm release channel
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - stable
 
 concurrency:
   group: release-${{ github.ref }}
@@ -61,14 +70,28 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm install --global npm@11.5.1
+      - run: npm install --global npm@12.0.2
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
       - run: pnpm e2e:packed
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - run: pnpm audit --prod --audit-level high
+      - name: Assert beta release contract
+        if: inputs.channel == 'beta'
+        run: pnpm release:assert beta
+      - name: Assert stable release contract
+        if: inputs.channel == 'stable'
+        run: pnpm release:assert stable
       - uses: changesets/action/publish@v2
+        if: inputs.channel == 'beta'
         with:
-          script: pnpm release
+          script: pnpm release:beta
+          create-github-releases: true
+          push-git-tags: true
+      - uses: changesets/action/publish@v2
+        if: inputs.channel == 'stable'
+        with:
+          script: pnpm release:stable
           create-github-releases: true
           push-git-tags: true
