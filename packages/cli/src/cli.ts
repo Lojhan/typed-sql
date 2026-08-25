@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { checkFile } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
@@ -13,6 +14,48 @@ import {
 interface ParsedArguments {
   readonly command?: string;
   readonly options: Readonly<Record<string, string>>;
+}
+
+const commands = new Set(["check", "generate", "drift"]);
+
+async function packageVersion(): Promise<string> {
+  let directory = dirname(fileURLToPath(import.meta.url));
+  const root = parse(directory).root;
+  while (directory !== root) {
+    try {
+      const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8")) as {
+        readonly name?: string;
+        readonly version?: string;
+      };
+      if (manifest.name === "@typed-sql/cli" && manifest.version !== undefined) return manifest.version;
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    }
+    directory = dirname(directory);
+  }
+  throw new Error("Could not determine the @typed-sql/cli version");
+}
+
+function help(version: string): string {
+  return `typed-sql ${version}
+
+Usage:
+  typed-sql <command> [options]
+
+Commands:
+  check      Infer SQL result types and verify them with TypeScript 7
+  generate   Introspect or load a schema snapshot and generate the typed contract
+  drift      Compare the generated contract with the live database catalog
+
+Global options:
+  -h, --help       Show this help
+  -v, --version    Show the installed CLI version
+
+Examples:
+  typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
+  typed-sql generate --config typed-sql.config.ts --out generated/db
+  typed-sql drift --config typed-sql.config.ts
+`;
 }
 
 function parseArguments(args: readonly string[]): ParsedArguments {
@@ -44,7 +87,21 @@ async function readSnapshot(path: string, validate: (value: unknown) => SchemaSn
 }
 
 async function main(): Promise<void> {
-  const parsed = parseArguments(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  const version = await packageVersion();
+  if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
+    process.stdout.write(help(version));
+    return;
+  }
+  if (args.includes("--version") || args.includes("-v")) {
+    process.stdout.write(`${version}\n`);
+    return;
+  }
+
+  const parsed = parseArguments(args);
+  if (parsed.command === undefined || !commands.has(parsed.command)) {
+    throw new Error(`Unknown command ${parsed.command ?? "<none>"}. Run typed-sql --help for usage.`);
+  }
   const loaded = await loadConfig({ ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }) });
   const config = loaded.config;
   const dialect = config.dialect;
@@ -95,10 +152,6 @@ async function main(): Promise<void> {
     } else process.stdout.write("No schema drift detected\n");
     return;
   }
-
-  process.stdout.write("typed-sql check --config typed-sql.config.ts --file <query.ts> [--project tsconfig.json]\n");
-  process.stdout.write("typed-sql generate --config typed-sql.config.ts [--out <directory>]\n");
-  process.stdout.write("typed-sql drift --config typed-sql.config.ts\n");
 }
 
 main().catch((error: unknown) => {

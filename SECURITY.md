@@ -29,3 +29,16 @@ as untrusted input. Database credentials and executable config files remain appl
 Config files are executable TypeScript and therefore have the same authority as other application
 build scripts. Do not run typed-sql against an untrusted repository outside an appropriate sandbox.
 Live introspection should use a least-privilege, read-only database account where possible.
+
+## Repository and release controls
+
+- `main` accepts changes only through pull requests with an up-to-date branch, resolved
+  conversations, signed commits, linear history, and all required CI checks. Administrators are
+  subject to the same rules.
+- GitHub Actions run with read-only permissions by default. External actions are allowlisted,
+  required to use full commit SHAs, and maintained through Dependabot.
+- Dependency Review blocks pull requests that add high-severity vulnerable dependencies. CodeQL,
+  Dependabot security updates, secret scanning, and push protection are enabled.
+- npm publication uses the protected `npm` environment and trusted publishing through OIDC. Package
+  publishing requires 2FA and rejects traditional automation tokens.
+- Published `@typed-sql/*` GitHub tags cannot be deleted or moved.
