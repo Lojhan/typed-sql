@@ -12,6 +12,11 @@ Install one dialect and its application-owned driver, then create `typed-sql.con
 the [root guide](https://github.com/Lojhan/typed-sql#configure-the-database-contract).
 
 ```sh
+pnpm exec typed-sql --help
+pnpm exec typed-sql --version
+```
+
+```sh
 # Introspect the configured database and write schema metadata.
 pnpm exec typed-sql generate
 
