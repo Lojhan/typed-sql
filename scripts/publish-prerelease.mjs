@@ -58,8 +58,6 @@ export async function loadPrereleasePlan(workspace = defaultWorkspace) {
     packages.push({ name: manifest.name, version: manifest.version, directory });
   }
 
-  const versions = new Set(packages.map(({ version }) => version));
-  if (versions.size !== 1) throw new Error(`Release packages disagree on version: ${[...versions].join(", ")}`);
   return { npmTag: release.npmTag, packages };
 }
 
