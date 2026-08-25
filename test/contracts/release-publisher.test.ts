@@ -88,7 +88,7 @@ await describe("prerelease publisher", async () => {
     strict.deepStrictEqual(events, ["publish:@typed-sql/core", "publish:@typed-sql/ast"]);
   });
 
-  await it("loads and validates the declared package graph", async () => {
+  await it("loads independently versioned packages in the declared graph", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "typed-sql-publish-"));
     try {
       await writeFile(join(temporary, "release-manifest.json"), JSON.stringify({
@@ -97,18 +97,18 @@ await describe("prerelease publisher", async () => {
         npmTag: "next",
         packages: ["@typed-sql/core", "@typed-sql/ast"],
       }));
-      for (const name of ["core", "ast"]) {
+      for (const [name, version] of [["core", "1.0.0-beta.1"], ["ast", "1.0.0-beta.2"]] as const) {
         const directory = join(temporary, "packages", name);
         await mkdir(directory, { recursive: true });
         await writeFile(join(directory, "package.json"), JSON.stringify({
           name: `@typed-sql/${name}`,
-          version: "1.0.0-beta.2",
+          version,
         }));
       }
       strict.deepStrictEqual(await loadPrereleasePlan(temporary), {
         npmTag: "next",
         packages: [
-          { name: "@typed-sql/core", version: "1.0.0-beta.2", directory: join(temporary, "packages", "core") },
+          { name: "@typed-sql/core", version: "1.0.0-beta.1", directory: join(temporary, "packages", "core") },
           { name: "@typed-sql/ast", version: "1.0.0-beta.2", directory: join(temporary, "packages", "ast") },
         ],
       });

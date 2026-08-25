@@ -50,8 +50,9 @@ in GitHub or the repository.
 Beta registry publication is intentionally separate from Changesets' prerelease publish planner.
 The planner cannot represent `-beta.N` versions published under the independent `next` dist-tag.
 `release:beta` instead follows `release-manifest.json` deterministically, checks npm before every
-write for retry safety, packs workspace-resolved tarballs with pnpm, publishes them through npm's
-native OIDC client, and asks Changesets to create tags only after every package is published.
+write for retry safety, supports independently versioned packages in the same release graph, packs
+workspace-resolved tarballs with pnpm, publishes them through npm's native OIDC client, and asks
+Changesets to create tags only after every package is published.
 
 After trusted publishing is operational, package settings should require 2FA and disallow
 traditional tokens. See [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/).

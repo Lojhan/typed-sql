@@ -156,11 +156,12 @@ OIDC, publish under `next`, create annotated GitHub tags/releases, and attach np
 Changesets normally requires its prerelease identifier (`beta`) to also be the npm dist-tag. The
 repository therefore uses Changesets for versioning, changelogs, and release tags, but publishes the
 registry graph through a small manifest-driven adapter. It publishes each package in
-`release-manifest.json` order under `next`, skips exact versions already present on npm so a failed
-run can be retried safely, and creates tags only after the entire graph succeeds. pnpm packs each
-workspace package so `workspace:` ranges are resolved, then npm 12 publishes that immutable tarball
-through its native OIDC exchange. The workflow deliberately omits setup-node's `registry-url` option
-so its generated token placeholder cannot suppress that exchange.
+`release-manifest.json` order under `next`, permits independently versioned packages, skips exact
+versions already present on npm so a failed run can be retried safely, and creates tags only after
+the entire graph succeeds. pnpm packs each workspace package so `workspace:` ranges are resolved,
+then npm 12 publishes that immutable tarball through its native OIDC exchange. The workflow
+deliberately omits setup-node's `registry-url` option so its generated token placeholder cannot
+suppress that exchange.
 
 ```sh
 npm view @typed-sql/core@next version dist.tarball
