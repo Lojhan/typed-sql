@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/cli",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Config-driven typed-sql generation, checking, and schema drift CLI.",
   "license": "MIT",
   "author": "Lojhan",
