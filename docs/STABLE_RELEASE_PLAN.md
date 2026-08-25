@@ -12,8 +12,8 @@ current public release line is `1.0.0-beta.*` under the npm `next` tag.
 
 The project is not ready to publish under `latest` yet. Stable promotion is blocked by the absence
 of a complete registry-only consumer test, an unrehearsed stable version transition, and
-insufficient external beta soak time. Reproducible editor installation and performance budgets also
-remain open gates.
+insufficient external beta soak time. Reproducible external editor installation also remains an
+open gate.
 
 ## Definition of ready
 
@@ -127,6 +127,11 @@ tarballs, compiles and renders a query, checks grammar/snapshot compatibility, a
 SQL fails closed. Neutral package scans reject dialect names, driver dependencies, and dialect SQL
 features in core, compiler, config, and schema sources. The public author contract is documented in
 [Authoring a SQL grammar](./GRAMMAR_AUTHORING.md).
+
+Structural and editor performance is enforced against production builds by the versioned
+[performance gate](./PERFORMANCE.md). It reports p50, p95, variance, retained heap, throughput, and
+runtime/CPU context. Correlated and independent condition counts are asserted directly, and
+`TSQ003` must stop over-limit expansion before a grammar is invoked.
 
 Acceptance criteria:
 
