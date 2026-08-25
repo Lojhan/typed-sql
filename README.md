@@ -342,6 +342,7 @@ pnpm e2e:packed
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Public API and stability boundary](./docs/PUBLIC_API.md)
 - [Inference soundness policy and corpus](./docs/SOUNDNESS.md)
+- [PostgreSQL and MySQL runtime codec fidelity](./docs/CODEC_FIDELITY.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
 - [Releasing](./docs/RELEASING.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)

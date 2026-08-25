@@ -46,6 +46,10 @@ await describe("schema package generation", async () => {
       strict.strictEqual(drift.drifted, true);
       strict.strictEqual(drift.schemaChanged, true);
       strict.strictEqual(drift.typePolicyChanged, false);
+      const policyDrift = checkSchemaDrift(generated, schema, { bigint: "string" });
+      strict.strictEqual(policyDrift.drifted, true);
+      strict.strictEqual(policyDrift.schemaChanged, false);
+      strict.strictEqual(policyDrift.typePolicyChanged, true);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

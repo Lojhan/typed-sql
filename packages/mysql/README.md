@@ -62,7 +62,9 @@ const rows = await database.execute(query);
 ```
 
 The adapter enables lossless bigint/decimal defaults, explicit alternative codecs, catalog
-introspection, and nested savepoints without changing global `mysql2` behavior.
+introspection, and nested savepoints without changing global `mysql2` behavior. It rejects
+`poolConfig` options that would contradict the selected type policy. See the tested
+[runtime codec matrix](https://github.com/Lojhan/typed-sql/blob/main/docs/CODEC_FIDELITY.md#mysql-and-mysql2).
 
 ## Supported SQL
 

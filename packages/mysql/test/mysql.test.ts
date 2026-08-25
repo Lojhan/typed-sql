@@ -263,6 +263,7 @@ await describe("MySQL dialect", async () => {
     strict.strictEqual(mapMySqlType("decimal(14,2)", defaultMySqlTypePolicy), "string");
     strict.strictEqual(mapMySqlType("enum('a','b''s')", defaultMySqlTypePolicy), '"a" | "b\'s"');
     strict.strictEqual(mapMySqlType("blob", defaultMySqlTypePolicy), "Uint8Array");
+    strict.strictEqual(mapMySqlType("bit(8)", defaultMySqlTypePolicy), "Uint8Array");
     strict.strictEqual(mapMySqlType("datetime", defaultMySqlTypePolicy), "Date");
     strict.strictEqual(mapMySqlType("json", defaultMySqlTypePolicy), "unknown");
     strict.strictEqual(mapMySqlType("mystery", defaultMySqlTypePolicy), "unknown");

@@ -8,6 +8,7 @@ import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { createPool } from "mysql2/promise";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { mysqlCodecFidelity } from "../src/codec-query.js";
 
 interface CommandResult {
   readonly code: number;
@@ -153,6 +154,11 @@ try {
       strict.strictEqual(snapshot.tables.users?.columns.active?.tsType, "boolean");
       strict.strictEqual(snapshot.tables.projects?.columns.budget?.databaseType, "decimal(14,2)");
       strict.strictEqual(snapshot.functions?.["typed_sql_e2e.user_count()"]?.returnType, "bigint");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.boolean_value?.tsType, "boolean");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.decimal_value?.tsType, "string");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bit_value?.tsType, "Uint8Array");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
     });
@@ -191,6 +197,51 @@ try {
           'Query<never, readonly [string, "active" | "suspended", unknown]>',
         );
         strict.ok(inspections.slice(0, 2).every((inspection) => !inspection.typeText.includes("unknown")));
+      } finally {
+        await bridge.close();
+      }
+    });
+
+    await it("proves the default MySQL codec matrix at the inferred type boundary", async () => {
+      const sourcePath = join(packageDirectory, "src/codec-query.ts");
+      const source = await readFile(sourcePath, "utf8");
+      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
+      const analysis = analyzeSource(source, snapshot as MySqlSchemaSnapshot, mysql());
+      strict.deepStrictEqual(analysis.diagnostics, []);
+      strict.strictEqual(analysis.queries.length, 1);
+      const contract = analysis.queries[0]!;
+      strict.strictEqual(contract.parameterType, "readonly [number]");
+      const rowType = contract.rowType.replace(/"([^"]+)":/gu, "$1:");
+      for (const exact of [
+        "id: number",
+        "boolean_value: boolean",
+        "tinyint_value: number",
+        "bigint_value: bigint",
+        "decimal_value: string",
+        "bit_value: Uint8Array",
+        "binary_value: Uint8Array",
+        "date_value: Date",
+        "time_value: string",
+        "year_value: number",
+        "json_value: unknown",
+        'enum_value: "ready" | "waiting"',
+        "set_value: string",
+        "nullable_text: string | null",
+      ])
+        strict.ok(rowType.includes(exact), `Missing ${exact} in ${contract.rowType}`);
+      const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
+      try {
+        const inspections = await bridge.inspectFile({
+          fileName: sourcePath,
+          projectFile: join(packageDirectory, "tsconfig.json"),
+          analysis,
+        });
+        strict.strictEqual(inspections.length, 1);
+        const inferred = inspections[0]!.typeText;
+        strict.ok(inferred.startsWith("Query<"));
+        strict.ok(inferred.includes("id: number"));
+        strict.ok(inferred.includes("bigint_value: bigint"));
+        strict.ok(inferred.endsWith("readonly [number]>") || inferred.endsWith("readonly [...]>"));
       } finally {
         await bridge.close();
       }
@@ -255,6 +306,34 @@ try {
           return values[0]?.total;
         });
         strict.strictEqual(total, 2n);
+
+        const codecRows = await database.execute(mysqlCodecFidelity);
+        const codec = codecRows[0] as Record<string, unknown>;
+        strict.strictEqual(codec.id, 1);
+        strict.strictEqual(codec.boolean_value, true);
+        strict.strictEqual(codec.tinyint_value, 127);
+        strict.strictEqual(codec.smallint_value, 32767);
+        strict.strictEqual(codec.mediumint_value, 8388607);
+        strict.strictEqual(codec.integer_value, 2147483647);
+        strict.strictEqual(codec.bigint_value, 9007199254740993n);
+        strict.strictEqual(codec.decimal_value, "12345678901234567890.1234567890");
+        strict.strictEqual(codec.float_value, 1.25);
+        strict.strictEqual(codec.double_value, 2.5);
+        strict.ok(codec.bit_value instanceof Uint8Array);
+        strict.deepStrictEqual(Array.from(codec.bit_value as Uint8Array), [165]);
+        strict.strictEqual(codec.text_value, "codec");
+        strict.strictEqual(codec.varchar_value, "typed-sql");
+        strict.deepStrictEqual(Array.from(codec.binary_value as Uint8Array), [0, 165, 255]);
+        strict.deepStrictEqual(Array.from(codec.blob_value as Uint8Array), [1, 2, 254, 255]);
+        strict.ok(codec.date_value instanceof Date);
+        strict.ok(codec.datetime_value instanceof Date);
+        strict.ok(codec.timestamp_value instanceof Date);
+        strict.strictEqual(codec.time_value, "12:34:56");
+        strict.strictEqual(codec.year_value, 2026);
+        strict.deepStrictEqual(codec.json_value, { count: 1, kind: "json" });
+        strict.strictEqual(codec.enum_value, "ready");
+        strict.strictEqual(codec.set_value, "read,write");
+        strict.strictEqual(codec.nullable_text, null);
       } finally {
         await database.close();
       }
