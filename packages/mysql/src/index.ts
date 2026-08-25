@@ -34,7 +34,7 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
         return resolveMySqlStatement(parseStatement(sql, { syntax: "mysql" }), snapshot, { typePolicy: policy });
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
-        return { columns: [], diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }] };
+        return { columns: [], parameters: [], diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }] };
       }
     },
     validateSnapshot: validateMySqlSnapshot,

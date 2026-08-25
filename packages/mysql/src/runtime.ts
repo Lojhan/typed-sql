@@ -112,7 +112,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#depth = depth;
   }
 
-  async execute<Row>(query: Query<Row>): Promise<readonly Row[]> {
+  async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     const rendered = renderQuery(query, mysqlRenderer);
     const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encoded));
     if (!Array.isArray(result.rows)) return [];

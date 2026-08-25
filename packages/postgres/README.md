@@ -80,9 +80,9 @@ types to `Date`, JSON to `unknown`, enums to literal unions, arrays recursively,
 | Inner and outer joins | Supported | Outer-join nullability propagates into result columns. |
 | CTEs and derived/correlated/scalar subqueries | Supported | Recursive CTEs and unsafe scalar/IN arity diagnose. |
 | Grouping, aggregates and windows | Supported | Includes common aggregates, `FILTER`, named and inline windows. |
-| Expressions, `CASE`, casts and `$n` parameters | Supported | Parameters remain `unknown` until parameter typing lands. |
+| Expressions, `CASE`, casts and `$n` parameters | Supported | Parameters infer from columns, casts, DML targets, ranges, limits, and catalog functions; ambiguous positions remain `unknown`. |
 | Arrays, enums, domains, JSON and catalog functions | Supported | Known types and function name/arity are validated. |
-| `INSERT`, `UPDATE`, `DELETE`, `RETURNING` | Supported | Commands without `RETURNING` infer `Query<never>`. |
+| `INSERT`, `UPDATE`, `DELETE`, `RETURNING` | Supported | Commands without `RETURNING` infer `Query<never, Parameters>`. |
 | Set operations and `WITHIN GROUP` | Not supported | Fail safely during parsing. |
 | Dynamic SQL or identifiers | No static inference | Use runtime values and `sql.ident()` explicitly. |
 

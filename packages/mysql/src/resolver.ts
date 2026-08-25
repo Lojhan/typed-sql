@@ -11,6 +11,7 @@ import type {
   WithClause,
 } from "@typed-sql/ast";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+import type { ResolvedParameter } from "@typed-sql/core";
 import { defaultMySqlTypePolicy, isKnownMySqlType, mapMySqlType, type MySqlTypePolicy } from "./type-policy.js";
 
 interface ResolvedType {
@@ -38,6 +39,7 @@ export interface ResolvedMySqlColumn extends ResolvedType {
 
 export interface ResolvedMySqlQuery {
   readonly columns: readonly ResolvedMySqlColumn[];
+  readonly parameters: readonly ResolvedParameter[];
   readonly diagnostics: readonly SqlDiagnostic[];
   readonly resultKind: "rows" | "command";
 }
@@ -68,6 +70,8 @@ class Resolver {
   readonly #policy: MySqlTypePolicy;
   readonly #strict: boolean;
   readonly #diagnostics: SqlDiagnostic[] = [];
+  readonly #parameters = new Map<number, ResolvedParameter>();
+  readonly #parameterConflicts = new Set<number>();
 
   constructor(schema: SchemaSnapshot, options: ResolveMySqlOptions) {
     this.#schema = schema;
@@ -78,10 +82,14 @@ class Resolver {
   resolve(statement: Statement): ResolvedMySqlQuery {
     if (this.#schema.dialect !== "mysql") this.#diagnostic("TSQ007", `MySQL resolver cannot analyze ${this.#schema.dialect}`, statement.range);
     const result = this.#statement(statement, undefined, new Map());
-    return { ...result, diagnostics: this.#diagnostics };
+    return {
+      ...result,
+      parameters: [...this.#parameters.values()].sort((left, right) => left.index - right.index),
+      diagnostics: this.#diagnostics,
+    };
   }
 
-  #statement(statement: Statement, outer: Scope | undefined, inherited: ReadonlyMap<string, TableSnapshot>): Omit<ResolvedMySqlQuery, "diagnostics"> {
+  #statement(statement: Statement, outer: Scope | undefined, inherited: ReadonlyMap<string, TableSnapshot>): Omit<ResolvedMySqlQuery, "diagnostics" | "parameters"> {
     const ctes = this.#with(statement.with, outer, inherited);
     if (statement.kind === "select") return { columns: this.#select(statement, outer, ctes), resultKind: "rows" };
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
@@ -93,7 +101,7 @@ class Resolver {
       if (statement.source.kind === "values") {
         for (const row of statement.source.rows) {
           if (row.length !== targets.length) this.#diagnostic("TSQ214", `INSERT has ${targets.length} target columns but ${row.length} values`, statement.source.range);
-          for (const value of row) this.#expression(value, scope, ctes);
+          row.forEach((value, index) => this.#expression(value, scope, ctes, this.#snapshotType(targets[index])));
         }
       } else if (statement.source.kind === "select") {
         const selected = this.#statement(statement.source, outer, ctes);
@@ -104,17 +112,17 @@ class Resolver {
     }
     if (statement.kind === "update") {
       for (const assignment of statement.assignments) {
-        this.#findColumn(target?.table, assignment.column);
-        this.#expression(assignment.value, scope, ctes);
+        const column = this.#findColumn(target?.table, assignment.column);
+        this.#expression(assignment.value, scope, ctes, this.#snapshotType(column));
       }
       if (statement.from !== undefined) this.#relation(statement.from, false, scope, ctes);
       for (const join of statement.joins) this.#join(join, scope, ctes);
-      if (statement.where !== undefined) this.#expression(statement.where, scope, ctes);
+      if (statement.where !== undefined) this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
       if (statement.returning.length > 0) this.#unsupported("MySQL does not support UPDATE RETURNING", statement.returning[0]!.range);
       return { columns: [], resultKind: "command" };
     }
     for (const reference of statement.using) this.#relation(reference, false, scope, ctes);
-    if (statement.where !== undefined) this.#expression(statement.where, scope, ctes);
+    if (statement.where !== undefined) this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     if (statement.returning.length > 0) this.#unsupported("MySQL does not support DELETE RETURNING", statement.returning[0]!.range);
     return { columns: [], resultKind: "command" };
   }
@@ -144,16 +152,16 @@ class Resolver {
     if (statement.distinctOn.length > 0) this.#unsupported("MySQL does not support DISTINCT ON", statement.distinctOn[0]!.range);
     if (statement.from !== undefined) this.#relation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#join(join, scope, ctes);
-    if (statement.where !== undefined) this.#expression(statement.where, scope, ctes);
+    if (statement.where !== undefined) this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     for (const value of statement.groupBy) this.#expression(value, scope, ctes);
-    if (statement.having !== undefined) this.#expression(statement.having, scope, ctes);
+    if (statement.having !== undefined) this.#expression(statement.having, scope, ctes, this.#databaseType("boolean", false));
     for (const window of statement.windows) {
       for (const value of window.specification.partitionBy) this.#expression(value, scope, ctes);
       for (const item of window.specification.orderBy) this.#expression(item.expression, scope, ctes);
     }
     for (const item of statement.orderBy) this.#expression(item.expression, scope, ctes);
-    if (statement.limit !== undefined) this.#expression(statement.limit, scope, ctes);
-    if (statement.offset !== undefined) this.#expression(statement.offset, scope, ctes);
+    if (statement.limit !== undefined) this.#expression(statement.limit, scope, ctes, this.#databaseType("int", false));
+    if (statement.offset !== undefined) this.#expression(statement.offset, scope, ctes, this.#databaseType("int", false));
     return this.#items(statement.columns, scope, ctes);
   }
 
@@ -162,7 +170,7 @@ class Resolver {
     if (join.kind === "full") this.#unsupported("MySQL does not support FULL JOIN", join.range);
     if (join.kind === "right" || join.kind === "full") for (const relation of previous) relation.nullable = true;
     const relation = this.#relation(join.table, join.kind === "left" || join.kind === "full", scope, ctes);
-    if (join.on !== undefined) this.#expression(join.on, scope, ctes);
+    if (join.on !== undefined) this.#expression(join.on, scope, ctes, this.#databaseType("boolean", false));
     if (join.using === undefined || relation === undefined) return;
     for (const identifier of join.using) {
       const columnName = name(identifier);
@@ -254,7 +262,12 @@ class Resolver {
     return columns;
   }
 
-  #expression(expression: Expression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
+  #expression(
+    expression: Expression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    expected?: ResolvedType,
+  ): ResolvedType {
     if (expression.kind === "column") {
       if (expression.relation === undefined && expression.column.name === "DEFAULT") return { tsType: "unknown", nullable: true };
       return this.#resolveColumn(expression.relation, expression.column, scope);
@@ -265,7 +278,7 @@ class Resolver {
       if (typeof expression.value === "number") return { tsType: "number", nullable: false, databaseType: Number.isInteger(expression.value) ? "int" : "decimal" };
       return { tsType: "string", nullable: false, databaseType: "varchar" };
     }
-    if (expression.kind === "parameter") return { tsType: "unknown", nullable: true };
+    if (expression.kind === "parameter") return this.#recordParameter(expression.index, expected);
     if (expression.kind === "star") return { tsType: "unknown", nullable: false };
     if (expression.kind === "array") {
       this.#unsupported("MySQL does not support ARRAY constructors", expression.range);
@@ -276,7 +289,7 @@ class Resolver {
       return { tsType: `readonly [${values.map((value) => `${value.tsType}${value.nullable ? " | null" : ""}`).join(", ")}]`, nullable: false };
     }
     if (expression.kind === "cast") {
-      const source = this.#expression(expression.expression, scope, ctes);
+      const source = this.#expression(expression.expression, scope, ctes, this.#databaseType(expression.databaseType.name, true));
       if (!isKnownMySqlType(expression.databaseType.name, this.#schema)) this.#diagnostic("TSQ106", `Invalid or unknown MySQL cast type ${expression.databaseType.name}`, expression.databaseType.range);
       return { tsType: mapMySqlType(expression.databaseType.name, this.#policy, this.#schema), nullable: source.nullable, databaseType: normalized(expression.databaseType.name) };
     }
@@ -309,7 +322,7 @@ class Resolver {
     if (expression.kind === "in") {
       const subject = this.#expression(expression.expression, scope, ctes);
       let nullable = subject.nullable;
-      if (Array.isArray(expression.values)) nullable ||= expression.values.map((value) => this.#expression(value, scope, ctes)).some((value) => value.nullable);
+      if (Array.isArray(expression.values)) nullable ||= expression.values.map((value) => this.#expression(value, scope, ctes, subject)).some((value) => value.nullable);
       else {
         const result = this.#statement(expression.values as SelectStatement, scope, ctes);
         if (result.columns.length !== 1) this.#diagnostic("TSQ217", `IN subquery returns ${result.columns.length} columns instead of one`, expression.range);
@@ -317,13 +330,25 @@ class Resolver {
       }
       return { tsType: "boolean", nullable, databaseType: "boolean" };
     }
-    const values = [expression.expression, expression.lower, expression.upper].map((value) => this.#expression(value, scope, ctes));
+    const subject = this.#expression(expression.expression, scope, ctes);
+    const values = [
+      subject,
+      this.#expression(expression.lower, scope, ctes, subject),
+      this.#expression(expression.upper, scope, ctes, subject),
+    ];
     return { tsType: "boolean", nullable: values.some((value) => value.nullable), databaseType: "boolean" };
   }
 
   #binary(expression: Extract<Expression, { readonly kind: "binary" }>, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
-    const left = this.#expression(expression.left, scope, ctes);
-    const right = this.#expression(expression.right, scope, ctes);
+    let left: ResolvedType;
+    let right: ResolvedType;
+    if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
+      right = this.#expression(expression.right, scope, ctes);
+      left = this.#expression(expression.left, scope, ctes, right);
+    } else {
+      left = this.#expression(expression.left, scope, ctes);
+      right = this.#expression(expression.right, scope, ctes, expression.right.kind === "parameter" ? left : undefined);
+    }
     if (comparisonOperators.has(expression.operator)) return { tsType: "boolean", nullable: expression.operator.startsWith("IS") ? false : left.nullable || right.nullable, databaseType: "boolean" };
     if (expression.operator === "->") return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
     if (expression.operator === "->>") return { tsType: "string", nullable: true, databaseType: "varchar" };
@@ -355,7 +380,12 @@ class Resolver {
     if (["JSON_ARRAYAGG", "JSON_OBJECTAGG", "JSON_EXTRACT"].includes(functionName)) return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
     const candidates = Object.values(this.#schema.functions ?? {}).filter((candidate) => candidate.name.toLowerCase() === name(expression.name) && candidate.argumentTypes.length === values.length);
     const selected = candidates.length === 1 ? candidates[0] : undefined;
-    if (selected !== undefined) return this.#function(selected);
+    if (selected !== undefined) {
+      expression.arguments.forEach((argument, index) => {
+        if (argument.kind === "parameter") this.#expression(argument, scope, ctes, this.#databaseType(selected.argumentTypes[index]!, true));
+      });
+      return this.#function(selected);
+    }
     this.#diagnostic(candidates.length > 1 ? "TSQ204" : "TSQ202", candidates.length > 1 ? `Ambiguous function ${expression.name.name}` : `Unknown function ${expression.name.name}`, expression.range, undefined, candidates.length > 1 ? "error" : "warning");
     return { tsType: "unknown", nullable: true };
   }
@@ -407,6 +437,48 @@ class Resolver {
 
   #function(value: FunctionSnapshot): ResolvedType {
     return { tsType: value.returnType, nullable: value.nullable, ...(value.databaseReturnType === undefined ? {} : { databaseType: value.databaseReturnType }) };
+  }
+
+  #snapshotType(column: ColumnSnapshot | undefined): ResolvedType | undefined {
+    if (column === undefined) return undefined;
+    return { tsType: column.tsType, nullable: column.nullable, databaseType: column.databaseType };
+  }
+
+  #databaseType(databaseType: string, nullable: boolean): ResolvedType {
+    return {
+      tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
+      nullable,
+      databaseType: normalized(databaseType),
+    };
+  }
+
+  #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
+    const candidate: ResolvedParameter = expected === undefined
+      ? { index, tsType: "unknown", nullable: true }
+      : { index, ...expected };
+    const current = this.#parameters.get(index);
+    if (this.#parameterConflicts.has(index)) return current ?? { tsType: "unknown", nullable: true };
+    if (current === undefined || (current.tsType === "unknown" && candidate.tsType !== "unknown")) {
+      this.#parameters.set(index, candidate);
+      return candidate;
+    }
+    if (candidate.tsType === "unknown") return current;
+    if (current.tsType !== candidate.tsType) {
+      const conflict: ResolvedParameter = { index, tsType: "unknown", nullable: true };
+      this.#parameters.set(index, conflict);
+      this.#parameterConflicts.add(index);
+      return conflict;
+    }
+    const merged: ResolvedParameter = {
+      index,
+      tsType: current.tsType,
+      nullable: current.nullable || candidate.nullable,
+      ...(current.databaseType === candidate.databaseType && current.databaseType !== undefined
+        ? { databaseType: current.databaseType }
+        : {}),
+    };
+    this.#parameters.set(index, merged);
+    return merged;
   }
 
   #unsupported(message: string, range: SourceRange): void {

@@ -14,6 +14,7 @@ export interface QueryBinding {
 export interface BridgeQuery {
   readonly index: number;
   readonly rowType: string;
+  readonly parameterType: string;
   readonly queryType: string;
   readonly sourceRange: OffsetRange;
   readonly transformedRange: OffsetRange;
@@ -73,19 +74,26 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
     dialect,
     ...(typePolicy === undefined ? {} : { typePolicy }),
   });
-  const insertions = compilation.queries.map(({ query, rowType }) => ({
-    position: query.insertionPosition,
-    length: rowType.length + 2,
-  }));
+  const insertions = [
+    ...compilation.queries.map(({ query, rowType, parameterType, structural }) => ({
+      position: query.insertionPosition,
+      length: structural ? rowType.length + 12 : rowType.length + parameterType.length + 4,
+    })),
+    ...compilation.fragments.map(({ fragment, parameterType }) => ({
+      position: fragment.insertionPosition,
+      length: parameterType.length + 2,
+    })),
+  ].sort((left, right) => left.position - right.position);
   const shiftBefore = (position: number): number => insertions.reduce(
     (total, insertion) => total + (insertion.position < position ? insertion.length : 0),
     0,
   );
 
-  const queries = compilation.queries.map(({ query, rowType }, index): BridgeQuery => ({
+  const queries = compilation.queries.map(({ query, rowType, parameterType }, index): BridgeQuery => ({
     index,
     rowType,
-    queryType: `Query<${rowType}>`,
+    parameterType,
+    queryType: `Query<${rowType}, ${parameterType}>`,
     sourceRange: { start: query.range.start, end: query.range.end },
     transformedRange: {
       start: query.range.start + shiftBefore(query.range.start),

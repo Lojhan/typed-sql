@@ -1,4 +1,4 @@
-export const DIALECT_CONTRACT_VERSION = 1 as const;
+export const DIALECT_CONTRACT_VERSION = 2 as const;
 
 export interface SourceRange {
   readonly start: number;
@@ -76,8 +76,17 @@ export interface ResolvedColumn {
   readonly range: SourceRange;
 }
 
+export interface ResolvedParameter {
+  /** One-based database placeholder index. */
+  readonly index: number;
+  readonly tsType: string;
+  readonly nullable: boolean;
+  readonly databaseType?: string;
+}
+
 export interface DialectAnalysis {
   readonly columns: readonly ResolvedColumn[];
+  readonly parameters: readonly ResolvedParameter[];
   readonly diagnostics: readonly SqlDiagnostic[];
   readonly resultKind?: "rows" | "command";
 }
@@ -122,4 +131,18 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
 export function rowTypeLiteral(columns: readonly ResolvedColumn[]): string {
   const properties = columns.map((column) => `${JSON.stringify(column.name)}: ${column.tsType}${column.nullable ? " | null" : ""};`);
   return `{ ${properties.join(" ")} }`;
+}
+
+export function parameterTypeLiteral(
+  parameterCount: number,
+  parameters: readonly ResolvedParameter[],
+): string {
+  const byIndex = new Map(parameters.map((parameter) => [parameter.index, parameter]));
+  const elements = Array.from({ length: parameterCount }, (_, offset) => {
+    const parameter = byIndex.get(offset + 1);
+    if (!parameter) return "unknown";
+    if (parameter.tsType === "unknown") return "unknown";
+    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}`;
+  });
+  return `readonly [${elements.join(", ")}]`;
 }

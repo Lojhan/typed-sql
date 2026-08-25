@@ -157,7 +157,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#transactionDepth = depth;
   }
 
-  async execute<Row>(query: Query<Row>): Promise<readonly Row[]> {
+  async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     const rendered = renderQuery(query, postgresRenderer);
     const result = await (this.#client ?? this.#pool).query({
       text: rendered.text,

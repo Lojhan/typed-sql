@@ -50,6 +50,9 @@ await describe("MySQL dialect", async () => {
     strict.deepStrictEqual(result.columns.map(({ name, tsType }) => ({ name, tsType })), [
       { name: "id", tsType: "bigint" }, { name: "status", tsType: '"active" | "suspended"' },
     ]);
+    strict.deepStrictEqual(result.parameters, [
+      { index: 1, tsType: "bigint", nullable: false, databaseType: "bigint unsigned" },
+    ]);
     strict.strictEqual(dialect.analyze("SELECT", schema as typeof schema & { readonly dialect: "mysql" }).diagnostics[0]?.code, "TSQ001");
   });
 
@@ -111,6 +114,9 @@ await describe("MySQL dialect", async () => {
     const insert = resolveMySqlStatement(parseStatement("INSERT INTO users (email, status) VALUES (?, 'active')", { syntax: "mysql" }), schema);
     strict.strictEqual(insert.resultKind, "command");
     strict.deepStrictEqual(insert.columns, []);
+    strict.deepStrictEqual(insert.parameters, [
+      { index: 1, tsType: "string", nullable: false, databaseType: "varchar(255)" },
+    ]);
     strict.ok(resolveMySqlStatement(parseStatement("INSERT INTO users (email) SELECT email, status FROM users", { syntax: "mysql" }), schema).diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"));
     strict.ok(resolveMySqlStatement(parseStatement("UPDATE users SET missing = 1 WHERE id = ? RETURNING id", { syntax: "mysql" }), schema).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"));
     strict.ok(resolveMySqlStatement(parseStatement("DELETE FROM users USING projects WHERE users.id = projects.owner_id RETURNING users.id", { syntax: "mysql" }), schema).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"));
@@ -118,6 +124,40 @@ await describe("MySQL dialect", async () => {
     strict.ok(resolveMySqlStatement(parseStatement("SELECT DISTINCT ON (id) id FROM users", { syntax: "mysql" }), schema).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"));
     strict.ok(resolveMySqlStatement(parseStatement("SELECT * FROM users FULL JOIN projects ON users.id = projects.owner_id", { syntax: "mysql" }), schema).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"));
     strict.ok(resolveMySqlStatement(parseStatement("WITH RECURSIVE ids(id) AS (SELECT 1) SELECT id FROM ids", { syntax: "mysql" }), schema).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"));
+  });
+
+  await it("infers ordered parameters from comparisons, ranges, casts, and function signatures", () => {
+    const parameterSchema = {
+      ...schema,
+      functions: {
+        ...schema.functions,
+        "app.email_label(varchar)": {
+          schema: "app",
+          name: "email_label",
+          argumentTypes: ["varchar"],
+          databaseReturnType: "varchar",
+          returnType: "string",
+          nullable: false,
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveMySqlStatement(parseStatement(`
+      SELECT email_label(?) AS label, CAST(? AS DECIMAL) AS casted, ? AS unresolved
+      FROM users
+      WHERE id = ? AND budget BETWEEN ? AND ? AND status IN (?)
+      LIMIT ?
+    `, { syntax: "mysql" }), parameterSchema);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.parameters, [
+      { index: 1, tsType: "string", nullable: true, databaseType: "varchar" },
+      { index: 2, tsType: "string", nullable: true, databaseType: "decimal" },
+      { index: 3, tsType: "unknown", nullable: true },
+      { index: 4, tsType: "bigint", nullable: false, databaseType: "bigint unsigned" },
+      { index: 5, tsType: "string", nullable: true, databaseType: "decimal(14,2)" },
+      { index: 6, tsType: "string", nullable: true, databaseType: "decimal(14,2)" },
+      { index: 7, tsType: '\"active\" | \"suspended\"', nullable: false, databaseType: "enum('active','suspended')" },
+      { index: 8, tsType: "number", nullable: false, databaseType: "int" },
+    ]);
   });
 
   await it("maps the MySQL catalog type families under explicit policies", () => {

@@ -1,11 +1,11 @@
 import { performance } from "node:perf_hooks";
 import { describe, it, strict } from "poku";
-import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
+import { DIALECT_CONTRACT_VERSION, type DialectPlugin, type SchemaSnapshot } from "../../core/src/index.js";
 import { compileSource, extractStaticQueries } from "../src/index.js";
 
 const schema = { formatVersion: 1, dialect: "performance", tables: {} } as const satisfies SchemaSnapshot;
 const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
-  contractVersion: 1,
+  contractVersion: DIALECT_CONTRACT_VERSION,
   id: "performance",
   grammarVersion: "1.0.0",
   sqlModule: "@example/typed-sql-performance",
@@ -20,6 +20,7 @@ const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
       databaseType: "integer",
       range: { start: 7, end: 9, line: 1, column: 8 },
     }],
+    parameters: [],
     diagnostics: [],
     resultKind: "rows",
   }),

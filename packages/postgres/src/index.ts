@@ -41,6 +41,7 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
         if (!(error instanceof SqlParseError)) throw error;
         return {
           columns: [],
+          parameters: [],
           diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }],
         };
       }

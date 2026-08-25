@@ -63,8 +63,8 @@ snapshot. Change the query or schema and the type changes with it.
 
 - **SQL stays SQL.** CTEs, joins, subqueries, aggregates, window functions, database functions, DML,
   and dialect-specific syntax remain visible to your database team.
-- **Types reach application values.** The query is `Query<Row>` and `database.execute(query)` is
-  `readonly Row[]`; inference is not limited to a decorative SQL hover.
+- **Types flow in both directions.** The query is `Query<Row, Parameters>`: `database.execute(query)`
+  is `readonly Row[]`, and each `${...}` value is checked against its SQL position.
 - **The database is the source of truth.** The CLI introspects real PostgreSQL or MySQL catalogs into
   a deterministic, reviewable snapshot.
 - **No generated application API.** Application code imports `sql` from its installed dialect
@@ -144,11 +144,105 @@ const query = sql`
 
 const rows = await database.execute(query);
 
+const wrongId = "42";
+// TypeScript error: string is not assignable to the bigint parameter inferred from account.id.
+sql`SELECT account.id FROM accounts AS account WHERE account.id = ${wrongId}`;
+
 const byColumn = sql`SELECT ${sql.ident("display_name")} FROM accounts`;
 const trustedMigrationFragment = sql.raw("CURRENT_TIMESTAMP");
 ```
 
 Use `sql.raw()` only for trusted static SQL. It is intentionally not an escaping API.
+
+### Compose nullable filters safely
+
+Keep the row-producing statement static, derive filter input types from that inferred row, and
+compose optional predicates as fragments:
+
+```ts
+import type { QueryRow } from "@typed-sql/core";
+
+const accountsBase = sql`
+  SELECT account.id, account.email, account.status
+  FROM accounts AS account
+`;
+
+type Account = QueryRow<typeof accountsBase>;
+type AccountFilters = {
+  readonly status?: Account["status"] | null;
+  readonly minimumId?: Account["id"] | null;
+};
+
+function accounts(filters: AccountFilters, mode: "all" | "any") {
+  const predicates = [
+    filters.status == null ? undefined : sql.fragment`account.status = ${filters.status}`,
+    filters.minimumId == null ? undefined : sql.fragment`account.id >= ${filters.minimumId}`,
+  ] as const;
+
+  return sql.where(
+    accountsBase,
+    mode === "all" ? sql.and(predicates) : sql.or(predicates),
+  );
+}
+```
+
+The result keeps the base row and the ordered potential parameter tuple. Missing filters are omitted
+at runtime, parentheses preserve boolean precedence, and an empty filter list becomes `WHERE TRUE`.
+Values always remain driver parameters. Fragment SQL must remain a static tagged template; arbitrary
+strings and `sql.raw()` are not promoted into statically trusted SQL.
+
+For an imperative `WHERE 1 = 1` query factory, use `sql.append()`:
+
+```ts
+function postgresAccounts2(filters: AccountFilters) {
+  const query = sql`
+    SELECT account.id, account.email, account.status
+    FROM users AS account
+  `;
+
+  return sql.append(
+    query,
+    sql.fragment` WHERE 1 = 1`,
+    filters.status == null
+      ? undefined
+      : sql.fragment` AND account.status = ${filters.status}`,
+    filters.minimumId == null
+      ? undefined
+      : sql.fragment` AND account.id >= ${filters.minimumId}`,
+  );
+}
+```
+
+Literal `query += fragment` cannot be type-safe in JavaScript because `+=` coerces both operands to
+primitives and discards the fragment's parameter metadata. `sql.append()` expresses the same
+control flow without string concatenation. Variadic arguments retain exact ordered parameter types;
+a spread mutable `SqlFragment<...>[]` retains the allowed parameter union but cannot promise a fixed
+tuple shape because its runtime length and order can vary.
+
+The compiler analyzes these direct variadic fragments cumulatively as one statement. The first
+fragment can introduce `WHERE`, and later fragments inherit the base aliases and preceding
+structure. An interpolation such as `${"aaa"}` for `account.status` or `${123}` for a `bigint`
+`account.id` is rejected by TypeScript. Fragments hidden behind arbitrary functions or mutable
+runtime collections remain outside this contextual grammar analysis.
+
+Conditional structure stays inside ordinary SQL templates. `sql.empty` is an immutable zero-length
+fragment, so projections and filters can vary without introducing a parallel query-builder DSL:
+
+```ts
+function accounts<const Select extends { readonly status: boolean }>(filters: AccountFilters, select: Select) {
+  return sql`
+    SELECT account.id, account.email
+      ${select.status ? sql.fragment`, account.status` : sql.empty}
+    FROM users AS account
+    WHERE 1 = 1
+      ${filters.status == null ? sql.empty : sql.fragment`AND account.status = ${filters.status}`}
+  `;
+}
+```
+
+The compiler expands the finite structural branches and analyzes complete SQL statements. Literal
+`true`/`false` selections produce exact different rows; a runtime `boolean` produces their union.
+Nested fragment values retain grammar-derived parameter checking.
 
 ## Editor experience
 
@@ -173,7 +267,7 @@ or query contract.
 
 | Package | What it owns | Installs a DB driver? |
 | --- | --- | --- |
-| [`@typed-sql/core`](./packages/core/README.md) | `sql`, `Query<Row>`, neutral query IR, database and dialect contracts | No |
+| [`@typed-sql/core`](./packages/core/README.md) | `sql`, `Query<Row, Parameters>`, neutral query IR, database and dialect contracts | No |
 | [`@typed-sql/postgres`](./packages/postgres/README.md) | PostgreSQL grammar, catalog introspection, resolver, codecs, optional `/pg` adapter | No |
 | [`@typed-sql/mysql`](./packages/mysql/README.md) | MySQL grammar, catalog introspection, resolver, codecs, optional `/mysql2` adapter | No |
 | [`@typed-sql/cli`](./packages/cli/README.md) | `generate`, `check`, and `drift` commands | No |

@@ -24,7 +24,7 @@ try {
 }
 ```
 
-The bridge inserts `Query<Row>` types into an in-memory source overlay, delegates the complete
+The bridge inserts `Query<Row, Parameters>` types into an in-memory source overlay, delegates the complete
 semantic program to a pinned TypeScript 7.1 preview process, and maps positions back to the unchanged
 file. The process boundary deliberately contains preview API churn; the grammar and query contract
 do not depend on unstable TypeScript internals.

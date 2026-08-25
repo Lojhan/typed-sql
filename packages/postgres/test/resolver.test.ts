@@ -123,6 +123,47 @@ await describe("query resolver", async () => {
     ]);
   });
 
+  await it("infers ordered parameter types from SQL context", () => {
+    const parameterSchema = {
+      ...schema,
+      functions: {
+        "label_for(integer)": {
+          name: "label_for",
+          argumentTypes: ["integer"],
+          databaseReturnType: "text",
+          returnType: "string",
+          nullable: false,
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(parseSelect(`
+      SELECT label_for($1) AS label, $7::bigint AS casted, $8 AS unresolved
+      FROM users
+      WHERE id = $2 AND age BETWEEN $3 AND $4 AND name IN ($5)
+      LIMIT $6
+    `), parameterSchema);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.parameters, [
+      { index: 1, tsType: "number", nullable: true, databaseType: "integer" },
+      { index: 2, tsType: "number", nullable: false, databaseType: "integer" },
+      { index: 3, tsType: "number", nullable: true, databaseType: "integer" },
+      { index: 4, tsType: "number", nullable: true, databaseType: "integer" },
+      { index: 5, tsType: "string", nullable: false, databaseType: "text" },
+      { index: 6, tsType: "number", nullable: false, databaseType: "integer" },
+      { index: 7, tsType: "bigint", nullable: true, databaseType: "bigint" },
+      { index: 8, tsType: "unknown", nullable: true },
+    ]);
+
+    const insert = resolveStatement(parseStatement("INSERT INTO users (name, age) VALUES ($1, $2)"), schema);
+    strict.deepStrictEqual(insert.parameters, [
+      { index: 1, tsType: "string", nullable: false, databaseType: "text" },
+      { index: 2, tsType: "number", nullable: true, databaseType: "integer" },
+    ]);
+
+    const conflict = resolveSelect(parseSelect("SELECT id FROM users WHERE id = $1 AND name = $1 AND age = $1"), schema);
+    strict.deepStrictEqual(conflict.parameters, [{ index: 1, tsType: "unknown", nullable: true }]);
+  });
+
   await it("models right/full join nullability and aggregate/function policies", async () => {
     const functions = {
       ...schema,

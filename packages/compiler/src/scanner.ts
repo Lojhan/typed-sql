@@ -7,6 +7,37 @@ export interface ExtractedQuery {
   readonly insertionPosition: number;
   readonly range: SourceRange;
   readonly sqlOffsetMap: readonly number[];
+  readonly interpolations: readonly ExtractedInterpolation[];
+}
+
+export interface ExtractedInterpolation {
+  readonly index: number;
+  readonly sourceStart: number;
+  readonly expressionStart: number;
+  readonly expressionEnd: number;
+  readonly sourceEnd: number;
+  readonly sqlStart: number;
+  readonly sqlEnd: number;
+}
+
+export interface ExtractedAppendFragment {
+  readonly base: ExtractedQuery;
+  readonly prefix: readonly ExtractedQuery[];
+  readonly fragment: ExtractedQuery;
+  readonly parameterOffset: number;
+}
+
+export interface StructuralOperand {
+  readonly kind: "empty" | "fragment";
+  readonly start: number;
+  readonly end: number;
+  readonly backtick?: number;
+}
+
+export interface StructuralInterpolation {
+  readonly condition?: string;
+  readonly truthy: StructuralOperand;
+  readonly falsy?: StructuralOperand;
 }
 
 function isIdentifierStart(char: string | undefined): boolean {
@@ -170,11 +201,13 @@ function extractTemplate(
   tagStart: number,
   backtick: number,
   placeholderFor: (index: number) => string,
+  parameterOffset = 0,
 ): ExtractedQuery | undefined {
   let index = backtick + 1;
   let sql = "";
   let parameterCount = 0;
   const sqlOffsetMap: number[] = [];
+  const interpolations: ExtractedInterpolation[] = [];
   while (index < source.length) {
     const char = source[index]!;
     if (char === "`" ) {
@@ -185,6 +218,7 @@ function extractTemplate(
         insertionPosition: tagStart + tagName.length,
         range: positionRange(source, tagStart, index + 1),
         sqlOffsetMap,
+        interpolations,
       };
     }
     if (char === "\\" && index + 1 < source.length) {
@@ -195,10 +229,23 @@ function extractTemplate(
     }
     if (char === "$" && source[index + 1] === "{") {
       parameterCount += 1;
-      const placeholder = placeholderFor(parameterCount);
+      const sourceStart = index;
+      const expressionStart = index + 2;
+      const sourceEnd = interpolationEnd(source, expressionStart);
+      const sqlStart = sql.length;
+      const placeholder = placeholderFor(parameterOffset + parameterCount);
       sql += placeholder;
       for (let offset = 0; offset < placeholder.length; offset += 1) sqlOffsetMap.push(index);
-      index = interpolationEnd(source, index + 2);
+      interpolations.push({
+        index: parameterCount,
+        sourceStart,
+        expressionStart,
+        expressionEnd: Math.max(expressionStart, sourceEnd - 1),
+        sourceEnd,
+        sqlStart,
+        sqlEnd: sql.length,
+      });
+      index = sourceEnd;
       continue;
     }
     sql += char;
@@ -206,6 +253,115 @@ function extractTemplate(
     index += 1;
   }
   return undefined;
+}
+
+function bindingNameBefore(source: string, start: number): string | undefined {
+  let cursor = start - 1;
+  while (cursor >= 0 && isWhitespace(source[cursor])) cursor -= 1;
+  if (source[cursor] !== "=") return undefined;
+  cursor -= 1;
+  while (cursor >= 0 && isWhitespace(source[cursor])) cursor -= 1;
+  const end = cursor + 1;
+  while (cursor >= 0 && isIdentifierPart(source[cursor])) cursor -= 1;
+  const name = source.slice(cursor + 1, end);
+  return name.length > 0 && isIdentifierStart(name[0]) ? name : undefined;
+}
+
+function closingParenthesis(source: string, start: number): number | undefined {
+  let depth = 1;
+  let index = start + 1;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") index = skipQuoted(source, index, char);
+    else if (char === "/" && source[index + 1] === "/") index = skipLineComment(source, index);
+    else if (char === "/" && source[index + 1] === "*") index = skipBlockComment(source, index);
+    else if (char === "(") { depth += 1; index += 1; }
+    else if (char === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+      index += 1;
+    } else index += 1;
+  }
+  return undefined;
+}
+
+function trimmedRange(source: string, start: number, end: number): { readonly start: number; readonly end: number } {
+  let first = start;
+  let last = end;
+  while (first < last && isWhitespace(source[first])) first += 1;
+  while (last > first && isWhitespace(source[last - 1])) last -= 1;
+  return { start: first, end: last };
+}
+
+function structuralOperand(source: string, start: number, end: number, tagName: string): StructuralOperand | undefined {
+  const range = trimmedRange(source, start, end);
+  const empty = `${tagName}.empty`;
+  if (source.slice(range.start, range.end) === empty) return { kind: "empty", ...range };
+  const prefix = `${tagName}.fragment`;
+  if (!source.startsWith(prefix, range.start)) return undefined;
+  const backtick = skipTrivia(source, range.start + prefix.length);
+  if (source[backtick] !== "`" || skipQuoted(source, backtick, "`") !== range.end) return undefined;
+  return { kind: "fragment", ...range, backtick };
+}
+
+export function parseStructuralInterpolation(
+  source: string,
+  interpolation: ExtractedInterpolation,
+  tagName: string,
+): StructuralInterpolation | undefined {
+  const { expressionStart: start, expressionEnd: end } = interpolation;
+  let question: number | undefined;
+  let colon: number | undefined;
+  let round = 0;
+  let square = 0;
+  let curly = 0;
+  let index = start;
+  while (index < end) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") { index = skipQuoted(source, index, char); continue; }
+    if (char === "/" && source[index + 1] === "/") { index = skipLineComment(source, index); continue; }
+    if (char === "/" && source[index + 1] === "*") { index = skipBlockComment(source, index); continue; }
+    if (char === "(") round += 1;
+    else if (char === ")") round -= 1;
+    else if (char === "[") square += 1;
+    else if (char === "]") square -= 1;
+    else if (char === "{") curly += 1;
+    else if (char === "}") curly -= 1;
+    else if (round === 0 && square === 0 && curly === 0 && char === "?" && question === undefined) question = index;
+    else if (round === 0 && square === 0 && curly === 0 && char === ":" && question !== undefined) { colon = index; break; }
+    index += 1;
+  }
+  if (question === undefined || colon === undefined) {
+    const truthy = structuralOperand(source, start, end, tagName);
+    return truthy === undefined ? undefined : { truthy };
+  }
+  const truthy = structuralOperand(source, question + 1, colon, tagName);
+  const falsy = structuralOperand(source, colon + 1, end, tagName);
+  if (truthy === undefined || falsy === undefined) return undefined;
+  const condition = trimmedRange(source, start, question);
+  return {
+    condition: source.slice(condition.start, condition.end),
+    truthy,
+    falsy,
+  };
+}
+
+export function extractStructuralOperand(
+  source: string,
+  operand: StructuralOperand,
+  tagName: string,
+  placeholderFor: (index: number) => string,
+  parameterOffset: number,
+): ExtractedQuery | undefined {
+  if (operand.kind === "empty" || operand.backtick === undefined) return undefined;
+  return extractTemplate(
+    source,
+    `${tagName}.fragment`,
+    operand.start,
+    operand.backtick,
+    placeholderFor,
+    parameterOffset,
+  );
 }
 
 export function extractStaticQueries(
@@ -242,6 +398,87 @@ export function extractStaticQueries(
     index += 1;
   }
   return queries;
+}
+
+export function extractAppendFragments(
+  source: string,
+  placeholderFor: (index: number) => string,
+  sqlModules: readonly string[] = ["@typed-sql/core"],
+  queries: readonly ExtractedQuery[] = extractStaticQueries(source, placeholderFor, sqlModules),
+): readonly ExtractedAppendFragment[] {
+  const names = importedSqlNames(source, new Set(sqlModules));
+  if (names.size === 0) return [];
+  const bindings = queries.flatMap((query) => {
+    const name = bindingNameBefore(source, query.range.start);
+    return name === undefined ? [] : [{ name, query }];
+  });
+  const fragments: ExtractedAppendFragment[] = [];
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") { index = skipQuoted(source, index, char); continue; }
+    if (char === "/" && source[index + 1] === "/") { index = skipLineComment(source, index); continue; }
+    if (char === "/" && source[index + 1] === "*") { index = skipBlockComment(source, index); continue; }
+    const tag = identifierAt(source, index);
+    if (tag === undefined) { index += 1; continue; }
+    index = tag.end;
+    if (!names.has(tag.value)) continue;
+    let cursor = skipTrivia(source, tag.end);
+    if (source[cursor] !== ".") continue;
+    cursor = skipTrivia(source, cursor + 1);
+    const method = identifierAt(source, cursor);
+    if (method?.value !== "append") continue;
+    cursor = skipTrivia(source, method.end);
+    if (source[cursor] !== "(") continue;
+    const close = closingParenthesis(source, cursor);
+    if (close === undefined) continue;
+    let argument = skipTrivia(source, cursor + 1);
+    const baseName = identifierAt(source, argument);
+    if (baseName === undefined) { index = close + 1; continue; }
+    const base = bindings
+      .filter((binding) => binding.name === baseName.value && binding.query.range.start < index)
+      .sort((left, right) => right.query.range.start - left.query.range.start)[0]?.query;
+    argument = skipTrivia(source, baseName.end);
+    if (base === undefined || source[argument] !== ",") { index = close + 1; continue; }
+
+    let fragmentCursor = argument + 1;
+    const prefix: ExtractedQuery[] = [];
+    let parameterOffset = base.parameterCount;
+    while (fragmentCursor < close) {
+      const fragmentChar = source[fragmentCursor];
+      if (fragmentChar === '"' || fragmentChar === "'") { fragmentCursor = skipQuoted(source, fragmentCursor, fragmentChar); continue; }
+      if (fragmentChar === "`") { fragmentCursor = skipQuoted(source, fragmentCursor, fragmentChar); continue; }
+      if (fragmentChar === "/" && source[fragmentCursor + 1] === "/") { fragmentCursor = skipLineComment(source, fragmentCursor); continue; }
+      if (fragmentChar === "/" && source[fragmentCursor + 1] === "*") { fragmentCursor = skipBlockComment(source, fragmentCursor); continue; }
+      const fragmentTag = identifierAt(source, fragmentCursor);
+      if (fragmentTag === undefined) { fragmentCursor += 1; continue; }
+      fragmentCursor = fragmentTag.end;
+      if (fragmentTag.value !== tag.value) continue;
+      let memberCursor = skipTrivia(source, fragmentTag.end);
+      if (source[memberCursor] !== ".") continue;
+      memberCursor = skipTrivia(source, memberCursor + 1);
+      const member = identifierAt(source, memberCursor);
+      if (member?.value !== "fragment") continue;
+      const backtick = skipTrivia(source, member.end);
+      if (source[backtick] !== "`") continue;
+      const fragment = extractTemplate(
+        source,
+        `${tag.value}.fragment`,
+        fragmentTag.end - tag.value.length,
+        backtick,
+        placeholderFor,
+        parameterOffset,
+      );
+      if (fragment !== undefined) {
+        fragments.push({ base, prefix: [...prefix], fragment, parameterOffset });
+        prefix.push(fragment);
+        parameterOffset += fragment.parameterCount;
+        fragmentCursor = fragment.range.end;
+      }
+    }
+    index = close + 1;
+  }
+  return fragments;
 }
 
 export function mapSqlRange(source: string, query: ExtractedQuery, range: SourceRange): SourceRange {

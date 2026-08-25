@@ -179,7 +179,7 @@ try {
         strict.ok(inspections[2]?.typeText.includes("id: bigint"));
         strict.ok(inspections[2]?.typeText.includes("status: \"active\" | \"suspended\""));
         strict.ok(!inspections[2]?.typeText.includes("unknown"));
-        strict.strictEqual(inspections[3]?.typeText, "Query<never>");
+        strict.strictEqual(inspections[3]?.typeText, "Query<never, readonly [unknown, bigint]>");
       } finally {
         await bridge.close();
       }

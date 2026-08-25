@@ -70,10 +70,12 @@ The grammar targets MySQL 8.4 LTS and supports aliases and stars, inner/outer/cr
 derived and correlated subqueries, grouping, aggregates, windows, `CASE`, scalar/EXISTS/IN/BETWEEN
 expressions, common JSON functions/operators, and `INSERT`/`UPDATE`/`DELETE` command typing. Catalog
 inference covers enums, unsigned integers, decimals, JSON, dates, binary values and `tinyint(1)`
-policy mapping.
+policy mapping. Ordered parameters infer from column comparisons, DML targets, casts, ranges,
+limits, and cataloged function arguments; positions without enough evidence remain `unknown`.
 
 Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER` and incompatible
-`RETURNING` clauses produce `TSQ401`. Commands without a result surface infer `Query<never>`.
+`RETURNING` clauses produce `TSQ401`. Commands without a result surface infer
+`Query<never, Parameters>`.
 Unknown functions warn and infer `unknown`; ambiguous or structurally unsafe queries are errors.
 
 MIT © typed-sql contributors

@@ -13,6 +13,7 @@ import type {
   WithClause,
 } from "@typed-sql/ast";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+import type { ResolvedParameter } from "@typed-sql/core";
 import { defaultPostgresTypePolicy, isKnownPostgresType, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 
 interface Relation {
@@ -40,6 +41,7 @@ export interface ResolvedColumn extends ResolvedType {
 
 export interface ResolvedQuery {
   readonly columns: readonly ResolvedColumn[];
+  readonly parameters: readonly ResolvedParameter[];
   readonly diagnostics: readonly SqlDiagnostic[];
   readonly resultKind: "rows" | "command";
 }
@@ -96,6 +98,8 @@ class Resolver {
   readonly #policy: PostgresTypePolicy;
   readonly #strictExpressions: boolean;
   readonly #diagnostics: SqlDiagnostic[] = [];
+  readonly #parameters = new Map<number, ResolvedParameter>();
+  readonly #parameterConflicts = new Set<number>();
 
   constructor(schema: SchemaSnapshot, options: ResolveOptions) {
     this.#schema = schema;
@@ -108,7 +112,11 @@ class Resolver {
       this.#diagnostic("TSQ007", `PostgreSQL resolver cannot analyze ${this.#schema.dialect}`, statement.range);
     }
     const result = this.#resolveStatement(statement, undefined, new Map());
-    return { ...result, diagnostics: this.#diagnostics };
+    return {
+      ...result,
+      parameters: [...this.#parameters.values()].sort((left, right) => left.index - right.index),
+      diagnostics: this.#diagnostics,
+    };
   }
 
   #resolveStatement(
@@ -172,17 +180,17 @@ class Resolver {
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);
-    if (statement.where !== undefined) this.#resolveExpression(statement.where, scope, ctes);
+    if (statement.where !== undefined) this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     for (const expression of statement.groupBy) this.#resolveExpression(expression, scope, ctes);
-    if (statement.having !== undefined) this.#resolveExpression(statement.having, scope, ctes);
+    if (statement.having !== undefined) this.#resolveExpression(statement.having, scope, ctes, this.#databaseType("boolean", false));
     for (const expression of statement.distinctOn) this.#resolveExpression(expression, scope, ctes);
     for (const window of statement.windows) {
       for (const expression of window.specification.partitionBy) this.#resolveExpression(expression, scope, ctes);
       for (const order of window.specification.orderBy) this.#resolveExpression(order.expression, scope, ctes);
     }
     for (const order of statement.orderBy) this.#resolveExpression(order.expression, scope, ctes);
-    if (statement.limit !== undefined) this.#resolveExpression(statement.limit, scope, ctes);
-    if (statement.offset !== undefined) this.#resolveExpression(statement.offset, scope, ctes);
+    if (statement.limit !== undefined) this.#resolveExpression(statement.limit, scope, ctes, this.#databaseType("integer", false));
+    if (statement.offset !== undefined) this.#resolveExpression(statement.offset, scope, ctes, this.#databaseType("integer", false));
     return this.#resolveItems(statement.columns, scope, ctes);
   }
 
@@ -201,7 +209,7 @@ class Resolver {
         if (row.length !== targetColumns.length) {
           this.#diagnostic("TSQ214", `INSERT has ${targetColumns.length} target columns but ${row.length} values`, statement.source.range);
         }
-        for (const value of row) this.#resolveExpression(value, scope, ctes);
+        row.forEach((value, index) => this.#resolveExpression(value, scope, ctes, this.#snapshotType(targetColumns[index])));
       }
     } else if (statement.source.kind === "select") {
       const source = this.#resolveStatement(statement.source, outer, ctes);
@@ -221,12 +229,12 @@ class Resolver {
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
     const target = this.#addRelation(statement.table, false, scope, ctes);
     for (const assignment of statement.assignments) {
-      this.#findColumn(target?.table, assignment.column);
-      this.#resolveExpression(assignment.value, scope, ctes);
+      const column = this.#findColumn(target?.table, assignment.column);
+      this.#resolveExpression(assignment.value, scope, ctes, this.#snapshotType(column));
     }
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);
-    if (statement.where !== undefined) this.#resolveExpression(statement.where, scope, ctes);
+    if (statement.where !== undefined) this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     const columns = this.#resolveItems(statement.returning, scope, ctes);
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
   }
@@ -239,7 +247,7 @@ class Resolver {
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
     this.#addRelation(statement.table, false, scope, ctes);
     for (const reference of statement.using) this.#addRelation(reference, false, scope, ctes);
-    if (statement.where !== undefined) this.#resolveExpression(statement.where, scope, ctes);
+    if (statement.where !== undefined) this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     const columns = this.#resolveItems(statement.returning, scope, ctes);
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
   }
@@ -248,7 +256,7 @@ class Resolver {
     const previous = [...scope.relations];
     if (join.kind === "right" || join.kind === "full") for (const relation of previous) relation.nullable = true;
     const relation = this.#addRelation(join.table, join.kind === "left" || join.kind === "full", scope, ctes);
-    if (join.on !== undefined) this.#resolveExpression(join.on, scope, ctes);
+    if (join.on !== undefined) this.#resolveExpression(join.on, scope, ctes, this.#databaseType("boolean", false));
     if (join.using !== undefined && relation !== undefined) {
       for (const identifier of join.using) {
         const name = sqlName(identifier);
@@ -373,7 +381,12 @@ class Resolver {
     return undefined;
   }
 
-  #resolveExpression(expression: Expression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
+  #resolveExpression(
+    expression: Expression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    expected?: ResolvedType,
+  ): ResolvedType {
     switch (expression.kind) {
       case "column": {
         if (expression.relation === undefined && expression.column.name === "DEFAULT") return { tsType: "unknown", nullable: true };
@@ -385,7 +398,7 @@ class Resolver {
         if (typeof expression.value === "number") return { tsType: "number", nullable: false, databaseType: Number.isInteger(expression.value) ? "integer" : "numeric" };
         return { tsType: "string", nullable: false, databaseType: "text" };
       }
-      case "parameter": return { tsType: "unknown", nullable: true };
+      case "parameter": return this.#recordParameter(expression.index, expected);
       case "star": return { tsType: "unknown", nullable: false };
       case "array": {
         const elements = expression.elements.map((element) => this.#resolveExpression(element, scope, ctes));
@@ -402,7 +415,8 @@ class Resolver {
         return { tsType: `readonly [${elements.map((element) => element.tsType + (element.nullable ? " | null" : "")).join(", ")}]`, nullable: false };
       }
       case "cast": {
-        const source = this.#resolveExpression(expression.expression, scope, ctes);
+        const castType = this.#databaseType(expression.databaseType.name, true);
+        const source = this.#resolveExpression(expression.expression, scope, ctes, castType);
         if (!isKnownPostgresType(expression.databaseType.name, this.#schema)) {
           this.#diagnostic("TSQ106", `Invalid or unknown PostgreSQL cast type ${expression.databaseType.name}`, expression.databaseType.range);
         }
@@ -443,7 +457,7 @@ class Resolver {
         const subject = this.#resolveExpression(expression.expression, scope, ctes);
         let nullable = subject.nullable;
         if (Array.isArray(expression.values)) {
-          const values = expression.values.map((value) => this.#resolveExpression(value, scope, ctes));
+          const values = expression.values.map((value) => this.#resolveExpression(value, scope, ctes, subject));
           nullable ||= values.some((value) => value.nullable);
         } else {
           const resolved = this.#resolveStatement(expression.values as SelectStatement, scope, ctes);
@@ -454,16 +468,23 @@ class Resolver {
       }
       case "between": {
         const subject = this.#resolveExpression(expression.expression, scope, ctes);
-        const lower = this.#resolveExpression(expression.lower, scope, ctes);
-        const upper = this.#resolveExpression(expression.upper, scope, ctes);
+        const lower = this.#resolveExpression(expression.lower, scope, ctes, subject);
+        const upper = this.#resolveExpression(expression.upper, scope, ctes, subject);
         return { tsType: "boolean", nullable: subject.nullable || lower.nullable || upper.nullable, databaseType: "boolean" };
       }
     }
   }
 
   #resolveBinary(expression: Extract<Expression, { readonly kind: "binary" }>, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
-    const left = this.#resolveExpression(expression.left, scope, ctes);
-    const right = this.#resolveExpression(expression.right, scope, ctes);
+    let left: ResolvedType;
+    let right: ResolvedType;
+    if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
+      right = this.#resolveExpression(expression.right, scope, ctes);
+      left = this.#resolveExpression(expression.left, scope, ctes, right);
+    } else {
+      left = this.#resolveExpression(expression.left, scope, ctes);
+      right = this.#resolveExpression(expression.right, scope, ctes, expression.right.kind === "parameter" ? left : undefined);
+    }
     if (booleanOperators.has(expression.operator)) {
       const neverNull = expression.operator.startsWith("IS");
       return { tsType: "boolean", nullable: neverNull ? false : left.nullable || right.nullable, databaseType: "boolean" };
@@ -594,7 +615,14 @@ class Resolver {
       return actual === undefined || this.#typesCompatible(type, actual);
     }));
     const selected = exact.length === 1 ? exact[0] : candidates.length === 1 ? candidates[0] : undefined;
-    if (selected !== undefined) return this.#functionType(selected);
+    if (selected !== undefined) {
+      expression.arguments.forEach((argument, index) => {
+        if (argument.kind === "parameter") {
+          this.#resolveExpression(argument, scope, ctes, this.#databaseType(selected.argumentTypes[index]!, true));
+        }
+      });
+      return this.#functionType(selected);
+    }
     if (exact.length > 1 || candidates.length > 1) {
       this.#diagnostic("TSQ204", `Ambiguous overloaded function ${expression.name.name}`, expression.range, "Cast arguments to select a specific overload.");
       return { tsType: "unknown", nullable: true };
@@ -617,6 +645,48 @@ class Resolver {
       nullable: value.nullable,
       ...(value.databaseReturnType === undefined ? {} : { databaseType: value.databaseReturnType }),
     };
+  }
+
+  #snapshotType(column: ColumnSnapshot | undefined): ResolvedType | undefined {
+    if (column === undefined) return undefined;
+    return { tsType: column.tsType, nullable: column.nullable, databaseType: column.databaseType };
+  }
+
+  #databaseType(databaseType: string, nullable: boolean): ResolvedType {
+    return {
+      tsType: mapPostgresType(databaseType, this.#policy, this.#schema),
+      nullable,
+      databaseType: normalizeDatabaseType(databaseType),
+    };
+  }
+
+  #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
+    const candidate: ResolvedParameter = expected === undefined
+      ? { index, tsType: "unknown", nullable: true }
+      : { index, ...expected };
+    const current = this.#parameters.get(index);
+    if (this.#parameterConflicts.has(index)) return current ?? { tsType: "unknown", nullable: true };
+    if (current === undefined || (current.tsType === "unknown" && candidate.tsType !== "unknown")) {
+      this.#parameters.set(index, candidate);
+      return candidate;
+    }
+    if (candidate.tsType === "unknown") return current;
+    if (current.tsType !== candidate.tsType) {
+      const conflict: ResolvedParameter = { index, tsType: "unknown", nullable: true };
+      this.#parameters.set(index, conflict);
+      this.#parameterConflicts.add(index);
+      return conflict;
+    }
+    const merged: ResolvedParameter = {
+      index,
+      tsType: current.tsType,
+      nullable: current.nullable || candidate.nullable,
+      ...(current.databaseType === candidate.databaseType && current.databaseType !== undefined
+        ? { databaseType: current.databaseType }
+        : {}),
+    };
+    this.#parameters.set(index, merged);
+    return merged;
   }
 
   #diagnostic(code: string, message: string, range: SourceRange, suggestionText?: string, severity: SqlDiagnostic["severity"] = "error"): void {

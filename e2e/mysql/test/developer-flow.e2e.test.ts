@@ -124,8 +124,8 @@ try {
         strict.ok(inspections[0]?.typeText.includes("budget: string | null"));
         strict.ok(inspections[1]?.typeText.includes("project_count: bigint | null"));
         strict.ok(inspections[1]?.typeText.includes("total_budget: string | null"));
-        strict.strictEqual(inspections[2]?.typeText, "Query<never>");
-        strict.ok(inspections.every((inspection) => !inspection.typeText.includes("unknown")));
+        strict.strictEqual(inspections[2]?.typeText, 'Query<never, readonly [string, "active" | "suspended", unknown]>');
+        strict.ok(inspections.slice(0, 2).every((inspection) => !inspection.typeText.includes("unknown")));
       } finally { await bridge.close(); }
     });
 
