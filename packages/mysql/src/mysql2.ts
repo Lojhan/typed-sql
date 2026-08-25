@@ -13,7 +13,17 @@ import type { MySqlTypePolicy } from "./type-policy.js";
 
 export interface MySql2Options {
   readonly connectionUri: string | (() => string | Promise<string>);
-  readonly poolConfig?: Omit<PoolOptions, "uri">;
+  readonly poolConfig?: Omit<
+    PoolOptions,
+    | "uri"
+    | "supportBigNumbers"
+    | "bigNumberStrings"
+    | "decimalNumbers"
+    | "dateStrings"
+    | "jsonStrings"
+    | "typeCast"
+    | "rowsAsArray"
+  >;
   readonly typePolicy?: MySqlTypePolicy;
   readonly decimal?: (value: string) => unknown;
   /** Test or host-injected loader. Applications normally leave this unset. */
@@ -55,6 +65,28 @@ async function uri(value: MySql2Options["connectionUri"]): Promise<string> {
   const result = typeof value === "function" ? await value() : value;
   if (result.length === 0) throw new TypeError("MySQL connectionUri must not be empty");
   return result;
+}
+
+const managedPoolOptions = [
+  "supportBigNumbers",
+  "bigNumberStrings",
+  "decimalNumbers",
+  "dateStrings",
+  "jsonStrings",
+  "typeCast",
+  "rowsAsArray",
+] as const;
+
+function validatePoolConfig(poolConfig: MySql2Options["poolConfig"]): void {
+  if (poolConfig === undefined) return;
+  const configured = poolConfig as Readonly<Record<string, unknown>>;
+  for (const option of managedPoolOptions) {
+    if (option in configured) {
+      throw new TypeError(
+        `@typed-sql/mysql/mysql2 owns poolConfig.${option} so decoded values match typePolicy; remove that option`,
+      );
+    }
+  }
 }
 
 function fields(values: readonly FieldPacket[]): readonly MySqlFieldLike[] {
@@ -106,6 +138,7 @@ export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
 }
 
 export async function createMySql2Database(options: MySql2Options): Promise<MySqlDatabase> {
+  validatePoolConfig(options.poolConfig);
   const driver = await loadMySql2Driver(options.driverImporter);
   const pool = driver.createPool({
     ...options.poolConfig,
@@ -114,6 +147,8 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     bigNumberStrings: true,
     decimalNumbers: false,
     dateStrings: true,
+    jsonStrings: false,
+    rowsAsArray: false,
   });
   return createMySqlDatabase({
     pool: adaptMySql2Pool(pool),

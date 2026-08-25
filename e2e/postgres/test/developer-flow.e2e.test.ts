@@ -8,6 +8,7 @@ import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { Pool } from "pg";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { postgresCodecFidelity } from "../src/codec-query.js";
 
 interface CommandResult {
   readonly code: number;
@@ -170,6 +171,11 @@ try {
       strict.deepStrictEqual(snapshot.enums?.account_status, ["active", "suspended"]);
       strict.strictEqual(snapshot.domains?.email_address?.tsType, "string");
       strict.strictEqual(snapshot.functions?.["active_user_count()"]?.returnType, "bigint");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.id?.tsType, "number");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.numeric_value?.tsType, "string");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
+      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
       strict.ok(snapshot.metadata.schemaHash.length === 64);
       strict.ok(snapshot.metadata.typePolicyHash.length === 64);
     });
@@ -211,6 +217,50 @@ try {
         strict.ok(inspections[2]?.typeText.includes('status: "active" | "suspended"'));
         strict.ok(!inspections[2]?.typeText.includes("unknown"));
         strict.strictEqual(inspections[3]?.typeText, "Query<never, readonly [unknown, bigint]>");
+      } finally {
+        await bridge.close();
+      }
+    });
+
+    await it("proves the default PostgreSQL codec matrix at the inferred type boundary", async () => {
+      const sourcePath = join(packageDirectory, "src/codec-query.ts");
+      const source = await readFile(sourcePath, "utf8");
+      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
+      const analysis = analyzeSource(source, snapshot as PostgresSchemaSnapshot, postgres());
+      strict.deepStrictEqual(analysis.diagnostics, []);
+      strict.strictEqual(analysis.queries.length, 1);
+      const contract = analysis.queries[0]!;
+      strict.strictEqual(contract.parameterType, "readonly [number]");
+      const rowType = contract.rowType.replace(/"([^"]+)":/gu, "$1:");
+      for (const exact of [
+        "id: number",
+        "smallint_value: number",
+        "integer_value: number",
+        "bigint_value: bigint",
+        "numeric_value: string",
+        "boolean_value: boolean",
+        "uuid_value: string",
+        "date_value: Date",
+        "json_value: unknown",
+        "binary_value: Uint8Array",
+        "bigint_array: readonly (bigint)[]",
+        "numeric_array: readonly (string)[]",
+        "nullable_text: string | null",
+      ])
+        strict.ok(rowType.includes(exact), `Missing ${exact} in ${contract.rowType}`);
+      const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
+      try {
+        const inspections = await bridge.inspectFile({
+          fileName: sourcePath,
+          projectFile: join(packageDirectory, "tsconfig.json"),
+          analysis,
+        });
+        strict.strictEqual(inspections.length, 1);
+        const inferred = inspections[0]!.typeText;
+        strict.ok(inferred.startsWith("Query<"));
+        strict.ok(inferred.includes("id: number"));
+        strict.ok(inferred.includes("bigint_value: bigint"));
+        strict.ok(inferred.endsWith("readonly [number]>") || inferred.endsWith("readonly [...]>"));
       } finally {
         await bridge.close();
       }
@@ -333,6 +383,30 @@ try {
           DELETE FROM users WHERE id = ${inserted.id} RETURNING id
         `);
         strict.deepStrictEqual(deleted, [{ id: inserted.id }]);
+
+        const codecRows = await database.execute(postgresCodecFidelity);
+        const codec = codecRows[0] as Record<string, unknown>;
+        strict.strictEqual(codec.id, 1);
+        strict.strictEqual(codec.smallint_value, 32767);
+        strict.strictEqual(codec.integer_value, 2147483647);
+        strict.strictEqual(codec.bigint_value, 9007199254740993n);
+        strict.strictEqual(codec.numeric_value, "12345678901234567890.1234567890");
+        strict.strictEqual(codec.real_value, 1.25);
+        strict.strictEqual(codec.double_value, 2.5);
+        strict.strictEqual(codec.boolean_value, true);
+        strict.strictEqual(codec.text_value, "codec");
+        strict.strictEqual(codec.uuid_value, "22222222-2222-2222-2222-222222222222");
+        strict.ok(codec.date_value instanceof Date);
+        strict.ok(codec.timestamp_value instanceof Date);
+        strict.ok(codec.timestamptz_value instanceof Date);
+        strict.deepStrictEqual(codec.json_value, { kind: "json", count: 1 });
+        strict.deepStrictEqual(codec.jsonb_value, { enabled: true, kind: "jsonb" });
+        strict.ok(codec.binary_value instanceof Uint8Array);
+        strict.deepStrictEqual(Array.from(codec.binary_value as Uint8Array), [0, 165, 255]);
+        strict.deepStrictEqual(codec.bigint_array, [1n, 9007199254740993n]);
+        strict.deepStrictEqual(codec.numeric_array, ["1.25", "12345678901234567890.1234567890"]);
+        strict.deepStrictEqual(codec.text_array, ["one", "two"]);
+        strict.strictEqual(codec.nullable_text, null);
       } finally {
         await database.close();
       }

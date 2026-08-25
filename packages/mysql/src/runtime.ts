@@ -1,5 +1,5 @@
 import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
-import type { MySqlTypePolicy } from "./type-policy.js";
+import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 
 export interface MySqlFieldLike {
   readonly name: string;
@@ -38,13 +38,7 @@ export interface MySqlDatabaseOptions {
   readonly decimal?: (value: string) => unknown;
 }
 
-const defaultRuntimePolicy = {
-  bigint: "bigint",
-  decimal: "string",
-  date: "Date",
-  json: "unknown",
-  tinyint1: "boolean",
-} as const;
+const defaultRuntimePolicy = defaultMySqlTypePolicy;
 
 const mysqlTypes = { tiny: 1, longlong: 8, date: 10, datetime: 12, timestamp: 7, json: 245, decimal: 246 } as const;
 

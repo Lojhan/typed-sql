@@ -68,7 +68,9 @@ const rows = await database.execute(query);
 
 The default lossless policy maps PostgreSQL `bigint` to `bigint`, `numeric` to `string`, temporal
 types to `Date`, JSON to `unknown`, enums to literal unions, arrays recursively, and `bytea` to
-`Uint8Array`. Per-query parsers do not mutate `pg` globals.
+`Uint8Array`. Per-query parsers do not mutate `pg` globals and delegate non-policy OIDs to the
+installed driver's native parser table. See the tested
+[runtime codec matrix](https://github.com/Lojhan/typed-sql/blob/main/docs/CODEC_FIDELITY.md#postgresql-and-pg).
 
 ## Supported SQL
 

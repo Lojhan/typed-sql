@@ -85,6 +85,30 @@ await describe("application-owned mysql2 integration", async () => {
     await strict.rejects(() => createMySql2Database({ connectionUri: "" }), /must not be empty/);
   });
 
+  await it("rejects mysql2 settings that would invalidate the runtime type policy", async () => {
+    const raw = new FakeRawPool();
+    const incompatible = [
+      "supportBigNumbers",
+      "bigNumberStrings",
+      "decimalNumbers",
+      "dateStrings",
+      "jsonStrings",
+      "typeCast",
+      "rowsAsArray",
+    ] as const;
+    for (const option of incompatible) {
+      await strict.rejects(
+        () =>
+          createMySql2Database({
+            connectionUri: "mysql://unused/app",
+            poolConfig: { [option]: true } as never,
+            driverImporter: async () => fakeDriver(raw),
+          }),
+        new RegExp(`owns poolConfig\\.${option}`),
+      );
+    }
+  });
+
   await it("supports injected catalog clients and validates provider options", async () => {
     const snapshot = await mysql2({ client: new CatalogClient(), schemas: ["app"] }).introspect();
     strict.strictEqual(snapshot.version, "8.4.11");

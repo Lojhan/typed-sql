@@ -65,6 +65,14 @@ await describe("application-owned pg integration", async () => {
     });
     await database.close();
     await strict.rejects(() => createPgDatabase({ connectionString: "" }), /must not be empty/);
+    await strict.rejects(
+      () =>
+        createPgDatabase({
+          connectionString: "postgresql://unused/app",
+          poolConfig: { types: {} } as never,
+        }),
+      /owns poolConfig\.types/,
+    );
   });
 
   await it("supports injected catalog clients and validates provider options", async () => {

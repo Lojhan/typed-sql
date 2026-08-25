@@ -1,4 +1,5 @@
 import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
+import { defaultPostgresTypePolicy } from "./type-policy.js";
 
 export interface PostgresCodecPolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -41,14 +42,11 @@ export interface PostgresDatabaseOptions {
   readonly ownsPool?: boolean;
   readonly typePolicy?: PostgresCodecPolicy;
   readonly decimal?: (value: string) => unknown;
+  /** Native driver parsers used for types that typed-sql does not override. */
+  readonly fallbackTypeParsers?: PostgresTypeParserSet;
 }
 
-const defaultPolicy: PostgresCodecPolicy = {
-  bigint: "bigint",
-  numeric: "string",
-  date: "Date",
-  json: "unknown",
-};
+const defaultPolicy: PostgresCodecPolicy = defaultPostgresTypePolicy;
 
 const oids = {
   int8: 20,
@@ -125,6 +123,7 @@ function parsePostgresArray(source: string, transform: (value: string) => unknow
 export function createPostgresTypeParsers(
   policy: PostgresCodecPolicy = defaultPolicy,
   decimal?: (value: string) => unknown,
+  fallback?: PostgresTypeParserSet,
 ): PostgresTypeParserSet {
   const scalar = new Map<number, (value: string) => unknown>();
   scalar.set(oids.int8, policy.bigint === "bigint" ? BigInt : policy.bigint === "number" ? safeIntegerValue : String);
@@ -138,11 +137,12 @@ export function createPostgresTypeParsers(
   for (const oid of [oids.json, oids.jsonb]) scalar.set(oid, policy.json === "string" ? String : JSON.parse);
   return {
     getTypeParser(oid: number, format = "text") {
-      if (format === "binary") return (input: string): string => input;
+      if (format === "binary") return fallback?.getTypeParser(oid, format) ?? ((input: string): string => input);
       const parser = scalar.get(oid);
       if (parser !== undefined) return parser;
       const elementParser = scalar.get(arrayElementOids.get(oid) ?? -1);
-      return elementParser === undefined ? String : (input: string) => parsePostgresArray(input, elementParser);
+      if (elementParser !== undefined) return (input: string) => parsePostgresArray(input, elementParser);
+      return fallback?.getTypeParser(oid, format) ?? String;
     },
   };
 }
@@ -233,7 +233,7 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
   return new PostgresDatabaseImplementation(
     options.pool,
     undefined,
-    createPostgresTypeParsers(options.typePolicy ?? defaultPolicy, options.decimal),
+    createPostgresTypeParsers(options.typePolicy ?? defaultPolicy, options.decimal, options.fallbackTypeParsers),
     options.ownsPool ?? false,
     0,
   );

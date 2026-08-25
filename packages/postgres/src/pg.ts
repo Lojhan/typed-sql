@@ -45,6 +45,14 @@ async function connectionString(value: PgOptions["connectionString"]): Promise<s
   return resolved;
 }
 
+function validatePoolConfig(poolConfig: PgOptions["poolConfig"]): void {
+  if (poolConfig !== undefined && "types" in poolConfig) {
+    throw new TypeError(
+      "@typed-sql/postgres/pg owns poolConfig.types so decoded values match typePolicy; remove that option",
+    );
+  }
+}
+
 function queryConfig(config: PostgresQueryConfig): QueryConfig<unknown[]> {
   return {
     text: config.text,
@@ -84,11 +92,14 @@ export function adaptPgPool(pool: PgPool): PostgresPoolLike {
 }
 
 export async function createPgDatabase(options: PgOptions): Promise<PostgresDatabase> {
-  const { Pool } = await loadPgDriver();
+  validatePoolConfig(options.poolConfig);
+  const driver = await loadPgDriver();
+  const { Pool } = driver;
   const pool = new Pool({ ...options.poolConfig, connectionString: await connectionString(options.connectionString) });
   return createPostgresDatabase({
     pool: adaptPgPool(pool),
     ownsPool: true,
+    fallbackTypeParsers: driver.types,
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
     ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
   });

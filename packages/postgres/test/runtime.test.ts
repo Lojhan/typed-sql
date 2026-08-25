@@ -70,6 +70,16 @@ await describe("PostgreSQL runtime adapter", async () => {
     strict.strictEqual(strings.getTypeParser(20, "binary")("raw"), "raw");
     strict.strictEqual(strings.getTypeParser(9999)("custom"), "custom");
 
+    const native = {
+      getTypeParser(oid: number, format = "text") {
+        return (input: string) => ({ format, input, oid });
+      },
+    };
+    const delegated = createPostgresTypeParsers(undefined, undefined, native);
+    strict.deepStrictEqual(delegated.getTypeParser(23)("42"), { format: "text", input: "42", oid: 23 });
+    strict.deepStrictEqual(delegated.getTypeParser(17, "binary")("raw"), { format: "binary", input: "raw", oid: 17 });
+    strict.strictEqual(delegated.getTypeParser(20)("42"), 42n);
+
     const values = createPostgresTypeParsers(
       { bigint: "bigint", numeric: "Decimal", date: "Date", json: "unknown" },
       (value) => ({ decimal: value }),

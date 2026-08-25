@@ -131,8 +131,9 @@ export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, sche
   const values = enumValues(databaseType);
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";
   if (type === "tinyint" && /^tinyint\(1\)/iu.test(databaseType)) return policy.tinyint1;
-  if (["tinyint", "smallint", "mediumint", "int", "integer", "float", "double", "real", "bit", "year"].includes(type))
+  if (["tinyint", "smallint", "mediumint", "int", "integer", "float", "double", "real", "year"].includes(type))
     return "number";
+  if (type === "bit") return "Uint8Array";
   if (type === "bigint") return policy.bigint;
   if (type === "decimal" || type === "numeric") return policy.decimal;
   if (type === "boolean" || type === "bool") return "boolean";

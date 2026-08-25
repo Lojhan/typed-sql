@@ -12,8 +12,8 @@ current public release line is `1.0.0-beta.*` under the npm `next` tag.
 
 The project is not ready to publish under `latest` yet. Stable promotion is blocked by the absence
 of a complete registry-only consumer test, an unrehearsed stable version transition, and
-insufficient external beta soak time. Reproducible editor installation, runtime codec fidelity,
-grammar conformance, and performance budgets also remain open gates.
+insufficient external beta soak time. Reproducible editor installation, grammar conformance, and
+performance budgets also remain open gates.
 
 ## Definition of ready
 
@@ -113,6 +113,12 @@ conservative `unknown`, and stable diagnostics, while compiler, CLI, bridge, and
 assert equivalent transformed output and original-source diagnostic mapping. A confidently wrong
 inference is a release-blocking correctness defect, and every correction requires a minimal corpus
 regression.
+
+Runtime fidelity is enforced by the live [codec matrix](./CODEC_FIDELITY.md). Catalog types,
+generated types, inferred row/parameter contracts, driver metadata, and decoded values are tested
+together for PostgreSQL/`pg` and MySQL/`mysql2`, including unsafe integers, exact decimals, dates,
+JSON, binary values, arrays, enums, nullability, joins, aggregates, and functions. Decoder-changing
+driver settings are either owned by the adapter or rejected before connecting.
 
 Acceptance criteria:
 

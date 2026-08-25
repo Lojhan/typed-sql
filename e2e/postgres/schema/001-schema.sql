@@ -21,6 +21,29 @@ CREATE TABLE public.projects (
   tags text[] NOT NULL DEFAULT '{}'
 );
 
+CREATE TABLE public.codec_fidelity (
+  id integer PRIMARY KEY,
+  smallint_value smallint NOT NULL,
+  integer_value integer NOT NULL,
+  bigint_value bigint NOT NULL,
+  numeric_value numeric(30, 10) NOT NULL,
+  real_value real NOT NULL,
+  double_value double precision NOT NULL,
+  boolean_value boolean NOT NULL,
+  text_value text NOT NULL,
+  uuid_value uuid NOT NULL,
+  date_value date NOT NULL,
+  timestamp_value timestamp without time zone NOT NULL,
+  timestamptz_value timestamp with time zone NOT NULL,
+  json_value json NOT NULL,
+  jsonb_value jsonb NOT NULL,
+  binary_value bytea NOT NULL,
+  bigint_array bigint[] NOT NULL,
+  numeric_array numeric[] NOT NULL,
+  text_array text[] NOT NULL,
+  nullable_text text
+);
+
 CREATE VIEW public.active_users AS
 SELECT id, email, created_at
 FROM public.users

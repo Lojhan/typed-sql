@@ -24,6 +24,9 @@ the same classification in `typedSql.releaseTrack`. See [Public API](./PUBLIC_AP
 | @types/pg | PostgreSQL package supplies declarations-only 8.23.1; no runtime driver is installed |
 | mysql2 | E2E application owns 3.24.1 |
 
+Database-to-TypeScript mappings, supported driver settings, precision behavior, and live runtime
+assertions are defined in [Runtime codec fidelity](./CODEC_FIDELITY.md).
+
 The compiler performance gate transforms 1,000 static query templates in at most 3,000ms on an
 unwarmed CI-compatible Node process. Parser fuzzing runs 2,000 deterministic arbitrary inputs.
 Compiler-critical packages enforce at least 95% statements, lines, and functions plus 90% branches.
