@@ -316,6 +316,7 @@ The exact dialect boundaries are versioned in the
 The release gate exercises what users actually install:
 
 - package-owned Poku suites with 95% statement/line/function and 90% branch gates on critical code;
+- a cross-dialect fail-closed soundness corpus shared by grammars, compiler, CLI, bridge, and editor service;
 - deterministic Biome formatting, import organization, and recommended lint rules;
 - 2,000 deterministic parser fuzz inputs and explicit parser/token resource limits;
 - explicit compiler, structural-expansion, resolver-index, and query-rendering performance budgets;
@@ -340,6 +341,7 @@ pnpm e2e:packed
 
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Public API and stability boundary](./docs/PUBLIC_API.md)
+- [Inference soundness policy and corpus](./docs/SOUNDNESS.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
 - [Releasing](./docs/RELEASING.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)
