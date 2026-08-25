@@ -56,9 +56,8 @@ That type is not handwritten. It comes from the SQL, join nullability, aggregate
 PostgreSQL function catalog, enum definition, configured runtime codecs, and your generated schema
 snapshot. Change the query or schema and the type changes with it.
 
-> **Release status:** `1.0.0-beta` is being prepared for the first npm publication. The compiler,
-> dialects, real-database E2E, packed-consumer flow, and editor language server are implemented. See
-> [Publishing](./docs/PUBLISHING.md) for the remaining registry bootstrap steps.
+> **Release status:** the public beta is available from npm under the `next` dist-tag. Stable 1.0
+> follows after external beta use and the acceptance gates in [Releasing](./docs/RELEASING.md).
 
 ## Why typed-sql feels different
 
@@ -168,8 +167,7 @@ hover/diagnostic positions back to the unchanged source.
 
 TypeScript `7.0.2` is the correctness compiler. A separately pinned `7.1` preview lives behind an
 isolated process boundary for the editor bridge, so upstream API churn cannot leak into the grammar
-or query contract. [Why TypeScript 7 matters](./docs/TYPESCRIPT_7.md) explains what became possible,
-what was already possible with older compiler plugins, and which upstream surface is still unstable.
+or query contract.
 
 ## Packages
 
@@ -201,7 +199,8 @@ PostgreSQL and MySQL both cover the static application surface needed for seriou
 - parameterized execution and nested transaction/savepoint adapters.
 
 The exact dialect boundaries are versioned in the
-[PostgreSQL matrix](./docs/POSTGRESQL_SUPPORT.md) and [MySQL matrix](./docs/MYSQL_SUPPORT.md).
+[PostgreSQL package](./packages/postgres/README.md#supported-sql) and
+[MySQL package](./packages/mysql/README.md#supported-sql) documentation.
 
 ## Proof, not promises
 
@@ -230,11 +229,8 @@ pnpm e2e:packed
 
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
-- [Why TypeScript 7 matters](./docs/TYPESCRIPT_7.md)
-- [Diagnostic code registry](./docs/DIAGNOSTICS.md)
-- [Roadmap to 1.0](./docs/ROADMAP.md)
-- [Migration to 1.0](./docs/MIGRATING_TO_1.0.md)
-- [Publishing and registry bootstrap](./docs/PUBLISHING.md)
+- [Releasing](./docs/RELEASING.md)
+- [Diagnostic code registry](./packages/core/README.md#diagnostics)
 - [Security policy](./SECURITY.md)
 - [Contributing](./CONTRIBUTING.md)
 

@@ -27,6 +27,6 @@ This is a compiler/tooling package; application code normally imports `sql` from
 creating an optimistic type.
 
 See the [supported SQL matrices](https://github.com/Lojhan/typed-sql#supported-sql) and
-[diagnostic contract](https://github.com/Lojhan/typed-sql/blob/main/docs/DIAGNOSTICS.md).
+[diagnostic contract](https://github.com/Lojhan/typed-sql/tree/main/packages/core#diagnostics).
 
 MIT © typed-sql contributors

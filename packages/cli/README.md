@@ -32,6 +32,6 @@ Use `--config path/to/typed-sql.config.ts` when discovery is not appropriate. `g
 
 The CLI contains no PostgreSQL, MySQL, `pg`, or `mysql2` dependency. It loads the installed dialect
 and schema provider through the project config. Diagnostics use the versioned
-[`TSQ` registry](https://github.com/Lojhan/typed-sql/blob/main/docs/DIAGNOSTICS.md).
+[`TSQ` registry](https://github.com/Lojhan/typed-sql/tree/main/packages/core#diagnostics).
 
 MIT © typed-sql contributors
