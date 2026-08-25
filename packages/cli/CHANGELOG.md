@@ -1,5 +1,11 @@
 # @typed-sql/cli
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- 90bae18: Show help and version information without requiring a project configuration, and reject unknown commands before config discovery.
+
 ## 1.0.0-beta.1
 
 ### Patch Changes
