@@ -151,7 +151,7 @@ after the initial registry bootstrap`, merge it, and merge the resulting Version
 should produce `1.0.0-beta.1`.
 
 Dispatch the Release workflow with channel `beta`. The workflow must authenticate only through
-OIDC, publish under `next`, create annotated GitHub tags/releases, and attach npm provenance. Confirm:
+OIDC, publish under `next`, create Git tags and GitHub releases, and attach npm provenance. Confirm:
 
 Changesets normally requires its prerelease identifier (`beta`) to also be the npm dist-tag. The
 repository therefore uses Changesets for versioning, changelogs, and release tags, but publishes the
