@@ -4,19 +4,38 @@
   "description": "Dialect-neutral TypeScript source extraction and typed SQL compilation.",
   "license": "MIT",
   "author": "Lojhan",
-  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/compiler" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/compiler"
+  },
   "homepage": "https://github.com/Lojhan/typed-sql#readme",
-  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
-  "engines": { "node": ">=22.11" },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map", "README.md", "LICENSE", "CHANGELOG.md"],
-  "publishConfig": { "access": "public" },
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "type": "module",
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
     "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
-  "exports": { ".": "./dist/packages/compiler/src/index.js" },
+  "exports": {
+    ".": "./dist/packages/compiler/src/index.js"
+  },
   "dependencies": {
     "@typed-sql/core": "workspace:*"
   }

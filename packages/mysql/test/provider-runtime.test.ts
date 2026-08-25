@@ -1,26 +1,69 @@
 import { describe, it, strict } from "poku";
 import { sql } from "../../core/src/index.js";
-import { introspectMySql, MySqlSchemaProvider, mysqlCatalogQueries, type MySqlQueryable, type MySqlQueryResult } from "../src/provider.js";
-import { createMySqlDatabase, mysqlRenderer, type MySqlConnectionLike, type MySqlExecutionResult, type MySqlPoolLike } from "../src/runtime.js";
+import {
+  introspectMySql,
+  type MySqlQueryable,
+  type MySqlQueryResult,
+  MySqlSchemaProvider,
+  mysqlCatalogQueries,
+} from "../src/provider.js";
+import {
+  createMySqlDatabase,
+  type MySqlConnectionLike,
+  type MySqlExecutionResult,
+  type MySqlPoolLike,
+  mysqlRenderer,
+} from "../src/runtime.js";
 
 class CatalogClient implements MySqlQueryable {
   readonly calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];
   database: string | null = "app";
 
-  async query<Row extends Record<string, unknown>>(sqlText: string, values?: readonly unknown[]): Promise<MySqlQueryResult<Row>> {
+  async query<Row extends Record<string, unknown>>(
+    sqlText: string,
+    values?: readonly unknown[],
+  ): Promise<MySqlQueryResult<Row>> {
     this.calls.push({ sql: sqlText, ...(values === undefined ? {} : { values }) });
     let rows: readonly Record<string, unknown>[];
     if (sqlText.includes("VERSION()")) rows = [{ server_version: "8.4.11" }];
     else if (sqlText.includes("DATABASE()")) rows = [{ database_name: this.database }];
-    else if (sqlText.includes("information_schema.COLUMNS")) rows = [
-      { schema_name: "app", table_name: "users", column_name: "id", database_type: "bigint unsigned", is_nullable: "NO", default_expression: null },
-      { schema_name: "app", table_name: "users", column_name: "status", database_type: "enum('active','suspended')", is_nullable: "NO", default_expression: "active" },
-      { schema_name: "app", table_name: "users", column_name: "budget", database_type: "decimal(14,2)", is_nullable: "YES", default_expression: null },
-      { schema_name: "audit", table_name: "users", column_name: "id", database_type: "int", is_nullable: "NO", default_expression: null },
-    ].filter((row) => (values ?? []).includes(row.schema_name));
-    else if (sqlText.includes("information_schema.ROUTINES")) rows = [
-      { schema_name: "app", function_name: "user_count", database_return_type: "bigint" },
-    ];
+    else if (sqlText.includes("information_schema.COLUMNS"))
+      rows = [
+        {
+          schema_name: "app",
+          table_name: "users",
+          column_name: "id",
+          database_type: "bigint unsigned",
+          is_nullable: "NO",
+          default_expression: null,
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          column_name: "status",
+          database_type: "enum('active','suspended')",
+          is_nullable: "NO",
+          default_expression: "active",
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          column_name: "budget",
+          database_type: "decimal(14,2)",
+          is_nullable: "YES",
+          default_expression: null,
+        },
+        {
+          schema_name: "audit",
+          table_name: "users",
+          column_name: "id",
+          database_type: "int",
+          is_nullable: "NO",
+          default_expression: null,
+        },
+      ].filter((row) => (values ?? []).includes(row.schema_name));
+    else if (sqlText.includes("information_schema.ROUTINES"))
+      rows = [{ schema_name: "app", function_name: "user_count", database_return_type: "bigint" }];
     else throw new Error("unexpected catalog query");
     return { rows: rows as readonly Row[] };
   }
@@ -34,16 +77,36 @@ class FakeConnection implements MySqlConnectionLike {
     this.commands.push(sqlText);
     return resultRows();
   }
-  async query(sqlText: string): Promise<MySqlExecutionResult> { this.commands.push(sqlText); return { rows: [] }; }
-  async beginTransaction(): Promise<void> { this.commands.push("BEGIN"); }
-  async commit(): Promise<void> { this.commands.push("COMMIT"); }
-  async rollback(): Promise<void> { this.commands.push("ROLLBACK"); if (this.failRollback) throw new Error("rollback failed"); }
-  release(): void { this.released = true; }
+  async query(sqlText: string): Promise<MySqlExecutionResult> {
+    this.commands.push(sqlText);
+    return { rows: [] };
+  }
+  async beginTransaction(): Promise<void> {
+    this.commands.push("BEGIN");
+  }
+  async commit(): Promise<void> {
+    this.commands.push("COMMIT");
+  }
+  async rollback(): Promise<void> {
+    this.commands.push("ROLLBACK");
+    if (this.failRollback) throw new Error("rollback failed");
+  }
+  release(): void {
+    this.released = true;
+  }
 }
 
 function resultRows(): MySqlExecutionResult {
   return {
-    rows: [{ id: "9007199254740993", budget: "12.50", created_at: "2026-01-02T03:04:05Z", active: 1, profile: { plan: "pro" } }],
+    rows: [
+      {
+        id: "9007199254740993",
+        budget: "12.50",
+        created_at: "2026-01-02T03:04:05Z",
+        active: 1,
+        profile: { plan: "pro" },
+      },
+    ],
     fields: [
       { name: "id", columnType: 8 },
       { name: "budget", columnType: 246 },
@@ -58,9 +121,15 @@ class FakePool implements MySqlPoolLike {
   readonly connection = new FakeConnection();
   ended = false;
   commandResult = false;
-  async execute(): Promise<MySqlExecutionResult> { return this.commandResult ? { rows: { affectedRows: 1 } } : resultRows(); }
-  async getConnection(): Promise<MySqlConnectionLike> { return this.connection; }
-  async end(): Promise<void> { this.ended = true; }
+  async execute(): Promise<MySqlExecutionResult> {
+    return this.commandResult ? { rows: { affectedRows: 1 } } : resultRows();
+  }
+  async getConnection(): Promise<MySqlConnectionLike> {
+    return this.connection;
+  }
+  async end(): Promise<void> {
+    this.ended = true;
+  }
 }
 
 await describe("MySQL provider and runtime", async () => {
@@ -74,13 +143,20 @@ await describe("MySQL provider and runtime", async () => {
     strict.strictEqual(snapshot.tables.users?.columns.status?.defaultExpression, "active");
     strict.strictEqual(snapshot.tables.users?.columns.budget?.nullable, true);
     strict.strictEqual(snapshot.functions?.["app.user_count()"]?.returnType, "bigint");
-    strict.ok(client.calls.filter((call) => call.values !== undefined).every((call) => JSON.stringify(call.values) === '["app"]'));
+    strict.ok(
+      client.calls
+        .filter((call) => call.values !== undefined)
+        .every((call) => JSON.stringify(call.values) === '["app"]'),
+    );
   });
 
   await it("uses the current database, supports multiple schema keys, and validates configuration", async () => {
     const current = await introspectMySql({ client: new CatalogClient() });
     strict.ok(current.tables.users !== undefined);
-    const multiple = await new MySqlSchemaProvider({ client: new CatalogClient(), includeSchemas: ["app", "audit"] }).introspect({});
+    const multiple = await new MySqlSchemaProvider({
+      client: new CatalogClient(),
+      includeSchemas: ["app", "audit"],
+    }).introspect({});
     strict.ok(multiple.tables["app.users"] !== undefined);
     strict.ok(multiple.tables["audit.users"] !== undefined);
     await strict.rejects(() => new MySqlSchemaProvider().introspect({}), /injected client/);
@@ -94,7 +170,10 @@ await describe("MySQL provider and runtime", async () => {
   await it("decodes result fields according to policy and emits no rows for command headers", async () => {
     const pool = new FakePool();
     const database = createMySqlDatabase({ pool, ownsPool: true });
-    const rows = await database.execute(sql<{ id: bigint; budget: string; created_at: Date; active: boolean; profile: unknown }>`SELECT values`);
+    const rows =
+      await database.execute(
+        sql<{ id: bigint; budget: string; created_at: Date; active: boolean; profile: unknown }>`SELECT values`,
+      );
     strict.strictEqual(rows[0]?.id, 9_007_199_254_740_993n);
     strict.strictEqual(rows[0]?.budget, "12.50");
     strict.ok(rows[0]?.created_at instanceof Date);
@@ -109,26 +188,71 @@ await describe("MySQL provider and runtime", async () => {
   await it("supports transactions, nested savepoints, rollback, and connection lifecycle", async () => {
     const pool = new FakePool();
     const database = createMySqlDatabase({ pool });
-    await database.transaction(async (transaction) => transaction.transaction(async (nested) => nested.execute(sql`SELECT 1`)));
-    strict.deepStrictEqual(pool.connection.commands, ["BEGIN", "SAVEPOINT typed_sql_2", "SELECT 1", "RELEASE SAVEPOINT typed_sql_2", "COMMIT"]);
-    await strict.rejects(() => database.transaction(async () => { throw new Error("stop"); }), /stop/);
+    await database.transaction(async (transaction) =>
+      transaction.transaction(async (nested) => nested.execute(sql`SELECT 1`)),
+    );
+    strict.deepStrictEqual(pool.connection.commands, [
+      "BEGIN",
+      "SAVEPOINT typed_sql_2",
+      "SELECT 1",
+      "RELEASE SAVEPOINT typed_sql_2",
+      "COMMIT",
+    ]);
+    await strict.rejects(
+      () =>
+        database.transaction(async () => {
+          throw new Error("stop");
+        }),
+      /stop/,
+    );
     strict.ok(pool.connection.commands.includes("ROLLBACK"));
-    await strict.rejects(() => database.transaction(async (transaction) => transaction.transaction(async () => { throw new Error("nested stop"); })), /nested stop/);
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) =>
+          transaction.transaction(async () => {
+            throw new Error("nested stop");
+          }),
+        ),
+      /nested stop/,
+    );
     strict.ok(pool.connection.commands.includes("ROLLBACK TO SAVEPOINT typed_sql_2"));
     pool.connection.failRollback = true;
-    await strict.rejects(() => database.transaction(async () => { throw new Error("original"); }), /original/);
+    await strict.rejects(
+      () =>
+        database.transaction(async () => {
+          throw new Error("original");
+        }),
+      /original/,
+    );
     strict.strictEqual(pool.connection.released, true);
-    await strict.rejects(() => database.transaction(async (transaction) => (transaction as typeof database).close()), /Cannot close/);
+    await strict.rejects(
+      () => database.transaction(async (transaction) => (transaction as typeof database).close()),
+      /Cannot close/,
+    );
     await database.close();
     strict.strictEqual(pool.ended, false);
   });
 
   await it("enforces lossless numeric policies and explicit decimal codecs", async () => {
     const pool = new FakePool();
-    const unsafe = createMySqlDatabase({ pool, typePolicy: { bigint: "number", decimal: "number", date: "string", json: "string", tinyint1: "number" } });
+    const unsafe = createMySqlDatabase({
+      pool,
+      typePolicy: { bigint: "number", decimal: "number", date: "string", json: "string", tinyint1: "number" },
+    });
     await strict.rejects(() => unsafe.execute(sql`SELECT values`), /safe integer range/);
-    strict.throws(() => createMySqlDatabase({ pool, typePolicy: { bigint: "string", decimal: "Decimal", date: "string", json: "unknown", tinyint1: "boolean" } }), /requires a decimal/);
-    const decimal = createMySqlDatabase({ pool, typePolicy: { bigint: "string", decimal: "Decimal", date: "string", json: "string", tinyint1: "number" }, decimal: (value) => ({ value }) });
+    strict.throws(
+      () =>
+        createMySqlDatabase({
+          pool,
+          typePolicy: { bigint: "string", decimal: "Decimal", date: "string", json: "unknown", tinyint1: "boolean" },
+        }),
+      /requires a decimal/,
+    );
+    const decimal = createMySqlDatabase({
+      pool,
+      typePolicy: { bigint: "string", decimal: "Decimal", date: "string", json: "string", tinyint1: "number" },
+      decimal: (value) => ({ value }),
+    });
     const rows = await decimal.execute(sql<{ budget: { value: string }; profile: string }>`SELECT values`);
     strict.deepStrictEqual(rows[0]?.budget, { value: "12.50" });
     strict.strictEqual(rows[0]?.profile, '{"plan":"pro"}');
@@ -136,20 +260,49 @@ await describe("MySQL provider and runtime", async () => {
     class PolicyPool extends FakePool {
       override async execute(): Promise<MySqlExecutionResult> {
         return {
-          rows: [{ safe: "42", bad_decimal: "Infinity", date_value: new Date("2026-01-02T00:00:00Z"), json_text: "{\"ok\":true}", yes: "1", no: 0, untouched: null }],
+          rows: [
+            {
+              safe: "42",
+              bad_decimal: "Infinity",
+              date_value: new Date("2026-01-02T00:00:00Z"),
+              json_text: '{"ok":true}',
+              yes: "1",
+              no: 0,
+              untouched: null,
+            },
+          ],
           fields: [
-            { name: "safe", columnType: 8 }, { name: "bad_decimal", columnType: 246 },
-            { name: "date_value", columnType: 10 }, { name: "json_text", columnType: 245 },
-            { name: "yes", columnType: 1, columnLength: 1 }, { name: "no", columnType: 1, columnLength: 1 },
+            { name: "safe", columnType: 8 },
+            { name: "bad_decimal", columnType: 246 },
+            { name: "date_value", columnType: 10 },
+            { name: "json_text", columnType: 245 },
+            { name: "yes", columnType: 1, columnLength: 1 },
+            { name: "no", columnType: 1, columnLength: 1 },
           ],
         };
       }
     }
     const policyPool = new PolicyPool();
-    const numbers = createMySqlDatabase({ pool: policyPool, typePolicy: { bigint: "number", decimal: "number", date: "Date", json: "string", tinyint1: "boolean" } });
+    const numbers = createMySqlDatabase({
+      pool: policyPool,
+      typePolicy: { bigint: "number", decimal: "number", date: "Date", json: "string", tinyint1: "boolean" },
+    });
     await strict.rejects(() => numbers.execute(sql`SELECT values`), /finite number/);
-    const strings = createMySqlDatabase({ pool: policyPool, typePolicy: { bigint: "string", decimal: "string", date: "Date", json: "string", tinyint1: "boolean" } });
-    const policyRows = await strings.execute(sql<{ safe: string; date_value: Date; json_text: string; yes: boolean; no: boolean; untouched: null }>`SELECT values`);
+    const strings = createMySqlDatabase({
+      pool: policyPool,
+      typePolicy: { bigint: "string", decimal: "string", date: "Date", json: "string", tinyint1: "boolean" },
+    });
+    const policyRows =
+      await strings.execute(
+        sql<{
+          safe: string;
+          date_value: Date;
+          json_text: string;
+          yes: boolean;
+          no: boolean;
+          untouched: null;
+        }>`SELECT values`,
+      );
     strict.strictEqual(policyRows[0]?.safe, "42");
     strict.ok(policyRows[0]?.date_value instanceof Date);
     strict.strictEqual(policyRows[0]?.json_text, '{"ok":true}');

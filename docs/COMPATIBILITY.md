@@ -16,7 +16,10 @@
 The compiler performance gate transforms 1,000 static query templates in at most 3,000ms on an
 unwarmed CI-compatible Node process. Parser fuzzing runs 2,000 deterministic arbitrary inputs.
 Compiler-critical packages enforce at least 95% statements, lines, and functions plus 90% branches.
-Editor analysis additionally bounds caches and initial workspace scanning.
+Structural compilation rejects work beyond 64 variants before invoking a grammar and verifies that
+repeated conditions remain correlated. Core additionally budgets construction/rendering of 25,000
+composed queries and 100,000 indexed lookups across a 5,000-table snapshot. Editor analysis bounds
+config, schema, analysis, and inspection caches plus initial workspace scanning.
 
 PostgreSQL and MySQL currently implement grammar contract `1.0.0`. `grammarVersion` describes the
 snapshot/resolution semantics and intentionally does not change for npm-only prerelease or patch

@@ -21,7 +21,8 @@ function parseColumn(value: unknown, path: string): ColumnSnapshot {
   if (typeof value.databaseType !== "string") throw new TypeError(`${path}.databaseType must be a string`);
   if (typeof value.tsType !== "string") throw new TypeError(`${path}.tsType must be a string`);
   if (typeof value.nullable !== "boolean") throw new TypeError(`${path}.nullable must be a boolean`);
-  if (value.array !== undefined && typeof value.array !== "boolean") throw new TypeError(`${path}.array must be a boolean`);
+  if (value.array !== undefined && typeof value.array !== "boolean")
+    throw new TypeError(`${path}.array must be a boolean`);
   if (value.defaultExpression !== undefined && typeof value.defaultExpression !== "string") {
     throw new TypeError(`${path}.defaultExpression must be a string`);
   }
@@ -38,10 +39,12 @@ function parseColumn(value: unknown, path: string): ColumnSnapshot {
 function parseTable(value: unknown, path: string): TableSnapshot {
   if (!isRecord(value)) throw new TypeError(`${path} must be an object`);
   if (typeof value.name !== "string") throw new TypeError(`${path}.name must be a string`);
-  if (value.schema !== undefined && typeof value.schema !== "string") throw new TypeError(`${path}.schema must be a string`);
+  if (value.schema !== undefined && typeof value.schema !== "string")
+    throw new TypeError(`${path}.schema must be a string`);
   if (!isRecord(value.columns)) throw new TypeError(`${path}.columns must be an object`);
   const columns: Record<string, ColumnSnapshot> = {};
-  for (const [name, column] of Object.entries(value.columns)) columns[name] = parseColumn(column, `${path}.columns.${name}`);
+  for (const [name, column] of Object.entries(value.columns))
+    columns[name] = parseColumn(column, `${path}.columns.${name}`);
   return { name: value.name, columns, ...(value.schema === undefined ? {} : { schema: value.schema }) };
 }
 
@@ -62,7 +65,8 @@ function parseFunction(value: unknown, path: string): FunctionSnapshot {
   }
   if (typeof value.returnType !== "string") throw new TypeError(`${path}.returnType must be a string`);
   if (typeof value.nullable !== "boolean") throw new TypeError(`${path}.nullable must be a boolean`);
-  if (value.schema !== undefined && typeof value.schema !== "string") throw new TypeError(`${path}.schema must be a string`);
+  if (value.schema !== undefined && typeof value.schema !== "string")
+    throw new TypeError(`${path}.schema must be a string`);
   if (value.databaseReturnType !== undefined && typeof value.databaseReturnType !== "string") {
     throw new TypeError(`${path}.databaseReturnType must be a string`);
   }
@@ -92,7 +96,11 @@ function parseStringArrays(value: unknown, path: string): Readonly<Record<string
   return result;
 }
 
-function parseObjectMap<T>(value: unknown, path: string, parser: (item: unknown, itemPath: string) => T): Readonly<Record<string, T>> {
+function parseObjectMap<T>(
+  value: unknown,
+  path: string,
+  parser: (item: unknown, itemPath: string) => T,
+): Readonly<Record<string, T>> {
   if (!isRecord(value)) throw new TypeError(`${path} must be an object`);
   const result: Record<string, T> = {};
   for (const [name, item] of Object.entries(value)) result[name] = parser(item, `${path}.${name}`);
@@ -108,18 +116,25 @@ export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
   const tables: Record<string, TableSnapshot> = {};
   for (const [name, table] of Object.entries(value.tables)) tables[name] = parseTable(table, `schema.tables.${name}`);
   const snapshot: SchemaSnapshot = {
-    formatVersion: value.formatVersion === undefined
-      ? SCHEMA_FORMAT_VERSION
-      : value.formatVersion === SCHEMA_FORMAT_VERSION
+    formatVersion:
+      value.formatVersion === undefined
         ? SCHEMA_FORMAT_VERSION
-        : (() => { throw new TypeError(`Unsupported schema.formatVersion ${String(value.formatVersion)}; this release supports format ${SCHEMA_FORMAT_VERSION}`); })(),
+        : value.formatVersion === SCHEMA_FORMAT_VERSION
+          ? SCHEMA_FORMAT_VERSION
+          : (() => {
+              throw new TypeError(
+                `Unsupported schema.formatVersion ${String(value.formatVersion)}; this release supports format ${SCHEMA_FORMAT_VERSION}`,
+              );
+            })(),
     dialect: value.dialect,
     ...(typeof value.dialectVersion === "string" ? { dialectVersion: value.dialectVersion } : {}),
     tables,
     ...(typeof value.version === "string" ? { version: value.version } : {}),
     ...(value.enums === undefined ? {} : { enums: parseStringArrays(value.enums, "schema.enums") }),
     ...(value.domains === undefined ? {} : { domains: parseObjectMap(value.domains, "schema.domains", parseDomain) }),
-    ...(value.functions === undefined ? {} : { functions: parseObjectMap(value.functions, "schema.functions", parseFunction) }),
+    ...(value.functions === undefined
+      ? {}
+      : { functions: parseObjectMap(value.functions, "schema.functions", parseFunction) }),
   };
   return snapshot;
 }
@@ -139,10 +154,15 @@ export async function loadSchemaSnapshot(path: string): Promise<SchemaSnapshot> 
 
 function parseMetadata(value: unknown): GeneratedSchemaMetadata {
   if (!isRecord(value)) throw new TypeError("schema.metadata must be an object");
-  if (typeof value.generatorVersion !== "string") throw new TypeError("schema.metadata.generatorVersion must be a string");
+  if (typeof value.generatorVersion !== "string")
+    throw new TypeError("schema.metadata.generatorVersion must be a string");
   if (typeof value.schemaHash !== "string") throw new TypeError("schema.metadata.schemaHash must be a string");
   if (typeof value.typePolicyHash !== "string") throw new TypeError("schema.metadata.typePolicyHash must be a string");
-  return { generatorVersion: value.generatorVersion, schemaHash: value.schemaHash, typePolicyHash: value.typePolicyHash };
+  return {
+    generatorVersion: value.generatorVersion,
+    schemaHash: value.schemaHash,
+    typePolicyHash: value.typePolicyHash,
+  };
 }
 
 export async function loadGeneratedSchemaSnapshot(path: string): Promise<GeneratedSchemaSnapshot> {

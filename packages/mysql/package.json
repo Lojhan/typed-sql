@@ -4,12 +4,29 @@
   "description": "MySQL grammar, schema introspection, type resolution, and application-owned mysql2 integration for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
-  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/mysql" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/mysql"
+  },
   "homepage": "https://github.com/Lojhan/typed-sql#readme",
-  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
-  "engines": { "node": ">=22.11" },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map", "README.md", "LICENSE", "CHANGELOG.md"],
-  "publishConfig": { "access": "public" },
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "type": "module",
   "scripts": {

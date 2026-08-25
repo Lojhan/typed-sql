@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -121,12 +121,13 @@ class ProtocolClient {
 
   #receive(message: JsonRpcMessage): void {
     if (message.id !== undefined && message.method !== undefined) {
-      const result = message.method === "workspace/configuration"
-        && typeof message.params === "object"
-        && message.params !== null
-        && Array.isArray((message.params as { readonly items?: unknown }).items)
-        ? (message.params as { readonly items: readonly unknown[] }).items.map(() => null)
-        : null;
+      const result =
+        message.method === "workspace/configuration" &&
+        typeof message.params === "object" &&
+        message.params !== null &&
+        Array.isArray((message.params as { readonly items?: unknown }).items)
+          ? (message.params as { readonly items: readonly unknown[] }).items.map(() => null)
+          : null;
       this.#send({ jsonrpc: "2.0", id: message.id, result });
       return;
     }
@@ -139,8 +140,9 @@ class ProtocolClient {
       return;
     }
     if (message.method === undefined) return;
-    const waiterIndex = this.#waiters.findIndex((waiter) =>
-      waiter.method === message.method && waiter.predicate(message.params));
+    const waiterIndex = this.#waiters.findIndex(
+      (waiter) => waiter.method === message.method && waiter.predicate(message.params),
+    );
     if (waiterIndex === -1) return;
     const [waiter] = this.#waiters.splice(waiterIndex, 1);
     waiter?.resolve(message.params);
@@ -160,10 +162,7 @@ const queryFile = join(fixtureDirectory, "query.ts");
 const schemaFile = join(fixtureDirectory, "schema.json");
 const projectFile = join(fixtureDirectory, "tsconfig.json");
 const configFile = join(workspaceDirectory, "e2e", "postgres", "typed-sql.config.ts");
-const serverFile = join(
-  workspaceDirectory,
-  "packages/language-server/dist/packages/language-server/src/server.js",
-);
+const serverFile = join(workspaceDirectory, "packages/language-server/dist/packages/language-server/src/server.js");
 
 await describe("typed-sql stdio language server", async () => {
   await it("preloads typed overlays for unopened project files", async () => {
@@ -186,10 +185,10 @@ await describe("typed-sql stdio language server", async () => {
         },
       });
       client.notify("initialized", {});
-      const hover = await client.request("textDocument/hover", {
+      const hover = (await client.request("textDocument/hover", {
         textDocument: { uri },
         position: positionAt(source, source.indexOf("query")),
-      }) as { readonly contents?: unknown };
+      })) as { readonly contents?: unknown };
       const text = JSON.stringify(hover.contents ?? "");
       strict.ok(text.includes("id: bigint"), text);
       strict.ok(!text.includes("unknown"), text);
@@ -203,7 +202,7 @@ await describe("typed-sql stdio language server", async () => {
     const source = await readFile(queryFile, "utf8");
     const uri = pathToFileURL(queryFile).href;
     try {
-      const initialize = await client.request("initialize", {
+      const initialize = (await client.request("initialize", {
         processId: process.pid,
         rootUri: pathToFileURL(workspaceDirectory).href,
         workspaceFolders: [{ uri: pathToFileURL(workspaceDirectory).href, name: "typed-sql" }],
@@ -214,24 +213,29 @@ await describe("typed-sql stdio language server", async () => {
           projectFile,
           nativePreview: true,
         },
-      }) as { readonly capabilities?: { readonly hoverProvider?: boolean }; readonly serverInfo?: { readonly name?: string } };
+      })) as {
+        readonly capabilities?: { readonly hoverProvider?: boolean };
+        readonly serverInfo?: { readonly name?: string };
+      };
       strict.strictEqual(initialize.serverInfo?.name, "typed-sql + TypeScript preview");
       strict.strictEqual(initialize.capabilities?.hoverProvider, true);
       client.notify("initialized", {});
 
-      const diagnosticsPromise = client.notification("textDocument/publishDiagnostics", (params) =>
-        (params as { readonly uri?: string }).uri === uri);
+      const diagnosticsPromise = client.notification(
+        "textDocument/publishDiagnostics",
+        (params) => (params as { readonly uri?: string }).uri === uri,
+      );
       client.notify("textDocument/didOpen", {
         textDocument: { uri, languageId: "typescript", version: 1, text: source },
       });
-      const diagnostics = await diagnosticsPromise as { readonly diagnostics?: readonly unknown[] };
+      const diagnostics = (await diagnosticsPromise) as { readonly diagnostics?: readonly unknown[] };
       strict.deepStrictEqual(diagnostics.diagnostics, []);
 
       const hoverAt = async (needle: string): Promise<string> => {
-        const hover = await client.request("textDocument/hover", {
+        const hover = (await client.request("textDocument/hover", {
           textDocument: { uri },
           position: positionAt(source, source.indexOf(needle)),
-        }) as { readonly contents?: unknown };
+        })) as { readonly contents?: unknown };
         return JSON.stringify(hover.contents ?? "");
       };
 
@@ -252,36 +256,45 @@ await describe("typed-sql stdio language server", async () => {
       strict.ok(actualHover.includes("age: bigint | null"), actualHover);
       strict.ok(!actualHover.includes("unknown"), actualHover);
 
-      const completion = await client.request("textDocument/completion", {
+      const completion = (await client.request("textDocument/completion", {
         textDocument: { uri },
         position: positionAt(source, source.indexOf("user.name") + "user.".length),
-      }) as { readonly items?: readonly { readonly label?: string }[] };
+      })) as { readonly items?: readonly { readonly label?: string }[] };
       strict.deepStrictEqual(completion.items?.map((item) => item.label).sort(), ["age", "id", "name"]);
 
-      const definition = await client.request("textDocument/definition", {
+      const definition = (await client.request("textDocument/definition", {
         textDocument: { uri },
         position: positionAt(source, source.indexOf("users AS") + 1),
-      }) as { readonly uri?: string };
+      })) as { readonly uri?: string };
       strict.strictEqual(definition.uri, pathToFileURL(schemaFile).href);
 
-      const changedDiagnosticsPromise = client.notification("textDocument/publishDiagnostics", (params) =>
-        (params as { readonly uri?: string; readonly version?: number }).uri === uri
-        && (params as { readonly version?: number }).version === 2);
+      const changedDiagnosticsPromise = client.notification(
+        "textDocument/publishDiagnostics",
+        (params) =>
+          (params as { readonly uri?: string; readonly version?: number }).uri === uri &&
+          (params as { readonly version?: number }).version === 2,
+      );
       client.notify("textDocument/didChange", {
         textDocument: { uri, version: 2 },
         contentChanges: [{ text: source.replace("user.name", "user.nam") }],
       });
-      const changedDiagnostics = await changedDiagnosticsPromise as {
-        readonly diagnostics?: readonly { readonly code?: string; readonly source?: string; readonly range?: unknown; readonly data?: unknown }[];
+      const changedDiagnostics = (await changedDiagnosticsPromise) as {
+        readonly diagnostics?: readonly {
+          readonly code?: string;
+          readonly source?: string;
+          readonly range?: unknown;
+          readonly data?: unknown;
+        }[];
       };
-      const unknown = changedDiagnostics.diagnostics?.find((diagnostic) =>
-        diagnostic.source === "typed-sql" && diagnostic.code === "TSQ101");
+      const unknown = changedDiagnostics.diagnostics?.find(
+        (diagnostic) => diagnostic.source === "typed-sql" && diagnostic.code === "TSQ101",
+      );
       strict.ok(unknown !== undefined);
-      const actions = await client.request("textDocument/codeAction", {
+      const actions = (await client.request("textDocument/codeAction", {
         textDocument: { uri },
         range: unknown?.range,
         context: { diagnostics: [unknown] },
-      }) as readonly { readonly title?: string; readonly isPreferred?: boolean }[];
+      })) as readonly { readonly title?: string; readonly isPreferred?: boolean }[];
       strict.ok(actions.some((action) => action.title === "Replace with name" && action.isPreferred === true));
     } finally {
       await client.close();
@@ -313,10 +326,10 @@ await describe("typed-sql stdio language server", async () => {
       });
 
       const hoverAt = async (needle: string): Promise<string> => {
-        const hover = await client.request("textDocument/hover", {
+        const hover = (await client.request("textDocument/hover", {
           textDocument: { uri },
           position: positionAt(source, source.indexOf(needle)),
-        }) as { readonly contents?: unknown };
+        })) as { readonly contents?: unknown };
         return JSON.stringify(hover.contents ?? "");
       };
 
@@ -328,7 +341,7 @@ await describe("typed-sql stdio language server", async () => {
       strict.ok(rowsHover.includes("readonly {"), rowsHover);
       strict.ok(rowsHover.includes("id: bigint"), rowsHover);
       strict.ok(rowsHover.includes("email: string"), rowsHover);
-      strict.ok(rowsHover.includes("status: \\\"active\\\" | \\\"suspended\\\""), rowsHover);
+      strict.ok(rowsHover.includes('status: \\"active\\" | \\"suspended\\"'), rowsHover);
       strict.ok(rowsHover.includes("budget: string | null"), rowsHover);
       strict.ok(!rowsHover.includes("unknown"), rowsHover);
 
@@ -338,9 +351,9 @@ await describe("typed-sql stdio language server", async () => {
       strict.ok(actualHover.includes("budget: string | null"), actualHover);
       strict.ok(!actualHover.includes("unknown"), actualHover);
 
-      const report = await client.request("textDocument/diagnostic", {
+      const report = (await client.request("textDocument/diagnostic", {
         textDocument: { uri },
-      }) as { readonly items?: readonly unknown[] };
+      })) as { readonly items?: readonly unknown[] };
       strict.deepStrictEqual(report.items, []);
     } finally {
       await client.close();

@@ -47,8 +47,14 @@ export interface TypeScriptInspectionInput {
 
 export interface TypeScriptBridge {
   inspectFile(input: TypeScriptInspectionInput): Promise<readonly NativeTypeInspection[]>;
-  inspectFiles(inputs: readonly TypeScriptInspectionInput[]): Promise<ReadonlyMap<string, readonly NativeTypeInspection[]>>;
+  inspectFiles(
+    inputs: readonly TypeScriptInspectionInput[],
+  ): Promise<ReadonlyMap<string, readonly NativeTypeInspection[]>>;
   close(): Promise<void>;
+}
+
+export interface BridgeAnalyzeOptions {
+  readonly maxStructuralVariants?: number;
 }
 
 function bindingBefore(source: string, tagStart: number): QueryBinding | undefined {
@@ -67,43 +73,45 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
   schema: Snapshot,
   dialect: DialectPlugin<Snapshot, Policy>,
   typePolicy?: Policy,
+  options: BridgeAnalyzeOptions = {},
 ): BridgeAnalysis {
   const compilation = compileSource({
     source,
     schema,
+    ...(options.maxStructuralVariants === undefined ? {} : { maxStructuralVariants: options.maxStructuralVariants }),
     dialect,
     ...(typePolicy === undefined ? {} : { typePolicy }),
   });
   const insertions = [
     ...compilation.queries.map(({ query, rowType, parameterType, structural }) => ({
       position: query.insertionPosition,
-      length: structural ? rowType.length + 12 : rowType.length + parameterType.length + 4,
+      length: structural ? rowType.length + parameterType.length + 14 : rowType.length + parameterType.length + 4,
     })),
     ...compilation.fragments.map(({ fragment, parameterType }) => ({
       position: fragment.insertionPosition,
       length: parameterType.length + 2,
     })),
   ].sort((left, right) => left.position - right.position);
-  const shiftBefore = (position: number): number => insertions.reduce(
-    (total, insertion) => total + (insertion.position < position ? insertion.length : 0),
-    0,
-  );
+  const shiftBefore = (position: number): number =>
+    insertions.reduce((total, insertion) => total + (insertion.position < position ? insertion.length : 0), 0);
 
-  const queries = compilation.queries.map(({ query, rowType, parameterType }, index): BridgeQuery => ({
-    index,
-    rowType,
-    parameterType,
-    queryType: `Query<${rowType}, ${parameterType}>`,
-    sourceRange: { start: query.range.start, end: query.range.end },
-    transformedRange: {
-      start: query.range.start + shiftBefore(query.range.start),
-      end: query.range.end + shiftBefore(query.range.end),
-    },
-    ...(() => {
-      const binding = bindingBefore(source, query.range.start);
-      return binding === undefined ? {} : { binding };
-    })(),
-  }));
+  const queries = compilation.queries.map(
+    ({ query, rowType, parameterType }, index): BridgeQuery => ({
+      index,
+      rowType,
+      parameterType,
+      queryType: `Query<${rowType}, ${parameterType}>`,
+      sourceRange: { start: query.range.start, end: query.range.end },
+      transformedRange: {
+        start: query.range.start + shiftBefore(query.range.start),
+        end: query.range.end + shiftBefore(query.range.end),
+      },
+      ...(() => {
+        const binding = bindingBefore(source, query.range.start);
+        return binding === undefined ? {} : { binding };
+      })(),
+    }),
+  );
 
   return {
     source,
@@ -115,7 +123,9 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
 }
 
 export function queryAtPosition(analysis: BridgeAnalysis, position: number): BridgeQuery | undefined {
-  return analysis.queries.find((query) =>
-    (position >= query.sourceRange.start && position <= query.sourceRange.end)
-    || (query.binding !== undefined && position >= query.binding.range.start && position <= query.binding.range.end));
+  return analysis.queries.find(
+    (query) =>
+      (position >= query.sourceRange.start && position <= query.sourceRange.end) ||
+      (query.binding !== undefined && position >= query.binding.range.start && position <= query.binding.range.end),
+  );
 }

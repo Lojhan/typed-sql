@@ -116,6 +116,10 @@ export default defineConfig({
   outDir: "src/generated/db",
   projects: ["tsconfig.json"],
   typePolicy,
+  compiler: {
+    // Bounds conditional SQL analysis before any grammar work starts.
+    maxStructuralVariants: 64,
+  },
 });
 ```
 
@@ -229,10 +233,13 @@ Conditional structure stays inside ordinary SQL templates. `sql.empty` is an imm
 fragment, so projections and filters can vary without introducing a parallel query-builder DSL:
 
 ```ts
-function accounts<const Select extends { readonly status: boolean }>(filters: AccountFilters, select: Select) {
+function accounts<
+  const Select extends { readonly status: boolean; readonly budget: boolean },
+>(filters: AccountFilters, select: Select) {
   return sql`
     SELECT account.id, account.email
       ${select.status ? sql.fragment`, account.status` : sql.empty}
+      ${select.budget ? sql.fragment`, account.budget` : sql.empty}
     FROM users AS account
     WHERE 1 = 1
       ${filters.status == null ? sql.empty : sql.fragment`AND account.status = ${filters.status}`}
@@ -240,9 +247,15 @@ function accounts<const Select extends { readonly status: boolean }>(filters: Ac
 }
 ```
 
-The compiler expands the finite structural branches and analyzes complete SQL statements. Literal
-`true`/`false` selections produce exact different rows; a runtime `boolean` produces their union.
-Nested fragment values retain grammar-derived parameter checking.
+The compiler correlates repeated conditions, expands the finite structural branches, and asks only
+the installed grammar to analyze each complete SQL statement. Multiple literal `true`/`false`
+selections produce exact result shapes; runtime booleans produce the corresponding union. Direct and
+nested interpolation values are checked against one complete ordered parameter tuple.
+
+Independent conditions can produce `2ⁿ` statements, so analysis is bounded before a grammar is
+invoked. The default maximum is 64 variants and can be changed through
+`compiler.maxStructuralVariants`; exceeding it reports `TSQ003` rather than consuming unbounded
+editor or CI time.
 
 ## Editor experience
 
@@ -301,7 +314,9 @@ The exact dialect boundaries are versioned in the
 The release gate exercises what users actually install:
 
 - package-owned Poku suites with 95% statement/line/function and 90% branch gates on critical code;
+- deterministic Biome formatting, import organization, and recommended lint rules;
 - 2,000 deterministic parser fuzz inputs and explicit parser/token resource limits;
+- explicit compiler, structural-expansion, resolver-index, and query-rendering performance budgets;
 - TypeScript `7.0.2` transformed-program checks and an isolated `7.1` preview semantic bridge;
 - real, digest-pinned PostgreSQL `18.4` and MySQL `8.4.11` containers;
 - catalog generation, exact type assertions, runtime execution, clean drift, and failing drift;

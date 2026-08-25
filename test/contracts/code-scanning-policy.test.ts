@@ -2,8 +2,8 @@ import { describe, it, strict } from "poku";
 import {
   assertCodeScanningPolicy,
   blockingCodeScanningAlerts,
-  fetchOpenCodeScanningAlerts,
   type CodeScanningAlert,
+  fetchOpenCodeScanningAlerts,
 } from "../../scripts/code-scanning-policy.mjs";
 
 function alert(number: number, severity: string): CodeScanningAlert {
@@ -17,21 +17,15 @@ function alert(number: number, severity: string): CodeScanningAlert {
 await describe("CodeQL release policy", async () => {
   await it("blocks critical and high alerts while allowing lower severities", () => {
     strict.deepStrictEqual(
-      blockingCodeScanningAlerts([
-        alert(1, "critical"),
-        alert(2, "high"),
-        alert(3, "medium"),
-        alert(4, "low"),
-      ]).map((item) => item.number),
+      blockingCodeScanningAlerts([alert(1, "critical"), alert(2, "high"), alert(3, "medium"), alert(4, "low")]).map(
+        (item) => item.number,
+      ),
       [1, 2],
     );
   });
 
   await it("paginates through every open alert", async () => {
-    const pages = [
-      Array.from({ length: 100 }, (_, index) => alert(index + 1, "medium")),
-      [alert(101, "low")],
-    ];
+    const pages = [Array.from({ length: 100 }, (_, index) => alert(index + 1, "medium")), [alert(101, "low")]];
     const requestedPages: string[] = [];
     const alerts = await fetchOpenCodeScanningAlerts("Lojhan/typed-sql", {
       token: "test-token",

@@ -58,6 +58,12 @@ Every dialect implements a stable contract covering:
 - runtime parameter encoding and result decoding;
 - feature and server-version capabilities.
 
+Core also exposes reusable resolver mechanics—indexed table/column/function lookup, ordered
+parameter collection, literal-union normalization, and name suggestions. These mechanics contain no
+SQL rules. Each grammar remains responsible for its own parser behavior, identifiers, operators,
+built-ins, nullability, type policy, feature gates, and diagnostics, so adding MSSQL or SQLite does
+not require changing the compiler.
+
 The compiler recognizes the `sqlModule` declared by the configured dialect and never branches on
 a package name, dialect id, or concrete driver. This lets first-party and third-party grammars expose
 the same package-root application contract. Contract version 2 requires both resolved result
@@ -85,7 +91,10 @@ primitive strings.
 Conditional projection and join structure remains SQL-first. A complete `sql` template may
 interpolate `sql.fragment` or `sql.empty`; the compiler expands correlated conditional expressions,
 analyzes the resulting complete statements, and combines their rows conditionally. The runtime
-continues to flatten immutable segments and never interprets SQL clauses.
+continues to flatten immutable segments and never interprets SQL clauses. Structural expansion is a
+dialect-neutral compiler IR and is bounded before dialect analysis (64 variants by default,
+configurable through `compiler.maxStructuralVariants`). Repeated conditions share one decision;
+independent conditions that exceed the bound produce `TSQ003`.
 
 ## Correctness boundary
 

@@ -1,6 +1,6 @@
 import type { Pool as PgPool, PoolClient, PoolConfig, QueryConfig } from "pg";
-import { type PostgresSchemaSnapshot, type PostgresTypePolicy } from "./index.js";
-import { PostgresSchemaProvider, type PostgresQueryable } from "./provider.js";
+import type { PostgresSchemaSnapshot, PostgresTypePolicy } from "./index.js";
+import { type PostgresQueryable, PostgresSchemaProvider } from "./provider.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
@@ -31,7 +31,9 @@ export async function loadPgDriver(
     return await importer();
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ERR_MODULE_NOT_FOUND") {
-      throw new Error("@typed-sql/postgres/pg requires the application-owned pg driver. Install it with: pnpm add pg", { cause: error });
+      throw new Error("@typed-sql/postgres/pg requires the application-owned pg driver. Install it with: pnpm add pg", {
+        cause: error,
+      });
     }
     throw error;
   }
@@ -54,22 +56,30 @@ function queryConfig(config: PostgresQueryConfig): QueryConfig<unknown[]> {
 export function adaptPgPool(pool: PgPool): PostgresPoolLike {
   const wrapClient = (client: PoolClient): PostgresClientLike => ({
     async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
-      const result = typeof config === "string"
-        ? await client.query<Record<string, unknown>>(config)
-        : await client.query<Record<string, unknown>, unknown[]>(queryConfig(config));
+      const result =
+        typeof config === "string"
+          ? await client.query<Record<string, unknown>>(config)
+          : await client.query<Record<string, unknown>, unknown[]>(queryConfig(config));
       return { rows: result.rows };
     },
-    release(): void { client.release(); },
+    release(): void {
+      client.release();
+    },
   });
   return {
     async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
-      const result = typeof config === "string"
-        ? await pool.query<Record<string, unknown>>(config)
-        : await pool.query<Record<string, unknown>, unknown[]>(queryConfig(config));
+      const result =
+        typeof config === "string"
+          ? await pool.query<Record<string, unknown>>(config)
+          : await pool.query<Record<string, unknown>, unknown[]>(queryConfig(config));
       return { rows: result.rows };
     },
-    async connect(): Promise<PostgresClientLike> { return wrapClient(await pool.connect()); },
-    async end(): Promise<void> { await pool.end(); },
+    async connect(): Promise<PostgresClientLike> {
+      return wrapClient(await pool.connect());
+    },
+    async end(): Promise<void> {
+      await pool.end();
+    },
   };
 }
 
@@ -95,8 +105,10 @@ export function pg(options: PgSchemaProviderOptions): { introspect(): Promise<Po
         ...(options.schemas === undefined ? {} : { includeSchemas: options.schemas }),
         ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
       });
-      if (options.client !== undefined) return await provider.introspect({}) as PostgresSchemaSnapshot;
-      return await provider.introspect({ url: await connectionString(options.connectionString!) }) as PostgresSchemaSnapshot;
+      if (options.client !== undefined) return (await provider.introspect({})) as PostgresSchemaSnapshot;
+      return (await provider.introspect({
+        url: await connectionString(options.connectionString!),
+      })) as PostgresSchemaSnapshot;
     },
   };
 }

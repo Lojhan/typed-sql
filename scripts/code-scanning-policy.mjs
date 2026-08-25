@@ -17,7 +17,9 @@ export async function fetchOpenCodeScanningAlerts(repository, options = {}) {
   if (token === undefined || token.length === 0) throw new Error("GITHUB_TOKEN is required to inspect CodeQL alerts");
   const alerts = [];
   for (let page = 1; ; page += 1) {
-    const url = new URL(`https://api.github.com/repos/${repositoryParts.map(encodeURIComponent).join("/")}/code-scanning/alerts`);
+    const url = new URL(
+      `https://api.github.com/repos/${repositoryParts.map(encodeURIComponent).join("/")}/code-scanning/alerts`,
+    );
     url.searchParams.set("state", "open");
     url.searchParams.set("per_page", "100");
     url.searchParams.set("page", String(page));
@@ -41,16 +43,19 @@ export async function fetchOpenCodeScanningAlerts(repository, options = {}) {
 
 export async function assertCodeScanningPolicy(options = {}) {
   const repository = options.repository ?? process.env.GITHUB_REPOSITORY;
-  if (repository === undefined || repository.length === 0) throw new Error("GITHUB_REPOSITORY is required to inspect CodeQL alerts");
+  if (repository === undefined || repository.length === 0)
+    throw new Error("GITHUB_REPOSITORY is required to inspect CodeQL alerts");
   const alerts = await fetchOpenCodeScanningAlerts(repository, options);
   const blocking = blockingCodeScanningAlerts(alerts);
   if (blocking.length > 0) {
-    const summary = blocking.map((alert) => {
-      const severity = alert.rule?.security_severity_level ?? "unknown";
-      const rule = alert.rule?.id ?? "unknown-rule";
-      const location = alert.most_recent_instance?.location?.path ?? "unknown-location";
-      return `#${alert.number ?? "?"} ${severity} ${rule} at ${location}`;
-    }).join("\n");
+    const summary = blocking
+      .map((alert) => {
+        const severity = alert.rule?.security_severity_level ?? "unknown";
+        const rule = alert.rule?.id ?? "unknown-rule";
+        const location = alert.most_recent_instance?.location?.path ?? "unknown-location";
+        return `#${alert.number ?? "?"} ${severity} ${rule} at ${location}`;
+      })
+      .join("\n");
     throw new Error(`Release blocked by ${blocking.length} open high-severity CodeQL alert(s):\n${summary}`);
   }
   return { open: alerts.length, blocking: 0 };

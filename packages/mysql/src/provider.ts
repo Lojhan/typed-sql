@@ -1,5 +1,5 @@
 import type { SchemaInput, SchemaProvider, SchemaSnapshot } from "@typed-sql/schema";
-import { mapMySqlType, defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
+import { defaultMySqlTypePolicy, type MySqlTypePolicy, mapMySqlType } from "./type-policy.js";
 
 export interface MySqlQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
   readonly rows: readonly Row[];
@@ -15,8 +15,12 @@ export interface MySqlSchemaProviderOptions {
   readonly typePolicy?: MySqlTypePolicy;
 }
 
-interface VersionRow extends Record<string, unknown> { readonly server_version: string }
-interface DatabaseRow extends Record<string, unknown> { readonly database_name: string | null }
+interface VersionRow extends Record<string, unknown> {
+  readonly server_version: string;
+}
+interface DatabaseRow extends Record<string, unknown> {
+  readonly database_name: string | null;
+}
 interface ColumnRow extends Record<string, unknown> {
   readonly schema_name: string;
   readonly table_name: string;
@@ -72,17 +76,37 @@ export class MySqlSchemaProvider implements SchemaProvider {
   }
 
   async introspect(_input: SchemaInput): Promise<SchemaSnapshot> {
-    if (this.#client === undefined) throw new TypeError("MySQL schema provider requires an injected client; use @typed-sql/mysql/mysql2 for a connection URI");
+    if (this.#client === undefined)
+      throw new TypeError(
+        "MySQL schema provider requires an injected client; use @typed-sql/mysql/mysql2 for a connection URI",
+      );
     const version = (await this.#client.query<VersionRow>(mysqlCatalogQueries.version)).rows[0]?.server_version;
-    const currentDatabase = (await this.#client.query<DatabaseRow>(mysqlCatalogQueries.database)).rows[0]?.database_name;
-    const schemas = this.#schemas ?? (currentDatabase === null || currentDatabase === undefined ? [] : [currentDatabase]);
+    const currentDatabase = (await this.#client.query<DatabaseRow>(mysqlCatalogQueries.database)).rows[0]
+      ?.database_name;
+    const schemas =
+      this.#schemas ?? (currentDatabase === null || currentDatabase === undefined ? [] : [currentDatabase]);
     if (schemas.length === 0) throw new TypeError("MySQL introspection requires at least one database schema");
     const columnRows = (await this.#client.query<ColumnRow>(mysqlCatalogQueries.columns(schemas.length), schemas)).rows;
-    const routineRows = (await this.#client.query<RoutineRow>(mysqlCatalogQueries.routines(schemas.length), schemas)).rows;
-    const tables: Record<string, { schema: string; name: string; columns: Record<string, { name: string; databaseType: string; tsType: string; nullable: boolean; defaultExpression?: string }> }> = {};
+    const routineRows = (await this.#client.query<RoutineRow>(mysqlCatalogQueries.routines(schemas.length), schemas))
+      .rows;
+    const tables: Record<
+      string,
+      {
+        schema: string;
+        name: string;
+        columns: Record<
+          string,
+          { name: string; databaseType: string; tsType: string; nullable: boolean; defaultExpression?: string }
+        >;
+      }
+    > = {};
     for (const row of columnRows) {
       const key = schemas.length === 1 ? row.table_name : `${row.schema_name}.${row.table_name}`;
-      const table = tables[key] ??= { schema: row.schema_name, name: row.table_name, columns: {} };
+      let table = tables[key];
+      if (table === undefined) {
+        table = { schema: row.schema_name, name: row.table_name, columns: {} };
+        tables[key] = table;
+      }
       table.columns[row.column_name] = {
         name: row.column_name,
         databaseType: row.database_type,
@@ -91,7 +115,17 @@ export class MySqlSchemaProvider implements SchemaProvider {
         ...(row.default_expression === null ? {} : { defaultExpression: row.default_expression }),
       };
     }
-    const functions: Record<string, { schema: string; name: string; argumentTypes: readonly string[]; databaseReturnType: string; returnType: string; nullable: boolean }> = {};
+    const functions: Record<
+      string,
+      {
+        schema: string;
+        name: string;
+        argumentTypes: readonly string[];
+        databaseReturnType: string;
+        returnType: string;
+        nullable: boolean;
+      }
+    > = {};
     for (const row of routineRows) {
       functions[`${row.schema_name}.${row.function_name}()`] = {
         schema: row.schema_name,

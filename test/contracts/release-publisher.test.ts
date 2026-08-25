@@ -1,13 +1,13 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import {
   isPublishedOnNpm,
   loadPrereleasePlan,
+  type PrereleasePlan,
   publicationCommands,
   publishPrerelease,
-  type PrereleasePlan,
 } from "../../scripts/publish-prerelease.mjs";
 
 const plan: PrereleasePlan = {
@@ -25,7 +25,9 @@ await describe("prerelease publisher", async () => {
     const delays: number[] = [];
     const published = await isPublishedOnNpm("@typed-sql/core", "1.0.0-beta.1", {
       fetch: async () => new Response(undefined, { status: statuses.shift()! }),
-      wait: async (milliseconds) => { delays.push(milliseconds); },
+      wait: async (milliseconds) => {
+        delays.push(milliseconds);
+      },
     });
     strict.strictEqual(published, true);
     strict.deepStrictEqual(delays, [250]);
@@ -59,15 +61,15 @@ await describe("prerelease publisher", async () => {
     await publishPrerelease({
       plan,
       isPublished: async (name) => name === "@typed-sql/ast",
-      publishPackage: async ({ name }, npmTag) => { events.push(`publish:${name}:${npmTag}`); },
-      createTags: async () => { events.push("tags"); },
+      publishPackage: async ({ name }, npmTag) => {
+        events.push(`publish:${name}:${npmTag}`);
+      },
+      createTags: async () => {
+        events.push("tags");
+      },
       log: () => undefined,
     });
-    strict.deepStrictEqual(events, [
-      "publish:@typed-sql/core:next",
-      "publish:@typed-sql/schema:next",
-      "tags",
-    ]);
+    strict.deepStrictEqual(events, ["publish:@typed-sql/core:next", "publish:@typed-sql/schema:next", "tags"]);
   });
 
   await it("does not create tags after a partial publish failure", async () => {
@@ -80,7 +82,9 @@ await describe("prerelease publisher", async () => {
           events.push(`publish:${name}`);
           if (name === "@typed-sql/ast") throw new Error("registry rejected package");
         },
-        createTags: async () => { events.push("tags"); },
+        createTags: async () => {
+          events.push("tags");
+        },
         log: () => undefined,
       }),
       /registry rejected package/u,
@@ -91,19 +95,28 @@ await describe("prerelease publisher", async () => {
   await it("loads independently versioned packages in the declared graph", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "typed-sql-publish-"));
     try {
-      await writeFile(join(temporary, "release-manifest.json"), JSON.stringify({
-        channel: "beta",
-        series: "1.0.0",
-        npmTag: "next",
-        packages: ["@typed-sql/core", "@typed-sql/ast"],
-      }));
-      for (const [name, version] of [["core", "1.0.0-beta.1"], ["ast", "1.0.0-beta.2"]] as const) {
+      await writeFile(
+        join(temporary, "release-manifest.json"),
+        JSON.stringify({
+          channel: "beta",
+          series: "1.0.0",
+          npmTag: "next",
+          packages: ["@typed-sql/core", "@typed-sql/ast"],
+        }),
+      );
+      for (const [name, version] of [
+        ["core", "1.0.0-beta.1"],
+        ["ast", "1.0.0-beta.2"],
+      ] as const) {
         const directory = join(temporary, "packages", name);
         await mkdir(directory, { recursive: true });
-        await writeFile(join(directory, "package.json"), JSON.stringify({
-          name: `@typed-sql/${name}`,
-          version,
-        }));
+        await writeFile(
+          join(directory, "package.json"),
+          JSON.stringify({
+            name: `@typed-sql/${name}`,
+            version,
+          }),
+        );
       }
       strict.deepStrictEqual(await loadPrereleasePlan(temporary), {
         npmTag: "next",
@@ -120,12 +133,15 @@ await describe("prerelease publisher", async () => {
   await it("rejects a channel or version mismatch before contacting npm", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "typed-sql-publish-"));
     try {
-      await writeFile(join(temporary, "release-manifest.json"), JSON.stringify({
-        channel: "beta",
-        series: "1.0.0",
-        npmTag: "beta",
-        packages: ["@typed-sql/core"],
-      }));
+      await writeFile(
+        join(temporary, "release-manifest.json"),
+        JSON.stringify({
+          channel: "beta",
+          series: "1.0.0",
+          npmTag: "beta",
+          packages: ["@typed-sql/core"],
+        }),
+      );
       await strict.rejects(loadPrereleasePlan(temporary), /Expected beta versions on npm next/u);
     } finally {
       await rm(temporary, { recursive: true, force: true });

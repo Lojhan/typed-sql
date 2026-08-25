@@ -1,21 +1,25 @@
 import { describe, it, strict } from "poku";
 import {
+  closestName,
   createDatabase,
+  DIALECT_CONTRACT_VERSION,
+  type DialectPlugin,
   defineConfig,
   diagnosticRegistry,
-  DIALECT_CONTRACT_VERSION,
   isTypedSqlDiagnosticCode,
+  ParameterCollector,
   parameterTypeLiteral,
-  renderQuery,
-  rowTypeLiteral,
-  sql,
-  type DialectPlugin,
   type Query,
   type QueryParameters,
   type QueryRow,
+  ResolverSchemaIndex,
+  renderQuery,
+  rowTypeLiteral,
   type SchemaSnapshot,
   type SqlFragment,
   type SqlRenderer,
+  sql,
+  unionTypeLiterals,
 } from "../src/index.js";
 
 const renderer: SqlRenderer = {
@@ -24,8 +28,7 @@ const renderer: SqlRenderer = {
 };
 
 type Equal<Left, Right> =
-  (<Value>() => Value extends Left ? 1 : 2) extends
-  (<Value>() => Value extends Right ? 1 : 2) ? true : false;
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
 type Assert<Value extends true> = Value;
 
 await describe("runtime SQL tag", async () => {
@@ -40,13 +43,21 @@ await describe("runtime SQL tag", async () => {
   });
 
   await it("preserves an explicit ordered parameter tuple", () => {
-    const query = sql<{ readonly id: number }, readonly [number, boolean]>
-      `SELECT id FROM users WHERE id = ${42} AND active = ${true}`;
+    const query = sql<
+      { readonly id: number },
+      readonly [number, boolean]
+    >`SELECT id FROM users WHERE id = ${42} AND active = ${true}`;
     const exact: Query<{ readonly id: number }, readonly [number, boolean]> = query;
     strict.deepStrictEqual(renderQuery(exact, renderer).values, [42, true]);
 
     // @ts-expect-error the first interpolation must match the declared number parameter
     sql<{ readonly id: number }, readonly [number]>`SELECT id FROM users WHERE id = ${"wrong"}`;
+
+    const overlaid = sql.__typed<{ readonly id: number }, readonly [number]>()`SELECT id FROM users WHERE id = ${42}`;
+    const overlaidParameters: Assert<Equal<QueryParameters<typeof overlaid>, readonly [number]>> = true;
+    void overlaidParameters;
+    // @ts-expect-error compiler overlays validate the complete flattened parameter tuple
+    sql.__typed<{ readonly id: number }, readonly [number]>()`SELECT id FROM users WHERE id = ${"wrong"}`;
   });
 
   await it("quotes explicit identifiers and preserves nested parameter ordering", async () => {
@@ -56,6 +67,13 @@ await describe("runtime SQL tag", async () => {
       text: 'SELECT "id", "display""name" FROM users WHERE id = $1',
       values: [7],
     });
+    const union = sql.join([sql.raw("SELECT 1"), sql.raw("SELECT 2")], sql.raw(" UNION ALL "));
+    strict.strictEqual(renderQuery(sql`${union}`, renderer).text, "SELECT 1 UNION ALL SELECT 2");
+    strict.throws(
+      () => sql.join([sql.raw("SELECT 1")], " unsafe " as never),
+      /separator must be a trusted SQL fragment/,
+    );
+    strict.throws(() => sql.join(["unsafe" as never]), /accepts SQL fragments/);
   });
 
   await it("provides an immutable empty structural fragment", () => {
@@ -64,6 +82,17 @@ await describe("runtime SQL tag", async () => {
       values: [],
     });
     strict.ok(Object.isFrozen(sql.empty));
+  });
+
+  await it("recognizes fragments created by another installed core copy", () => {
+    const foreign = Object.freeze({
+      [Symbol.for("@typed-sql/core.fragment")]: () => [] as const,
+      segments: Object.freeze([{ kind: "text", text: " FROM shared_runtime" }] as const),
+    }) as unknown as SqlFragment<readonly []>;
+    strict.deepStrictEqual(renderQuery(sql`SELECT 1${foreign}`, renderer), {
+      text: "SELECT 1 FROM shared_runtime",
+      values: [],
+    });
   });
 
   await it("composes nullable AND/OR filter lists without losing parameter types or order", () => {
@@ -120,12 +149,16 @@ await describe("runtime SQL tag", async () => {
       readonly minimumId?: bigint | null;
     }
 
-    const base = sql<AccountRow, readonly []>`SELECT account.id, account.email, account.status FROM users AS account WHERE 1 = 1`;
-    const accounts = (filters: AccountFilters) => sql.append(
-      base,
-      filters.status == null ? undefined : sql.fragment` AND account.status = ${filters.status}`,
-      filters.minimumId == null ? undefined : sql.fragment` AND account.id >= ${filters.minimumId}`,
-    );
+    const base = sql<
+      AccountRow,
+      readonly []
+    >`SELECT account.id, account.email, account.status FROM users AS account WHERE 1 = 1`;
+    const accounts = (filters: AccountFilters) =>
+      sql.append(
+        base,
+        filters.status == null ? undefined : sql.fragment` AND account.status = ${filters.status}`,
+        filters.minimumId == null ? undefined : sql.fragment` AND account.id >= ${filters.minimumId}`,
+      );
 
     const both = accounts({ status: "active", minimumId: 10n });
     const exact: Query<AccountRow, readonly [Status, bigint]> = both;
@@ -159,12 +192,15 @@ await describe("runtime SQL tag", async () => {
 
   await it("executes typed query values through an adapter", async () => {
     const calls: { text: string; values: readonly unknown[] }[] = [];
-    const db = createDatabase({
-      async execute(text, values): Promise<readonly unknown[]> {
-        calls.push({ text, values });
-        return [{ id: 1 }];
+    const db = createDatabase(
+      {
+        async execute(text, values): Promise<readonly unknown[]> {
+          calls.push({ text, values });
+          return [{ id: 1 }];
+        },
       },
-    }, renderer);
+      renderer,
+    );
     const rows = await db.execute(sql<{ id: number }>`SELECT id FROM users`);
     strict.deepStrictEqual(rows, [{ id: 1 }]);
     strict.strictEqual(calls[0]?.text, "SELECT id FROM users");
@@ -181,11 +217,20 @@ await describe("runtime SQL tag", async () => {
   });
 
   await it("supports transaction executors and rejects missing transaction support", async () => {
-    const executor = { async execute(): Promise<readonly unknown[]> { return [{ value: 2 }]; } };
+    const executor = {
+      async execute(): Promise<readonly unknown[]> {
+        return [{ value: 2 }];
+      },
+    };
     const db = createDatabase(executor, renderer, async (run) => run(executor));
-    const value = await db.transaction(async (transaction) => (await transaction.execute(sql<{ value: number }>`SELECT 2 AS value`))[0]?.value);
+    const value = await db.transaction(
+      async (transaction) => (await transaction.execute(sql<{ value: number }>`SELECT 2 AS value`))[0]?.value,
+    );
     strict.strictEqual(value, 2);
-    await strict.rejects(() => createDatabase(executor, renderer).transaction(async () => undefined), /does not support transactions/);
+    await strict.rejects(
+      () => createDatabase(executor, renderer).transaction(async () => undefined),
+      /does not support transactions/,
+    );
   });
 });
 
@@ -203,14 +248,36 @@ await describe("core contracts", async () => {
   };
 
   await it("defines immutable typed configuration", () => {
-    const config = defineConfig({ dialect, schema: { file: "schema.json" }, outDir: "generated" });
-    strict.strictEqual(config.dialect, dialect);
-    strict.ok(Object.isFrozen(config));
-    strict.throws(() => defineConfig({
-      dialect: { ...dialect, contractVersion: 3 as never },
+    const config = defineConfig({
+      dialect,
       schema: { file: "schema.json" },
       outDir: "generated",
-    }), /Unsupported typed-sql dialect contract/);
+      compiler: { maxStructuralVariants: 32 },
+    });
+    strict.strictEqual(config.dialect, dialect);
+    strict.strictEqual(config.compiler?.maxStructuralVariants, 32);
+    strict.ok(Object.isFrozen(config));
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect: { ...dialect, contractVersion: 3 as never },
+          schema: { file: "schema.json" },
+          outDir: "generated",
+        }),
+      /Unsupported typed-sql dialect contract/,
+    );
+    for (const maximum of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      strict.throws(
+        () =>
+          defineConfig({
+            dialect,
+            schema: { file: "schema.json" },
+            outDir: "generated",
+            compiler: { maxStructuralVariants: maximum },
+          }),
+        /positive safe integer/,
+      );
+    }
   });
 
   await it("publishes the stable diagnostic registry", () => {
@@ -221,17 +288,97 @@ await describe("core contracts", async () => {
   });
 
   await it("renders deterministic TypeScript row literals", () => {
-    strict.strictEqual(rowTypeLiteral([
-      { name: "id", tsType: "bigint", nullable: false, range: { start: 0, end: 1, line: 1, column: 1 } },
-      { name: "display name", tsType: "string", nullable: true, range: { start: 2, end: 3, line: 1, column: 3 } },
-    ]), '{ "id": bigint; "display name": string | null; }');
+    strict.strictEqual(
+      rowTypeLiteral([
+        { name: "id", tsType: "bigint", nullable: false, range: { start: 0, end: 1, line: 1, column: 1 } },
+        { name: "display name", tsType: "string", nullable: true, range: { start: 2, end: 3, line: 1, column: 3 } },
+      ]),
+      '{ "id": bigint; "display name": string | null; }',
+    );
   });
 
   await it("renders ordered parameter tuples with unresolved positions", () => {
-    strict.strictEqual(parameterTypeLiteral(4, [
-      { index: 1, tsType: "bigint", nullable: false, databaseType: "int8" },
-      { index: 3, tsType: '\"active\" | \"suspended\"', nullable: false },
-      { index: 4, tsType: "string", nullable: true },
-    ]), 'readonly [bigint, unknown, "active" | "suspended", string | null]');
+    strict.strictEqual(
+      parameterTypeLiteral(4, [
+        { index: 1, tsType: "bigint", nullable: false, databaseType: "int8" },
+        { index: 3, tsType: '"active" | "suspended"', nullable: false },
+        { index: 4, tsType: "string", nullable: true },
+      ]),
+      'readonly [bigint, unknown, "active" | "suspended", string | null]',
+    );
+  });
+
+  await it("shares indexed schema and parameter primitives with future grammars", () => {
+    const indexedSchema: SchemaSnapshot = {
+      formatVersion: 1,
+      dialect: "test",
+      tables: {
+        "public.Users": {
+          schema: "public",
+          name: "Users",
+          columns: {
+            UserId: { name: "UserId", databaseType: "integer", tsType: "number", nullable: false },
+          },
+        },
+      },
+      functions: {
+        "public.lookup": {
+          schema: "public",
+          name: "lookup",
+          argumentTypes: ["integer"],
+          returnType: "string",
+          nullable: false,
+        },
+      },
+    };
+    const index = new ResolverSchemaIndex(indexedSchema);
+    const table = index.tables("users", "PUBLIC")[0]?.table;
+    strict.ok(table !== undefined);
+    strict.strictEqual(index.tables("users").length, 1);
+    strict.strictEqual(index.tables("Users", "public", true).length, 1);
+    strict.strictEqual(index.tables("missing").length, 0);
+    strict.strictEqual(index.column(table!, "userid")?.name, "UserId");
+    strict.strictEqual(index.column(table!, "UserId", true)?.name, "UserId");
+    strict.strictEqual(index.column(table!, "userid", true), undefined);
+    const synthetic = {
+      name: "recent_users",
+      columns: {
+        total: { name: "total", databaseType: "integer", tsType: "number", nullable: false },
+      },
+    } as const;
+    strict.strictEqual(index.column(synthetic, "TOTAL")?.tsType, "number");
+    strict.strictEqual(index.functions("lookup", 1).length, 1);
+    strict.strictEqual(index.functions("LOOKUP", 1, "PUBLIC").length, 1);
+    strict.strictEqual(index.functions("lookup", 2).length, 0);
+
+    const parameters = new ParameterCollector();
+    parameters.record(1);
+    parameters.record(1, { tsType: "number", nullable: false, databaseType: "integer" });
+    parameters.record(1, { tsType: "number", nullable: true, databaseType: "integer" });
+    strict.deepStrictEqual(parameters.values(), [
+      {
+        index: 1,
+        tsType: "number",
+        nullable: true,
+        databaseType: "integer",
+      },
+    ]);
+    parameters.record(1, { tsType: "string", nullable: false, databaseType: "text" });
+    strict.deepStrictEqual(parameters.values(), [{ index: 1, tsType: "unknown", nullable: true }]);
+    strict.deepStrictEqual(parameters.record(1, { tsType: "number", nullable: false }), {
+      index: 1,
+      tsType: "unknown",
+      nullable: true,
+    });
+    parameters.record(2, { tsType: "string", nullable: false, databaseType: "varchar" });
+    parameters.record(2);
+    parameters.record(2, { tsType: "string", nullable: false, databaseType: "text" });
+    strict.deepStrictEqual(parameters.values()[1], { index: 2, tsType: "string", nullable: false });
+    strict.strictEqual(unionTypeLiterals(["string", "number", "string"]), "string | number");
+    strict.strictEqual(unionTypeLiterals(["string", "unknown"]), "unknown");
+    strict.strictEqual(unionTypeLiterals([]), "unknown");
+    strict.strictEqual(closestName("uesrs", ["accounts", "users"]), "users");
+    strict.strictEqual(closestName("x", ["accounts"]), undefined);
+    strict.strictEqual(closestName("users", []), undefined);
   });
 });

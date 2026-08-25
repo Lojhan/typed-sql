@@ -1,11 +1,6 @@
+import { type Node, type SourceFile, SyntaxKind } from "@typed-sql/typescript-preview/unstable/ast";
 import { API, type Checker, type Snapshot } from "@typed-sql/typescript-preview/unstable/async";
-import { SyntaxKind, type Node, type SourceFile } from "@typed-sql/typescript-preview/unstable/ast";
-import type {
-  BridgeQuery,
-  NativeTypeInspection,
-  TypeScriptInspectionInput,
-  TypeScriptBridge,
-} from "./index.js";
+import type { BridgeQuery, NativeTypeInspection, TypeScriptBridge, TypeScriptInspectionInput } from "./index.js";
 
 export const TYPESCRIPT_PREVIEW_VERSION = "7.1.0-dev.20260824.1";
 
@@ -47,16 +42,22 @@ export class NativePreviewTypeScriptBridge implements TypeScriptBridge {
     return (await this.inspectFiles([input])).get(input.fileName) ?? [];
   }
 
-  async inspectFiles(inputs: readonly TypeScriptInspectionInput[]): Promise<ReadonlyMap<string, readonly NativeTypeInspection[]>> {
+  async inspectFiles(
+    inputs: readonly TypeScriptInspectionInput[],
+  ): Promise<ReadonlyMap<string, readonly NativeTypeInspection[]>> {
     if (inputs.length === 0) return new Map();
     const openFiles = [...new Set(inputs.map((input) => input.fileName))];
-    const openProjects = [...new Set(inputs.flatMap((input) => input.projectFile === undefined ? [] : [input.projectFile]))];
-    const snapshot = await this.#api.updateSnapshot(this.#fromLanguageServer
-      ? undefined
-      : {
-          openFiles,
-          ...(openProjects.length === 0 ? {} : { openProjects }),
-        });
+    const openProjects = [
+      ...new Set(inputs.flatMap((input) => (input.projectFile === undefined ? [] : [input.projectFile]))),
+    ];
+    const snapshot = await this.#api.updateSnapshot(
+      this.#fromLanguageServer
+        ? undefined
+        : {
+            openFiles,
+            ...(openProjects.length === 0 ? {} : { openProjects }),
+          },
+    );
     try {
       const result = new Map<string, readonly NativeTypeInspection[]>();
       const withUpdates = async (index: number, current: Snapshot): Promise<void> => {
@@ -64,11 +65,15 @@ export class NativePreviewTypeScriptBridge implements TypeScriptBridge {
         if (input === undefined) {
           for (const candidate of inputs) {
             const inspections: NativeTypeInspection[] = [];
-            const project = (candidate.projectFile === undefined ? undefined : current.getProject(candidate.projectFile)
-              ?? current.getProjects().find((item) => item.configFileName === candidate.projectFile))
-              ?? await current.getDefaultProjectForFile(candidate.fileName)
-              ?? current.getProjects()[0];
-            if (project === undefined) throw new Error(`TypeScript preview did not load a project for ${candidate.fileName}`);
+            const project =
+              (candidate.projectFile === undefined
+                ? undefined
+                : (current.getProject(candidate.projectFile) ??
+                  current.getProjects().find((item) => item.configFileName === candidate.projectFile))) ??
+              (await current.getDefaultProjectForFile(candidate.fileName)) ??
+              current.getProjects()[0];
+            if (project === undefined)
+              throw new Error(`TypeScript preview did not load a project for ${candidate.fileName}`);
             const sourceFile = await project.program.getSourceFile(candidate.fileName);
             if (sourceFile === undefined) throw new Error(`TypeScript preview did not load ${candidate.fileName}`);
             for (const query of candidate.analysis.queries) {
@@ -78,9 +83,14 @@ export class NativePreviewTypeScriptBridge implements TypeScriptBridge {
           }
           return;
         }
-        await this.#api.runWithTemporaryFileUpdate(current, input.fileName, input.analysis.transformedSource, async (updated) => {
-          await withUpdates(index + 1, updated);
-        });
+        await this.#api.runWithTemporaryFileUpdate(
+          current,
+          input.fileName,
+          input.analysis.transformedSource,
+          async (updated) => {
+            await withUpdates(index + 1, updated);
+          },
+        );
       };
       await withUpdates(0, snapshot);
       return result;
@@ -89,11 +99,7 @@ export class NativePreviewTypeScriptBridge implements TypeScriptBridge {
     }
   }
 
-  async #inspectQuery(
-    checker: Checker,
-    sourceFile: SourceFile,
-    query: BridgeQuery,
-  ): Promise<NativeTypeInspection> {
+  async #inspectQuery(checker: Checker, sourceFile: SourceFile, query: BridgeQuery): Promise<NativeTypeInspection> {
     const taggedTemplate = taggedTemplateAt(sourceFile, sourceFile, query.transformedRange.start);
     if (taggedTemplate === undefined) {
       throw new Error(`TypeScript preview could not locate typed-sql query ${query.index}`);

@@ -15,7 +15,13 @@ const schema = {
         age: { name: "age", databaseType: "integer", tsType: "number", nullable: true },
         active: { name: "active", databaseType: "boolean", tsType: "boolean", nullable: false },
         payload: { name: "payload", databaseType: "jsonb", tsType: "unknown", nullable: false },
-        scores: { name: "scores", databaseType: "integer[]", tsType: "readonly (number)[]", nullable: false, array: true },
+        scores: {
+          name: "scores",
+          databaseType: "integer[]",
+          tsType: "readonly (number)[]",
+          nullable: false,
+          array: true,
+        },
       },
     },
     accounts: {
@@ -27,9 +33,28 @@ const schema = {
     },
   },
   functions: {
-    "public.label_for(integer)": { schema: "public", name: "label_for", argumentTypes: ["integer"], databaseReturnType: "text", returnType: "string", nullable: false },
-    "choose(integer)": { name: "choose", argumentTypes: ["integer"], databaseReturnType: "integer", returnType: "number", nullable: false },
-    "choose(boolean)": { name: "choose", argumentTypes: ["boolean"], databaseReturnType: "boolean", returnType: "boolean", nullable: false },
+    "public.label_for(integer)": {
+      schema: "public",
+      name: "label_for",
+      argumentTypes: ["integer"],
+      databaseReturnType: "text",
+      returnType: "string",
+      nullable: false,
+    },
+    "choose(integer)": {
+      name: "choose",
+      argumentTypes: ["integer"],
+      databaseReturnType: "integer",
+      returnType: "number",
+      nullable: false,
+    },
+    "choose(boolean)": {
+      name: "choose",
+      argumentTypes: ["boolean"],
+      databaseReturnType: "boolean",
+      returnType: "boolean",
+      nullable: false,
+    },
     "one_arg(text)": { name: "one_arg", argumentTypes: ["text"], returnType: "string", nullable: true },
   },
 } as const satisfies SchemaSnapshot;
@@ -40,11 +65,14 @@ function codes(sql: string): readonly string[] {
 
 await describe("PostgreSQL resolver branch matrix", async () => {
   await it("validates CTE declarations and data-changing CTE result contracts", () => {
-    const result = resolveStatement(parseStatement(`
+    const result = resolveStatement(
+      parseStatement(`
       WITH duplicate(a, b) AS (SELECT id FROM users),
            duplicate AS (DELETE FROM users WHERE false)
       SELECT * FROM duplicate
-    `), schema);
+    `),
+      schema,
+    );
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ211"));
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ212"));
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ213"));
@@ -53,19 +81,28 @@ await describe("PostgreSQL resolver branch matrix", async () => {
   await it("covers INSERT sources, defaults, target validation, UPDATE joins, and DELETE USING", () => {
     const defaults = resolveStatement(parseStatement("INSERT INTO users DEFAULT VALUES"), schema);
     strict.strictEqual(defaults.resultKind, "command");
-    const allColumns = resolveStatement(parseStatement("INSERT INTO users VALUES (1, 'Ada', NULL, true, '{}'::jsonb, ARRAY[1])"), schema);
+    const allColumns = resolveStatement(
+      parseStatement("INSERT INTO users VALUES (1, 'Ada', NULL, true, '{}'::jsonb, ARRAY[1])"),
+      schema,
+    );
     strict.deepStrictEqual(allColumns.diagnostics, []);
     const selection = resolveStatement(parseStatement("INSERT INTO users (id, name) SELECT id FROM users"), schema);
     strict.ok(selection.diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"));
     strict.ok(codes("INSERT INTO users (missing) VALUES (1)").includes("TSQ101"));
-    const update = resolveStatement(parseStatement(`
+    const update = resolveStatement(
+      parseStatement(`
       UPDATE users u SET missing = 1, age = a.id
       FROM accounts a LEFT JOIN users other ON other.id = a.id
       WHERE u.id = a.id RETURNING other.name
-    `), schema);
+    `),
+      schema,
+    );
     strict.ok(update.diagnostics.some((diagnostic) => diagnostic.code === "TSQ101"));
     strict.strictEqual(update.columns[0]?.nullable, true);
-    const deletion = resolveStatement(parseStatement("DELETE FROM users u USING accounts a WHERE u.id = a.id RETURNING a.label"), schema);
+    const deletion = resolveStatement(
+      parseStatement("DELETE FROM users u USING accounts a WHERE u.id = a.id RETURNING a.label"),
+      schema,
+    );
     strict.strictEqual(deletion.columns[0]?.nullable, true);
   });
 
@@ -76,14 +113,21 @@ await describe("PostgreSQL resolver branch matrix", async () => {
     strict.ok(codes("SELECT * FROM users u JOIN accounts u ON true").includes("TSQ108"));
     const qualified = resolveSelect(parseSelect("SELECT u.* FROM users u"), schema);
     strict.strictEqual(qualified.columns.length, 6);
-    const lateral = resolveSelect(parseSelect("SELECT derived.id FROM users u CROSS JOIN LATERAL (SELECT u.id) derived"), schema);
+    const lateral = resolveSelect(
+      parseSelect("SELECT derived.id FROM users u CROSS JOIN LATERAL (SELECT u.id) derived"),
+      schema,
+    );
     strict.deepStrictEqual(lateral.diagnostics, []);
-    const nonLateral = resolveSelect(parseSelect("SELECT derived.id FROM users u CROSS JOIN (SELECT u.id) derived"), schema);
+    const nonLateral = resolveSelect(
+      parseSelect("SELECT derived.id FROM users u CROSS JOIN (SELECT u.id) derived"),
+      schema,
+    );
     strict.ok(nonLateral.diagnostics.some((diagnostic) => diagnostic.code === "TSQ103"));
   });
 
   await it("covers every expression result family and nullability path", () => {
-    const result = resolveSelect(parseSelect(`
+    const result = resolveSelect(
+      parseSelect(`
       SELECT
         DEFAULT AS default_value,
         ARRAY[] AS empty_array,
@@ -104,17 +148,23 @@ await describe("PostgreSQL resolver branch matrix", async () => {
         (SELECT id, name FROM users) AS invalid_scalar,
         CASE id WHEN 1 THEN name ELSE NULL END AS case_value
       FROM users
-    `), schema);
+    `),
+      schema,
+    );
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ216"));
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ217"));
     strict.strictEqual(result.columns.find((column) => column.name === "known_boolean")?.nullable, false);
     strict.strictEqual(result.columns.find((column) => column.name === "maybe_boolean")?.nullable, true);
     strict.strictEqual(result.columns.find((column) => column.name === "empty_array")?.tsType, "readonly (unknown)[]");
-    strict.strictEqual(result.columns.find((column) => column.name === "tuple_value")?.tsType, "readonly [number, number | null]");
+    strict.strictEqual(
+      result.columns.find((column) => column.name === "tuple_value")?.tsType,
+      "readonly [number, number | null]",
+    );
   });
 
   await it("covers built-in aggregates and function overload selection", () => {
-    const result = resolveSelect(parseSelect(`
+    const result = resolveSelect(
+      parseSelect(`
       SELECT
         COALESCE(NULL, name) AS coalesced,
         COALESCE($1, name) AS uncertain,
@@ -131,7 +181,9 @@ await describe("PostgreSQL resolver branch matrix", async () => {
         one_arg($1) AS fallback,
         choose(name) AS ambiguous
       FROM users
-    `), schema);
+    `),
+      schema,
+    );
     strict.strictEqual(result.columns.find((column) => column.name === "coalesced")?.databaseType, "text");
     strict.strictEqual(result.columns.find((column) => column.name === "jsonb_values")?.databaseType, "jsonb");
     strict.strictEqual(result.columns.find((column) => column.name === "ages")?.tsType, "readonly (number | null)[]");
@@ -144,7 +196,7 @@ await describe("PostgreSQL resolver branch matrix", async () => {
     const quotedSchema = {
       ...schema,
       tables: {
-        'Special.CaseTable': {
+        "Special.CaseTable": {
           schema: "Special",
           name: "CaseTable",
           columns: { Value: { name: "Value", databaseType: "text", tsType: "string", nullable: false } },

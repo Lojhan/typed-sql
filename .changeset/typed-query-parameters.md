@@ -14,4 +14,8 @@ Direct append fragments are grammar-analyzed cumulatively against their static b
 rejects fragment interpolation values that disagree with the referenced database columns.
 Add `sql.empty` and SQL-template-native conditional structural fragments. The compiler analyzes
 complete branch variants, preserves literal boolean-dependent result rows, and type-checks nested
-fragment parameters without adding a query-builder DSL.
+fragment parameters without adding a query-builder DSL. Bound independent structural expansion at
+64 variants by default, correlate repeated conditions, merge diagnostics and fragment expectations
+across variants, and fail closed on incompatible contexts. Share indexed catalog and conservative
+parameter-resolution primitives across grammars, harden cooked-template scanning, and add runtime,
+resolver, scanner, and structural performance gates.

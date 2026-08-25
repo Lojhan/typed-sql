@@ -36,6 +36,14 @@ Structural fragment interpolations inside a complete `sql` template are expanded
 finite branches. The compiler analyzes each resulting complete SQL statement, emits a conditional
 row for generic boolean property selections, and injects expected parameter types into nested
 fragments. `sql.empty` represents the absent branch without turning it into a driver parameter.
+The expansion is a grammar-neutral intermediate representation: SQL parsing and resolution still
+belong exclusively to `DialectPlugin.analyze()`.
+
+`compileSource` accepts `maxStructuralVariants`, defaulting to 64. The compiler counts independent
+conditions and returns `TSQ003` before invoking the grammar when the bound would be exceeded.
+Repeated uses of the same condition are correlated and do not multiply the branch count. A shared
+fragment that receives incompatible parameter expectations across valid branches fails closed with
+`TSQ205`.
 
 Application projects normally use this through `typed-sql check` or the language server. It is
 public for grammar, editor, and build-tool integrations.

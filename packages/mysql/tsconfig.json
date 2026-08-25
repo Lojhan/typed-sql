@@ -5,9 +5,5 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../ast" },
-    { "path": "../schema" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../ast" }, { "path": "../schema" }]
 }

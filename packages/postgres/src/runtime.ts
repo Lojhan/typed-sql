@@ -1,4 +1,4 @@
-import { renderQuery, type Database, type Query, type SqlRenderer } from "@typed-sql/core";
+import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
 
 export interface PostgresCodecPolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -61,19 +61,26 @@ const oids = {
 } as const;
 
 const arrayElementOids = new Map<number, number>([
-  [1016, oids.int8], [1231, oids.numeric], [1182, oids.date], [1115, oids.timestamp],
-  [1185, oids.timestamptz], [199, oids.json], [3807, oids.jsonb],
+  [1016, oids.int8],
+  [1231, oids.numeric],
+  [1182, oids.date],
+  [1115, oids.timestamp],
+  [1185, oids.timestamptz],
+  [199, oids.json],
+  [3807, oids.jsonb],
 ]);
 
 function numberValue(input: string, label: string): number {
   const parsed = Number(input);
-  if (!Number.isFinite(parsed)) throw new RangeError(`${label} value ${input} cannot be represented as a finite number`);
+  if (!Number.isFinite(parsed))
+    throw new RangeError(`${label} value ${input} cannot be represented as a finite number`);
   return parsed;
 }
 
 function safeIntegerValue(input: string): number {
   const parsed = numberValue(input, "bigint");
-  if (!Number.isSafeInteger(parsed)) throw new RangeError(`bigint value ${input} exceeds JavaScript's safe integer range`);
+  if (!Number.isSafeInteger(parsed))
+    throw new RangeError(`bigint value ${input} exceeds JavaScript's safe integer range`);
   return parsed;
 }
 
@@ -92,9 +99,17 @@ function parsePostgresArray(source: string, transform: (value: string) => unknow
         let item = "";
         while (index < source.length) {
           const char = source[index]!;
-          if (char === "\\") { index += 1; item += source[index] ?? ""; index += 1; }
-          else if (quoted ? char === '"' : char === "," || char === "}") { if (quoted) index += 1; break; }
-          else { item += char; index += 1; }
+          if (char === "\\") {
+            index += 1;
+            item += source[index] ?? "";
+            index += 1;
+          } else if (quoted ? char === '"' : char === "," || char === "}") {
+            if (quoted) index += 1;
+            break;
+          } else {
+            item += char;
+            index += 1;
+          }
         }
         result.push(!quoted && item === "NULL" ? null : transform(item));
       }
@@ -149,7 +164,13 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #ownsPool: boolean;
   readonly #transactionDepth: number;
 
-  constructor(pool: PostgresPoolLike, client: PostgresClientLike | undefined, parsers: PostgresTypeParserSet, ownsPool: boolean, depth: number) {
+  constructor(
+    pool: PostgresPoolLike,
+    client: PostgresClientLike | undefined,
+    parsers: PostgresTypeParserSet,
+    ownsPool: boolean,
+    depth: number,
+  ) {
     this.#pool = pool;
     this.#client = client;
     this.#parsers = parsers;
@@ -176,9 +197,15 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       await client.query("COMMIT");
       return result;
     } catch (error) {
-      try { await client.query("ROLLBACK"); } catch { /* Preserve the original error. */ }
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        /* Preserve the original error. */
+      }
       throw error;
-    } finally { client.release(); }
+    } finally {
+      client.release();
+    }
   }
 
   async #nestedTransaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {

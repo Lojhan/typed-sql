@@ -14,7 +14,10 @@ export interface PostgresQueryResult<Row> {
 }
 
 export interface PostgresQueryable {
-  query<Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<PostgresQueryResult<Row>>;
+  query<Row extends Record<string, unknown>>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<PostgresQueryResult<Row>>;
 }
 
 export interface PostgresIntrospectionClient extends PostgresQueryable {
@@ -150,28 +153,39 @@ function redactError(error: unknown, connectionString: string): Error {
 }
 
 export async function loadPostgresDriver(
-  importer: PostgresDriverImporter = async () => await import("pg") as unknown as PostgresDriverModule,
+  importer: PostgresDriverImporter = async () => (await import("pg")) as unknown as PostgresDriverModule,
 ): Promise<PostgresDriverModule> {
   try {
     return await importer();
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ERR_MODULE_NOT_FOUND") {
-      throw new Error("PostgreSQL introspection requires the application-owned pg driver. Install it with: pnpm add pg", { cause: error });
+      throw new Error(
+        "PostgreSQL introspection requires the application-owned pg driver. Install it with: pnpm add pg",
+        { cause: error },
+      );
     }
     throw error;
   }
 }
 
-async function withConnection<T>(input: SchemaInput, options: PostgresSchemaProviderOptions, fn: (client: PostgresQueryable) => Promise<T>): Promise<T> {
+async function withConnection<T>(
+  input: SchemaInput,
+  options: PostgresSchemaProviderOptions,
+  fn: (client: PostgresQueryable) => Promise<T>,
+): Promise<T> {
   if (options.client !== undefined) return fn(options.client);
   if (input.url === undefined) throw new TypeError("PostgreSQL introspection requires SchemaInput.url");
-  const pool: PostgresIntrospectionPool = options.pool ?? new (await loadPostgresDriver()).Pool({ connectionString: input.url });
+  const pool: PostgresIntrospectionPool =
+    options.pool ?? new (await loadPostgresDriver()).Pool({ connectionString: input.url });
   const client = await pool.connect().catch(async (error: unknown) => {
     await pool.end();
     throw redactError(error, input.url!);
   });
   const queryable: PostgresQueryable = {
-    async query<Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<PostgresQueryResult<Row>> {
+    async query<Row extends Record<string, unknown>>(
+      text: string,
+      values?: readonly unknown[],
+    ): Promise<PostgresQueryResult<Row>> {
       const result = await client.query<Row>(text, values === undefined ? [] : [...values]);
       return { rows: result.rows };
     },
@@ -182,7 +196,11 @@ async function withConnection<T>(input: SchemaInput, options: PostgresSchemaProv
     await client.query("COMMIT");
     return result;
   } catch (error) {
-    try { await client.query("ROLLBACK"); } catch { /* Preserve the introspection error. */ }
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* Preserve the introspection error. */
+    }
     throw redactError(error, input.url);
   } finally {
     client.release();
@@ -210,7 +228,12 @@ export class PostgresSchemaProvider implements SchemaProvider {
       ]);
 
       const enums: Record<string, string[]> = {};
-      for (const row of enumResult.rows) (enums[qualifiedKey(row.schema_name, row.type_name)] ??= []).push(row.enum_label);
+      for (const row of enumResult.rows) {
+        const key = qualifiedKey(row.schema_name, row.type_name);
+        const values = enums[key];
+        if (values === undefined) enums[key] = [row.enum_label];
+        else values.push(row.enum_label);
+      }
 
       const policy = this.#options.typePolicy ?? defaultPostgresTypePolicy;
       const domains: Record<string, DomainSnapshot> = {};
@@ -272,6 +295,9 @@ export class PostgresSchemaProvider implements SchemaProvider {
   }
 }
 
-export async function introspectPostgres(input: SchemaInput, options: PostgresSchemaProviderOptions = {}): Promise<SchemaSnapshot> {
+export async function introspectPostgres(
+  input: SchemaInput,
+  options: PostgresSchemaProviderOptions = {},
+): Promise<SchemaSnapshot> {
   return new PostgresSchemaProvider(options).introspect(input);
 }

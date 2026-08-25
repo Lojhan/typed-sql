@@ -87,7 +87,12 @@ const query = sql`
 
 The runtime only flattens fragment segments and values. The compiler analyzes every finite branch as
 a complete statement and supplies the branch-dependent row type; no clause-builder abstraction is
-introduced.
+introduced. Structural compilation defaults to at most 64 correlated variants and fails with
+`TSQ003` before invoking a grammar if independent conditions exceed that bound.
+
+`sql.join()` accepts only `SqlFragment` values. Its optional separator is also a trusted fragment,
+so use `sql.raw(" UNION ALL ")` when a non-comma separator is intentional; an arbitrary runtime
+string is never promoted to SQL implicitly.
 
 `@typed-sql/core` is directly useful to grammar and adapter authors:
 
@@ -96,10 +101,14 @@ import {
   DIALECT_CONTRACT_VERSION,
   createDatabase,
   defineConfig,
+  closestName,
+  ParameterCollector,
   renderQuery,
   parameterTypeLiteral,
+  ResolverSchemaIndex,
   rowTypeLiteral,
   sql,
+  unionTypeLiterals,
   type DialectPlugin,
   type Query,
   type QueryParameters,
@@ -108,6 +117,11 @@ import {
   type SchemaSnapshot,
 } from "@typed-sql/core";
 ```
+
+`ResolverSchemaIndex`, `ParameterCollector`, `unionTypeLiterals`, and `closestName` are reusable,
+dialect-neutral resolver primitives. Future PostgreSQL, MySQL, MSSQL, SQLite, and third-party
+grammars can share indexed catalog lookup and conservative parameter merging while keeping SQL
+semantics, built-ins, quoting, type policy, and unsupported syntax inside their own package.
 
 The package has no database, parser, grammar, driver, TypeScript compiler, or editor dependency.
 See the [architecture contract](https://github.com/Lojhan/typed-sql/blob/main/docs/ARCHITECTURE.md)
@@ -122,9 +136,11 @@ message text. The machine-readable registry is exported as `diagnosticRegistry`.
 | --- | --- |
 | `TSQ001` | SQL syntax error |
 | `TSQ002` | Parser resource limit exceeded |
+| `TSQ003` | Conditional SQL exceeded the configured structural variant bound |
 | `TSQ007` | Dialect/snapshot contract mismatch |
 | `TSQ100`–`TSQ108` | Catalog lookup, ambiguity, output naming, and cast errors |
 | `TSQ202`–`TSQ204` | Unknown/ambiguous functions and unsafe operator inference |
+| `TSQ205` | A shared fragment has incompatible parameter expectations across structural branches |
 | `TSQ210`–`TSQ217` | CTE, DML arity, join, and subquery safety errors |
 | `TSQ301` | Schema or type-policy drift |
 | `TSQ401` | Deliberately unsupported dialect surface |

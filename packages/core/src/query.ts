@@ -1,5 +1,5 @@
-const fragmentBrand: unique symbol = Symbol("typed-sql.fragment");
-const queryBrand: unique symbol = Symbol("typed-sql.query");
+const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
+const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
 
 export type SqlSegment =
   | { readonly kind: "text"; readonly text: string }
@@ -24,6 +24,9 @@ export type SqlPartsParameters<
   : Parts extends readonly [infer Head, ...infer Tail]
     ? SqlPartsParameters<Tail, readonly [...Accumulator, ...SqlPartParameters<Head>]>
     : Accumulator;
+
+type CheckedSqlParts<Parts extends readonly unknown[], Expected extends readonly unknown[]> = Parts &
+  ([SqlPartsParameters<Parts>] extends [Expected] ? unknown : never);
 
 type PresentFragment<Part> = Exclude<Part, false | null | undefined>;
 type OptionalFragmentParameters<Part> = [PresentFragment<Part>] extends [never]
@@ -55,10 +58,11 @@ export interface SqlTag {
     strings: TemplateStringsArray,
     ...parts: Parts
   ): Query<Row, SqlPartsParameters<Parts>>;
-  readonly withRow: <Row>() => <Parts extends readonly unknown[]>(
+  /** @internal Compiler overlay hook; applications should use the `sql` tag directly. */
+  readonly __typed: <Row, Params extends readonly unknown[]>() => <const Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
-    ...parts: Parts
-  ) => Query<Row, SqlPartsParameters<Parts>>;
+    ...parts: CheckedSqlParts<Parts, Params>
+  ) => Query<Row, Params>;
   readonly fragment: <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: Parts
@@ -68,7 +72,7 @@ export interface SqlTag {
   readonly value: <Value>(value: Value) => SqlFragment<readonly [Value]>;
   readonly join: <const Parts extends readonly SqlFragment[]>(
     parts: Parts,
-    separator?: string,
+    separator?: SqlFragment<readonly []>,
   ) => SqlFragment<FragmentListParameters<Parts>>;
   readonly and: <const Parts extends readonly OptionalSqlFragment[]>(
     parts: Parts,
@@ -111,58 +115,59 @@ export type TransactionRunner = <T>(fn: (executor: QueryExecutor) => Promise<T>)
 
 const text = (textValue: string): SqlSegment => ({ kind: "text", text: textValue });
 const value = (valueItem: unknown): SqlSegment => ({ kind: "value", value: valueItem });
+const fragmentTypeBrand = (): readonly unknown[] => [];
+const queryTypeBrand = Object.freeze({
+  row: (row: unknown): unknown => row,
+  params: (params: readonly unknown[]): readonly unknown[] => params,
+});
 
-function fragment<Params extends readonly unknown[]>(segments: readonly SqlSegment[]): SqlFragment<Params> {
+function fragment<Params extends readonly unknown[]>(segments: SqlSegment[]): SqlFragment<Params> {
   return Object.freeze({
-    [fragmentBrand]: (): Params => [] as unknown as Params,
-    segments: Object.freeze([...segments]),
+    [fragmentBrand]: fragmentTypeBrand as () => Params,
+    segments: Object.freeze(segments),
   });
 }
 
 function isFragment(part: unknown): part is SqlFragment {
-  return typeof part === "object" && part !== null && fragmentBrand in part;
+  return (
+    typeof part === "object" &&
+    part !== null &&
+    fragmentBrand in part &&
+    Array.isArray((part as Partial<SqlFragment>).segments)
+  );
 }
 
-function query<Row, Params extends readonly unknown[]>(segments: readonly SqlSegment[]): Query<Row, Params> {
+function query<Row, Params extends readonly unknown[]>(segments: SqlSegment[]): Query<Row, Params> {
   return Object.freeze({
-    [queryBrand]: Object.freeze({
-      row: (row: Row): Row => row,
-      params: (params: Params): Params => params,
-    }),
-    segments: Object.freeze([...segments]),
+    [queryBrand]: queryTypeBrand as unknown as Query<Row, Params>[typeof queryBrand],
+    segments: Object.freeze(segments),
   });
+}
+
+function templateSegments(strings: TemplateStringsArray, parts: readonly unknown[]): SqlSegment[] {
+  const segments: SqlSegment[] = [];
+  for (let index = 0; index < strings.length; index += 1) {
+    segments.push(text(strings[index] ?? ""));
+    if (index >= parts.length) continue;
+    const part = parts[index];
+    if (isFragment(part)) segments.push(...part.segments);
+    else segments.push(value(part));
+  }
+  return segments;
 }
 
 const tag = <Row = unknown, Parts extends readonly unknown[] = readonly unknown[]>(
   strings: TemplateStringsArray,
   ...parts: Parts
 ): Query<Row, SqlPartsParameters<Parts>> => {
-  const segments: SqlSegment[] = [];
-  for (let index = 0; index < strings.length; index += 1) {
-    segments.push(text(strings[index] ?? ""));
-    if (index < parts.length) {
-      const part = parts[index];
-      if (isFragment(part)) segments.push(...part.segments);
-      else segments.push(value(part));
-    }
-  }
-  return query<Row, SqlPartsParameters<Parts>>(segments);
+  return query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
 };
 
 const fragmentTag = <Parts extends readonly unknown[]>(
   strings: TemplateStringsArray,
   ...parts: Parts
 ): SqlFragment<SqlPartsParameters<Parts>> => {
-  const segments: SqlSegment[] = [];
-  for (let index = 0; index < strings.length; index += 1) {
-    segments.push(text(strings[index] ?? ""));
-    if (index < parts.length) {
-      const part = parts[index];
-      if (isFragment(part)) segments.push(...part.segments);
-      else segments.push(value(part));
-    }
-  }
-  return fragment<SqlPartsParameters<Parts>>(segments);
+  return fragment<SqlPartsParameters<Parts>>(templateSegments(strings, parts));
 };
 
 function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
@@ -180,24 +185,34 @@ function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
   return fragment<FragmentListParameters<Parts>>(segments);
 }
 
+const commaSeparator = fragment<readonly []>([text(", ")]);
+
 export const sql: SqlTag = Object.assign(tag, {
-  withRow<Row>() {
-    return <Parts extends readonly unknown[]>(strings: TemplateStringsArray, ...parts: Parts) =>
-      tag<Row, Parts>(strings, ...parts);
+  __typed<Row, Params extends readonly unknown[]>() {
+    return <const Parts extends readonly unknown[]>(
+      strings: TemplateStringsArray,
+      ...parts: CheckedSqlParts<Parts, Params>
+    ) => tag<Row, Parts>(strings, ...(parts as unknown as Parts)) as unknown as Query<Row, Params>;
   },
   fragment: fragmentTag,
   empty: fragment<readonly []>([]),
   ident(name: string): SqlFragment<readonly []> {
-    if (name.length === 0 || name.includes("\0")) throw new TypeError("SQL identifiers must be non-empty and cannot contain NUL");
+    if (name.length === 0 || name.includes("\0"))
+      throw new TypeError("SQL identifiers must be non-empty and cannot contain NUL");
     return fragment<readonly []>([{ kind: "identifier", name }]);
   },
   value<Value>(valueItem: Value): SqlFragment<readonly [Value]> {
     return fragment<readonly [Value]>([value(valueItem)]);
   },
-  join<const Parts extends readonly SqlFragment[]>(parts: Parts, separator = ", "): SqlFragment<FragmentListParameters<Parts>> {
+  join<const Parts extends readonly SqlFragment[]>(
+    parts: Parts,
+    separator: SqlFragment<readonly []> = commaSeparator,
+  ): SqlFragment<FragmentListParameters<Parts>> {
+    if (!isFragment(separator)) throw new TypeError("sql.join() separator must be a trusted SQL fragment");
     const segments: SqlSegment[] = [];
     parts.forEach((part, index) => {
-      if (index > 0) segments.push(text(separator));
+      if (!isFragment(part)) throw new TypeError("sql.join() accepts SQL fragments");
+      if (index > 0) segments.push(...separator.segments);
       segments.push(...part.segments);
     });
     return fragment<FragmentListParameters<Parts>>(segments);
@@ -230,8 +245,12 @@ export const sql: SqlTag = Object.assign(tag, {
     }
     return query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(segments);
   },
-  raw(sqlText: string): SqlFragment<readonly []> { return fragment<readonly []>([text(sqlText)]); },
-  dynamic(sqlText: string): Query<unknown> { return query<unknown, readonly unknown[]>([text(sqlText)]); },
+  raw(sqlText: string): SqlFragment<readonly []> {
+    return fragment<readonly []>([text(sqlText)]);
+  },
+  dynamic(sqlText: string): Query<unknown> {
+    return query<unknown, readonly unknown[]>([text(sqlText)]);
+  },
 }) satisfies SqlTag;
 
 export function renderQuery<Row, Params extends readonly unknown[]>(
@@ -239,16 +258,16 @@ export function renderQuery<Row, Params extends readonly unknown[]>(
   renderer: SqlRenderer,
 ): RenderedQuery {
   const values: unknown[] = [];
-  let queryText = "";
+  const chunks: string[] = [];
   for (const segment of queryValue.segments) {
-    if (segment.kind === "text") queryText += segment.text;
-    else if (segment.kind === "identifier") queryText += renderer.quoteIdentifier(segment.name);
+    if (segment.kind === "text") chunks.push(segment.text);
+    else if (segment.kind === "identifier") chunks.push(renderer.quoteIdentifier(segment.name));
     else {
       values.push(segment.value);
-      queryText += renderer.placeholder(values.length);
+      chunks.push(renderer.placeholder(values.length));
     }
   }
-  return { text: queryText, values: Object.freeze(values) };
+  return { text: chunks.join(""), values: Object.freeze(values) };
 }
 
 class DatabaseImplementation implements Database {
@@ -264,15 +283,21 @@ class DatabaseImplementation implements Database {
 
   async execute<Row, Params extends readonly unknown[]>(queryValue: Query<Row, Params>): Promise<readonly Row[]> {
     const rendered = renderQuery(queryValue, this.#renderer);
-    return await this.#executor.execute(rendered.text, rendered.values) as readonly Row[];
+    return (await this.#executor.execute(rendered.text, rendered.values)) as readonly Row[];
   }
 
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
     if (this.#transactionRunner === undefined) throw new Error("This database adapter does not support transactions");
-    return this.#transactionRunner(async (executor) => fn(new DatabaseImplementation(executor, this.#renderer, this.#transactionRunner)));
+    return this.#transactionRunner(async (executor) =>
+      fn(new DatabaseImplementation(executor, this.#renderer, this.#transactionRunner)),
+    );
   }
 }
 
-export function createDatabase(executor: QueryExecutor, renderer: SqlRenderer, transactionRunner?: TransactionRunner): Database {
+export function createDatabase(
+  executor: QueryExecutor,
+  renderer: SqlRenderer,
+  transactionRunner?: TransactionRunner,
+): Database {
   return new DatabaseImplementation(executor, renderer, transactionRunner);
 }

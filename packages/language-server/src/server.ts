@@ -6,15 +6,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { BridgeAnalysis } from "@typed-sql/ts-bridge";
 import { typescriptPreviewCliPath } from "@typed-sql/ts-bridge/native-lsp";
 import { TYPESCRIPT_PREVIEW_VERSION } from "@typed-sql/ts-bridge/native-preview";
-import {
-  createMessageConnection,
-  type MessageConnection,
-  NullLogger,
-} from "vscode-jsonrpc/node";
-import {
-  TextDocument,
-  type TextDocumentContentChangeEvent,
-} from "vscode-languageserver-textdocument";
+import { createMessageConnection, type MessageConnection, NullLogger } from "vscode-jsonrpc/node";
+import { TextDocument, type TextDocumentContentChangeEvent } from "vscode-languageserver-textdocument";
 import { settingsFrom, TypedSqlLanguageService } from "./index.js";
 
 interface Position {
@@ -86,9 +79,12 @@ function rootDirectory(params: InitializeParams): string {
 
 function sourceOffsetToVirtual(state: DocumentState, offset: number): number {
   if (state.analysis === undefined) return offset;
-  return offset + state.analysis.insertions.reduce(
-    (shift, insertion) => shift + (insertion.position < offset ? insertion.length : 0),
-    0,
+  return (
+    offset +
+    state.analysis.insertions.reduce(
+      (shift, insertion) => shift + (insertion.position < offset ? insertion.length : 0),
+      0,
+    )
   );
 }
 
@@ -112,12 +108,13 @@ function mapPosition(state: DocumentState, position: Position, direction: Mappin
 }
 
 function stateFor(value: JsonObject, fallback?: DocumentState): DocumentState | undefined {
-  const uri = typeof value.uri === "string"
-    ? value.uri
-    : isObject(value.textDocument) && typeof value.textDocument.uri === "string"
-      ? value.textDocument.uri
-      : undefined;
-  return uri === undefined ? fallback : documents.get(uri) ?? virtualDocuments.get(uri) ?? fallback;
+  const uri =
+    typeof value.uri === "string"
+      ? value.uri
+      : isObject(value.textDocument) && typeof value.textDocument.uri === "string"
+        ? value.textDocument.uri
+        : undefined;
+  return uri === undefined ? fallback : (documents.get(uri) ?? virtualDocuments.get(uri) ?? fallback);
 }
 
 function documentUri(value: unknown): string | undefined {
@@ -137,27 +134,19 @@ function queueDocument(uri: string, operation: () => Promise<void>): Promise<voi
   });
 }
 
-function mapProtocolValue(
-  value: unknown,
-  direction: MappingDirection,
-  fallback?: DocumentState,
-): unknown {
+function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?: DocumentState): unknown {
   if (Array.isArray(value)) return value.map((item) => mapProtocolValue(item, direction, fallback));
   if (!isObject(value)) return value;
   const state = stateFor(value, fallback);
   if (state !== undefined && typeof value.line === "number" && typeof value.character === "number") {
     return mapPosition(state, value as unknown as Position, direction);
   }
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-    key,
-    mapProtocolValue(item, direction, state),
-  ]));
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, mapProtocolValue(item, direction, state)]),
+  );
 }
 
-async function createState(
-  original: TextDocument,
-  previous?: DocumentState,
-): Promise<DocumentState> {
+async function createState(original: TextDocument, previous?: DocumentState): Promise<DocumentState> {
   const analysis = await service.analysis(original);
   const virtualVersion = previous === undefined ? original.version : previous.virtualVersion + 1;
   const transformed = TextDocument.create(
@@ -175,10 +164,7 @@ async function createState(
 }
 
 async function combinedDiagnostics(state: DocumentState): Promise<readonly unknown[]> {
-  return [
-    ...(nativeDiagnostics.get(state.original.uri) ?? []),
-    ...await service.diagnostics(state.original),
-  ];
+  return [...(nativeDiagnostics.get(state.original.uri) ?? []), ...(await service.diagnostics(state.original))];
 }
 
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
@@ -212,7 +198,12 @@ async function preloadWorkspaceDocuments(): Promise<void> {
     if (state.analysis?.queries.length === 0 || state.analysis === undefined) continue;
     virtualDocuments.set(uri, state);
     await typescript.sendNotification("textDocument/didOpen", {
-      textDocument: { uri, languageId: original.languageId, version: state.virtualVersion, text: state.transformed.getText() },
+      textDocument: {
+        uri,
+        languageId: original.languageId,
+        version: state.virtualVersion,
+        text: state.transformed.getText(),
+      },
     });
   }
 }
@@ -299,7 +290,9 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
   const typedActions = state === undefined ? [] : await service.codeActions(state.original, diagnostics, token);
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const native = await typescript.sendRequest<unknown>("textDocument/codeAction", mapped);
-  const nativeActions = Array.isArray(native) ? mapProtocolValue(native, "virtual-to-source", state) as readonly unknown[] : [];
+  const nativeActions = Array.isArray(native)
+    ? (mapProtocolValue(native, "virtual-to-source", state) as readonly unknown[])
+    : [];
   return [...typedActions, ...nativeActions];
 });
 
@@ -317,7 +310,7 @@ client.onRequest(async (method, params) => {
   const items = Array.isArray(mappedResult.items) ? mappedResult.items : [];
   return {
     ...mappedResult,
-    items: [...items, ...await service.diagnostics(state.original)],
+    items: [...items, ...(await service.diagnostics(state.original))],
   };
 });
 
@@ -330,9 +323,15 @@ client.onNotification("textDocument/didOpen", (rawParams) => {
     const state = await createState(original, virtual);
     virtualDocuments.delete(item.uri);
     documents.set(item.uri, state);
-    await typescript.sendNotification(virtual === undefined ? "textDocument/didOpen" : "textDocument/didChange", virtual === undefined
-      ? { textDocument: { ...item, version: state.virtualVersion, text: state.transformed.getText() } }
-      : { textDocument: { uri: item.uri, version: state.virtualVersion }, contentChanges: [{ text: state.transformed.getText() }] });
+    await typescript.sendNotification(
+      virtual === undefined ? "textDocument/didOpen" : "textDocument/didChange",
+      virtual === undefined
+        ? { textDocument: { ...item, version: state.virtualVersion, text: state.transformed.getText() } }
+        : {
+            textDocument: { uri: item.uri, version: state.virtualVersion },
+            contentChanges: [{ text: state.transformed.getText() }],
+          },
+    );
     await publishCombinedDiagnostics(state);
   });
 });
@@ -345,11 +344,7 @@ client.onNotification("textDocument/didChange", (rawParams) => {
       await typescript.sendNotification("textDocument/didChange", params);
       return;
     }
-    const original = TextDocument.update(
-      previous.original,
-      [...params.contentChanges],
-      params.textDocument.version,
-    );
+    const original = TextDocument.update(previous.original, [...params.contentChanges], params.textDocument.version);
     service.forget(original.uri);
     const state = await createState(original, previous);
     documents.set(original.uri, state);
@@ -371,7 +366,12 @@ client.onNotification("textDocument/didClose", (rawParams) => {
     try {
       const fileName = fileURLToPath(params.textDocument.uri);
       const text = await readFile(fileName, "utf8");
-      const original = TextDocument.create(params.textDocument.uri, previous?.original.languageId ?? "typescript", 0, text);
+      const original = TextDocument.create(
+        params.textDocument.uri,
+        previous?.original.languageId ?? "typescript",
+        0,
+        text,
+      );
       const state = await createState(original, previous);
       if (state.analysis !== undefined && state.analysis.queries.length > 0) {
         virtualDocuments.set(params.textDocument.uri, state);
@@ -420,10 +420,7 @@ client.onNotification(async (method, params) => {
 
 typescript.onRequest(async (method, params) => {
   const state = isObject(params) ? stateFor(params) : undefined;
-  const result = await client.sendRequest<unknown>(
-    method,
-    mapProtocolValue(params, "virtual-to-source", state),
-  );
+  const result = await client.sendRequest<unknown>(method, mapProtocolValue(params, "virtual-to-source", state));
   return mapProtocolValue(result, "source-to-virtual", state);
 });
 

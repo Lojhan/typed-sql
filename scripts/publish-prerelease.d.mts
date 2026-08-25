@@ -25,11 +25,7 @@ export interface RegistryLookupOptions {
 }
 
 export function loadPrereleasePlan(workspace?: string): Promise<PrereleasePlan>;
-export function isPublishedOnNpm(
-  name: string,
-  version: string,
-  options?: RegistryLookupOptions,
-): Promise<boolean>;
+export function isPublishedOnNpm(name: string, version: string, options?: RegistryLookupOptions): Promise<boolean>;
 export function publicationCommands(
   pkg: ReleasePackage,
   npmTag: string,

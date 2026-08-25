@@ -12,10 +12,12 @@
     "node": ">=22.11"
   },
   "scripts": {
-    "build": "node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter ./packages/vscode build:bundle",
+    "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter ./packages/vscode build:bundle",
     "changeset": "changeset",
-    "verify": "pnpm test && pnpm coverage && pnpm build",
-    "clean": "tsc -b --clean",
+    "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build",
+    "quality": "biome check .",
+    "format": "biome check --write .",
+    "clean": "node scripts/clean-build.mjs",
     "e2e:postgres": "pnpm build && pnpm --filter @typed-sql/e2e-postgres e2e",
     "e2e:mysql": "pnpm build && pnpm --filter @typed-sql/e2e-mysql e2e",
     "e2e:packed": "pnpm build && pnpm --filter @typed-sql/e2e-packed e2e",
@@ -34,6 +36,7 @@
     "version-packages": "changeset version"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.10",
     "@changesets/cli": "3.0.1",
     "@pokujs/c8": "^2.0.0",
     "@typed-sql/core": "workspace:*",

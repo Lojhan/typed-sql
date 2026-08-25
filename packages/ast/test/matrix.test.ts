@@ -25,7 +25,10 @@ await describe("PostgreSQL grammar branch matrix", async () => {
     `);
     strict.strictEqual(distinct.distinctOn.length, 2);
     strict.strictEqual(distinct.from?.kind, "subquery");
-    strict.deepStrictEqual(distinct.joins.map((join) => join.kind), ["cross", "left", "cross"]);
+    strict.deepStrictEqual(
+      distinct.joins.map((join) => join.kind),
+      ["cross", "left", "cross"],
+    );
     strict.strictEqual(distinct.windows[0]?.name.name, "activity");
     strict.strictEqual(distinct.orderBy[0]?.nulls, "last");
 
@@ -66,7 +69,10 @@ await describe("PostgreSQL grammar branch matrix", async () => {
              CAST(value AS character varying(120))
       FROM values_table
     `);
-    strict.deepStrictEqual(statement.columns.map((item) => item.expression.kind), ["cast", "cast", "cast", "cast", "cast"]);
+    strict.deepStrictEqual(
+      statement.columns.map((item) => item.expression.kind),
+      ["cast", "cast", "cast", "cast", "cast"],
+    );
   });
 
   await it("covers CTE and data-changing statement variants", () => {
@@ -97,14 +103,18 @@ await describe("PostgreSQL grammar branch matrix", async () => {
       ["SELECT EXISTS (DELETE FROM users)", /EXISTS requires a SELECT/],
       ["SELECT (UPDATE users SET name = 'x')", /Scalar subquery must be SELECT/],
       ["SELECT id IN (UPDATE users SET name = 'x')", /IN subquery must be SELECT/],
-      ["INSERT INTO users WITH changed AS (UPDATE users SET name = 'x') UPDATE users SET name = 'y'", /INSERT source must be SELECT/],
+      [
+        "INSERT INTO users WITH changed AS (UPDATE users SET name = 'x') UPDATE users SET name = 'y'",
+        /INSERT source must be SELECT/,
+      ],
       ["INSERT INTO users", /Expected VALUES, DEFAULT VALUES, or SELECT/],
       ["SELECT * FROM users JOIN accounts", /JOIN requires ON or USING/],
       ["SELECT * FROM (users) u", /parenthesized FROM item must be a SELECT/],
       ["SELECT id IN ()", /IN requires at least one value/],
       ["SELECT CAST(value AS numeric(10, 2)", /Unterminated type modifier|Expected \)/],
       ["SELECT CAST(value AS text extra)", /Expected \) after type name/],
-    ] as const) parseFails(source, pattern);
+    ] as const)
+      parseFails(source, pattern);
     strict.throws(() => parseSelect("DELETE FROM users"), /Expected SELECT, found DELETE/);
   });
 
@@ -122,16 +132,23 @@ await describe("PostgreSQL grammar branch matrix", async () => {
       () => tokenize("SELECT $tag$unterminated"),
       () => tokenize('SELECT "unterminated'),
       () => tokenize("SELECT `invalid`"),
-    ]) strict.throws(operation);
+    ])
+      strict.throws(operation);
   });
 
   await it("tokenizes MySQL placeholders and quoting without weakening PostgreSQL defaults", () => {
-    const statement = parseSelect('SELECT `user`.`id`, "text" AS label FROM `users` AS `user` WHERE `user`.`id` = ? LIMIT 5, 10', { syntax: "mysql" });
+    const statement = parseSelect(
+      'SELECT `user`.`id`, "text" AS label FROM `users` AS `user` WHERE `user`.`id` = ? LIMIT 5, 10',
+      { syntax: "mysql" },
+    );
     strict.strictEqual(statement.columns[0]?.expression.kind, "column");
     strict.strictEqual(statement.columns[1]?.expression.kind, "literal");
     strict.strictEqual(statement.where?.kind, "binary");
     strict.strictEqual(statement.offset?.kind, "literal");
     strict.strictEqual(statement.limit?.kind, "literal");
-    strict.strictEqual(tokenize("SELECT payload ? 'key'").some((token) => token.kind === "operator" && token.value === "?"), true);
+    strict.strictEqual(
+      tokenize("SELECT payload ? 'key'").some((token) => token.kind === "operator" && token.value === "?"),
+      true,
+    );
   });
 });

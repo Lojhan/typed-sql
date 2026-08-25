@@ -117,6 +117,9 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
   readonly outDir: string;
   readonly projects?: readonly string[];
   readonly typePolicy?: Policy;
+  readonly compiler?: {
+    readonly maxStructuralVariants?: number;
+  };
 }
 
 export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
@@ -125,18 +128,21 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   if (config.dialect.contractVersion !== DIALECT_CONTRACT_VERSION) {
     throw new TypeError(`Unsupported typed-sql dialect contract ${config.dialect.contractVersion}`);
   }
+  const maximum = config.compiler?.maxStructuralVariants;
+  if (maximum !== undefined && (!Number.isSafeInteger(maximum) || maximum < 1)) {
+    throw new TypeError("compiler.maxStructuralVariants must be a positive safe integer");
+  }
   return Object.freeze(config);
 }
 
 export function rowTypeLiteral(columns: readonly ResolvedColumn[]): string {
-  const properties = columns.map((column) => `${JSON.stringify(column.name)}: ${column.tsType}${column.nullable ? " | null" : ""};`);
+  const properties = columns.map(
+    (column) => `${JSON.stringify(column.name)}: ${column.tsType}${column.nullable ? " | null" : ""};`,
+  );
   return `{ ${properties.join(" ")} }`;
 }
 
-export function parameterTypeLiteral(
-  parameterCount: number,
-  parameters: readonly ResolvedParameter[],
-): string {
+export function parameterTypeLiteral(parameterCount: number, parameters: readonly ResolvedParameter[]): string {
   const byIndex = new Map(parameters.map((parameter) => [parameter.index, parameter]));
   const elements = Array.from({ length: parameterCount }, (_, offset) => {
     const parameter = byIndex.get(offset + 1);

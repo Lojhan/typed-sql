@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { defaultPostgresTypePolicy, postgres, sql, typePolicy, type PostgresSchemaSnapshot } from "../src/index.js";
+import { defaultPostgresTypePolicy, type PostgresSchemaSnapshot, postgres, sql, typePolicy } from "../src/index.js";
 
 const schema = {
   formatVersion: 1,
@@ -23,7 +23,10 @@ await describe("PostgreSQL dialect plugin", async () => {
     strict.strictEqual(dialect.analyze("SELECT", schema).diagnostics[0]?.code, "TSQ001");
     strict.throws(() => dialect.placeholder(0), /start at 1/);
     strict.throws(() => dialect.placeholder(1.5), /start at 1/);
-    strict.throws(() => dialect.validateSnapshot({ formatVersion: 1, dialect: "mysql", tables: {} }), /cannot use a mysql/);
+    strict.throws(
+      () => dialect.validateSnapshot({ formatVersion: 1, dialect: "mysql", tables: {} }),
+      /cannot use a mysql/,
+    );
   });
 
   await it("exposes one application API from the dialect package root", () => {
@@ -34,7 +37,14 @@ await describe("PostgreSQL dialect plugin", async () => {
 
   await it("accepts an explicit default type policy", () => {
     const configured = postgres({
-      typePolicy: { bigint: "string", numeric: "number", date: "string", json: "string", enums: "string", unknown: "never" },
+      typePolicy: {
+        bigint: "string",
+        numeric: "number",
+        date: "string",
+        json: "string",
+        enums: "string",
+        unknown: "never",
+      },
     });
     strict.strictEqual(configured.defaultTypePolicy.bigint, "string");
   });

@@ -1,26 +1,21 @@
 import {
-  parameterTypeLiteral,
-  rowTypeLiteral,
   type DialectPlugin,
+  parameterTypeLiteral,
   type ResolvedParameter,
+  rowTypeLiteral,
   type SchemaSnapshot,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import {
-  extractAppendFragments,
-  extractStructuralOperand,
-  extractStaticQueries,
-  mapSqlRange,
-  parseStructuralInterpolation,
-  type ExtractedQuery,
-  type StructuralOperand,
-} from "./scanner.js";
+import { type ExtractedQuery, extractAppendFragments, extractStaticQueries, mapSqlRange } from "./scanner.js";
+import { expandStructuralQuery, structuralRowType } from "./structural.js";
+
+export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
 
 export interface CompiledQuery {
   readonly query: ExtractedQuery;
   readonly rowType: string;
   readonly parameterType: string;
-  readonly structural?: boolean;
+  readonly structural?: true;
 }
 
 export interface CompiledFragment {
@@ -40,122 +35,28 @@ export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: Snapshot;
   readonly typePolicy?: Policy;
+  readonly maxStructuralVariants?: number;
 }
 
 function mapDiagnostic(source: string, query: ExtractedQuery, diagnostic: SqlDiagnostic): SqlDiagnostic {
   return { ...diagnostic, range: mapSqlRange(source, query, diagnostic.range) };
 }
 
-interface ExpandedVariant {
-  readonly query: ExtractedQuery;
-  readonly choices: ReadonlyMap<string, boolean>;
-  readonly fragments: readonly { readonly query: ExtractedQuery; readonly parameterOffset: number }[];
-}
-
-function expandStructuralQuery(
-  source: string,
-  query: ExtractedQuery,
-  placeholder: (index: number) => string,
-): readonly ExpandedVariant[] | undefined {
-  const parsed = query.interpolations.map((interpolation) =>
-    parseStructuralInterpolation(source, interpolation, query.tagName));
-  if (!parsed.some((value) => value !== undefined)) return undefined;
-  type State = {
-    sql: string;
-    offsets: number[];
-    count: number;
-    cursor: number;
-    choices: Map<string, boolean>;
-    fragments: { query: ExtractedQuery; parameterOffset: number }[];
-  };
-  let states: State[] = [{ sql: "", offsets: [], count: 0, cursor: 0, choices: new Map(), fragments: [] }];
-  const appendOperand = (state: State, operand: StructuralOperand): State => {
-    if (operand.kind === "empty") return state;
-    const fragment = extractStructuralOperand(source, operand, query.tagName, placeholder, state.count);
-    if (fragment === undefined) return state;
-    return {
-      ...state,
-      sql: state.sql + fragment.sql,
-      offsets: [...state.offsets, ...fragment.sqlOffsetMap],
-      count: state.count + fragment.parameterCount,
-      fragments: [...state.fragments, { query: fragment, parameterOffset: state.count }],
-    };
-  };
-  query.interpolations.forEach((interpolation, interpolationIndex) => {
-    const structural = parsed[interpolationIndex];
-    const next: State[] = [];
-    for (const state of states) {
-      const staticSql = query.sql.slice(state.cursor, interpolation.sqlStart);
-      const staticOffsets = query.sqlOffsetMap.slice(state.cursor, interpolation.sqlStart);
-      const base: State = {
-        ...state,
-        sql: state.sql + staticSql,
-        offsets: [...state.offsets, ...staticOffsets],
-        cursor: interpolation.sqlEnd,
-      };
-      if (structural === undefined) {
-        const marker = placeholder(base.count + 1);
-        next.push({
-          ...base,
-          sql: base.sql + marker,
-          offsets: [...base.offsets, ...Array.from({ length: marker.length }, () => interpolation.sourceStart)],
-          count: base.count + 1,
-        });
-      } else if (structural.condition === undefined || structural.falsy === undefined) {
-        next.push(appendOperand(base, structural.truthy));
-      } else {
-        const known = base.choices.get(structural.condition);
-        for (const enabled of known === undefined ? [true, false] : [known]) {
-          const choices = new Map(base.choices);
-          choices.set(structural.condition, enabled);
-          next.push(appendOperand({ ...base, choices }, enabled ? structural.truthy : structural.falsy));
-        }
-      }
-    }
-    states = next;
+function deduplicateDiagnostics(diagnostics: readonly SqlDiagnostic[]): readonly SqlDiagnostic[] {
+  const seen = new Set<string>();
+  return diagnostics.filter((diagnostic) => {
+    const key = [
+      diagnostic.code,
+      diagnostic.severity,
+      diagnostic.message,
+      diagnostic.range.start,
+      diagnostic.range.end,
+      diagnostic.suggestion ?? "",
+    ].join("\0");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
-  return states.map((state) => {
-    const tail = query.sql.slice(state.cursor);
-    return {
-      query: {
-        ...query,
-        sql: state.sql + tail,
-        sqlOffsetMap: [...state.offsets, ...query.sqlOffsetMap.slice(state.cursor)],
-        parameterCount: state.count,
-      },
-      choices: state.choices,
-      fragments: state.fragments,
-    };
-  });
-}
-
-function conditionType(source: string, position: number, condition: string): string | undefined {
-  const property = /^([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)$/u.exec(condition);
-  if (property === null) return undefined;
-  const prefix = source.slice(0, position);
-  const parameter = new RegExp(`\\b${property[1]}\\s*:\\s*([A-Za-z_$][\\w$]*)`, "gu");
-  let match: RegExpExecArray | null;
-  let typeName: string | undefined;
-  while ((match = parameter.exec(prefix)) !== null) typeName = match[1];
-  return typeName === undefined ? undefined : `${typeName}[${JSON.stringify(property[2])}]`;
-}
-
-function structuralRowType(
-  source: string,
-  original: ExtractedQuery,
-  rows: readonly { readonly row: string; readonly choices: ReadonlyMap<string, boolean> }[],
-): string {
-  const unique = [...new Set(rows.map((item) => item.row))];
-  if (unique.length === 1) return unique[0] ?? "unknown";
-  for (const condition of new Set(rows.flatMap((item) => [...item.choices.keys()]))) {
-    const truthy = [...new Set(rows.filter((item) => item.choices.get(condition) === true).map((item) => item.row))];
-    const falsy = [...new Set(rows.filter((item) => item.choices.get(condition) === false).map((item) => item.row))];
-    const type = conditionType(source, original.range.start, condition);
-    if (type !== undefined && truthy.length === 1 && falsy.length === 1 && truthy[0] !== falsy[0]) {
-      return `${type} extends true ? ${truthy[0]} : ${type} extends false ? ${falsy[0]} : ${truthy[0]} | ${falsy[0]}`;
-    }
-  }
-  return unique.join(" | ");
 }
 
 export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
@@ -165,47 +66,103 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (schema.dialect !== dialect.id) {
     throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
   }
+  const maximumVariants = options.maxStructuralVariants ?? DEFAULT_MAX_STRUCTURAL_VARIANTS;
+  if (!Number.isSafeInteger(maximumVariants) || maximumVariants < 1) {
+    throw new TypeError("maxStructuralVariants must be a positive safe integer");
+  }
   const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), [dialect.sqlModule]);
   const compiled: CompiledQuery[] = [];
   const compiledFragments: CompiledFragment[] = [];
   const diagnostics: SqlDiagnostic[] = [];
   for (const query of extracted) {
-    const variants = expandStructuralQuery(source, query, (index) => dialect.placeholder(index));
-    if (variants !== undefined) {
-      const resolvedVariants = variants.map((variant) => ({
+    const expansion = expandStructuralQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
+    if (expansion?.kind === "limit") {
+      diagnostics.push({
+        code: "TSQ003",
+        message: `Conditional SQL would produce more than ${maximumVariants} structural variants from ${expansion.conditionCount} independent conditions`,
+        range: query.range,
+        severity: "error",
+        suggestion: "Reduce independent template conditions or compose predicates with sql.and()/sql.or().",
+      });
+      continue;
+    }
+    if (expansion?.kind === "variants") {
+      const resolvedVariants = expansion.variants.map((variant) => ({
         variant,
         resolved: dialect.analyze(variant.query.sql, schema, options.typePolicy),
       }));
       for (const { variant, resolved } of resolvedVariants) {
         diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, variant.query, diagnostic)));
       }
-      if (!resolvedVariants.some(({ resolved }) => resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error"))) {
+      if (
+        !resolvedVariants.some(({ resolved }) =>
+          resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+        )
+      ) {
         const rows = resolvedVariants.map(({ variant, resolved }) => ({
           row: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
           choices: variant.choices,
         }));
-        const parameterTypes = [...new Set(resolvedVariants.map(({ variant, resolved }) =>
-          parameterTypeLiteral(variant.query.parameterCount, resolved.parameters)))];
+        const parameterTypes = [
+          ...new Set(
+            resolvedVariants.map(({ variant, resolved }) =>
+              parameterTypeLiteral(variant.query.parameterCount, resolved.parameters),
+            ),
+          ),
+        ];
+        const byPosition = new Map<
+          number,
+          {
+            readonly fragment: ExtractedQuery;
+            readonly parameterTypes: Set<string>;
+          }
+        >();
+        for (const { variant, resolved } of resolvedVariants) {
+          for (const item of variant.fragments) {
+            const parameters = resolved.parameters
+              .filter(
+                (parameter) =>
+                  parameter.index > item.parameterOffset &&
+                  parameter.index <= item.parameterOffset + item.query.parameterCount,
+              )
+              .map((parameter): ResolvedParameter => ({ ...parameter, index: parameter.index - item.parameterOffset }));
+            const parameterType = parameterTypeLiteral(item.query.parameterCount, parameters);
+            const existing = byPosition.get(item.query.insertionPosition);
+            if (existing === undefined) {
+              byPosition.set(item.query.insertionPosition, {
+                fragment: item.query,
+                parameterTypes: new Set([parameterType]),
+              });
+            } else existing.parameterTypes.add(parameterType);
+          }
+        }
+        const conflicts = [...byPosition.values()].filter((item) => item.parameterTypes.size > 1);
+        if (conflicts.length > 0) {
+          diagnostics.push(
+            ...conflicts.map(
+              (item): SqlDiagnostic => ({
+                code: "TSQ205",
+                message: `Fragment parameters have incompatible structural contexts: ${[...item.parameterTypes].join(" or ")}`,
+                range: item.fragment.range,
+                severity: "error",
+                suggestion: "Move the fragment into the conditional branch that determines its parameter context.",
+              }),
+            ),
+          );
+          continue;
+        }
         compiled.push({
           query,
           rowType: structuralRowType(source, query, rows),
           parameterType: parameterTypes.join(" | "),
           structural: true,
         });
-        const byPosition = new Map<number, CompiledFragment>();
-        for (const { variant, resolved } of resolvedVariants) {
-          for (const item of variant.fragments) {
-            const parameters = resolved.parameters
-              .filter((parameter) => parameter.index > item.parameterOffset
-                && parameter.index <= item.parameterOffset + item.query.parameterCount)
-              .map((parameter): ResolvedParameter => ({ ...parameter, index: parameter.index - item.parameterOffset }));
-            byPosition.set(item.query.insertionPosition, {
-              fragment: item.query,
-              parameterType: parameterTypeLiteral(item.query.parameterCount, parameters),
-            });
-          }
-        }
-        compiledFragments.push(...byPosition.values());
+        compiledFragments.push(
+          ...[...byPosition.values()].map((item) => ({
+            fragment: item.fragment,
+            parameterType: [...item.parameterTypes][0]!,
+          })),
+        );
       }
       continue;
     }
@@ -252,7 +209,9 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const insertions = [
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
-      text: item.structural ? `.withRow<${item.rowType}>()` : `<${item.rowType}, ${item.parameterType}>`,
+      text: item.structural
+        ? `.__typed<${item.rowType}, ${item.parameterType}>()`
+        : `<${item.rowType}, ${item.parameterType}>`,
     })),
     ...compiledFragments.map((item) => ({
       position: item.fragment.insertionPosition,
@@ -262,5 +221,10 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   for (const insertion of insertions.sort((left, right) => right.position - left.position)) {
     transformedSource = `${transformedSource.slice(0, insertion.position)}${insertion.text}${transformedSource.slice(insertion.position)}`;
   }
-  return { transformedSource, queries: compiled, fragments: compiledFragments, diagnostics };
+  return {
+    transformedSource,
+    queries: compiled,
+    fragments: compiledFragments,
+    diagnostics: deduplicateDiagnostics(diagnostics),
+  };
 }
