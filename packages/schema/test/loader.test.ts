@@ -62,6 +62,16 @@ await describe("schema snapshot loader", async () => {
     strict.deepStrictEqual(migrateSchemaSnapshot(legacy), fullSnapshot);
     strict.strictEqual(parseSchemaSnapshot(legacy).formatVersion, 1);
   });
+  await it("accepts dialect identifiers owned by third-party grammar packages", () => {
+    const snapshot = parseSchemaSnapshot({
+      formatVersion: 1,
+      dialect: "acme-warehouse",
+      dialectVersion: "2.4.0",
+      tables: {},
+    });
+    strict.strictEqual(snapshot.dialect, "acme-warehouse");
+    strict.strictEqual(snapshot.dialectVersion, "2.4.0");
+  });
   await it("loads complete snapshots, generated metadata, and policies", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-loader-"));
     try {
@@ -88,7 +98,8 @@ await describe("schema snapshot loader", async () => {
   await it("validates every nested snapshot shape", () => {
     const failures: readonly [unknown, RegExp][] = [
       [null, /snapshot must be an object/],
-      [{ dialect: "oracle", tables: {} }, /schema.dialect/],
+      [{ dialect: "", tables: {} }, /schema.dialect/],
+      [{ dialect: "oracle", dialectVersion: 1, tables: {} }, /schema.dialectVersion/],
       [{ dialect: "postgres", tables: [] }, /schema.tables/],
       [{ dialect: "postgres", tables: {}, formatVersion: 2 }, /formatVersion/],
       [{ dialect: "postgres", tables: { users: null } }, /users must be an object/],

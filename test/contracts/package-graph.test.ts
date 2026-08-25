@@ -59,8 +59,17 @@ async function manifest(packageName: string): Promise<PackageManifest> {
 
 async function source(packageName: string): Promise<string> {
   const directoryPath = join(workspace, "packages", packageName, "src");
-  const files = (await readdir(directoryPath)).filter((file) => file.endsWith(".ts"));
-  return (await Promise.all(files.map((file) => readFile(join(directoryPath, file), "utf8")))).join("\n");
+  const files: string[] = [];
+  const visit = async (path: string): Promise<void> => {
+    for (const entry of await readdir(path, { withFileTypes: true })) {
+      const item = join(path, entry.name);
+      if (entry.isDirectory()) await visit(item);
+      else if (entry.name.endsWith(".ts")) files.push(item);
+    }
+  };
+  await visit(directoryPath);
+  files.sort();
+  return (await Promise.all(files.map((file) => readFile(file, "utf8")))).join("\n");
 }
 
 await describe("public package graph", async () => {
@@ -113,6 +122,33 @@ await describe("public package graph", async () => {
     strict.ok(!compiler.includes("@typed-sql/postgres"));
     strict.ok(!compiler.includes('=== "postgres"'));
     strict.deepStrictEqual(Object.keys((await manifest("compiler")).dependencies ?? {}), ["@typed-sql/core"]);
+  });
+
+  await it("keeps every neutral package free of dialect, driver, and SQL-feature decisions", async () => {
+    const neutralPackages = ["core", "compiler", "config", "schema"] as const;
+    const forbiddenSource = [
+      { label: "first-party dialect name", pattern: /\b(?:postgres(?:ql)?|mysql2?)\b/iu },
+      { label: "dialect-specific RETURNING", pattern: /\bRETURNING\b/u },
+      { label: "dialect-specific DISTINCT ON", pattern: /\bDISTINCT\s+ON\b/u },
+      { label: "dialect-specific FULL JOIN", pattern: /\bFULL\s+JOIN\b/u },
+      { label: "dialect-specific JSON_EXTRACT", pattern: /\bJSON_EXTRACT\b/u },
+      { label: "dialect-specific TIMESTAMPTZ", pattern: /\bTIMESTAMPTZ\b/u },
+    ] as const;
+    for (const packageName of neutralPackages) {
+      const packageSource = await source(packageName);
+      for (const forbidden of forbiddenSource) {
+        strict.ok(!forbidden.pattern.test(packageSource), `${packageName} contains ${forbidden.label}`);
+      }
+      const dependencies = Object.keys((await manifest(packageName)).dependencies ?? {});
+      for (const dependency of dependencies) {
+        strict.ok(
+          dependency !== "@typed-sql/postgres" &&
+            dependency !== "@typed-sql/mysql" &&
+            !forbiddenDrivers.has(dependency),
+          `${packageName} depends on dialect or driver ${dependency}`,
+        );
+      }
+    }
   });
 
   await it("loads editor grammars through config instead of a PostgreSQL dependency", async () => {

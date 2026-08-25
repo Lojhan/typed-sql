@@ -4,7 +4,7 @@
     "noEmit": true,
     "rootDir": ".."
   },
-  "include": ["../packages/*/test/**/*.test.ts", "contracts/**/*.test.ts", "soundness/**/*.ts"],
+  "include": ["../packages/*/test/**/*.test.ts", "contracts/**/*.test.ts", "grammar/**/*.ts", "soundness/**/*.ts"],
   "exclude": ["fixtures"],
   "references": [
     { "path": "../packages/core" },

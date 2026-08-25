@@ -71,10 +71,14 @@ not require changing the compiler.
 
 The compiler recognizes the `sqlModule` declared by the configured dialect and never branches on
 a package name, dialect id, or concrete driver. This lets first-party and third-party grammars expose
-the same package-root application contract. Contract version 2 requires both resolved result
-columns and resolved parameters. Generated snapshots
-record their dialect, dialect package version, server version, type policy and deterministic hashes.
+the same package-root application contract. Contract version 3 requires resolved result columns,
+ordered parameters, identifier quoting, and grammar-owned capability declarations. Generated
+snapshots record their dialect, dialect package version, server version, type policy and
+deterministic hashes.
 The schema layer treats type policy as opaque data; its shape and defaults belong to the dialect.
+
+Third-party packages implement exactly the same contract. The complete public-only workflow is in
+[Authoring a SQL grammar](./GRAMMAR_AUTHORING.md).
 
 Generated TypeScript is schema metadata for tooling and inspection. Application code imports
 `sql` and the default `typePolicy` from the dialect root, then imports a driver adapter only when it

@@ -20,6 +20,7 @@ export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals
 export type {
   ColumnSnapshot,
   DialectAnalysis,
+  DialectCapabilities,
   DialectPlugin,
   DomainSnapshot,
   FunctionSnapshot,
@@ -34,4 +35,10 @@ export type {
   TableSnapshot,
   TypedSqlConfig,
 } from "./types.js";
-export { DIALECT_CONTRACT_VERSION, defineConfig, parameterTypeLiteral, rowTypeLiteral } from "./types.js";
+export {
+  assertDialectPlugin,
+  DIALECT_CONTRACT_VERSION,
+  defineConfig,
+  parameterTypeLiteral,
+  rowTypeLiteral,
+} from "./types.js";

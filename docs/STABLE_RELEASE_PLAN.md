@@ -12,8 +12,8 @@ current public release line is `1.0.0-beta.*` under the npm `next` tag.
 
 The project is not ready to publish under `latest` yet. Stable promotion is blocked by the absence
 of a complete registry-only consumer test, an unrehearsed stable version transition, and
-insufficient external beta soak time. Reproducible editor installation, grammar conformance, and
-performance budgets also remain open gates.
+insufficient external beta soak time. Reproducible editor installation and performance budgets also
+remain open gates.
 
 ## Definition of ready
 
@@ -94,9 +94,10 @@ Acceptance criteria:
 The parameter direction is implemented: the public contract is `Query<Row, Parameters>`, where
 `Parameters` is an ordered readonly tuple. PostgreSQL and MySQL infer positions from comparisons,
 casts, DML targets, ranges, limits, and catalog functions. Insufficient or conflicting evidence is
-represented as `unknown`. Dialect contract version 2 makes parameter analysis explicit for
-third-party grammars. Typed `SqlFragment<Parameters>` composition supports nullable `AND`/`OR`
-filter tuples while a statically analyzed base query continues to own the result row.
+represented as `unknown`. Dialect contract version 3 makes parameter analysis, identifier quoting,
+and grammar-owned capabilities explicit for third-party grammars. Typed
+`SqlFragment<Parameters>` composition supports nullable `AND`/`OR` filter tuples while a statically
+analyzed base query continues to own the result row.
 
 The 1.0 contract is recorded in [Public API and stability boundary](./PUBLIC_API.md). Stable package
 roots explicitly enumerate their exported types and values. Runtime exports, entrypoints,
@@ -119,6 +120,13 @@ generated types, inferred row/parameter contracts, driver metadata, and decoded 
 together for PostgreSQL/`pg` and MySQL/`mysql2`, including unsafe integers, exact decimals, dates,
 JSON, binary values, arrays, enums, nullability, joins, aggregates, and functions. Decoder-changing
 driver settings are either owned by the adapter or rejected before connecting.
+
+Grammar neutrality is enforced by one public conformance harness shared by PostgreSQL, MySQL, and a
+synthetic third-party grammar. The packed-consumer gate installs that external grammar from package
+tarballs, compiles and renders a query, checks grammar/snapshot compatibility, and proves unsupported
+SQL fails closed. Neutral package scans reject dialect names, driver dependencies, and dialect SQL
+features in core, compiler, config, and schema sources. The public author contract is documented in
+[Authoring a SQL grammar](./GRAMMAR_AUTHORING.md).
 
 Acceptance criteria:
 

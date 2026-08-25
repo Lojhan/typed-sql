@@ -82,11 +82,18 @@ a second public compiler framework.
 
 ## Grammar-author contract
 
-`@typed-sql/core` exposes `DialectPlugin`, `SchemaProvider`, snapshot and resolution types,
-`DIALECT_CONTRACT_VERSION`, `ResolverSchemaIndex`, `ParameterCollector`, `unionTypeLiterals`, and
-`closestName`. These are grammar-neutral mechanisms. SQL parsing rules, identifiers, operators,
-built-ins, nullability, catalog behavior, type policies, and unsupported syntax belong to each
-grammar package.
+`@typed-sql/core` exposes `DialectPlugin`, `DialectCapabilities`, `SchemaProvider`, snapshot and
+resolution types, `DIALECT_CONTRACT_VERSION`, `assertDialectPlugin`, `ResolverSchemaIndex`,
+`ParameterCollector`, `unionTypeLiterals`, and `closestName`. These are grammar-neutral mechanisms.
+Contract version 3 requires grammar-owned capabilities, parameter rendering, identifier quoting,
+snapshot validation, and analysis of both result columns and ordered parameters. SQL parsing rules,
+identifiers, operators, built-ins, nullability, catalog behavior, type policies, and unsupported
+syntax belong to each grammar package.
+
+The compiler discovers application tags through the plugin's exact `sqlModule` entrypoint. The
+schema layer accepts any non-empty dialect id; compatibility belongs to the plugin's
+`validateSnapshot` implementation. See [Authoring a SQL grammar](./GRAMMAR_AUTHORING.md) for a
+public-entrypoint-only implementation and conformance checklist.
 
 PostgreSQL and MySQL expose their configured dialect, schema provider/introspection contract,
 default type policy, type mapping, and root `sql` tag. Runtime codecs are isolated under `/runtime`;

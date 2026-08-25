@@ -17,7 +17,9 @@ await describe("PostgreSQL dialect plugin", async () => {
     const dialect = postgres();
     strict.strictEqual(dialect.id, "postgres");
     strict.strictEqual(dialect.sqlModule, "@typed-sql/postgres");
+    strict.strictEqual(dialect.capabilities.returning, true);
     strict.strictEqual(dialect.placeholder(2), "$2");
+    strict.strictEqual(dialect.quoteIdentifier('account"status'), '"account""status"');
     strict.strictEqual(dialect.validateSnapshot(schema).dialect, "postgres");
     strict.strictEqual(dialect.analyze("SELECT id FROM users", schema).columns[0]?.tsType, "number");
     strict.strictEqual(dialect.analyze("SELECT", schema).diagnostics[0]?.code, "TSQ001");
@@ -26,6 +28,10 @@ await describe("PostgreSQL dialect plugin", async () => {
     strict.throws(
       () => dialect.validateSnapshot({ formatVersion: 1, dialect: "mysql", tables: {} }),
       /cannot use a mysql/,
+    );
+    strict.throws(
+      () => dialect.validateSnapshot({ ...schema, dialectVersion: "999" }),
+      /cannot use snapshot dialectVersion 999/,
     );
   });
 

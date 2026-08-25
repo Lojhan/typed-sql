@@ -27,8 +27,10 @@ await describe("packed public packages", async () => {
   await it("installs every tarball in isolation without a database driver", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "typed-sql-packed-"));
     const tarballs = join(temporary, "tarballs");
+    const grammar = join(temporary, "grammar");
     const consumer = join(temporary, "consumer");
     await mkdir(tarballs);
+    await mkdir(grammar);
     await mkdir(consumer);
     try {
       const dependencies: Record<string, string> = {};
@@ -88,12 +90,105 @@ await describe("packed public packages", async () => {
       }
 
       await writeFile(
+        join(grammar, "package.json"),
+        `${JSON.stringify(
+          {
+            name: "@acme/typed-sql-synthetic",
+            version: "1.0.0",
+            type: "module",
+            exports: { ".": "./index.mjs" },
+            dependencies: {
+              "@typed-sql/core": dependencies["@typed-sql/core"],
+              "@typed-sql/schema": dependencies["@typed-sql/schema"],
+            },
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      await writeFile(
+        join(grammar, "index.mjs"),
+        `
+          import {
+            DIALECT_CONTRACT_VERSION,
+            assertDialectPlugin,
+            sql,
+          } from "@typed-sql/core";
+          import { parseSchemaSnapshot } from "@typed-sql/schema";
+
+          export { sql };
+          export const typePolicy = Object.freeze({ scalar: "number" });
+          export const SYNTHETIC_DIALECT_VERSION = "1.0.0";
+
+          const capabilities = Object.freeze({ returning: false });
+          const range = Object.freeze({ start: 0, end: 1, line: 1, column: 1 });
+
+          function validateSnapshot(value) {
+            const snapshot = parseSchemaSnapshot(value);
+            if (snapshot.dialect !== "synthetic") {
+              throw new TypeError(\`synthetic cannot use a \${snapshot.dialect} schema snapshot\`);
+            }
+            if (snapshot.dialectVersion !== SYNTHETIC_DIALECT_VERSION) {
+              throw new TypeError(
+                \`synthetic grammar \${SYNTHETIC_DIALECT_VERSION} cannot use snapshot dialectVersion \${snapshot.dialectVersion}\`,
+              );
+            }
+            return snapshot;
+          }
+
+          const plugin = Object.freeze({
+            contractVersion: DIALECT_CONTRACT_VERSION,
+            id: "synthetic",
+            grammarVersion: SYNTHETIC_DIALECT_VERSION,
+            sqlModule: "@acme/typed-sql-synthetic",
+            capabilities,
+            defaultTypePolicy: typePolicy,
+            placeholder(index) {
+              if (!Number.isInteger(index) || index < 1) throw new RangeError("synthetic parameters start at 1");
+              return \`?\${index}\`;
+            },
+            quoteIdentifier(identifier) {
+              return "[" + identifier.replaceAll("]", "]]") + "]";
+            },
+            analyze(text, _snapshot, policy = typePolicy) {
+              if (text === "SELECT value FROM widgets WHERE value = ?1") {
+                return {
+                  columns: [{ name: "value", tsType: policy.scalar, nullable: false, databaseType: "scalar", range }],
+                  parameters: [{ index: 1, tsType: policy.scalar, nullable: false, databaseType: "scalar" }],
+                  diagnostics: [],
+                };
+              }
+              return {
+                columns: [],
+                parameters: [],
+                diagnostics: [{
+                  code: "SYN001",
+                  message: "Synthetic grammar does not support this statement",
+                  severity: "error",
+                  range: { ...range, end: text.length },
+                }],
+              };
+            },
+            validateSnapshot,
+          });
+
+          assertDialectPlugin(plugin);
+          export function synthetic() {
+            return plugin;
+          }
+        `,
+      );
+
+      await writeFile(
         join(consumer, "package.json"),
         `${JSON.stringify(
           {
             private: true,
             type: "module",
-            dependencies,
+            dependencies: {
+              ...dependencies,
+              "@acme/typed-sql-synthetic": "file:../grammar",
+            },
             pnpm: {
               overrides: {
                 ...dependencies,
@@ -119,6 +214,8 @@ await describe("packed public packages", async () => {
         join(consumer, "verify.mjs"),
         `
         import { createRequire } from "node:module";
+        import { synthetic, sql as syntheticSql, typePolicy as syntheticTypePolicy } from "@acme/typed-sql-synthetic";
+        import { assertDialectPlugin, defineConfig, renderQuery } from "@typed-sql/core";
         import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
         import { loadPgDriver } from "@typed-sql/postgres/pg";
@@ -126,9 +223,9 @@ await describe("packed public packages", async () => {
         import { mysqlRenderer } from "@typed-sql/mysql/runtime";
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
         import { compileSource } from "@typed-sql/compiler";
+        import { parseSchemaSnapshot } from "@typed-sql/schema";
         import "@typed-sql/ast";
         import "@typed-sql/config";
-        import "@typed-sql/schema";
         import "@typed-sql/ts-bridge";
         import "@typed-sql/language-server";
 
@@ -152,6 +249,47 @@ await describe("packed public packages", async () => {
           schema: { formatVersion: 1, dialect: "postgres", tables: {} },
         });
         if (compiled.queries.length !== 1 || !compiled.transformedSource.includes("sql<{")) throw new Error("packed package-root inference failed");
+
+        const externalDialect = synthetic();
+        assertDialectPlugin(externalDialect);
+        defineConfig({ dialect: externalDialect, schema: { file: "schema.json" }, outDir: "generated" });
+        const externalSnapshot = externalDialect.validateSnapshot(parseSchemaSnapshot({
+          formatVersion: 1,
+          dialect: "synthetic",
+          dialectVersion: "1.0.0",
+          tables: {
+            widgets: {
+              name: "widgets",
+              columns: {
+                value: { name: "value", databaseType: "scalar", tsType: "number", nullable: false },
+              },
+            },
+          },
+        }));
+        const externalCompiled = compileSource({
+          source: 'import { sql } from "@acme/typed-sql-synthetic"; const query = sql\`SELECT value FROM widgets WHERE value = \${1}\`;',
+          dialect: externalDialect,
+          schema: externalSnapshot,
+          typePolicy: syntheticTypePolicy,
+        });
+        if (externalCompiled.diagnostics.length !== 0 || externalCompiled.queries.length !== 1) {
+          throw new Error("external grammar could not compile from packed public packages");
+        }
+        if (!externalCompiled.transformedSource.includes('sql<{ "value": number; }, readonly [number]>')) {
+          throw new Error("external grammar inference contract failed");
+        }
+        const rendered = renderQuery(syntheticSql\`SELECT value FROM widgets WHERE value = \${42}\`, externalDialect);
+        if (rendered.text !== "SELECT value FROM widgets WHERE value = ?1" || rendered.values[0] !== 42) {
+          throw new Error("external grammar runtime contract failed");
+        }
+        const unsupported = compileSource({
+          source: 'import { sql } from "@acme/typed-sql-synthetic"; const query = sql\`UNSUPPORTED\`;',
+          dialect: externalDialect,
+          schema: externalSnapshot,
+        });
+        if (unsupported.queries.length !== 0 || !unsupported.diagnostics.some(({ code }) => code === "SYN001")) {
+          throw new Error("external grammar did not fail closed for unsupported SQL");
+        }
         try { await loadPgDriver(); throw new Error("missing pg did not fail"); }
         catch (error) { if (!String(error.message).includes("pnpm add pg")) throw error; }
         try { await loadMySql2Driver(); throw new Error("missing mysql2 did not fail"); }
