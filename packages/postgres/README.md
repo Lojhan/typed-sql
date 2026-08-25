@@ -70,6 +70,24 @@ The default lossless policy maps PostgreSQL `bigint` to `bigint`, `numeric` to `
 types to `Date`, JSON to `unknown`, enums to literal unions, arrays recursively, and `bytea` to
 `Uint8Array`. Per-query parsers do not mutate `pg` globals.
 
-See the complete [PostgreSQL support matrix](https://github.com/Lojhan/typed-sql/blob/main/docs/POSTGRESQL_SUPPORT.md).
+## Supported SQL
+
+| Surface | Status | Notes |
+| --- | --- | --- |
+| Static tagged templates | Supported | Imports and aliases from `@typed-sql/postgres` are recognized. |
+| `SELECT`, `DISTINCT`, `DISTINCT ON` | Supported | Static row-shape inference. |
+| Tables, schemas, aliases and stars | Supported | Catalog lookup, ambiguity checks and `USING` column merging. |
+| Inner and outer joins | Supported | Outer-join nullability propagates into result columns. |
+| CTEs and derived/correlated/scalar subqueries | Supported | Recursive CTEs and unsafe scalar/IN arity diagnose. |
+| Grouping, aggregates and windows | Supported | Includes common aggregates, `FILTER`, named and inline windows. |
+| Expressions, `CASE`, casts and `$n` parameters | Supported | Parameters remain `unknown` until parameter typing lands. |
+| Arrays, enums, domains, JSON and catalog functions | Supported | Known types and function name/arity are validated. |
+| `INSERT`, `UPDATE`, `DELETE`, `RETURNING` | Supported | Commands without `RETURNING` infer `Query<never>`. |
+| Set operations and `WITHIN GROUP` | Not supported | Fail safely during parsing. |
+| Dynamic SQL or identifiers | No static inference | Use runtime values and `sql.ident()` explicitly. |
+
+A feature not marked supported produces a diagnostic or `Query<unknown>`; it never receives an
+optimistic row type. Introspection covers tables, views, columns, defaults, server version, arrays,
+enums, domains and user functions.
 
 MIT © typed-sql contributors

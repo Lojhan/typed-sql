@@ -64,6 +64,16 @@ const rows = await database.execute(query);
 The adapter enables lossless bigint/decimal defaults, explicit alternative codecs, catalog
 introspection, and nested savepoints without changing global `mysql2` behavior.
 
-See the complete [MySQL support matrix](https://github.com/Lojhan/typed-sql/blob/main/docs/MYSQL_SUPPORT.md).
+## Supported SQL
+
+The grammar targets MySQL 8.4 LTS and supports aliases and stars, inner/outer/cross joins, CTEs,
+derived and correlated subqueries, grouping, aggregates, windows, `CASE`, scalar/EXISTS/IN/BETWEEN
+expressions, common JSON functions/operators, and `INSERT`/`UPDATE`/`DELETE` command typing. Catalog
+inference covers enums, unsigned integers, decimals, JSON, dates, binary values and `tinyint(1)`
+policy mapping.
+
+Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER` and incompatible
+`RETURNING` clauses produce `TSQ401`. Commands without a result surface infer `Query<never>`.
+Unknown functions warn and infer `unknown`; ambiguous or structurally unsafe queries are errors.
 
 MIT © typed-sql contributors
