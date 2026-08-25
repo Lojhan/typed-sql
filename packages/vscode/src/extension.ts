@@ -3,12 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
 import { loadSchemaSnapshot } from "@typed-sql/schema";
-import {
-  analyzeSource,
-  queryAtPosition,
-  type BridgeAnalysis,
-  type NativeTypeInspection,
-} from "@typed-sql/ts-bridge";
+import { analyzeSource, type BridgeAnalysis, type NativeTypeInspection, queryAtPosition } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import * as vscode from "vscode";
 
@@ -79,15 +74,19 @@ async function documentAnalysis(document: vscode.TextDocument): Promise<Document
       ...(configSetting.length === 0 ? {} : { file: configuredPath(document, configSetting)! }),
     });
     const schemaSetting = settings.get<string>("schemaPath", "").trim();
-    const schemaPath = schemaSetting.length === 0
-      ? fromConfig(loaded.directory, loaded.config.schema.file)
-      : configuredPath(document, schemaSetting)!;
+    const schemaPath =
+      schemaSetting.length === 0
+        ? fromConfig(loaded.directory, loaded.config.schema.file)
+        : configuredPath(document, schemaSetting)!;
     const schema = await schemaAt(schemaPath);
     const cached = analysisCache.get(key);
-    if (cached !== undefined
-      && cached.version === document.version
-      && cached.schemaPath === schemaPath
-      && cached.schemaModified === schema.modified) return cached;
+    if (
+      cached !== undefined &&
+      cached.version === document.version &&
+      cached.schemaPath === schemaPath &&
+      cached.schemaModified === schema.modified
+    )
+      return cached;
     const result = {
       version: document.version,
       schemaPath,
@@ -103,7 +102,9 @@ async function documentAnalysis(document: vscode.TextDocument): Promise<Document
     cacheSet(analysisCache, key, result, MAX_CACHE_ENTRIES);
     return result;
   } catch (error) {
-    output.appendLine(`Unable to analyze ${document.uri.fsPath}: ${error instanceof Error ? error.message : String(error)}`);
+    output.appendLine(
+      `Unable to analyze ${document.uri.fsPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return undefined;
   }
 }
@@ -122,28 +123,45 @@ async function refreshDiagnostics(document: vscode.TextDocument): Promise<void> 
     diagnostics.delete(document.uri);
     return;
   }
-  for (const key of diagnosticSuggestions.keys()) if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
-  diagnostics.set(document.uri, result.analysis.diagnostics.map((item) => {
-    const diagnostic = new vscode.Diagnostic(
-      new vscode.Range(document.positionAt(item.range.start), document.positionAt(item.range.end)),
-      `${item.code}: ${item.message}`,
-      diagnosticSeverity(item.severity),
-    );
-    diagnostic.source = "typed-sql";
-    diagnostic.code = item.code;
-    if (item.suggestion !== undefined) diagnosticSuggestions.set(`${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`, item.suggestion);
-    return diagnostic;
-  }));
+  for (const key of diagnosticSuggestions.keys())
+    if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
+  diagnostics.set(
+    document.uri,
+    result.analysis.diagnostics.map((item) => {
+      const diagnostic = new vscode.Diagnostic(
+        new vscode.Range(document.positionAt(item.range.start), document.positionAt(item.range.end)),
+        `${item.code}: ${item.message}`,
+        diagnosticSeverity(item.severity),
+      );
+      diagnostic.source = "typed-sql";
+      diagnostic.code = item.code;
+      if (item.suggestion !== undefined)
+        diagnosticSuggestions.set(
+          `${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`,
+          item.suggestion,
+        );
+      return diagnostic;
+    }),
+  );
 }
 
 function tableForAlias(sqlText: string, alias: string, snapshot: SchemaSnapshot) {
   const escaped = alias.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const match = new RegExp(`(?:FROM|JOIN)\\s+(?:[A-Za-z_$][\\w$]*\\.)?([A-Za-z_$][\\w$]*)(?:\\s+(?:AS\\s+)?${escaped})\\b`, "iu").exec(sqlText);
+  const match = new RegExp(
+    `(?:FROM|JOIN)\\s+(?:[A-Za-z_$][\\w$]*\\.)?([A-Za-z_$][\\w$]*)(?:\\s+(?:AS\\s+)?${escaped})\\b`,
+    "iu",
+  ).exec(sqlText);
   const tableName = match?.[1];
-  return tableName === undefined ? undefined : Object.values(snapshot.tables).find((table) => table.name.toLowerCase() === tableName.toLowerCase());
+  return tableName === undefined
+    ? undefined
+    : Object.values(snapshot.tables).find((table) => table.name.toLowerCase() === tableName.toLowerCase());
 }
 
-async function provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.CompletionItem[]> {
+async function provideCompletionItems(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  token: vscode.CancellationToken,
+): Promise<vscode.CompletionItem[]> {
   const result = await documentAnalysis(document);
   if (result === undefined || token.isCancellationRequested) return [];
   const offset = document.offsetAt(position);
@@ -151,12 +169,31 @@ async function provideCompletionItems(document: vscode.TextDocument, position: v
   if (query === undefined) return [];
   const before = document.getText().slice(query.sourceRange.start, offset);
   const qualifier = /([A-Za-z_$][A-Za-z0-9_$]*)\.[A-Za-z0-9_$]*$/u.exec(before)?.[1];
-  const selected = qualifier === undefined ? undefined : tableForAlias(document.getText().slice(query.sourceRange.start, query.sourceRange.end), qualifier, result.snapshot);
+  const selected =
+    qualifier === undefined
+      ? undefined
+      : tableForAlias(
+          document.getText().slice(query.sourceRange.start, query.sourceRange.end),
+          qualifier,
+          result.snapshot,
+        );
   const tables = selected === undefined ? Object.values(result.snapshot.tables) : [selected];
   const items = new Map<string, vscode.CompletionItem>();
   if (qualifier === undefined) {
-    for (const table of tables) items.set(table.name, new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class));
-    for (const keyword of ["SELECT", "FROM", "WHERE", "JOIN", "GROUP BY", "ORDER BY", "INSERT", "UPDATE", "DELETE", "RETURNING"]) {
+    for (const table of tables)
+      items.set(table.name, new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class));
+    for (const keyword of [
+      "SELECT",
+      "FROM",
+      "WHERE",
+      "JOIN",
+      "GROUP BY",
+      "ORDER BY",
+      "INSERT",
+      "UPDATE",
+      "DELETE",
+      "RETURNING",
+    ]) {
       items.set(keyword, new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword));
     }
   }
@@ -170,7 +207,11 @@ async function provideCompletionItems(document: vscode.TextDocument, position: v
   return [...items.values()];
 }
 
-async function provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Location | undefined> {
+async function provideDefinition(
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  token: vscode.CancellationToken,
+): Promise<vscode.Location | undefined> {
   const result = await documentAnalysis(document);
   if (result === undefined || token.isCancellationRequested) return undefined;
   const offset = document.offsetAt(position);
@@ -188,13 +229,18 @@ async function provideDefinition(document: vscode.TextDocument, position: vscode
   );
 }
 
-function provideCodeActions(document: vscode.TextDocument, _range: vscode.Range | vscode.Selection, context: vscode.CodeActionContext): vscode.CodeAction[] {
+function provideCodeActions(
+  document: vscode.TextDocument,
+  _range: vscode.Range | vscode.Selection,
+  context: vscode.CodeActionContext,
+): vscode.CodeAction[] {
   const actions: vscode.CodeAction[] = [];
   for (const diagnostic of context.diagnostics) {
     if (diagnostic.source !== "typed-sql") continue;
     const key = `${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`;
     const suggestion = diagnosticSuggestions.get(key);
-    const replacement = suggestion === undefined ? undefined : /^Did you mean ([A-Za-z_$][\w$]*)\?$/u.exec(suggestion)?.[1];
+    const replacement =
+      suggestion === undefined ? undefined : /^Did you mean ([A-Za-z_$][\w$]*)\?$/u.exec(suggestion)?.[1];
     if (replacement === undefined) continue;
     const action = new vscode.CodeAction(`Replace with ${replacement}`, vscode.CodeActionKind.QuickFix);
     action.isPreferred = true;
@@ -223,7 +269,9 @@ async function connectNativeBridge(): Promise<NativePreviewTypeScriptBridge | un
       output.appendLine(`TypeScript 7 preview bridge ${nativeBridgeStatus}`);
       return bridge;
     } catch (error) {
-      output.appendLine(`Could not connect through ${extensionId}: ${error instanceof Error ? error.message : String(error)}`);
+      output.appendLine(
+        `Could not connect through ${extensionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
   nativeBridgeStatus = "resolver fallback (TypeScript 7 API connection unavailable)";
@@ -250,7 +298,9 @@ async function inspectWithNativeBridge(
     return inspections;
   } catch (error) {
     nativeBridgeStatus = "resolver fallback (preview request failed)";
-    output.appendLine(`TypeScript preview inspection failed: ${error instanceof Error ? error.message : String(error)}`);
+    output.appendLine(
+      `TypeScript preview inspection failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return undefined;
   }
 }
@@ -270,12 +320,15 @@ async function provideHover(
   const markdown = new vscode.MarkdownString();
   markdown.appendMarkdown("**typed-sql inferred query type**\n\n");
   markdown.appendCodeblock(typeText, "typescript");
-  markdown.appendMarkdown(nativeType === undefined
-    ? "\nResolver result; install/enable the TypeScript 7 extension for native snapshot verification."
-    : "\nVerified through a temporary TypeScript 7.1 preview snapshot.");
-  const range = query.binding !== undefined && offset >= query.binding.range.start && offset <= query.binding.range.end
-    ? query.binding.range
-    : query.sourceRange;
+  markdown.appendMarkdown(
+    nativeType === undefined
+      ? "\nResolver result; install/enable the TypeScript 7 extension for native snapshot verification."
+      : "\nVerified through a temporary TypeScript 7.1 preview snapshot.",
+  );
+  const range =
+    query.binding !== undefined && offset >= query.binding.range.start && offset <= query.binding.range.end
+      ? query.binding.range
+      : query.sourceRange;
   return new vscode.Hover(markdown, new vscode.Range(document.positionAt(range.start), document.positionAt(range.end)));
 }
 
@@ -295,21 +348,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.languages.registerHoverProvider(languageSelector, { provideHover }),
     vscode.languages.registerCompletionItemProvider(languageSelector, { provideCompletionItems }, "."),
     vscode.languages.registerDefinitionProvider(languageSelector, { provideDefinition }),
-    vscode.languages.registerCodeActionsProvider(languageSelector, { provideCodeActions }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+    vscode.languages.registerCodeActionsProvider(
+      languageSelector,
+      { provideCodeActions },
+      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+    ),
     vscode.commands.registerCommand("typedSql.showBridgeStatus", async () => {
       await nativeBridge();
       await vscode.window.showInformationMessage(`typed-sql TypeScript bridge: ${nativeBridgeStatus}`);
     }),
-    vscode.workspace.onDidOpenTextDocument((document) => { void refreshDiagnostics(document); }),
-    vscode.workspace.onDidSaveTextDocument((document) => { void refreshDiagnostics(document); }),
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      void refreshDiagnostics(document);
+    }),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      void refreshDiagnostics(document);
+    }),
     vscode.workspace.onDidChangeTextDocument(({ document }) => {
       analysisCache.delete(document.uri.toString());
-      for (const key of inspectionCache.keys()) if (key.startsWith(`${document.uri.toString()}@`)) inspectionCache.delete(key);
+      for (const key of inspectionCache.keys())
+        if (key.startsWith(`${document.uri.toString()}@`)) inspectionCache.delete(key);
       void refreshDiagnostics(document);
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       analysisCache.delete(document.uri.toString());
-      for (const key of diagnosticSuggestions.keys()) if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
+      for (const key of diagnosticSuggestions.keys())
+        if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
       diagnostics.delete(document.uri);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
@@ -319,7 +382,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       void resetNativeBridge();
       for (const document of vscode.workspace.textDocuments) void refreshDiagnostics(document);
     }),
-    { dispose: () => { void resetNativeBridge(); } },
+    {
+      dispose: () => {
+        void resetNativeBridge();
+      },
+    },
   );
   for (const document of vscode.workspace.textDocuments) void refreshDiagnostics(document);
 }

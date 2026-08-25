@@ -13,6 +13,7 @@ Requirements:
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm quality
 pnpm verify
 pnpm coverage
 pnpm test:pack
@@ -33,6 +34,13 @@ assert both the inferred type and diagnostics. Unsupported or dynamic SQL must r
 Tests belong to the package that owns the behavior. Compiler-critical packages enforce 95% line,
 statement, and function coverage plus 90% branch coverage with the official Poku c8 integration.
 Changes to package boundaries must keep the packed-consumer and forbidden-driver contracts green.
+Performance-sensitive compiler, scanner, resolver-index, and runtime changes must keep the published
+budgets green; use the `TYPED_SQL_*_BUDGET_MS` environment variables only to account for a known CI
+class, never to hide a regression.
+
+New grammar packages should implement `DialectPlugin`, use the neutral resolver primitives from
+`@typed-sql/core` where they fit, and keep every SQL semantic in the grammar package. Core and the
+compiler must not branch on a dialect id, package name, server, or driver.
 
 ## Changes and releases
 

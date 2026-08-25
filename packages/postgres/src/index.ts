@@ -1,9 +1,6 @@
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin } from "@typed-sql/core";
 import { parseStatement, SqlParseError } from "@typed-sql/ast";
-import {
-  parseSchemaSnapshot,
-  type SchemaSnapshot,
-} from "@typed-sql/schema";
+import { DIALECT_CONTRACT_VERSION, type DialectPlugin } from "@typed-sql/core";
+import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { resolveStatement } from "./resolver.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
 
@@ -22,7 +19,9 @@ function validatePostgresSnapshot(value: unknown): PostgresSchemaSnapshot {
   return snapshot as PostgresSchemaSnapshot;
 }
 
-export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
+export function postgres(
+  options: PostgresDialectOptions = {},
+): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
   const defaultTypePolicy = options.typePolicy ?? defaultPostgresTypePolicy;
   return Object.freeze({
     contractVersion: DIALECT_CONTRACT_VERSION,
@@ -41,6 +40,7 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
         if (!(error instanceof SqlParseError)) throw error;
         return {
           columns: [],
+          parameters: [],
           diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }],
         };
       }
@@ -49,14 +49,9 @@ export function postgres(options: PostgresDialectOptions = {}): DialectPlugin<Po
   });
 }
 
-export {
-  parseSchemaSnapshot,
-} from "@typed-sql/schema";
 export { sql } from "@typed-sql/core";
-export { introspectPostgres, loadPostgresDriver, PostgresSchemaProvider, postgresCatalogQueries } from "./provider.js";
-export { defaultPostgresTypePolicy, defaultPostgresTypePolicy as typePolicy, isKnownPostgresType, mapPostgresType } from "./type-policy.js";
-export type { PostgresTypePolicy } from "./type-policy.js";
 export type { SchemaSnapshot } from "@typed-sql/schema";
+export { parseSchemaSnapshot } from "@typed-sql/schema";
 export type {
   PostgresDriverImporter,
   PostgresDriverModule,
@@ -66,3 +61,11 @@ export type {
   PostgresQueryResult,
   PostgresSchemaProviderOptions,
 } from "./provider.js";
+export { introspectPostgres, loadPostgresDriver, PostgresSchemaProvider, postgresCatalogQueries } from "./provider.js";
+export type { PostgresTypePolicy } from "./type-policy.js";
+export {
+  defaultPostgresTypePolicy,
+  defaultPostgresTypePolicy as typePolicy,
+  isKnownPostgresType,
+  mapPostgresType,
+} from "./type-policy.js";

@@ -1,5 +1,5 @@
 import { dirname, join, resolve } from "node:path";
-import { pathToFileURL, fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { TypedSqlLanguageService } from "../src/index.js";
@@ -64,10 +64,7 @@ await describe("typed-sql language service", async () => {
       () => service.analysis(document("cancelled.ts"), { isCancellationRequested: true }),
       (error: unknown) => error instanceof Error && error.name === "AbortError",
     );
-    strict.throws(
-      () => service.configure(workspaceDirectory, { maxCacheEntries: 0 }),
-      /positive safe integer/,
-    );
+    strict.throws(() => service.configure(workspaceDirectory, { maxCacheEntries: 0 }), /positive safe integer/);
   });
 
   await service.close();

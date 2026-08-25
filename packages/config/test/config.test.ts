@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
@@ -10,7 +10,10 @@ await describe("typed-sql config", async () => {
   await it("loads a TypeScript config and preserves its installed dialect", async () => {
     const loaded = await loadConfig({ file: fixture.pathname });
     strict.strictEqual(loaded.config.dialect.id, "postgres");
-    strict.strictEqual(fromConfig(loaded.directory, loaded.config.schema.file), join(loaded.directory, "generated/db/schema.json"));
+    strict.strictEqual(
+      fromConfig(loaded.directory, loaded.config.schema.file),
+      join(loaded.directory, "generated/db/schema.json"),
+    );
   });
 
   await it("reports discovery failure from nested directories", async () => {
@@ -28,13 +31,13 @@ await describe("typed-sql config", async () => {
     const source = `
       export default {
         dialect: {
-          contractVersion: 1,
+          contractVersion: 2,
           id: "fixture",
           grammarVersion: "1.0.0",
           sqlModule: "@example/typed-sql-fixture",
           defaultTypePolicy: {},
           placeholder(index) { return "?" + index; },
-          analyze() { return { columns: [], diagnostics: [] }; },
+          analyze() { return { columns: [], parameters: [], diagnostics: [] }; },
           validateSnapshot(value) { return value; }
         },
         schema: { file: "schema.json" },
@@ -46,7 +49,9 @@ await describe("typed-sql config", async () => {
       strict.strictEqual(await discoverConfig(nested), join(directory, "typed-sql.config.mjs"));
       strict.strictEqual((await loadConfig({ cwd: nested })).config.dialect.id, "fixture");
       strict.strictEqual((await loadConfig({ cwd: directory, file: "typed-sql.config.mjs" })).directory, directory);
-    } finally { await rm(directory, { recursive: true, force: true }); }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   await it("rejects malformed default exports at every contract boundary", async () => {
@@ -55,12 +60,12 @@ await describe("typed-sql config", async () => {
       "null",
       "{}",
       "{ dialect: null }",
-      "{ dialect: { contractVersion: 2 } }",
-      "{ dialect: { contractVersion: 1, id: 1 } }",
-      "{ dialect: { contractVersion: 1, id: 'x' } }",
-      "{ dialect: { contractVersion: 1, id: 'x', analyze() {} } }",
-      "{ dialect: { contractVersion: 1, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
-      "{ dialect: { contractVersion: 1, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
+      "{ dialect: { contractVersion: 1 } }",
+      "{ dialect: { contractVersion: 2, id: 1 } }",
+      "{ dialect: { contractVersion: 2, id: 'x' } }",
+      "{ dialect: { contractVersion: 2, id: 'x', analyze() {} } }",
+      "{ dialect: { contractVersion: 2, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
+      "{ dialect: { contractVersion: 2, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
     ];
     try {
       for (const [index, candidate] of candidates.entries()) {
@@ -68,6 +73,8 @@ await describe("typed-sql config", async () => {
         await writeFile(file, `export default ${candidate};`);
         await strict.rejects(() => loadConfig({ file }), /must default-export defineConfig/);
       }
-    } finally { await rm(directory, { recursive: true, force: true }); }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

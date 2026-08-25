@@ -92,29 +92,24 @@ Acceptance criteria:
 
 ## Milestone 3: Freeze the public query contract
 
-Typed result rows are the core 1.0 feature. Interpolated parameter values still cross parts of the
-public API as `unknown`, so the future parameter-typing direction must be decided before freezing
-`Query<Row>`.
-
-Decision options:
-
-1. Introduce a future-compatible parameter type now, such as `Query<Row, Parameters>`, even if the
-   first stable compiler cannot infer every parameter.
-2. Keep `Query<Row>` for 1.0 and explicitly document parameter inference as a post-1.0 feature,
-   after proving that it can be added without breaking existing consumers.
+The parameter direction is implemented: the public contract is `Query<Row, Parameters>`, where
+`Parameters` is an ordered readonly tuple. PostgreSQL and MySQL infer positions from comparisons,
+casts, DML targets, ranges, limits, and catalog functions. Insufficient or conflicting evidence is
+represented as `unknown`. Dialect contract version 2 makes parameter analysis explicit for
+third-party grammars. Typed `SqlFragment<Parameters>` composition supports nullable `AND`/`OR`
+filter tuples while a statically analyzed base query continues to own the result row.
 
 Work:
 
 - inventory every public export and generic type in all intended stable packages;
 - write public type-contract tests for query construction, execution, adapters, and generated APIs;
-- prove the chosen parameter evolution path with a small compatibility prototype;
+- complete the remaining public-export and variance audit around the implemented parameter tuple;
 - document the supported SQL/type behavior and the deliberately unsupported cases;
 - classify confidently wrong inferred types as release-blocking correctness defects.
 
 Acceptance criteria:
 
-- the parameter-typing decision is documented and tested;
-- a future parameter feature does not require an avoidable breaking change;
+- parameter typing is documented and covered by positive, negative, grammar, compiler, and editor tests;
 - all stable exports have intentional names, generic ordering, variance, and runtime behavior;
 - no generated-path import is required for the normal public API.
 

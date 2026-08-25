@@ -2,11 +2,7 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-  DIALECT_CONTRACT_VERSION,
-  type SchemaSnapshot,
-  type TypedSqlConfig,
-} from "@typed-sql/core";
+import { DIALECT_CONTRACT_VERSION, type SchemaSnapshot, type TypedSqlConfig } from "@typed-sql/core";
 import { tsImport } from "tsx/esm/api";
 
 const configNames = [
@@ -52,20 +48,26 @@ export async function discoverConfig(start = process.cwd()): Promise<string> {
 function isConfig(value: unknown): value is TypedSqlConfig<SchemaSnapshot, unknown> {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<TypedSqlConfig<SchemaSnapshot, unknown>>;
-  return candidate.dialect?.contractVersion === DIALECT_CONTRACT_VERSION
-    && typeof candidate.dialect.id === "string"
-    && typeof candidate.dialect.sqlModule === "string"
-    && typeof candidate.dialect.analyze === "function"
-    && typeof candidate.dialect.validateSnapshot === "function"
-    && typeof candidate.schema?.file === "string"
-    && typeof candidate.outDir === "string";
+  return (
+    candidate.dialect?.contractVersion === DIALECT_CONTRACT_VERSION &&
+    typeof candidate.dialect.id === "string" &&
+    typeof candidate.dialect.sqlModule === "string" &&
+    typeof candidate.dialect.analyze === "function" &&
+    typeof candidate.dialect.validateSnapshot === "function" &&
+    typeof candidate.schema?.file === "string" &&
+    typeof candidate.outDir === "string"
+  );
 }
 
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<LoadedConfig> {
-  const file = options.file === undefined
-    ? await discoverConfig(options.cwd)
-    : resolve(options.cwd ?? process.cwd(), options.file);
-  const module = await tsImport(pathToFileURL(file).href, pathToFileURL(join(dirname(file), "package.json")).href) as { readonly default?: unknown };
+  const file =
+    options.file === undefined
+      ? await discoverConfig(options.cwd)
+      : resolve(options.cwd ?? process.cwd(), options.file);
+  const module = (await tsImport(
+    pathToFileURL(file).href,
+    pathToFileURL(join(dirname(file), "package.json")).href,
+  )) as { readonly default?: unknown };
   if (!isConfig(module.default)) throw new TypeError(`${file} must default-export defineConfig({...})`);
   return { file, directory: dirname(file), config: module.default };
 }

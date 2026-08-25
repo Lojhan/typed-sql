@@ -10,22 +10,116 @@ export interface TokenizeOptions {
 }
 
 const keywords = new Set([
-  "ALL", "AND", "ARRAY", "AS", "ASC", "BETWEEN", "BY", "CASE", "CAST",
-  "COALESCE", "CONFLICT", "COUNT", "CROSS", "DEFAULT", "DELETE", "DESC",
-  "DISTINCT", "DO", "ELSE", "END", "EXCEPT", "EXCLUDED", "EXISTS", "FALSE",
-  "FILTER", "FIRST", "FROM", "FULL", "GROUP", "HAVING", "ILIKE", "IN",
-  "INNER", "INSERT", "INTERSECT", "INTO", "IS", "JOIN", "LAST", "LATERAL",
-  "LEFT", "LIKE", "LIMIT", "MAX", "MIN", "NOT", "NOTHING", "NULL", "NULLS",
-  "OFFSET", "ON", "OR", "ORDER", "OUTER", "OVER", "PARTITION", "RECURSIVE",
-  "RETURNING", "RIGHT", "ROW", "SELECT", "SET", "SIMILAR", "SUM", "THEN",
-  "TO", "TRUE", "UNION", "UPDATE", "USING", "VALUES", "WHEN", "WHERE", "WINDOW",
+  "ALL",
+  "AND",
+  "ARRAY",
+  "AS",
+  "ASC",
+  "BETWEEN",
+  "BY",
+  "CASE",
+  "CAST",
+  "COALESCE",
+  "CONFLICT",
+  "COUNT",
+  "CROSS",
+  "DEFAULT",
+  "DELETE",
+  "DESC",
+  "DISTINCT",
+  "DO",
+  "ELSE",
+  "END",
+  "EXCEPT",
+  "EXCLUDED",
+  "EXISTS",
+  "FALSE",
+  "FILTER",
+  "FIRST",
+  "FROM",
+  "FULL",
+  "GROUP",
+  "HAVING",
+  "ILIKE",
+  "IN",
+  "INNER",
+  "INSERT",
+  "INTERSECT",
+  "INTO",
+  "IS",
+  "JOIN",
+  "LAST",
+  "LATERAL",
+  "LEFT",
+  "LIKE",
+  "LIMIT",
+  "MAX",
+  "MIN",
+  "NOT",
+  "NOTHING",
+  "NULL",
+  "NULLS",
+  "OFFSET",
+  "ON",
+  "OR",
+  "ORDER",
+  "OUTER",
+  "OVER",
+  "PARTITION",
+  "RECURSIVE",
+  "RETURNING",
+  "RIGHT",
+  "ROW",
+  "SELECT",
+  "SET",
+  "SIMILAR",
+  "SUM",
+  "THEN",
+  "TO",
+  "TRUE",
+  "UNION",
+  "UPDATE",
+  "USING",
+  "VALUES",
+  "WHEN",
+  "WHERE",
+  "WINDOW",
   "WITH",
 ]);
 
 const operators = [
-  "#>>", "->>", "::", "<=", ">=", "!=", "<>", "||", "->", "#>", "@>",
-  "<@", "?|", "?&", "&&", "!~*", "!~", "~*", "=", "<", ">", "+", "-",
-  "*", "/", "%", "^", "~", "?", "&", "|", "#",
+  "#>>",
+  "->>",
+  "::",
+  "<=",
+  ">=",
+  "!=",
+  "<>",
+  "||",
+  "->",
+  "#>",
+  "@>",
+  "<@",
+  "?|",
+  "?&",
+  "&&",
+  "!~*",
+  "!~",
+  "~*",
+  "=",
+  "<",
+  ">",
+  "+",
+  "-",
+  "*",
+  "/",
+  "%",
+  "^",
+  "~",
+  "?",
+  "&",
+  "|",
+  "#",
 ] as const;
 
 export class SqlTokenizeError extends Error {
@@ -65,11 +159,17 @@ class Scanner {
 
   constructor(source: string, options: TokenizeOptions) {
     const maxSqlLength = options.maxSqlLength ?? DEFAULT_MAX_SQL_LENGTH;
-    if (!Number.isSafeInteger(maxSqlLength) || maxSqlLength < 1) throw new TypeError("maxSqlLength must be a positive safe integer");
+    if (!Number.isSafeInteger(maxSqlLength) || maxSqlLength < 1)
+      throw new TypeError("maxSqlLength must be a positive safe integer");
     this.#maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-    if (!Number.isSafeInteger(this.#maxTokens) || this.#maxTokens < 1) throw new TypeError("maxTokens must be a positive safe integer");
+    if (!Number.isSafeInteger(this.#maxTokens) || this.#maxTokens < 1)
+      throw new TypeError("maxTokens must be a positive safe integer");
     if (source.length > maxSqlLength) {
-      throw new SqlTokenizeError(`SQL exceeds the ${maxSqlLength} character parser limit`, { start: 0, end: source.length, line: 1, column: 1 }, "TSQ002");
+      throw new SqlTokenizeError(
+        `SQL exceeds the ${maxSqlLength} character parser limit`,
+        { start: 0, end: source.length, line: 1, column: 1 },
+        "TSQ002",
+      );
     }
     this.#source = source;
     this.#syntax = options.syntax ?? "postgres";
@@ -81,7 +181,11 @@ class Scanner {
       this.#skipTrivia();
       if (this.#atEnd()) break;
       if (tokens.length >= this.#maxTokens) {
-        throw new SqlTokenizeError(`SQL exceeds the ${this.#maxTokens} token parser limit`, this.#range(this.#position()), "TSQ002");
+        throw new SqlTokenizeError(
+          `SQL exceeds the ${this.#maxTokens} token parser limit`,
+          this.#range(this.#position()),
+          "TSQ002",
+        );
       }
       tokens.push(this.#scanToken());
     }

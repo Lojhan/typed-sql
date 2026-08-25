@@ -1,5 +1,5 @@
-import { describe, it, strict } from "poku";
 import type { Pool } from "mysql2/promise";
+import { describe, it, strict } from "poku";
 import { sql } from "../../core/src/index.js";
 import { adaptMySql2Pool, createMySql2Database, loadMySql2Driver, mysql2 } from "../src/mysql2.js";
 import type { MySqlQueryable, MySqlQueryResult } from "../src/provider.js";
@@ -7,22 +7,39 @@ import type { MySqlQueryable, MySqlQueryResult } from "../src/provider.js";
 class FakeRawConnection {
   released = false;
   readonly calls: string[] = [];
-  async execute(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly { name: string; columnType: number }[]]> {
+  async execute(
+    sql: string,
+  ): Promise<readonly [readonly Record<string, unknown>[], readonly { name: string; columnType: number }[]]> {
     this.calls.push(sql);
     return [[{ value: "1" }], [{ name: "value", columnType: 8 }]];
   }
-  async query(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly never[]]> { this.calls.push(sql); return [[], []]; }
-  async beginTransaction(): Promise<void> { this.calls.push("BEGIN"); }
-  async commit(): Promise<void> { this.calls.push("COMMIT"); }
-  async rollback(): Promise<void> { this.calls.push("ROLLBACK"); }
-  release(): void { this.released = true; }
+  async query(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly never[]]> {
+    this.calls.push(sql);
+    return [[], []];
+  }
+  async beginTransaction(): Promise<void> {
+    this.calls.push("BEGIN");
+  }
+  async commit(): Promise<void> {
+    this.calls.push("COMMIT");
+  }
+  async rollback(): Promise<void> {
+    this.calls.push("ROLLBACK");
+  }
+  release(): void {
+    this.released = true;
+  }
 }
 
 class FakeRawPool extends FakeRawConnection {
   ended = false;
   readonly connection = new FakeRawConnection();
-  async getConnection(): Promise<FakeRawConnection> { return this.connection; }
-  async end(): Promise<void> { this.ended = true; }
+  async getConnection(): Promise<FakeRawConnection> {
+    return this.connection;
+  }
+  async end(): Promise<void> {
+    this.ended = true;
+  }
 }
 
 class CatalogClient implements MySqlQueryable {
@@ -80,9 +97,20 @@ await describe("application-owned mysql2 integration", async () => {
         this.calls.push(sql);
         if (sql.includes("VERSION()")) return [[{ server_version: "8.4.11" }], []];
         if (sql.includes("DATABASE()")) return [[{ database_name: "app" }], []];
-        if (sql.includes("information_schema.COLUMNS")) return [[{
-          schema_name: "app", table_name: "users", column_name: "id", database_type: "bigint", is_nullable: "NO", default_expression: null,
-        }], []];
+        if (sql.includes("information_schema.COLUMNS"))
+          return [
+            [
+              {
+                schema_name: "app",
+                table_name: "users",
+                column_name: "id",
+                database_type: "bigint",
+                is_nullable: "NO",
+                default_expression: null,
+              },
+            ],
+            [],
+          ];
         if (sql.includes("information_schema.ROUTINES")) return [[], []];
         throw new Error("unexpected query");
       }
@@ -99,9 +127,21 @@ await describe("application-owned mysql2 integration", async () => {
 
   await it("normalizes missing driver failures and preserves unexpected errors", async () => {
     const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
-    await strict.rejects(() => loadMySql2Driver(async () => { throw missing; }), /pnpm add mysql2/);
+    await strict.rejects(
+      () =>
+        loadMySql2Driver(async () => {
+          throw missing;
+        }),
+      /pnpm add mysql2/,
+    );
     const unexpected = new Error("loader exploded");
-    await strict.rejects(() => loadMySql2Driver(async () => { throw unexpected; }), unexpected);
+    await strict.rejects(
+      () =>
+        loadMySql2Driver(async () => {
+          throw unexpected;
+        }),
+      unexpected,
+    );
     strict.ok((await loadMySql2Driver()).createPool !== undefined);
   });
 });

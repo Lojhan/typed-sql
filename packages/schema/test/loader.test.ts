@@ -21,7 +21,14 @@ const fullSnapshot = {
       schema: "public",
       name: "users",
       columns: {
-        id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false, array: false, defaultExpression: "nextval('users_id_seq')" },
+        id: {
+          name: "id",
+          databaseType: "bigint",
+          tsType: "bigint",
+          nullable: false,
+          array: false,
+          defaultExpression: "nextval('users_id_seq')",
+        },
       },
     },
   },
@@ -62,15 +69,20 @@ await describe("schema snapshot loader", async () => {
       const generatedFile = join(directory, "generated.json");
       const policyFile = join(directory, "policy.json");
       await writeFile(schemaFile, JSON.stringify(fullSnapshot));
-      await writeFile(generatedFile, JSON.stringify({
-        ...fullSnapshot,
-        metadata: { generatorVersion: "test", schemaHash: "schema", typePolicyHash: "policy" },
-      }));
+      await writeFile(
+        generatedFile,
+        JSON.stringify({
+          ...fullSnapshot,
+          metadata: { generatorVersion: "test", schemaHash: "schema", typePolicyHash: "policy" },
+        }),
+      );
       await writeFile(policyFile, JSON.stringify(policy));
       strict.deepStrictEqual(await loadSchemaSnapshot(schemaFile), fullSnapshot);
       strict.strictEqual((await loadGeneratedSchemaSnapshot(generatedFile)).metadata.schemaHash, "schema");
       strict.deepStrictEqual(await loadTypePolicy(policyFile), policy);
-    } finally { await rm(directory, { recursive: true, force: true }); }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   await it("validates every nested snapshot shape", () => {
@@ -83,29 +95,149 @@ await describe("schema snapshot loader", async () => {
       [{ dialect: "postgres", tables: { users: { columns: {} } } }, /users.name/],
       [{ dialect: "postgres", tables: { users: { name: "users", schema: 1, columns: {} } } }, /users.schema/],
       [{ dialect: "postgres", tables: { users: { name: "users", columns: [] } } }, /users.columns/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: null } } } }, /columns.id must be an object/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: { databaseType: "int", tsType: "number", nullable: false } } } } }, /id.name/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: { name: "id", tsType: "number", nullable: false } } } } }, /databaseType/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: { name: "id", databaseType: "int", nullable: false } } } } }, /tsType/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: { name: "id", databaseType: "int", tsType: "number" } } } } }, /nullable/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: { name: "id", databaseType: "int", tsType: "number", nullable: false, array: "no" } } } } }, /array/],
-      [{ dialect: "postgres", tables: { users: { name: "users", columns: { id: { name: "id", databaseType: "int", tsType: "number", nullable: false, defaultExpression: 1 } } } } }, /defaultExpression/],
+      [
+        { dialect: "postgres", tables: { users: { name: "users", columns: { id: null } } } },
+        /columns.id must be an object/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {
+            users: { name: "users", columns: { id: { databaseType: "int", tsType: "number", nullable: false } } },
+          },
+        },
+        /id.name/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: { users: { name: "users", columns: { id: { name: "id", tsType: "number", nullable: false } } } },
+        },
+        /databaseType/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: { users: { name: "users", columns: { id: { name: "id", databaseType: "int", nullable: false } } } },
+        },
+        /tsType/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: { users: { name: "users", columns: { id: { name: "id", databaseType: "int", tsType: "number" } } } },
+        },
+        /nullable/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {
+            users: {
+              name: "users",
+              columns: { id: { name: "id", databaseType: "int", tsType: "number", nullable: false, array: "no" } },
+            },
+          },
+        },
+        /array/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {
+            users: {
+              name: "users",
+              columns: {
+                id: { name: "id", databaseType: "int", tsType: "number", nullable: false, defaultExpression: 1 },
+              },
+            },
+          },
+        },
+        /defaultExpression/,
+      ],
       [{ dialect: "postgres", tables: {}, enums: [] }, /schema.enums/],
       [{ dialect: "postgres", tables: {}, enums: { status: [1] } }, /status must be a string array/],
       [{ dialect: "postgres", tables: {}, domains: [] }, /schema.domains/],
       [{ dialect: "postgres", tables: {}, domains: { email: null } }, /email must be an object/],
-      [{ dialect: "postgres", tables: {}, domains: { email: { databaseType: "text", tsType: "string", nullable: false } } }, /email.name/],
-      [{ dialect: "postgres", tables: {}, domains: { email: { name: "email", tsType: "string", nullable: false } } }, /databaseType/],
-      [{ dialect: "postgres", tables: {}, domains: { email: { name: "email", databaseType: "text", nullable: false } } }, /tsType/],
-      [{ dialect: "postgres", tables: {}, domains: { email: { name: "email", databaseType: "text", tsType: "string" } } }, /nullable/],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          domains: { email: { databaseType: "text", tsType: "string", nullable: false } },
+        },
+        /email.name/,
+      ],
+      [
+        { dialect: "postgres", tables: {}, domains: { email: { name: "email", tsType: "string", nullable: false } } },
+        /databaseType/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          domains: { email: { name: "email", databaseType: "text", nullable: false } },
+        },
+        /tsType/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          domains: { email: { name: "email", databaseType: "text", tsType: "string" } },
+        },
+        /nullable/,
+      ],
       [{ dialect: "postgres", tables: {}, functions: { f: null } }, /f must be an object/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { argumentTypes: [], returnType: "number", nullable: false } } }, /f.name/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [1], returnType: "number", nullable: false } } }, /argumentTypes/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], nullable: false } } }, /returnType/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], returnType: "number" } } }, /nullable/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, schema: 1 } } }, /f.schema/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, databaseReturnType: 1 } } }, /databaseReturnType/],
-      [{ dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, setReturning: "no" } } }, /setReturning/],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          functions: { f: { argumentTypes: [], returnType: "number", nullable: false } },
+        },
+        /f.name/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          functions: { f: { name: "f", argumentTypes: [1], returnType: "number", nullable: false } },
+        },
+        /argumentTypes/,
+      ],
+      [
+        { dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], nullable: false } } },
+        /returnType/,
+      ],
+      [
+        { dialect: "postgres", tables: {}, functions: { f: { name: "f", argumentTypes: [], returnType: "number" } } },
+        /nullable/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          functions: { f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, schema: 1 } },
+        },
+        /f.schema/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          functions: {
+            f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, databaseReturnType: 1 },
+          },
+        },
+        /databaseReturnType/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          functions: { f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, setReturning: "no" } },
+        },
+        /setReturning/,
+      ],
     ];
     for (const [input, expected] of failures) strict.throws(() => parseSchemaSnapshot(input), expected);
   });
@@ -126,7 +258,9 @@ await describe("schema snapshot loader", async () => {
       const primitive = join(directory, "primitive.json");
       await writeFile(primitive, "null");
       await strict.rejects(() => loadGeneratedSchemaSnapshot(primitive), /must be an object/);
-    } finally { await rm(directory, { recursive: true, force: true }); }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
 
     for (const invalid of [null, [], "postgres"]) strict.throws(() => parseTypePolicy(invalid), /Type policy/);
     strict.deepStrictEqual(parseTypePolicy({ custom: "dialect-owned" }), { custom: "dialect-owned" });

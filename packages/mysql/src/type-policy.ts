@@ -86,11 +86,44 @@ function enumValues(databaseType: string): readonly string[] | undefined {
 
 export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = baseType(databaseType);
-  return [
-    "tinyint", "smallint", "mediumint", "int", "integer", "bigint", "decimal", "numeric", "float", "double", "real", "bit",
-    "boolean", "bool", "char", "varchar", "tinytext", "text", "mediumtext", "longtext", "binary", "varbinary", "tinyblob", "blob",
-    "mediumblob", "longblob", "date", "datetime", "timestamp", "time", "year", "json", "enum", "set",
-  ].includes(type) || schema?.domains?.[type] !== undefined;
+  return (
+    [
+      "tinyint",
+      "smallint",
+      "mediumint",
+      "int",
+      "integer",
+      "bigint",
+      "decimal",
+      "numeric",
+      "float",
+      "double",
+      "real",
+      "bit",
+      "boolean",
+      "bool",
+      "char",
+      "varchar",
+      "tinytext",
+      "text",
+      "mediumtext",
+      "longtext",
+      "binary",
+      "varbinary",
+      "tinyblob",
+      "blob",
+      "mediumblob",
+      "longblob",
+      "date",
+      "datetime",
+      "timestamp",
+      "time",
+      "year",
+      "json",
+      "enum",
+      "set",
+    ].includes(type) || schema?.domains?.[type] !== undefined
+  );
 }
 
 export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, schema?: SchemaSnapshot): string {
@@ -98,7 +131,8 @@ export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, sche
   const values = enumValues(databaseType);
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";
   if (type === "tinyint" && /^tinyint\(1\)/iu.test(databaseType)) return policy.tinyint1;
-  if (["tinyint", "smallint", "mediumint", "int", "integer", "float", "double", "real", "bit", "year"].includes(type)) return "number";
+  if (["tinyint", "smallint", "mediumint", "int", "integer", "float", "double", "real", "bit", "year"].includes(type))
+    return "number";
   if (type === "bigint") return policy.bigint;
   if (type === "decimal" || type === "numeric") return policy.decimal;
   if (type === "boolean" || type === "bool") return "boolean";

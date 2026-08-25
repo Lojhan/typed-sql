@@ -1,5 +1,5 @@
-import { access, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
+import { access, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,12 +15,14 @@ if (release.channel !== requestedChannel) {
   throw new Error(`Requested ${requestedChannel}, but release-manifest.json declares ${release.channel}`);
 }
 
-const manifests = await Promise.all(release.packages.map(async (name) => {
-  const directory = name.slice("@typed-sql/".length);
-  const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8"));
-  if (manifest.name !== name) throw new Error(`${directory}/package.json declares ${manifest.name}`);
-  return manifest;
-}));
+const manifests = await Promise.all(
+  release.packages.map(async (name) => {
+    const directory = name.slice("@typed-sql/".length);
+    const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8"));
+    if (manifest.name !== name) throw new Error(`${directory}/package.json declares ${manifest.name}`);
+    return manifest;
+  }),
+);
 
 if (requestedChannel === "beta") {
   const pattern = new RegExp(`^${release.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
@@ -35,7 +37,9 @@ if (requestedChannel === "beta") {
 } else {
   for (const manifest of manifests) {
     if (manifest.version !== release.series) {
-      throw new Error(`Stable release must be exactly ${release.series}, received ${manifest.name}@${manifest.version}`);
+      throw new Error(
+        `Stable release must be exactly ${release.series}, received ${manifest.name}@${manifest.version}`,
+      );
     }
   }
   if (release.npmTag !== "latest") throw new Error("Stable releases must use the latest npm tag");

@@ -3,7 +3,7 @@ import { parseSelect, parseStatement, SqlParseError, tokenize } from "../src/ind
 
 await describe("PostgreSQL parser", async () => {
   await it("tokenizes comments, quoted identifiers, strings, parameters, and source ranges", async () => {
-    const tokens = tokenize('-- lead\nSELECT "User".id, \'it\'\'s\', $12 /* tail */');
+    const tokens = tokenize("-- lead\nSELECT \"User\".id, 'it''s', $12 /* tail */");
     strict.strictEqual(tokens[0]?.value, "SELECT");
     strict.deepStrictEqual(tokens[0]?.range, { start: 8, end: 14, line: 2, column: 1 });
     strict.strictEqual(tokens[1]?.kind, "quoted-identifier");
@@ -27,11 +27,17 @@ await describe("PostgreSQL parser", async () => {
     strict.strictEqual(statement.from?.schema?.name, "public");
     strict.strictEqual(statement.columns[1]?.expression.kind, "cast");
     strict.strictEqual(statement.columns[2]?.expression.kind, "cast");
-    strict.deepStrictEqual(statement.joins.map((join) => join.kind), ["inner", "right"]);
+    strict.deepStrictEqual(
+      statement.joins.map((join) => join.kind),
+      ["inner", "right"],
+    );
     strict.strictEqual(statement.where?.kind, "binary");
     strict.strictEqual(statement.groupBy.length, 2);
     strict.strictEqual(statement.having?.kind, "binary");
-    strict.deepStrictEqual(statement.orderBy.map((item) => item.direction), ["desc", "asc"]);
+    strict.deepStrictEqual(
+      statement.orderBy.map((item) => item.direction),
+      ["desc", "asc"],
+    );
     strict.strictEqual(statement.limit?.kind, "literal");
     strict.strictEqual(statement.offset?.kind, "literal");
   });
@@ -68,10 +74,11 @@ await describe("PostgreSQL parser", async () => {
     ] as const) {
       strict.throws(
         () => parseSelect(source),
-        (error: unknown) => error instanceof SqlParseError
-          && message.test(error.message)
-          && error.range.start >= 0
-          && error.range.line >= 1,
+        (error: unknown) =>
+          error instanceof SqlParseError &&
+          message.test(error.message) &&
+          error.range.start >= 0 &&
+          error.range.line >= 1,
         `Expected a stable parse error for ${JSON.stringify(source)}`,
       );
     }
@@ -94,7 +101,9 @@ await describe("PostgreSQL parser", async () => {
   });
 
   await it("parses INSERT, UPDATE, DELETE, VALUES, SELECT sources, and RETURNING", () => {
-    const insert = parseStatement("INSERT INTO users AS u (name, age) VALUES ('Ada', 37), ('Grace', NULL) RETURNING u.*");
+    const insert = parseStatement(
+      "INSERT INTO users AS u (name, age) VALUES ('Ada', 37), ('Grace', NULL) RETURNING u.*",
+    );
     strict.strictEqual(insert.kind, "insert");
     if (insert.kind === "insert") {
       strict.strictEqual(insert.source.kind, "values");
@@ -102,7 +111,9 @@ await describe("PostgreSQL parser", async () => {
     }
     const insertSelect = parseStatement("INSERT INTO users (name) SELECT name FROM archived_users RETURNING id");
     strict.strictEqual(insertSelect.kind === "insert" && insertSelect.source.kind, "select");
-    const update = parseStatement("UPDATE users u SET name = 'Ada', age = age + 1 FROM ages a WHERE a.user_id = u.id RETURNING u.id, u.name");
+    const update = parseStatement(
+      "UPDATE users u SET name = 'Ada', age = age + 1 FROM ages a WHERE a.user_id = u.id RETURNING u.id, u.name",
+    );
     strict.strictEqual(update.kind === "update" && update.assignments.length, 2);
     const deletion = parseStatement("DELETE FROM users u USING ages a WHERE a.user_id = u.id RETURNING u.*");
     strict.strictEqual(deletion.kind === "delete" && deletion.using.length, 1);
@@ -127,8 +138,14 @@ await describe("PostgreSQL parser", async () => {
   });
 
   await it("enforces deterministic parser resource limits", () => {
-    strict.throws(() => parseSelect("SELECT 1", { maxSqlLength: 4 }), (error: unknown) => error instanceof SqlParseError && error.code === "TSQ002");
-    strict.throws(() => parseSelect("SELECT 1, 2", { maxTokens: 2 }), (error: unknown) => error instanceof SqlParseError && error.code === "TSQ002");
+    strict.throws(
+      () => parseSelect("SELECT 1", { maxSqlLength: 4 }),
+      (error: unknown) => error instanceof SqlParseError && error.code === "TSQ002",
+    );
+    strict.throws(
+      () => parseSelect("SELECT 1, 2", { maxTokens: 2 }),
+      (error: unknown) => error instanceof SqlParseError && error.code === "TSQ002",
+    );
     strict.throws(
       () => parseSelect(`SELECT ${"(".repeat(20)}1${")".repeat(20)} AS value`, { maxDepth: 8 }),
       (error: unknown) => error instanceof SqlParseError && error.code === "TSQ002",

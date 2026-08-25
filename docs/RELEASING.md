@@ -22,10 +22,12 @@ environment.
 Publishing is blocked unless all of these pass:
 
 - TypeScript 7 typecheck and build;
+- deterministic Biome formatting and linting;
 - package-owned Poku suites;
 - 95% statement/line/function and 90% branch coverage for compiler-critical packages;
 - forbidden-driver and grammar-neutral dependency contracts;
 - public tarballs containing compiled output, declarations, README, LICENSE, and CHANGELOG;
+- clean-build output whose emitted JavaScript modules exactly match current source modules;
 - isolated tarball installation without database drivers;
 - real PostgreSQL and MySQL generation, inference, execution, and drift flows;
 - packed real-database consumers with no workspace links;

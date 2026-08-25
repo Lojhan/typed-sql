@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
@@ -20,10 +20,23 @@ interface PackageManifest {
 const directory = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(directory, "../..");
 const forbiddenDrivers = new Set(["pg", "mysql2", "better-sqlite3", "sqlite3"]);
-const publicPackages = ["ast", "core", "config", "schema", "postgres", "mysql", "compiler", "cli", "ts-bridge", "language-server"] as const;
+const publicPackages = [
+  "ast",
+  "core",
+  "config",
+  "schema",
+  "postgres",
+  "mysql",
+  "compiler",
+  "cli",
+  "ts-bridge",
+  "language-server",
+] as const;
 
 async function manifest(packageName: string): Promise<PackageManifest> {
-  return JSON.parse(await readFile(join(workspace, "packages", packageName, "package.json"), "utf8")) as PackageManifest;
+  return JSON.parse(
+    await readFile(join(workspace, "packages", packageName, "package.json"), "utf8"),
+  ) as PackageManifest;
 }
 
 async function source(packageName: string): Promise<string> {
@@ -100,12 +113,18 @@ await describe("public package graph", async () => {
     };
     const betaPattern = new RegExp(`^${releaseManifest.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
     const expectedLicense = await readFile(join(workspace, "LICENSE"), "utf8");
-    strict.deepStrictEqual(releaseManifest.packages.slice().sort(), publicPackages.map((name) => `@typed-sql/${name}`).sort());
+    strict.deepStrictEqual(
+      releaseManifest.packages.slice().sort(),
+      publicPackages.map((name) => `@typed-sql/${name}`).sort(),
+    );
     const releaseOrder = new Map(releaseManifest.packages.map((name, index) => [name, index]));
     for (const packageName of publicPackages) {
       const packageManifest = await manifest(packageName);
       if (releaseManifest.channel === "beta") {
-        strict.ok(betaPattern.test(packageManifest.version ?? ""), `${packageManifest.name} must be in the declared beta series`);
+        strict.ok(
+          betaPattern.test(packageManifest.version ?? ""),
+          `${packageManifest.name} must be in the declared beta series`,
+        );
       } else strict.strictEqual(packageManifest.version, releaseManifest.series);
       strict.notStrictEqual(packageManifest.private, true);
       strict.strictEqual(packageManifest.license, "MIT");
@@ -133,13 +152,29 @@ await describe("public package graph", async () => {
     strict.ok(!(await source("core")).toLowerCase().includes("vitable"));
   });
 
+  await it("never packs stale JavaScript for deleted source modules", async () => {
+    for (const packageName of publicPackages) {
+      const sourceDirectory = join(workspace, "packages", packageName, "src");
+      const outputDirectory = join(workspace, "packages", packageName, "dist", "packages", packageName, "src");
+      const expected = (await readdir(sourceDirectory))
+        .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
+        .map((file) => file.replace(/\.ts$/u, ".js"))
+        .sort();
+      const emitted = (await readdir(outputDirectory)).filter((file) => file.endsWith(".js")).sort();
+      strict.deepStrictEqual(emitted, expected, `${packageName} dist must exactly match its source modules`);
+    }
+  });
+
   await it("keeps generated modules schema-only and out of the application API", async () => {
     const generated = await readFile(join(workspace, "e2e", "postgres", "generated", "db", "index.ts"), "utf8");
     strict.ok(generated.includes("Schema metadata only"));
     strict.ok(!generated.includes("export { sql }"));
     strict.ok(!generated.includes("export const typePolicy"));
     strict.ok(!generated.includes('from "pg"'));
-    for (const [dialect, packageName] of [["postgres", "@typed-sql/postgres"], ["mysql", "@typed-sql/mysql"]] as const) {
+    for (const [dialect, packageName] of [
+      ["postgres", "@typed-sql/postgres"],
+      ["mysql", "@typed-sql/mysql"],
+    ] as const) {
       const application = await readFile(join(workspace, "e2e", dialect, "src", "query.ts"), "utf8");
       strict.ok(application.includes(`from "${packageName}"`));
       strict.ok(!application.includes("generated/"));
@@ -147,10 +182,14 @@ await describe("public package graph", async () => {
   });
 
   await it("makes the E2E application own its selected driver", async () => {
-    const consumer = JSON.parse(await readFile(join(workspace, "e2e", "postgres", "package.json"), "utf8")) as PackageManifest;
+    const consumer = JSON.parse(
+      await readFile(join(workspace, "e2e", "postgres", "package.json"), "utf8"),
+    ) as PackageManifest;
     strict.strictEqual(consumer.dependencies?.pg, "8.23.0");
     strict.strictEqual(consumer.dependencies?.["@typed-sql/postgres"], "workspace:*");
-    const mysqlConsumer = JSON.parse(await readFile(join(workspace, "e2e", "mysql", "package.json"), "utf8")) as PackageManifest;
+    const mysqlConsumer = JSON.parse(
+      await readFile(join(workspace, "e2e", "mysql", "package.json"), "utf8"),
+    ) as PackageManifest;
     strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.1");
     strict.strictEqual(mysqlConsumer.dependencies?.["@typed-sql/mysql"], "workspace:*");
   });

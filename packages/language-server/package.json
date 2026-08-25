@@ -4,12 +4,29 @@
   "description": "Grammar-agnostic TypeScript 7 language server for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
-  "repository": { "type": "git", "url": "git+https://github.com/Lojhan/typed-sql.git", "directory": "packages/language-server" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/language-server"
+  },
   "homepage": "https://github.com/Lojhan/typed-sql#readme",
-  "bugs": { "url": "https://github.com/Lojhan/typed-sql/issues" },
-  "engines": { "node": ">=22.11" },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "dist/**/*.map", "README.md", "LICENSE", "CHANGELOG.md"],
-  "publishConfig": { "access": "public" },
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "typed-sql-language-server": "./dist/packages/language-server/src/server.js"

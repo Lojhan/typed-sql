@@ -1,8 +1,8 @@
-import { describe, it, strict } from "poku";
 import type { Pool as PgPool } from "pg";
+import { describe, it, strict } from "poku";
 import { adaptPgPool, createPgDatabase, loadPgDriver, pg } from "../src/pg.js";
-import type { PostgresQueryConfig } from "../src/runtime.js";
 import type { PostgresQueryable, PostgresQueryResult } from "../src/provider.js";
+import type { PostgresQueryConfig } from "../src/runtime.js";
 
 class CatalogClient implements PostgresQueryable {
   async query<Row extends Record<string, unknown>>(text: string): Promise<PostgresQueryResult<Row>> {
@@ -19,7 +19,9 @@ class FakePgClient {
     this.calls.push(config);
     return { rows: [{ value: 1 }] };
   }
-  release(): void { this.released = true; }
+  release(): void {
+    this.released = true;
+  }
 }
 
 class FakePgPool {
@@ -30,8 +32,12 @@ class FakePgPool {
     this.calls.push(config);
     return { rows: [{ value: 1 }] };
   }
-  async connect(): Promise<FakePgClient> { return this.client; }
-  async end(): Promise<void> { this.ended = true; }
+  async connect(): Promise<FakePgClient> {
+    return this.client;
+  }
+  async end(): Promise<void> {
+    this.ended = true;
+  }
 }
 
 await describe("application-owned pg integration", async () => {
@@ -58,10 +64,7 @@ await describe("application-owned pg integration", async () => {
       poolConfig: { max: 1 },
     });
     await database.close();
-    await strict.rejects(
-      () => createPgDatabase({ connectionString: "" }),
-      /must not be empty/,
-    );
+    await strict.rejects(() => createPgDatabase({ connectionString: "" }), /must not be empty/);
   });
 
   await it("supports injected catalog clients and validates provider options", async () => {
@@ -72,9 +75,21 @@ await describe("application-owned pg integration", async () => {
 
   await it("normalizes missing application-owned pg failures", async () => {
     const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
-    await strict.rejects(() => loadPgDriver(async () => { throw missing; }), /pnpm add pg/);
+    await strict.rejects(
+      () =>
+        loadPgDriver(async () => {
+          throw missing;
+        }),
+      /pnpm add pg/,
+    );
     const unexpected = new Error("loader exploded");
-    await strict.rejects(() => loadPgDriver(async () => { throw unexpected; }), unexpected);
+    await strict.rejects(
+      () =>
+        loadPgDriver(async () => {
+          throw unexpected;
+        }),
+      unexpected,
+    );
     strict.ok((await loadPgDriver()).Pool !== undefined);
   });
 });

@@ -86,7 +86,7 @@ export async function isPublishedOnNpm(name, version, options = {}) {
       }
       lastFailure = new Error(`npm registry lookup failed for ${name}@${version}: HTTP ${response.status}`);
     }
-    if (attempt < attempts) await wait(250 * (2 ** (attempt - 1)));
+    if (attempt < attempts) await wait(250 * 2 ** (attempt - 1));
   }
 
   throw new Error(`Unable to determine whether ${name}@${version} is already published`, {
@@ -130,7 +130,7 @@ async function createChangesetsTags(workspace) {
 
 export async function publishPrerelease(options = {}) {
   const workspace = options.workspace ?? defaultWorkspace;
-  const plan = options.plan ?? await loadPrereleasePlan(workspace);
+  const plan = options.plan ?? (await loadPrereleasePlan(workspace));
   const isPublished = options.isPublished ?? isPublishedOnNpm;
   const publishPackage = options.publishPackage ?? publishWithNpm;
   const createTags = options.createTags ?? createChangesetsTags;

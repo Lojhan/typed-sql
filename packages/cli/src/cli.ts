@@ -5,11 +5,7 @@ import { fileURLToPath } from "node:url";
 import { checkFile } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
-import {
-  checkSchemaDrift,
-  generateSchemaPackage,
-  loadGeneratedSchemaSnapshot,
-} from "@typed-sql/schema";
+import { checkSchemaDrift, generateSchemaPackage, loadGeneratedSchemaSnapshot } from "@typed-sql/schema";
 
 interface ParsedArguments {
   readonly command?: string;
@@ -115,11 +111,16 @@ async function main(): Promise<void> {
       schema: schemaFile,
       dialect,
       typePolicy: policy,
+      ...(config.compiler?.maxStructuralVariants === undefined
+        ? {}
+        : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
       ...(parsed.options.project === undefined ? {} : { project: resolve(parsed.options.project) }),
     });
     for (const diagnostic of result.sqlDiagnostics) {
       const suggestion = diagnostic.suggestion === undefined ? "" : ` ${diagnostic.suggestion}`;
-      process.stderr.write(`${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${suggestion}\n`);
+      process.stderr.write(
+        `${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${suggestion}\n`,
+      );
     }
     if (result.typeScript?.output) process.stderr.write(result.typeScript.output);
     if (!result.ok) process.exitCode = 1;
@@ -127,11 +128,12 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "generate") {
-    const current = parsed.options.snapshot !== undefined
-      ? await readSnapshot(resolve(parsed.options.snapshot), (value) => dialect.validateSnapshot(value))
-      : config.schema.provider === undefined
-        ? await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value))
-        : await config.schema.provider.introspect();
+    const current =
+      parsed.options.snapshot !== undefined
+        ? await readSnapshot(resolve(parsed.options.snapshot), (value) => dialect.validateSnapshot(value))
+        : config.schema.provider === undefined
+          ? await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value))
+          : await config.schema.provider.introspect();
     const metadata = await generateSchemaPackage(current as never, {
       outDir: fromConfig(loaded.directory, parsed.options.out ?? config.outDir),
       typePolicy: policy,
@@ -142,12 +144,15 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "drift") {
-    if (config.schema.provider === undefined) throw new Error("typed-sql drift requires schema.provider in typed-sql.config.ts");
+    if (config.schema.provider === undefined)
+      throw new Error("typed-sql drift requires schema.provider in typed-sql.config.ts");
     const generated = await loadGeneratedSchemaSnapshot(schemaFile);
     const current = await config.schema.provider.introspect();
     const drift = checkSchemaDrift(generated, current as never, policy);
     if (drift.drifted) {
-      process.stderr.write(`error TSQ301: Schema drift detected (schemaChanged=${drift.schemaChanged}, typePolicyChanged=${drift.typePolicyChanged})\n`);
+      process.stderr.write(
+        `error TSQ301: Schema drift detected (schemaChanged=${drift.schemaChanged}, typePolicyChanged=${drift.typePolicyChanged})\n`,
+      );
       process.exitCode = 1;
     } else process.stdout.write("No schema drift detected\n");
     return;

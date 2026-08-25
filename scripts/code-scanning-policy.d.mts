@@ -17,9 +17,7 @@ export interface CodeScanningPolicyOptions {
   readonly fetch?: typeof globalThis.fetch;
 }
 
-export function blockingCodeScanningAlerts(
-  alerts: readonly CodeScanningAlert[],
-): readonly CodeScanningAlert[];
+export function blockingCodeScanningAlerts(alerts: readonly CodeScanningAlert[]): readonly CodeScanningAlert[];
 export function fetchOpenCodeScanningAlerts(
   repository: string,
   options?: CodeScanningPolicyOptions,

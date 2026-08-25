@@ -13,7 +13,8 @@ export interface MySqlDialectOptions {
 
 function validateMySqlSnapshot(value: unknown): MySqlSchemaSnapshot {
   const snapshot = parseSchemaSnapshot(value);
-  if (snapshot.dialect !== "mysql") throw new TypeError(`@typed-sql/mysql cannot use a ${snapshot.dialect} schema snapshot`);
+  if (snapshot.dialect !== "mysql")
+    throw new TypeError(`@typed-sql/mysql cannot use a ${snapshot.dialect} schema snapshot`);
   return snapshot as MySqlSchemaSnapshot;
 }
 
@@ -34,17 +35,26 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
         return resolveMySqlStatement(parseStatement(sql, { syntax: "mysql" }), snapshot, { typePolicy: policy });
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
-        return { columns: [], diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }] };
+        return {
+          columns: [],
+          parameters: [],
+          diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }],
+        };
       }
     },
     validateSnapshot: validateMySqlSnapshot,
   });
 }
 
-export { parseSchemaSnapshot } from "@typed-sql/schema";
 export { sql } from "@typed-sql/core";
-export { MySqlSchemaProvider, introspectMySql, mysqlCatalogQueries } from "./provider.js";
-export { defaultMySqlTypePolicy, defaultMySqlTypePolicy as typePolicy, isKnownMySqlType, mapMySqlType } from "./type-policy.js";
-export type { MySqlTypePolicy } from "./type-policy.js";
 export type { SchemaSnapshot } from "@typed-sql/schema";
+export { parseSchemaSnapshot } from "@typed-sql/schema";
 export type { MySqlQueryable, MySqlSchemaProviderOptions } from "./provider.js";
+export { introspectMySql, MySqlSchemaProvider, mysqlCatalogQueries } from "./provider.js";
+export type { MySqlTypePolicy } from "./type-policy.js";
+export {
+  defaultMySqlTypePolicy,
+  defaultMySqlTypePolicy as typePolicy,
+  isKnownMySqlType,
+  mapMySqlType,
+} from "./type-policy.js";

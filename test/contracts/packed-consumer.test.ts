@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,12 +32,16 @@ await describe("packed public packages", async () => {
     try {
       const dependencies: Record<string, string> = {};
       for (const directory of publicPackages) {
-        const packageManifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8")) as {
+        const packageManifest = JSON.parse(
+          await readFile(join(workspace, "packages", directory, "package.json"), "utf8"),
+        ) as {
           readonly name: string;
           readonly version: string;
         };
         const before = new Set(await readdir(tarballs));
-        await execFile("pnpm", ["--silent", "--filter", packageManifest.name, "pack", "--pack-destination", tarballs], { cwd: workspace });
+        await execFile("pnpm", ["--silent", "--filter", packageManifest.name, "pack", "--pack-destination", tarballs], {
+          cwd: workspace,
+        });
         const archive = (await readdir(tarballs)).find((entry) => !before.has(entry));
         if (archive === undefined) throw new Error(`pnpm pack did not create an archive for ${packageManifest.name}`);
         dependencies[packageManifest.name] = `file:${join(tarballs, archive)}`;
@@ -45,7 +49,12 @@ await describe("packed public packages", async () => {
         strict.ok(!listing.includes("package/src/"), `${packageManifest.name} published source files`);
         strict.ok(!listing.includes("package/test/"), `${packageManifest.name} published tests`);
         strict.ok(!listing.includes(".tsbuildinfo"), `${packageManifest.name} published build state`);
-        for (const document of ["package/README.md", "package/LICENSE", "package/CHANGELOG.md", "package/package.json"]) {
+        for (const document of [
+          "package/README.md",
+          "package/LICENSE",
+          "package/CHANGELOG.md",
+          "package/package.json",
+        ]) {
           strict.ok(listing.includes(document), `${packageManifest.name} tarball must include ${document}`);
         }
         const packedManifest = JSON.parse(
@@ -58,32 +67,44 @@ await describe("packed public packages", async () => {
         strict.strictEqual(packedManifest.name, packageManifest.name);
         strict.strictEqual(packedManifest.version, packageManifest.version);
         for (const dependency of Object.values(packedManifest.dependencies ?? {})) {
-          strict.ok(!dependency.startsWith("workspace:"), `${packageManifest.name} published an unresolved workspace dependency`);
+          strict.ok(
+            !dependency.startsWith("workspace:"),
+            `${packageManifest.name} published an unresolved workspace dependency`,
+          );
         }
       }
 
-      await writeFile(join(consumer, "package.json"), `${JSON.stringify({
-        private: true,
-        type: "module",
-        dependencies,
-        pnpm: {
-          overrides: {
-            ...dependencies,
-            tsx: `link:${join(workspace, "node_modules", "tsx")}`,
-            "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
-            "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
-            "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
-            "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
-            "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,
-            "vscode-languageserver-textdocument": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver-textdocument")}`,
+      await writeFile(
+        join(consumer, "package.json"),
+        `${JSON.stringify(
+          {
+            private: true,
+            type: "module",
+            dependencies,
+            pnpm: {
+              overrides: {
+                ...dependencies,
+                tsx: `link:${join(workspace, "node_modules", "tsx")}`,
+                "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
+                "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
+                "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
+                "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
+                "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,
+                "vscode-languageserver-textdocument": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver-textdocument")}`,
+              },
+            },
           },
-        },
-      }, null, 2)}\n`);
+          null,
+          2,
+        )}\n`,
+      );
       await execFile("pnpm", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], {
         cwd: consumer,
         env: { ...isolatedEnvironment, CI: "true" },
       });
-      await writeFile(join(consumer, "verify.mjs"), `
+      await writeFile(
+        join(consumer, "verify.mjs"),
+        `
         import { createRequire } from "node:module";
         import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres";
         import { postgresRenderer } from "@typed-sql/postgres/runtime";
@@ -122,7 +143,8 @@ await describe("packed public packages", async () => {
         catch (error) { if (!String(error.message).includes("pnpm add pg")) throw error; }
         try { await loadMySql2Driver(); throw new Error("missing mysql2 did not fail"); }
         catch (error) { if (!String(error.message).includes("pnpm add mysql2")) throw error; }
-      `);
+      `,
+      );
       await execFile(process.execPath, [join(consumer, "verify.mjs")], { cwd: consumer, env: isolatedEnvironment });
       strict.ok(true);
     } finally {

@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
-import { Pool } from "pg";
+import { type PostgresSchemaSnapshot, postgres, sql, typePolicy } from "@typed-sql/postgres";
+import { createPgDatabase } from "@typed-sql/postgres/pg";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
-import { postgres, sql, typePolicy, type PostgresSchemaSnapshot } from "@typed-sql/postgres";
-import { createPgDatabase } from "@typed-sql/postgres/pg";
+import { Pool } from "pg";
+import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 
 interface CommandResult {
   readonly code: number;
@@ -18,14 +18,20 @@ interface CommandResult {
 interface GeneratedSnapshot {
   readonly dialect: string;
   readonly version?: string;
-  readonly tables: Record<string, {
-    readonly columns: Record<string, {
-      readonly databaseType: string;
-      readonly tsType: string;
-      readonly nullable: boolean;
-      readonly array?: boolean;
-    }>;
-  }>;
+  readonly tables: Record<
+    string,
+    {
+      readonly columns: Record<
+        string,
+        {
+          readonly databaseType: string;
+          readonly tsType: string;
+          readonly nullable: boolean;
+          readonly array?: boolean;
+        }
+      >;
+    }
+  >;
   readonly enums?: Record<string, readonly string[]>;
   readonly domains?: Record<string, { readonly tsType: string }>;
   readonly functions?: Record<string, { readonly returnType: string }>;
@@ -45,7 +51,8 @@ const imageName = "localhost/typed-sql-e2e-postgres:18.4";
 const connectionString = `postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
 let containerStarted = false;
 
-if (!Number.isInteger(port) || port < 1024 || port > 65_535) throw new TypeError("TYPED_SQL_E2E_PORT must be an unprivileged TCP port");
+if (!Number.isInteger(port) || port < 1024 || port > 65_535)
+  throw new TypeError("TYPED_SQL_E2E_PORT must be an unprivileged TCP port");
 
 function run(command: string, args: readonly string[], cwd = packageDirectory): Promise<CommandResult> {
   return new Promise((resolveResult, reject) => {
@@ -54,8 +61,12 @@ function run(command: string, args: readonly string[], cwd = packageDirectory): 
     let stderr = "";
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => { stdout += chunk; });
-    child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
     child.once("error", reject);
     child.once("close", (code) => resolveResult({ code: code ?? 1, stdout, stderr }));
   });
@@ -63,7 +74,8 @@ function run(command: string, args: readonly string[], cwd = packageDirectory): 
 
 async function mustRun(command: string, args: readonly string[], cwd = packageDirectory): Promise<CommandResult> {
   const result = await run(command, args, cwd);
-  if (result.code !== 0) throw new Error(`${command} ${args.join(" ")} failed (${result.code})\n${result.stdout}${result.stderr}`);
+  if (result.code !== 0)
+    throw new Error(`${command} ${args.join(" ")} failed (${result.code})\n${result.stdout}${result.stderr}`);
   return result;
 }
 
@@ -75,12 +87,18 @@ await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "
 
 try {
   await mustRun(engine, [
-    "run", "--detach",
-    "--name", containerName,
-    "--publish", `127.0.0.1:${port}:5432`,
-    "--env", "POSTGRES_DB=typed_sql_e2e",
-    "--env", "POSTGRES_USER=typed_sql",
-    "--env", "POSTGRES_PASSWORD=typed_sql_e2e",
+    "run",
+    "--detach",
+    "--name",
+    containerName,
+    "--publish",
+    `127.0.0.1:${port}:5432`,
+    "--env",
+    "POSTGRES_DB=typed_sql_e2e",
+    "--env",
+    "POSTGRES_USER=typed_sql",
+    "--env",
+    "POSTGRES_PASSWORD=typed_sql_e2e",
     imageName,
   ]);
   containerStarted = true;
@@ -92,7 +110,9 @@ try {
         const logs = await run(engine, ["logs", containerName]);
         const output = `${logs.stdout}${logs.stderr}`;
         const initializationIndex = output.lastIndexOf(initializationComplete);
-        return initializationIndex >= 0 && output.indexOf(acceptingConnections, initializationIndex) > initializationIndex;
+        return (
+          initializationIndex >= 0 && output.indexOf(acceptingConnections, initializationIndex) > initializationIndex
+        );
       },
       true,
       { interval: 250, timeout: 60_000, strict: true },
@@ -101,10 +121,17 @@ try {
     await waitForExpectedResult(
       async () => {
         const result = await run(engine, [
-          "exec", containerName,
-          "psql", "--username", "typed_sql", "--dbname", "typed_sql_e2e",
-          "--tuples-only", "--no-align",
-          "--command", "SELECT count(*) FROM public.users",
+          "exec",
+          containerName,
+          "psql",
+          "--username",
+          "typed_sql",
+          "--dbname",
+          "typed_sql_e2e",
+          "--tuples-only",
+          "--no-align",
+          "--command",
+          "SELECT count(*) FROM public.users",
         ]);
         return result.code === 0 ? result.stdout.trim() : "";
       },
@@ -114,18 +141,18 @@ try {
   } catch (error) {
     const state = await run(engine, ["inspect", "--format", "{{json .State}}", containerName]);
     const logs = await run(engine, ["logs", containerName]);
-    throw new Error([
-      error instanceof Error ? error.message : String(error),
-      `Container state: ${state.stdout}${state.stderr}`,
-      `Container logs:\n${logs.stdout}${logs.stderr}`,
-    ].join("\n"));
+    throw new Error(
+      [
+        error instanceof Error ? error.message : String(error),
+        `Container state: ${state.stdout}${state.stderr}`,
+        `Container logs:\n${logs.stdout}${logs.stderr}`,
+      ].join("\n"),
+    );
   }
 
   await describe("developer PostgreSQL flow", async () => {
     await it("generates a package through the public CLI", async () => {
-      const result = await cli(
-        "generate", "--config", join(packageDirectory, "typed-sql.config.ts"),
-      );
+      const result = await cli("generate", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.ok(result.stdout.includes("Generated schema"));
       log(`Generated developer package at ${generatedDatabaseDirectory}`);
     });
@@ -149,9 +176,13 @@ try {
 
     await it("checks inferred application types with TypeScript 7", async () => {
       await cli(
-        "check", "--config", join(packageDirectory, "typed-sql.config.ts"),
-        "--file", join(packageDirectory, "src/query.ts"),
-        "--project", join(packageDirectory, "tsconfig.json"),
+        "check",
+        "--config",
+        join(packageDirectory, "typed-sql.config.ts"),
+        "--file",
+        join(packageDirectory, "src/query.ts"),
+        "--project",
+        join(packageDirectory, "tsconfig.json"),
       );
     });
 
@@ -168,7 +199,7 @@ try {
           analysis,
         });
         strict.ok(inspections[0]?.typeText.startsWith("Query<"));
-        strict.ok(inspections[0]?.typeText.includes("status: \"active\" | \"suspended\""));
+        strict.ok(inspections[0]?.typeText.includes('status: "active" | "suspended"'));
         strict.ok(inspections[0]?.typeText.includes("budget: string | null"));
         strict.ok(!inspections[0]?.typeText.includes("unknown"));
         strict.strictEqual(inspections.length, 4);
@@ -177,9 +208,9 @@ try {
         strict.ok(inspections[1]?.typeText.includes("total_budget: string | null"));
         strict.ok(!inspections[1]?.typeText.includes("unknown"));
         strict.ok(inspections[2]?.typeText.includes("id: bigint"));
-        strict.ok(inspections[2]?.typeText.includes("status: \"active\" | \"suspended\""));
+        strict.ok(inspections[2]?.typeText.includes('status: "active" | "suspended"'));
         strict.ok(!inspections[2]?.typeText.includes("unknown"));
-        strict.strictEqual(inspections[3]?.typeText, "Query<never>");
+        strict.strictEqual(inspections[3]?.typeText, "Query<never, readonly [unknown, bigint]>");
       } finally {
         await bridge.close();
       }
@@ -207,9 +238,15 @@ try {
           `,
           values: [1],
         });
-        strict.deepStrictEqual(result.fields.map((field) => [field.name, field.dataTypeID]), [
-          ["id", 20], ["plan", 25], ["project_count", 20], ["total_budget", 1700],
-        ]);
+        strict.deepStrictEqual(
+          result.fields.map((field) => [field.name, field.dataTypeID]),
+          [
+            ["id", 20],
+            ["plan", 25],
+            ["project_count", 20],
+            ["total_budget", 1700],
+          ],
+        );
         strict.deepStrictEqual(result.rows, [
           { id: "1", plan: "pro", project_count: "1", total_budget: "12500.50" },
           { id: "2", plan: "free", project_count: null, total_budget: null },
@@ -302,21 +339,29 @@ try {
     });
 
     await it("reports no drift for the unchanged database", async () => {
-      const result = await cli(
-        "drift", "--config", join(packageDirectory, "typed-sql.config.ts"),
-      );
+      const result = await cli("drift", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.ok(result.stdout.includes("No schema drift detected"));
     });
 
     await it("detects a real catalog change as TSQ301", async () => {
       await mustRun(engine, [
-        "exec", containerName,
-        "psql", "--username", "typed_sql", "--dbname", "typed_sql_e2e",
-        "--set", "ON_ERROR_STOP=1",
-        "--command", "ALTER TABLE public.projects ADD COLUMN archived boolean NOT NULL DEFAULT false",
+        "exec",
+        containerName,
+        "psql",
+        "--username",
+        "typed_sql",
+        "--dbname",
+        "typed_sql_e2e",
+        "--set",
+        "ON_ERROR_STOP=1",
+        "--command",
+        "ALTER TABLE public.projects ADD COLUMN archived boolean NOT NULL DEFAULT false",
       ]);
       const result = await run(process.execPath, [
-        cliFile, "drift", "--config", join(packageDirectory, "typed-sql.config.ts"),
+        cliFile,
+        "drift",
+        "--config",
+        join(packageDirectory, "typed-sql.config.ts"),
       ]);
       strict.strictEqual(result.code, 1);
       strict.ok(result.stderr.includes("TSQ301"));

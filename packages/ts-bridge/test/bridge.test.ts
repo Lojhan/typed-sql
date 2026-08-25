@@ -2,13 +2,10 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
+import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
-import { postgres, type PostgresSchemaSnapshot } from "../../postgres/src/index.js";
 import { analyzeSource, queryAtPosition } from "../src/index.js";
-import {
-  NativePreviewTypeScriptBridge,
-  TYPESCRIPT_PREVIEW_VERSION,
-} from "../src/native-preview.js";
+import { NativePreviewTypeScriptBridge, TYPESCRIPT_PREVIEW_VERSION } from "../src/native-preview.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(testDirectory, "../../..");
@@ -27,10 +24,48 @@ await describe("TypeScript 7 editor bridge", async () => {
   await it("creates an editor-neutral inferred query and binding range", () => {
     const query = analysis.queries[0];
     strict.strictEqual(query?.rowType, '{ "id": number; "name": string; "age": bigint | null; }');
-    strict.strictEqual(query?.queryType, 'Query<{ "id": number; "name": string; "age": bigint | null; }>');
+    strict.strictEqual(query?.parameterType, "readonly []");
+    strict.strictEqual(query?.queryType, 'Query<{ "id": number; "name": string; "age": bigint | null; }, readonly []>');
     strict.strictEqual(query?.binding?.name, "query");
-    strict.ok(analysis.transformedSource.includes('sql<{ "id": number; "name": string; "age": bigint | null; }>`'));
+    strict.ok(
+      analysis.transformedSource.includes('sql<{ "id": number; "name": string; "age": bigint | null; }, readonly []>`'),
+    );
     strict.strictEqual(queryAtPosition(analysis, query?.binding?.range.start ?? -1), query);
+  });
+
+  await it("maps cumulative append fragment overlays without producing partial-query diagnostics", () => {
+    const composedSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      "const base = sql`SELECT users.id, users.name FROM users`;",
+      "const query = sql.append(",
+      "  base,",
+      "  sql.fragment` WHERE 1 = 1`,",
+      "  sql.fragment` AND users.id >= ${1}`,",
+      ");",
+    ].join("\n");
+    const composed = analyzeSource(composedSource, schema as PostgresSchemaSnapshot, postgres());
+    strict.deepStrictEqual(composed.diagnostics, []);
+    strict.strictEqual(composed.insertions.length, 3);
+    strict.ok(composed.transformedSource.includes("sql.fragment<readonly [number]>` AND users.id"));
+    strict.ok(
+      composed.insertions.every(
+        (insertion, index, values) => index === 0 || insertion.position >= (values[index - 1]?.position ?? 0),
+      ),
+    );
+  });
+
+  await it("maps conditional structural fragment overlays as complete SQL variants", () => {
+    const structuralSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      "interface Selection { readonly age: boolean }",
+      "function users<const Select extends Selection>(select: Select) {",
+      "  return sql`SELECT users.id${select.age ? sql.fragment`, users.age` : sql.empty} FROM users`;",
+      "}",
+    ].join("\n");
+    const structural = analyzeSource(structuralSource, schema as PostgresSchemaSnapshot, postgres());
+    strict.deepStrictEqual(structural.diagnostics, []);
+    strict.ok(structural.transformedSource.includes('sql.__typed<Select["age"] extends true'));
+    strict.strictEqual(structural.insertions.length, 2);
   });
 
   await it("gets the authoritative Query row from the published TypeScript preview API", async () => {
@@ -59,7 +94,10 @@ await describe("TypeScript 7 editor bridge", async () => {
       ]);
       strict.strictEqual(inspections.size, 2);
       strict.ok(inspections.get(queryFile)?.[0]?.typeText.includes("age: bigint | null"));
-      strict.ok(inspections.get(secondQueryFile)?.[0]?.typeText.includes("user_id: number"), inspections.get(secondQueryFile)?.[0]?.typeText);
+      strict.ok(
+        inspections.get(secondQueryFile)?.[0]?.typeText.includes("user_id: number"),
+        inspections.get(secondQueryFile)?.[0]?.typeText,
+      );
       strict.ok(!inspections.get(secondQueryFile)?.[0]?.typeText.includes("unknown"));
     } finally {
       await bridge.close();

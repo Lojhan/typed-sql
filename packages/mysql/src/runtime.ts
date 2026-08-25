@@ -1,4 +1,4 @@
-import { renderQuery, type Database, type Query, type SqlRenderer } from "@typed-sql/core";
+import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
 import type { MySqlTypePolicy } from "./type-policy.js";
 
 export interface MySqlFieldLike {
@@ -59,7 +59,8 @@ function encoded(value: unknown): unknown {
 
 function finite(value: string, label: string): number {
   const result = Number(value);
-  if (!Number.isFinite(result)) throw new RangeError(`${label} value ${value} cannot be represented as a finite number`);
+  if (!Number.isFinite(result))
+    throw new RangeError(`${label} value ${value} cannot be represented as a finite number`);
   return result;
 }
 
@@ -74,7 +75,8 @@ function decode(
     if (policy.bigint === "bigint") return BigInt(String(value));
     if (policy.bigint === "number") {
       const result = finite(String(value), "bigint");
-      if (!Number.isSafeInteger(result)) throw new RangeError(`bigint value ${value} exceeds JavaScript's safe integer range`);
+      if (!Number.isSafeInteger(result))
+        throw new RangeError(`bigint value ${value} exceeds JavaScript's safe integer range`);
       return result;
     }
     return String(value);
@@ -90,8 +92,10 @@ function decode(
   if ([mysqlTypes.date, mysqlTypes.datetime, mysqlTypes.timestamp].includes(field.columnType as 7 | 10 | 12)) {
     return policy.date === "string" ? String(value) : value instanceof Date ? value : new Date(String(value));
   }
-  if (field.columnType === mysqlTypes.json && policy.json === "string") return typeof value === "string" ? value : JSON.stringify(value);
-  if (field.columnType === mysqlTypes.tiny && field.columnLength === 1 && policy.tinyint1 === "boolean") return value === true || value === 1 || value === "1";
+  if (field.columnType === mysqlTypes.json && policy.json === "string")
+    return typeof value === "string" ? value : JSON.stringify(value);
+  if (field.columnType === mysqlTypes.tiny && field.columnLength === 1 && policy.tinyint1 === "boolean")
+    return value === true || value === 1 || value === "1";
   return value;
 }
 
@@ -103,7 +107,14 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #depth: number;
 
-  constructor(pool: MySqlPoolLike, connection: MySqlConnectionLike | undefined, ownsPool: boolean, policy: NonNullable<MySqlDatabaseOptions["typePolicy"]>, decimal: ((value: string) => unknown) | undefined, depth: number) {
+  constructor(
+    pool: MySqlPoolLike,
+    connection: MySqlConnectionLike | undefined,
+    ownsPool: boolean,
+    policy: NonNullable<MySqlDatabaseOptions["typePolicy"]>,
+    decimal: ((value: string) => unknown) | undefined,
+    depth: number,
+  ) {
     this.#pool = pool;
     this.#connection = connection;
     this.#ownsPool = ownsPool;
@@ -112,15 +123,19 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#depth = depth;
   }
 
-  async execute<Row>(query: Query<Row>): Promise<readonly Row[]> {
+  async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     const rendered = renderQuery(query, mysqlRenderer);
     const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encoded));
     if (!Array.isArray(result.rows)) return [];
     const fields = result.fields ?? [];
-    return result.rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => {
-      const field = fields.find((candidate) => candidate.name === key);
-      return [key, field === undefined ? value : decode(value, field, this.#policy, this.#decimal)];
-    }))) as unknown as readonly Row[];
+    return result.rows.map((row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([key, value]) => {
+          const field = fields.find((candidate) => candidate.name === key);
+          return [key, field === undefined ? value : decode(value, field, this.#policy, this.#decimal)];
+        }),
+      ),
+    ) as unknown as readonly Row[];
   }
 
   async transaction<T>(fn: (database: Database) => Promise<T>): Promise<T> {
@@ -128,13 +143,21 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     const connection = await this.#pool.getConnection();
     try {
       await connection.beginTransaction();
-      const result = await fn(new MySqlDatabaseImplementation(this.#pool, connection, false, this.#policy, this.#decimal, 1));
+      const result = await fn(
+        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#policy, this.#decimal, 1),
+      );
       await connection.commit();
       return result;
     } catch (error) {
-      try { await connection.rollback(); } catch { /* Preserve the original failure. */ }
+      try {
+        await connection.rollback();
+      } catch {
+        /* Preserve the original failure. */
+      }
       throw error;
-    } finally { connection.release(); }
+    } finally {
+      connection.release();
+    }
   }
 
   async #nested<T>(fn: (database: Database) => Promise<T>): Promise<T> {
@@ -143,7 +166,9 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     const savepoint = `typed_sql_${depth}`;
     await connection.query(`SAVEPOINT ${savepoint}`);
     try {
-      const result = await fn(new MySqlDatabaseImplementation(this.#pool, connection, false, this.#policy, this.#decimal, depth));
+      const result = await fn(
+        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#policy, this.#decimal, depth),
+      );
       await connection.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
@@ -160,6 +185,14 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
 
 export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabase {
   const policy = { ...defaultRuntimePolicy, ...options.typePolicy };
-  if (policy.decimal === "Decimal" && options.decimal === undefined) throw new TypeError("decimal=Decimal requires a decimal(value) codec");
-  return new MySqlDatabaseImplementation(options.pool, undefined, options.ownsPool ?? false, policy, options.decimal, 0);
+  if (policy.decimal === "Decimal" && options.decimal === undefined)
+    throw new TypeError("decimal=Decimal requires a decimal(value) codec");
+  return new MySqlDatabaseImplementation(
+    options.pool,
+    undefined,
+    options.ownsPool ?? false,
+    policy,
+    options.decimal,
+    0,
+  );
 }

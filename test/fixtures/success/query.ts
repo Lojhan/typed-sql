@@ -1,9 +1,7 @@
 import { sql } from "@typed-sql/postgres";
 import { db } from "./database.js";
 
-type Equal<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends
-  (<T>() => T extends B ? 1 : 2) ? true : false;
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Assert<T extends true> = T;
 
 const query = sql`

@@ -1,7 +1,14 @@
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import type { MySqlSchemaSnapshot } from "./index.js";
-import { MySqlSchemaProvider, type MySqlQueryable } from "./provider.js";
-import { createMySqlDatabase, type MySqlConnectionLike, type MySqlDatabase, type MySqlExecutionResult, type MySqlFieldLike, type MySqlPoolLike } from "./runtime.js";
+import { type MySqlQueryable, MySqlSchemaProvider } from "./provider.js";
+import {
+  createMySqlDatabase,
+  type MySqlConnectionLike,
+  type MySqlDatabase,
+  type MySqlExecutionResult,
+  type MySqlFieldLike,
+  type MySqlPoolLike,
+} from "./runtime.js";
 import type { MySqlTypePolicy } from "./type-policy.js";
 
 export interface MySql2Options {
@@ -35,7 +42,10 @@ export async function loadMySql2Driver(
     return await importer();
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ERR_MODULE_NOT_FOUND") {
-      throw new Error("@typed-sql/mysql/mysql2 requires the application-owned mysql2 driver. Install it with: pnpm add mysql2", { cause: error });
+      throw new Error(
+        "@typed-sql/mysql/mysql2 requires the application-owned mysql2 driver. Install it with: pnpm add mysql2",
+        { cause: error },
+      );
     }
     throw error;
   }
@@ -51,11 +61,18 @@ function fields(values: readonly FieldPacket[]): readonly MySqlFieldLike[] {
   return values.map((field) => ({
     name: field.name,
     columnType: field.columnType ?? field.type ?? 0,
-    ...(field.columnLength === undefined && field.length === undefined ? {} : { columnLength: field.columnLength ?? field.length }),
+    ...(field.columnLength === undefined && field.length === undefined
+      ? {}
+      : { columnLength: field.columnLength ?? field.length }),
   }));
 }
 
-async function execute(value: Executable, method: "execute" | "query", sql: string, values?: readonly unknown[]): Promise<MySqlExecutionResult> {
+async function execute(
+  value: Executable,
+  method: "execute" | "query",
+  sql: string,
+  values?: readonly unknown[],
+): Promise<MySqlExecutionResult> {
   const [rows, metadata] = await value[method](sql, values);
   return {
     rows: rows as readonly Record<string, unknown>[] | Record<string, unknown>,
@@ -79,8 +96,12 @@ export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
   const executable = pool as unknown as Executable;
   return {
     execute: (sql, values) => execute(executable, "execute", sql, values),
-    async getConnection(): Promise<MySqlConnectionLike> { return connectionAdapter(await pool.getConnection()); },
-    async end(): Promise<void> { await pool.end(); },
+    async getConnection(): Promise<MySqlConnectionLike> {
+      return connectionAdapter(await pool.getConnection());
+    },
+    async end(): Promise<void> {
+      await pool.end();
+    },
   };
 }
 
@@ -106,13 +127,14 @@ export function mysql2(options: MySql2SchemaProviderOptions): { introspect(): Pr
   return {
     async introspect(): Promise<MySqlSchemaSnapshot> {
       if (options.client !== undefined) {
-        return await new MySqlSchemaProvider({
+        return (await new MySqlSchemaProvider({
           client: options.client,
           ...(options.schemas === undefined ? {} : { includeSchemas: options.schemas }),
           ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-        }).introspect({}) as MySqlSchemaSnapshot;
+        }).introspect({})) as MySqlSchemaSnapshot;
       }
-      if (options.connectionUri === undefined) throw new TypeError("mysql2 schema provider requires connectionUri or client");
+      if (options.connectionUri === undefined)
+        throw new TypeError("mysql2 schema provider requires connectionUri or client");
       const driver = await loadMySql2Driver(options.driverImporter);
       const pool = driver.createPool({ ...options.poolConfig, uri: await uri(options.connectionUri) });
       const executable = pool as unknown as Executable;
@@ -123,12 +145,14 @@ export function mysql2(options: MySql2SchemaProviderOptions): { introspect(): Pr
         },
       };
       try {
-        return await new MySqlSchemaProvider({
+        return (await new MySqlSchemaProvider({
           client,
           ...(options.schemas === undefined ? {} : { includeSchemas: options.schemas }),
           ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-        }).introspect({}) as MySqlSchemaSnapshot;
-      } finally { await pool.end(); }
+        }).introspect({})) as MySqlSchemaSnapshot;
+      } finally {
+        await pool.end();
+      }
     },
   };
 }

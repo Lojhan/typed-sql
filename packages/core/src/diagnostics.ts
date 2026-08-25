@@ -1,6 +1,7 @@
 export const diagnosticRegistry = Object.freeze({
   TSQ001: { category: "syntax", summary: "SQL syntax could not be parsed." },
   TSQ002: { category: "resource", summary: "SQL exceeded a parser resource limit." },
+  TSQ003: { category: "resource", summary: "Conditional SQL exceeded the structural variant limit." },
   TSQ007: { category: "contract", summary: "The schema snapshot and dialect do not match." },
   TSQ100: { category: "schema", summary: "A referenced table does not exist." },
   TSQ101: { category: "schema", summary: "A referenced column does not exist." },
@@ -14,6 +15,7 @@ export const diagnosticRegistry = Object.freeze({
   TSQ202: { category: "type", summary: "A function is unknown." },
   TSQ203: { category: "type", summary: "An operator cannot be inferred safely." },
   TSQ204: { category: "type", summary: "A function overload is ambiguous." },
+  TSQ205: { category: "type", summary: "A composed parameter has incompatible structural contexts." },
   TSQ210: { category: "support", summary: "Recursive CTE inference is not supported safely." },
   TSQ211: { category: "schema", summary: "A CTE name is duplicated." },
   TSQ212: { category: "result", summary: "A CTE does not return rows." },

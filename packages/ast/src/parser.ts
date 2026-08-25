@@ -1,6 +1,5 @@
-import { SqlTokenizeError, tokenize, type TokenizeOptions } from "./tokenizer.js";
+import { SqlTokenizeError, type TokenizeOptions, tokenize } from "./tokenizer.js";
 import {
-  mergeRanges,
   type BetweenExpression,
   type CaseBranch,
   type CommonTableExpression,
@@ -10,6 +9,7 @@ import {
   type InsertStatement,
   type JoinClause,
   type JoinKind,
+  mergeRanges,
   type NamedTableReference,
   type NamedWindow,
   type OrderByItem,
@@ -48,16 +48,52 @@ export class SqlParseError extends Error {
 const precedence = new Map<string, number>([
   ["OR", 1],
   ["AND", 2],
-  ["=", 3], ["!=", 3], ["<>", 3], ["<", 3], ["<=", 3], [">", 3], [">=", 3],
-  ["IS", 3], ["LIKE", 3], ["ILIKE", 3], ["SIMILAR TO", 3], ["~", 3], ["~*", 3], ["!~", 3], ["!~*", 3],
-  ["@>", 3], ["<@", 3], ["?", 3], ["?|", 3], ["?&", 3], ["&&", 3],
-  ["||", 4], ["->", 4], ["->>", 4], ["#>", 4], ["#>>", 4],
-  ["+", 5], ["-", 5], ["*", 6], ["/", 6], ["%", 6], ["^", 7],
+  ["=", 3],
+  ["!=", 3],
+  ["<>", 3],
+  ["<", 3],
+  ["<=", 3],
+  [">", 3],
+  [">=", 3],
+  ["IS", 3],
+  ["LIKE", 3],
+  ["ILIKE", 3],
+  ["SIMILAR TO", 3],
+  ["~", 3],
+  ["~*", 3],
+  ["!~", 3],
+  ["!~*", 3],
+  ["@>", 3],
+  ["<@", 3],
+  ["?", 3],
+  ["?|", 3],
+  ["?&", 3],
+  ["&&", 3],
+  ["||", 4],
+  ["->", 4],
+  ["->>", 4],
+  ["#>", 4],
+  ["#>>", 4],
+  ["+", 5],
+  ["-", 5],
+  ["*", 6],
+  ["/", 6],
+  ["%", 6],
+  ["^", 7],
 ]);
 
 const typeContinuationWords = new Set([
-  "BIT", "CHARACTER", "DOUBLE", "INTERVAL", "PRECISION", "TIME", "TIMESTAMP",
-  "VARYING", "WITH", "WITHOUT", "ZONE",
+  "BIT",
+  "CHARACTER",
+  "DOUBLE",
+  "INTERVAL",
+  "PRECISION",
+  "TIME",
+  "TIMESTAMP",
+  "VARYING",
+  "WITH",
+  "WITHOUT",
+  "ZONE",
 ]);
 
 class Parser {
@@ -73,7 +109,8 @@ class Parser {
     this.#tokens = tokenize(source, options);
     this.#maxDepth = options.maxDepth ?? DEFAULT_MAX_PARSE_DEPTH;
     this.#syntax = options.syntax ?? "postgres";
-    if (!Number.isSafeInteger(this.#maxDepth) || this.#maxDepth < 1) throw new TypeError("maxDepth must be a positive safe integer");
+    if (!Number.isSafeInteger(this.#maxDepth) || this.#maxDepth < 1)
+      throw new TypeError("maxDepth must be a positive safe integer");
   }
 
   parse(): Statement {
@@ -90,7 +127,10 @@ class Parser {
       if (this.#current().value === "INSERT") return this.#parseInsert(withClause);
       if (this.#current().value === "UPDATE") return this.#parseUpdate(withClause);
       if (this.#current().value === "DELETE") return this.#parseDelete(withClause);
-      throw this.#error(`Expected SELECT, INSERT, UPDATE, or DELETE, found ${this.#current().text || "end of query"}`, this.#current().range);
+      throw this.#error(
+        `Expected SELECT, INSERT, UPDATE, or DELETE, found ${this.#current().text || "end of query"}`,
+        this.#current().range,
+      );
     });
   }
 
@@ -103,7 +143,8 @@ class Parser {
       const columns: Identifier[] = [];
       if (this.#matchPunctuation("(")) {
         if (!this.#matchPunctuation(")")) {
-          do columns.push(this.#parseIdentifier()); while (this.#matchPunctuation(","));
+          do columns.push(this.#parseIdentifier());
+          while (this.#matchPunctuation(","));
           this.#expectPunctuation(")");
         }
       }
@@ -205,7 +246,8 @@ class Parser {
     const columns: Identifier[] = [];
     if (this.#matchPunctuation("(")) {
       if (!this.#matchPunctuation(")")) {
-        do columns.push(this.#parseIdentifier()); while (this.#matchPunctuation(","));
+        do columns.push(this.#parseIdentifier());
+        while (this.#matchPunctuation(","));
         this.#expectPunctuation(")");
       }
     }
@@ -282,7 +324,8 @@ class Parser {
     const table = this.#parseNamedTableReference(true);
     const using: TableReference[] = [];
     if (this.#matchKeyword("USING")) {
-      do using.push(this.#parseTableReference()); while (this.#matchPunctuation(","));
+      do using.push(this.#parseTableReference());
+      while (this.#matchPunctuation(","));
     }
     const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
     const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
@@ -303,8 +346,13 @@ class Parser {
       const expression = this.#parseExpression();
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") alias = this.#parseIdentifier();
-      items.push({ expression, ...(alias === undefined ? {} : { alias }), range: mergeRanges(expression.range, alias?.range ?? expression.range) });
+      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+        alias = this.#parseIdentifier();
+      items.push({
+        expression,
+        ...(alias === undefined ? {} : { alias }),
+        range: mergeRanges(expression.range, alias?.range ?? expression.range),
+      });
     } while (this.#matchPunctuation(","));
     return items;
   }
@@ -336,7 +384,8 @@ class Parser {
     }
     let alias: Identifier | undefined;
     if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-    else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")) alias = this.#parseIdentifier();
+    else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier"))
+      alias = this.#parseIdentifier();
     return {
       kind: "table",
       name,
@@ -370,7 +419,8 @@ class Parser {
     if (this.#matchKeyword("USING")) {
       this.#expectPunctuation("(");
       const using: Identifier[] = [];
-      do using.push(this.#parseIdentifier()); while (this.#matchPunctuation(","));
+      do using.push(this.#parseIdentifier());
+      while (this.#matchPunctuation(","));
       const close = this.#expectPunctuation(")");
       return { kind, table, using, range: mergeRanges(start, close.range) };
     }
@@ -379,7 +429,8 @@ class Parser {
 
   #parseExpressionList(): readonly Expression[] {
     const expressions: Expression[] = [];
-    do expressions.push(this.#parseExpression()); while (this.#matchPunctuation(","));
+    do expressions.push(this.#parseExpression());
+    while (this.#matchPunctuation(","));
     return expressions;
   }
 
@@ -389,7 +440,13 @@ class Parser {
       const expression = this.#parseExpression();
       const direction = this.#matchKeyword("ASC") ? "asc" : this.#matchKeyword("DESC") ? "desc" : undefined;
       let nulls: "first" | "last" | undefined;
-      if (this.#matchKeyword("NULLS")) nulls = this.#matchKeyword("FIRST") ? "first" : (this.#expectKeyword("LAST"), "last");
+      if (this.#matchKeyword("NULLS")) {
+        if (this.#matchKeyword("FIRST")) nulls = "first";
+        else {
+          this.#expectKeyword("LAST");
+          nulls = "last";
+        }
+      }
       orderBy.push({
         expression,
         ...(direction === undefined ? {} : { direction }),
@@ -406,11 +463,19 @@ class Parser {
       while (true) {
         if (this.#syntax === "postgres" && this.#matchOperator("::")) {
           const databaseType = this.#parseTypeName(false);
-          left = { kind: "cast", expression: left, databaseType, syntax: "postgres", range: mergeRanges(left.range, databaseType.range) };
+          left = {
+            kind: "cast",
+            expression: left,
+            databaseType,
+            syntax: "postgres",
+            range: mergeRanges(left.range, databaseType.range),
+          };
           continue;
         }
 
-        const negated = this.#current().value === "NOT" && ["IN", "BETWEEN", "LIKE", "ILIKE", "SIMILAR"].includes(this.#peekToken(1).value);
+        const negated =
+          this.#current().value === "NOT" &&
+          ["IN", "BETWEEN", "LIKE", "ILIKE", "SIMILAR"].includes(this.#peekToken(1).value);
         const special = negated ? this.#peekToken(1).value : this.#current().value;
         if (special === "IN") {
           const strength = 3;
@@ -425,7 +490,8 @@ class Parser {
             if (statement.kind !== "select") throw this.#error("IN subquery must be SELECT", statement.range);
             values = statement;
           } else {
-            if (this.#current().value === ")") throw this.#error("IN requires at least one value", this.#current().range);
+            if (this.#current().value === ")")
+              throw this.#error("IN requires at least one value", this.#current().range);
             values = this.#parseExpressionList();
           }
           const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
@@ -440,7 +506,14 @@ class Parser {
           const lower = this.#parseExpression(strength + 1);
           this.#expectKeyword("AND");
           const upper = this.#parseExpression(strength + 1);
-          left = { kind: "between", expression: left, lower, upper, negated, range: mergeRanges(left.range, upper.range) } satisfies BetweenExpression;
+          left = {
+            kind: "between",
+            expression: left,
+            lower,
+            upper,
+            negated,
+            range: mergeRanges(left.range, upper.range),
+          } satisfies BetweenExpression;
           continue;
         }
 
@@ -470,7 +543,12 @@ class Parser {
     const token = this.#current();
     if (this.#matchKeyword("NOT") || this.#matchOperator("+") || this.#matchOperator("-") || this.#matchOperator("~")) {
       const expression = this.#parseUnary();
-      return { kind: "unary", operator: token.value.toUpperCase(), expression, range: mergeRanges(token.range, expression.range) };
+      return {
+        kind: "unary",
+        operator: token.value.toUpperCase(),
+        expression,
+        range: mergeRanges(token.range, expression.range),
+      };
     }
     if (this.#matchKeyword("EXISTS")) {
       this.#expectPunctuation("(");
@@ -494,7 +572,8 @@ class Parser {
       const first = this.#parseExpression();
       if (this.#matchPunctuation(",")) {
         const elements = [first];
-        do elements.push(this.#parseExpression()); while (this.#matchPunctuation(","));
+        do elements.push(this.#parseExpression());
+        while (this.#matchPunctuation(","));
         const close = this.#expectPunctuation(")");
         return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
       }
@@ -518,7 +597,8 @@ class Parser {
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
     if (this.#matchKeyword("FALSE")) return { kind: "literal", value: false, range: token.range };
-    if (this.#matchKeyword("DEFAULT")) return { kind: "column", column: { name: "DEFAULT", quoted: false, range: token.range }, range: token.range };
+    if (this.#matchKeyword("DEFAULT"))
+      return { kind: "column", column: { name: "DEFAULT", quoted: false, range: token.range }, range: token.range };
     if (token.kind === "number") {
       this.#advance();
       return { kind: "literal", value: Number(token.value), range: token.range };
@@ -536,7 +616,8 @@ class Parser {
       const first = this.#parseIdentifier(true);
       if (this.#matchPunctuation("(")) return this.#parseCall(undefined, first);
       if (this.#matchPunctuation(".")) {
-        if (this.#matchOperator("*")) return { kind: "star", relation: first, range: mergeRanges(first.range, this.#previous().range) };
+        if (this.#matchOperator("*"))
+          return { kind: "star", relation: first, range: mergeRanges(first.range, this.#previous().range) };
         const second = this.#parseIdentifier(true);
         if (this.#matchPunctuation("(")) return this.#parseCall(first, second);
         return { kind: "column", relation: first, column: second, range: mergeRanges(first.range, second.range) };
@@ -552,7 +633,8 @@ class Parser {
     let close: Token;
     if (this.#matchPunctuation(")")) close = this.#previous();
     else {
-      do args.push(this.#parseExpression()); while (this.#matchPunctuation(","));
+      do args.push(this.#parseExpression());
+      while (this.#matchPunctuation(","));
       close = this.#expectPunctuation(")");
     }
     let filter: Expression | undefined;
@@ -564,7 +646,8 @@ class Parser {
     }
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
-      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") over = this.#parseIdentifier();
+      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+        over = this.#parseIdentifier();
       else over = this.#parseWindowSpecification();
       close = { ...close, range: over.range };
     }
@@ -607,7 +690,8 @@ class Parser {
 
   #parseTypeName(stopAtClose: boolean): TypeName {
     const start = this.#current();
-    if (!this.#isIdentifierLike(start)) throw this.#error(`Expected identifier, found ${start.text || "end of query"}`, start.range);
+    if (!this.#isIdentifierLike(start))
+      throw this.#error(`Expected identifier, found ${start.text || "end of query"}`, start.range);
     this.#advance();
     let end = start;
     let schemaSeparatorAllowed = true;
@@ -641,8 +725,12 @@ class Parser {
       }
       break;
     }
-    if (stopAtClose && this.#current().value !== ")") throw this.#error(`Expected ) after type name, found ${this.#current().text}`, this.#current().range);
-    return { name: this.#source.slice(start.range.start, end.range.end).trim(), range: mergeRanges(start.range, end.range) };
+    if (stopAtClose && this.#current().value !== ")")
+      throw this.#error(`Expected ) after type name, found ${this.#current().text}`, this.#current().range);
+    return {
+      name: this.#source.slice(start.range.start, end.range.end).trim(),
+      range: mergeRanges(start.range, end.range),
+    };
   }
 
   #parseCase(start: SourceRange): Expression {
@@ -728,19 +816,22 @@ class Parser {
 
   #expectKeyword(keyword: string): Token {
     const token = this.#current();
-    if (!this.#matchKeyword(keyword)) throw this.#error(`Expected ${keyword}, found ${token.text || "end of query"}`, token.range);
+    if (!this.#matchKeyword(keyword))
+      throw this.#error(`Expected ${keyword}, found ${token.text || "end of query"}`, token.range);
     return token;
   }
 
   #expectOperator(operator: string): Token {
     const token = this.#current();
-    if (!this.#matchOperator(operator)) throw this.#error(`Expected ${operator}, found ${token.text || "end of query"}`, token.range);
+    if (!this.#matchOperator(operator))
+      throw this.#error(`Expected ${operator}, found ${token.text || "end of query"}`, token.range);
     return token;
   }
 
   #expectPunctuation(value: string): Token {
     const token = this.#current();
-    if (!this.#matchPunctuation(value)) throw this.#error(`Expected ${value}, found ${token.text || "end of query"}`, token.range);
+    if (!this.#matchPunctuation(value))
+      throw this.#error(`Expected ${value}, found ${token.text || "end of query"}`, token.range);
     return token;
   }
 
@@ -755,9 +846,17 @@ class Parser {
     this.#depth += 1;
     if (this.#depth > this.#maxDepth) {
       this.#depth -= 1;
-      throw this.#error(`SQL exceeds the ${this.#maxDepth} level parser nesting limit`, this.#current().range, "TSQ002");
+      throw this.#error(
+        `SQL exceeds the ${this.#maxDepth} level parser nesting limit`,
+        this.#current().range,
+        "TSQ002",
+      );
     }
-    try { return fn(); } finally { this.#depth -= 1; }
+    try {
+      return fn();
+    } finally {
+      this.#depth -= 1;
+    }
   }
 
   #error(message: string, range: SourceRange, code = "TSQ001"): SqlParseError {
@@ -780,6 +879,7 @@ export function parseStatement(source: string, options: ParseOptions = {}): Stat
 
 export function parseSelect(source: string, options: ParseOptions = {}): SelectStatement {
   const statement = parse(source, options);
-  if (statement.kind !== "select") throw new SqlParseError(`Expected SELECT, found ${statement.kind.toUpperCase()}`, statement.range);
+  if (statement.kind !== "select")
+    throw new SqlParseError(`Expected SELECT, found ${statement.kind.toUpperCase()}`, statement.range);
   return statement;
 }
