@@ -9,6 +9,7 @@ import {
   publicationCommands,
   publishPrerelease,
 } from "../../scripts/publish-prerelease.mjs";
+import { validateReleaseManifest } from "../../scripts/release-policy.mjs";
 
 const plan: PrereleasePlan = {
   npmTag: "next",
@@ -20,6 +21,48 @@ const plan: PrereleasePlan = {
 };
 
 await describe("prerelease publisher", async () => {
+  await it("enforces disjoint stable and experimental release tracks", () => {
+    const stable = validateReleaseManifest({
+      channel: "stable",
+      series: "1.0.0",
+      npmTag: "latest",
+      packages: ["@typed-sql/core"],
+      packagePolicy: {
+        stable: ["@typed-sql/core"],
+        experimental: ["@typed-sql/ts-bridge"],
+      },
+    });
+    strict.deepStrictEqual(stable.packages, ["@typed-sql/core"]);
+    strict.throws(
+      () =>
+        validateReleaseManifest({
+          channel: "stable",
+          series: "1.0.0",
+          npmTag: "latest",
+          packages: ["@typed-sql/core", "@typed-sql/ts-bridge"],
+          packagePolicy: {
+            stable: ["@typed-sql/core"],
+            experimental: ["@typed-sql/ts-bridge"],
+          },
+        }),
+      /stable release packages must match the stable package policy/u,
+    );
+    strict.throws(
+      () =>
+        validateReleaseManifest({
+          channel: "beta",
+          series: "1.0.0",
+          npmTag: "next",
+          packages: ["@typed-sql/core"],
+          packagePolicy: {
+            stable: ["@typed-sql/core"],
+            experimental: ["@typed-sql/core"],
+          },
+        }),
+      /Release tracks overlap/u,
+    );
+  });
+
   await it("retries transient registry failures but never guesses publication state", async () => {
     const statuses = [503, 200];
     const delays: number[] = [];
@@ -102,6 +145,10 @@ await describe("prerelease publisher", async () => {
           series: "1.0.0",
           npmTag: "next",
           packages: ["@typed-sql/core", "@typed-sql/ast"],
+          packagePolicy: {
+            stable: ["@typed-sql/core", "@typed-sql/ast"],
+            experimental: [],
+          },
         }),
       );
       for (const [name, version] of [
@@ -140,9 +187,13 @@ await describe("prerelease publisher", async () => {
           series: "1.0.0",
           npmTag: "beta",
           packages: ["@typed-sql/core"],
+          packagePolicy: {
+            stable: ["@typed-sql/core"],
+            experimental: [],
+          },
         }),
       );
-      await strict.rejects(loadPrereleasePlan(temporary), /Expected beta versions on npm next/u);
+      await strict.rejects(loadPrereleasePlan(temporary), /beta releases must use the next npm tag/u);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

@@ -2,6 +2,8 @@
 
 typed-sql uses Changesets to version independently published packages under the `@typed-sql` scope.
 The current channel and version are declared in [`release-manifest.json`](../release-manifest.json).
+Its `packagePolicy` separates the stable package train from preview-backed experimental tooling.
+Every public package repeats that value as `typedSql.releaseTrack` in its packed manifest.
 
 ## Change flow
 
@@ -65,9 +67,12 @@ MySQL packed E2E remain green through the beta soak, editor installation has bee
 this repository, and no open correctness issue can produce a confidently wrong row type.
 
 Create a dedicated release PR with `pnpm changeset pre exit` followed by
-`pnpm version-packages`. It must set every public package to stable `1.0.0`, update internal ranges,
-remove prerelease state and update changelogs. After protected CI passes and the PR merges, dispatch
-the Release workflow with channel `stable` and confirm `latest` points to `1.0.0`.
+`pnpm version-packages`. It must set the packages in `packagePolicy.stable` to stable `1.0.0`, keep
+`packagePolicy.experimental` on explicit prerelease versions, update internal ranges, remove the
+stable train's prerelease state, and update changelogs. Stable assertions reject experimental
+packages in the `latest` publication set. After protected CI passes and the PR merges, dispatch the
+Release workflow with channel `stable` and confirm `latest` points to `1.0.0` only for the stable
+train.
 
 ## Recovery rules
 

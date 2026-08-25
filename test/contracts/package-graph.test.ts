@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
+import { loadReleaseManifest } from "../../scripts/release-policy.mjs";
 
 interface PackageManifest {
   readonly name: string;
@@ -15,6 +16,9 @@ interface PackageManifest {
   readonly optionalDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
   readonly peerDependenciesMeta?: Readonly<Record<string, { readonly optional?: boolean }>>;
+  readonly exports?: string | Readonly<Record<string, string>>;
+  readonly bin?: Readonly<Record<string, string>>;
+  readonly typedSql?: { readonly releaseTrack?: "stable" | "experimental" };
 }
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +36,20 @@ const publicPackages = [
   "ts-bridge",
   "language-server",
 ] as const;
+const stablePackages = ["core", "ast", "schema", "config", "compiler", "postgres", "mysql", "cli"] as const;
+const experimentalPackages = ["ts-bridge", "language-server"] as const;
+const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
+  ast: ["."],
+  core: ["."],
+  config: ["."],
+  schema: ["."],
+  postgres: [".", "./runtime", "./pg"],
+  mysql: [".", "./runtime", "./mysql2"],
+  compiler: ["."],
+  cli: [],
+  "ts-bridge": [".", "./native-lsp", "./native-preview"],
+  "language-server": ["."],
+};
 
 async function manifest(packageName: string): Promise<PackageManifest> {
   return JSON.parse(
@@ -106,26 +124,32 @@ await describe("public package graph", async () => {
   });
 
   await it("publishes consistent Lojhan-owned release metadata", async () => {
-    const releaseManifest = JSON.parse(await readFile(join(workspace, "release-manifest.json"), "utf8")) as {
-      readonly channel: "beta" | "stable";
-      readonly series: string;
-      readonly packages: readonly string[];
-    };
+    const releaseManifest = await loadReleaseManifest(workspace);
     const betaPattern = new RegExp(`^${releaseManifest.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
+    const prereleasePattern = new RegExp(`^${releaseManifest.series.replaceAll(".", "\\.")}-(?:beta|rc)\\.\\d+$`, "u");
     const expectedLicense = await readFile(join(workspace, "LICENSE"), "utf8");
     strict.deepStrictEqual(
-      releaseManifest.packages.slice().sort(),
-      publicPackages.map((name) => `@typed-sql/${name}`).sort(),
+      releaseManifest.packagePolicy.stable,
+      stablePackages.map((name) => `@typed-sql/${name}`),
+    );
+    strict.deepStrictEqual(
+      releaseManifest.packagePolicy.experimental,
+      experimentalPackages.map((name) => `@typed-sql/${name}`),
     );
     const releaseOrder = new Map(releaseManifest.packages.map((name, index) => [name, index]));
     for (const packageName of publicPackages) {
       const packageManifest = await manifest(packageName);
+      const releaseTrack = stablePackages.includes(packageName as (typeof stablePackages)[number])
+        ? "stable"
+        : "experimental";
       if (releaseManifest.channel === "beta") {
         strict.ok(
           betaPattern.test(packageManifest.version ?? ""),
           `${packageManifest.name} must be in the declared beta series`,
         );
-      } else strict.strictEqual(packageManifest.version, releaseManifest.series);
+      } else if (releaseTrack === "stable") strict.strictEqual(packageManifest.version, releaseManifest.series);
+      else strict.ok(prereleasePattern.test(packageManifest.version ?? ""));
+      strict.strictEqual(packageManifest.typedSql?.releaseTrack, releaseTrack);
       strict.notStrictEqual(packageManifest.private, true);
       strict.strictEqual(packageManifest.license, "MIT");
       strict.strictEqual(packageManifest.author, "Lojhan");
@@ -139,17 +163,38 @@ await describe("public package graph", async () => {
         expectedLicense,
         `${packageManifest.name} must ship the complete repository license`,
       );
-      for (const dependency of Object.keys(packageManifest.dependencies ?? {})) {
-        const dependencyIndex = releaseOrder.get(dependency);
-        if (dependencyIndex !== undefined) {
+      const packageIndex = releaseOrder.get(packageManifest.name);
+      if (packageIndex !== undefined) {
+        for (const dependency of Object.keys(packageManifest.dependencies ?? {})) {
+          const dependencyIndex = releaseOrder.get(dependency);
+          if (dependencyIndex === undefined) continue;
           strict.ok(
-            dependencyIndex < (releaseOrder.get(packageManifest.name) ?? -1),
+            dependencyIndex < packageIndex,
             `${dependency} must precede ${packageManifest.name} in bootstrap order`,
           );
         }
       }
     }
     strict.ok(!(await source("core")).toLowerCase().includes("vitable"));
+  });
+
+  await it("freezes public package entrypoints and executable names", async () => {
+    for (const packageName of publicPackages) {
+      const packageManifest = await manifest(packageName);
+      const entrypoints =
+        typeof packageManifest.exports === "string" ? ["."] : Object.keys(packageManifest.exports ?? {}).sort();
+      strict.deepStrictEqual(
+        entrypoints,
+        expectedEntrypoints[packageName].slice().sort(),
+        `${packageManifest.name} changed its public entrypoints`,
+      );
+    }
+    strict.deepStrictEqual((await manifest("cli")).bin, {
+      "typed-sql": "./dist/packages/cli/src/cli.js",
+    });
+    strict.deepStrictEqual((await manifest("language-server")).bin, {
+      "typed-sql-language-server": "./dist/packages/language-server/src/server.js",
+    });
   });
 
   await it("never packs stale JavaScript for deleted source modules", async () => {

@@ -21,6 +21,7 @@ const publicPackages = [
   "ts-bridge",
   "language-server",
 ] as const;
+const stableModulePackages = new Set(["ast", "core", "config", "schema", "postgres", "mysql", "compiler"]);
 
 await describe("packed public packages", async () => {
   await it("installs every tarball in isolation without a database driver", async () => {
@@ -63,6 +64,7 @@ await describe("packed public packages", async () => {
           readonly name: string;
           readonly version: string;
           readonly dependencies?: Readonly<Record<string, string>>;
+          readonly exports?: Readonly<Record<string, string>>;
         };
         strict.strictEqual(packedManifest.name, packageManifest.name);
         strict.strictEqual(packedManifest.version, packageManifest.version);
@@ -71,6 +73,17 @@ await describe("packed public packages", async () => {
             !dependency.startsWith("workspace:"),
             `${packageManifest.name} published an unresolved workspace dependency`,
           );
+        }
+        if (stableModulePackages.has(directory)) {
+          for (const exportTarget of Object.values(packedManifest.exports ?? {})) {
+            const declarationTarget = `package/${exportTarget.replace(/^\.\//u, "").replace(/\.js$/u, ".d.ts")}`;
+            strict.ok(
+              listing.includes(declarationTarget),
+              `${packageManifest.name} must pack declarations for ${exportTarget}`,
+            );
+            const declaration = (await execFile("tar", ["-xOf", join(tarballs, archive), declarationTarget])).stdout;
+            strict.ok(!declaration.includes("export type *"), `${declarationTarget} contains a wildcard type export`);
+          }
         }
       }
 

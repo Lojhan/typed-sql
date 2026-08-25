@@ -61,27 +61,26 @@ Acceptance criteria:
 - the installed package graph contains no database driver unless the consumer selected it;
 - editor hover output shows the same exact row types as the compiler result.
 
-## Milestone 2: Decide the 1.0 package boundary
+## Milestone 2: Enforce the decided 1.0 package boundary
 
 The core inference path targets TypeScript 7, while `@typed-sql/ts-bridge` currently uses a
 TypeScript 7.1 development snapshot and the editor integrations still have development-oriented
 installation paths. A stable version must not imply a stronger compatibility promise than the
 upstream API allows.
 
-Recommended decision:
+Decision:
 
 - stabilize `@typed-sql/core`, `ast`, `schema`, `config`, `compiler`, `postgres`, `mysql`, and `cli`;
 - keep `@typed-sql/ts-bridge` and `@typed-sql/language-server` explicitly experimental until the
   TypeScript API they require is stable;
 - keep editor extensions experimental until their supported installation and upgrade paths are
   tested outside the repository;
-- update the release manifest and assertions to support separate stable and experimental release
-  trains.
+- encode the split in `release-manifest.json`, each packed package manifest, stable release
+  assertions, entrypoint contract tests, and [the public API contract](./PUBLIC_API.md).
 
-Alternative decision:
-
-- delay every package's `1.0.0` until the TypeScript 7.1 bridge API and editor distribution are
-  stable enough to support as part of the same contract.
+The package boundary is frozen. Reproducible external editor installation remains a separate 1.0
+gate tracked by [issue #20](https://github.com/Lojhan/typed-sql/issues/20); it does not promote the
+preview-backed packages to the stable train.
 
 Acceptance criteria:
 
@@ -90,7 +89,7 @@ Acceptance criteria:
 - experimental packages are unmistakably labeled and do not receive a misleading stable tag;
 - supported editors have a user-facing installation procedure that does not rely on the monorepo.
 
-## Milestone 3: Freeze the public query contract
+## Milestone 3: Preserve the frozen public query contract
 
 The parameter direction is implemented: the public contract is `Query<Row, Parameters>`, where
 `Parameters` is an ordered readonly tuple. PostgreSQL and MySQL infer positions from comparisons,
@@ -99,11 +98,13 @@ represented as `unknown`. Dialect contract version 2 makes parameter analysis ex
 third-party grammars. Typed `SqlFragment<Parameters>` composition supports nullable `AND`/`OR`
 filter tuples while a statically analyzed base query continues to own the result row.
 
-Work:
+The 1.0 contract is recorded in [Public API and stability boundary](./PUBLIC_API.md). Stable package
+roots explicitly enumerate their exported types and values. Runtime exports, entrypoints,
+executables, generic order, query variance, ordered parameters, composition, and adapter return
+types have contract tests. Internal compiler structural helpers are no longer package-root exports.
 
-- inventory every public export and generic type in all intended stable packages;
-- write public type-contract tests for query construction, execution, adapters, and generated APIs;
-- complete the remaining public-export and variance audit around the implemented parameter tuple;
+Ongoing work:
+
 - document the supported SQL/type behavior and the deliberately unsupported cases;
 - classify confidently wrong inferred types as release-blocking correctness defects.
 

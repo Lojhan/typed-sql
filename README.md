@@ -58,6 +58,8 @@ snapshot. Change the query or schema and the type changes with it.
 
 > **Release status:** the public beta is available from npm under the `next` dist-tag. Stable 1.0
 > follows after external beta use and the acceptance gates in [Releasing](./docs/RELEASING.md).
+> Core, compiler, schema, config, AST, PostgreSQL, MySQL, and CLI are the intended stable train;
+> the preview-backed bridge, language server, and editor integrations remain experimental.
 
 ## Why typed-sql feels different
 
@@ -259,7 +261,7 @@ editor or CI time.
 
 ## Editor experience
 
-The typed-sql language server is a complete TypeScript 7 semantic proxy: it applies the inferred
+The experimental typed-sql language server is a complete TypeScript 7 semantic proxy: it applies the inferred
 query overlay in memory, asks the native TypeScript checker for the real program type, and maps
 hover/diagnostic positions back to the unchanged source.
 
@@ -278,18 +280,18 @@ or query contract.
 
 ## Packages
 
-| Package | What it owns | Installs a DB driver? |
-| --- | --- | --- |
-| [`@typed-sql/core`](./packages/core/README.md) | `sql`, `Query<Row, Parameters>`, neutral query IR, database and dialect contracts | No |
-| [`@typed-sql/postgres`](./packages/postgres/README.md) | PostgreSQL grammar, catalog introspection, resolver, codecs, optional `/pg` adapter | No |
-| [`@typed-sql/mysql`](./packages/mysql/README.md) | MySQL grammar, catalog introspection, resolver, codecs, optional `/mysql2` adapter | No |
-| [`@typed-sql/cli`](./packages/cli/README.md) | `generate`, `check`, and `drift` commands | No |
-| [`@typed-sql/language-server`](./packages/language-server/README.md) | Grammar-neutral TypeScript/LSP semantic proxy | No |
-| [`@typed-sql/compiler`](./packages/compiler/README.md) | Static-query extraction, source transformation, and checking | No |
-| [`@typed-sql/schema`](./packages/schema/README.md) | Versioned snapshots, deterministic generation, hashes, migrations, and drift | No |
-| [`@typed-sql/config`](./packages/config/README.md) | Config discovery and executable TypeScript config loading | No |
-| [`@typed-sql/ast`](./packages/ast/README.md) | Bounded SQL tokenizer, parser, AST, and source ranges | No |
-| [`@typed-sql/ts-bridge`](./packages/ts-bridge/README.md) | In-memory TypeScript 7 query overlays and preview-process bridge | No |
+| Package | Release track | What it owns | Installs a DB driver? |
+| --- | --- | --- | --- |
+| [`@typed-sql/core`](./packages/core/README.md) | Stable | `sql`, `Query<Row, Parameters>`, neutral query IR, database and dialect contracts | No |
+| [`@typed-sql/postgres`](./packages/postgres/README.md) | Stable | PostgreSQL grammar, catalog introspection, resolver, codecs, optional `/pg` adapter | No |
+| [`@typed-sql/mysql`](./packages/mysql/README.md) | Stable | MySQL grammar, catalog introspection, resolver, codecs, optional `/mysql2` adapter | No |
+| [`@typed-sql/cli`](./packages/cli/README.md) | Stable | `generate`, `check`, and `drift` commands | No |
+| [`@typed-sql/compiler`](./packages/compiler/README.md) | Stable | Static-query extraction, source transformation, and checking | No |
+| [`@typed-sql/schema`](./packages/schema/README.md) | Stable | Versioned snapshots, deterministic generation, hashes, migrations, and drift | No |
+| [`@typed-sql/config`](./packages/config/README.md) | Stable | Config discovery and executable TypeScript config loading | No |
+| [`@typed-sql/ast`](./packages/ast/README.md) | Stable | Bounded SQL tokenizer, parser, AST, and source ranges | No |
+| [`@typed-sql/language-server`](./packages/language-server/README.md) | Experimental | Grammar-neutral TypeScript/LSP semantic proxy | No |
+| [`@typed-sql/ts-bridge`](./packages/ts-bridge/README.md) | Experimental | In-memory TypeScript 7 query overlays and preview-process bridge | No |
 
 This split is a contract, not an organizational preference. The compiler does not know package
 names, database engines, or drivers. It loads the installed dialect from the project config.
@@ -337,6 +339,7 @@ pnpm e2e:packed
 ## Project contract
 
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Public API and stability boundary](./docs/PUBLIC_API.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
 - [Releasing](./docs/RELEASING.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)

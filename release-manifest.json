@@ -13,5 +13,18 @@
     "@typed-sql/ts-bridge",
     "@typed-sql/cli",
     "@typed-sql/language-server"
-  ]
+  ],
+  "packagePolicy": {
+    "stable": [
+      "@typed-sql/core",
+      "@typed-sql/ast",
+      "@typed-sql/schema",
+      "@typed-sql/config",
+      "@typed-sql/compiler",
+      "@typed-sql/postgres",
+      "@typed-sql/mysql",
+      "@typed-sql/cli"
+    ],
+    "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
+  }
 }

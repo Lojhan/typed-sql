@@ -5,16 +5,21 @@
 typed-sql separates four concerns: the query contract, dialect grammar, database-driver
 integration, and developer tooling.
 
-| Package | Responsibility | Runtime driver dependency |
-| --- | --- | --- |
-| `@typed-sql/core` | SQL tag, `Query<Row, Parameters>`, database and compiler contracts | None |
-| `@typed-sql/config` | Neutral project config discovery/loading | None |
-| `@typed-sql/schema` | Snapshot format, generation, hashes and drift | None |
-| `@typed-sql/compiler` | Dialect-neutral extraction, transforms and diagnostics | None |
-| `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver and codecs | None; app installs `pg` |
-| `@typed-sql/mysql` | MySQL grammar, catalog model, resolver and codecs | None; app installs `mysql2` |
-| `@typed-sql/cli` | Generation, checking and provider discovery | None by default |
-| `@typed-sql/language-server` | Configured-dialect TypeScript semantic proxy and editor protocol | None |
+| Package | Release track | Responsibility | Runtime driver dependency |
+| --- | --- | --- | --- |
+| `@typed-sql/core` | Stable | SQL tag, `Query<Row, Parameters>`, database and compiler contracts | None |
+| `@typed-sql/ast` | Stable | Bounded tokenizer, parser, AST, and source ranges | None |
+| `@typed-sql/config` | Stable | Neutral project config discovery/loading | None |
+| `@typed-sql/schema` | Stable | Snapshot format, generation, hashes and drift | None |
+| `@typed-sql/compiler` | Stable | Dialect-neutral extraction, transforms and diagnostics | None |
+| `@typed-sql/postgres` | Stable | PostgreSQL grammar, catalog model, resolver and codecs | None; app installs `pg` |
+| `@typed-sql/mysql` | Stable | MySQL grammar, catalog model, resolver and codecs | None; app installs `mysql2` |
+| `@typed-sql/cli` | Stable | Generation, checking and provider discovery | None by default |
+| `@typed-sql/ts-bridge` | Experimental | Pinned TypeScript 7.1 preview process bridge | None |
+| `@typed-sql/language-server` | Experimental | Configured-dialect TypeScript semantic proxy and editor protocol | None |
+
+The private VS Code extension and Zed integration are also experimental. The exact entrypoints and
+compatibility promises are recorded in [Public API and stability boundary](./PUBLIC_API.md).
 
 Applications opt into one dialect and one driver:
 

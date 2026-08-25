@@ -1,5 +1,8 @@
 # @typed-sql/language-server
 
+> **Experimental:** this package depends on the preview-backed TypeScript bridge and remains on the
+> npm `next` track when the SQL/compiler packages reach stable 1.0.
+
 A grammar-neutral TypeScript 7 language server for [typed-sql](https://github.com/Lojhan/typed-sql).
 It provides complete TypeScript semantics plus exact SQL hovers, downstream value types, diagnostics,
 completion, definitions, safe quick fixes, cancellation, and bounded workspace caches.
