@@ -1,7 +1,7 @@
 {
   "name": "@typed-sql/language-server",
   "version": "1.0.0-beta.1",
-  "description": "Grammar-agnostic TypeScript 7 language server for typed-sql.",
+  "description": "Experimental grammar-agnostic TypeScript 7 language server for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
   "repository": {
@@ -26,6 +26,9 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "experimental"
   },
   "type": "module",
   "bin": {

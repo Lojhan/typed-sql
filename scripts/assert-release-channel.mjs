@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadReleaseManifest } from "./release-policy.mjs";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requestedChannel = process.argv[2];
@@ -10,19 +11,28 @@ if (requestedChannel !== "beta" && requestedChannel !== "stable") {
   throw new Error("Usage: node scripts/assert-release-channel.mjs <beta|stable>");
 }
 
-const release = JSON.parse(await readFile(join(workspace, "release-manifest.json"), "utf8"));
+const release = await loadReleaseManifest(workspace);
 if (release.channel !== requestedChannel) {
   throw new Error(`Requested ${requestedChannel}, but release-manifest.json declares ${release.channel}`);
 }
 
-const manifests = await Promise.all(
-  release.packages.map(async (name) => {
-    const directory = name.slice("@typed-sql/".length);
-    const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8"));
-    if (manifest.name !== name) throw new Error(`${directory}/package.json declares ${manifest.name}`);
-    return manifest;
-  }),
-);
+async function packageManifest(name) {
+  const directory = name.slice("@typed-sql/".length);
+  const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8"));
+  if (manifest.name !== name) throw new Error(`${directory}/package.json declares ${manifest.name}`);
+  return manifest;
+}
+
+const manifests = await Promise.all(release.packages.map(packageManifest));
+
+for (const track of ["stable", "experimental"]) {
+  for (const name of release.packagePolicy[track]) {
+    const manifest = await packageManifest(name);
+    if (manifest.typedSql?.releaseTrack !== track) {
+      throw new Error(`${name} must declare typedSql.releaseTrack=${track}`);
+    }
+  }
+}
 
 if (requestedChannel === "beta") {
   const pattern = new RegExp(`^${release.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
@@ -43,6 +53,13 @@ if (requestedChannel === "beta") {
     }
   }
   if (release.npmTag !== "latest") throw new Error("Stable releases must use the latest npm tag");
+  const experimentalPattern = new RegExp(`^${release.series.replaceAll(".", "\\.")}-(?:beta|rc)\\.\\d+$`, "u");
+  for (const name of release.packagePolicy.experimental) {
+    const manifest = await packageManifest(name);
+    if (!experimentalPattern.test(manifest.version)) {
+      throw new Error(`${name}@${manifest.version} must remain prerelease while excluded from stable`);
+    }
+  }
   try {
     await access(join(workspace, ".changeset", "pre.json"), constants.F_OK);
     throw new Error("Stable release cannot retain .changeset/pre.json");

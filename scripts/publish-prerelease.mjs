@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadReleaseManifest } from "./release-policy.mjs";
 
 const defaultWorkspace = fileURLToPath(new URL("..", import.meta.url));
 const changesetsCli = fileURLToPath(new URL("../node_modules/@changesets/cli/bin.js", import.meta.url));
@@ -36,12 +37,9 @@ function run(command, args, options = {}) {
 }
 
 export async function loadPrereleasePlan(workspace = defaultWorkspace) {
-  const release = JSON.parse(await readFile(join(workspace, "release-manifest.json"), "utf8"));
+  const release = await loadReleaseManifest(workspace);
   if (release.channel !== "beta" || release.npmTag !== "next") {
     throw new Error(`Expected beta versions on npm next, found ${release.channel}:${release.npmTag}`);
-  }
-  if (!Array.isArray(release.packages) || release.packages.length === 0) {
-    throw new Error("release-manifest.json must contain at least one package");
   }
 
   const versionPattern = new RegExp(`^${escapeRegularExpression(release.series)}-beta\\.\\d+$`, "u");

@@ -1,13 +1,6 @@
-export type * from "./check.js";
+export type { CheckFileOptions, CheckFileResult, TypeScriptCheckResult } from "./check.js";
 export { checkFile } from "./check.js";
-export type * from "./compiler.js";
+export type { CompiledFragment, CompiledQuery, CompileSourceOptions, CompileSourceResult } from "./compiler.js";
 export { compileSource } from "./compiler.js";
-export type * from "./scanner.js";
-export {
-  extractAppendFragments,
-  extractStaticQueries,
-  extractStructuralOperand,
-  mapSqlRange,
-  parseStructuralInterpolation,
-} from "./scanner.js";
-export { expandStructuralQuery, structuralRowType } from "./structural.js";
+export type { ExtractedInterpolation, ExtractedQuery } from "./scanner.js";
+export { extractStaticQueries, mapSqlRange } from "./scanner.js";

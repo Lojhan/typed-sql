@@ -58,7 +58,10 @@ export interface SqlTag {
     strings: TemplateStringsArray,
     ...parts: Parts
   ): Query<Row, SqlPartsParameters<Parts>>;
-  /** @internal Compiler overlay hook; applications should use the `sql` tag directly. */
+  /**
+   * @internal Reserved compiler-overlay protocol. Applications must use the `sql` tag directly;
+   * this member may change alongside matching core/compiler releases without application-level compatibility.
+   */
   readonly __typed: <Row, Params extends readonly unknown[]>() => <const Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedSqlParts<Parts, Params>

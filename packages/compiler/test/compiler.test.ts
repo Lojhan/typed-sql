@@ -6,16 +6,9 @@ import { describe, it, strict } from "poku";
 import { DIALECT_CONTRACT_VERSION, type DialectPlugin, type SchemaSnapshot } from "../../core/src/index.js";
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
-import {
-  checkFile,
-  compileSource,
-  extractAppendFragments,
-  extractStaticQueries,
-  extractStructuralOperand,
-  mapSqlRange,
-  parseStructuralInterpolation,
-  structuralRowType,
-} from "../src/index.js";
+import { checkFile, compileSource, extractStaticQueries, mapSqlRange } from "../src/index.js";
+import { extractAppendFragments, extractStructuralOperand, parseStructuralInterpolation } from "../src/scanner.js";
+import { structuralRowType } from "../src/structural.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const fixtureDirectory = resolve(testDirectory, "../../../test/fixtures/success");

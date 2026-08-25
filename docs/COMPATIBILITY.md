@@ -1,5 +1,16 @@
 # Compatibility and performance
 
+## Release stability
+
+| Track | Packages | 1.0 npm contract |
+| --- | --- | --- |
+| Stable | `core`, `ast`, `schema`, `config`, `compiler`, `postgres`, `mysql`, `cli` | Move to `1.0.0` under `latest` after all release gates pass |
+| Experimental | `ts-bridge`, `language-server` | Remain prerelease under `next` while they depend on TypeScript preview APIs |
+| Experimental/private | VS Code and Zed integrations | No stable distribution promise until external installation tests pass |
+
+The release workflow validates this split from `release-manifest.json`; every public package records
+the same classification in `typedSql.releaseTrack`. See [Public API](./PUBLIC_API.md).
+
 | Surface | Supported/tested contract |
 | --- | --- |
 | Node.js | 22.11 or newer; CI uses 22.11 and release publishing uses 24 |

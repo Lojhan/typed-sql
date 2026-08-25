@@ -1,5 +1,8 @@
 # @typed-sql/ts-bridge
 
+> **Experimental:** this package depends on a pinned TypeScript 7.1 preview API and remains on the
+> npm `next` track when the SQL/compiler packages reach stable 1.0.
+
 The TypeScript 7 semantic bridge behind typed-sql editor inference.
 
 ```sh
