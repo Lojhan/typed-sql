@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Stable | `core`, `ast`, `schema`, `config`, `compiler`, `postgres`, `mysql`, `cli` | Move to `1.0.0` under `latest` after all release gates pass |
 | Experimental | `ts-bridge`, `language-server` | Remain prerelease under `next` while they depend on TypeScript preview APIs |
-| Experimental/private | VS Code and Zed integrations | No stable distribution promise until external installation tests pass |
+| Experimental/private | VS Code and Zed integrations (`0.1.x`) | Source/VSIX development distribution only; no Marketplace or Zed registry stability promise |
 
 The release workflow validates this split from `release-manifest.json`; every public package records
 the same classification in `typedSql.releaseTrack`. See [Public API](./PUBLIC_API.md).
@@ -42,3 +42,9 @@ publishes; incompatible grammar semantics require an explicit grammar-version ch
 TypeScript 7.0 intentionally has no stable embeddable API. Therefore CLI checks and source
 transforms are authoritative, while the preview bridge is isolated behind a process boundary and
 can be replaced without changing the grammar or generated-query contract.
+
+The language server installs its exact TypeScript 7.1 preview as an internal dependency and never
+looks for a workspace `tsserver.js`. Its beta version and npm `next` tag identify that preview-backed
+contract; stable grammar packages do not acquire a preview dependency. Clean packed-consumer tests
+launch the installed executable for PostgreSQL and MySQL, while the private editor integrations stay
+on `0.1.x` until their editor-store distribution paths are supported.

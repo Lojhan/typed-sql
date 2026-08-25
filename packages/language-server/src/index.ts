@@ -355,6 +355,17 @@ export class TypedSqlLanguageService {
     return files;
   }
 
+  async handlesWatchedFile(uri: string): Promise<boolean> {
+    if (!uri.startsWith("file:")) return false;
+    const fileName = resolve(fileURLToPath(uri));
+    const loaded = await this.#config();
+    const schemaPath =
+      this.#settings.schemaPath === undefined
+        ? fromConfig(loaded.directory, loaded.config.schema.file)
+        : this.#configuredPath(this.#settings.schemaPath);
+    return fileName === resolve(loaded.file) || fileName === resolve(schemaPath);
+  }
+
   async close(): Promise<void> {
     const bridge = await this.#nativeBridgePromise;
     this.#nativeBridgePromise = undefined;
