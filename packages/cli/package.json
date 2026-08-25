@@ -35,7 +35,8 @@
     "typed-sql": "./dist/packages/cli/src/cli.js"
   },
   "scripts": {
-    "test": "poku test --reporter=compact --enforce"
+    "test": "poku test --reporter=compact --enforce",
+    "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce"
   },
   "dependencies": {
     "@typed-sql/compiler": "workspace:*",

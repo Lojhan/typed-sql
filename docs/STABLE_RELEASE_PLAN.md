@@ -12,8 +12,8 @@ current public release line is `1.0.0-beta.*` under the npm `next` tag.
 
 The project is not ready to publish under `latest` yet. Stable promotion is blocked by the absence
 of a complete registry-only consumer test, an unrehearsed stable version transition, and
-insufficient external beta soak time. The editor and public query API boundaries must also be
-decided before the 1.0 contract is frozen.
+insufficient external beta soak time. Reproducible editor installation, runtime codec fidelity,
+grammar conformance, and performance budgets also remain open gates.
 
 ## Definition of ready
 
@@ -106,7 +106,13 @@ types have contract tests. Internal compiler structural helpers are no longer pa
 Ongoing work:
 
 - document the supported SQL/type behavior and the deliberately unsupported cases;
-- classify confidently wrong inferred types as release-blocking correctness defects.
+
+The fail-closed classification is enforced by the shared
+[inference soundness corpus](./SOUNDNESS.md). PostgreSQL and MySQL cases classify exact inference,
+conservative `unknown`, and stable diagnostics, while compiler, CLI, bridge, and editor runners
+assert equivalent transformed output and original-source diagnostic mapping. A confidently wrong
+inference is a release-blocking correctness defect, and every correction requires a minimal corpus
+regression.
 
 Acceptance criteria:
 

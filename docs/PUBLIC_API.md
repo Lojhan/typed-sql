@@ -103,6 +103,9 @@ application-owned driver loading and adapters are isolated under `/pg` and `/mys
   replace runtime validation at external trust boundaries.
 - Conditional structural analysis is finite and bounded by `compiler.maxStructuralVariants`.
 
+The release-blocking classification and cross-surface regression rules are defined in the
+[inference soundness policy](./SOUNDNESS.md).
+
 Diagnostic codes become stable at 1.0. Automation should depend on the exported code and registry,
 not English message text.
 

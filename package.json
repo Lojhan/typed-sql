@@ -24,6 +24,7 @@
     "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm test:contracts",
     "test:contracts": "poku test/contracts --reporter=compact --enforce",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
+    "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "release:artifacts": "pnpm build && pnpm test:pack",
     "release:assert": "node scripts/assert-release-channel.mjs",
     "release:security": "node scripts/code-scanning-policy.mjs",
