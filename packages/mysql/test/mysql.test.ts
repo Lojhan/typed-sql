@@ -54,9 +54,12 @@ await describe("MySQL dialect", async () => {
     const dialect = mysql();
     strict.strictEqual(dialect.id, "mysql");
     strict.strictEqual(dialect.sqlModule, "@typed-sql/mysql");
+    strict.strictEqual(dialect.capabilities.returning, false);
     strict.strictEqual(dialect.placeholder(2), "?");
+    strict.strictEqual(dialect.quoteIdentifier("account`status"), "`account``status`");
     strict.throws(() => dialect.placeholder(0), /start at 1/);
     strict.throws(() => dialect.validateSnapshot({ ...schema, dialect: "postgres" }), /cannot use a postgres/);
+    strict.throws(() => dialect.validateSnapshot({ ...schema, dialectVersion: "999" }), /dialectVersion 999/);
     const result = dialect.analyze(
       "SELECT `id`, `status` FROM `users` WHERE `id` = ?",
       schema as typeof schema & { readonly dialect: "mysql" },

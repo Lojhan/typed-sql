@@ -11,10 +11,25 @@ export interface PostgresDialectOptions {
   readonly typePolicy?: PostgresTypePolicy;
 }
 
+const capabilities = Object.freeze({
+  aggregateFilter: true,
+  arrays: true,
+  distinctOn: true,
+  fullJoins: true,
+  recursiveCtes: true,
+  returning: true,
+  setOperations: false,
+});
+
 function validatePostgresSnapshot(value: unknown): PostgresSchemaSnapshot {
   const snapshot = parseSchemaSnapshot(value);
   if (snapshot.dialect !== "postgres") {
     throw new TypeError(`@typed-sql/postgres cannot use a ${snapshot.dialect} schema snapshot`);
+  }
+  if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== POSTGRES_DIALECT_VERSION) {
+    throw new TypeError(
+      `@typed-sql/postgres grammar ${POSTGRES_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
+    );
   }
   return snapshot as PostgresSchemaSnapshot;
 }
@@ -28,10 +43,14 @@ export function postgres(
     id: "postgres",
     grammarVersion: POSTGRES_DIALECT_VERSION,
     sqlModule: "@typed-sql/postgres",
+    capabilities,
     defaultTypePolicy,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("PostgreSQL parameter indexes start at 1");
       return `$${index}`;
+    },
+    quoteIdentifier(identifier: string): string {
+      return `"${identifier.replaceAll('"', '""')}"`;
     },
     analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
       try {

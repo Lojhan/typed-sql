@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { DIALECT_CONTRACT_VERSION, type SchemaSnapshot, type TypedSqlConfig } from "@typed-sql/core";
+import { assertDialectPlugin, type SchemaSnapshot, type TypedSqlConfig } from "@typed-sql/core";
 import { tsImport } from "tsx/esm/api";
 
 const configNames = [
@@ -48,15 +48,13 @@ export async function discoverConfig(start = process.cwd()): Promise<string> {
 function isConfig(value: unknown): value is TypedSqlConfig<SchemaSnapshot, unknown> {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<TypedSqlConfig<SchemaSnapshot, unknown>>;
-  return (
-    candidate.dialect?.contractVersion === DIALECT_CONTRACT_VERSION &&
-    typeof candidate.dialect.id === "string" &&
-    typeof candidate.dialect.sqlModule === "string" &&
-    typeof candidate.dialect.analyze === "function" &&
-    typeof candidate.dialect.validateSnapshot === "function" &&
-    typeof candidate.schema?.file === "string" &&
-    typeof candidate.outDir === "string"
-  );
+  if (typeof candidate.schema?.file !== "string" || typeof candidate.outDir !== "string") return false;
+  try {
+    assertDialectPlugin(candidate.dialect);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<LoadedConfig> {

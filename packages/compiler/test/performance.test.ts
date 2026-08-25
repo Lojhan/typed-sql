@@ -9,8 +9,10 @@ const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
   id: "performance",
   grammarVersion: "1.0.0",
   sqlModule: "@example/typed-sql-performance",
+  capabilities: {},
   defaultTypePolicy: {},
   placeholder: (index) => `$${index}`,
+  quoteIdentifier: (identifier) => `"${identifier}"`,
   validateSnapshot: () => schema,
   analyze: (_sql, _snapshot) => ({
     columns: [

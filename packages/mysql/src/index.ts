@@ -11,10 +11,25 @@ export interface MySqlDialectOptions {
   readonly typePolicy?: MySqlTypePolicy;
 }
 
+const capabilities = Object.freeze({
+  aggregateFilter: false,
+  arrays: false,
+  distinctOn: false,
+  fullJoins: false,
+  recursiveCtes: false,
+  returning: false,
+  setOperations: false,
+});
+
 function validateMySqlSnapshot(value: unknown): MySqlSchemaSnapshot {
   const snapshot = parseSchemaSnapshot(value);
   if (snapshot.dialect !== "mysql")
     throw new TypeError(`@typed-sql/mysql cannot use a ${snapshot.dialect} schema snapshot`);
+  if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== MYSQL_DIALECT_VERSION) {
+    throw new TypeError(
+      `@typed-sql/mysql grammar ${MYSQL_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
+    );
+  }
   return snapshot as MySqlSchemaSnapshot;
 }
 
@@ -25,10 +40,14 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     id: "mysql",
     grammarVersion: MYSQL_DIALECT_VERSION,
     sqlModule: "@typed-sql/mysql",
+    capabilities,
     defaultTypePolicy,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("MySQL parameter indexes start at 1");
       return "?";
+    },
+    quoteIdentifier(identifier: string): string {
+      return `\`${identifier.replaceAll("`", "``")}\``;
     },
     analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
       try {

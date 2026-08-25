@@ -341,6 +341,7 @@ pnpm e2e:packed
 
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Public API and stability boundary](./docs/PUBLIC_API.md)
+- [Authoring a SQL grammar](./docs/GRAMMAR_AUTHORING.md)
 - [Inference soundness policy and corpus](./docs/SOUNDNESS.md)
 - [PostgreSQL and MySQL runtime codec fidelity](./docs/CODEC_FIDELITY.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)

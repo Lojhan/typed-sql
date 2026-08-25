@@ -31,12 +31,14 @@ await describe("typed-sql config", async () => {
     const source = `
       export default {
         dialect: {
-          contractVersion: 2,
+          contractVersion: 3,
           id: "fixture",
           grammarVersion: "1.0.0",
           sqlModule: "@example/typed-sql-fixture",
+          capabilities: { returning: false },
           defaultTypePolicy: {},
           placeholder(index) { return "?" + index; },
+          quoteIdentifier(identifier) { return "[" + identifier + "]"; },
           analyze() { return { columns: [], parameters: [], diagnostics: [] }; },
           validateSnapshot(value) { return value; }
         },
@@ -61,11 +63,11 @@ await describe("typed-sql config", async () => {
       "{}",
       "{ dialect: null }",
       "{ dialect: { contractVersion: 1 } }",
-      "{ dialect: { contractVersion: 2, id: 1 } }",
-      "{ dialect: { contractVersion: 2, id: 'x' } }",
-      "{ dialect: { contractVersion: 2, id: 'x', analyze() {} } }",
-      "{ dialect: { contractVersion: 2, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
-      "{ dialect: { contractVersion: 2, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
+      "{ dialect: { contractVersion: 3, id: 1 } }",
+      "{ dialect: { contractVersion: 3, id: 'x' } }",
+      "{ dialect: { contractVersion: 3, id: 'x', analyze() {} } }",
+      "{ dialect: { contractVersion: 3, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
+      "{ dialect: { contractVersion: 3, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
     ];
     try {
       for (const [index, candidate] of candidates.entries()) {

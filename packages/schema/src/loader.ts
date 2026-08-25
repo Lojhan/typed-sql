@@ -109,9 +109,13 @@ function parseObjectMap<T>(
 
 export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
   if (!isRecord(value)) throw new TypeError("Schema snapshot must be an object");
-  if (value.dialect !== "postgres" && value.dialect !== "mysql" && value.dialect !== "sqlite") {
-    throw new TypeError("schema.dialect must be postgres, mysql, or sqlite");
-  }
+  if (typeof value.dialect !== "string" || value.dialect.length === 0)
+    throw new TypeError("schema.dialect must be a non-empty string");
+  if (
+    value.dialectVersion !== undefined &&
+    (typeof value.dialectVersion !== "string" || value.dialectVersion.length === 0)
+  )
+    throw new TypeError("schema.dialectVersion must be a non-empty string");
   if (!isRecord(value.tables)) throw new TypeError("schema.tables must be an object");
   const tables: Record<string, TableSnapshot> = {};
   for (const [name, table] of Object.entries(value.tables)) tables[name] = parseTable(table, `schema.tables.${name}`);
@@ -127,7 +131,7 @@ export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
               );
             })(),
     dialect: value.dialect,
-    ...(typeof value.dialectVersion === "string" ? { dialectVersion: value.dialectVersion } : {}),
+    ...(value.dialectVersion === undefined ? {} : { dialectVersion: value.dialectVersion }),
     tables,
     ...(typeof value.version === "string" ? { version: value.version } : {}),
     ...(value.enums === undefined ? {} : { enums: parseStringArrays(value.enums, "schema.enums") }),

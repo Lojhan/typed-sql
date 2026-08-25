@@ -16,6 +16,7 @@ import * as compilerApi from "../../packages/compiler/src/index.js";
 import * as configApi from "../../packages/config/src/index.js";
 import type {
   Database,
+  DialectCapabilities,
   DialectPlugin,
   OptionalSqlFragment,
   Query,
@@ -85,6 +86,7 @@ type ReferencedStableTypes =
   | ExtractedInterpolation
   | ExtractedQuery
   | TypeScriptCheckResult
+  | DialectCapabilities
   | DialectPlugin
   | OptionalSqlFragment
   | QueryExecutor
@@ -121,6 +123,7 @@ const expectedRuntimeExports = {
   compiler: ["checkFile", "compileSource", "extractStaticQueries", "mapSqlRange"],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
+    "assertDialectPlugin",
     "DIALECT_CONTRACT_VERSION",
     "ParameterCollector",
     "ResolverSchemaIndex",

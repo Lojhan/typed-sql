@@ -127,8 +127,10 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       id: "inline",
       grammarVersion: "1",
       sqlModule: "@example/inline-sql",
+      capabilities: {},
       defaultTypePolicy: {},
       placeholder: (index) => `$${index}`,
+      quoteIdentifier: (identifier) => `"${identifier}"`,
       validateSnapshot: () => schema,
       analyze: (sql) => ({
         columns: [
@@ -280,8 +282,10 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       id: "test",
       grammarVersion: "1",
       sqlModule: "@example/test-sql",
+      capabilities: {},
       defaultTypePolicy: {},
       placeholder: (index) => `$${index}`,
+      quoteIdentifier: (identifier) => `"${identifier}"`,
       validateSnapshot: () => schema,
       analyze: () => ({
         columns: [],

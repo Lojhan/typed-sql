@@ -1,5 +1,6 @@
 import { describe, it, strict } from "poku";
 import {
+  assertDialectPlugin,
   closestName,
   createDatabase,
   DIALECT_CONTRACT_VERSION,
@@ -241,8 +242,10 @@ await describe("core contracts", async () => {
     id: "test",
     grammarVersion: "1.0.0",
     sqlModule: "@example/typed-sql-test",
+    capabilities: {},
     defaultTypePolicy: {},
     placeholder: (index) => `?${index}`,
+    quoteIdentifier: (identifier) => `"${identifier}"`,
     analyze: () => ({ columns: [], parameters: [], diagnostics: [] }),
     validateSnapshot: () => schema,
   };
@@ -260,7 +263,7 @@ await describe("core contracts", async () => {
     strict.throws(
       () =>
         defineConfig({
-          dialect: { ...dialect, contractVersion: 3 as never },
+          dialect: { ...dialect, contractVersion: 4 as never },
           schema: { file: "schema.json" },
           outDir: "generated",
         }),
@@ -277,6 +280,27 @@ await describe("core contracts", async () => {
           }),
         /positive safe integer/,
       );
+    }
+  });
+
+  await it("validates every public dialect contract boundary", () => {
+    strict.doesNotThrow(() => assertDialectPlugin(dialect));
+    const withoutPolicy = Object.fromEntries(Object.entries(dialect).filter(([key]) => key !== "defaultTypePolicy"));
+    for (const invalid of [
+      null,
+      { ...dialect, contractVersion: 2 },
+      { ...dialect, id: "" },
+      { ...dialect, grammarVersion: "" },
+      { ...dialect, sqlModule: "" },
+      withoutPolicy,
+      { ...dialect, capabilities: [] },
+      { ...dialect, capabilities: { returning: "yes" } },
+      { ...dialect, placeholder: undefined },
+      { ...dialect, quoteIdentifier: undefined },
+      { ...dialect, analyze: undefined },
+      { ...dialect, validateSnapshot: undefined },
+    ]) {
+      strict.throws(() => assertDialectPlugin(invalid));
     }
   });
 

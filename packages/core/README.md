@@ -99,6 +99,7 @@ string is never promoted to SQL implicitly.
 ```ts
 import {
   DIALECT_CONTRACT_VERSION,
+  assertDialectPlugin,
   createDatabase,
   defineConfig,
   closestName,
@@ -110,6 +111,7 @@ import {
   sql,
   unionTypeLiterals,
   type DialectPlugin,
+  type DialectCapabilities,
   type Query,
   type QueryParameters,
   type QueryRow,
@@ -125,6 +127,7 @@ semantics, built-ins, quoting, type policy, and unsupported syntax inside their 
 
 The package has no database, parser, grammar, driver, TypeScript compiler, or editor dependency.
 See the [architecture contract](https://github.com/Lojhan/typed-sql/blob/main/docs/ARCHITECTURE.md)
+and [grammar authoring guide](https://github.com/Lojhan/typed-sql/blob/main/docs/GRAMMAR_AUTHORING.md)
 and [root documentation](https://github.com/Lojhan/typed-sql#readme).
 
 ## Diagnostics

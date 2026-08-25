@@ -1,4 +1,4 @@
-export const DIALECT_CONTRACT_VERSION = 2 as const;
+export const DIALECT_CONTRACT_VERSION = 3 as const;
 
 export interface SourceRange {
   readonly start: number;
@@ -91,6 +91,12 @@ export interface DialectAnalysis {
   readonly resultKind?: "rows" | "command";
 }
 
+/**
+ * Grammar-owned feature declarations. Core intentionally does not assign meaning to the keys.
+ * Tooling and applications can expose them without teaching neutral packages dialect semantics.
+ */
+export type DialectCapabilities = Readonly<Record<string, boolean>>;
+
 export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly contractVersion: typeof DIALECT_CONTRACT_VERSION;
   readonly id: string;
@@ -98,8 +104,11 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   readonly grammarVersion: string;
   /** Exact package entrypoint from which applications import the dialect's `sql` tag. */
   readonly sqlModule: string;
+  /** Grammar-owned feature names and their support status. */
+  readonly capabilities: DialectCapabilities;
   readonly defaultTypePolicy: Policy;
   placeholder(index: number): string;
+  quoteIdentifier(identifier: string): string;
   analyze(sql: string, snapshot: Snapshot, policy?: Policy): DialectAnalysis;
   validateSnapshot(value: unknown): Snapshot;
 }
@@ -122,12 +131,36 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
   };
 }
 
+function record(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function assertDialectPlugin(value: unknown): asserts value is DialectPlugin {
+  if (!record(value)) throw new TypeError("typed-sql dialect must be an object");
+  if (value.contractVersion !== DIALECT_CONTRACT_VERSION) {
+    throw new TypeError(`Unsupported typed-sql dialect contract ${String(value.contractVersion)}`);
+  }
+  for (const property of ["id", "grammarVersion", "sqlModule"] as const) {
+    if (typeof value[property] !== "string" || value[property].length === 0) {
+      throw new TypeError(`typed-sql dialect.${property} must be a non-empty string`);
+    }
+  }
+  if (!("defaultTypePolicy" in value)) throw new TypeError("typed-sql dialect.defaultTypePolicy is required");
+  if (
+    !record(value.capabilities) ||
+    Object.values(value.capabilities).some((supported) => typeof supported !== "boolean")
+  ) {
+    throw new TypeError("typed-sql dialect.capabilities must contain only boolean feature declarations");
+  }
+  for (const method of ["placeholder", "quoteIdentifier", "analyze", "validateSnapshot"] as const) {
+    if (typeof value[method] !== "function") throw new TypeError(`typed-sql dialect.${method} must be a function`);
+  }
+}
+
 export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   config: TypedSqlConfig<Snapshot, Policy>,
 ): TypedSqlConfig<Snapshot, Policy> {
-  if (config.dialect.contractVersion !== DIALECT_CONTRACT_VERSION) {
-    throw new TypeError(`Unsupported typed-sql dialect contract ${config.dialect.contractVersion}`);
-  }
+  assertDialectPlugin(config.dialect);
   const maximum = config.compiler?.maxStructuralVariants;
   if (maximum !== undefined && (!Number.isSafeInteger(maximum) || maximum < 1)) {
     throw new TypeError("compiler.maxStructuralVariants must be a positive safe integer");
