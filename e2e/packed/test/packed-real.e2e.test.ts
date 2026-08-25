@@ -1,10 +1,11 @@
 import { execFile as execFileCallback, spawn } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { ProtocolClient, positionAt } from "../../../test/helpers/protocol-client.js";
 
 interface CommandResult {
   readonly code: number;
@@ -23,7 +24,24 @@ const postgresContainer = `typed-sql-packed-postgres-${suffix}`;
 const mysqlContainer = `typed-sql-packed-mysql-${suffix}`;
 const postgresImage = "localhost/typed-sql-e2e-postgres:18.4";
 const mysqlImage = "localhost/typed-sql-e2e-mysql:8.4.11";
-const packageNames = ["ast", "core", "config", "schema", "compiler", "cli", "postgres", "mysql", "ts-bridge"] as const;
+const packageNames = [
+  "ast",
+  "core",
+  "config",
+  "schema",
+  "compiler",
+  "cli",
+  "postgres",
+  "mysql",
+  "ts-bridge",
+  "language-server",
+] as const;
+const consumerSource = process.env.TYPED_SQL_CONSUMER_SOURCE ?? "packed";
+const registryOnly = consumerSource === "registry";
+const registryTag = process.env.TYPED_SQL_REGISTRY_TAG ?? "next";
+if (!registryOnly && consumerSource !== "packed") {
+  throw new Error(`TYPED_SQL_CONSUMER_SOURCE must be packed or registry, received ${consumerSource}`);
+}
 const { NODE_PATH: _nodePath, ...cleanEnvironment } = process.env;
 const started: string[] = [];
 
@@ -61,37 +79,53 @@ async function write(path: string, value: string): Promise<void> {
   await writeFile(path, value.trimStart());
 }
 
-await describe("packed real-database consumers", async () => {
-  await it("generates, typechecks, and executes from tarballs without workspace links", async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-packed-real-"));
+await describe(`${consumerSource} real-database consumers`, async () => {
+  await it(`generates, typechecks, and executes from ${registryOnly ? "npm next" : "tarballs"}`, async () => {
+    const temporary = await mkdtemp(join(tmpdir(), `typed-sql-${consumerSource}-real-`));
     const tarballs = join(temporary, "tarballs");
     const consumer = join(temporary, "consumer");
     await mkdir(tarballs);
     await mkdir(consumer);
     try {
-      log("Packing public artifacts and building both immutable database images");
+      log(
+        `${registryOnly ? "Resolving npm next" : "Packing public artifacts"} and building both immutable database images`,
+      );
       const dependencies: Record<string, string> = {};
       for (const directory of packageNames) {
         const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8")) as {
           readonly name: string;
         };
-        const before = new Set(await readdir(tarballs));
-        await execFile("pnpm", ["--silent", "--filter", manifest.name, "pack", "--pack-destination", tarballs], {
-          cwd: workspace,
-        });
-        const archive = (await readdir(tarballs)).find((entry) => !before.has(entry));
-        if (archive === undefined) throw new Error(`No tarball produced for ${manifest.name}`);
-        dependencies[manifest.name] = `file:${join(tarballs, archive)}`;
+        if (registryOnly) dependencies[manifest.name] = registryTag;
+        else {
+          const before = new Set(await readdir(tarballs));
+          await execFile("pnpm", ["--silent", "--filter", manifest.name, "pack", "--pack-destination", tarballs], {
+            cwd: workspace,
+          });
+          const archive = (await readdir(tarballs)).find((entry) => !before.has(entry));
+          if (archive === undefined) throw new Error(`No tarball produced for ${manifest.name}`);
+          dependencies[manifest.name] = `file:${join(tarballs, archive)}`;
+        }
       }
-      const driverLinks = {
-        pg: `link:${join(workspace, "node_modules", "pg")}`,
-        mysql2: `link:${join(workspace, "node_modules", "mysql2")}`,
-        tsx: `link:${join(workspace, "node_modules", "tsx")}`,
-        typescript: `link:${join(workspace, "node_modules", "typescript")}`,
-        "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
-        "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
-        "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
-      };
+      const driverLinks = registryOnly
+        ? {
+            pg: "8.23.0",
+            mysql2: "3.24.1",
+            tsx: "4.23.12",
+            typescript: "7.0.2",
+            "@types/node": "24.3.0",
+          }
+        : {
+            pg: `link:${join(workspace, "node_modules", "pg")}`,
+            mysql2: `link:${join(workspace, "node_modules", "mysql2")}`,
+            tsx: `link:${join(workspace, "node_modules", "tsx")}`,
+            typescript: `link:${join(workspace, "node_modules", "typescript")}`,
+            "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
+            "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
+            "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
+            "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
+            "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,
+            "vscode-languageserver-textdocument": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver-textdocument")}`,
+          };
       await write(
         join(consumer, "package.json"),
         `${JSON.stringify(
@@ -99,16 +133,52 @@ await describe("packed real-database consumers", async () => {
             private: true,
             type: "module",
             dependencies: { ...dependencies, ...driverLinks },
-            pnpm: { overrides: { ...dependencies, ...driverLinks } },
+            ...(registryOnly ? {} : { pnpm: { overrides: { ...dependencies, ...driverLinks } } }),
           },
           null,
           2,
         )}\n`,
       );
-      await execFile("pnpm", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], {
-        cwd: consumer,
-        env: { ...cleanEnvironment, CI: "true" },
-      });
+      await execFile(
+        "pnpm",
+        ["install", ...(registryOnly ? [] : ["--offline", "--ignore-scripts"]), "--no-frozen-lockfile"],
+        {
+          cwd: consumer,
+          env: { ...cleanEnvironment, CI: "true" },
+        },
+      );
+
+      if (registryOnly) {
+        const manifest = await readFile(join(consumer, "package.json"), "utf8");
+        const lockfile = await readFile(join(consumer, "pnpm-lock.yaml"), "utf8");
+        const installedRoot = await realpath(consumer);
+        const repositoryRoot = await realpath(workspace);
+        for (const forbidden of ["workspace:", "link:", "file:", workspace]) {
+          strict.ok(!manifest.includes(forbidden), `registry manifest contains ${forbidden}`);
+        }
+        for (const protocol of ["workspace:", "link:", "file:"])
+          strict.ok(
+            !new RegExp(`(?:^|\\s)${protocol}`, "mu").test(lockfile),
+            `registry lockfile contains ${protocol} protocol`,
+          );
+        strict.ok(!lockfile.includes(workspace), "registry lockfile contains the repository path");
+        for (const directory of packageNames) {
+          const installed = await realpath(join(consumer, "node_modules", "@typed-sql", directory));
+          strict.ok(
+            installed.startsWith(`${installedRoot}/`),
+            `${directory} resolved outside disposable consumer: ${installed}`,
+          );
+          strict.ok(!installed.startsWith(`${repositoryRoot}/`), `${directory} resolved from the repository`);
+          const installedManifest = JSON.parse(await readFile(join(installed, "package.json"), "utf8")) as {
+            readonly dependencies?: Readonly<Record<string, string>>;
+            readonly optionalDependencies?: Readonly<Record<string, string>>;
+          };
+          for (const field of [installedManifest.dependencies, installedManifest.optionalDependencies]) {
+            strict.strictEqual(field?.pg, undefined, `${directory} installed pg implicitly`);
+            strict.strictEqual(field?.mysql2, undefined, `${directory} installed mysql2 implicitly`);
+          }
+        }
+      }
 
       await ensureImage(postgresImage, join(workspace, "e2e", "postgres"));
       await ensureImage(mysqlImage, join(workspace, "e2e", "mysql"));
@@ -240,13 +310,68 @@ await describe("packed real-database consumers", async () => {
         `
         import { sql, typePolicy } from "@typed-sql/postgres";
         import { createPgDatabase } from "@typed-sql/postgres/pg";
+        import type { QueryParameters, QueryRow } from "@typed-sql/core";
         type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
         type Assert<T extends true> = T;
-        export const query = sql\`SELECT users.id, users.email FROM users ORDER BY users.id\`;
+        export const query = sql\`
+          SELECT account.id, account.email, account.status, project.budget::NUMERIC AS budget
+          FROM users AS account
+          LEFT JOIN projects AS project ON project.owner_id = account.id
+          WHERE account.id >= \${1n}
+          ORDER BY account.id
+        \`;
+        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint]>> = true;
+        void queryParameters;
+
+        export const cteQuery = sql\`
+          WITH project_totals AS (
+            SELECT project.owner_id, COUNT(*) AS project_count, SUM(project.budget) AS total_budget
+            FROM projects AS project GROUP BY project.owner_id
+          )
+          SELECT account.id, project_totals.project_count, project_totals.total_budget,
+                 active_user_count() AS active_count
+          FROM users AS account
+          LEFT JOIN project_totals ON project_totals.owner_id = account.id
+        \`;
+        const cteRow: Assert<Equal<QueryRow<typeof cteQuery>, {
+          id: bigint; project_count: bigint | null; total_budget: string | null; active_count: bigint | null;
+        }>> = true;
+        void cteRow;
+
+        interface AccountSelect { readonly status: boolean }
+        interface AccountFilters { readonly status?: "active" | "suspended" | null; readonly minimumId?: bigint | null }
+        export function accounts<const Select extends AccountSelect>(select: Select, filters: AccountFilters) {
+          return sql\`
+            SELECT account.id, account.email
+              \${select.status ? sql.fragment\`, account.status\` : sql.empty}
+            FROM users AS account
+            WHERE 1 = 1
+              \${filters.status == null ? sql.empty : sql.fragment\`AND account.status = \${filters.status}\`}
+              \${filters.minimumId == null ? sql.empty : sql.fragment\`AND account.id >= \${filters.minimumId}\`}
+          \`;
+        }
+        const withoutStatus = accounts({ status: false }, {});
+        const withStatus = accounts({ status: true }, {});
+        declare const runtimeStatus: boolean;
+        const runtimeProjection = accounts({ status: runtimeStatus }, {});
+        const filtered = accounts({ status: true }, { status: "active", minimumId: 1n });
+        const falseRow: Assert<Equal<QueryRow<typeof withoutStatus>, { id: bigint; email: string }>> = true;
+        const trueRow: Assert<Equal<QueryRow<typeof withStatus>, { id: bigint; email: string; status: "active" | "suspended" }>> = true;
+        const runtimeRow: Assert<Equal<QueryRow<typeof runtimeProjection>,
+          { id: bigint; email: string; status: "active" | "suspended" } | { id: bigint; email: string }
+        >> = true;
+        const filterParameters: Assert<Equal<QueryParameters<typeof filtered>,
+          readonly [] | readonly ["active" | "suspended"] | readonly [bigint] |
+          readonly ["active" | "suspended", bigint]
+        >> = true;
+        void [falseRow, trueRow, runtimeRow, filterParameters];
+
         async function verifyInferredRows(): Promise<void> {
           const database = await createPgDatabase({ connectionString: "postgresql://unused-at-typecheck", typePolicy });
           const rows = await database.execute(query);
-          const exact: Assert<Equal<(typeof rows)[number], { id: bigint; email: string }>> = true;
+          const exact: Assert<Equal<(typeof rows)[number], {
+            id: bigint; email: string; status: "active" | "suspended"; budget: string | null;
+          }>> = true;
           void exact;
           await database.close();
         }
@@ -258,17 +383,124 @@ await describe("packed real-database consumers", async () => {
         `
         import { sql, typePolicy } from "@typed-sql/mysql";
         import { createMySql2Database } from "@typed-sql/mysql/mysql2";
+        import type { QueryParameters, QueryRow } from "@typed-sql/core";
         type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
         type Assert<T extends true> = T;
-        export const query = sql\`SELECT users.id, users.status FROM users ORDER BY users.id\`;
+        export const query = sql\`
+          SELECT account.id, account.email, account.status, project.budget
+          FROM users AS account
+          LEFT JOIN projects AS project ON project.owner_id = account.id
+          WHERE account.id >= \${1n}
+          ORDER BY account.id
+        \`;
+        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint]>> = true;
+        void queryParameters;
+
+        export const cteQuery = sql\`
+          WITH project_totals AS (
+            SELECT project.owner_id, COUNT(*) AS project_count, SUM(project.budget) AS total_budget
+            FROM projects AS project GROUP BY project.owner_id
+          )
+          SELECT account.id, project_totals.project_count, project_totals.total_budget,
+                 user_count() AS account_count
+          FROM users AS account
+          LEFT JOIN project_totals ON project_totals.owner_id = account.id
+        \`;
+        const cteRow: Assert<Equal<QueryRow<typeof cteQuery>, {
+          id: bigint; project_count: bigint | null; total_budget: string | null; account_count: bigint | null;
+        }>> = true;
+        void cteRow;
+
+        interface AccountSelect { readonly status: boolean }
+        interface AccountFilters { readonly status?: "active" | "suspended" | null; readonly minimumId?: bigint | null }
+        export function accounts<const Select extends AccountSelect>(select: Select, filters: AccountFilters) {
+          return sql\`
+            SELECT account.id, account.email
+              \${select.status ? sql.fragment\`, account.status\` : sql.empty}
+            FROM users AS account
+            WHERE 1 = 1
+              \${filters.status == null ? sql.empty : sql.fragment\`AND account.status = \${filters.status}\`}
+              \${filters.minimumId == null ? sql.empty : sql.fragment\`AND account.id >= \${filters.minimumId}\`}
+          \`;
+        }
+        const withoutStatus = accounts({ status: false }, {});
+        const withStatus = accounts({ status: true }, {});
+        declare const runtimeStatus: boolean;
+        const runtimeProjection = accounts({ status: runtimeStatus }, {});
+        const filtered = accounts({ status: true }, { status: "active", minimumId: 1n });
+        const falseRow: Assert<Equal<QueryRow<typeof withoutStatus>, { id: bigint; email: string }>> = true;
+        const trueRow: Assert<Equal<QueryRow<typeof withStatus>, { id: bigint; email: string; status: "active" | "suspended" }>> = true;
+        const runtimeRow: Assert<Equal<QueryRow<typeof runtimeProjection>,
+          { id: bigint; email: string; status: "active" | "suspended" } | { id: bigint; email: string }
+        >> = true;
+        const filterParameters: Assert<Equal<QueryParameters<typeof filtered>,
+          readonly [] | readonly ["active" | "suspended"] | readonly [bigint] |
+          readonly ["active" | "suspended", bigint]
+        >> = true;
+        void [falseRow, trueRow, runtimeRow, filterParameters];
+
         async function verifyInferredRows(): Promise<void> {
           const database = await createMySql2Database({ connectionUri: "mysql://unused-at-typecheck", typePolicy });
           const rows = await database.execute(query);
-          const exact: Assert<Equal<(typeof rows)[number], { id: bigint; status: "active" | "suspended" }>> = true;
+          const exact: Assert<Equal<(typeof rows)[number], {
+            id: bigint; email: string; status: "active" | "suspended"; budget: string | null;
+          }>> = true;
           void exact;
           await database.close();
         }
         void verifyInferredRows;
+      `,
+      );
+      await write(
+        join(consumer, "postgres", "src", "server.ts"),
+        `
+        import { createServer, type Server } from "node:http";
+        import { sql, typePolicy } from "@typed-sql/postgres";
+        import { createPgDatabase } from "@typed-sql/postgres/pg";
+
+        export const dashboardQuery = sql\`
+          WITH project_totals AS (
+            SELECT projects.owner_id, SUM(projects.budget) AS total_budget
+            FROM projects GROUP BY projects.owner_id
+          )
+          SELECT users.id, users.email, project_totals.total_budget,
+                 active_user_count() AS active_count
+          FROM users
+          LEFT JOIN project_totals ON project_totals.owner_id = users.id
+          WHERE users.id >= \${1n}
+          ORDER BY users.id
+        \`;
+
+        export async function loadDashboard() {
+          const database = await createPgDatabase({
+            connectionString: "postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${postgresPort}/typed_sql_e2e",
+            typePolicy,
+          });
+          try {
+            const rows = await database.execute(dashboardQuery);
+            type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+            const exact: Equal<(typeof rows)[number], {
+              id: bigint; email: string; total_budget: string | null; active_count: bigint | null;
+            }> = true;
+            void exact;
+            return rows;
+          } finally { await database.close(); }
+        }
+
+        export type DashboardResponse = { readonly data: Awaited<ReturnType<typeof loadDashboard>> };
+        const json = (value: unknown) => JSON.stringify(value, (_key, item) => typeof item === "bigint" ? item.toString() : item);
+        export function createDashboardServer(): Server {
+          return createServer(async (request, response) => {
+            if (request.method !== "GET" || request.url !== "/dashboard") {
+              response.writeHead(404, { "content-type": "application/json" });
+              response.end(json({ error: "not_found" }));
+              return;
+            }
+            const payload: DashboardResponse = { data: await loadDashboard() };
+            response.writeHead(200, { "content-type": "application/json" });
+            response.end(json(payload));
+          });
+        }
       `,
       );
       for (const name of ["postgres", "mysql"])
@@ -286,6 +518,51 @@ await describe("packed real-database consumers", async () => {
           ],
           join(consumer, name),
         );
+      await mustRun(
+        process.execPath,
+        [
+          cli,
+          "check",
+          "--config",
+          join(consumer, "postgres", "typed-sql.config.ts"),
+          "--file",
+          join(consumer, "postgres", "src", "server.ts"),
+          "--project",
+          join(consumer, "postgres", "tsconfig.json"),
+        ],
+        join(consumer, "postgres"),
+      );
+
+      const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
+      for (const name of ["postgres", "mysql"] as const) {
+        const directory = join(consumer, name);
+        const queryFile = join(directory, "src", "query.ts");
+        const source = await readFile(queryFile, "utf8");
+        const uri = pathToFileURL(queryFile).href;
+        const client = new ProtocolClient(languageServer, ["--stdio"], directory, cleanEnvironment);
+        try {
+          await client.request("initialize", {
+            processId: process.pid,
+            rootUri: pathToFileURL(directory).href,
+            workspaceFolders: [{ uri: pathToFileURL(directory).href, name }],
+            capabilities: {},
+          });
+          client.notify("initialized", {});
+          client.notify("textDocument/didOpen", {
+            textDocument: { uri, languageId: "typescript", version: 1, text: source },
+          });
+          const hover = JSON.stringify(
+            await client.request("textDocument/hover", {
+              textDocument: { uri },
+              position: positionAt(source, source.indexOf("query")),
+            }),
+          );
+          strict.ok(hover.includes("id: bigint"), hover);
+          strict.ok(!hover.includes("unknown"), hover);
+        } finally {
+          await client.close();
+        }
+      }
 
       await write(
         join(consumer, "inspect-preview.ts"),
@@ -324,10 +601,12 @@ await describe("packed real-database consumers", async () => {
       await write(
         join(consumer, "verify.ts"),
         `
+        import type { AddressInfo } from "node:net";
         import { sql as postgresSql, typePolicy as postgresTypePolicy } from "@typed-sql/postgres";
         import { createPgDatabase } from "@typed-sql/postgres/pg";
         import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
         import { createMySql2Database } from "@typed-sql/mysql/mysql2";
+        import { createDashboardServer } from "./postgres/src/server.js";
         const postgres = await createPgDatabase({ connectionString: "postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${postgresPort}/typed_sql_e2e", typePolicy: postgresTypePolicy });
         const mysql = await createMySql2Database({ connectionUri: "mysql://typed_sql:typed_sql_e2e@127.0.0.1:${mysqlPort}/typed_sql_e2e", typePolicy: mysqlTypePolicy });
         try {
@@ -336,10 +615,38 @@ await describe("packed real-database consumers", async () => {
           if (pgRows[0]?.id !== 1n || pgRows[0]?.email !== "alice@example.com") throw new Error("packed pg execution failed");
           if (myRows[0]?.id !== 1n || myRows[0]?.status !== "active") throw new Error("packed mysql2 execution failed");
         } finally { await postgres.close(); await mysql.close(); }
+
+        const server = createDashboardServer();
+        try {
+          await new Promise((resolve, reject) => {
+            server.once("error", reject);
+            server.listen(0, "127.0.0.1", resolve);
+          });
+          const address = server.address() as AddressInfo;
+          const response = await fetch(\`http://127.0.0.1:\${address.port}/dashboard\`);
+          if (response.status !== 200) throw new Error(\`fake server returned \${response.status}\`);
+          const payload = await response.json();
+          const expected = { data: [
+            { id: "1", email: "alice@example.com", total_budget: "12500.50", active_count: "1" },
+            { id: "2", email: "bob@example.com", total_budget: null, active_count: "1" },
+          ] };
+          if (JSON.stringify(payload) !== JSON.stringify(expected)) {
+            throw new Error(\`fake server response mismatch: \${JSON.stringify(payload)}\`);
+          }
+        } finally {
+          await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve(undefined)));
+        }
       `,
       );
       await mustRun(process.execPath, ["--import", "tsx", join(consumer, "verify.ts")], consumer);
-      strict.ok(true);
+      for (const name of ["postgres", "mysql"] as const) {
+        const drift = await mustRun(
+          process.execPath,
+          [cli, "drift", "--config", join(consumer, name, "typed-sql.config.ts")],
+          join(consumer, name),
+        );
+        strict.ok(drift.stdout.includes("No schema drift detected"));
+      }
     } finally {
       for (const container of started.reverse()) await run(engine, ["rm", "--force", container]);
       await rm(temporary, { recursive: true, force: true });

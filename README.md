@@ -336,6 +336,7 @@ pnpm verify
 pnpm e2e:postgres
 pnpm e2e:mysql
 pnpm e2e:packed
+TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:registry
 ```
 
 ## Project contract
@@ -348,6 +349,7 @@ pnpm e2e:packed
 - [Performance budgets and methodology](./docs/PERFORMANCE.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
 - [Releasing](./docs/RELEASING.md)
+- [Registry-only acceptance](./docs/REGISTRY_ACCEPTANCE.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)
 - [Security policy](./SECURITY.md)
 - [Contributing](./CONTRIBUTING.md)
