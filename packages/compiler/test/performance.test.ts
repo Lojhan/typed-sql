@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { describe, it, strict } from "poku";
 import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
-import { compileSource } from "../src/index.js";
+import { compileSource, extractStaticQueries } from "../src/index.js";
 
 const schema = { formatVersion: 1, dialect: "performance", tables: {} } as const satisfies SchemaSnapshot;
 const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
@@ -37,5 +37,15 @@ await describe("compiler performance budget", async () => {
     const duration = performance.now() - start;
     strict.strictEqual(result.queries.length, 1_000);
     strict.ok(duration <= budget, `Compiler took ${duration.toFixed(1)}ms; budget is ${budget}ms`);
+  });
+
+  await it("rejects a large malformed import in linear time", () => {
+    const source = "import{{".repeat(100_000);
+    const budget = Number(process.env.TYPED_SQL_SCANNER_SECURITY_BUDGET_MS ?? "1000");
+    const start = performance.now();
+    const result = extractStaticQueries(source, (index) => `$${index}`);
+    const duration = performance.now() - start;
+    strict.deepStrictEqual(result, []);
+    strict.ok(duration <= budget, `Scanner took ${duration.toFixed(1)}ms; budget is ${budget}ms`);
   });
 });

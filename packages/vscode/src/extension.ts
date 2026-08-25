@@ -150,7 +150,7 @@ async function provideCompletionItems(document: vscode.TextDocument, position: v
   const query = queryAtPosition(result.analysis, offset);
   if (query === undefined) return [];
   const before = document.getText().slice(query.sourceRange.start, offset);
-  const qualifier = /([A-Za-z_$][\w$]*)\.[A-Za-z_$\w]*$/u.exec(before)?.[1];
+  const qualifier = /([A-Za-z_$][A-Za-z0-9_$]*)\.[A-Za-z0-9_$]*$/u.exec(before)?.[1];
   const selected = qualifier === undefined ? undefined : tableForAlias(document.getText().slice(query.sourceRange.start, query.sourceRange.end), qualifier, result.snapshot);
   const tables = selected === undefined ? Object.values(result.snapshot.tables) : [selected];
   const items = new Map<string, vscode.CompletionItem>();

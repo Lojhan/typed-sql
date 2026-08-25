@@ -22,6 +22,10 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: ci
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: cargo
     directory: /editors/zed
