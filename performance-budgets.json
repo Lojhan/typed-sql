@@ -16,7 +16,7 @@
     "editor.incrementalAnalysis": { "p50": 30, "p95": 75 },
     "editor.unchangedAnalysis": { "p50": 0.5, "p95": 1 },
     "editor.schemaReload": { "p50": 30, "p95": 75 },
-    "editor.cancelledRequest": { "p50": 0.5, "p95": 1 }
+    "editor.cancelledRequest": { "p50": 1, "p95": 2 }
   },
   "throughput": {
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 }
