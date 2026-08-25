@@ -266,8 +266,9 @@ query overlay in memory, asks the native TypeScript checker for the real program
 hover/diagnostic positions back to the unchanged source.
 
 - **Zed:** the repository includes a native extension and a project-local configuration. The
-  typed-sql server replaces the ordinary TypeScript server so Zed does not show a competing
-  `Query<unknown>`. See the [Zed guide](./editors/zed/README.md).
+  extension automatically resolves `@typed-sql/language-server@next` from the application, with no
+  absolute binary path. The typed-sql server replaces the ordinary TypeScript server so Zed does
+  not show a competing `Query<unknown>`. See the [Zed guide](./editors/zed/README.md).
 - **VS Code:** the experimental extension provides inferred hovers, SQL diagnostics, completion,
   definitions, quick fixes, cancellation, and bounded caches. See the
   [VS Code guide](./packages/vscode/README.md).
@@ -276,7 +277,7 @@ hover/diagnostic positions back to the unchanged source.
 
 TypeScript `7.0.2` is the correctness compiler. A separately pinned `7.1` preview lives behind an
 isolated process boundary for the editor bridge, so upstream API churn cannot leak into the grammar
-or query contract.
+or query contract. The bridge does not require `tsserver.js` from the workspace TypeScript package.
 
 ## Packages
 

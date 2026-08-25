@@ -2,7 +2,7 @@
   "name": "typed-sql",
   "displayName": "typed-sql",
   "description": "TypeScript 7-native SQL inference, hover information, and diagnostics.",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "publisher": "lojhan",
   "author": "Lojhan",

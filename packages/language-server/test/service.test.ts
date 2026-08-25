@@ -67,5 +67,12 @@ await describe("typed-sql language service", async () => {
     strict.throws(() => service.configure(workspaceDirectory, { maxCacheEntries: 0 }), /positive safe integer/);
   });
 
+  await it("claims only typed-sql config and schema watcher events", async () => {
+    strict.strictEqual(await service.handlesWatchedFile(pathToFileURL(configFile).href), true);
+    strict.strictEqual(await service.handlesWatchedFile(pathToFileURL(schemaFile).href), true);
+    strict.strictEqual(await service.handlesWatchedFile(pathToFileURL(projectFile).href), false);
+    strict.strictEqual(await service.handlesWatchedFile("untitled:query.ts"), false);
+  });
+
   await service.close();
 });

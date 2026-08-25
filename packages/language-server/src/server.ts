@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import { cwd, stderr, stdin, stdout } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { BridgeAnalysis } from "@typed-sql/ts-bridge";
@@ -50,9 +51,50 @@ interface DocumentState {
 type JsonObject = Record<string, unknown>;
 type MappingDirection = "source-to-virtual" | "virtual-to-source";
 
-const preview = spawn(process.execPath, [typescriptPreviewCliPath(), "--lsp", "--stdio"], {
+interface WatchedFileChange {
+  readonly uri: string;
+  readonly type: number;
+}
+
+const previewCli = process.env.TYPED_SQL_TYPESCRIPT_PREVIEW_CLI ?? typescriptPreviewCliPath();
+const preview = spawn(process.execPath, [previewCli, "--lsp", "--stdio"], {
   cwd: cwd(),
   stdio: ["pipe", "pipe", "pipe"],
+});
+let previewFailure: Error | undefined;
+let previewStderr = "";
+let stopping = false;
+const previewFailureWaiters = new Set<(error: Error) => void>();
+
+function previewError(cause: string): Error {
+  return new Error(
+    [
+      "typed-sql could not start or communicate with its pinned TypeScript preview process.",
+      `Preview: TypeScript ${TYPESCRIPT_PREVIEW_VERSION}`,
+      `CLI: ${previewCli}`,
+      `Cause: ${cause}`,
+      previewStderr.length === 0 ? "" : `Preview stderr: ${previewStderr.trim()}`,
+      "Reinstall @typed-sql/language-server@next in the workspace and restart the editor.",
+    ]
+      .filter((part) => part.length > 0)
+      .join(" "),
+  );
+}
+
+function failPreview(error: Error): void {
+  previewFailure ??= error;
+  for (const reject of previewFailureWaiters) reject(previewFailure);
+  previewFailureWaiters.clear();
+  stderr.write(`${previewFailure.message}\n`);
+}
+
+const previewReady = new Promise<void>((resolvePreview, rejectPreview) => {
+  preview.once("spawn", resolvePreview);
+  preview.once("error", (error) => {
+    const failure = previewError(error.message);
+    failPreview(failure);
+    rejectPreview(failure);
+  });
 });
 const client = createMessageConnection(stdin, stdout, NullLogger);
 const typescript: MessageConnection = createMessageConnection(preview.stdout, preview.stdin, NullLogger);
@@ -60,21 +102,66 @@ const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
 const pendingDocuments = new Map<string, Promise<void>>();
-let workspaceRoot = cwd();
 let workspaceReady: Promise<void> = Promise.resolve();
-const service = new TypedSqlLanguageService(workspaceRoot);
+let workspaceRoots: readonly string[] = [resolve(cwd())];
+let services = new Map([[workspaceRoots[0]!, new TypedSqlLanguageService(workspaceRoots[0]!)]]);
 
 preview.stderr.on("data", (chunk: Buffer | string) => {
-  stderr.write(`[typed-sql/typescript-${TYPESCRIPT_PREVIEW_VERSION}] ${chunk.toString()}`);
+  const message = chunk.toString();
+  previewStderr = `${previewStderr}${message}`.slice(-8_000);
+  stderr.write(`[typed-sql/typescript-${TYPESCRIPT_PREVIEW_VERSION}] ${message}`);
 });
+
+async function nativeRequest<T = unknown>(method: string, ...params: [] | [unknown]): Promise<T> {
+  if (previewFailure !== undefined) throw previewFailure;
+  let rejectFailure!: (error: Error) => void;
+  const failure = new Promise<never>((_resolveFailure, reject) => {
+    rejectFailure = reject;
+    previewFailureWaiters.add(reject);
+  });
+  try {
+    const request =
+      params.length === 0 ? typescript.sendRequest<T>(method) : typescript.sendRequest<T>(method, params[0]);
+    return await Promise.race([request, failure]);
+  } finally {
+    previewFailureWaiters.delete(rejectFailure);
+  }
+}
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function rootDirectory(params: InitializeParams): string {
-  const uri = params.workspaceFolders?.[0]?.uri ?? params.rootUri;
-  return typeof uri === "string" && uri.startsWith("file:") ? fileURLToPath(uri) : cwd();
+function workspaceDirectories(params: InitializeParams): readonly string[] {
+  const folderUris = params.workspaceFolders?.map((folder) => folder.uri);
+  const uris = folderUris !== undefined && folderUris.length > 0 ? folderUris : [params.rootUri];
+  const directories = uris.flatMap((uri) =>
+    typeof uri === "string" && uri.startsWith("file:") ? [resolve(fileURLToPath(uri))] : [],
+  );
+  return directories.length === 0 ? [resolve(cwd())] : [...new Set(directories)];
+}
+
+function contains(root: string, fileName: string): boolean {
+  const path = relative(root, fileName);
+  return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+}
+
+function serviceForUri(uri?: string): TypedSqlLanguageService {
+  const fileName = uri?.startsWith("file:") === true ? fileURLToPath(uri) : undefined;
+  const root =
+    fileName === undefined
+      ? workspaceRoots[0]
+      : workspaceRoots
+          .filter((candidate) => contains(candidate, fileName))
+          .sort((left, right) => right.length - left.length)[0];
+  return services.get(root ?? workspaceRoots[0]!)!;
+}
+
+async function configureServices(roots: readonly string[], settings: ReturnType<typeof settingsFrom>): Promise<void> {
+  const previous = services;
+  workspaceRoots = roots;
+  services = new Map(roots.map((root) => [root, new TypedSqlLanguageService(root, settings)]));
+  await Promise.all([...previous.values()].map(async (service) => service.close()));
 }
 
 function sourceOffsetToVirtual(state: DocumentState, offset: number): number {
@@ -125,6 +212,14 @@ function documentUri(value: unknown): string | undefined {
     : undefined;
 }
 
+function watchedFileChanges(value: unknown): readonly WatchedFileChange[] | undefined {
+  if (!isObject(value) || !Array.isArray(value.changes)) return undefined;
+  return value.changes.filter(
+    (change): change is WatchedFileChange =>
+      isObject(change) && typeof change.uri === "string" && typeof change.type === "number",
+  );
+}
+
 function queueDocument(uri: string, operation: () => Promise<void>): Promise<void> {
   const previous = pendingDocuments.get(uri) ?? Promise.resolve();
   const pending = previous.then(operation);
@@ -147,7 +242,7 @@ function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?
 }
 
 async function createState(original: TextDocument, previous?: DocumentState): Promise<DocumentState> {
-  const analysis = await service.analysis(original);
+  const analysis = await serviceForUri(original.uri).analysis(original);
   const virtualVersion = previous === undefined ? original.version : previous.virtualVersion + 1;
   const transformed = TextDocument.create(
     original.uri,
@@ -164,7 +259,10 @@ async function createState(original: TextDocument, previous?: DocumentState): Pr
 }
 
 async function combinedDiagnostics(state: DocumentState): Promise<readonly unknown[]> {
-  return [...(nativeDiagnostics.get(state.original.uri) ?? []), ...(await service.diagnostics(state.original))];
+  return [
+    ...(nativeDiagnostics.get(state.original.uri) ?? []),
+    ...(await serviceForUri(state.original.uri).diagnostics(state.original)),
+  ];
 }
 
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
@@ -177,7 +275,7 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
 
 async function refreshOpenDocuments(): Promise<void> {
   for (const [uri, previous] of documents) {
-    service.forget(uri);
+    serviceForUri(uri).forget(uri);
     const state = await createState(previous.original, previous);
     documents.set(uri, state);
     await typescript.sendNotification("textDocument/didChange", {
@@ -189,29 +287,36 @@ async function refreshOpenDocuments(): Promise<void> {
 }
 
 async function preloadWorkspaceDocuments(): Promise<void> {
-  for (const fileName of await service.workspaceFiles()) {
-    const uri = pathToFileURL(fileName).href;
-    if (documents.has(uri) || virtualDocuments.has(uri)) continue;
-    const text = await readFile(fileName, "utf8");
-    const original = TextDocument.create(uri, /\.tsx$/u.test(fileName) ? "typescriptreact" : "typescript", 0, text);
-    const state = await createState(original);
-    if (state.analysis?.queries.length === 0 || state.analysis === undefined) continue;
-    virtualDocuments.set(uri, state);
-    await typescript.sendNotification("textDocument/didOpen", {
-      textDocument: {
-        uri,
-        languageId: original.languageId,
-        version: state.virtualVersion,
-        text: state.transformed.getText(),
-      },
-    });
+  for (const service of services.values()) {
+    for (const fileName of await service.workspaceFiles()) {
+      const uri = pathToFileURL(fileName).href;
+      if (documents.has(uri) || virtualDocuments.has(uri)) continue;
+      const text = await readFile(fileName, "utf8");
+      const original = TextDocument.create(uri, /\.tsx$/u.test(fileName) ? "typescriptreact" : "typescript", 0, text);
+      const state = await createState(original);
+      if (documents.has(uri) || virtualDocuments.has(uri)) continue;
+      if (state.analysis?.queries.length === 0 || state.analysis === undefined) continue;
+      virtualDocuments.set(uri, state);
+      await typescript.sendNotification("textDocument/didOpen", {
+        textDocument: {
+          uri,
+          languageId: original.languageId,
+          version: state.virtualVersion,
+          text: state.transformed.getText(),
+        },
+      });
+    }
   }
 }
 
 async function resetVirtualDocuments(): Promise<void> {
   for (const uri of virtualDocuments.keys()) {
+    if (documents.has(uri)) {
+      virtualDocuments.delete(uri);
+      continue;
+    }
     await typescript.sendNotification("textDocument/didClose", { textDocument: { uri } });
-    service.forget(uri);
+    serviceForUri(uri).forget(uri);
   }
   virtualDocuments.clear();
   await preloadWorkspaceDocuments();
@@ -219,9 +324,10 @@ async function resetVirtualDocuments(): Promise<void> {
 
 client.onRequest("initialize", async (rawParams) => {
   const params = rawParams as InitializeParams;
-  workspaceRoot = rootDirectory(params);
-  service.configure(workspaceRoot, settingsFrom(params.initializationOptions));
-  const result = await typescript.sendRequest<JsonObject>("initialize", params);
+  await previewReady;
+  const roots = workspaceDirectories(params);
+  await configureServices(roots, settingsFrom(params.initializationOptions));
+  const result = await nativeRequest<JsonObject>("initialize", params);
   return {
     ...result,
     capabilities: {
@@ -238,8 +344,8 @@ client.onRequest("initialize", async (rawParams) => {
 });
 
 client.onRequest("shutdown", async () => {
-  const result = await typescript.sendRequest("shutdown");
-  await service.close();
+  const result = await nativeRequest("shutdown");
+  await Promise.all([...services.values()].map(async (service) => service.close()));
   return result;
 });
 
@@ -258,11 +364,15 @@ client.onRequest("textDocument/completion", async (rawParams, token) => {
   if (uri !== undefined) await pendingDocuments.get(uri);
   const state = stateFor(params);
   if (state !== undefined && isObject(params.position)) {
-    const items = await service.completions(state.original, params.position as unknown as Position, token);
+    const items = await serviceForUri(state.original.uri).completions(
+      state.original,
+      params.position as unknown as Position,
+      token,
+    );
     if (items.length > 0) return { isIncomplete: false, items };
   }
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  return mapProtocolValue(await typescript.sendRequest("textDocument/completion", mapped), "virtual-to-source", state);
+  return mapProtocolValue(await nativeRequest("textDocument/completion", mapped), "virtual-to-source", state);
 });
 
 client.onRequest("textDocument/definition", async (rawParams, token) => {
@@ -272,11 +382,15 @@ client.onRequest("textDocument/definition", async (rawParams, token) => {
   if (uri !== undefined) await pendingDocuments.get(uri);
   const state = stateFor(params);
   if (state !== undefined && isObject(params.position)) {
-    const definition = await service.definition(state.original, params.position as unknown as Position, token);
+    const definition = await serviceForUri(state.original.uri).definition(
+      state.original,
+      params.position as unknown as Position,
+      token,
+    );
     if (definition !== undefined) return definition;
   }
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  return mapProtocolValue(await typescript.sendRequest("textDocument/definition", mapped), "virtual-to-source", state);
+  return mapProtocolValue(await nativeRequest("textDocument/definition", mapped), "virtual-to-source", state);
 });
 
 client.onRequest("textDocument/codeAction", async (rawParams, token) => {
@@ -287,9 +401,10 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
   const state = stateFor(params);
   const context = isObject(params.context) ? params.context : undefined;
   const diagnostics = Array.isArray(context?.diagnostics) ? context.diagnostics : [];
-  const typedActions = state === undefined ? [] : await service.codeActions(state.original, diagnostics, token);
+  const typedActions =
+    state === undefined ? [] : await serviceForUri(state.original.uri).codeActions(state.original, diagnostics, token);
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  const native = await typescript.sendRequest<unknown>("textDocument/codeAction", mapped);
+  const native = await nativeRequest("textDocument/codeAction", mapped);
   const nativeActions = Array.isArray(native)
     ? (mapProtocolValue(native, "virtual-to-source", state) as readonly unknown[])
     : [];
@@ -302,7 +417,7 @@ client.onRequest(async (method, params) => {
   if (uri !== undefined) await pendingDocuments.get(uri);
   const state = isObject(params) ? stateFor(params) : undefined;
   const mappedParams = mapProtocolValue(params, "source-to-virtual", state);
-  const result = await typescript.sendRequest<unknown>(method, mappedParams);
+  const result = await nativeRequest(method, mappedParams);
   const mappedResult = mapProtocolValue(result, "virtual-to-source", state);
   if (method !== "textDocument/diagnostic" || state === undefined || !isObject(mappedResult)) {
     return mappedResult;
@@ -310,7 +425,7 @@ client.onRequest(async (method, params) => {
   const items = Array.isArray(mappedResult.items) ? mappedResult.items : [];
   return {
     ...mappedResult,
-    items: [...items, ...(await service.diagnostics(state.original))],
+    items: [...items, ...(await serviceForUri(state.original.uri).diagnostics(state.original))],
   };
 });
 
@@ -318,6 +433,7 @@ client.onNotification("textDocument/didOpen", (rawParams) => {
   const params = rawParams as DidOpenParams;
   const item = params.textDocument;
   return queueDocument(item.uri, async () => {
+    await workspaceReady;
     const original = TextDocument.create(item.uri, item.languageId, item.version, item.text);
     const virtual = virtualDocuments.get(item.uri);
     const state = await createState(original, virtual);
@@ -339,13 +455,14 @@ client.onNotification("textDocument/didOpen", (rawParams) => {
 client.onNotification("textDocument/didChange", (rawParams) => {
   const params = rawParams as DidChangeParams;
   return queueDocument(params.textDocument.uri, async () => {
+    await workspaceReady;
     const previous = documents.get(params.textDocument.uri);
     if (previous === undefined) {
       await typescript.sendNotification("textDocument/didChange", params);
       return;
     }
     const original = TextDocument.update(previous.original, [...params.contentChanges], params.textDocument.version);
-    service.forget(original.uri);
+    serviceForUri(original.uri).forget(original.uri);
     const state = await createState(original, previous);
     documents.set(original.uri, state);
     await typescript.sendNotification("textDocument/didChange", {
@@ -359,10 +476,11 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
   return queueDocument(params.textDocument.uri, async () => {
+    await workspaceReady;
     const previous = documents.get(params.textDocument.uri);
     documents.delete(params.textDocument.uri);
     nativeDiagnostics.delete(params.textDocument.uri);
-    service.forget(params.textDocument.uri);
+    serviceForUri(params.textDocument.uri).forget(params.textDocument.uri);
     try {
       const fileName = fileURLToPath(params.textDocument.uri);
       const text = await readFile(fileName, "utf8");
@@ -391,22 +509,46 @@ client.onNotification("textDocument/didClose", (rawParams) => {
   });
 });
 
-client.onNotification("workspace/didChangeConfiguration", async (params) => {
-  const value = isObject(params) ? params.settings : undefined;
-  service.configure(workspaceRoot, settingsFrom(value));
-  await typescript.sendNotification("workspace/didChangeConfiguration", params);
-  await refreshOpenDocuments();
-  await resetVirtualDocuments();
+client.onNotification("workspace/didChangeConfiguration", (params) => {
+  workspaceReady = (async () => {
+    const value = isObject(params) ? params.settings : undefined;
+    const settings = settingsFrom(value);
+    for (const [root, service] of services) service.configure(root, settings);
+    await typescript.sendNotification("workspace/didChangeConfiguration", params);
+    await refreshOpenDocuments();
+    await resetVirtualDocuments();
+  })();
+  return workspaceReady;
 });
 
-client.onNotification("workspace/didChangeWatchedFiles", async (params) => {
-  service.invalidate();
-  await typescript.sendNotification("workspace/didChangeWatchedFiles", params);
-  await refreshOpenDocuments();
-  await resetVirtualDocuments();
+client.onNotification("workspace/didChangeWatchedFiles", (params) => {
+  workspaceReady = (async () => {
+    const changes = watchedFileChanges(params);
+    const nativeChanges =
+      changes === undefined
+        ? undefined
+        : (
+            await Promise.all(
+              changes.map(async (change) =>
+                (await serviceForUri(change.uri).handlesWatchedFile(change.uri)) ? undefined : change,
+              ),
+            )
+          ).filter((change): change is WatchedFileChange => change !== undefined);
+    for (const service of services.values()) service.invalidate();
+    if (nativeChanges === undefined || nativeChanges.length > 0) {
+      await typescript.sendNotification(
+        "workspace/didChangeWatchedFiles",
+        nativeChanges === undefined ? params : { ...(isObject(params) ? params : {}), changes: nativeChanges },
+      );
+    }
+    await refreshOpenDocuments();
+    await resetVirtualDocuments();
+  })();
+  return workspaceReady;
 });
 
 client.onNotification("exit", async () => {
+  stopping = true;
   await typescript.sendNotification("exit");
   typescript.dispose();
   client.dispose();
@@ -447,9 +589,8 @@ typescript.onNotification(async (method, params) => {
 });
 
 preview.on("exit", (code, signal) => {
-  if (code !== 0 && code !== null) {
-    stderr.write(`typed-sql: TypeScript preview exited with code ${code}${signal === null ? "" : ` (${signal})`}\n`);
-  }
+  if (stopping && (code === 0 || code === null)) return;
+  failPreview(previewError(`process exited with code ${code ?? "null"}${signal === null ? "" : ` (${signal})`}`));
 });
 
 typescript.listen();

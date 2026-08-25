@@ -2,9 +2,10 @@ import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -22,6 +23,94 @@ const publicPackages = [
   "language-server",
 ] as const;
 const stableModulePackages = new Set(["ast", "core", "config", "schema", "postgres", "mysql", "compiler"]);
+
+async function writeEditorProject(
+  consumer: string,
+  dialect: "mysql" | "postgres",
+): Promise<{ readonly directory: string; readonly queryFile: string; readonly source: string }> {
+  const directory = join(consumer, `editor-${dialect}`);
+  const queryFile = join(directory, "query.ts");
+  const sqlModule = `@typed-sql/${dialect}`;
+  const source = `
+    import { sql } from "${sqlModule}";
+    import type { QueryRow } from "@typed-sql/core";
+
+    declare const includeStatus: boolean;
+    declare function execute<Query>(query: Query): Promise<readonly QueryRow<Query>[]>;
+    const simpleQuery = sql\`SELECT account.id, account.email FROM users AS account\`;
+    const rows = await execute(simpleQuery);
+    type Actual = (typeof rows)[number];
+    const cteQuery = sql\`
+      WITH selected_accounts AS (
+        SELECT account.id, account.status FROM users AS account
+      )
+      SELECT selected_accounts.id, selected_accounts.status FROM selected_accounts
+    \`;
+    const conditionalQuery = sql\`
+      SELECT account.id
+        \${includeStatus ? sql.fragment\`, account.status\` : sql.empty}
+      FROM users AS account
+    \`;
+    const invalidParameter = sql\`SELECT account.id FROM users AS account WHERE account.id = \${"wrong"}\`;
+    void [simpleQuery, rows, cteQuery, conditionalQuery, invalidParameter];
+  `;
+  await mkdir(directory);
+  await writeFile(
+    join(directory, "typed-sql.config.ts"),
+    `
+      import { defineConfig } from "@typed-sql/core";
+      import { ${dialect}, typePolicy } from "${sqlModule}";
+      const dialect = ${dialect}({ typePolicy });
+      export default defineConfig({
+        dialect,
+        schema: { file: "schema.json" },
+        outDir: "generated",
+        projects: ["tsconfig.json"],
+        typePolicy,
+      });
+    `,
+  );
+  await writeFile(
+    join(directory, "tsconfig.json"),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          target: "ES2024",
+        },
+        include: ["query.ts"],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await writeFile(
+    join(directory, "schema.json"),
+    await readFile(join(workspace, "e2e", dialect, "generated", "db", "schema.json"), "utf8"),
+  );
+  await writeFile(queryFile, source);
+  return { directory, queryFile, source };
+}
+
+async function initializeEditor(client: ProtocolClient, directory: string): Promise<void> {
+  await client.request("initialize", {
+    processId: process.pid,
+    rootUri: pathToFileURL(directory).href,
+    workspaceFolders: [{ uri: pathToFileURL(directory).href, name: "packed-consumer" }],
+    capabilities: {},
+  });
+  client.notify("initialized", {});
+}
+
+async function hoverText(client: ProtocolClient, queryFile: string, source: string, binding: string): Promise<string> {
+  const hover = await client.request("textDocument/hover", {
+    textDocument: { uri: pathToFileURL(queryFile).href },
+    position: positionAt(source, source.indexOf(binding)),
+  });
+  return JSON.stringify(hover);
+}
 
 await describe("packed public packages", async () => {
   await it("installs every tarball in isolation without a database driver", async () => {
@@ -297,7 +386,106 @@ await describe("packed public packages", async () => {
       `,
       );
       await execFile(process.execPath, [join(consumer, "verify.mjs")], { cwd: consumer, env: isolatedEnvironment });
-      strict.ok(true);
+
+      const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
+      for (const dialect of ["postgres", "mysql"] as const) {
+        const project = await writeEditorProject(consumer, dialect);
+        const uri = pathToFileURL(project.queryFile).href;
+        const client = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);
+        try {
+          await initializeEditor(client, project.directory);
+          const diagnosticsReady = client.notification(
+            "textDocument/publishDiagnostics",
+            (params) => (params as { readonly uri?: string }).uri === uri,
+          );
+          client.notify("textDocument/didOpen", {
+            textDocument: { uri, languageId: "typescript", version: 1, text: project.source },
+          });
+          await diagnosticsReady;
+          const diagnostics = (await client.request("textDocument/diagnostic", {
+            textDocument: { uri },
+          })) as {
+            readonly items?: readonly { readonly code?: number | string; readonly message?: string }[];
+          };
+          strict.ok(
+            diagnostics.items?.some((diagnostic) =>
+              /not assignable to parameter of type/u.test(diagnostic.message ?? ""),
+            ),
+            `${dialect} must report the bad interpolation through TypeScript: ${JSON.stringify(diagnostics.items)}`,
+          );
+
+          const simple = await hoverText(client, project.queryFile, project.source, "simpleQuery");
+          strict.ok(simple.includes("id: bigint"), simple);
+          strict.ok(simple.includes("email: string"), simple);
+          strict.ok(!simple.includes("unknown"), simple);
+          const rows = await hoverText(client, project.queryFile, project.source, "rows");
+          strict.ok(rows.includes("readonly"), rows);
+          strict.ok(rows.includes("id: bigint"), rows);
+          strict.ok(rows.includes("email: string"), rows);
+          strict.ok(!rows.includes("unknown"), rows);
+          const actual = await hoverText(client, project.queryFile, project.source, "Actual");
+          strict.ok(actual.includes("id: bigint"), actual);
+          strict.ok(actual.includes("email: string"), actual);
+          strict.ok(!actual.includes("unknown"), actual);
+          const cte = await hoverText(client, project.queryFile, project.source, "cteQuery");
+          strict.ok(cte.includes("id: bigint"), cte);
+          strict.ok(cte.includes('status: \\"active\\" | \\"suspended\\"'), cte);
+          const conditional = await hoverText(client, project.queryFile, project.source, "conditionalQuery");
+          strict.ok(conditional.includes("id: bigint"), conditional);
+          strict.ok(conditional.includes("status"), conditional);
+
+          if (dialect === "postgres") {
+            const schemaFile = join(project.directory, "schema.json");
+            const schema = JSON.parse(await readFile(schemaFile, "utf8")) as {
+              tables: { users: { columns: { email: { nullable: boolean } } } };
+            };
+            schema.tables.users.columns.email.nullable = true;
+            await writeFile(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);
+            const reloaded = client.notification(
+              "textDocument/publishDiagnostics",
+              (params) => (params as { readonly uri?: string }).uri === uri,
+            );
+            client.notify("workspace/didChangeWatchedFiles", {
+              changes: [{ uri: pathToFileURL(schemaFile).href, type: 2 }],
+            });
+            await reloaded;
+            const changed = await hoverText(client, project.queryFile, project.source, "simpleQuery");
+            const reloadDiagnostics = await client.request("textDocument/diagnostic", {
+              textDocument: { uri },
+            });
+            strict.ok(
+              changed.includes("email: string | null"),
+              `${changed}\nReload diagnostics: ${JSON.stringify(reloadDiagnostics)}`,
+            );
+            strict.ok(changed.includes("id: bigint"), changed);
+
+            const reconfigured = client.notification(
+              "textDocument/publishDiagnostics",
+              (params) => (params as { readonly uri?: string }).uri === uri,
+            );
+            client.notify("workspace/didChangeConfiguration", { settings: {} });
+            await reconfigured;
+            const afterConfiguration = await hoverText(client, project.queryFile, project.source, "simpleQuery");
+            strict.ok(afterConfiguration.includes("email: string | null"), afterConfiguration);
+          }
+        } finally {
+          await client.close();
+        }
+
+        if (dialect === "postgres") {
+          const restarted = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);
+          try {
+            await initializeEditor(restarted, project.directory);
+            restarted.notify("textDocument/didOpen", {
+              textDocument: { uri, languageId: "typescript", version: 1, text: project.source },
+            });
+            const hover = await hoverText(restarted, project.queryFile, project.source, "simpleQuery");
+            strict.ok(hover.includes("email: string | null"), hover);
+          } finally {
+            await restarted.close();
+          }
+        }
+      }
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

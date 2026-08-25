@@ -4,6 +4,8 @@ use zed_extension_api::{self as zed, LanguageServerId, Result, Worktree, setting
 
 const DEVELOPMENT_SERVER: &str =
     "packages/language-server/dist/packages/language-server/src/server.js";
+const INSTALLED_SERVER: &str =
+    "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js";
 
 struct TypedSqlExtension;
 
@@ -40,11 +42,31 @@ impl zed::Extension for TypedSqlExtension {
         }
 
         if worktree
+            .read_text_file("node_modules/@typed-sql/language-server/package.json")
+            .is_ok()
+        {
+            let server = PathBuf::from(worktree.root_path()).join(INSTALLED_SERVER);
+            return Ok(zed::Command {
+                command: zed::node_binary_path()?,
+                args: vec![server.to_string_lossy().into_owned(), "--stdio".to_string()],
+                env,
+            });
+        }
+
+        if let Some(command) = worktree.which("typed-sql-language-server") {
+            return Ok(zed::Command {
+                command,
+                args: vec!["--stdio".to_string()],
+                env,
+            });
+        }
+
+        if worktree
             .read_text_file("packages/language-server/package.json")
             .is_err()
         {
             return Err(
-                "typed-sql development server was not found in this worktree; configure lsp.typed-sql.binary.path"
+                "typed-sql language server was not found; run `pnpm add -D @typed-sql/language-server@next`, or configure lsp.typed-sql.binary.path"
                     .to_string(),
             );
         }

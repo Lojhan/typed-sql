@@ -12,8 +12,8 @@ current public release line is `1.0.0-beta.*` under the npm `next` tag.
 
 The project is not ready to publish under `latest` yet. Stable promotion is blocked by the absence
 of a complete registry-only consumer test, an unrehearsed stable version transition, and
-insufficient external beta soak time. Reproducible external editor installation also remains an
-open gate.
+insufficient external beta soak time. Packed external editor startup, schema reload, restart, and
+multi-root behavior are now enforced; registry-only verification remains part of the consumer gate.
 
 ## Definition of ready
 
@@ -78,9 +78,10 @@ Decision:
 - encode the split in `release-manifest.json`, each packed package manifest, stable release
   assertions, entrypoint contract tests, and [the public API contract](./PUBLIC_API.md).
 
-The package boundary is frozen. Reproducible external editor installation remains a separate 1.0
-gate tracked by [issue #20](https://github.com/Lojhan/typed-sql/issues/20); it does not promote the
-preview-backed packages to the stable train.
+The package boundary is frozen. External editor installation is exercised from packed PostgreSQL
+and MySQL consumers without repository-relative binary paths. The preview-backed packages remain on
+the experimental prerelease train; the private VS Code and Zed integrations remain `0.1.x` until
+their editor-store distribution paths are supported.
 
 Acceptance criteria:
 
