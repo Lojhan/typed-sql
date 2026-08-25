@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "methodology": {
+    "warmups": 3,
+    "samples": 20,
+    "coldSamples": 10,
+    "warningRatio": 0.75
+  },
+  "latencyMs": {
+    "scanner.largeFile": { "p50": 10, "p95": 25 },
+    "compiler.manyQueries": { "p50": 20, "p95": 50 },
+    "compiler.correlatedConditions": { "p50": 5, "p95": 10 },
+    "compiler.independentConditions": { "p50": 10, "p95": 25 },
+    "compiler.structuralLimit": { "p50": 5, "p95": 10 },
+    "editor.coldAnalysis": { "p50": 75, "p95": 150 },
+    "editor.incrementalAnalysis": { "p50": 30, "p95": 75 },
+    "editor.unchangedAnalysis": { "p50": 0.5, "p95": 1 },
+    "editor.schemaReload": { "p50": 30, "p95": 75 },
+    "editor.cancelledRequest": { "p50": 0.5, "p95": 1 }
+  },
+  "throughput": {
+    "core.composeAndRender": { "minimumOperationsPerSecond": 250000 }
+  },
+  "memory": {
+    "editor.retainedHeapMiB": { "maximum": 16 }
+  }
+}

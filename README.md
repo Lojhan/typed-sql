@@ -344,6 +344,7 @@ pnpm e2e:packed
 - [Authoring a SQL grammar](./docs/GRAMMAR_AUTHORING.md)
 - [Inference soundness policy and corpus](./docs/SOUNDNESS.md)
 - [PostgreSQL and MySQL runtime codec fidelity](./docs/CODEC_FIDELITY.md)
+- [Performance budgets and methodology](./docs/PERFORMANCE.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
 - [Releasing](./docs/RELEASING.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)

@@ -14,7 +14,7 @@
   "scripts": {
     "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter ./packages/vscode build:bundle",
     "changeset": "changeset",
-    "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build",
+    "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm performance:gate",
     "quality": "biome check .",
     "format": "biome check --write .",
     "clean": "node scripts/clean-build.mjs",
@@ -25,6 +25,8 @@
     "test:contracts": "poku test/contracts --reporter=compact --enforce",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
     "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
+    "performance": "pnpm build && pnpm performance:gate",
+    "performance:gate": "node --expose-gc scripts/performance-gate.mjs",
     "release:artifacts": "pnpm build && pnpm test:pack",
     "release:assert": "node scripts/assert-release-channel.mjs",
     "release:security": "node scripts/code-scanning-policy.mjs",
