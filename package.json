@@ -24,6 +24,7 @@
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
     "release:artifacts": "pnpm build && pnpm test:pack",
     "release:assert": "node scripts/assert-release-channel.mjs",
+    "release:security": "node scripts/code-scanning-policy.mjs",
     "release:beta": "pnpm release:assert beta && node scripts/publish-prerelease.mjs",
     "release:stable": "pnpm release:assert stable && changeset publish --tag latest",
     "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --prod --audit-level high",

@@ -43,6 +43,21 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     strict.deepStrictEqual(extractStaticQueries('import { sql } from "@typed-sql/core"; // unterminated', placeholder), []);
   });
 
+  await it("parses multiline and commented SQL imports without regular-expression backtracking", () => {
+    const source = [
+      "import {",
+      "  type Query,",
+      "  sql /* public tag */ as",
+      "    query,",
+      '} from "@typed-sql/core";',
+      "const result = query`SELECT 1 AS value`;",
+    ].join("\n");
+    const extracted = extractStaticQueries(source, (index) => `$${index}`);
+    strict.strictEqual(extracted.length, 1);
+    strict.strictEqual(extracted[0]?.tagName, "query");
+    strict.strictEqual(extracted[0]?.sql, "SELECT 1 AS value");
+  });
+
   await it("injects an inferred row type without changing SQL text", async () => {
     const schema = await loadSchemaSnapshot(schemaPath);
     const source = 'import { sql } from "@typed-sql/postgres";\nconst q = sql`SELECT id FROM users`;';

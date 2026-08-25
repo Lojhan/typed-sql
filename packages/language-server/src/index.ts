@@ -215,7 +215,7 @@ export class TypedSqlLanguageService {
     cancelled(token);
     const source = document.getText();
     const before = source.slice(query.sourceRange.start, offset);
-    const qualifier = /([A-Za-z_$][\w$]*)\.[A-Za-z_$\w]*$/u.exec(before)?.[1];
+    const qualifier = /([A-Za-z_$][A-Za-z0-9_$]*)\.[A-Za-z0-9_$]*$/u.exec(before)?.[1];
     const aliasTable = qualifier === undefined ? undefined : this.#tableForAlias(
       source.slice(query.sourceRange.start, query.sourceRange.end), qualifier, result.snapshot,
     );

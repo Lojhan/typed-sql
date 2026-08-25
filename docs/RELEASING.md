@@ -29,6 +29,7 @@ Publishing is blocked unless all of these pass:
 - isolated tarball installation without database drivers;
 - real PostgreSQL and MySQL generation, inference, execution, and drift flows;
 - packed real-database consumers with no workspace links;
+- no open critical- or high-severity CodeQL alert;
 - production dependency audit with no high-severity advisory.
 
 ## Trusted publishing

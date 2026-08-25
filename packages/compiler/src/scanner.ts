@@ -9,19 +9,107 @@ export interface ExtractedQuery {
   readonly sqlOffsetMap: readonly number[];
 }
 
-const importPattern = /import\s*\{([\s\S]*?)\}\s*from\s*["']([^"']+)["']/g;
+function isIdentifierStart(char: string | undefined): boolean {
+  if (char === undefined) return false;
+  const code = char.charCodeAt(0);
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || char === "_" || char === "$";
+}
+
+function isIdentifierPart(char: string | undefined): boolean {
+  if (isIdentifierStart(char)) return true;
+  if (char === undefined) return false;
+  const code = char.charCodeAt(0);
+  return code >= 48 && code <= 57;
+}
+
+function isWhitespace(char: string | undefined): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f" || char === "\v";
+}
+
+function identifierAt(source: string, start: number): { readonly value: string; readonly end: number } | undefined {
+  if (!isIdentifierStart(source[start])) return undefined;
+  let end = start + 1;
+  while (isIdentifierPart(source[end])) end += 1;
+  return { value: source.slice(start, end), end };
+}
+
+function skipTrivia(source: string, start: number): number {
+  let index = start;
+  while (index < source.length) {
+    if (isWhitespace(source[index])) index += 1;
+    else if (source[index] === "/" && source[index + 1] === "/") index = skipLineComment(source, index);
+    else if (source[index] === "/" && source[index + 1] === "*") index = skipBlockComment(source, index);
+    else break;
+  }
+  return index;
+}
+
+function closingImportBrace(source: string, start: number): number | undefined {
+  let depth = 1;
+  let index = start + 1;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '"' || char === "'") index = skipQuoted(source, index, char);
+    else if (char === "/" && source[index + 1] === "/") index = skipLineComment(source, index);
+    else if (char === "/" && source[index + 1] === "*") index = skipBlockComment(source, index);
+    else if (char === "{") { depth += 1; index += 1; }
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return index;
+      index += 1;
+    } else index += 1;
+  }
+  return undefined;
+}
+
+function importedSqlName(specifier: string): string | undefined {
+  const tokens: string[] = [];
+  let index = 0;
+  while (index < specifier.length) {
+    index = skipTrivia(specifier, index);
+    const token = identifierAt(specifier, index);
+    if (token === undefined) { index += 1; continue; }
+    tokens.push(token.value);
+    index = token.end;
+  }
+  if (tokens[0] !== "sql") return undefined;
+  if (tokens.length === 1) return "sql";
+  return tokens[1] === "as" && tokens[2] !== undefined ? tokens[2] : undefined;
+}
 
 function importedSqlNames(source: string, sqlModules: ReadonlySet<string>): ReadonlySet<string> {
   const names = new Set<string>();
-  for (const match of source.matchAll(importPattern)) {
-    const specifiers = match[1];
-    const moduleName = match[2];
-    if (specifiers === undefined || moduleName === undefined) continue;
-    if (!sqlModules.has(moduleName)) continue;
-    for (const specifier of specifiers.split(",")) {
-      const parts = specifier.trim().split(/\s+as\s+/);
-      if (parts[0] === "sql") names.add(parts[1] ?? "sql");
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") { index = skipQuoted(source, index, char); continue; }
+    if (char === "/" && source[index + 1] === "/") { index = skipLineComment(source, index); continue; }
+    if (char === "/" && source[index + 1] === "*") { index = skipBlockComment(source, index); continue; }
+    const keyword = identifierAt(source, index);
+    if (keyword === undefined) { index += 1; continue; }
+    index = keyword.end;
+    if (keyword.value !== "import") continue;
+    let cursor = skipTrivia(source, index);
+    if (source[cursor] !== "{") continue;
+    const close = closingImportBrace(source, cursor);
+    if (close === undefined) break;
+    const specifiers = source.slice(cursor + 1, close);
+    cursor = skipTrivia(source, close + 1);
+    const from = identifierAt(source, cursor);
+    if (from?.value !== "from") continue;
+    cursor = skipTrivia(source, from.end);
+    const quote = source[cursor];
+    if (quote !== '"' && quote !== "'") continue;
+    const moduleEnd = skipQuoted(source, cursor, quote);
+    if (moduleEnd > source.length || source[moduleEnd - 1] !== quote) continue;
+    const moduleName = source.slice(cursor + 1, moduleEnd - 1);
+    if (sqlModules.has(moduleName)) {
+      for (const specifier of specifiers.split(",")) {
+        const localName = importedSqlName(specifier);
+        if (localName !== undefined) names.add(localName);
+      }
     }
+    index = moduleEnd;
   }
   return names;
 }
@@ -135,10 +223,10 @@ export function extractStaticQueries(
     if (char === "`" ) { index = skipQuoted(source, index, "`"); continue; }
     if (char === "/" && source[index + 1] === "/") { index = skipLineComment(source, index); continue; }
     if (char === "/" && source[index + 1] === "*") { index = skipBlockComment(source, index); continue; }
-    if (char !== undefined && /[A-Za-z_$]/.test(char)) {
+    if (isIdentifierStart(char)) {
       const start = index;
       index += 1;
-      while (index < source.length && /[A-Za-z0-9_$]/.test(source[index]!)) index += 1;
+      while (index < source.length && isIdentifierPart(source[index])) index += 1;
       const name = source.slice(start, index);
       if (!names.has(name)) continue;
       let cursor = index;

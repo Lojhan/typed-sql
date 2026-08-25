@@ -18,15 +18,69 @@ export const defaultMySqlTypePolicy: MySqlTypePolicy = Object.freeze({
   unknown: "unknown",
 });
 
-const normalized = (value: string): string => value.trim().toLowerCase().replace(/\s+/gu, " ");
-const baseType = (value: string): string => normalized(value).replace(/\s+unsigned$/u, "").replace(/\(.*/u, "");
+function isTypeWhitespace(char: string): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f" || char === "\v";
+}
+
+function normalized(value: string): string {
+  const input = value.trim().toLowerCase();
+  let output = "";
+  let pendingSpace = false;
+  for (const char of input) {
+    if (isTypeWhitespace(char)) {
+      pendingSpace = output.length > 0;
+      continue;
+    }
+    if (pendingSpace) output += " ";
+    output += char;
+    pendingSpace = false;
+  }
+  return output;
+}
+
+function baseType(value: string): string {
+  let type = normalized(value);
+  if (type.endsWith(" unsigned")) type = type.slice(0, -" unsigned".length);
+  const parameters = type.indexOf("(");
+  return parameters === -1 ? type : type.slice(0, parameters);
+}
 
 function enumValues(databaseType: string): readonly string[] | undefined {
-  const match = /^enum\((.*)\)$/iu.exec(databaseType.trim());
-  if (match?.[1] === undefined) return undefined;
+  const type = databaseType.trim();
+  if (type.slice(0, 5).toLowerCase() !== "enum(" || !type.endsWith(")")) return undefined;
+  const body = type.slice(5, -1);
   const values: string[] = [];
-  const pattern = /'((?:''|\\.|[^'])*)'/gu;
-  for (const value of match[1].matchAll(pattern)) values.push(value[1]!.replaceAll("''", "'").replace(/\\(.)/gu, "$1"));
+  let index = 0;
+  while (index < body.length) {
+    while (index < body.length && isTypeWhitespace(body[index]!)) index += 1;
+    if (body[index] !== "'") return undefined;
+    index += 1;
+    let value = "";
+    let closed = false;
+    while (index < body.length) {
+      const char = body[index]!;
+      if (char === "\\" && index + 1 < body.length) {
+        value += body[index + 1]!;
+        index += 2;
+      } else if (char === "'" && body[index + 1] === "'") {
+        value += "'";
+        index += 2;
+      } else if (char === "'") {
+        closed = true;
+        index += 1;
+        break;
+      } else {
+        value += char;
+        index += 1;
+      }
+    }
+    if (!closed) return undefined;
+    values.push(value);
+    while (index < body.length && isTypeWhitespace(body[index]!)) index += 1;
+    if (index === body.length) break;
+    if (body[index] !== ",") return undefined;
+    index += 1;
+  }
   return values;
 }
 
