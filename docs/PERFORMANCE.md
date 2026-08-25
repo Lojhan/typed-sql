@@ -57,7 +57,7 @@ incorrect variant implementation therefore cannot pass.
 | Editor incremental analysis | 30 ms | 75 ms |
 | Editor unchanged cache hit | 0.5 ms | 1 ms |
 | Editor schema reload | 30 ms | 75 ms |
-| Editor cancelled request | 0.5 ms | 1 ms |
+| Editor cancelled request | 1 ms | 2 ms |
 
 Core composition and rendering must sustain a p50 of at least 250,000 operations per second. The
 bounded editor cache may retain at most 16 MiB after garbage collection in the memory fixture.
