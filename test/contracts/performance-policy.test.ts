@@ -11,6 +11,7 @@ interface PerformanceBudgets {
     readonly warmups: number;
     readonly samples: number;
     readonly coldSamples: number;
+    readonly subMillisecondIterations: number;
     readonly warningRatio: number;
   };
   readonly latencyMs: Readonly<Record<string, { readonly p50: number; readonly p95: number }>>;
@@ -26,6 +27,7 @@ await describe("performance regression policy", async () => {
     strict.ok(budgets.methodology.warmups >= 1);
     strict.ok(budgets.methodology.samples >= 20);
     strict.ok(budgets.methodology.coldSamples >= 10);
+    strict.ok(budgets.methodology.subMillisecondIterations >= 100);
     strict.ok(budgets.methodology.warningRatio > 0 && budgets.methodology.warningRatio < 1);
     strict.deepStrictEqual(Object.keys(budgets.latencyMs).sort(), [
       "compiler.correlatedConditions",
@@ -66,6 +68,8 @@ await describe("performance regression policy", async () => {
       "expectedAnalyses",
       "cacheSizes",
       "isCancellationRequested",
+      "iterationsPerSample",
+      "methodology.subMillisecondIterations",
     ]) {
       strict.ok(gate.includes(evidence), `performance gate does not record ${evidence}`);
     }

@@ -24,9 +24,11 @@ or CI environment.
 ## Methodology
 
 Latency scenarios receive three warm-up executions followed by 20 measured executions. Cold editor
-scenarios use 10 fresh-service samples. Reports include minimum, mean, standard deviation,
-coefficient of variation, p50, p95, and maximum. CI emits a warning after a metric consumes 75% of
-its budget and fails when p50 or p95 exceeds its configured ceiling.
+scenarios use 10 fresh-service samples. Sub-millisecond cache hits run 100 operations inside each
+timed sample and report amortized per-operation latency, preventing an operating-system scheduling
+pause from being misreported as 100 slow cache hits. Reports include minimum, mean, standard
+deviation, coefficient of variation, p50, p95, and maximum. CI emits a warning after a metric
+consumes 75% of its budget and fails when p50 or p95 exceeds its configured ceiling.
 
 Measurements use production files under each package's `dist` directory and cover:
 
@@ -44,7 +46,7 @@ Measurements use production files under each package's `dist` directory and cove
 The structural fixtures assert their analysis counts in addition to measuring time. A fast but
 incorrect variant implementation therefore cannot pass.
 
-## Version 1 failure budgets
+## Version 2 failure budgets
 
 | Scenario | p50 | p95 |
 | --- | ---: | ---: |
@@ -62,9 +64,11 @@ incorrect variant implementation therefore cannot pass.
 Core composition and rendering must sustain a p50 of at least 250,000 operations per second. The
 bounded editor cache may retain at most 16 MiB after garbage collection in the memory fixture.
 
-These ceilings deliberately leave room for supported GitHub-hosted runners while remaining close
-enough to measured work to catch order-of-magnitude regressions. Tightening or relaxing them
-requires an updated budget version or a documented fixture/runtime justification.
+Version 2 preserves the Version 1 ceilings and makes only the sub-millisecond sampling method robust
+to shared-runner scheduling. These ceilings deliberately leave room for supported GitHub-hosted
+runners while remaining close enough to measured work to catch order-of-magnitude regressions.
+Tightening or relaxing them requires an updated budget version or a documented fixture/runtime
+justification.
 
 ## Cancellation and event-loop limits
 
