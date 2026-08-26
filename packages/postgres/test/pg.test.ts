@@ -1,8 +1,35 @@
+import { EventEmitter } from "node:events";
 import type { Pool as PgPool } from "pg";
 import { describe, it, strict } from "poku";
-import { adaptPgPool, createPgDatabase, loadPgDriver, pg } from "../src/pg.js";
+import { sql } from "../../core/src/index.js";
+import { adaptPgPool, createPgDatabase, loadPgCursorDriver, loadPgDriver, pg } from "../src/pg.js";
 import type { PostgresQueryable, PostgresQueryResult } from "../src/provider.js";
-import type { PostgresQueryConfig } from "../src/runtime.js";
+import { createPostgresDatabase, type PostgresQueryConfig } from "../src/runtime.js";
+
+class FakePgCursor {
+  static readonly created: FakePgCursor[] = [];
+  readonly text: string;
+  readonly values: readonly unknown[] | undefined;
+  readonly config: unknown;
+  closeCount = 0;
+  readCount = 0;
+
+  constructor(text: string, values?: readonly unknown[], config?: unknown) {
+    this.text = text;
+    this.values = values;
+    this.config = config;
+    FakePgCursor.created.push(this);
+  }
+
+  async read(): Promise<readonly Record<string, unknown>[]> {
+    this.readCount += 1;
+    return this.readCount === 1 ? [{ value: 1 }] : [];
+  }
+
+  async close(): Promise<void> {
+    this.closeCount += 1;
+  }
+}
 
 class CatalogClient implements PostgresQueryable {
   async query<Row extends Record<string, unknown>>(text: string): Promise<PostgresQueryResult<Row>> {
@@ -12,15 +39,32 @@ class CatalogClient implements PostgresQueryable {
   }
 }
 
-class FakePgClient {
+interface FakeNativeCursor {
+  read(rowCount: number): Promise<readonly Record<string, unknown>[]>;
+  close(): Promise<void>;
+}
+
+class FakePgClient extends EventEmitter {
   released = false;
+  releaseError: Error | boolean | undefined;
   readonly calls: unknown[] = [];
-  async query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> {
+  query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> | FakeNativeCursor {
     this.calls.push(config);
-    return { rows: [{ value: 1 }] };
+    if (
+      typeof config === "object" &&
+      config !== null &&
+      "read" in config &&
+      typeof config.read === "function" &&
+      "close" in config &&
+      typeof config.close === "function"
+    ) {
+      return config as FakeNativeCursor;
+    }
+    return Promise.resolve({ rows: [{ value: 1 }] });
   }
-  release(): void {
+  release(error?: Error | boolean): void {
     this.released = true;
+    this.releaseError = error;
   }
 }
 
@@ -28,11 +72,13 @@ class FakePgPool {
   ended = false;
   readonly client = new FakePgClient();
   readonly calls: unknown[] = [];
+  connectCount = 0;
   async query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> {
     this.calls.push(config);
     return { rows: [{ value: 1 }] };
   }
   async connect(): Promise<FakePgClient> {
+    this.connectCount += 1;
     return this.client;
   }
   async end(): Promise<void> {
@@ -73,6 +119,103 @@ await describe("application-owned pg integration", async () => {
     });
     strict.strictEqual(original.client.released, true);
     strict.strictEqual(original.ended, true);
+  });
+
+  await it("loads pg-cursor lazily and bridges its real rows-array API", async () => {
+    FakePgCursor.created.length = 0;
+    const original = new FakePgPool();
+    let imports = 0;
+    const pool = adaptPgPool(original as unknown as PgPool, async () => {
+      imports += 1;
+      return { default: FakePgCursor };
+    });
+    const database = createPostgresDatabase({ pool });
+    const prepared = database.prepare("streamed-value", (value: bigint) => sql`SELECT ${value} AS value`);
+    const stream = database.stream(prepared(7n), { batchSize: 4 });
+
+    strict.strictEqual(imports, 0);
+    strict.strictEqual(original.connectCount, 0);
+    strict.deepStrictEqual(await stream.next(), { done: false, value: { value: 1 } });
+    strict.deepStrictEqual(await stream.next(), { done: true, value: undefined });
+
+    strict.strictEqual(imports, 1);
+    strict.strictEqual(original.connectCount, 1);
+    strict.strictEqual(original.client.released, true);
+    const cursor = FakePgCursor.created[0];
+    strict.strictEqual(cursor?.text, "SELECT $1 AS value");
+    strict.deepStrictEqual(cursor?.values, ["7"]);
+    const cursorConfig = cursor?.config as { readonly types?: unknown };
+    strict.ok(cursorConfig.types !== undefined);
+    strict.deepStrictEqual(Object.keys(cursorConfig), ["types"]);
+    strict.strictEqual(cursor?.closeCount, 1);
+  });
+
+  await it("keeps ordinary cursor SQL errors on the reusable-client cleanup path", async () => {
+    const sqlError = new Error("invalid input syntax");
+    let closeCount = 0;
+    class SqlErrorCursor {
+      async read(): Promise<readonly Record<string, unknown>[]> {
+        throw sqlError;
+      }
+      async close(): Promise<void> {
+        closeCount += 1;
+      }
+    }
+    const original = new FakePgPool();
+    const database = createPostgresDatabase({
+      pool: adaptPgPool(original as unknown as PgPool, async () => ({ default: SqlErrorCursor })),
+    });
+
+    await strict.rejects(
+      () => database.stream(sql`SELECT broken`).next(),
+      (error) => {
+        strict.strictEqual(error, sqlError);
+        return true;
+      },
+    );
+    strict.strictEqual(closeCount, 1);
+    strict.strictEqual(original.client.released, true);
+    strict.strictEqual(original.client.releaseError, undefined);
+  });
+
+  await it("settles a hanging native cursor close when the leased pg client fails fatally", async () => {
+    const readError = new Error("cursor read failed");
+    const fatalError = new Error("socket terminated");
+    let signalCloseStarted!: () => void;
+    const closeStarted = new Promise<void>((resolve) => {
+      signalCloseStarted = resolve;
+    });
+    let closeCount = 0;
+    class FatalCursor {
+      async read(): Promise<readonly Record<string, unknown>[]> {
+        throw readError;
+      }
+      close(): Promise<void> {
+        closeCount += 1;
+        signalCloseStarted();
+        return new Promise(() => undefined);
+      }
+    }
+    const original = new FakePgPool();
+    const database = createPostgresDatabase({
+      pool: adaptPgPool(original as unknown as PgPool, async () => ({ default: FatalCursor })),
+    });
+    const next = database.stream(sql`SELECT fatal`).next();
+
+    await closeStarted;
+    original.client.emit("error", fatalError);
+    await strict.rejects(
+      () => next,
+      (error) => {
+        strict.strictEqual(error, readError);
+        return true;
+      },
+    );
+    strict.strictEqual(closeCount, 1);
+    strict.strictEqual(original.client.released, true);
+    strict.strictEqual(original.client.releaseError, fatalError);
+    strict.strictEqual(original.client.listenerCount("error"), 0);
+    strict.strictEqual(original.client.listenerCount("end"), 0);
   });
 
   await it("creates and owns a real pg pool without opening a connection", async () => {
@@ -116,5 +259,32 @@ await describe("application-owned pg integration", async () => {
       unexpected,
     );
     strict.ok((await loadPgDriver()).Pool !== undefined);
+  });
+
+  await it("normalizes missing or invalid application-owned pg-cursor failures", async () => {
+    const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
+    await strict.rejects(
+      () =>
+        loadPgCursorDriver(async () => {
+          throw missing;
+        }),
+      /pnpm add pg-cursor/,
+    );
+    await strict.rejects(() => loadPgCursorDriver(async () => ({ default: {} })), /default Cursor constructor/);
+    strict.strictEqual(await loadPgCursorDriver(async () => ({ default: FakePgCursor })), FakePgCursor);
+  });
+
+  await it("does not lease a pg client when the lazy cursor dependency is missing", async () => {
+    const original = new FakePgPool();
+    const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
+    const database = createPostgresDatabase({
+      pool: adaptPgPool(original as unknown as PgPool, async () => {
+        throw missing;
+      }),
+    });
+    const stream = database.stream(sql`SELECT 1`);
+    strict.strictEqual(original.connectCount, 0);
+    await strict.rejects(() => stream.next(), /pnpm add pg-cursor/);
+    strict.strictEqual(original.connectCount, 0);
   });
 });

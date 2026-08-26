@@ -1,26 +1,37 @@
-import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
+import {
+  type Database,
+  type Query,
+  type QueryStream,
+  renderQuery,
+  type SqlRenderer,
+  type StreamOptions,
+} from "@typed-sql/core";
+import {
+  compileMySqlRowDecoders,
+  decodeMySqlRows,
+  encodeMySqlValue,
+  type MySqlFieldLike,
+  type MySqlRuntimeTypePolicy,
+} from "./decoding.js";
 import {
   createMySqlPreparedQueryState,
   type MySqlPreparedQueryFactory,
   type MySqlPreparedQueryState,
   prepareMySqlQuery,
 } from "./prepared.js";
+import { createMySqlQueryStream, type MySqlStreamingConnection, validateMySqlStreamBatchSize } from "./stream.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 
+export type { MySqlFieldLike } from "./decoding.js";
 export type { MySqlPreparedQueryFactory } from "./prepared.js";
-
-export interface MySqlFieldLike {
-  readonly name: string;
-  readonly columnType: number;
-  readonly columnLength?: number;
-}
+export type { MySqlProtocolStream } from "./stream.js";
 
 export interface MySqlExecutionResult {
   readonly rows: readonly Record<string, unknown>[] | Record<string, unknown>;
   readonly fields?: readonly MySqlFieldLike[];
 }
 
-export interface MySqlConnectionLike {
+export interface MySqlConnectionLike extends MySqlStreamingConnection {
   execute(sql: string, values?: readonly unknown[]): Promise<MySqlExecutionResult>;
   query(sql: string): Promise<MySqlExecutionResult>;
   beginTransaction(): Promise<void>;
@@ -36,6 +47,7 @@ export interface MySqlPoolLike {
 }
 
 export interface MySqlTransaction extends Database<MySqlTransaction> {
+  stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -43,6 +55,7 @@ export interface MySqlTransaction extends Database<MySqlTransaction> {
 }
 
 export interface MySqlDatabase extends Database<MySqlTransaction> {
+  stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -57,138 +70,39 @@ export interface MySqlDatabaseOptions {
   readonly decimal?: (value: string) => unknown;
 }
 
-type ResolvedMySqlRuntimeTypePolicy = Pick<MySqlTypePolicy, "bigint" | "decimal" | "date" | "json" | "tinyint1">;
-
-type ValueDecoder = (value: unknown) => unknown;
-
-interface ColumnDecoder {
-  readonly name: string;
-  readonly decode: ValueDecoder;
-}
-
-const defaultRuntimeTypePolicy: ResolvedMySqlRuntimeTypePolicy = defaultMySqlTypePolicy;
-
-const mysqlTypes = { tiny: 1, longlong: 8, date: 10, datetime: 12, timestamp: 7, json: 245, decimal: 246 } as const;
+const defaultRuntimeTypePolicy: MySqlRuntimeTypePolicy = defaultMySqlTypePolicy;
 
 export const mysqlRenderer: SqlRenderer = Object.freeze({
   placeholder: () => "?",
   quoteIdentifier: (identifier: string) => `\`${identifier.replaceAll("`", "``")}\``,
 });
 
-function encoded(value: unknown): unknown {
-  return typeof value === "bigint" ? value.toString() : Array.isArray(value) ? value.map(encoded) : value;
-}
-
-function finite(value: string, label: string): number {
-  const result = Number(value);
-  if (!Number.isFinite(result))
-    throw new RangeError(`${label} value ${value} cannot be represented as a finite number`);
-  return result;
-}
-
-function nullable(decoder: ValueDecoder): ValueDecoder {
-  return (value) => (value === null || value === undefined ? value : decoder(value));
-}
-
-function compileValueDecoder(
-  field: MySqlFieldLike,
-  typePolicy: ResolvedMySqlRuntimeTypePolicy,
-  decimal?: (value: string) => unknown,
-): ValueDecoder | undefined {
-  if (field.columnType === mysqlTypes.longlong) {
-    if (typePolicy.bigint === "bigint") return nullable((value) => BigInt(String(value)));
-    if (typePolicy.bigint === "number")
-      return nullable((value) => {
-        const result = finite(String(value), "bigint");
-        if (!Number.isSafeInteger(result))
-          throw new RangeError(`bigint value ${value} exceeds JavaScript's safe integer range`);
-        return result;
-      });
-    return nullable((value) => String(value));
-  }
-  if (field.columnType === mysqlTypes.decimal) {
-    if (typePolicy.decimal === "number") return nullable((value) => finite(String(value), "decimal"));
-    if (typePolicy.decimal === "Decimal") {
-      if (decimal === undefined) throw new TypeError("decimal=Decimal requires a decimal(value) codec");
-      return nullable((value) => decimal(String(value)));
-    }
-    return nullable((value) => String(value));
-  }
-  if (
-    field.columnType === mysqlTypes.date ||
-    field.columnType === mysqlTypes.datetime ||
-    field.columnType === mysqlTypes.timestamp
-  ) {
-    return typePolicy.date === "string"
-      ? nullable((value) => String(value))
-      : nullable((value) => (value instanceof Date ? value : new Date(String(value))));
-  }
-  if (field.columnType === mysqlTypes.json && typePolicy.json === "string")
-    return nullable((value) => (typeof value === "string" ? value : JSON.stringify(value)));
-  if (field.columnType === mysqlTypes.tiny && field.columnLength === 1 && typePolicy.tinyint1 === "boolean")
-    return nullable((value) => value === true || value === 1 || value === "1");
-  return undefined;
-}
-
-function compileRowDecoders(
-  fields: readonly MySqlFieldLike[],
-  typePolicy: ResolvedMySqlRuntimeTypePolicy,
-  decimal?: (value: string) => unknown,
-): readonly ColumnDecoder[] {
-  const decoders: ColumnDecoder[] = [];
-  const visited = new Set<string>();
-  for (const field of fields) {
-    // Preserve established behavior: the first metadata entry for a row property owns its decoding.
-    if (visited.has(field.name)) continue;
-    visited.add(field.name);
-    const decode = compileValueDecoder(field, typePolicy, decimal);
-    if (decode !== undefined) decoders.push({ name: field.name, decode });
-  }
-  return decoders;
-}
-
-function decodeRows(
-  rows: readonly Record<string, unknown>[],
-  decoders: readonly ColumnDecoder[],
-): readonly Record<string, unknown>[] {
-  if (decoders.length === 0) return rows;
-  // Keep driver objects intact until a codec produces a different value for that specific row.
-  let decodedRows: Record<string, unknown>[] | undefined;
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-    const row = rows[rowIndex]!;
-    let decodedRow: Record<string, unknown> | undefined;
-    for (const column of decoders) {
-      if (!Object.prototype.propertyIsEnumerable.call(row, column.name)) continue;
-      const value = row[column.name];
-      const decoded = column.decode(value);
-      if (Object.is(decoded, value)) continue;
-      decodedRow ??= { ...row };
-      decodedRow[column.name] = decoded;
-    }
-    if (decodedRow === undefined) continue;
-    decodedRows ??= rows.slice() as Record<string, unknown>[];
-    decodedRows[rowIndex] = decodedRow;
-  }
-  return decodedRows ?? rows;
+interface MySqlTransactionConnectionState {
+  active: QueryStream<unknown> | undefined;
+  usable: boolean;
 }
 
 class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #pool: MySqlPoolLike;
   readonly #connection: MySqlConnectionLike | undefined;
   readonly #ownsPool: boolean;
-  readonly #typePolicy: ResolvedMySqlRuntimeTypePolicy;
+  readonly #typePolicy: MySqlRuntimeTypePolicy;
   readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #depth: number;
   readonly #prepared: MySqlPreparedQueryState;
+  readonly #streams: Set<QueryStream<unknown>> | undefined;
+  readonly #transactionState: MySqlTransactionConnectionState | undefined;
+  #scopeOpen = true;
 
   constructor(
     pool: MySqlPoolLike,
     connection: MySqlConnectionLike | undefined,
     ownsPool: boolean,
-    typePolicy: ResolvedMySqlRuntimeTypePolicy,
+    typePolicy: MySqlRuntimeTypePolicy,
     decimal: ((value: string) => unknown) | undefined,
     depth: number,
     prepared: MySqlPreparedQueryState,
+    transactionState?: MySqlTransactionConnectionState,
   ) {
     this.#pool = pool;
     this.#connection = connection;
@@ -197,43 +111,91 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#decimal = decimal;
     this.#depth = depth;
     this.#prepared = prepared;
+    this.#streams = connection === undefined ? undefined : new Set();
+    this.#transactionState = transactionState;
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
+    this.#assertScopeOpen();
+    this.#assertConnectionAvailable("execute a query");
     const prepared = this.#prepared.queries.get(query);
     const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
-    const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encoded));
+    const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encodeMySqlValue));
     if (!Array.isArray(result.rows)) return [];
-    const decoders = compileRowDecoders(result.fields ?? [], this.#typePolicy, this.#decimal);
-    return decodeRows(result.rows, decoders) as unknown as readonly Row[];
+    const decoders = compileMySqlRowDecoders(result.fields ?? [], this.#typePolicy, this.#decimal);
+    return decodeMySqlRows(result.rows, decoders) as unknown as readonly Row[];
+  }
+
+  stream<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options: StreamOptions = {},
+  ): QueryStream<Row> {
+    this.#assertScopeOpen();
+    const prepared = this.#prepared.queries.get(query);
+    const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
+    const batchSize = validateMySqlStreamBatchSize(options.batchSize);
+    let queryStream: QueryStream<Row>;
+    queryStream = createMySqlQueryStream<Row>({
+      openConnection: async () => {
+        if (this.#connection !== undefined) {
+          this.#assertScopeOpen();
+          this.#assertConnectionAvailable("start another query stream");
+          this.#transactionState!.active = queryStream as QueryStream<unknown>;
+          return { connection: this.#connection, release: false };
+        }
+        return { connection: await this.#pool.getConnection(), release: true };
+      },
+      text: rendered.text,
+      values: rendered.values.map(encodeMySqlValue),
+      batchSize,
+      typePolicy: this.#typePolicy,
+      ...(this.#decimal === undefined ? {} : { decimal: this.#decimal }),
+      onClose: () => {
+        this.#streams?.delete(queryStream as QueryStream<unknown>);
+        if (this.#transactionState?.active === queryStream) this.#transactionState.active = undefined;
+      },
+    });
+    this.#streams?.add(queryStream as QueryStream<unknown>);
+    return queryStream;
   }
 
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
   ): MySqlPreparedQueryFactory<Arguments, Row, Params> {
+    this.#assertScopeOpen();
     return prepareMySqlQuery(this.#prepared, mysqlRenderer, statementName, factory);
   }
 
   async transaction<T>(fn: (database: MySqlTransaction) => Promise<T>): Promise<T> {
+    this.#assertScopeOpen();
     if (this.#connection !== undefined) return this.#nested(fn);
     const connection = await this.#pool.getConnection();
+    let transaction: MySqlDatabaseImplementation | undefined;
     let result: T;
     try {
       await connection.beginTransaction();
-      result = await fn(
-        new MySqlDatabaseImplementation(
-          this.#pool,
-          connection,
-          false,
-          this.#typePolicy,
-          this.#decimal,
-          1,
-          this.#prepared,
-        ),
+      transaction = new MySqlDatabaseImplementation(
+        this.#pool,
+        connection,
+        false,
+        this.#typePolicy,
+        this.#decimal,
+        1,
+        this.#prepared,
+        { active: undefined, usable: true },
       );
+      result = await fn(transaction);
+      transaction.#scopeOpen = false;
+      transaction.#transactionState!.usable = false;
+      await transaction.#assertTransactionReadyForFinalize(true);
       await connection.commit();
     } catch (error) {
+      if (transaction !== undefined) {
+        transaction.#scopeOpen = false;
+        transaction.#transactionState!.usable = false;
+        await transaction.#invalidateScope();
+      }
       try {
         await connection.rollback();
       } catch {
@@ -251,32 +213,84 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   }
 
   async #nested<T>(fn: (database: MySqlTransaction) => Promise<T>): Promise<T> {
+    this.#assertScopeOpen();
+    this.#assertConnectionAvailable("start a nested transaction");
     const connection = this.#connection!;
     const depth = this.#depth + 1;
     const savepoint = `typed_sql_${depth}`;
     await connection.query(`SAVEPOINT ${savepoint}`);
+    let transaction: MySqlDatabaseImplementation | undefined;
     try {
-      const result = await fn(
-        new MySqlDatabaseImplementation(
-          this.#pool,
-          connection,
-          false,
-          this.#typePolicy,
-          this.#decimal,
-          depth,
-          this.#prepared,
-        ),
+      transaction = new MySqlDatabaseImplementation(
+        this.#pool,
+        connection,
+        false,
+        this.#typePolicy,
+        this.#decimal,
+        depth,
+        this.#prepared,
+        this.#transactionState,
       );
+      const result = await fn(transaction);
+      transaction.#scopeOpen = false;
+      await transaction.#assertTransactionReadyForFinalize();
       await connection.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
-      try {
-        await connection.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-      } catch {
-        /* Preserve the original failure. */
+      if (transaction !== undefined) await transaction.#invalidateScope();
+      if (this.#transactionState?.usable !== false) {
+        try {
+          await connection.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        } catch {
+          /* Preserve the original failure. */
+        }
       }
       throw error;
     }
+  }
+
+  async #rejectActiveStreams(): Promise<void> {
+    if (this.#streams === undefined || this.#streams.size === 0) return;
+    const active = [...this.#streams];
+    await Promise.allSettled(active.map((stream) => stream.close()));
+    throw new Error(
+      `MySQL transaction callback returned with ${active.length} active query stream${active.length === 1 ? "" : "s"}; consume or close every stream before returning`,
+    );
+  }
+
+  async #closeStreams(): Promise<void> {
+    const streams = new Set(this.#streams);
+    if (this.#transactionState?.active !== undefined) streams.add(this.#transactionState.active);
+    if (streams.size === 0) return;
+    await Promise.allSettled([...streams].map((stream) => stream.close()));
+  }
+
+  async #invalidateScope(): Promise<void> {
+    this.#scopeOpen = false;
+    await this.#closeStreams();
+  }
+
+  async #assertTransactionReadyForFinalize(connectionFinalizing = false): Promise<void> {
+    await this.#rejectActiveStreams();
+    const active = this.#transactionState?.active;
+    if (active !== undefined) {
+      await Promise.allSettled([active.close()]);
+      throw new Error(
+        "MySQL transaction callback returned while a nested query stream owned its connection; await nested work and close every stream before returning",
+      );
+    }
+    if (!connectionFinalizing && this.#transactionState?.usable === false)
+      throw new Error("This MySQL transaction connection is no longer active");
+  }
+
+  #assertConnectionAvailable(action: string): void {
+    if (this.#transactionState?.active !== undefined)
+      throw new Error(`Cannot ${action} while a MySQL query stream owns the transaction connection`);
+  }
+
+  #assertScopeOpen(): void {
+    if (this.#connection !== undefined && (!this.#scopeOpen || this.#transactionState?.usable === false))
+      throw new Error("This MySQL transaction scope is no longer active");
   }
 
   async close(): Promise<void> {
@@ -286,7 +300,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
 }
 
 export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabase {
-  const typePolicy: ResolvedMySqlRuntimeTypePolicy = { ...defaultRuntimeTypePolicy, ...options.typePolicy };
+  const typePolicy: MySqlRuntimeTypePolicy = { ...defaultRuntimeTypePolicy, ...options.typePolicy };
   if (typePolicy.decimal === "Decimal" && options.decimal === undefined)
     throw new TypeError("decimal=Decimal requires a decimal(value) codec");
   return new MySqlDatabaseImplementation(

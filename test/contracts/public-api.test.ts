@@ -158,6 +158,35 @@ function mysqlPreparedContract(database: MySqlDatabase): ExactQuery {
   return prepared(1n);
 }
 
+function postgresStreamingContract(database: PostgresDatabase, query: ExactQuery): QueryStream<Account> {
+  const stream = database.stream(query, { batchSize: 256 });
+  const exact: Assert<Equal<typeof stream, QueryStream<Account>>> = true;
+  void exact;
+  return stream;
+}
+
+function mysqlStreamingContract(database: MySqlDatabase, query: ExactQuery): QueryStream<Account> {
+  const stream = database.stream(query, { batchSize: 256 });
+  const exact: Assert<Equal<typeof stream, QueryStream<Account>>> = true;
+  void exact;
+  return stream;
+}
+
+async function transactionStreamingContract(
+  postgres: PostgresDatabase,
+  mysql: MySqlDatabase,
+  query: ExactQuery,
+): Promise<void> {
+  await postgres.transaction(async (transaction) => {
+    const exact: QueryStream<Account> = transaction.stream(query);
+    await exact.close();
+  });
+  await mysql.transaction(async (transaction) => {
+    const exact: QueryStream<Account> = transaction.stream(query);
+    await exact.close();
+  });
+}
+
 type ReferencedStableTypes =
   | CheckFileOptions
   | CheckFileResult
@@ -205,6 +234,9 @@ void postgresTransactionOmitsClose;
 void mysqlTransactionOmitsClose;
 void postgresPreparedContract;
 void mysqlPreparedContract;
+void postgresStreamingContract;
+void mysqlStreamingContract;
+void transactionStreamingContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
@@ -265,7 +297,7 @@ const expectedRuntimeExports = {
     "sql",
     "typePolicy",
   ],
-  pg: ["adaptPgPool", "createPgDatabase", "loadPgDriver", "pg"],
+  pg: ["adaptPgPool", "createPgDatabase", "loadPgCursorDriver", "loadPgDriver", "pg"],
   postgresRuntime: ["createPostgresDatabase", "createPostgresTypeParsers", "postgresRenderer"],
   schema: [
     "SCHEMA_FORMAT_VERSION",

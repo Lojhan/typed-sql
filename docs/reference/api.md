@@ -54,6 +54,40 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 
 Most applications use `createPgDatabase` or `createMySql2Database` rather than constructing a neutral adapter directly.
 
+### Prepared query factories
+
+PostgreSQL and MySQL adapters expose:
+
+```ts
+database.prepare(name, (...arguments) => query)
+```
+
+The return value is a callable adapter-specific prepared-query factory with a readonly `statementName`. Its arguments and returned `Query<Row, Parameters>` remain exact. Calling the factory does not create a separate executable query class; it returns the ordinary `Query` produced by the callback.
+
+Prepared names are non-empty, NUL-free, and unique within a database instance. The first call fixes the exact rendered SQL text for that name. Later calls with a different rendered shape throw before driver dispatch. Parameter values may vary because they do not change rendered SQL text.
+
+The same prepared-state registry is available to transaction scopes created by the database. A prepared query executed through another database instance is treated as an ordinary query because preparation metadata is instance-local.
+
+### Query streams
+
+`QueryStream<Row>` extends `AsyncIterableIterator<Row>` and `AsyncDisposable` and adds:
+
+```ts
+close(): Promise<void>
+```
+
+PostgreSQL and MySQL database and transaction adapters expose:
+
+```ts
+database.stream(query, options?)
+```
+
+`StreamOptions` currently contains `batchSize?: number`. Adapters reject values that are not positive safe integers. `stream()` is lazy with respect to driver work: no connection is acquired before the first iteration. Natural completion, iterator return, explicit close, and async disposal perform terminal cleanup exactly once.
+
+Transaction streams are scoped resources. They must reach completion or close before the callback returns, and an adapter rejects concurrent operations that would reuse the same transaction connection while a stream is active.
+
+Streaming is an adapter capability rather than a method on the minimal core `Database` contract. PostgreSQL maps it to an application-owned cursor; MySQL maps it to protocol streaming. See [Execute queries](../guides/execution.md#stream-large-result-sets) for consumer examples.
+
 ## Configuration and schema contracts
 
 `defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, and compiler options.

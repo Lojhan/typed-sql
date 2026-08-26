@@ -1,13 +1,22 @@
-import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
+import {
+  type Database,
+  type Query,
+  type QueryStream,
+  renderQuery,
+  type SqlRenderer,
+  type StreamOptions,
+} from "@typed-sql/core";
 import {
   createPostgresPreparedQueryState,
   type PostgresPreparedQueryFactory,
   type PostgresPreparedQueryState,
   preparePostgresQuery,
 } from "./prepared.js";
+import { type PostgresCursorLike, PostgresQueryStream, validatePostgresStreamBatchSize } from "./stream.js";
 import { defaultPostgresTypePolicy } from "./type-policy.js";
 
 export type { PostgresPreparedQueryFactory } from "./prepared.js";
+export type { PostgresCursorLike } from "./stream.js";
 
 export interface PostgresCodecPolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -33,11 +42,13 @@ export interface PostgresQueryResult {
 
 export interface PostgresClientLike {
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
-  release(): void;
+  openCursor?(config: PostgresQueryConfig): PostgresCursorLike | Promise<PostgresCursorLike>;
+  release(error?: Error | boolean): void;
 }
 
 export interface PostgresPoolLike {
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
+  ensureCursor?(): Promise<void>;
   connect(): Promise<PostgresClientLike>;
   end(): Promise<void>;
 }
@@ -47,6 +58,7 @@ export interface PostgresTransaction extends Database<PostgresTransaction> {
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
   ): PostgresPreparedQueryFactory<Arguments, Row, Params>;
+  stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
 }
 
 export interface PostgresDatabase extends Database<PostgresTransaction> {
@@ -54,6 +66,7 @@ export interface PostgresDatabase extends Database<PostgresTransaction> {
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
   ): PostgresPreparedQueryFactory<Arguments, Row, Params>;
+  stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
   close(): Promise<void>;
 }
 
@@ -184,6 +197,12 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #ownsPool: boolean;
   readonly #prepared: PostgresPreparedQueryState;
   readonly #transactionDepth: number;
+  #transactionScopeOpen = true;
+  readonly #transactionState: {
+    readonly activeStreams: Set<QueryStream<unknown>>;
+    valid: boolean;
+  };
+  readonly #transactionStreams = new Set<QueryStream<unknown>>();
 
   constructor(
     pool: PostgresPoolLike,
@@ -192,6 +211,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     ownsPool: boolean,
     depth: number,
     prepared: PostgresPreparedQueryState,
+    transactionState = { activeStreams: new Set<QueryStream<unknown>>(), valid: true },
   ) {
     this.#pool = pool;
     this.#client = client;
@@ -199,38 +219,108 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#ownsPool = ownsPool;
     this.#transactionDepth = depth;
     this.#prepared = prepared;
+    this.#transactionState = transactionState;
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
-    const prepared = this.#prepared.queries.get(query);
-    const rendered = prepared?.rendered ?? renderQuery(query, postgresRenderer);
-    const result = await (this.#client ?? this.#pool).query({
-      ...(prepared === undefined ? {} : { name: prepared.statementName }),
-      text: rendered.text,
-      values: rendered.values.map(encodeValue),
-      types: this.#parsers,
-    });
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("execute another query");
+    const config = this.#queryConfig(query);
+    const result = await (this.#client ?? this.#pool).query(config);
     return result.rows as readonly Row[];
+  }
+
+  stream<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options: StreamOptions = {},
+  ): QueryStream<Row> {
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("start another query stream");
+    const batchSize = validatePostgresStreamBatchSize(options.batchSize);
+    const config = this.#queryConfig(query);
+    let stream: QueryStream<Row>;
+    stream = new PostgresQueryStream<Row>({
+      batchSize,
+      start: async () => {
+        await this.#pool.ensureCursor?.();
+        const client = this.#client ?? (await this.#pool.connect());
+        const release =
+          this.#client === undefined
+            ? (cleanupError?: unknown): void =>
+                client.release(
+                  cleanupError === undefined ? undefined : cleanupError instanceof Error ? cleanupError : true,
+                )
+            : undefined;
+        if (client.openCursor === undefined) {
+          try {
+            release?.();
+          } catch {
+            /* The missing-capability failure remains primary. */
+          }
+          throw new Error(
+            "PostgreSQL streaming requires the application-owned pg-cursor package. Install it with: pnpm add pg-cursor",
+          );
+        }
+        try {
+          const cursor = await client.openCursor(config);
+          return { cursor, ...(release === undefined ? {} : { release }) };
+        } catch (error) {
+          try {
+            release?.(error);
+          } catch {
+            /* Preserve cursor creation or optional-dependency failures. */
+          }
+          throw error;
+        }
+      },
+      ...(this.#client === undefined
+        ? {}
+        : {
+            onStart: () => {
+              this.#assertTransactionScopeOpen();
+              this.#rejectOperationDuringTransactionStream("start another query stream");
+              this.#transactionState.activeStreams.add(stream as QueryStream<unknown>);
+            },
+            onClose: () => {
+              this.#transactionState.activeStreams.delete(stream as QueryStream<unknown>);
+              this.#transactionStreams.delete(stream as QueryStream<unknown>);
+            },
+          }),
+    });
+    if (this.#client !== undefined) this.#transactionStreams.add(stream as QueryStream<unknown>);
+    return stream;
   }
 
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
   ): PostgresPreparedQueryFactory<Arguments, Row, Params> {
+    this.#assertTransactionScopeOpen();
     return preparePostgresQuery(this.#prepared, postgresRenderer, statementName, factory);
   }
 
   async transaction<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("start a nested transaction");
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
+    const scope = new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared, {
+      activeStreams: new Set(),
+      valid: true,
+    });
     let result: T;
     try {
       await client.query("BEGIN");
-      result = await fn(
-        new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared),
-      );
+      try {
+        result = await fn(scope);
+      } finally {
+        scope.#transactionScopeOpen = false;
+        scope.#transactionState.valid = false;
+      }
+      await scope.#rejectLeakedTransactionStreams();
       await client.query("COMMIT");
     } catch (error) {
+      await scope.#closeTransactionStreamsPreservingError();
       try {
         await client.query("ROLLBACK");
       } catch {
@@ -252,19 +342,80 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     const depth = this.#transactionDepth + 1;
     const savepoint = `typed_sql_${depth}`;
     await client.query(`SAVEPOINT ${savepoint}`);
+    const scope = new PostgresDatabaseImplementation(
+      this.#pool,
+      client,
+      this.#parsers,
+      false,
+      depth,
+      this.#prepared,
+      this.#transactionState,
+    );
     try {
-      const result = await fn(
-        new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, depth, this.#prepared),
-      );
+      let result: T;
+      try {
+        result = await fn(scope);
+      } finally {
+        scope.#transactionScopeOpen = false;
+      }
+      if (!scope.#transactionState.valid) {
+        throw new Error("The parent PostgreSQL transaction scope ended before its nested transaction completed");
+      }
+      await scope.#rejectLeakedTransactionStreams();
       await client.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
-      try {
-        await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-      } catch {
-        /* Preserve the original callback, query, or release error. */
+      await scope.#closeTransactionStreamsPreservingError();
+      if (scope.#transactionState.valid) {
+        try {
+          await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        } catch {
+          /* Preserve the original callback, query, or release error. */
+        }
       }
       throw error;
+    }
+  }
+
+  #queryConfig<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): PostgresQueryConfig {
+    const prepared = this.#prepared.queries.get(query);
+    const rendered = prepared?.rendered ?? renderQuery(query, postgresRenderer);
+    return {
+      ...(prepared === undefined ? {} : { name: prepared.statementName }),
+      text: rendered.text,
+      values: rendered.values.map(encodeValue),
+      types: this.#parsers,
+    };
+  }
+
+  async #rejectLeakedTransactionStreams(): Promise<void> {
+    if (this.#transactionStreams.size === 0 && this.#transactionState.activeStreams.size === 0) return;
+    await this.#closeTransactionStreamsPreservingError();
+    throw new Error("A PostgreSQL transaction callback returned before all query streams were completed or closed");
+  }
+
+  async #closeTransactionStreamsPreservingError(): Promise<void> {
+    const streams = new Set([...this.#transactionStreams, ...this.#transactionState.activeStreams]);
+    for (const stream of streams) {
+      try {
+        await stream.close();
+      } catch {
+        /* The callback or transaction misuse error remains primary. */
+      }
+    }
+  }
+
+  #rejectOperationDuringTransactionStream(operation: string): void {
+    if (this.#client !== undefined && this.#transactionState.activeStreams.size > 0) {
+      throw new Error(
+        `Cannot ${operation} while a PostgreSQL transaction query stream is still open; complete or close the stream first`,
+      );
+    }
+  }
+
+  #assertTransactionScopeOpen(): void {
+    if (this.#client !== undefined && (!this.#transactionScopeOpen || !this.#transactionState.valid)) {
+      throw new Error("This PostgreSQL transaction scope has ended and can no longer be used");
     }
   }
 

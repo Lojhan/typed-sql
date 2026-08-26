@@ -5,7 +5,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 # PostgreSQL
 
-`@typed-sql/postgres` contains the PostgreSQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/postgres/pg` entrypoint loads the `pg` driver installed by your application.
+`@typed-sql/postgres` contains the PostgreSQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/postgres/pg` entrypoint loads the `pg` driver installed by your application. Streaming additionally uses the application-owned `pg-cursor` package.
 
 ## Public entrypoints
 
@@ -39,4 +39,20 @@ The provider records tables, views, columns, defaults, server version, arrays, e
 
 The adapter installs parsers per query and does not mutate `pg.types`. Policy-controlled OIDs are decoded by typed-sql; other OIDs delegate to the installed driver's parser table. Driver settings that would contradict the selected type policy are rejected.
 
-See [Database type mappings](../reference/type-mappings.md#postgresql) and [Compatibility](../reference/compatibility.md).
+`database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. Buffered execution passes the stable name to `pg`, whose prepared statements are cached per PostgreSQL connection. The factory rejects duplicate names and SQL text that changes between calls.
+
+## Streaming
+
+Install `pg-cursor` only in applications that call `stream()`:
+
+```sh
+pnpm add pg-cursor
+```
+
+The adapter imports it when iteration starts, leases one `pg` pool client, and reads cursor pages according to `batchSize`. Completing or closing the stream closes the portal before the client is returned to the pool. Missing `pg-cursor` produces an actionable error at first iteration; ordinary execution and prepared factories never load it.
+
+`pg-cursor` always parses its cursor statement unnamed. A query produced by `database.prepare()` remains valid for streaming and retains its inferred row and parameter types, but the cursor path cannot reuse the prepared statement name used by buffered `pg` execution.
+
+Inside a transaction, the stream reuses the transaction client and never releases it directly. The stream must complete or close before the transaction callback returns.
+
+See [Execute queries](../guides/execution.md), [Database type mappings](../reference/type-mappings.md#postgresql), and [Compatibility](../reference/compatibility.md).

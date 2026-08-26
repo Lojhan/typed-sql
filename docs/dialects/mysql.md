@@ -33,4 +33,14 @@ Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER`, an
 
 The adapter controls mysql2 options that affect row shape and decoding. Supplying conflicting `poolConfig` options such as `typeCast`, `rowsAsArray`, or incompatible bigint, decimal, date, or JSON settings fails before a pool is created. Connection, TLS, timeout, and pool-capacity settings remain application-owned.
 
-See [Database type mappings](../reference/type-mappings.md#mysql) and [Compatibility](../reference/compatibility.md).
+`database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. MySQL execution uses mysql2's `execute()` path and its per-connection prepared-statement cache. The factory rejects duplicate names and SQL text that changes between calls.
+
+## Streaming
+
+MySQL streaming uses mysql2's protocol-backed execute stream and does not require another package. `batchSize` maps to the object-mode high-water mark, so it controls client-side buffering rather than server cursor page size.
+
+An early `break`, `close()`, or async disposal stops delivering rows to the consumer, then waits for mysql2 to drain the remaining protocol response before releasing the connection. It does not claim to cancel the running MySQL statement. A connection is reused only after the native command finishes successfully; protocol failures keep it out of the reusable pool path.
+
+Inside a transaction, the stream reuses the transaction connection and never releases it directly. The stream must complete or close before the transaction callback returns.
+
+See [Execute queries](../guides/execution.md), [Database type mappings](../reference/type-mappings.md#mysql), and [Compatibility](../reference/compatibility.md).

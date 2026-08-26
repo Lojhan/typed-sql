@@ -10,7 +10,11 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 ```
 
 `pg` is loaded only through `@typed-sql/postgres/pg`; it is not a dependency or peer dependency of
-the grammar.
+the grammar. Applications that stream rows also install the optional application-owned cursor:
+
+```sh
+pnpm add pg-cursor
+```
 
 ```ts
 import { sql, typePolicy } from "@typed-sql/postgres";
@@ -28,6 +32,16 @@ const database = await createPgDatabase({
 });
 
 const rows = await database.execute(query);
+
+const accountById = database.prepare("account-by-id", (id: bigint) => sql`
+  SELECT account.id, account.email
+  FROM users AS account
+  WHERE account.id = ${id}
+`);
+
+for await (const account of database.stream(accountById(42n), { batchSize: 500 })) {
+  // account retains the query's inferred row type
+}
 ```
 
 The package root exports `sql`, `postgres`, and the PostgreSQL type policy. The `/pg` entrypoint
@@ -35,6 +49,7 @@ exports the schema provider and execution adapter; `/runtime` exposes driver-neu
 rendering and codecs.
 
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
+[execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
 [configuration](https://github.com/Lojhan/typed-sql/blob/main/docs/getting-started/configuration.md), and
 [database type mappings](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/type-mappings.md).
 

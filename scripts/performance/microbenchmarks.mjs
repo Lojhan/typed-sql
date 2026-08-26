@@ -94,6 +94,53 @@ export async function deterministicMicrobenchmarks(methodology) {
   );
   assert.deepEqual(postgresConfig.values, [["1", ["2", ["3", "4"]], "done"]]);
 
+  const postgresStreamRows = Array.from({ length: 100 }, (_, index) => ({ id: BigInt(index + 1) }));
+  let postgresStreamReleases = 0;
+  const postgresStreamingDatabase = createPostgresDatabase({
+    pool: {
+      async query() {
+        throw new Error("stream microbenchmark must use a leased cursor");
+      },
+      async connect() {
+        let offset = 0;
+        return {
+          async query() {
+            throw new Error("stream microbenchmark must use a cursor");
+          },
+          openCursor() {
+            return {
+              async read(rowCount) {
+                const rows = postgresStreamRows.slice(offset, offset + rowCount);
+                offset += rows.length;
+                return rows;
+              },
+              async close() {},
+            };
+          },
+          release() {
+            postgresStreamReleases += 1;
+          },
+        };
+      },
+      async end() {},
+    },
+  });
+  let postgresStreamCount = 0;
+  results["micro.postgres.stream.100Rows"] = await latency(
+    async () => {
+      postgresStreamCount = 0;
+      for await (const _row of postgresStreamingDatabase.stream(sql`SELECT account.id FROM account`, {
+        batchSize: 25,
+      })) {
+        postgresStreamCount += 1;
+      }
+    },
+    methodology,
+    asyncIterations,
+  );
+  assert.equal(postgresStreamCount, 100);
+  assert.ok(postgresStreamReleases > 0);
+
   const postgresParsers = createPostgresTypeParsers();
   const parseBigint = postgresParsers.getTypeParser(20);
   const parseNumeric = postgresParsers.getTypeParser(1700);
@@ -167,6 +214,64 @@ export async function deterministicMicrobenchmarks(methodology) {
   );
   assert.deepEqual(mysqlValues, [["1", ["2", ["3", "4"]], "done"]]);
   assert.equal(mysqlRenderer.placeholder(1), "?");
+
+  const mysqlStreamRows = Array.from({ length: 100 }, (_, index) => ({ id: String(index + 1) }));
+  let mysqlStreamReleases = 0;
+  const mysqlStreamingDatabase = createMySqlDatabase({
+    pool: {
+      async execute() {
+        throw new Error("stream microbenchmark must use a leased protocol stream");
+      },
+      async getConnection() {
+        return {
+          async execute() {
+            throw new Error("stream microbenchmark must use protocol streaming");
+          },
+          async query() {
+            throw new Error("stream microbenchmark does not issue transaction commands");
+          },
+          async beginTransaction() {},
+          async commit() {},
+          async rollback() {},
+          stream() {
+            let offset = 0;
+            return {
+              fields: Promise.resolve([{ name: "id", columnType: 8 }]),
+              connectionReusable: true,
+              [Symbol.asyncIterator]() {
+                return this;
+              },
+              async next() {
+                if (offset >= mysqlStreamRows.length) return { done: true, value: undefined };
+                return { done: false, value: mysqlStreamRows[offset++] };
+              },
+              async close() {},
+            };
+          },
+          release() {
+            mysqlStreamReleases += 1;
+          },
+        };
+      },
+      async end() {},
+    },
+  });
+  let mysqlStreamCount = 0;
+  let mysqlStreamLastId = 0n;
+  results["micro.mysql.streamDecode.100Rows"] = await latency(
+    async () => {
+      mysqlStreamCount = 0;
+      for await (const row of mysqlStreamingDatabase.stream(sql`SELECT account.id FROM account`, { batchSize: 25 })) {
+        mysqlStreamCount += 1;
+        mysqlStreamLastId = row.id;
+      }
+    },
+    methodology,
+    asyncIterations,
+  );
+  assert.equal(mysqlStreamCount, 100);
+  assert.equal(mysqlStreamLastId, 100n);
+  assert.ok(mysqlStreamReleases > 0);
 
   return results;
 }

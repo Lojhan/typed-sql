@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Query } from "@typed-sql/core";
 import { type MySqlSchemaSnapshot, mysql, sql, typePolicy } from "@typed-sql/mysql";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
@@ -9,6 +10,7 @@ import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-previ
 import { createPool } from "mysql2/promise";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
+import { streamAccountsQuery } from "../src/stream-query.js";
 
 interface CommandResult {
   readonly code: number;
@@ -197,6 +199,19 @@ try {
           'Query<never, readonly [string, "active" | "suspended", unknown]>',
         );
         strict.ok(inspections.slice(0, 2).every((inspection) => !inspection.typeText.includes("unknown")));
+
+        const streamSourcePath = join(packageDirectory, "src/stream-query.ts");
+        const streamSource = await readFile(streamSourcePath, "utf8");
+        const streamAnalysis = analyzeSource(streamSource, snapshot as MySqlSchemaSnapshot, mysql());
+        const streamInspections = await bridge.inspectFile({
+          fileName: streamSourcePath,
+          projectFile: join(packageDirectory, "tsconfig.json"),
+          analysis: streamAnalysis,
+        });
+        strict.strictEqual(streamInspections.length, 1);
+        strict.ok(streamInspections[0]?.typeText.includes("id: bigint"));
+        strict.ok(streamInspections[0]?.typeText.includes('status: "active" | "suspended"'));
+        strict.ok(streamInspections[0]?.typeText.includes("budget: string | null"));
       } finally {
         await bridge.close();
       }
@@ -334,6 +349,57 @@ try {
         strict.strictEqual(codec.enum_value, "ready");
         strict.strictEqual(codec.set_value, "read,write");
         strict.strictEqual(codec.nullable_text, null);
+      } finally {
+        await database.close();
+      }
+    });
+
+    await it("streams an inferred prepared query and leaves real mysql2 connections reusable", async () => {
+      type Account = {
+        id: bigint;
+        email: string;
+        status: "active" | "suspended";
+        budget: string | null;
+      };
+      // The preceding preview-bridge check proves this exact source binding's inferred type. The
+      // ordinary E2E tsc pass does not install the preview bridge, so retain that verified type at
+      // the harness boundary while exercising the original immutable Query object at runtime.
+      const accountsQuery = streamAccountsQuery as unknown as Query<Account, readonly []>;
+      const database = await createMySql2Database({ connectionUri, typePolicy });
+      try {
+        const preparedAccounts = database.prepare("e2e-accounts", () => accountsQuery);
+        strict.strictEqual(preparedAccounts.statementName, "e2e-accounts");
+
+        const firstRows: Array<{ id: bigint; email: string }> = [];
+        for await (const row of database.stream(preparedAccounts(), { batchSize: 1 })) {
+          firstRows.push({ id: row.id, email: row.email });
+          break;
+        }
+        strict.deepStrictEqual(firstRows, [{ id: 1n, email: "alice@example.com" }]);
+
+        const countAfterBreak = await database.execute(sql<{ total: bigint }>`SELECT user_count() AS total`);
+        strict.strictEqual(countAfterBreak[0]?.total, 2n);
+
+        const allRows: Account[] = [];
+        for await (const row of database.stream(preparedAccounts(), { batchSize: 1 })) allRows.push(row);
+        strict.deepStrictEqual(allRows, [
+          { id: 1n, email: "alice@example.com", status: "active", budget: "12500.50" },
+          { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
+        ]);
+
+        const transactionTotal = await database.transaction(async (transaction) => {
+          for await (const row of transaction.stream(preparedAccounts(), { batchSize: 1 })) {
+            strict.strictEqual(row.id, 1n);
+            break;
+          }
+          const totals = await transaction.execute(sql<{ total: bigint }>`SELECT user_count() AS total`);
+          return totals[0]?.total;
+        });
+        strict.strictEqual(transactionTotal, 2n);
+
+        const rowsAfterTransaction = await database.execute(preparedAccounts());
+        strict.strictEqual(rowsAfterTransaction.length, 2);
+        strict.strictEqual(rowsAfterTransaction[1]?.status, "suspended");
       } finally {
         await database.close();
       }

@@ -1,10 +1,35 @@
+import { EventEmitter } from "node:events";
+import { Readable } from "node:stream";
 import { sql } from "@typed-sql/core";
 import type { Pool } from "mysql2/promise";
 import { describe, it, strict } from "poku";
 import { adaptMySql2Pool, createMySql2Database, loadMySql2Driver, mysql2 } from "../src/mysql2.js";
 import type { MySqlQueryable, MySqlQueryResult } from "../src/provider.js";
 
+class FakeCallbackCommand extends EventEmitter {
+  readonly readable = new Readable({ objectMode: true, read() {} });
+  highWaterMark: number | undefined;
+
+  stream(options: { readonly highWaterMark?: number }): Readable {
+    this.highWaterMark = options.highWaterMark;
+    return this.readable;
+  }
+}
+
+class FakeCallbackConnection extends EventEmitter {
+  readonly commands: FakeCallbackCommand[] = [];
+  readonly calls: { readonly sql: string; readonly values: readonly unknown[] }[] = [];
+
+  execute(sql: string, values: readonly unknown[]): FakeCallbackCommand {
+    const command = new FakeCallbackCommand();
+    this.commands.push(command);
+    this.calls.push({ sql, values });
+    return command;
+  }
+}
+
 class FakeRawConnection {
+  readonly connection = new FakeCallbackConnection();
   released = false;
   readonly calls: string[] = [];
   executeCount = 0;
@@ -38,10 +63,10 @@ class FakeRawConnection {
 class FakeRawPool extends FakeRawConnection {
   ended = false;
   getConnectionCount = 0;
-  readonly connection = new FakeRawConnection();
+  readonly pooledConnection = new FakeRawConnection();
   async getConnection(): Promise<FakeRawConnection> {
     this.getConnectionCount += 1;
-    return this.connection;
+    return this.pooledConnection;
   }
   async end(): Promise<void> {
     this.ended = true;
@@ -74,7 +99,7 @@ await describe("application-owned mysql2 integration", async () => {
     await connection.commit();
     connection.release();
     await pool.end();
-    strict.strictEqual(raw.connection.released, true);
+    strict.strictEqual(raw.pooledConnection.released, true);
     strict.strictEqual(raw.ended, true);
   });
 
@@ -95,6 +120,90 @@ await describe("application-owned mysql2 integration", async () => {
     await database.close();
     strict.strictEqual(raw.ended, true);
     await strict.rejects(() => createMySql2Database({ connectionUri: "" }), /must not be empty/);
+  });
+
+  await it("streams mysql2 execute protocol rows and waits for the command terminal event before reuse", async () => {
+    const raw = new FakeRawPool();
+    const pool = adaptMySql2Pool(raw as unknown as Pool);
+    const connection = await pool.getConnection();
+    const source = connection.stream!("SELECT ?", [1], { batchSize: 3 });
+    const command = raw.pooledConnection.connection.commands[0]!;
+    strict.strictEqual(command.highWaterMark, 3);
+    strict.deepStrictEqual(raw.pooledConnection.connection.calls, [{ sql: "SELECT ?", values: [1] }]);
+
+    command.emit("fields", [{ name: "value", columnType: 8 }]);
+    command.readable.push({ value: "1" });
+    command.readable.push(null);
+    command.emit("end");
+    strict.deepStrictEqual(await source.fields, [{ name: "value", columnType: 8 }]);
+    strict.deepStrictEqual(await source.next(), { done: false, value: { value: "1" } });
+    strict.deepStrictEqual(await source.next(), { done: true, value: undefined });
+    await source.close();
+    strict.strictEqual(source.connectionReusable, true);
+
+    const draining = connection.stream!("SELECT many", [], { batchSize: 1 });
+    const drainingCommand = raw.pooledConnection.connection.commands[1]!;
+    let closed = false;
+    const close = draining.close().then(() => {
+      closed = true;
+    });
+    await Promise.resolve();
+    strict.strictEqual(drainingCommand.readable.destroyed, true);
+    strict.strictEqual(closed, false);
+    drainingCommand.emit("end");
+    await close;
+    strict.strictEqual(closed, true);
+    strict.strictEqual(draining.connectionReusable, true);
+  });
+
+  await it("preserves mysql2 protocol failures while making terminal cleanup awaitable", async () => {
+    const raw = new FakeRawPool();
+    const connection = await adaptMySql2Pool(raw as unknown as Pool).getConnection();
+    const source = connection.stream!("SELECT broken", [], { batchSize: 2 });
+    const command = raw.pooledConnection.connection.commands[0]!;
+    const failure = new Error("mysql protocol failed");
+    command.emit("error", failure);
+    command.emit("end");
+    await strict.rejects(() => source.fields, failure);
+    await strict.rejects(() => source.close(), failure);
+    strict.strictEqual(source.connectionReusable, true);
+  });
+
+  await it("normalizes mysql2 command metadata without fields for streamed DML", async () => {
+    const raw = new FakeRawPool();
+    const connection = await adaptMySql2Pool(raw as unknown as Pool).getConnection();
+    const source = connection.stream!("UPDATE accounts SET active = 1", [], { batchSize: 2 });
+    const command = raw.pooledConnection.connection.commands[0]!;
+    command.emit("fields", undefined);
+    command.emit("end");
+    strict.deepStrictEqual(await source.fields, []);
+    await source.close();
+    strict.strictEqual(source.connectionReusable, true);
+  });
+
+  await it("settles fatal connection failures as non-reusable and handles early Readable errors", async () => {
+    const raw = new FakeRawPool();
+    const connection = await adaptMySql2Pool(raw as unknown as Pool).getConnection();
+    const source = connection.stream!("SELECT disconnected", [], { batchSize: 2 });
+    const command = raw.pooledConnection.connection.commands[0]!;
+    const failure = new Error("connection lost");
+    command.emit("fields", [{ name: "value", columnType: 8 }]);
+    const next = source.next();
+    raw.pooledConnection.connection.emit("error", failure);
+    strict.deepStrictEqual(await source.fields, [{ name: "value", columnType: 8 }]);
+    await strict.rejects(() => next, failure);
+    await strict.rejects(() => source.close(), failure);
+    strict.strictEqual(source.connectionReusable, false);
+  });
+
+  await it("rejects metadata and settles cleanup when a connection ends before fields", async () => {
+    const raw = new FakeRawPool();
+    const connection = await adaptMySql2Pool(raw as unknown as Pool).getConnection();
+    const source = connection.stream!("SELECT interrupted", [], { batchSize: 2 });
+    raw.pooledConnection.connection.emit("end");
+    await strict.rejects(() => source.fields, /connection ended before.*completed/);
+    await strict.rejects(() => source.close(), /connection ended before.*completed/);
+    strict.strictEqual(source.connectionReusable, false);
   });
 
   await it("rejects mysql2 settings that would invalidate the runtime type policy", async () => {

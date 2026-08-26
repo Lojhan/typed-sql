@@ -14,6 +14,14 @@ pnpm add @typed-sql/core @typed-sql/postgres pg
 pnpm add -D @typed-sql/cli typescript@7.0.2
 ```
 
+Applications that call `database.stream()` also install the application-owned PostgreSQL cursor package:
+
+```sh
+pnpm add pg-cursor
+```
+
+Buffered execution, transactions, and prepared factories do not load `pg-cursor`.
+
 ## MySQL
 
 ```sh
@@ -35,7 +43,7 @@ It contains its own isolated TypeScript preview process. You do not need a works
 
 ## Package boundary
 
-Installing `@typed-sql/postgres` does not install `pg`, MySQL packages, or another database client. Installing `@typed-sql/mysql` follows the same rule for `mysql2`.
+Installing `@typed-sql/postgres` does not install `pg`, `pg-cursor`, MySQL packages, or another database client. Installing `@typed-sql/mysql` follows the same rule for `mysql2`.
 
 Driver-specific behavior is available only from explicit adapter entrypoints:
 
