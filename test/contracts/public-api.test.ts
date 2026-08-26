@@ -23,6 +23,7 @@ import type {
   QueryBatch,
   QueryExecutor,
   QueryParameters,
+  QueryRenderSkeleton,
   QueryResult,
   QueryResults,
   QueryRow,
@@ -242,6 +243,7 @@ type ReferencedStableTypes =
   | OptionalSqlFragment
   | QueryBatch<readonly [ExactQuery]>
   | QueryExecutor
+  | QueryRenderSkeleton
   | QueryStream<Account>
   | RenderedQuery
   | SqlFragment
@@ -298,6 +300,8 @@ const expectedRuntimeExports = {
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
     "assertDialectPlugin",
+    "bindQueryRenderSkeleton",
+    "compileQueryRenderSkeleton",
     "DIALECT_CONTRACT_VERSION",
     "ParameterCollector",
     "ResolverSchemaIndex",

@@ -48,9 +48,11 @@ const commandQuery = sql`
 async function verifyGeneratedTypes(): Promise<void> {
   const database = await createPgDatabase({
     connectionString: "postgresql://unused-at-typecheck",
+    poolConfig: { pipeline: true },
     typePolicy,
   });
   const rows = await database.execute(query);
+  const [pipelinedRows, pipelinedCteRows] = await database.pipeline([query, cteQuery]);
 
   type Actual = (typeof rows)[number];
   type Expected = {
@@ -62,6 +64,8 @@ async function verifyGeneratedTypes(): Promise<void> {
   type ResultIsExact = Assert<Equal<Actual, Expected>>;
   const checked: ResultIsExact = true;
   void checked;
+  const pipelinedChecked: Assert<Equal<(typeof pipelinedRows)[number], Expected>> = true;
+  void pipelinedChecked;
 
   const cteRows = await database.execute(cteQuery);
   type CteActual = (typeof cteRows)[number];
@@ -73,6 +77,8 @@ async function verifyGeneratedTypes(): Promise<void> {
   };
   const cteChecked: Assert<Equal<CteActual, CteExpected>> = true;
   void cteChecked;
+  const pipelinedCteChecked: Assert<Equal<(typeof pipelinedCteRows)[number], CteExpected>> = true;
+  void pipelinedCteChecked;
 
   const insertedRows = await database.execute(insertQuery);
   type InsertedActual = (typeof insertedRows)[number];

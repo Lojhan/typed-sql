@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:18.0-alpine
+    environment:
+      POSTGRES_DB: typed_sql_benchmark
+      POSTGRES_PASSWORD: typed_sql
+      POSTGRES_USER: typed_sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U typed_sql -d typed_sql_benchmark"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./schema/postgres.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+  mysql:
+    image: mysql:9.5
+    environment:
+      MYSQL_DATABASE: typed_sql_benchmark
+      MYSQL_PASSWORD: typed_sql
+      MYSQL_ROOT_PASSWORD: typed_sql_root
+      MYSQL_USER: typed_sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "typed_sql", "--password=typed_sql"]
+      interval: 1s
+      timeout: 5s
+      retries: 60
+    ports:
+      - "53306:3306"
+    volumes:
+      - ./schema/mysql.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro

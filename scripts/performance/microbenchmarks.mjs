@@ -1,5 +1,10 @@
 import { strict as assert } from "node:assert";
-import { renderQuery, sql } from "../../packages/core/dist/packages/core/src/index.js";
+import {
+  bindQueryRenderSkeleton,
+  compileQueryRenderSkeleton,
+  renderQuery,
+  sql,
+} from "../../packages/core/dist/packages/core/src/index.js";
 import { createMySqlDatabase, mysqlRenderer } from "../../packages/mysql/dist/packages/mysql/src/runtime.js";
 import {
   createPostgresDatabase,
@@ -50,6 +55,41 @@ export async function deterministicMicrobenchmarks(methodology) {
   const staticQuery = sql`SELECT account.id, account.email FROM account`;
   const parameterList = sql.join(Array.from({ length: 100 }, (_, index) => sql.value(index)));
   const parameterizedQuery = sql`SELECT ${parameterList}`;
+
+  const accountById = (id) => sql`SELECT account.id, account.email FROM account WHERE account.id = ${id}`;
+  const accountOrdering = () => sql.fragment`ORDER BY account.id`;
+  let constructedStaticFragment;
+  results["micro.construct.staticFragment"] = throughput(
+    () => {
+      constructedStaticFragment = accountOrdering();
+    },
+    methodology,
+    renderIterations,
+  );
+  assert.equal(constructedStaticFragment, accountOrdering());
+
+  let constructedQuery;
+  results["micro.construct.parameterized"] = throughput(
+    (index) => {
+      constructedQuery = accountById(index);
+    },
+    methodology,
+    renderIterations,
+  );
+  assert.equal(constructedQuery.segments.length, 3);
+
+  const firstPreparedQuery = accountById(1n);
+  const compiledSkeleton = compileQueryRenderSkeleton(firstPreparedQuery, postgresRenderer);
+  let reboundQuery;
+  results["micro.bind.preparedSkeleton"] = throughput(
+    (index) => {
+      reboundQuery = bindQueryRenderSkeleton(accountById(BigInt(index)), compiledSkeleton.skeleton);
+    },
+    methodology,
+    renderIterations,
+  );
+  assert.equal(reboundQuery.text, compiledSkeleton.rendered.text);
+  assert.equal(typeof reboundQuery.values[0], "bigint");
 
   let staticRendered;
   results["micro.render.static"] = throughput(
@@ -174,6 +214,40 @@ export async function deterministicMicrobenchmarks(methodology) {
   );
   assert.equal(postgresBatchResultCount, 25);
   assert.equal(postgresBatchDispatches, postgresBatchReleases * 25);
+
+  let postgresPipelineDispatches = 0;
+  let postgresPipelineReleases = 0;
+  const postgresPipelineDatabase = createPostgresDatabase({
+    pool: {
+      async query() {
+        throw new Error("pipeline microbenchmark must use one leased connection");
+      },
+      async connect() {
+        return {
+          pipeline: true,
+          async query() {
+            postgresPipelineDispatches += 1;
+            return { rows: [{ value: postgresPipelineDispatches }] };
+          },
+          release() {
+            postgresPipelineReleases += 1;
+          },
+        };
+      },
+      async end() {},
+    },
+  });
+  let postgresPipelineResultCount = 0;
+  results["micro.postgres.pipeline.25Queries"] = await latency(
+    async () => {
+      const pipelineResults = await postgresPipelineDatabase.pipeline(postgresBatchQueries);
+      postgresPipelineResultCount = pipelineResults.length;
+    },
+    methodology,
+    asyncIterations,
+  );
+  assert.equal(postgresPipelineResultCount, 25);
+  assert.equal(postgresPipelineDispatches, postgresPipelineReleases * 25);
 
   const postgresParsers = createPostgresTypeParsers();
   const parseBigint = postgresParsers.getTypeParser(20);

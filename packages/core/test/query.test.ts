@@ -1,7 +1,9 @@
 import { describe, it, strict } from "poku";
 import {
   assertDialectPlugin,
+  bindQueryRenderSkeleton,
   closestName,
+  compileQueryRenderSkeleton,
   createDatabase,
   DIALECT_CONTRACT_VERSION,
   type DialectPlugin,
@@ -41,6 +43,82 @@ await describe("runtime SQL tag", async () => {
       text: "SELECT id FROM users WHERE id = $1 AND active = $2",
       values: [42, true],
     });
+  });
+
+  await it("reuses immutable template text segments without sharing bound values", () => {
+    const accountById = (id: number) => sql`SELECT id FROM account WHERE id = ${id}`;
+    const first = accountById(1);
+    const second = accountById(2);
+
+    strict.strictEqual(first.segments.length, 3);
+    strict.strictEqual(second.segments.length, 3);
+    strict.strictEqual(first.segments[0], second.segments[0]);
+    strict.strictEqual(first.segments[2], second.segments[2]);
+    strict.notStrictEqual(first.segments[1], second.segments[1]);
+    strict.ok(Object.isFrozen(first.segments[0]));
+    strict.deepStrictEqual(renderQuery(first, renderer).values, [1]);
+    strict.deepStrictEqual(renderQuery(second, renderer).values, [2]);
+  });
+
+  await it("interns immutable static fragments but keeps query identity isolated", () => {
+    const staticQuery = () => sql`SELECT id FROM account`;
+    const staticFragment = () => sql.fragment`ORDER BY id`;
+
+    strict.notStrictEqual(staticQuery(), staticQuery());
+    strict.strictEqual(staticFragment(), staticFragment());
+    strict.ok(Object.isFrozen(staticQuery().segments));
+    strict.ok(Object.isFrozen(staticFragment().segments));
+  });
+
+  await it("rebinds stable query skeletons without repeating structural rendering", () => {
+    let placeholderCalls = 0;
+    let identifierCalls = 0;
+    const observedRenderer: SqlRenderer = {
+      placeholder(index) {
+        placeholderCalls += 1;
+        return `$${index}`;
+      },
+      quoteIdentifier(name) {
+        identifierCalls += 1;
+        return `"${name}"`;
+      },
+    };
+    const compiled = compileQueryRenderSkeleton(
+      sql`SELECT ${sql.ident("id")} FROM users WHERE id = ${1}`,
+      observedRenderer,
+    );
+
+    strict.deepStrictEqual(compiled.rendered, {
+      text: 'SELECT "id" FROM users WHERE id = $1',
+      values: [1],
+    });
+    strict.deepStrictEqual(
+      bindQueryRenderSkeleton(sql`SELECT ${sql.ident("id")} FROM users WHERE id = ${2}`, compiled.skeleton),
+      { text: 'SELECT "id" FROM users WHERE id = $1', values: [2] },
+    );
+    strict.deepStrictEqual([placeholderCalls, identifierCalls], [1, 1]);
+    strict.ok(Object.isFrozen(compiled.skeleton));
+
+    strict.strictEqual(
+      bindQueryRenderSkeleton(sql`SELECT ${sql.ident("email")} FROM users WHERE id = ${2}`, compiled.skeleton),
+      undefined,
+    );
+    strict.strictEqual(
+      bindQueryRenderSkeleton(sql`SELECT ${sql.ident("id")} FROM accounts WHERE id = ${2}`, compiled.skeleton),
+      undefined,
+    );
+    strict.strictEqual(
+      bindQueryRenderSkeleton(sql`SELECT ${sql.ident("id")} FROM users WHERE id = ${sql.raw("$1")}`, compiled.skeleton),
+      undefined,
+    );
+    strict.strictEqual(
+      bindQueryRenderSkeleton(
+        sql`SELECT ${sql.ident("id")} FROM users WHERE id = ${2} AND active = ${true}`,
+        compiled.skeleton,
+      ),
+      undefined,
+    );
+    strict.deepStrictEqual([placeholderCalls, identifierCalls], [1, 1]);
   });
 
   await it("keeps hostile strings parameterized inside trusted structural fragments", () => {

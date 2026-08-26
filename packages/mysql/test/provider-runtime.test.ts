@@ -243,6 +243,12 @@ await describe("MySQL provider and runtime", async () => {
     strict.deepStrictEqual(pool.calls, [
       { sql: "SELECT id FROM users WHERE id = ? AND active = ?", values: ["7", true] },
     ]);
+
+    await database.execute(accountById(8n, false));
+    strict.deepStrictEqual(pool.calls[1], {
+      sql: "SELECT id FROM users WHERE id = ? AND active = ?",
+      values: ["8", false],
+    });
   });
 
   await it("validates prepared names and reserves them at declaration", () => {

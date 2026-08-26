@@ -1,5 +1,6 @@
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
+const queryRenderSkeletonBrand: unique symbol = Symbol("@typed-sql/core.query-render-skeleton");
 
 export type SqlSegment =
   | { readonly kind: "text"; readonly text: string }
@@ -105,6 +106,20 @@ export interface RenderedQuery {
   readonly values: readonly unknown[];
 }
 
+type QueryRenderSkeletonSegment =
+  | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "value" }
+  | { readonly kind: "identifier"; readonly name: string };
+
+/**
+ * An immutable rendering plan for queries that must retain one structural SQL shape.
+ * Create it with {@link compileQueryRenderSkeleton}; its representation is intentionally opaque.
+ */
+export interface QueryRenderSkeleton {
+  readonly text: string;
+  readonly [queryRenderSkeletonBrand]: readonly QueryRenderSkeletonSegment[];
+}
+
 export interface QueryExecutor {
   execute(text: string, values: readonly unknown[]): Promise<readonly unknown[]>;
 }
@@ -119,6 +134,7 @@ export interface TransactionDatabase extends Database<TransactionDatabase> {}
 export type TransactionRunner = <T>(fn: (executor: QueryExecutor) => Promise<T>) => Promise<T>;
 
 const text = (textValue: string): SqlSegment => ({ kind: "text", text: textValue });
+const cachedText = (textValue: string): SqlSegment => Object.freeze({ kind: "text", text: textValue });
 const value = (valueItem: unknown): SqlSegment => ({ kind: "value", value: valueItem });
 const fragmentTypeBrand = (): readonly unknown[] => [];
 const queryTypeBrand = Object.freeze({
@@ -149,13 +165,29 @@ function query<Row, Params extends readonly unknown[]>(segments: SqlSegment[]): 
   });
 }
 
+const templateTextCache = new WeakMap<TemplateStringsArray, readonly SqlSegment[]>();
+const staticFragmentCache = new WeakMap<TemplateStringsArray, SqlFragment<readonly []>>();
+
+function templateTextSegments(strings: TemplateStringsArray): readonly SqlSegment[] {
+  const cached = templateTextCache.get(strings);
+  if (cached !== undefined) return cached;
+  const segments = Object.freeze(Array.from(strings, cachedText));
+  templateTextCache.set(strings, segments);
+  return segments;
+}
+
+function appendSegments(target: SqlSegment[], source: readonly SqlSegment[]): void {
+  for (let index = 0; index < source.length; index += 1) target.push(source[index]!);
+}
+
 function templateSegments(strings: TemplateStringsArray, parts: readonly unknown[]): SqlSegment[] {
+  const template = templateTextSegments(strings);
   const segments: SqlSegment[] = [];
-  for (let index = 0; index < strings.length; index += 1) {
-    segments.push(text(strings[index] ?? ""));
+  for (let index = 0; index < template.length; index += 1) {
+    segments.push(template[index]!);
     if (index >= parts.length) continue;
     const part = parts[index];
-    if (isFragment(part)) segments.push(...part.segments);
+    if (isFragment(part)) appendSegments(segments, part.segments);
     else segments.push(value(part));
   }
   return segments;
@@ -172,8 +204,22 @@ const fragmentTag = <Parts extends readonly unknown[]>(
   strings: TemplateStringsArray,
   ...parts: Parts
 ): SqlFragment<SqlPartsParameters<Parts>> => {
+  if (parts.length === 0) {
+    const cached = staticFragmentCache.get(strings);
+    if (cached !== undefined) return cached as SqlFragment<SqlPartsParameters<Parts>>;
+    const staticFragment = fragment<SqlPartsParameters<Parts>>(templateSegments(strings, parts));
+    staticFragmentCache.set(strings, staticFragment as SqlFragment<readonly []>);
+    return staticFragment;
+  }
   return fragment<SqlPartsParameters<Parts>>(templateSegments(strings, parts));
 };
+
+const openParenthesis = cachedText("(");
+const closeParenthesis = cachedText(")");
+const andSeparator = cachedText(" AND ");
+const orSeparator = cachedText(" OR ");
+const truePredicate = cachedText("TRUE");
+const whereSeparator = cachedText(" WHERE ");
 
 function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
   parts: Parts,
@@ -183,10 +229,12 @@ function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
   for (const part of parts) {
     if (part === undefined || part === null || part === false) continue;
     if (!isFragment(part)) throw new TypeError(`sql.${operator.toLowerCase()}() accepts SQL fragments or empty values`);
-    if (segments.length > 0) segments.push(text(` ${operator} `));
-    segments.push(text("("), ...part.segments, text(")"));
+    if (segments.length > 0) segments.push(operator === "AND" ? andSeparator : orSeparator);
+    segments.push(openParenthesis);
+    appendSegments(segments, part.segments);
+    segments.push(closeParenthesis);
   }
-  if (segments.length === 0) segments.push(text("TRUE"));
+  if (segments.length === 0) segments.push(truePredicate);
   return fragment<FragmentListParameters<Parts>>(segments);
 }
 
@@ -215,11 +263,12 @@ export const sql: SqlTag = Object.assign(tag, {
   ): SqlFragment<FragmentListParameters<Parts>> {
     if (!isFragment(separator)) throw new TypeError("sql.join() separator must be a trusted SQL fragment");
     const segments: SqlSegment[] = [];
-    parts.forEach((part, index) => {
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index]!;
       if (!isFragment(part)) throw new TypeError("sql.join() accepts SQL fragments");
-      if (index > 0) segments.push(...separator.segments);
-      segments.push(...part.segments);
-    });
+      if (index > 0) appendSegments(segments, separator.segments);
+      appendSegments(segments, part.segments);
+    }
     return fragment<FragmentListParameters<Parts>>(segments);
   },
   and<const Parts extends readonly OptionalSqlFragment[]>(parts: Parts): SqlFragment<FragmentListParameters<Parts>> {
@@ -232,21 +281,22 @@ export const sql: SqlTag = Object.assign(tag, {
     queryValue: Query<Row, QueryParams>,
     predicate: SqlFragment<PredicateParams>,
   ): Query<Row, readonly [...QueryParams, ...PredicateParams]> {
-    return query<Row, readonly [...QueryParams, ...PredicateParams]>([
-      ...queryValue.segments,
-      text(" WHERE "),
-      ...predicate.segments,
-    ]);
+    const segments: SqlSegment[] = [];
+    appendSegments(segments, queryValue.segments);
+    segments.push(whereSeparator);
+    appendSegments(segments, predicate.segments);
+    return query<Row, readonly [...QueryParams, ...PredicateParams]>(segments);
   },
   append<Row, QueryParams extends readonly unknown[], const Parts extends readonly OptionalSqlFragment[]>(
     queryValue: Query<Row, QueryParams>,
     ...parts: Parts
   ): Query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]> {
-    const segments: SqlSegment[] = [...queryValue.segments];
+    const segments: SqlSegment[] = [];
+    appendSegments(segments, queryValue.segments);
     for (const part of parts) {
       if (part === undefined || part === null || part === false) continue;
       if (!isFragment(part)) throw new TypeError("sql.append() accepts SQL fragments or empty values");
-      segments.push(...part.segments);
+      appendSegments(segments, part.segments);
     }
     return query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(segments);
   },
@@ -273,6 +323,68 @@ export function renderQuery<Row, Params extends readonly unknown[]>(
     }
   }
   return { text: chunks.join(""), values: Object.freeze(values) };
+}
+
+/**
+ * Renders a query and compiles an immutable structural plan that can bind later values without
+ * quoting identifiers, formatting placeholders, or rebuilding the SQL text.
+ */
+export function compileQueryRenderSkeleton<Row, Params extends readonly unknown[]>(
+  queryValue: Query<Row, Params>,
+  renderer: SqlRenderer,
+): { readonly skeleton: QueryRenderSkeleton; readonly rendered: RenderedQuery } {
+  const values: unknown[] = [];
+  const chunks: string[] = [];
+  const skeletonSegments: QueryRenderSkeletonSegment[] = [];
+  for (const segment of queryValue.segments) {
+    if (segment.kind === "text") {
+      chunks.push(segment.text);
+      skeletonSegments.push(Object.freeze({ kind: "text", text: segment.text }));
+    } else if (segment.kind === "identifier") {
+      chunks.push(renderer.quoteIdentifier(segment.name));
+      skeletonSegments.push(Object.freeze({ kind: "identifier", name: segment.name }));
+    } else {
+      values.push(segment.value);
+      chunks.push(renderer.placeholder(values.length));
+      skeletonSegments.push(Object.freeze({ kind: "value" }));
+    }
+  }
+  const textValue = chunks.join("");
+  return {
+    skeleton: Object.freeze({
+      text: textValue,
+      [queryRenderSkeletonBrand]: Object.freeze(skeletonSegments),
+    }),
+    rendered: { text: textValue, values: Object.freeze(values) },
+  };
+}
+
+/**
+ * Binds the values of a query to a previously compiled skeleton. Returns `undefined` when the
+ * segment count, segment kinds, structural text, or identifier names have drifted.
+ */
+export function bindQueryRenderSkeleton<Row, Params extends readonly unknown[]>(
+  queryValue: Query<Row, Params>,
+  skeleton: QueryRenderSkeleton,
+): RenderedQuery | undefined {
+  const querySegments = queryValue.segments;
+  const skeletonSegments = skeleton[queryRenderSkeletonBrand];
+  if (querySegments.length !== skeletonSegments.length) return undefined;
+
+  const values: unknown[] = [];
+  for (let index = 0; index < querySegments.length; index += 1) {
+    const segment = querySegments[index]!;
+    const skeletonSegment = skeletonSegments[index]!;
+    if (skeletonSegment.kind === "text") {
+      if (segment.kind !== "text" || segment.text !== skeletonSegment.text) return undefined;
+    } else if (skeletonSegment.kind === "identifier") {
+      if (segment.kind !== "identifier" || segment.name !== skeletonSegment.name) return undefined;
+    } else {
+      if (segment.kind !== "value") return undefined;
+      values.push(segment.value);
+    }
+  }
+  return { text: skeleton.text, values: Object.freeze(values) };
 }
 
 class DatabaseImplementation implements Database {
