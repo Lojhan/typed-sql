@@ -74,9 +74,9 @@ const query = accountById(42n);
 const rows = await database.execute(query);
 ```
 
-The factory exposes its readonly `statementName`. A name must be non-empty, contain no NUL character, and be unique within one database instance. The first factory call records the rendered SQL text. Later calls may provide different parameter values, but they must render the same SQL text or typed-sql fails before driver dispatch.
+The factory exposes its readonly `statementName`. A name must be non-empty, contain no NUL character, and be unique within one database instance. The first factory call records the query's structural SQL skeleton. Later calls may provide different parameter values, but their text, identifiers, segment kinds, and segment count must remain the same or typed-sql fails before driver dispatch.
 
-Preparation is lazy: declaring the factory performs no I/O and checks out no connection. PostgreSQL uses the name for ordinary buffered execution. MySQL delegates execution to mysql2's per-connection prepared-statement cache.
+Preparation is lazy: declaring the factory performs no I/O and checks out no connection. The first factory call compiles an immutable SQL skeleton; later calls verify the same structural segments and bind only their changing values. PostgreSQL uses the name for ordinary buffered execution. MySQL delegates execution to mysql2's per-connection prepared-statement cache.
 
 ## Execute an ordered batch
 
@@ -112,6 +112,23 @@ const [accounts, projects] = await database.transaction((transaction) =>
 Always await a transaction batch before returning from its callback. The adapters reject escaped or concurrent batch work rather than allowing queries to run after commit or connection release.
 
 The surrounding database's transaction rules still apply. For example, MySQL statements that implicitly commit cannot be made atomic by placing them in a batch.
+
+## Pipeline independent PostgreSQL queries
+
+PostgreSQL applications using `pg` 8.23.0 or newer can opt into node-postgres pipeline mode and dispatch an exactly typed tuple without waiting for each preceding result:
+
+```ts
+const database = await createPgDatabase({
+  connectionString: process.env.DATABASE_URL!,
+  poolConfig: { pipeline: true },
+});
+
+const [accounts, projects] = await database.pipeline([accountQuery, projectQuery]);
+```
+
+`pipeline()` leases one client and calls `client.query()` for every input before awaiting their results. This uses node-postgres's public pipeline mode to remove the idle network round trip between independent queries. Results retain input order even when responses settle in another order, and prepared-query metadata remains attached.
+
+This is deliberately separate from `batch()`. A pipeline cannot stop dispatch at the first failure because later statements are already in flight. typed-sql waits for every dispatched query to settle, reports the first input-order failure, and discards a root lease after failure. A root pipeline is not atomic; use an explicit transaction when all statements must commit or roll back together. Always await a transaction pipeline before its callback returns.
 
 ## Stream large result sets
 
@@ -179,7 +196,7 @@ await database.transaction(async (transaction) => {
 
 Declare reusable prepared factories once from the root database during application bootstrap. Prepared names remain reserved for that database instance, so declaring the same name inside a repeatedly called transaction callback would collide after its first invocation. The ordinary queries returned by a root factory retain their prepared metadata when executed or streamed through that database's transaction scopes.
 
-A transaction stream must complete or close before its callback returns. It cannot escape the callback for later iteration. Every `execute()` and `batch()` call must also be awaited before returning. While a transaction stream or batch owns the connection, that connection cannot execute competing work or enter a nested transaction. If the callback returns with an execution still running, an open stream, or a running batch, the adapter settles the work, reports the misuse, and rolls back instead of committing.
+A transaction stream must complete or close before its callback returns. It cannot escape the callback for later iteration. Every `execute()`, `batch()`, and PostgreSQL `pipeline()` call must also be awaited before returning. While a transaction stream, batch, or pipeline owns the connection, that connection cannot execute competing work or enter a nested transaction. If the callback returns with an execution still running, an open stream, a running batch, or a pipeline in flight, the adapter settles the work, reports the misuse, and rolls back instead of committing.
 
 ## Parameters and identifiers
 

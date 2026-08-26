@@ -16,6 +16,7 @@ export interface MySqlColumnDecoder {
 }
 
 const mysqlTypes = { tiny: 1, longlong: 8, date: 10, datetime: 12, timestamp: 7, json: 245, decimal: 246 } as const;
+const defaultDecoderPlanCacheCapacity = 64;
 
 export function encodeMySqlValue(value: unknown): unknown {
   return typeof value === "bigint" ? value.toString() : Array.isArray(value) ? value.map(encodeMySqlValue) : value;
@@ -88,6 +89,101 @@ export function compileMySqlRowDecoders(
     if (decode !== undefined) decoders.push({ name: field.name, decode });
   }
   return decoders;
+}
+
+function decoderPlanHash(fields: readonly MySqlFieldLike[]): number {
+  let hash = fields.length | 0;
+  for (const field of fields) {
+    const lastIndex = field.name.length - 1;
+    hash = Math.imul(hash ^ field.name.length, 16_777_619);
+    hash = Math.imul(hash ^ (field.name.charCodeAt(0) || 0), 16_777_619);
+    hash = Math.imul(hash ^ (field.name.charCodeAt(lastIndex) || 0), 16_777_619);
+    hash = Math.imul(hash ^ field.columnType, 16_777_619);
+    hash = Math.imul(hash ^ (field.columnLength ?? -1), 16_777_619);
+  }
+  return hash;
+}
+
+interface MySqlDecoderPlanEntry {
+  readonly fields: readonly MySqlFieldLike[];
+  readonly hash: number;
+  readonly plan: readonly MySqlColumnDecoder[];
+}
+
+function sameDecoderMetadata(left: readonly MySqlFieldLike[], right: readonly MySqlFieldLike[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    const leftField = left[index]!;
+    const rightField = right[index]!;
+    if (
+      leftField.name !== rightField.name ||
+      leftField.columnType !== rightField.columnType ||
+      leftField.columnLength !== rightField.columnLength
+    )
+      return false;
+  }
+  return true;
+}
+
+function snapshotDecoderMetadata(fields: readonly MySqlFieldLike[]): readonly MySqlFieldLike[] {
+  return Object.freeze(
+    fields.map((field) =>
+      Object.freeze({
+        name: field.name,
+        columnType: field.columnType,
+        ...(field.columnLength === undefined ? {} : { columnLength: field.columnLength }),
+      }),
+    ),
+  );
+}
+
+/** Database-local bounded cache for immutable decoder plans derived from native result metadata. */
+export class MySqlDecoderPlanCache {
+  readonly #capacity: number;
+  readonly #decimal: ((value: string) => unknown) | undefined;
+  readonly #entries: MySqlDecoderPlanEntry[] = [];
+  readonly #plans = new Map<number, MySqlDecoderPlanEntry[]>();
+  readonly #typePolicy: MySqlRuntimeTypePolicy;
+
+  constructor(
+    typePolicy: MySqlRuntimeTypePolicy,
+    decimal?: (value: string) => unknown,
+    capacity = defaultDecoderPlanCacheCapacity,
+  ) {
+    if (!Number.isSafeInteger(capacity) || capacity <= 0)
+      throw new RangeError("MySQL decoder plan cache capacity must be a positive safe integer");
+    this.#capacity = capacity;
+    this.#decimal = decimal;
+    this.#typePolicy = Object.freeze({ ...typePolicy });
+  }
+
+  get(fields: readonly MySqlFieldLike[]): readonly MySqlColumnDecoder[] {
+    const hash = decoderPlanHash(fields);
+    const bucket = this.#plans.get(hash);
+    const cached = bucket?.find((entry) => sameDecoderMetadata(fields, entry.fields));
+    if (cached !== undefined) {
+      const index = this.#entries.indexOf(cached);
+      this.#entries.splice(index, 1);
+      this.#entries.push(cached);
+      return cached.plan;
+    }
+
+    const entry: MySqlDecoderPlanEntry = {
+      fields: snapshotDecoderMetadata(fields),
+      hash,
+      plan: Object.freeze(compileMySqlRowDecoders(fields, this.#typePolicy, this.#decimal)),
+    };
+    this.#entries.push(entry);
+    if (bucket === undefined) this.#plans.set(hash, [entry]);
+    else bucket.push(entry);
+    if (this.#entries.length > this.#capacity) {
+      const oldest = this.#entries.shift()!;
+      const oldestBucket = this.#plans.get(oldest.hash)!;
+      oldestBucket.splice(oldestBucket.indexOf(oldest), 1);
+      if (oldestBucket.length === 0) this.#plans.delete(oldest.hash);
+    }
+    return entry.plan;
+  }
 }
 
 export function decodeMySqlRows(

@@ -7,6 +7,7 @@ export type {
   Query,
   QueryExecutor,
   QueryParameters,
+  QueryRenderSkeleton,
   QueryRow,
   RenderedQuery,
   SqlFragment,
@@ -16,7 +17,13 @@ export type {
   TransactionDatabase,
   TransactionRunner,
 } from "./query.js";
-export { createDatabase, renderQuery, sql } from "./query.js";
+export {
+  bindQueryRenderSkeleton,
+  compileQueryRenderSkeleton,
+  createDatabase,
+  renderQuery,
+  sql,
+} from "./query.js";
 export type { ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {

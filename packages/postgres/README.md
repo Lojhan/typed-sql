@@ -28,8 +28,11 @@ const query = sql`
 
 const database = await createPgDatabase({
   connectionString: process.env.DATABASE_URL!,
+  poolConfig: { pipeline: true },
   typePolicy,
 });
+
+// pipeline() requires the application-owned pg 8.23.0 or newer.
 
 const rows = await database.execute(query);
 
@@ -40,6 +43,7 @@ const accountById = database.prepare("account-by-id", (id: bigint) => sql`
 `);
 
 const [selectedAccounts, allAccounts] = await database.batch([accountById(42n), query]);
+const [pipelinedAccount, pipelinedAll] = await database.pipeline([accountById(42n), query]);
 
 for await (const account of database.stream(accountById(42n), { batchSize: 500 })) {
   // account retains the query's inferred row type

@@ -1,4 +1,11 @@
-import { type Query, type RenderedQuery, renderQuery, type SqlRenderer } from "@typed-sql/core";
+import {
+  bindQueryRenderSkeleton,
+  compileQueryRenderSkeleton,
+  type Query,
+  type QueryRenderSkeleton,
+  type RenderedQuery,
+  type SqlRenderer,
+} from "@typed-sql/core";
 
 export interface PostgresPreparedQueryFactory<
   Arguments extends readonly unknown[],
@@ -15,7 +22,7 @@ export interface PostgresPreparedQueryMetadata {
 }
 
 interface PreparedStatement {
-  text: string | undefined;
+  skeleton: QueryRenderSkeleton | undefined;
 }
 
 export interface PostgresPreparedQueryState {
@@ -47,7 +54,7 @@ export function preparePostgresQuery<Arguments extends readonly unknown[], Row, 
     throw new TypeError(`Prepared statement name ${JSON.stringify(statementName)} is already registered`);
   }
 
-  const statement: PreparedStatement = { text: undefined };
+  const statement: PreparedStatement = { skeleton: undefined };
   state.statements.set(statementName, statement);
 
   const prepared = (...args: Arguments): Query<Row, Params> => {
@@ -59,10 +66,21 @@ export function preparePostgresQuery<Arguments extends readonly unknown[], Row, 
       );
     }
 
-    const rendered = existing?.rendered ?? renderQuery(query, renderer);
-    if (statement.text === undefined) statement.text = rendered.text;
-    else if (statement.text !== rendered.text) {
-      throw new TypeError(`Prepared statement ${JSON.stringify(statementName)} must always render the same SQL text`);
+    let rendered = existing?.rendered;
+    const skeleton = statement.skeleton;
+    if (rendered === undefined) {
+      if (skeleton === undefined) {
+        const compiled = compileQueryRenderSkeleton(query, renderer);
+        statement.skeleton = compiled.skeleton;
+        rendered = compiled.rendered;
+      } else {
+        rendered = bindQueryRenderSkeleton(query, skeleton);
+      }
+    }
+    if (rendered === undefined) {
+      throw new TypeError(
+        `Prepared statement ${JSON.stringify(statementName)} must always render the same SQL text and structure`,
+      );
     }
 
     if (existing === undefined) state.queries.set(query, { statementName, rendered });

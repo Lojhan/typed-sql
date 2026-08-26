@@ -1,10 +1,5 @@
 import type { QueryStream } from "@typed-sql/core";
-import {
-  compileMySqlRowDecoders,
-  decodeMySqlRow,
-  type MySqlFieldLike,
-  type MySqlRuntimeTypePolicy,
-} from "./decoding.js";
+import { decodeMySqlRow, type MySqlDecoderPlanCache, type MySqlFieldLike } from "./decoding.js";
 
 /** A protocol-level MySQL row stream supplied by an execution adapter. */
 export interface MySqlProtocolStream extends AsyncIterableIterator<Record<string, unknown>> {
@@ -28,7 +23,7 @@ interface OpenMySqlStream {
 
 interface ActiveMySqlStream extends OpenMySqlStream {
   readonly source: MySqlProtocolStream;
-  readonly decoders: ReturnType<typeof compileMySqlRowDecoders>;
+  readonly decoders: ReturnType<MySqlDecoderPlanCache["get"]>;
   readonly hasRows: boolean;
 }
 
@@ -44,8 +39,7 @@ export function createMySqlQueryStream<Row>(options: {
   readonly text: string;
   readonly values: readonly unknown[];
   readonly batchSize: number;
-  readonly typePolicy: MySqlRuntimeTypePolicy;
-  readonly decimal?: (value: string) => unknown;
+  readonly decoderPlans: MySqlDecoderPlanCache;
   readonly onClose: () => void;
 }): QueryStream<Row> {
   return new MySqlQueryStream(options);
@@ -56,8 +50,7 @@ class MySqlQueryStream<Row> implements QueryStream<Row> {
   readonly #text: string;
   readonly #values: readonly unknown[];
   readonly #batchSize: number;
-  readonly #typePolicy: MySqlRuntimeTypePolicy;
-  readonly #decimal: ((value: string) => unknown) | undefined;
+  readonly #decoderPlans: MySqlDecoderPlanCache;
   readonly #onClose: () => void;
   #active: ActiveMySqlStream | undefined;
   #opening: Promise<ActiveMySqlStream> | undefined;
@@ -71,16 +64,14 @@ class MySqlQueryStream<Row> implements QueryStream<Row> {
     readonly text: string;
     readonly values: readonly unknown[];
     readonly batchSize: number;
-    readonly typePolicy: MySqlRuntimeTypePolicy;
-    readonly decimal?: (value: string) => unknown;
+    readonly decoderPlans: MySqlDecoderPlanCache;
     readonly onClose: () => void;
   }) {
     this.#openConnection = options.openConnection;
     this.#text = options.text;
     this.#values = options.values;
     this.#batchSize = options.batchSize;
-    this.#typePolicy = options.typePolicy;
-    this.#decimal = options.decimal;
+    this.#decoderPlans = options.decoderPlans;
     this.#onClose = options.onClose;
   }
 
@@ -166,7 +157,7 @@ class MySqlQueryStream<Row> implements QueryStream<Row> {
     try {
       source = stream.call(opened.connection, this.#text, this.#values, { batchSize: this.#batchSize });
       const fields = await source.fields;
-      const decoders = compileMySqlRowDecoders(fields, this.#typePolicy, this.#decimal);
+      const decoders = this.#decoderPlans.get(fields);
       const active = { source, decoders, hasRows: fields.length > 0, ...opened };
       this.#active = active;
       return active;

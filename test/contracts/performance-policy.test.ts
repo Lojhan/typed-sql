@@ -79,4 +79,37 @@ await describe("performance regression policy", async () => {
       "cache-hit and cancellation fast paths must batch samples",
     );
   });
+
+  await it("keeps the public driver and ORM comparison reproducible and isolated", async () => {
+    const benchmark = join(workspace, "benchmarks", "runtime-comparison");
+    const manifest = JSON.parse(await readFile(join(benchmark, "package.json"), "utf8")) as {
+      readonly private: boolean;
+      readonly scripts: Readonly<Record<string, string>>;
+      readonly dependencies: Readonly<Record<string, string>>;
+    };
+    strict.strictEqual(manifest.private, true);
+    strict.ok(manifest.scripts.run?.includes("databases:start"));
+    strict.ok(manifest.scripts.run?.includes("generate"));
+    strict.ok(manifest.scripts.run?.includes("benchmark"));
+    for (const dependency of [
+      "@prisma/adapter-pg",
+      "@prisma/client",
+      "@typed-sql/mysql",
+      "@typed-sql/postgres",
+      "drizzle-orm",
+      "kysely",
+      "mysql2",
+      "pg",
+      "typeorm",
+    ]) {
+      strict.ok(manifest.dependencies[dependency] !== undefined, `comparison does not pin ${dependency}`);
+    }
+    const compose = await readFile(join(benchmark, "compose.yaml"), "utf8");
+    strict.ok(compose.includes("postgres:18.0-alpine"));
+    strict.ok(compose.includes("mysql:9.5"));
+    strict.ok(compose.includes("healthcheck:"));
+    const documentation = await readFile(join(benchmark, "README.md"), "utf8");
+    strict.ok(documentation.includes("not a universal leaderboard"));
+    strict.ok(documentation.includes("generated numbers are intentionally ignored"));
+  });
 });

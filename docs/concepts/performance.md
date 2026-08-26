@@ -17,8 +17,8 @@ The production performance suite covers:
 - compiling 250 queries with the PostgreSQL grammar and resolver;
 - correlated and independent conditional structure;
 - rejecting structural expansion before grammar work exceeds its bound;
-- core fragment composition and rendering;
-- adapter render, encode, decode, 100-row stream, and 25-query batch overhead with deterministic fake drivers;
+- core template construction, fragment composition, rendering, and prepared-skeleton binding;
+- adapter render, encode, decode, 100-row stream, 25-query batch, and PostgreSQL pipeline overhead with deterministic fake drivers;
 - cold, unchanged, incrementally edited, and schema-reloaded language-service analysis;
 - cancellation before expensive analysis;
 - retained heap under cache pressure.
@@ -26,6 +26,14 @@ The production performance suite covers:
 The structural scenarios assert their analysis counts as well as their timing. A fast but incorrect implementation does not pass.
 
 Adapter microbenchmarks are tracking baselines rather than database latency claims or release budgets. They isolate typed-sql's local work from network, server, pool, and native-driver time so regressions remain visible without presenting fixture timings as production throughput.
+
+## Driver and ORM comparison
+
+The repository also contains an [isolated runtime comparison](https://github.com/Lojhan/typed-sql/tree/main/benchmarks/runtime-comparison) against raw `pg`, raw `mysql2`, Drizzle, Kysely, Prisma, and TypeORM. It runs one indexed lookup against fixed PostgreSQL and MySQL containers and reports ordinary request paths separately from comparable prepared paths.
+
+Generated comparison results are not committed. They depend on the machine, database transport, operating-system scheduling, and dependency versions. The durable public artifact is the pinned fixture and its methodology, which lets maintainers and users reproduce a result on the hardware that matters to them.
+
+At runtime, interpolation-free fragment templates may reuse their complete immutable value at the same JavaScript callsite. Query templates and parameterized fragments reuse only immutable text segments; their containing query and value segments remain isolated per call so one invocation cannot retain another invocation's execution metadata or parameters.
 
 ## Latency budgets
 

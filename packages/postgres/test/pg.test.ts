@@ -45,6 +45,7 @@ interface FakeNativeCursor {
 }
 
 class FakePgClient extends EventEmitter {
+  pipeline = true;
   released = false;
   releaseError: Error | boolean | undefined;
   queryError: Error | undefined;
@@ -131,6 +132,7 @@ await describe("application-owned pg integration", async () => {
     };
     await pool.query(config);
     const client = await pool.connect();
+    strict.strictEqual(client.pipeline, true);
     await client.query("SELECT 2");
     await client.query(config);
     client.release();

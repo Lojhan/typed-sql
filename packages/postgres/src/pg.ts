@@ -160,6 +160,7 @@ export function adaptPgPool(
     client.on("end", onEnd);
 
     return {
+      pipeline: client.pipeline,
       async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
         const result =
           typeof config === "string"

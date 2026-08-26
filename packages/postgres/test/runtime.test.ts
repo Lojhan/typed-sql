@@ -206,6 +206,16 @@ await describe("PostgreSQL runtime adapter", async () => {
       strict.strictEqual(call.text, "SELECT id FROM users WHERE id = $1 AND active = $2");
       strict.deepStrictEqual(call.values, ["7", true]);
     }
+
+    await db.execute(accountById(8n, false));
+    const reboundCall = pool.calls[1];
+    if (reboundCall === undefined || typeof reboundCall === "string")
+      strict.fail("Expected a prepared query config call");
+    else {
+      strict.strictEqual(reboundCall.name, "account-by-id");
+      strict.strictEqual(reboundCall.text, "SELECT id FROM users WHERE id = $1 AND active = $2");
+      strict.deepStrictEqual(reboundCall.values, ["8", false]);
+    }
   });
 
   await it("validates prepared names and reserves them at declaration", () => {

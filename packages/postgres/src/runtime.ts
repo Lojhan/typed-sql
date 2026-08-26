@@ -43,6 +43,7 @@ export interface PostgresQueryResult {
 }
 
 export interface PostgresClientLike {
+  readonly pipeline?: boolean;
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
   openCursor?(config: PostgresQueryConfig): PostgresCursorLike | Promise<PostgresCursorLike>;
   release(error?: Error | boolean): void;
@@ -57,6 +58,7 @@ export interface PostgresPoolLike {
 
 export interface PostgresTransaction extends Database<PostgresTransaction> {
   batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
+  pipeline<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -66,6 +68,7 @@ export interface PostgresTransaction extends Database<PostgresTransaction> {
 
 export interface PostgresDatabase extends Database<PostgresTransaction> {
   batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
+  pipeline<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -208,6 +211,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #transactionState: {
     activeBatch: Promise<unknown> | undefined;
     readonly activeExecutes: Set<Promise<unknown>>;
+    activePipeline: Promise<unknown> | undefined;
     readonly activeStreams: Set<QueryStream<unknown>>;
     discardLease: boolean;
     firstDatabaseOperationError: unknown;
@@ -229,6 +233,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     transactionState = {
       activeBatch: undefined as Promise<unknown> | undefined,
       activeExecutes: new Set<Promise<unknown>>(),
+      activePipeline: undefined as Promise<unknown> | undefined,
       activeStreams: new Set<QueryStream<unknown>>(),
       discardLease: false,
       firstDatabaseOperationError: undefined as unknown,
@@ -251,6 +256,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute another query");
     this.#rejectOperationDuringTransactionBatch("execute another query");
+    this.#rejectOperationDuringTransactionPipeline("execute another query");
     const config = this.#queryConfig(query);
     let operation: Promise<PostgresQueryResult>;
     try {
@@ -279,6 +285,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute a query batch");
     this.#rejectOperationDuringTransactionBatch("execute another query batch");
+    this.#rejectOperationDuringTransactionPipeline("execute a query batch");
     if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
     const querySnapshot = [...queries] as unknown as QueryBatch<Queries>;
     if (this.#client !== undefined) {
@@ -310,6 +317,57 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     return results;
   }
 
+  async pipeline<const Queries extends readonly unknown[]>(
+    queries: QueryBatch<Queries>,
+  ): Promise<QueryResults<Queries>> {
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("execute a query pipeline");
+    this.#rejectOperationDuringTransactionBatch("execute a query pipeline");
+    this.#rejectOperationDuringTransactionExecute("execute a query pipeline");
+    this.#rejectOperationDuringTransactionPipeline("execute another query pipeline");
+    if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
+    const configs = [...queries].map((value) =>
+      this.#queryConfig(value as unknown as Query<unknown, readonly unknown[]>),
+    );
+    if (this.#client !== undefined) {
+      this.#assertPipelineClient(this.#client);
+      const operation = this.#executePipeline<Queries>(this.#client, configs);
+      this.#transactionState.activePipeline = operation;
+      try {
+        return await operation;
+      } catch (error) {
+        this.#recordTransactionOperationFailure(error);
+        throw error;
+      } finally {
+        if (this.#transactionState.activePipeline === operation) this.#transactionState.activePipeline = undefined;
+      }
+    }
+
+    const client = await this.#pool.connect();
+    try {
+      this.#assertPipelineClient(client);
+    } catch (error) {
+      try {
+        client.release();
+      } catch {
+        /* Preserve the missing pipeline-capability error. */
+      }
+      throw error;
+    }
+    try {
+      const results = await this.#executePipeline<Queries>(client, configs);
+      client.release();
+      return results as QueryResults<Queries>;
+    } catch (error) {
+      try {
+        client.release(error instanceof Error ? error : true);
+      } catch {
+        /* Preserve the first pipeline failure. */
+      }
+      throw error;
+    }
+  }
+
   stream<Row, Params extends readonly unknown[]>(
     query: Query<Row, Params>,
     options: StreamOptions = {},
@@ -317,6 +375,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start another query stream");
     this.#rejectOperationDuringTransactionBatch("start a query stream");
+    this.#rejectOperationDuringTransactionPipeline("start a query stream");
     const batchSize = validatePostgresStreamBatchSize(options.batchSize);
     const config = this.#queryConfig(query);
     let stream: QueryStream<Row>;
@@ -362,6 +421,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
               this.#assertTransactionScopeOpen();
               this.#rejectOperationDuringTransactionStream("start another query stream");
               this.#rejectOperationDuringTransactionBatch("start a query stream");
+              this.#rejectOperationDuringTransactionPipeline("start a query stream");
               this.#transactionState.activeStreams.add(stream as QueryStream<unknown>);
             },
             onClose: () => {
@@ -387,11 +447,13 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start a nested transaction");
     this.#rejectOperationDuringTransactionBatch("start a nested transaction");
+    this.#rejectOperationDuringTransactionPipeline("start a nested transaction");
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
     const scope = new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared, {
       activeBatch: undefined,
       activeExecutes: new Set(),
+      activePipeline: undefined,
       activeStreams: new Set(),
       discardLease: false,
       firstDatabaseOperationError: undefined,
@@ -427,6 +489,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       scope.#transactionState.valid = false;
       await scope.#settleTransactionExecutesPreservingError();
       await scope.#closeTransactionStreamsPreservingError();
+      await scope.#settleTransactionPipelinePreservingError();
       await scope.#settleTransactionBatchPreservingError();
       try {
         await client.query("ROLLBACK");
@@ -486,6 +549,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     } catch (error) {
       await scope.#settleTransactionExecutesPreservingError();
       await scope.#closeTransactionStreamsPreservingError();
+      await scope.#settleTransactionPipelinePreservingError();
       await scope.#settleTransactionBatchPreservingError();
       if (scope.#transactionState.valid) {
         try {
@@ -525,13 +589,49 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     return results as QueryResults<Queries>;
   }
 
+  async #executePipeline<const Queries extends readonly unknown[]>(
+    client: PostgresClientLike,
+    configs: readonly PostgresQueryConfig[],
+  ): Promise<QueryResults<Queries>> {
+    const operations: Promise<PostgresQueryResult>[] = [];
+    let dispatchFailed = false;
+    let dispatchError: unknown;
+    for (const config of configs) {
+      try {
+        operations.push(client.query(config));
+      } catch (error) {
+        dispatchFailed = true;
+        dispatchError = error;
+        break;
+      }
+    }
+    const settlements = await Promise.allSettled(operations);
+    if (dispatchFailed) throw dispatchError;
+    const results: (readonly Record<string, unknown>[])[] = [];
+    for (const settlement of settlements) {
+      if (settlement.status === "rejected") throw settlement.reason;
+      results.push(settlement.value.rows);
+    }
+    return results as QueryResults<Queries>;
+  }
+
+  #assertPipelineClient(client: PostgresClientLike): void {
+    if (client.pipeline !== true) {
+      throw new Error(
+        "PostgreSQL query pipelining requires pg 8.23.0 or newer and pipeline mode. Create the application-owned Pool with { pipeline: true }",
+      );
+    }
+  }
+
   async #rejectLeakedTransactionWork(): Promise<void> {
     const leakedStreams = this.#transactionStreams.size > 0 || this.#transactionState.activeStreams.size > 0;
     const leakedExecutes = this.#transactionExecutes.size > 0 || this.#transactionState.activeExecutes.size > 0;
+    const leakedPipeline = this.#transactionState.activePipeline !== undefined;
     const leakedBatch = this.#transactionState.activeBatch !== undefined;
-    if (!leakedStreams && !leakedExecutes && !leakedBatch) return;
+    if (!leakedStreams && !leakedExecutes && !leakedPipeline && !leakedBatch) return;
     await this.#settleTransactionExecutesPreservingError();
     await this.#closeTransactionStreamsPreservingError();
+    await this.#settleTransactionPipelinePreservingError();
     await this.#settleTransactionBatchPreservingError();
     if (leakedExecutes) {
       throw new Error(
@@ -541,6 +641,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     if (leakedBatch) {
       throw new Error(
         "A PostgreSQL transaction callback returned before its query batch completed; await the batch before returning",
+      );
+    }
+    if (leakedPipeline) {
+      throw new Error(
+        "A PostgreSQL transaction callback returned before its query pipeline completed; await the pipeline before returning",
       );
     }
     throw new Error("A PostgreSQL transaction callback returned before all query streams were completed or closed");
@@ -578,6 +683,16 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
   }
 
+  async #settleTransactionPipelinePreservingError(): Promise<void> {
+    const operation = this.#transactionState.activePipeline;
+    if (operation === undefined) return;
+    try {
+      await operation;
+    } catch {
+      /* The callback or transaction misuse error remains primary. */
+    }
+  }
+
   #rejectOperationDuringTransactionStream(operation: string): void {
     if (this.#client !== undefined && this.#transactionState.activeStreams.size > 0) {
       throw new Error(
@@ -590,6 +705,22 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     if (this.#client !== undefined && this.#transactionState.activeBatch !== undefined) {
       throw new Error(
         `Cannot ${operation} while a PostgreSQL transaction query batch is still running; await the batch first`,
+      );
+    }
+  }
+
+  #rejectOperationDuringTransactionExecute(operation: string): void {
+    if (this.#client !== undefined && this.#transactionState.activeExecutes.size > 0) {
+      throw new Error(
+        `Cannot ${operation} while a PostgreSQL transaction execute operation is still running; await execute first`,
+      );
+    }
+  }
+
+  #rejectOperationDuringTransactionPipeline(operation: string): void {
+    if (this.#client !== undefined && this.#transactionState.activePipeline !== undefined) {
+      throw new Error(
+        `Cannot ${operation} while a PostgreSQL transaction query pipeline is still running; await the pipeline first`,
       );
     }
   }

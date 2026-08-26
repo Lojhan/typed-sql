@@ -47,6 +47,8 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 ## Rendering and database adapters
 
 - `renderQuery(query, renderer)` produces SQL text and values.
+- `compileQueryRenderSkeleton(query, renderer)` produces the first rendering and an immutable, renderer-specific structural plan for adapter caches.
+- `bindQueryRenderSkeleton(query, skeleton)` binds values to that plan, or returns `undefined` when text, identifiers, segment kinds, or segment count drift.
 - `SqlRenderer` supplies grammar-specific placeholders and identifier quoting.
 - `createDatabase(executor, renderer, transactionRunner)` connects the neutral query contract to a runtime adapter.
 - `Database.execute()` preserves the query row type.
@@ -64,7 +66,7 @@ database.prepare(name, (...arguments) => query)
 
 The return value is a callable adapter-specific prepared-query factory with a readonly `statementName`. Its arguments and returned `Query<Row, Parameters>` remain exact. Calling the factory does not create a separate executable query class; it returns the ordinary `Query` produced by the callback.
 
-Prepared names are non-empty, NUL-free, and unique within a database instance. The first call fixes the exact rendered SQL text for that name. Later calls with a different rendered shape throw before driver dispatch. Parameter values may vary because they do not change rendered SQL text.
+Prepared names are non-empty, NUL-free, and unique within a database instance. The first call fixes the exact structural SQL skeleton for that name. Later calls with different text, identifiers, segment kinds, or segment counts throw before driver dispatch, even if an alternative segmentation could produce the same final text. Parameter values may vary because value contents are not part of the structural skeleton.
 
 The same prepared-state registry is available to transaction scopes created by the database. A prepared query executed through another database instance is treated as an ordinary query because preparation metadata is instance-local.
 
@@ -83,6 +85,18 @@ An empty batch returns without leasing a connection. A non-empty root batch leas
 Transaction batches are scoped operations. Callers must await them before the callback returns, and adapters reject competing connection work while a batch is active.
 
 Transaction `execute()` calls are scoped operations too. A callback must await every dispatched execution before returning. If execution is still in flight, the adapter waits for it to settle and rolls back instead of selecting commit or releasing the connection underneath it.
+
+### PostgreSQL pipelines
+
+The PostgreSQL database and transaction adapters expose:
+
+```ts
+database.pipeline(queries)
+```
+
+The type mapping matches `batch()`: readonly query tuples retain an exact `QueryResults<Queries>` result. The application-owned `pg` driver must be version 8.23.0 or newer, and its pool must enable the documented pipeline mode with `{ pipeline: true }`. An empty pipeline returns without leasing a connection.
+
+Unlike sequential `batch()`, `pipeline()` dispatches every query before awaiting responses. This reduces idle network round trips for independent statements but means a later statement may execute even when an earlier one fails. typed-sql waits for all dispatched statements and reports the first rejection in input order. Root pipelines use ordinary autocommit behavior; explicit transaction pipelines use the surrounding transaction and must be awaited before its callback returns.
 
 ### Query streams
 

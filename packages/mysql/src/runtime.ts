@@ -9,9 +9,9 @@ import {
   type StreamOptions,
 } from "@typed-sql/core";
 import {
-  compileMySqlRowDecoders,
   decodeMySqlRows,
   encodeMySqlValue,
+  MySqlDecoderPlanCache,
   type MySqlFieldLike,
   type MySqlRuntimeTypePolicy,
 } from "./decoding.js";
@@ -106,10 +106,9 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #pool: MySqlPoolLike;
   readonly #connection: MySqlConnectionLike | undefined;
   readonly #ownsPool: boolean;
-  readonly #typePolicy: MySqlRuntimeTypePolicy;
-  readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #depth: number;
   readonly #prepared: MySqlPreparedQueryState;
+  readonly #decoderPlans: MySqlDecoderPlanCache;
   readonly #executes: Set<MySqlConnectionOperation> | undefined;
   readonly #streams: Set<QueryStream<unknown>> | undefined;
   readonly #transactionState: MySqlTransactionConnectionState | undefined;
@@ -119,19 +118,17 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     pool: MySqlPoolLike,
     connection: MySqlConnectionLike | undefined,
     ownsPool: boolean,
-    typePolicy: MySqlRuntimeTypePolicy,
-    decimal: ((value: string) => unknown) | undefined,
     depth: number,
     prepared: MySqlPreparedQueryState,
+    decoderPlans: MySqlDecoderPlanCache,
     transactionState?: MySqlTransactionConnectionState,
   ) {
     this.#pool = pool;
     this.#connection = connection;
     this.#ownsPool = ownsPool;
-    this.#typePolicy = typePolicy;
-    this.#decimal = decimal;
     this.#depth = depth;
     this.#prepared = prepared;
+    this.#decoderPlans = decoderPlans;
     this.#executes = connection === undefined ? undefined : new Set();
     this.#streams = connection === undefined ? undefined : new Set();
     this.#transactionState = transactionState;
@@ -161,7 +158,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
     const result = await executor.execute(rendered.text, rendered.values.map(encodeMySqlValue));
     if (!Array.isArray(result.rows)) return [];
-    const decoders = compileMySqlRowDecoders(result.fields ?? [], this.#typePolicy, this.#decimal);
+    const decoders = this.#decoderPlans.get(result.fields ?? []);
     return decodeMySqlRows(result.rows, decoders) as unknown as readonly Row[];
   }
 
@@ -234,8 +231,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       text: rendered.text,
       values: rendered.values.map(encodeMySqlValue),
       batchSize,
-      typePolicy: this.#typePolicy,
-      ...(this.#decimal === undefined ? {} : { decimal: this.#decimal }),
+      decoderPlans: this.#decoderPlans,
       onClose: () => {
         this.#streams?.delete(queryStream as QueryStream<unknown>);
         if (this.#transactionState?.active === queryStream) this.#transactionState.active = undefined;
@@ -265,10 +261,9 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#pool,
         connection,
         false,
-        this.#typePolicy,
-        this.#decimal,
         1,
         this.#prepared,
+        this.#decoderPlans,
         { active: undefined, batch: undefined, execute: undefined, usable: true },
       );
       result = await fn(transaction);
@@ -311,10 +306,9 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#pool,
         connection,
         false,
-        this.#typePolicy,
-        this.#decimal,
         depth,
         this.#prepared,
+        this.#decoderPlans,
         this.#transactionState,
       );
       const result = await fn(transaction);
@@ -437,9 +431,8 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
     options.pool,
     undefined,
     options.ownsPool ?? false,
-    typePolicy,
-    options.decimal,
     0,
     createMySqlPreparedQueryState(),
+    new MySqlDecoderPlanCache(typePolicy, options.decimal),
   );
 }
