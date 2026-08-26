@@ -23,7 +23,7 @@ export interface PublishPrereleaseOptions {
 }
 
 export interface PublishReleaseOptions {
-  readonly channel?: "beta" | "stable";
+  readonly channel?: "beta" | "rc" | "stable";
   readonly workspace?: string;
   readonly plan?: ReleasePlan;
   readonly isPublished?: (name: string, version: string) => Promise<boolean>;
@@ -39,7 +39,7 @@ export interface RegistryLookupOptions {
 }
 
 export function loadPrereleasePlan(workspace?: string): Promise<PrereleasePlan>;
-export function loadReleasePlan(channel: "beta" | "stable", workspace?: string): Promise<ReleasePlan>;
+export function loadReleasePlan(channel: "beta" | "rc" | "stable", workspace?: string): Promise<ReleasePlan>;
 export function isPublishedOnNpm(name: string, version: string, options?: RegistryLookupOptions): Promise<boolean>;
 export function publicationCommands(
   pkg: ReleasePackage,

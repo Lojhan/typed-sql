@@ -29,6 +29,7 @@ await describe("prerelease publisher", async () => {
       channel: "stable",
       series: "1.0.0",
       npmTag: "latest",
+      sourceCandidate: "1.0.0-rc.0",
       packages: ["@typed-sql/core"],
       packagePolicy: {
         stable: ["@typed-sql/core"],
@@ -42,6 +43,7 @@ await describe("prerelease publisher", async () => {
           channel: "stable",
           series: "1.0.0",
           npmTag: "latest",
+          sourceCandidate: "1.0.0-rc.0",
           packages: ["@typed-sql/core", "@typed-sql/ts-bridge"],
           packagePolicy: {
             stable: ["@typed-sql/core"],
@@ -293,6 +295,7 @@ await describe("prerelease publisher", async () => {
           channel: "stable",
           series: "1.0.0",
           npmTag: "latest",
+          sourceCandidate: "1.0.0-rc.0",
           packages: ["@typed-sql/core"],
           packagePolicy: {
             stable: ["@typed-sql/core"],

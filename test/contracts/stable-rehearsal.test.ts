@@ -17,6 +17,8 @@ await describe("stable release rehearsal policy", async () => {
       '"worktree", "remove", "--force"',
       'changesetsCli, "pre", "exit"',
       'changesetsCli, "version"',
+      'release.channel !== "rc"',
+      "sourceCandidate",
       '"release-manifest.json"',
       '"verify"',
       '"e2e:packed"',

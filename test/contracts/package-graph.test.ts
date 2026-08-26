@@ -161,7 +161,10 @@ await describe("public package graph", async () => {
 
   await it("publishes consistent Lojhan-owned release metadata", async () => {
     const releaseManifest = await loadReleaseManifest(workspace);
-    const betaPattern = new RegExp(`^${releaseManifest.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
+    const channelPattern = new RegExp(
+      `^${releaseManifest.series.replaceAll(".", "\\.")}-${releaseManifest.channel}\\.\\d+$`,
+      "u",
+    );
     const prereleasePattern = new RegExp(`^${releaseManifest.series.replaceAll(".", "\\.")}-(?:beta|rc)\\.\\d+$`, "u");
     const expectedLicense = await readFile(join(workspace, "LICENSE"), "utf8");
     strict.deepStrictEqual(
@@ -178,10 +181,10 @@ await describe("public package graph", async () => {
       const releaseTrack = stablePackages.includes(packageName as (typeof stablePackages)[number])
         ? "stable"
         : "experimental";
-      if (releaseManifest.channel === "beta") {
+      if (releaseManifest.channel === "beta" || releaseManifest.channel === "rc") {
         strict.ok(
-          betaPattern.test(packageManifest.version ?? ""),
-          `${packageManifest.name} must be in the declared beta series`,
+          channelPattern.test(packageManifest.version ?? ""),
+          `${packageManifest.name} must be in the declared prerelease series`,
         );
       } else if (releaseTrack === "stable") strict.strictEqual(packageManifest.version, releaseManifest.series);
       else strict.ok(prereleasePattern.test(packageManifest.version ?? ""));

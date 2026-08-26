@@ -11,10 +11,9 @@ typed parameters and structural fragments, editor reliability, security enforcem
 protections, trusted npm publishing, registry-only acceptance, and no-write stable rehearsal are in
 place.
 
-The project is not ready to publish under `latest` yet. npm `next` must first receive one coherent
-beta containing the current package graph—the registry gate correctly rejects the older mixed beta
-currently published. That candidate must then complete the representative consumer soak and final
-documentation review.
+The final coherent beta and its registry-only acceptance suite are green. The remaining release
+blocker is to publish one coherent RC, complete its representative external-consumer soak, and
+finish the stable documentation review.
 
 ## Definition of ready
 
@@ -31,14 +30,12 @@ The stable release is ready when all of the following are true:
 
 ## Milestone 1: Publish and soak the final candidate
 
-1. Merge the remaining prerelease changes and publish one coherent beta under `next`.
-2. Run [`pnpm e2e:registry`](./REGISTRY_ACCEPTANCE.md) against that beta from a clean npm-only
-   consumer.
-3. Publish `1.0.0-rc.0` under `next` once the beta is clean.
-4. Test the RC in independent projects that do not share monorepo configuration.
-5. Allow an agreed soak period, recommended as one to two weeks.
-6. Require at least three representative consumers across PostgreSQL, MySQL, and editor usage.
-7. Publish another RC whenever a release-blocking fix changes generated output, inference, runtime
+1. Publish `1.0.0-rc.0` under `next` from one coherent package train.
+2. Confirm the protected workflow's post-publication registry-only PostgreSQL and MySQL proof.
+3. Test the RC in independent projects that do not share monorepo configuration.
+4. Complete the 7–14 day soak described in [`RC_SOAK.md`](./RC_SOAK.md).
+5. Require at least three representative consumers across PostgreSQL, MySQL, and editor usage.
+6. Publish another RC whenever a release-blocking fix changes generated output, inference, runtime
    contracts, package exports, or release mechanics.
 
 During the soak, track:
@@ -58,12 +55,13 @@ Acceptance criteria:
 - all representative projects upgrade using only npm versions;
 - generated output is deterministic and checked into consumers without unexplained churn;
 - every reported correctness issue has a regression test before resolution.
+- `pnpm release:soak` validates the exact source RC, external evidence, deterministic hashes, and
+  recorded go/no-go decision.
 
 ## Milestone 2: Finish stable documentation
 
 Before the stable version PR:
 
-- remove the stale deleted-document reference from `.changeset/README.md`;
 - make the root README show the registry-first installation and stable package boundary;
 - ensure package READMEs describe only exports and commands present in packed artifacts;
 - update compatibility documentation with exact TypeScript, Node.js, PostgreSQL, MySQL, `pg`,

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "series": "1.0.0",
+  "candidate": "1.0.0-rc.0",
+  "npmTag": "next",
+  "releaseCommit": "0000000000000000000000000000000000000000",
+  "publishedAt": "2026-08-26T00:00:00.000Z",
+  "startedAt": "2026-08-26T00:00:00.000Z",
+  "minimumDays": 7,
+  "consumers": [
+    {
+      "id": "postgres-application",
+      "role": "postgres",
+      "repository": "https://github.com/example/typed-sql-postgres-soak",
+      "installSource": "registry",
+      "node": "24.10.0",
+      "packageManager": "pnpm@10.32.1",
+      "typescript": { "name": "typescript", "version": "7.0.2" },
+      "database": { "name": "postgresql", "version": "18.0.0" },
+      "driver": { "name": "pg", "version": "8.23.0" },
+      "packages": {
+        "@typed-sql/core": "1.0.0-rc.0",
+        "@typed-sql/postgres": "1.0.0-rc.0",
+        "@typed-sql/cli": "1.0.0-rc.0"
+      },
+      "runs": []
+    },
+    {
+      "id": "mysql-application",
+      "role": "mysql",
+      "repository": "https://github.com/example/typed-sql-mysql-soak",
+      "installSource": "registry",
+      "node": "24.10.0",
+      "packageManager": "pnpm@10.32.1",
+      "typescript": { "name": "typescript", "version": "7.0.2" },
+      "database": { "name": "mysql", "version": "9.4.0" },
+      "driver": { "name": "mysql2", "version": "3.24.1" },
+      "packages": {
+        "@typed-sql/core": "1.0.0-rc.0",
+        "@typed-sql/mysql": "1.0.0-rc.0",
+        "@typed-sql/cli": "1.0.0-rc.0"
+      },
+      "runs": []
+    },
+    {
+      "id": "zed-editor-project",
+      "role": "editor",
+      "repository": "https://github.com/example/typed-sql-editor-soak",
+      "installSource": "registry",
+      "node": "24.10.0",
+      "packageManager": "pnpm@10.32.1",
+      "typescript": { "name": "typescript", "version": "7.0.2" },
+      "editor": { "name": "zed", "version": "0.202.5" },
+      "packages": {
+        "@typed-sql/language-server": "1.0.0-rc.0",
+        "@typed-sql/ts-bridge": "1.0.0-rc.0"
+      },
+      "runs": []
+    }
+  ],
+  "blockers": [],
+  "decision": {
+    "outcome": "go",
+    "decidedAt": "2026-09-02T00:00:00.000Z",
+    "owner": "Lojhan",
+    "rationale": "All required consumers passed for the complete soak window.",
+    "knownLimitations": ["Replace this example with the reviewed limitations for the actual RC."]
+  }
+}

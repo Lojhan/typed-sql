@@ -98,7 +98,24 @@ async function restoreExperimentalState(workspace, state, deferredChangesets) {
   }
 }
 
-async function writeStableManifest(workspace, release) {
+async function releaseCandidateVersion(workspace, release) {
+  const versions = new Set();
+  for (const name of release.packages) {
+    const manifest = JSON.parse(
+      await readFile(join(workspace, "packages", name.slice("@typed-sql/".length), "package.json"), "utf8"),
+    );
+    versions.add(manifest.version);
+  }
+  if (versions.size !== 1) throw new Error("Stable rehearsal requires one coherent release-candidate version");
+  const [candidate] = versions;
+  const pattern = new RegExp(`^${release.series.replaceAll(".", "\\.")}-rc\\.\\d+$`, "u");
+  if (typeof candidate !== "string" || !pattern.test(candidate)) {
+    throw new Error(`Stable rehearsal requires a ${release.series}-rc.N candidate`);
+  }
+  return candidate;
+}
+
+async function writeStableManifest(workspace, release, sourceCandidate) {
   await writeFile(
     join(workspace, "release-manifest.json"),
     `${JSON.stringify(
@@ -106,6 +123,7 @@ async function writeStableManifest(workspace, release) {
         ...release,
         channel: "stable",
         npmTag: "latest",
+        sourceCandidate,
         packages: release.packagePolicy.stable,
       },
       null,
@@ -116,10 +134,11 @@ async function writeStableManifest(workspace, release) {
 
 export async function prepareStableVersion(workspace, options = {}) {
   const release = await loadReleaseManifest(workspace);
-  if (release.channel !== "beta" || release.npmTag !== "next") {
-    throw new Error(`Stable rehearsal must begin on beta:next, received ${release.channel}:${release.npmTag}`);
+  if (release.channel !== "rc" || release.npmTag !== "next") {
+    throw new Error(`Stable rehearsal must begin on rc:next, received ${release.channel}:${release.npmTag}`);
   }
   const experimentalPackages = new Set(release.packagePolicy.experimental);
+  const sourceCandidate = await releaseCandidateVersion(workspace, release);
   const state = await packageState(workspace, experimentalPackages);
   const deferred = await partitionChangesets(workspace, experimentalPackages);
   const runCommand = options.runCommand ?? run;
@@ -134,7 +153,7 @@ export async function prepareStableVersion(workspace, options = {}) {
     label: "Versioning stable packages",
   });
   await restoreExperimentalState(workspace, state, deferred);
-  await writeStableManifest(workspace, release);
+  await writeStableManifest(workspace, release, sourceCandidate);
   await runCommand("pnpm", ["exec", "biome", "format", "--write", "release-manifest.json"], {
     cwd: workspace,
     label: "Formatting the rehearsed release manifest",
@@ -303,6 +322,7 @@ export async function rehearseStableRelease(options = {}) {
           channel: release.channel,
           npmTag: release.npmTag,
           series: release.series,
+          sourceCandidate: release.sourceCandidate,
           versions,
           publicationOrder: release.packages,
           dependencyRanges,

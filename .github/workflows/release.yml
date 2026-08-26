@@ -12,6 +12,7 @@ on:
         type: choice
         options:
           - beta
+          - rc
           - stable
 
 concurrency:
@@ -90,18 +91,45 @@ jobs:
       - name: Assert beta release contract
         if: inputs.channel == 'beta'
         run: pnpm release:assert beta
+      - name: Assert release-candidate contract
+        if: inputs.channel == 'rc'
+        run: pnpm release:assert rc
       - name: Assert stable release contract
         if: inputs.channel == 'stable'
         run: pnpm release:assert stable
-      - uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
+      - name: Assert completed release-candidate soak
+        if: inputs.channel == 'stable'
+        run: pnpm release:soak
+      - name: Publish beta
+        uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
         if: inputs.channel == 'beta'
         with:
           script: pnpm release:beta
           create-github-releases: true
           push-git-tags: true
-      - uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
+      - name: Publish release candidate
+        uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
+        if: inputs.channel == 'rc'
+        with:
+          script: pnpm release:rc
+          create-github-releases: true
+          push-git-tags: true
+      - name: Verify published prerelease from npm
+        if: inputs.channel == 'beta' || inputs.channel == 'rc'
+        run: pnpm e2e:registry
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_REGISTRY_TAG: next
+      - name: Publish stable
+        uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
         if: inputs.channel == 'stable'
         with:
           script: pnpm release:stable
           create-github-releases: true
           push-git-tags: true
+      - name: Verify published stable packages from npm
+        if: inputs.channel == 'stable'
+        run: pnpm e2e:registry
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_REGISTRY_TAG: latest

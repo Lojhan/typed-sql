@@ -4,9 +4,10 @@ export interface ReleasePackagePolicy {
 }
 
 export interface ReleaseManifest {
-  readonly channel: "beta" | "stable";
+  readonly channel: "beta" | "rc" | "stable";
   readonly series: string;
   readonly npmTag: "next" | "latest";
+  readonly sourceCandidate?: string;
   readonly packages: readonly string[];
   readonly packagePolicy: ReleasePackagePolicy;
 }
