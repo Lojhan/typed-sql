@@ -82,6 +82,8 @@ An empty batch returns without leasing a connection. A non-empty root batch leas
 
 Transaction batches are scoped operations. Callers must await them before the callback returns, and adapters reject competing connection work while a batch is active.
 
+Transaction `execute()` calls are scoped operations too. A callback must await every dispatched execution before returning. If execution is still in flight, the adapter waits for it to settle and rolls back instead of selecting commit or releasing the connection underneath it.
+
 ### Query streams
 
 `QueryStream<Row>` extends `AsyncIterableIterator<Row>` and `AsyncDisposable` and adds:

@@ -179,7 +179,7 @@ await database.transaction(async (transaction) => {
 
 Declare reusable prepared factories once from the root database during application bootstrap. Prepared names remain reserved for that database instance, so declaring the same name inside a repeatedly called transaction callback would collide after its first invocation. The ordinary queries returned by a root factory retain their prepared metadata when executed or streamed through that database's transaction scopes.
 
-A transaction stream must complete or close before its callback returns. It cannot escape the callback for later iteration. While a transaction stream or batch owns the connection, that connection cannot execute competing work or enter a nested transaction. If the callback returns with an open stream or running batch, the adapter settles the work, reports the misuse, and rolls back instead of committing.
+A transaction stream must complete or close before its callback returns. It cannot escape the callback for later iteration. Every `execute()` and `batch()` call must also be awaited before returning. While a transaction stream or batch owns the connection, that connection cannot execute competing work or enter a nested transaction. If the callback returns with an execution still running, an open stream, or a running batch, the adapter settles the work, reports the misuse, and rolls back instead of committing.
 
 ## Parameters and identifiers
 

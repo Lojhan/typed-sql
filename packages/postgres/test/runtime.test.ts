@@ -18,15 +18,35 @@ type Assert<Value extends true> = Value;
 class MockClient implements PostgresClientLike {
   readonly calls: (PostgresQueryConfig | string)[] = [];
   releaseCount = 0;
+  readonly releaseArguments: (Error | boolean | undefined)[] = [];
   releaseError: Error | undefined;
+  failOnBegin = false;
+  failOnCommit = false;
   failOnSelect = false;
+  readonly beginError = new Error("begin failed");
+  readonly commitError = new Error("commit failed");
+  readonly selectError = new Error("query failed");
+  blockedError: Error | undefined;
+  blockedText: string | undefined;
   failOnRollback = false;
   failOnRollbackToSavepoint = false;
   failOnReleaseSavepoint = false;
   failOnSavepoint = false;
+  #continueBlocked: (() => void) | undefined;
+  #signalBlocked: (() => void) | undefined;
 
   async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
     this.calls.push(config);
+    const text = typeof config === "string" ? config : config.text;
+    if (text === this.blockedText) {
+      this.#signalBlocked?.();
+      await new Promise<void>((resolve) => {
+        this.#continueBlocked = resolve;
+      });
+      if (this.blockedError !== undefined) throw this.blockedError;
+    }
+    if (this.failOnBegin && config === "BEGIN") throw this.beginError;
+    if (this.failOnCommit && config === "COMMIT") throw this.commitError;
     if (this.failOnRollback && config === "ROLLBACK") throw new Error("rollback failed");
     if (this.failOnRollbackToSavepoint && typeof config === "string" && config.startsWith("ROLLBACK TO SAVEPOINT"))
       throw new Error("savepoint rollback failed");
@@ -34,13 +54,23 @@ class MockClient implements PostgresClientLike {
       throw new Error("savepoint release failed");
     if (this.failOnSavepoint && typeof config === "string" && config.startsWith("SAVEPOINT"))
       throw new Error("savepoint creation failed");
-    if (this.failOnSelect && typeof config !== "string" && config.text.startsWith("SELECT"))
-      throw new Error("query failed");
+    if (this.failOnSelect && typeof config !== "string" && config.text.startsWith("SELECT")) throw this.selectError;
     return { rows: typeof config === "string" ? [] : [{ id: 1 }] };
   }
 
-  release(): void {
+  waitForBlockedQuery(): Promise<void> {
+    return new Promise((resolve) => {
+      this.#signalBlocked = resolve;
+    });
+  }
+
+  continueBlockedQuery(): void {
+    this.#continueBlocked?.();
+  }
+
+  release(error?: Error | boolean): void {
     this.releaseCount += 1;
+    this.releaseArguments.push(error);
     if (this.releaseError !== undefined) throw this.releaseError;
   }
 
@@ -297,6 +327,259 @@ await describe("PostgreSQL runtime adapter", async () => {
     const commands = pool.client.calls.map((call) => (typeof call === "string" ? call : call.text));
     strict.deepStrictEqual(commands, ["BEGIN", "SELECT id FROM users", "ROLLBACK"]);
     strict.strictEqual(pool.client.released, true);
+    strict.deepStrictEqual(pool.client.releaseArguments, [pool.client.selectError]);
+  });
+
+  await it("refuses to commit when a transaction callback catches a query rejection", async () => {
+    const pool = new MockPool();
+    pool.client.failOnSelect = true;
+    const db = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        db.transaction(async (transaction) => {
+          await strict.rejects(() => transaction.execute(sql`SELECT id FROM users`), /query failed/);
+        }),
+      /query failed/,
+    );
+
+    const commands = pool.client.calls.map((call) => (typeof call === "string" ? call : call.text));
+    strict.deepStrictEqual(commands, ["BEGIN", "SELECT id FROM users", "ROLLBACK"]);
+    strict.strictEqual(pool.client.released, true);
+    strict.deepStrictEqual(pool.client.releaseArguments, [pool.client.selectError]);
+  });
+
+  await it("blocks all later work in a failed transaction scope before driver dispatch", async () => {
+    const pool = new MockPool();
+    pool.client.failOnSelect = true;
+    const db = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        db.transaction(async (transaction) => {
+          await strict.rejects(() => transaction.execute(sql`SELECT failed`), /query failed/);
+          pool.client.failOnSelect = false;
+
+          await strict.rejects(() => transaction.execute(sql`SELECT later`), /scope cannot continue/);
+          await strict.rejects(() => transaction.batch([sql`SELECT later`]), /scope cannot continue/);
+          strict.throws(() => transaction.stream(sql`SELECT later`), /scope cannot continue/);
+          strict.throws(() => transaction.prepare("later", () => sql`SELECT later`), /scope cannot continue/);
+          await strict.rejects(() => transaction.transaction(async () => undefined), /scope cannot continue/);
+        }),
+      (error) => {
+        strict.strictEqual(error, pool.client.selectError);
+        return true;
+      },
+    );
+
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT failed", "ROLLBACK"],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [pool.client.selectError]);
+  });
+
+  await it("settles an unawaited execute before rolling back without selecting commit", async () => {
+    const pool = new MockPool();
+    pool.client.blockedText = "SELECT slow";
+    const started = pool.client.waitForBlockedQuery();
+    const db = createPostgresDatabase({ pool });
+    let escapedExecute: Promise<readonly unknown[]> | undefined;
+
+    const transaction = db.transaction(async (scope) => {
+      escapedExecute = scope.execute(sql`SELECT slow`);
+      void escapedExecute.catch(() => undefined);
+      await started;
+    });
+    void transaction.catch(() => undefined);
+
+    await started;
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT slow"],
+    );
+    pool.client.continueBlockedQuery();
+    await escapedExecute;
+    await strict.rejects(() => transaction, /await execute before returning/);
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT slow", "ROLLBACK"],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [undefined]);
+  });
+
+  await it("preserves execute misuse while a late driver rejection marks the lease for discard", async () => {
+    const pool = new MockPool();
+    const timeoutError = new Error("Query read timeout");
+    pool.client.blockedText = "SELECT timeout";
+    pool.client.blockedError = timeoutError;
+    const started = pool.client.waitForBlockedQuery();
+    const db = createPostgresDatabase({ pool });
+    let escapedExecute: Promise<readonly unknown[]> | undefined;
+
+    const transaction = db.transaction(async (scope) => {
+      escapedExecute = scope.execute(sql`SELECT timeout`);
+      void escapedExecute.catch(() => undefined);
+      await started;
+    });
+    void transaction.catch(() => undefined);
+
+    await started;
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT timeout"],
+    );
+    pool.client.continueBlockedQuery();
+    await strict.rejects(
+      () => escapedExecute!,
+      (error) => {
+        strict.strictEqual(error, timeoutError);
+        return true;
+      },
+    );
+    await strict.rejects(() => transaction, /await execute before returning/);
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT timeout", "ROLLBACK"],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [timeoutError]);
+  });
+
+  await it("preserves a callback error while settling a late rejected execute before rollback", async () => {
+    const pool = new MockPool();
+    const queryError = new Error("late query failure");
+    const callbackError = new Error("callback failed first");
+    pool.client.blockedText = "SELECT late_failure";
+    pool.client.blockedError = queryError;
+    const started = pool.client.waitForBlockedQuery();
+    const db = createPostgresDatabase({ pool });
+    let escapedExecute: Promise<readonly unknown[]> | undefined;
+
+    const transaction = db.transaction(async (scope) => {
+      escapedExecute = scope.execute(sql`SELECT late_failure`);
+      void escapedExecute.catch(() => undefined);
+      await started;
+      throw callbackError;
+    });
+    void transaction.catch(() => undefined);
+
+    await started;
+    pool.client.continueBlockedQuery();
+    await strict.rejects(() => escapedExecute!, queryError);
+    await strict.rejects(
+      () => transaction,
+      (error) => {
+        strict.strictEqual(error, callbackError);
+        return true;
+      },
+    );
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT late_failure", "ROLLBACK"],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [queryError]);
+  });
+
+  await it("rolls back an unawaited nested execute before releasing its savepoint", async () => {
+    const pool = new MockPool();
+    pool.client.blockedText = "SELECT nested_slow";
+    const started = pool.client.waitForBlockedQuery();
+    const db = createPostgresDatabase({ pool });
+    let escapedExecute: Promise<readonly unknown[]> | undefined;
+
+    const transaction = db.transaction(async (parent) => {
+      await strict.rejects(
+        () =>
+          parent.transaction(async (nested) => {
+            escapedExecute = nested.execute(sql`SELECT nested_slow`);
+            void escapedExecute.catch(() => undefined);
+            await started;
+          }),
+        /await execute before returning/,
+      );
+    });
+
+    await started;
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SAVEPOINT typed_sql_2", "SELECT nested_slow"],
+    );
+    pool.client.continueBlockedQuery();
+    await escapedExecute;
+    await transaction;
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SAVEPOINT typed_sql_2", "SELECT nested_slow", "ROLLBACK TO SAVEPOINT typed_sql_2", "COMMIT"],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [undefined]);
+  });
+
+  await it("lets the parent finalizer settle an execute owned by an unawaited nested scope", async () => {
+    const pool = new MockPool();
+    pool.client.blockedText = "SELECT escaped_nested";
+    const started = pool.client.waitForBlockedQuery();
+    const db = createPostgresDatabase({ pool });
+    let escapedExecute: Promise<readonly unknown[]> | undefined;
+    let nestedTransaction: Promise<void> | undefined;
+
+    const transaction = db.transaction(async (parent) => {
+      nestedTransaction = parent.transaction(async (nested) => {
+        escapedExecute = nested.execute(sql`SELECT escaped_nested`);
+        void escapedExecute.catch(() => undefined);
+        await started;
+      });
+      void nestedTransaction.catch(() => undefined);
+      await started;
+    });
+    void transaction.catch(() => undefined);
+
+    await started;
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SAVEPOINT typed_sql_2", "SELECT escaped_nested"],
+    );
+    pool.client.continueBlockedQuery();
+    await escapedExecute;
+    await strict.rejects(() => nestedTransaction!, /parent PostgreSQL transaction scope ended|await execute/);
+    await strict.rejects(() => transaction, /await execute before returning/);
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SAVEPOINT typed_sql_2", "SELECT escaped_nested", "ROLLBACK"],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [undefined]);
+  });
+
+  await it("recovers the parent after savepoint rollback but still discards its lease", async () => {
+    const pool = new MockPool();
+    pool.client.failOnSelect = true;
+    const db = createPostgresDatabase({ pool });
+
+    await db.transaction(async (parent) => {
+      await strict.rejects(
+        () =>
+          parent.transaction(async (nested) => {
+            await strict.rejects(() => nested.execute(sql`SELECT nested_failed`), /query failed/);
+            pool.client.failOnSelect = false;
+            await strict.rejects(() => nested.execute(sql`SELECT nested_blocked`), /scope cannot continue/);
+            await strict.rejects(() => parent.execute(sql`SELECT parent_too_early`), /until.*rolled back/);
+          }),
+        /query failed/,
+      );
+      await parent.execute(sql`SELECT parent_recovered`);
+    });
+
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      [
+        "BEGIN",
+        "SAVEPOINT typed_sql_2",
+        "SELECT nested_failed",
+        "ROLLBACK TO SAVEPOINT typed_sql_2",
+        "SELECT parent_recovered",
+        "COMMIT",
+      ],
+    );
+    strict.deepStrictEqual(pool.client.releaseArguments, [pool.client.selectError]);
   });
 
   await it("preserves transaction errors when rollback and release cleanup fail", async () => {
@@ -318,6 +601,53 @@ await describe("PostgreSQL runtime adapter", async () => {
     );
     strict.deepStrictEqual(pool.client.calls, ["BEGIN", "ROLLBACK"]);
     strict.strictEqual(pool.client.releaseCount, 1);
+  });
+
+  await it("keeps a successfully rolled-back callback-only failure lease reusable", async () => {
+    const pool = new MockPool();
+    const db = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        db.transaction(async () => {
+          throw new Error("callback failed");
+        }),
+      /callback failed/,
+    );
+
+    strict.deepStrictEqual(pool.client.calls, ["BEGIN", "ROLLBACK"]);
+    strict.deepStrictEqual(pool.client.releaseArguments, [undefined]);
+  });
+
+  await it("discards the lease when transaction control queries reject", async () => {
+    const beginPool = new MockPool();
+    beginPool.client.failOnBegin = true;
+    let callbackCalled = false;
+    await strict.rejects(
+      () =>
+        createPostgresDatabase({ pool: beginPool }).transaction(async () => {
+          callbackCalled = true;
+        }),
+      (error) => {
+        strict.strictEqual(error, beginPool.client.beginError);
+        return true;
+      },
+    );
+    strict.strictEqual(callbackCalled, false);
+    strict.deepStrictEqual(beginPool.client.calls, ["BEGIN", "ROLLBACK"]);
+    strict.deepStrictEqual(beginPool.client.releaseArguments, [beginPool.client.beginError]);
+
+    const commitPool = new MockPool();
+    commitPool.client.failOnCommit = true;
+    await strict.rejects(
+      () => createPostgresDatabase({ pool: commitPool }).transaction(async () => "result"),
+      (error) => {
+        strict.strictEqual(error, commitPool.client.commitError);
+        return true;
+      },
+    );
+    strict.deepStrictEqual(commitPool.client.calls, ["BEGIN", "COMMIT", "ROLLBACK"]);
+    strict.deepStrictEqual(commitPool.client.releaseArguments, [commitPool.client.commitError]);
   });
 
   await it("surfaces release errors after a successful commit", async () => {

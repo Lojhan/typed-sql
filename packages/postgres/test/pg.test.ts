@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import type { Pool as PgPool } from "pg";
 import { describe, it, strict } from "poku";
 import { sql } from "../../core/src/index.js";
-import { adaptPgPool, createPgDatabase, loadPgCursorDriver, loadPgDriver, pg } from "../src/pg.js";
+import { adaptPgPool, createPgDatabase, loadPgCursorDriver, loadPgDriver, type PgOptions, pg } from "../src/pg.js";
 import type { PostgresQueryable, PostgresQueryResult } from "../src/provider.js";
 import { createPostgresDatabase, type PostgresQueryConfig } from "../src/runtime.js";
 
@@ -47,6 +47,7 @@ interface FakeNativeCursor {
 class FakePgClient extends EventEmitter {
   released = false;
   releaseError: Error | boolean | undefined;
+  queryError: Error | undefined;
   readonly calls: unknown[] = [];
   query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> | FakeNativeCursor {
     this.calls.push(config);
@@ -60,6 +61,7 @@ class FakePgClient extends EventEmitter {
     ) {
       return config as FakeNativeCursor;
     }
+    if (this.queryError !== undefined) return Promise.reject(this.queryError);
     return Promise.resolve({ rows: [{ value: 1 }] });
   }
   release(error?: Error | boolean): void {
@@ -87,6 +89,36 @@ class FakePgPool {
 }
 
 await describe("application-owned pg integration", async () => {
+  await it("rejects query_timeout exposed by an application-created pg pool", () => {
+    const direct = Object.assign(new FakePgPool(), { options: { query_timeout: 100 } });
+    strict.throws(() => adaptPgPool(direct as unknown as PgPool), /does not accept pg query_timeout/);
+
+    for (const connectionString of [
+      "postgresql://unused/app?query_timeout=100",
+      "postgresql://unused/app?%71uery_timeout=100",
+    ]) {
+      const fromUri = Object.assign(new FakePgPool(), { options: { connectionString } });
+      strict.throws(() => adaptPgPool(fromUri as unknown as PgPool), /does not accept pg query_timeout/);
+    }
+  });
+
+  await it("rejects query_timeout from real pg Pool options before adapting it", async () => {
+    const { Pool } = await loadPgDriver();
+    const pools = [
+      new Pool({ query_timeout: 100 }),
+      new Pool({ connectionString: "postgresql://unused/app?query_timeout=100" }),
+      new Pool({ connectionString: "postgresql://unused/app?%71uery_timeout=100" }),
+    ];
+
+    for (const pool of pools) {
+      try {
+        strict.throws(() => adaptPgPool(pool), /does not accept pg query_timeout.*statement_timeout/);
+      } finally {
+        await pool.end();
+      }
+    }
+  });
+
   await it("adapts pool and checked-out client query shapes", async () => {
     const original = new FakePgPool();
     const pool = adaptPgPool(original as unknown as PgPool);
@@ -121,6 +153,23 @@ await describe("application-owned pg integration", async () => {
     strict.strictEqual(original.ended, true);
   });
 
+  await it("discards a checked-out pg lease after a root batch query rejection", async () => {
+    const original = new FakePgPool();
+    const queryError = new Error("query rejected before readiness is known");
+    original.client.queryError = queryError;
+    const database = createPostgresDatabase({ pool: adaptPgPool(original as unknown as PgPool) });
+
+    await strict.rejects(
+      () => database.batch([sql`SELECT uncertain`]),
+      (error) => {
+        strict.strictEqual(error, queryError);
+        return true;
+      },
+    );
+    strict.strictEqual(original.client.released, true);
+    strict.strictEqual(original.client.releaseError, queryError);
+  });
+
   await it("loads pg-cursor lazily and bridges its real rows-array API", async () => {
     FakePgCursor.created.length = 0;
     const original = new FakePgPool();
@@ -150,7 +199,7 @@ await describe("application-owned pg integration", async () => {
     strict.strictEqual(cursor?.closeCount, 1);
   });
 
-  await it("keeps ordinary cursor SQL errors on the reusable-client cleanup path", async () => {
+  await it("discards the client with the primary cursor SQL error", async () => {
     const sqlError = new Error("invalid input syntax");
     let closeCount = 0;
     class SqlErrorCursor {
@@ -175,7 +224,7 @@ await describe("application-owned pg integration", async () => {
     );
     strict.strictEqual(closeCount, 1);
     strict.strictEqual(original.client.released, true);
-    strict.strictEqual(original.client.releaseError, undefined);
+    strict.strictEqual(original.client.releaseError, sqlError);
   });
 
   await it("settles a hanging native cursor close when the leased pg client fails fatally", async () => {
@@ -213,7 +262,7 @@ await describe("application-owned pg integration", async () => {
     );
     strict.strictEqual(closeCount, 1);
     strict.strictEqual(original.client.released, true);
-    strict.strictEqual(original.client.releaseError, fatalError);
+    strict.strictEqual(original.client.releaseError, readError);
     strict.strictEqual(original.client.listenerCount("error"), 0);
     strict.strictEqual(original.client.listenerCount("end"), 0);
   });
@@ -221,7 +270,7 @@ await describe("application-owned pg integration", async () => {
   await it("creates and owns a real pg pool without opening a connection", async () => {
     const database = await createPgDatabase({
       connectionString: async () => "postgresql://typed_sql:unused@127.0.0.1:1/unused",
-      poolConfig: { max: 1 },
+      poolConfig: { max: 1, statement_timeout: 5_000 },
     });
     await database.close();
     await strict.rejects(() => createPgDatabase({ connectionString: "" }), /must not be empty/);
@@ -233,6 +282,33 @@ await describe("application-owned pg integration", async () => {
         }),
       /owns poolConfig\.types/,
     );
+    await strict.rejects(
+      () =>
+        createPgDatabase({
+          connectionString: "postgresql://unused/app",
+          poolConfig: { query_timeout: 100 } as never,
+        }),
+      /does not accept pg query_timeout.*statement_timeout/,
+    );
+    for (const connectionString of [
+      "postgresql://unused/app?query_timeout=100",
+      "postgresql://unused/app?%71uery_timeout=100",
+    ]) {
+      await strict.rejects(() => createPgDatabase({ connectionString }), /does not accept pg query_timeout/);
+    }
+    await strict.rejects(
+      () => createPgDatabase({ connectionString: async () => "postgresql://unused/app?%71uery_timeout=100" }),
+      /does not accept pg query_timeout/,
+    );
+
+    const unsupportedClientTimeout = (): PgOptions => ({
+      connectionString: "postgresql://unused/app",
+      poolConfig: {
+        // @ts-expect-error Client-side query_timeout can reject before ReadyForQuery.
+        query_timeout: 100,
+      },
+    });
+    void unsupportedClientTimeout;
   });
 
   await it("supports injected catalog clients and validates provider options", async () => {

@@ -84,16 +84,17 @@ export const mysqlRenderer: SqlRenderer = Object.freeze({
 
 interface MySqlTransactionConnectionState {
   active: QueryStream<unknown> | undefined;
-  batch: MySqlBatchOperation | undefined;
+  batch: MySqlConnectionOperation | undefined;
+  execute: MySqlConnectionOperation | undefined;
   usable: boolean;
 }
 
-interface MySqlBatchOperation {
+interface MySqlConnectionOperation {
   readonly completion: Promise<void>;
   finish(): void;
 }
 
-function createMySqlBatchOperation(): MySqlBatchOperation {
+function createMySqlConnectionOperation(): MySqlConnectionOperation {
   let finish!: () => void;
   const completion = new Promise<void>((resolve) => {
     finish = resolve;
@@ -109,6 +110,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #depth: number;
   readonly #prepared: MySqlPreparedQueryState;
+  readonly #executes: Set<MySqlConnectionOperation> | undefined;
   readonly #streams: Set<QueryStream<unknown>> | undefined;
   readonly #transactionState: MySqlTransactionConnectionState | undefined;
   #scopeOpen = true;
@@ -130,6 +132,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#decimal = decimal;
     this.#depth = depth;
     this.#prepared = prepared;
+    this.#executes = connection === undefined ? undefined : new Set();
     this.#streams = connection === undefined ? undefined : new Set();
     this.#transactionState = transactionState;
   }
@@ -137,7 +140,17 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     this.#assertScopeOpen();
     this.#assertConnectionAvailable("execute a query");
-    return this.#executeOn(this.#connection ?? this.#pool, query);
+    if (this.#connection === undefined) return this.#executeOn(this.#pool, query);
+    const operation = createMySqlConnectionOperation();
+    this.#executes!.add(operation);
+    this.#transactionState!.execute = operation;
+    try {
+      return await this.#executeOn(this.#connection, query);
+    } finally {
+      this.#executes!.delete(operation);
+      if (this.#transactionState?.execute === operation) this.#transactionState.execute = undefined;
+      operation.finish();
+    }
   }
 
   async #executeOn<Row, Params extends readonly unknown[]>(
@@ -159,7 +172,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     const orderedQueries = [...queries] as unknown as QueryBatch<Queries>;
 
     if (this.#connection !== undefined) {
-      const operation = createMySqlBatchOperation();
+      const operation = createMySqlConnectionOperation();
       this.#transactionState!.batch = operation;
       try {
         return await this.#executeBatchOn(this.#connection, orderedQueries, () =>
@@ -256,7 +269,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#decimal,
         1,
         this.#prepared,
-        { active: undefined, batch: undefined, usable: true },
+        { active: undefined, batch: undefined, execute: undefined, usable: true },
       );
       result = await fn(transaction);
       transaction.#scopeOpen = false;
@@ -341,10 +354,13 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async #invalidateScope(): Promise<void> {
     this.#scopeOpen = false;
     await this.#closeStreams();
+    await this.#settleExecutes();
     await this.#settleBatch();
   }
 
   async #assertTransactionReadyForFinalize(connectionFinalizing = false): Promise<void> {
+    const leakedExecutes = new Set(this.#executes);
+    if (this.#transactionState?.execute !== undefined) leakedExecutes.add(this.#transactionState.execute);
     const leakedBatch = this.#transactionState?.batch;
     await this.#rejectActiveStreams();
     const active = this.#transactionState?.active;
@@ -352,6 +368,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       await Promise.allSettled([active.close()]);
       throw new Error(
         "MySQL transaction callback returned while a nested query stream owned its connection; await nested work and close every stream before returning",
+      );
+    }
+    if (leakedExecutes.size > 0) {
+      await this.#settleExecuteOperations(leakedExecutes);
+      throw new Error(
+        "MySQL transaction callback returned while an execute operation owned its connection; await execute before returning",
       );
     }
     if (leakedBatch !== undefined) {
@@ -369,9 +391,11 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       throw new Error(`Cannot ${action} while a MySQL query stream owns the transaction connection`);
     if (this.#transactionState?.batch !== undefined)
       throw new Error(`Cannot ${action} while a MySQL ordered batch owns the transaction connection`);
+    if (this.#transactionState?.execute !== undefined)
+      throw new Error(`Cannot ${action} while a MySQL execute operation owns the transaction connection`);
   }
 
-  #assertBatchCanContinue(operation: MySqlBatchOperation): void {
+  #assertBatchCanContinue(operation: MySqlConnectionOperation): void {
     this.#assertScopeOpen();
     if (this.#transactionState?.batch !== operation)
       throw new Error("This MySQL ordered batch no longer owns the transaction connection");
@@ -380,6 +404,18 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async #settleBatch(): Promise<void> {
     const batch = this.#transactionState?.batch;
     if (batch !== undefined) await batch.completion;
+  }
+
+  async #settleExecutes(): Promise<void> {
+    const operations = new Set(this.#executes);
+    if (this.#transactionState?.execute !== undefined) operations.add(this.#transactionState.execute);
+    await this.#settleExecuteOperations(operations);
+  }
+
+  async #settleExecuteOperations(operations: ReadonlySet<MySqlConnectionOperation>): Promise<void> {
+    for (const operation of operations) {
+      await operation.completion;
+    }
   }
 
   #assertScopeOpen(): void {

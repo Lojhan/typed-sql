@@ -13,6 +13,7 @@ export interface PostgresCursorLease {
 export interface PostgresQueryStreamOptions {
   readonly batchSize: number;
   readonly start: () => Promise<PostgresCursorLease>;
+  readonly onError?: (error: unknown) => void;
   readonly onStart?: () => void;
   readonly onClose?: () => void;
 }
@@ -32,6 +33,7 @@ export class PostgresQueryStream<Row> implements QueryStream<Row> {
   readonly #batchSize: number;
   readonly #start: () => Promise<PostgresCursorLease>;
   readonly #onClose: (() => void) | undefined;
+  readonly #onError: ((error: unknown) => void) | undefined;
   readonly #onStart: (() => void) | undefined;
   #buffer: readonly Row[] = [];
   #bufferIndex = 0;
@@ -44,6 +46,7 @@ export class PostgresQueryStream<Row> implements QueryStream<Row> {
     this.#start = options.start;
     this.#onStart = options.onStart;
     this.#onClose = options.onClose;
+    this.#onError = options.onError;
   }
 
   [Symbol.asyncIterator](): this {
@@ -106,6 +109,7 @@ export class PostgresQueryStream<Row> implements QueryStream<Row> {
     }
 
     this.#terminal = true;
+    const hadLease = this.#lease !== undefined;
     this.#buffer = [];
     this.#bufferIndex = 0;
     let cleanupError: unknown;
@@ -115,13 +119,21 @@ export class PostgresQueryStream<Row> implements QueryStream<Row> {
       cleanupError = error;
     }
     try {
-      await this.#lease?.release?.(cleanupError);
+      await this.#lease?.release?.(primaryError !== undefined ? primaryError : cleanupError);
     } catch (error) {
       cleanupError ??= error;
     } finally {
       this.#onClose?.();
     }
 
+    const terminalError = primaryError ?? cleanupError;
+    if (hadLease && terminalError !== undefined) {
+      try {
+        this.#onError?.(terminalError);
+      } catch {
+        /* Lifecycle observers cannot replace the stream's primary error. */
+      }
+    }
     if (primaryError !== undefined) throw primaryError;
     if (cleanupError !== undefined) throw cleanupError;
   }

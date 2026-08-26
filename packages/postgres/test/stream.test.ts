@@ -20,6 +20,7 @@ class FakeCursor implements PostgresCursorLike {
   closeCount = 0;
   closeError: Error | undefined;
   failAtRead: number | undefined;
+  readError: Error | undefined;
   readonly #pages: readonly (readonly Record<string, unknown>[])[];
 
   constructor(pages: readonly (readonly Record<string, unknown>[])[]) {
@@ -28,7 +29,10 @@ class FakeCursor implements PostgresCursorLike {
 
   async read(rowCount: number): Promise<readonly Record<string, unknown>[]> {
     this.reads.push(rowCount);
-    if (this.failAtRead === this.reads.length) throw new Error(`cursor read ${this.reads.length} failed`);
+    if (this.failAtRead === this.reads.length) {
+      this.readError = new Error(`cursor read ${this.reads.length} failed`);
+      throw this.readError;
+    }
     return this.#pages[this.reads.length - 1] ?? [];
   }
 
@@ -178,7 +182,7 @@ await describe("PostgreSQL query streams", async () => {
     await strict.rejects(() => stream.next(), /cursor read 2 failed/);
     strict.strictEqual(pool.client.cursor.closeCount, 1);
     strict.strictEqual(pool.client.releaseCount, 1);
-    strict.strictEqual(pool.client.releaseErrors[0], pool.client.cursor.closeError);
+    strict.strictEqual(pool.client.releaseErrors[0], pool.client.cursor.readError);
   });
 
   await it("preserves a driver failure before the first row", async () => {
@@ -188,6 +192,7 @@ await describe("PostgreSQL query streams", async () => {
     await strict.rejects(() => stream.next(), /cursor read 1 failed/);
     strict.strictEqual(pool.client.cursor.closeCount, 1);
     strict.strictEqual(pool.client.releaseCount, 1);
+    strict.strictEqual(pool.client.releaseErrors[0], pool.client.cursor.readError);
   });
 
   await it("async-disposes an active stream", async () => {
@@ -283,6 +288,63 @@ await describe("PostgreSQL transaction query streams", async () => {
     strict.strictEqual(pool.client.releaseCount, 1);
   });
 
+  await it("rolls back when a transaction callback catches a cursor read failure", async () => {
+    const pool = new FakePool();
+    pool.client.cursor.failAtRead = 1;
+    const database = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) => {
+          const stream = transaction.stream(sql`SELECT streamed`);
+          await strict.rejects(() => stream.next(), /cursor read 1 failed/);
+        }),
+      /cursor read 1 failed/,
+    );
+
+    strict.strictEqual(pool.client.cursor.closeCount, 1);
+    strict.deepStrictEqual(commands(pool.client), ["BEGIN", "ROLLBACK"]);
+    strict.strictEqual(pool.client.releaseCount, 1);
+    strict.deepStrictEqual(pool.client.releaseErrors, [pool.client.cursor.readError]);
+  });
+
+  await it("rolls back when a transaction callback catches a cursor-open failure", async () => {
+    const pool = new FakePool();
+    pool.client.cursorOpenError = new Error("cursor creation failed");
+    const database = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) => {
+          const stream = transaction.stream(sql`SELECT streamed`);
+          await strict.rejects(() => stream.next(), /cursor creation failed/);
+        }),
+      /cursor creation failed/,
+    );
+
+    strict.strictEqual(pool.client.cursor.closeCount, 0);
+    strict.deepStrictEqual(commands(pool.client), ["BEGIN", "ROLLBACK"]);
+  });
+
+  await it("rolls back when a transaction callback catches cursor cleanup failure", async () => {
+    const pool = new FakePool();
+    pool.client.cursor.closeError = new Error("cursor close failed");
+    const database = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) => {
+          const stream = transaction.stream(sql`SELECT streamed`);
+          await stream.next();
+          await strict.rejects(() => stream.close(), /cursor close failed/);
+        }),
+      /cursor close failed/,
+    );
+
+    strict.strictEqual(pool.client.cursor.closeCount, 1);
+    strict.deepStrictEqual(commands(pool.client), ["BEGIN", "ROLLBACK"]);
+  });
+
   await it("allows ordinary work before an unstarted stream begins", async () => {
     const pool = new FakePool();
     const database = createPostgresDatabase({ pool });
@@ -328,6 +390,31 @@ await describe("PostgreSQL transaction query streams", async () => {
       "RELEASE SAVEPOINT typed_sql_2",
       "COMMIT",
     ]);
+  });
+
+  await it("contains a caught nested cursor failure with its savepoint", async () => {
+    const pool = new FakePool();
+    pool.client.cursor.failAtRead = 1;
+    const database = createPostgresDatabase({ pool });
+
+    await database.transaction(async (parent) => {
+      await strict.rejects(
+        () =>
+          parent.transaction(async (nested) => {
+            const stream = nested.stream(sql`SELECT nested`);
+            await strict.rejects(() => stream.next(), /cursor read 1 failed/);
+          }),
+        /cursor read 1 failed/,
+      );
+    });
+
+    strict.deepStrictEqual(commands(pool.client), [
+      "BEGIN",
+      "SAVEPOINT typed_sql_2",
+      "ROLLBACK TO SAVEPOINT typed_sql_2",
+      "COMMIT",
+    ]);
+    strict.deepStrictEqual(pool.client.releaseErrors, [pool.client.cursor.readError]);
   });
 
   await it("closes an unawaited nested stream before the parent rolls back", async () => {

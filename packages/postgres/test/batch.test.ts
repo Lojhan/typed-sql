@@ -229,7 +229,7 @@ await describe("PostgreSQL ordered query batches", async () => {
     strict.deepStrictEqual(commandText(pool.client), ["SELECT first", "SELECT broken"]);
     strict.strictEqual(pool.connectCount, 1);
     strict.strictEqual(pool.client.releaseArguments.length, 1);
-    strict.deepStrictEqual(pool.client.releaseArguments, [undefined]);
+    strict.match((pool.client.releaseArguments[0] as Error).message, /failed: SELECT broken/);
   });
 
   await it("surfaces a release failure after a successful batch without releasing twice", async () => {
@@ -279,6 +279,23 @@ await describe("PostgreSQL transaction query batches", async () => {
 
     strict.deepStrictEqual(commandText(pool.client), ["BEGIN", "SELECT first", "SELECT broken", "ROLLBACK"]);
     strict.strictEqual(pool.client.releaseArguments.length, 1);
+  });
+
+  await it("refuses to commit when a transaction callback catches a batch rejection", async () => {
+    const pool = new BatchPool();
+    pool.client.failText = "SELECT broken";
+    const database = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) => {
+          await strict.rejects(() => transaction.batch([sql`SELECT broken`]), /failed: SELECT broken/);
+        }),
+      /failed: SELECT broken/,
+    );
+
+    strict.deepStrictEqual(commandText(pool.client), ["BEGIN", "SELECT broken", "ROLLBACK"]);
+    strict.match((pool.client.releaseArguments[0] as Error).message, /failed: SELECT broken/);
   });
 
   await it("rejects a batch before dispatch while a transaction stream owns the client", async () => {

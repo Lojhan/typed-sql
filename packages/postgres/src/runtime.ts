@@ -203,11 +203,20 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #prepared: PostgresPreparedQueryState;
   readonly #transactionDepth: number;
   #transactionScopeOpen = true;
+  #transactionOperationFailed = false;
+  #transactionOperationError: unknown;
   readonly #transactionState: {
     activeBatch: Promise<unknown> | undefined;
+    readonly activeExecutes: Set<Promise<unknown>>;
     readonly activeStreams: Set<QueryStream<unknown>>;
+    discardLease: boolean;
+    firstDatabaseOperationError: unknown;
+    unsafe: boolean;
+    unsafeDepth: number | undefined;
+    unsafeError: unknown;
     valid: boolean;
   };
+  readonly #transactionExecutes = new Set<Promise<unknown>>();
   readonly #transactionStreams = new Set<QueryStream<unknown>>();
 
   constructor(
@@ -219,7 +228,13 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     prepared: PostgresPreparedQueryState,
     transactionState = {
       activeBatch: undefined as Promise<unknown> | undefined,
+      activeExecutes: new Set<Promise<unknown>>(),
       activeStreams: new Set<QueryStream<unknown>>(),
+      discardLease: false,
+      firstDatabaseOperationError: undefined as unknown,
+      unsafe: false,
+      unsafeDepth: undefined as number | undefined,
+      unsafeError: undefined as unknown,
       valid: true,
     },
   ) {
@@ -237,8 +252,27 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#rejectOperationDuringTransactionStream("execute another query");
     this.#rejectOperationDuringTransactionBatch("execute another query");
     const config = this.#queryConfig(query);
-    const result = await (this.#client ?? this.#pool).query(config);
-    return result.rows as readonly Row[];
+    let operation: Promise<PostgresQueryResult>;
+    try {
+      operation = (this.#client ?? this.#pool).query(config);
+    } catch (error) {
+      this.#recordTransactionOperationFailure(error);
+      throw error;
+    }
+    if (this.#client !== undefined) {
+      this.#transactionExecutes.add(operation);
+      this.#transactionState.activeExecutes.add(operation);
+    }
+    try {
+      const result = await operation;
+      return result.rows as readonly Row[];
+    } catch (error) {
+      this.#recordTransactionOperationFailure(error);
+      throw error;
+    } finally {
+      this.#transactionExecutes.delete(operation);
+      this.#transactionState.activeExecutes.delete(operation);
+    }
   }
 
   async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
@@ -252,6 +286,9 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       this.#transactionState.activeBatch = operation;
       try {
         return await operation;
+      } catch (error) {
+        this.#recordTransactionOperationFailure(error);
+        throw error;
       } finally {
         if (this.#transactionState.activeBatch === operation) this.#transactionState.activeBatch = undefined;
       }
@@ -263,7 +300,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       results = await this.#executeBatch(client, querySnapshot);
     } catch (error) {
       try {
-        client.release();
+        client.release(error instanceof Error ? error : true);
       } catch {
         /* Preserve the first query failure. */
       }
@@ -309,6 +346,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
           const cursor = await client.openCursor(config);
           return { cursor, ...(release === undefined ? {} : { release }) };
         } catch (error) {
+          this.#recordTransactionOperationFailure(error);
           try {
             release?.(error);
           } catch {
@@ -330,6 +368,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
               this.#transactionState.activeStreams.delete(stream as QueryStream<unknown>);
               this.#transactionStreams.delete(stream as QueryStream<unknown>);
             },
+            onError: (error: unknown) => this.#recordTransactionOperationFailure(error),
           }),
     });
     if (this.#client !== undefined) this.#transactionStreams.add(stream as QueryStream<unknown>);
@@ -352,36 +391,57 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     const client = await this.#pool.connect();
     const scope = new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared, {
       activeBatch: undefined,
+      activeExecutes: new Set(),
       activeStreams: new Set(),
+      discardLease: false,
+      firstDatabaseOperationError: undefined,
+      unsafe: false,
+      unsafeDepth: undefined,
+      unsafeError: undefined,
       valid: true,
     });
     let result: T;
     try {
-      await client.query("BEGIN");
+      try {
+        await client.query("BEGIN");
+      } catch (error) {
+        scope.#recordTransactionOperationFailure(error);
+        throw error;
+      }
       try {
         result = await fn(scope);
       } finally {
         scope.#transactionScopeOpen = false;
         scope.#transactionState.valid = false;
       }
+      scope.#throwIfTransactionCannotCommit();
       await scope.#rejectLeakedTransactionWork();
-      await client.query("COMMIT");
+      try {
+        await client.query("COMMIT");
+      } catch (error) {
+        scope.#recordTransactionOperationFailure(error);
+        throw error;
+      }
     } catch (error) {
+      scope.#transactionScopeOpen = false;
+      scope.#transactionState.valid = false;
+      await scope.#settleTransactionExecutesPreservingError();
       await scope.#closeTransactionStreamsPreservingError();
       await scope.#settleTransactionBatchPreservingError();
       try {
         await client.query("ROLLBACK");
-      } catch {
+      } catch (cleanupError) {
+        scope.#markTransactionStateUnsafe(cleanupError);
         /* Preserve the original error. */
       }
       try {
-        client.release();
+        client.release(scope.#transactionLeaseReleaseError());
       } catch {
         /* Preserve the original error. */
       }
       throw error;
     }
-    client.release();
+    client.release(scope.#transactionLeaseReleaseError());
     return result;
   }
 
@@ -389,7 +449,12 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     const client = this.#client!;
     const depth = this.#transactionDepth + 1;
     const savepoint = `typed_sql_${depth}`;
-    await client.query(`SAVEPOINT ${savepoint}`);
+    try {
+      await client.query(`SAVEPOINT ${savepoint}`);
+    } catch (error) {
+      this.#recordTransactionOperationFailure(error);
+      throw error;
+    }
     const scope = new PostgresDatabaseImplementation(
       this.#pool,
       client,
@@ -409,16 +474,25 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       if (!scope.#transactionState.valid) {
         throw new Error("The parent PostgreSQL transaction scope ended before its nested transaction completed");
       }
+      scope.#throwIfTransactionCannotCommit();
       await scope.#rejectLeakedTransactionWork();
-      await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+      try {
+        await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+      } catch (error) {
+        scope.#recordTransactionOperationFailure(error);
+        throw error;
+      }
       return result;
     } catch (error) {
+      await scope.#settleTransactionExecutesPreservingError();
       await scope.#closeTransactionStreamsPreservingError();
       await scope.#settleTransactionBatchPreservingError();
       if (scope.#transactionState.valid) {
         try {
           await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-        } catch {
+          scope.#recoverTransactionStateAfterSavepoint(depth);
+        } catch (cleanupError) {
+          scope.#markTransactionStateUnsafe(cleanupError);
           /* Preserve the original callback, query, or release error. */
         }
       }
@@ -453,16 +527,34 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
 
   async #rejectLeakedTransactionWork(): Promise<void> {
     const leakedStreams = this.#transactionStreams.size > 0 || this.#transactionState.activeStreams.size > 0;
+    const leakedExecutes = this.#transactionExecutes.size > 0 || this.#transactionState.activeExecutes.size > 0;
     const leakedBatch = this.#transactionState.activeBatch !== undefined;
-    if (!leakedStreams && !leakedBatch) return;
+    if (!leakedStreams && !leakedExecutes && !leakedBatch) return;
+    await this.#settleTransactionExecutesPreservingError();
     await this.#closeTransactionStreamsPreservingError();
     await this.#settleTransactionBatchPreservingError();
+    if (leakedExecutes) {
+      throw new Error(
+        "A PostgreSQL transaction callback returned before an execute operation completed; await execute before returning",
+      );
+    }
     if (leakedBatch) {
       throw new Error(
         "A PostgreSQL transaction callback returned before its query batch completed; await the batch before returning",
       );
     }
     throw new Error("A PostgreSQL transaction callback returned before all query streams were completed or closed");
+  }
+
+  async #settleTransactionExecutesPreservingError(): Promise<void> {
+    const operations = new Set([...this.#transactionExecutes, ...this.#transactionState.activeExecutes]);
+    for (const operation of operations) {
+      try {
+        await operation;
+      } catch {
+        /* The callback or transaction misuse error remains primary. */
+      }
+    }
   }
 
   async #closeTransactionStreamsPreservingError(): Promise<void> {
@@ -502,9 +594,71 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
   }
 
+  #recordTransactionOperationFailure(error: unknown): void {
+    if (this.#client === undefined) return;
+    if (!this.#transactionOperationFailed) {
+      this.#transactionOperationFailed = true;
+      this.#transactionOperationError = error;
+    }
+    this.#markTransactionStateUnsafe(error);
+  }
+
+  #markTransactionStateUnsafe(error: unknown): void {
+    if (!this.#transactionState.discardLease) {
+      this.#transactionState.discardLease = true;
+      this.#transactionState.firstDatabaseOperationError = error;
+    }
+    if (
+      !this.#transactionState.unsafe ||
+      this.#transactionState.unsafeDepth === undefined ||
+      this.#transactionDepth < this.#transactionState.unsafeDepth
+    ) {
+      this.#transactionState.unsafe = true;
+      this.#transactionState.unsafeDepth = this.#transactionDepth;
+      this.#transactionState.unsafeError = error;
+    }
+  }
+
+  #recoverTransactionStateAfterSavepoint(depth: number): void {
+    if (this.#transactionState.unsafeDepth === undefined || this.#transactionState.unsafeDepth < depth) return;
+    this.#transactionState.unsafe = false;
+    this.#transactionState.unsafeDepth = undefined;
+    this.#transactionState.unsafeError = undefined;
+  }
+
+  #transactionLeaseReleaseError(): Error | boolean | undefined {
+    if (!this.#transactionState.discardLease) return undefined;
+    return this.#transactionState.firstDatabaseOperationError instanceof Error
+      ? this.#transactionState.firstDatabaseOperationError
+      : true;
+  }
+
+  #throwIfTransactionCannotCommit(): void {
+    if (this.#transactionOperationFailed) {
+      if (this.#transactionOperationError !== undefined) throw this.#transactionOperationError;
+      throw new Error("A PostgreSQL transaction operation failed and the transaction cannot be committed");
+    }
+    if (this.#transactionState.unsafe) {
+      throw new Error("The PostgreSQL transaction connection did not complete recovery and cannot be committed", {
+        cause: this.#transactionState.unsafeError,
+      });
+    }
+  }
+
   #assertTransactionScopeOpen(): void {
-    if (this.#client !== undefined && (!this.#transactionScopeOpen || !this.#transactionState.valid)) {
+    if (this.#client === undefined) return;
+    if (!this.#transactionScopeOpen || !this.#transactionState.valid) {
       throw new Error("This PostgreSQL transaction scope has ended and can no longer be used");
+    }
+    if (this.#transactionOperationFailed) {
+      throw new Error("This PostgreSQL transaction scope cannot continue after a database operation failed", {
+        cause: this.#transactionOperationError,
+      });
+    }
+    if (this.#transactionState.unsafe) {
+      throw new Error("The PostgreSQL transaction cannot continue until its failed operation is rolled back", {
+        cause: this.#transactionState.unsafeError,
+      });
     }
   }
 

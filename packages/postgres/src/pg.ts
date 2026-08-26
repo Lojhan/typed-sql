@@ -24,6 +24,8 @@ export interface PgCursorConstructor {
 export type PgCursorImporter = () => Promise<unknown>;
 
 const pgCursorPackage = "pg-cursor";
+const queryTimeoutError =
+  "@typed-sql/postgres/pg does not accept pg query_timeout because pg can reject before the connection is ready for reuse; use PostgreSQL statement_timeout instead";
 
 async function defaultPgCursorImporter(): Promise<unknown> {
   return import(pgCursorPackage);
@@ -58,7 +60,7 @@ export async function loadPgCursorDriver(
 
 export interface PgOptions {
   readonly connectionString: string | (() => string | Promise<string>);
-  readonly poolConfig?: Omit<PoolConfig, "connectionString" | "types">;
+  readonly poolConfig?: Omit<PoolConfig, "connectionString" | "query_timeout" | "types">;
   readonly typePolicy?: PostgresTypePolicy;
   readonly decimal?: (value: string) => unknown;
   /** Host-injected loader for workspaces or runtimes with nonstandard package resolution. */
@@ -94,10 +96,23 @@ async function connectionString(value: PgOptions["connectionString"]): Promise<s
 }
 
 function validatePoolConfig(poolConfig: PgOptions["poolConfig"]): void {
+  if (poolConfig !== undefined && "query_timeout" in poolConfig) throw new TypeError(queryTimeoutError);
   if (poolConfig !== undefined && "types" in poolConfig) {
     throw new TypeError(
       "@typed-sql/postgres/pg owns poolConfig.types so decoded values match typePolicy; remove that option",
     );
+  }
+}
+
+function validateConnectionStringQueryTimeout(value: string): void {
+  try {
+    const url = new URL(value);
+    for (const name of url.searchParams.keys()) {
+      if (name === "query_timeout") throw new TypeError(queryTimeoutError);
+    }
+  } catch (error) {
+    if (error instanceof TypeError && error.message === queryTimeoutError) throw error;
+    // Let pg report malformed or non-URL connection strings through its normal validation path.
   }
 }
 
@@ -114,6 +129,13 @@ export function adaptPgPool(
   pool: PgPool,
   cursorImporter: PgCursorImporter = defaultPgCursorImporter,
 ): PostgresPoolLike {
+  const options = (
+    pool as PgPool & {
+      readonly options?: { readonly connectionString?: unknown; readonly query_timeout?: unknown };
+    }
+  ).options;
+  if (options !== undefined && "query_timeout" in options) throw new TypeError(queryTimeoutError);
+  if (typeof options?.connectionString === "string") validateConnectionStringQueryTimeout(options.connectionString);
   let cursorConstructorPromise: Promise<PgCursorConstructor> | undefined;
   const loadCursor = (): Promise<PgCursorConstructor> => {
     cursorConstructorPromise ??= loadPgCursorDriver(cursorImporter);
@@ -194,9 +216,11 @@ export function adaptPgPool(
 
 export async function createPgDatabase(options: PgOptions): Promise<PostgresDatabase> {
   validatePoolConfig(options.poolConfig);
+  const resolvedConnectionString = await connectionString(options.connectionString);
+  validateConnectionStringQueryTimeout(resolvedConnectionString);
   const driver = await loadPgDriver();
   const { Pool } = driver;
-  const pool = new Pool({ ...options.poolConfig, connectionString: await connectionString(options.connectionString) });
+  const pool = new Pool({ ...options.poolConfig, connectionString: resolvedConnectionString });
   return createPostgresDatabase({
     pool: adaptPgPool(pool, options.cursorImporter),
     ownsPool: true,
