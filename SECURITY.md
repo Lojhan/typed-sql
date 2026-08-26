@@ -7,8 +7,8 @@ Do not open a public issue for a suspected vulnerability. Use the repository's p
 affected package/version, a minimal reproduction, impact, and any proposed mitigation. Maintainers
 will acknowledge a report within seven days and coordinate disclosure after a fix is available.
 
-Security fixes target the latest stable release. Pre-1.0 releases receive fixes when practical but
-do not have a long-term support promise.
+Security fixes target supported stable releases. Experimental packages receive fixes when practical
+but do not carry a long-term support promise.
 
 ## Threat model and trust boundary
 

@@ -1,57 +1,75 @@
 # Contributing
 
-typed-sql is a TypeScript 7 SQL compiler. Issues and focused pull requests are
-welcome, especially when accompanied by a reduced SQL/schema fixture.
+typed-sql welcomes focused issues and pull requests, especially when they include a reduced SQL
+query, schema fixture, and the expected TypeScript type or diagnostic.
 
-## Development
+## Set up the repository
 
-Requirements:
-
-- Node.js 22.11 or newer;
-- pnpm 10.32.1;
-- Podman or Docker for the PostgreSQL, MySQL, and packed-consumer E2E suites.
+You need Node.js 22.11 or newer, pnpm 10.32.1, and Docker or Podman for real-database and
+packed-consumer tests.
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm quality
 pnpm verify
-pnpm coverage
-pnpm test:pack
 ```
 
-Run the real database flow with:
+Use focused checks while developing:
 
 ```sh
-TYPED_SQL_CONTAINER_ENGINE=docker pnpm e2e:postgres
-TYPED_SQL_CONTAINER_ENGINE=docker pnpm e2e:mysql
-TYPED_SQL_CONTAINER_ENGINE=docker pnpm e2e:packed
+pnpm quality
+pnpm typecheck
+pnpm test:soundness
+pnpm docs:check
+pnpm performance
 ```
 
-Tests use Poku and are ordinary TypeScript programs. Add compiler behavior as a focused fixture and
-assert both the inferred type and diagnostics. Unsupported or dynamic SQL must resolve to
-`Query<unknown>` rather than `any` or an optimistic inferred type.
+Run real database flows with:
 
-Tests belong to the package that owns the behavior. Compiler-critical packages enforce 95% line,
-statement, and function coverage plus 90% branch coverage with the official Poku c8 integration.
-Changes to package boundaries must keep the packed-consumer and forbidden-driver contracts green.
-Performance-sensitive compiler, scanner, resolver-index, and runtime changes must keep the published
-budgets green; use the `TYPED_SQL_*_BUDGET_MS` environment variables only to account for a known CI
-class, never to hide a regression.
+```sh
+TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:postgres
+TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:mysql
+TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:packed
+```
 
-New grammar packages should implement `DialectPlugin`, use the neutral resolver primitives from
-`@typed-sql/core` where they fit, and keep every SQL semantic in the grammar package. Core and the
-compiler must not branch on a dialect id, package name, server, or driver.
+Replace `podman` with `docker` when appropriate.
 
-## Changes and releases
+## Add tests where behavior lives
 
-User-visible package changes should include a Changeset:
+Tests use [Poku](https://poku.io/) and are ordinary TypeScript programs. Put a test in the package
+that owns the behavior. Compiler and grammar changes should assert the inferred row, ordered
+parameter tuple, diagnostics, and source spans where relevant.
+
+Unsupported, ambiguous, or dynamic SQL must resolve conservatively to `Query<unknown>` or a
+documented diagnostic. Do not introduce `any` or optimistic inference.
+
+New grammar packages implement `DialectPlugin` and keep SQL-specific semantics inside the grammar.
+Neutral packages must not branch on a dialect id, package name, server, or driver. See
+[Author a custom SQL grammar](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md)
+for the public contract and `AGENTS.md` for repository invariants.
+
+## Write durable documentation
+
+Public documentation lives under [`docs/`](docs/index.md). Write for application developers first,
+use present-tense product language, and link to canonical pages instead of copying large sections
+into READMEs. Every public page needs `title` and `description` frontmatter, one H1, and valid local
+links. Run `pnpm docs:check` before opening a pull request.
+
+Maintainer procedures, release mechanics, and automation instructions belong in `AGENTS.md` or
+repository configuration rather than the public documentation.
+
+## Describe package changes
+
+Add a Changeset for user-visible package behavior:
 
 ```sh
 pnpm changeset
 ```
 
-Use semantic versioning. The stable 1.x contracts require a major bump for breaking changes.
-Commits should be small enough to review and must not contain database credentials,
-packet captures, generated build output, or unrelated formatting changes.
+Use semantic versioning. Breaking public-contract changes require a major version. Documentation-
+only repository changes do not require a Changeset unless they alter documentation packaged with a
+published module in a way users need to receive as a package update.
+
+Keep commits reviewable and free of database credentials, packet captures, generated build output,
+and unrelated formatting changes.
 
 By contributing, you agree that your contribution is licensed under the MIT License.

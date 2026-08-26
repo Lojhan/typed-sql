@@ -45,12 +45,13 @@ await describe("external editor distribution", async () => {
       await text("editors/zed/README.md"),
       await text("packages/language-server/README.md"),
       await text("packages/vscode/README.md"),
-      await text("docs/COMPATIBILITY.md"),
+      await text("docs/reference/compatibility.md"),
     ].join("\n");
-    strict.ok(documentation.includes("pnpm add -D @typed-sql/language-server@next"));
+    strict.ok(documentation.includes("pnpm add -D @typed-sql/language-server"));
+    strict.ok(!documentation.includes("@next"));
     strict.ok(documentation.includes("tsserver.js"));
-    strict.ok(documentation.includes("multi-root"));
-    strict.ok(documentation.includes("0.1.x"));
+    strict.ok(documentation.includes("workspace folder"));
+    strict.ok(documentation.includes("Experimental"));
     strict.ok(!documentation.includes("/Users/"));
   });
 

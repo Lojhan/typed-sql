@@ -1,37 +1,27 @@
 # @typed-sql/cli
 
-The config-driven command line interface for [typed-sql](https://github.com/Lojhan/typed-sql).
-It generates deterministic database snapshots, verifies inferred queries through TypeScript 7, and
-detects live schema drift.
+The stable, config-driven command line interface for
+[typed-sql](https://github.com/Lojhan/typed-sql). It generates deterministic database snapshots,
+checks inferred queries through TypeScript, and detects schema drift.
 
 ```sh
-pnpm add -D @typed-sql/cli@next typescript@7.0.2
+pnpm add -D @typed-sql/cli typescript@7.0.2
 ```
 
-Install one dialect and its application-owned driver, then create `typed-sql.config.ts` as shown in
-the [root guide](https://github.com/Lojhan/typed-sql#configure-the-database-contract).
+Install a grammar and its application-owned driver, then create `typed-sql.config.ts`.
 
 ```sh
-pnpm exec typed-sql --help
-pnpm exec typed-sql --version
-```
-
-```sh
-# Introspect the configured database and write schema metadata.
 pnpm exec typed-sql generate
-
-# Compile SQL inference into an isolated overlay and ask TypeScript 7 to check it.
 pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
-
-# Compare the committed snapshot with the current live catalog and type policy.
 pnpm exec typed-sql drift
 ```
 
-Use `--config path/to/typed-sql.config.ts` when discovery is not appropriate. `generate` also accepts
-`--out`; `check` accepts `--file` and `--project`.
+Use `--config path/to/typed-sql.config.ts` to bypass config discovery. Run
+`pnpm exec typed-sql --help` for command options.
 
-The CLI contains no PostgreSQL, MySQL, `pg`, or `mysql2` dependency. It loads the installed dialect
-and schema provider through the project config. Diagnostics use the versioned
-[`TSQ` registry](https://github.com/Lojhan/typed-sql/tree/main/packages/core#diagnostics).
+The CLI contains no PostgreSQL, MySQL, `pg`, or `mysql2` dependency. It loads the installed grammar
+and schema provider through the application config. Read
+[Configuration](https://github.com/Lojhan/typed-sql/blob/main/docs/getting-started/configuration.md) and
+[Schema snapshots](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/schema-snapshots.md).
 
 MIT © typed-sql contributors
