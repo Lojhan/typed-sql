@@ -1,6 +1,6 @@
 # typed-sql
 
-### Write SQL. Hover the query. Get the exact row type.
+### Write SQL. Read TypeScript.
 
 [![CI](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
