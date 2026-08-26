@@ -112,7 +112,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
             mysql2: "3.24.1",
             tsx: "4.23.12",
             typescript: "7.0.2",
-            "@types/node": "24.3.0",
+            "@types/node": "24.13.3",
           }
         : {
             pg: `link:${join(workspace, "node_modules", "pg")}`,

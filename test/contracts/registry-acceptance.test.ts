@@ -23,6 +23,8 @@ await describe("registry-only consumer acceptance", async () => {
 
     for (const contract of [
       'process.env.TYPED_SQL_REGISTRY_TAG ?? "next"',
+      'typescript: "7.0.2"',
+      '"@types/node": "24.13.3"',
       'for (const protocol of ["workspace:", "link:", "file:"])',
       "resolved outside disposable consumer",
       "resolved from the repository",
