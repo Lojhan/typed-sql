@@ -1,5 +1,5 @@
+import { type Query, type QueryParameters, type QueryRow, sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import {
   introspectMySql,
   type MySqlQueryable,
@@ -13,6 +13,7 @@ import {
   type MySqlDatabase,
   type MySqlExecutionResult,
   type MySqlPoolLike,
+  type MySqlPreparedQueryFactory,
   type MySqlTransaction,
   mysqlRenderer,
 } from "../src/runtime.js";
@@ -140,9 +141,11 @@ function resultRows(): MySqlExecutionResult {
 
 class FakePool implements MySqlPoolLike {
   readonly connection = new FakeConnection();
+  readonly calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];
   ended = false;
   commandResult = false;
-  async execute(): Promise<MySqlExecutionResult> {
+  async execute(sqlText: string, values?: readonly unknown[]): Promise<MySqlExecutionResult> {
+    this.calls.push({ sql: sqlText, ...(values === undefined ? {} : { values }) });
     return this.commandResult ? { rows: { affectedRows: 1 } } : resultRows();
   }
   async getConnection(): Promise<MySqlConnectionLike> {
@@ -204,6 +207,130 @@ await describe("MySQL provider and runtime", async () => {
     await database.close();
     strict.strictEqual(pool.ended, true);
     strict.strictEqual(mysqlRenderer.quoteIdentifier("a`b"), "`a``b`");
+  });
+
+  await it("creates lazy prepared factories that retain exact query types", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool });
+    const accountById = database.prepare(
+      "account-by-id",
+      (id: bigint, active: boolean) =>
+        sql.__typed<
+          { id: bigint },
+          readonly [bigint, boolean]
+        >()`SELECT id FROM users WHERE id = ${id} AND active = ${active}`,
+    );
+    const exactFactory: Assert<
+      Equal<
+        typeof accountById,
+        MySqlPreparedQueryFactory<[id: bigint, active: boolean], { id: bigint }, readonly [bigint, boolean]>
+      >
+    > = true;
+    const exactRow: Assert<Equal<QueryRow<ReturnType<typeof accountById>>, { id: bigint }>> = true;
+    const exactParameters: Assert<Equal<QueryParameters<ReturnType<typeof accountById>>, readonly [bigint, boolean]>> =
+      true;
+    void [exactFactory, exactRow, exactParameters];
+
+    strict.strictEqual(accountById.statementName, "account-by-id");
+    strict.strictEqual(pool.calls.length, 0);
+    strict.throws(() => {
+      // @ts-expect-error Prepared factory metadata is readonly.
+      accountById.statementName = "changed";
+    }, /read only|Cannot assign/);
+
+    const rows = await database.execute(accountById(7n, true));
+    strict.strictEqual(rows[0]?.id, 9_007_199_254_740_993n);
+    strict.deepStrictEqual(pool.calls, [
+      { sql: "SELECT id FROM users WHERE id = ? AND active = ?", values: ["7", true] },
+    ]);
+  });
+
+  await it("validates prepared names and reserves them at declaration", () => {
+    const database = createMySqlDatabase({ pool: new FakePool() });
+    strict.throws(() => database.prepare("", () => sql`SELECT 1`), /non-empty.*NUL/);
+    strict.throws(() => database.prepare("bad\0name", () => sql`SELECT 1`), /non-empty.*NUL/);
+    strict.throws(() => database.prepare(1 as unknown as string, () => sql`SELECT 1`), /non-empty.*NUL/);
+    database.prepare("one", () => sql`SELECT 1`);
+    strict.throws(() => database.prepare("one", () => sql`SELECT 1`), /already registered/);
+  });
+
+  await it("rejects structural shape changes before driver dispatch", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool });
+    const dynamic = database.prepare(
+      "dynamic-account",
+      (projection: "id" | "email") =>
+        sql.__typed<{ id?: bigint; email?: string }, readonly []>()`SELECT ${sql.raw(projection)} FROM users`,
+    );
+
+    await database.execute(dynamic("id"));
+    strict.strictEqual(pool.calls.length, 1);
+    strict.throws(() => dynamic("email"), /must always render the same SQL text/);
+    strict.strictEqual(pool.calls.length, 1);
+  });
+
+  await it("rejects one query object carrying conflicting prepared names", () => {
+    const database = createMySqlDatabase({ pool: new FakePool() });
+    const shared: Query<{ id: bigint }, readonly []> = sql.__typed<{ id: bigint }, readonly []>()`SELECT id FROM users`;
+    const first = database.prepare("first", () => shared);
+    const second = database.prepare("second", () => shared);
+    strict.strictEqual(first(), shared);
+    strict.throws(() => second(), /cannot use both prepared statement "first" and "second"/);
+  });
+
+  await it("shares prepared metadata through transactions and nested transactions", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool });
+    const rootPrepared = database.prepare("root-prepared", (id: bigint) => sql`SELECT id FROM users WHERE id = ${id}`);
+    let transactionPrepared: MySqlPreparedQueryFactory<[email: string], unknown, readonly [string]> | undefined;
+
+    await database.transaction(async (transaction) => {
+      await transaction.execute(rootPrepared(1n));
+      transactionPrepared = transaction.prepare(
+        "transaction-prepared",
+        (email: string) => sql`SELECT id FROM users WHERE email = ${email}`,
+      );
+      await transaction.transaction(async (nested) => {
+        await nested.execute(transactionPrepared!("a@example.com"));
+      });
+    });
+
+    await database.execute(transactionPrepared!("b@example.com"));
+    strict.deepStrictEqual(pool.connection.commands, [
+      "BEGIN",
+      "SELECT id FROM users WHERE id = ?",
+      "SAVEPOINT typed_sql_2",
+      "SELECT id FROM users WHERE email = ?",
+      "RELEASE SAVEPOINT typed_sql_2",
+      "COMMIT",
+    ]);
+    strict.deepStrictEqual(pool.calls, [{ sql: "SELECT id FROM users WHERE email = ?", values: ["b@example.com"] }]);
+    strict.throws(() => database.prepare("transaction-prepared", () => sql`SELECT 1`), /already registered/);
+  });
+
+  await it("caches rendering only in the database instance that prepared the query", async () => {
+    const firstPool = new FakePool();
+    const secondPool = new FakePool();
+    const firstDatabase = createMySqlDatabase({ pool: firstPool });
+    const secondDatabase = createMySqlDatabase({ pool: secondPool });
+    const source = sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`;
+    let segmentReads = 0;
+    const observed = new Proxy(source, {
+      get(target, property, receiver) {
+        if (property === "segments") segmentReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const prepared = firstDatabase.prepare("database-local", () => observed);
+    const query = prepared();
+    strict.strictEqual(segmentReads, 1);
+
+    await firstDatabase.execute(query);
+    strict.strictEqual(segmentReads, 1);
+    await secondDatabase.execute(query);
+    strict.strictEqual(segmentReads, 2);
+    strict.deepStrictEqual(firstPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
+    strict.deepStrictEqual(secondPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
   });
 
   await it("supports transactions, nested savepoints, rollback, and connection lifecycle", async () => {

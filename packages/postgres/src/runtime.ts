@@ -1,5 +1,13 @@
 import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
+import {
+  createPostgresPreparedQueryState,
+  type PostgresPreparedQueryFactory,
+  type PostgresPreparedQueryState,
+  preparePostgresQuery,
+} from "./prepared.js";
 import { defaultPostgresTypePolicy } from "./type-policy.js";
+
+export type { PostgresPreparedQueryFactory } from "./prepared.js";
 
 export interface PostgresCodecPolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -13,6 +21,7 @@ export interface PostgresTypeParserSet {
 }
 
 export interface PostgresQueryConfig {
+  readonly name?: string;
   readonly text: string;
   readonly values?: readonly unknown[];
   readonly types?: PostgresTypeParserSet;
@@ -33,9 +42,18 @@ export interface PostgresPoolLike {
   end(): Promise<void>;
 }
 
-export interface PostgresTransaction extends Database<PostgresTransaction> {}
+export interface PostgresTransaction extends Database<PostgresTransaction> {
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): PostgresPreparedQueryFactory<Arguments, Row, Params>;
+}
 
 export interface PostgresDatabase extends Database<PostgresTransaction> {
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): PostgresPreparedQueryFactory<Arguments, Row, Params>;
   close(): Promise<void>;
 }
 
@@ -164,6 +182,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #client: PostgresClientLike | undefined;
   readonly #parsers: PostgresTypeParserSet;
   readonly #ownsPool: boolean;
+  readonly #prepared: PostgresPreparedQueryState;
   readonly #transactionDepth: number;
 
   constructor(
@@ -172,22 +191,33 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     parsers: PostgresTypeParserSet,
     ownsPool: boolean,
     depth: number,
+    prepared: PostgresPreparedQueryState,
   ) {
     this.#pool = pool;
     this.#client = client;
     this.#parsers = parsers;
     this.#ownsPool = ownsPool;
     this.#transactionDepth = depth;
+    this.#prepared = prepared;
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
-    const rendered = renderQuery(query, postgresRenderer);
+    const prepared = this.#prepared.queries.get(query);
+    const rendered = prepared?.rendered ?? renderQuery(query, postgresRenderer);
     const result = await (this.#client ?? this.#pool).query({
+      ...(prepared === undefined ? {} : { name: prepared.statementName }),
       text: rendered.text,
       values: rendered.values.map(encodeValue),
       types: this.#parsers,
     });
     return result.rows as readonly Row[];
+  }
+
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): PostgresPreparedQueryFactory<Arguments, Row, Params> {
+    return preparePostgresQuery(this.#prepared, postgresRenderer, statementName, factory);
   }
 
   async transaction<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
@@ -196,7 +226,9 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     let result: T;
     try {
       await client.query("BEGIN");
-      result = await fn(new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1));
+      result = await fn(
+        new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared),
+      );
       await client.query("COMMIT");
     } catch (error) {
       try {
@@ -221,7 +253,9 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     const savepoint = `typed_sql_${depth}`;
     await client.query(`SAVEPOINT ${savepoint}`);
     try {
-      const result = await fn(new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, depth));
+      const result = await fn(
+        new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, depth, this.#prepared),
+      );
       await client.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
@@ -247,5 +281,6 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
     createPostgresTypeParsers(options.typePolicy ?? defaultPolicy, options.decimal, options.fallbackTypeParsers),
     options.ownsPool ?? false,
     0,
+    createPostgresPreparedQueryState(),
   );
 }

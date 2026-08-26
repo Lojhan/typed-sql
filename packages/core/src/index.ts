@@ -1,5 +1,6 @@
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
+export type { QueryResult, QueryResults, QueryStream, StreamOptions } from "./execution.js";
 export type {
   Database,
   OptionalSqlFragment,

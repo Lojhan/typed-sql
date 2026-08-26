@@ -22,7 +22,10 @@ import type {
   Query,
   QueryExecutor,
   QueryParameters,
+  QueryResult,
+  QueryResults,
   QueryRow,
+  QueryStream,
   RenderedQuery,
   SchemaSnapshot,
   SqlDiagnostic,
@@ -31,6 +34,7 @@ import type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  StreamOptions,
   TransactionDatabase,
   TransactionRunner,
   TypedSqlConfig,
@@ -38,11 +42,15 @@ import type {
 import * as coreApi from "../../packages/core/src/index.js";
 import * as mysqlApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
-import type { MySqlDatabase, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
+import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import * as postgresApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
-import type { PostgresDatabase, PostgresTransaction } from "../../packages/postgres/src/runtime.js";
+import type {
+  PostgresDatabase,
+  PostgresPreparedQueryFactory,
+  PostgresTransaction,
+} from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 
@@ -56,6 +64,10 @@ type ExactQuery = Query<Account, readonly [bigint]>;
 
 const queryRow: Assert<Equal<QueryRow<ExactQuery>, Account>> = true;
 const queryParameters: Assert<Equal<QueryParameters<ExactQuery>, readonly [bigint]>> = true;
+const queryResult: Assert<Equal<QueryResult<ExactQuery>, readonly Account[]>> = true;
+const queryResults: Assert<
+  Equal<QueryResults<readonly [ExactQuery, ExactQuery]>, readonly [readonly Account[], readonly Account[]]>
+> = true;
 const rowInvariant: Assert<Equal<Assignable<ExactQuery, Query<{ readonly id: bigint }, readonly [bigint]>>, false>> =
   true;
 const parametersInvariant: Assert<Equal<Assignable<ExactQuery, Query<Account, readonly [unknown]>>, false>> = true;
@@ -116,6 +128,36 @@ const mysqlTransaction: Assert<Equal<MySqlTransactionScope, MySqlTransaction>> =
 const postgresTransactionOmitsClose: Assert<Equal<Extract<keyof PostgresTransaction, "close">, never>> = true;
 const mysqlTransactionOmitsClose: Assert<Equal<Extract<keyof MySqlTransaction, "close">, never>> = true;
 
+function postgresPreparedContract(database: PostgresDatabase): ExactQuery {
+  const prepared = database.prepare(
+    "account-by-id",
+    (id: bigint) =>
+      coreApi.sql.__typed<
+        Account,
+        readonly [bigint]
+      >()`SELECT account.id, account.status FROM account WHERE account.id = ${id}`,
+  );
+  const exact: Assert<Equal<typeof prepared, PostgresPreparedQueryFactory<[id: bigint], Account, readonly [bigint]>>> =
+    true;
+  void exact;
+  return prepared(1n);
+}
+
+function mysqlPreparedContract(database: MySqlDatabase): ExactQuery {
+  const prepared = database.prepare(
+    "account-by-id",
+    (id: bigint) =>
+      coreApi.sql.__typed<
+        Account,
+        readonly [bigint]
+      >()`SELECT account.id, account.status FROM account WHERE account.id = ${id}`,
+  );
+  const exact: Assert<Equal<typeof prepared, MySqlPreparedQueryFactory<[id: bigint], Account, readonly [bigint]>>> =
+    true;
+  void exact;
+  return prepared(1n);
+}
+
 type ReferencedStableTypes =
   | CheckFileOptions
   | CheckFileResult
@@ -130,6 +172,7 @@ type ReferencedStableTypes =
   | DialectPlugin
   | OptionalSqlFragment
   | QueryExecutor
+  | QueryStream<Account>
   | RenderedQuery
   | SqlFragment
   | SqlDiagnostic
@@ -137,12 +180,15 @@ type ReferencedStableTypes =
   | SqlRenderer
   | SqlSegment
   | SqlTag
+  | StreamOptions
   | TransactionDatabase
   | TransactionRunner
   | TypedSqlConfig;
 
 void queryRow;
 void queryParameters;
+void queryResult;
+void queryResults;
 void rowInvariant;
 void parametersInvariant;
 void composedParameters;
@@ -157,6 +203,8 @@ void postgresTransaction;
 void mysqlTransaction;
 void postgresTransactionOmitsClose;
 void mysqlTransactionOmitsClose;
+void postgresPreparedContract;
+void mysqlPreparedContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {

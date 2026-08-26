@@ -1,19 +1,23 @@
+import { sql } from "@typed-sql/core";
 import type { Pool } from "mysql2/promise";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import { adaptMySql2Pool, createMySql2Database, loadMySql2Driver, mysql2 } from "../src/mysql2.js";
 import type { MySqlQueryable, MySqlQueryResult } from "../src/provider.js";
 
 class FakeRawConnection {
   released = false;
   readonly calls: string[] = [];
+  executeCount = 0;
+  queryCount = 0;
   async execute(
     sql: string,
   ): Promise<readonly [readonly Record<string, unknown>[], readonly { name: string; columnType: number }[]]> {
+    this.executeCount += 1;
     this.calls.push(sql);
     return [[{ value: "1" }], [{ name: "value", columnType: 8 }]];
   }
   async query(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly never[]]> {
+    this.queryCount += 1;
     this.calls.push(sql);
     return [[], []];
   }
@@ -33,8 +37,10 @@ class FakeRawConnection {
 
 class FakeRawPool extends FakeRawConnection {
   ended = false;
+  getConnectionCount = 0;
   readonly connection = new FakeRawConnection();
   async getConnection(): Promise<FakeRawConnection> {
+    this.getConnectionCount += 1;
     return this.connection;
   }
   async end(): Promise<void> {
@@ -79,7 +85,13 @@ await describe("application-owned mysql2 integration", async () => {
       poolConfig: { connectionLimit: 2 },
       driverImporter: async () => fakeDriver(raw),
     });
-    strict.deepStrictEqual(await database.execute(sql`SELECT ${1n}`), [{ value: 1n }]);
+    const prepared = database.prepare("select-value", (value: bigint) => sql`SELECT ${value}`);
+    strict.strictEqual(raw.calls.length, 0);
+    strict.strictEqual(raw.getConnectionCount, 0);
+    strict.deepStrictEqual(await database.execute(prepared(1n)), [{ value: 1n }]);
+    strict.strictEqual(raw.executeCount, 1);
+    strict.strictEqual(raw.queryCount, 0);
+    strict.strictEqual(raw.getConnectionCount, 0);
     await database.close();
     strict.strictEqual(raw.ended, true);
     await strict.rejects(() => createMySql2Database({ connectionUri: "" }), /must not be empty/);

@@ -55,6 +55,7 @@ function validatePoolConfig(poolConfig: PgOptions["poolConfig"]): void {
 
 function queryConfig(config: PostgresQueryConfig): QueryConfig<unknown[]> {
   return {
+    ...(config.name === undefined ? {} : { name: config.name }),
     text: config.text,
     ...(config.values === undefined ? {} : { values: [...config.values] }),
     ...(config.types === undefined ? {} : { types: config.types }),

@@ -1,10 +1,11 @@
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
+import { type Query, type QueryParameters, type QueryRow, sql } from "../../core/src/index.js";
 import {
   createPostgresDatabase,
   createPostgresTypeParsers,
   type PostgresClientLike,
   type PostgresPoolLike,
+  type PostgresPreparedQueryFactory,
   type PostgresQueryConfig,
   type PostgresQueryResult,
   type PostgresTransaction,
@@ -133,6 +134,129 @@ await describe("PostgreSQL runtime adapter", async () => {
     }
     await db.close();
     strict.strictEqual(pool.ended, false);
+  });
+
+  await it("creates lazy prepared factories that retain exact query types", async () => {
+    const pool = new MockPool();
+    const db = createPostgresDatabase({ pool });
+    const accountById = db.prepare(
+      "account-by-id",
+      (id: bigint, active: boolean) =>
+        sql.__typed<
+          { id: number },
+          readonly [bigint, boolean]
+        >()`SELECT id FROM users WHERE id = ${id} AND active = ${active}`,
+    );
+    const exactFactory: Assert<
+      Equal<
+        typeof accountById,
+        PostgresPreparedQueryFactory<[id: bigint, active: boolean], { id: number }, readonly [bigint, boolean]>
+      >
+    > = true;
+    const exactRow: Assert<Equal<QueryRow<ReturnType<typeof accountById>>, { id: number }>> = true;
+    const exactParameters: Assert<Equal<QueryParameters<ReturnType<typeof accountById>>, readonly [bigint, boolean]>> =
+      true;
+    void exactFactory;
+    void exactRow;
+    void exactParameters;
+
+    strict.strictEqual(accountById.statementName, "account-by-id");
+    strict.strictEqual(pool.calls.length, 0);
+    strict.throws(() => {
+      // @ts-expect-error Prepared factory metadata is readonly.
+      accountById.statementName = "changed";
+    }, /read only|Cannot assign/);
+
+    const rows = await db.execute(accountById(7n, true));
+    strict.deepStrictEqual(rows, [{ id: 1 }]);
+    const call = pool.calls[0];
+    if (call === undefined || typeof call === "string") strict.fail("Expected a prepared query config call");
+    else {
+      strict.strictEqual(call.name, "account-by-id");
+      strict.strictEqual(call.text, "SELECT id FROM users WHERE id = $1 AND active = $2");
+      strict.deepStrictEqual(call.values, ["7", true]);
+    }
+  });
+
+  await it("validates prepared names and reserves them at declaration", () => {
+    const db = createPostgresDatabase({ pool: new MockPool() });
+    strict.throws(() => db.prepare(null as never, () => sql`SELECT 1`), /non-empty.*NUL/);
+    strict.throws(() => db.prepare("", () => sql`SELECT 1`), /non-empty.*NUL/);
+    strict.throws(() => db.prepare("bad\0name", () => sql`SELECT 1`), /non-empty.*NUL/);
+    db.prepare("one", () => sql`SELECT 1`);
+    strict.throws(() => db.prepare("one", () => sql`SELECT 1`), /already registered/);
+  });
+
+  await it("rejects structural shape changes before driver dispatch", async () => {
+    const pool = new MockPool();
+    const db = createPostgresDatabase({ pool });
+    const dynamic = db.prepare(
+      "dynamic-account",
+      (projection: "id" | "email") =>
+        sql.__typed<{ id?: number; email?: string }, readonly []>()`SELECT ${sql.raw(projection)} FROM users`,
+    );
+
+    await db.execute(dynamic("id"));
+    strict.strictEqual(pool.calls.length, 1);
+    strict.throws(() => dynamic("email"), /must always render the same SQL text/);
+    strict.strictEqual(pool.calls.length, 1);
+  });
+
+  await it("rejects one query object carrying conflicting prepared names", () => {
+    const db = createPostgresDatabase({ pool: new MockPool() });
+    const shared: Query<{ id: number }, readonly []> = sql.__typed<{ id: number }, readonly []>()`SELECT id FROM users`;
+    const first = db.prepare("first", () => shared);
+    const second = db.prepare("second", () => shared);
+    strict.strictEqual(first(), shared);
+    strict.throws(() => second(), /cannot use both prepared statement "first" and "second"/);
+  });
+
+  await it("shares prepared metadata through transactions and nested transactions", async () => {
+    const pool = new MockPool();
+    const db = createPostgresDatabase({ pool });
+    const rootPrepared = db.prepare("root-prepared", (id: bigint) => sql`SELECT id FROM users WHERE id = ${id}`);
+    let transactionPrepared: PostgresPreparedQueryFactory<[email: string], unknown, readonly [string]> | undefined;
+
+    await db.transaction(async (transaction) => {
+      await transaction.execute(rootPrepared(1n));
+      transactionPrepared = transaction.prepare(
+        "transaction-prepared",
+        (email: string) => sql`SELECT id FROM users WHERE email = ${email}`,
+      );
+      await transaction.transaction(async (nested) => {
+        await nested.execute(transactionPrepared!("a@example.com"));
+      });
+    });
+
+    await db.execute(transactionPrepared!("b@example.com"));
+    const clientQueries = pool.client.calls.filter(
+      (call): call is PostgresQueryConfig => typeof call !== "string" && call.text.startsWith("SELECT"),
+    );
+    strict.deepStrictEqual(
+      clientQueries.map((call) => call.name),
+      ["root-prepared", "transaction-prepared"],
+    );
+    const poolQuery = pool.calls[0];
+    if (poolQuery === undefined || typeof poolQuery === "string") strict.fail("Expected a prepared pool query");
+    else strict.strictEqual(poolQuery.name, "transaction-prepared");
+  });
+
+  await it("treats another database instance's prepared query as ordinary", async () => {
+    const firstPool = new MockPool();
+    const secondPool = new MockPool();
+    const firstDb = createPostgresDatabase({ pool: firstPool });
+    const secondDb = createPostgresDatabase({ pool: secondPool });
+    const prepared = firstDb.prepare("database-local", (id: number) => sql`SELECT id FROM users WHERE id = ${id}`);
+    const query = prepared(1);
+
+    await firstDb.execute(query);
+    await secondDb.execute(query);
+    const firstCall = firstPool.calls[0];
+    const secondCall = secondPool.calls[0];
+    if (firstCall === undefined || typeof firstCall === "string") strict.fail("Expected first query config");
+    else strict.strictEqual(firstCall.name, "database-local");
+    if (secondCall === undefined || typeof secondCall === "string") strict.fail("Expected second query config");
+    else strict.strictEqual(secondCall.name, undefined);
   });
 
   await it("commits on one checked-out client and supports nested savepoints", async () => {

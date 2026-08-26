@@ -1,5 +1,13 @@
 import { type Database, type Query, renderQuery, type SqlRenderer } from "@typed-sql/core";
+import {
+  createMySqlPreparedQueryState,
+  type MySqlPreparedQueryFactory,
+  type MySqlPreparedQueryState,
+  prepareMySqlQuery,
+} from "./prepared.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
+
+export type { MySqlPreparedQueryFactory } from "./prepared.js";
 
 export interface MySqlFieldLike {
   readonly name: string;
@@ -27,9 +35,18 @@ export interface MySqlPoolLike {
   end(): Promise<void>;
 }
 
-export interface MySqlTransaction extends Database<MySqlTransaction> {}
+export interface MySqlTransaction extends Database<MySqlTransaction> {
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): MySqlPreparedQueryFactory<Arguments, Row, Params>;
+}
 
 export interface MySqlDatabase extends Database<MySqlTransaction> {
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): MySqlPreparedQueryFactory<Arguments, Row, Params>;
   close(): Promise<void>;
 }
 
@@ -162,6 +179,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #typePolicy: ResolvedMySqlRuntimeTypePolicy;
   readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #depth: number;
+  readonly #prepared: MySqlPreparedQueryState;
 
   constructor(
     pool: MySqlPoolLike,
@@ -170,6 +188,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     typePolicy: ResolvedMySqlRuntimeTypePolicy,
     decimal: ((value: string) => unknown) | undefined,
     depth: number,
+    prepared: MySqlPreparedQueryState,
   ) {
     this.#pool = pool;
     this.#connection = connection;
@@ -177,14 +196,23 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#typePolicy = typePolicy;
     this.#decimal = decimal;
     this.#depth = depth;
+    this.#prepared = prepared;
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
-    const rendered = renderQuery(query, mysqlRenderer);
+    const prepared = this.#prepared.queries.get(query);
+    const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
     const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encoded));
     if (!Array.isArray(result.rows)) return [];
     const decoders = compileRowDecoders(result.fields ?? [], this.#typePolicy, this.#decimal);
     return decodeRows(result.rows, decoders) as unknown as readonly Row[];
+  }
+
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): MySqlPreparedQueryFactory<Arguments, Row, Params> {
+    return prepareMySqlQuery(this.#prepared, mysqlRenderer, statementName, factory);
   }
 
   async transaction<T>(fn: (database: MySqlTransaction) => Promise<T>): Promise<T> {
@@ -194,7 +222,15 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     try {
       await connection.beginTransaction();
       result = await fn(
-        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#typePolicy, this.#decimal, 1),
+        new MySqlDatabaseImplementation(
+          this.#pool,
+          connection,
+          false,
+          this.#typePolicy,
+          this.#decimal,
+          1,
+          this.#prepared,
+        ),
       );
       await connection.commit();
     } catch (error) {
@@ -221,7 +257,15 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     await connection.query(`SAVEPOINT ${savepoint}`);
     try {
       const result = await fn(
-        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#typePolicy, this.#decimal, depth),
+        new MySqlDatabaseImplementation(
+          this.#pool,
+          connection,
+          false,
+          this.#typePolicy,
+          this.#decimal,
+          depth,
+          this.#prepared,
+        ),
       );
       await connection.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
@@ -252,5 +296,6 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
     typePolicy,
     options.decimal,
     0,
+    createMySqlPreparedQueryState(),
   );
 }

@@ -45,7 +45,12 @@ await describe("application-owned pg integration", async () => {
     const original = new FakePgPool();
     const pool = adaptPgPool(original as unknown as PgPool);
     strict.deepStrictEqual((await pool.query("SELECT 1")).rows, [{ value: 1 }]);
-    const config: PostgresQueryConfig = { text: "SELECT $1", values: [1], types: { getTypeParser: () => String } };
+    const config: PostgresQueryConfig = {
+      name: "selected-value",
+      text: "SELECT $1",
+      values: [1],
+      types: { getTypeParser: () => String },
+    };
     await pool.query(config);
     const client = await pool.connect();
     await client.query("SELECT 2");
@@ -54,6 +59,18 @@ await describe("application-owned pg integration", async () => {
     await pool.end();
     strict.strictEqual(original.calls.length, 2);
     strict.strictEqual(original.client.calls.length, 2);
+    strict.deepStrictEqual(original.calls[1], {
+      name: "selected-value",
+      text: "SELECT $1",
+      values: [1],
+      types: config.types,
+    });
+    strict.deepStrictEqual(original.client.calls[1], {
+      name: "selected-value",
+      text: "SELECT $1",
+      values: [1],
+      types: config.types,
+    });
     strict.strictEqual(original.client.released, true);
     strict.strictEqual(original.ended, true);
   });
