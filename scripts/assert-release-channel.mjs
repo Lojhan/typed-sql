@@ -7,8 +7,8 @@ import { loadReleaseManifest } from "./release-policy.mjs";
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const requestedChannel = process.argv[2];
 
-if (requestedChannel !== "beta" && requestedChannel !== "stable") {
-  throw new Error("Usage: node scripts/assert-release-channel.mjs <beta|stable>");
+if (requestedChannel !== "beta" && requestedChannel !== "rc" && requestedChannel !== "stable") {
+  throw new Error("Usage: node scripts/assert-release-channel.mjs <beta|rc|stable>");
 }
 
 const release = await loadReleaseManifest(workspace);
@@ -34,16 +34,18 @@ for (const track of ["stable", "experimental"]) {
   }
 }
 
-if (requestedChannel === "beta") {
-  const pattern = new RegExp(`^${release.series.replaceAll(".", "\\.")}-beta\\.\\d+$`, "u");
+if (requestedChannel === "beta" || requestedChannel === "rc") {
+  const pattern = new RegExp(`^${release.series.replaceAll(".", "\\.")}-${requestedChannel}\\.\\d+$`, "u");
   for (const manifest of manifests) {
     if (!pattern.test(manifest.version)) {
-      throw new Error(`${manifest.name}@${manifest.version} is not a ${release.series}-beta.N version`);
+      throw new Error(`${manifest.name}@${manifest.version} is not a ${release.series}-${requestedChannel}.N version`);
     }
   }
-  if (release.npmTag !== "next") throw new Error("Beta releases must use the next npm tag");
+  if (release.npmTag !== "next") throw new Error("Prereleases must use the next npm tag");
   const pre = JSON.parse(await readFile(join(workspace, ".changeset", "pre.json"), "utf8"));
-  if (pre.mode !== "pre" || pre.tag !== "beta") throw new Error("Changesets is not in beta prerelease mode");
+  if (pre.mode !== "pre" || pre.tag !== requestedChannel) {
+    throw new Error(`Changesets is not in ${requestedChannel} prerelease mode`);
+  }
 } else {
   for (const manifest of manifests) {
     if (manifest.version !== release.series) {

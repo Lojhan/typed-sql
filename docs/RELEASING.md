@@ -13,6 +13,7 @@ Every public package repeats that value as `typedSql.releaseTrack` in its packed
 4. Wait for all required CI checks on the exact version commit.
 5. Dispatch the protected Release workflow with the channel matching the version:
    - `beta` for `1.0.0-beta.*`, published under `next`;
+   - `rc` for one coherent `1.0.0-rc.*` package train, published under `next`;
    - `stable` only after prerelease mode has been exited, published under `latest`.
 
 Before creating the stable version PR, run the isolated, no-write rehearsal documented in
@@ -45,6 +46,10 @@ Publishing is blocked unless all of these pass:
 - no open critical- or high-severity CodeQL alert;
 - production dependency audit with no high-severity advisory.
 
+Beta and RC publication finish by installing the just-published `next` packages into the
+registry-only PostgreSQL and MySQL consumers. A successful publish with a failed registry proof is
+not a release-ready candidate.
+
 ## Trusted publishing
 
 Every package trusts the same GitHub Actions identity:
@@ -61,8 +66,8 @@ in GitHub or the repository.
 
 Registry publication is intentionally separate from Changesets' publish planner.
 The planner cannot represent `-beta.N` versions published under the independent `next` dist-tag.
-`release:beta` instead follows `release-manifest.json` deterministically, checks npm before every
-write for retry safety, supports independently versioned packages in the same release graph, packs
+`release:beta` and `release:rc` instead follow `release-manifest.json` deterministically, check npm
+before every write for retry safety, support independently versioned packages in the same release graph, and pack
 workspace-resolved tarballs with pnpm, publishes them through npm's native OIDC client, and asks
 Changesets to create tags only after every package is published. Stable uses the same retry-safe
 publisher, restricted to the stable package train and the `latest` tag.
@@ -72,9 +77,9 @@ traditional tokens. See [npm trusted publishers](https://docs.npmjs.com/trusted-
 
 ## Stable promotion
 
-Do not promote `latest` until registry installs work without workspace overrides, PostgreSQL and
-MySQL packed E2E remain green through the beta soak, editor installation has been exercised outside
-this repository, and no open correctness issue can produce a confidently wrong row type.
+Do not promote `latest` until registry installs work without workspace overrides and the exact RC
+passes the machine-verifiable [release-candidate soak](./RC_SOAK.md). The stable manifest records
+that RC as `sourceCandidate`; the stable workflow rejects evidence for any other candidate.
 
 Create the dedicated release PR from `artifacts/stable-rehearsal/stable-release.diff`. It sets the
 packages in `packagePolicy.stable` to stable `1.0.0`, keeps `packagePolicy.experimental` on explicit
@@ -88,7 +93,7 @@ the stable train.
 
 - Never delete or move a published npm version or release tag.
 - Never publish a beta under `latest`.
-- Retry partial beta releases normally: the publisher skips exact versions already present on npm.
+- Retry partial beta or RC releases normally: the publisher skips exact versions already present on npm.
 - Dispatch releases only from protected `main`.
 - If OIDC fails, verify the case-sensitive owner, repository, workflow and environment before
   considering any token fallback.

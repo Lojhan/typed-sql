@@ -13,9 +13,10 @@ there. The caller's checkout is never versioned.
 
 The rehearsal:
 
-- exits Changesets beta prerelease mode;
+- requires one coherent RC train and exits Changesets `rc` prerelease mode;
 - separates mixed Changesets by the stable and experimental package policies;
-- versions the stable train to exactly `1.0.0` and changes the release manifest to `stable:latest`;
+- versions the stable train to exactly `1.0.0`, changes the release manifest to `stable:latest`,
+  and records the originating RC as `sourceCandidate`;
 - restores experimental package versions, changelogs, and pending Changesets so preview-backed
   work is not accidentally promoted or discarded;
 - refreshes the lockfile and runs `release:assert stable`;
@@ -41,7 +42,7 @@ version-PR change; it is never applied to the caller's checkout automatically.
 
 ## Retry and recovery
 
-Both beta and stable publication use the same fail-closed publisher. Before each package write it
+Beta, RC, and stable publication use the same fail-closed publisher. Before each package write it
 asks npm whether that exact name and version already exists. A retry skips published versions,
 continues in manifest order, and creates Changesets tags only after every package is present.
 

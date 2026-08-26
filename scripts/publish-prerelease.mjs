@@ -43,9 +43,9 @@ export async function loadReleasePlan(requestedChannel, workspace = defaultWorks
   }
 
   const versionPattern =
-    requestedChannel === "beta"
-      ? new RegExp(`^${escapeRegularExpression(release.series)}-beta\\.\\d+$`, "u")
-      : new RegExp(`^${escapeRegularExpression(release.series)}$`, "u");
+    requestedChannel === "stable"
+      ? new RegExp(`^${escapeRegularExpression(release.series)}$`, "u")
+      : new RegExp(`^${escapeRegularExpression(release.series)}-${requestedChannel}\\.\\d+$`, "u");
   const packages = [];
   for (const expectedName of release.packages) {
     const directory = packageDirectory(workspace, expectedName);
@@ -162,8 +162,8 @@ export async function publishPrerelease(options = {}) {
 
 export async function main() {
   const requestedChannel = process.argv[2] ?? "beta";
-  if (requestedChannel !== "beta" && requestedChannel !== "stable") {
-    throw new Error("Usage: node scripts/publish-prerelease.mjs <beta|stable>");
+  if (requestedChannel !== "beta" && requestedChannel !== "rc" && requestedChannel !== "stable") {
+    throw new Error("Usage: node scripts/publish-prerelease.mjs <beta|rc|stable>");
   }
   await publishRelease({ channel: requestedChannel });
 }

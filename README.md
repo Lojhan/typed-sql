@@ -358,6 +358,7 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:registry
 - [Releasing](./docs/RELEASING.md)
 - [Stable release rehearsal](./docs/STABLE_REHEARSAL.md)
 - [Registry-only acceptance](./docs/REGISTRY_ACCEPTANCE.md)
+- [Release-candidate soak](./docs/RC_SOAK.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)
 - [Security policy](./SECURITY.md)
 - [Contributing](./CONTRIBUTING.md)

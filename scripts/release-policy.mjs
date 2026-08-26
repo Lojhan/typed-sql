@@ -22,8 +22,8 @@ function sameMembers(left, right) {
 export function validateReleaseManifest(value) {
   if (typeof value !== "object" || value === null) throw new TypeError("release-manifest.json must be an object");
   const manifest = value;
-  if (manifest.channel !== "beta" && manifest.channel !== "stable") {
-    throw new TypeError("release-manifest.json channel must be beta or stable");
+  if (manifest.channel !== "beta" && manifest.channel !== "rc" && manifest.channel !== "stable") {
+    throw new TypeError("release-manifest.json channel must be beta, rc, or stable");
   }
   if (typeof manifest.series !== "string" || !seriesPattern.test(manifest.series)) {
     throw new TypeError("release-manifest.json series must be a stable X.Y.Z version");
@@ -31,6 +31,14 @@ export function validateReleaseManifest(value) {
   const expectedTag = manifest.channel === "stable" ? "latest" : "next";
   if (manifest.npmTag !== expectedTag) {
     throw new TypeError(`${manifest.channel} releases must use the ${expectedTag} npm tag`);
+  }
+  const sourceCandidatePattern = new RegExp(`^${manifest.series.replaceAll(".", "\\.")}-rc\\.\\d+$`, "u");
+  if (manifest.channel === "stable") {
+    if (typeof manifest.sourceCandidate !== "string" || !sourceCandidatePattern.test(manifest.sourceCandidate)) {
+      throw new TypeError(`stable releases must declare sourceCandidate as ${manifest.series}-rc.N`);
+    }
+  } else if (manifest.sourceCandidate !== undefined) {
+    throw new TypeError("sourceCandidate is only valid for stable releases");
   }
   if (typeof manifest.packagePolicy !== "object" || manifest.packagePolicy === null) {
     throw new TypeError("release-manifest.json must declare packagePolicy");
@@ -47,13 +55,14 @@ export function validateReleaseManifest(value) {
   const expectedPackages = manifest.channel === "stable" ? stable : [...stable, ...experimental];
   if (!sameMembers(packages, expectedPackages)) {
     throw new TypeError(
-      `${manifest.channel} release packages must match the ${manifest.channel === "stable" ? "stable" : "complete beta"} package policy`,
+      `${manifest.channel} release packages must match the ${manifest.channel === "stable" ? "stable" : "complete prerelease"} package policy`,
     );
   }
   return {
     channel: manifest.channel,
     series: manifest.series,
     npmTag: manifest.npmTag,
+    sourceCandidate: manifest.sourceCandidate,
     packages,
     packagePolicy: { stable, experimental },
   };
