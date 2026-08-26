@@ -132,7 +132,8 @@ the structural-variant bound.
 
 ## Documentation
 
-- [Documentation home](./docs/index.md)
+- [Documentation site](https://lojhan.github.io/typed-sql/)
+- [Documentation source](./docs/index.md)
 - [Execution adapters](./docs/guides/execution.md)
 - [PostgreSQL grammar](./docs/dialects/postgresql.md)
 - [MySQL grammar](./docs/dialects/mysql.md)

@@ -73,5 +73,10 @@ await describe("performance regression policy", async () => {
     ]) {
       strict.ok(gate.includes(evidence), `performance gate does not record ${evidence}`);
     }
+    strict.strictEqual(
+      gate.match(/iterations: methodology\.subMillisecondIterations/gu)?.length,
+      2,
+      "cache-hit and cancellation fast paths must batch samples",
+    );
   });
 });

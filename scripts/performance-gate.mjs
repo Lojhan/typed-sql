@@ -281,19 +281,24 @@ try {
       { warmups: 1, samples: methodology.coldSamples },
     );
 
-    await latency("editor.cancelledRequest", async () => {
-      let checks = 0;
-      await assert.rejects(
-        () =>
-          service.analysis(editorDocument("cancelled.ts", 1, manyQuerySource(2_000)), {
-            get isCancellationRequested() {
-              checks += 1;
-              return checks > 1;
-            },
-          }),
-        (error) => error instanceof Error && error.name === "AbortError",
-      );
-    });
+    const cancelledDocument = editorDocument("cancelled.ts", 1, manyQuerySource(2_000));
+    await latency(
+      "editor.cancelledRequest",
+      async () => {
+        let checks = 0;
+        await assert.rejects(
+          () =>
+            service.analysis(cancelledDocument, {
+              get isCancellationRequested() {
+                checks += 1;
+                return checks > 1;
+              },
+            }),
+          (error) => error instanceof Error && error.name === "AbortError",
+        );
+      },
+      { iterations: methodology.subMillisecondIterations },
+    );
 
     service.invalidate();
     globalThis.gc?.();
