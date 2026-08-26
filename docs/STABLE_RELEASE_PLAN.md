@@ -10,10 +10,10 @@ The package architecture, PostgreSQL and MySQL integrations, test infrastructure
 publishing, provenance, security release enforcement, and repository protections are in place. The
 current public release line is `1.0.0-beta.*` under the npm `next` tag.
 
-The project is not ready to publish under `latest` yet. Stable promotion is blocked by the absence
-of a complete registry-only consumer test, an unrehearsed stable version transition, and
-insufficient external beta soak time. Packed external editor startup, schema reload, restart, and
-multi-root behavior are now enforced; registry-only verification remains part of the consumer gate.
+The project is not ready to publish under `latest` yet. Stable promotion is blocked by an
+unrehearsed stable version transition and insufficient external beta soak time. Packed external
+editor startup, schema reload, restart, and multi-root behavior are enforced. The registry-only
+consumer gate now runs the same real-database scenarios against npm `next` before stable promotion.
 
 ## Definition of ready
 
@@ -32,6 +32,9 @@ The stable release is ready when all of the following are true:
 - npm `latest`, GitHub tags, GitHub releases, and provenance all agree on the stable version.
 
 ## Milestone 1: Prove a registry-only user installation
+
+Implemented by [`pnpm e2e:registry`](./REGISTRY_ACCEPTANCE.md). The protected stable Release workflow
+runs it against npm `next` before any write to `latest`.
 
 The external playground currently installs local `vendor` tarballs and uses pnpm overrides. This is
 useful for packed-artifact testing, but it does not prove that the published npm graph works exactly

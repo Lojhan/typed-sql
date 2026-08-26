@@ -76,6 +76,12 @@ jobs:
       - run: pnpm e2e:packed
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - name: Verify registry-only release candidate
+        if: inputs.channel == 'stable'
+        run: pnpm e2e:registry
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_REGISTRY_TAG: next
       - run: pnpm audit --prod --audit-level high
       - name: Assert CodeQL release policy
         run: pnpm release:security
