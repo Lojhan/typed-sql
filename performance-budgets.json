@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
   "methodology": {
     "warmups": 3,
     "samples": 20,
     "coldSamples": 10,
+    "subMillisecondIterations": 100,
     "warningRatio": 0.75
   },
   "latencyMs": {

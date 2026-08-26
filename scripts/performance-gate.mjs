@@ -52,17 +52,24 @@ function statistics(samples) {
 async function latency(name, operation, options = {}) {
   const warmups = options.warmups ?? methodology.warmups;
   const sampleCount = options.samples ?? methodology.samples;
-  for (let index = 0; index < warmups; index += 1) await operation(index);
+  const iterations = options.iterations ?? 1;
+  for (let warmup = 0; warmup < warmups; warmup += 1) {
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+      await operation(warmup * iterations + iteration);
+    }
+  }
   const samples = [];
-  for (let index = 0; index < sampleCount; index += 1) {
+  for (let sample = 0; sample < sampleCount; sample += 1) {
     const start = performance.now();
-    await operation(index);
-    samples.push(performance.now() - start);
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+      await operation(sample * iterations + iteration);
+    }
+    samples.push((performance.now() - start) / iterations);
   }
   const measured = statistics(samples);
   const budget = budgets.latencyMs[name];
   assert.ok(budget !== undefined, `Missing latency budget for ${name}`);
-  results[name] = { unit: "ms", ...measured, budget };
+  results[name] = { unit: "ms", iterationsPerSample: iterations, ...measured, budget };
   warnNearBudget(name, measured.p50, budget.p50, "p50");
   warnNearBudget(name, measured.p95, budget.p95, "p95");
   assert.ok(measured.p50 <= budget.p50, `${name} p50 ${measured.p50.toFixed(2)}ms exceeded ${budget.p50}ms`);
@@ -247,10 +254,14 @@ try {
   try {
     const uriName = "incremental.ts";
     await service.analysis(editorDocument(uriName, 1));
-    await latency("editor.unchangedAnalysis", async () => {
-      const analysis = await service.analysis(editorDocument(uriName, 1));
-      assert.equal(analysis?.queries.length, 120);
-    });
+    await latency(
+      "editor.unchangedAnalysis",
+      async () => {
+        const analysis = await service.analysis(editorDocument(uriName, 1));
+        assert.equal(analysis?.queries.length, 120);
+      },
+      { iterations: methodology.subMillisecondIterations },
+    );
 
     let version = 1;
     await latency("editor.incrementalAnalysis", async (index) => {
