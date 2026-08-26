@@ -1,5 +1,12 @@
 # @typed-sql/mysql
 
+## 1.0.0-rc.0
+
+### Patch Changes
+
+- Updated dependencies [69c7d87]
+  - @typed-sql/core@1.0.0-rc.0
+
 ## 1.0.0-beta.2
 
 ### Patch Changes

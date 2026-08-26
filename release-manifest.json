@@ -1,5 +1,5 @@
 {
-  "channel": "beta",
+  "channel": "rc",
   "series": "1.0.0",
   "npmTag": "next",
   "packages": [

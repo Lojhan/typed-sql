@@ -50,7 +50,7 @@ await describe("release-candidate policy", async () => {
           directory: "core",
           version: "1.0.0-rc.3",
           changelog:
-            "# @typed-sql/core\n\n## 1.0.0-rc.3\n\n### Patch Changes\n\n- Updated @typed-sql/compiler@1.0.0-rc.3.\n\n## 1.0.0-beta.2\n\n- Historical reference to 1.0.0-rc.3.\n",
+            "# @typed-sql/core\n\n## 1.0.0-rc.3\n\n### Patch Changes\n\n- Updated @typed-sql/compiler@1.0.0-rc.2.\n\n## 1.0.0-beta.2\n\n- Historical reference to 1.0.0-rc.3.\n",
         },
         {
           directory: "compiler",
