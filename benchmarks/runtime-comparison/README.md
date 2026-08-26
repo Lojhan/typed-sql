@@ -26,6 +26,12 @@ pnpm run
 pnpm databases:stop
 ```
 
+The workspace applies a narrow pnpm override from Prisma's config package to
+`deepmerge-ts@8.0.2`. Prisma 7.10.0 pins a release affected by
+[GHSA-ggr8-5vv4-36mx](https://github.com/advisories/GHSA-ggr8-5vv4-36mx), while the patched
+major retains the `deepmerge` entrypoint Prisma uses. Keep the override until Prisma resolves a
+patched release itself.
+
 You can adjust measurement depth without editing the fixture:
 
 ```sh
