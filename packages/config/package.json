@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/config",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-rc.0",
   "description": "Shared typed-sql config discovery and TypeScript config loading.",
   "license": "MIT",
   "author": "Lojhan",

@@ -1,5 +1,11 @@
 # @typed-sql/ast
 
+## 1.0.0-rc.0
+
+### Patch Changes
+
+- Publish the coherent 1.0.0-rc.0 release-candidate train.
+
 ## 1.0.0-beta.2
 
 ### Patch Changes
