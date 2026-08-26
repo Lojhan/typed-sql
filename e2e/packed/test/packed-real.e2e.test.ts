@@ -36,9 +36,11 @@ const packageNames = [
   "ts-bridge",
   "language-server",
 ] as const;
+const previewPackageNames = new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"]);
 const consumerSource = process.env.TYPED_SQL_CONSUMER_SOURCE ?? "packed";
 const registryOnly = consumerSource === "registry";
 const registryTag = process.env.TYPED_SQL_REGISTRY_TAG ?? "next";
+const registryPreviewTag = process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next";
 if (!registryOnly && consumerSource !== "packed") {
   throw new Error(`TYPED_SQL_CONSUMER_SOURCE must be packed or registry, received ${consumerSource}`);
 }
@@ -70,6 +72,22 @@ async function mustRun(command: string, args: readonly string[], cwd = workspace
   return result;
 }
 
+async function mustEventuallyRun(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+  timeout = 180_000,
+): Promise<CommandResult> {
+  const deadline = Date.now() + timeout;
+  let result = await run(command, args, cwd);
+  while (result.code !== 0 && Date.now() < deadline) {
+    await new Promise((resolveWait) => setTimeout(resolveWait, 5_000));
+    result = await run(command, args, cwd);
+  }
+  if (result.code === 0) return result;
+  throw new Error(`${command} ${args.join(" ")} failed (${result.code})\n${result.stdout}${result.stderr}`);
+}
+
 async function ensureImage(image: string, context: string): Promise<void> {
   if ((await run(engine, ["image", "exists", image])).code === 0) return;
   await mustRun(engine, ["build", "--tag", image, "--file", "Containerfile", "."], context);
@@ -80,7 +98,7 @@ async function write(path: string, value: string): Promise<void> {
 }
 
 await describe(`${consumerSource} real-database consumers`, async () => {
-  await it(`generates, typechecks, and executes from ${registryOnly ? "npm next" : "tarballs"}`, async () => {
+  await it(`generates, typechecks, and executes from ${registryOnly ? `npm ${registryTag}` : "tarballs"}`, async () => {
     const temporary = await mkdtemp(join(tmpdir(), `typed-sql-${consumerSource}-real-`));
     const tarballs = join(temporary, "tarballs");
     const consumer = join(temporary, "consumer");
@@ -88,14 +106,15 @@ await describe(`${consumerSource} real-database consumers`, async () => {
     await mkdir(consumer);
     try {
       log(
-        `${registryOnly ? "Resolving npm next" : "Packing public artifacts"} and building both immutable database images`,
+        `${registryOnly ? `Resolving npm ${registryTag} with preview tooling from ${registryPreviewTag}` : "Packing public artifacts"} and building both immutable database images`,
       );
       const dependencies: Record<string, string> = {};
       for (const directory of packageNames) {
         const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8")) as {
           readonly name: string;
         };
-        if (registryOnly) dependencies[manifest.name] = registryTag;
+        if (registryOnly)
+          dependencies[manifest.name] = previewPackageNames.has(manifest.name) ? registryPreviewTag : registryTag;
         else {
           const before = new Set(await readdir(tarballs));
           await execFile("pnpm", ["--silent", "--filter", manifest.name, "pack", "--pack-destination", tarballs], {
@@ -139,14 +158,17 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           2,
         )}\n`,
       );
-      await execFile(
-        "pnpm",
-        ["install", ...(registryOnly ? [] : ["--offline", "--ignore-scripts"]), "--no-frozen-lockfile"],
-        {
+      const installArgs = [
+        "install",
+        ...(registryOnly ? [] : ["--offline", "--ignore-scripts"]),
+        "--no-frozen-lockfile",
+      ];
+      if (registryOnly) await mustEventuallyRun("pnpm", installArgs, consumer);
+      else
+        await execFile("pnpm", installArgs, {
           cwd: consumer,
           env: { ...cleanEnvironment, CI: "true" },
-        },
-      );
+        });
 
       if (registryOnly) {
         const manifest = await readFile(join(consumer, "package.json"), "utf8");

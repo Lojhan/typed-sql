@@ -23,6 +23,9 @@ await describe("registry-only consumer acceptance", async () => {
 
     for (const contract of [
       'process.env.TYPED_SQL_REGISTRY_TAG ?? "next"',
+      'process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next"',
+      'new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"])',
+      "mustEventuallyRun",
       'typescript: "7.0.2"',
       '"@types/node": "24.13.3"',
       'for (const protocol of ["workspace:", "link:", "file:"])',
@@ -49,8 +52,13 @@ await describe("registry-only consumer acceptance", async () => {
 
     strict.ok(gate >= 0, "release workflow must run the registry-only gate");
     strict.ok(workflow.slice(gate, stableAssertion).includes("TYPED_SQL_REGISTRY_TAG: next"));
+    strict.ok(workflow.slice(gate, stableAssertion).includes("TYPED_SQL_REGISTRY_PREVIEW_TAG: next"));
     strict.ok(workflow.slice(gate, stableAssertion).includes("if: inputs.channel == 'stable'"));
     strict.ok(gate < stableAssertion, "registry gate must precede the stable release assertion");
     strict.ok(stableAssertion < stablePublish, "registry gate and assertion must precede stable publication");
+
+    const stableVerification = workflow.indexOf("Verify published stable packages from npm");
+    strict.ok(workflow.slice(stableVerification).includes("TYPED_SQL_REGISTRY_TAG: latest"));
+    strict.ok(workflow.slice(stableVerification).includes("TYPED_SQL_REGISTRY_PREVIEW_TAG: next"));
   });
 });
