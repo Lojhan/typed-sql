@@ -66,6 +66,52 @@ await describe("typed-sql stdio language server", async () => {
     }
   });
 
+  await it("publishes the trusted-fragment quick fix over stdio", async () => {
+    const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
+    const source = [
+      'import { sql } from "@typed-sql/postgres";',
+      "declare const selected: boolean;",
+      "const query = sql`SELECT user.id ${selected ? `, user.name` : sql.empty} FROM users AS user`;",
+    ].join("\n");
+    const uri = pathToFileURL(join(fixtureDirectory, "structural-fix.ts")).href;
+    try {
+      await client.request("initialize", {
+        processId: process.pid,
+        rootUri: pathToFileURL(workspaceDirectory).href,
+        workspaceFolders: [{ uri: pathToFileURL(workspaceDirectory).href, name: "typed-sql" }],
+        capabilities: {},
+        initializationOptions: { configPath: configFile, schemaPath: schemaFile, projectFile, nativePreview: false },
+      });
+      client.notify("initialized", {});
+      const published = client.notification("textDocument/publishDiagnostics", (params) => {
+        const value = params as { readonly uri?: string; readonly diagnostics?: readonly { readonly code?: string }[] };
+        return value.uri === uri && value.diagnostics?.some(({ code }) => code === "TSQ004") === true;
+      });
+      client.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId: "typescript", version: 1, text: source },
+      });
+      const report = (await published) as {
+        readonly diagnostics?: readonly { readonly code?: string; readonly range?: unknown; readonly data?: unknown }[];
+      };
+      const diagnostic = report.diagnostics?.find(({ code }) => code === "TSQ004");
+      strict.ok(diagnostic !== undefined);
+      const actions = (await client.request("textDocument/codeAction", {
+        textDocument: { uri },
+        range: diagnostic?.range,
+        context: { diagnostics: [diagnostic] },
+      })) as readonly {
+        readonly title?: string;
+        readonly isPreferred?: boolean;
+        readonly edit?: { readonly changes?: Readonly<Record<string, readonly { readonly newText?: string }[]>> };
+      }[];
+      const action = actions.find(({ title }) => title === "Mark as sql.fragment");
+      strict.strictEqual(action?.isPreferred, true);
+      strict.strictEqual(action?.edit?.changes?.[uri]?.[0]?.newText, "sql.fragment");
+    } finally {
+      await client.close();
+    }
+  });
+
   await it("makes inferred rows part of the TypeScript 7 semantic program", async () => {
     const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
     const source = await readFile(queryFile, "utf8");

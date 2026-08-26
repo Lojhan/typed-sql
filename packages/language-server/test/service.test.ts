@@ -55,6 +55,55 @@ await describe("typed-sql language service", async () => {
     strict.strictEqual(actions[0]?.isPreferred, true);
   });
 
+  await it("marks bare structural templates as trusted fragments without promoting their values", async () => {
+    const text = [
+      'import { sql as querySql } from "@typed-sql/postgres";',
+      'const hostile = "\' OR TRUE --";',
+      "interface Selection { readonly name: boolean }",
+      "interface Filters { readonly name?: string | null }",
+      "function users(select: Selection, filters: Filters) {",
+      "  return querySql`SELECT user.id",
+      "    ${select.name ? `, user.name` : querySql.empty}",
+      "    FROM users AS user WHERE user.name <> ${hostile}",
+      "    ${filters.name == null ? querySql.empty : `AND user.name = ${filters.name}`}`;",
+      "}",
+    ].join("\n");
+    const current = document("fragment-fix.ts", text);
+    const diagnostics = (await service.diagnostics(current)).filter(({ code }) => code === "TSQ004");
+    strict.strictEqual(diagnostics.length, 2);
+    strict.deepStrictEqual(
+      diagnostics.map(({ range }) => current.getText(range)),
+      ["`, user.name`", "`AND user.name = ${filters.name}`"],
+    );
+
+    const edits = [];
+    for (const diagnostic of diagnostics) {
+      const actions = await service.codeActions(current, [diagnostic]);
+      strict.strictEqual(actions[0]?.title, "Mark as querySql.fragment");
+      strict.strictEqual(actions[0]?.isPreferred, true);
+      edits.push(...(actions[0]?.edit?.changes?.[current.uri] ?? []));
+    }
+    let fixed = text;
+    for (const edit of edits.sort(
+      (left, right) => current.offsetAt(right.range.start) - current.offsetAt(left.range.start),
+    )) {
+      const start = current.offsetAt(edit.range.start);
+      const end = current.offsetAt(edit.range.end);
+      fixed = `${fixed.slice(0, start)}${edit.newText}${fixed.slice(end)}`;
+    }
+    const updated = document("fragment-fix.ts", fixed, 2);
+    strict.deepStrictEqual(await service.diagnostics(updated), []);
+    const analysis = await service.analysis(updated);
+    strict.ok(analysis?.transformedSource.includes("querySql.fragment<readonly [string]>") === true);
+    strict.ok(fixed.includes("user.name <> ${hostile}"));
+
+    const malformed = {
+      ...diagnostics[0]!,
+      data: { fix: { title: "Unsafe edit", range: { start: -1, end: text.length + 1 }, newText: "sql.raw" } },
+    };
+    strict.deepStrictEqual(await service.codeActions(current, [malformed]), []);
+  });
+
   await it("bounds caches and honors cancellation", async () => {
     await service.analysis(document("cache-a.ts"));
     await service.analysis(document("cache-b.ts"));

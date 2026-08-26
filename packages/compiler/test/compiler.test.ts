@@ -7,7 +7,12 @@ import { DIALECT_CONTRACT_VERSION, type DialectPlugin, type SchemaSnapshot } fro
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { checkFile, compileSource, extractStaticQueries, mapSqlRange } from "../src/index.js";
-import { extractAppendFragments, extractStructuralOperand, parseStructuralInterpolation } from "../src/scanner.js";
+import {
+  extractAppendFragments,
+  extractStructuralOperand,
+  findUntaggedStructuralTemplates,
+  parseStructuralInterpolation,
+} from "../src/scanner.js";
 import { structuralRowType } from "../src/structural.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
@@ -118,6 +123,27 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     strict.strictEqual(structural?.condition, "select.status");
     strict.strictEqual(structural?.truthy.kind, "fragment");
     strict.strictEqual(structural?.falsy?.kind, "empty");
+  });
+
+  await it("finds only bare templates paired with trusted structural branches", () => {
+    const source = [
+      'import { sql as querySql } from "@typed-sql/core";',
+      'const hostile = "\' OR TRUE --";',
+      "const query = querySql`SELECT users.id",
+      "  ${select.name ? `, users.name` : querySql.empty}",
+      "  FROM users WHERE users.name <> ${`${`${hostile}`}%`}",
+      "  ${filters.name == null ? querySql.empty : (`AND users.name = ${filters.name}`)}`;",
+    ].join("\n");
+    const query = extractStaticQueries(source, (index) => `$${index}`)[0]!;
+    const templates = findUntaggedStructuralTemplates(source, query);
+    strict.strictEqual(templates.length, 2);
+    strict.deepStrictEqual(
+      templates.map(({ tagName, range }) => ({ tagName, text: source.slice(range.start, range.end) })),
+      [
+        { tagName: "querySql", text: "`, users.name`" },
+        { tagName: "querySql", text: "`AND users.name = ${filters.name}`" },
+      ],
+    );
   });
 
   await it("preserves inline generic selection types for computed structural properties", () => {

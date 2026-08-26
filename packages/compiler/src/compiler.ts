@@ -6,7 +6,13 @@ import {
   type SchemaSnapshot,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import { type ExtractedQuery, extractAppendFragments, extractStaticQueries, mapSqlRange } from "./scanner.js";
+import {
+  type ExtractedQuery,
+  extractAppendFragments,
+  extractStaticQueries,
+  findUntaggedStructuralTemplates,
+  mapSqlRange,
+} from "./scanner.js";
 import { expandStructuralQuery, structuralRowType } from "./structural.js";
 
 export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
@@ -75,6 +81,27 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const compiledFragments: CompiledFragment[] = [];
   const diagnostics: SqlDiagnostic[] = [];
   for (const query of extracted) {
+    const untaggedStructuralTemplates = findUntaggedStructuralTemplates(source, query);
+    if (untaggedStructuralTemplates.length > 0) {
+      diagnostics.push(
+        ...untaggedStructuralTemplates.map(
+          (template): SqlDiagnostic => ({
+            code: "TSQ004",
+            message: "Untagged template literals are parameter values; SQL structure requires a trusted fragment",
+            range: template.range,
+            severity: "error",
+            suggestion: `Prefix this template with ${template.tagName}.fragment.`,
+            fix: {
+              title: `Mark as ${template.tagName}.fragment`,
+              range: { ...template.range, end: template.range.start },
+              newText: `${template.tagName}.fragment`,
+              preferred: true,
+            },
+          }),
+        ),
+      );
+      continue;
+    }
     const expansion = expandStructuralQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
     if (expansion?.kind === "limit") {
       diagnostics.push({

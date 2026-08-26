@@ -43,6 +43,15 @@ await describe("runtime SQL tag", async () => {
     });
   });
 
+  await it("keeps hostile strings parameterized inside trusted structural fragments", () => {
+    const hostile = "' OR TRUE; DROP TABLE users; --";
+    const predicate = sql.fragment` AND users.name = ${hostile}`;
+    strict.deepStrictEqual(renderQuery(sql`SELECT id FROM users WHERE TRUE${predicate}`, renderer), {
+      text: "SELECT id FROM users WHERE TRUE AND users.name = $1",
+      values: [hostile],
+    });
+  });
+
   await it("preserves an explicit ordered parameter tuple", () => {
     const query = sql<
       { readonly id: number },

@@ -32,6 +32,7 @@ export type {
   SchemaSnapshot,
   SourceRange,
   SqlDiagnostic,
+  SqlDiagnosticFix,
   TableSnapshot,
   TypedSqlConfig,
 } from "./types.js";

@@ -83,6 +83,24 @@ export const sourceSoundnessCorpus: readonly SourceSoundnessCase[] = [
     expectation: { kind: "diagnostic", codes: ["TSQ101"], sourceTarget: "deleted_at" },
   },
   {
+    id: "untagged-structural-template-diagnostic",
+    source: [
+      moduleImport,
+      'const hostile = "\' OR TRUE --";',
+      "interface Selection { readonly status: boolean }",
+      'interface Filters { readonly status?: "active" | "suspended" | null }',
+      "export function accounts(select: Selection, filters: Filters) {",
+      "  return sql`SELECT users.id, users.email",
+      `    ${interpolation("select.status ? `, users.status` : sql.empty")}`,
+      `    FROM users WHERE users.email <> ${interpolation("hostile")}`,
+      `    ${interpolation(
+        `filters.status == null ? sql.empty : \`AND users.status = ${interpolation("filters.status")}\``,
+      )}\`;`,
+      "}",
+    ].join("\n"),
+    expectation: { kind: "diagnostic", codes: ["TSQ004"], sourceTarget: ", users.status" },
+  },
+  {
     id: "incompatible-structural-parameter-context",
     source: [
       moduleImport,

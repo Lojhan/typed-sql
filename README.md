@@ -254,6 +254,13 @@ the installed grammar to analyze each complete SQL statement. Multiple literal `
 selections produce exact result shapes; runtime booleans produce the corresponding union. Direct and
 nested interpolation values are checked against one complete ordered parameter tuple.
 
+The `sql.fragment` tag is the trust marker that distinguishes SQL structure from a parameter value.
+A bare nested template such as
+``${select.status ? `, account.status` : sql.empty}`` is still an ordinary JavaScript string, so
+typed-sql reports `TSQ004` on that template. In Zed and other LSP clients, the preferred quick fix
+prefixes it with `sql.fragment` without changing its contents. Values nested inside the fixed
+fragment remain driver parameters; typed-sql never promotes a runtime string into SQL text.
+
 Independent conditions can produce `2ⁿ` statements, so analysis is bounded before a grammar is
 invoked. The default maximum is 64 variants and can be changed through
 `compiler.maxStructuralVariants`; exceeding it reports `TSQ003` rather than consuming unbounded

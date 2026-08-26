@@ -90,6 +90,11 @@ a complete statement and supplies the branch-dependent row type; no clause-build
 introduced. Structural compilation defaults to at most 64 correlated variants and fails with
 `TSQ003` before invoking a grammar if independent conditions exceed that bound.
 
+Structural branches must use `sql.fragment`; an untagged nested template is a JavaScript string and
+therefore a parameter value. The compiler reports `TSQ004` when such a template is paired with
+`sql.empty` or another trusted structural branch. The explicit marker is an injection boundary:
+interpolated values inside `sql.fragment` remain parameters rather than becoming SQL text.
+
 `sql.join()` accepts only `SqlFragment` values. Its optional separator is also a trusted fragment,
 so use `sql.raw(" UNION ALL ")` when a non-comma separator is intentional; an arbitrary runtime
 string is never promoted to SQL implicitly.
@@ -140,6 +145,7 @@ message text. The machine-readable registry is exported as `diagnosticRegistry`.
 | `TSQ001` | SQL syntax error |
 | `TSQ002` | Parser resource limit exceeded |
 | `TSQ003` | Conditional SQL exceeded the configured structural variant bound |
+| `TSQ004` | Structural SQL requires an explicitly trusted fragment |
 | `TSQ007` | Dialect/snapshot contract mismatch |
 | `TSQ100`–`TSQ108` | Catalog lookup, ambiguity, output naming, and cast errors |
 | `TSQ202`–`TSQ204` | Unknown/ambiguous functions and unsafe operator inference |

@@ -13,6 +13,14 @@ export interface SqlDiagnostic {
   readonly range: SourceRange;
   readonly severity: "error" | "warning" | "info";
   readonly suggestion?: string;
+  readonly fix?: SqlDiagnosticFix;
+}
+
+export interface SqlDiagnosticFix {
+  readonly title: string;
+  readonly range: SourceRange;
+  readonly newText: string;
+  readonly preferred?: boolean;
 }
 
 export interface ColumnSnapshot {
