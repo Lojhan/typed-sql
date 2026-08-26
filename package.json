@@ -14,7 +14,7 @@
   "scripts": {
     "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter ./packages/vscode build:bundle",
     "changeset": "changeset",
-    "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm performance:gate",
+    "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm docs:build && pnpm performance:gate",
     "quality": "biome check .",
     "format": "biome check --write .",
     "clean": "node scripts/clean-build.mjs",
@@ -25,6 +25,9 @@
     "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm test:contracts",
     "test:contracts": "poku test/contracts --reporter=compact --enforce",
     "docs:check": "poku test/contracts/documentation.test.ts --reporter=compact --enforce",
+    "docs:start": "pnpm --filter typed-sql-docs start",
+    "docs:build": "pnpm --filter typed-sql-docs build",
+    "docs:serve": "pnpm --filter typed-sql-docs serve",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
     "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "performance": "pnpm build && pnpm performance:gate",

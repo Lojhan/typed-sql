@@ -30,6 +30,7 @@ This file records maintainer and automation knowledge. Public documentation belo
 - `packages/cli`: introspection and generation commands.
 - `packages/ts-bridge`, `packages/language-server`: experimental TypeScript preview integration.
 - `editors/`: thin editor integrations over the language server.
+- `website/`: private VitePress shell that renders the canonical `docs/` tree.
 - `test/grammar`: shared grammar corpus and conformance fixtures.
 - `test/contracts`: package graph, distribution, release, and documentation contracts.
 - `e2e/`: real database and packed-consumer verification.
@@ -51,6 +52,8 @@ Useful focused gates:
 pnpm test:soundness
 pnpm test:pack
 pnpm docs:check
+pnpm docs:start
+pnpm docs:build
 pnpm performance
 ```
 
@@ -86,6 +89,10 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:packed
 - Every public page has `title` and `description` frontmatter, exactly one H1, and valid local links.
 - `docs/` is canonical. Root, package, editor, and E2E READMEs are concise entrypoints that link to
   the canonical page instead of duplicating it.
+- `website/` owns presentation and navigation only. It reads `docs/` directly; do not copy public
+  Markdown into the site package or put product documentation under `website/`.
+- Keep every public page in the sidebar inside `website/.vitepress/config.mts`. The production build
+  treats broken links as errors.
 - Distinguish a supported range from an exact version tested by this repository.
 - Keep install commands versionless unless a page specifically teaches version selection.
 - Package READMEs use absolute GitHub links for repository documentation because npm tarballs do

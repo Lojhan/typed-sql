@@ -213,4 +213,66 @@ await describe("public documentation", async () => {
       ),
     );
   });
+
+  await it("renders the canonical docs through a reproducible GitHub Pages site", async () => {
+    const rootPackage = JSON.parse(await text("package.json")) as {
+      readonly scripts: Readonly<Record<string, string>>;
+    };
+    const websitePackage = JSON.parse(await text("website/package.json")) as {
+      readonly name: string;
+      readonly private: boolean;
+      readonly type?: string;
+      readonly devDependencies: Readonly<Record<string, string>>;
+    };
+    const workspaceConfig = await text("pnpm-workspace.yaml");
+    const siteConfig = await text("website/.vitepress/config.mts");
+    const pagesWorkflow = await text(".github/workflows/pages.yml");
+
+    strict.strictEqual(websitePackage.name, "typed-sql-docs");
+    strict.strictEqual(websitePackage.private, true);
+    strict.strictEqual(websitePackage.type, "module");
+    strict.strictEqual(websitePackage.devDependencies.vitepress, "1.6.4");
+    strict.match(workspaceConfig, /^\s*- website$/mu);
+    strict.match(workspaceConfig, /^\s+vitepress>vite:\s+6\.4\.3$/mu);
+    strict.strictEqual(rootPackage.scripts["docs:start"], "pnpm --filter typed-sql-docs start");
+    strict.strictEqual(rootPackage.scripts["docs:build"], "pnpm --filter typed-sql-docs build");
+    strict.ok(rootPackage.scripts.verify?.includes("pnpm docs:build"));
+
+    for (const contract of [
+      'base: "/typed-sql/"',
+      'srcDir: "../docs"',
+      "cleanUrls: true",
+      'provider: "local"',
+      'pattern: "https://github.com/Lojhan/typed-sql/edit/main/docs/:path"',
+    ]) {
+      strict.ok(siteConfig.includes(contract), `website config is missing ${contract}`);
+    }
+
+    for (const path of expectedPublicDocs) {
+      const id = path === "docs/index.md" ? "/" : `/${path.slice("docs/".length, -".md".length)}`;
+      strict.ok(siteConfig.includes(`link: "${id}"`), `${path} is missing from the sidebar`);
+    }
+
+    for (const action of [
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86",
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+      "actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b",
+      "actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b",
+      "actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e",
+    ]) {
+      strict.ok(pagesWorkflow.includes(action), `.github/workflows/pages.yml must pin ${action}`);
+    }
+    for (const contract of [
+      "branches: [main]",
+      "pnpm install --frozen-lockfile",
+      "pnpm docs:build",
+      "path: website/.vitepress/dist",
+      "name: github-pages",
+      "pages: write",
+      "id-token: write",
+    ]) {
+      strict.ok(pagesWorkflow.includes(contract), `.github/workflows/pages.yml is missing ${contract}`);
+    }
+  });
 });

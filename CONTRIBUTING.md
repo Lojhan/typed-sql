@@ -20,6 +20,8 @@ pnpm quality
 pnpm typecheck
 pnpm test:soundness
 pnpm docs:check
+pnpm docs:start
+pnpm docs:build
 pnpm performance
 ```
 
@@ -53,6 +55,11 @@ Public documentation lives under [`docs/`](docs/index.md). Write for application
 use present-tense product language, and link to canonical pages instead of copying large sections
 into READMEs. Every public page needs `title` and `description` frontmatter, one H1, and valid local
 links. Run `pnpm docs:check` before opening a pull request.
+
+`pnpm docs:start` runs the documentation site locally with live reload. The VitePress shell under
+`website/` owns navigation and presentation, while `docs/` remains the only public content source.
+Run `pnpm docs:build` to apply the same broken-link and static-rendering checks used for GitHub
+Pages.
 
 Maintainer procedures, release mechanics, and automation instructions belong in `AGENTS.md` or
 repository configuration rather than the public documentation.

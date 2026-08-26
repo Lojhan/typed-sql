@@ -43,7 +43,7 @@ Core composition and rendering must sustain a p50 of at least 250,000 operations
 
 ## Measurement method
 
-Latency scenarios use warm-up executions before measured samples. Cold editor work uses fresh service instances. Sub-millisecond cache hits batch operations inside each sample and report amortized per-operation latency so an operating-system scheduling pause is not misclassified as many slow operations.
+Latency scenarios use warm-up executions before measured samples. Cold editor work uses fresh service instances. Sub-millisecond cache-hit and cancellation paths batch operations inside each sample and report amortized per-operation latency so an operating-system scheduling pause is not misclassified as many slow operations.
 
 Reports include minimum, mean, standard deviation, coefficient of variation, p50, p95, and maximum. A budget change requires a reviewed methodology, fixture, or supported-runtime justification.
 
