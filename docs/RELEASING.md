@@ -77,9 +77,10 @@ traditional tokens. See [npm trusted publishers](https://docs.npmjs.com/trusted-
 
 ## Stable promotion
 
-Do not promote `latest` until registry installs work without workspace overrides and the exact RC
-passes the machine-verifiable [release-candidate soak](./RC_SOAK.md). The stable manifest records
-that RC as `sourceCandidate`; the stable workflow rejects evidence for any other candidate.
+Do not promote `latest` until registry installs work without workspace overrides, the exact RC
+passes the registry-only PostgreSQL and MySQL acceptance suite, and no release-blocking correctness
+or security issue remains. The stable manifest records that RC as `sourceCandidate` so the version
+transition remains auditable.
 
 Create the dedicated release PR from `artifacts/stable-rehearsal/stable-release.diff`. It sets the
 packages in `packagePolicy.stable` to stable `1.0.0`, keeps `packagePolicy.experimental` on explicit

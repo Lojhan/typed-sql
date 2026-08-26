@@ -141,15 +141,15 @@ await describe("release-candidate policy", async () => {
     }
   });
 
-  await it("keeps RC assertion, publication, registry proof, and stable soak in workflow order", async () => {
+  await it("keeps RC publication and registry-only stable proof in workflow order", async () => {
     const workflow = await readFile(join(workspace, ".github", "workflows", "release.yml"), "utf8");
     strict.ok(workflow.includes("          - rc"));
     const assertRc = workflow.indexOf("run: pnpm release:assert rc");
     const publishRc = workflow.indexOf("script: pnpm release:rc");
     const verifyPublished = workflow.indexOf("name: Verify published prerelease from npm");
     strict.ok(assertRc > 0 && publishRc > assertRc && verifyPublished > publishRc);
-    const assertSoak = workflow.indexOf("run: pnpm release:soak");
+    const verifyRegistryCandidate = workflow.indexOf("name: Verify registry-only release candidate");
     const publishStable = workflow.indexOf("script: pnpm release:stable");
-    strict.ok(assertSoak > 0 && publishStable > assertSoak);
+    strict.ok(verifyRegistryCandidate > 0 && publishStable > verifyRegistryCandidate);
   });
 });

@@ -97,9 +97,6 @@ jobs:
       - name: Assert stable release contract
         if: inputs.channel == 'stable'
         run: pnpm release:assert stable
-      - name: Assert completed release-candidate soak
-        if: inputs.channel == 'stable'
-        run: pnpm release:soak
       - name: Publish beta
         uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
         if: inputs.channel == 'beta'

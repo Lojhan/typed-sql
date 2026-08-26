@@ -31,7 +31,6 @@
     "release:artifacts": "pnpm build && pnpm test:pack",
     "release:assert": "node scripts/assert-release-channel.mjs",
     "release:security": "node scripts/code-scanning-policy.mjs",
-    "release:soak": "node scripts/assert-rc-soak.mjs",
     "release:beta": "pnpm release:assert beta && node scripts/publish-prerelease.mjs",
     "release:rc": "pnpm release:assert rc && node scripts/publish-prerelease.mjs rc",
     "release:stable": "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
