@@ -5,10 +5,13 @@ import { describe, it, strict } from "poku";
 import {
   isPublishedOnNpm,
   loadPrereleasePlan,
+  loadReleasePlan,
   type PrereleasePlan,
   publicationCommands,
   publishPrerelease,
+  publishRelease,
 } from "../../scripts/publish-prerelease.mjs";
+import { splitChangeset } from "../../scripts/rehearse-stable-release.mjs";
 import { validateReleaseManifest } from "../../scripts/release-policy.mjs";
 
 const plan: PrereleasePlan = {
@@ -135,6 +138,88 @@ await describe("prerelease publisher", async () => {
     strict.deepStrictEqual(events, ["publish:@typed-sql/core", "publish:@typed-sql/ast"]);
   });
 
+  await it("retries safely after a failure at every package boundary", async () => {
+    for (let failureIndex = 0; failureIndex < plan.packages.length; failureIndex += 1) {
+      const published = new Set<string>();
+      await strict.rejects(
+        publishRelease({
+          channel: "stable",
+          plan: { ...plan, npmTag: "latest" },
+          isPublished: async (name) => published.has(name),
+          publishPackage: async ({ name }) => {
+            published.add(name);
+            if (name === plan.packages[failureIndex]?.name) throw new Error(`failure:${name}`);
+          },
+          createTags: async () => {
+            throw new Error("tags must not be created after failure");
+          },
+          log: () => undefined,
+        }),
+        /failure:/u,
+      );
+
+      const retried: string[] = [];
+      await publishRelease({
+        channel: "stable",
+        plan: { ...plan, npmTag: "latest" },
+        isPublished: async (name) => published.has(name),
+        publishPackage: async ({ name }) => {
+          strict.ok(!published.has(name), `${name} would be republished`);
+          published.add(name);
+          retried.push(name);
+        },
+        createTags: async () => {
+          retried.push("tags");
+        },
+        log: () => undefined,
+      });
+      strict.deepStrictEqual(retried, [...plan.packages.slice(failureIndex + 1).map(({ name }) => name), "tags"]);
+    }
+  });
+
+  await it("retries tag creation without republishing a complete package train", async () => {
+    const published = new Set<string>();
+    await strict.rejects(
+      publishRelease({
+        channel: "stable",
+        plan: { ...plan, npmTag: "latest" },
+        isPublished: async (name) => published.has(name),
+        publishPackage: async ({ name }) => {
+          published.add(name);
+        },
+        createTags: async () => {
+          throw new Error("tag failure");
+        },
+        log: () => undefined,
+      }),
+      /tag failure/u,
+    );
+
+    const events: string[] = [];
+    await publishRelease({
+      channel: "stable",
+      plan: { ...plan, npmTag: "latest" },
+      isPublished: async (name) => published.has(name),
+      publishPackage: async ({ name }) => {
+        events.push(`republished:${name}`);
+      },
+      createTags: async () => {
+        events.push("tags");
+      },
+      log: () => undefined,
+    });
+    strict.deepStrictEqual(events, ["tags"]);
+  });
+
+  await it("splits mixed Changesets without losing experimental release notes", () => {
+    const split = splitChangeset(
+      `---\n"@typed-sql/core": patch\n"@typed-sql/ts-bridge": patch\n---\n\nDescribe the shared change.\n`,
+      new Set(["@typed-sql/ts-bridge"]),
+    );
+    strict.strictEqual(split.stable, `---\n"@typed-sql/core": patch\n---\n\nDescribe the shared change.\n`);
+    strict.strictEqual(split.experimental, `---\n"@typed-sql/ts-bridge": patch\n---\n\nDescribe the shared change.\n`);
+  });
+
   await it("loads independently versioned packages in the declared graph", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "typed-sql-publish-"));
     try {
@@ -194,6 +279,42 @@ await describe("prerelease publisher", async () => {
         }),
       );
       await strict.rejects(loadPrereleasePlan(temporary), /beta releases must use the next npm tag/u);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  await it("loads only the declared stable train in manifest order", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-stable-publish-"));
+    try {
+      await writeFile(
+        join(temporary, "release-manifest.json"),
+        JSON.stringify({
+          channel: "stable",
+          series: "1.0.0",
+          npmTag: "latest",
+          packages: ["@typed-sql/core"],
+          packagePolicy: {
+            stable: ["@typed-sql/core"],
+            experimental: ["@typed-sql/ts-bridge"],
+          },
+        }),
+      );
+      for (const [name, version, track] of [
+        ["core", "1.0.0", "stable"],
+        ["ts-bridge", "1.0.0-beta.3", "experimental"],
+      ] as const) {
+        const directory = join(temporary, "packages", name);
+        await mkdir(directory, { recursive: true });
+        await writeFile(
+          join(directory, "package.json"),
+          JSON.stringify({ name: `@typed-sql/${name}`, version, typedSql: { releaseTrack: track } }),
+        );
+      }
+      strict.deepStrictEqual(await loadReleasePlan("stable", temporary), {
+        npmTag: "latest",
+        packages: [{ name: "@typed-sql/core", version: "1.0.0", directory: join(temporary, "packages", "core") }],
+      });
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

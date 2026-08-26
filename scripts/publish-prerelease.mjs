@@ -36,13 +36,16 @@ function run(command, args, options = {}) {
   });
 }
 
-export async function loadPrereleasePlan(workspace = defaultWorkspace) {
+export async function loadReleasePlan(requestedChannel, workspace = defaultWorkspace) {
   const release = await loadReleaseManifest(workspace);
-  if (release.channel !== "beta" || release.npmTag !== "next") {
-    throw new Error(`Expected beta versions on npm next, found ${release.channel}:${release.npmTag}`);
+  if (release.channel !== requestedChannel) {
+    throw new Error(`Expected ${requestedChannel} release, found ${release.channel}:${release.npmTag}`);
   }
 
-  const versionPattern = new RegExp(`^${escapeRegularExpression(release.series)}-beta\\.\\d+$`, "u");
+  const versionPattern =
+    requestedChannel === "beta"
+      ? new RegExp(`^${escapeRegularExpression(release.series)}-beta\\.\\d+$`, "u")
+      : new RegExp(`^${escapeRegularExpression(release.series)}$`, "u");
   const packages = [];
   for (const expectedName of release.packages) {
     const directory = packageDirectory(workspace, expectedName);
@@ -51,12 +54,18 @@ export async function loadPrereleasePlan(workspace = defaultWorkspace) {
       throw new Error(`${directory}/package.json declares ${manifest.name}, expected ${expectedName}`);
     }
     if (!versionPattern.test(manifest.version)) {
-      throw new Error(`${manifest.name}@${manifest.version} is not a ${release.series}-beta.N version`);
+      throw new Error(
+        `${manifest.name}@${manifest.version} is not a valid ${requestedChannel} version for ${release.series}`,
+      );
     }
     packages.push({ name: manifest.name, version: manifest.version, directory });
   }
 
   return { npmTag: release.npmTag, packages };
+}
+
+export async function loadPrereleasePlan(workspace = defaultWorkspace) {
+  return loadReleasePlan("beta", workspace);
 }
 
 export async function isPublishedOnNpm(name, version, options = {}) {
@@ -126,9 +135,10 @@ async function createChangesetsTags(workspace) {
   });
 }
 
-export async function publishPrerelease(options = {}) {
+export async function publishRelease(options = {}) {
   const workspace = options.workspace ?? defaultWorkspace;
-  const plan = options.plan ?? (await loadPrereleasePlan(workspace));
+  const requestedChannel = options.channel ?? "beta";
+  const plan = options.plan ?? (await loadReleasePlan(requestedChannel, workspace));
   const isPublished = options.isPublished ?? isPublishedOnNpm;
   const publishPackage = options.publishPackage ?? publishWithNpm;
   const createTags = options.createTags ?? createChangesetsTags;
@@ -146,8 +156,16 @@ export async function publishPrerelease(options = {}) {
   await createTags(workspace);
 }
 
+export async function publishPrerelease(options = {}) {
+  return publishRelease({ ...options, channel: "beta" });
+}
+
 export async function main() {
-  await publishPrerelease();
+  const requestedChannel = process.argv[2] ?? "beta";
+  if (requestedChannel !== "beta" && requestedChannel !== "stable") {
+    throw new Error("Usage: node scripts/publish-prerelease.mjs <beta|stable>");
+  }
+  await publishRelease({ channel: requestedChannel });
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
