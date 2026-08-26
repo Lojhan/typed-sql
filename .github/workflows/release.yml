@@ -83,6 +83,7 @@ jobs:
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
           TYPED_SQL_REGISTRY_TAG: next
+          TYPED_SQL_REGISTRY_PREVIEW_TAG: next
       - run: pnpm audit --prod --audit-level high
       - name: Assert CodeQL release policy
         run: pnpm release:security
@@ -117,6 +118,7 @@ jobs:
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
           TYPED_SQL_REGISTRY_TAG: next
+          TYPED_SQL_REGISTRY_PREVIEW_TAG: next
       - name: Publish stable
         uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
         if: inputs.channel == 'stable'
@@ -130,3 +132,4 @@ jobs:
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
           TYPED_SQL_REGISTRY_TAG: latest
+          TYPED_SQL_REGISTRY_PREVIEW_TAG: next
