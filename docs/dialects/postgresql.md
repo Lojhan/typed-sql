@@ -1,0 +1,42 @@
+---
+title: PostgreSQL
+description: PostgreSQL grammar coverage, catalog introspection, application-owned pg integration, and deliberate limitations.
+---
+
+# PostgreSQL
+
+`@typed-sql/postgres` contains the PostgreSQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/postgres/pg` entrypoint loads the `pg` driver installed by your application.
+
+## Public entrypoints
+
+- `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, and type mapping.
+- `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
+- `@typed-sql/postgres/pg` — schema provider and executable database adapter for application-owned `pg`.
+
+## Supported SQL
+
+| Surface | Behavior |
+| --- | --- |
+| Static tagged templates | Recognizes imports and aliases from `@typed-sql/postgres`. |
+| `SELECT`, `DISTINCT`, `DISTINCT ON` | Infers static row shapes. |
+| Tables, schemas, aliases, and stars | Resolves catalog names, ambiguity, and `USING` column merging. |
+| Inner and outer joins | Propagates outer-join nullability. |
+| CTEs and derived, correlated, or scalar subqueries | Validates unsafe scalar and `IN` arity. |
+| Grouping, aggregates, and windows | Covers common aggregates, `FILTER`, and named or inline windows. |
+| Expressions, `CASE`, casts, and parameters | Infers parameters from columns, casts, DML targets, ranges, limits, and catalog functions. |
+| Arrays, enums, domains, JSON, and catalog functions | Resolves known types and function name or arity. |
+| `INSERT`, `UPDATE`, `DELETE`, `RETURNING` | Commands without `RETURNING` infer `Query<never, Parameters>`. |
+
+Set operations and `WITHIN GROUP` are not supported. Dynamic identifiers receive no static inference; use `sql.ident()` explicitly.
+
+Unsupported, ambiguous, or version-gated SQL produces a diagnostic or conservative `unknown`. It does not receive an optimistic row type.
+
+## Introspection
+
+The provider records tables, views, columns, defaults, server version, arrays, enums, domains, and user functions for the configured schemas. Generated snapshots include grammar, catalog, and type-policy hashes.
+
+## Runtime behavior
+
+The adapter installs parsers per query and does not mutate `pg.types`. Policy-controlled OIDs are decoded by typed-sql; other OIDs delegate to the installed driver's parser table. Driver settings that would contradict the selected type policy are rejected.
+
+See [Database type mappings](../reference/type-mappings.md#postgresql) and [Compatibility](../reference/compatibility.md).

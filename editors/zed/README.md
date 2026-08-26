@@ -1,18 +1,18 @@
-# typed-sql for Zed (experimental)
+# typed-sql for Zed
 
-The Zed extension runs the project-local `@typed-sql/language-server`. It applies typed-sql's
-in-memory query overlay before the pinned TypeScript 7.1 preview checks the program, so hovers on the
-query and every downstream value contain the exact row type.
+> Experimental: the extension distribution and preview TypeScript integration may change.
 
-## Install in an application
+The Zed extension runs the project's installed `@typed-sql/language-server`, applying the inferred
+query overlay before TypeScript checks the program.
 
 From the application root:
 
 ```sh
-pnpm add -D @typed-sql/language-server@next
+pnpm add -D @typed-sql/language-server
 ```
 
-Install this `editors/zed` directory with **zed: install dev extension**, then add:
+Install this `editors/zed` directory with **zed: install dev extension**, then configure typed-sql as
+the sole TypeScript and TSX server:
 
 ```json
 {
@@ -36,30 +36,14 @@ Install this `editors/zed` directory with **zed: install dev extension**, then a
 }
 ```
 
-No binary path is required. Resolution is deterministic: an explicit Zed binary setting wins, then
-the extension uses the application package at
-`node_modules/@typed-sql/language-server`, then a `typed-sql-language-server` on the worktree PATH,
-and finally a typed-sql monorepo development build. If none exists, Zed reports the exact `pnpm add`
-command instead of attempting an absolute development path.
+No binary path is required. The extension resolves an explicit Zed setting first, then the local
+package, a worktree `PATH` binary, and finally a typed-sql monorepo development build. `schemaPath`
+is optional; without it, the server uses `schema.file` from the config.
 
-`schemaPath` is optional; leaving it unset uses `schema.file` from the discovered config. In a
-multi-root workspace, Zed starts per-worktree servers and the language server also routes every
-workspace folder through its own config, installed grammar, schema, and TypeScript project.
+TypeScript 7 may omit the legacy `tsserver.js` expected by Zed's built-in integration. typed-sql
+does not use that file. Disabling the competing servers prevents their conservative
+`Query<unknown>` hover from appearing beside typed-sql's transformed type.
 
-## TypeScript server warning
+Read the complete [editor setup guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/editors.md).
 
-typed-sql does not load the workspace's `tsserver.js`. TypeScript 7.0 may intentionally ship without
-that legacy entrypoint, while typed-sql owns an isolated, pinned TypeScript 7.1 preview process. A
-Zed warning that its built-in TypeScript integration fell back to a bundled TypeScript does not
-describe typed-sql's process. Keeping only `typed-sql` in the language-server list removes the
-competing `Query<unknown>` hover.
-
-## Develop this repository
-
-Run `pnpm build`, install this directory as a dev extension, and open
-`e2e/postgres/src/query.ts`. The repository `.zed/settings.json` uses the monorepo fallback and the
-PostgreSQL E2E config. Rebuild its committed snapshot with:
-
-```sh
-pnpm --filter @typed-sql/e2e-postgres generate:snapshot
-```
+MIT © typed-sql contributors

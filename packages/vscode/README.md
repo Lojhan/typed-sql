@@ -1,18 +1,12 @@
-# typed-sql for VS Code (experimental)
+# typed-sql for VS Code
 
-The VS Code extension loads each workspace folder's installed grammar and generated schema. Hover
-over a static `sql` template or any downstream value to see the inferred query type; SQL and
-TypeScript parameter diagnostics, completion, definitions, and safe quick fixes stay inline without
-rewriting source files.
+> Experimental: the extension distribution and preview TypeScript integration may change.
 
-The extension asks Microsoft's TypeScript 7 preview connection to verify the in-memory overlay. If
-that connection is unavailable or its preview API changes, SQL analysis remains available through a
-clearly labeled resolver fallback. Run **typed-sql: Show TypeScript Bridge Status** to see which path
-is active.
+The VS Code extension loads each workspace folder's installed grammar and generated schema. It
+provides inferred SQL hovers, downstream value types, diagnostics, completion, definitions, and
+safe quick fixes without rewriting source files.
 
-## Install the current experimental build
-
-Until the extension has a Marketplace release, build its VSIX from a clean checkout:
+Build the current VSIX from a clean checkout:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -20,8 +14,7 @@ pnpm --filter ./packages/vscode package:vsix
 code --install-extension artifacts/typed-sql-vscode.vsix
 ```
 
-In the application, install the selected grammar and generate its schema normally. Configuration is
-optional and scoped independently to each workspace folder:
+Configuration is optional and scoped per workspace folder:
 
 ```json
 {
@@ -31,13 +24,9 @@ optional and scoped independently to each workspace folder:
 }
 ```
 
-Leave the path values empty to discover `typed-sql.config.ts` and use its `schema.file`. Opening,
-editing, saving, regenerating a schema, changing settings, or restarting VS Code invalidates the
-bounded analysis caches. Errors are written to the **typed-sql** output channel with the affected
-file and cause.
+Leave path values empty to discover the config and its `schema.file`. Run **typed-sql: Show
+TypeScript Bridge Status** to inspect the active semantic path.
 
-## Develop this repository
+Read the [editor setup guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/editors.md).
 
-Run `pnpm build`, install or enable Microsoft's TypeScript 7 extension, and launch the
-`typed-sql extension` debug configuration. Open `e2e/postgres/src/query.ts` and hover `query`,
-`rows`, or `Actual`.
+MIT © typed-sql contributors

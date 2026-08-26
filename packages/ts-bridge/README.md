@@ -1,43 +1,34 @@
 # @typed-sql/ts-bridge
 
-> **Experimental:** this package depends on a pinned TypeScript 7.1 preview API and remains on the
-> npm `next` track when the SQL/compiler packages reach stable 1.0.
-
-The TypeScript 7 semantic bridge behind typed-sql editor inference.
+> Experimental: this package isolates the preview TypeScript API used by typed-sql editor tooling.
 
 ```sh
-pnpm add @typed-sql/ts-bridge@next
+pnpm add @typed-sql/ts-bridge
 ```
 
 ```ts
-import { analyzeSource, queryAtPosition } from "@typed-sql/ts-bridge";
+import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 
 const analysis = analyzeSource(source, schema, dialect, typePolicy);
 const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: projectDirectory });
 
 try {
-  const inspections = await bridge.inspectFile({
-    fileName: sourceFile,
-    projectFile: tsconfigFile,
-    analysis,
-  });
+  await bridge.inspectFile({ fileName: sourceFile, projectFile: tsconfigFile, analysis });
 } finally {
   await bridge.close();
 }
 ```
 
-The bridge inserts `Query<Row, Parameters>` types into an in-memory source overlay, delegates the complete
-semantic program to a pinned TypeScript 7.1 preview process, and maps positions back to the unchanged
-file. The process boundary deliberately contains preview API churn; the grammar and query contract
-do not depend on unstable TypeScript internals.
+The bridge creates an in-memory `Query<Row, Parameters>` overlay, delegates the semantic program to
+an isolated preview process, and maps positions back to unchanged source. Preview API churn remains
+behind that process boundary.
 
-Subpaths:
+Public subpaths are `/native-preview` for the preview client and `/native-lsp` for the native LSP
+connection adapter. Applications normally receive this package through
+`@typed-sql/language-server`.
 
-- `@typed-sql/ts-bridge` — analysis, query bindings, and source mapping;
-- `@typed-sql/ts-bridge/native-preview` — isolated preview process client;
-- `@typed-sql/ts-bridge/native-lsp` — native LSP connection adapter.
-
-Application projects normally receive this package through `@typed-sql/language-server`.
+Read [Editor setup](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/editors.md) and
+[Compatibility](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/compatibility.md).
 
 MIT © typed-sql contributors
