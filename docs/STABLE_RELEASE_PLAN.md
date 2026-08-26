@@ -11,54 +11,23 @@ typed parameters and structural fragments, editor reliability, security enforcem
 protections, trusted npm publishing, registry-only acceptance, and no-write stable rehearsal are in
 place.
 
-The final coherent beta and its registry-only acceptance suite are green. The remaining release
-blocker is to publish one coherent RC, complete its representative external-consumer soak, and
-finish the stable documentation review.
+The coherent `1.0.0-rc.0` train is published under npm `next`; protected CI and its post-publication
+registry-only PostgreSQL and MySQL acceptance are green. The remaining planned work is the stable
+documentation review and final version rehearsal.
 
 ## Definition of ready
 
 The stable release is ready when all of the following are true:
 
-- a clean external project installs typed-sql exclusively from npm and passes the PostgreSQL,
-  MySQL, TypeScript, generation, execution, drift, server, and editor scenarios;
-- the exact release candidate has completed the agreed representative-consumer soak;
+- clean disposable projects install typed-sql exclusively from npm and pass the PostgreSQL,
+  MySQL, TypeScript, generation, execution, drift, server, and editor/LSP scenarios;
 - no open correctness issue can cause typed-sql to confidently report an incorrect row type;
 - the public docs describe the frozen API, supported versions, experimental boundaries, and known
   limitations without workspace-only instructions;
 - protected CI passes on the exact commit that is published;
 - npm `latest`, GitHub tags, GitHub releases, and provenance all agree on the stable version.
 
-## Milestone 1: Publish and soak the final candidate
-
-1. Publish `1.0.0-rc.0` under `next` from one coherent package train.
-2. Confirm the protected workflow's post-publication registry-only PostgreSQL and MySQL proof.
-3. Test the RC in independent projects that do not share monorepo configuration.
-4. Complete the 7–14 day soak described in [`RC_SOAK.md`](./RC_SOAK.md).
-5. Require at least three representative consumers across PostgreSQL, MySQL, and editor usage.
-6. Publish another RC whenever a release-blocking fix changes generated output, inference, runtime
-   contracts, package exports, or release mechanics.
-
-During the soak, track:
-
-- incorrect inferred types;
-- valid queries rejected by the compiler;
-- invalid queries accepted without diagnostics;
-- introspection or generation nondeterminism;
-- driver/version interoperability;
-- package installation and export failures;
-- language-server crashes or editor configuration failures;
-- documentation gaps that prevent a clean installation.
-
-Acceptance criteria:
-
-- the agreed soak period completes without an unresolved release-blocking issue;
-- all representative projects upgrade using only npm versions;
-- generated output is deterministic and checked into consumers without unexplained churn;
-- every reported correctness issue has a regression test before resolution.
-- `pnpm release:soak` validates the exact source RC, external evidence, deterministic hashes, and
-  recorded go/no-go decision.
-
-## Milestone 2: Finish stable documentation
+## Milestone 1: Finish stable documentation
 
 Before the stable version PR:
 
@@ -79,7 +48,7 @@ Acceptance criteria:
 - documentation commands pass when copied into a clean external project;
 - the release notes accurately describe the stable and experimental package trains.
 
-## Milestone 3: Publish `1.0.0`
+## Milestone 2: Publish `1.0.0`
 
 Run the final no-write rehearsal on the release candidate:
 
