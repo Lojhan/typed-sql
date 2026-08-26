@@ -38,7 +38,16 @@ export interface MySqlDatabaseOptions {
   readonly decimal?: (value: string) => unknown;
 }
 
-const defaultRuntimePolicy = defaultMySqlTypePolicy;
+type ResolvedMySqlRuntimeTypePolicy = Pick<MySqlTypePolicy, "bigint" | "decimal" | "date" | "json" | "tinyint1">;
+
+type ValueDecoder = (value: unknown) => unknown;
+
+interface ColumnDecoder {
+  readonly name: string;
+  readonly decode: ValueDecoder;
+}
+
+const defaultRuntimeTypePolicy: ResolvedMySqlRuntimeTypePolicy = defaultMySqlTypePolicy;
 
 const mysqlTypes = { tiny: 1, longlong: 8, date: 10, datetime: 12, timestamp: 7, json: 245, decimal: 246 } as const;
 
@@ -58,46 +67,97 @@ function finite(value: string, label: string): number {
   return result;
 }
 
-function decode(
-  value: unknown,
+function nullable(decoder: ValueDecoder): ValueDecoder {
+  return (value) => (value === null || value === undefined ? value : decoder(value));
+}
+
+function compileValueDecoder(
   field: MySqlFieldLike,
-  policy: MySqlDatabaseOptions["typePolicy"] & {},
+  typePolicy: ResolvedMySqlRuntimeTypePolicy,
   decimal?: (value: string) => unknown,
-): unknown {
-  if (value === null || value === undefined) return value;
+): ValueDecoder | undefined {
   if (field.columnType === mysqlTypes.longlong) {
-    if (policy.bigint === "bigint") return BigInt(String(value));
-    if (policy.bigint === "number") {
-      const result = finite(String(value), "bigint");
-      if (!Number.isSafeInteger(result))
-        throw new RangeError(`bigint value ${value} exceeds JavaScript's safe integer range`);
-      return result;
-    }
-    return String(value);
+    if (typePolicy.bigint === "bigint") return nullable((value) => BigInt(String(value)));
+    if (typePolicy.bigint === "number")
+      return nullable((value) => {
+        const result = finite(String(value), "bigint");
+        if (!Number.isSafeInteger(result))
+          throw new RangeError(`bigint value ${value} exceeds JavaScript's safe integer range`);
+        return result;
+      });
+    return nullable((value) => String(value));
   }
   if (field.columnType === mysqlTypes.decimal) {
-    if (policy.decimal === "number") return finite(String(value), "decimal");
-    if (policy.decimal === "Decimal") {
+    if (typePolicy.decimal === "number") return nullable((value) => finite(String(value), "decimal"));
+    if (typePolicy.decimal === "Decimal") {
       if (decimal === undefined) throw new TypeError("decimal=Decimal requires a decimal(value) codec");
-      return decimal(String(value));
+      return nullable((value) => decimal(String(value)));
     }
-    return String(value);
+    return nullable((value) => String(value));
   }
-  if ([mysqlTypes.date, mysqlTypes.datetime, mysqlTypes.timestamp].includes(field.columnType as 7 | 10 | 12)) {
-    return policy.date === "string" ? String(value) : value instanceof Date ? value : new Date(String(value));
+  if (
+    field.columnType === mysqlTypes.date ||
+    field.columnType === mysqlTypes.datetime ||
+    field.columnType === mysqlTypes.timestamp
+  ) {
+    return typePolicy.date === "string"
+      ? nullable((value) => String(value))
+      : nullable((value) => (value instanceof Date ? value : new Date(String(value))));
   }
-  if (field.columnType === mysqlTypes.json && policy.json === "string")
-    return typeof value === "string" ? value : JSON.stringify(value);
-  if (field.columnType === mysqlTypes.tiny && field.columnLength === 1 && policy.tinyint1 === "boolean")
-    return value === true || value === 1 || value === "1";
-  return value;
+  if (field.columnType === mysqlTypes.json && typePolicy.json === "string")
+    return nullable((value) => (typeof value === "string" ? value : JSON.stringify(value)));
+  if (field.columnType === mysqlTypes.tiny && field.columnLength === 1 && typePolicy.tinyint1 === "boolean")
+    return nullable((value) => value === true || value === 1 || value === "1");
+  return undefined;
+}
+
+function compileRowDecoders(
+  fields: readonly MySqlFieldLike[],
+  typePolicy: ResolvedMySqlRuntimeTypePolicy,
+  decimal?: (value: string) => unknown,
+): readonly ColumnDecoder[] {
+  const decoders: ColumnDecoder[] = [];
+  const visited = new Set<string>();
+  for (const field of fields) {
+    // Preserve established behavior: the first metadata entry for a row property owns its decoding.
+    if (visited.has(field.name)) continue;
+    visited.add(field.name);
+    const decode = compileValueDecoder(field, typePolicy, decimal);
+    if (decode !== undefined) decoders.push({ name: field.name, decode });
+  }
+  return decoders;
+}
+
+function decodeRows(
+  rows: readonly Record<string, unknown>[],
+  decoders: readonly ColumnDecoder[],
+): readonly Record<string, unknown>[] {
+  if (decoders.length === 0) return rows;
+  // Keep driver objects intact until a codec produces a different value for that specific row.
+  let decodedRows: Record<string, unknown>[] | undefined;
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex]!;
+    let decodedRow: Record<string, unknown> | undefined;
+    for (const column of decoders) {
+      if (!Object.prototype.propertyIsEnumerable.call(row, column.name)) continue;
+      const value = row[column.name];
+      const decoded = column.decode(value);
+      if (Object.is(decoded, value)) continue;
+      decodedRow ??= { ...row };
+      decodedRow[column.name] = decoded;
+    }
+    if (decodedRow === undefined) continue;
+    decodedRows ??= rows.slice() as Record<string, unknown>[];
+    decodedRows[rowIndex] = decodedRow;
+  }
+  return decodedRows ?? rows;
 }
 
 class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #pool: MySqlPoolLike;
   readonly #connection: MySqlConnectionLike | undefined;
   readonly #ownsPool: boolean;
-  readonly #policy: NonNullable<MySqlDatabaseOptions["typePolicy"]>;
+  readonly #typePolicy: ResolvedMySqlRuntimeTypePolicy;
   readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #depth: number;
 
@@ -105,14 +165,14 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     pool: MySqlPoolLike,
     connection: MySqlConnectionLike | undefined,
     ownsPool: boolean,
-    policy: NonNullable<MySqlDatabaseOptions["typePolicy"]>,
+    typePolicy: ResolvedMySqlRuntimeTypePolicy,
     decimal: ((value: string) => unknown) | undefined,
     depth: number,
   ) {
     this.#pool = pool;
     this.#connection = connection;
     this.#ownsPool = ownsPool;
-    this.#policy = policy;
+    this.#typePolicy = typePolicy;
     this.#decimal = decimal;
     this.#depth = depth;
   }
@@ -121,15 +181,8 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     const rendered = renderQuery(query, mysqlRenderer);
     const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encoded));
     if (!Array.isArray(result.rows)) return [];
-    const fields = result.fields ?? [];
-    return result.rows.map((row) =>
-      Object.fromEntries(
-        Object.entries(row).map(([key, value]) => {
-          const field = fields.find((candidate) => candidate.name === key);
-          return [key, field === undefined ? value : decode(value, field, this.#policy, this.#decimal)];
-        }),
-      ),
-    ) as unknown as readonly Row[];
+    const decoders = compileRowDecoders(result.fields ?? [], this.#typePolicy, this.#decimal);
+    return decodeRows(result.rows, decoders) as unknown as readonly Row[];
   }
 
   async transaction<T>(fn: (database: Database) => Promise<T>): Promise<T> {
@@ -138,7 +191,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     try {
       await connection.beginTransaction();
       const result = await fn(
-        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#policy, this.#decimal, 1),
+        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#typePolicy, this.#decimal, 1),
       );
       await connection.commit();
       return result;
@@ -161,7 +214,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     await connection.query(`SAVEPOINT ${savepoint}`);
     try {
       const result = await fn(
-        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#policy, this.#decimal, depth),
+        new MySqlDatabaseImplementation(this.#pool, connection, false, this.#typePolicy, this.#decimal, depth),
       );
       await connection.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
@@ -178,14 +231,14 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
 }
 
 export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabase {
-  const policy = { ...defaultRuntimePolicy, ...options.typePolicy };
-  if (policy.decimal === "Decimal" && options.decimal === undefined)
+  const typePolicy: ResolvedMySqlRuntimeTypePolicy = { ...defaultRuntimeTypePolicy, ...options.typePolicy };
+  if (typePolicy.decimal === "Decimal" && options.decimal === undefined)
     throw new TypeError("decimal=Decimal requires a decimal(value) codec");
   return new MySqlDatabaseImplementation(
     options.pool,
     undefined,
     options.ownsPool ?? false,
-    policy,
+    typePolicy,
     options.decimal,
     0,
   );
