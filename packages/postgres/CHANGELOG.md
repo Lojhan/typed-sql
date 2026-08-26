@@ -1,5 +1,12 @@
 # @typed-sql/postgres
 
+## 1.0.0-beta.3
+
+### Patch Changes
+
+- Updated dependencies [69c7d87]
+  - @typed-sql/core@1.0.0-beta.3
+
 ## 1.0.0-beta.2
 
 ### Patch Changes

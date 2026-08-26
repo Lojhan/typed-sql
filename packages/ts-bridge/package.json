@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/ts-bridge",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "description": "Experimental TypeScript 7 preview semantic bridge for typed-sql query inference.",
   "license": "MIT",
   "author": "Lojhan",
