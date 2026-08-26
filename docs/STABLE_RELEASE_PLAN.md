@@ -1,19 +1,20 @@
 # Stable 1.0 Release Plan
 
-This document tracks the work required before publishing the first stable typed-sql release. It is
-more detailed than [`RELEASING.md`](./RELEASING.md): that document defines the release mechanism,
-while this one defines the temporary path from the current beta to `1.0.0`.
+This document tracks only the work still required before publishing the first stable typed-sql
+release. [`RELEASING.md`](./RELEASING.md) defines the permanent release mechanism; completed
+readiness work is documented by the focused contracts linked from the root README.
 
 ## Current position
 
-The package architecture, PostgreSQL and MySQL integrations, test infrastructure, trusted npm
-publishing, provenance, security release enforcement, and repository protections are in place. The
-current public release line is `1.0.0-beta.*` under the npm `next` tag.
+The package architecture, PostgreSQL and MySQL integrations, grammar contract, frozen public API,
+typed parameters and structural fragments, editor reliability, security enforcement, repository
+protections, trusted npm publishing, registry-only acceptance, and no-write stable rehearsal are in
+place.
 
-The project is not ready to publish under `latest` yet. Stable promotion is blocked by an
-unrehearsed stable version transition and insufficient external beta soak time. Packed external
-editor startup, schema reload, restart, and multi-root behavior are enforced. The registry-only
-consumer gate now runs the same real-database scenarios against npm `next` before stable promotion.
+The project is not ready to publish under `latest` yet. npm `next` must first receive one coherent
+beta containing the current package graph—the registry gate correctly rejects the older mixed beta
+currently published. That candidate must then complete the representative consumer soak and final
+documentation review.
 
 ## Definition of ready
 
@@ -21,177 +22,24 @@ The stable release is ready when all of the following are true:
 
 - a clean external project installs typed-sql exclusively from npm and passes the PostgreSQL,
   MySQL, TypeScript, generation, execution, drift, server, and editor scenarios;
-- the complete prerelease-to-stable transition has been rehearsed without publishing;
-- the intended stable packages are exactly `1.0.0`, with correct internal dependency ranges,
-  changelogs, exports, declarations, and tarball contents;
-- an RC has been exercised in independent projects for the agreed soak period;
+- the exact release candidate has completed the agreed representative-consumer soak;
 - no open correctness issue can cause typed-sql to confidently report an incorrect row type;
-- the stability boundary for the TypeScript preview bridge and editor tooling is explicit;
-- the public query and parameter-typing contract is intentionally frozen;
+- the public docs describe the frozen API, supported versions, experimental boundaries, and known
+  limitations without workspace-only instructions;
 - protected CI passes on the exact commit that is published;
 - npm `latest`, GitHub tags, GitHub releases, and provenance all agree on the stable version.
 
-## Milestone 1: Prove a registry-only user installation
+## Milestone 1: Publish and soak the final candidate
 
-Implemented by [`pnpm e2e:registry`](./REGISTRY_ACCEPTANCE.md). The protected stable Release workflow
-runs it against npm `next` before any write to `latest`.
-
-The external playground currently installs local `vendor` tarballs and uses pnpm overrides. This is
-useful for packed-artifact testing, but it does not prove that the published npm graph works exactly
-as a user receives it.
-
-Create a clean registry mode in `typed-sql-playground` that:
-
-- installs `@typed-sql/*@next` from npm;
-- contains no workspace links, `file:` dependencies, local tarballs, or typed-sql overrides;
-- starts fresh from an empty `node_modules` and a newly resolved lockfile;
-- installs database drivers only in the consumer project;
-- generates PostgreSQL and MySQL artifacts from real schemas;
-- typechecks with the supported TypeScript 7 version;
-- verifies exact inferred result types for simple and complex queries;
-- exercises CTEs, joins, aliases, nullable relations, enums, database functions, and parameters;
-- executes the generated queries against real PostgreSQL and MySQL containers;
-- exercises the fake GET server and verifies its response type and runtime output;
-- detects schema drift for both dialects;
-- starts the language server from the installed package;
-- verifies the documented Zed and VS Code installation paths outside the monorepo.
-
-Acceptance criteria:
-
-- one reproducible command provisions databases, installs registry packages, generates artifacts,
-  typechecks, executes runtime tests, checks drift, and shuts down cleanly;
-- the test fails if any typed-sql package resolves from the repository or local filesystem;
-- the installed package graph contains no database driver unless the consumer selected it;
-- editor hover output shows the same exact row types as the compiler result.
-
-## Milestone 2: Enforce the decided 1.0 package boundary
-
-The core inference path targets TypeScript 7, while `@typed-sql/ts-bridge` currently uses a
-TypeScript 7.1 development snapshot and the editor integrations still have development-oriented
-installation paths. A stable version must not imply a stronger compatibility promise than the
-upstream API allows.
-
-Decision:
-
-- stabilize `@typed-sql/core`, `ast`, `schema`, `config`, `compiler`, `postgres`, `mysql`, and `cli`;
-- keep `@typed-sql/ts-bridge` and `@typed-sql/language-server` explicitly experimental until the
-  TypeScript API they require is stable;
-- keep editor extensions experimental until their supported installation and upgrade paths are
-  tested outside the repository;
-- encode the split in `release-manifest.json`, each packed package manifest, stable release
-  assertions, entrypoint contract tests, and [the public API contract](./PUBLIC_API.md).
-
-The package boundary is frozen. External editor installation is exercised from packed PostgreSQL
-and MySQL consumers without repository-relative binary paths. The preview-backed packages remain on
-the experimental prerelease train; the private VS Code and Zed integrations remain `0.1.x` until
-their editor-store distribution paths are supported.
-
-Acceptance criteria:
-
-- the selected package boundary is represented in release automation, manifests, documentation,
-  compatibility tables, and npm dist-tags;
-- experimental packages are unmistakably labeled and do not receive a misleading stable tag;
-- supported editors have a user-facing installation procedure that does not rely on the monorepo.
-
-## Milestone 3: Preserve the frozen public query contract
-
-The parameter direction is implemented: the public contract is `Query<Row, Parameters>`, where
-`Parameters` is an ordered readonly tuple. PostgreSQL and MySQL infer positions from comparisons,
-casts, DML targets, ranges, limits, and catalog functions. Insufficient or conflicting evidence is
-represented as `unknown`. Dialect contract version 3 makes parameter analysis, identifier quoting,
-and grammar-owned capabilities explicit for third-party grammars. Typed
-`SqlFragment<Parameters>` composition supports nullable `AND`/`OR` filter tuples while a statically
-analyzed base query continues to own the result row.
-
-The 1.0 contract is recorded in [Public API and stability boundary](./PUBLIC_API.md). Stable package
-roots explicitly enumerate their exported types and values. Runtime exports, entrypoints,
-executables, generic order, query variance, ordered parameters, composition, and adapter return
-types have contract tests. Internal compiler structural helpers are no longer package-root exports.
-
-Ongoing work:
-
-- document the supported SQL/type behavior and the deliberately unsupported cases;
-
-The fail-closed classification is enforced by the shared
-[inference soundness corpus](./SOUNDNESS.md). PostgreSQL and MySQL cases classify exact inference,
-conservative `unknown`, and stable diagnostics, while compiler, CLI, bridge, and editor runners
-assert equivalent transformed output and original-source diagnostic mapping. A confidently wrong
-inference is a release-blocking correctness defect, and every correction requires a minimal corpus
-regression.
-
-Runtime fidelity is enforced by the live [codec matrix](./CODEC_FIDELITY.md). Catalog types,
-generated types, inferred row/parameter contracts, driver metadata, and decoded values are tested
-together for PostgreSQL/`pg` and MySQL/`mysql2`, including unsafe integers, exact decimals, dates,
-JSON, binary values, arrays, enums, nullability, joins, aggregates, and functions. Decoder-changing
-driver settings are either owned by the adapter or rejected before connecting.
-
-Grammar neutrality is enforced by one public conformance harness shared by PostgreSQL, MySQL, and a
-synthetic third-party grammar. The packed-consumer gate installs that external grammar from package
-tarballs, compiles and renders a query, checks grammar/snapshot compatibility, and proves unsupported
-SQL fails closed. Neutral package scans reject dialect names, driver dependencies, and dialect SQL
-features in core, compiler, config, and schema sources. The public author contract is documented in
-[Authoring a SQL grammar](./GRAMMAR_AUTHORING.md).
-
-Structural and editor performance is enforced against production builds by the versioned
-[performance gate](./PERFORMANCE.md). It reports p50, p95, variance, retained heap, throughput, and
-runtime/CPU context. Correlated and independent condition counts are asserted directly, and
-`TSQ003` must stop over-limit expansion before a grammar is invoked.
-
-Acceptance criteria:
-
-- parameter typing is documented and covered by positive, negative, grammar, compiler, and editor tests;
-- all stable exports have intentional names, generic ordering, variance, and runtime behavior;
-- no generated-path import is required for the normal public API.
-
-## Milestone 4: Rehearse stable versioning and publication
-
-The repository remains in Changesets prerelease mode and `release-manifest.json` still declares the
-beta channel. The entire transition must be tested on a disposable branch or isolated worktree
-without publishing to npm.
-
-Rehearsal sequence:
-
-```sh
-pnpm changeset pre exit
-pnpm version-packages
-pnpm release:assert stable
-pnpm release:verify
-```
-
-The rehearsal must additionally inspect every `pnpm pack` result and simulate the stable publisher's
-package order and retry behavior.
-
-Work:
-
-- add automated coverage for the stable release path, not only the beta publisher;
-- test the current prerelease state before relying on `changeset pre exit`;
-- switch the rehearsed manifest to `channel: stable` and `npmTag: latest`;
-- ensure only the selected stable packages become exactly `1.0.0`;
-- verify internal dependency ranges resolve to the intended stable or experimental versions;
-- verify all package changelogs and the root release notes;
-- test interrupted and partially completed publication recovery;
-- confirm that a stable workflow dispatch cannot publish a beta version or use the `next` tag.
-
-Acceptance criteria:
-
-- the rehearsal produces a deterministic, reviewable diff;
-- `release:assert stable` and the complete CI suite pass;
-- clean tarball installations succeed without workspace metadata;
-- the stable publisher is safe to retry after any package boundary;
-- no command in the rehearsal writes to npm or creates a public GitHub release.
-
-## Milestone 5: Publish a final beta and release candidate
-
-After the security, registry-consumer, API, and release-path work is complete:
-
-1. publish the fixes as the next beta, expected to be `beta.3` or later;
-2. run the complete registry-only playground against that beta;
-3. publish `1.0.0-rc.0` under `next` once the beta is clean;
-4. test the RC in independent projects that do not share the monorepo configuration;
-5. allow an agreed soak period, recommended as one to two weeks;
-6. require at least three representative consumers across PostgreSQL, MySQL, and editor usage;
-7. publish another RC whenever a release-blocking fix changes generated output, inference,
-   runtime contracts, package exports, or release mechanics.
+1. Merge the remaining prerelease changes and publish one coherent beta under `next`.
+2. Run [`pnpm e2e:registry`](./REGISTRY_ACCEPTANCE.md) against that beta from a clean npm-only
+   consumer.
+3. Publish `1.0.0-rc.0` under `next` once the beta is clean.
+4. Test the RC in independent projects that do not share monorepo configuration.
+5. Allow an agreed soak period, recommended as one to two weeks.
+6. Require at least three representative consumers across PostgreSQL, MySQL, and editor usage.
+7. Publish another RC whenever a release-blocking fix changes generated output, inference, runtime
+   contracts, package exports, or release mechanics.
 
 During the soak, track:
 
@@ -207,71 +55,64 @@ During the soak, track:
 Acceptance criteria:
 
 - the agreed soak period completes without an unresolved release-blocking issue;
-- all representative projects can upgrade using only npm versions;
+- all representative projects upgrade using only npm versions;
 - generated output is deterministic and checked into consumers without unexplained churn;
 - every reported correctness issue has a regression test before resolution.
 
-## Milestone 6: Repository and documentation cleanup
+## Milestone 2: Finish stable documentation
 
 Before the stable version PR:
 
 - remove the stale deleted-document reference from `.changeset/README.md`;
 - make the root README show the registry-first installation and stable package boundary;
-- ensure package READMEs describe only exports and commands that exist in their packed artifacts;
-- update compatibility documentation with exact TypeScript, Node.js, PostgreSQL, MySQL, pg, mysql2,
-  Zed, and VS Code support levels;
+- ensure package READMEs describe only exports and commands present in packed artifacts;
+- update compatibility documentation with exact TypeScript, Node.js, PostgreSQL, MySQL, `pg`,
+  `mysql2`, Zed, and VS Code support levels;
 - document which editor functionality is stable and which remains experimental;
+- document supported SQL/type behavior and deliberately unsupported cases;
 - verify every local documentation link and command from a clean checkout;
-- prepare concise stable release notes with known limitations and upgrade guidance.
+- prepare concise stable release notes with known limitations and upgrade guidance;
+- give every open dependency-update PR an explicit disposition.
 
 Acceptance criteria:
 
 - no stale roadmap, deleted-document, workspace-only, or prerelease instruction remains in stable
   user documentation;
 - documentation commands pass when copied into a clean external project;
-- open dependency-update PRs have an explicit disposition before the version commit.
+- the release notes accurately describe the stable and experimental package trains.
 
-## Milestone 7: Publish `1.0.0`
+## Milestone 3: Publish `1.0.0`
 
-Create a dedicated version PR only after every previous milestone is complete.
+Run the final no-write rehearsal on the release candidate:
 
-Version PR checklist:
+```sh
+TYPED_SQL_CONTAINER_ENGINE=podman pnpm release:rehearse
+```
 
-- exit Changesets prerelease mode;
-- set the release manifest to the stable channel and `latest` npm tag;
+Review and apply `artifacts/stable-rehearsal/stable-release.diff` in a dedicated version PR. The PR
+must:
+
 - set every selected stable package to exactly `1.0.0`;
-- preserve explicit prerelease versions for packages outside the stable boundary;
-- update every internal dependency range;
-- update package changelogs and release notes;
-- run the complete protected CI suite on the exact proposed commit;
-- review packed contents and install them in isolation;
-- obtain the required repository and npm environment approvals.
+- preserve explicit prerelease versions and pending Changesets for experimental packages;
+- change the release manifest to `stable` and `latest`;
+- update internal dependency ranges, stable changelogs, and root release notes;
+- pass the complete protected CI suite on the exact proposed commit;
+- include review of every packed artifact and the isolated installation report;
+- obtain the required repository and npm-environment approvals.
 
 After the version PR merges:
 
-1. dispatch the protected Release workflow with channel `stable`;
+1. dispatch the protected Release workflow with channel `stable` from `main`;
 2. verify every expected npm version and dist-tag;
 3. verify provenance and the trusted GitHub publisher identity for every package;
-4. verify immutable Git tags and the GitHub release point to the published commit;
+4. verify immutable Git tags and GitHub releases point to the published commit;
 5. install `@typed-sql/*@latest` into a new empty project;
-6. rerun the registry-only PostgreSQL and MySQL smoke tests;
-7. verify that `next` remains intentional and does not unexpectedly replace `latest`;
+6. rerun the registry-only PostgreSQL and MySQL acceptance suite;
+7. verify `next` remains intentional and does not unexpectedly replace `latest`;
 8. announce the stable release only after all registry and runtime checks pass.
 
-## Release sequence
+## Stop conditions
 
-The intended order is:
-
-1. complete the registry-only playground;
-2. decide the package stability boundary;
-3. freeze the public query contract;
-4. rehearse the stable transition and recovery path;
-5. publish the final beta;
-6. publish and soak an RC in independent projects;
-7. finish repository and documentation cleanup;
-8. merge the stable version PR;
-9. publish and verify `1.0.0`.
-
-Stable promotion must stop if any step reveals a confidently wrong inferred type, an unsafe release
-path, a broken clean registry installation, or a security issue that meets the release-blocking
-threshold.
+Stable promotion stops for a confidently wrong inferred type, unsafe release behavior, a broken
+clean registry installation, a release-blocking security issue, an unresolved RC regression, or a
+documentation gap that prevents a supported consumer from installing and validating the library.

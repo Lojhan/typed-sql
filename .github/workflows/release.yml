@@ -52,7 +52,7 @@ jobs:
           script: pnpm version-packages
 
   publish:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: npm
     permissions:

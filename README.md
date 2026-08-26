@@ -349,6 +349,7 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:registry
 - [Performance budgets and methodology](./docs/PERFORMANCE.md)
 - [Compatibility and performance](./docs/COMPATIBILITY.md)
 - [Releasing](./docs/RELEASING.md)
+- [Stable release rehearsal](./docs/STABLE_REHEARSAL.md)
 - [Registry-only acceptance](./docs/REGISTRY_ACCEPTANCE.md)
 - [Diagnostic code registry](./packages/core/README.md#diagnostics)
 - [Security policy](./SECURITY.md)

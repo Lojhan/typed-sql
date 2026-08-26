@@ -15,6 +15,13 @@ Every public package repeats that value as `typedSql.releaseTrack` in its packed
    - `beta` for `1.0.0-beta.*`, published under `next`;
    - `stable` only after prerelease mode has been exited, published under `latest`.
 
+Before creating the stable version PR, run the isolated, no-write rehearsal documented in
+[`STABLE_REHEARSAL.md`](./STABLE_REHEARSAL.md):
+
+```sh
+TYPED_SQL_CONTAINER_ENGINE=podman pnpm release:rehearse
+```
+
 The version job has no npm/OIDC authority. The publish job runs on a GitHub-hosted runner, has
 `id-token: write`, is restricted to protected `main`, and requires approval through the `npm`
 environment.
@@ -52,12 +59,13 @@ The release job uses Node 24 and npm 12.0.2. OIDC creates short-lived credential
 attaches provenance because both repository and packages are public. No long-lived npm token belongs
 in GitHub or the repository.
 
-Beta registry publication is intentionally separate from Changesets' prerelease publish planner.
+Registry publication is intentionally separate from Changesets' publish planner.
 The planner cannot represent `-beta.N` versions published under the independent `next` dist-tag.
 `release:beta` instead follows `release-manifest.json` deterministically, checks npm before every
 write for retry safety, supports independently versioned packages in the same release graph, packs
 workspace-resolved tarballs with pnpm, publishes them through npm's native OIDC client, and asks
-Changesets to create tags only after every package is published.
+Changesets to create tags only after every package is published. Stable uses the same retry-safe
+publisher, restricted to the stable package train and the `latest` tag.
 
 After trusted publishing is operational, package settings should require 2FA and disallow
 traditional tokens. See [npm trusted publishers](https://docs.npmjs.com/trusted-publishers/).
@@ -68,13 +76,13 @@ Do not promote `latest` until registry installs work without workspace overrides
 MySQL packed E2E remain green through the beta soak, editor installation has been exercised outside
 this repository, and no open correctness issue can produce a confidently wrong row type.
 
-Create a dedicated release PR with `pnpm changeset pre exit` followed by
-`pnpm version-packages`. It must set the packages in `packagePolicy.stable` to stable `1.0.0`, keep
-`packagePolicy.experimental` on explicit prerelease versions, update internal ranges, remove the
-stable train's prerelease state, and update changelogs. Stable assertions reject experimental
-packages in the `latest` publication set. After protected CI passes and the PR merges, dispatch the
-Release workflow with channel `stable` and confirm `latest` points to `1.0.0` only for the stable
-train.
+Create the dedicated release PR from `artifacts/stable-rehearsal/stable-release.diff`. It sets the
+packages in `packagePolicy.stable` to stable `1.0.0`, keeps `packagePolicy.experimental` on explicit
+prerelease versions with their pending Changesets intact, updates internal ranges, removes the
+stable train's prerelease state, and updates stable changelogs. Stable assertions reject
+experimental packages in the `latest` publication set. After protected CI passes and the PR merges,
+dispatch the Release workflow with channel `stable` and confirm `latest` points to `1.0.0` only for
+the stable train.
 
 ## Recovery rules
 
