@@ -38,11 +38,11 @@ import type {
 import * as coreApi from "../../packages/core/src/index.js";
 import * as mysqlApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
-import type { MySqlDatabase } from "../../packages/mysql/src/runtime.js";
+import type { MySqlDatabase, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import * as postgresApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
-import type { PostgresDatabase } from "../../packages/postgres/src/runtime.js";
+import type { PostgresDatabase, PostgresTransaction } from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 
@@ -109,6 +109,12 @@ type PostgresAdapter = Awaited<ReturnType<typeof pgApi.createPgDatabase>>;
 type MySqlAdapter = Awaited<ReturnType<typeof mysql2Api.createMySql2Database>>;
 const postgresAdapter: Assert<Equal<PostgresAdapter, PostgresDatabase>> = true;
 const mysqlAdapter: Assert<Equal<MySqlAdapter, MySqlDatabase>> = true;
+type PostgresTransactionScope = Parameters<Parameters<PostgresDatabase["transaction"]>[0]>[0];
+type MySqlTransactionScope = Parameters<Parameters<MySqlDatabase["transaction"]>[0]>[0];
+const postgresTransaction: Assert<Equal<PostgresTransactionScope, PostgresTransaction>> = true;
+const mysqlTransaction: Assert<Equal<MySqlTransactionScope, MySqlTransaction>> = true;
+const postgresTransactionOmitsClose: Assert<Equal<Extract<keyof PostgresTransaction, "close">, never>> = true;
+const mysqlTransactionOmitsClose: Assert<Equal<Extract<keyof MySqlTransaction, "close">, never>> = true;
 
 type ReferencedStableTypes =
   | CheckFileOptions
@@ -147,6 +153,10 @@ void enrichedTransactionContract;
 void enrichedIsDefaultCompatible;
 void postgresAdapter;
 void mysqlAdapter;
+void postgresTransaction;
+void mysqlTransaction;
+void postgresTransactionOmitsClose;
+void mysqlTransactionOmitsClose;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {

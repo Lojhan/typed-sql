@@ -7,7 +7,12 @@ import {
   type PostgresPoolLike,
   type PostgresQueryConfig,
   type PostgresQueryResult,
+  type PostgresTransaction,
 } from "../src/runtime.js";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
+type Assert<Value extends true> = Value;
 
 class MockClient implements PostgresClientLike {
   readonly calls: (PostgresQueryConfig | string)[] = [];
@@ -134,8 +139,14 @@ await describe("PostgreSQL runtime adapter", async () => {
     const pool = new MockPool();
     const db = createPostgresDatabase({ pool });
     await db.transaction(async (transaction) => {
+      const exactTransactionScope: Assert<Equal<typeof transaction, PostgresTransaction>> = true;
+      const transactionOmitsClose: Assert<Equal<Extract<keyof typeof transaction, "close">, never>> = true;
+      void exactTransactionScope;
+      void transactionOmitsClose;
       await transaction.execute(sql`SELECT id FROM users`);
       await transaction.transaction(async (nested) => {
+        const exactNestedScope: Assert<Equal<typeof nested, PostgresTransaction>> = true;
+        void exactNestedScope;
         await nested.execute(sql`SELECT id FROM users`);
       });
     });

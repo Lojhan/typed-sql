@@ -33,7 +33,9 @@ export interface PostgresPoolLike {
   end(): Promise<void>;
 }
 
-export interface PostgresDatabase extends Database {
+export interface PostgresTransaction extends Database<PostgresTransaction> {}
+
+export interface PostgresDatabase extends Database<PostgresTransaction> {
   close(): Promise<void>;
 }
 
@@ -188,7 +190,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     return result.rows as readonly Row[];
   }
 
-  async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
     let result: T;
@@ -213,7 +215,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     return result;
   }
 
-  async #nestedTransaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
+  async #nestedTransaction<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
     const client = this.#client!;
     const depth = this.#transactionDepth + 1;
     const savepoint = `typed_sql_${depth}`;

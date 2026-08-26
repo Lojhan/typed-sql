@@ -10,10 +10,24 @@ import {
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,
+  type MySqlDatabase,
   type MySqlExecutionResult,
   type MySqlPoolLike,
+  type MySqlTransaction,
   mysqlRenderer,
 } from "../src/runtime.js";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
+type Assert<Value extends true> = Value;
+type TransactionCallbackScope = Parameters<Parameters<MySqlDatabase["transaction"]>[0]>[0];
+type NestedTransactionCallbackScope = Parameters<Parameters<MySqlTransaction["transaction"]>[0]>[0];
+
+const transactionScopeIsExact: Assert<Equal<TransactionCallbackScope, MySqlTransaction>> = true;
+const nestedTransactionScopeIsExact: Assert<Equal<NestedTransactionCallbackScope, MySqlTransaction>> = true;
+const transactionScopeOmitsClose: Assert<Equal<Extract<keyof MySqlTransaction, "close">, never>> = true;
+const rootDatabaseRetainsClose: Assert<Equal<Extract<keyof MySqlDatabase, "close">, "close">> = true;
+void [transactionScopeIsExact, nestedTransactionScopeIsExact, transactionScopeOmitsClose, rootDatabaseRetainsClose];
 
 class CatalogClient implements MySqlQueryable {
   readonly calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];

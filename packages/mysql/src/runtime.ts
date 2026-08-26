@@ -27,7 +27,9 @@ export interface MySqlPoolLike {
   end(): Promise<void>;
 }
 
-export interface MySqlDatabase extends Database {
+export interface MySqlTransaction extends Database<MySqlTransaction> {}
+
+export interface MySqlDatabase extends Database<MySqlTransaction> {
   close(): Promise<void>;
 }
 
@@ -185,7 +187,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     return decodeRows(result.rows, decoders) as unknown as readonly Row[];
   }
 
-  async transaction<T>(fn: (database: Database) => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (database: MySqlTransaction) => Promise<T>): Promise<T> {
     if (this.#connection !== undefined) return this.#nested(fn);
     const connection = await this.#pool.getConnection();
     let result: T;
@@ -212,7 +214,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     return result;
   }
 
-  async #nested<T>(fn: (database: Database) => Promise<T>): Promise<T> {
+  async #nested<T>(fn: (database: MySqlTransaction) => Promise<T>): Promise<T> {
     const connection = this.#connection!;
     const depth = this.#depth + 1;
     const savepoint = `typed_sql_${depth}`;
