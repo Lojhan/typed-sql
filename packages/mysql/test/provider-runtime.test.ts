@@ -71,14 +71,19 @@ class CatalogClient implements MySqlQueryable {
 
 class FakeConnection implements MySqlConnectionLike {
   readonly commands: string[] = [];
-  released = false;
+  releaseCount = 0;
+  rollbackCount = 0;
+  failRelease = false;
   failRollback = false;
+  failRollbackToSavepoint = false;
   async execute(sqlText: string): Promise<MySqlExecutionResult> {
     this.commands.push(sqlText);
     return resultRows();
   }
   async query(sqlText: string): Promise<MySqlExecutionResult> {
     this.commands.push(sqlText);
+    if (this.failRollbackToSavepoint && sqlText.startsWith("ROLLBACK TO SAVEPOINT"))
+      throw new Error("savepoint rollback failed");
     return { rows: [] };
   }
   async beginTransaction(): Promise<void> {
@@ -89,10 +94,12 @@ class FakeConnection implements MySqlConnectionLike {
   }
   async rollback(): Promise<void> {
     this.commands.push("ROLLBACK");
+    this.rollbackCount += 1;
     if (this.failRollback) throw new Error("rollback failed");
   }
   release(): void {
-    this.released = true;
+    this.releaseCount += 1;
+    if (this.failRelease) throw new Error("release failed");
   }
 }
 
@@ -224,13 +231,79 @@ await describe("MySQL provider and runtime", async () => {
         }),
       /original/,
     );
-    strict.strictEqual(pool.connection.released, true);
+    strict.ok(pool.connection.releaseCount > 0);
     await strict.rejects(
       () => database.transaction(async (transaction) => (transaction as typeof database).close()),
       /Cannot close/,
     );
     await database.close();
     strict.strictEqual(pool.ended, false);
+  });
+
+  await it("preserves nested failures when rolling back a savepoint also fails", async () => {
+    const pool = new FakePool();
+    pool.connection.failRollbackToSavepoint = true;
+    pool.connection.failRelease = true;
+    const database = createMySqlDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) =>
+          transaction.transaction(async () => {
+            throw new Error("original nested failure");
+          }),
+        ),
+      /original nested failure/,
+    );
+
+    strict.deepStrictEqual(pool.connection.commands, [
+      "BEGIN",
+      "SAVEPOINT typed_sql_2",
+      "ROLLBACK TO SAVEPOINT typed_sql_2",
+      "ROLLBACK",
+    ]);
+    strict.strictEqual(pool.connection.rollbackCount, 1);
+    strict.strictEqual(pool.connection.releaseCount, 1);
+  });
+
+  await it("preserves decoder failures across outer and nested transaction cleanup", async () => {
+    const createUnsafeDatabase = (pool: FakePool) =>
+      createMySqlDatabase({
+        pool,
+        typePolicy: { bigint: "number", decimal: "string", date: "Date", json: "unknown", tinyint1: "boolean" },
+      });
+
+    const outerPool = new FakePool();
+    outerPool.connection.failRelease = true;
+    outerPool.connection.failRollback = true;
+    await strict.rejects(
+      () => createUnsafeDatabase(outerPool).transaction(async (transaction) => transaction.execute(sql`SELECT 1`)),
+      /safe integer range/,
+    );
+    strict.deepStrictEqual(outerPool.connection.commands, ["BEGIN", "SELECT 1", "ROLLBACK"]);
+    strict.strictEqual(outerPool.connection.rollbackCount, 1);
+    strict.strictEqual(outerPool.connection.releaseCount, 1);
+
+    const nestedPool = new FakePool();
+    nestedPool.connection.failRelease = true;
+    nestedPool.connection.failRollbackToSavepoint = true;
+    nestedPool.connection.failRollback = true;
+    await strict.rejects(
+      () =>
+        createUnsafeDatabase(nestedPool).transaction(async (transaction) =>
+          transaction.transaction(async (nested) => nested.execute(sql`SELECT 1`)),
+        ),
+      /safe integer range/,
+    );
+    strict.deepStrictEqual(nestedPool.connection.commands, [
+      "BEGIN",
+      "SAVEPOINT typed_sql_2",
+      "SELECT 1",
+      "ROLLBACK TO SAVEPOINT typed_sql_2",
+      "ROLLBACK",
+    ]);
+    strict.strictEqual(nestedPool.connection.rollbackCount, 1);
+    strict.strictEqual(nestedPool.connection.releaseCount, 1);
   });
 
   await it("enforces lossless numeric policies and explicit decimal codecs", async () => {

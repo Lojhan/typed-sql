@@ -12,6 +12,7 @@ export type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  TransactionDatabase,
   TransactionRunner,
 } from "./query.js";
 export { createDatabase, renderQuery, sql } from "./query.js";

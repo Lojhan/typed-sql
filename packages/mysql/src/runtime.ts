@@ -188,23 +188,28 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async transaction<T>(fn: (database: Database) => Promise<T>): Promise<T> {
     if (this.#connection !== undefined) return this.#nested(fn);
     const connection = await this.#pool.getConnection();
+    let result: T;
     try {
       await connection.beginTransaction();
-      const result = await fn(
+      result = await fn(
         new MySqlDatabaseImplementation(this.#pool, connection, false, this.#typePolicy, this.#decimal, 1),
       );
       await connection.commit();
-      return result;
     } catch (error) {
       try {
         await connection.rollback();
       } catch {
         /* Preserve the original failure. */
       }
+      try {
+        connection.release();
+      } catch {
+        /* Preserve the original failure. */
+      }
       throw error;
-    } finally {
-      connection.release();
     }
+    connection.release();
+    return result;
   }
 
   async #nested<T>(fn: (database: Database) => Promise<T>): Promise<T> {
@@ -219,7 +224,11 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       await connection.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
-      await connection.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      try {
+        await connection.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      } catch {
+        /* Preserve the original failure. */
+      }
       throw error;
     }
   }

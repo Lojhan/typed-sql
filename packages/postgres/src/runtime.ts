@@ -191,21 +191,26 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
+    let result: T;
     try {
       await client.query("BEGIN");
-      const result = await fn(new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1));
+      result = await fn(new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1));
       await client.query("COMMIT");
-      return result;
     } catch (error) {
       try {
         await client.query("ROLLBACK");
       } catch {
         /* Preserve the original error. */
       }
+      try {
+        client.release();
+      } catch {
+        /* Preserve the original error. */
+      }
       throw error;
-    } finally {
-      client.release();
     }
+    client.release();
+    return result;
   }
 
   async #nestedTransaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
@@ -218,7 +223,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       await client.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
-      await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      try {
+        await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      } catch {
+        /* Preserve the original callback, query, or release error. */
+      }
       throw error;
     }
   }

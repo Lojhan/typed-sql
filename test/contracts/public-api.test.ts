@@ -31,6 +31,7 @@ import type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  TransactionDatabase,
   TransactionRunner,
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
@@ -73,6 +74,37 @@ function executionContract(database: Database, query: ExactQuery): Promise<reado
   return database.execute(query);
 }
 
+function defaultTransactionContract(database: Database, query: ExactQuery): Promise<readonly Account[]> {
+  return database.transaction(async (transaction) => {
+    const compatible: Database = transaction;
+    void compatible;
+    return transaction.execute(query);
+  });
+}
+
+interface EnrichedTransaction extends Database<EnrichedTransaction> {
+  explain<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<string>;
+}
+
+interface EnrichedDatabase extends Database<EnrichedTransaction> {
+  close(): Promise<void>;
+}
+
+function enrichedTransactionContract(database: EnrichedDatabase, query: ExactQuery): Promise<string> {
+  return database.transaction(async (transaction) => {
+    const retainedCapability: Promise<string> = transaction.explain(query);
+    await transaction.transaction(async (nested) => {
+      const nestedCapability: Promise<string> = nested.explain(query);
+      void nestedCapability;
+    });
+    // @ts-expect-error transaction scopes retain adapter capabilities without exposing root lifecycle methods
+    await transaction.close();
+    return retainedCapability;
+  });
+}
+
+const enrichedIsDefaultCompatible: Assert<Assignable<EnrichedDatabase, Database>> = true;
+
 type PostgresAdapter = Awaited<ReturnType<typeof pgApi.createPgDatabase>>;
 type MySqlAdapter = Awaited<ReturnType<typeof mysql2Api.createMySql2Database>>;
 const postgresAdapter: Assert<Equal<PostgresAdapter, PostgresDatabase>> = true;
@@ -99,6 +131,7 @@ type ReferencedStableTypes =
   | SqlRenderer
   | SqlSegment
   | SqlTag
+  | TransactionDatabase
   | TransactionRunner
   | TypedSqlConfig;
 
@@ -109,6 +142,9 @@ void parametersInvariant;
 void composedParameters;
 void emptyParameters;
 void executionContract;
+void defaultTransactionContract;
+void enrichedTransactionContract;
+void enrichedIsDefaultCompatible;
 void postgresAdapter;
 void mysqlAdapter;
 void (undefined as unknown as ReferencedStableTypes);

@@ -11,20 +11,35 @@ import {
 
 class MockClient implements PostgresClientLike {
   readonly calls: (PostgresQueryConfig | string)[] = [];
-  released = false;
+  releaseCount = 0;
+  releaseError: Error | undefined;
   failOnSelect = false;
   failOnRollback = false;
+  failOnRollbackToSavepoint = false;
+  failOnReleaseSavepoint = false;
+  failOnSavepoint = false;
 
   async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
     this.calls.push(config);
     if (this.failOnRollback && config === "ROLLBACK") throw new Error("rollback failed");
+    if (this.failOnRollbackToSavepoint && typeof config === "string" && config.startsWith("ROLLBACK TO SAVEPOINT"))
+      throw new Error("savepoint rollback failed");
+    if (this.failOnReleaseSavepoint && typeof config === "string" && config.startsWith("RELEASE SAVEPOINT"))
+      throw new Error("savepoint release failed");
+    if (this.failOnSavepoint && typeof config === "string" && config.startsWith("SAVEPOINT"))
+      throw new Error("savepoint creation failed");
     if (this.failOnSelect && typeof config !== "string" && config.text.startsWith("SELECT"))
       throw new Error("query failed");
     return { rows: typeof config === "string" ? [] : [{ id: 1 }] };
   }
 
   release(): void {
-    this.released = true;
+    this.releaseCount += 1;
+    if (this.releaseError !== undefined) throw this.releaseError;
+  }
+
+  get released(): boolean {
+    return this.releaseCount > 0;
   }
 }
 
@@ -149,6 +164,44 @@ await describe("PostgreSQL runtime adapter", async () => {
     strict.strictEqual(pool.client.released, true);
   });
 
+  await it("preserves transaction errors when rollback and release cleanup fail", async () => {
+    const pool = new MockPool();
+    pool.client.failOnRollback = true;
+    pool.client.releaseError = new Error("release failed");
+    const db = createPostgresDatabase({ pool });
+    const transactionError = new Error("transaction failed");
+
+    await strict.rejects(
+      () =>
+        db.transaction(async () => {
+          throw transactionError;
+        }),
+      (error) => {
+        strict.strictEqual(error, transactionError);
+        return true;
+      },
+    );
+    strict.deepStrictEqual(pool.client.calls, ["BEGIN", "ROLLBACK"]);
+    strict.strictEqual(pool.client.releaseCount, 1);
+  });
+
+  await it("surfaces release errors after a successful commit", async () => {
+    const pool = new MockPool();
+    const releaseError = new Error("release failed after commit");
+    pool.client.releaseError = releaseError;
+    const db = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () => db.transaction(async () => "result"),
+      (error) => {
+        strict.strictEqual(error, releaseError);
+        return true;
+      },
+    );
+    strict.deepStrictEqual(pool.client.calls, ["BEGIN", "COMMIT"]);
+    strict.strictEqual(pool.client.releaseCount, 1);
+  });
+
   await it("rolls back nested savepoints and preserves outer rollback errors", async () => {
     const nestedPool = new MockPool();
     const nestedDb = createPostgresDatabase({ pool: nestedPool });
@@ -174,6 +227,77 @@ await describe("PostgreSQL runtime adapter", async () => {
       () => rollbackDb.transaction(async (transaction) => transaction.execute(sql`SELECT 1`)),
       /query failed/,
     );
+  });
+
+  await it("preserves nested callback errors when savepoint rollback fails", async () => {
+    const pool = new MockPool();
+    pool.client.failOnRollbackToSavepoint = true;
+    const db = createPostgresDatabase({ pool });
+    const callbackError = new Error("nested callback failed");
+
+    await strict.rejects(
+      () =>
+        db.transaction(async (transaction) => {
+          await transaction.transaction(async () => {
+            throw callbackError;
+          });
+        }),
+      (error) => {
+        strict.strictEqual(error, callbackError);
+        return true;
+      },
+    );
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SAVEPOINT typed_sql_2", "ROLLBACK TO SAVEPOINT typed_sql_2", "ROLLBACK"],
+    );
+    strict.strictEqual(pool.client.released, true);
+  });
+
+  await it("preserves release errors when savepoint rollback cleanup also fails", async () => {
+    const pool = new MockPool();
+    pool.client.failOnReleaseSavepoint = true;
+    pool.client.failOnRollbackToSavepoint = true;
+    const db = createPostgresDatabase({ pool });
+
+    await strict.rejects(
+      () => db.transaction(async (transaction) => transaction.transaction(async () => "result")),
+      /savepoint release failed/,
+    );
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      [
+        "BEGIN",
+        "SAVEPOINT typed_sql_2",
+        "RELEASE SAVEPOINT typed_sql_2",
+        "ROLLBACK TO SAVEPOINT typed_sql_2",
+        "ROLLBACK",
+      ],
+    );
+    strict.strictEqual(pool.client.released, true);
+  });
+
+  await it("does not enter a nested callback when savepoint creation fails", async () => {
+    const pool = new MockPool();
+    pool.client.failOnSavepoint = true;
+    const db = createPostgresDatabase({ pool });
+    let callbackCalled = false;
+
+    await strict.rejects(
+      () =>
+        db.transaction(async (transaction) => {
+          await transaction.transaction(async () => {
+            callbackCalled = true;
+          });
+        }),
+      /savepoint creation failed/,
+    );
+    strict.strictEqual(callbackCalled, false);
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SAVEPOINT typed_sql_2", "ROLLBACK"],
+    );
+    strict.strictEqual(pool.client.released, true);
   });
 
   await it("owns pools when requested and prevents transactional close", async () => {

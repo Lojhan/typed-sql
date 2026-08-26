@@ -109,10 +109,12 @@ export interface QueryExecutor {
   execute(text: string, values: readonly unknown[]): Promise<readonly unknown[]>;
 }
 
-export interface Database {
+export interface Database<TransactionScope extends Database<TransactionScope> = TransactionDatabase> {
   execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]>;
-  transaction<T>(fn: (db: Database) => Promise<T>): Promise<T>;
+  transaction<T>(fn: (db: TransactionScope) => Promise<T>): Promise<T>;
 }
+
+export interface TransactionDatabase extends Database<TransactionDatabase> {}
 
 export type TransactionRunner = <T>(fn: (executor: QueryExecutor) => Promise<T>) => Promise<T>;
 
