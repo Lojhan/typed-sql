@@ -71,7 +71,6 @@ function headingSlugs(markdown: string): Set<string> {
   for (const match of withoutFencedCode(markdown).matchAll(/^#{1,6}\s+(.+?)\s*#*\s*$/gmu)) {
     const base = (match[1] ?? "")
       .toLowerCase()
-      .replace(/<[^>]+>/gu, "")
       .replace(/[^\p{L}\p{N}\s_-]/gu, "")
       .trim()
       .replace(/\s+/gu, "-");
