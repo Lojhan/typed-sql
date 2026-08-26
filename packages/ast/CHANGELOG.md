@@ -1,5 +1,14 @@
 # @typed-sql/ast
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- 1563a7a: Declare and enforce the 1.0 package stability boundary. Core SQL, compiler, schema, config, AST,
+  PostgreSQL, MySQL, and CLI packages form the stable train; the TypeScript preview bridge and
+  language server remain explicitly experimental. Freeze public entrypoints and query type contracts,
+  and remove internal compiler/type helpers from stable package-root exports before 1.0.
+
 ## 1.0.0-beta.1
 
 ### Patch Changes
