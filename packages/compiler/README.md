@@ -45,6 +45,11 @@ Repeated uses of the same condition are correlated and do not multiply the branc
 fragment that receives incompatible parameter expectations across valid branches fails closed with
 `TSQ205`.
 
+Before grammar analysis, the scanner rejects an untagged template paired with `sql.empty` or a
+trusted fragment as `TSQ004`. This produces one focused source diagnostic instead of a downstream
+SQL parse error. Ordinary value templates remain parameters; the compiler never interprets their
+runtime strings as SQL structure.
+
 Application projects normally use this through `typed-sql check` or the language server. It is
 public for grammar, editor, and build-tool integrations.
 

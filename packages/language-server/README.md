@@ -16,6 +16,10 @@ The server discovers `typed-sql.config.ts`, loads the project's installed dialec
 queries against the generated schema, applies the inferred type overlay in memory, and proxies the
 native TypeScript 7.1 preview semantic program. Source files are never rewritten.
 
+When a conditional SQL branch uses a bare template beside `sql.empty` or `sql.fragment`, the server
+reports `TSQ004` at the nested template and offers a preferred `Mark as sql.fragment` quick fix. The
+edit only adds the trusted tag; nested values remain parameterized.
+
 The executable and its pinned preview are self-contained in the project installation. It does not
 load the workspace TypeScript package or require `tsserver.js`; a TypeScript 7.0 package without that
 legacy file is supported. Failure to start the pinned preview returns an initialization error with

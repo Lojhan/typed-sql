@@ -40,6 +40,11 @@ export interface StructuralInterpolation {
   readonly falsy?: StructuralOperand;
 }
 
+export interface UntaggedStructuralTemplate {
+  readonly tagName: string;
+  readonly range: SourceRange;
+}
+
 function isIdentifierStart(char: string | undefined): boolean {
   if (char === undefined) return false;
   const code = char.charCodeAt(0);
@@ -203,10 +208,22 @@ function positionRange(source: string, start: number, end: number): SourceRange 
 }
 
 function skipQuoted(source: string, start: number, quote: string): number {
+  if (quote === "`") return skipTemplate(source, start);
   let index = start + 1;
   while (index < source.length) {
     if (source[index] === "\\") index += 2;
     else if (source[index] === quote) return index + 1;
+    else index += 1;
+  }
+  return source.length;
+}
+
+function skipTemplate(source: string, start: number): number {
+  let index = start + 1;
+  while (index < source.length) {
+    if (source[index] === "\\") index += 2;
+    else if (source[index] === "`") return index + 1;
+    else if (source[index] === "$" && source[index + 1] === "{") index = interpolationEnd(source, index + 2);
     else index += 1;
   }
   return source.length;
@@ -407,13 +424,13 @@ function structuralOperand(source: string, start: number, end: number, tagName: 
   return { kind: "fragment", ...range, backtick };
 }
 
-export function parseStructuralInterpolation(
-  source: string,
-  interpolation: ExtractedInterpolation,
-  tagName: string,
-): StructuralInterpolation | undefined {
-  const expression = unwrappedRange(source, interpolation.expressionStart, interpolation.expressionEnd);
-  const { start, end } = expression;
+interface ConditionalRanges {
+  readonly condition: { readonly start: number; readonly end: number };
+  readonly truthy: { readonly start: number; readonly end: number };
+  readonly falsy: { readonly start: number; readonly end: number };
+}
+
+function conditionalRanges(source: string, start: number, end: number): ConditionalRanges | undefined {
   let question: number | undefined;
   let colon: number | undefined;
   let round = 0;
@@ -457,16 +474,60 @@ export function parseStructuralInterpolation(
     }
     index += 1;
   }
-  if (question === undefined || colon === undefined) {
+  if (question === undefined || colon === undefined) return undefined;
+  return {
+    condition: unwrappedRange(source, start, question),
+    truthy: unwrappedRange(source, question + 1, colon),
+    falsy: unwrappedRange(source, colon + 1, end),
+  };
+}
+
+function bareTemplateRange(source: string, start: number, end: number): SourceRange | undefined {
+  const range = unwrappedRange(source, start, end);
+  if (source[range.start] !== "`" || skipQuoted(source, range.start, "`") !== range.end) return undefined;
+  return positionRange(source, range.start, range.end);
+}
+
+export function findUntaggedStructuralTemplates(
+  source: string,
+  query: ExtractedQuery,
+): readonly UntaggedStructuralTemplate[] {
+  const templates: UntaggedStructuralTemplate[] = [];
+  for (const interpolation of query.interpolations) {
+    const expression = unwrappedRange(source, interpolation.expressionStart, interpolation.expressionEnd);
+    const conditional = conditionalRanges(source, expression.start, expression.end);
+    if (conditional === undefined) continue;
+    const truthyStructural = structuralOperand(source, conditional.truthy.start, conditional.truthy.end, query.tagName);
+    const falsyStructural = structuralOperand(source, conditional.falsy.start, conditional.falsy.end, query.tagName);
+    const truthyTemplate = bareTemplateRange(source, conditional.truthy.start, conditional.truthy.end);
+    const falsyTemplate = bareTemplateRange(source, conditional.falsy.start, conditional.falsy.end);
+    if (truthyTemplate !== undefined && falsyStructural !== undefined) {
+      templates.push({ tagName: query.tagName, range: truthyTemplate });
+    }
+    if (falsyTemplate !== undefined && truthyStructural !== undefined) {
+      templates.push({ tagName: query.tagName, range: falsyTemplate });
+    }
+  }
+  return templates;
+}
+
+export function parseStructuralInterpolation(
+  source: string,
+  interpolation: ExtractedInterpolation,
+  tagName: string,
+): StructuralInterpolation | undefined {
+  const expression = unwrappedRange(source, interpolation.expressionStart, interpolation.expressionEnd);
+  const { start, end } = expression;
+  const conditional = conditionalRanges(source, start, end);
+  if (conditional === undefined) {
     const truthy = structuralOperand(source, start, end, tagName);
     return truthy === undefined ? undefined : { truthy };
   }
-  const truthy = structuralOperand(source, question + 1, colon, tagName);
-  const falsy = structuralOperand(source, colon + 1, end, tagName);
+  const truthy = structuralOperand(source, conditional.truthy.start, conditional.truthy.end, tagName);
+  const falsy = structuralOperand(source, conditional.falsy.start, conditional.falsy.end, tagName);
   if (truthy === undefined || falsy === undefined) return undefined;
-  const condition = unwrappedRange(source, start, question);
   return {
-    condition: source.slice(condition.start, condition.end).replace(/\s+/gu, " "),
+    condition: source.slice(conditional.condition.start, conditional.condition.end).replace(/\s+/gu, " "),
     truthy,
     falsy,
   };

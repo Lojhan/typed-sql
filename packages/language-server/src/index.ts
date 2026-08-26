@@ -95,6 +95,31 @@ function severity(value: "error" | "info" | "warning"): DiagnosticSeverity {
   return value === "warning" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information;
 }
 
+interface DiagnosticFixData {
+  readonly title: string;
+  readonly range: { readonly start: number; readonly end: number };
+  readonly newText: string;
+  readonly preferred?: boolean;
+}
+
+function diagnosticFix(value: unknown, documentLength: number): DiagnosticFixData | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.title !== "string" || typeof candidate.newText !== "string") return undefined;
+  if (typeof candidate.range !== "object" || candidate.range === null) return undefined;
+  const range = candidate.range as Record<string, unknown>;
+  if (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)) return undefined;
+  const start = range.start as number;
+  const end = range.end as number;
+  if (start < 0 || end < start || end > documentLength) return undefined;
+  return {
+    title: candidate.title,
+    range: { start, end },
+    newText: candidate.newText,
+    ...(typeof candidate.preferred === "boolean" ? { preferred: candidate.preferred } : {}),
+  };
+}
+
 export function settingsFrom(value: unknown): TypedSqlLanguageServerSettings {
   if (typeof value !== "object" || value === null) return {};
   const object = value as Record<string, unknown>;
@@ -161,7 +186,10 @@ export class TypedSqlLanguageService {
         severity: severity(item.severity),
         source: "typed-sql",
         code: item.code,
-        data: item.suggestion === undefined ? undefined : { suggestion: item.suggestion },
+        data:
+          item.suggestion === undefined && item.fix === undefined
+            ? undefined
+            : { suggestion: item.suggestion, fix: item.fix },
       }),
     );
   }
@@ -301,10 +329,34 @@ export class TypedSqlLanguageService {
   ): Promise<readonly CodeAction[]> {
     cancelled(token);
     const actions: CodeAction[] = [];
+    const documentLength = document.getText().length;
     for (const diagnostic of diagnostics) {
       if (diagnostic.source !== "typed-sql") continue;
-      const data = diagnostic.data as { readonly suggestion?: unknown } | undefined;
+      const data = diagnostic.data as { readonly suggestion?: unknown; readonly fix?: unknown } | undefined;
       const suggestion = typeof data?.suggestion === "string" ? data.suggestion : undefined;
+      const fix = diagnosticFix(data?.fix, documentLength);
+      if (fix !== undefined) {
+        actions.push({
+          title: fix.title,
+          kind: CodeActionKind.QuickFix,
+          diagnostics: [diagnostic],
+          ...(fix.preferred === undefined ? {} : { isPreferred: fix.preferred }),
+          edit: {
+            changes: {
+              [document.uri]: [
+                {
+                  range: {
+                    start: document.positionAt(fix.range.start),
+                    end: document.positionAt(fix.range.end),
+                  },
+                  newText: fix.newText,
+                },
+              ],
+            },
+          },
+        });
+        continue;
+      }
       const replacement =
         suggestion === undefined ? undefined : /^Did you mean ([A-Za-z_$][\w$]*)\?$/u.exec(suggestion)?.[1];
       if (replacement === undefined) continue;

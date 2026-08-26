@@ -116,6 +116,9 @@ Composed fragment values remain parameterized and type-preserving. Direct fragme
 `sql.append()` call receive cumulative grammar analysis; fragments hidden behind arbitrary runtime
 functions or mutable collections do not. Structural fragment text must come from `sql.fragment`
 templates or another explicit trusted fragment API; `sql.raw()` remains a deliberate escape hatch.
+An untagged template paired with a structural branch produces compiler-owned `TSQ004` before any
+grammar runs. The language server can safely fix it by inserting the locally imported SQL tag's
+`.fragment` member; it never copies or evaluates the template contents.
 
 Editor inference is a development feature. CI correctness comes from the same compiler transform
 through `typed-sql check`; runtime code does not depend on an editor being present.

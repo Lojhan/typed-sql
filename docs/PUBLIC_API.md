@@ -106,6 +106,8 @@ application-owned driver loading and adapters are isolated under `/pg` and `/mys
 - Confidently incorrect inference is a release-blocking correctness defect.
 - Parameter values remain driver parameters unless the developer deliberately uses a structural
   API such as `sql.ident` or trusted `sql.raw`.
+- A nested JavaScript template is not SQL structure by itself. Conditional structural branches must
+  use `sql.fragment`; `TSQ004` and its editor quick fix preserve that explicit trust boundary.
 - Static types depend on the generated snapshot and configured driver codec policy. They do not
   replace runtime validation at external trust boundaries.
 - Conditional structural analysis is finite and bounded by `compiler.maxStructuralVariants`.
@@ -114,7 +116,8 @@ The release-blocking classification and cross-surface regression rules are defin
 [inference soundness policy](./SOUNDNESS.md).
 
 Diagnostic codes become stable at 1.0. Automation should depend on the exported code and registry,
-not English message text.
+not English message text. A diagnostic may include a structured `SqlDiagnosticFix`; editor tooling
+validates its source offsets and maps it to the client's native edit format without parsing prose.
 
 ## Compatibility policy
 

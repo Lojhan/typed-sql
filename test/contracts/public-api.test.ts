@@ -25,6 +25,8 @@ import type {
   QueryRow,
   RenderedQuery,
   SchemaSnapshot,
+  SqlDiagnostic,
+  SqlDiagnosticFix,
   SqlFragment,
   SqlRenderer,
   SqlSegment,
@@ -92,6 +94,8 @@ type ReferencedStableTypes =
   | QueryExecutor
   | RenderedQuery
   | SqlFragment
+  | SqlDiagnostic
+  | SqlDiagnosticFix
   | SqlRenderer
   | SqlSegment
   | SqlTag
