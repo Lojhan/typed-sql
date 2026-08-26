@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/postgres",
-  "version": "1.0.0-rc.0",
+  "version": "1.0.0",
   "description": "PostgreSQL grammar, schema introspection, type resolution, and driver-neutral runtime codecs for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
