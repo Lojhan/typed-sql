@@ -9,6 +9,7 @@ import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-previ
 import { Pool } from "pg";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 import { postgresCodecFidelity } from "../src/codec-query.js";
+import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
 
 interface CommandResult {
   readonly code: number;
@@ -41,6 +42,7 @@ interface GeneratedSnapshot {
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspaceDirectory = resolve(packageDirectory, "../..");
+const pgCursorPackage: string = "pg-cursor";
 const generatedDirectory = join(packageDirectory, "generated");
 const generatedDatabaseDirectory = join(generatedDirectory, "db");
 const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
@@ -190,6 +192,15 @@ try {
         "--project",
         join(packageDirectory, "tsconfig.json"),
       );
+      await cli(
+        "check",
+        "--config",
+        join(packageDirectory, "typed-sql.config.ts"),
+        "--file",
+        join(packageDirectory, "src/stream-query.ts"),
+        "--project",
+        join(packageDirectory, "tsconfig.json"),
+      );
     });
 
     await it("exposes the inferred Query type through the TypeScript preview bridge", async () => {
@@ -217,6 +228,34 @@ try {
         strict.ok(inspections[2]?.typeText.includes('status: "active" | "suspended"'));
         strict.ok(!inspections[2]?.typeText.includes("unknown"));
         strict.strictEqual(inspections[3]?.typeText, "Query<never, readonly [unknown, bigint]>");
+      } finally {
+        await bridge.close();
+      }
+    });
+
+    await it("infers the same queries used by the prepared and streaming runtime flow", async () => {
+      const sourcePath = join(packageDirectory, "src/stream-query.ts");
+      const source = await readFile(sourcePath, "utf8");
+      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
+      const analysis = analyzeSource(source, snapshot as PostgresSchemaSnapshot, postgres());
+      strict.deepStrictEqual(analysis.diagnostics, []);
+      strict.strictEqual(analysis.queries.length, 2);
+      const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
+      try {
+        const inspections = await bridge.inspectFile({
+          fileName: sourcePath,
+          projectFile: join(packageDirectory, "tsconfig.json"),
+          analysis,
+        });
+        strict.strictEqual(inspections.length, 2);
+        strict.ok(inspections[0]?.typeText.includes("id: bigint"));
+        strict.ok(inspections[0]?.typeText.includes("budget: string | null"));
+        strict.ok(!inspections[0]?.typeText.includes("unknown"));
+        strict.ok(inspections[1]?.typeText.includes("id: bigint"));
+        strict.ok(inspections[1]?.typeText.includes("email: string"));
+        strict.ok(inspections[1]?.typeText.includes('status: "active" | "suspended"'));
+        strict.ok(inspections[1]?.typeText.includes("readonly [bigint]"));
+        strict.ok(!inspections[1]?.typeText.includes("unknown"));
       } finally {
         await bridge.close();
       }
@@ -407,6 +446,96 @@ try {
         strict.deepStrictEqual(codec.numeric_array, ["1.25", "12345678901234567890.1234567890"]);
         strict.deepStrictEqual(codec.text_array, ["one", "two"]);
         strict.strictEqual(codec.nullable_text, null);
+      } finally {
+        await database.close();
+      }
+    });
+
+    await it("batches and streams inferred and prepared queries through a reusable one-client pool", async () => {
+      const database = await createPgDatabase({
+        connectionString,
+        typePolicy,
+        poolConfig: { max: 1, connectionTimeoutMillis: 2_000 },
+        // The workspace package is symlinked outside this fixture's node_modules tree. Supplying
+        // the application-owned loader preserves pnpm's strict dependency boundary in this E2E.
+        cursorImporter: () => import(pgCursorPackage),
+      });
+      try {
+        const accountAtOrAbove = database.prepare("e2e-account-at-or-above", postgresAccountsAtOrAbove);
+        strict.strictEqual(accountAtOrAbove.statementName, "e2e-account-at-or-above");
+
+        const preparedQuery = accountAtOrAbove(1n);
+        const preparedRows = await database.execute(preparedQuery);
+        strict.deepStrictEqual(preparedRows, [
+          { id: 1n, email: "alice@example.com", status: "active" },
+          { id: 2n, email: "bob@example.com", status: "suspended" },
+        ]);
+
+        const [batchPreparedRows, batchInferredRows] = await database.batch([
+          accountAtOrAbove(2n),
+          postgresAccountStream,
+        ]);
+        strict.deepStrictEqual(batchPreparedRows, [{ id: 2n, email: "bob@example.com", status: "suspended" }]);
+        strict.deepStrictEqual(batchInferredRows, [
+          {
+            id: 1n,
+            email: "alice@example.com",
+            status: "active",
+            budget: "12500.50",
+          },
+          { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
+        ]);
+
+        const inferredRows: unknown[] = [];
+        for await (const row of database.stream(postgresAccountStream, { batchSize: 1 })) inferredRows.push(row);
+        strict.deepStrictEqual(inferredRows, [
+          {
+            id: 1n,
+            email: "alice@example.com",
+            status: "active",
+            budget: "12500.50",
+          },
+          { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
+        ]);
+
+        const early = database.stream(accountAtOrAbove(1n), { batchSize: 1 });
+        for await (const row of early) {
+          strict.deepStrictEqual(row, { id: 1n, email: "alice@example.com", status: "active" });
+          break;
+        }
+
+        strict.deepStrictEqual(await database.execute(accountAtOrAbove(2n)), [
+          { id: 2n, email: "bob@example.com", status: "suspended" },
+        ]);
+
+        const transactionFirst = await database.transaction(async (transaction) => {
+          const stream = transaction.stream(accountAtOrAbove(1n), { batchSize: 1 });
+          let first: unknown;
+          for await (const row of stream) {
+            first = row;
+            break;
+          }
+          const stillUsable = await transaction.execute(accountAtOrAbove(2n));
+          strict.deepStrictEqual(stillUsable, [{ id: 2n, email: "bob@example.com", status: "suspended" }]);
+          const [transactionPreparedRows, transactionHealth] = await transaction.batch([
+            accountAtOrAbove(1n),
+            sql<{ total: bigint }>`SELECT active_user_count() AS total`,
+          ]);
+          strict.deepStrictEqual(transactionPreparedRows, [
+            { id: 1n, email: "alice@example.com", status: "active" },
+            { id: 2n, email: "bob@example.com", status: "suspended" },
+          ]);
+          strict.deepStrictEqual(transactionHealth, [{ total: 1n }]);
+          return first;
+        });
+        strict.deepStrictEqual(transactionFirst, {
+          id: 1n,
+          email: "alice@example.com",
+          status: "active",
+        });
+
+        const health = await database.execute(sql<{ total: bigint }>`SELECT active_user_count() AS total`);
+        strict.deepStrictEqual(health, [{ total: 1n }]);
       } finally {
         await database.close();
       }

@@ -20,9 +20,13 @@ import type {
   DialectPlugin,
   OptionalSqlFragment,
   Query,
+  QueryBatch,
   QueryExecutor,
   QueryParameters,
+  QueryResult,
+  QueryResults,
   QueryRow,
+  QueryStream,
   RenderedQuery,
   SchemaSnapshot,
   SqlDiagnostic,
@@ -31,17 +35,23 @@ import type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  StreamOptions,
+  TransactionDatabase,
   TransactionRunner,
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
 import * as mysqlApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
-import type { MySqlDatabase } from "../../packages/mysql/src/runtime.js";
+import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import * as postgresApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
-import type { PostgresDatabase } from "../../packages/postgres/src/runtime.js";
+import type {
+  PostgresDatabase,
+  PostgresPreparedQueryFactory,
+  PostgresTransaction,
+} from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
 
@@ -55,6 +65,10 @@ type ExactQuery = Query<Account, readonly [bigint]>;
 
 const queryRow: Assert<Equal<QueryRow<ExactQuery>, Account>> = true;
 const queryParameters: Assert<Equal<QueryParameters<ExactQuery>, readonly [bigint]>> = true;
+const queryResult: Assert<Equal<QueryResult<ExactQuery>, readonly Account[]>> = true;
+const queryResults: Assert<
+  Equal<QueryResults<readonly [ExactQuery, ExactQuery]>, readonly [readonly Account[], readonly Account[]]>
+> = true;
 const rowInvariant: Assert<Equal<Assignable<ExactQuery, Query<{ readonly id: bigint }, readonly [bigint]>>, false>> =
   true;
 const parametersInvariant: Assert<Equal<Assignable<ExactQuery, Query<Account, readonly [unknown]>>, false>> = true;
@@ -73,10 +87,145 @@ function executionContract(database: Database, query: ExactQuery): Promise<reado
   return database.execute(query);
 }
 
+function defaultTransactionContract(database: Database, query: ExactQuery): Promise<readonly Account[]> {
+  return database.transaction(async (transaction) => {
+    const compatible: Database = transaction;
+    void compatible;
+    return transaction.execute(query);
+  });
+}
+
+interface EnrichedTransaction extends Database<EnrichedTransaction> {
+  explain<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<string>;
+}
+
+interface EnrichedDatabase extends Database<EnrichedTransaction> {
+  close(): Promise<void>;
+}
+
+function enrichedTransactionContract(database: EnrichedDatabase, query: ExactQuery): Promise<string> {
+  return database.transaction(async (transaction) => {
+    const retainedCapability: Promise<string> = transaction.explain(query);
+    await transaction.transaction(async (nested) => {
+      const nestedCapability: Promise<string> = nested.explain(query);
+      void nestedCapability;
+    });
+    // @ts-expect-error transaction scopes retain adapter capabilities without exposing root lifecycle methods
+    await transaction.close();
+    return retainedCapability;
+  });
+}
+
+const enrichedIsDefaultCompatible: Assert<Assignable<EnrichedDatabase, Database>> = true;
+
 type PostgresAdapter = Awaited<ReturnType<typeof pgApi.createPgDatabase>>;
 type MySqlAdapter = Awaited<ReturnType<typeof mysql2Api.createMySql2Database>>;
 const postgresAdapter: Assert<Equal<PostgresAdapter, PostgresDatabase>> = true;
 const mysqlAdapter: Assert<Equal<MySqlAdapter, MySqlDatabase>> = true;
+type PostgresTransactionScope = Parameters<Parameters<PostgresDatabase["transaction"]>[0]>[0];
+type MySqlTransactionScope = Parameters<Parameters<MySqlDatabase["transaction"]>[0]>[0];
+const postgresTransaction: Assert<Equal<PostgresTransactionScope, PostgresTransaction>> = true;
+const mysqlTransaction: Assert<Equal<MySqlTransactionScope, MySqlTransaction>> = true;
+const postgresTransactionOmitsClose: Assert<Equal<Extract<keyof PostgresTransaction, "close">, never>> = true;
+const mysqlTransactionOmitsClose: Assert<Equal<Extract<keyof MySqlTransaction, "close">, never>> = true;
+
+function postgresPreparedContract(database: PostgresDatabase): ExactQuery {
+  const prepared = database.prepare(
+    "account-by-id",
+    (id: bigint) =>
+      coreApi.sql.__typed<
+        Account,
+        readonly [bigint]
+      >()`SELECT account.id, account.status FROM account WHERE account.id = ${id}`,
+  );
+  const exact: Assert<Equal<typeof prepared, PostgresPreparedQueryFactory<[id: bigint], Account, readonly [bigint]>>> =
+    true;
+  void exact;
+  return prepared(1n);
+}
+
+function mysqlPreparedContract(database: MySqlDatabase): ExactQuery {
+  const prepared = database.prepare(
+    "account-by-id",
+    (id: bigint) =>
+      coreApi.sql.__typed<
+        Account,
+        readonly [bigint]
+      >()`SELECT account.id, account.status FROM account WHERE account.id = ${id}`,
+  );
+  const exact: Assert<Equal<typeof prepared, MySqlPreparedQueryFactory<[id: bigint], Account, readonly [bigint]>>> =
+    true;
+  void exact;
+  return prepared(1n);
+}
+
+function postgresStreamingContract(database: PostgresDatabase, query: ExactQuery): QueryStream<Account> {
+  const stream = database.stream(query, { batchSize: 256 });
+  const exact: Assert<Equal<typeof stream, QueryStream<Account>>> = true;
+  void exact;
+  return stream;
+}
+
+function mysqlStreamingContract(database: MySqlDatabase, query: ExactQuery): QueryStream<Account> {
+  const stream = database.stream(query, { batchSize: 256 });
+  const exact: Assert<Equal<typeof stream, QueryStream<Account>>> = true;
+  void exact;
+  return stream;
+}
+
+async function transactionStreamingContract(
+  postgres: PostgresDatabase,
+  mysql: MySqlDatabase,
+  query: ExactQuery,
+): Promise<void> {
+  await postgres.transaction(async (transaction) => {
+    const exact: QueryStream<Account> = transaction.stream(query);
+    await exact.close();
+  });
+  await mysql.transaction(async (transaction) => {
+    const exact: QueryStream<Account> = transaction.stream(query);
+    await exact.close();
+  });
+}
+
+function postgresBatchContract(
+  database: PostgresDatabase,
+  query: ExactQuery,
+): Promise<readonly [readonly Account[], readonly Account[]]> {
+  const results = database.batch([query, query]);
+  const exact: Assert<Equal<typeof results, Promise<readonly [readonly Account[], readonly Account[]]>>> = true;
+  void exact;
+  // @ts-expect-error every ordered batch member must be a typed Query
+  void database.batch([query, "not a query"]);
+  return results;
+}
+
+function mysqlBatchContract(
+  database: MySqlDatabase,
+  query: ExactQuery,
+): Promise<readonly [readonly Account[], readonly Account[]]> {
+  const results = database.batch([query, query]);
+  const exact: Assert<Equal<typeof results, Promise<readonly [readonly Account[], readonly Account[]]>>> = true;
+  void exact;
+  // @ts-expect-error every ordered batch member must be a typed Query
+  void database.batch([query, 42]);
+  return results;
+}
+
+async function transactionBatchContract(
+  postgres: PostgresDatabase,
+  mysql: MySqlDatabase,
+  query: ExactQuery,
+): Promise<void> {
+  await postgres.transaction(async (transaction) => {
+    const exact: readonly [readonly Account[]] = await transaction.batch([query]);
+    void exact;
+  });
+  await mysql.transaction(async (transaction) => {
+    const exact: readonly [readonly Account[]] = await transaction.batch([query]);
+    void exact;
+  });
+}
 
 type ReferencedStableTypes =
   | CheckFileOptions
@@ -91,7 +240,9 @@ type ReferencedStableTypes =
   | DialectCapabilities
   | DialectPlugin
   | OptionalSqlFragment
+  | QueryBatch<readonly [ExactQuery]>
   | QueryExecutor
+  | QueryStream<Account>
   | RenderedQuery
   | SqlFragment
   | SqlDiagnostic
@@ -99,18 +250,37 @@ type ReferencedStableTypes =
   | SqlRenderer
   | SqlSegment
   | SqlTag
+  | StreamOptions
+  | TransactionDatabase
   | TransactionRunner
   | TypedSqlConfig;
 
 void queryRow;
 void queryParameters;
+void queryResult;
+void queryResults;
 void rowInvariant;
 void parametersInvariant;
 void composedParameters;
 void emptyParameters;
 void executionContract;
+void defaultTransactionContract;
+void enrichedTransactionContract;
+void enrichedIsDefaultCompatible;
 void postgresAdapter;
 void mysqlAdapter;
+void postgresTransaction;
+void mysqlTransaction;
+void postgresTransactionOmitsClose;
+void mysqlTransactionOmitsClose;
+void postgresPreparedContract;
+void mysqlPreparedContract;
+void postgresStreamingContract;
+void mysqlStreamingContract;
+void transactionStreamingContract;
+void postgresBatchContract;
+void mysqlBatchContract;
+void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
@@ -171,7 +341,7 @@ const expectedRuntimeExports = {
     "sql",
     "typePolicy",
   ],
-  pg: ["adaptPgPool", "createPgDatabase", "loadPgDriver", "pg"],
+  pg: ["adaptPgPool", "createPgDatabase", "loadPgCursorDriver", "loadPgDriver", "pg"],
   postgresRuntime: ["createPostgresDatabase", "createPostgresTypeParsers", "postgresRenderer"],
   schema: [
     "SCHEMA_FORMAT_VERSION",

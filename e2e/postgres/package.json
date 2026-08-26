@@ -15,7 +15,8 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/postgres": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "pg-cursor": "2.22.0"
   },
   "devDependencies": {
     "poku": "4.5.0",

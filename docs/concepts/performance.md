@@ -18,11 +18,14 @@ The production performance suite covers:
 - correlated and independent conditional structure;
 - rejecting structural expansion before grammar work exceeds its bound;
 - core fragment composition and rendering;
+- adapter render, encode, decode, 100-row stream, and 25-query batch overhead with deterministic fake drivers;
 - cold, unchanged, incrementally edited, and schema-reloaded language-service analysis;
 - cancellation before expensive analysis;
 - retained heap under cache pressure.
 
 The structural scenarios assert their analysis counts as well as their timing. A fast but incorrect implementation does not pass.
+
+Adapter microbenchmarks are tracking baselines rather than database latency claims or release budgets. They isolate typed-sql's local work from network, server, pool, and native-driver time so regressions remain visible without presenting fixture timings as production throughput.
 
 ## Latency budgets
 

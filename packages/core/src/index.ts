@@ -1,5 +1,6 @@
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
+export type { QueryBatch, QueryResult, QueryResults, QueryStream, StreamOptions } from "./execution.js";
 export type {
   Database,
   OptionalSqlFragment,
@@ -12,6 +13,7 @@ export type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  TransactionDatabase,
   TransactionRunner,
 } from "./query.js";
 export { createDatabase, renderQuery, sql } from "./query.js";

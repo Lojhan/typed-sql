@@ -548,6 +548,48 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     }
   });
 
+  await it("preserves inferred rows and parameters through adapter prepared factories", async () => {
+    const directory = await mkdtemp(join(fixtureDirectory, ".typed-sql-prepared-factory-"));
+    try {
+      const file = join(directory, "prepared-factory.ts");
+      await writeFile(
+        file,
+        [
+          'import { sql } from "@typed-sql/postgres";',
+          'import type { QueryParameters, QueryRow } from "@typed-sql/core";',
+          'import type { PostgresDatabase, PostgresPreparedQueryFactory } from "@typed-sql/postgres/runtime";',
+          "type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;",
+          "type Assert<T extends true> = T;",
+          "declare const database: PostgresDatabase;",
+          'const byId = database.prepare("user-by-id", (id: number) =>',
+          "  sql`SELECT users.id, users.name FROM users WHERE users.id = ${id}`",
+          ");",
+          "const query = byId(1);",
+          "const row: Assert<Equal<QueryRow<typeof query>, { id: number; name: string }>> = true;",
+          "const params: Assert<Equal<QueryParameters<typeof query>, readonly [number]>> = true;",
+          "const factory: PostgresPreparedQueryFactory<",
+          "  [id: number],",
+          "  { id: number; name: string },",
+          "  readonly [number]",
+          "> = byId;",
+          "void row; void params; void factory;",
+        ].join("\n"),
+      );
+
+      const result = await checkFile({
+        file,
+        schema: schemaPath,
+        dialect: postgres(),
+        project: resolve(fixtureDirectory, "tsconfig.json"),
+      });
+      strict.deepStrictEqual(result.sqlDiagnostics, []);
+      strict.strictEqual(result.ok, true, result.typeScript?.output);
+      strict.ok(result.transformedSource.includes("readonly [number]>`SELECT users.id"));
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   await it("infers conditional structural SELECT fragments without replacing SQL with a builder", async () => {
     const directory = await mkdtemp(join(fixtureDirectory, ".typed-sql-structural-"));
     try {

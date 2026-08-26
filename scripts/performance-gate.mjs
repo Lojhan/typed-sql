@@ -1,72 +1,40 @@
 import { strict as assert } from "node:assert";
 import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
-import { cpus, platform, release, tmpdir, totalmem } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { performance } from "node:perf_hooks";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { compileSource, extractStaticQueries } from "../packages/compiler/dist/packages/compiler/src/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
 import { postgres } from "../packages/postgres/dist/packages/postgres/src/index.js";
+import {
+  capturePerformanceContext,
+  createPerformanceArtifact,
+  measureLatency,
+  measureThroughput,
+  summarizePerformanceResults,
+  writePerformanceArtifact,
+} from "./performance/harness.mjs";
+import { deterministicMicrobenchmarks } from "./performance/microbenchmarks.mjs";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const budgets = JSON.parse(await readFile(join(workspace, "performance-budgets.json"), "utf8"));
 const methodology = budgets.methodology;
 const results = {};
-const processors = cpus();
-const context = {
-  node: process.version,
-  platform: platform(),
-  platformRelease: release(),
-  architecture: process.arch,
-  cpuModel: processors[0]?.model ?? "unknown",
-  logicalCpuCount: processors.length,
-  totalMemoryMiB: Math.round(totalmem() / 1024 / 1024),
-  ci: process.env.CI === "true",
+const context = capturePerformanceContext({
+  workspace,
   productionBuild: true,
   budgetVersion: budgets.version,
-};
+});
+assert.equal(typeof context.cpuModel, "string");
 console.log(`typed-sql performance context\n${JSON.stringify(context, null, 2)}`);
-
-function percentile(samples, quantile) {
-  const ordered = [...samples].sort((left, right) => left - right);
-  return ordered[Math.max(0, Math.ceil(ordered.length * quantile) - 1)];
-}
-
-function statistics(samples) {
-  const mean = samples.reduce((total, sample) => total + sample, 0) / samples.length;
-  const variance = samples.reduce((total, sample) => total + (sample - mean) ** 2, 0) / samples.length;
-  const standardDeviation = Math.sqrt(variance);
-  return {
-    samples: samples.length,
-    minimum: Math.min(...samples),
-    mean,
-    standardDeviation,
-    coefficientOfVariation: mean === 0 ? 0 : standardDeviation / mean,
-    p50: percentile(samples, 0.5),
-    p95: percentile(samples, 0.95),
-    maximum: Math.max(...samples),
-  };
-}
 
 async function latency(name, operation, options = {}) {
   const warmups = options.warmups ?? methodology.warmups;
   const sampleCount = options.samples ?? methodology.samples;
   const iterations = options.iterations ?? 1;
-  for (let warmup = 0; warmup < warmups; warmup += 1) {
-    for (let iteration = 0; iteration < iterations; iteration += 1) {
-      await operation(warmup * iterations + iteration);
-    }
-  }
-  const samples = [];
-  for (let sample = 0; sample < sampleCount; sample += 1) {
-    const start = performance.now();
-    for (let iteration = 0; iteration < iterations; iteration += 1) {
-      await operation(sample * iterations + iteration);
-    }
-    samples.push((performance.now() - start) / iterations);
-  }
-  const measured = statistics(samples);
+  const measured = await measureLatency({ operation, warmups, samples: sampleCount, iterations });
+  assert.ok(Number.isFinite(measured.coefficientOfVariation));
   const budget = budgets.latencyMs[name];
   assert.ok(budget !== undefined, `Missing latency budget for ${name}`);
   results[name] = { unit: "ms", iterationsPerSample: iterations, ...measured, budget };
@@ -187,24 +155,21 @@ await structuralMetric(
 );
 
 const coreIterations = 10_000;
-const coreSamples = [];
-for (let warmup = 0; warmup < methodology.warmups; warmup += 1) {
-  for (let index = 0; index < coreIterations; index += 1) {
+const coreThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: coreIterations,
+  warmupOperation(index) {
     renderQuery(sql`SELECT ${sql.ident("id")} FROM users WHERE id = ${index}`, dialect);
-  }
-}
-for (let sample = 0; sample < methodology.samples; sample += 1) {
-  const start = performance.now();
-  for (let index = 0; index < coreIterations; index += 1) {
+  },
+  operation(index) {
     const predicate = sql.and([
       sql.fragment`account.id >= ${index}`,
       index % 2 === 0 ? sql.fragment`account.email = ${"person@example.com"}` : undefined,
     ]);
     renderQuery(sql`SELECT ${sql.ident("id")} FROM users AS account WHERE ${predicate}`, dialect);
-  }
-  coreSamples.push((coreIterations * 1_000) / (performance.now() - start));
-}
-const coreThroughput = statistics(coreSamples);
+  },
+});
 const coreBudget = budgets.throughput["core.composeAndRender"];
 results["core.composeAndRender"] = { unit: "operations/second", ...coreThroughput, budget: coreBudget };
 if (coreThroughput.p50 < coreBudget.minimumOperationsPerSecond / methodology.warningRatio) {
@@ -216,6 +181,8 @@ assert.ok(
   coreThroughput.p50 >= coreBudget.minimumOperationsPerSecond,
   `core.composeAndRender p50 ${coreThroughput.p50.toFixed(0)} ops/s fell below ${coreBudget.minimumOperationsPerSecond}`,
 );
+
+Object.assign(results, await deterministicMicrobenchmarks(methodology));
 
 const temporary = await mkdtemp(join(tmpdir(), "typed-sql-performance-"));
 try {
@@ -333,13 +300,7 @@ try {
   await rm(temporary, { recursive: true, force: true });
 }
 
-console.log(
-  JSON.stringify(
-    {
-      context,
-      results,
-    },
-    null,
-    2,
-  ),
-);
+const artifact = createPerformanceArtifact(context, results);
+const artifactPath = process.env.TYPED_SQL_PERFORMANCE_ARTIFACT;
+if (artifactPath !== undefined) await writePerformanceArtifact(resolve(workspace, artifactPath), artifact);
+console.log(JSON.stringify({ context, results: summarizePerformanceResults(results) }, null, 2));

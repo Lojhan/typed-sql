@@ -1,3 +1,4 @@
+import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import type { MySqlSchemaSnapshot } from "./index.js";
 import { type MySqlQueryable, MySqlSchemaProvider } from "./provider.js";
@@ -8,6 +9,7 @@ import {
   type MySqlExecutionResult,
   type MySqlFieldLike,
   type MySqlPoolLike,
+  type MySqlProtocolStream,
 } from "./runtime.js";
 import type { MySqlTypePolicy } from "./type-policy.js";
 
@@ -41,8 +43,8 @@ export interface MySql2SchemaProviderOptions {
 }
 
 interface Executable {
-  execute(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, readonly FieldPacket[]]>;
-  query(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, readonly FieldPacket[]]>;
+  execute(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
+  query(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
 }
 
 export async function loadMySql2Driver(
@@ -108,7 +110,7 @@ async function execute(
   const [rows, metadata] = await value[method](sql, values);
   return {
     rows: rows as readonly Record<string, unknown>[] | Record<string, unknown>,
-    ...(metadata.length === 0 ? {} : { fields: fields(metadata) }),
+    ...(metadata === undefined || metadata.length === 0 ? {} : { fields: fields(metadata) }),
   };
 }
 
@@ -116,11 +118,127 @@ function connectionAdapter(connection: PoolConnection): MySqlConnectionLike {
   const executable = connection as unknown as Executable;
   return {
     execute: (sql, values) => execute(executable, "execute", sql, values),
+    stream: (sql, values, options) =>
+      createMySql2ProtocolStream(
+        connection.connection as unknown as CallbackConnection,
+        sql,
+        values,
+        options.batchSize,
+      ),
     query: (sql) => execute(executable, "query", sql),
     beginTransaction: () => connection.beginTransaction(),
     commit: () => connection.commit(),
     rollback: () => connection.rollback(),
     release: () => connection.release(),
+  };
+}
+
+function createMySql2ProtocolStream(
+  connection: CallbackConnection,
+  sql: string,
+  values: readonly unknown[],
+  batchSize: number,
+): MySqlProtocolStream {
+  // mysql2's promise API buffers execute() results. Its public PoolConnection.connection is the
+  // same callback connection, whose Execute command exposes the protocol-backed Readable while
+  // retaining mysql2's per-connection prepared statement cache.
+  const command = connection.execute(sql, values as never) as CallbackQuery;
+  let resolveFields!: (value: readonly MySqlFieldLike[]) => void;
+  let rejectFields!: (reason: unknown) => void;
+  let fieldsSettled = false;
+  const fieldMetadata = new Promise<readonly MySqlFieldLike[]>((resolve, reject) => {
+    resolveFields = resolve;
+    rejectFields = reject;
+  });
+  // A driver failure can happen before the runtime starts awaiting metadata.
+  void fieldMetadata.catch(() => undefined);
+
+  let resolveTerminal!: () => void;
+  const terminal = new Promise<void>((resolve) => {
+    resolveTerminal = resolve;
+  });
+  let protocolError: unknown;
+  let connectionReusable = false;
+  let terminalSettled = false;
+  let readable: ReturnType<CallbackQuery["stream"]> | undefined;
+  const settleTerminal = (reusable: boolean) => {
+    if (terminalSettled) return;
+    terminalSettled = true;
+    connectionReusable = reusable;
+    connection.removeListener("error", onConnectionError);
+    connection.removeListener("end", onConnectionEnd);
+    connection.removeListener("close", onConnectionEnd);
+    resolveTerminal();
+  };
+  const onConnectionError = (error: unknown) => {
+    protocolError ??= error;
+    if (!fieldsSettled) {
+      fieldsSettled = true;
+      rejectFields(error);
+    }
+    readable?.destroy(error as Error);
+    settleTerminal(false);
+  };
+  const onConnectionEnd = () => {
+    const error = new Error("MySQL connection ended before the streaming command completed");
+    protocolError ??= error;
+    if (!fieldsSettled) {
+      fieldsSettled = true;
+      rejectFields(error);
+    }
+    readable?.destroy(error);
+    settleTerminal(false);
+  };
+  connection.once("error", onConnectionError);
+  connection.once("end", onConnectionEnd);
+  connection.once("close", onConnectionEnd);
+  command.once("fields", (value: readonly FieldPacket[] | undefined) => {
+    if (fieldsSettled) return;
+    fieldsSettled = true;
+    resolveFields(value === undefined ? [] : fields(value));
+  });
+  command.once("error", (error: unknown) => {
+    protocolError = error;
+    if (!fieldsSettled) {
+      fieldsSettled = true;
+      rejectFields(error);
+    }
+  });
+  command.once("end", () => {
+    if (!fieldsSettled) {
+      fieldsSettled = true;
+      resolveFields([]);
+    }
+    settleTerminal(true);
+  });
+
+  readable = command.stream({ highWaterMark: batchSize });
+  // Query.stream can destroy with an error before next() installs the async iterator's listener.
+  // Keep the process safe while preserving the same error for fields/iteration/close.
+  readable.on("error", () => undefined);
+  const iterator = readable[Symbol.asyncIterator]() as AsyncIterableIterator<Record<string, unknown>>;
+  let closePromise: Promise<void> | undefined;
+
+  return {
+    fields: fieldMetadata,
+    get connectionReusable() {
+      return connectionReusable;
+    },
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    next: () => iterator.next(),
+    close() {
+      closePromise ??= (async () => {
+        // Destroying this Readable stops delivery and resumes the socket. The independently attached
+        // command listeners remain until the Execute command really ends, so the connection is never
+        // released or reused while protocol packets are still arriving.
+        if (!readable.destroyed) readable.destroy();
+        await terminal;
+        if (protocolError !== undefined) throw protocolError;
+      })();
+      return closePromise;
+    },
   };
 }
 

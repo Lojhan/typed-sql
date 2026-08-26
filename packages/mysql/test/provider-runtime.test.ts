@@ -1,5 +1,5 @@
+import { type Query, type QueryParameters, type QueryRow, sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import {
   introspectMySql,
   type MySqlQueryable,
@@ -10,10 +10,25 @@ import {
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,
+  type MySqlDatabase,
   type MySqlExecutionResult,
   type MySqlPoolLike,
+  type MySqlPreparedQueryFactory,
+  type MySqlTransaction,
   mysqlRenderer,
 } from "../src/runtime.js";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
+type Assert<Value extends true> = Value;
+type TransactionCallbackScope = Parameters<Parameters<MySqlDatabase["transaction"]>[0]>[0];
+type NestedTransactionCallbackScope = Parameters<Parameters<MySqlTransaction["transaction"]>[0]>[0];
+
+const transactionScopeIsExact: Assert<Equal<TransactionCallbackScope, MySqlTransaction>> = true;
+const nestedTransactionScopeIsExact: Assert<Equal<NestedTransactionCallbackScope, MySqlTransaction>> = true;
+const transactionScopeOmitsClose: Assert<Equal<Extract<keyof MySqlTransaction, "close">, never>> = true;
+const rootDatabaseRetainsClose: Assert<Equal<Extract<keyof MySqlDatabase, "close">, "close">> = true;
+void [transactionScopeIsExact, nestedTransactionScopeIsExact, transactionScopeOmitsClose, rootDatabaseRetainsClose];
 
 class CatalogClient implements MySqlQueryable {
   readonly calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];
@@ -71,14 +86,19 @@ class CatalogClient implements MySqlQueryable {
 
 class FakeConnection implements MySqlConnectionLike {
   readonly commands: string[] = [];
-  released = false;
+  releaseCount = 0;
+  rollbackCount = 0;
+  failRelease = false;
   failRollback = false;
+  failRollbackToSavepoint = false;
   async execute(sqlText: string): Promise<MySqlExecutionResult> {
     this.commands.push(sqlText);
     return resultRows();
   }
   async query(sqlText: string): Promise<MySqlExecutionResult> {
     this.commands.push(sqlText);
+    if (this.failRollbackToSavepoint && sqlText.startsWith("ROLLBACK TO SAVEPOINT"))
+      throw new Error("savepoint rollback failed");
     return { rows: [] };
   }
   async beginTransaction(): Promise<void> {
@@ -89,10 +109,12 @@ class FakeConnection implements MySqlConnectionLike {
   }
   async rollback(): Promise<void> {
     this.commands.push("ROLLBACK");
+    this.rollbackCount += 1;
     if (this.failRollback) throw new Error("rollback failed");
   }
   release(): void {
-    this.released = true;
+    this.releaseCount += 1;
+    if (this.failRelease) throw new Error("release failed");
   }
 }
 
@@ -119,9 +141,11 @@ function resultRows(): MySqlExecutionResult {
 
 class FakePool implements MySqlPoolLike {
   readonly connection = new FakeConnection();
+  readonly calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];
   ended = false;
   commandResult = false;
-  async execute(): Promise<MySqlExecutionResult> {
+  async execute(sqlText: string, values?: readonly unknown[]): Promise<MySqlExecutionResult> {
+    this.calls.push({ sql: sqlText, ...(values === undefined ? {} : { values }) });
     return this.commandResult ? { rows: { affectedRows: 1 } } : resultRows();
   }
   async getConnection(): Promise<MySqlConnectionLike> {
@@ -185,6 +209,130 @@ await describe("MySQL provider and runtime", async () => {
     strict.strictEqual(mysqlRenderer.quoteIdentifier("a`b"), "`a``b`");
   });
 
+  await it("creates lazy prepared factories that retain exact query types", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool });
+    const accountById = database.prepare(
+      "account-by-id",
+      (id: bigint, active: boolean) =>
+        sql.__typed<
+          { id: bigint },
+          readonly [bigint, boolean]
+        >()`SELECT id FROM users WHERE id = ${id} AND active = ${active}`,
+    );
+    const exactFactory: Assert<
+      Equal<
+        typeof accountById,
+        MySqlPreparedQueryFactory<[id: bigint, active: boolean], { id: bigint }, readonly [bigint, boolean]>
+      >
+    > = true;
+    const exactRow: Assert<Equal<QueryRow<ReturnType<typeof accountById>>, { id: bigint }>> = true;
+    const exactParameters: Assert<Equal<QueryParameters<ReturnType<typeof accountById>>, readonly [bigint, boolean]>> =
+      true;
+    void [exactFactory, exactRow, exactParameters];
+
+    strict.strictEqual(accountById.statementName, "account-by-id");
+    strict.strictEqual(pool.calls.length, 0);
+    strict.throws(() => {
+      // @ts-expect-error Prepared factory metadata is readonly.
+      accountById.statementName = "changed";
+    }, /read only|Cannot assign/);
+
+    const rows = await database.execute(accountById(7n, true));
+    strict.strictEqual(rows[0]?.id, 9_007_199_254_740_993n);
+    strict.deepStrictEqual(pool.calls, [
+      { sql: "SELECT id FROM users WHERE id = ? AND active = ?", values: ["7", true] },
+    ]);
+  });
+
+  await it("validates prepared names and reserves them at declaration", () => {
+    const database = createMySqlDatabase({ pool: new FakePool() });
+    strict.throws(() => database.prepare("", () => sql`SELECT 1`), /non-empty.*NUL/);
+    strict.throws(() => database.prepare("bad\0name", () => sql`SELECT 1`), /non-empty.*NUL/);
+    strict.throws(() => database.prepare(1 as unknown as string, () => sql`SELECT 1`), /non-empty.*NUL/);
+    database.prepare("one", () => sql`SELECT 1`);
+    strict.throws(() => database.prepare("one", () => sql`SELECT 1`), /already registered/);
+  });
+
+  await it("rejects structural shape changes before driver dispatch", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool });
+    const dynamic = database.prepare(
+      "dynamic-account",
+      (projection: "id" | "email") =>
+        sql.__typed<{ id?: bigint; email?: string }, readonly []>()`SELECT ${sql.raw(projection)} FROM users`,
+    );
+
+    await database.execute(dynamic("id"));
+    strict.strictEqual(pool.calls.length, 1);
+    strict.throws(() => dynamic("email"), /must always render the same SQL text/);
+    strict.strictEqual(pool.calls.length, 1);
+  });
+
+  await it("rejects one query object carrying conflicting prepared names", () => {
+    const database = createMySqlDatabase({ pool: new FakePool() });
+    const shared: Query<{ id: bigint }, readonly []> = sql.__typed<{ id: bigint }, readonly []>()`SELECT id FROM users`;
+    const first = database.prepare("first", () => shared);
+    const second = database.prepare("second", () => shared);
+    strict.strictEqual(first(), shared);
+    strict.throws(() => second(), /cannot use both prepared statement "first" and "second"/);
+  });
+
+  await it("shares prepared metadata through transactions and nested transactions", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool });
+    const rootPrepared = database.prepare("root-prepared", (id: bigint) => sql`SELECT id FROM users WHERE id = ${id}`);
+    let transactionPrepared: MySqlPreparedQueryFactory<[email: string], unknown, readonly [string]> | undefined;
+
+    await database.transaction(async (transaction) => {
+      await transaction.execute(rootPrepared(1n));
+      transactionPrepared = transaction.prepare(
+        "transaction-prepared",
+        (email: string) => sql`SELECT id FROM users WHERE email = ${email}`,
+      );
+      await transaction.transaction(async (nested) => {
+        await nested.execute(transactionPrepared!("a@example.com"));
+      });
+    });
+
+    await database.execute(transactionPrepared!("b@example.com"));
+    strict.deepStrictEqual(pool.connection.commands, [
+      "BEGIN",
+      "SELECT id FROM users WHERE id = ?",
+      "SAVEPOINT typed_sql_2",
+      "SELECT id FROM users WHERE email = ?",
+      "RELEASE SAVEPOINT typed_sql_2",
+      "COMMIT",
+    ]);
+    strict.deepStrictEqual(pool.calls, [{ sql: "SELECT id FROM users WHERE email = ?", values: ["b@example.com"] }]);
+    strict.throws(() => database.prepare("transaction-prepared", () => sql`SELECT 1`), /already registered/);
+  });
+
+  await it("caches rendering only in the database instance that prepared the query", async () => {
+    const firstPool = new FakePool();
+    const secondPool = new FakePool();
+    const firstDatabase = createMySqlDatabase({ pool: firstPool });
+    const secondDatabase = createMySqlDatabase({ pool: secondPool });
+    const source = sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`;
+    let segmentReads = 0;
+    const observed = new Proxy(source, {
+      get(target, property, receiver) {
+        if (property === "segments") segmentReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const prepared = firstDatabase.prepare("database-local", () => observed);
+    const query = prepared();
+    strict.strictEqual(segmentReads, 1);
+
+    await firstDatabase.execute(query);
+    strict.strictEqual(segmentReads, 1);
+    await secondDatabase.execute(query);
+    strict.strictEqual(segmentReads, 2);
+    strict.deepStrictEqual(firstPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
+    strict.deepStrictEqual(secondPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
+  });
+
   await it("supports transactions, nested savepoints, rollback, and connection lifecycle", async () => {
     const pool = new FakePool();
     const database = createMySqlDatabase({ pool });
@@ -224,13 +372,79 @@ await describe("MySQL provider and runtime", async () => {
         }),
       /original/,
     );
-    strict.strictEqual(pool.connection.released, true);
+    strict.ok(pool.connection.releaseCount > 0);
     await strict.rejects(
       () => database.transaction(async (transaction) => (transaction as typeof database).close()),
       /Cannot close/,
     );
     await database.close();
     strict.strictEqual(pool.ended, false);
+  });
+
+  await it("preserves nested failures when rolling back a savepoint also fails", async () => {
+    const pool = new FakePool();
+    pool.connection.failRollbackToSavepoint = true;
+    pool.connection.failRelease = true;
+    const database = createMySqlDatabase({ pool });
+
+    await strict.rejects(
+      () =>
+        database.transaction(async (transaction) =>
+          transaction.transaction(async () => {
+            throw new Error("original nested failure");
+          }),
+        ),
+      /original nested failure/,
+    );
+
+    strict.deepStrictEqual(pool.connection.commands, [
+      "BEGIN",
+      "SAVEPOINT typed_sql_2",
+      "ROLLBACK TO SAVEPOINT typed_sql_2",
+      "ROLLBACK",
+    ]);
+    strict.strictEqual(pool.connection.rollbackCount, 1);
+    strict.strictEqual(pool.connection.releaseCount, 1);
+  });
+
+  await it("preserves decoder failures across outer and nested transaction cleanup", async () => {
+    const createUnsafeDatabase = (pool: FakePool) =>
+      createMySqlDatabase({
+        pool,
+        typePolicy: { bigint: "number", decimal: "string", date: "Date", json: "unknown", tinyint1: "boolean" },
+      });
+
+    const outerPool = new FakePool();
+    outerPool.connection.failRelease = true;
+    outerPool.connection.failRollback = true;
+    await strict.rejects(
+      () => createUnsafeDatabase(outerPool).transaction(async (transaction) => transaction.execute(sql`SELECT 1`)),
+      /safe integer range/,
+    );
+    strict.deepStrictEqual(outerPool.connection.commands, ["BEGIN", "SELECT 1", "ROLLBACK"]);
+    strict.strictEqual(outerPool.connection.rollbackCount, 1);
+    strict.strictEqual(outerPool.connection.releaseCount, 1);
+
+    const nestedPool = new FakePool();
+    nestedPool.connection.failRelease = true;
+    nestedPool.connection.failRollbackToSavepoint = true;
+    nestedPool.connection.failRollback = true;
+    await strict.rejects(
+      () =>
+        createUnsafeDatabase(nestedPool).transaction(async (transaction) =>
+          transaction.transaction(async (nested) => nested.execute(sql`SELECT 1`)),
+        ),
+      /safe integer range/,
+    );
+    strict.deepStrictEqual(nestedPool.connection.commands, [
+      "BEGIN",
+      "SAVEPOINT typed_sql_2",
+      "SELECT 1",
+      "ROLLBACK TO SAVEPOINT typed_sql_2",
+      "ROLLBACK",
+    ]);
+    strict.strictEqual(nestedPool.connection.rollbackCount, 1);
+    strict.strictEqual(nestedPool.connection.releaseCount, 1);
   });
 
   await it("enforces lossless numeric policies and explicit decimal codecs", async () => {

@@ -5,7 +5,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 # PostgreSQL
 
-`@typed-sql/postgres` contains the PostgreSQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/postgres/pg` entrypoint loads the `pg` driver installed by your application.
+`@typed-sql/postgres` contains the PostgreSQL grammar, catalog model, resolver, type policy, and runtime codecs. The optional `@typed-sql/postgres/pg` entrypoint loads the `pg` driver installed by your application. Streaming additionally uses the application-owned `pg-cursor` package.
 
 ## Public entrypoints
 
@@ -39,4 +39,24 @@ The provider records tables, views, columns, defaults, server version, arrays, e
 
 The adapter installs parsers per query and does not mutate `pg.types`. Policy-controlled OIDs are decoded by typed-sql; other OIDs delegate to the installed driver's parser table. Driver settings that would contradict the selected type policy are rejected.
 
-See [Database type mappings](../reference/type-mappings.md#postgresql) and [Compatibility](../reference/compatibility.md).
+Use PostgreSQL's server-enforced `statement_timeout` when a pool-wide statement deadline is required. `createPgDatabase` rejects pg's client-side `query_timeout` in both `poolConfig` and the resolved connection URI, including URIs returned by an asynchronous provider. `adaptPgPool` applies the same check to an application-created pool's exposed options and raw connection URI. pg can report this client timeout before the server reaches `ReadyForQuery`, so returning the connection to the pool would be unsafe. As a conservative fallback for opaque pool implementations, root batches and streams discard their checked-out client after a query or cursor rejection. A transaction scope cannot continue after a driver operation rejects: a root scope rolls back, while a successfully rolled-back nested savepoint lets its parent continue. The checked-out client is still discarded when the outer transaction finishes. Callback-only failures that roll back successfully do not discard an otherwise healthy client. A timeout does not imply support for `AbortSignal` or a PostgreSQL cancel request.
+
+`database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. Buffered execution passes the stable name to `pg`, whose prepared statements are cached per PostgreSQL connection. The factory rejects duplicate names and SQL text that changes between calls.
+
+`database.batch(queries)` checks out one `pg` client and dispatches the queries sequentially. It is not a pipeline and does not combine statements into one SQL string or network round trip. Root batches use PostgreSQL's ordinary autocommit behavior; transactional statements can use an explicit typed-sql transaction when atomicity is required.
+
+## Streaming
+
+Install `pg-cursor` only in applications that call `stream()`:
+
+```sh
+pnpm add pg-cursor
+```
+
+The adapter imports it when iteration starts, leases one `pg` pool client, and reads cursor pages according to `batchSize`. Completing or closing the stream closes the portal before the client is returned to the pool. Missing `pg-cursor` produces an actionable error at first iteration; ordinary execution and prepared factories never load it.
+
+`pg-cursor` always parses its cursor statement unnamed. A query produced by `database.prepare()` remains valid for streaming and retains its inferred row and parameter types, but the cursor path cannot reuse the prepared statement name used by buffered `pg` execution.
+
+Inside a transaction, the stream reuses the transaction client and never releases it directly. The stream must complete or close before the transaction callback returns. Transaction `execute()` and `batch()` calls must likewise be awaited before return; the adapter settles outstanding work before rollback and never selects commit first.
+
+See [Execute queries](../guides/execution.md), [Database type mappings](../reference/type-mappings.md#postgresql), and [Compatibility](../reference/compatibility.md).

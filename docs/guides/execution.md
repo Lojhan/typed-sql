@@ -1,13 +1,15 @@
 ---
 title: Execute queries
-description: Execute typed queries with an application-owned pg or mysql2 driver and matching runtime codecs.
+description: Execute, prepare, and stream typed queries with application-owned PostgreSQL or MySQL drivers.
 ---
 
 # Execute queries
 
 The dialect root supplies the query type and renderer. A driver-specific adapter connects that contract to the driver owned by your application.
 
-## PostgreSQL
+## Connect an adapter
+
+### PostgreSQL
 
 ```ts
 import { sql, typePolicy } from "@typed-sql/postgres";
@@ -31,7 +33,7 @@ try {
 }
 ```
 
-## MySQL
+### MySQL
 
 ```ts
 import { sql, typePolicy } from "@typed-sql/mysql";
@@ -56,6 +58,128 @@ try {
 ```
 
 `database.execute(query)` returns `Promise<readonly Row[]>`, where `Row` is the type inferred for the complete statement. Command statements without a result surface use `never` as their row type.
+
+## Prepare repeated queries
+
+`database.prepare(name, factory)` records a stable execution hint and returns a callable factory. Each call still produces an ordinary `Query`, so the result works with the same `execute()` and `stream()` methods as any other query.
+
+```ts
+const accountById = database.prepare("account-by-id", (accountId: bigint) => sql`
+  SELECT account.id, account.email, account.status
+  FROM accounts AS account
+  WHERE account.id = ${accountId}
+`);
+
+const query = accountById(42n);
+const rows = await database.execute(query);
+```
+
+The factory exposes its readonly `statementName`. A name must be non-empty, contain no NUL character, and be unique within one database instance. The first factory call records the rendered SQL text. Later calls may provide different parameter values, but they must render the same SQL text or typed-sql fails before driver dispatch.
+
+Preparation is lazy: declaring the factory performs no I/O and checks out no connection. PostgreSQL uses the name for ordinary buffered execution. MySQL delegates execution to mysql2's per-connection prepared-statement cache.
+
+## Execute an ordered batch
+
+`database.batch(queries)` executes an ordered tuple or array on one leased connection. A const-generic tuple retains the exact result type for every position:
+
+```ts
+const accountQuery = sql`
+  SELECT account.id, account.email
+  FROM accounts AS account
+  WHERE account.id = ${42n}
+`;
+const projectQuery = sql`
+  SELECT project.id, project.name
+  FROM projects AS project
+  WHERE project.owner_id = ${42n}
+`;
+
+const [accounts, projects] = await database.batch([accountQuery, projectQuery]);
+```
+
+`accounts` and `projects` retain their respective inferred row arrays. Prepared queries remain ordinary `Query` values and can appear in the same batch. Passing an empty tuple returns immediately without acquiring a connection.
+
+A root batch is sequential and non-atomic. It performs one driver execution per query on the same connection, stops at the first failure, and does not claim a single network round trip. Successfully completed statements are not rolled back when a later statement fails.
+
+Use an explicit transaction when atomicity is required and supported by the statements and database:
+
+```ts
+const [accounts, projects] = await database.transaction((transaction) =>
+  transaction.batch([accountQuery, projectQuery]),
+);
+```
+
+Always await a transaction batch before returning from its callback. The adapters reject escaped or concurrent batch work rather than allowing queries to run after commit or connection release.
+
+The surrounding database's transaction rules still apply. For example, MySQL statements that implicitly commit cannot be made atomic by placing them in a batch.
+
+## Stream large result sets
+
+`database.stream(query, options?)` returns a lazy `QueryStream<Row>`. Creating it renders the query but does not acquire a connection. The first `next()` call or `for await` iteration starts driver work.
+
+```ts
+const accounts = database.stream(
+  sql`
+    SELECT account.id, account.email, account.status
+    FROM accounts AS account
+    ORDER BY account.id
+  `,
+  { batchSize: 500 },
+);
+
+for await (const account of accounts) {
+  await indexAccount(account);
+
+  if (shouldStop(account)) break;
+}
+```
+
+The row retains the query's exact inferred type. `batchSize` must be a positive safe integer and expresses a preferred row count, not a byte limit. Its native meaning depends on the adapter: PostgreSQL fetches bounded cursor pages, while MySQL uses it as the protocol stream's object-mode high-water mark.
+
+Natural completion, `break`, explicit `close()`, and async disposal finish the native stream and release a root-level connection exactly once. `close()` is idempotent. For manual iteration, close in a `finally` block:
+
+```ts
+const accounts = database.stream(query);
+
+try {
+  const first = await accounts.next();
+  if (!first.done) await indexAccount(first.value);
+} finally {
+  await accounts.close();
+}
+```
+
+`QueryStream` also implements `AsyncDisposable`, so runtimes that support explicit resource management can use `await using`.
+
+PostgreSQL streaming requires the application-owned `pg-cursor` package in addition to `pg`. It is loaded only when iteration begins. MySQL streaming uses mysql2 itself and needs no additional package. See the [PostgreSQL](../dialects/postgresql.md#streaming) and [MySQL](../dialects/mysql.md#streaming) adapter details.
+
+## Use capabilities inside transactions
+
+Transaction callbacks receive the selected adapter's transaction type, so `execute()`, `batch()`, `prepare()`, and `stream()` remain available:
+
+```ts
+const changedAccount = database.prepare("changed-account", (accountId: bigint) => sql`
+  SELECT account.id, account.email
+  FROM accounts AS account
+  WHERE account.id = ${accountId}
+`);
+
+await database.transaction(async (transaction) => {
+  const stream = transaction.stream(changedAccount(42n));
+
+  try {
+    for await (const account of stream) {
+      await indexAccount(account);
+    }
+  } finally {
+    await stream.close();
+  }
+});
+```
+
+Declare reusable prepared factories once from the root database during application bootstrap. Prepared names remain reserved for that database instance, so declaring the same name inside a repeatedly called transaction callback would collide after its first invocation. The ordinary queries returned by a root factory retain their prepared metadata when executed or streamed through that database's transaction scopes.
+
+A transaction stream must complete or close before its callback returns. It cannot escape the callback for later iteration. Every `execute()` and `batch()` call must also be awaited before returning. While a transaction stream or batch owns the connection, that connection cannot execute competing work or enter a nested transaction. If the callback returns with an execution still running, an open stream, or a running batch, the adapter settles the work, reports the misuse, and rolls back instead of committing.
 
 ## Parameters and identifiers
 
