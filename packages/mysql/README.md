@@ -35,6 +35,8 @@ const accountById = database.prepare("account-by-id", (id: bigint) => sql`
   WHERE account.id = ${id}
 `);
 
+const [selectedAccounts, allAccounts] = await database.batch([accountById(42n), query]);
+
 for await (const account of database.stream(accountById(42n), { batchSize: 500 })) {
   // account retains the query's inferred row type
 }

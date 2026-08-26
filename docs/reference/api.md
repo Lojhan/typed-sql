@@ -68,6 +68,20 @@ Prepared names are non-empty, NUL-free, and unique within a database instance. T
 
 The same prepared-state registry is available to transaction scopes created by the database. A prepared query executed through another database instance is treated as an ordinary query because preparation metadata is instance-local.
 
+### Ordered batches
+
+PostgreSQL and MySQL database and transaction adapters expose:
+
+```ts
+database.batch(queries)
+```
+
+The input is a readonly query tuple or homogeneous query array. `QueryResults<Queries>` maps every query to its `readonly Row[]` result while preserving tuple order. Non-query values are rejected by the parameter type.
+
+An empty batch returns without leasing a connection. A non-empty root batch leases one connection and executes each query sequentially, stopping at the first failure. It is neither atomic nor a one-round-trip protocol. Calling `batch()` inside `database.transaction()` reuses the transaction connection, so transactional statements follow the surrounding transaction's commit or rollback. Database rules such as MySQL DDL implicit commits still apply.
+
+Transaction batches are scoped operations. Callers must await them before the callback returns, and adapters reject competing connection work while a batch is active.
+
 ### Query streams
 
 `QueryStream<Row>` extends `AsyncIterableIterator<Row>` and `AsyncDisposable` and adds:

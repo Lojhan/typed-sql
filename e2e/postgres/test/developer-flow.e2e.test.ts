@@ -451,7 +451,7 @@ try {
       }
     });
 
-    await it("streams compiler-inferred and prepared queries through a reusable one-client pool", async () => {
+    await it("batches and streams inferred and prepared queries through a reusable one-client pool", async () => {
       const database = await createPgDatabase({
         connectionString,
         typePolicy,
@@ -469,6 +469,21 @@ try {
         strict.deepStrictEqual(preparedRows, [
           { id: 1n, email: "alice@example.com", status: "active" },
           { id: 2n, email: "bob@example.com", status: "suspended" },
+        ]);
+
+        const [batchPreparedRows, batchInferredRows] = await database.batch([
+          accountAtOrAbove(2n),
+          postgresAccountStream,
+        ]);
+        strict.deepStrictEqual(batchPreparedRows, [{ id: 2n, email: "bob@example.com", status: "suspended" }]);
+        strict.deepStrictEqual(batchInferredRows, [
+          {
+            id: 1n,
+            email: "alice@example.com",
+            status: "active",
+            budget: "12500.50",
+          },
+          { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
         ]);
 
         const inferredRows: unknown[] = [];
@@ -502,6 +517,15 @@ try {
           }
           const stillUsable = await transaction.execute(accountAtOrAbove(2n));
           strict.deepStrictEqual(stillUsable, [{ id: 2n, email: "bob@example.com", status: "suspended" }]);
+          const [transactionPreparedRows, transactionHealth] = await transaction.batch([
+            accountAtOrAbove(1n),
+            sql<{ total: bigint }>`SELECT active_user_count() AS total`,
+          ]);
+          strict.deepStrictEqual(transactionPreparedRows, [
+            { id: 1n, email: "alice@example.com", status: "active" },
+            { id: 2n, email: "bob@example.com", status: "suspended" },
+          ]);
+          strict.deepStrictEqual(transactionHealth, [{ total: 1n }]);
           return first;
         });
         strict.deepStrictEqual(transactionFirst, {

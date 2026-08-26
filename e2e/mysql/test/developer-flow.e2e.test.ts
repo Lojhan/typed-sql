@@ -387,15 +387,27 @@ try {
           { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
         ]);
 
-        const transactionTotal = await database.transaction(async (transaction) => {
+        const [batchedAccounts, batchedTotals, commandRows] = await database.batch([
+          preparedAccounts(),
+          sql<{ total: bigint }>`SELECT user_count() AS total`,
+          sql<never>`UPDATE users SET active = active WHERE id = -1`,
+        ]);
+        strict.deepStrictEqual(batchedAccounts, allRows);
+        strict.strictEqual(batchedTotals[0]?.total, 2n);
+        strict.deepStrictEqual(commandRows, []);
+
+        const transactionResult = await database.transaction(async (transaction) => {
           for await (const row of transaction.stream(preparedAccounts(), { batchSize: 1 })) {
             strict.strictEqual(row.id, 1n);
             break;
           }
-          const totals = await transaction.execute(sql<{ total: bigint }>`SELECT user_count() AS total`);
-          return totals[0]?.total;
+          const [accounts, totals] = await transaction.batch([
+            preparedAccounts(),
+            sql<{ total: bigint }>`SELECT user_count() AS total`,
+          ]);
+          return { accountCount: accounts.length, total: totals[0]?.total };
         });
-        strict.strictEqual(transactionTotal, 2n);
+        strict.deepStrictEqual(transactionResult, { accountCount: 2, total: 2n });
 
         const rowsAfterTransaction = await database.execute(preparedAccounts());
         strict.strictEqual(rowsAfterTransaction.length, 2);

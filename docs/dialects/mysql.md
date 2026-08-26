@@ -35,6 +35,8 @@ The adapter controls mysql2 options that affect row shape and decoding. Supplyin
 
 `database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. MySQL execution uses mysql2's `execute()` path and its per-connection prepared-statement cache. The factory rejects duplicate names and SQL text that changes between calls.
 
+`database.batch(queries)` leases one mysql2 connection and calls `execute()` sequentially for every query, preserving mysql2's per-connection prepared cache and typed-sql's result decoding. It is not a multi-statement string or one protocol round trip. Root batches use ordinary autocommit behavior. Transactional statements can use an explicit typed-sql transaction when atomicity is required; MySQL operations that implicitly commit, such as DDL, retain their native semantics.
+
 ## Streaming
 
 MySQL streaming uses mysql2's protocol-backed execute stream and does not require another package. `batchSize` maps to the object-mode high-water mark, so it controls client-side buffering rather than server cursor page size.

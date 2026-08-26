@@ -141,6 +141,40 @@ export async function deterministicMicrobenchmarks(methodology) {
   assert.equal(postgresStreamCount, 100);
   assert.ok(postgresStreamReleases > 0);
 
+  const postgresBatchQueries = Array.from({ length: 25 }, (_, index) => sql`SELECT ${index} AS value`);
+  let postgresBatchDispatches = 0;
+  let postgresBatchReleases = 0;
+  const postgresBatchDatabase = createPostgresDatabase({
+    pool: {
+      async query() {
+        throw new Error("batch microbenchmark must use one leased connection");
+      },
+      async connect() {
+        return {
+          async query() {
+            postgresBatchDispatches += 1;
+            return { rows: [{ value: postgresBatchDispatches }] };
+          },
+          release() {
+            postgresBatchReleases += 1;
+          },
+        };
+      },
+      async end() {},
+    },
+  });
+  let postgresBatchResultCount = 0;
+  results["micro.postgres.batch.25Queries"] = await latency(
+    async () => {
+      const batchResults = await postgresBatchDatabase.batch(postgresBatchQueries);
+      postgresBatchResultCount = batchResults.length;
+    },
+    methodology,
+    asyncIterations,
+  );
+  assert.equal(postgresBatchResultCount, 25);
+  assert.equal(postgresBatchDispatches, postgresBatchReleases * 25);
+
   const postgresParsers = createPostgresTypeParsers();
   const parseBigint = postgresParsers.getTypeParser(20);
   const parseNumeric = postgresParsers.getTypeParser(1700);
@@ -272,6 +306,52 @@ export async function deterministicMicrobenchmarks(methodology) {
   assert.equal(mysqlStreamCount, 100);
   assert.equal(mysqlStreamLastId, 100n);
   assert.ok(mysqlStreamReleases > 0);
+
+  const mysqlBatchQueries = Array.from({ length: 25 }, (_, index) => sql`SELECT ${index} AS value`);
+  let mysqlBatchDispatches = 0;
+  let mysqlBatchReleases = 0;
+  const mysqlBatchDatabase = createMySqlDatabase({
+    pool: {
+      async execute() {
+        throw new Error("batch microbenchmark must use one leased connection");
+      },
+      async getConnection() {
+        return {
+          async execute() {
+            mysqlBatchDispatches += 1;
+            return {
+              rows: [{ value: String(mysqlBatchDispatches) }],
+              fields: [{ name: "value", columnType: 8 }],
+            };
+          },
+          async query() {
+            throw new Error("batch microbenchmark does not issue transaction commands");
+          },
+          async beginTransaction() {},
+          async commit() {},
+          async rollback() {},
+          release() {
+            mysqlBatchReleases += 1;
+          },
+        };
+      },
+      async end() {},
+    },
+  });
+  let mysqlBatchResultCount = 0;
+  let mysqlBatchLastValue = 0n;
+  results["micro.mysql.batchDecode.25Queries"] = await latency(
+    async () => {
+      const batchResults = await mysqlBatchDatabase.batch(mysqlBatchQueries);
+      mysqlBatchResultCount = batchResults.length;
+      mysqlBatchLastValue = batchResults.at(-1)?.[0]?.value ?? 0n;
+    },
+    methodology,
+    asyncIterations,
+  );
+  assert.equal(mysqlBatchResultCount, 25);
+  assert.equal(mysqlBatchLastValue, BigInt(mysqlBatchDispatches));
+  assert.equal(mysqlBatchDispatches, mysqlBatchReleases * 25);
 
   return results;
 }

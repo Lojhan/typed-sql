@@ -405,6 +405,7 @@ await describe("PostgreSQL transaction query streams", async () => {
     });
     strict.deepStrictEqual(commands(pool.client), ["BEGIN", "COMMIT"]);
     await strict.rejects(() => escaped!.execute(sql`SELECT escaped`), /transaction scope has ended/);
+    await strict.rejects(() => escaped!.batch([sql`SELECT escaped`]), /transaction scope has ended/);
     strict.throws(() => escaped!.stream(sql`SELECT escaped`), /transaction scope has ended/);
     strict.throws(() => escaped!.prepare("escaped", () => sql`SELECT escaped`), /transaction scope has ended/);
     await strict.rejects(() => escaped!.transaction(async () => undefined), /transaction scope has ended/);
@@ -424,6 +425,7 @@ await describe("PostgreSQL transaction query streams", async () => {
       /callback failed/,
     );
     await strict.rejects(() => escaped!.execute(sql`SELECT escaped`), /transaction scope has ended/);
+    await strict.rejects(() => escaped!.batch([sql`SELECT escaped`]), /transaction scope has ended/);
     strict.throws(() => escaped!.stream(sql`SELECT escaped`), /transaction scope has ended/);
     strict.deepStrictEqual(commands(pool.client), ["BEGIN", "ROLLBACK"]);
   });

@@ -12,6 +12,11 @@ export type QueryResults<Queries extends readonly unknown[]> = {
   readonly [Index in keyof Queries]: QueryResult<Queries[Index]>;
 };
 
+/** Validates an ordered tuple or array while preserving every query's exact type. */
+export type QueryBatch<Queries extends readonly unknown[]> = Queries & {
+  readonly [Index in keyof Queries]: Queries[Index] extends Query<infer Row, infer Params> ? Query<Row, Params> : never;
+};
+
 /** Common, grammar-neutral stream configuration. */
 export interface StreamOptions {
   /**

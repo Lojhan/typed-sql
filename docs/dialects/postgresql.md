@@ -41,6 +41,8 @@ The adapter installs parsers per query and does not mutate `pg.types`. Policy-co
 
 `database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. Buffered execution passes the stable name to `pg`, whose prepared statements are cached per PostgreSQL connection. The factory rejects duplicate names and SQL text that changes between calls.
 
+`database.batch(queries)` checks out one `pg` client and dispatches the queries sequentially. It is not a pipeline and does not combine statements into one SQL string or network round trip. Root batches use PostgreSQL's ordinary autocommit behavior; transactional statements can use an explicit typed-sql transaction when atomicity is required.
+
 ## Streaming
 
 Install `pg-cursor` only in applications that call `stream()`:

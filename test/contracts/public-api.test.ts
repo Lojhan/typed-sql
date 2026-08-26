@@ -20,6 +20,7 @@ import type {
   DialectPlugin,
   OptionalSqlFragment,
   Query,
+  QueryBatch,
   QueryExecutor,
   QueryParameters,
   QueryResult,
@@ -187,6 +188,45 @@ async function transactionStreamingContract(
   });
 }
 
+function postgresBatchContract(
+  database: PostgresDatabase,
+  query: ExactQuery,
+): Promise<readonly [readonly Account[], readonly Account[]]> {
+  const results = database.batch([query, query]);
+  const exact: Assert<Equal<typeof results, Promise<readonly [readonly Account[], readonly Account[]]>>> = true;
+  void exact;
+  // @ts-expect-error every ordered batch member must be a typed Query
+  void database.batch([query, "not a query"]);
+  return results;
+}
+
+function mysqlBatchContract(
+  database: MySqlDatabase,
+  query: ExactQuery,
+): Promise<readonly [readonly Account[], readonly Account[]]> {
+  const results = database.batch([query, query]);
+  const exact: Assert<Equal<typeof results, Promise<readonly [readonly Account[], readonly Account[]]>>> = true;
+  void exact;
+  // @ts-expect-error every ordered batch member must be a typed Query
+  void database.batch([query, 42]);
+  return results;
+}
+
+async function transactionBatchContract(
+  postgres: PostgresDatabase,
+  mysql: MySqlDatabase,
+  query: ExactQuery,
+): Promise<void> {
+  await postgres.transaction(async (transaction) => {
+    const exact: readonly [readonly Account[]] = await transaction.batch([query]);
+    void exact;
+  });
+  await mysql.transaction(async (transaction) => {
+    const exact: readonly [readonly Account[]] = await transaction.batch([query]);
+    void exact;
+  });
+}
+
 type ReferencedStableTypes =
   | CheckFileOptions
   | CheckFileResult
@@ -200,6 +240,7 @@ type ReferencedStableTypes =
   | DialectCapabilities
   | DialectPlugin
   | OptionalSqlFragment
+  | QueryBatch<readonly [ExactQuery]>
   | QueryExecutor
   | QueryStream<Account>
   | RenderedQuery
@@ -237,6 +278,9 @@ void mysqlPreparedContract;
 void postgresStreamingContract;
 void mysqlStreamingContract;
 void transactionStreamingContract;
+void postgresBatchContract;
+void mysqlBatchContract;
+void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {

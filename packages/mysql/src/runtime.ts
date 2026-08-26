@@ -1,6 +1,8 @@
 import {
   type Database,
   type Query,
+  type QueryBatch,
+  type QueryResults,
   type QueryStream,
   renderQuery,
   type SqlRenderer,
@@ -47,6 +49,7 @@ export interface MySqlPoolLike {
 }
 
 export interface MySqlTransaction extends Database<MySqlTransaction> {
+  batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
@@ -55,6 +58,7 @@ export interface MySqlTransaction extends Database<MySqlTransaction> {
 }
 
 export interface MySqlDatabase extends Database<MySqlTransaction> {
+  batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
@@ -71,6 +75,7 @@ export interface MySqlDatabaseOptions {
 }
 
 const defaultRuntimeTypePolicy: MySqlRuntimeTypePolicy = defaultMySqlTypePolicy;
+const emptyBatchResults = Object.freeze([]);
 
 export const mysqlRenderer: SqlRenderer = Object.freeze({
   placeholder: () => "?",
@@ -79,7 +84,21 @@ export const mysqlRenderer: SqlRenderer = Object.freeze({
 
 interface MySqlTransactionConnectionState {
   active: QueryStream<unknown> | undefined;
+  batch: MySqlBatchOperation | undefined;
   usable: boolean;
+}
+
+interface MySqlBatchOperation {
+  readonly completion: Promise<void>;
+  finish(): void;
+}
+
+function createMySqlBatchOperation(): MySqlBatchOperation {
+  let finish!: () => void;
+  const completion = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  return { completion, finish };
 }
 
 class MySqlDatabaseImplementation implements MySqlDatabase {
@@ -118,12 +137,66 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     this.#assertScopeOpen();
     this.#assertConnectionAvailable("execute a query");
+    return this.#executeOn(this.#connection ?? this.#pool, query);
+  }
+
+  async #executeOn<Row, Params extends readonly unknown[]>(
+    executor: Pick<MySqlConnectionLike, "execute">,
+    query: Query<Row, Params>,
+  ): Promise<readonly Row[]> {
     const prepared = this.#prepared.queries.get(query);
     const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
-    const result = await (this.#connection ?? this.#pool).execute(rendered.text, rendered.values.map(encodeMySqlValue));
+    const result = await executor.execute(rendered.text, rendered.values.map(encodeMySqlValue));
     if (!Array.isArray(result.rows)) return [];
     const decoders = compileMySqlRowDecoders(result.fields ?? [], this.#typePolicy, this.#decimal);
     return decodeMySqlRows(result.rows, decoders) as unknown as readonly Row[];
+  }
+
+  async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
+    this.#assertScopeOpen();
+    this.#assertConnectionAvailable("execute a batch");
+    if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
+    const orderedQueries = [...queries] as unknown as QueryBatch<Queries>;
+
+    if (this.#connection !== undefined) {
+      const operation = createMySqlBatchOperation();
+      this.#transactionState!.batch = operation;
+      try {
+        return await this.#executeBatchOn(this.#connection, orderedQueries, () =>
+          this.#assertBatchCanContinue(operation),
+        );
+      } finally {
+        if (this.#transactionState?.batch === operation) this.#transactionState.batch = undefined;
+        operation.finish();
+      }
+    }
+    const connection = await this.#pool.getConnection();
+    let results: QueryResults<Queries>;
+    try {
+      results = await this.#executeBatchOn(connection, orderedQueries);
+    } catch (error) {
+      try {
+        connection.release();
+      } catch {
+        /* Preserve the batch execution failure. */
+      }
+      throw error;
+    }
+    connection.release();
+    return results;
+  }
+
+  async #executeBatchOn<const Queries extends readonly unknown[]>(
+    connection: MySqlConnectionLike,
+    queries: QueryBatch<Queries>,
+    beforeEach?: () => void,
+  ): Promise<QueryResults<Queries>> {
+    const results: unknown[] = [];
+    for (const query of queries) {
+      beforeEach?.();
+      results.push(await this.#executeOn(connection, query));
+    }
+    return results as QueryResults<Queries>;
   }
 
   stream<Row, Params extends readonly unknown[]>(
@@ -183,7 +256,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#decimal,
         1,
         this.#prepared,
-        { active: undefined, usable: true },
+        { active: undefined, batch: undefined, usable: true },
       );
       result = await fn(transaction);
       transaction.#scopeOpen = false;
@@ -268,15 +341,23 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async #invalidateScope(): Promise<void> {
     this.#scopeOpen = false;
     await this.#closeStreams();
+    await this.#settleBatch();
   }
 
   async #assertTransactionReadyForFinalize(connectionFinalizing = false): Promise<void> {
+    const leakedBatch = this.#transactionState?.batch;
     await this.#rejectActiveStreams();
     const active = this.#transactionState?.active;
     if (active !== undefined) {
       await Promise.allSettled([active.close()]);
       throw new Error(
         "MySQL transaction callback returned while a nested query stream owned its connection; await nested work and close every stream before returning",
+      );
+    }
+    if (leakedBatch !== undefined) {
+      await leakedBatch.completion;
+      throw new Error(
+        "MySQL transaction callback returned while an ordered batch owned its connection; await the batch before returning",
       );
     }
     if (!connectionFinalizing && this.#transactionState?.usable === false)
@@ -286,6 +367,19 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   #assertConnectionAvailable(action: string): void {
     if (this.#transactionState?.active !== undefined)
       throw new Error(`Cannot ${action} while a MySQL query stream owns the transaction connection`);
+    if (this.#transactionState?.batch !== undefined)
+      throw new Error(`Cannot ${action} while a MySQL ordered batch owns the transaction connection`);
+  }
+
+  #assertBatchCanContinue(operation: MySqlBatchOperation): void {
+    this.#assertScopeOpen();
+    if (this.#transactionState?.batch !== operation)
+      throw new Error("This MySQL ordered batch no longer owns the transaction connection");
+  }
+
+  async #settleBatch(): Promise<void> {
+    const batch = this.#transactionState?.batch;
+    if (batch !== undefined) await batch.completion;
   }
 
   #assertScopeOpen(): void {

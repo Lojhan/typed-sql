@@ -43,8 +43,8 @@ export interface MySql2SchemaProviderOptions {
 }
 
 interface Executable {
-  execute(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, readonly FieldPacket[]]>;
-  query(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, readonly FieldPacket[]]>;
+  execute(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
+  query(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
 }
 
 export async function loadMySql2Driver(
@@ -110,7 +110,7 @@ async function execute(
   const [rows, metadata] = await value[method](sql, values);
   return {
     rows: rows as readonly Record<string, unknown>[] | Record<string, unknown>,
-    ...(metadata.length === 0 ? {} : { fields: fields(metadata) }),
+    ...(metadata === undefined || metadata.length === 0 ? {} : { fields: fields(metadata) }),
   };
 }
 

@@ -5,6 +5,7 @@ import type { Pool } from "mysql2/promise";
 import { describe, it, strict } from "poku";
 import { adaptMySql2Pool, createMySql2Database, loadMySql2Driver, mysql2 } from "../src/mysql2.js";
 import type { MySqlQueryable, MySqlQueryResult } from "../src/provider.js";
+import { createMySqlDatabase } from "../src/runtime.js";
 
 class FakeCallbackCommand extends EventEmitter {
   readonly readable = new Readable({ objectMode: true, read() {} });
@@ -34,11 +35,10 @@ class FakeRawConnection {
   readonly calls: string[] = [];
   executeCount = 0;
   queryCount = 0;
-  async execute(
-    sql: string,
-  ): Promise<readonly [readonly Record<string, unknown>[], readonly { name: string; columnType: number }[]]> {
+  async execute(sql: string): Promise<readonly [unknown, (readonly { name: string; columnType: number }[])?]> {
     this.executeCount += 1;
     this.calls.push(sql);
+    if (sql.startsWith("UPDATE")) return [{ affectedRows: 1 }];
     return [[{ value: "1" }], [{ name: "value", columnType: 8 }]];
   }
   async query(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly never[]]> {
@@ -101,6 +101,19 @@ await describe("application-owned mysql2 integration", async () => {
     await pool.end();
     strict.strictEqual(raw.pooledConnection.released, true);
     strict.strictEqual(raw.ended, true);
+  });
+
+  await it("normalizes native mysql2 DML metadata in an ordered batch", async () => {
+    const raw = new FakeRawPool();
+    const database = createMySqlDatabase({ pool: adaptMySql2Pool(raw as unknown as Pool) });
+    const results = await database.batch([
+      sql<{ value: bigint }>`SELECT 1 AS value`,
+      sql<never>`UPDATE accounts SET active = 1`,
+    ]);
+    strict.deepStrictEqual(results, [[{ value: 1n }], []]);
+    strict.strictEqual(raw.getConnectionCount, 1);
+    strict.strictEqual(raw.pooledConnection.released, true);
+    strict.deepStrictEqual(raw.pooledConnection.calls, ["SELECT 1 AS value", "UPDATE accounts SET active = 1"]);
   });
 
   await it("creates and owns a mysql2 pool without opening a connection", async () => {

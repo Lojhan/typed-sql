@@ -1,6 +1,8 @@
 import {
   type Database,
   type Query,
+  type QueryBatch,
+  type QueryResults,
   type QueryStream,
   renderQuery,
   type SqlRenderer,
@@ -54,6 +56,7 @@ export interface PostgresPoolLike {
 }
 
 export interface PostgresTransaction extends Database<PostgresTransaction> {
+  batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -62,6 +65,7 @@ export interface PostgresTransaction extends Database<PostgresTransaction> {
 }
 
 export interface PostgresDatabase extends Database<PostgresTransaction> {
+  batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -80,6 +84,7 @@ export interface PostgresDatabaseOptions {
 }
 
 const defaultPolicy: PostgresCodecPolicy = defaultPostgresTypePolicy;
+const emptyBatchResults = Object.freeze([]);
 
 const oids = {
   int8: 20,
@@ -199,6 +204,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #transactionDepth: number;
   #transactionScopeOpen = true;
   readonly #transactionState: {
+    activeBatch: Promise<unknown> | undefined;
     readonly activeStreams: Set<QueryStream<unknown>>;
     valid: boolean;
   };
@@ -211,7 +217,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     ownsPool: boolean,
     depth: number,
     prepared: PostgresPreparedQueryState,
-    transactionState = { activeStreams: new Set<QueryStream<unknown>>(), valid: true },
+    transactionState = {
+      activeBatch: undefined as Promise<unknown> | undefined,
+      activeStreams: new Set<QueryStream<unknown>>(),
+      valid: true,
+    },
   ) {
     this.#pool = pool;
     this.#client = client;
@@ -225,9 +235,42 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute another query");
+    this.#rejectOperationDuringTransactionBatch("execute another query");
     const config = this.#queryConfig(query);
     const result = await (this.#client ?? this.#pool).query(config);
     return result.rows as readonly Row[];
+  }
+
+  async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("execute a query batch");
+    this.#rejectOperationDuringTransactionBatch("execute another query batch");
+    if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
+    const querySnapshot = [...queries] as unknown as QueryBatch<Queries>;
+    if (this.#client !== undefined) {
+      const operation = this.#executeBatch(this.#client, querySnapshot);
+      this.#transactionState.activeBatch = operation;
+      try {
+        return await operation;
+      } finally {
+        if (this.#transactionState.activeBatch === operation) this.#transactionState.activeBatch = undefined;
+      }
+    }
+
+    const client = await this.#pool.connect();
+    let results: QueryResults<Queries>;
+    try {
+      results = await this.#executeBatch(client, querySnapshot);
+    } catch (error) {
+      try {
+        client.release();
+      } catch {
+        /* Preserve the first query failure. */
+      }
+      throw error;
+    }
+    client.release();
+    return results;
   }
 
   stream<Row, Params extends readonly unknown[]>(
@@ -236,6 +279,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   ): QueryStream<Row> {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start another query stream");
+    this.#rejectOperationDuringTransactionBatch("start a query stream");
     const batchSize = validatePostgresStreamBatchSize(options.batchSize);
     const config = this.#queryConfig(query);
     let stream: QueryStream<Row>;
@@ -279,6 +323,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
             onStart: () => {
               this.#assertTransactionScopeOpen();
               this.#rejectOperationDuringTransactionStream("start another query stream");
+              this.#rejectOperationDuringTransactionBatch("start a query stream");
               this.#transactionState.activeStreams.add(stream as QueryStream<unknown>);
             },
             onClose: () => {
@@ -302,9 +347,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   async transaction<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start a nested transaction");
+    this.#rejectOperationDuringTransactionBatch("start a nested transaction");
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
     const scope = new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared, {
+      activeBatch: undefined,
       activeStreams: new Set(),
       valid: true,
     });
@@ -317,10 +364,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
         scope.#transactionScopeOpen = false;
         scope.#transactionState.valid = false;
       }
-      await scope.#rejectLeakedTransactionStreams();
+      await scope.#rejectLeakedTransactionWork();
       await client.query("COMMIT");
     } catch (error) {
       await scope.#closeTransactionStreamsPreservingError();
+      await scope.#settleTransactionBatchPreservingError();
       try {
         await client.query("ROLLBACK");
       } catch {
@@ -361,11 +409,12 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       if (!scope.#transactionState.valid) {
         throw new Error("The parent PostgreSQL transaction scope ended before its nested transaction completed");
       }
-      await scope.#rejectLeakedTransactionStreams();
+      await scope.#rejectLeakedTransactionWork();
       await client.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
       await scope.#closeTransactionStreamsPreservingError();
+      await scope.#settleTransactionBatchPreservingError();
       if (scope.#transactionState.valid) {
         try {
           await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
@@ -388,9 +437,31 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     };
   }
 
-  async #rejectLeakedTransactionStreams(): Promise<void> {
-    if (this.#transactionStreams.size === 0 && this.#transactionState.activeStreams.size === 0) return;
+  async #executeBatch<const Queries extends readonly unknown[]>(
+    client: PostgresClientLike,
+    queries: QueryBatch<Queries>,
+  ): Promise<QueryResults<Queries>> {
+    const results: (readonly Record<string, unknown>[])[] = [];
+    for (const value of queries) {
+      this.#assertTransactionScopeOpen();
+      const query = value as unknown as Query<unknown, readonly unknown[]>;
+      const result = await client.query(this.#queryConfig(query));
+      results.push(result.rows);
+    }
+    return results as QueryResults<Queries>;
+  }
+
+  async #rejectLeakedTransactionWork(): Promise<void> {
+    const leakedStreams = this.#transactionStreams.size > 0 || this.#transactionState.activeStreams.size > 0;
+    const leakedBatch = this.#transactionState.activeBatch !== undefined;
+    if (!leakedStreams && !leakedBatch) return;
     await this.#closeTransactionStreamsPreservingError();
+    await this.#settleTransactionBatchPreservingError();
+    if (leakedBatch) {
+      throw new Error(
+        "A PostgreSQL transaction callback returned before its query batch completed; await the batch before returning",
+      );
+    }
     throw new Error("A PostgreSQL transaction callback returned before all query streams were completed or closed");
   }
 
@@ -405,10 +476,28 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
   }
 
+  async #settleTransactionBatchPreservingError(): Promise<void> {
+    const operation = this.#transactionState.activeBatch;
+    if (operation === undefined) return;
+    try {
+      await operation;
+    } catch {
+      /* The callback or transaction misuse error remains primary. */
+    }
+  }
+
   #rejectOperationDuringTransactionStream(operation: string): void {
     if (this.#client !== undefined && this.#transactionState.activeStreams.size > 0) {
       throw new Error(
         `Cannot ${operation} while a PostgreSQL transaction query stream is still open; complete or close the stream first`,
+      );
+    }
+  }
+
+  #rejectOperationDuringTransactionBatch(operation: string): void {
+    if (this.#client !== undefined && this.#transactionState.activeBatch !== undefined) {
+      throw new Error(
+        `Cannot ${operation} while a PostgreSQL transaction query batch is still running; await the batch first`,
       );
     }
   }
