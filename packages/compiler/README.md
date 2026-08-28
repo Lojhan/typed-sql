@@ -4,7 +4,8 @@ The stable, grammar-neutral TypeScript source compiler behind
 [typed-sql](https://github.com/Lojhan/typed-sql). It finds static SQL templates, asks the configured
 grammar for row and parameter shapes, creates an in-memory TypeScript overlay, preserves source
 mappings, emits deterministic query manifests, and compares them with grammar-owned native database
-evidence for CI and production correlation.
+evidence for CI and production correlation. It also compares before/after snapshots and manifests to
+find query-level migration breaks in both rolling-deployment directions.
 
 ```sh
 pnpm add @typed-sql/compiler
@@ -33,10 +34,15 @@ Live verification APIs collect transient SQL only after sources still match the 
 grammar-owned adapters with bounded concurrency, compare native field evidence, and emit canonical
 proofs that contain no SQL, values, URLs, absolute paths, or driver errors.
 
+Migration compatibility APIs consume deterministic artifacts only. They classify source, runtime,
+deployment-order, compatible, and unknown outcomes; link affected variants to source and dependency
+ranges; and emit canonical reports without SQL, default expressions, credentials, or absolute paths.
+
 Read [Architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md),
 [Compose conditional SQL](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/composition.md),
 [Query manifests](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-manifests.md), and
-[Live verification](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md), and
+[Live verification](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md),
+[Migration compatibility](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/migration-compatibility.md), and
 [Inference and safety](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/type-safety.md).
 
 MIT © typed-sql contributors

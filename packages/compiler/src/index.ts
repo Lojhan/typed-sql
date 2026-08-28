@@ -1,6 +1,27 @@
 export type { CheckFileOptions, CheckFileResult, TypeScriptCheckResult } from "./check.js";
 export { checkFile } from "./check.js";
 export type {
+  AnalyzeSchemaCompatibilityOptions,
+  CompatibilityClassification,
+  CompatibilityEvidence,
+  CompatibilityEvidenceValue,
+  CompatibilityQueryReference,
+  CompatibilitySeverity,
+  DeploymentDirection,
+  SchemaCompatibilityAssessment,
+  SchemaCompatibilityChange,
+  SchemaCompatibilityChangeKind,
+  SchemaCompatibilityReport,
+  SchemaCompatibilityTarget,
+} from "./compatibility.js";
+export {
+  analyzeSchemaCompatibility,
+  parseSchemaCompatibilityReport,
+  SCHEMA_COMPATIBILITY_ANALYZER_VERSION,
+  SCHEMA_COMPATIBILITY_FORMAT_VERSION,
+  serializeSchemaCompatibilityReport,
+} from "./compatibility.js";
+export type {
   CompiledFragment,
   CompiledQuery,
   CompiledQueryVariant,

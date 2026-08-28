@@ -17,6 +17,7 @@ The production performance suite covers:
 - compiling 250 queries with the PostgreSQL grammar and resolver;
 - emitting a 250-query manifest and reusing its unchanged per-file analysis;
 - scheduling and comparing native evidence for a 250-query verification manifest with bounded concurrency;
+- comparing 250-query before/after manifests across 50 changed database contracts;
 - correlated and independent conditional structure;
 - rejecting structural expansion before grammar work exceeds its bound;
 - core template construction, fragment composition, rendering, and prepared-skeleton binding;
@@ -46,6 +47,7 @@ At runtime, interpolation-free fragment templates may reuse their complete immut
 | Query manifest, 250 queries | 25 ms | 60 ms |
 | Query manifest, unchanged source | 0.5 ms | 1 ms |
 | Query verification, 250 cached native responses plus canonical proof hashing | 40 ms | 60 ms |
+| Schema compatibility, 250 queries and 50 changed contracts | 70 ms | 120 ms |
 | 20 correlated conditions | 5 ms | 10 ms |
 | Six independent conditions | 10 ms | 25 ms |
 | Structural limit rejection | 5 ms | 10 ms |

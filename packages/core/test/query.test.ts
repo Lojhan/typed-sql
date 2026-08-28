@@ -532,6 +532,34 @@ await describe("core contracts", async () => {
         }),
       /does not match/u,
     );
+    strict.doesNotThrow(() =>
+      defineConfig({
+        dialect,
+        schema: { file: "schema.json" },
+        outDir: "generated",
+        compatibility: { reportFile: ".typed-sql/compatibility.json", failOn: "warning" },
+      }),
+    );
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          compatibility: { reportFile: "" },
+        }),
+      /compatibility\.reportFile/u,
+    );
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          compatibility: { failOn: "all" as never },
+        }),
+      /compatibility\.failOn/u,
+    );
   });
 
   await it("validates every public dialect contract boundary", () => {

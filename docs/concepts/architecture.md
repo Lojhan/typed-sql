@@ -16,11 +16,11 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | No |
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
-| `@typed-sql/compiler` | Dialect-neutral extraction, transforms, structural expansion, diagnostics, and query manifests | No |
+| `@typed-sql/compiler` | Dialect-neutral extraction, transforms, diagnostics, manifests, verification, and migration analysis | No |
 | `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
-| `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, live verification, and provider discovery | No |
+| `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, compatibility, and provider discovery | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |
 
@@ -65,6 +65,8 @@ The optional query manifest serializes the same fingerprints, variants, inferred
 
 Live verification follows the same dependency direction. Core defines a native metadata adapter contract, grammar driver subpaths implement it, and the compiler compares evidence and emits a deterministic proof. The CLI reconstructs SQL transiently only after the source still matches the manifest. Neither the manifest nor proof stores SQL, values, connection configuration, absolute paths, or driver errors.
 
+Migration compatibility remains on the artifact side of that boundary. The compiler compares public snapshots and manifests without knowing how a migration was authored or applied. It maps catalog changes through grammar-owned dependencies, analyzes both mixed-version deployment directions, and emits a deterministic report. Existing migration runners remain responsible for execution and can provide an after-snapshot through any configured `SchemaProvider`.
+
 ## Generated metadata
 
 Generated output contains schema metadata for tooling and review. Application code imports `sql` and `typePolicy` from the dialect package and imports a driver adapter only when it needs introspection or execution.
@@ -74,6 +76,8 @@ A custom type policy belongs in an application module shared by config and runti
 Query manifests are build artifacts rather than generated application APIs. Applications continue importing `sql` from their selected grammar package. See [Query manifests](../guides/query-manifests.md).
 
 Verification proofs are CI artifacts rather than runtime dependencies. See [Live verification](../guides/live-verification.md).
+
+Compatibility reports are review and CI artifacts rather than migration instructions. See [Migration compatibility](../guides/migration-compatibility.md).
 
 ## Composition model
 

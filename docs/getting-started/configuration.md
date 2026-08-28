@@ -40,6 +40,10 @@ export default defineConfig({
     proofFile: ".typed-sql/verification.json",
     concurrency: 4,
   },
+  compatibility: {
+    reportFile: ".typed-sql/compatibility.json",
+    failOn: "error",
+  },
 });
 ```
 
@@ -76,6 +80,10 @@ export default defineConfig({
     proofFile: ".typed-sql/verification.json",
     concurrency: 4,
   },
+  compatibility: {
+    reportFile: ".typed-sql/compatibility.json",
+    failOn: "error",
+  },
 });
 ```
 
@@ -88,9 +96,10 @@ pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
 pnpm exec typed-sql verify --live
 pnpm exec typed-sql verify
+pnpm exec typed-sql compat --before before.schema.json --after after.schema.json --before-manifest before.queries.json --after-manifest after.queries.json
 ```
 
-`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md). `verify --live` compares that evidence with native prepare metadata, while `verify` validates the cached proof offline; see [Live verification](../guides/live-verification.md).
+`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md). `verify --live` compares that evidence with native prepare metadata, while `verify` validates the cached proof offline; see [Live verification](../guides/live-verification.md). `compat` compares before/after snapshots and manifests without contacting the database; see [Migration compatibility](../guides/migration-compatibility.md).
 
 Connection strings stay in the config callback or environment. They are not written to generated files. Commit the generated snapshot so schema and type-policy changes are reviewable.
 

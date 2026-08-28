@@ -3,16 +3,23 @@ import { describe, it, strict } from "poku";
 import type { SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
 import type {
+  AnalyzeSchemaCompatibilityOptions,
   BuildQueryManifestOptions,
   BuildQueryManifestResult,
   CheckFileOptions,
   CheckFileResult,
   CollectQueryVerificationCandidatesOptions,
+  CompatibilityClassification,
+  CompatibilityEvidence,
+  CompatibilityEvidenceValue,
+  CompatibilityQueryReference,
+  CompatibilitySeverity,
   CompiledFragment,
   CompiledQuery,
   CompiledQueryVariant,
   CompileSourceOptions,
   CompileSourceResult,
+  DeploymentDirection,
   ExtractedDynamicQuery,
   ExtractedInterpolation,
   ExtractedQuery,
@@ -38,6 +45,11 @@ import type {
   QueryVerificationProof,
   QueryVerificationProofEntry,
   ResolvedQueryManifestEntry,
+  SchemaCompatibilityAssessment,
+  SchemaCompatibilityChange,
+  SchemaCompatibilityChangeKind,
+  SchemaCompatibilityReport,
+  SchemaCompatibilityTarget,
   TypeScriptCheckResult,
   UnresolvedQueryManifestEntry,
   VerifyQueryManifestOptions,
@@ -325,6 +337,7 @@ async function transactionBatchContract(
 }
 
 type ReferencedStableTypes =
+  | AnalyzeSchemaCompatibilityOptions
   | CheckFileOptions
   | CheckFileResult
   | BuildQueryManifestOptions<SchemaSnapshot, unknown>
@@ -339,6 +352,12 @@ type ReferencedStableTypes =
   | ExtractedQuery
   | ListProjectSourceFilesOptions
   | CollectQueryVerificationCandidatesOptions<SchemaSnapshot, unknown>
+  | CompatibilityClassification
+  | CompatibilityEvidence
+  | CompatibilityEvidenceValue
+  | CompatibilityQueryReference
+  | CompatibilitySeverity
+  | DeploymentDirection
   | QueryManifest
   | QueryManifestBuildStats
   | QueryManifestColumn
@@ -359,6 +378,11 @@ type ReferencedStableTypes =
   | QueryVerificationMismatchKind
   | QueryVerificationProof
   | QueryVerificationProofEntry
+  | SchemaCompatibilityAssessment
+  | SchemaCompatibilityChange
+  | SchemaCompatibilityChangeKind
+  | SchemaCompatibilityReport
+  | SchemaCompatibilityTarget
   | ResolvedQueryManifestEntry
   | UnresolvedQueryManifestEntry
   | VerifyQueryManifestOptions
@@ -482,6 +506,9 @@ const expectedRuntimeExports = {
     "QUERY_MANIFEST_JSON_SCHEMA",
     "QUERY_VERIFICATION_FORMAT_VERSION",
     "QUERY_VERIFIER_VERSION",
+    "SCHEMA_COMPATIBILITY_ANALYZER_VERSION",
+    "SCHEMA_COMPATIBILITY_FORMAT_VERSION",
+    "analyzeSchemaCompatibility",
     "assertQueryVerificationProofCurrent",
     "buildQueryManifest",
     "checkFile",
@@ -493,8 +520,10 @@ const expectedRuntimeExports = {
     "mapSqlRange",
     "parseQueryManifest",
     "parseQueryVerificationProof",
+    "parseSchemaCompatibilityReport",
     "serializeQueryManifest",
     "serializeQueryVerificationProof",
+    "serializeSchemaCompatibilityReport",
     "verifyQueryManifest",
   ],
   conformance: [

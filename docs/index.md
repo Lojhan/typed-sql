@@ -23,6 +23,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 - [Trace database work safely](./guides/observability.md) through the neutral observer contract.
 - [Emit deterministic query manifests](./guides/query-manifests.md) for CI and production correlation.
 - [Verify compiler evidence against a live database](./guides/live-verification.md) and cache the proof.
+- [Check migrations against compiled queries](./guides/migration-compatibility.md) in both rolling-deployment directions.
 - [Configure Zed, VS Code, or another LSP client](./guides/editors.md).
 - Review the [PostgreSQL](./dialects/postgresql.md) and [MySQL](./dialects/mysql.md) grammar boundaries.
 

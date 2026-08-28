@@ -4,6 +4,7 @@ bundle/
 target/
 *.tsbuildinfo
 .typed-sql-*
+.typed-sql/
 e2e/*/generated/
 e2e/*/.typed-sql/
 .DS_Store

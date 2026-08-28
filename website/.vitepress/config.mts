@@ -48,6 +48,7 @@ export default defineConfig({
           { text: "Observe database work", link: "/guides/observability" },
           { text: "Emit query manifests", link: "/guides/query-manifests" },
           { text: "Verify against a database", link: "/guides/live-verification" },
+          { text: "Check migration compatibility", link: "/guides/migration-compatibility" },
           { text: "Compose conditional SQL", link: "/guides/composition" },
           { text: "Manage schema snapshots", link: "/guides/schema-snapshots" },
           { text: "Configure editors", link: "/guides/editors" },

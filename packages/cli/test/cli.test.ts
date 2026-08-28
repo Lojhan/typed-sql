@@ -5,6 +5,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { buildQueryManifest, serializeQueryManifest } from "../../compiler/src/index.js";
+import { postgres } from "../../postgres/src/index.js";
 
 const execFile = promisify(execFileCallback);
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -164,6 +166,101 @@ await describe("typed-sql manifest command", async () => {
         strict.strictEqual(error.code, 1);
         return true;
       });
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+});
+
+await describe("typed-sql compat command", async () => {
+  await it("writes a secret-free rolling-deployment report and enforces configured severity", async () => {
+    const temporary = await mkdtemp(join(workspace, ".typed-sql-cli-compat-"));
+    try {
+      await writeFile(
+        join(temporary, "typed-sql.config.ts"),
+        [
+          'import { defineConfig } from "@typed-sql/core";',
+          'import { postgres } from "@typed-sql/postgres";',
+          'export default defineConfig({ dialect: postgres(), schema: { file: "after.json" }, outDir: "generated", compatibility: { reportFile: ".typed-sql/compatibility.json" } });',
+        ].join("\n"),
+      );
+      const before = {
+        formatVersion: 1 as const,
+        dialect: "postgres" as const,
+        tables: {
+          users: {
+            name: "users",
+            columns: {
+              id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+              email: {
+                name: "email",
+                databaseType: "text",
+                tsType: "string",
+                nullable: false,
+                defaultExpression: "'recognizable-secret'",
+              },
+            },
+          },
+        },
+      };
+      const after = {
+        formatVersion: 1 as const,
+        dialect: "postgres" as const,
+        tables: {
+          users: {
+            name: "users",
+            columns: {
+              id: { name: "id", databaseType: "numeric", tsType: "string", nullable: false },
+            },
+          },
+        },
+      };
+      const dialect = postgres();
+      const source =
+        'import { sql } from "@typed-sql/postgres"; declare const id: bigint; export const query = sql`SELECT users.id, users.email FROM users WHERE users.id = ${id}`;';
+      const nextSource =
+        'import { sql } from "@typed-sql/postgres"; declare const id: string; export const query = sql`SELECT users.id FROM users WHERE users.id = ${id}`;';
+      const createManifest = (schema: typeof before | typeof after, value: string) =>
+        buildQueryManifest({
+          rootDir: temporary,
+          sources: [{ file: join(temporary, "query.ts"), source: value }],
+          dialect,
+          schema,
+          compilerVersion: "test",
+        }).manifest;
+      await writeFile(join(temporary, "before.json"), `${JSON.stringify(before)}\n`);
+      await writeFile(join(temporary, "after.json"), `${JSON.stringify(after)}\n`);
+      await writeFile(join(temporary, "before-manifest.json"), serializeQueryManifest(createManifest(before, source)));
+      await writeFile(
+        join(temporary, "after-manifest.json"),
+        serializeQueryManifest(createManifest(after, nextSource)),
+      );
+
+      const args = [
+        "compat",
+        "--before",
+        "before.json",
+        "--after",
+        "after.json",
+        "--before-manifest",
+        "before-manifest.json",
+        "--after-manifest",
+        "after-manifest.json",
+      ] as const;
+      const working = join(temporary, "nested");
+      await mkdir(working);
+      const allowed = await execute([...args, "--fail-on", "none"], working);
+      strict.match(allowed.stdout, /Compatibility: \d+ errors/u);
+      strict.match(allowed.stderr, /before-app-after-database/u);
+      const report = await readFile(join(temporary, ".typed-sql", "compatibility.json"), "utf8");
+      strict.ok(!report.includes("recognizable-secret"));
+      strict.ok(!report.includes(temporary));
+      await strict.rejects(execute(args, working), (error: unknown) => {
+        if (!(error instanceof Error && "code" in error)) return false;
+        strict.strictEqual(error.code, 1);
+        return true;
+      });
+      await strict.rejects(execute([...args, "--fail-on", "all"], working), /none, warning, or error/u);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

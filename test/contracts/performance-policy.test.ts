@@ -36,6 +36,7 @@ await describe("performance regression policy", async () => {
       "compiler.queryManifest",
       "compiler.queryManifestIncremental",
       "compiler.queryVerification",
+      "compiler.schemaCompatibility",
       "compiler.semanticMetadata",
       "compiler.structuralLimit",
       "editor.cancelledRequest",
