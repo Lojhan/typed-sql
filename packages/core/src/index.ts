@@ -27,6 +27,26 @@ export {
 export type { ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
+  QueryCardinality,
+  QueryConnectionAffinity,
+  QueryDependency,
+  QueryDependencyAccess,
+  QueryDependencyKind,
+  QueryLocking,
+  QueryOperation,
+  QuerySemantics,
+  QueryVolatility,
+  SemanticEvidence,
+  SemanticFact,
+} from "./semantics.js";
+export {
+  defineQuerySemantics,
+  mapQuerySemanticRanges,
+  mergeQuerySemantics,
+  QUERY_SEMANTICS_VERSION,
+  unknownQuerySemantics,
+} from "./semantics.js";
+export type {
   ColumnSnapshot,
   DialectAnalysis,
   DialectCapabilities,

@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto";
 import {
   type DialectPlugin,
+  mapQuerySemanticRanges,
+  mergeQuerySemantics,
   parameterTypeLiteral,
+  type QuerySemantics,
   type ResolvedParameter,
   rowTypeLiteral,
   type SchemaSnapshot,
@@ -22,6 +26,9 @@ export interface CompiledQuery {
   readonly rowType: string;
   readonly parameterType: string;
   readonly structural?: true;
+  readonly fingerprint: string;
+  readonly variantFingerprints: readonly string[];
+  readonly semantics: QuerySemantics;
 }
 
 export interface CompiledFragment {
@@ -46,6 +53,14 @@ export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
 
 function mapDiagnostic(source: string, query: ExtractedQuery, diagnostic: SqlDiagnostic): SqlDiagnostic {
   return { ...diagnostic, range: mapSqlRange(source, query, diagnostic.range) };
+}
+
+function fingerprint(dialect: DialectPlugin, sql: string): string {
+  return `sha256:${createHash("sha256").update(`${dialect.id}\0${dialect.grammarVersion}\0${sql}`).digest("hex")}`;
+}
+
+function sourceSemantics(source: string, query: ExtractedQuery, semantics: QuerySemantics): QuerySemantics {
+  return mapQuerySemanticRanges(semantics, (range) => mapSqlRange(source, query, range));
 }
 
 function deduplicateDiagnostics(diagnostics: readonly SqlDiagnostic[]): readonly SqlDiagnostic[] {
@@ -117,6 +132,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       const resolvedVariants = expansion.variants.map((variant) => ({
         variant,
         resolved: dialect.analyze(variant.query.sql, schema, options.typePolicy),
+        fingerprint: fingerprint(dialect, variant.query.sql),
       }));
       for (const { variant, resolved } of resolvedVariants) {
         diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, variant.query, diagnostic)));
@@ -183,6 +199,16 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           rowType: structuralRowType(source, query, rows),
           parameterType: parameterTypes.join(" | "),
           structural: true,
+          variantFingerprints: Object.freeze(
+            [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
+          ),
+          fingerprint: fingerprint(
+            dialect,
+            [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort().join("\0"),
+          ),
+          semantics: mergeQuerySemantics(
+            resolvedVariants.map(({ variant, resolved }) => sourceSemantics(source, variant.query, resolved.semantics)),
+          ),
         });
         compiledFragments.push(
           ...[...byPosition.values()].map((item) => ({
@@ -196,10 +222,14 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     const resolved = dialect.analyze(query.sql, schema, options.typePolicy);
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      const queryFingerprint = fingerprint(dialect, query.sql);
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
         parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
+        fingerprint: queryFingerprint,
+        variantFingerprints: Object.freeze([queryFingerprint]),
+        semantics: sourceSemantics(source, query, resolved.semantics),
       });
     }
   }

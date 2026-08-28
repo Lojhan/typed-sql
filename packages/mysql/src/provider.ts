@@ -33,6 +33,8 @@ interface RoutineRow extends Record<string, unknown> {
   readonly schema_name: string;
   readonly function_name: string;
   readonly database_return_type: string;
+  readonly is_deterministic: "YES" | "NO";
+  readonly sql_data_access: "CONTAINS SQL" | "NO SQL" | "READS SQL DATA" | "MODIFIES SQL DATA";
 }
 
 export const mysqlCatalogQueries = Object.freeze({
@@ -55,7 +57,9 @@ export const mysqlCatalogQueries = Object.freeze({
     return `
       SELECT ROUTINE_SCHEMA AS schema_name,
              ROUTINE_NAME AS function_name,
-             DTD_IDENTIFIER AS database_return_type
+             DTD_IDENTIFIER AS database_return_type,
+             IS_DETERMINISTIC AS is_deterministic,
+             SQL_DATA_ACCESS AS sql_data_access
       FROM information_schema.ROUTINES
       WHERE ROUTINE_TYPE = 'FUNCTION'
         AND ROUTINE_SCHEMA IN (${Array.from({ length: schemaCount }, () => "?").join(", ")})
@@ -124,6 +128,7 @@ export class MySqlSchemaProvider implements SchemaProvider {
         databaseReturnType: string;
         returnType: string;
         nullable: boolean;
+        volatility: "immutable" | "stable" | "volatile";
       }
     > = {};
     for (const row of routineRows) {
@@ -134,6 +139,12 @@ export class MySqlSchemaProvider implements SchemaProvider {
         databaseReturnType: row.database_return_type,
         returnType: mapMySqlType(row.database_return_type, this.#policy),
         nullable: true,
+        volatility:
+          row.sql_data_access === "MODIFIES SQL DATA" || row.is_deterministic === "NO"
+            ? "volatile"
+            : row.sql_data_access === "READS SQL DATA"
+              ? "stable"
+              : "immutable",
       };
     }
     return {

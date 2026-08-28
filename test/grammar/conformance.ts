@@ -24,6 +24,11 @@ export interface DialectConformanceFixture<Snapshot extends SchemaSnapshot, Poli
   readonly expectedParameterType: string;
   readonly unsupportedQuery: string;
   readonly unsupportedCode: string;
+  readonly expectedSemantics: {
+    readonly operation: "read" | "write" | "unknown";
+    readonly volatility: "immutable" | "stable" | "volatile" | "unknown";
+    readonly cardinalityMaximum: 0 | 1 | "many" | "unknown";
+  };
   readonly policyProbe?: {
     readonly query: string;
     readonly policy: Policy;
@@ -63,6 +68,10 @@ export function assertDialectConformance<Snapshot extends SchemaSnapshot, Policy
   );
   assert.strictEqual(rowTypeLiteral(resolved.columns), fixture.expectedRowType);
   assert.strictEqual(parameterTypeLiteral(1, resolved.parameters), fixture.expectedParameterType);
+  assert.strictEqual(resolved.semantics.operation.value, fixture.expectedSemantics.operation);
+  assert.strictEqual(resolved.semantics.volatility.value, fixture.expectedSemantics.volatility);
+  assert.strictEqual(resolved.semantics.cardinality.maximum, fixture.expectedSemantics.cardinalityMaximum);
+  assert.strictEqual(resolved.semantics.version, 1);
 
   if (fixture.policyProbe !== undefined) {
     const policyResult = dialect.analyze(fixture.policyProbe.query, snapshot, fixture.policyProbe.policy);
@@ -74,6 +83,7 @@ export function assertDialectConformance<Snapshot extends SchemaSnapshot, Policy
   assert.ok(
     unsupported.diagnostics.some(({ code, severity }) => code === fixture.unsupportedCode && severity === "error"),
   );
+  assert.strictEqual(unsupported.semantics.operation.value, "unknown");
   const source = [
     `import { sql } from ${JSON.stringify(dialect.sqlModule)};`,
     "const query = sql`",

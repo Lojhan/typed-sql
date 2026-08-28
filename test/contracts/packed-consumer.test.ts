@@ -202,6 +202,7 @@ await describe("packed public packages", async () => {
             DIALECT_CONTRACT_VERSION,
             assertDialectPlugin,
             sql,
+            unknownQuerySemantics,
           } from "@typed-sql/core";
           import { parseSchemaSnapshot } from "@typed-sql/schema";
 
@@ -245,6 +246,7 @@ await describe("packed public packages", async () => {
                   columns: [{ name: "value", tsType: policy.scalar, nullable: false, databaseType: "scalar", range }],
                   parameters: [{ index: 1, tsType: policy.scalar, nullable: false, databaseType: "scalar" }],
                   diagnostics: [],
+                  semantics: unknownQuerySemantics({ ...range, end: text.length }, "Synthetic grammar"),
                 };
               }
               return {
@@ -256,6 +258,7 @@ await describe("packed public packages", async () => {
                   severity: "error",
                   range: { ...range, end: text.length },
                 }],
+                semantics: unknownQuerySemantics({ ...range, end: text.length }, "Synthetic grammar"),
               };
             },
             validateSnapshot,

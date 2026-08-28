@@ -18,7 +18,8 @@ import {
 } from "@typed-sql/schema";
 ```
 
-Snapshots record the dialect contract, server catalog, TypeScript mappings, and deterministic hash.
+Snapshots record the dialect contract, server catalog, TypeScript mappings, supported-function
+volatility evidence, and deterministic hash.
 Unknown future formats fail explicitly. Generated TypeScript is inspection metadata, not an
 application-facing `sql` or runtime-policy module.
 

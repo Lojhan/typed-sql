@@ -21,7 +21,8 @@ const result = compileSource({
 ```
 
 `compileSource` consumes only `DialectPlugin`; it does not branch on a database, grammar package,
-or driver. Its public options include the structural-variant bound used for conditional fragments.
+or driver. Compiled queries expose path-independent SHA-256 fingerprints, variant fingerprints,
+and source-mapped semantics merged conservatively across conditional structure. Its public options include the structural-variant bound used for conditional fragments.
 Application projects normally use the compiler through `typed-sql check` or the language server.
 
 Read [Architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md),

@@ -23,6 +23,7 @@ import {
   type SqlRenderer,
   sql,
   unionTypeLiterals,
+  unknownQuerySemantics,
 } from "../src/index.js";
 
 const renderer: SqlRenderer = {
@@ -333,7 +334,12 @@ await describe("core contracts", async () => {
     defaultTypePolicy: {},
     placeholder: (index) => `?${index}`,
     quoteIdentifier: (identifier) => `"${identifier}"`,
-    analyze: () => ({ columns: [], parameters: [], diagnostics: [] }),
+    analyze: (sql) => ({
+      columns: [],
+      parameters: [],
+      diagnostics: [],
+      semantics: unknownQuerySemantics({ start: 0, end: sql.length, line: 1, column: 1 }, "Test grammar"),
+    }),
     validateSnapshot: () => schema,
   };
 
@@ -350,7 +356,7 @@ await describe("core contracts", async () => {
     strict.throws(
       () =>
         defineConfig({
-          dialect: { ...dialect, contractVersion: 4 as never },
+          dialect: { ...dialect, contractVersion: 5 as never },
           schema: { file: "schema.json" },
           outDir: "generated",
         }),
@@ -443,6 +449,7 @@ await describe("core contracts", async () => {
       },
     };
     const index = new ResolverSchemaIndex(indexedSchema);
+    strict.strictEqual(ResolverSchemaIndex.for(indexedSchema), ResolverSchemaIndex.for(indexedSchema));
     const table = index.tables("users", "PUBLIC")[0]?.table;
     strict.ok(table !== undefined);
     strict.strictEqual(index.tables("users").length, 1);

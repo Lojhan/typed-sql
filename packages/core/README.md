@@ -27,8 +27,8 @@ type Parameters = QueryParameters<typeof query>;
 ```
 
 Grammar and adapter authors can use `DialectPlugin`, `DIALECT_CONTRACT_VERSION`,
-`assertDialectPlugin`, `createDatabase`, `renderQuery`, the prepared-query skeleton helpers, and
-the neutral resolver primitives from the package root. The package has no parser, grammar,
+`assertDialectPlugin`, `defineQuerySemantics`, `mergeQuerySemantics`, `createDatabase`, `renderQuery`,
+the prepared-query skeleton helpers, and the neutral resolver primitives from the package root. The package has no parser, grammar,
 database driver, TypeScript compiler, or editor dependency.
 
 Read the [query API](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/api.md),

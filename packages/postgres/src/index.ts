@@ -1,7 +1,8 @@
 import { parseStatement, SqlParseError } from "@typed-sql/ast";
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin } from "@typed-sql/core";
+import { DIALECT_CONTRACT_VERSION, type DialectPlugin, unknownQuerySemantics } from "@typed-sql/core";
 import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { resolveStatement } from "./resolver.js";
+import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
 
 export const POSTGRES_DIALECT_VERSION = "1.0.0";
@@ -54,13 +55,21 @@ export function postgres(
     },
     analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
       try {
-        return resolveStatement(parseStatement(sql), snapshot, { typePolicy: policy });
+        const statement = parseStatement(sql);
+        const resolved = resolveStatement(statement, snapshot, { typePolicy: policy });
+        return {
+          ...resolved,
+          semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
+            ? unknownQuerySemantics(statement.range, "PostgreSQL semantic analysis reported an error.")
+            : analyzePostgresSemantics(statement, snapshot),
+        };
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
         return {
           columns: [],
           parameters: [],
           diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }],
+          semantics: unknownQuerySemantics(error.range, "The SQL could not be parsed by the PostgreSQL grammar."),
         };
       }
     },

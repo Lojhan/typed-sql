@@ -132,11 +132,19 @@ Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, 
 - `compileSource` and its query or fragment results;
 - `extractStaticQueries`, `mapSqlRange`, `ExtractedQuery`, and `ExtractedInterpolation`.
 
+Each `CompiledQuery` includes:
+
+- `fingerprint`, a dialect- and grammar-version-scoped SHA-256 identity;
+- `variantFingerprints`, containing every bounded structural SQL identity;
+- `semantics`, with source-mapped, conservatively merged query evidence.
+
 Scanner control flow, append extraction, structural parsing, branch expansion, and conditional row rendering remain internal.
 
 ## Grammar entrypoints
 
 `@typed-sql/core` exports `DialectPlugin`, `DialectCapabilities`, `SchemaProvider`, resolution and snapshot types, `DIALECT_CONTRACT_VERSION`, `assertDialectPlugin`, and grammar-neutral resolver helpers.
+
+Dialect contract version 4 requires every `DialectAnalysis` to include `QuerySemantics`. Its operation, cardinality, volatility, locking, and connection-affinity values carry source evidence. Dependencies record object kind, access, name, optional schema/parent, source range, and whether the reference was schema-resolved or only syntactic. `defineQuerySemantics`, `unknownQuerySemantics`, `mapQuerySemanticRanges`, and `mergeQuerySemantics` provide canonical immutability, fail-closed analysis, source mapping, and structural-composition mechanics.
 
 See [Authoring a custom grammar](../extending/custom-grammars.md).
 

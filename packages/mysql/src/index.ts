@@ -1,7 +1,8 @@
 import { parseStatement, SqlParseError } from "@typed-sql/ast";
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin } from "@typed-sql/core";
+import { DIALECT_CONTRACT_VERSION, type DialectPlugin, unknownQuerySemantics } from "@typed-sql/core";
 import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { resolveMySqlStatement } from "./resolver.js";
+import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 
 export const MYSQL_DIALECT_VERSION = "1.0.0";
@@ -51,13 +52,21 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     },
     analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
       try {
-        return resolveMySqlStatement(parseStatement(sql, { syntax: "mysql" }), snapshot, { typePolicy: policy });
+        const statement = parseStatement(sql, { syntax: "mysql" });
+        const resolved = resolveMySqlStatement(statement, snapshot, { typePolicy: policy });
+        return {
+          ...resolved,
+          semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
+            ? unknownQuerySemantics(statement.range, "MySQL semantic analysis reported an error.")
+            : analyzeMySqlSemantics(statement, snapshot),
+        };
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
         return {
           columns: [],
           parameters: [],
           diagnostics: [{ code: error.code, message: error.message, severity: "error" as const, range: error.range }],
+          semantics: unknownQuerySemantics(error.range, "The SQL could not be parsed by the MySQL grammar."),
         };
       }
     },

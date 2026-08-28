@@ -1,4 +1,6 @@
-export const DIALECT_CONTRACT_VERSION = 3 as const;
+import type { QuerySemantics } from "./semantics.js";
+
+export const DIALECT_CONTRACT_VERSION = 4 as const;
 
 export interface SourceRange {
   readonly start: number;
@@ -53,6 +55,7 @@ export interface FunctionSnapshot {
   readonly returnType: string;
   readonly nullable: boolean;
   readonly setReturning?: boolean;
+  readonly volatility?: "immutable" | "stable" | "volatile";
 }
 
 export interface SchemaSnapshot {
@@ -97,6 +100,8 @@ export interface DialectAnalysis {
   readonly parameters: readonly ResolvedParameter[];
   readonly diagnostics: readonly SqlDiagnostic[];
   readonly resultKind?: "rows" | "command";
+  /** Grammar-owned, evidence-backed statement semantics. */
+  readonly semantics: QuerySemantics;
 }
 
 /**

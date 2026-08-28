@@ -4,6 +4,7 @@ import {
   type DialectPlugin,
   type SchemaSnapshot,
   type SqlDiagnostic,
+  unknownQuerySemantics,
 } from "../../packages/core/src/index.js";
 import { mysql, typePolicy as mysqlTypePolicy } from "../../packages/mysql/src/index.js";
 import { mysqlRenderer } from "../../packages/mysql/src/runtime.js";
@@ -85,6 +86,7 @@ const synthetic: DialectPlugin<typeof syntheticSnapshot, SyntheticPolicy> = Obje
         columns: [{ name: "value", tsType: policy.scalar, nullable: false, databaseType: "scalar", range }],
         parameters: [{ index: 1, tsType: policy.scalar, nullable: false, databaseType: "scalar" }],
         diagnostics: [],
+        semantics: unknownQuerySemantics({ ...range, end: sql.length }, "Synthetic test grammar"),
       };
     }
     const diagnostic: SqlDiagnostic = {
@@ -93,7 +95,12 @@ const synthetic: DialectPlugin<typeof syntheticSnapshot, SyntheticPolicy> = Obje
       severity: "error",
       range: { ...range, end: sql.length },
     };
-    return { columns: [], parameters: [], diagnostics: [diagnostic] };
+    return {
+      columns: [],
+      parameters: [],
+      diagnostics: [diagnostic],
+      semantics: unknownQuerySemantics({ ...range, end: sql.length }, "Synthetic test grammar"),
+    };
   },
   validateSnapshot: validateSynthetic,
 });
@@ -127,6 +134,7 @@ await describe("public dialect-plugin conformance", async () => {
       expectedParameterType: "readonly [bigint]",
       unsupportedQuery: "SELECT value FROM widgets UNION SELECT value FROM widgets",
       unsupportedCode: "TSQ001",
+      expectedSemantics: { operation: "read", volatility: "stable", cardinalityMaximum: "many" },
       policyProbe: {
         query: "SELECT CAST(1 AS bigint) AS value",
         policy: { ...postgresTypePolicy, bigint: "string" },
@@ -150,6 +158,7 @@ await describe("public dialect-plugin conformance", async () => {
       expectedParameterType: "readonly [bigint]",
       unsupportedQuery: "SELECT * FROM widgets FULL JOIN widgets AS other ON widgets.value = other.value",
       unsupportedCode: "TSQ401",
+      expectedSemantics: { operation: "read", volatility: "stable", cardinalityMaximum: "many" },
       policyProbe: {
         query: "SELECT CAST(1 AS DECIMAL) AS value",
         policy: { ...mysqlTypePolicy, decimal: "number" },
@@ -173,6 +182,7 @@ await describe("public dialect-plugin conformance", async () => {
       expectedParameterType: "readonly [number]",
       unsupportedQuery: "UNSUPPORTED",
       unsupportedCode: "SYN001",
+      expectedSemantics: { operation: "unknown", volatility: "unknown", cardinalityMaximum: "unknown" },
       policyProbe: {
         query: "SELECT value FROM widgets WHERE value = ?1",
         policy: { scalar: "string" },

@@ -1,6 +1,11 @@
 import { performance } from "node:perf_hooks";
 import { describe, it, strict } from "poku";
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin, type SchemaSnapshot } from "../../core/src/index.js";
+import {
+  DIALECT_CONTRACT_VERSION,
+  type DialectPlugin,
+  type SchemaSnapshot,
+  unknownQuerySemantics,
+} from "../../core/src/index.js";
 import { compileSource, extractStaticQueries } from "../src/index.js";
 
 const schema = { formatVersion: 1, dialect: "performance", tables: {} } as const satisfies SchemaSnapshot;
@@ -14,7 +19,7 @@ const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
   placeholder: (index) => `$${index}`,
   quoteIdentifier: (identifier) => `"${identifier}"`,
   validateSnapshot: () => schema,
-  analyze: (_sql, _snapshot) => ({
+  analyze: (sql, _snapshot) => ({
     columns: [
       {
         name: "id",
@@ -27,6 +32,7 @@ const dialect: DialectPlugin<typeof schema, Record<string, never>> = {
     parameters: [],
     diagnostics: [],
     resultKind: "rows",
+    semantics: unknownQuerySemantics({ start: 0, end: sql.length, line: 1, column: 1 }, "Performance grammar"),
   }),
 };
 

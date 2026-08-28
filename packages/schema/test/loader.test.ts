@@ -43,6 +43,7 @@ const fullSnapshot = {
       returnType: "bigint",
       nullable: false,
       setReturning: false,
+      volatility: "stable",
     },
   },
 } as const;
@@ -248,6 +249,16 @@ await describe("schema snapshot loader", async () => {
           functions: { f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, setReturning: "no" } },
         },
         /setReturning/,
+      ],
+      [
+        {
+          dialect: "postgres",
+          tables: {},
+          functions: {
+            f: { name: "f", argumentTypes: [], returnType: "number", nullable: false, volatility: "sometimes" },
+          },
+        },
+        /volatility/,
       ],
     ];
     for (const [input, expected] of failures) strict.throws(() => parseSchemaSnapshot(input), expected);

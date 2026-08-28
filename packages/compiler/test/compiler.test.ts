@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin, type SchemaSnapshot } from "../../core/src/index.js";
+import {
+  DIALECT_CONTRACT_VERSION,
+  type DialectPlugin,
+  type SchemaSnapshot,
+  unknownQuerySemantics,
+} from "../../core/src/index.js";
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { checkFile, compileSource, extractStaticQueries, mapSqlRange } from "../src/index.js";
@@ -175,6 +180,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
         parameters: [],
         diagnostics: [],
         resultKind: "rows" as const,
+        semantics: unknownQuerySemantics({ start: 0, end: sql.length, line: 1, column: 1 }, "Test grammar"),
       }),
     };
     const source = [
@@ -324,6 +330,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
             range: { start: 7, end: 9, line: 1, column: 8 },
           },
         ],
+        semantics: unknownQuerySemantics({ start: 0, end: 1, line: 1, column: 1 }, "Test diagnostic"),
       }),
     };
     const conditional =
@@ -338,6 +345,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
         parameters: [{ index: 1, tsType: sql.includes("users AS account") ? "number" : "string", nullable: false }],
         diagnostics: [],
         resultKind: "rows",
+        semantics: unknownQuerySemantics({ start: 0, end: sql.length, line: 1, column: 1 }, "Test grammar"),
       }),
     };
     const contextual = [
@@ -364,6 +372,25 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     const result = compileSource({ source, schema: schema as PostgresSchemaSnapshot, dialect: postgres() });
     strict.deepStrictEqual(result.diagnostics, []);
     strict.ok(result.transformedSource.includes('sql<{ "id": number; }, readonly []>`SELECT id FROM users`'));
+    strict.match(result.queries[0]?.fingerprint ?? "", /^sha256:[a-f0-9]{64}$/u);
+    strict.deepStrictEqual(result.queries[0]?.variantFingerprints, [result.queries[0]?.fingerprint]);
+    strict.strictEqual(result.queries[0]?.semantics.operation.value, "read");
+    strict.strictEqual(result.queries[0]?.semantics.dependencies[0]?.range.line, 2);
+  });
+
+  await it("merges structural semantic variants and fingerprints without source-path identity", async () => {
+    const schema = await loadSchemaSnapshot(schemaPath);
+    const source = [
+      'import { sql } from "@typed-sql/postgres";',
+      "const q = sql`SELECT id FROM users ${filter ? sql.fragment`WHERE id = ${id}` : sql.empty}`;",
+    ].join("\n");
+    const first = compileSource({ source, schema: schema as PostgresSchemaSnapshot, dialect: postgres() });
+    const second = compileSource({ source, schema: schema as PostgresSchemaSnapshot, dialect: postgres() });
+    strict.deepStrictEqual(first.queries, second.queries);
+    strict.strictEqual(first.queries[0]?.variantFingerprints.length, 2);
+    strict.strictEqual(first.queries[0]?.semantics.operation.value, "read");
+    strict.strictEqual(first.queries[0]?.semantics.volatility.value, "stable");
+    strict.ok(first.queries[0]?.semantics.dependencies.every(({ range }) => range.line === 2));
   });
 
   await it("injects CTE and DML RETURNING rows and command-only never results", async () => {

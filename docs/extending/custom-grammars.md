@@ -31,6 +31,7 @@ import {
   type DialectAnalysis,
   type DialectPlugin,
   type SchemaSnapshot,
+  unknownQuerySemantics,
 } from "@typed-sql/core";
 import { parseSchemaSnapshot } from "@typed-sql/schema";
 
@@ -71,6 +72,10 @@ function analyze(
     columns: [],
     parameters: [],
     diagnostics: [],
+    semantics: unknownQuerySemantics(
+      { start: 0, end: text.length, line: 1, column: 1 },
+      "The example grammar has not implemented semantic analysis.",
+    ),
   };
 }
 
@@ -114,13 +119,17 @@ The dialect contract separates neutral compiler mechanics from SQL semantics:
 - `placeholder(index)` renders one-based parameter markers.
 - `quoteIdentifier(identifier)` matches the runtime renderer.
 - `capabilities` is an immutable, grammar-owned feature map.
-- `analyze(text, snapshot, policy)` returns columns, ordered parameter evidence, and source-mapped diagnostics.
+- `analyze(text, snapshot, policy)` returns columns, ordered parameter evidence, source-mapped diagnostics, and versioned `QuerySemantics`.
 - `validateSnapshot(value)` owns dialect and grammar-version compatibility.
 - `defaultTypePolicy` defines the default database-to-TypeScript mapping.
 
 Return parameters in placeholder order. Use `unknown` when evidence is insufficient. Unsupported, ambiguous, invalid, or version-gated SQL must produce a diagnostic or conservative unknown result, never an optimistic type.
 
 Core exports optional grammar-neutral helpers including `ResolverSchemaIndex`, `ParameterCollector`, `unionTypeLiterals`, and `closestName`. A grammar retains control of parsing, identifiers, operators, built-ins, coercions, nullability, and diagnostics.
+
+Semantic metadata records the operation, referenced objects, result cardinality, volatility, locking, connection affinity, and required capabilities. Every positive safety classification needs syntax or schema evidence. Dependencies must say whether they are schema-resolved or only syntactic. If the grammar cannot support a statement or establish its effects, return `unknownQuerySemantics()` and a diagnostic where the SQL itself is unsupported. Do not infer safety from a statement prefix or regular expression.
+
+Use `defineQuerySemantics()` to canonicalize and deeply freeze successful grammar evidence. Structural variants are analyzed as complete statements. The compiler maps their semantic ranges back to TypeScript and merges the possible results conservatively through `mergeQuerySemantics()`.
 
 ## Compatibility versions
 
@@ -142,6 +151,8 @@ Before publishing a grammar:
 4. Prove one exact row and ordered parameter tuple.
 5. Prove a type-policy override changes inference and runtime decoding together.
 6. Produce a documented diagnostic for unsupported syntax.
-7. Install the packed package in an empty project without workspace imports or a database driver.
+7. Prove operation, cardinality, dependency, and volatility evidence for the exact query.
+8. Prove unsupported analysis exposes unknown semantics.
+9. Install the packed package in an empty project without workspace imports or a database driver.
 
 Executable conformance examples live in the repository's [`test/grammar`](https://github.com/Lojhan/typed-sql/tree/main/test/grammar) fixtures.

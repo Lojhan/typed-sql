@@ -109,6 +109,21 @@ await latency("compiler.manyQueries", () => {
   assert.deepEqual(compiled.diagnostics, []);
 });
 
+const semanticQueries = Array.from(
+  { length: 250 },
+  (_, index) => `SELECT account.id, account.email FROM users AS account WHERE account.id >= $${index + 1}`,
+);
+await latency("compiler.semanticMetadata", () => {
+  for (const query of semanticQueries) {
+    const analysis = dialect.analyze(query, snapshot);
+    assert.equal(analysis.semantics.operation.value, "read");
+    assert.equal(
+      analysis.semantics.dependencies.some(({ kind }) => kind === "relation"),
+      true,
+    );
+  }
+});
+
 async function structuralMetric(name, conditions, expectedAnalyses, expectedCode) {
   let analyses = 0;
   const measuredDialect = {
