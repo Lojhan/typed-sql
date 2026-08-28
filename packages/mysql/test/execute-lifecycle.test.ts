@@ -44,6 +44,7 @@ function accountResult(id = "1"): MySqlExecutionResult {
 class ExecuteConnection implements MySqlConnectionLike {
   readonly events: string[] = [];
   releaseCount = 0;
+  destroyCount = 0;
   blockedText: string | undefined;
   blocked: BlockedExecute | undefined;
 
@@ -87,9 +88,16 @@ class ExecuteConnection implements MySqlConnectionLike {
     this.releaseCount += 1;
     this.events.push("RELEASE");
   }
+
+  destroy(): void {
+    this.destroyCount += 1;
+    this.events.push("DESTROY");
+    this.blocked?.result.reject(new Error("connection destroyed"));
+  }
 }
 
 class ExecutePool implements MySqlPoolLike {
+  readonly executionCapabilities = { cancellation: true, deadlines: true } as const;
   readonly connection = new ExecuteConnection();
 
   execute(): Promise<MySqlExecutionResult> {
@@ -108,6 +116,26 @@ class ExecutePool implements MySqlPoolLike {
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 await describe("MySQL transaction execute ownership", async () => {
+  await it("cancels transaction work by destroying the lease without reusing or releasing it", async () => {
+    const pool = new ExecutePool();
+    const blocked = pool.connection.block("SELECT id FROM accounts");
+    const controller = new AbortController();
+    const transaction = createMySqlDatabase({ pool }).transaction(async (scope) => {
+      const running = scope.all(accountQuery, { signal: controller.signal });
+      await blocked.started;
+      controller.abort();
+      return running;
+    });
+
+    await strict.rejects(transaction, (error) => {
+      strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+      return true;
+    });
+    strict.deepStrictEqual(pool.connection.events, ["BEGIN", "EXECUTE SELECT id FROM accounts", "DESTROY"]);
+    strict.strictEqual(pool.connection.destroyCount, 1);
+    strict.strictEqual(pool.connection.releaseCount, 0);
+  });
+
   await it("owns the connection synchronously and rejects concurrent transaction work", async () => {
     const pool = new ExecutePool();
     const blocked = pool.connection.block("SELECT id FROM accounts");

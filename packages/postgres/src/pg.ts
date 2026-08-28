@@ -196,6 +196,7 @@ export function adaptPgPool(
     };
   };
   return {
+    executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
     async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
       const result =
         typeof config === "string"

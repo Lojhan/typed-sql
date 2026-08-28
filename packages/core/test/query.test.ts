@@ -2,6 +2,7 @@ import { describe, it, strict } from "poku";
 import {
   assertDialectPlugin,
   bindQueryRenderSkeleton,
+  type ControlledQueryExecutor,
   closestName,
   compileQueryRenderSkeleton,
   createDatabase,
@@ -13,6 +14,7 @@ import {
   ParameterCollector,
   parameterTypeLiteral,
   type Query,
+  QueryCardinalityError,
   type QueryParameters,
   type QueryRow,
   ResolverSchemaIndex,
@@ -22,6 +24,7 @@ import {
   type SqlFragment,
   type SqlRenderer,
   sql,
+  UnsupportedExecutionCapabilityError,
   unionTypeLiterals,
   unknownQuerySemantics,
 } from "../src/index.js";
@@ -293,6 +296,100 @@ await describe("runtime SQL tag", async () => {
     const rows = await db.execute(sql<{ id: number }>`SELECT id FROM users`);
     strict.deepStrictEqual(rows, [{ id: 1 }]);
     strict.strictEqual(calls[0]?.text, "SELECT id FROM users");
+    strict.deepStrictEqual(db.executionCapabilities, { cancellation: false, deadlines: false });
+    strict.ok(Object.isFrozen(db.executionCapabilities));
+  });
+
+  await it("preserves row types across all cardinality methods", async () => {
+    type Account = { readonly id: bigint };
+    const query = sql<Account>`SELECT id FROM account`;
+    const database = createDatabase(
+      {
+        async execute() {
+          return [{ id: 1n }];
+        },
+      },
+      renderer,
+    );
+    const all: readonly Account[] = await database.all(query);
+    const one: Account = await database.one(query);
+    const maybe: Account | undefined = await database.maybeOne(query);
+    strict.deepStrictEqual([all, one, maybe], [[{ id: 1n }], { id: 1n }, { id: 1n }]);
+  });
+
+  await it("uses stable cardinality errors without rewriting SQL", async () => {
+    const database = createDatabase(
+      {
+        async execute() {
+          return [];
+        },
+      },
+      renderer,
+    );
+    const query = sql<{ readonly id: number }>`SELECT id FROM account`;
+    await strict.rejects(database.one(query), (error: unknown) => {
+      if (!(error instanceof QueryCardinalityError)) return false;
+      strict.deepStrictEqual(
+        { name: error.name, code: error.code, expected: error.expected, actual: error.actual },
+        { name: "QueryCardinalityError", code: "TSQL_CARDINALITY", expected: "one", actual: 0 },
+      );
+      return true;
+    });
+
+    const many = createDatabase(
+      {
+        async execute() {
+          return [{ id: 1 }, { id: 2 }];
+        },
+      },
+      renderer,
+    );
+    await strict.rejects(many.maybeOne(query), (error: unknown) => {
+      if (!(error instanceof QueryCardinalityError)) return false;
+      strict.deepStrictEqual([error.expected, error.actual], ["maybeOne", 2]);
+      return true;
+    });
+  });
+
+  await it("negotiates execution controls explicitly and keeps execute on the thin path", async () => {
+    const calls: string[] = [];
+    const executor: ControlledQueryExecutor = {
+      executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
+      async execute() {
+        calls.push("execute");
+        return [{ id: 1 }];
+      },
+      async executeControlled(_text, _values, options) {
+        calls.push(options.deadline === undefined ? "signal" : "deadline");
+        return [{ id: 1 }];
+      },
+    };
+    const database = createDatabase(executor, renderer);
+    const query = sql<{ readonly id: number }>`SELECT id FROM account`;
+    await database.execute(query);
+    await database.all(query);
+    await database.all(query, { signal: new AbortController().signal });
+    await database.one(query, { deadline: Date.now() + 1_000 });
+    strict.deepStrictEqual(calls, ["execute", "execute", "signal", "deadline"]);
+    strict.deepStrictEqual(database.executionCapabilities, { cancellation: true, deadlines: true });
+
+    const unsupported = createDatabase(
+      {
+        async execute() {
+          return [];
+        },
+      },
+      renderer,
+    );
+    await strict.rejects(
+      unsupported.all(query, { signal: new AbortController().signal }),
+      (error: unknown) => error instanceof UnsupportedExecutionCapabilityError && error.capability === "cancellation",
+    );
+    await strict.rejects(
+      unsupported.all(query, { deadline: Date.now() + 1_000 }),
+      (error: unknown) => error instanceof UnsupportedExecutionCapabilityError && error.capability === "deadlines",
+    );
+    await strict.rejects(unsupported.all(query, { deadline: Number.NaN }), RangeError);
   });
 
   await it("keeps raw SQL explicit and validates identifier input", () => {

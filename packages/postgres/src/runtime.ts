@@ -1,10 +1,16 @@
 import {
+  assertExecutionCapabilities,
   type Database,
+  type ExecutionCapabilities,
+  type ExecutionOptions,
   type Query,
   type QueryBatch,
+  type QueryCancelledError,
+  QueryCardinalityError,
   type QueryResults,
   type QueryStream,
   renderQuery,
+  runControlledExecution,
   type SqlRenderer,
   type StreamOptions,
 } from "@typed-sql/core";
@@ -50,6 +56,7 @@ export interface PostgresClientLike {
 }
 
 export interface PostgresPoolLike {
+  readonly executionCapabilities?: ExecutionCapabilities;
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
   ensureCursor?(): Promise<void>;
   connect(): Promise<PostgresClientLike>;
@@ -214,6 +221,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     activePipeline: Promise<unknown> | undefined;
     readonly activeStreams: Set<QueryStream<unknown>>;
     discardLease: boolean;
+    leaseReleased: boolean;
     firstDatabaseOperationError: unknown;
     unsafe: boolean;
     unsafeDepth: number | undefined;
@@ -222,6 +230,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   };
   readonly #transactionExecutes = new Set<Promise<unknown>>();
   readonly #transactionStreams = new Set<QueryStream<unknown>>();
+  readonly executionCapabilities: ExecutionCapabilities;
 
   constructor(
     pool: PostgresPoolLike,
@@ -236,6 +245,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       activePipeline: undefined as Promise<unknown> | undefined,
       activeStreams: new Set<QueryStream<unknown>>(),
       discardLease: false,
+      leaseReleased: false,
       firstDatabaseOperationError: undefined as unknown,
       unsafe: false,
       unsafeDepth: undefined as number | undefined,
@@ -250,6 +260,10 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#transactionDepth = depth;
     this.#prepared = prepared;
     this.#transactionState = transactionState;
+    this.executionCapabilities = Object.freeze({
+      cancellation: pool.executionCapabilities?.cancellation ?? false,
+      deadlines: pool.executionCapabilities?.deadlines ?? false,
+    });
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
@@ -279,6 +293,90 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       this.#transactionExecutes.delete(operation);
       this.#transactionState.activeExecutes.delete(operation);
     }
+  }
+
+  async all<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<readonly Row[]> {
+    if (options === undefined || (options.signal === undefined && options.deadline === undefined))
+      return this.execute(query);
+    assertExecutionCapabilities(this.executionCapabilities, options);
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("execute another query");
+    this.#rejectOperationDuringTransactionBatch("execute another query");
+    this.#rejectOperationDuringTransactionPipeline("execute another query");
+
+    if (options.signal?.aborted || (options.deadline !== undefined && Number(options.deadline) <= Date.now())) {
+      return runControlledExecution(
+        options,
+        async () => [],
+        () => undefined,
+      ) as Promise<readonly Row[]>;
+    }
+    if (this.#client === undefined) {
+      const client = await this.#pool.connect();
+      let discarded = false;
+      try {
+        return await this.#executeControlledOn<Row, Params>(client, query, options, (error) => {
+          client.release(error);
+          discarded = true;
+        });
+      } finally {
+        if (!discarded) client.release();
+      }
+    }
+
+    const client = this.#client;
+    const operation = this.#executeControlledOn<Row, Params>(client, query, options, (error) => {
+      this.#transactionState.discardLease = true;
+      this.#markTransactionStateUnsafe(error);
+      try {
+        client.release(error);
+        this.#transactionState.leaseReleased = true;
+      } catch {
+        /* The transaction finalizer also owns lease cleanup. */
+      }
+    });
+    this.#transactionExecutes.add(operation);
+    this.#transactionState.activeExecutes.add(operation);
+    try {
+      return await operation;
+    } catch (error) {
+      this.#recordTransactionOperationFailure(error);
+      throw error;
+    } finally {
+      this.#transactionExecutes.delete(operation);
+      this.#transactionState.activeExecutes.delete(operation);
+    }
+  }
+
+  async #executeControlledOn<Row, Params extends readonly unknown[]>(
+    client: PostgresClientLike,
+    query: Query<Row, Params>,
+    options: ExecutionOptions,
+    cancel: (error: QueryCancelledError) => void,
+  ): Promise<readonly Row[]> {
+    const result = await runControlledExecution(options, () => client.query(this.#queryConfig(query)), cancel);
+    return result.rows as readonly Row[];
+  }
+
+  async one<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row> {
+    const rows = await this.all(query, options);
+    if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+    return rows[0]!;
+  }
+
+  async maybeOne<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row | undefined> {
+    const rows = await this.all(query, options);
+    if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
+    return rows[0];
   }
 
   async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
@@ -456,6 +554,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       activePipeline: undefined,
       activeStreams: new Set(),
       discardLease: false,
+      leaseReleased: false,
       firstDatabaseOperationError: undefined,
       unsafe: false,
       unsafeDepth: undefined,
@@ -491,16 +590,18 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       await scope.#closeTransactionStreamsPreservingError();
       await scope.#settleTransactionPipelinePreservingError();
       await scope.#settleTransactionBatchPreservingError();
-      try {
-        await client.query("ROLLBACK");
-      } catch (cleanupError) {
-        scope.#markTransactionStateUnsafe(cleanupError);
-        /* Preserve the original error. */
-      }
-      try {
-        client.release(scope.#transactionLeaseReleaseError());
-      } catch {
-        /* Preserve the original error. */
+      if (!scope.#transactionState.leaseReleased) {
+        try {
+          await client.query("ROLLBACK");
+        } catch (cleanupError) {
+          scope.#markTransactionStateUnsafe(cleanupError);
+          /* Preserve the original error. */
+        }
+        try {
+          client.release(scope.#transactionLeaseReleaseError());
+        } catch {
+          /* Preserve the original error. */
+        }
       }
       throw error;
     }
@@ -551,7 +652,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       await scope.#closeTransactionStreamsPreservingError();
       await scope.#settleTransactionPipelinePreservingError();
       await scope.#settleTransactionBatchPreservingError();
-      if (scope.#transactionState.valid) {
+      if (scope.#transactionState.valid && !scope.#transactionState.leaseReleased) {
         try {
           await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
           scope.#recoverTransactionStateAfterSavepoint(depth);

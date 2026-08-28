@@ -129,6 +129,7 @@ function connectionAdapter(connection: PoolConnection): MySqlConnectionLike {
     beginTransaction: () => connection.beginTransaction(),
     commit: () => connection.commit(),
     rollback: () => connection.rollback(),
+    destroy: () => connection.destroy(),
     release: () => connection.release(),
   };
 }
@@ -245,6 +246,7 @@ function createMySql2ProtocolStream(
 export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
   const executable = pool as unknown as Executable;
   return {
+    executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
     execute: (sql, values) => execute(executable, "execute", sql, values),
     async getConnection(): Promise<MySqlConnectionLike> {
       return connectionAdapter(await pool.getConnection());

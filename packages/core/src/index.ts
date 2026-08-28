@@ -1,7 +1,27 @@
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
-export type { QueryBatch, QueryResult, QueryResults, QueryStream, StreamOptions } from "./execution.js";
 export type {
+  ExecutionCapabilities,
+  ExecutionCapability,
+  ExecutionOptions,
+  QueryBatch,
+  QueryCancellationReason,
+  QueryCardinalityExpectation,
+  QueryResult,
+  QueryResults,
+  QueryStream,
+  StreamOptions,
+} from "./execution.js";
+export {
+  assertExecutionCapabilities,
+  executionDeadline,
+  QueryCancelledError,
+  QueryCardinalityError,
+  runControlledExecution,
+  UnsupportedExecutionCapabilityError,
+} from "./execution.js";
+export type {
+  ControlledQueryExecutor,
   Database,
   OptionalSqlFragment,
   Query,

@@ -34,13 +34,19 @@ import type {
 } from "../../packages/conformance/src/index.js";
 import * as conformanceApi from "../../packages/conformance/src/index.js";
 import type {
+  ControlledQueryExecutor,
   Database,
   DialectCapabilities,
   DialectPlugin,
+  ExecutionCapabilities,
+  ExecutionCapability,
+  ExecutionOptions,
   OptionalSqlFragment,
   Query,
   QueryBatch,
+  QueryCancellationReason,
   QueryCardinality,
+  QueryCardinalityExpectation,
   QueryConnectionAffinity,
   QueryDependency,
   QueryDependencyAccess,
@@ -116,6 +122,17 @@ function structuralEmptyContract() {
 
 function executionContract(database: Database, query: ExactQuery): Promise<readonly Account[]> {
   return database.execute(query);
+}
+
+async function governedExecutionContract(database: Database, query: ExactQuery): Promise<void> {
+  const all: readonly Account[] = await database.all(query, { deadline: new Date(Date.now() + 1_000) });
+  const one: Account = await database.one(query, { signal: new AbortController().signal });
+  const maybeOne: Account | undefined = await database.maybeOne(query);
+  const capabilities: ExecutionCapabilities = database.executionCapabilities;
+  void all;
+  void one;
+  void maybeOne;
+  void capabilities;
 }
 
 function defaultTransactionContract(database: Database, query: ExactQuery): Promise<readonly Account[]> {
@@ -283,8 +300,12 @@ type ReferencedStableTypes =
   | GrammarUnsupportedProbe
   | RequiredGrammarProbe
   | RuntimeAdapterConformanceFixture<Account, readonly [bigint]>
+  | ControlledQueryExecutor
   | DialectCapabilities
   | DialectPlugin
+  | ExecutionCapabilities
+  | ExecutionCapability
+  | ExecutionOptions
   | OptionalSqlFragment
   | QueryCardinality
   | QueryConnectionAffinity
@@ -296,6 +317,8 @@ type ReferencedStableTypes =
   | QuerySemantics
   | QueryVolatility
   | QueryBatch<readonly [ExactQuery]>
+  | QueryCancellationReason
+  | QueryCardinalityExpectation
   | QueryExecutor
   | QueryRenderSkeleton
   | QueryStream<Account>
@@ -324,6 +347,7 @@ void parametersInvariant;
 void composedParameters;
 void emptyParameters;
 void executionContract;
+void governedExecutionContract;
 void defaultTransactionContract;
 void enrichedTransactionContract;
 void enrichedIsDefaultCompatible;
@@ -368,7 +392,11 @@ const expectedRuntimeExports = {
   ],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
+    "QueryCancelledError",
+    "QueryCardinalityError",
+    "UnsupportedExecutionCapabilityError",
     "assertDialectPlugin",
+    "assertExecutionCapabilities",
     "bindQueryRenderSkeleton",
     "compileQueryRenderSkeleton",
     "DIALECT_CONTRACT_VERSION",
@@ -379,6 +407,7 @@ const expectedRuntimeExports = {
     "defineConfig",
     "defineQuerySemantics",
     "diagnosticRegistry",
+    "executionDeadline",
     "isTypedSqlDiagnosticCode",
     "mapQuerySemanticRanges",
     "mergeQuerySemantics",
@@ -386,6 +415,7 @@ const expectedRuntimeExports = {
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "rowTypeLiteral",
+    "runControlledExecution",
     "sql",
     "unionTypeLiterals",
     "unknownQuerySemantics",

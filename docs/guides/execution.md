@@ -59,6 +59,37 @@ try {
 
 `database.execute(query)` returns `Promise<readonly Row[]>`, where `Row` is the type inferred for the complete statement. Command statements without a result surface use `never` as their row type.
 
+## Assert cardinality and control execution
+
+Use `all`, `one`, or `maybeOne` when the calling code has an explicit row-count contract:
+
+```ts
+const controller = new AbortController();
+
+const account = await database.maybeOne(accountByEmail, {
+  signal: controller.signal,
+  deadline: Date.now() + 2_000,
+});
+```
+
+- `all(query, options?)` returns every row.
+- `one(query, options?)` requires exactly one row.
+- `maybeOne(query, options?)` accepts zero or one row.
+
+All three retain the query's inferred row type. Cardinality is checked after the driver returns; typed-sql never changes the SQL by adding `LIMIT`. Failures are inspectable without parsing messages:
+
+| Error | Code | Stable fields |
+| --- | --- | --- |
+| `QueryCardinalityError` | `TSQL_CARDINALITY` | `expected`, `actual` |
+| `QueryCancelledError` | `TSQL_CANCELLED` | `reason` (`signal` or `deadline`) |
+| `UnsupportedExecutionCapabilityError` | `TSQL_UNSUPPORTED_EXECUTION_CAPABILITY` | `capability` |
+
+`deadline` is absolute, expressed as Unix milliseconds or a `Date`. A pre-aborted signal or expired deadline fails before leasing a connection. For an in-flight operation, the pg and mysql2 adapters interrupt conservatively by discarding the checked-out connection, then wait for driver settlement before rejecting. Inside a transaction, cancellation invalidates that transaction and discards its lease; do not catch the cancellation and continue using the scope.
+
+Inspect `database.executionCapabilities` before accepting optional controls in adapter-generic infrastructure. The official `pg` and `mysql2` adapters advertise cancellation and deadlines. A custom adapter that cannot safely interrupt work reports the unsupported capability immediately. `execute(query)` and `all(query)` without controls retain the existing thin buffered path.
+
+Execution options intentionally do not alter `batch()`, PostgreSQL `pipeline()`, or `stream()`. Those APIs own multiple operations or a longer-lived resource and keep their documented cleanup semantics.
+
 ## Prepare repeated queries
 
 `database.prepare(name, factory)` records a stable execution hint and returns a callable factory. Each call still produces an ordinary `Query`, so the result works with the same `execute()` and `stream()` methods as any other query.

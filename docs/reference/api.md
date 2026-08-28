@@ -52,9 +52,26 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 - `SqlRenderer` supplies grammar-specific placeholders and identifier quoting.
 - `createDatabase(executor, renderer, transactionRunner)` connects the neutral query contract to a runtime adapter.
 - `Database.execute()` preserves the query row type.
+- `Database.all()`, `one()`, and `maybeOne()` preserve the same row type and accept optional execution controls.
 - `Database.transaction()` scopes execution through the adapter's transaction runner.
 
 Most applications use `createPgDatabase` or `createMySql2Database` rather than constructing a neutral adapter directly.
+
+### Cardinality and execution controls
+
+Every `Database` exposes immutable `executionCapabilities` and these grammar-neutral methods:
+
+```ts
+database.all(query, { signal?, deadline? })
+database.one(query, { signal?, deadline? })
+database.maybeOne(query, { signal?, deadline? })
+```
+
+`deadline` is an absolute Unix timestamp in milliseconds or a `Date`. `all()` returns `readonly Row[]`; `one()` returns `Row` and requires exactly one row; `maybeOne()` returns `Row | undefined` and permits at most one row. typed-sql does not add `LIMIT`, rewrite SQL, or infer runtime cardinality from the static query.
+
+Cardinality failures throw `QueryCardinalityError` with code `TSQL_CARDINALITY`, `expected`, and `actual`. Cancellation throws `QueryCancelledError` with code `TSQL_CANCELLED` and reason `signal` or `deadline`. An unavailable control throws `UnsupportedExecutionCapabilityError` with code `TSQL_UNSUPPORTED_EXECUTION_CAPABILITY` before dispatch. Adapters must discard a connection when interrupting it cannot prove that connection reusable.
+
+`execute(query)` remains the allocation-minimal compatibility path. Calling `all(query)` without a signal or deadline delegates to that same path. Execution controls apply to one buffered query; batches, pipelines, and streams keep their own lifecycle contracts.
 
 ### Prepared query factories
 
