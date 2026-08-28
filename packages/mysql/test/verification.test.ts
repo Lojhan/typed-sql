@@ -1,8 +1,10 @@
 import { describe, it, strict } from "poku";
 import {
   createMySql2LiveVerifier,
+  createMySql2PlanInspector,
   type MySql2LiveVerifierConnection,
   type MySql2LiveVerifierPool,
+  type MySql2PlanInspectorPool,
 } from "../src/mysql2.js";
 
 class VerificationPool implements MySql2LiveVerifierPool {
@@ -64,5 +66,222 @@ await describe("MySQL live verification", async () => {
     strict.strictEqual(pool.released, 1);
     await verifier.close();
     strict.strictEqual(pool.ended, false);
+  });
+});
+
+await describe("MySQL plan inspection", async () => {
+  await it("requires samples, uses structured EXPLAIN, and removes conditions from evidence", async () => {
+    let captured: { readonly sql: string; readonly values?: readonly unknown[] } | undefined;
+    const pool: MySql2PlanInspectorPool = {
+      async query<Row extends Record<string, unknown>[]>(sql: string) {
+        if (sql.includes("VERSION()")) {
+          return [
+            [
+              {
+                version: "8.4.11",
+                optimizerSwitch: "index_merge=on",
+                optimizerPruneLevel: "1",
+                optimizerSearchDepth: "62",
+                explainJsonFormatVersion: "2",
+              },
+            ] as unknown as Row,
+            [],
+          ];
+        }
+        return [[{ TABLE_SCHEMA: "app", TABLE_NAME: "users", CARDINALITY: 10 }] as unknown as Row, []];
+      },
+      async getConnection() {
+        return {
+          async query<Row extends Record<string, unknown>[]>(sql: string, values?: readonly unknown[]) {
+            captured = { sql, ...(values === undefined ? {} : { values }) };
+            return [
+              [
+                {
+                  EXPLAIN: JSON.stringify({
+                    query_block: {
+                      cost_info: { query_cost: "1.25" },
+                      table: {
+                        table_name: "users",
+                        access_type: "ref",
+                        key: "users_email_idx",
+                        rows_examined_per_scan: 1,
+                        attached_condition: "(`users`.`email` = 'private@example.com')",
+                        cost_info: { prefix_cost: "1.25" },
+                      },
+                    },
+                  }),
+                },
+              ] as unknown as Row,
+              [],
+            ];
+          },
+          release() {},
+        };
+      },
+      async end() {},
+    };
+    const inspector = createMySql2PlanInspector({ pool });
+    await strict.rejects(
+      inspector.capture({
+        fingerprint: `sha256:${"a".repeat(64)}`,
+        sql: "SELECT id FROM users WHERE email = ?",
+        operation: "read",
+        parameterCount: 1,
+      }),
+      /requires explicit transient parameter samples/u,
+    );
+    const evidence = await inspector.capture({
+      fingerprint: `sha256:${"a".repeat(64)}`,
+      sql: "SELECT id FROM users WHERE email = ?",
+      operation: "read",
+      parameterCount: 1,
+      values: ["private@example.com"],
+    });
+    strict.deepStrictEqual(captured, {
+      sql: "EXPLAIN FORMAT=JSON SELECT id FROM users WHERE email = ?",
+      values: ["private@example.com"],
+    });
+    strict.deepStrictEqual(evidence, {
+      totalCost: 1.25,
+      estimatedRows: 1,
+      nodes: [
+        { kind: "access:ref", relation: "users", index: "users_email_idx", estimatedRows: 1, estimatedCost: 1.25 },
+      ],
+    });
+    strict.ok(!JSON.stringify(evidence).includes("private@example.com"));
+    strict.match((await inspector.environment()).statisticsFingerprint, /^sha256:[a-f\d]{64}$/u);
+  });
+
+  await it("normalizes MySQL 8.4 JSON v2 access paths without retaining expressions", async () => {
+    const pool: MySql2PlanInspectorPool = {
+      async query<Row extends Record<string, unknown>[]>() {
+        return [[] as unknown as Row, []];
+      },
+      async getConnection() {
+        return {
+          async query<Row extends Record<string, unknown>[]>() {
+            return [
+              [
+                {
+                  EXPLAIN: JSON.stringify({
+                    query: "SELECT recognizable-secret",
+                    inputs: [
+                      {
+                        operation: "Index range scan",
+                        access_type: "index",
+                        table_name: "users",
+                        index_name: "users_pkey",
+                        estimated_rows: 2,
+                        estimated_total_cost: 3,
+                      },
+                    ],
+                    condition: "email = 'recognizable-secret'",
+                    operation: "Filter",
+                    access_type: "filter",
+                    estimated_rows: 2,
+                    estimated_total_cost: 4,
+                  }),
+                },
+              ] as unknown as Row,
+              [],
+            ];
+          },
+          release() {},
+        };
+      },
+      async end() {},
+    };
+    const evidence = await createMySql2PlanInspector({ pool }).capture({
+      fingerprint: `sha256:${"b".repeat(64)}`,
+      sql: "SELECT id FROM users",
+      operation: "read",
+      parameterCount: 0,
+    });
+    strict.strictEqual(evidence.totalCost, 4);
+    strict.strictEqual(evidence.estimatedRows, 2);
+    strict.deepStrictEqual(evidence.nodes, [
+      { kind: "access:filter", estimatedRows: 2, estimatedCost: 4 },
+      { kind: "access:index", relation: "users", index: "users_pkey", estimatedRows: 2, estimatedCost: 3 },
+    ]);
+    strict.ok(!JSON.stringify(evidence).includes("recognizable-secret"));
+  });
+
+  await it("validates requests, releases malformed captures, and owns lazy pools", async () => {
+    const pool = new VerificationPool();
+    const inspector = createMySql2PlanInspector({ pool: pool as unknown as MySql2PlanInspectorPool });
+    await strict.rejects(
+      inspector.capture({ fingerprint: "bad", sql: "SELECT 1", operation: "read", parameterCount: 0 }),
+      /SHA-256/u,
+    );
+    await strict.rejects(
+      inspector.capture({
+        fingerprint: `sha256:${"c".repeat(64)}`,
+        sql: "SELECT ?",
+        operation: "read",
+        parameterCount: 1,
+        values: [],
+      }),
+      /parameter count/u,
+    );
+    strict.strictEqual(pool.prepared.length, 0);
+    await strict.rejects(createMySql2PlanInspector({}).environment(), /requires connectionUri or pool/u);
+
+    let ended = false;
+    const ownedPool = {
+      async query<Row extends Record<string, unknown>[]>(sql: string) {
+        if (sql.includes("VERSION()")) return [[{ version: "8.4.11" }] as unknown as Row, []] as const;
+        return [[] as unknown as Row, []] as const;
+      },
+      async getConnection() {
+        throw new Error("not used");
+      },
+      async end() {
+        ended = true;
+      },
+    };
+    let configuration: unknown;
+    const lazy = createMySql2PlanInspector({
+      connectionUri: async () => "mysql://localhost/example",
+      poolConfig: { connectionLimit: 2 },
+      driverImporter: async () =>
+        ({
+          createPool(value: unknown) {
+            configuration = value;
+            return ownedPool;
+          },
+        }) as unknown as typeof import("mysql2/promise"),
+    });
+    strict.strictEqual(configuration, undefined);
+    strict.strictEqual((await lazy.environment()).version, "8.4.11");
+    strict.deepStrictEqual(configuration, { connectionLimit: 2, uri: "mysql://localhost/example" });
+    await lazy.close();
+    strict.strictEqual(ended, true);
+
+    let released = false;
+    const malformed: MySql2PlanInspectorPool = {
+      async query<Row extends Record<string, unknown>[]>() {
+        return [[] as unknown as Row, []];
+      },
+      async getConnection() {
+        return {
+          async query<Row extends Record<string, unknown>[]>() {
+            return [[{ EXPLAIN: "not-json" }] as unknown as Row, []];
+          },
+          release() {
+            released = true;
+          },
+        };
+      },
+      async end() {},
+    };
+    await strict.rejects(
+      createMySql2PlanInspector({ pool: malformed }).capture({
+        fingerprint: `sha256:${"d".repeat(64)}`,
+        sql: "SELECT 1",
+        operation: "read",
+        parameterCount: 0,
+      }),
+    );
+    strict.strictEqual(released, true);
   });
 });

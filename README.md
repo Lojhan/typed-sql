@@ -64,6 +64,8 @@ codecs. The interpolation is also checked as `bigint` because it is compared wit
   fingerprints with inferred types, dependencies, and capabilities without storing SQL or values.
 - **Prove inference against the database.** Optional native prepare metadata verifies safe variants
   and produces a deterministic, secret-free proof that CI can later validate offline.
+- **Review optimizer evidence.** Optional structured plans and explicit budgets expose cost,
+  cardinality, and node-shape regressions without executing application statements.
 - **Check migrations against deployed queries.** Offline compatibility reports analyze both rolling-
   deployment directions and link breaks to exact query variants.
 
@@ -92,6 +94,7 @@ pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
 pnpm exec typed-sql verify --live
 pnpm exec typed-sql verify
+pnpm exec typed-sql explain --compare artifacts/plans.json
 pnpm exec typed-sql compat --before before.schema.json --after after.schema.json --before-manifest before.queries.json --after-manifest after.queries.json
 ```
 
@@ -134,11 +137,11 @@ the structural-variant bound.
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | Stable |
 | `@typed-sql/schema` | Versioned snapshots, hashes, migrations, and drift | Stable |
 | `@typed-sql/config` | Config discovery and loading | Stable |
-| `@typed-sql/compiler` | Grammar-neutral source analysis, manifests, verification proofs, and migration reports | Stable |
+| `@typed-sql/compiler` | Grammar-neutral source analysis, manifests, verification, plan governance, and migration reports | Stable |
 | `@typed-sql/conformance` | Executable compatibility kit for SQL grammar packages | Stable |
 | `@typed-sql/postgres` | PostgreSQL grammar, codecs, introspection, and optional `pg` adapter | Stable |
 | `@typed-sql/mysql` | MySQL grammar, codecs, introspection, and optional `mysql2` adapter | Stable |
-| `@typed-sql/cli` | Snapshot, checking, drift, manifest, verification, and compatibility commands | Stable |
+| `@typed-sql/cli` | Snapshot, checking, drift, manifest, verification, plan, and compatibility commands | Stable |
 | `@typed-sql/ts-bridge` | Isolated TypeScript preview integration | Experimental |
 | `@typed-sql/language-server` | TypeScript semantic proxy and SQL editor features | Experimental |
 
@@ -150,6 +153,7 @@ the structural-variant bound.
 - [Database observability](./docs/guides/observability.md)
 - [Query manifests](./docs/guides/query-manifests.md)
 - [Live database verification](./docs/guides/live-verification.md)
+- [Query plan governance](./docs/guides/query-plan-governance.md)
 - [Migration compatibility](./docs/guides/migration-compatibility.md)
 - [PostgreSQL grammar](./docs/dialects/postgresql.md)
 - [MySQL grammar](./docs/dialects/mysql.md)

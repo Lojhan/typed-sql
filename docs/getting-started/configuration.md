@@ -12,7 +12,7 @@ Create `typed-sql.config.ts` in the application root. The config selects the dia
 ```ts
 import { defineConfig } from "@typed-sql/core";
 import { postgres, typePolicy } from "@typed-sql/postgres";
-import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
+import { createPgLiveVerifier, createPgPlanInspector, pg } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;
 
@@ -40,6 +40,13 @@ export default defineConfig({
     proofFile: ".typed-sql/verification.json",
     concurrency: 4,
   },
+  plans: {
+    live: createPgPlanInspector({ connectionString }),
+    artifactFile: ".typed-sql/plans.json",
+    reportFile: ".typed-sql/plan-review.json",
+    concurrency: 4,
+    failOn: "violation",
+  },
   compatibility: {
     reportFile: ".typed-sql/compatibility.json",
     failOn: "error",
@@ -52,7 +59,7 @@ export default defineConfig({
 ```ts
 import { defineConfig } from "@typed-sql/core";
 import { mysql, typePolicy } from "@typed-sql/mysql";
-import { createMySql2LiveVerifier, mysql2 } from "@typed-sql/mysql/mysql2";
+import { createMySql2LiveVerifier, createMySql2PlanInspector, mysql2 } from "@typed-sql/mysql/mysql2";
 
 const connectionUri = () => process.env.DATABASE_URL!;
 
@@ -80,6 +87,17 @@ export default defineConfig({
     proofFile: ".typed-sql/verification.json",
     concurrency: 4,
   },
+  plans: {
+    live: createMySql2PlanInspector({ connectionUri }),
+    sampleValues(request) {
+      if (request.parameters.length === 0) return undefined;
+      return { identity: "representative-v1", values: request.parameters.map(() => 1) };
+    },
+    artifactFile: ".typed-sql/plans.json",
+    reportFile: ".typed-sql/plan-review.json",
+    concurrency: 4,
+    failOn: "violation",
+  },
   compatibility: {
     reportFile: ".typed-sql/compatibility.json",
     failOn: "error",
@@ -96,10 +114,11 @@ pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
 pnpm exec typed-sql verify --live
 pnpm exec typed-sql verify
+pnpm exec typed-sql explain --compare artifacts/plans.json
 pnpm exec typed-sql compat --before before.schema.json --after after.schema.json --before-manifest before.queries.json --after-manifest after.queries.json
 ```
 
-`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md). `verify --live` compares that evidence with native prepare metadata, while `verify` validates the cached proof offline; see [Live verification](../guides/live-verification.md). `compat` compares before/after snapshots and manifests without contacting the database; see [Migration compatibility](../guides/migration-compatibility.md).
+`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md). `verify --live` compares that evidence with native prepare metadata, while `verify` validates the cached proof offline; see [Live verification](../guides/live-verification.md). `explain` captures redacted structured optimizer evidence and reviews explicit budgets; see [Query plan governance](../guides/query-plan-governance.md). `compat` compares before/after snapshots and manifests without contacting the database; see [Migration compatibility](../guides/migration-compatibility.md).
 
 Connection strings stay in the config callback or environment. They are not written to generated files. Commit the generated snapshot so schema and type-policy changes are reviewable.
 

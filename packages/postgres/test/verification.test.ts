@@ -1,5 +1,10 @@
 import { describe, it, strict } from "poku";
-import { createPgLiveVerifier, type PgLiveVerifierClient, type PgLiveVerifierPool } from "../src/pg.js";
+import {
+  createPgLiveVerifier,
+  createPgPlanInspector,
+  type PgLiveVerifierClient,
+  type PgLiveVerifierPool,
+} from "../src/pg.js";
 
 class VerificationPool implements PgLiveVerifierPool {
   readonly clientQueries: string[] = [];
@@ -152,5 +157,174 @@ await describe("PostgreSQL live verification", async () => {
       /cleanup failed/u,
     );
     strict.ok(pool.released instanceof Error);
+  });
+});
+
+await describe("PostgreSQL plan inspection", async () => {
+  await it("uses structured generic EXPLAIN without executing and normalizes safe evidence", async () => {
+    const calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];
+    let released: Error | boolean | undefined;
+    const pool: PgLiveVerifierPool = {
+      async query<Row extends Record<string, unknown>>(sql: string) {
+        if (sql.includes("current_setting")) {
+          return { rows: [{ version: "18.4" }] as unknown as readonly Row[] };
+        }
+        if (sql.includes("pg_settings")) {
+          return {
+            rows: [
+              { name: "plan_cache_mode", setting: "auto" },
+              { name: "random_page_cost", setting: "4" },
+            ] as unknown as readonly Row[],
+          };
+        }
+        return { rows: [{ schemaname: "public", relname: "users", n_live_tup: "10" }] as unknown as readonly Row[] };
+      },
+      async connect() {
+        return {
+          async query<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]) {
+            calls.push({ sql, ...(values === undefined ? {} : { values }) });
+            return {
+              rows: [
+                {
+                  "QUERY PLAN": JSON.stringify([
+                    {
+                      Plan: {
+                        "Node Type": "Index Scan",
+                        "Relation Name": "users",
+                        "Index Name": "users_pkey",
+                        "Plan Rows": 1,
+                        "Total Cost": 8.3,
+                        "Index Cond": "(id = 'private-value')",
+                      },
+                    },
+                  ]),
+                },
+              ] as unknown as readonly Row[],
+            };
+          },
+          release(error) {
+            released = error;
+          },
+        };
+      },
+      async end() {},
+    };
+    const inspector = createPgPlanInspector({ pool });
+    const evidence = await inspector.capture({
+      fingerprint: `sha256:${"a".repeat(64)}`,
+      sql: "SELECT id FROM users WHERE id = $1",
+      operation: "read",
+      parameterCount: 1,
+    });
+    strict.match(calls[0]!.sql, /^EXPLAIN \(GENERIC_PLAN TRUE, FORMAT JSON\)/u);
+    strict.deepStrictEqual(evidence, {
+      totalCost: 8.3,
+      estimatedRows: 1,
+      nodes: [{ kind: "Index Scan", relation: "users", index: "users_pkey", estimatedRows: 1, estimatedCost: 8.3 }],
+    });
+    strict.ok(!JSON.stringify(evidence).includes("private-value"));
+    strict.match((await inspector.environment()).statisticsFingerprint, /^sha256:[a-f\d]{64}$/u);
+    strict.deepStrictEqual((await inspector.environment()).settings, {
+      plan_cache_mode: "auto",
+      random_page_cost: "4",
+    });
+    strict.strictEqual(released, undefined);
+  });
+
+  await it("binds transient samples but never requests ANALYZE", async () => {
+    let captured: { readonly sql: string; readonly values?: readonly unknown[] } | undefined;
+    const pool: PgLiveVerifierPool = {
+      async query<Row extends Record<string, unknown>>() {
+        return { rows: [] as readonly Row[] };
+      },
+      async connect() {
+        return {
+          async query<Row extends Record<string, unknown>>(sql: string, values?: readonly unknown[]) {
+            captured = { sql, ...(values === undefined ? {} : { values }) };
+            return {
+              rows: [{ "QUERY PLAN": [{ Plan: { "Node Type": "Result" } }] }] as unknown as readonly Row[],
+            };
+          },
+          release() {},
+        };
+      },
+      async end() {},
+    };
+    const inspector = createPgPlanInspector({ pool });
+    await inspector.capture({
+      fingerprint: `sha256:${"b".repeat(64)}`,
+      sql: "UPDATE users SET email = $1",
+      operation: "write",
+      parameterCount: 1,
+      values: ["private@example.com"],
+    });
+    strict.match(captured!.sql, /^EXPLAIN \(FORMAT JSON\) UPDATE/u);
+    strict.ok(!captured!.sql.includes("ANALYZE"));
+    strict.deepStrictEqual(captured!.values, ["private@example.com"]);
+  });
+
+  await it("validates requests, reports malformed native plans, and owns lazy pools", async () => {
+    const pool = new VerificationPool();
+    const inspector = createPgPlanInspector({ pool });
+    await strict.rejects(
+      inspector.capture({ fingerprint: "bad", sql: "SELECT 1", operation: "read", parameterCount: 0 }),
+      /SHA-256/u,
+    );
+    await strict.rejects(
+      inspector.capture({
+        fingerprint: `sha256:${"c".repeat(64)}`,
+        sql: "SELECT $1",
+        operation: "read",
+        parameterCount: 1,
+        values: [],
+      }),
+      /parameter count/u,
+    );
+    strict.strictEqual(pool.clientQueries.length, 0);
+    await strict.rejects(createPgPlanInspector({}).environment(), /requires connectionString or pool/u);
+
+    let owned: VerificationPool | undefined;
+    class Pool extends VerificationPool {
+      constructor(readonly configuration: unknown) {
+        super();
+        owned = this;
+      }
+      override async query<Row extends Record<string, unknown>>(sql: string) {
+        if (sql.includes("current_setting")) return { rows: [{ version: "18.4" }] as unknown as readonly Row[] };
+        if (sql.includes("pg_settings")) {
+          return { rows: [{ name: "plan_cache_mode", setting: "auto" }] as unknown as readonly Row[] };
+        }
+        return { rows: [] as readonly Row[] };
+      }
+    }
+    const lazy = createPgPlanInspector({
+      connectionString: async () => "postgresql://localhost/example",
+      driverImporter: async () => ({ Pool }) as unknown as typeof import("pg"),
+    });
+    strict.strictEqual(owned, undefined);
+    strict.strictEqual((await lazy.environment()).version, "18.4");
+    await lazy.close();
+    strict.strictEqual(owned?.ended, true);
+
+    const malformed = new VerificationPool();
+    const failure = new Error("unsupported-plan");
+    malformed.connect = async () => ({
+      async query() {
+        throw failure;
+      },
+      release(error) {
+        malformed.released = error;
+      },
+    });
+    await strict.rejects(
+      createPgPlanInspector({ pool: malformed }).capture({
+        fingerprint: `sha256:${"d".repeat(64)}`,
+        sql: "SELECT 1",
+        operation: "read",
+        parameterCount: 0,
+      }),
+      /unsupported-plan/u,
+    );
+    strict.strictEqual(malformed.released, failure);
   });
 });

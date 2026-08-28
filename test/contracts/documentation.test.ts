@@ -22,6 +22,7 @@ const expectedPublicDocs = [
   "docs/guides/migration-compatibility.md",
   "docs/guides/observability.md",
   "docs/guides/query-manifests.md",
+  "docs/guides/query-plan-governance.md",
   "docs/guides/schema-snapshots.md",
   "docs/index.md",
   "docs/reference/api.md",

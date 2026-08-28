@@ -56,6 +56,32 @@ export {
   QUERY_MANIFEST_JSON_SCHEMA,
   serializeQueryManifest,
 } from "./manifest.js";
+export type {
+  CapturedQueryPlanEntry,
+  CaptureQueryPlansOptions,
+  CaptureQueryPlansResult,
+  FailedQueryPlanEntry,
+  QueryPlanArtifact,
+  QueryPlanComparisonReason,
+  QueryPlanEntry,
+  QueryPlanReviewEntry,
+  QueryPlanReviewReport,
+  QueryPlanViolation,
+  QueryPlanViolationKind,
+  ReviewQueryPlansOptions,
+  SkippedQueryPlanEntry,
+} from "./plans.js";
+export {
+  captureQueryPlans,
+  parseQueryPlanArtifact,
+  parseQueryPlanReviewReport,
+  QUERY_PLAN_CAPTURE_VERSION,
+  QUERY_PLAN_FORMAT_VERSION,
+  QUERY_PLAN_REVIEW_FORMAT_VERSION,
+  reviewQueryPlans,
+  serializeQueryPlanArtifact,
+  serializeQueryPlanReviewReport,
+} from "./plans.js";
 export type { ListProjectSourceFilesOptions } from "./project.js";
 export { listProjectSourceFiles } from "./project.js";
 export type { ExtractedDynamicQuery, ExtractedInterpolation, ExtractedQuery } from "./scanner.js";

@@ -1,4 +1,5 @@
-import type { DatabaseObserver, LiveQueryVerifier } from "@typed-sql/core";
+import { createHash } from "node:crypto";
+import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
 import type { Pool as PgPool, PoolClient, PoolConfig, QueryConfig } from "pg";
 import type { PostgresSchemaSnapshot } from "./index.js";
 import { type PostgresQueryable, PostgresSchemaProvider } from "./provider.js";
@@ -83,12 +84,18 @@ export interface PgSchemaProviderOptions {
 }
 
 export interface PgLiveVerifierClient {
-  query<Row extends Record<string, unknown>>(sql: string): Promise<{ readonly rows: readonly Row[] }>;
+  query<Row extends Record<string, unknown>>(
+    sql: string,
+    values?: readonly unknown[],
+  ): Promise<{ readonly rows: readonly Row[] }>;
   release(error?: Error | boolean): void;
 }
 
 export interface PgLiveVerifierPool {
-  query<Row extends Record<string, unknown>>(sql: string): Promise<{ readonly rows: readonly Row[] }>;
+  query<Row extends Record<string, unknown>>(
+    sql: string,
+    values?: readonly unknown[],
+  ): Promise<{ readonly rows: readonly Row[] }>;
   connect(): Promise<PgLiveVerifierClient>;
   end(): Promise<void>;
 }
@@ -100,6 +107,30 @@ export interface PgLiveVerifierOptions {
   readonly typePolicy?: PostgresTypePolicy;
   readonly schema?: PostgresSchemaSnapshot;
   readonly driverImporter?: () => Promise<typeof import("pg")>;
+}
+
+export interface PgPlanInspectorOptions {
+  readonly connectionString?: string | (() => string | Promise<string>);
+  readonly pool?: PgPlanInspectorPool;
+  readonly poolConfig?: Omit<PoolConfig, "connectionString">;
+  readonly driverImporter?: () => Promise<typeof import("pg")>;
+}
+
+export interface PgPlanInspectorClient {
+  query<Row extends Record<string, unknown>>(
+    sql: string,
+    values?: readonly unknown[],
+  ): Promise<{ readonly rows: readonly Row[] }>;
+  release(error?: Error | boolean): void;
+}
+
+export interface PgPlanInspectorPool {
+  query<Row extends Record<string, unknown>>(
+    sql: string,
+    values?: readonly unknown[],
+  ): Promise<{ readonly rows: readonly Row[] }>;
+  connect(): Promise<PgPlanInspectorClient>;
+  end(): Promise<void>;
 }
 
 export async function loadPgDriver(
@@ -214,6 +245,158 @@ export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryV
       if (cleanupFailure !== undefined) throw cleanupFailure;
       if (evidence === undefined) throw new Error("PostgreSQL verification produced no evidence");
       return evidence;
+    },
+    async close() {
+      if (ownsPool && poolPromise !== undefined) await (await poolPromise).end();
+    },
+  };
+}
+
+const POSTGRES_PLAN_INSPECTOR_VERSION = "postgres-explain-json-v1";
+const postgresPlanSettings = [
+  "cpu_index_tuple_cost",
+  "cpu_operator_cost",
+  "cpu_tuple_cost",
+  "cursor_tuple_fraction",
+  "default_statistics_target",
+  "effective_cache_size",
+  "effective_io_concurrency",
+  "enable_bitmapscan",
+  "enable_gathermerge",
+  "enable_hashagg",
+  "enable_hashjoin",
+  "enable_incremental_sort",
+  "enable_indexonlyscan",
+  "enable_indexscan",
+  "enable_material",
+  "enable_memoize",
+  "enable_mergejoin",
+  "enable_nestloop",
+  "enable_parallel_append",
+  "enable_parallel_hash",
+  "enable_partition_pruning",
+  "enable_partitionwise_aggregate",
+  "enable_partitionwise_join",
+  "enable_seqscan",
+  "enable_sort",
+  "enable_tidscan",
+  "jit",
+  "max_parallel_workers_per_gather",
+  "min_parallel_index_scan_size",
+  "min_parallel_table_scan_size",
+  "parallel_setup_cost",
+  "parallel_tuple_cost",
+  "plan_cache_mode",
+  "random_page_cost",
+  "work_mem",
+] as const;
+
+function postgresPlan(value: unknown): QueryPlanEvidence {
+  const parsed = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+  const document = Array.isArray(parsed) ? parsed[0] : undefined;
+  const root =
+    typeof document === "object" && document !== null && "Plan" in document
+      ? (document as { readonly Plan?: unknown }).Plan
+      : undefined;
+  if (typeof root !== "object" || root === null || Array.isArray(root)) {
+    throw new TypeError("PostgreSQL returned an unsupported JSON plan");
+  }
+  const rootRecord = root as Readonly<Record<string, unknown>>;
+  const nodes: QueryPlanEvidence["nodes"][number][] = [];
+  const visit = (value: Readonly<Record<string, unknown>>) => {
+    const kind = value["Node Type"];
+    if (typeof kind !== "string" || kind.length === 0) throw new TypeError("PostgreSQL plan node has no type");
+    const relation = value["Relation Name"];
+    const index = value["Index Name"];
+    const estimatedRows = value["Plan Rows"];
+    const estimatedCost = value["Total Cost"];
+    nodes.push({
+      kind,
+      ...(typeof relation === "string" ? { relation } : {}),
+      ...(typeof index === "string" ? { index } : {}),
+      ...(typeof estimatedRows === "number" ? { estimatedRows } : {}),
+      ...(typeof estimatedCost === "number" ? { estimatedCost } : {}),
+    });
+    const children = value.Plans;
+    if (Array.isArray(children)) {
+      for (const child of children) {
+        if (typeof child !== "object" || child === null || Array.isArray(child)) {
+          throw new TypeError("PostgreSQL plan child is invalid");
+        }
+        visit(child as Readonly<Record<string, unknown>>);
+      }
+    }
+  };
+  visit(rootRecord);
+  return {
+    ...(typeof rootRecord["Total Cost"] === "number" ? { totalCost: rootRecord["Total Cost"] } : {}),
+    ...(typeof rootRecord["Plan Rows"] === "number" ? { estimatedRows: rootRecord["Plan Rows"] } : {}),
+    nodes,
+  };
+}
+
+/** Creates a lazy, non-executing adapter over PostgreSQL structured EXPLAIN. */
+export function createPgPlanInspector(options: PgPlanInspectorOptions): QueryPlanInspector {
+  const ownsPool = options.pool === undefined;
+  let poolPromise: Promise<PgPlanInspectorPool> | undefined;
+  let environmentPromise: ReturnType<QueryPlanInspector["environment"]> | undefined;
+  const acquirePool = (): Promise<PgPlanInspectorPool> => {
+    poolPromise ??= (async () => {
+      if (options.pool !== undefined) return options.pool;
+      if (options.connectionString === undefined) {
+        throw new TypeError("PostgreSQL plan capture requires connectionString or pool");
+      }
+      const value = await connectionString(options.connectionString);
+      const { Pool } = await loadPgDriver(options.driverImporter);
+      return new Pool({ ...options.poolConfig, connectionString: value }) as unknown as PgPlanInspectorPool;
+    })();
+    return poolPromise;
+  };
+  return {
+    dialect: "postgres",
+    adapterVersion: POSTGRES_PLAN_INSPECTOR_VERSION,
+    parameterMode: "value-free",
+    async environment() {
+      environmentPromise ??= (async () => {
+        const pool = await acquirePool();
+        const versionResult = await pool.query<{ readonly version: string }>(
+          "SELECT current_setting('server_version') AS version",
+        );
+        const settingResult = await pool.query<{ readonly name: string; readonly setting: string }>(
+          "SELECT name, setting FROM pg_settings WHERE name = ANY($1::text[]) ORDER BY name",
+          [postgresPlanSettings],
+        );
+        const statistics = await pool.query<Record<string, string>>(
+          "SELECT schemaname, relname, n_live_tup::text, n_dead_tup::text, COALESCE(last_analyze::text, '') AS last_analyze, COALESCE(last_autoanalyze::text, '') AS last_autoanalyze FROM pg_stat_all_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema') ORDER BY schemaname, relname",
+        );
+        return {
+          version: versionResult.rows[0]?.version ?? "unknown",
+          settings: Object.fromEntries(settingResult.rows.map((row) => [row.name, row.setting])),
+          statisticsFingerprint: `sha256:${createHash("sha256").update(JSON.stringify(statistics.rows)).digest("hex")}`,
+        };
+      })();
+      return environmentPromise;
+    },
+    async capture(request) {
+      if (!/^sha256:[a-f\d]{64}$/u.test(request.fingerprint)) {
+        throw new TypeError("PostgreSQL plan capture requires a SHA-256 query fingerprint");
+      }
+      if (request.values !== undefined && request.values.length !== request.parameterCount) {
+        throw new TypeError("PostgreSQL plan samples do not match the parameter count");
+      }
+      const client = await (await acquirePool()).connect();
+      let failure: unknown;
+      try {
+        const prefix =
+          request.values === undefined ? "EXPLAIN (GENERIC_PLAN TRUE, FORMAT JSON) " : "EXPLAIN (FORMAT JSON) ";
+        const result = await client.query<Record<string, unknown>>(`${prefix}${request.sql}`, request.values);
+        return postgresPlan(result.rows[0]?.["QUERY PLAN"]);
+      } catch (error) {
+        failure = error;
+        throw error;
+      } finally {
+        client.release(failure instanceof Error ? failure : failure === undefined ? undefined : true);
+      }
     },
     async close() {
       if (ownsPool && poolPromise !== undefined) await (await poolPromise).end();

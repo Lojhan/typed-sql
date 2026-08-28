@@ -168,6 +168,85 @@ export interface LiveQueryVerifier {
   close(): Promise<void>;
 }
 
+export interface QueryPlanEnvironment {
+  readonly version: string;
+  /** Sorted, non-secret optimizer settings that materially affect planning. */
+  readonly settings: Readonly<Record<string, string>>;
+  /** Adapter-produced identity for catalog statistics, never raw statistic values. */
+  readonly statisticsFingerprint: string;
+}
+
+export interface QueryPlanNode {
+  readonly kind: string;
+  readonly relation?: string;
+  readonly index?: string;
+  readonly estimatedRows?: number;
+  readonly estimatedCost?: number;
+}
+
+export interface QueryPlanEvidence {
+  readonly totalCost?: number;
+  readonly estimatedRows?: number;
+  /** Pre-order, grammar-normalized node inventory. Expressions and sample values are excluded. */
+  readonly nodes: readonly QueryPlanNode[];
+}
+
+export interface QueryPlanCaptureRequest {
+  readonly fingerprint: string;
+  /** Compiler-owned SQL. Adapters must never persist it or include it in errors or artifacts. */
+  readonly sql: string;
+  readonly operation: QuerySemantics["operation"]["value"];
+  readonly parameterCount: number;
+  /** Optional application-supplied planning samples. They are transient and never enter artifacts. */
+  readonly values?: readonly unknown[];
+}
+
+/** Grammar-owned adapter over a database's structured, non-executing plan protocol. */
+export interface QueryPlanInspector {
+  readonly dialect: string;
+  readonly adapterVersion: string;
+  readonly parameterMode: "value-free" | "samples-required";
+  environment(): Promise<QueryPlanEnvironment>;
+  capture(request: QueryPlanCaptureRequest): Promise<QueryPlanEvidence>;
+  close(): Promise<void>;
+}
+
+export interface QueryPlanSampleRequest {
+  readonly queryId: string;
+  readonly variantFingerprint: string;
+  readonly source: { readonly file: string; readonly range: SourceRange };
+  readonly parameters: readonly {
+    readonly index: number;
+    readonly databaseType?: string;
+    readonly tsType: string;
+    readonly nullable: boolean;
+  }[];
+}
+
+export interface QueryPlanSample {
+  /** Stable, non-secret identity used to make two sample-dependent plans comparable. */
+  readonly identity: string;
+  readonly values: readonly unknown[];
+}
+
+export type QueryPlanSampleProvider = (
+  request: QueryPlanSampleRequest,
+) => QueryPlanSample | undefined | Promise<QueryPlanSample | undefined>;
+
+export interface QueryPlanBudget {
+  readonly maximumTotalCost?: number;
+  readonly maximumEstimatedRows?: number;
+  readonly maximumTotalCostIncreaseRatio?: number;
+  readonly maximumEstimatedRowsIncreaseRatio?: number;
+  readonly requiredNodeKinds?: readonly string[];
+  readonly forbiddenNodeKinds?: readonly string[];
+}
+
+export interface QueryPlanBudgetPolicy {
+  readonly defaults?: QueryPlanBudget;
+  readonly queries?: Readonly<Record<string, QueryPlanBudget>>;
+}
+
 export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: {
@@ -197,10 +276,42 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
     /** Lowest severity that makes `typed-sql compat` fail. */
     readonly failOn?: "none" | "warning" | "error";
   };
+  readonly plans?: {
+    /** Optional and lazy: capture never occurs during inference, checking, or manifest generation. */
+    readonly live?: QueryPlanInspector;
+    readonly sampleValues?: QueryPlanSampleProvider;
+    readonly artifactFile?: string;
+    readonly reportFile?: string;
+    readonly baselineFile?: string;
+    readonly concurrency?: number;
+    readonly budgets?: QueryPlanBudgetPolicy;
+    readonly failOn?: "none" | "violation" | "uncertainty";
+  };
 }
 
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertQueryPlanBudget(value: QueryPlanBudget, description: string): void {
+  for (const property of ["maximumTotalCost", "maximumEstimatedRows"] as const) {
+    const maximum = value[property];
+    if (maximum !== undefined && (!Number.isFinite(maximum) || maximum < 0)) {
+      throw new TypeError(`${description}.${property} must be a non-negative finite number`);
+    }
+  }
+  for (const property of ["maximumTotalCostIncreaseRatio", "maximumEstimatedRowsIncreaseRatio"] as const) {
+    const ratio = value[property];
+    if (ratio !== undefined && (!Number.isFinite(ratio) || ratio < 1)) {
+      throw new TypeError(`${description}.${property} must be a finite number greater than or equal to 1`);
+    }
+  }
+  for (const property of ["requiredNodeKinds", "forbiddenNodeKinds"] as const) {
+    const kinds = value[property];
+    if (kinds?.some((kind) => typeof kind !== "string" || kind.length === 0)) {
+      throw new TypeError(`${description}.${property} must contain non-empty strings`);
+    }
+  }
 }
 
 export function assertDialectPlugin(value: unknown): asserts value is DialectPlugin {
@@ -271,6 +382,49 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
     !(["none", "warning", "error"] as const).includes(config.compatibility.failOn)
   ) {
     throw new TypeError("compatibility.failOn must be none, warning, or error");
+  }
+  for (const property of ["artifactFile", "reportFile", "baselineFile"] as const) {
+    const path = config.plans?.[property];
+    if (path !== undefined && (typeof path !== "string" || path.length === 0)) {
+      throw new TypeError(`plans.${property} must be a non-empty string`);
+    }
+  }
+  const planConcurrency = config.plans?.concurrency;
+  if (planConcurrency !== undefined && (!Number.isSafeInteger(planConcurrency) || planConcurrency < 1)) {
+    throw new TypeError("plans.concurrency must be a positive safe integer");
+  }
+  if (
+    config.plans?.failOn !== undefined &&
+    !(["none", "violation", "uncertainty"] as const).includes(config.plans.failOn)
+  ) {
+    throw new TypeError("plans.failOn must be none, violation, or uncertainty");
+  }
+  if (config.plans?.sampleValues !== undefined && typeof config.plans.sampleValues !== "function") {
+    throw new TypeError("plans.sampleValues must be a function");
+  }
+  const inspector = config.plans?.live;
+  if (inspector !== undefined) {
+    if (inspector.dialect !== config.dialect.id) {
+      throw new TypeError(`plans.live dialect ${inspector.dialect} does not match ${config.dialect.id}`);
+    }
+    if (typeof inspector.adapterVersion !== "string" || inspector.adapterVersion.length === 0) {
+      throw new TypeError("plans.live.adapterVersion must be a non-empty string");
+    }
+    if (!(inspector.parameterMode === "value-free" || inspector.parameterMode === "samples-required")) {
+      throw new TypeError("plans.live.parameterMode must be value-free or samples-required");
+    }
+    for (const method of ["environment", "capture", "close"] as const) {
+      if (typeof inspector[method] !== "function") throw new TypeError(`plans.live.${method} must be a function`);
+    }
+  }
+  if (config.plans?.budgets?.defaults !== undefined) {
+    assertQueryPlanBudget(config.plans.budgets.defaults, "plans.budgets.defaults");
+  }
+  for (const [fingerprint, budget] of Object.entries(config.plans?.budgets?.queries ?? {})) {
+    if (!/^sha256:[a-f\d]{64}$/u.test(fingerprint)) {
+      throw new TypeError("plans.budgets.queries keys must be SHA-256 query fingerprints");
+    }
+    assertQueryPlanBudget(budget, `plans.budgets.queries.${fingerprint}`);
   }
   return Object.freeze(config);
 }

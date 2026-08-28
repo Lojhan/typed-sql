@@ -334,3 +334,76 @@ await describe("typed-sql verify command", async () => {
     }
   });
 });
+
+await describe("typed-sql explain command", async () => {
+  await it("captures redacted plans, reviews budgets, and distinguishes incomparable evidence", async () => {
+    const temporary = await mkdtemp(join(workspace, ".typed-sql-cli-explain-"));
+    try {
+      await mkdir(join(temporary, "src"));
+      const writeConfig = async (version: string, cost: number) =>
+        writeFile(
+          join(temporary, "typed-sql.config.ts"),
+          [
+            'import { defineConfig } from "@typed-sql/core";',
+            'import { postgres } from "@typed-sql/postgres";',
+            "const live = {",
+            '  dialect: "postgres", adapterVersion: "fake-explain-v1", parameterMode: "value-free",',
+            `  async environment() { return { version: ${JSON.stringify(version)}, settings: { plan_cache_mode: "auto" }, statisticsFingerprint: "sha256:${"a".repeat(64)}" }; },`,
+            `  async capture() { return { totalCost: ${cost}, estimatedRows: 1, nodes: [{ kind: "Index Scan", relation: "users" }] }; },`,
+            "  async close() {},",
+            "};",
+            "export default defineConfig({",
+            "  dialect: postgres(),",
+            '  schema: { file: "schema.json" }, outDir: "generated", projects: ["tsconfig.json"],',
+            '  manifest: { outFile: ".typed-sql/queries.json" },',
+            '  plans: { live, artifactFile: ".typed-sql/plans.json", reportFile: ".typed-sql/plan-review.json", failOn: "none", budgets: { defaults: { maximumTotalCost: 5, maximumTotalCostIncreaseRatio: 1.1 } } },',
+            "});",
+          ].join("\n"),
+        );
+      await writeConfig("18.4", 10);
+      await writeFile(
+        join(temporary, "schema.json"),
+        `${JSON.stringify({
+          formatVersion: 1,
+          dialect: "postgres",
+          tables: {
+            users: {
+              name: "users",
+              columns: { id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false } },
+            },
+          },
+        })}\n`,
+      );
+      await writeFile(
+        join(temporary, "tsconfig.json"),
+        `${JSON.stringify({ extends: "../tsconfig.base.json", include: ["src/**/*.ts"] })}\n`,
+      );
+      await writeFile(
+        join(temporary, "src", "query.ts"),
+        'import { sql } from "@typed-sql/postgres"; export const query = sql`SELECT users.id FROM users`;\n',
+      );
+
+      await execute(["manifest"], temporary);
+      const first = await execute(["explain"], temporary);
+      strict.match(first.stdout, /Captured 1 plans.*1 violations/u);
+      strict.match(first.stderr, /total-cost/u);
+      const baseline = await readFile(join(temporary, ".typed-sql", "plans.json"), "utf8");
+      strict.ok(!baseline.includes("SELECT"));
+      strict.ok(!baseline.includes(temporary));
+
+      await writeConfig("19.0", 4);
+      const next = await execute(
+        ["explain", "--compare", ".typed-sql/plans.json", "--out", ".typed-sql/current.json"],
+        temporary,
+      );
+      strict.match(next.stdout, /1 incomparable/u);
+      strict.match(next.stderr, /server-version-changed/u);
+      await strict.rejects(
+        execute(["explain", "--fail-on", "uncertainty", "--compare", ".typed-sql/plans.json"], temporary),
+        (error: unknown) => error instanceof Error && "code" in error && error.code === 1,
+      );
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+});

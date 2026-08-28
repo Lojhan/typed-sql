@@ -6,12 +6,17 @@ import {
   analyzeSchemaCompatibility,
   assertQueryVerificationProofCurrent,
   buildQueryManifest,
+  captureQueryPlans,
   checkFile,
   collectQueryVerificationCandidates,
   listProjectSourceFiles,
   parseQueryManifest,
+  parseQueryPlanArtifact,
   parseQueryVerificationProof,
+  reviewQueryPlans,
   serializeQueryManifest,
+  serializeQueryPlanArtifact,
+  serializeQueryPlanReviewReport,
   serializeQueryVerificationProof,
   serializeSchemaCompatibilityReport,
   verifyQueryManifest,
@@ -30,7 +35,7 @@ interface ParsedArguments {
   readonly options: Readonly<Record<string, string>>;
 }
 
-const commands = new Set(["check", "compat", "generate", "drift", "manifest", "verify"]);
+const commands = new Set(["check", "compat", "explain", "generate", "drift", "manifest", "verify"]);
 
 async function packageVersion(): Promise<string> {
   let directory = dirname(fileURLToPath(import.meta.url));
@@ -59,6 +64,7 @@ Usage:
 Commands:
   check      Infer SQL result types and verify them with TypeScript 7
   compat     Analyze rolling-deployment compatibility from two snapshots and manifests
+  explain    Capture and review structured database query plans
   generate   Introspect or load a schema snapshot and generate the typed contract
   drift      Compare the generated contract with the live database catalog
   manifest   Emit a deterministic manifest for every project query
@@ -71,6 +77,8 @@ Global options:
 Examples:
   typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
+  typed-sql explain --manifest .typed-sql/queries.json --out .typed-sql/plans.json
+  typed-sql explain --compare .typed-sql/plans.json
   typed-sql generate --config typed-sql.config.ts --out generated/db
   typed-sql drift --config typed-sql.config.ts
   typed-sql manifest --config typed-sql.config.ts --project tsconfig.json --out .typed-sql/queries.json
@@ -187,6 +195,25 @@ function reportCompatibility(
     process.stderr.write(
       `${assessment.severity} ${assessment.direction} ${assessment.classification} (${locations}): ${assessment.reason}\n`,
     );
+  }
+}
+
+function reportPlans(
+  entries: readonly {
+    readonly status: string;
+    readonly source: { readonly file: string; readonly range: { readonly line: number; readonly column: number } };
+    readonly reasons: readonly string[];
+    readonly violations: readonly { readonly kind: string; readonly expected: string; readonly actual: string }[];
+  }[],
+): void {
+  for (const entry of entries) {
+    if (entry.status === "pass" || entry.status === "unbudgeted") continue;
+    process.stderr.write(
+      `${entry.source.file}:${entry.source.range.line}:${entry.source.range.column} - plan ${entry.status}${entry.reasons.length === 0 ? "" : ` (${entry.reasons.join(", ")})`}\n`,
+    );
+    for (const violation of entry.violations) {
+      process.stderr.write(`  ${violation.kind}: expected ${violation.expected}, actual ${violation.actual}\n`);
+    }
   }
 }
 
@@ -378,6 +405,83 @@ async function main(): Promise<void> {
       process.stdout.write(`Cached verification is current (${proof.entries.length} entries)\n`);
       if (mismatched > 0 || failed > 0) process.exitCode = 1;
       else if (skipped > 0) process.exitCode = 2;
+    }
+    return;
+  }
+
+  if (parsed.command === "explain") {
+    const inspector = config.plans?.live;
+    if (inspector === undefined) {
+      throw new Error("typed-sql explain requires plans.live in typed-sql.config.ts");
+    }
+    const failOn = parsed.options["fail-on"] ?? config.plans?.failOn ?? "violation";
+    if (!(failOn === "none" || failOn === "violation" || failOn === "uncertainty")) {
+      throw new Error("--fail-on must be none, violation, or uncertainty");
+    }
+    const manifestFile = fromConfig(
+      loaded.directory,
+      parsed.options.manifest ?? config.manifest?.outFile ?? ".typed-sql/queries.json",
+    );
+    const artifactFile = fromConfig(
+      loaded.directory,
+      parsed.options.out ?? config.plans?.artifactFile ?? ".typed-sql/plans.json",
+    );
+    const reportFile = fromConfig(
+      loaded.directory,
+      parsed.options.report ?? config.plans?.reportFile ?? ".typed-sql/plan-review.json",
+    );
+    const compareOption = parsed.options.compare ?? config.plans?.baselineFile;
+    const baseline =
+      compareOption === undefined
+        ? undefined
+        : parseQueryPlanArtifact(
+            JSON.parse(await readFile(fromConfig(loaded.directory, compareOption), "utf8")) as unknown,
+          );
+    const manifest = parseQueryManifest(JSON.parse(await readFile(manifestFile, "utf8")) as unknown);
+    const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
+    const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
+    const candidates = collectQueryVerificationCandidates({
+      manifest,
+      rootDir: loaded.directory,
+      sources,
+      projects,
+      dialect,
+      schema,
+      typePolicy: policy,
+      ...(config.compiler?.maxStructuralVariants === undefined
+        ? {}
+        : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
+    });
+    try {
+      const result = await captureQueryPlans({
+        manifest,
+        candidates,
+        inspector,
+        ...(config.plans?.sampleValues === undefined ? {} : { sampleValues: config.plans.sampleValues }),
+        ...(config.plans?.concurrency === undefined ? {} : { concurrency: config.plans.concurrency }),
+      });
+      const report = reviewQueryPlans({
+        current: result.artifact,
+        ...(baseline === undefined ? {} : { baseline }),
+        ...(config.plans?.budgets === undefined ? {} : { budgets: config.plans.budgets }),
+      });
+      await Promise.all([
+        mkdir(dirname(artifactFile), { recursive: true }).then(() =>
+          writeFile(artifactFile, serializeQueryPlanArtifact(result.artifact), "utf8"),
+        ),
+        mkdir(dirname(reportFile), { recursive: true }).then(() =>
+          writeFile(reportFile, serializeQueryPlanReviewReport(report), "utf8"),
+        ),
+      ]);
+      reportPlans(report.entries);
+      process.stdout.write(
+        `Captured ${result.captured} plans (${result.skipped} skipped, ${result.failed} failed); review: ${report.summary.violation} violations, ${report.summary.incomparable} incomparable, ${report.summary.unavailable} unavailable at ${reportFile}\n`,
+      );
+      const uncertainty = report.summary.incomparable + report.summary.unavailable;
+      if (failOn === "violation" && report.summary.violation > 0) process.exitCode = 1;
+      else if (failOn === "uncertainty" && (report.summary.violation > 0 || uncertainty > 0)) process.exitCode = 1;
+    } finally {
+      await inspector.close();
     }
     return;
   }

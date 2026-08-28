@@ -1,6 +1,6 @@
 import { defineConfig } from "@typed-sql/core";
 import { mysql, typePolicy } from "@typed-sql/mysql";
-import { createMySql2LiveVerifier, mysql2 } from "@typed-sql/mysql/mysql2";
+import { createMySql2LiveVerifier, createMySql2PlanInspector, mysql2 } from "@typed-sql/mysql/mysql2";
 
 const dialect = mysql({ typePolicy });
 const connectionUri = () => {
@@ -26,5 +26,19 @@ export default defineConfig({
     live: createMySql2LiveVerifier({ connectionUri, typePolicy }),
     proofFile: ".typed-sql/verification.json",
     concurrency: 2,
+  },
+  plans: {
+    live: createMySql2PlanInspector({ connectionUri }),
+    sampleValues(request) {
+      return {
+        identity: "e2e-representative-v1",
+        values: request.parameters.map((parameter) => (parameter.tsType === "bigint" ? 1n : 1)),
+      };
+    },
+    artifactFile: ".typed-sql/plans.json",
+    reportFile: ".typed-sql/plan-review.json",
+    concurrency: 2,
+    failOn: "uncertainty",
+    budgets: { defaults: { maximumTotalCost: 10_000 } },
   },
 });

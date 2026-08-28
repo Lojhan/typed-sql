@@ -149,7 +149,7 @@ Set `DatabaseObserver.captureErrorCause` only when an integration explicitly nee
 
 ## Configuration and schema contracts
 
-`defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, optional `manifest.outFile`, optional live-verification adapter, proof path and concurrency, and optional compatibility report path and failure severity.
+`defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, optional manifest settings, live-verification settings, query-plan capture and budget settings, and compatibility report settings.
 
 Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, column, domain, and function metadata, `SchemaProvider`, and source-mapped diagnostics.
 
@@ -164,6 +164,7 @@ Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, 
 - the query manifest format, fingerprint algorithm, and JSON Schema constants.
 - live-verification candidate collection, native comparison, proof parsing and serialization, cache validation, and artifact-version constants.
 - migration compatibility analysis, report parsing and serialization, before/after evidence types, classifications, deployment directions, and artifact-version constants.
+- query-plan capture, budget review, artifact and report parsing and serialization, and their version constants.
 
 Each `CompiledQuery` includes:
 
@@ -175,6 +176,8 @@ Each `CompiledQuery` includes:
 Manifest output is a compiler and CI artifact, not an application import surface. See [Query manifests](../guides/query-manifests.md) for the format, redaction boundary, incremental behavior, and CLI exit codes.
 
 `LiveQueryVerifier` is the grammar-neutral adapter contract. PostgreSQL exposes `createPgLiveVerifier()` from `@typed-sql/postgres/pg`; MySQL exposes `createMySql2LiveVerifier()` from `@typed-sql/mysql/mysql2`. These adapters are lazy and driver-optional. See [Live verification](../guides/live-verification.md).
+
+`QueryPlanInspector` is the grammar-neutral structured-plan contract. PostgreSQL exposes `createPgPlanInspector()` and MySQL exposes `createMySql2PlanInspector()` from the same driver subpaths. `captureQueryPlans()` produces a redacted, fingerprint-keyed artifact; `reviewQueryPlans()` applies absolute and comparable relative budgets. See [Query plan governance](../guides/query-plan-governance.md).
 
 `analyzeSchemaCompatibility()` consumes two public `SchemaSnapshot` values and their matching query manifests. `serializeSchemaCompatibilityReport()` writes canonical JSON and `parseSchemaCompatibilityReport()` validates the versioned public artifact. See [Migration compatibility](../guides/migration-compatibility.md).
 
