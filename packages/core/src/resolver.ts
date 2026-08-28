@@ -94,6 +94,17 @@ function addToIndex<Value>(index: Map<string, Value[]>, key: string, value: Valu
 
 /** Precomputed case-sensitive and folded schema lookups shared by SQL grammars. */
 export class ResolverSchemaIndex {
+  static readonly #cache = new WeakMap<SchemaSnapshot, ResolverSchemaIndex>();
+
+  /** Reuses immutable snapshot indexes across resolver and semantic passes. */
+  static for(snapshot: SchemaSnapshot): ResolverSchemaIndex {
+    const cached = ResolverSchemaIndex.#cache.get(snapshot);
+    if (cached !== undefined) return cached;
+    const index = new ResolverSchemaIndex(snapshot);
+    ResolverSchemaIndex.#cache.set(snapshot, index);
+    return index;
+  }
+
   readonly #exactTables = new Map<string, IndexedTable[]>();
   readonly #foldedTables = new Map<string, IndexedTable[]>();
   readonly #exactColumns = new WeakMap<TableSnapshot, ReadonlyMap<string, ColumnSnapshot>>();

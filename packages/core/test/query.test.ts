@@ -449,6 +449,7 @@ await describe("core contracts", async () => {
       },
     };
     const index = new ResolverSchemaIndex(indexedSchema);
+    strict.strictEqual(ResolverSchemaIndex.for(indexedSchema), ResolverSchemaIndex.for(indexedSchema));
     const table = index.tables("users", "PUBLIC")[0]?.table;
     strict.ok(table !== undefined);
     strict.strictEqual(index.tables("users").length, 1);

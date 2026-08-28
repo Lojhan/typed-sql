@@ -58,7 +58,7 @@ function functionVolatility(expression: CallExpression, index: ResolverSchemaInd
 }
 
 export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
-  const index = new ResolverSchemaIndex(snapshot);
+  const index = ResolverSchemaIndex.for(snapshot);
   const dependencies = new Map<string, QueryDependency>();
   const capabilities = new Set<string>();
   const volatilities: QueryVolatility[] = [];
@@ -165,12 +165,12 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
 
   return defineQuerySemantics({
     version: QUERY_SEMANTICS_VERSION,
-    operation: Object.freeze({ value: write ? "write" : "read", evidence: Object.freeze([operationEvidence]) }),
-    dependencies: Object.freeze([...dependencies.values()].sort((left, right) => key(left).localeCompare(key(right)))),
-    cardinality: Object.freeze({
+    operation: { value: write ? "write" : "read", evidence: [operationEvidence] },
+    dependencies: [...dependencies.values()],
+    cardinality: {
       minimum: exactOne ? 1 : 0,
       maximum: command ? 0 : exactOne ? 1 : "many",
-      evidence: Object.freeze([
+      evidence: [
         syntax(
           command
             ? "The command has no RETURNING clause."
@@ -179,11 +179,11 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
               : "The statement can return a data-dependent number of rows.",
           statement.range,
         ),
-      ]),
-    }),
-    volatility: Object.freeze({
+      ],
+    },
+    volatility: {
       value: volatility,
-      evidence: Object.freeze([
+      evidence: [
         syntax(
           write
             ? "Writes are volatile."
@@ -194,18 +194,16 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
                 : "The statement contains only immutable syntax.",
           statement.range,
         ),
-      ]),
-    }),
-    locking: Object.freeze({
+      ],
+    },
+    locking: {
       value: "none",
-      evidence: Object.freeze([syntax("The supported statement contains no locking clause.", statement.range)]),
-    }),
-    connectionAffinity: Object.freeze({
+      evidence: [syntax("The supported statement contains no locking clause.", statement.range)],
+    },
+    connectionAffinity: {
       value: "none",
-      evidence: Object.freeze([
-        syntax("The supported statement contains no session or transaction control.", statement.range),
-      ]),
-    }),
-    capabilities: Object.freeze([...capabilities].sort()),
+      evidence: [syntax("The supported statement contains no session or transaction control.", statement.range)],
+    },
+    capabilities: [...capabilities],
   });
 }

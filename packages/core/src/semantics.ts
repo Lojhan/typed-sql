@@ -82,16 +82,16 @@ export function defineQuerySemantics(semantics: QuerySemantics): QuerySemantics 
 }
 
 export function unknownQuerySemantics(range: SourceRange, description: string): QuerySemantics {
-  const evidence = Object.freeze([{ kind: "conservative" as const, description, range }]);
+  const evidence = [{ kind: "conservative" as const, description, range }];
   return defineQuerySemantics({
     version: QUERY_SEMANTICS_VERSION,
-    operation: Object.freeze({ value: "unknown", evidence }),
-    dependencies: Object.freeze([]),
-    cardinality: Object.freeze({ minimum: 0, maximum: "unknown", evidence }),
-    volatility: Object.freeze({ value: "unknown", evidence }),
-    locking: Object.freeze({ value: "unknown", evidence }),
-    connectionAffinity: Object.freeze({ value: "unknown", evidence }),
-    capabilities: Object.freeze([]),
+    operation: { value: "unknown", evidence },
+    dependencies: [],
+    cardinality: { minimum: 0, maximum: "unknown", evidence },
+    volatility: { value: "unknown", evidence },
+    locking: { value: "unknown", evidence },
+    connectionAffinity: { value: "unknown", evidence },
+    capabilities: [],
   });
 }
 
@@ -100,16 +100,16 @@ export function mapQuerySemanticRanges(
   map: (range: SourceRange) => SourceRange,
 ): QuerySemantics {
   const evidence = (values: readonly SemanticEvidence[]) =>
-    Object.freeze(values.map((value) => Object.freeze({ ...value, range: map(value.range) })));
-  const fact = <Value extends string>(value: SemanticFact<Value>): SemanticFact<Value> =>
-    Object.freeze({ value: value.value, evidence: evidence(value.evidence) });
+    values.map((value) => ({ ...value, range: map(value.range) }));
+  const fact = <Value extends string>(value: SemanticFact<Value>): SemanticFact<Value> => ({
+    value: value.value,
+    evidence: evidence(value.evidence),
+  });
   return defineQuerySemantics({
     ...semantics,
     operation: fact(semantics.operation),
-    dependencies: Object.freeze(
-      semantics.dependencies.map((dependency) => Object.freeze({ ...dependency, range: map(dependency.range) })),
-    ),
-    cardinality: Object.freeze({ ...semantics.cardinality, evidence: evidence(semantics.cardinality.evidence) }),
+    dependencies: semantics.dependencies.map((dependency) => ({ ...dependency, range: map(dependency.range) })),
+    cardinality: { ...semantics.cardinality, evidence: evidence(semantics.cardinality.evidence) },
     volatility: fact(semantics.volatility),
     locking: fact(semantics.locking),
     connectionAffinity: fact(semantics.connectionAffinity),
@@ -186,14 +186,12 @@ export function mergeQuerySemantics(variants: readonly QuerySemantics[]): QueryS
       variants.map((variant) => variant.operation),
       "unknown",
     ),
-    dependencies: Object.freeze(
-      [...dependencies.values()].sort((left, right) => dependencyKey(left).localeCompare(dependencyKey(right))),
-    ),
-    cardinality: Object.freeze({
+    dependencies: [...dependencies.values()],
+    cardinality: {
       minimum: variants.some((variant) => variant.cardinality.minimum === 0) ? 0 : 1,
       maximum,
       evidence: mergeEvidence(variants.map((variant) => variant.cardinality.evidence)),
-    }),
+    },
     volatility: mergeRankedFact(
       variants.map((variant) => variant.volatility),
       {
@@ -221,6 +219,6 @@ export function mergeQuerySemantics(variants: readonly QuerySemantics[]): QueryS
         unknown: 3,
       },
     ),
-    capabilities: Object.freeze([...new Set(variants.flatMap((variant) => variant.capabilities))].sort()),
+    capabilities: [...new Set(variants.flatMap((variant) => variant.capabilities))],
   });
 }

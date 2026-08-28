@@ -222,12 +222,13 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     const resolved = dialect.analyze(query.sql, schema, options.typePolicy);
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      const queryFingerprint = fingerprint(dialect, query.sql);
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
         parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
-        fingerprint: fingerprint(dialect, query.sql),
-        variantFingerprints: Object.freeze([fingerprint(dialect, query.sql)]),
+        fingerprint: queryFingerprint,
+        variantFingerprints: Object.freeze([queryFingerprint]),
         semantics: sourceSemantics(source, query, resolved.semantics),
       });
     }

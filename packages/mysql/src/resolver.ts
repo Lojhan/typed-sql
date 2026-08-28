@@ -104,7 +104,7 @@ class Resolver {
 
   constructor(schema: SchemaSnapshot, options: ResolveMySqlOptions) {
     this.#schema = schema;
-    this.#index = new ResolverSchemaIndex(schema);
+    this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
     this.#strict = options.strictExpressions ?? true;
   }

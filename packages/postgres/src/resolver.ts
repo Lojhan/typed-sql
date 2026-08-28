@@ -137,7 +137,7 @@ class Resolver {
 
   constructor(schema: SchemaSnapshot, options: ResolveOptions) {
     this.#schema = schema;
-    this.#index = new ResolverSchemaIndex(schema);
+    this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultPostgresTypePolicy;
     this.#strictExpressions = options.strictExpressions ?? true;
   }
