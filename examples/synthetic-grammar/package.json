@@ -1,0 +1,27 @@
+{
+  "name": "@typed-sql/example-synthetic-grammar",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minimal third-party grammar demonstrating the public typed-sql conformance kit.",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce"
+  },
+  "exports": {
+    ".": "./dist/examples/synthetic-grammar/src/index.js",
+    "./conformance": "./dist/examples/synthetic-grammar/src/conformance.js"
+  },
+  "dependencies": {
+    "@typed-sql/conformance": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
+  }
+}

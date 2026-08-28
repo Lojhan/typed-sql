@@ -16,6 +16,7 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
 | `@typed-sql/compiler` | Dialect-neutral extraction, transforms, structural expansion, and diagnostics | No |
+| `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/cli` | Generation, checking, drift, and provider discovery | No |
@@ -47,6 +48,11 @@ Every grammar implements the same public contract for:
 The compiler recognizes the `sqlModule` declared by the configured dialect. It does not branch on package names, dialect ids, or drivers. PostgreSQL, MySQL, and third-party grammars use the same compiler and schema infrastructure while owning their SQL semantics.
 
 Core exposes grammar-neutral resolver mechanisms such as indexed catalog lookup, ordered parameter collection, literal-union normalization, and name suggestions. Identifiers, operators, built-ins, nullability, feature gates, and diagnostics remain grammar responsibilities.
+
+The conformance package depends only on neutral compiler and core entrypoints. It turns dialect
+claims into executable probes without importing PostgreSQL, MySQL, a driver, or private workspace
+source. Grammar repositories own their fixtures and run them with their preferred Poku-compatible
+test command.
 
 Every successful analysis also returns versioned `QuerySemantics`. A semantic fact includes the source evidence that supports it. Dependencies distinguish schema-resolved objects from syntactic references, and unsupported or ambiguous statements return unknown semantics. For conditional composition, the compiler merges all possible branches conservatively: dependencies and capabilities are combined, cardinality widens, and the highest-risk volatility, locking, or connection requirement wins.
 

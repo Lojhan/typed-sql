@@ -122,6 +122,18 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  examples/synthetic-grammar:
+    dependencies:
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../../packages/conformance
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@typed-sql/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+
   packages/ast: {}
 
   packages/cli:
@@ -153,6 +165,15 @@ importers:
       tsx:
         specifier: 4.23.12
         version: 4.23.12
+
+  packages/conformance:
+    dependencies:
+      '@typed-sql/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/core: {}
 

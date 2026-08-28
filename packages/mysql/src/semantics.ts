@@ -63,6 +63,10 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
       if (current.kind !== "select") write = true;
       if (current.with !== undefined) capabilities.add(current.with.recursive ? "recursiveCtes" : "ctes");
       if (current.kind !== "select" && current.returning.length > 0) capabilities.add("returning");
+      if (current.kind === "select") {
+        if (current.distinctOn.length > 0) capabilities.add("distinctOn");
+        if (current.joins.some(({ kind }) => kind === "full")) capabilities.add("fullJoins");
+      }
     },
     table(table, owner, context) {
       if (
@@ -100,6 +104,7 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
         dependencies.set(key(dependency), dependency);
       } else if (expression.kind === "call") {
         hasCall = true;
+        if (expression.filter !== undefined) capabilities.add("aggregateFilter");
         if (expression.over !== undefined) capabilities.add("windows");
         const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
         const resolved = candidates.length === 1 ? candidates[0] : undefined;

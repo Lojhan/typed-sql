@@ -9,6 +9,7 @@
     "@typed-sql/schema",
     "@typed-sql/config",
     "@typed-sql/compiler",
+    "@typed-sql/conformance",
     "@typed-sql/postgres",
     "@typed-sql/mysql",
     "@typed-sql/cli"
@@ -20,6 +21,7 @@
       "@typed-sql/schema",
       "@typed-sql/config",
       "@typed-sql/compiler",
+      "@typed-sql/conformance",
       "@typed-sql/postgres",
       "@typed-sql/mysql",
       "@typed-sql/cli"

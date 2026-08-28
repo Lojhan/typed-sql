@@ -32,11 +32,22 @@ const publicPackages = [
   "postgres",
   "mysql",
   "compiler",
+  "conformance",
   "cli",
   "ts-bridge",
   "language-server",
 ] as const;
-const stablePackages = ["core", "ast", "schema", "config", "compiler", "postgres", "mysql", "cli"] as const;
+const stablePackages = [
+  "core",
+  "ast",
+  "schema",
+  "config",
+  "compiler",
+  "conformance",
+  "postgres",
+  "mysql",
+  "cli",
+] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
   ast: ["."],
@@ -46,6 +57,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   postgres: [".", "./runtime", "./pg"],
   mysql: [".", "./runtime", "./mysql2"],
   compiler: ["."],
+  conformance: ["."],
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview"],
   "language-server": ["."],
@@ -74,7 +86,16 @@ async function source(packageName: string): Promise<string> {
 
 await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
-    for (const packageName of ["core", "config", "compiler", "cli", "language-server", "postgres", "mysql"]) {
+    for (const packageName of [
+      "core",
+      "config",
+      "compiler",
+      "conformance",
+      "cli",
+      "language-server",
+      "postgres",
+      "mysql",
+    ]) {
       const packageManifest = await manifest(packageName);
       for (const field of [packageManifest.dependencies, packageManifest.optionalDependencies]) {
         for (const dependency of Object.keys(field ?? {})) {
@@ -124,8 +145,35 @@ await describe("public package graph", async () => {
     strict.deepStrictEqual(Object.keys((await manifest("compiler")).dependencies ?? {}), ["@typed-sql/core"]);
   });
 
+  await it("keeps the public conformance kit and example grammar implementation-neutral", async () => {
+    const conformance = await source("conformance");
+    strict.ok(!/\b(?:postgres(?:ql)?|mysql2?|sqlite)\b/iu.test(conformance));
+    strict.deepStrictEqual(Object.keys((await manifest("conformance")).dependencies ?? {}).sort(), [
+      "@typed-sql/compiler",
+      "@typed-sql/core",
+    ]);
+    const exampleDirectory = join(workspace, "examples", "synthetic-grammar");
+    const exampleSource = [
+      await readFile(join(exampleDirectory, "src", "index.ts"), "utf8"),
+      await readFile(join(exampleDirectory, "src", "conformance.ts"), "utf8"),
+      await readFile(join(exampleDirectory, "test", "conformance.test.ts"), "utf8"),
+    ].join("\n");
+    strict.ok(!exampleSource.includes("/src/"));
+    strict.ok(!exampleSource.includes("../../packages"));
+    strict.ok(!exampleSource.includes("@typed-sql/postgres"));
+    strict.ok(!exampleSource.includes("@typed-sql/mysql"));
+    const exampleManifest = JSON.parse(
+      await readFile(join(exampleDirectory, "package.json"), "utf8"),
+    ) as PackageManifest;
+    strict.deepStrictEqual(Object.keys(exampleManifest.dependencies ?? {}).sort(), [
+      "@typed-sql/conformance",
+      "@typed-sql/core",
+      "@typed-sql/schema",
+    ]);
+  });
+
   await it("keeps every neutral package free of dialect, driver, and SQL-feature decisions", async () => {
-    const neutralPackages = ["core", "compiler", "config", "schema"] as const;
+    const neutralPackages = ["core", "compiler", "conformance", "config", "schema"] as const;
     const forbiddenSource = [
       { label: "first-party dialect name", pattern: /\b(?:postgres(?:ql)?|mysql2?)\b/iu },
       { label: "dialect-specific RETURNING", pattern: /\bRETURNING\b/u },
