@@ -302,6 +302,7 @@ await describe("packed public packages", async () => {
               ...dependencies,
               "@acme/typed-sql-synthetic": "file:../grammar",
               "@opentelemetry/api": `link:${join(workspace, "node_modules", "@opentelemetry", "api")}`,
+              typescript: `link:${join(workspace, "node_modules", "typescript")}`,
             },
             pnpm: {
               overrides: {
@@ -336,7 +337,7 @@ await describe("packed public packages", async () => {
         import { mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
         import { mysqlRenderer } from "@typed-sql/mysql/runtime";
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
-        import { compileSource } from "@typed-sql/compiler";
+        import { buildQueryManifest, compileSource, parseQueryManifest, serializeQueryManifest } from "@typed-sql/compiler";
         import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
         import { createOpenTelemetryObserver } from "@typed-sql/opentelemetry";
         import { syntheticConformanceFixture } from "@typed-sql/example-synthetic-grammar/conformance";
@@ -398,6 +399,24 @@ await describe("packed public packages", async () => {
         if (externalCompiled.diagnostics.length !== 0 || externalCompiled.queries.length !== 1) {
           throw new Error("external grammar could not compile from packed public packages");
         }
+        const externalManifest = buildQueryManifest({
+          rootDir: "/portable/checkout",
+          sources: [{
+            file: "/portable/checkout/query.ts",
+            source: 'import { sql } from "@acme/typed-sql-synthetic"; const query = sql\`SELECT value FROM widgets WHERE value = \${1}\`;'
+          }],
+          dialect: externalDialect,
+          schema: externalSnapshot,
+          typePolicy: syntheticTypePolicy,
+          compilerVersion: "packed-test",
+        });
+        const serializedManifest = serializeQueryManifest(externalManifest.manifest);
+        if (externalManifest.manifest.queries.length !== 1 || serializedManifest.includes("/portable/checkout")) {
+          throw new Error("packed query manifest contract failed");
+        }
+        if (parseQueryManifest(JSON.parse(serializedManifest)).queries[0]?.status !== "resolved") {
+          throw new Error("packed query manifest reader failed");
+        }
         if (!externalCompiled.transformedSource.includes('sql<{ "value": number; }, readonly [number]>')) {
           throw new Error("external grammar inference contract failed");
         }
@@ -422,8 +441,17 @@ await describe("packed public packages", async () => {
       await execFile(process.execPath, [join(consumer, "verify.mjs")], { cwd: consumer, env: isolatedEnvironment });
 
       const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
+      const typedSql = join(consumer, "node_modules", ".bin", "typed-sql");
       for (const dialect of ["postgres", "mysql"] as const) {
         const project = await writeEditorProject(consumer, dialect);
+        const manifestRun = await execFile(typedSql, ["manifest"], {
+          cwd: project.directory,
+          env: isolatedEnvironment,
+        });
+        strict.match(manifestRun.stdout, /Generated 4 queries \(0 unresolved/u);
+        const manifestSource = await readFile(join(project.directory, ".typed-sql", "queries.json"), "utf8");
+        strict.ok(!manifestSource.includes(project.directory));
+        strict.strictEqual((JSON.parse(manifestSource) as { readonly queries: readonly unknown[] }).queries.length, 4);
         const uri = pathToFileURL(project.queryFile).href;
         const client = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);
         try {

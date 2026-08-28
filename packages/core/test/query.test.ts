@@ -446,9 +446,11 @@ await describe("core contracts", async () => {
       schema: { file: "schema.json" },
       outDir: "generated",
       compiler: { maxStructuralVariants: 32 },
+      manifest: { outFile: ".typed-sql/queries.json" },
     });
     strict.strictEqual(config.dialect, dialect);
     strict.strictEqual(config.compiler?.maxStructuralVariants, 32);
+    strict.strictEqual(config.manifest?.outFile, ".typed-sql/queries.json");
     strict.ok(Object.isFrozen(config));
     strict.throws(
       () =>
@@ -471,6 +473,16 @@ await describe("core contracts", async () => {
         /positive safe integer/,
       );
     }
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          manifest: { outFile: "" },
+        }),
+      /manifest\.outFile must be a non-empty string/u,
+    );
   });
 
   await it("validates every public dialect contract boundary", () => {

@@ -3,7 +3,11 @@ import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { compileSource, extractStaticQueries } from "../packages/compiler/dist/packages/compiler/src/index.js";
+import {
+  buildQueryManifest,
+  compileSource,
+  extractStaticQueries,
+} from "../packages/compiler/dist/packages/compiler/src/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
 import { postgres } from "../packages/postgres/dist/packages/postgres/src/index.js";
@@ -108,6 +112,30 @@ await latency("compiler.manyQueries", () => {
   assert.equal(compiled.queries.length, 250);
   assert.deepEqual(compiled.diagnostics, []);
 });
+
+const manifestOptions = {
+  rootDir: "/benchmark/project",
+  sources: [{ file: "/benchmark/project/src/queries.ts", source: compilerSource }],
+  projects: ["/benchmark/project/tsconfig.json"],
+  schema: snapshot,
+  dialect,
+  compilerVersion: "performance",
+};
+await latency("compiler.queryManifest", () => {
+  const result = buildQueryManifest(manifestOptions);
+  assert.equal(result.manifest.queries.length, 250);
+  assert.equal(result.stats.analyzedFiles, 1);
+});
+const previousManifest = buildQueryManifest(manifestOptions).manifest;
+await latency(
+  "compiler.queryManifestIncremental",
+  () => {
+    const result = buildQueryManifest({ ...manifestOptions, previous: previousManifest });
+    assert.equal(result.manifest.queries.length, 250);
+    assert.equal(result.stats.reusedFiles, 1);
+  },
+  { iterations: methodology.subMillisecondIterations },
+);
 
 const semanticQueries = Array.from(
   { length: 250 },

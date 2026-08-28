@@ -27,6 +27,11 @@ export interface ExtractedAppendFragment {
   readonly parameterOffset: number;
 }
 
+export interface ExtractedDynamicQuery {
+  readonly tagName: string;
+  readonly range: SourceRange;
+}
+
 export interface StructuralOperand {
   readonly kind: "empty" | "fragment";
   readonly start: number;
@@ -595,6 +600,51 @@ export function extractStaticQueries(
       continue;
     }
     index += 1;
+  }
+  return queries;
+}
+
+/** Locates explicit `sql.dynamic(...)` escape hatches without reading their runtime value. */
+export function extractDynamicQueries(
+  source: string,
+  sqlModules: readonly string[] = ["@typed-sql/core"],
+): readonly ExtractedDynamicQuery[] {
+  const names = importedSqlNames(source, new Set(sqlModules));
+  if (names.size === 0) return [];
+  const queries: ExtractedDynamicQuery[] = [];
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") {
+      index = skipQuoted(source, index, char);
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "/") {
+      index = skipLineComment(source, index);
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "*") {
+      index = skipBlockComment(source, index);
+      continue;
+    }
+    const tag = identifierAt(source, index);
+    if (tag === undefined) {
+      index += 1;
+      continue;
+    }
+    index = tag.end;
+    if (!names.has(tag.value)) continue;
+    let cursor = skipTrivia(source, tag.end);
+    if (source[cursor] !== ".") continue;
+    cursor = skipTrivia(source, cursor + 1);
+    const member = identifierAt(source, cursor);
+    if (member?.value !== "dynamic") continue;
+    cursor = skipTrivia(source, member.end);
+    if (source[cursor] !== "(") continue;
+    const close = closingParenthesis(source, cursor);
+    const end = close === undefined ? member.end : close + 1;
+    queries.push({ tagName: tag.value, range: positionRange(source, tag.end - tag.value.length, end) });
+    index = end;
   }
   return queries;
 }

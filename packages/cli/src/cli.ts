@@ -1,8 +1,14 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkFile } from "@typed-sql/compiler";
+import {
+  buildQueryManifest,
+  checkFile,
+  listProjectSourceFiles,
+  parseQueryManifest,
+  serializeQueryManifest,
+} from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
 import { checkSchemaDrift, generateSchemaPackage, loadGeneratedSchemaSnapshot } from "@typed-sql/schema";
@@ -12,7 +18,7 @@ interface ParsedArguments {
   readonly options: Readonly<Record<string, string>>;
 }
 
-const commands = new Set(["check", "generate", "drift"]);
+const commands = new Set(["check", "generate", "drift", "manifest"]);
 
 async function packageVersion(): Promise<string> {
   let directory = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +48,7 @@ Commands:
   check      Infer SQL result types and verify them with TypeScript 7
   generate   Introspect or load a schema snapshot and generate the typed contract
   drift      Compare the generated contract with the live database catalog
+  manifest   Emit a deterministic manifest for every project query
 
 Global options:
   -h, --help       Show this help
@@ -51,6 +58,7 @@ Examples:
   typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
   typed-sql generate --config typed-sql.config.ts --out generated/db
   typed-sql drift --config typed-sql.config.ts
+  typed-sql manifest --config typed-sql.config.ts --project tsconfig.json --out .typed-sql/queries.json
 `;
 }
 
@@ -80,6 +88,15 @@ function required(options: Readonly<Record<string, string>>, name: string): stri
 
 async function readSnapshot(path: string, validate: (value: unknown) => SchemaSnapshot): Promise<SchemaSnapshot> {
   return validate(JSON.parse(await readFile(path, "utf8")) as unknown);
+}
+
+async function readPreviousManifest(path: string) {
+  try {
+    return parseQueryManifest(JSON.parse(await readFile(path, "utf8")) as unknown);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
+    throw error;
+  }
 }
 
 async function main(): Promise<void> {
@@ -140,6 +157,50 @@ async function main(): Promise<void> {
       dialectVersion: dialect.grammarVersion,
     });
     process.stdout.write(`Generated schema ${metadata.schemaHash}\n`);
+    return;
+  }
+
+  if (parsed.command === "manifest") {
+    const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
+    const projects =
+      parsed.options.project === undefined
+        ? (config.projects ?? ["tsconfig.json"]).map((project) => fromConfig(loaded.directory, project))
+        : [resolve(parsed.options.project)];
+    if (projects.length === 0) throw new Error("typed-sql manifest requires at least one TypeScript project");
+    const sourceFiles = [
+      ...new Set(
+        (
+          await Promise.all(projects.map((project) => listProjectSourceFiles({ project, cwd: loaded.directory })))
+        ).flat(),
+      ),
+    ].sort();
+    const sources = await Promise.all(
+      sourceFiles.map(async (file) => ({ file, source: await readFile(file, "utf8") })),
+    );
+    const outFile = fromConfig(
+      loaded.directory,
+      parsed.options.out ?? config.manifest?.outFile ?? ".typed-sql/queries.json",
+    );
+    const previous = await readPreviousManifest(outFile);
+    const result = buildQueryManifest({
+      rootDir: loaded.directory,
+      sources,
+      projects,
+      dialect,
+      schema,
+      typePolicy: policy,
+      compilerVersion: version,
+      ...(previous === undefined ? {} : { previous }),
+      ...(config.compiler?.maxStructuralVariants === undefined
+        ? {}
+        : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
+    });
+    await mkdir(dirname(outFile), { recursive: true });
+    await writeFile(outFile, serializeQueryManifest(result.manifest), "utf8");
+    process.stdout.write(
+      `Generated ${result.manifest.queries.length} queries (${result.stats.unresolvedQueries} unresolved, ${result.stats.reusedFiles} files reused) at ${outFile}\n`,
+    );
+    if (result.stats.unresolvedQueries > 0) process.exitCode = 2;
     return;
   }
 

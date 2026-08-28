@@ -33,6 +33,8 @@ await describe("performance regression policy", async () => {
       "compiler.correlatedConditions",
       "compiler.independentConditions",
       "compiler.manyQueries",
+      "compiler.queryManifest",
+      "compiler.queryManifestIncremental",
       "compiler.semanticMetadata",
       "compiler.structuralLimit",
       "editor.cancelledRequest",
@@ -74,10 +76,14 @@ await describe("performance regression policy", async () => {
     ]) {
       strict.ok(gate.includes(evidence), `performance gate does not record ${evidence}`);
     }
+    const microbenchmarks = await readFile(join(workspace, "scripts", "performance", "microbenchmarks.mjs"), "utf8");
+    for (const metric of ["micro.mysql.decoderPlanCacheHit", "micro.mysql.decoderPlanCompile"]) {
+      strict.ok(microbenchmarks.includes(metric), `microbenchmark suite does not record ${metric}`);
+    }
     strict.strictEqual(
       gate.match(/iterations: methodology\.subMillisecondIterations/gu)?.length,
-      2,
-      "cache-hit and cancellation fast paths must batch samples",
+      3,
+      "manifest, cache-hit, and cancellation fast paths must batch samples",
     );
   });
 

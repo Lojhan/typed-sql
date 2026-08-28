@@ -5,6 +5,10 @@ import {
   renderQuery,
   sql,
 } from "../../packages/core/dist/packages/core/src/index.js";
+import {
+  compileMySqlRowDecoders,
+  MySqlDecoderPlanCache,
+} from "../../packages/mysql/dist/packages/mysql/src/decoding.js";
 import { createMySqlDatabase, mysqlRenderer } from "../../packages/mysql/dist/packages/mysql/src/runtime.js";
 import {
   createPostgresDatabase,
@@ -324,6 +328,41 @@ export async function deterministicMicrobenchmarks(methodology) {
     assert.equal(Object.keys(decoded[0]).length, columnCount);
     assert.equal(decoded[0].value_0, 1n);
   }
+
+  const decoderFields = Array.from({ length: 24 }, (_, index) => ({
+    name: `column_${index}`,
+    columnType: index % 2 === 0 ? 8 : 246,
+  }));
+  const decoderPolicy = {
+    bigint: "bigint",
+    decimal: "string",
+    date: "Date",
+    json: "json",
+    tinyint1: "boolean",
+  };
+  const decoderCache = new MySqlDecoderPlanCache(decoderPolicy);
+  const cachedDecoderPlan = decoderCache.get(decoderFields);
+  let decoderPlan;
+  results["micro.mysql.decoderPlanCacheHit"] = throughput(
+    () => {
+      decoderPlan = decoderCache.get(decoderFields);
+    },
+    methodology,
+    renderIterations,
+  );
+  assert.equal(decoderPlan, cachedDecoderPlan);
+  results["micro.mysql.decoderPlanCompile"] = throughput(
+    () => {
+      decoderPlan = compileMySqlRowDecoders(decoderFields, decoderPolicy);
+    },
+    methodology,
+    renderIterations,
+  );
+  assert.equal(decoderPlan.length, decoderFields.length);
+  assert.ok(
+    results["micro.mysql.decoderPlanCacheHit"].p50 > results["micro.mysql.decoderPlanCompile"].p50,
+    "MySQL decoder plan cache hits must remain faster than recompilation",
+  );
 
   let mysqlValues;
   const mysqlEncodingPool = {

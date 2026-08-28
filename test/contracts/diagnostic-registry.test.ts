@@ -9,6 +9,7 @@ const sources = [
   "packages/ast/src/parser.ts",
   "packages/ast/src/tokenizer.ts",
   "packages/compiler/src/compiler.ts",
+  "packages/compiler/src/manifest.ts",
   "packages/postgres/src/resolver.ts",
   "packages/mysql/src/resolver.ts",
   "packages/cli/src/cli.ts",

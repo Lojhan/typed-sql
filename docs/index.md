@@ -21,6 +21,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 - [Compose conditional SQL](./guides/composition.md) without creating a parallel query-builder API.
 - [Generate snapshots and detect drift](./guides/schema-snapshots.md).
 - [Trace database work safely](./guides/observability.md) through the neutral observer contract.
+- [Emit deterministic query manifests](./guides/query-manifests.md) for CI and production correlation.
 - [Configure Zed, VS Code, or another LSP client](./guides/editors.md).
 - Review the [PostgreSQL](./dialects/postgresql.md) and [MySQL](./dialects/mysql.md) grammar boundaries.
 

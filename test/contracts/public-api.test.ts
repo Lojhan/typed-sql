@@ -3,15 +3,35 @@ import { describe, it, strict } from "poku";
 import type { SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
 import type {
+  BuildQueryManifestOptions,
+  BuildQueryManifestResult,
   CheckFileOptions,
   CheckFileResult,
   CompiledFragment,
   CompiledQuery,
+  CompiledQueryVariant,
   CompileSourceOptions,
   CompileSourceResult,
+  ExtractedDynamicQuery,
   ExtractedInterpolation,
   ExtractedQuery,
+  ListProjectSourceFilesOptions,
+  QueryManifest,
+  QueryManifestBuildStats,
+  QueryManifestColumn,
+  QueryManifestDiagnostic,
+  QueryManifestEntry,
+  QueryManifestLocation,
+  QueryManifestParameter,
+  QueryManifestSemanticEvidence,
+  QueryManifestSemanticFact,
+  QueryManifestSemantics,
+  QueryManifestSource,
+  QueryManifestSourceInput,
+  QueryManifestVariant,
+  ResolvedQueryManifestEntry,
   TypeScriptCheckResult,
+  UnresolvedQueryManifestEntry,
 } from "../../packages/compiler/src/index.js";
 import * as compilerApi from "../../packages/compiler/src/index.js";
 import * as configApi from "../../packages/config/src/index.js";
@@ -292,12 +312,32 @@ async function transactionBatchContract(
 type ReferencedStableTypes =
   | CheckFileOptions
   | CheckFileResult
+  | BuildQueryManifestOptions<SchemaSnapshot, unknown>
+  | BuildQueryManifestResult
   | CompiledFragment
   | CompiledQuery
+  | CompiledQueryVariant
   | CompileSourceOptions<SchemaSnapshot, unknown>
   | CompileSourceResult
+  | ExtractedDynamicQuery
   | ExtractedInterpolation
   | ExtractedQuery
+  | ListProjectSourceFilesOptions
+  | QueryManifest
+  | QueryManifestBuildStats
+  | QueryManifestColumn
+  | QueryManifestDiagnostic
+  | QueryManifestEntry
+  | QueryManifestLocation
+  | QueryManifestParameter
+  | QueryManifestSemanticEvidence
+  | QueryManifestSemanticFact
+  | QueryManifestSemantics
+  | QueryManifestSource
+  | QueryManifestSourceInput
+  | QueryManifestVariant
+  | ResolvedQueryManifestEntry
+  | UnresolvedQueryManifestEntry
   | TypeScriptCheckResult
   | CodecConformanceCase<unknown, unknown>
   | CodecConformanceFixture<unknown, unknown>
@@ -406,7 +446,20 @@ const expectedRuntimeExports = {
     "tokenize",
     "walkStatement",
   ],
-  compiler: ["checkFile", "compileSource", "extractStaticQueries", "mapSqlRange"],
+  compiler: [
+    "QUERY_FINGERPRINT_ALGORITHM",
+    "QUERY_MANIFEST_FORMAT_VERSION",
+    "QUERY_MANIFEST_JSON_SCHEMA",
+    "buildQueryManifest",
+    "checkFile",
+    "compileSource",
+    "extractDynamicQueries",
+    "extractStaticQueries",
+    "listProjectSourceFiles",
+    "mapSqlRange",
+    "parseQueryManifest",
+    "serializeQueryManifest",
+  ],
   conformance: [
     "GRAMMAR_CONFORMANCE_VERSION",
     "REQUIRED_GRAMMAR_PROBES",

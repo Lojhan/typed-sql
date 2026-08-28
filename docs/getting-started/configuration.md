@@ -30,6 +30,9 @@ export default defineConfig({
   compiler: {
     maxStructuralVariants: 64,
   },
+  manifest: {
+    outFile: ".typed-sql/queries.json",
+  },
 });
 ```
 
@@ -56,6 +59,9 @@ export default defineConfig({
   compiler: {
     maxStructuralVariants: 64,
   },
+  manifest: {
+    outFile: ".typed-sql/queries.json",
+  },
 });
 ```
 
@@ -65,9 +71,10 @@ export default defineConfig({
 pnpm exec typed-sql generate
 pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
 pnpm exec typed-sql drift
+pnpm exec typed-sql manifest
 ```
 
-`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database.
+`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md).
 
 Connection strings stay in the config callback or environment. They are not written to generated files. Commit the generated snapshot so schema and type-policy changes are reviewable.
 

@@ -15,10 +15,11 @@ The production performance suite covers:
 
 - scanning one TypeScript file containing 1,000 static queries;
 - compiling 250 queries with the PostgreSQL grammar and resolver;
+- emitting a 250-query manifest and reusing its unchanged per-file analysis;
 - correlated and independent conditional structure;
 - rejecting structural expansion before grammar work exceeds its bound;
 - core template construction, fragment composition, rendering, and prepared-skeleton binding;
-- adapter render, encode, decode, 100-row stream, 25-query batch, and PostgreSQL pipeline overhead with deterministic fake drivers;
+- adapter render, encode, decode, decoder-plan compilation and cache-hit throughput, 100-row stream, 25-query batch, and PostgreSQL pipeline overhead with deterministic fake drivers;
 - cold, unchanged, incrementally edited, and schema-reloaded language-service analysis;
 - cancellation before expensive analysis;
 - retained heap under cache pressure.
@@ -41,6 +42,8 @@ At runtime, interpolation-free fragment templates may reuse their complete immut
 | --- | ---: | ---: |
 | Scanner, 1,000 queries | 10 ms | 25 ms |
 | Compiler, 250 PostgreSQL queries | 20 ms | 50 ms |
+| Query manifest, 250 queries | 25 ms | 60 ms |
+| Query manifest, unchanged source | 0.5 ms | 1 ms |
 | 20 correlated conditions | 5 ms | 10 ms |
 | Six independent conditions | 10 ms | 25 ms |
 | Structural limit rejection | 5 ms | 10 ms |

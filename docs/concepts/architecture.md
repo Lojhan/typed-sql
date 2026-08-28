@@ -16,11 +16,11 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | No |
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
-| `@typed-sql/compiler` | Dialect-neutral extraction, transforms, structural expansion, and diagnostics | No |
+| `@typed-sql/compiler` | Dialect-neutral extraction, transforms, structural expansion, diagnostics, and query manifests | No |
 | `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
-| `@typed-sql/cli` | Generation, checking, drift, and provider discovery | No |
+| `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, and provider discovery | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |
 
@@ -61,11 +61,15 @@ Every successful analysis also returns versioned `QuerySemantics`. A semantic fa
 
 Compiled queries expose a path-independent SHA-256 fingerprint and the fingerprints of their structural variants. These identify compiler artifacts; they do not contain parameter values and are not a security signature.
 
+The optional query manifest serializes the same fingerprints, variants, inferred descriptions, and semantic evidence in canonical order. It contains relative source locations but no SQL text, parameter values, connection configuration, or absolute paths. Runtime observation can therefore correlate a variant fingerprint with build-time evidence without moving driver or telemetry concerns into the compiler.
+
 ## Generated metadata
 
 Generated output contains schema metadata for tooling and review. Application code imports `sql` and `typePolicy` from the dialect package and imports a driver adapter only when it needs introspection or execution.
 
 A custom type policy belongs in an application module shared by config and runtime. Generated output is never an application API entrypoint.
+
+Query manifests are build artifacts rather than generated application APIs. Applications continue importing `sql` from their selected grammar package. See [Query manifests](../guides/query-manifests.md).
 
 ## Composition model
 

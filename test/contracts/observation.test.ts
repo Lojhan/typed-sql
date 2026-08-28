@@ -1,5 +1,6 @@
+import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { compileSource } from "../../packages/compiler/src/index.js";
+import { buildQueryManifest, compileSource } from "../../packages/compiler/src/index.js";
 import type { DatabaseObserver, DatabaseOperationStart } from "../../packages/core/src/index.js";
 import { type PostgresSchemaSnapshot, postgres, sql } from "../../packages/postgres/src/index.js";
 import { createPostgresDatabase } from "../../packages/postgres/src/runtime.js";
@@ -15,6 +16,13 @@ await describe("compiler and runtime observation correlation", async () => {
       "const query = sql`SELECT id FROM users ${include ? sql.fragment`WHERE id = ${id}` : sql.empty}`;",
     ].join("\n");
     const compiled = compileSource({ source, schema, dialect: postgres() });
+    const manifest = buildQueryManifest({
+      rootDir: "/project",
+      sources: [{ file: "/project/query.ts", source }],
+      schema,
+      dialect: postgres(),
+      compilerVersion: "contract-test",
+    }).manifest;
     strict.deepStrictEqual(compiled.diagnostics, []);
     strict.strictEqual(compiled.queries[0]?.variantFingerprints.length, 2);
 
@@ -42,7 +50,8 @@ await describe("compiler and runtime observation correlation", async () => {
     const operation = starts[0];
     if (operation?.kind !== "query") strict.fail("Expected a query observation");
     strict.ok(compiled.queries[0]?.variantFingerprints.includes(operation.fingerprint));
+    const manifestQuery = manifest.queries[0];
+    if (manifestQuery?.status !== "resolved") strict.fail("Expected a resolved manifest query");
+    strict.ok(manifestQuery.variants.some((variant) => variant.fingerprint === operation.fingerprint));
   });
 });
-
-import { fileURLToPath } from "node:url";
