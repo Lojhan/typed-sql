@@ -1,3 +1,4 @@
+import type { DatabaseObserver } from "@typed-sql/core";
 import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import type { MySqlSchemaSnapshot } from "./index.js";
@@ -30,6 +31,7 @@ export interface MySql2Options {
   readonly decimal?: (value: string) => unknown;
   /** Test or host-injected loader. Applications normally leave this unset. */
   readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
+  readonly observer?: DatabaseObserver;
 }
 
 export interface MySql2SchemaProviderOptions {
@@ -275,6 +277,7 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     ownsPool: true,
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
     ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
+    ...(options.observer === undefined ? {} : { observer: options.observer }),
   });
 }
 

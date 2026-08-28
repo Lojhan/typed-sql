@@ -1,4 +1,10 @@
-import type { Query, QueryResults } from "@typed-sql/core";
+import type {
+  DatabaseObserver,
+  DatabaseOperationEnd,
+  DatabaseOperationStart,
+  Query,
+  QueryResults,
+} from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { sql } from "../../core/src/index.js";
 import {
@@ -179,6 +185,30 @@ await describe("PostgreSQL query pipelines", async () => {
     pool.client.resolve("SELECT second", [{ value: "second" }]);
     strict.deepStrictEqual(await result, [[{ value: "first" }], [{ value: "second" }], [{ value: "third" }]]);
     strict.deepStrictEqual(pool.client.releaseArguments, [undefined]);
+  });
+
+  await it("emits one redacted pipeline lifecycle for the whole group", async () => {
+    const starts: DatabaseOperationStart[] = [];
+    const ends: DatabaseOperationEnd[] = [];
+    const observer: DatabaseObserver = {
+      start(operation) {
+        starts.push(operation);
+        return { end: (completion) => ends.push(completion) };
+      },
+    };
+    const pool = new PipelinePool();
+    const results = await createPostgresDatabase({ pool, observer }).pipeline([accountQuery, projectQuery]);
+    strict.deepStrictEqual(results, [[], []]);
+    strict.strictEqual(starts.length, 1);
+    const start = starts[0];
+    if (start?.kind !== "pipeline") strict.fail("Expected a pipeline observation");
+    strict.strictEqual(start.size, 2);
+    strict.strictEqual(start.fingerprints.length, 2);
+    strict.ok(start.fingerprints.every((fingerprint) => /^sha256:[a-f0-9]{64}$/u.test(fingerprint)));
+    strict.ok(!("text" in start));
+    strict.ok(!("values" in start));
+    strict.strictEqual(ends.length, 1);
+    strict.strictEqual(ends[0]?.status, "success");
   });
 
   await it("waits for every in-flight query and reports the first input-order rejection", async () => {

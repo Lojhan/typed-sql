@@ -4,8 +4,9 @@ import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
+import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
-export const POSTGRES_DIALECT_VERSION = "1.0.0";
+export { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export type PostgresSchemaSnapshot = SchemaSnapshot & { readonly dialect: "postgres" };
 export interface PostgresDialectOptions {

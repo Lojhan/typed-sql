@@ -27,6 +27,7 @@ const forbiddenDrivers = new Set(["pg", "mysql2", "better-sqlite3", "sqlite3"]);
 const publicPackages = [
   "ast",
   "core",
+  "opentelemetry",
   "config",
   "schema",
   "postgres",
@@ -39,6 +40,7 @@ const publicPackages = [
 ] as const;
 const stablePackages = [
   "core",
+  "opentelemetry",
   "ast",
   "schema",
   "config",
@@ -52,6 +54,7 @@ const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
   ast: ["."],
   core: ["."],
+  opentelemetry: ["."],
   config: ["."],
   schema: ["."],
   postgres: [".", "./runtime", "./pg"],
@@ -88,6 +91,7 @@ await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
     for (const packageName of [
       "core",
+      "opentelemetry",
       "config",
       "compiler",
       "conformance",
@@ -103,6 +107,13 @@ await describe("public package graph", async () => {
         }
       }
     }
+  });
+
+  await it("keeps OpenTelemetry optional and application-owned", async () => {
+    const packageManifest = await manifest("opentelemetry");
+    strict.strictEqual(packageManifest.dependencies?.["@opentelemetry/api"], undefined);
+    strict.strictEqual(packageManifest.peerDependencies?.["@opentelemetry/api"], ">=1.9.0 <2");
+    strict.deepStrictEqual(Object.keys(packageManifest.dependencies ?? {}), ["@typed-sql/core"]);
   });
 
   await it("keeps pg entirely application-owned instead of declaring a peer", async () => {

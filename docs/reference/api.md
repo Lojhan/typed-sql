@@ -135,6 +135,18 @@ Transaction streams are scoped resources. They must reach completion or close be
 
 Streaming is an adapter capability rather than a method on the minimal core `Database` contract. PostgreSQL maps it to an application-owned cursor; MySQL maps it to protocol streaming. See [Execute queries](../guides/execution.md#stream-large-result-sets) for consumer examples.
 
+### Database observation
+
+`DatabaseObserver` is the grammar- and adapter-neutral execution lifecycle contract. Pass an observer through `createPgDatabase`, `createMySql2Database`, or the driver-neutral runtime constructors. Applications adapting an existing pool pass the result of `adaptPgPool` or `adaptMySql2Pool` to that dialect's runtime constructor alongside the observer.
+
+`DatabaseOperationStart` is a discriminated union for `query`, `batch`, `pipeline`, `stream`, and `transaction`. Every member contains `dialect`, `grammarVersion`, and `transactionDepth`; query-like members add structural fingerprints and execution metadata. Events do not contain SQL text, parameter values, or connection configuration.
+
+`DatabaseObservation` can provide `run(callback)` to establish observer-owned context and must provide `end(completion)`. A completion reports `success`, `error`, or `cancelled`, a duration, and available row count or sanitized error classification. Core isolates observer start and end failures and closes accepted operations at most once.
+
+Set `DatabaseObserver.captureErrorCause` only when an integration explicitly needs the original driver error. Causes are absent by default because driver errors can contain sensitive SQL or values.
+
+`@typed-sql/opentelemetry` exports `createOpenTelemetryObserver(options?)`. Its OpenTelemetry API dependency is an application-owned peer. See [Observe database work](../guides/observability.md) for lifecycle ordering, redaction policy, and tracing setup.
+
 ## Configuration and schema contracts
 
 `defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, and compiler options.

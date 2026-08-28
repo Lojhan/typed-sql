@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
-import { sql } from "@typed-sql/core";
+import { type DatabaseOperationEnd, sql } from "@typed-sql/core";
 import type { Pool } from "mysql2/promise";
 import { describe, it, strict } from "poku";
 import { adaptMySql2Pool, createMySql2Database, loadMySql2Driver, mysql2 } from "../src/mysql2.js";
@@ -118,7 +118,11 @@ function fakeDriver(pool: FakeRawPool): typeof import("mysql2/promise") {
 await describe("application-owned mysql2 integration", async () => {
   await it("cancels an in-flight query by destroying its checked-out mysql2 connection", async () => {
     const raw = new HangingRawPool();
-    const database = createMySqlDatabase({ pool: adaptMySql2Pool(raw as unknown as Pool) });
+    let completion: DatabaseOperationEnd | undefined;
+    const database = createMySqlDatabase({
+      pool: adaptMySql2Pool(raw as unknown as Pool),
+      observer: { start: () => ({ end: (event) => (completion = event) }) },
+    });
     const controller = new AbortController();
     const running = database.all(sql`SELECT SLEEP(10)`, { signal: controller.signal });
     while (raw.pooledConnection.executeCount === 0) await Promise.resolve();
@@ -133,6 +137,9 @@ await describe("application-owned mysql2 integration", async () => {
     strict.strictEqual(raw.getConnectionCount, 1);
     strict.strictEqual(raw.pooledConnection.destroyCount, 1);
     strict.strictEqual(raw.pooledConnection.released, false);
+    strict.strictEqual(completion?.status, "cancelled");
+    strict.strictEqual(completion?.cancellationReason, "signal");
+    strict.ok(!("cause" in completion!));
   });
 
   await it("rejects an already expired deadline without checking out a mysql2 connection", async () => {

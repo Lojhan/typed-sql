@@ -134,6 +134,29 @@ export async function deterministicMicrobenchmarks(methodology) {
   );
   assert.deepEqual(postgresConfig.values, [["1", ["2", ["3", "4"]], "done"]]);
 
+  let postgresObservationStarts = 0;
+  let postgresObservationEnds = 0;
+  const observedPostgresDatabase = createPostgresDatabase({
+    pool: postgresPool,
+    observer: {
+      start() {
+        postgresObservationStarts += 1;
+        return {
+          end() {
+            postgresObservationEnds += 1;
+          },
+        };
+      },
+    },
+  });
+  results["micro.postgres.observedDispatch"] = await latency(
+    () => observedPostgresDatabase.execute(postgresEncodingQuery),
+    methodology,
+    asyncIterations,
+  );
+  assert.ok(postgresObservationStarts > 0);
+  assert.equal(postgresObservationEnds, postgresObservationStarts);
+
   const postgresStreamRows = Array.from({ length: 100 }, (_, index) => ({ id: BigInt(index + 1) }));
   let postgresStreamReleases = 0;
   const postgresStreamingDatabase = createPostgresDatabase({
@@ -322,6 +345,29 @@ export async function deterministicMicrobenchmarks(methodology) {
   );
   assert.deepEqual(mysqlValues, [["1", ["2", ["3", "4"]], "done"]]);
   assert.equal(mysqlRenderer.placeholder(1), "?");
+
+  let mysqlObservationStarts = 0;
+  let mysqlObservationEnds = 0;
+  const observedMySqlDatabase = createMySqlDatabase({
+    pool: mysqlEncodingPool,
+    observer: {
+      start() {
+        mysqlObservationStarts += 1;
+        return {
+          end() {
+            mysqlObservationEnds += 1;
+          },
+        };
+      },
+    },
+  });
+  results["micro.mysql.observedDispatch"] = await latency(
+    () => observedMySqlDatabase.execute(mysqlEncodingQuery),
+    methodology,
+    asyncIterations,
+  );
+  assert.ok(mysqlObservationStarts > 0);
+  assert.equal(mysqlObservationEnds, mysqlObservationStarts);
 
   const mysqlStreamRows = Array.from({ length: 100 }, (_, index) => ({ id: String(index + 1) }));
   let mysqlStreamReleases = 0;

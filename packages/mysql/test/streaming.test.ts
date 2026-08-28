@@ -1,4 +1,4 @@
-import { type QueryStream, sql } from "@typed-sql/core";
+import { type DatabaseObserver, type DatabaseOperationEnd, type QueryStream, sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import {
   createMySqlDatabase,
@@ -131,6 +131,31 @@ class FakeStreamingPool implements MySqlPoolLike {
 const accountsQuery = sql.__typed<AccountRow, readonly [bigint]>()`SELECT id, active FROM accounts WHERE id >= ${1n}`;
 
 await describe("MySQL protocol streaming", async () => {
+  await it("starts observation lazily and ends it once after an early return", async () => {
+    const pool = new FakeStreamingPool();
+    const ends: DatabaseOperationEnd[] = [];
+    let starts = 0;
+    const observer: DatabaseObserver = {
+      start(operation) {
+        starts += 1;
+        strict.strictEqual(operation.kind, "stream");
+        return { end: (completion) => ends.push(completion) };
+      },
+    };
+    const stream = createMySqlDatabase({ pool, observer }).stream(accountsQuery);
+    strict.strictEqual(starts, 0);
+    strict.deepStrictEqual(await stream.next(), {
+      done: false,
+      value: { id: 9_007_199_254_740_993n, active: true },
+    });
+    strict.strictEqual(starts, 1);
+    await stream.return?.();
+    await stream.close();
+    strict.strictEqual(ends.length, 1);
+    strict.strictEqual(ends[0]?.status, "success");
+    strict.strictEqual(ends[0]?.rowCount, 1);
+  });
+
   await it("is lazy, typed, decoded, bounded, and releases a root lease after natural completion", async () => {
     const pool = new FakeStreamingPool();
     const database = createMySqlDatabase({ pool });
@@ -328,9 +353,17 @@ await describe("MySQL protocol streaming", async () => {
 
   await it("rolls back leaked started and unstarted streams before commit", async () => {
     const startedPool = new FakeStreamingPool();
+    const ends: DatabaseOperationEnd[] = [];
     await strict.rejects(
       () =>
-        createMySqlDatabase({ pool: startedPool }).transaction(async (transaction) => {
+        createMySqlDatabase({
+          pool: startedPool,
+          observer: {
+            start() {
+              return { end: (event) => ends.push(event) };
+            },
+          },
+        }).transaction(async (transaction) => {
           await transaction.stream(accountsQuery).next();
         }),
       /returned with 1 active query stream/,
@@ -339,6 +372,11 @@ await describe("MySQL protocol streaming", async () => {
     strict.ok(
       startedPool.connection.commands.indexOf("STREAM CLOSE") < startedPool.connection.commands.indexOf("ROLLBACK"),
     );
+    strict.deepStrictEqual(
+      ends.map(({ status }) => status),
+      ["success", "error"],
+    );
+    strict.strictEqual(ends[0]?.rowCount, 1);
 
     const idlePool = new FakeStreamingPool();
     let escaped: QueryStream<AccountRow> | undefined;

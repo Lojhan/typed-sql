@@ -120,6 +120,7 @@ the structural-variant bound.
 | Package | Purpose | Track |
 | --- | --- | --- |
 | `@typed-sql/core` | Query, fragment, adapter, dialect, and diagnostic contracts | Stable |
+| `@typed-sql/opentelemetry` | Optional redacted OpenTelemetry database tracing | Stable |
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | Stable |
 | `@typed-sql/schema` | Versioned snapshots, hashes, migrations, and drift | Stable |
 | `@typed-sql/config` | Config discovery and loading | Stable |
@@ -136,6 +137,7 @@ the structural-variant bound.
 - [Documentation site](https://lojhan.github.io/typed-sql/)
 - [Documentation source](./docs/index.md)
 - [Execution adapters](./docs/guides/execution.md)
+- [Database observability](./docs/guides/observability.md)
 - [PostgreSQL grammar](./docs/dialects/postgresql.md)
 - [MySQL grammar](./docs/dialects/mysql.md)
 - [Inference and safety](./docs/concepts/type-safety.md)

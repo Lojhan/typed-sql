@@ -38,7 +38,7 @@ Driver configurations that change decoded value shapes can violate static types.
 
 | Surface | Status |
 | --- | --- |
-| `core`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `cli` | Stable package contract |
+| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `cli` | Stable package contract |
 | `ts-bridge`, `language-server` | Experimental while they depend on preview TypeScript APIs |
 | VS Code and Zed integrations | Experimental distribution |
 

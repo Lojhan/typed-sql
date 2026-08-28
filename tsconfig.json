@@ -9,6 +9,7 @@
     { "path": "./packages/mysql" },
     { "path": "./packages/compiler" },
     { "path": "./packages/conformance" },
+    { "path": "./packages/opentelemetry" },
     { "path": "./packages/ts-bridge" },
     { "path": "./packages/language-server" },
     { "path": "./packages/cli" },

@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import type { Pool as PgPool } from "pg";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
+import { type DatabaseOperationEnd, sql } from "../../core/src/index.js";
 import { adaptPgPool, createPgDatabase, loadPgCursorDriver, loadPgDriver, type PgOptions, pg } from "../src/pg.js";
 import type { PostgresQueryable, PostgresQueryResult } from "../src/provider.js";
 import { createPostgresDatabase, type PostgresQueryConfig } from "../src/runtime.js";
@@ -129,7 +129,11 @@ class HangingPgPool {
 await describe("application-owned pg integration", async () => {
   await it("cancels an in-flight query by discarding its checked-out pg lease", async () => {
     const raw = new HangingPgPool();
-    const database = createPostgresDatabase({ pool: adaptPgPool(raw as unknown as PgPool) });
+    let completion: DatabaseOperationEnd | undefined;
+    const database = createPostgresDatabase({
+      pool: adaptPgPool(raw as unknown as PgPool),
+      observer: { start: () => ({ end: (event) => (completion = event) }) },
+    });
     const controller = new AbortController();
     const running = database.all(sql`SELECT pg_sleep(10)`, { signal: controller.signal });
     while (raw.client.calls.length === 0) await Promise.resolve();
@@ -144,6 +148,9 @@ await describe("application-owned pg integration", async () => {
     strict.strictEqual(raw.connectCount, 1);
     strict.strictEqual(raw.client.releaseCount, 1);
     strict.ok(raw.client.releaseError instanceof Error);
+    strict.strictEqual(completion?.status, "cancelled");
+    strict.strictEqual(completion?.cancellationReason, "signal");
+    strict.ok(!("cause" in completion!));
   });
 
   await it("rejects an already expired deadline without checking out a pg lease", async () => {

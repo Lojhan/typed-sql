@@ -21,6 +21,21 @@ export {
   UnsupportedExecutionCapabilityError,
 } from "./execution.js";
 export type {
+  ActiveDatabaseObservation,
+  BatchOperationStart,
+  DatabaseObservation,
+  DatabaseObservationStatus,
+  DatabaseObserver,
+  DatabaseOperationCompletion,
+  DatabaseOperationEnd,
+  DatabaseOperationStart,
+  QueryObservationCardinality,
+  QueryOperationStart,
+  StreamOperationStart,
+  TransactionOperationStart,
+} from "./observation.js";
+export { databaseErrorCompletion, observeQueryStream, startDatabaseObservation } from "./observation.js";
+export type {
   ControlledQueryExecutor,
   Database,
   OptionalSqlFragment,

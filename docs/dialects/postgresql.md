@@ -43,6 +43,8 @@ Use PostgreSQL's server-enforced `statement_timeout` when a pool-wide statement 
 
 `all`, `one`, and `maybeOne` accept an `AbortSignal` and absolute deadline. Because node-postgres does not expose a safe signal contract for an individual pool query, typed-sql leases a client and destroys that lease when a control fires. The cancelled transaction cannot continue. This is client-side interruption by conservative connection discard, not a PostgreSQL cancel request; use server-side statement timeouts when the database itself must enforce a limit.
 
+The runtime constructors and `pg` adapter accept a grammar-neutral `observer`. Query, prepared-query, batch, pipeline, stream, cancellation, and nested-transaction lifecycles carry PostgreSQL compiler-compatible fingerprints without exposing SQL or values. See [Observe database work](../guides/observability.md).
+
 `database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. Buffered execution passes the stable name to `pg`, whose prepared statements are cached per PostgreSQL connection. The factory caches its first structural SQL skeleton and rejects duplicate names or structural drift between calls.
 
 `database.batch(queries)` checks out one `pg` client and dispatches the queries sequentially. It is not a pipeline and does not combine statements into one SQL string or network round trip. Root batches use PostgreSQL's ordinary autocommit behavior; transactional statements can use an explicit typed-sql transaction when atomicity is required.

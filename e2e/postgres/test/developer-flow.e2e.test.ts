@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart } from "@typed-sql/core";
 import { type PostgresSchemaSnapshot, postgres, sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 import { analyzeSource } from "@typed-sql/ts-bridge";
@@ -452,10 +453,16 @@ try {
     });
 
     await it("enforces cardinality and discards interrupted pg connections", async () => {
+      const completions: DatabaseOperationEnd[] = [];
       const database = await createPgDatabase({
         connectionString,
         typePolicy,
         poolConfig: { max: 1, connectionTimeoutMillis: 2_000 },
+        observer: {
+          start() {
+            return { end: (completion) => completions.push(completion) };
+          },
+        },
       });
       try {
         const account = await database.one(sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`);
@@ -488,15 +495,37 @@ try {
           return true;
         });
         strict.deepStrictEqual(await database.one(sql<{ value: bigint }>`SELECT 2::bigint AS value`), { value: 2n });
+        strict.ok(
+          completions.some(
+            ({ status, errorType, cancellationReason }) =>
+              status === "cancelled" && errorType === "TSQL_CANCELLED" && cancellationReason === "deadline",
+          ),
+        );
+        strict.ok(
+          completions.some(
+            ({ status, errorType, cancellationReason }) =>
+              status === "cancelled" && errorType === "TSQL_CANCELLED" && cancellationReason === "signal",
+          ),
+        );
+        strict.ok(completions.every((completion) => !("cause" in completion)));
       } finally {
         await database.close();
       }
     });
 
     await it("batches and streams inferred and prepared queries through a reusable one-client pool", async () => {
+      const observationStarts: DatabaseOperationStart[] = [];
+      const observationEnds: DatabaseOperationEnd[] = [];
+      const observer: DatabaseObserver = {
+        start(operation) {
+          observationStarts.push(operation);
+          return { end: (completion) => observationEnds.push(completion) };
+        },
+      };
       const database = await createPgDatabase({
         connectionString,
         typePolicy,
+        observer,
         poolConfig: { max: 1, connectionTimeoutMillis: 2_000, pipeline: true },
         // The workspace package is symlinked outside this fixture's node_modules tree. Supplying
         // the application-owned loader preserves pnpm's strict dependency boundary in this E2E.
@@ -585,6 +614,17 @@ try {
 
         const health = await database.execute(sql<{ total: bigint }>`SELECT active_user_count() AS total`);
         strict.deepStrictEqual(health, [{ total: 1n }]);
+        const kinds = new Set(observationStarts.map(({ kind }) => kind));
+        for (const kind of ["query", "batch", "pipeline", "stream", "transaction"] as const) {
+          strict.ok(kinds.has(kind), `Missing real PostgreSQL ${kind} observation`);
+        }
+        strict.strictEqual(observationEnds.length, observationStarts.length);
+        strict.ok(observationEnds.every(({ status }) => status === "success"));
+        for (const operation of observationStarts) {
+          strict.ok(!("text" in operation));
+          strict.ok(!("values" in operation));
+          strict.ok(!("connectionString" in operation));
+        }
       } finally {
         await database.close();
       }

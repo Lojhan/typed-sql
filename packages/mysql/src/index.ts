@@ -4,8 +4,9 @@ import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
+import { MYSQL_DIALECT_VERSION } from "./version.js";
 
-export const MYSQL_DIALECT_VERSION = "1.0.0";
+export { MYSQL_DIALECT_VERSION } from "./version.js";
 export type MySqlSchemaSnapshot = SchemaSnapshot & { readonly dialect: "mysql" };
 
 export interface MySqlDialectOptions {

@@ -39,6 +39,8 @@ The adapter controls mysql2 options that affect row shape and decoding. Supplyin
 
 `all`, `one`, and `maybeOne` accept an `AbortSignal` and absolute deadline. mysql2 has no per-command `AbortSignal` contract, so typed-sql interrupts a buffered query by destroying its checked-out connection. The pool replaces it for later work, while a cancelled transaction is invalidated and cannot continue.
 
+The runtime constructors and mysql2 adapter accept a grammar-neutral `observer`. Query, prepared-query, batch, stream, cancellation, and nested-transaction lifecycles carry MySQL compiler-compatible fingerprints without exposing SQL or values. See [Observe database work](../guides/observability.md).
+
 ## Streaming
 
 MySQL streaming uses mysql2's protocol-backed execute stream and does not require another package. `batchSize` maps to the object-mode high-water mark, so it controls client-side buffering rather than server cursor page size.

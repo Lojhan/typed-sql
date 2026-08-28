@@ -12,6 +12,7 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | Package | Responsibility | Installs a runtime driver |
 | --- | --- | --- |
 | `@typed-sql/core` | SQL tag, query and fragment types, rendering, database and dialect contracts | No |
+| `@typed-sql/opentelemetry` | Optional bridge from the neutral observer contract to OpenTelemetry spans | No |
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | No |
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
@@ -30,6 +31,8 @@ Applications select one grammar and explicitly install its driver. Adding Postgr
 Grammar packages may refer to driver types, expose driver-specific adapters, and use drivers in their own tests. They do not install runtime drivers for applications.
 
 Driver adapters load the application dependency only when their explicit subpath is used. Missing drivers fail with an actionable install message. This avoids hidden clients, duplicate pools, unexpected install size, and driver lifecycle decisions made by typed-sql.
+
+Observability follows the same direction of dependency. Core defines redacted lifecycle events, runtime adapters emit them, and `@typed-sql/opentelemetry` translates them into spans through an application-owned OpenTelemetry API and provider. Core and dialect packages do not depend on OpenTelemetry.
 
 ## Dialect contract
 

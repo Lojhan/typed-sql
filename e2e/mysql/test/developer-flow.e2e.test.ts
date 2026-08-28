@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Query } from "@typed-sql/core";
+import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart, Query } from "@typed-sql/core";
 import { type MySqlSchemaSnapshot, mysql, sql, typePolicy } from "@typed-sql/mysql";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
@@ -355,10 +355,16 @@ try {
     });
 
     await it("enforces cardinality and discards interrupted mysql2 connections", async () => {
+      const completions: DatabaseOperationEnd[] = [];
       const database = await createMySql2Database({
         connectionUri,
         typePolicy,
         poolConfig: { connectionLimit: 1 },
+        observer: {
+          start() {
+            return { end: (completion) => completions.push(completion) };
+          },
+        },
       });
       try {
         const account = await database.one(sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`);
@@ -391,6 +397,19 @@ try {
           return true;
         });
         strict.deepStrictEqual(await database.one(sql<{ value: bigint }>`SELECT 2 AS value`), { value: 2n });
+        strict.ok(
+          completions.some(
+            ({ status, errorType, cancellationReason }) =>
+              status === "cancelled" && errorType === "TSQL_CANCELLED" && cancellationReason === "deadline",
+          ),
+        );
+        strict.ok(
+          completions.some(
+            ({ status, errorType, cancellationReason }) =>
+              status === "cancelled" && errorType === "TSQL_CANCELLED" && cancellationReason === "signal",
+          ),
+        );
+        strict.ok(completions.every((completion) => !("cause" in completion)));
       } finally {
         await database.close();
       }
@@ -407,7 +426,15 @@ try {
       // ordinary E2E tsc pass does not install the preview bridge, so retain that verified type at
       // the harness boundary while exercising the original immutable Query object at runtime.
       const accountsQuery = streamAccountsQuery as unknown as Query<Account, readonly []>;
-      const database = await createMySql2Database({ connectionUri, typePolicy });
+      const observationStarts: DatabaseOperationStart[] = [];
+      const observationEnds: DatabaseOperationEnd[] = [];
+      const observer: DatabaseObserver = {
+        start(operation) {
+          observationStarts.push(operation);
+          return { end: (completion) => observationEnds.push(completion) };
+        },
+      };
+      const database = await createMySql2Database({ connectionUri, typePolicy, observer });
       try {
         const preparedAccounts = database.prepare("e2e-accounts", () => accountsQuery);
         strict.strictEqual(preparedAccounts.statementName, "e2e-accounts");
@@ -454,6 +481,17 @@ try {
         const rowsAfterTransaction = await database.execute(preparedAccounts());
         strict.strictEqual(rowsAfterTransaction.length, 2);
         strict.strictEqual(rowsAfterTransaction[1]?.status, "suspended");
+        const kinds = new Set(observationStarts.map(({ kind }) => kind));
+        for (const kind of ["query", "batch", "stream", "transaction"] as const) {
+          strict.ok(kinds.has(kind), `Missing real MySQL ${kind} observation`);
+        }
+        strict.strictEqual(observationEnds.length, observationStarts.length);
+        strict.ok(observationEnds.every(({ status }) => status === "success"));
+        for (const operation of observationStarts) {
+          strict.ok(!("text" in operation));
+          strict.ok(!("values" in operation));
+          strict.ok(!("connectionUri" in operation));
+        }
       } finally {
         await database.close();
       }

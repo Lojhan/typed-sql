@@ -5,6 +5,7 @@
   "sourceCandidate": "1.0.0-rc.0",
   "packages": [
     "@typed-sql/core",
+    "@typed-sql/opentelemetry",
     "@typed-sql/ast",
     "@typed-sql/schema",
     "@typed-sql/config",
@@ -17,6 +18,7 @@
   "packagePolicy": {
     "stable": [
       "@typed-sql/core",
+      "@typed-sql/opentelemetry",
       "@typed-sql/ast",
       "@typed-sql/schema",
       "@typed-sql/config",
