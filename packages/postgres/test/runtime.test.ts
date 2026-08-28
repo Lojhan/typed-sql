@@ -71,6 +71,10 @@ class MockClient implements PostgresClientLike {
   release(error?: Error | boolean): void {
     this.releaseCount += 1;
     this.releaseArguments.push(error);
+    if (error instanceof Error && this.blockedText !== undefined) {
+      this.blockedError = error;
+      this.#continueBlocked?.();
+    }
     if (this.releaseError !== undefined) throw this.releaseError;
   }
 
@@ -80,6 +84,7 @@ class MockClient implements PostgresClientLike {
 }
 
 class MockPool implements PostgresPoolLike {
+  readonly executionCapabilities = { cancellation: true, deadlines: true } as const;
   readonly calls: (PostgresQueryConfig | string)[] = [];
   readonly client = new MockClient();
   ended = false;
@@ -99,6 +104,30 @@ class MockPool implements PostgresPoolLike {
 }
 
 await describe("PostgreSQL runtime adapter", async () => {
+  await it("cancels transaction work by discarding the lease without attempting rollback on it", async () => {
+    const pool = new MockPool();
+    pool.client.blockedText = "SELECT id FROM accounts";
+    const started = pool.client.waitForBlockedQuery();
+    const controller = new AbortController();
+    const transaction = createPostgresDatabase({ pool }).transaction(async (scope) => {
+      const running = scope.all(sql<{ id: number }>`SELECT id FROM accounts`, { signal: controller.signal });
+      await started;
+      controller.abort();
+      return running;
+    });
+
+    await strict.rejects(transaction, (error) => {
+      strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+      return true;
+    });
+    strict.deepStrictEqual(
+      pool.client.calls.map((call) => (typeof call === "string" ? call : call.text)),
+      ["BEGIN", "SELECT id FROM accounts"],
+    );
+    strict.strictEqual(pool.client.releaseCount, 1);
+    strict.ok(pool.client.releaseArguments[0] instanceof Error);
+  });
+
   await it("uses policy-aware result codecs", () => {
     const defaults = createPostgresTypeParsers();
     strict.strictEqual(defaults.getTypeParser(20)("9007199254740993"), 9007199254740993n);

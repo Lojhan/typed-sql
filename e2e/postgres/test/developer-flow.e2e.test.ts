@@ -451,6 +451,48 @@ try {
       }
     });
 
+    await it("enforces cardinality and discards interrupted pg connections", async () => {
+      const database = await createPgDatabase({
+        connectionString,
+        typePolicy,
+        poolConfig: { max: 1, connectionTimeoutMillis: 2_000 },
+      });
+      try {
+        const account = await database.one(sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`);
+        strict.deepStrictEqual(account, { id: 1n });
+        strict.strictEqual(
+          await database.maybeOne(sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${-1n}`),
+          undefined,
+        );
+        await strict.rejects(database.one(sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${-1n}`), (error) => {
+          strict.strictEqual((error as { code?: unknown }).code, "TSQL_CARDINALITY");
+          strict.strictEqual((error as { actual?: unknown }).actual, 0);
+          return true;
+        });
+
+        await strict.rejects(database.all(sql<never>`SELECT pg_sleep(10)`, { deadline: Date.now() + 50 }), (error) => {
+          strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+          strict.strictEqual((error as { reason?: unknown }).reason, "deadline");
+          return true;
+        });
+        strict.deepStrictEqual(await database.one(sql<{ value: bigint }>`SELECT 1::bigint AS value`), { value: 1n });
+
+        const controller = new AbortController();
+        const cancelledTransaction = database.transaction(async (transaction) => {
+          const running = transaction.all(sql<never>`SELECT pg_sleep(10)`, { signal: controller.signal });
+          setTimeout(() => controller.abort(), 50);
+          return running;
+        });
+        await strict.rejects(cancelledTransaction, (error) => {
+          strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+          return true;
+        });
+        strict.deepStrictEqual(await database.one(sql<{ value: bigint }>`SELECT 2::bigint AS value`), { value: 2n });
+      } finally {
+        await database.close();
+      }
+    });
+
     await it("batches and streams inferred and prepared queries through a reusable one-client pool", async () => {
       const database = await createPgDatabase({
         connectionString,

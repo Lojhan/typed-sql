@@ -89,7 +89,74 @@ class FakePgPool {
   }
 }
 
+class HangingPgClient extends EventEmitter {
+  readonly calls: unknown[] = [];
+  releaseCount = 0;
+  releaseError: Error | boolean | undefined;
+  #rejectQuery: ((error: unknown) => void) | undefined;
+
+  query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> {
+    this.calls.push(config);
+    if (typeof config === "string") return Promise.resolve({ rows: [] });
+    return new Promise((_resolve, reject) => {
+      this.#rejectQuery = reject;
+    });
+  }
+
+  release(error?: Error | boolean): void {
+    this.releaseCount += 1;
+    this.releaseError = error;
+    if (error instanceof Error) this.#rejectQuery?.(error);
+  }
+}
+
+class HangingPgPool {
+  readonly client = new HangingPgClient();
+  connectCount = 0;
+
+  async query(): Promise<{ rows: readonly Record<string, unknown>[] }> {
+    return { rows: [] };
+  }
+
+  async connect(): Promise<HangingPgClient> {
+    this.connectCount += 1;
+    return this.client;
+  }
+
+  async end(): Promise<void> {}
+}
+
 await describe("application-owned pg integration", async () => {
+  await it("cancels an in-flight query by discarding its checked-out pg lease", async () => {
+    const raw = new HangingPgPool();
+    const database = createPostgresDatabase({ pool: adaptPgPool(raw as unknown as PgPool) });
+    const controller = new AbortController();
+    const running = database.all(sql`SELECT pg_sleep(10)`, { signal: controller.signal });
+    while (raw.client.calls.length === 0) await Promise.resolve();
+    controller.abort("request closed");
+
+    await strict.rejects(running, (error) => {
+      strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+      strict.strictEqual((error as { reason?: unknown }).reason, "signal");
+      strict.strictEqual((error as Error).cause, "request closed");
+      return true;
+    });
+    strict.strictEqual(raw.connectCount, 1);
+    strict.strictEqual(raw.client.releaseCount, 1);
+    strict.ok(raw.client.releaseError instanceof Error);
+  });
+
+  await it("rejects an already expired deadline without checking out a pg lease", async () => {
+    const raw = new HangingPgPool();
+    const database = createPostgresDatabase({ pool: adaptPgPool(raw as unknown as PgPool) });
+    await strict.rejects(database.all(sql`SELECT pg_sleep(10)`, { deadline: Date.now() - 1 }), (error) => {
+      strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+      strict.strictEqual((error as { reason?: unknown }).reason, "deadline");
+      return true;
+    });
+    strict.strictEqual(raw.connectCount, 0);
+  });
+
   await it("rejects query_timeout exposed by an application-created pg pool", () => {
     const direct = Object.assign(new FakePgPool(), { options: { query_timeout: 100 } });
     strict.throws(() => adaptPgPool(direct as unknown as PgPool), /does not accept pg query_timeout/);

@@ -1,3 +1,10 @@
+import {
+  assertExecutionCapabilities,
+  type ExecutionCapabilities,
+  type ExecutionOptions,
+  QueryCardinalityError,
+} from "./execution.js";
+
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
 const queryRenderSkeletonBrand: unique symbol = Symbol("@typed-sql/core.query-render-skeleton");
@@ -124,8 +131,23 @@ export interface QueryExecutor {
   execute(text: string, values: readonly unknown[]): Promise<readonly unknown[]>;
 }
 
+export interface ControlledQueryExecutor extends QueryExecutor {
+  readonly executionCapabilities: ExecutionCapabilities;
+  executeControlled(text: string, values: readonly unknown[], options: ExecutionOptions): Promise<readonly unknown[]>;
+}
+
 export interface Database<TransactionScope extends Database<TransactionScope> = TransactionDatabase> {
+  readonly executionCapabilities: ExecutionCapabilities;
   execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]>;
+  all<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<readonly Row[]>;
+  one<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: ExecutionOptions): Promise<Row>;
+  maybeOne<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row | undefined>;
   transaction<T>(fn: (db: TransactionScope) => Promise<T>): Promise<T>;
 }
 
@@ -391,16 +413,53 @@ class DatabaseImplementation implements Database {
   readonly #executor: QueryExecutor;
   readonly #renderer: SqlRenderer;
   readonly #transactionRunner: TransactionRunner | undefined;
+  readonly executionCapabilities: ExecutionCapabilities;
 
   constructor(executor: QueryExecutor, renderer: SqlRenderer, transactionRunner?: TransactionRunner) {
     this.#executor = executor;
     this.#renderer = renderer;
     this.#transactionRunner = transactionRunner;
+    this.executionCapabilities = Object.freeze(
+      "executeControlled" in executor
+        ? { ...(executor as ControlledQueryExecutor).executionCapabilities }
+        : { cancellation: false, deadlines: false },
+    );
   }
 
   async execute<Row, Params extends readonly unknown[]>(queryValue: Query<Row, Params>): Promise<readonly Row[]> {
     const rendered = renderQuery(queryValue, this.#renderer);
     return (await this.#executor.execute(rendered.text, rendered.values)) as readonly Row[];
+  }
+
+  async all<Row, Params extends readonly unknown[]>(
+    queryValue: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<readonly Row[]> {
+    if (options === undefined || (options.signal === undefined && options.deadline === undefined)) {
+      return this.execute(queryValue);
+    }
+    assertExecutionCapabilities(this.executionCapabilities, options);
+    const controlled = this.#executor as ControlledQueryExecutor;
+    const rendered = renderQuery(queryValue, this.#renderer);
+    return (await controlled.executeControlled(rendered.text, rendered.values, options)) as readonly Row[];
+  }
+
+  async one<Row, Params extends readonly unknown[]>(
+    queryValue: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row> {
+    const rows = await this.all(queryValue, options);
+    if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+    return rows[0]!;
+  }
+
+  async maybeOne<Row, Params extends readonly unknown[]>(
+    queryValue: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row | undefined> {
+    const rows = await this.all(queryValue, options);
+    if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
+    return rows[0];
   }
 
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {

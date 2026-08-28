@@ -26,6 +26,11 @@ type Account = QueryRow<typeof query>;
 type Parameters = QueryParameters<typeof query>;
 ```
 
+Runtime adapters share grammar-neutral result and control contracts: `all`, `one`, and `maybeOne`
+preserve the inferred row, accept optional signals or absolute deadlines, and expose stable
+cardinality and cancellation errors. Adapter capabilities are explicit; unsupported controls are
+never silently ignored.
+
 Grammar and adapter authors can use `DialectPlugin`, `DIALECT_CONTRACT_VERSION`,
 `assertDialectPlugin`, `defineQuerySemantics`, `mergeQuerySemantics`, `createDatabase`, `renderQuery`,
 the prepared-query skeleton helpers, and the neutral resolver primitives from the package root. The package has no parser, grammar,

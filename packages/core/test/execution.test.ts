@@ -1,9 +1,11 @@
 import { describe, it, strict } from "poku";
 import {
   type Query,
+  QueryCancelledError,
   type QueryResult,
   type QueryResults,
   type QueryStream,
+  runControlledExecution,
   type StreamOptions,
   sql,
 } from "../src/index.js";
@@ -72,5 +74,78 @@ await describe("grammar-neutral execution capability types", async () => {
     await stream[Symbol.asyncDispose]();
     strict.strictEqual(closeCount, 1);
     strict.strictEqual(options.batchSize, 500);
+  });
+
+  await it("coordinates pre-abort, in-flight abort, deadlines, and successful completion", async () => {
+    const preAborted = new AbortController();
+    preAborted.abort("request-closed");
+    let dispatched = false;
+    await strict.rejects(
+      runControlledExecution(
+        { signal: preAborted.signal },
+        async () => {
+          dispatched = true;
+          return 1;
+        },
+        () => undefined,
+      ),
+      (error: unknown) =>
+        error instanceof QueryCancelledError && error.reason === "signal" && error.cause === "request-closed",
+    );
+    strict.strictEqual(dispatched, false);
+
+    const controller = new AbortController();
+    let rejectOperation!: (error: Error) => void;
+    const operation = new Promise<number>((_resolve, reject) => {
+      rejectOperation = reject;
+    });
+    let cancellations = 0;
+    const controlled = runControlledExecution(
+      { signal: controller.signal },
+      () => operation,
+      (error) => {
+        cancellations += 1;
+        rejectOperation(error);
+      },
+    );
+    controller.abort();
+    await strict.rejects(
+      controlled,
+      (error: unknown) => error instanceof QueryCancelledError && error.reason === "signal",
+    );
+    strict.strictEqual(cancellations, 1);
+
+    const dispatchController = new AbortController();
+    await strict.rejects(
+      runControlledExecution(
+        { signal: dispatchController.signal },
+        () => {
+          dispatchController.abort("during-dispatch");
+          return Promise.resolve(1);
+        },
+        () => {
+          throw new Error("adapter cleanup failed");
+        },
+      ),
+      (error: unknown) =>
+        error instanceof QueryCancelledError && error.reason === "signal" && error.cause === "during-dispatch",
+    );
+
+    await strict.rejects(
+      runControlledExecution(
+        { deadline: Date.now() - 1 },
+        async () => 1,
+        () => undefined,
+      ),
+      (error: unknown) => error instanceof QueryCancelledError && error.reason === "deadline",
+    );
+    strict.strictEqual(
+      await runControlledExecution(
+        { deadline: new Date(Date.now() + 1_000) },
+        async () => 42,
+        () => undefined,
+      ),
+      42,
+    );
   });
 });

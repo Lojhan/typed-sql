@@ -1,12 +1,19 @@
 import {
+  assertExecutionCapabilities,
   type Database,
+  type ExecutionCapabilities,
+  type ExecutionOptions,
   type Query,
   type QueryBatch,
+  type QueryCancelledError,
+  QueryCardinalityError,
   type QueryResults,
   type QueryStream,
   renderQuery,
+  runControlledExecution,
   type SqlRenderer,
   type StreamOptions,
+  UnsupportedExecutionCapabilityError,
 } from "@typed-sql/core";
 import {
   decodeMySqlRows,
@@ -39,10 +46,12 @@ export interface MySqlConnectionLike extends MySqlStreamingConnection {
   beginTransaction(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
+  destroy?(): void;
   release(): void;
 }
 
 export interface MySqlPoolLike {
+  readonly executionCapabilities?: ExecutionCapabilities;
   execute(sql: string, values?: readonly unknown[]): Promise<MySqlExecutionResult>;
   getConnection(): Promise<MySqlConnectionLike>;
   end(): Promise<void>;
@@ -86,6 +95,7 @@ interface MySqlTransactionConnectionState {
   active: QueryStream<unknown> | undefined;
   batch: MySqlConnectionOperation | undefined;
   execute: MySqlConnectionOperation | undefined;
+  discarded: boolean;
   usable: boolean;
 }
 
@@ -113,6 +123,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #streams: Set<QueryStream<unknown>> | undefined;
   readonly #transactionState: MySqlTransactionConnectionState | undefined;
   #scopeOpen = true;
+  readonly executionCapabilities: ExecutionCapabilities;
 
   constructor(
     pool: MySqlPoolLike,
@@ -132,6 +143,10 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#executes = connection === undefined ? undefined : new Set();
     this.#streams = connection === undefined ? undefined : new Set();
     this.#transactionState = transactionState;
+    this.executionCapabilities = Object.freeze({
+      cancellation: pool.executionCapabilities?.cancellation ?? false,
+      deadlines: pool.executionCapabilities?.deadlines ?? false,
+    });
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
@@ -148,6 +163,87 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       if (this.#transactionState?.execute === operation) this.#transactionState.execute = undefined;
       operation.finish();
     }
+  }
+
+  async all<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<readonly Row[]> {
+    if (options === undefined || (options.signal === undefined && options.deadline === undefined))
+      return this.execute(query);
+    assertExecutionCapabilities(this.executionCapabilities, options);
+    this.#assertScopeOpen();
+    this.#assertConnectionAvailable("execute a query");
+    if (options.signal?.aborted || (options.deadline !== undefined && Number(options.deadline) <= Date.now())) {
+      return runControlledExecution(
+        options,
+        async () => [],
+        () => undefined,
+      ) as Promise<readonly Row[]>;
+    }
+
+    if (this.#connection === undefined) {
+      const connection = await this.#pool.getConnection();
+      if (connection.destroy === undefined) {
+        connection.release();
+        throw new UnsupportedExecutionCapabilityError(options.signal === undefined ? "deadlines" : "cancellation");
+      }
+      let discarded = false;
+      try {
+        return await this.#executeControlledOn<Row, Params>(connection, query, options, () => {
+          connection.destroy!();
+          discarded = true;
+        });
+      } finally {
+        if (!discarded) connection.release();
+      }
+    }
+
+    const connection = this.#connection;
+    if (connection.destroy === undefined) {
+      throw new UnsupportedExecutionCapabilityError(options.signal === undefined ? "deadlines" : "cancellation");
+    }
+    const operationState = createMySqlConnectionOperation();
+    this.#executes!.add(operationState);
+    this.#transactionState!.execute = operationState;
+    try {
+      return await this.#executeControlledOn<Row, Params>(connection, query, options, () => {
+        this.#transactionState!.usable = false;
+        connection.destroy!();
+        this.#transactionState!.discarded = true;
+      });
+    } finally {
+      this.#executes!.delete(operationState);
+      if (this.#transactionState?.execute === operationState) this.#transactionState.execute = undefined;
+      operationState.finish();
+    }
+  }
+
+  async #executeControlledOn<Row, Params extends readonly unknown[]>(
+    connection: MySqlConnectionLike,
+    query: Query<Row, Params>,
+    options: ExecutionOptions,
+    cancel: (error: QueryCancelledError) => void,
+  ): Promise<readonly Row[]> {
+    return runControlledExecution(options, () => this.#executeOn(connection, query), cancel);
+  }
+
+  async one<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row> {
+    const rows = await this.all(query, options);
+    if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+    return rows[0]!;
+  }
+
+  async maybeOne<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<Row | undefined> {
+    const rows = await this.all(query, options);
+    if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
+    return rows[0];
   }
 
   async #executeOn<Row, Params extends readonly unknown[]>(
@@ -264,7 +360,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         1,
         this.#prepared,
         this.#decoderPlans,
-        { active: undefined, batch: undefined, execute: undefined, usable: true },
+        { active: undefined, batch: undefined, execute: undefined, discarded: false, usable: true },
       );
       result = await fn(transaction);
       transaction.#scopeOpen = false;
@@ -277,15 +373,17 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         transaction.#transactionState!.usable = false;
         await transaction.#invalidateScope();
       }
-      try {
-        await connection.rollback();
-      } catch {
-        /* Preserve the original failure. */
-      }
-      try {
-        connection.release();
-      } catch {
-        /* Preserve the original failure. */
+      if (transaction === undefined || transaction.#transactionState?.discarded !== true) {
+        try {
+          await connection.rollback();
+        } catch {
+          /* Preserve the original failure. */
+        }
+        try {
+          connection.release();
+        } catch {
+          /* Preserve the original failure. */
+        }
       }
       throw error;
     }

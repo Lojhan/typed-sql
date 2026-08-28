@@ -73,6 +73,35 @@ class FakeRawPool extends FakeRawConnection {
   }
 }
 
+class HangingRawConnection extends FakeRawConnection {
+  destroyCount = 0;
+  #rejectExecute: ((error: unknown) => void) | undefined;
+
+  override execute(): Promise<readonly [unknown, (readonly { name: string; columnType: number }[])?]> {
+    this.executeCount += 1;
+    return new Promise((_resolve, reject) => {
+      this.#rejectExecute = reject;
+    });
+  }
+
+  destroy(): void {
+    this.destroyCount += 1;
+    this.#rejectExecute?.(new Error("connection destroyed"));
+  }
+}
+
+class HangingRawPool extends FakeRawConnection {
+  getConnectionCount = 0;
+  readonly pooledConnection = new HangingRawConnection();
+
+  async getConnection(): Promise<HangingRawConnection> {
+    this.getConnectionCount += 1;
+    return this.pooledConnection;
+  }
+
+  async end(): Promise<void> {}
+}
+
 class CatalogClient implements MySqlQueryable {
   async query<Row extends Record<string, unknown>>(sql: string): Promise<MySqlQueryResult<Row>> {
     let rows: readonly Record<string, unknown>[] = [];
@@ -87,6 +116,36 @@ function fakeDriver(pool: FakeRawPool): typeof import("mysql2/promise") {
 }
 
 await describe("application-owned mysql2 integration", async () => {
+  await it("cancels an in-flight query by destroying its checked-out mysql2 connection", async () => {
+    const raw = new HangingRawPool();
+    const database = createMySqlDatabase({ pool: adaptMySql2Pool(raw as unknown as Pool) });
+    const controller = new AbortController();
+    const running = database.all(sql`SELECT SLEEP(10)`, { signal: controller.signal });
+    while (raw.pooledConnection.executeCount === 0) await Promise.resolve();
+    controller.abort("request closed");
+
+    await strict.rejects(running, (error) => {
+      strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+      strict.strictEqual((error as { reason?: unknown }).reason, "signal");
+      strict.strictEqual((error as Error).cause, "request closed");
+      return true;
+    });
+    strict.strictEqual(raw.getConnectionCount, 1);
+    strict.strictEqual(raw.pooledConnection.destroyCount, 1);
+    strict.strictEqual(raw.pooledConnection.released, false);
+  });
+
+  await it("rejects an already expired deadline without checking out a mysql2 connection", async () => {
+    const raw = new HangingRawPool();
+    const database = createMySqlDatabase({ pool: adaptMySql2Pool(raw as unknown as Pool) });
+    await strict.rejects(database.all(sql`SELECT SLEEP(10)`, { deadline: Date.now() - 1 }), (error) => {
+      strict.strictEqual((error as { code?: unknown }).code, "TSQL_CANCELLED");
+      strict.strictEqual((error as { reason?: unknown }).reason, "deadline");
+      return true;
+    });
+    strict.strictEqual(raw.getConnectionCount, 0);
+  });
+
   await it("adapts mysql2 pool and connection result metadata", async () => {
     const raw = new FakeRawPool();
     const pool = adaptMySql2Pool(raw as unknown as Pool);
