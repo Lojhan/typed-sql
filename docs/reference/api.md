@@ -149,7 +149,7 @@ Set `DatabaseObserver.captureErrorCause` only when an integration explicitly nee
 
 ## Configuration and schema contracts
 
-`defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, and optional `manifest.outFile`.
+`defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, optional `manifest.outFile`, and optional live-verification adapter, proof path, and concurrency.
 
 Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, column, domain, and function metadata, `SchemaProvider`, and source-mapped diagnostics.
 
@@ -162,6 +162,7 @@ Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, 
 - `extractStaticQueries`, `extractDynamicQueries`, `mapSqlRange`, and their extracted-source types;
 - `buildQueryManifest`, canonical serialization, compatible parsing, and project file enumeration;
 - the query manifest format, fingerprint algorithm, and JSON Schema constants.
+- live-verification candidate collection, native comparison, proof parsing and serialization, cache validation, and artifact-version constants.
 
 Each `CompiledQuery` includes:
 
@@ -171,6 +172,8 @@ Each `CompiledQuery` includes:
 - `semantics`, with source-mapped, conservatively merged query evidence.
 
 Manifest output is a compiler and CI artifact, not an application import surface. See [Query manifests](../guides/query-manifests.md) for the format, redaction boundary, incremental behavior, and CLI exit codes.
+
+`LiveQueryVerifier` is the grammar-neutral adapter contract. PostgreSQL exposes `createPgLiveVerifier()` from `@typed-sql/postgres/pg`; MySQL exposes `createMySql2LiveVerifier()` from `@typed-sql/mysql/mysql2`. These adapters are lazy and driver-optional. See [Live verification](../guides/live-verification.md).
 
 Scanner control flow, append extraction, structural parsing, branch expansion, and conditional row rendering remain internal.
 

@@ -5,8 +5,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   buildQueryManifest,
+  collectQueryVerificationCandidates,
   compileSource,
   extractStaticQueries,
+  verifyQueryManifest,
 } from "../packages/compiler/dist/packages/compiler/src/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
@@ -136,6 +138,43 @@ await latency(
   },
   { iterations: methodology.subMillisecondIterations },
 );
+
+const verificationCandidates = collectQueryVerificationCandidates({
+  ...manifestOptions,
+  manifest: previousManifest,
+});
+const verificationByFingerprint = new Map(
+  verificationCandidates.map((candidate) => [candidate.variantFingerprint, candidate]),
+);
+const benchmarkVerifier = {
+  dialect: "postgres",
+  adapterVersion: "performance-v1",
+  async server() {
+    return { version: "18-performance" };
+  },
+  async verify(request) {
+    const candidate = verificationByFingerprint.get(request.fingerprint);
+    assert.ok(candidate !== undefined);
+    const field = ({ index, name, databaseType, tsType, nullable }) => ({
+      index,
+      ...(name === undefined ? {} : { name }),
+      ...(databaseType === undefined ? {} : { databaseType }),
+      tsType,
+      nullable,
+    });
+    return { columns: candidate.columns.map(field), parameters: candidate.parameters.map(field) };
+  },
+  async close() {},
+};
+await latency("compiler.queryVerification", async () => {
+  const result = await verifyQueryManifest({
+    manifest: previousManifest,
+    candidates: verificationCandidates,
+    verifier: benchmarkVerifier,
+    concurrency: 8,
+  });
+  assert.equal(result.verified, 250);
+});
 
 const semanticQueries = Array.from(
   { length: 250 },

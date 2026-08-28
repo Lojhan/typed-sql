@@ -483,6 +483,55 @@ await describe("core contracts", async () => {
         }),
       /manifest\.outFile must be a non-empty string/u,
     );
+    const live = {
+      dialect: dialect.id,
+      adapterVersion: "test-v1",
+      async server() {
+        return { version: "test" };
+      },
+      async verify() {
+        return { columns: [], parameters: [] };
+      },
+      async close() {},
+    };
+    strict.doesNotThrow(() =>
+      defineConfig({
+        dialect,
+        schema: { file: "schema.json" },
+        outDir: "generated",
+        verification: { live, proofFile: ".typed-sql/proof.json", concurrency: 2 },
+      }),
+    );
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          verification: { proofFile: "" },
+        }),
+      /verification\.proofFile/u,
+    );
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          verification: { concurrency: 0 },
+        }),
+      /verification\.concurrency/u,
+    );
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          verification: { live: { ...live, dialect: "other" } },
+        }),
+      /does not match/u,
+    );
   });
 
   await it("validates every public dialect contract boundary", () => {
@@ -509,6 +558,7 @@ await describe("core contracts", async () => {
   await it("publishes the stable diagnostic registry", () => {
     strict.strictEqual(diagnosticRegistry.TSQ301.category, "drift");
     strict.strictEqual(isTypedSqlDiagnosticCode("TSQ401"), true);
+    strict.strictEqual(isTypedSqlDiagnosticCode("TSQ500"), true);
     strict.strictEqual(isTypedSqlDiagnosticCode("TSQ999"), false);
     strict.ok(Object.isFrozen(diagnosticRegistry));
   });

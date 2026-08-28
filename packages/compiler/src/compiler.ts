@@ -35,6 +35,8 @@ export interface CompiledQuery {
 
 export interface CompiledQueryVariant {
   readonly fingerprint: string;
+  /** Exact transient SQL used for native verification; never serialized into query manifests. */
+  readonly sql: string;
   readonly rowType: string;
   readonly parameterType: string;
   readonly choices: Readonly<Record<string, boolean>>;
@@ -173,6 +175,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
         const variants: readonly CompiledQueryVariant[] = resolvedVariants.map(
           ({ variant, resolved, fingerprint }) => ({
             fingerprint,
+            sql: variant.query.sql,
             rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
             parameterType: parameterTypeLiteral(variant.query.parameterCount, resolved.parameters),
             choices: Object.freeze(
@@ -277,6 +280,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
         variants: Object.freeze([
           {
             fingerprint: queryFingerprint,
+            sql: query.sql,
             rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
             parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
             choices: Object.freeze({}),

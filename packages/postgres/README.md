@@ -2,7 +2,7 @@
 
 The stable PostgreSQL grammar for [typed-sql](https://github.com/Lojhan/typed-sql), including
 catalog introspection, row and parameter inference, type policy, runtime codecs, and an optional
-application-owned `pg` adapter.
+application-owned `pg` adapter and native live verifier.
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/postgres pg
@@ -52,12 +52,13 @@ for await (const account of database.stream(accountById(42n), { batchSize: 500 }
 ```
 
 The package root exports `sql`, `postgres`, and the PostgreSQL type policy. The `/pg` entrypoint
-exports the schema provider and execution adapter; `/runtime` exposes driver-neutral PostgreSQL
+exports the schema provider, execution adapter, and `createPgLiveVerifier`; `/runtime` exposes driver-neutral PostgreSQL
 rendering and codecs.
 
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
 [observability guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/observability.md),
+[live verification guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md),
 [configuration](https://github.com/Lojhan/typed-sql/blob/main/docs/getting-started/configuration.md), and
 [database type mappings](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/type-mappings.md).
 

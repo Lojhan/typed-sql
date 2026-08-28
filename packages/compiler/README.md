@@ -3,7 +3,8 @@
 The stable, grammar-neutral TypeScript source compiler behind
 [typed-sql](https://github.com/Lojhan/typed-sql). It finds static SQL templates, asks the configured
 grammar for row and parameter shapes, creates an in-memory TypeScript overlay, preserves source
-mappings, and emits deterministic query manifests for CI and production correlation.
+mappings, emits deterministic query manifests, and compares them with grammar-owned native database
+evidence for CI and production correlation.
 
 ```sh
 pnpm add @typed-sql/compiler
@@ -28,9 +29,14 @@ generating an application API. Its public options include the structural-variant
 conditional fragments. Application projects normally use the compiler through `typed-sql check`
 or the language server.
 
+Live verification APIs collect transient SQL only after sources still match the manifest, schedule
+grammar-owned adapters with bounded concurrency, compare native field evidence, and emit canonical
+proofs that contain no SQL, values, URLs, absolute paths, or driver errors.
+
 Read [Architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md),
 [Compose conditional SQL](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/composition.md),
 [Query manifests](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-manifests.md), and
+[Live verification](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md), and
 [Inference and safety](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/type-safety.md).
 
 MIT © typed-sql contributors

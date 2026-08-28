@@ -11,7 +11,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 - `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, and type mapping.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
-- `@typed-sql/postgres/pg` — schema provider and executable database adapter for application-owned `pg`.
+- `@typed-sql/postgres/pg` — schema provider, executable database adapter, and lazy live verifier for application-owned `pg`.
 
 ## Supported SQL
 
@@ -34,6 +34,8 @@ Unsupported, ambiguous, or version-gated SQL produces a diagnostic or conservati
 ## Introspection
 
 The provider records tables, views, columns, defaults, server version, arrays, enums, domains, and user functions for the configured schemas. Generated snapshots include grammar, catalog, and type-policy hashes.
+
+`createPgLiveVerifier()` uses session-local `PREPARE` and `pg_prepared_statements` without executing the statement or sending values. PostgreSQL 18 provides parameter and result types; older versions are explicitly incomplete. See [Live verification](../guides/live-verification.md).
 
 ## Runtime behavior
 

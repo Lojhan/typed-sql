@@ -86,6 +86,7 @@ async function mustRun(command: string, args: readonly string[], cwd = packageDi
 const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(process.execPath, [cliFile, ...args]);
 
 await rm(generatedDirectory, { recursive: true, force: true });
+await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
 log(`Building ${imageName} from the digest-pinned Containerfile`);
 await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "."]);
 
@@ -181,6 +182,25 @@ try {
       strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
       strict.ok(snapshot.metadata.schemaHash.length === 64);
       strict.ok(snapshot.metadata.typePolicyHash.length === 64);
+    });
+
+    await it("proves compiled metadata through PostgreSQL PREPARE without executing values", async () => {
+      const project = join(packageDirectory, "tsconfig.verify.json");
+      await cli("manifest", "--config", join(packageDirectory, "typed-sql.config.ts"), "--project", project);
+      const live = await cli(
+        "verify",
+        "--live",
+        "--config",
+        join(packageDirectory, "typed-sql.config.ts"),
+        "--project",
+        project,
+      );
+      strict.match(live.stdout, /Verified 1 variants \(0 mismatched, 0 skipped, 0 failed\)/u);
+      const proof = await readFile(join(packageDirectory, ".typed-sql", "verification.json"), "utf8");
+      strict.ok(!proof.includes("SELECT users"));
+      strict.ok(!proof.includes(connectionString));
+      const cached = await cli("verify", "--config", join(packageDirectory, "typed-sql.config.ts"));
+      strict.match(cached.stdout, /Cached verification is current/u);
     });
 
     await it("checks inferred application types with TypeScript 7", async () => {
