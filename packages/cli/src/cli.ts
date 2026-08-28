@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  analyzeSchemaCompatibility,
   assertQueryVerificationProofCurrent,
   buildQueryManifest,
   checkFile,
@@ -12,18 +13,24 @@ import {
   parseQueryVerificationProof,
   serializeQueryManifest,
   serializeQueryVerificationProof,
+  serializeSchemaCompatibilityReport,
   verifyQueryManifest,
 } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
-import { checkSchemaDrift, generateSchemaPackage, loadGeneratedSchemaSnapshot } from "@typed-sql/schema";
+import {
+  checkSchemaDrift,
+  generateSchemaPackage,
+  loadGeneratedSchemaSnapshot,
+  parseSchemaSnapshot,
+} from "@typed-sql/schema";
 
 interface ParsedArguments {
   readonly command?: string;
   readonly options: Readonly<Record<string, string>>;
 }
 
-const commands = new Set(["check", "generate", "drift", "manifest", "verify"]);
+const commands = new Set(["check", "compat", "generate", "drift", "manifest", "verify"]);
 
 async function packageVersion(): Promise<string> {
   let directory = dirname(fileURLToPath(import.meta.url));
@@ -51,6 +58,7 @@ Usage:
 
 Commands:
   check      Infer SQL result types and verify them with TypeScript 7
+  compat     Analyze rolling-deployment compatibility from two snapshots and manifests
   generate   Introspect or load a schema snapshot and generate the typed contract
   drift      Compare the generated contract with the live database catalog
   manifest   Emit a deterministic manifest for every project query
@@ -62,6 +70,7 @@ Global options:
 
 Examples:
   typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
+  typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
   typed-sql generate --config typed-sql.config.ts --out generated/db
   typed-sql drift --config typed-sql.config.ts
   typed-sql manifest --config typed-sql.config.ts --project tsconfig.json --out .typed-sql/queries.json
@@ -157,6 +166,30 @@ function reportVerification(
   }
 }
 
+function reportCompatibility(
+  assessments: readonly {
+    readonly direction: string;
+    readonly classification: string;
+    readonly severity: string;
+    readonly reason: string;
+    readonly queries: readonly {
+      readonly source: { readonly file: string; readonly range: { readonly line: number; readonly column: number } };
+    }[];
+  }[],
+): void {
+  for (const assessment of assessments) {
+    const locations =
+      assessment.queries.length === 0
+        ? "schema-wide"
+        : assessment.queries
+            .map((query) => `${query.source.file}:${query.source.range.line}:${query.source.range.column}`)
+            .join(", ");
+    process.stderr.write(
+      `${assessment.severity} ${assessment.direction} ${assessment.classification} (${locations}): ${assessment.reason}\n`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const version = await packageVersion();
@@ -178,6 +211,44 @@ async function main(): Promise<void> {
   const dialect = config.dialect;
   const policy = config.typePolicy ?? dialect.defaultTypePolicy;
   const schemaFile = fromConfig(loaded.directory, parsed.options.schema ?? config.schema.file);
+
+  if (parsed.command === "compat") {
+    const beforeFile = fromConfig(loaded.directory, required(parsed.options, "before"));
+    const afterFile = fromConfig(loaded.directory, required(parsed.options, "after"));
+    const beforeManifestFile = fromConfig(loaded.directory, required(parsed.options, "before-manifest"));
+    const afterManifestFile = fromConfig(loaded.directory, required(parsed.options, "after-manifest"));
+    const outFile = fromConfig(
+      loaded.directory,
+      parsed.options.out ?? config.compatibility?.reportFile ?? ".typed-sql/compatibility.json",
+    );
+    const failOn = parsed.options["fail-on"] ?? config.compatibility?.failOn ?? "error";
+    if (!(failOn === "none" || failOn === "warning" || failOn === "error")) {
+      throw new Error("--fail-on must be none, warning, or error");
+    }
+    const [before, after, beforeManifest, afterManifest] = await Promise.all([
+      readSnapshot(beforeFile, parseSchemaSnapshot),
+      readSnapshot(afterFile, parseSchemaSnapshot),
+      readFile(beforeManifestFile, "utf8").then((source) => parseQueryManifest(JSON.parse(source) as unknown)),
+      readFile(afterManifestFile, "utf8").then((source) => parseQueryManifest(JSON.parse(source) as unknown)),
+    ]);
+    if (before.dialect !== dialect.id || after.dialect !== dialect.id) {
+      throw new TypeError(`Compatibility snapshots must use configured dialect ${dialect.id}`);
+    }
+    const report = analyzeSchemaCompatibility({ before, after, beforeManifest, afterManifest });
+    await mkdir(dirname(outFile), { recursive: true });
+    await writeFile(outFile, serializeSchemaCompatibilityReport(report), "utf8");
+    reportCompatibility(report.assessments);
+    process.stdout.write(
+      `Compatibility: ${report.summary.error} errors, ${report.summary.warning} warnings, ${report.summary.info} informational assessments at ${outFile}\n`,
+    );
+    if (
+      (failOn === "error" && report.summary.error > 0) ||
+      (failOn === "warning" && (report.summary.error > 0 || report.summary.warning > 0))
+    ) {
+      process.exitCode = 1;
+    }
+    return;
+  }
 
   if (parsed.command === "check") {
     const file = resolve(required(parsed.options, "file"));

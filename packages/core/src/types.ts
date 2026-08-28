@@ -191,6 +191,12 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
     readonly proofFile?: string;
     readonly concurrency?: number;
   };
+  readonly compatibility?: {
+    /** Report path relative to the typed-sql config file. */
+    readonly reportFile?: string;
+    /** Lowest severity that makes `typed-sql compat` fail. */
+    readonly failOn?: "none" | "warning" | "error";
+  };
 }
 
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -253,6 +259,18 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
     for (const method of ["server", "verify", "close"] as const) {
       if (typeof live[method] !== "function") throw new TypeError(`verification.live.${method} must be a function`);
     }
+  }
+  if (
+    config.compatibility?.reportFile !== undefined &&
+    (typeof config.compatibility.reportFile !== "string" || config.compatibility.reportFile.length === 0)
+  ) {
+    throw new TypeError("compatibility.reportFile must be a non-empty string");
+  }
+  if (
+    config.compatibility?.failOn !== undefined &&
+    !(["none", "warning", "error"] as const).includes(config.compatibility.failOn)
+  ) {
+    throw new TypeError("compatibility.failOn must be none, warning, or error");
   }
   return Object.freeze(config);
 }

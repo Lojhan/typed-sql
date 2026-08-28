@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  analyzeSchemaCompatibility,
   buildQueryManifest,
   collectQueryVerificationCandidates,
   compileSource,
@@ -138,6 +139,64 @@ await latency(
   },
   { iterations: methodology.subMillisecondIterations },
 );
+
+const compatibilityTables = Object.fromEntries(
+  Array.from({ length: 250 }, (_, index) => [
+    `account_${index}`,
+    {
+      name: `account_${index}`,
+      columns: {
+        id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+        email: { name: "email", databaseType: "text", tsType: "string", nullable: false },
+      },
+    },
+  ]),
+);
+const compatibilityAfterTables = Object.fromEntries(
+  Object.entries(compatibilityTables).map(([key, table], index) => [
+    key,
+    index % 5 === 0
+      ? {
+          ...table,
+          columns: {
+            ...table.columns,
+            id: { name: "id", databaseType: "numeric", tsType: "string", nullable: false },
+          },
+        }
+      : table,
+  ]),
+);
+const compatibilitySource = [
+  'import { sql } from "@typed-sql/postgres";',
+  ...Array.from(
+    { length: 250 },
+    (_, index) => `export const account_${index} = sql\`SELECT id, email FROM account_${index}\`;`,
+  ),
+].join("\n");
+const compatibilityBefore = { ...snapshot, tables: compatibilityTables };
+const compatibilityAfter = { ...snapshot, tables: compatibilityAfterTables };
+const compatibilityManifestOptions = {
+  ...manifestOptions,
+  sources: [{ file: "/benchmark/project/src/compatibility.ts", source: compatibilitySource }],
+};
+const compatibilityBeforeManifest = buildQueryManifest({
+  ...compatibilityManifestOptions,
+  schema: compatibilityBefore,
+}).manifest;
+const compatibilityAfterManifest = buildQueryManifest({
+  ...compatibilityManifestOptions,
+  schema: compatibilityAfter,
+}).manifest;
+await latency("compiler.schemaCompatibility", () => {
+  const report = analyzeSchemaCompatibility({
+    before: compatibilityBefore,
+    after: compatibilityAfter,
+    beforeManifest: compatibilityBeforeManifest,
+    afterManifest: compatibilityAfterManifest,
+  });
+  assert.equal(report.changes.length, 150);
+  assert.equal(report.assessments.length, 300);
+});
 
 const verificationCandidates = collectQueryVerificationCandidates({
   ...manifestOptions,

@@ -3,7 +3,8 @@
 The stable, config-driven command line interface for
 [typed-sql](https://github.com/Lojhan/typed-sql). It generates deterministic database snapshots,
 checks inferred queries through TypeScript, detects schema drift, emits deterministic query manifests,
-and verifies compiler evidence through optional native database metadata.
+verifies compiler evidence through optional native database metadata, and analyzes migrations against
+compiled query contracts.
 
 ```sh
 pnpm add -D @typed-sql/cli typescript@7.0.2
@@ -18,6 +19,7 @@ pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
 pnpm exec typed-sql verify --live
 pnpm exec typed-sql verify
+pnpm exec typed-sql compat --before before.schema.json --after after.schema.json --before-manifest before.queries.json --after-manifest after.queries.json
 ```
 
 Use `--config path/to/typed-sql.config.ts` to bypass config discovery. Run
@@ -30,5 +32,7 @@ and schema provider through the application config. Read
 [Query manifests](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-manifests.md).
 [Live verification](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md) documents
 native safety, cached proofs, and CI behavior.
+[Migration compatibility](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/migration-compatibility.md)
+documents deterministic reports, rolling deployments, and migration-runner integration.
 
 MIT © typed-sql contributors
