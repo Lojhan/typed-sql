@@ -45,6 +45,7 @@ await describe("performance regression policy", async () => {
       "editor.incrementalAnalysis",
       "editor.schemaReload",
       "editor.unchangedAnalysis",
+      "routing.semanticAnalysis",
       "scanner.largeFile",
     ]);
     for (const [name, budget] of Object.entries(budgets.latencyMs)) {
@@ -52,6 +53,7 @@ await describe("performance regression policy", async () => {
       strict.ok(budget.p95 >= budget.p50, `${name} p95 is below p50`);
     }
     strict.ok((budgets.throughput["core.composeAndRender"]?.minimumOperationsPerSecond ?? 0) > 0);
+    strict.ok((budgets.throughput["routing.semanticCacheHit"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.memory["editor.retainedHeapMiB"]?.maximum ?? 0) > 0);
   });
 

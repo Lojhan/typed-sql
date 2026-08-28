@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -16,6 +16,7 @@
     "compiler.queryVerification": { "p50": 40, "p95": 60 },
     "compiler.schemaCompatibility": { "p50": 70, "p95": 120 },
     "compiler.semanticMetadata": { "p50": 10, "p95": 25 },
+    "routing.semanticAnalysis": { "p50": 20, "p95": 40 },
     "compiler.correlatedConditions": { "p50": 5, "p95": 10 },
     "compiler.independentConditions": { "p50": 10, "p95": 25 },
     "compiler.structuralLimit": { "p50": 5, "p95": 10 },
@@ -26,7 +27,8 @@
     "editor.cancelledRequest": { "p50": 1, "p95": 2 }
   },
   "throughput": {
-    "core.composeAndRender": { "minimumOperationsPerSecond": 250000 }
+    "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
+    "routing.semanticCacheHit": { "minimumOperationsPerSecond": 250000 }
   },
   "memory": {
     "editor.retainedHeapMiB": { "maximum": 16 }

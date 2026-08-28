@@ -9,7 +9,7 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 ## Public entrypoints
 
-- `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, and type mapping.
+- `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
 - `@typed-sql/mysql/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/mysql/mysql2` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `mysql2`.
 
@@ -30,6 +30,8 @@ Catalog inference covers enums, unsigned integers, decimals, JSON, temporal type
 `createMySql2LiveVerifier()` reads binary `COM_STMT_PREPARE` parameter and result metadata and closes the statement without executing it or sending values. See [Live verification](../guides/live-verification.md).
 
 `createMySql2PlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. Parameterized statements require application-supplied transient samples; normalized evidence excludes conditions and literals. See [Query plan governance](../guides/query-plan-governance.md).
+
+`createMySqlRoutedDatabase()` composes application-owned databases and parses runtime query shapes with the MySQL grammar. Stable, non-locking reads may use a supplied replica. `FOR UPDATE`, `FOR SHARE`, legacy `LOCK IN SHARE MODE`, writes, volatile functions, session state, and unknown statements use primary. `isMySqlRetryableTransactionError()` recognizes InnoDB deadlock identity and deliberately excludes lock-wait timeout `1205`. See [Route reads and retry transactions](../guides/routing-and-retries.md).
 
 Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER`, and incompatible `RETURNING` clauses produce `TSQ401`. Commands without a result surface infer `Query<never, Parameters>`. Unknown functions warn and infer `unknown`; ambiguous or structurally unsafe queries are errors.
 
@@ -53,4 +55,4 @@ An early `break`, `close()`, or async disposal stops delivering rows to the cons
 
 Inside a transaction, the stream reuses the transaction connection and never releases it directly. The stream must complete or close before the transaction callback returns.
 
-See [Execute queries](../guides/execution.md), [Database type mappings](../reference/type-mappings.md#mysql), and [Compatibility](../reference/compatibility.md).
+See [Execute queries](../guides/execution.md), [Route reads and retry transactions](../guides/routing-and-retries.md), [Database type mappings](../reference/type-mappings.md#mysql), and [Compatibility](../reference/compatibility.md).

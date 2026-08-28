@@ -57,6 +57,7 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
   let write = false;
   let hasRelation = false;
   let hasCall = false;
+  let hasLockingRead = false;
 
   walkStatement(statement, {
     statement(current) {
@@ -64,6 +65,10 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
       if (current.with !== undefined) capabilities.add(current.with.recursive ? "recursiveCtes" : "ctes");
       if (current.kind !== "select" && current.returning.length > 0) capabilities.add("returning");
       if (current.kind === "select") {
+        if (current.locking.length > 0) {
+          hasLockingRead = true;
+          capabilities.add("lockingReads");
+        }
         if (current.distinctOn.length > 0) capabilities.add("distinctOn");
         if (current.joins.some(({ kind }) => kind === "full")) capabilities.add("fullJoins");
       }
@@ -194,12 +199,24 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
       ],
     },
     locking: {
-      value: "none",
-      evidence: [syntax("The supported statement contains no locking clause.", statement.range)],
+      value: hasLockingRead ? "row" : "none",
+      evidence: [
+        syntax(
+          hasLockingRead ? "A SELECT locking clause acquires row locks." : "The statement contains no locking clause.",
+          statement.range,
+        ),
+      ],
     },
     connectionAffinity: {
-      value: "none",
-      evidence: [syntax("The supported statement contains no session or transaction control.", statement.range)],
+      value: hasLockingRead ? "transaction" : "none",
+      evidence: [
+        syntax(
+          hasLockingRead
+            ? "A locking read must remain on its primary transaction connection."
+            : "The supported statement contains no session or transaction control.",
+          statement.range,
+        ),
+      ],
     },
     capabilities: [...capabilities],
   });

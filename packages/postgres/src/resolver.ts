@@ -242,6 +242,13 @@ class Resolver {
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);
+    for (const clause of statement.locking) {
+      for (const relation of clause.relations) {
+        if (!scope.relations.some(({ alias }) => alias === sqlName(relation))) {
+          this.#diagnostic("TSQ103", `Unknown locking relation ${relation.name}`, relation.range);
+        }
+      }
+    }
     if (statement.where !== undefined)
       this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     for (const expression of statement.groupBy) this.#resolveExpression(expression, scope, ctes);

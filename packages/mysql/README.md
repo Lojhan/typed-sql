@@ -47,11 +47,16 @@ The package root exports `sql`, `mysql`, and the MySQL type policy. The `/mysql2
 the schema provider, execution adapter, `createMySql2LiveVerifier`, and `createMySql2PlanInspector`;
 `/runtime` exposes driver-neutral MySQL rendering and codecs.
 
+The root also exports `createMySqlRoutedDatabase`, the runtime semantic resolver, and the native
+transaction retry classifier. These compose application-owned adapters without installing or
+creating `mysql2` pools.
+
 Read the [MySQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/mysql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
 [observability guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/observability.md),
 [live verification guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md),
 [query plan governance guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-plan-governance.md),
+[routing and retry guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/routing-and-retries.md),
 [configuration](https://github.com/Lojhan/typed-sql/blob/main/docs/getting-started/configuration.md), and
 [database type mappings](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/type-mappings.md).
 

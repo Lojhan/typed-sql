@@ -42,6 +42,43 @@ await describe("PostgreSQL parser", async () => {
     strict.strictEqual(statement.offset?.kind, "literal");
   });
 
+  await it("parses PostgreSQL and MySQL row-locking clauses without treating them as aliases", () => {
+    const postgres = parseSelect("SELECT u.id FROM users u FOR NO KEY UPDATE OF u NOWAIT FOR KEY SHARE SKIP LOCKED");
+    strict.deepStrictEqual(
+      postgres.locking.map(({ strength, relations, wait }) => ({
+        strength,
+        relations: relations.map(({ name }) => name),
+        wait,
+      })),
+      [
+        { strength: "no-key-update", relations: ["u"], wait: "nowait" },
+        { strength: "key-share", relations: [], wait: "skip-locked" },
+      ],
+    );
+
+    const mysql = parseSelect("SELECT id FROM users FOR UPDATE SKIP LOCKED", { syntax: "mysql" });
+    strict.deepStrictEqual(
+      mysql.locking.map(({ strength, wait }) => ({ strength, wait })),
+      [{ strength: "update", wait: "skip-locked" }],
+    );
+    strict.strictEqual(
+      parseSelect("SELECT id FROM users LOCK IN SHARE MODE", { syntax: "mysql" }).locking[0]?.strength,
+      "share",
+    );
+    strict.throws(() => parseSelect("SELECT 1 LOCK IN SHARE MODE"), /MySQL syntax/);
+    strict.throws(() => parseSelect("SELECT 1 FOR KEY SHARE", { syntax: "mysql" }), /PostgreSQL syntax/);
+    strict.strictEqual(
+      parseSelect("SELECT u.id FROM users u JOIN projects p ON p.owner_id = u.id FOR SHARE OF u FOR UPDATE OF p", {
+        syntax: "mysql",
+      }).locking.length,
+      2,
+    );
+    strict.throws(
+      () => parseSelect("SELECT 1 FOR UPDATE LOCK IN SHARE MODE", { syntax: "mysql" }),
+      /cannot follow another MySQL locking clause/,
+    );
+  });
+
   await it("parses CASE, calls, literals, stars, aliases, unary and precedence", async () => {
     const statement = parseSelect(`
       SELECT CASE age WHEN 1 THEN true ELSE false END flag,

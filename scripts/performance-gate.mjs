@@ -15,7 +15,10 @@ import {
 } from "../packages/compiler/dist/packages/compiler/src/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
-import { postgres } from "../packages/postgres/dist/packages/postgres/src/index.js";
+import {
+  createPostgresQuerySemanticResolver,
+  postgres,
+} from "../packages/postgres/dist/packages/postgres/src/index.js";
 import {
   capturePerformanceContext,
   createPerformanceArtifact,
@@ -294,6 +297,14 @@ await latency("compiler.semanticMetadata", () => {
   }
 });
 
+const routingQueries = Array.from({ length: 250 }, (_, index) =>
+  sql.dynamic(`SELECT account.id, account.email FROM users AS account WHERE account.id >= $1 AND ${index} >= 0`),
+);
+await latency("routing.semanticAnalysis", () => {
+  const resolver = createPostgresQuerySemanticResolver({ schema: snapshot });
+  for (const query of routingQueries) assert.equal(resolver.resolve(query).operation.value, "read");
+});
+
 async function structuralMetric(name, conditions, expectedAnalyses, expectedCode) {
   let analyses = 0;
   const measuredDialect = {
@@ -365,6 +376,27 @@ if (coreThroughput.p50 < coreBudget.minimumOperationsPerSecond / methodology.war
 assert.ok(
   coreThroughput.p50 >= coreBudget.minimumOperationsPerSecond,
   `core.composeAndRender p50 ${coreThroughput.p50.toFixed(0)} ops/s fell below ${coreBudget.minimumOperationsPerSecond}`,
+);
+
+const routingResolver = createPostgresQuerySemanticResolver({ schema: snapshot });
+const routedQuery = (id) => sql`SELECT account.id FROM users AS account WHERE account.id = ${id}`;
+routingResolver.resolve(routedQuery(0));
+const routingThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: coreIterations,
+  warmupOperation(index) {
+    routingResolver.resolve(routedQuery(index));
+  },
+  operation(index) {
+    assert.equal(routingResolver.resolve(routedQuery(index)).operation.value, "read");
+  },
+});
+const routingBudget = budgets.throughput["routing.semanticCacheHit"];
+results["routing.semanticCacheHit"] = { unit: "operations/second", ...routingThroughput, budget: routingBudget };
+assert.ok(
+  routingThroughput.p50 >= routingBudget.minimumOperationsPerSecond,
+  `routing.semanticCacheHit p50 ${routingThroughput.p50.toFixed(0)} ops/s fell below ${routingBudget.minimumOperationsPerSecond}`,
 );
 
 Object.assign(results, await deterministicMicrobenchmarks(methodology));

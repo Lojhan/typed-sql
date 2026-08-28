@@ -57,6 +57,16 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 
 Most applications use `createPgDatabase` or `createMySql2Database` rather than constructing a neutral adapter directly.
 
+### Semantic routing and transaction retry
+
+`createRoutedDatabase(options)` composes application-owned databases through a grammar-neutral `QuerySemanticResolver`. The PostgreSQL and MySQL roots expose `createPostgresRoutedDatabase()` and `createMySqlRoutedDatabase()` with dialect resolvers configured from a schema snapshot.
+
+`queryRoute(semantics)` returns `replica` only for proven non-locking, non-affine, immutable or stable reads. Every unknown or unsafe semantic state returns `primary`. `RoutedDatabase.context()` creates an isolated read-after-write pinning scope, `withRoute()` requires an explicit role, and `pinPrimary()` establishes affinity before dispatch. Unsafe forced-replica work throws `UnsafeReplicaRoutingError` with code `TSQL_UNSAFE_REPLICA_ROUTE`.
+
+`RoutedDatabase.transaction(callback, { retry })` accepts an explicit bounded `TransactionRetryPolicy`. Dialect roots export `isPostgresRetryableTransactionError()` and `isMySqlRetryableTransactionError()` for documented native transaction failures. The policy supports abortable backoff, injected sleep, and retry observation. Application callback failures are never classified as retryable database work.
+
+See [Route reads and retry transactions](../guides/routing-and-retries.md) for selection, consistency, ownership, and adapter-capability boundaries.
+
 ### Cardinality and execution controls
 
 Every `Database` exposes immutable `executionCapabilities` and these grammar-neutral methods:

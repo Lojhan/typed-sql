@@ -172,6 +172,15 @@ await describe("public grammar conformance package", async () => {
               ),
             },
             {
+              capability: "lockingReads",
+              supported: true,
+              analysis: probe("SELECT value FROM widgets FOR UPDATE", '{ "value": bigint; }', "readonly []", {
+                ...read(["lockingReads"]),
+                locking: "row",
+                connectionAffinity: "transaction",
+              }),
+            },
+            {
               capability: "recursiveCtes",
               supported: false,
               unsupported: {
@@ -287,6 +296,15 @@ await describe("public grammar conformance package", async () => {
                 sql: "SELECT widget.value FROM widgets widget FULL JOIN categories category ON category.widget_value = widget.value",
                 diagnosticCode: "TSQ401",
               },
+            },
+            {
+              capability: "lockingReads",
+              supported: true,
+              analysis: probe("SELECT value FROM widgets FOR UPDATE", '{ "value": bigint; }', "readonly []", {
+                ...read(["lockingReads"]),
+                locking: "row",
+                connectionAffinity: "transaction",
+              }),
             },
             {
               capability: "recursiveCtes",

@@ -14,6 +14,7 @@ import {
   type NamedWindow,
   type OrderByItem,
   type SelectItem,
+  type SelectLockingClause,
   type SelectStatement,
   type SourceRange,
   type Statement,
@@ -180,6 +181,7 @@ class Parser {
     let orderBy: OrderByItem[] = [];
     let limit: Expression | undefined;
     let offset: Expression | undefined;
+    const locking: SelectLockingClause[] = [];
 
     if (this.#matchKeyword("FROM")) {
       from = this.#parseTableReference();
@@ -217,6 +219,18 @@ class Parser {
       }
     }
     if (this.#matchKeyword("OFFSET")) offset = this.#parseExpression();
+    while (this.#current().value === "FOR") locking.push(this.#parseSelectLockingClause());
+    if (this.#current().value === "LOCK") {
+      if (this.#syntax !== "mysql") throw this.#error("LOCK IN SHARE MODE is MySQL syntax", this.#current().range);
+      if (locking.length > 0) {
+        throw this.#error("LOCK IN SHARE MODE cannot follow another MySQL locking clause", this.#current().range);
+      }
+      const lockStart = this.#expectKeyword("LOCK").range;
+      this.#expectKeyword("IN");
+      this.#expectKeyword("SHARE");
+      const lockEnd = this.#expectKeyword("MODE").range;
+      locking.push({ strength: "share", relations: [], range: mergeRanges(lockStart, lockEnd) });
+    }
 
     const end = this.#previous().range;
     return {
@@ -234,7 +248,44 @@ class Parser {
       orderBy,
       ...(limit === undefined ? {} : { limit }),
       ...(offset === undefined ? {} : { offset }),
+      locking,
       range: mergeRanges(start, end),
+    };
+  }
+
+  #parseSelectLockingClause(): SelectLockingClause {
+    const start = this.#expectKeyword("FOR").range;
+    let strength: SelectLockingClause["strength"];
+    if (this.#matchKeyword("UPDATE")) strength = "update";
+    else if (this.#matchKeyword("SHARE")) strength = "share";
+    else if (this.#matchKeyword("NO")) {
+      if (this.#syntax !== "postgres") throw this.#error("FOR NO KEY UPDATE is PostgreSQL syntax", start);
+      this.#expectKeyword("KEY");
+      this.#expectKeyword("UPDATE");
+      strength = "no-key-update";
+    } else if (this.#matchKeyword("KEY")) {
+      if (this.#syntax !== "postgres") throw this.#error("FOR KEY SHARE is PostgreSQL syntax", start);
+      this.#expectKeyword("SHARE");
+      strength = "key-share";
+    } else {
+      throw this.#error("Expected UPDATE, NO KEY UPDATE, SHARE, or KEY SHARE after FOR", this.#current().range);
+    }
+    const relations: Identifier[] = [];
+    if (this.#matchKeyword("OF")) {
+      do relations.push(this.#parseIdentifier());
+      while (this.#matchPunctuation(","));
+    }
+    let wait: SelectLockingClause["wait"];
+    if (this.#matchKeyword("NOWAIT")) wait = "nowait";
+    else if (this.#matchKeyword("SKIP")) {
+      this.#expectKeyword("LOCKED");
+      wait = "skip-locked";
+    }
+    return {
+      strength,
+      relations,
+      ...(wait === undefined ? {} : { wait }),
+      range: mergeRanges(start, this.#previous().range),
     };
   }
 

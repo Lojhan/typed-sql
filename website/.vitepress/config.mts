@@ -46,6 +46,7 @@ export default defineConfig({
         items: [
           { text: "Execute queries", link: "/guides/execution" },
           { text: "Observe database work", link: "/guides/observability" },
+          { text: "Route reads and retry transactions", link: "/guides/routing-and-retries" },
           { text: "Emit query manifests", link: "/guides/query-manifests" },
           { text: "Verify against a database", link: "/guides/live-verification" },
           { text: "Govern query plans", link: "/guides/query-plan-governance" },

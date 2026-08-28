@@ -18,6 +18,7 @@ const capabilities = Object.freeze({
   arrays: true,
   distinctOn: true,
   fullJoins: true,
+  lockingReads: true,
   recursiveCtes: false,
   returning: true,
   setOperations: false,
@@ -91,6 +92,12 @@ export type {
   PostgresSchemaProviderOptions,
 } from "./provider.js";
 export { introspectPostgres, loadPostgresDriver, PostgresSchemaProvider, postgresCatalogQueries } from "./provider.js";
+export type { PostgresQuerySemanticResolverOptions, PostgresRoutedDatabaseOptions } from "./routing.js";
+export {
+  createPostgresQuerySemanticResolver,
+  createPostgresRoutedDatabase,
+  isPostgresRetryableTransactionError,
+} from "./routing.js";
 export type { PostgresTypePolicy } from "./type-policy.js";
 export {
   defaultPostgresTypePolicy,

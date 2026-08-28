@@ -69,6 +69,8 @@ Query-plan governance reuses that direction. Core owns neutral inspector, enviro
 
 Migration compatibility remains on the artifact side of that boundary. The compiler compares public snapshots and manifests without knowing how a migration was authored or applied. It maps catalog changes through grammar-owned dependencies, analyzes both mixed-version deployment directions, and emits a deterministic report. Existing migration runners remain responsible for execution and can provide an after-snapshot through any configured `SchemaProvider`.
 
+Runtime routing follows the same semantic ownership. Core turns proven operation, volatility, locking, and connection-affinity facts into a conservative role decision. Dialect packages reuse their parser and resolver for immutable query shapes. Applications supply and own primary and replica adapters, health policy, lag policy, and lifecycle. Unknown evidence always selects primary.
+
 ## Generated metadata
 
 Generated output contains schema metadata for tooling and review. Application code imports `sql` and `typePolicy` from the dialect package and imports a driver adapter only when it needs introspection or execution.

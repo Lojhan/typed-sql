@@ -62,6 +62,22 @@ export {
 export type { ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
+  QueryRoute,
+  QueryRoutePreference,
+  QueryRouteSelection,
+  QueryRoutingObserver,
+  QuerySemanticResolver,
+  ReplicaSelectionContext,
+  ReplicaSelector,
+  RoutedDatabase,
+  RoutedDatabaseOptions,
+  RoutedTransactionOptions,
+  TransactionRetryContext,
+  TransactionRetryEvent,
+  TransactionRetryPolicy,
+} from "./routing.js";
+export { createRoutedDatabase, queryRoute, UnsafeReplicaRoutingError } from "./routing.js";
+export type {
   QueryCardinality,
   QueryConnectionAffinity,
   QueryDependency,

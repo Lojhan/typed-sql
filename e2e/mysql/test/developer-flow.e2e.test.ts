@@ -3,7 +3,7 @@ import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart, Query } from "@typed-sql/core";
-import { type MySqlSchemaSnapshot, mysql, sql, typePolicy } from "@typed-sql/mysql";
+import { createMySqlRoutedDatabase, type MySqlSchemaSnapshot, mysql, sql, typePolicy } from "@typed-sql/mysql";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
@@ -391,6 +391,50 @@ try {
         strict.strictEqual(codec.nullable_text, null);
       } finally {
         await database.close();
+      }
+    });
+
+    await it("routes real MySQL reads conservatively and preserves transaction affinity", async () => {
+      const snapshot = mysql().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const primary = await createMySql2Database({ connectionUri, typePolicy });
+      const replica = await createMySql2Database({ connectionUri, typePolicy });
+      const routes: string[] = [];
+      const database = createMySqlRoutedDatabase({
+        primary,
+        replicas: [replica],
+        schema: snapshot,
+        observer: {
+          route: ({ route, primaryPinned }) => routes.push(`${route}:${primaryPinned}`),
+        },
+      });
+      const read = sql<{ id: bigint }>`SELECT id FROM users ORDER BY id`;
+      const lockingRead = sql<{ id: bigint }>`SELECT id FROM users ORDER BY id FOR UPDATE`;
+      const write = sql<never>`UPDATE users SET email = email WHERE id = ${-1n}`;
+      try {
+        const lockingContext = database.context();
+        strict.deepStrictEqual(await lockingContext.all(read), [{ id: 1n }, { id: 2n }]);
+        strict.deepStrictEqual(await lockingContext.all(lockingRead), [{ id: 1n }, { id: 2n }]);
+        await lockingContext.all(read);
+
+        const writeContext = database.context();
+        await writeContext.execute(write);
+        await writeContext.all(read);
+
+        await database.context().transaction(async (transaction) => {
+          strict.deepStrictEqual(await transaction.all(read), [{ id: 1n }, { id: 2n }]);
+        });
+
+        strict.deepStrictEqual(routes, [
+          "replica:false",
+          "primary:true",
+          "primary:true",
+          "primary:true",
+          "primary:true",
+          "primary:true",
+        ]);
+      } finally {
+        await primary.close();
+        await replica.close();
       }
     });
 

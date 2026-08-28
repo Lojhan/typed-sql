@@ -34,13 +34,18 @@ never silently ignored.
 `DatabaseObserver` provides redacted query, batch, pipeline, stream, cancellation, and nested
 transaction lifecycles. It is disabled by default and does not add a telemetry dependency to core.
 
+`createRoutedDatabase` provides conservative, grammar-neutral primary/replica selection and bounded
+explicit-transaction retries from semantic evidence. Dialect packages supply the semantic resolver;
+applications continue owning every database adapter and topology decision.
+
 Grammar and adapter authors can use `DialectPlugin`, `DIALECT_CONTRACT_VERSION`,
 `assertDialectPlugin`, `defineQuerySemantics`, `mergeQuerySemantics`, `createDatabase`, `renderQuery`,
 the prepared-query skeleton helpers, and the neutral resolver primitives from the package root. The package has no parser, grammar,
 database driver, TypeScript compiler, or editor dependency.
 
 Read the [query API](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/api.md),
-[architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md), and
+[architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md),
+[routing and retry guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/routing-and-retries.md), and
 [custom grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md).
 
 MIT © typed-sql contributors

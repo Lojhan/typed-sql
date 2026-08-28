@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
-import type { SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
+import type { SelectLockingClause, SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
 import type {
   AnalyzeSchemaCompatibilityOptions,
@@ -115,11 +115,21 @@ import type {
   QueryRenderSkeleton,
   QueryResult,
   QueryResults,
+  QueryRoute,
+  QueryRoutePreference,
+  QueryRouteSelection,
+  QueryRoutingObserver,
   QueryRow,
+  QuerySemanticResolver,
   QuerySemantics,
   QueryStream,
   QueryVolatility,
   RenderedQuery,
+  ReplicaSelectionContext,
+  ReplicaSelector,
+  RoutedDatabase,
+  RoutedDatabaseOptions,
+  RoutedTransactionOptions,
   SchemaSnapshot,
   SemanticEvidence,
   SemanticFact,
@@ -133,16 +143,24 @@ import type {
   StreamOptions,
   TransactionDatabase,
   TransactionOperationStart,
+  TransactionRetryContext,
+  TransactionRetryEvent,
+  TransactionRetryPolicy,
   TransactionRunner,
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
+import type { MySqlQuerySemanticResolverOptions, MySqlRoutedDatabaseOptions } from "../../packages/mysql/src/index.js";
 import * as mysqlApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
 import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import type { OpenTelemetryObserverOptions } from "../../packages/opentelemetry/src/index.js";
 import * as openTelemetryApi from "../../packages/opentelemetry/src/index.js";
+import type {
+  PostgresQuerySemanticResolverOptions,
+  PostgresRoutedDatabaseOptions,
+} from "../../packages/postgres/src/index.js";
 import * as postgresApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
 import type {
@@ -433,6 +451,11 @@ type ReferencedStableTypes =
   | QueryOperation
   | QueryObservationCardinality
   | QueryOperationStart
+  | QueryRoute
+  | QueryRoutePreference
+  | QueryRouteSelection
+  | QueryRoutingObserver
+  | QuerySemanticResolver
   | QuerySemantics
   | QueryVolatility
   | QueryBatch<readonly [ExactQuery]>
@@ -442,6 +465,11 @@ type ReferencedStableTypes =
   | QueryRenderSkeleton
   | QueryStream<Account>
   | RenderedQuery
+  | ReplicaSelectionContext
+  | ReplicaSelector
+  | RoutedDatabase
+  | RoutedDatabaseOptions
+  | RoutedTransactionOptions
   | SqlFragment
   | SqlDiagnostic
   | SqlDiagnosticFix
@@ -450,6 +478,7 @@ type ReferencedStableTypes =
   | SqlTag
   | SqlAstVisitor
   | SqlAstContext
+  | SelectLockingClause
   | StreamOptions
   | StreamOperationStart
   | SemanticEvidence
@@ -457,7 +486,14 @@ type ReferencedStableTypes =
   | TransactionDatabase
   | TransactionRunner
   | TransactionOperationStart
-  | TypedSqlConfig;
+  | TransactionRetryContext
+  | TransactionRetryEvent
+  | TransactionRetryPolicy
+  | TypedSqlConfig
+  | PostgresQuerySemanticResolverOptions
+  | PostgresRoutedDatabaseOptions
+  | MySqlQuerySemanticResolverOptions
+  | MySqlRoutedDatabaseOptions;
 
 void queryRow;
 void queryParameters;
@@ -559,6 +595,7 @@ const expectedRuntimeExports = {
     "ResolverSchemaIndex",
     "closestName",
     "createDatabase",
+    "createRoutedDatabase",
     "defineConfig",
     "defineQuerySemantics",
     "databaseErrorCompletion",
@@ -569,6 +606,7 @@ const expectedRuntimeExports = {
     "mergeQuerySemantics",
     "observeQueryStream",
     "parameterTypeLiteral",
+    "queryRoute",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "rowTypeLiteral",
@@ -577,13 +615,17 @@ const expectedRuntimeExports = {
     "startDatabaseObservation",
     "unionTypeLiterals",
     "unknownQuerySemantics",
+    "UnsafeReplicaRoutingError",
   ],
   mysql: [
     "MYSQL_DIALECT_VERSION",
     "MySqlSchemaProvider",
+    "createMySqlQuerySemanticResolver",
+    "createMySqlRoutedDatabase",
     "defaultMySqlTypePolicy",
     "introspectMySql",
     "isKnownMySqlType",
+    "isMySqlRetryableTransactionError",
     "mapMySqlType",
     "mysql",
     "mysqlCatalogQueries",
@@ -604,9 +646,12 @@ const expectedRuntimeExports = {
   postgres: [
     "POSTGRES_DIALECT_VERSION",
     "PostgresSchemaProvider",
+    "createPostgresQuerySemanticResolver",
+    "createPostgresRoutedDatabase",
     "defaultPostgresTypePolicy",
     "introspectPostgres",
     "isKnownPostgresType",
+    "isPostgresRetryableTransactionError",
     "loadPostgresDriver",
     "mapPostgresType",
     "parseSchemaSnapshot",

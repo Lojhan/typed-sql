@@ -21,6 +21,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 - [Compose conditional SQL](./guides/composition.md) without creating a parallel query-builder API.
 - [Generate snapshots and detect drift](./guides/schema-snapshots.md).
 - [Trace database work safely](./guides/observability.md) through the neutral observer contract.
+- [Route safe reads and retry explicit transactions](./guides/routing-and-retries.md) with application-owned topology.
 - [Emit deterministic query manifests](./guides/query-manifests.md) for CI and production correlation.
 - [Govern query plans](./guides/query-plan-governance.md) with redacted optimizer evidence and explicit budgets.
 - [Verify compiler evidence against a live database](./guides/live-verification.md) and cache the proof.
