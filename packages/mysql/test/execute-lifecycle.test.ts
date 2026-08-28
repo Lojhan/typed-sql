@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart } from "@typed-sql/core";
 import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import {
@@ -101,7 +103,7 @@ class ExecutePool implements MySqlPoolLike {
   readonly connection = new ExecuteConnection();
 
   execute(): Promise<MySqlExecutionResult> {
-    throw new Error("transaction tests must use their leased connection");
+    return Promise.resolve(accountResult());
   }
 
   getConnection(): Promise<MySqlConnectionLike> {
@@ -116,6 +118,53 @@ class ExecutePool implements MySqlPoolLike {
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 await describe("MySQL transaction execute ownership", async () => {
+  await it("emits redacted fingerprinted query, batch, and transaction lifecycles", async () => {
+    const starts: DatabaseOperationStart[] = [];
+    const ends: DatabaseOperationEnd[] = [];
+    const observer: DatabaseObserver = {
+      start(operation) {
+        starts.push(operation);
+        return { end: (completion) => ends.push(completion) };
+      },
+    };
+    const pool = new ExecutePool();
+    const database = createMySqlDatabase({ pool, observer });
+    const prepared = database.prepare("observed-account", () => accountQuery);
+    const query = prepared();
+    strict.deepStrictEqual(await database.one(query), { id: 1n });
+    await database.batch([query]);
+    await database.transaction(async (transaction) => {
+      await transaction.execute(query);
+      await transaction.transaction(async (nested) => nested.execute(query));
+    });
+
+    const expectedFingerprint = `sha256:${createHash("sha256")
+      .update("mysql\u00001.0.0\u0000SELECT id FROM accounts")
+      .digest("hex")}`;
+    strict.deepStrictEqual(
+      starts.map((operation) => operation.kind),
+      ["query", "batch", "transaction", "query", "transaction", "query"],
+    );
+    const first = starts[0];
+    if (first?.kind !== "query") strict.fail("Expected query observation");
+    strict.strictEqual(first.fingerprint, expectedFingerprint);
+    strict.strictEqual(first.cardinality, "one");
+    strict.strictEqual(first.prepared, true);
+    strict.deepStrictEqual(
+      starts.slice(2).map(({ transactionDepth }) => transactionDepth),
+      [1, 1, 2, 2],
+    );
+    for (const operation of starts) {
+      strict.ok(!("text" in operation));
+      strict.ok(!("values" in operation));
+    }
+    strict.deepStrictEqual(
+      ends.map(({ status }) => status),
+      ["success", "success", "success", "success", "success", "success"],
+    );
+    strict.strictEqual(ends[0]?.rowCount, 1);
+  });
+
   await it("cancels transaction work by destroying the lease without reusing or releasing it", async () => {
     const pool = new ExecutePool();
     const blocked = pool.connection.block("SELECT id FROM accounts");

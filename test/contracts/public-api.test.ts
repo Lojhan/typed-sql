@@ -34,8 +34,16 @@ import type {
 } from "../../packages/conformance/src/index.js";
 import * as conformanceApi from "../../packages/conformance/src/index.js";
 import type {
+  ActiveDatabaseObservation,
+  BatchOperationStart,
   ControlledQueryExecutor,
   Database,
+  DatabaseObservation,
+  DatabaseObservationStatus,
+  DatabaseObserver,
+  DatabaseOperationCompletion,
+  DatabaseOperationEnd,
+  DatabaseOperationStart,
   DialectCapabilities,
   DialectPlugin,
   ExecutionCapabilities,
@@ -53,7 +61,9 @@ import type {
   QueryDependencyKind,
   QueryExecutor,
   QueryLocking,
+  QueryObservationCardinality,
   QueryOperation,
+  QueryOperationStart,
   QueryParameters,
   QueryRenderSkeleton,
   QueryResult,
@@ -72,8 +82,10 @@ import type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  StreamOperationStart,
   StreamOptions,
   TransactionDatabase,
+  TransactionOperationStart,
   TransactionRunner,
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
@@ -82,6 +94,8 @@ import * as mysqlApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
 import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
+import type { OpenTelemetryObserverOptions } from "../../packages/opentelemetry/src/index.js";
+import * as openTelemetryApi from "../../packages/opentelemetry/src/index.js";
 import * as postgresApi from "../../packages/postgres/src/index.js";
 import * as pgApi from "../../packages/postgres/src/pg.js";
 import type {
@@ -301,12 +315,21 @@ type ReferencedStableTypes =
   | RequiredGrammarProbe
   | RuntimeAdapterConformanceFixture<Account, readonly [bigint]>
   | ControlledQueryExecutor
+  | ActiveDatabaseObservation
+  | BatchOperationStart
+  | DatabaseObservation
+  | DatabaseObservationStatus
+  | DatabaseObserver
+  | DatabaseOperationCompletion
+  | DatabaseOperationEnd
+  | DatabaseOperationStart
   | DialectCapabilities
   | DialectPlugin
   | ExecutionCapabilities
   | ExecutionCapability
   | ExecutionOptions
   | OptionalSqlFragment
+  | OpenTelemetryObserverOptions
   | QueryCardinality
   | QueryConnectionAffinity
   | QueryDependency
@@ -314,6 +337,8 @@ type ReferencedStableTypes =
   | QueryDependencyKind
   | QueryLocking
   | QueryOperation
+  | QueryObservationCardinality
+  | QueryOperationStart
   | QuerySemantics
   | QueryVolatility
   | QueryBatch<readonly [ExactQuery]>
@@ -332,10 +357,12 @@ type ReferencedStableTypes =
   | SqlAstVisitor
   | SqlAstContext
   | StreamOptions
+  | StreamOperationStart
   | SemanticEvidence
   | SemanticFact<string>
   | TransactionDatabase
   | TransactionRunner
+  | TransactionOperationStart
   | TypedSqlConfig;
 
 void queryRow;
@@ -406,17 +433,20 @@ const expectedRuntimeExports = {
     "createDatabase",
     "defineConfig",
     "defineQuerySemantics",
+    "databaseErrorCompletion",
     "diagnosticRegistry",
     "executionDeadline",
     "isTypedSqlDiagnosticCode",
     "mapQuerySemanticRanges",
     "mergeQuerySemantics",
+    "observeQueryStream",
     "parameterTypeLiteral",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "rowTypeLiteral",
     "runControlledExecution",
     "sql",
+    "startDatabaseObservation",
     "unionTypeLiterals",
     "unknownQuerySemantics",
   ],
@@ -435,6 +465,7 @@ const expectedRuntimeExports = {
   ],
   mysql2: ["adaptMySql2Pool", "createMySql2Database", "loadMySql2Driver", "mysql2"],
   mysqlRuntime: ["createMySqlDatabase", "mysqlRenderer"],
+  opentelemetry: ["createOpenTelemetryObserver"],
   postgres: [
     "POSTGRES_DIALECT_VERSION",
     "PostgresSchemaProvider",
@@ -477,6 +508,7 @@ await describe("stable public API", async () => {
       mysql: Object.keys(mysqlApi).sort(),
       mysql2: Object.keys(mysql2Api).sort(),
       mysqlRuntime: Object.keys(mysqlRuntimeApi).sort(),
+      opentelemetry: Object.keys(openTelemetryApi).sort(),
       postgres: Object.keys(postgresApi).sort(),
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),

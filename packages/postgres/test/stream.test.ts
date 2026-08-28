@@ -1,4 +1,4 @@
-import type { QueryStream } from "@typed-sql/core";
+import type { DatabaseObserver, DatabaseOperationEnd, QueryStream } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { sql } from "../../core/src/index.js";
 import {
@@ -92,6 +92,28 @@ function commands(client: FakeClient): string[] {
 }
 
 await describe("PostgreSQL query streams", async () => {
+  await it("starts observation lazily and ends it once after an early return", async () => {
+    const pool = new FakePool();
+    const ends: DatabaseOperationEnd[] = [];
+    let starts = 0;
+    const observer: DatabaseObserver = {
+      start(operation) {
+        starts += 1;
+        strict.strictEqual(operation.kind, "stream");
+        return { end: (completion) => ends.push(completion) };
+      },
+    };
+    const stream = createPostgresDatabase({ pool, observer }).stream(sql<{ id: number }>`SELECT id FROM account`);
+    strict.strictEqual(starts, 0);
+    strict.deepStrictEqual(await stream.next(), { done: false, value: { id: 1 } });
+    strict.strictEqual(starts, 1);
+    await stream.return?.();
+    await stream.close();
+    strict.strictEqual(ends.length, 1);
+    strict.strictEqual(ends[0]?.status, "success");
+    strict.strictEqual(ends[0]?.rowCount, 1);
+  });
+
   await it("is lazy, retains the row type, fetches bounded pages, and releases once on completion", async () => {
     const pool = new FakePool();
     const database = createPostgresDatabase({ pool });
@@ -453,7 +475,15 @@ await describe("PostgreSQL transaction query streams", async () => {
 
   await it("closes a leaked started stream and rolls back instead of committing", async () => {
     const pool = new FakePool();
-    const database = createPostgresDatabase({ pool });
+    const ends: DatabaseOperationEnd[] = [];
+    const database = createPostgresDatabase({
+      pool,
+      observer: {
+        start() {
+          return { end: (event) => ends.push(event) };
+        },
+      },
+    });
     await strict.rejects(
       () =>
         database.transaction(async (transaction) => {
@@ -465,6 +495,11 @@ await describe("PostgreSQL transaction query streams", async () => {
     strict.strictEqual(pool.client.cursor.closeCount, 1);
     strict.deepStrictEqual(commands(pool.client), ["BEGIN", "ROLLBACK"]);
     strict.strictEqual(pool.client.releaseCount, 1);
+    strict.deepStrictEqual(
+      ends.map(({ status }) => status),
+      ["success", "error"],
+    );
+    strict.strictEqual(ends[0]?.rowCount, 1);
   });
 
   await it("invalidates an escaped unstarted stream and rolls back without opening it", async () => {

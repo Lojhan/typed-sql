@@ -1,3 +1,4 @@
+import type { DatabaseObserver } from "@typed-sql/core";
 import type { Pool as PgPool, PoolClient, PoolConfig, QueryConfig } from "pg";
 import type { PostgresSchemaSnapshot, PostgresTypePolicy } from "./index.js";
 import { type PostgresQueryable, PostgresSchemaProvider } from "./provider.js";
@@ -65,6 +66,7 @@ export interface PgOptions {
   readonly decimal?: (value: string) => unknown;
   /** Host-injected loader for workspaces or runtimes with nonstandard package resolution. */
   readonly cursorImporter?: PgCursorImporter;
+  readonly observer?: DatabaseObserver;
 }
 
 export interface PgSchemaProviderOptions {
@@ -229,6 +231,7 @@ export async function createPgDatabase(options: PgOptions): Promise<PostgresData
     fallbackTypeParsers: driver.types,
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
     ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
+    ...(options.observer === undefined ? {} : { observer: options.observer }),
   });
 }
 

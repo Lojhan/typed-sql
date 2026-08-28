@@ -18,6 +18,7 @@ const expectedPublicDocs = [
   "docs/guides/composition.md",
   "docs/guides/editors.md",
   "docs/guides/execution.md",
+  "docs/guides/observability.md",
   "docs/guides/schema-snapshots.md",
   "docs/index.md",
   "docs/reference/api.md",

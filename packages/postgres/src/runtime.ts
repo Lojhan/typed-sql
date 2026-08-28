@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
 import {
   assertExecutionCapabilities,
   type Database,
+  type DatabaseObserver,
+  databaseErrorCompletion,
   type ExecutionCapabilities,
   type ExecutionOptions,
+  observeQueryStream,
   type Query,
   type QueryBatch,
   type QueryCancelledError,
@@ -13,6 +17,7 @@ import {
   runControlledExecution,
   type SqlRenderer,
   type StreamOptions,
+  startDatabaseObservation,
 } from "@typed-sql/core";
 import {
   createPostgresPreparedQueryState,
@@ -22,6 +27,7 @@ import {
 } from "./prepared.js";
 import { type PostgresCursorLike, PostgresQueryStream, validatePostgresStreamBatchSize } from "./stream.js";
 import { defaultPostgresTypePolicy } from "./type-policy.js";
+import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export type { PostgresPreparedQueryFactory } from "./prepared.js";
 export type { PostgresCursorLike } from "./stream.js";
@@ -91,10 +97,35 @@ export interface PostgresDatabaseOptions {
   readonly decimal?: (value: string) => unknown;
   /** Native driver parsers used for types that typed-sql does not override. */
   readonly fallbackTypeParsers?: PostgresTypeParserSet;
+  readonly observer?: DatabaseObserver;
 }
 
 const defaultPolicy: PostgresCodecPolicy = defaultPostgresTypePolicy;
 const emptyBatchResults = Object.freeze([]);
+
+interface PostgresObservationState {
+  readonly observer: DatabaseObserver | undefined;
+  readonly fingerprints: WeakMap<Query<unknown, readonly unknown[]>, string> | undefined;
+}
+
+function createPostgresObservationState(observer: DatabaseObserver | undefined): PostgresObservationState {
+  return { observer, fingerprints: observer === undefined ? undefined : new WeakMap() };
+}
+
+function postgresQueryFingerprint<Row, Params extends readonly unknown[]>(
+  state: PostgresObservationState,
+  query: Query<Row, Params>,
+): string {
+  const key = query as unknown as Query<unknown, readonly unknown[]>;
+  const cached = state.fingerprints!.get(key);
+  if (cached !== undefined) return cached;
+  const text = renderQuery(query, postgresRenderer).text;
+  const fingerprint = `sha256:${createHash("sha256")
+    .update(`postgres\0${POSTGRES_DIALECT_VERSION}\0${text}`)
+    .digest("hex")}`;
+  state.fingerprints!.set(key, fingerprint);
+  return fingerprint;
+}
 
 const oids = {
   int8: 20,
@@ -211,6 +242,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #parsers: PostgresTypeParserSet;
   readonly #ownsPool: boolean;
   readonly #prepared: PostgresPreparedQueryState;
+  readonly #observation: PostgresObservationState;
   readonly #transactionDepth: number;
   #transactionScopeOpen = true;
   #transactionOperationFailed = false;
@@ -239,6 +271,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     ownsPool: boolean,
     depth: number,
     prepared: PostgresPreparedQueryState,
+    observation: PostgresObservationState,
     transactionState = {
       activeBatch: undefined as Promise<unknown> | undefined,
       activeExecutes: new Set<Promise<unknown>>(),
@@ -259,6 +292,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#ownsPool = ownsPool;
     this.#transactionDepth = depth;
     this.#prepared = prepared;
+    this.#observation = observation;
     this.#transactionState = transactionState;
     this.executionCapabilities = Object.freeze({
       cancellation: pool.executionCapabilities?.cancellation ?? false,
@@ -267,6 +301,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
+    if (this.#observation.observer === undefined) return this.#executeUnobserved(query);
+    return this.#observeQuery(query, "many", () => this.#executeUnobserved(query));
+  }
+
+  async #executeUnobserved<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute another query");
     this.#rejectOperationDuringTransactionBatch("execute another query");
@@ -299,8 +338,16 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     query: Query<Row, Params>,
     options?: ExecutionOptions,
   ): Promise<readonly Row[]> {
+    if (this.#observation.observer === undefined) return this.#allUnobserved(query, options);
+    return this.#observeQuery(query, "many", () => this.#allUnobserved(query, options));
+  }
+
+  async #allUnobserved<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    options?: ExecutionOptions,
+  ): Promise<readonly Row[]> {
     if (options === undefined || (options.signal === undefined && options.deadline === undefined))
-      return this.execute(query);
+      return this.#executeUnobserved(query);
     assertExecutionCapabilities(this.executionCapabilities, options);
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute another query");
@@ -365,8 +412,16 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     query: Query<Row, Params>,
     options?: ExecutionOptions,
   ): Promise<Row> {
-    const rows = await this.all(query, options);
-    if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+    if (this.#observation.observer === undefined) {
+      const rows = await this.#allUnobserved(query, options);
+      if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+      return rows[0]!;
+    }
+    const rows = await this.#observeQuery(query, "one", async () => {
+      const result = await this.#allUnobserved(query, options);
+      if (result.length !== 1) throw new QueryCardinalityError("one", result.length);
+      return result;
+    });
     return rows[0]!;
   }
 
@@ -374,12 +429,54 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     query: Query<Row, Params>,
     options?: ExecutionOptions,
   ): Promise<Row | undefined> {
-    const rows = await this.all(query, options);
-    if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
+    if (this.#observation.observer === undefined) {
+      const rows = await this.#allUnobserved(query, options);
+      if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
+      return rows[0];
+    }
+    const rows = await this.#observeQuery(query, "maybeOne", async () => {
+      const result = await this.#allUnobserved(query, options);
+      if (result.length > 1) throw new QueryCardinalityError("maybeOne", result.length);
+      return result;
+    });
     return rows[0];
   }
 
+  async #observeQuery<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    cardinality: "many" | "one" | "maybeOne",
+    operation: () => Promise<readonly Row[]>,
+  ): Promise<readonly Row[]> {
+    if (this.#observation.observer === undefined) return operation();
+    const observation = startDatabaseObservation(this.#observation.observer, {
+      kind: "query",
+      dialect: "postgres",
+      grammarVersion: POSTGRES_DIALECT_VERSION,
+      transactionDepth: this.#transactionDepth,
+      fingerprint: postgresQueryFingerprint(this.#observation, query),
+      cardinality,
+      prepared: this.#prepared.queries.has(query),
+    });
+    if (observation === undefined) return operation();
+    try {
+      const rows = await observation.run(operation);
+      observation.end({ status: "success", rowCount: rows.length });
+      return rows;
+    } catch (error) {
+      observation.end(databaseErrorCompletion(error), error);
+      throw error;
+    }
+  }
+
   async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
+    if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
+    if (this.#observation.observer === undefined) return this.#batchUnobserved(queries);
+    return this.#observeGroup("batch", queries, () => this.#batchUnobserved(queries));
+  }
+
+  async #batchUnobserved<const Queries extends readonly unknown[]>(
+    queries: QueryBatch<Queries>,
+  ): Promise<QueryResults<Queries>> {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute a query batch");
     this.#rejectOperationDuringTransactionBatch("execute another query batch");
@@ -416,6 +513,14 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   }
 
   async pipeline<const Queries extends readonly unknown[]>(
+    queries: QueryBatch<Queries>,
+  ): Promise<QueryResults<Queries>> {
+    if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
+    if (this.#observation.observer === undefined) return this.#pipelineUnobserved(queries);
+    return this.#observeGroup("pipeline", queries, () => this.#pipelineUnobserved(queries));
+  }
+
+  async #pipelineUnobserved<const Queries extends readonly unknown[]>(
     queries: QueryBatch<Queries>,
   ): Promise<QueryResults<Queries>> {
     this.#assertTransactionScopeOpen();
@@ -466,6 +571,36 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
   }
 
+  async #observeGroup<const Queries extends readonly unknown[]>(
+    kind: "batch" | "pipeline",
+    queries: QueryBatch<Queries>,
+    operation: () => Promise<QueryResults<Queries>>,
+  ): Promise<QueryResults<Queries>> {
+    if (this.#observation.observer === undefined) return operation();
+    const fingerprints = Object.freeze(
+      [...queries].map((query) =>
+        postgresQueryFingerprint(this.#observation, query as unknown as Query<unknown, readonly unknown[]>),
+      ),
+    );
+    const observation = startDatabaseObservation(this.#observation.observer, {
+      kind,
+      dialect: "postgres",
+      grammarVersion: POSTGRES_DIALECT_VERSION,
+      transactionDepth: this.#transactionDepth,
+      fingerprints,
+      size: queries.length,
+    });
+    if (observation === undefined) return operation();
+    try {
+      const results = await observation.run(operation);
+      observation.end({ status: "success" });
+      return results;
+    } catch (error) {
+      observation.end(databaseErrorCompletion(error), error);
+      throw error;
+    }
+  }
+
   stream<Row, Params extends readonly unknown[]>(
     query: Query<Row, Params>,
     options: StreamOptions = {},
@@ -476,8 +611,8 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#rejectOperationDuringTransactionPipeline("start a query stream");
     const batchSize = validatePostgresStreamBatchSize(options.batchSize);
     const config = this.#queryConfig(query);
-    let stream: QueryStream<Row>;
-    stream = new PostgresQueryStream<Row>({
+    let exposedStream: QueryStream<Row>;
+    const stream: QueryStream<Row> = new PostgresQueryStream<Row>({
       batchSize,
       start: async () => {
         await this.#pool.ensureCursor?.();
@@ -520,17 +655,28 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
               this.#rejectOperationDuringTransactionStream("start another query stream");
               this.#rejectOperationDuringTransactionBatch("start a query stream");
               this.#rejectOperationDuringTransactionPipeline("start a query stream");
-              this.#transactionState.activeStreams.add(stream as QueryStream<unknown>);
+              this.#transactionState.activeStreams.add(exposedStream as QueryStream<unknown>);
             },
             onClose: () => {
-              this.#transactionState.activeStreams.delete(stream as QueryStream<unknown>);
-              this.#transactionStreams.delete(stream as QueryStream<unknown>);
+              this.#transactionState.activeStreams.delete(exposedStream as QueryStream<unknown>);
+              this.#transactionStreams.delete(exposedStream as QueryStream<unknown>);
             },
             onError: (error: unknown) => this.#recordTransactionOperationFailure(error),
           }),
     });
-    if (this.#client !== undefined) this.#transactionStreams.add(stream as QueryStream<unknown>);
-    return stream;
+    exposedStream =
+      this.#observation.observer === undefined
+        ? stream
+        : observeQueryStream(stream, this.#observation.observer, {
+            kind: "stream",
+            dialect: "postgres",
+            grammarVersion: POSTGRES_DIALECT_VERSION,
+            transactionDepth: this.#transactionDepth,
+            fingerprint: postgresQueryFingerprint(this.#observation, query),
+            prepared: this.#prepared.queries.has(query),
+          });
+    if (this.#client !== undefined) this.#transactionStreams.add(exposedStream as QueryStream<unknown>);
+    return exposedStream;
   }
 
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
@@ -542,25 +688,53 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   }
 
   async transaction<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
+    if (this.#observation.observer === undefined) return this.#transactionUnobserved(fn);
+    const observation = startDatabaseObservation(this.#observation.observer, {
+      kind: "transaction",
+      dialect: "postgres",
+      grammarVersion: POSTGRES_DIALECT_VERSION,
+      transactionDepth: this.#transactionDepth + 1,
+    });
+    if (observation === undefined) return this.#transactionUnobserved(fn);
+    try {
+      const result = await observation.run(() => this.#transactionUnobserved(fn));
+      observation.end({ status: "success" });
+      return result;
+    } catch (error) {
+      observation.end(databaseErrorCompletion(error), error);
+      throw error;
+    }
+  }
+
+  async #transactionUnobserved<T>(fn: (db: PostgresTransaction) => Promise<T>): Promise<T> {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start a nested transaction");
     this.#rejectOperationDuringTransactionBatch("start a nested transaction");
     this.#rejectOperationDuringTransactionPipeline("start a nested transaction");
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
-    const scope = new PostgresDatabaseImplementation(this.#pool, client, this.#parsers, false, 1, this.#prepared, {
-      activeBatch: undefined,
-      activeExecutes: new Set(),
-      activePipeline: undefined,
-      activeStreams: new Set(),
-      discardLease: false,
-      leaseReleased: false,
-      firstDatabaseOperationError: undefined,
-      unsafe: false,
-      unsafeDepth: undefined,
-      unsafeError: undefined,
-      valid: true,
-    });
+    const scope = new PostgresDatabaseImplementation(
+      this.#pool,
+      client,
+      this.#parsers,
+      false,
+      1,
+      this.#prepared,
+      this.#observation,
+      {
+        activeBatch: undefined,
+        activeExecutes: new Set(),
+        activePipeline: undefined,
+        activeStreams: new Set(),
+        discardLease: false,
+        leaseReleased: false,
+        firstDatabaseOperationError: undefined,
+        unsafe: false,
+        unsafeDepth: undefined,
+        unsafeError: undefined,
+        valid: true,
+      },
+    );
     let result: T;
     try {
       try {
@@ -626,6 +800,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       false,
       depth,
       this.#prepared,
+      this.#observation,
       this.#transactionState,
     );
     try {
@@ -908,5 +1083,6 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
     options.ownsPool ?? false,
     0,
     createPostgresPreparedQueryState(),
+    createPostgresObservationState(options.observer),
   );
 }

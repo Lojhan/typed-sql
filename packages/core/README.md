@@ -31,6 +31,9 @@ preserve the inferred row, accept optional signals or absolute deadlines, and ex
 cardinality and cancellation errors. Adapter capabilities are explicit; unsupported controls are
 never silently ignored.
 
+`DatabaseObserver` provides redacted query, batch, pipeline, stream, cancellation, and nested
+transaction lifecycles. It is disabled by default and does not add a telemetry dependency to core.
+
 Grammar and adapter authors can use `DialectPlugin`, `DIALECT_CONTRACT_VERSION`,
 `assertDialectPlugin`, `defineQuerySemantics`, `mergeQuerySemantics`, `createDatabase`, `renderQuery`,
 the prepared-query skeleton helpers, and the neutral resolver primitives from the package root. The package has no parser, grammar,

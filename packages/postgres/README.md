@@ -30,6 +30,7 @@ const database = await createPgDatabase({
   connectionString: process.env.DATABASE_URL!,
   poolConfig: { pipeline: true },
   typePolicy,
+  // observer: createOpenTelemetryObserver(),
 });
 
 // pipeline() requires the application-owned pg 8.23.0 or newer.
@@ -56,6 +57,7 @@ rendering and codecs.
 
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
+[observability guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/observability.md),
 [configuration](https://github.com/Lojhan/typed-sql/blob/main/docs/getting-started/configuration.md), and
 [database type mappings](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/type-mappings.md).
 

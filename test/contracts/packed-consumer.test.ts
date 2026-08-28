@@ -13,6 +13,7 @@ const { NODE_PATH: _workspaceNodePath, ...isolatedEnvironment } = process.env;
 const publicPackages = [
   "ast",
   "core",
+  "opentelemetry",
   "config",
   "schema",
   "postgres",
@@ -26,6 +27,7 @@ const publicPackages = [
 const stableModulePackages = new Set([
   "ast",
   "core",
+  "opentelemetry",
   "config",
   "schema",
   "postgres",
@@ -299,6 +301,7 @@ await describe("packed public packages", async () => {
             dependencies: {
               ...dependencies,
               "@acme/typed-sql-synthetic": "file:../grammar",
+              "@opentelemetry/api": `link:${join(workspace, "node_modules", "@opentelemetry", "api")}`,
             },
             pnpm: {
               overrides: {
@@ -335,6 +338,7 @@ await describe("packed public packages", async () => {
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
         import { compileSource } from "@typed-sql/compiler";
         import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
+        import { createOpenTelemetryObserver } from "@typed-sql/opentelemetry";
         import { syntheticConformanceFixture } from "@typed-sql/example-synthetic-grammar/conformance";
         import { parseSchemaSnapshot } from "@typed-sql/schema";
         import "@typed-sql/ast";
@@ -357,6 +361,7 @@ await describe("packed public packages", async () => {
         if (postgresSql\`SELECT \${1}\`.segments.length !== 3 || mysqlSql\`SELECT \${1}\`.segments.length !== 3) throw new Error("dialect sql export failed");
         if (typeof compileSource !== "function") throw new Error("compiler import failed");
         if (GRAMMAR_CONFORMANCE_VERSION !== 1) throw new Error("conformance version import failed");
+        if (typeof createOpenTelemetryObserver !== "function") throw new Error("OpenTelemetry integration import failed");
         const conformance = assertGrammarConformance(syntheticConformanceFixture);
         if (conformance.grammar !== "synthetic" || conformance.structuralVariants !== 2) {
           throw new Error("packed third-party grammar conformance failed");

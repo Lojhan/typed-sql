@@ -1,5 +1,14 @@
+import { createHash } from "node:crypto";
 import { describe, it, strict } from "poku";
-import { type Query, type QueryParameters, type QueryRow, sql } from "../../core/src/index.js";
+import {
+  type DatabaseObserver,
+  type DatabaseOperationEnd,
+  type DatabaseOperationStart,
+  type Query,
+  type QueryParameters,
+  type QueryRow,
+  sql,
+} from "../../core/src/index.js";
 import {
   createPostgresDatabase,
   createPostgresTypeParsers,
@@ -104,6 +113,52 @@ class MockPool implements PostgresPoolLike {
 }
 
 await describe("PostgreSQL runtime adapter", async () => {
+  await it("emits redacted fingerprinted query, batch, and transaction lifecycles", async () => {
+    const starts: DatabaseOperationStart[] = [];
+    const ends: DatabaseOperationEnd[] = [];
+    const observer: DatabaseObserver = {
+      start(operation) {
+        starts.push(operation);
+        return { end: (completion) => ends.push(completion) };
+      },
+    };
+    const database = createPostgresDatabase({ pool: new MockPool(), observer });
+    const prepared = database.prepare("observed-account", () => sql<{ id: number }>`SELECT id FROM users`);
+    const query = prepared();
+    strict.deepStrictEqual(await database.one(query), { id: 1 });
+    await database.batch([query]);
+    await database.transaction(async (transaction) => {
+      await transaction.execute(query);
+      await transaction.transaction(async (nested) => nested.execute(query));
+    });
+
+    const expectedFingerprint = `sha256:${createHash("sha256")
+      .update("postgres\u00001.0.0\u0000SELECT id FROM users")
+      .digest("hex")}`;
+    strict.deepStrictEqual(
+      starts.map((operation) => operation.kind),
+      ["query", "batch", "transaction", "query", "transaction", "query"],
+    );
+    const first = starts[0];
+    if (first?.kind !== "query") strict.fail("Expected query observation");
+    strict.strictEqual(first.fingerprint, expectedFingerprint);
+    strict.strictEqual(first.cardinality, "one");
+    strict.strictEqual(first.prepared, true);
+    strict.deepStrictEqual(
+      starts.slice(2).map(({ transactionDepth }) => transactionDepth),
+      [1, 1, 2, 2],
+    );
+    for (const operation of starts) {
+      strict.ok(!("text" in operation));
+      strict.ok(!("values" in operation));
+    }
+    strict.deepStrictEqual(
+      ends.map(({ status }) => status),
+      ["success", "success", "success", "success", "success", "success"],
+    );
+    strict.strictEqual(ends[0]?.rowCount, 1);
+  });
+
   await it("cancels transaction work by discarding the lease without attempting rollback on it", async () => {
     const pool = new MockPool();
     pool.client.blockedText = "SELECT id FROM accounts";

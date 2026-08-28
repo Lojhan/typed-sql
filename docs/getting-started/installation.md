@@ -31,6 +31,16 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 
 The grammar package owns SQL parsing, catalog introspection, type resolution, and runtime codecs. Your application owns the driver version, connection configuration, pool, and lifecycle.
 
+## OpenTelemetry
+
+Database tracing is optional and independent of the selected dialect:
+
+```sh
+pnpm add @typed-sql/opentelemetry @opentelemetry/api
+```
+
+The integration does not install an SDK, exporter, or database driver. See [Observe database work](../guides/observability.md).
+
 ## Editor tooling
 
 The language server is optional and experimental:

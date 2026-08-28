@@ -40,7 +40,7 @@
     "release:stable": "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
     "release:rehearse": "node scripts/rehearse-stable-release.mjs",
     "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --prod --audit-level high",
-    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage",
+    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/opentelemetry coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
     "version-packages": "node scripts/version-packages.mjs"
@@ -48,6 +48,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.10",
     "@changesets/cli": "3.0.1",
+    "@opentelemetry/api": "1.9.1",
     "@pokujs/c8": "^2.0.0",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",

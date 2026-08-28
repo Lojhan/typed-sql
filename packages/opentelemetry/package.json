@@ -1,0 +1,48 @@
+{
+  "name": "@typed-sql/opentelemetry",
+  "version": "1.0.0",
+  "description": "Optional OpenTelemetry tracing integration for typed-sql database observers.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/opentelemetry"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce",
+    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+  },
+  "exports": {
+    ".": "./dist/packages/opentelemetry/src/index.js"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.9.0 <2"
+  }
+}

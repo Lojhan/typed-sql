@@ -1,0 +1,12 @@
+{
+  "all": true,
+  "include": ["src/**/*.ts"],
+  "exclude": ["test/**"],
+  "reporter": ["text", "json-summary"],
+  "reports-dir": "../../coverage/opentelemetry",
+  "check-coverage": true,
+  "lines": 90,
+  "functions": 90,
+  "statements": 90,
+  "branches": 80
+}
