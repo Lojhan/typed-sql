@@ -11,7 +11,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 
 ## Start here
 
-1. [Install typed-sql](./getting-started/installation.md) for PostgreSQL or MySQL.
+1. [Install typed-sql](./getting-started/installation.md) for PostgreSQL, MySQL, or the SQLite preview.
 2. [Configure schema introspection](./getting-started/configuration.md).
 3. [Write and check your first query](./getting-started/first-query.md).
 4. [Execute queries](./guides/execution.md) with your selected driver.
@@ -27,7 +27,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 - [Verify compiler evidence against a live database](./guides/live-verification.md) and cache the proof.
 - [Check migrations against compiled queries](./guides/migration-compatibility.md) in both rolling-deployment directions.
 - [Configure Zed, VS Code, or another LSP client](./guides/editors.md).
-- Review the [PostgreSQL](./dialects/postgresql.md) and [MySQL](./dialects/mysql.md) grammar boundaries.
+- Review the [PostgreSQL](./dialects/postgresql.md), [MySQL](./dialects/mysql.md), and [SQLite](./dialects/sqlite.md) grammar boundaries.
 
 ## Concepts and reference
 

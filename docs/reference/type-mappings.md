@@ -1,6 +1,6 @@
 ---
 title: Database type mappings
-description: PostgreSQL and MySQL mappings from catalog types through inferred TypeScript types to runtime driver values.
+description: PostgreSQL, MySQL, and SQLite mappings from catalog types through inferred TypeScript types to runtime driver values.
 ---
 
 # Database type mappings
@@ -67,6 +67,25 @@ Policy alternatives:
 | `date` | `Date`, `string` | Conversion occurs after mysql2 returns text. |
 | `json` | `unknown`, `JsonValue`, `string` | Object modes use parsed JSON; `string` serializes it. |
 | `tinyint1` | `boolean`, `number` | Conversion follows field type and length metadata. |
+
+## SQLite preview
+
+SQLite mappings depend on whether the table is STRICT. Ordinary tables use a declared affinity but
+can store values from another storage class, so a narrower declared-type mapping would be unsound.
+
+| SQLite catalog evidence | Default TypeScript type | `node:sqlite` runtime value |
+| --- | --- | --- |
+| non-STRICT column | `bigint \| number \| string \| Uint8Array` | Native SQLite storage-class value |
+| STRICT `INT`, `INTEGER` | `bigint` | Native `bigint` through `setReadBigInts(true)` |
+| STRICT `REAL` | `number` | JavaScript number |
+| STRICT `TEXT` | `string` | JavaScript string |
+| STRICT `BLOB` | `Uint8Array` | Node.js `Buffer` |
+| STRICT `ANY` | Flexible storage union | Native SQLite storage-class value |
+| nullable column | `T \| null` | `null` |
+
+The `integer` policy can select `number`; use it only when the application accepts JavaScript's
+safe-integer limit. The `flexible` policy can select `unknown` instead of the storage union. The
+same policy must be passed to the dialect, provider, and adapter.
 
 ## Nullability, aggregates, and drift
 

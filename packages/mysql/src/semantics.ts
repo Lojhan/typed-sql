@@ -65,6 +65,7 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
       if (current.with !== undefined) capabilities.add(current.with.recursive ? "recursiveCtes" : "ctes");
       if (current.kind !== "select" && current.returning.length > 0) capabilities.add("returning");
       if (current.kind === "select") {
+        if (current.compounds.length > 0) capabilities.add("setOperations");
         if (current.locking.length > 0) {
           hasLockingRead = true;
           capabilities.add("lockingReads");
@@ -162,6 +163,7 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
     statement.having === undefined &&
     statement.limit === undefined &&
     statement.offset === undefined &&
+    statement.compounds.length === 0 &&
     !hasCall;
   const command = statement.kind !== "select" && statement.returning.length === 0;
 

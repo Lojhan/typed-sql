@@ -37,6 +37,7 @@ const publicPackages = [
   "cli",
   "ts-bridge",
   "language-server",
+  "sqlite",
 ] as const;
 const stablePackages = [
   "core",
@@ -50,7 +51,7 @@ const stablePackages = [
   "mysql",
   "cli",
 ] as const;
-const experimentalPackages = ["ts-bridge", "language-server"] as const;
+const experimentalPackages = ["ts-bridge", "language-server", "sqlite"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
   ast: ["."],
   core: ["."],
@@ -64,6 +65,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview"],
   "language-server": ["."],
+  sqlite: [".", "./runtime", "./node-sqlite"],
 };
 
 async function manifest(packageName: string): Promise<PackageManifest> {
@@ -99,6 +101,7 @@ await describe("public package graph", async () => {
       "language-server",
       "postgres",
       "mysql",
+      "sqlite",
     ]) {
       const packageManifest = await manifest(packageName);
       for (const field of [packageManifest.dependencies, packageManifest.optionalDependencies]) {
@@ -129,6 +132,14 @@ await describe("public package graph", async () => {
     strict.strictEqual(packageManifest.dependencies?.mysql2, undefined);
     strict.strictEqual(packageManifest.optionalDependencies?.mysql2, undefined);
     strict.strictEqual(packageManifest.peerDependencies?.mysql2, undefined);
+  });
+
+  await it("keeps SQLite drivers entirely application-owned", async () => {
+    const packageManifest = await manifest("sqlite");
+    strict.strictEqual(packageManifest.dependencies?.["better-sqlite3"], undefined);
+    strict.strictEqual(packageManifest.dependencies?.sqlite3, undefined);
+    strict.strictEqual(packageManifest.optionalDependencies?.["better-sqlite3"], undefined);
+    strict.strictEqual(packageManifest.peerDependencies?.["better-sqlite3"], undefined);
   });
 
   await it("keeps pg types behind the explicit driver adapter subpath", async () => {

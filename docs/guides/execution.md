@@ -1,6 +1,6 @@
 ---
 title: Execute queries
-description: Execute, prepare, and stream typed queries with application-owned PostgreSQL or MySQL drivers.
+description: Execute, prepare, and stream typed queries with application-owned PostgreSQL, MySQL, or SQLite adapters.
 ---
 
 # Execute queries
@@ -56,6 +56,32 @@ try {
   await database.close();
 }
 ```
+
+### SQLite preview
+
+```ts
+import { sql, typePolicy } from "@typed-sql/sqlite";
+import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
+
+const database = await createNodeSqliteDatabase({
+  path: process.env.DATABASE_PATH ?? "app.db",
+  typePolicy,
+});
+
+try {
+  const rows = await database.execute(sql`
+    SELECT account.id, account.email
+    FROM account
+    ORDER BY account.id
+  `);
+} finally {
+  await database.close();
+}
+```
+
+The built-in Node adapter is synchronous underneath its promise-shaped API. It advertises neither
+cancellation nor deadlines. See the [SQLite dialect guide](../dialects/sqlite.md) for threading,
+streaming, and dynamic-typing constraints.
 
 `database.execute(query)` returns `Promise<readonly Row[]>`, where `Row` is the type inferred for the complete statement. Command statements without a result surface use `never` as their row type.
 

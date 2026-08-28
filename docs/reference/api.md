@@ -85,7 +85,7 @@ Cardinality failures throw `QueryCardinalityError` with code `TSQL_CARDINALITY`,
 
 ### Prepared query factories
 
-PostgreSQL and MySQL adapters expose:
+PostgreSQL, MySQL, and SQLite adapters expose:
 
 ```ts
 database.prepare(name, (...arguments) => query)
@@ -99,7 +99,7 @@ The same prepared-state registry is available to transaction scopes created by t
 
 ### Ordered batches
 
-PostgreSQL and MySQL database and transaction adapters expose:
+PostgreSQL, MySQL, and SQLite database and transaction adapters expose:
 
 ```ts
 database.batch(queries)
@@ -133,7 +133,7 @@ Unlike sequential `batch()`, `pipeline()` dispatches every query before awaiting
 close(): Promise<void>
 ```
 
-PostgreSQL and MySQL database and transaction adapters expose:
+PostgreSQL, MySQL, and SQLite database and transaction adapters expose:
 
 ```ts
 database.stream(query, options?)
@@ -143,7 +143,7 @@ database.stream(query, options?)
 
 Transaction streams are scoped resources. They must reach completion or close before the callback returns, and an adapter rejects concurrent operations that would reuse the same transaction connection while a stream is active.
 
-Streaming is an adapter capability rather than a method on the minimal core `Database` contract. PostgreSQL maps it to an application-owned cursor; MySQL maps it to protocol streaming. See [Execute queries](../guides/execution.md#stream-large-result-sets) for consumer examples.
+Streaming is an adapter capability rather than a method on the minimal core `Database` contract. PostgreSQL maps it to an application-owned cursor, MySQL maps it to protocol streaming, and the built-in SQLite adapter wraps its synchronous native iterator while holding exclusive connection ownership. See [Execute queries](../guides/execution.md#stream-large-result-sets) for consumer examples.
 
 ### Database observation
 

@@ -11,6 +11,7 @@ const expectedPublicDocs = [
   "docs/concepts/type-safety.md",
   "docs/dialects/mysql.md",
   "docs/dialects/postgresql.md",
+  "docs/dialects/sqlite.md",
   "docs/extending/custom-grammars.md",
   "docs/getting-started/configuration.md",
   "docs/getting-started/first-query.md",
@@ -194,6 +195,7 @@ await describe("public documentation", async () => {
     for (const [packageName, guide] of [
       ["@typed-sql/postgres", "docs/dialects/postgresql.md"],
       ["@typed-sql/mysql", "docs/dialects/mysql.md"],
+      ["@typed-sql/sqlite", "docs/dialects/sqlite.md"],
     ] as const) {
       const packageDirectory = packageName.slice("@typed-sql/".length);
       const packageJson = JSON.parse(await text(`packages/${packageDirectory}/package.json`)) as {

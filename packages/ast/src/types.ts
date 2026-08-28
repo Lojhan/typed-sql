@@ -241,6 +241,13 @@ export interface SelectLockingClause {
   readonly range: SourceRange;
 }
 
+export interface CompoundSelect {
+  readonly operator: "union" | "intersect" | "except";
+  readonly all: boolean;
+  readonly statement: SelectStatement;
+  readonly range: SourceRange;
+}
+
 export interface SelectStatement {
   readonly kind: "select";
   readonly with?: WithClause;
@@ -257,6 +264,7 @@ export interface SelectStatement {
   readonly limit?: Expression;
   readonly offset?: Expression;
   readonly locking: readonly SelectLockingClause[];
+  readonly compounds: readonly CompoundSelect[];
   readonly range: SourceRange;
 }
 

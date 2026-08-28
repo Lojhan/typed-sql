@@ -12,6 +12,7 @@ export type {
   CastExpression,
   ColumnExpression,
   CommonTableExpression,
+  CompoundSelect,
   DefaultValuesClause,
   DeleteStatement,
   ExistsExpression,

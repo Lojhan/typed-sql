@@ -5,7 +5,7 @@
 [![CI](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![TypeScript 7](https://img.shields.io/badge/TypeScript-7.0.2-3178c6.svg)](./docs/reference/compatibility.md)
-[![PostgreSQL and MySQL](https://img.shields.io/badge/dialects-PostgreSQL%20%7C%20MySQL-336791.svg)](./docs/index.md)
+[![PostgreSQL, MySQL, SQLite](https://img.shields.io/badge/dialects-PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-336791.svg)](./docs/index.md)
 
 typed-sql is a TypeScript SQL compiler. It analyzes ordinary static SQL templates against a
 snapshot of your real database, then carries the exact result and parameter types through your
@@ -53,7 +53,7 @@ codecs. The interpolation is also checked as `bigint` because it is compared wit
   DML, and dialect-specific behavior remain visible.
 - **Infer rows and parameters.** A query carries both its result shape and ordered parameter tuple.
 - **Keep the database authoritative.** The CLI generates a deterministic, reviewable catalog
-  snapshot from PostgreSQL or MySQL.
+  snapshot from PostgreSQL, MySQL, or SQLite.
 - **Own your driver.** Grammar packages do not install `pg` or `mysql2`; the application chooses
   and configures its driver.
 - **Fail closed.** Unsupported, ambiguous, or dynamic SQL produces a diagnostic or
@@ -84,6 +84,13 @@ MySQL:
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/mysql mysql2
+pnpm add -D @typed-sql/cli typescript@7.0.2
+```
+
+SQLite preview:
+
+```sh
+pnpm add @typed-sql/core @typed-sql/sqlite
 pnpm add -D @typed-sql/cli typescript@7.0.2
 ```
 
@@ -143,6 +150,7 @@ the structural-variant bound.
 | `@typed-sql/conformance` | Executable compatibility kit for SQL grammar packages | Stable |
 | `@typed-sql/postgres` | PostgreSQL grammar, codecs, introspection, and optional `pg` adapter | Stable |
 | `@typed-sql/mysql` | MySQL grammar, codecs, introspection, and optional `mysql2` adapter | Stable |
+| `@typed-sql/sqlite` | SQLite grammar, sound dynamic typing, introspection, and optional `node:sqlite` adapter | Experimental |
 | `@typed-sql/cli` | Snapshot, checking, drift, manifest, verification, plan, and compatibility commands | Stable |
 | `@typed-sql/ts-bridge` | Isolated TypeScript preview integration | Experimental |
 | `@typed-sql/language-server` | TypeScript semantic proxy and SQL editor features | Experimental |
@@ -160,6 +168,7 @@ the structural-variant bound.
 - [Read routing and transaction retries](./docs/guides/routing-and-retries.md)
 - [PostgreSQL grammar](./docs/dialects/postgresql.md)
 - [MySQL grammar](./docs/dialects/mysql.md)
+- [SQLite grammar](./docs/dialects/sqlite.md)
 - [Inference and safety](./docs/concepts/type-safety.md)
 - [Query API](./docs/reference/api.md)
 - [Diagnostics](./docs/reference/diagnostics.md)

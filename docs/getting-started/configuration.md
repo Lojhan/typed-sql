@@ -105,6 +105,40 @@ export default defineConfig({
 });
 ```
 
+## SQLite preview
+
+```ts
+import { defineConfig } from "@typed-sql/core";
+import { sqlite, typePolicy } from "@typed-sql/sqlite";
+import { nodeSqlite } from "@typed-sql/sqlite/node-sqlite";
+
+const path = process.env.DATABASE_PATH ?? "app.db";
+
+export default defineConfig({
+  dialect: sqlite({ typePolicy }),
+  schema: {
+    file: "src/generated/db/schema.json",
+    provider: nodeSqlite({ path, typePolicy }),
+  },
+  outDir: "src/generated/db",
+  projects: ["tsconfig.json"],
+  typePolicy,
+  compiler: {
+    maxStructuralVariants: 64,
+  },
+  manifest: {
+    outFile: ".typed-sql/queries.json",
+  },
+  compatibility: {
+    reportFile: ".typed-sql/compatibility.json",
+    failOn: "error",
+  },
+});
+```
+
+The SQLite preview does not yet expose native live-verification or query-plan inspector adapters,
+so omit those optional config blocks.
+
 ## Generate and check
 
 ```sh

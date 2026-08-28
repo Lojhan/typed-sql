@@ -12,7 +12,13 @@ import type {
 } from "@typed-sql/ast";
 import { ParameterCollector, type ResolvedParameter, ResolverSchemaIndex, unionTypeLiterals } from "@typed-sql/core";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
-import { defaultMySqlTypePolicy, isKnownMySqlType, type MySqlTypePolicy, mapMySqlType } from "./type-policy.js";
+import {
+  defaultSqliteTypePolicy,
+  isKnownSqliteType,
+  mapSqliteCastType,
+  type SqliteTypePolicy,
+  sqliteFlexibleType,
+} from "./type-policy.js";
 
 interface ResolvedType {
   readonly tsType: string;
@@ -32,20 +38,20 @@ interface Scope {
   readonly outer?: Scope;
 }
 
-export interface ResolvedMySqlColumn extends ResolvedType {
+export interface ResolvedSqliteColumn extends ResolvedType {
   readonly name: string;
   readonly range: SourceRange;
 }
 
-export interface ResolvedMySqlQuery {
-  readonly columns: readonly ResolvedMySqlColumn[];
+export interface ResolvedSqliteQuery {
+  readonly columns: readonly ResolvedSqliteColumn[];
   readonly parameters: readonly ResolvedParameter[];
   readonly diagnostics: readonly SqlDiagnostic[];
   readonly resultKind: "rows" | "command";
 }
 
-export interface ResolveMySqlOptions {
-  readonly typePolicy?: MySqlTypePolicy;
+export interface ResolveSqliteOptions {
+  readonly typePolicy?: SqliteTypePolicy;
   readonly strictExpressions?: boolean;
 }
 
@@ -96,22 +102,22 @@ function normalized(databaseType: string): string {
 
 class Resolver {
   readonly #schema: SchemaSnapshot;
-  readonly #policy: MySqlTypePolicy;
+  readonly #policy: SqliteTypePolicy;
   readonly #strict: boolean;
   readonly #diagnostics: SqlDiagnostic[] = [];
   readonly #parameters = new ParameterCollector();
   readonly #index: ResolverSchemaIndex;
 
-  constructor(schema: SchemaSnapshot, options: ResolveMySqlOptions) {
+  constructor(schema: SchemaSnapshot, options: ResolveSqliteOptions) {
     this.#schema = schema;
     this.#index = ResolverSchemaIndex.for(schema);
-    this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
+    this.#policy = options.typePolicy ?? defaultSqliteTypePolicy;
     this.#strict = options.strictExpressions ?? true;
   }
 
-  resolve(statement: Statement): ResolvedMySqlQuery {
-    if (this.#schema.dialect !== "mysql")
-      this.#diagnostic("TSQ007", `MySQL resolver cannot analyze ${this.#schema.dialect}`, statement.range);
+  resolve(statement: Statement): ResolvedSqliteQuery {
+    if (this.#schema.dialect !== "sqlite")
+      this.#diagnostic("TSQ007", `SQLite resolver cannot analyze ${this.#schema.dialect}`, statement.range);
     const result = this.#statement(statement, undefined, new Map());
     return {
       ...result,
@@ -124,7 +130,7 @@ class Resolver {
     statement: Statement,
     outer: Scope | undefined,
     inherited: ReadonlyMap<string, TableSnapshot>,
-  ): Omit<ResolvedMySqlQuery, "diagnostics" | "parameters"> {
+  ): Omit<ResolvedSqliteQuery, "diagnostics" | "parameters"> {
     const ctes = this.#with(statement.with, outer, inherited);
     if (statement.kind === "select") return { columns: this.#select(statement, outer, ctes), resultKind: "rows" };
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
@@ -132,8 +138,13 @@ class Resolver {
     if (statement.kind === "insert") {
       const targets =
         statement.columns.length === 0
-          ? Object.values(target?.table.columns ?? {})
+          ? Object.values(target?.table.columns ?? {}).filter((column) => !this.#generated(column))
           : statement.columns.map((column) => this.#findColumn(target?.table, column));
+      for (const column of targets) {
+        if (column !== undefined && this.#generated(column)) {
+          this.#diagnostic("TSQ401", `Cannot INSERT into generated column ${column.name}`, statement.range);
+        }
+      }
       if (statement.source.kind === "values") {
         for (const row of statement.source.rows) {
           if (row.length !== targets.length)
@@ -155,29 +166,35 @@ class Resolver {
             statement.source.range,
           );
       }
-      if (statement.returning.length > 0)
-        this.#unsupported("MySQL does not support INSERT RETURNING", statement.returning[0]!.range);
-      return { columns: [], resultKind: "command" };
+      return statement.returning.length === 0
+        ? { columns: [], resultKind: "command" }
+        : { columns: this.#items(statement.returning, scope, ctes), resultKind: "rows" };
     }
     if (statement.kind === "update") {
       for (const assignment of statement.assignments) {
         const column = this.#findColumn(target?.table, assignment.column);
+        if (column !== undefined && this.#generated(column)) {
+          this.#diagnostic("TSQ401", `Cannot UPDATE generated column ${column.name}`, assignment.range);
+        }
         this.#expression(assignment.value, scope, ctes, this.#snapshotType(column));
       }
       if (statement.from !== undefined) this.#relation(statement.from, false, scope, ctes);
       for (const join of statement.joins) this.#join(join, scope, ctes);
       if (statement.where !== undefined)
         this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
-      if (statement.returning.length > 0)
-        this.#unsupported("MySQL does not support UPDATE RETURNING", statement.returning[0]!.range);
-      return { columns: [], resultKind: "command" };
+      return statement.returning.length === 0
+        ? { columns: [], resultKind: "command" }
+        : { columns: this.#items(statement.returning, scope, ctes), resultKind: "rows" };
+    }
+    if (statement.using.length > 0) {
+      this.#unsupported("SQLite does not support DELETE USING", statement.using[0]!.range);
     }
     for (const reference of statement.using) this.#relation(reference, false, scope, ctes);
     if (statement.where !== undefined)
       this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
-    if (statement.returning.length > 0)
-      this.#unsupported("MySQL does not support DELETE RETURNING", statement.returning[0]!.range);
-    return { columns: [], resultKind: "command" };
+    return statement.returning.length === 0
+      ? { columns: [], resultKind: "command" }
+      : { columns: this.#items(statement.returning, scope, ctes), resultKind: "rows" };
   }
 
   #with(
@@ -192,6 +209,9 @@ class Resolver {
       const key = name(query.name);
       if (ctes.has(key)) this.#diagnostic("TSQ211", `Duplicate CTE ${query.name.name}`, query.name.range);
       const result = this.#statement(query.statement, outer, ctes);
+      if (query.statement.kind !== "select") {
+        this.#unsupported("SQLite CTE bodies must be SELECT statements", query.statement.range);
+      }
       if (result.resultKind === "command")
         this.#diagnostic("TSQ212", `CTE ${query.name.name} does not return rows`, query.range);
       if (query.columns.length > 0 && query.columns.length !== result.columns.length)
@@ -215,30 +235,14 @@ class Resolver {
     statement: SelectStatement,
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
-  ): readonly ResolvedMySqlColumn[] {
-    if (statement.compounds.length > 0) {
-      this.#unsupported("MySQL set-operation inference is not supported safely", statement.compounds[0]!.range);
-    }
+  ): readonly ResolvedSqliteColumn[] {
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
     if (statement.distinctOn.length > 0)
-      this.#unsupported("MySQL does not support DISTINCT ON", statement.distinctOn[0]!.range);
+      this.#unsupported("SQLite does not support DISTINCT ON", statement.distinctOn[0]!.range);
     if (statement.from !== undefined) this.#relation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#join(join, scope, ctes);
-    const lockingTargets = new Set<string>();
-    for (const clause of statement.locking) {
-      if (statement.locking.length > 1 && clause.relations.length === 0) {
-        this.#unsupported("Multiple MySQL locking clauses require an OF target", clause.range);
-      }
-      for (const relation of clause.relations) {
-        const target = name(relation);
-        if (!scope.relations.some(({ alias }) => alias === target)) {
-          this.#diagnostic("TSQ103", `Unknown locking relation ${relation.name}`, relation.range);
-        } else if (lockingTargets.has(target)) {
-          this.#unsupported(`MySQL locking relation ${relation.name} is repeated`, relation.range);
-        }
-        lockingTargets.add(target);
-      }
-    }
+    for (const clause of statement.locking)
+      this.#unsupported("SQLite does not support SELECT locking clauses", clause.range);
     if (statement.where !== undefined)
       this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     for (const value of statement.groupBy) this.#expression(value, scope, ctes);
@@ -248,16 +252,61 @@ class Resolver {
       for (const value of window.specification.partitionBy) this.#expression(value, scope, ctes);
       for (const item of window.specification.orderBy) this.#expression(item.expression, scope, ctes);
     }
-    for (const item of statement.orderBy) this.#expression(item.expression, scope, ctes);
+    const columns = [...this.#items(statement.columns, scope, ctes)];
+    const outputAliases = new Set(columns.map((column) => column.name));
+    for (const compound of statement.compounds) {
+      for (const output of this.#compoundOutputNames(compound.statement)) outputAliases.add(output);
+    }
+    for (const item of statement.orderBy) {
+      const expression = item.expression;
+      const outputAlias =
+        expression.kind === "column" && expression.relation === undefined && outputAliases.has(name(expression.column));
+      if (!outputAlias) this.#expression(expression, scope, ctes);
+    }
     if (statement.limit !== undefined) this.#expression(statement.limit, scope, ctes, this.#databaseType("int", false));
     if (statement.offset !== undefined)
       this.#expression(statement.offset, scope, ctes, this.#databaseType("int", false));
-    return this.#items(statement.columns, scope, ctes);
+    for (const compound of statement.compounds) {
+      const right = this.#select(compound.statement, outer, ctes);
+      if (right.length !== columns.length) {
+        this.#diagnostic(
+          "TSQ214",
+          `Compound SELECT has ${columns.length} columns on the left and ${right.length} on the right`,
+          compound.range,
+        );
+        continue;
+      }
+      for (let index = 0; index < columns.length; index += 1) {
+        const left = columns[index]!;
+        const candidate = right[index]!;
+        const { databaseType: _databaseType, ...leftWithoutDatabaseType } = left;
+        columns[index] = {
+          ...leftWithoutDatabaseType,
+          tsType: unionTypeLiterals([left.tsType, candidate.tsType]),
+          nullable: left.nullable || candidate.nullable,
+          ...(left.databaseType === candidate.databaseType && left.databaseType !== undefined
+            ? { databaseType: left.databaseType }
+            : {}),
+        };
+      }
+    }
+    return columns;
+  }
+
+  #compoundOutputNames(statement: SelectStatement): ReadonlySet<string> {
+    const outputs = new Set<string>();
+    for (const item of statement.columns) {
+      const output = item.alias === undefined ? this.#outputName(item.expression) : name(item.alias);
+      if (output !== undefined) outputs.add(output);
+    }
+    for (const compound of statement.compounds) {
+      for (const output of this.#compoundOutputNames(compound.statement)) outputs.add(output);
+    }
+    return outputs;
   }
 
   #join(join: SelectStatement["joins"][number], scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): void {
     const previous = [...scope.relations];
-    if (join.kind === "full") this.#unsupported("MySQL does not support FULL JOIN", join.range);
     if (join.kind === "right" || join.kind === "full") for (const relation of previous) relation.nullable = true;
     const relation = this.#relation(join.table, join.kind === "left" || join.kind === "full", scope, ctes);
     if (join.on !== undefined) this.#expression(join.on, scope, ctes, this.#databaseType("boolean", false));
@@ -300,6 +349,7 @@ class Resolver {
     let table: TableSnapshot | undefined;
     let alias: string;
     if (reference.kind === "subquery") {
+      if (reference.lateral) this.#unsupported("SQLite does not support LATERAL subqueries", reference.range);
       const result = this.#statement(reference.query, reference.lateral ? scope : scope.outer, ctes);
       const columns: Record<string, ColumnSnapshot> = {};
       for (const column of result.columns)
@@ -347,10 +397,10 @@ class Resolver {
     items: readonly SelectItem[],
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
-  ): readonly ResolvedMySqlColumn[] {
-    const columns: ResolvedMySqlColumn[] = [];
+  ): readonly ResolvedSqliteColumn[] {
+    const columns: ResolvedSqliteColumn[] = [];
     const names = new Set<string>();
-    const add = (column: ResolvedMySqlColumn): void => {
+    const add = (column: ResolvedSqliteColumn): void => {
       if (names.has(column.name)) this.#diagnostic("TSQ105", `Duplicate output property ${column.name}`, column.range);
       else {
         names.add(column.name);
@@ -408,19 +458,20 @@ class Resolver {
     }
     if (expression.kind === "literal") {
       if (expression.value === null) return { tsType: "unknown", nullable: true };
-      if (typeof expression.value === "boolean") return { tsType: "boolean", nullable: false, databaseType: "boolean" };
+      if (typeof expression.value === "boolean")
+        return { tsType: this.#policy.integer, nullable: false, databaseType: "integer" };
       if (typeof expression.value === "number")
         return {
-          tsType: "number",
+          tsType: Number.isInteger(expression.value) ? this.#policy.integer : "number",
           nullable: false,
-          databaseType: Number.isInteger(expression.value) ? "int" : "decimal",
+          databaseType: Number.isInteger(expression.value) ? "integer" : "real",
         };
       return { tsType: "string", nullable: false, databaseType: "varchar" };
     }
     if (expression.kind === "parameter") return this.#recordParameter(expression.index, expected);
     if (expression.kind === "star") return { tsType: "unknown", nullable: false };
     if (expression.kind === "array") {
-      this.#unsupported("MySQL does not support ARRAY constructors", expression.range);
+      this.#unsupported("SQLite does not support ARRAY constructors", expression.range);
       return { tsType: "unknown", nullable: true };
     }
     if (expression.kind === "row") {
@@ -437,14 +488,14 @@ class Resolver {
         ctes,
         this.#databaseType(expression.databaseType.name, true),
       );
-      if (!isKnownMySqlType(expression.databaseType.name, this.#schema))
+      if (!isKnownSqliteType(expression.databaseType.name))
         this.#diagnostic(
           "TSQ106",
-          `Invalid or unknown MySQL cast type ${expression.databaseType.name}`,
+          `Invalid or unknown SQLite cast type ${expression.databaseType.name}`,
           expression.databaseType.range,
         );
       return {
-        tsType: mapMySqlType(expression.databaseType.name, this.#policy, this.#schema),
+        tsType: mapSqliteCastType(expression.databaseType.name, this.#policy),
         nullable: source.nullable,
         databaseType: normalized(expression.databaseType.name),
       };
@@ -452,7 +503,7 @@ class Resolver {
     if (expression.kind === "unary") {
       const operand = this.#expression(expression.expression, scope, ctes);
       return expression.operator === "NOT"
-        ? { tsType: "boolean", nullable: operand.nullable, databaseType: "boolean" }
+        ? { tsType: this.#policy.integer, nullable: operand.nullable, databaseType: "integer" }
         : operand;
     }
     if (expression.kind === "binary") return this.#binary(expression, scope, ctes);
@@ -487,7 +538,7 @@ class Resolver {
     }
     if (expression.kind === "exists") {
       this.#statement(expression.query, scope, ctes);
-      return { tsType: "boolean", nullable: false, databaseType: "boolean" };
+      return { tsType: this.#policy.integer, nullable: false, databaseType: "integer" };
     }
     if (expression.kind === "in") {
       const subject = this.#expression(expression.expression, scope, ctes);
@@ -506,7 +557,7 @@ class Resolver {
           );
         nullable ||= result.columns[0]?.nullable ?? true;
       }
-      return { tsType: "boolean", nullable, databaseType: "boolean" };
+      return { tsType: this.#policy.integer, nullable, databaseType: "integer" };
     }
     const subject = this.#expression(expression.expression, scope, ctes);
     const values = [
@@ -514,7 +565,11 @@ class Resolver {
       this.#expression(expression.lower, scope, ctes, subject),
       this.#expression(expression.upper, scope, ctes, subject),
     ];
-    return { tsType: "boolean", nullable: values.some((value) => value.nullable), databaseType: "boolean" };
+    return {
+      tsType: this.#policy.integer,
+      nullable: values.some((value) => value.nullable),
+      databaseType: "integer",
+    };
   }
 
   #binary(
@@ -522,6 +577,11 @@ class Resolver {
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): ResolvedType {
+    if (
+      ["ILIKE", "SIMILAR TO", "~", "~*", "!~", "!~*", "@>", "<@", "?", "?|", "?&", "&&"].includes(expression.operator)
+    ) {
+      this.#unsupported(`SQLite does not support operator ${expression.operator}`, expression.range);
+    }
     let left: ResolvedType;
     let right: ResolvedType;
     if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
@@ -533,12 +593,19 @@ class Resolver {
     }
     if (comparisonOperators.has(expression.operator))
       return {
-        tsType: "boolean",
+        tsType: this.#policy.integer,
         nullable: expression.operator.startsWith("IS") ? false : left.nullable || right.nullable,
-        databaseType: "boolean",
+        databaseType: "integer",
       };
-    if (expression.operator === "->") return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
-    if (expression.operator === "->>") return { tsType: "string", nullable: true, databaseType: "varchar" };
+    if (expression.operator === "||") {
+      return { tsType: "string", nullable: left.nullable || right.nullable, databaseType: "text" };
+    }
+    if (expression.operator === "->") return { tsType: "string", nullable: true, databaseType: "text" };
+    if (expression.operator === "->>")
+      return {
+        tsType: sqliteFlexibleType(this.#policy),
+        nullable: true,
+      };
     const leftType = left.databaseType === undefined ? undefined : normalized(left.databaseType);
     const rightType = right.databaseType === undefined ? undefined : normalized(right.databaseType);
     if (
@@ -547,45 +614,60 @@ class Resolver {
       numericTypes.has(leftType) &&
       numericTypes.has(rightType)
     ) {
-      const decimal = leftType === "decimal" || rightType === "decimal" || expression.operator === "/";
       return {
-        tsType: decimal ? this.#policy.decimal : "number",
+        tsType: unionTypeLiterals([this.#policy.integer, "number"]),
         nullable: left.nullable || right.nullable,
-        databaseType: decimal ? "decimal" : "double",
+        databaseType: "numeric",
       };
     }
     if (left.tsType === "unknown" || right.tsType === "unknown")
       return { tsType: "unknown", nullable: left.nullable || right.nullable };
-    this.#diagnostic("TSQ203", `Cannot safely infer MySQL operator ${expression.operator}`, expression.range);
+    this.#diagnostic("TSQ203", `Cannot safely infer SQLite operator ${expression.operator}`, expression.range);
     return { tsType: "unknown", nullable: true };
   }
 
   #call(expression: CallExpression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
     const values = expression.arguments.map((argument) => this.#expression(argument, scope, ctes));
     if (expression.filter !== undefined)
-      this.#unsupported("MySQL does not support aggregate FILTER", expression.filter.range);
+      this.#expression(expression.filter, scope, ctes, this.#databaseType("integer", false));
     if (expression.over !== undefined && "partitionBy" in expression.over) {
       for (const value of expression.over.partitionBy) this.#expression(value, scope, ctes);
       for (const item of expression.over.orderBy) this.#expression(item.expression, scope, ctes);
     }
     const functionName = expression.name.name.toUpperCase();
-    if (functionName === "COUNT") return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
-    if (["SUM", "AVG"].includes(functionName))
-      return { tsType: this.#policy.decimal, nullable: true, databaseType: "decimal" };
+    if (functionName === "COUNT") return { tsType: this.#policy.integer, nullable: false, databaseType: "integer" };
+    if (functionName === "SUM")
+      return {
+        tsType: unionTypeLiterals([this.#policy.integer, "number"]),
+        nullable: true,
+        databaseType: "numeric",
+      };
+    if (functionName === "AVG") return { tsType: "number", nullable: true, databaseType: "real" };
     if (["MIN", "MAX"].includes(functionName)) return { ...(values[0] ?? { tsType: "unknown" }), nullable: true };
     if (functionName === "COALESCE")
       return {
         tsType: unionTypeLiterals(values.map((value) => value.tsType)),
         nullable: values.every((value) => value.nullable),
       };
-    if (functionName === "IFNULL" || functionName === "NULLIF")
+    if (functionName === "IFNULL" || functionName === "NULLIF") {
+      const firstArgument = expression.arguments[0];
+      const secondArgument = expression.arguments[1];
+      if (firstArgument?.kind === "parameter" && values[1] !== undefined) {
+        this.#expression(firstArgument, scope, ctes, values[1]);
+      }
+      if (secondArgument?.kind === "parameter" && values[0] !== undefined) {
+        this.#expression(secondArgument, scope, ctes, values[0]);
+      }
       return {
         ...(values[0] ?? { tsType: "unknown" }),
         nullable: functionName === "NULLIF" || values.every((value) => value.nullable),
       };
+    }
     if (functionName === "GROUP_CONCAT") return { tsType: "string", nullable: true, databaseType: "text" };
-    if (["JSON_ARRAYAGG", "JSON_OBJECTAGG", "JSON_EXTRACT"].includes(functionName))
-      return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
+    if (["JSON", "JSON_ARRAY", "JSON_OBJECT", "JSON_GROUP_ARRAY", "JSON_GROUP_OBJECT"].includes(functionName))
+      return { tsType: "string", nullable: true, databaseType: "text" };
+    if (functionName === "RANDOM") return { tsType: this.#policy.integer, nullable: false, databaseType: "integer" };
+    if (functionName === "LENGTH") return { tsType: this.#policy.integer, nullable: true, databaseType: "integer" };
     const candidates = this.#index.functions(
       name(expression.name),
       values.length,
@@ -676,9 +758,13 @@ class Resolver {
     return { tsType: column.tsType, nullable: column.nullable, databaseType: column.databaseType };
   }
 
+  #generated(column: ColumnSnapshot): boolean {
+    return "generated" in column && (column.generated === "virtual" || column.generated === "stored");
+  }
+
   #databaseType(databaseType: string, nullable: boolean): ResolvedType {
     return {
-      tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
+      tsType: mapSqliteCastType(databaseType, this.#policy),
       nullable,
       databaseType: normalized(databaseType),
     };
@@ -703,10 +789,10 @@ class Resolver {
   }
 }
 
-export function resolveMySqlStatement(
+export function resolveSqliteStatement(
   statement: Statement,
   schema: SchemaSnapshot,
-  options: ResolveMySqlOptions = {},
-): ResolvedMySqlQuery {
+  options: ResolveSqliteOptions = {},
+): ResolvedSqliteQuery {
   return new Resolver(schema, options).resolve(statement);
 }

@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install typed-sql with the PostgreSQL or MySQL grammar and an application-owned database driver.
+description: Install typed-sql with a PostgreSQL, MySQL, or SQLite grammar and an application-owned database driver.
 ---
 
 # Installation
@@ -31,6 +31,17 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 
 The grammar package owns SQL parsing, catalog introspection, type resolution, and runtime codecs. Your application owns the driver version, connection configuration, pool, and lifecycle.
 
+## SQLite preview
+
+```sh
+pnpm add @typed-sql/core @typed-sql/sqlite
+pnpm add -D @typed-sql/cli typescript@7.0.2
+```
+
+The optional Node adapter uses the built-in `node:sqlite` module, so it installs no npm driver. Use
+Node 22.13 or newer for `StatementSync.iterate()` support. Other SQLite adapters can implement the
+driver-neutral runtime contract without changing the grammar.
+
 ## OpenTelemetry
 
 Database tracing is optional and independent of the selected dialect:
@@ -53,11 +64,13 @@ It contains its own isolated TypeScript preview process. You do not need a works
 
 ## Package boundary
 
-Installing `@typed-sql/postgres` does not install `pg`, `pg-cursor`, MySQL packages, or another database client. Installing `@typed-sql/mysql` follows the same rule for `mysql2`.
+Installing a dialect never installs a database driver. PostgreSQL and MySQL applications install
+`pg` or `mysql2` themselves; SQLite's Node adapter loads the built-in module only when selected.
 
 Driver-specific behavior is available only from explicit adapter entrypoints:
 
 - `@typed-sql/postgres/pg`
 - `@typed-sql/mysql/mysql2`
+- `@typed-sql/sqlite/node-sqlite`
 
 Continue with [Configuration](./configuration.md).

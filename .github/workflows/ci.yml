@@ -31,7 +31,10 @@ jobs:
           version: 10.32.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22.11
+          # The full suite includes @typed-sql/sqlite/node-sqlite, whose documented
+          # minimum is Node 22.13. Dialect E2E jobs below retain the workspace's
+          # Node 22.11 compatibility floor.
+          node-version: 22.13
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify

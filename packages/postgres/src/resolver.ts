@@ -239,6 +239,13 @@ class Resolver {
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): readonly ResolvedColumn[] {
+    if (statement.compounds.length > 0) {
+      this.#diagnostic(
+        "TSQ401",
+        "PostgreSQL set-operation inference is not supported safely",
+        statement.compounds[0]!.range,
+      );
+    }
     const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);

@@ -61,6 +61,7 @@ export default defineConfig({
         items: [
           { text: "PostgreSQL", link: "/dialects/postgresql" },
           { text: "MySQL", link: "/dialects/mysql" },
+          { text: "SQLite (preview)", link: "/dialects/sqlite" },
         ],
       },
       {

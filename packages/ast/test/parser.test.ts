@@ -79,6 +79,17 @@ await describe("PostgreSQL parser", async () => {
     );
   });
 
+  await it("tokenizes SQLite placeholders and compatibility identifier quotes", () => {
+    const statement = parseSelect("SELECT [account].[id], `account`.`email` FROM [account] WHERE [id] = ?", {
+      syntax: "sqlite",
+    });
+    strict.strictEqual(statement.columns[0]?.expression.kind, "column");
+    strict.strictEqual(statement.columns[1]?.expression.kind, "column");
+    strict.strictEqual(statement.from?.kind, "table");
+    strict.strictEqual(statement.where?.kind, "binary");
+    if (statement.where?.kind === "binary") strict.strictEqual(statement.where.right.kind, "parameter");
+  });
+
   await it("parses CASE, calls, literals, stars, aliases, unary and precedence", async () => {
     const statement = parseSelect(`
       SELECT CASE age WHEN 1 THEN true ELSE false END flag,
@@ -135,6 +146,34 @@ await describe("PostgreSQL parser", async () => {
     strict.strictEqual(statement.from?.kind, "subquery");
     strict.strictEqual(statement.joins[0]?.using?.[0]?.name, "id");
     strict.strictEqual(statement.columns[0]?.expression.kind, "star");
+  });
+
+  await it("parses compound SELECT operators", () => {
+    const statement = parseSelect(
+      "SELECT 1 AS value UNION ALL SELECT 2 AS alternative EXCEPT SELECT 3 AS final ORDER BY value LIMIT 1",
+      {
+        syntax: "sqlite",
+      },
+    );
+    strict.strictEqual(statement.compounds[0]?.operator, "union");
+    strict.strictEqual(statement.compounds[0]?.all, true);
+    strict.strictEqual(statement.compounds[0]?.statement.compounds[0]?.operator, "except");
+    strict.strictEqual(statement.orderBy[0]?.expression.kind, "column");
+    strict.strictEqual(statement.limit?.kind, "literal");
+    strict.deepStrictEqual(statement.compounds[0]?.statement.orderBy, []);
+    strict.deepStrictEqual(statement.compounds[0]?.statement.compounds[0]?.statement.orderBy, []);
+    strict.throws(
+      () => parseSelect("SELECT 1 ORDER BY 1 UNION SELECT 2", { syntax: "sqlite" }),
+      /must follow the final compound SELECT/,
+    );
+    strict.throws(
+      () => parseSelect("SELECT 1 LIMIT 1 UNION SELECT 2", { syntax: "sqlite" }),
+      /must follow the final compound SELECT/,
+    );
+    strict.throws(
+      () => parseSelect("SELECT 1 EXCEPT ALL SELECT 2", { syntax: "sqlite" }),
+      /SQLite does not support EXCEPT ALL/,
+    );
   });
 
   await it("parses INSERT, UPDATE, DELETE, VALUES, SELECT sources, and RETURNING", () => {

@@ -20,6 +20,7 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
+| `@typed-sql/sqlite` | Preview SQLite grammar, dynamic-type model, introspection, and optional built-in Node adapter | No |
 | `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, plan governance, compatibility, and provider discovery | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |
@@ -48,7 +49,7 @@ Every grammar implements the same public contract for:
 - runtime encoding and decoding;
 - feature and server-version capabilities.
 
-The compiler recognizes the `sqlModule` declared by the configured dialect. It does not branch on package names, dialect ids, or drivers. PostgreSQL, MySQL, and third-party grammars use the same compiler and schema infrastructure while owning their SQL semantics.
+The compiler recognizes the `sqlModule` declared by the configured dialect. It does not branch on package names, dialect ids, or drivers. PostgreSQL, MySQL, SQLite, and third-party grammars use the same compiler and schema infrastructure while owning their SQL semantics.
 
 Core exposes grammar-neutral resolver mechanisms such as indexed catalog lookup, ordered parameter collection, literal-union normalization, and name suggestions. Identifiers, operators, built-ins, nullability, feature gates, and diagnostics remain grammar responsibilities.
 

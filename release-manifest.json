@@ -28,6 +28,6 @@
       "@typed-sql/mysql",
       "@typed-sql/cli"
     ],
-    "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
+    "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server", "@typed-sql/sqlite"]
   }
 }

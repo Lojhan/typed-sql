@@ -23,8 +23,9 @@ const publicPackages = [
   "cli",
   "ts-bridge",
   "language-server",
+  "sqlite",
 ] as const;
-const stableModulePackages = new Set([
+const declarationCheckedPackages = new Set([
   "ast",
   "core",
   "opentelemetry",
@@ -34,11 +35,12 @@ const stableModulePackages = new Set([
   "mysql",
   "compiler",
   "conformance",
+  "sqlite",
 ]);
 
 async function writeEditorProject(
   consumer: string,
-  dialect: "mysql" | "postgres",
+  dialect: "mysql" | "postgres" | "sqlite",
 ): Promise<{ readonly directory: string; readonly queryFile: string; readonly source: string }> {
   const directory = join(consumer, `editor-${dialect}`);
   const queryFile = join(directory, "query.ts");
@@ -100,7 +102,33 @@ async function writeEditorProject(
   );
   await writeFile(
     join(directory, "schema.json"),
-    await readFile(join(workspace, "e2e", dialect, "generated", "db", "schema.json"), "utf8"),
+    dialect === "sqlite"
+      ? `${JSON.stringify(
+          {
+            formatVersion: 1,
+            dialect: "sqlite",
+            dialectVersion: "1.0.0",
+            tables: {
+              users: {
+                schema: "main",
+                name: "users",
+                kind: "table",
+                strict: true,
+                withoutRowid: false,
+                indexes: [],
+                foreignKeys: [],
+                columns: {
+                  id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
+                  email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
+                  status: { name: "status", databaseType: "TEXT", tsType: "string", nullable: false },
+                },
+              },
+            },
+          },
+          null,
+          2,
+        )}\n`
+      : await readFile(join(workspace, "e2e", dialect, "generated", "db", "schema.json"), "utf8"),
   );
   await writeFile(queryFile, source);
   return { directory, queryFile, source };
@@ -177,7 +205,7 @@ await describe("packed public packages", async () => {
             `${packageManifest.name} published an unresolved workspace dependency`,
           );
         }
-        if (stableModulePackages.has(directory)) {
+        if (declarationCheckedPackages.has(directory)) {
           for (const exportTarget of Object.values(packedManifest.exports ?? {})) {
             const declarationTarget = `package/${exportTarget.replace(/^\.\//u, "").replace(/\.js$/u, ".d.ts")}`;
             strict.ok(
@@ -337,6 +365,9 @@ await describe("packed public packages", async () => {
         import { mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
         import { mysqlRenderer } from "@typed-sql/mysql/runtime";
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
+        import { sqlite, sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite";
+        import { sqliteRenderer } from "@typed-sql/sqlite/runtime";
+        import { createNodeSqliteDatabase, loadNodeSqlite } from "@typed-sql/sqlite/node-sqlite";
         import { buildQueryManifest, compileSource, parseQueryManifest, serializeQueryManifest } from "@typed-sql/compiler";
         import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
         import { createOpenTelemetryObserver } from "@typed-sql/opentelemetry";
@@ -354,12 +385,16 @@ await describe("packed public packages", async () => {
         catch (error) { if (error.message === "mysql2 was installed transitively") throw error; }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
+        if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
         if (postgres().sqlModule !== "@typed-sql/postgres") throw new Error("PostgreSQL sqlModule contract failed");
         if (mysql().sqlModule !== "@typed-sql/mysql") throw new Error("MySQL sqlModule contract failed");
+        if (sqlite().sqlModule !== "@typed-sql/sqlite") throw new Error("SQLite sqlModule contract failed");
         if (postgresTypePolicy.bigint !== "bigint" || mysqlTypePolicy.bigint !== "bigint") throw new Error("type policy export failed");
         if (postgresRenderer.placeholder(2) !== "$2") throw new Error("runtime import failed");
         if (mysqlRenderer.placeholder(2) !== "?") throw new Error("MySQL runtime import failed");
-        if (postgresSql\`SELECT \${1}\`.segments.length !== 3 || mysqlSql\`SELECT \${1}\`.segments.length !== 3) throw new Error("dialect sql export failed");
+        if (sqliteRenderer.placeholder(2) !== "?") throw new Error("SQLite runtime import failed");
+        if (sqliteTypePolicy.integer !== "bigint") throw new Error("SQLite type policy export failed");
+        if (postgresSql\`SELECT \${1}\`.segments.length !== 3 || mysqlSql\`SELECT \${1}\`.segments.length !== 3 || sqliteSql\`SELECT \${1}\`.segments.length !== 3) throw new Error("dialect sql export failed");
         if (typeof compileSource !== "function") throw new Error("compiler import failed");
         if (GRAMMAR_CONFORMANCE_VERSION !== 1) throw new Error("conformance version import failed");
         if (typeof createOpenTelemetryObserver !== "function") throw new Error("OpenTelemetry integration import failed");
@@ -436,13 +471,22 @@ await describe("packed public packages", async () => {
         catch (error) { if (!String(error.message).includes("pnpm add pg")) throw error; }
         try { await loadMySql2Driver(); throw new Error("missing mysql2 did not fail"); }
         catch (error) { if (!String(error.message).includes("pnpm add mysql2")) throw error; }
+        if ((await loadNodeSqlite()).DatabaseSync === undefined) throw new Error("node:sqlite adapter import failed");
+        const sqliteDatabase = await createNodeSqliteDatabase({ path: ":memory:" });
+        await sqliteDatabase.execute(sqliteSql\`CREATE TABLE account (id INTEGER PRIMARY KEY, email TEXT NOT NULL) STRICT\`);
+        await sqliteDatabase.execute(sqliteSql\`INSERT INTO account (id, email) VALUES (\${1n}, \${"packed@example.com"})\`);
+        const sqliteRows = await sqliteDatabase.execute(sqliteSql\`SELECT id, email FROM account\`);
+        if (sqliteRows[0]?.id !== 1n || sqliteRows[0]?.email !== "packed@example.com") {
+          throw new Error("packed node:sqlite execution failed");
+        }
+        await sqliteDatabase.close();
       `,
       );
       await execFile(process.execPath, [join(consumer, "verify.mjs")], { cwd: consumer, env: isolatedEnvironment });
 
       const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
       const typedSql = join(consumer, "node_modules", ".bin", "typed-sql");
-      for (const dialect of ["postgres", "mysql"] as const) {
+      for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {
           cwd: project.directory,
@@ -491,7 +535,12 @@ await describe("packed public packages", async () => {
           strict.ok(!actual.includes("unknown"), actual);
           const cte = await hoverText(client, project.queryFile, project.source, "cteQuery");
           strict.ok(cte.includes("id: bigint"), cte);
-          strict.ok(cte.includes('status: \\"active\\" | \\"suspended\\"'), cte);
+          strict.ok(
+            dialect === "sqlite"
+              ? cte.includes("status: string")
+              : cte.includes('status: \\"active\\" | \\"suspended\\"'),
+            cte,
+          );
           const conditional = await hoverText(client, project.queryFile, project.source, "conditionalQuery");
           strict.ok(conditional.includes("id: bigint"), conditional);
           strict.ok(conditional.includes("status"), conditional);
