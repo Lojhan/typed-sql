@@ -16,11 +16,11 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | No |
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
-| `@typed-sql/compiler` | Dialect-neutral extraction, transforms, diagnostics, manifests, verification, and migration analysis | No |
+| `@typed-sql/compiler` | Dialect-neutral extraction, transforms, diagnostics, manifests, verification, plan governance, and migration analysis | No |
 | `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
-| `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, compatibility, and provider discovery | No |
+| `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, plan governance, compatibility, and provider discovery | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |
 
@@ -64,6 +64,8 @@ Compiled queries expose a path-independent SHA-256 fingerprint and the fingerpri
 The optional query manifest serializes the same fingerprints, variants, inferred descriptions, and semantic evidence in canonical order. It contains relative source locations but no SQL text, parameter values, connection configuration, or absolute paths. Runtime observation can therefore correlate a variant fingerprint with build-time evidence without moving driver or telemetry concerns into the compiler.
 
 Live verification follows the same dependency direction. Core defines a native metadata adapter contract, grammar driver subpaths implement it, and the compiler compares evidence and emits a deterministic proof. The CLI reconstructs SQL transiently only after the source still matches the manifest. Neither the manifest nor proof stores SQL, values, connection configuration, absolute paths, or driver errors.
+
+Query-plan governance reuses that direction. Core owns neutral inspector, environment, sample-provider, and budget contracts. Driver subpaths translate native structured plans into a small grammar-normalized node inventory. The compiler captures fingerprint-keyed evidence and reviews it without importing a driver; the CLI alone coordinates explicit live access. Plan artifacts exclude SQL, values, conditions, sample labels, connection configuration, and raw driver failures.
 
 Migration compatibility remains on the artifact side of that boundary. The compiler compares public snapshots and manifests without knowing how a migration was authored or applied. It maps catalog changes through grammar-owned dependencies, analyzes both mixed-version deployment directions, and emits a deterministic report. Existing migration runners remain responsible for execution and can provide an after-snapshot through any configured `SchemaProvider`.
 

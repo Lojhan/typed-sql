@@ -1,4 +1,5 @@
-import type { DatabaseObserver, LiveQueryVerifier } from "@typed-sql/core";
+import { createHash } from "node:crypto";
+import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
 import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import type { MySqlSchemaSnapshot } from "./index.js";
@@ -78,6 +79,27 @@ export interface MySql2LiveVerifierOptions {
   readonly poolConfig?: Omit<PoolOptions, "uri">;
   readonly typePolicy?: MySqlTypePolicy;
   readonly schema?: MySqlSchemaSnapshot;
+  readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
+}
+
+export interface MySql2PlanInspectorConnection {
+  query<Row extends Record<string, unknown>[]>(
+    sql: string,
+    values?: readonly unknown[],
+  ): Promise<readonly [Row, unknown]>;
+  release(): void;
+}
+
+export interface MySql2PlanInspectorPool {
+  query<Row extends Record<string, unknown>[]>(sql: string): Promise<readonly [Row, unknown]>;
+  getConnection(): Promise<MySql2PlanInspectorConnection>;
+  end(): Promise<void>;
+}
+
+export interface MySql2PlanInspectorOptions {
+  readonly connectionUri?: string | (() => string | Promise<string>);
+  readonly pool?: MySql2PlanInspectorPool;
+  readonly poolConfig?: Omit<PoolOptions, "uri">;
   readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
 }
 
@@ -220,6 +242,154 @@ export function createMySql2LiveVerifier(options: MySql2LiveVerifierOptions): Li
         } finally {
           connection.release();
         }
+      }
+    },
+    async close() {
+      if (ownsPool && poolPromise !== undefined) await (await poolPromise).end();
+    },
+  };
+}
+
+const MYSQL_PLAN_INSPECTOR_VERSION = "mysql-explain-json-v1";
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function mysqlPlan(value: unknown): QueryPlanEvidence {
+  const parsed = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new TypeError("MySQL returned an unsupported JSON plan");
+  }
+  const root = parsed as Readonly<Record<string, unknown>>;
+  const nodes: QueryPlanEvidence["nodes"][number][] = [];
+  const visit = (item: unknown): void => {
+    if (Array.isArray(item)) {
+      for (const child of item) visit(child);
+      return;
+    }
+    if (typeof item !== "object" || item === null) return;
+    const record = item as Readonly<Record<string, unknown>>;
+    const access = record.access_type;
+    if (typeof access === "string" && access.length > 0) {
+      const relation = record.table_name;
+      const index = record.key ?? record.index_name;
+      const estimatedRows = numberValue(
+        record.rows_produced_per_join ?? record.rows_examined_per_scan ?? record.estimated_rows,
+      );
+      const cost =
+        typeof record.cost_info === "object" && record.cost_info !== null
+          ? numberValue((record.cost_info as Readonly<Record<string, unknown>>).prefix_cost)
+          : numberValue(record.estimated_total_cost);
+      nodes.push({
+        kind: `access:${access}`,
+        ...(typeof relation === "string" ? { relation } : {}),
+        ...(typeof index === "string" ? { index } : {}),
+        ...(estimatedRows === undefined ? {} : { estimatedRows }),
+        ...(cost === undefined ? {} : { estimatedCost: cost }),
+      });
+    }
+    for (const child of Object.values(record)) visit(child);
+  };
+  visit(root);
+  const queryBlock =
+    typeof root.query_block === "object" && root.query_block !== null
+      ? (root.query_block as Readonly<Record<string, unknown>>)
+      : undefined;
+  const costInfo =
+    typeof queryBlock?.cost_info === "object" && queryBlock.cost_info !== null
+      ? (queryBlock.cost_info as Readonly<Record<string, unknown>>)
+      : undefined;
+  const totalCost = numberValue(costInfo?.query_cost ?? root.estimated_total_cost);
+  const estimatedRows = numberValue(root.estimated_rows) ?? nodes[0]?.estimatedRows;
+  return {
+    ...(totalCost === undefined ? {} : { totalCost }),
+    ...(estimatedRows === undefined ? {} : { estimatedRows }),
+    nodes,
+  };
+}
+
+/** Creates a lazy, non-executing adapter over MySQL structured EXPLAIN. */
+export function createMySql2PlanInspector(options: MySql2PlanInspectorOptions): QueryPlanInspector {
+  const ownsPool = options.pool === undefined;
+  let poolPromise: Promise<MySql2PlanInspectorPool> | undefined;
+  let environmentPromise: ReturnType<QueryPlanInspector["environment"]> | undefined;
+  const acquirePool = (): Promise<MySql2PlanInspectorPool> => {
+    poolPromise ??= (async () => {
+      if (options.pool !== undefined) return options.pool;
+      if (options.connectionUri === undefined) throw new TypeError("MySQL plan capture requires connectionUri or pool");
+      const driver = await loadMySql2Driver(options.driverImporter);
+      return driver.createPool({
+        ...options.poolConfig,
+        uri: await uri(options.connectionUri),
+      }) as unknown as MySql2PlanInspectorPool;
+    })();
+    return poolPromise;
+  };
+  return {
+    dialect: "mysql",
+    adapterVersion: MYSQL_PLAN_INSPECTOR_VERSION,
+    parameterMode: "samples-required",
+    async environment() {
+      environmentPromise ??= (async () => {
+        const pool = await acquirePool();
+        const [settings] = await pool.query<
+          Array<{
+            readonly version: string;
+            readonly optimizerSwitch: string;
+            readonly optimizerPruneLevel: string;
+            readonly optimizerSearchDepth: string;
+            readonly explainJsonFormatVersion: string;
+          }>
+        >(
+          "SELECT VERSION() AS version, @@optimizer_switch AS optimizerSwitch, @@optimizer_prune_level AS optimizerPruneLevel, @@optimizer_search_depth AS optimizerSearchDepth, @@explain_json_format_version AS explainJsonFormatVersion",
+        );
+        const [statistics] = await pool.query<Array<Record<string, unknown>>>(
+          "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, CAST(SEQ_IN_INDEX AS CHAR) AS SEQ_IN_INDEX, CAST(CARDINALITY AS CHAR) AS CARDINALITY FROM information_schema.statistics WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
+        );
+        const [histograms] = await pool.query<Array<Record<string, unknown>>>(
+          "SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, HISTOGRAM FROM information_schema.column_statistics WHERE SCHEMA_NAME NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') ORDER BY SCHEMA_NAME, TABLE_NAME, COLUMN_NAME",
+        );
+        const row = settings[0];
+        return {
+          version: row?.version ?? "unknown",
+          settings: {
+            explain_json_format_version: String(row?.explainJsonFormatVersion ?? "unknown"),
+            optimizer_prune_level: String(row?.optimizerPruneLevel ?? "unknown"),
+            optimizer_search_depth: String(row?.optimizerSearchDepth ?? "unknown"),
+            optimizer_switch: String(row?.optimizerSwitch ?? "unknown"),
+          },
+          statisticsFingerprint: `sha256:${createHash("sha256")
+            .update(JSON.stringify([statistics, histograms]))
+            .digest("hex")}`,
+        };
+      })();
+      return environmentPromise;
+    },
+    async capture(request) {
+      if (!/^sha256:[a-f\d]{64}$/u.test(request.fingerprint)) {
+        throw new TypeError("MySQL plan capture requires a SHA-256 query fingerprint");
+      }
+      if (request.parameterCount > 0 && request.values === undefined) {
+        throw new TypeError("MySQL plan capture requires explicit transient parameter samples");
+      }
+      if (request.values !== undefined && request.values.length !== request.parameterCount) {
+        throw new TypeError("MySQL plan samples do not match the parameter count");
+      }
+      const connection = await (await acquirePool()).getConnection();
+      try {
+        const [rows] = await connection.query<Array<Record<string, unknown>>>(
+          `EXPLAIN FORMAT=JSON ${request.sql}`,
+          request.values,
+        );
+        return mysqlPlan(rows[0]?.EXPLAIN);
+      } finally {
+        connection.release();
       }
     },
     async close() {

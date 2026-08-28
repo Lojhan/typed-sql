@@ -1,6 +1,6 @@
 import { defineConfig } from "@typed-sql/core";
 import { postgres, typePolicy } from "@typed-sql/postgres";
-import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
+import { createPgLiveVerifier, createPgPlanInspector, pg } from "@typed-sql/postgres/pg";
 
 const dialect = postgres({ typePolicy });
 const connectionString = () => {
@@ -26,5 +26,13 @@ export default defineConfig({
     live: createPgLiveVerifier({ connectionString, typePolicy }),
     proofFile: ".typed-sql/verification.json",
     concurrency: 2,
+  },
+  plans: {
+    live: createPgPlanInspector({ connectionString }),
+    artifactFile: ".typed-sql/plans.json",
+    reportFile: ".typed-sql/plan-review.json",
+    concurrency: 2,
+    failOn: "uncertainty",
+    budgets: { defaults: { maximumTotalCost: 10_000 } },
   },
 });

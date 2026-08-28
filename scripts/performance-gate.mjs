@@ -6,9 +6,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   analyzeSchemaCompatibility,
   buildQueryManifest,
+  captureQueryPlans,
   collectQueryVerificationCandidates,
   compileSource,
   extractStaticQueries,
+  reviewQueryPlans,
   verifyQueryManifest,
 } from "../packages/compiler/dist/packages/compiler/src/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
@@ -233,6 +235,48 @@ await latency("compiler.queryVerification", async () => {
     concurrency: 8,
   });
   assert.equal(result.verified, 250);
+});
+
+const benchmarkPlanInspector = {
+  dialect: "postgres",
+  adapterVersion: "performance-plan-v1",
+  parameterMode: "value-free",
+  async environment() {
+    return {
+      version: "18-performance",
+      settings: { plan_cache_mode: "auto" },
+      statisticsFingerprint: `sha256:${"a".repeat(64)}`,
+    };
+  },
+  async capture() {
+    return {
+      totalCost: 10,
+      estimatedRows: 1,
+      nodes: [{ kind: "Index Scan", relation: "users", estimatedRows: 1, estimatedCost: 10 }],
+    };
+  },
+  async close() {},
+};
+const planBaseline = await captureQueryPlans({
+  manifest: previousManifest,
+  candidates: verificationCandidates,
+  inspector: benchmarkPlanInspector,
+  concurrency: 8,
+});
+await latency("compiler.queryPlans", async () => {
+  const current = await captureQueryPlans({
+    manifest: previousManifest,
+    candidates: verificationCandidates,
+    inspector: benchmarkPlanInspector,
+    concurrency: 8,
+  });
+  const report = reviewQueryPlans({
+    current: current.artifact,
+    baseline: planBaseline.artifact,
+    budgets: { defaults: { maximumTotalCostIncreaseRatio: 1.5, forbiddenNodeKinds: ["Seq Scan"] } },
+  });
+  assert.equal(current.captured, 250);
+  assert.equal(report.summary.pass, 250);
 });
 
 const semanticQueries = Array.from(

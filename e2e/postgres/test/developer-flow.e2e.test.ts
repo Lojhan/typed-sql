@@ -195,12 +195,31 @@ try {
         "--project",
         project,
       );
-      strict.match(live.stdout, /Verified 1 variants \(0 mismatched, 0 skipped, 0 failed\)/u);
+      strict.match(live.stdout, /Verified 2 variants \(0 mismatched, 0 skipped, 0 failed\)/u);
       const proof = await readFile(join(packageDirectory, ".typed-sql", "verification.json"), "utf8");
       strict.ok(!proof.includes("SELECT users"));
       strict.ok(!proof.includes(connectionString));
       const cached = await cli("verify", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.match(cached.stdout, /Cached verification is current/u);
+      const explained = await cli(
+        "explain",
+        "--config",
+        join(packageDirectory, "typed-sql.config.ts"),
+        "--project",
+        project,
+      );
+      strict.match(explained.stdout, /Captured 2 plans \(0 skipped, 0 failed\)/u);
+      const plans = await readFile(join(packageDirectory, ".typed-sql", "plans.json"), "utf8");
+      strict.match(plans, /Index Scan|Seq Scan/u);
+      strict.ok(!plans.includes("SELECT users"));
+      strict.ok(!plans.includes(connectionString));
+      const safetyPool = new Pool({ connectionString });
+      try {
+        const safety = await safetyPool.query<{ readonly email: string }>("SELECT email FROM users WHERE id = 1");
+        strict.strictEqual(safety.rows[0]?.email, "alice@example.com");
+      } finally {
+        await safetyPool.end();
+      }
     });
 
     await it("checks inferred application types with TypeScript 7", async () => {

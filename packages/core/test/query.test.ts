@@ -560,6 +560,57 @@ await describe("core contracts", async () => {
         }),
       /compatibility\.failOn/u,
     );
+    const planInspector = {
+      dialect: dialect.id,
+      adapterVersion: "test-plan-v1",
+      parameterMode: "value-free" as const,
+      async environment() {
+        return { version: "test", settings: {}, statisticsFingerprint: `sha256:${"a".repeat(64)}` };
+      },
+      async capture() {
+        return { nodes: [] };
+      },
+      async close() {},
+    };
+    strict.doesNotThrow(() =>
+      defineConfig({
+        dialect,
+        schema: { file: "schema.json" },
+        outDir: "generated",
+        plans: {
+          live: planInspector,
+          artifactFile: ".typed-sql/plans.json",
+          reportFile: ".typed-sql/plan-review.json",
+          baselineFile: "artifacts/plans.json",
+          concurrency: 2,
+          failOn: "uncertainty",
+          budgets: {
+            defaults: { maximumTotalCost: 10, maximumTotalCostIncreaseRatio: 1.5 },
+            queries: { [`sha256:${"b".repeat(64)}`]: { forbiddenNodeKinds: ["Seq Scan"] } },
+          },
+        },
+      }),
+    );
+    for (const plans of [
+      { artifactFile: "" },
+      { concurrency: 0 },
+      { failOn: "all" },
+      { live: { ...planInspector, dialect: "other" } },
+      { budgets: { defaults: { maximumTotalCost: -1 } } },
+      { budgets: { defaults: { maximumTotalCostIncreaseRatio: 0.5 } } },
+      { budgets: { queries: { invalid: {} } } },
+    ]) {
+      strict.throws(
+        () =>
+          defineConfig({
+            dialect,
+            schema: { file: "schema.json" },
+            outDir: "generated",
+            plans: plans as never,
+          }),
+        /plans/u,
+      );
+    }
   });
 
   await it("validates every public dialect contract boundary", () => {

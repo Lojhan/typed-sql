@@ -22,6 +22,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 - [Generate snapshots and detect drift](./guides/schema-snapshots.md).
 - [Trace database work safely](./guides/observability.md) through the neutral observer contract.
 - [Emit deterministic query manifests](./guides/query-manifests.md) for CI and production correlation.
+- [Govern query plans](./guides/query-plan-governance.md) with redacted optimizer evidence and explicit budgets.
 - [Verify compiler evidence against a live database](./guides/live-verification.md) and cache the proof.
 - [Check migrations against compiled queries](./guides/migration-compatibility.md) in both rolling-deployment directions.
 - [Configure Zed, VS Code, or another LSP client](./guides/editors.md).
