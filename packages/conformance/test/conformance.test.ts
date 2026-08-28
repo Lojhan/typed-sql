@@ -203,7 +203,7 @@ await describe("public grammar conformance package", async () => {
               supported: false,
               unsupported: {
                 sql: "SELECT value FROM widgets UNION SELECT value FROM widgets",
-                diagnosticCode: "TSQ001",
+                diagnosticCode: "TSQ401",
               },
             },
           ],
@@ -327,7 +327,7 @@ await describe("public grammar conformance package", async () => {
               supported: false,
               unsupported: {
                 sql: "SELECT value FROM widgets UNION SELECT value FROM widgets",
-                diagnosticCode: "TSQ001",
+                diagnosticCode: "TSQ401",
               },
             },
           ],

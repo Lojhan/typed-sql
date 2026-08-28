@@ -110,6 +110,7 @@ function walkStatementWithContext(
     for (const item of statement.orderBy) walkExpression(item.expression, statement, visitor, context);
     if (statement.limit !== undefined) walkExpression(statement.limit, statement, visitor, context);
     if (statement.offset !== undefined) walkExpression(statement.offset, statement, visitor, context);
+    for (const compound of statement.compounds) walkStatementWithContext(compound.statement, visitor, context.ctes);
     return;
   }
   walkTable(statement.table, statement, visitor, context);

@@ -245,6 +245,22 @@ importers:
 
   packages/schema: {}
 
+  packages/sqlite:
+    dependencies:
+      '@typed-sql/ast':
+        specifier: workspace:*
+        version: link:../ast
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
+      '@typed-sql/schema':
+        specifier: workspace:*
+        version: link:../schema
+    devDependencies:
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../conformance
+
   packages/ts-bridge:
     dependencies:
       '@typed-sql/compiler':

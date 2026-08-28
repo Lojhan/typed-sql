@@ -11,28 +11,23 @@ import {
 import type { SchemaSnapshot } from "@typed-sql/schema";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
-  ARRAY_AGG: "immutable",
   AVG: "immutable",
-  BOOL_AND: "immutable",
-  BOOL_OR: "immutable",
   COALESCE: "immutable",
   COUNT: "immutable",
-  CURRVAL: "volatile",
-  EVERY: "immutable",
-  GREATEST: "immutable",
-  JSON_AGG: "immutable",
-  JSON_OBJECT_AGG: "immutable",
-  JSONB_AGG: "immutable",
-  JSONB_OBJECT_AGG: "immutable",
-  LEAST: "immutable",
+  GROUP_CONCAT: "immutable",
+  IFNULL: "immutable",
+  JSON: "immutable",
+  JSON_ARRAY: "immutable",
+  JSON_GROUP_ARRAY: "immutable",
+  JSON_GROUP_OBJECT: "immutable",
+  JSON_EXTRACT: "immutable",
+  LENGTH: "immutable",
   MAX: "immutable",
   MIN: "immutable",
-  NEXTVAL: "volatile",
   NULLIF: "immutable",
   RANDOM: "volatile",
-  SETVAL: "volatile",
-  STRING_AGG: "immutable",
   SUM: "immutable",
+  UUID: "volatile",
 });
 
 function syntax(description: string, range: Statement["range"]): SemanticEvidence {
@@ -57,7 +52,7 @@ function functionVolatility(expression: CallExpression, index: ResolverSchemaInd
   return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";
 }
 
-export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
+export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
   const index = ResolverSchemaIndex.for(snapshot);
   const dependencies = new Map<string, QueryDependency>();
   const capabilities = new Set<string>();

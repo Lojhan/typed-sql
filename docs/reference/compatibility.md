@@ -31,6 +31,8 @@ TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by 
 | `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.0 |
 | MySQL | Grammar targets MySQL 8.4 LTS | MySQL 8.4.11 |
 | `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.1 |
+| SQLite preview | SQLite grammar and PRAGMA catalog provider | SQLite 3.50.4 through Node 24.10.0 |
+| `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13 or newer | Node 24.10.0 |
 
 Driver configurations that change decoded value shapes can violate static types. The adapters own or reject those settings as documented in [Database type mappings](./type-mappings.md).
 
@@ -39,7 +41,7 @@ Driver configurations that change decoded value shapes can violate static types.
 | Surface | Status |
 | --- | --- |
 | `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `cli` | Stable package contract |
-| `ts-bridge`, `language-server` | Experimental while they depend on preview TypeScript APIs |
+| `ts-bridge`, `language-server`, `sqlite` | Experimental while their preview contracts are exercised |
 | VS Code and Zed integrations | Experimental distribution |
 
 Every public package records its classification in `typedSql.releaseTrack`.
@@ -52,7 +54,7 @@ The language server replaces the normal TypeScript server for a configured proje
 
 ## Grammar and snapshot compatibility
 
-PostgreSQL and MySQL implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.
+PostgreSQL, MySQL, and the SQLite preview implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.
 
 `@typed-sql/conformance` versions its fixture contract independently through
 `GRAMMAR_CONFORMANCE_VERSION`. Grammar packages should run the public suite before publishing and

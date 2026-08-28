@@ -19,6 +19,7 @@
     { "path": "../packages/schema" },
     { "path": "../packages/postgres" },
     { "path": "../packages/mysql" },
+    { "path": "../packages/sqlite" },
     { "path": "../packages/compiler" },
     { "path": "../packages/conformance" },
     { "path": "../packages/opentelemetry" },

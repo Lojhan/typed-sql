@@ -6,7 +6,7 @@ export const DEFAULT_MAX_TOKENS = 100_000;
 export interface TokenizeOptions {
   readonly maxSqlLength?: number;
   readonly maxTokens?: number;
-  readonly syntax?: "postgres" | "mysql";
+  readonly syntax?: "postgres" | "mysql" | "sqlite";
 }
 
 const keywords = new Set([
@@ -165,7 +165,7 @@ class Scanner {
   #line = 1;
   #column = 1;
   #parameterIndex = 0;
-  readonly #syntax: "postgres" | "mysql";
+  readonly #syntax: "postgres" | "mysql" | "sqlite";
 
   constructor(source: string, options: TokenizeOptions) {
     const maxSqlLength = options.maxSqlLength ?? DEFAULT_MAX_SQL_LENGTH;
@@ -217,10 +217,11 @@ class Scanner {
     if (char === "'") return this.#scanString(start, false, "'");
     if (char === '"' && this.#syntax === "mysql") return this.#scanString(start, false, '"');
     if (char === '"') return this.#scanQuotedIdentifier(start, '"');
-    if (char === "`" && this.#syntax === "mysql") return this.#scanQuotedIdentifier(start, "`");
+    if (char === "`" && this.#syntax !== "postgres") return this.#scanQuotedIdentifier(start, "`");
+    if (char === "[" && this.#syntax === "sqlite") return this.#scanBracketIdentifier(start);
     if (char === "$" && /[0-9]/.test(this.#peek(1))) return this.#scanParameter(start);
     if (char === "$" && this.#dollarQuoteDelimiter() !== undefined) return this.#scanDollarString(start);
-    if (char === "?" && this.#syntax === "mysql") {
+    if (char === "?" && this.#syntax !== "postgres") {
       this.#advance();
       this.#parameterIndex += 1;
       return this.#token("parameter", "?", String(this.#parameterIndex), start);
@@ -238,6 +239,18 @@ class Scanner {
 
     this.#advance();
     throw new SqlTokenizeError(`Unexpected character ${JSON.stringify(char)}`, this.#range(start));
+  }
+
+  #scanBracketIdentifier(start: Position): Token {
+    this.#advance();
+    let value = "";
+    while (!this.#atEnd()) {
+      const char = this.#advance();
+      if (char === "]")
+        return this.#token("quoted-identifier", this.#source.slice(start.index, this.#index), value, start);
+      value += char;
+    }
+    throw new SqlTokenizeError("Unterminated bracket identifier", this.#range(start));
   }
 
   #scanWord(start: Position): Token {

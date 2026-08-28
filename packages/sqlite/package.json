@@ -1,13 +1,13 @@
 {
-  "name": "@typed-sql/ast",
-  "version": "1.0.0",
-  "description": "Bounded multi-dialect SQL tokenizer, AST, parser, and source ranges for typed-sql.",
+  "name": "@typed-sql/sqlite",
+  "version": "1.0.0-rc.0",
+  "description": "SQLite grammar, sound schema introspection, type resolution, and optional application-owned adapters for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Lojhan/typed-sql.git",
-    "directory": "packages/ast"
+    "directory": "packages/sqlite"
   },
   "homepage": "https://github.com/Lojhan/typed-sql#readme",
   "bugs": {
@@ -28,15 +28,26 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "stable"
+    "releaseTrack": "experimental"
   },
   "sideEffects": false,
   "type": "module",
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
+    "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
     "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
   "exports": {
-    ".": "./dist/packages/ast/src/index.js"
+    ".": "./dist/packages/sqlite/src/index.js",
+    "./runtime": "./dist/packages/sqlite/src/runtime.js",
+    "./node-sqlite": "./dist/packages/sqlite/src/node-sqlite.js"
+  },
+  "dependencies": {
+    "@typed-sql/ast": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@typed-sql/conformance": "workspace:*"
   }
 }

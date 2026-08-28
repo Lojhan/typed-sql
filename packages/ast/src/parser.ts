@@ -3,6 +3,7 @@ import {
   type BetweenExpression,
   type CaseBranch,
   type CommonTableExpression,
+  type CompoundSelect,
   type DeleteStatement,
   type Expression,
   type Identifier,
@@ -101,7 +102,7 @@ class Parser {
   readonly #source: string;
   readonly #tokens: readonly Token[];
   readonly #maxDepth: number;
-  readonly #syntax: "postgres" | "mysql";
+  readonly #syntax: "postgres" | "mysql" | "sqlite";
   #index = 0;
   #depth = 0;
 
@@ -182,6 +183,7 @@ class Parser {
     let limit: Expression | undefined;
     let offset: Expression | undefined;
     const locking: SelectLockingClause[] = [];
+    const compounds: CompoundSelect[] = [];
 
     if (this.#matchKeyword("FROM")) {
       from = this.#parseTableReference();
@@ -213,7 +215,7 @@ class Parser {
     }
     if (this.#matchKeyword("LIMIT")) {
       limit = this.#parseExpression();
-      if (this.#syntax === "mysql" && this.#matchPunctuation(",")) {
+      if (this.#syntax !== "postgres" && this.#matchPunctuation(",")) {
         offset = limit;
         limit = this.#parseExpression();
       }
@@ -230,6 +232,40 @@ class Parser {
       this.#expectKeyword("SHARE");
       const lockEnd = this.#expectKeyword("MODE").range;
       locking.push({ strength: "share", relations: [], range: mergeRanges(lockStart, lockEnd) });
+    }
+
+    if (["UNION", "INTERSECT", "EXCEPT"].includes(this.#current().value)) {
+      if (orderBy.length > 0 || limit !== undefined || offset !== undefined || locking.length > 0) {
+        throw this.#error(
+          "ORDER BY, LIMIT, OFFSET, and locking clauses must follow the final compound SELECT",
+          this.#current().range,
+        );
+      }
+      const operatorToken = this.#current();
+      this.#index += 1;
+      const all = this.#matchKeyword("ALL");
+      if (this.#syntax === "sqlite" && all && operatorToken.value !== "UNION") {
+        throw this.#error(`SQLite does not support ${operatorToken.value} ALL`, this.#previous().range);
+      }
+      const parsed = this.#parseSelect();
+      const {
+        orderBy: trailingOrderBy,
+        limit: trailingLimit,
+        offset: trailingOffset,
+        locking: trailingLocking,
+        ...arm
+      } = parsed;
+      const statement: SelectStatement = { ...arm, orderBy: [], locking: [] };
+      orderBy = [...trailingOrderBy];
+      limit = trailingLimit;
+      offset = trailingOffset;
+      locking.push(...trailingLocking);
+      compounds.push({
+        operator: operatorToken.value.toLowerCase() as CompoundSelect["operator"],
+        all,
+        statement,
+        range: mergeRanges(operatorToken.range, statement.range),
+      });
     }
 
     const end = this.#previous().range;
@@ -249,6 +285,7 @@ class Parser {
       ...(limit === undefined ? {} : { limit }),
       ...(offset === undefined ? {} : { offset }),
       locking,
+      compounds,
       range: mergeRanges(start, end),
     };
   }
@@ -689,7 +726,7 @@ class Parser {
       close = this.#expectPunctuation(")");
     }
     let filter: Expression | undefined;
-    if (this.#syntax === "postgres" && this.#matchKeyword("FILTER")) {
+    if (this.#syntax !== "mysql" && this.#matchKeyword("FILTER")) {
       this.#expectPunctuation("(");
       this.#expectKeyword("WHERE");
       filter = this.#parseExpression();
