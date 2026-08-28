@@ -41,6 +41,7 @@
     ".": "./dist/packages/compiler/src/index.js"
   },
   "dependencies": {
-    "@typed-sql/core": "workspace:*"
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
   }
 }

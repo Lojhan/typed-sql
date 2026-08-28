@@ -142,6 +142,10 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
   readonly compiler?: {
     readonly maxStructuralVariants?: number;
   };
+  readonly manifest?: {
+    /** Output path relative to the typed-sql config file. */
+    readonly outFile?: string;
+  };
 }
 
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -177,6 +181,9 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   const maximum = config.compiler?.maxStructuralVariants;
   if (maximum !== undefined && (!Number.isSafeInteger(maximum) || maximum < 1)) {
     throw new TypeError("compiler.maxStructuralVariants must be a positive safe integer");
+  }
+  if (config.manifest?.outFile !== undefined && config.manifest.outFile.length === 0) {
+    throw new TypeError("manifest.outFile must be a non-empty string");
   }
   return Object.freeze(config);
 }

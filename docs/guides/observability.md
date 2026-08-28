@@ -94,7 +94,7 @@ Nested transaction events use depth `1` for the first transaction and increase f
 
 A runtime query fingerprint is SHA-256 over the dialect id, grammar version, and rendered structural SQL. Parameter values and checkout paths are not inputs.
 
-For an unconditional query, the runtime fingerprint equals `CompiledQuery.fingerprint`. A conditionally composed query can produce several complete structural statements; its runtime fingerprint equals one member of `CompiledQuery.variantFingerprints`. The compiled query's top-level fingerprint is the deterministic identity of that complete variant set. This lets generated manifests index runtime spans without storing SQL or values.
+For an unconditional query, the runtime fingerprint equals `CompiledQuery.fingerprint`. A conditionally composed query can produce several complete structural statements; its runtime fingerprint equals one member of `CompiledQuery.variantFingerprints`. The compiled query's top-level fingerprint is the deterministic identity of that complete variant set. [Query manifests](./query-manifests.md) index runtime spans without storing SQL or values.
 
 Fingerprints are stable correlation identifiers, not authorization tokens or cryptographic attestations.
 

@@ -13,6 +13,7 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ002` | SQL exceeded a parser resource limit. |
 | `TSQ003` | Conditional SQL exceeded the structural variant limit. |
 | `TSQ004` | Structural SQL requires an explicitly trusted fragment. |
+| `TSQ005` | Runtime SQL cannot be analyzed statically. |
 | `TSQ007` | The schema snapshot and dialect do not match. |
 | `TSQ100` | A referenced table does not exist. |
 | `TSQ101` | A referenced column does not exist. |

@@ -153,7 +153,10 @@ await describe("public package graph", async () => {
     const compiler = await source("compiler");
     strict.ok(!compiler.includes("@typed-sql/postgres"));
     strict.ok(!compiler.includes('=== "postgres"'));
-    strict.deepStrictEqual(Object.keys((await manifest("compiler")).dependencies ?? {}), ["@typed-sql/core"]);
+    strict.deepStrictEqual(Object.keys((await manifest("compiler")).dependencies ?? {}).sort(), [
+      "@typed-sql/core",
+      "@typed-sql/schema",
+    ]);
   });
 
   await it("keeps the public conformance kit and example grammar implementation-neutral", async () => {

@@ -149,7 +149,7 @@ Set `DatabaseObserver.captureErrorCause` only when an integration explicitly nee
 
 ## Configuration and schema contracts
 
-`defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, and compiler options.
+`defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, and optional `manifest.outFile`.
 
 Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, column, domain, and function metadata, `SchemaProvider`, and source-mapped diagnostics.
 
@@ -159,13 +159,18 @@ Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, 
 
 - `checkFile` and its option and result types;
 - `compileSource` and its query or fragment results;
-- `extractStaticQueries`, `mapSqlRange`, `ExtractedQuery`, and `ExtractedInterpolation`.
+- `extractStaticQueries`, `extractDynamicQueries`, `mapSqlRange`, and their extracted-source types;
+- `buildQueryManifest`, canonical serialization, compatible parsing, and project file enumeration;
+- the query manifest format, fingerprint algorithm, and JSON Schema constants.
 
 Each `CompiledQuery` includes:
 
 - `fingerprint`, a dialect- and grammar-version-scoped SHA-256 identity;
 - `variantFingerprints`, containing every bounded structural SQL identity;
+- `variants`, containing each fingerprint's ordered parameters, columns, branch choices, and semantics;
 - `semantics`, with source-mapped, conservatively merged query evidence.
+
+Manifest output is a compiler and CI artifact, not an application import surface. See [Query manifests](../guides/query-manifests.md) for the format, redaction boundary, incremental behavior, and CLI exit codes.
 
 Scanner control flow, append extraction, structural parsing, branch expansion, and conditional row rendering remain internal.
 

@@ -159,6 +159,9 @@ importers:
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../core
+      '@typed-sql/schema':
+        specifier: workspace:*
+        version: link:../schema
 
   packages/config:
     dependencies:

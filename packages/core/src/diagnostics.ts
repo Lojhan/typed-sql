@@ -3,6 +3,7 @@ export const diagnosticRegistry = Object.freeze({
   TSQ002: { category: "resource", summary: "SQL exceeded a parser resource limit." },
   TSQ003: { category: "resource", summary: "Conditional SQL exceeded the structural variant limit." },
   TSQ004: { category: "contract", summary: "Structural SQL requires an explicitly trusted fragment." },
+  TSQ005: { category: "support", summary: "Runtime SQL cannot be analyzed statically." },
   TSQ007: { category: "contract", summary: "The schema snapshot and dialect do not match." },
   TSQ100: { category: "schema", summary: "A referenced table does not exist." },
   TSQ101: { category: "schema", summary: "A referenced column does not exist." },

@@ -5,6 +5,7 @@ import {
   mergeQuerySemantics,
   parameterTypeLiteral,
   type QuerySemantics,
+  type ResolvedColumn,
   type ResolvedParameter,
   rowTypeLiteral,
   type SchemaSnapshot,
@@ -28,6 +29,17 @@ export interface CompiledQuery {
   readonly structural?: true;
   readonly fingerprint: string;
   readonly variantFingerprints: readonly string[];
+  readonly variants: readonly CompiledQueryVariant[];
+  readonly semantics: QuerySemantics;
+}
+
+export interface CompiledQueryVariant {
+  readonly fingerprint: string;
+  readonly rowType: string;
+  readonly parameterType: string;
+  readonly choices: Readonly<Record<string, boolean>>;
+  readonly columns: readonly ResolvedColumn[];
+  readonly parameters: readonly ResolvedParameter[];
   readonly semantics: QuerySemantics;
 }
 
@@ -158,6 +170,26 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
         )
       ) {
+        const variants: readonly CompiledQueryVariant[] = resolvedVariants.map(
+          ({ variant, resolved, fingerprint }) => ({
+            fingerprint,
+            rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
+            parameterType: parameterTypeLiteral(variant.query.parameterCount, resolved.parameters),
+            choices: Object.freeze(
+              Object.fromEntries(
+                [...variant.choices].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+              ),
+            ),
+            columns: Object.freeze(
+              resolved.columns.map((column) => ({
+                ...column,
+                range: mapSqlRange(source, variant.query, column.range),
+              })),
+            ),
+            parameters: Object.freeze(resolved.parameters.map((parameter) => Object.freeze({ ...parameter }))),
+            semantics: sourceSemantics(source, variant.query, resolved.semantics),
+          }),
+        );
         const rows = resolvedVariants.map(({ variant, resolved }) => ({
           row: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
           choices: variant.choices,
@@ -219,9 +251,8 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
             [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
           ),
           fingerprint: identify([...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort().join("\0")),
-          semantics: mergeQuerySemantics(
-            resolvedVariants.map(({ variant, resolved }) => sourceSemantics(source, variant.query, resolved.semantics)),
-          ),
+          variants,
+          semantics: mergeQuerySemantics(variants.map((variant) => variant.semantics)),
         });
         compiledFragments.push(
           ...[...byPosition.values()].map((item) => ({
@@ -236,13 +267,30 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       const queryFingerprint = identify(query.sql);
+      const semantics = sourceSemantics(source, query, resolved.semantics);
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
         parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
         fingerprint: queryFingerprint,
         variantFingerprints: Object.freeze([queryFingerprint]),
-        semantics: sourceSemantics(source, query, resolved.semantics),
+        variants: Object.freeze([
+          {
+            fingerprint: queryFingerprint,
+            rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
+            parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
+            choices: Object.freeze({}),
+            columns: Object.freeze(
+              resolved.columns.map((column) => ({
+                ...column,
+                range: mapSqlRange(source, query, column.range),
+              })),
+            ),
+            parameters: Object.freeze(resolved.parameters.map((parameter) => Object.freeze({ ...parameter }))),
+            semantics,
+          },
+        ]),
+        semantics,
       });
     }
   }

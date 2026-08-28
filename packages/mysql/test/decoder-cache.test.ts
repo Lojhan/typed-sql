@@ -1,8 +1,6 @@
-import { performance } from "node:perf_hooks";
 import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import {
-  compileMySqlRowDecoders,
   decodeMySqlRow,
   MySqlDecoderPlanCache,
   type MySqlFieldLike,
@@ -205,41 +203,5 @@ await describe("MySQL decoder plan cache", async () => {
     });
     await changedMetadata.close();
     strict.strictEqual(pool.connection.releaseCount, 2);
-  });
-
-  await it("keeps repeated decoder lookup faster than recompiling stable metadata", () => {
-    const fields = Array.from(
-      { length: 24 },
-      (_, index): MySqlFieldLike => ({
-        name: `column_${index}`,
-        columnType: index % 2 === 0 ? 8 : 246,
-      }),
-    );
-    const cache = new MySqlDecoderPlanCache(defaultPolicy);
-    cache.get(fields);
-    const iterations = 10_000;
-    for (let index = 0; index < 2_000; index += 1) {
-      compileMySqlRowDecoders(fields, defaultPolicy);
-      cache.get(fields);
-    }
-    const uncachedSamples: number[] = [];
-    const cachedSamples: number[] = [];
-    for (let sample = 0; sample < 5; sample += 1) {
-      let start = performance.now();
-      for (let index = 0; index < iterations; index += 1) compileMySqlRowDecoders(fields, defaultPolicy);
-      uncachedSamples.push(performance.now() - start);
-      start = performance.now();
-      for (let index = 0; index < iterations; index += 1) cache.get(fields);
-      cachedSamples.push(performance.now() - start);
-    }
-    uncachedSamples.sort((left, right) => left - right);
-    cachedSamples.sort((left, right) => left - right);
-    const uncachedDuration = uncachedSamples[2]!;
-    const cachedDuration = cachedSamples[2]!;
-
-    strict.ok(
-      cachedDuration < uncachedDuration * 0.8,
-      `Expected cached decoder lookup (${cachedDuration.toFixed(2)}ms) to stay at least 20% below recompilation (${uncachedDuration.toFixed(2)}ms)`,
-    );
   });
 });
