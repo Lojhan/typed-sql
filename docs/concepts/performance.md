@@ -45,7 +45,7 @@ At runtime, interpolation-free fragment templates may reuse their complete immut
 | Compiler, 250 PostgreSQL queries | 20 ms | 50 ms |
 | Query manifest, 250 queries | 25 ms | 60 ms |
 | Query manifest, unchanged source | 0.5 ms | 1 ms |
-| Query verification, 250 cached native responses | 15 ms | 35 ms |
+| Query verification, 250 cached native responses plus canonical proof hashing | 40 ms | 60 ms |
 | 20 correlated conditions | 5 ms | 10 ms |
 | Six independent conditions | 10 ms | 25 ms |
 | Structural limit rejection | 5 ms | 10 ms |
