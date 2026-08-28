@@ -55,11 +55,16 @@ The package root exports `sql`, `postgres`, and the PostgreSQL type policy. The 
 exports the schema provider, execution adapter, `createPgLiveVerifier`, and `createPgPlanInspector`;
 `/runtime` exposes driver-neutral PostgreSQL rendering and codecs.
 
+The root also exports `createPostgresRoutedDatabase`, the runtime semantic resolver, and the native
+transaction retry classifier. These compose application-owned adapters without installing or
+creating `pg` pools.
+
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
 [observability guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/observability.md),
 [live verification guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md),
 [query plan governance guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-plan-governance.md),
+[routing and retry guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/routing-and-retries.md),
 [configuration](https://github.com/Lojhan/typed-sql/blob/main/docs/getting-started/configuration.md), and
 [database type mappings](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/type-mappings.md).
 

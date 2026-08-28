@@ -9,7 +9,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 ## Public entrypoints
 
-- `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, and type mapping.
+- `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
 
@@ -38,6 +38,8 @@ The provider records tables, views, columns, defaults, server version, arrays, e
 `createPgLiveVerifier()` uses session-local `PREPARE` and `pg_prepared_statements` without executing the statement or sending values. PostgreSQL 18 provides parameter and result types; older versions are explicitly incomplete. See [Live verification](../guides/live-verification.md).
 
 `createPgPlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. PostgreSQL 18 generic plans need no parameter values; optional transient samples request a custom plan. Normalized evidence excludes expressions and literals. See [Query plan governance](../guides/query-plan-governance.md).
+
+`createPostgresRoutedDatabase()` composes application-owned databases and parses runtime query shapes with the PostgreSQL grammar. Stable, non-locking reads may use a supplied replica. `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, writes, volatile functions, session state, and unknown statements use primary. `isPostgresRetryableTransactionError()` recognizes only transaction rollback SQLSTATE `40001` and deadlock SQLSTATE `40P01`. See [Route reads and retry transactions](../guides/routing-and-retries.md).
 
 ## Runtime behavior
 
@@ -69,4 +71,4 @@ The adapter imports it when iteration starts, leases one `pg` pool client, and r
 
 Inside a transaction, the stream reuses the transaction client and never releases it directly. The stream must complete or close before the transaction callback returns. Transaction `execute()`, `batch()`, and `pipeline()` calls must likewise be awaited before return; the adapter settles outstanding work before rollback and never selects commit first.
 
-See [Execute queries](../guides/execution.md), [Database type mappings](../reference/type-mappings.md#postgresql), and [Compatibility](../reference/compatibility.md).
+See [Execute queries](../guides/execution.md), [Route reads and retry transactions](../guides/routing-and-retries.md), [Database type mappings](../reference/type-mappings.md#postgresql), and [Compatibility](../reference/compatibility.md).

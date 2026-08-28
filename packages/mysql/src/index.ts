@@ -18,6 +18,7 @@ const capabilities = Object.freeze({
   arrays: false,
   distinctOn: false,
   fullJoins: false,
+  lockingReads: true,
   recursiveCtes: false,
   returning: false,
   setOperations: false,
@@ -80,6 +81,12 @@ export type { SchemaSnapshot } from "@typed-sql/schema";
 export { parseSchemaSnapshot } from "@typed-sql/schema";
 export type { MySqlQueryable, MySqlSchemaProviderOptions } from "./provider.js";
 export { introspectMySql, MySqlSchemaProvider, mysqlCatalogQueries } from "./provider.js";
+export type { MySqlQuerySemanticResolverOptions, MySqlRoutedDatabaseOptions } from "./routing.js";
+export {
+  createMySqlQuerySemanticResolver,
+  createMySqlRoutedDatabase,
+  isMySqlRetryableTransactionError,
+} from "./routing.js";
 export type { MySqlTypePolicy } from "./type-policy.js";
 export {
   defaultMySqlTypePolicy,

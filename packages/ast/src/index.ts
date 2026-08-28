@@ -28,6 +28,7 @@ export type {
   ParameterExpression,
   RowExpression,
   SelectItem,
+  SelectLockingClause,
   SelectStatement,
   SourceRange,
   SqlDiagnostic,

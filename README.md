@@ -68,6 +68,8 @@ codecs. The interpolation is also checked as `bigint` because it is compared wit
   cardinality, and node-shape regressions without executing application statements.
 - **Check migrations against deployed queries.** Offline compatibility reports analyze both rolling-
   deployment directions and link breaks to exact query variants.
+- **Route with semantic proof.** Opt-in routed databases send only proven-safe reads to
+  application-owned replicas and support bounded retries for explicit transactions.
 
 ## Install
 
@@ -155,6 +157,7 @@ the structural-variant bound.
 - [Live database verification](./docs/guides/live-verification.md)
 - [Query plan governance](./docs/guides/query-plan-governance.md)
 - [Migration compatibility](./docs/guides/migration-compatibility.md)
+- [Read routing and transaction retries](./docs/guides/routing-and-retries.md)
 - [PostgreSQL grammar](./docs/dialects/postgresql.md)
 - [MySQL grammar](./docs/dialects/mysql.md)
 - [Inference and safety](./docs/concepts/type-safety.md)

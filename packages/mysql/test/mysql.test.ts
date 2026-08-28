@@ -115,7 +115,32 @@ await describe("MySQL dialect", async () => {
       "stable",
     );
     strict.strictEqual(dialect.analyze("SELECT", typedSchema).semantics.operation.value, "unknown");
-    for (const unsupported of ["SELECT id FROM users FOR UPDATE", "CREATE TABLE audit (id bigint)"]) {
+    const locking = dialect.analyze("SELECT id FROM users FOR SHARE NOWAIT", typedSchema);
+    strict.strictEqual(locking.semantics.operation.value, "read");
+    strict.strictEqual(locking.semantics.locking.value, "row");
+    strict.strictEqual(locking.semantics.connectionAffinity.value, "transaction");
+    strict.ok(locking.semantics.capabilities.includes("lockingReads"));
+    strict.strictEqual(
+      dialect.analyze("SELECT id FROM users LOCK IN SHARE MODE", typedSchema).semantics.locking.value,
+      "row",
+    );
+    const multipleLocking = dialect.analyze(
+      "SELECT u.id FROM users u JOIN projects p ON p.owner_id = u.id FOR SHARE OF u FOR UPDATE OF p",
+      typedSchema,
+    );
+    strict.deepStrictEqual(multipleLocking.diagnostics, []);
+    strict.strictEqual(multipleLocking.semantics.locking.value, "row");
+    for (const [source, code] of [
+      ["SELECT id FROM users FOR UPDATE OF missing", "TSQ103"],
+      ["SELECT u.id FROM users u JOIN projects p ON p.owner_id = u.id FOR UPDATE FOR SHARE OF p", "TSQ401"],
+      ["SELECT id FROM users u FOR UPDATE OF u FOR SHARE OF u", "TSQ401"],
+    ] as const) {
+      const invalidLocking = dialect.analyze(source, typedSchema);
+      strict.ok(invalidLocking.diagnostics.some((diagnostic) => diagnostic.code === code));
+      strict.strictEqual(invalidLocking.semantics.operation.value, "unknown");
+    }
+
+    for (const unsupported of ["CREATE TABLE audit (id bigint)", "SET @tenant_id = 1"]) {
       const analysis = dialect.analyze(unsupported, typedSchema);
       strict.ok(analysis.diagnostics.some(({ severity }) => severity === "error"));
       strict.strictEqual(analysis.semantics.operation.value, "unknown");

@@ -221,6 +221,21 @@ class Resolver {
       this.#unsupported("MySQL does not support DISTINCT ON", statement.distinctOn[0]!.range);
     if (statement.from !== undefined) this.#relation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#join(join, scope, ctes);
+    const lockingTargets = new Set<string>();
+    for (const clause of statement.locking) {
+      if (statement.locking.length > 1 && clause.relations.length === 0) {
+        this.#unsupported("Multiple MySQL locking clauses require an OF target", clause.range);
+      }
+      for (const relation of clause.relations) {
+        const target = name(relation);
+        if (!scope.relations.some(({ alias }) => alias === target)) {
+          this.#diagnostic("TSQ103", `Unknown locking relation ${relation.name}`, relation.range);
+        } else if (lockingTargets.has(target)) {
+          this.#unsupported(`MySQL locking relation ${relation.name} is repeated`, relation.range);
+        }
+        lockingTargets.add(target);
+      }
+    }
     if (statement.where !== undefined)
       this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     for (const value of statement.groupBy) this.#expression(value, scope, ctes);

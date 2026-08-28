@@ -100,7 +100,16 @@ await describe("PostgreSQL dialect plugin", async () => {
         ({ kind, name, certainty }) => kind === "function" && name === "user_count" && certainty === "resolved",
       ),
     );
-    for (const unsupported of ["SELECT id FROM users FOR UPDATE", "CREATE TABLE audit (id integer)"]) {
+    const locking = dialect.analyze("SELECT id FROM users FOR UPDATE SKIP LOCKED", schema);
+    strict.strictEqual(locking.semantics.operation.value, "read");
+    strict.strictEqual(locking.semantics.locking.value, "row");
+    strict.strictEqual(locking.semantics.connectionAffinity.value, "transaction");
+    strict.ok(locking.semantics.capabilities.includes("lockingReads"));
+    const invalidLockingTarget = dialect.analyze("SELECT id FROM users FOR UPDATE OF missing", schema);
+    strict.ok(invalidLockingTarget.diagnostics.some(({ code }) => code === "TSQ103"));
+    strict.strictEqual(invalidLockingTarget.semantics.operation.value, "unknown");
+
+    for (const unsupported of ["CREATE TABLE audit (id integer)", "SET search_path = public"]) {
       const analysis = dialect.analyze(unsupported, schema);
       strict.ok(analysis.diagnostics.some(({ severity }) => severity === "error"));
       strict.strictEqual(analysis.semantics.operation.value, "unknown");

@@ -234,6 +234,13 @@ export interface WithClause {
   readonly range: SourceRange;
 }
 
+export interface SelectLockingClause {
+  readonly strength: "update" | "no-key-update" | "share" | "key-share";
+  readonly relations: readonly Identifier[];
+  readonly wait?: "nowait" | "skip-locked";
+  readonly range: SourceRange;
+}
+
 export interface SelectStatement {
   readonly kind: "select";
   readonly with?: WithClause;
@@ -249,6 +256,7 @@ export interface SelectStatement {
   readonly orderBy: readonly OrderByItem[];
   readonly limit?: Expression;
   readonly offset?: Expression;
+  readonly locking: readonly SelectLockingClause[];
   readonly range: SourceRange;
 }
 
