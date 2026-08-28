@@ -18,11 +18,21 @@ const publicPackages = [
   "postgres",
   "mysql",
   "compiler",
+  "conformance",
   "cli",
   "ts-bridge",
   "language-server",
 ] as const;
-const stableModulePackages = new Set(["ast", "core", "config", "schema", "postgres", "mysql", "compiler"]);
+const stableModulePackages = new Set([
+  "ast",
+  "core",
+  "config",
+  "schema",
+  "postgres",
+  "mysql",
+  "compiler",
+  "conformance",
+]);
 
 async function writeEditorProject(
   consumer: string,
@@ -178,6 +188,15 @@ await describe("packed public packages", async () => {
         }
       }
 
+      const examplePackage = "@typed-sql/example-synthetic-grammar";
+      const beforeExample = new Set(await readdir(tarballs));
+      await execFile("pnpm", ["--silent", "--filter", examplePackage, "pack", "--pack-destination", tarballs], {
+        cwd: workspace,
+      });
+      const exampleArchive = (await readdir(tarballs)).find((entry) => !beforeExample.has(entry));
+      if (exampleArchive === undefined) throw new Error(`pnpm pack did not create an archive for ${examplePackage}`);
+      dependencies[examplePackage] = `file:${join(tarballs, exampleArchive)}`;
+
       await writeFile(
         join(grammar, "package.json"),
         `${JSON.stringify(
@@ -315,6 +334,8 @@ await describe("packed public packages", async () => {
         import { mysqlRenderer } from "@typed-sql/mysql/runtime";
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
         import { compileSource } from "@typed-sql/compiler";
+        import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
+        import { syntheticConformanceFixture } from "@typed-sql/example-synthetic-grammar/conformance";
         import { parseSchemaSnapshot } from "@typed-sql/schema";
         import "@typed-sql/ast";
         import "@typed-sql/config";
@@ -335,6 +356,11 @@ await describe("packed public packages", async () => {
         if (mysqlRenderer.placeholder(2) !== "?") throw new Error("MySQL runtime import failed");
         if (postgresSql\`SELECT \${1}\`.segments.length !== 3 || mysqlSql\`SELECT \${1}\`.segments.length !== 3) throw new Error("dialect sql export failed");
         if (typeof compileSource !== "function") throw new Error("compiler import failed");
+        if (GRAMMAR_CONFORMANCE_VERSION !== 1) throw new Error("conformance version import failed");
+        const conformance = assertGrammarConformance(syntheticConformanceFixture);
+        if (conformance.grammar !== "synthetic" || conformance.structuralVariants !== 2) {
+          throw new Error("packed third-party grammar conformance failed");
+        }
         const compiled = compileSource({
           source: 'import { sql } from "@typed-sql/postgres"; const query = sql\`SELECT 1 AS value\`;',
           dialect: postgres(),

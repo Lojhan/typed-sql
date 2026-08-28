@@ -84,7 +84,7 @@ const plugin = Object.freeze({
   id: "acme",
   grammarVersion: ACME_GRAMMAR_VERSION,
   sqlModule: "@acme/typed-sql",
-  capabilities: Object.freeze({ returning: false, recursiveCtes: true }),
+  capabilities: Object.freeze({ returning: false, recursiveCtes: false }),
   defaultTypePolicy: typePolicy,
   placeholder(index: number) {
     if (!Number.isInteger(index) || index < 1) {
@@ -141,18 +141,76 @@ Three versions have different responsibilities:
 
 Changing placeholder behavior, identifier rules, catalog interpretation, or inferred types requires a grammar-version change whenever an existing snapshot could be interpreted differently. The package version does not replace this explicit check.
 
-## Conformance checklist
+## Conformance kit
 
-Before publishing a grammar:
+`@typed-sql/conformance` is the executable compatibility contract for first- and third-party
+grammars. Install it and Poku as development dependencies:
 
-1. Verify `assertDialectPlugin` and `defineConfig` accept it.
-2. Verify placeholder and identifier rendering match the runtime adapter.
-3. Accept valid snapshots and reject other dialects or incompatible grammar versions.
-4. Prove one exact row and ordered parameter tuple.
-5. Prove a type-policy override changes inference and runtime decoding together.
-6. Produce a documented diagnostic for unsupported syntax.
-7. Prove operation, cardinality, dependency, and volatility evidence for the exact query.
-8. Prove unsupported analysis exposes unknown semantics.
-9. Install the packed package in an empty project without workspace imports or a database driver.
+```sh
+pnpm add -D @typed-sql/conformance poku
+```
 
-Executable conformance examples live in the repository's [`test/grammar`](https://github.com/Lojhan/typed-sql/tree/main/test/grammar) fixtures.
+Export a `GrammarConformanceFixture` from the grammar package and run it in an ordinary Poku test:
+
+```ts
+import {
+  assertGrammarConformance,
+  defineGrammarConformanceFixture,
+  GRAMMAR_CONFORMANCE_VERSION,
+} from "@typed-sql/conformance";
+import { describe, it } from "poku";
+import { acme, acmeConformanceFixture } from "../src/index.js";
+
+await describe("acme grammar", async () => {
+  await it("implements the typed-sql grammar contract", () => {
+    assertGrammarConformance(defineGrammarConformanceFixture({
+      version: GRAMMAR_CONFORMANCE_VERSION,
+      dialect: acme(),
+      ...acmeConformanceFixture,
+    }));
+  });
+});
+```
+
+The fixture proves:
+
+- plugin, config, renderer, snapshot, and grammar-version compatibility;
+- exact rows and ordered parameters for selects, nullability, joins, CTEs, functions, and DML;
+- one positive or fail-closed probe for every declared capability;
+- source-ranged diagnostics and deeply immutable semantic evidence;
+- structural variants, fingerprints, type-policy overrides, and the absence of `any`;
+- unsupported SQL fails closed in both direct analysis and compiler integration.
+
+Capability declarations are claims, not hints. Set a capability to `true` only when its probe
+resolves successfully and records the capability in semantic evidence. Set it to `false` when the
+grammar deliberately rejects the feature, and provide the expected diagnostic. A grammar must
+provide exactly one probe for every key it declares.
+
+The required probe names and fixture shape are versioned by `GRAMMAR_CONFORMANCE_VERSION`. A new
+optional assertion is additive. A change that invalidates an existing conforming fixture increments
+the conformance version and ships through the matching typed-sql major version.
+
+### Codecs and performance
+
+Use `assertCodecConformance()` to keep representative runtime decoding cases beside static type
+policy probes. Use `measureGrammarPerformance()` to measure complete analysis batches after warmup:
+
+```ts
+const result = measureGrammarPerformance({
+  dialect: acme(),
+  snapshot,
+  queries: corpus,
+  warmups: 5,
+  samples: 30,
+});
+```
+
+The result reports p50, p95, and minimum queries per second. Compare results on a pinned runner and
+store that environment's budget in the grammar repository. The kit intentionally has no universal
+timing threshold because machine-independent millisecond budgets are misleading.
+
+Before publishing, pack the grammar and run its conformance suite from an empty consumer project.
+This catches private source imports, missing exports, undeclared dependencies, and accidental driver
+installation. The repository's
+[`examples/synthetic-grammar`](https://github.com/Lojhan/typed-sql/tree/main/examples/synthetic-grammar)
+is a minimal grammar that passes using published entrypoints only.

@@ -17,7 +17,7 @@ const capabilities = Object.freeze({
   arrays: true,
   distinctOn: true,
   fullJoins: true,
-  recursiveCtes: true,
+  recursiveCtes: false,
   returning: true,
   setOperations: false,
 });

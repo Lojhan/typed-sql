@@ -124,6 +124,7 @@ the structural-variant bound.
 | `@typed-sql/schema` | Versioned snapshots, hashes, migrations, and drift | Stable |
 | `@typed-sql/config` | Config discovery and loading | Stable |
 | `@typed-sql/compiler` | Grammar-neutral TypeScript source analysis | Stable |
+| `@typed-sql/conformance` | Executable compatibility kit for SQL grammar packages | Stable |
 | `@typed-sql/postgres` | PostgreSQL grammar, codecs, introspection, and optional `pg` adapter | Stable |
 | `@typed-sql/mysql` | MySQL grammar, codecs, introspection, and optional `mysql2` adapter | Stable |
 | `@typed-sql/cli` | Snapshot generation, query checking, and drift commands | Stable |

@@ -26,12 +26,13 @@ This file records maintainer and automation knowledge. Public documentation belo
 - `packages/schema`: snapshot envelope, validation, codecs, and canonical serialization.
 - `packages/config`: config discovery and validation.
 - `packages/compiler`: TypeScript project integration and generated declarations.
+- `packages/conformance`: public, grammar-neutral compatibility assertions and performance evidence.
 - `packages/postgres`, `packages/mysql`: grammar semantics and optional driver adapters.
 - `packages/cli`: introspection and generation commands.
 - `packages/ts-bridge`, `packages/language-server`: experimental TypeScript preview integration.
 - `editors/`: thin editor integrations over the language server.
 - `website/`: private VitePress shell that renders the canonical `docs/` tree.
-- `test/grammar`: shared grammar corpus and conformance fixtures.
+- `examples/synthetic-grammar`: third-party grammar proof using published entrypoints only.
 - `test/contracts`: package graph, distribution, release, and documentation contracts.
 - `e2e/`: real database and packed-consumer verification.
 

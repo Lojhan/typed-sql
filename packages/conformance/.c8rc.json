@@ -1,0 +1,9 @@
+{
+  "all": true,
+  "include": ["src/**/*.ts"],
+  "exclude": ["test/**/*.ts"],
+  "lines": 95,
+  "statements": 95,
+  "functions": 95,
+  "branches": 85
+}

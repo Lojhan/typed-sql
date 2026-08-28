@@ -1,0 +1,46 @@
+{
+  "name": "@typed-sql/conformance",
+  "version": "1.0.0",
+  "description": "Public grammar, capability, codec, and performance conformance kit for typed-sql dialects.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/conformance"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce",
+    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+  },
+  "exports": {
+    ".": "./dist/packages/conformance/src/index.js"
+  },
+  "dependencies": {
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/core": "workspace:*"
+  }
+}

@@ -16,6 +16,24 @@ import type {
 import * as compilerApi from "../../packages/compiler/src/index.js";
 import * as configApi from "../../packages/config/src/index.js";
 import type {
+  CodecConformanceCase,
+  CodecConformanceFixture,
+  GrammarAnalysisProbe,
+  GrammarCapabilityProbe,
+  GrammarConformanceFixture,
+  GrammarConformanceReport,
+  GrammarDependencyExpectation,
+  GrammarPerformanceOptions,
+  GrammarPerformanceResult,
+  GrammarPolicyProbe,
+  GrammarSemanticExpectation,
+  GrammarStructuralProbe,
+  GrammarUnsupportedProbe,
+  RequiredGrammarProbe,
+  RuntimeAdapterConformanceFixture,
+} from "../../packages/conformance/src/index.js";
+import * as conformanceApi from "../../packages/conformance/src/index.js";
+import type {
   Database,
   DialectCapabilities,
   DialectPlugin,
@@ -250,6 +268,21 @@ type ReferencedStableTypes =
   | ExtractedInterpolation
   | ExtractedQuery
   | TypeScriptCheckResult
+  | CodecConformanceCase<unknown, unknown>
+  | CodecConformanceFixture<unknown, unknown>
+  | GrammarAnalysisProbe
+  | GrammarCapabilityProbe
+  | GrammarConformanceFixture<SchemaSnapshot, unknown>
+  | GrammarConformanceReport
+  | GrammarDependencyExpectation
+  | GrammarPerformanceOptions<SchemaSnapshot, unknown>
+  | GrammarPerformanceResult
+  | GrammarPolicyProbe<unknown>
+  | GrammarSemanticExpectation
+  | GrammarStructuralProbe
+  | GrammarUnsupportedProbe
+  | RequiredGrammarProbe
+  | RuntimeAdapterConformanceFixture<Account, readonly [bigint]>
   | DialectCapabilities
   | DialectPlugin
   | OptionalSqlFragment
@@ -323,6 +356,16 @@ const expectedRuntimeExports = {
     "walkStatement",
   ],
   compiler: ["checkFile", "compileSource", "extractStaticQueries", "mapSqlRange"],
+  conformance: [
+    "GRAMMAR_CONFORMANCE_VERSION",
+    "REQUIRED_GRAMMAR_PROBES",
+    "assertCodecConformance",
+    "assertGrammarConformance",
+    "assertRuntimeAdapterConformance",
+    "defineCodecConformanceFixture",
+    "defineGrammarConformanceFixture",
+    "measureGrammarPerformance",
+  ],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
     "assertDialectPlugin",
@@ -398,6 +441,7 @@ await describe("stable public API", async () => {
     const actual = {
       ast: Object.keys(astApi).sort(),
       compiler: Object.keys(compilerApi).sort(),
+      conformance: Object.keys(conformanceApi).sort(),
       config: Object.keys(configApi).sort(),
       core: Object.keys(coreApi).sort(),
       mysql: Object.keys(mysqlApi).sort(),
@@ -418,12 +462,16 @@ await describe("stable public API", async () => {
     const astIndex = await readFile(new URL("../../packages/ast/src/index.ts", import.meta.url), "utf8");
     const schemaIndex = await readFile(new URL("../../packages/schema/src/index.ts", import.meta.url), "utf8");
     const compilerIndex = await readFile(new URL("../../packages/compiler/src/index.ts", import.meta.url), "utf8");
+    const conformanceIndex = await readFile(
+      new URL("../../packages/conformance/src/index.ts", import.meta.url),
+      "utf8",
+    );
     strict.ok(!coreIndex.includes("SqlPartsParameters"));
     strict.ok(!coreIndex.includes("FragmentListParameters"));
     strict.ok(!compilerIndex.includes("StructuralExpansion"));
     strict.ok(!compilerIndex.includes("structuralRowType"));
     strict.ok(!compilerIndex.includes("extractAppendFragments"));
-    for (const index of [coreIndex, astIndex, schemaIndex, compilerIndex]) {
+    for (const index of [coreIndex, astIndex, schemaIndex, compilerIndex, conformanceIndex]) {
       strict.ok(!index.includes("export type *"), "stable package roots must explicitly inventory type exports");
     }
   });

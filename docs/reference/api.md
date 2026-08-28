@@ -148,6 +148,26 @@ Dialect contract version 4 requires every `DialectAnalysis` to include `QuerySem
 
 See [Authoring a custom grammar](../extending/custom-grammars.md).
 
+## Grammar conformance entrypoints
+
+`@typed-sql/conformance` is a stable, driver-free test package for grammar authors:
+
+- `GRAMMAR_CONFORMANCE_VERSION` versions the public fixture contract.
+- `REQUIRED_GRAMMAR_PROBES` lists the inference families every grammar must exercise.
+- `assertGrammarConformance(fixture)` verifies plugin, renderer, snapshot, inference, semantic,
+  capability, structural-composition, and fail-closed behavior and returns an immutable report.
+- `defineGrammarConformanceFixture(fixture)` preserves generic fixture types at the package boundary.
+- `assertCodecConformance(fixture)` verifies representative runtime decoding cases.
+- `defineCodecConformanceFixture(fixture)` defines a typed codec corpus.
+- `assertRuntimeAdapterConformance(fixture)` verifies rendering, values, execution, and transaction
+  dispatch through a driver-free recorder.
+- `measureGrammarPerformance(options)` returns warmup-normalized p50, p95, and minimum throughput
+  evidence without imposing a machine-independent budget.
+
+The package exports its fixture, expectation, report, codec, and performance types from its root. It
+does not install a SQL grammar, database driver, or test runner. See the
+[conformance guide](../extending/custom-grammars.md#conformance-kit).
+
 ## Compatibility policy
 
 Removing or incompatibly changing a documented entrypoint, runtime export, type relationship, grammar contract, or diagnostic meaning requires a major version. Additive public exports may ship in a minor version. Experimental packages may change while marked experimental but must remain compatible with the matching core and compiler train.

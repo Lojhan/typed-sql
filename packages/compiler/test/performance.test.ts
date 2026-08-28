@@ -67,6 +67,26 @@ await describe("compiler performance budget", async () => {
     strict.ok(duration <= budget, `Compiler took ${duration.toFixed(1)}ms; budget is ${budget}ms`);
   });
 
+  await it("reuses grammar analysis for repeated static statement shapes", () => {
+    let analyses = 0;
+    const measured = {
+      ...dialect,
+      analyze: (...args: Parameters<typeof dialect.analyze>) => {
+        analyses += 1;
+        return dialect.analyze(...args);
+      },
+    };
+    const source = [
+      'import { sql } from "@example/typed-sql-performance";',
+      ...Array.from({ length: 250 }, (_, index) => `export const query${index} = sql\`SELECT id\`;`),
+    ].join("\n");
+    const result = compileSource({ source, schema, dialect: measured });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.queries.length, 250);
+    strict.strictEqual(analyses, 1);
+    strict.strictEqual(new Set(result.queries.map(({ fingerprint }) => fingerprint)).size, 1);
+  });
+
   await it("rejects a large malformed import in linear time", () => {
     const source = "import{{".repeat(100_000);
     const budget = Number(process.env.TYPED_SQL_SCANNER_SECURITY_BUDGET_MS ?? "1000");

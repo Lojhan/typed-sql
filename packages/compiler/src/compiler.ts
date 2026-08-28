@@ -95,6 +95,22 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const compiled: CompiledQuery[] = [];
   const compiledFragments: CompiledFragment[] = [];
   const diagnostics: SqlDiagnostic[] = [];
+  const analyses = new Map<string, ReturnType<typeof dialect.analyze>>();
+  const fingerprints = new Map<string, string>();
+  const analyze = (sql: string): ReturnType<typeof dialect.analyze> => {
+    const cached = analyses.get(sql);
+    if (cached !== undefined) return cached;
+    const resolved = dialect.analyze(sql, schema, options.typePolicy);
+    analyses.set(sql, resolved);
+    return resolved;
+  };
+  const identify = (sql: string): string => {
+    const cached = fingerprints.get(sql);
+    if (cached !== undefined) return cached;
+    const result = fingerprint(dialect, sql);
+    fingerprints.set(sql, result);
+    return result;
+  };
   for (const query of extracted) {
     const untaggedStructuralTemplates = findUntaggedStructuralTemplates(source, query);
     if (untaggedStructuralTemplates.length > 0) {
@@ -131,8 +147,8 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     if (expansion?.kind === "variants") {
       const resolvedVariants = expansion.variants.map((variant) => ({
         variant,
-        resolved: dialect.analyze(variant.query.sql, schema, options.typePolicy),
-        fingerprint: fingerprint(dialect, variant.query.sql),
+        resolved: analyze(variant.query.sql),
+        fingerprint: identify(variant.query.sql),
       }));
       for (const { variant, resolved } of resolvedVariants) {
         diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, variant.query, diagnostic)));
@@ -202,10 +218,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           variantFingerprints: Object.freeze(
             [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
           ),
-          fingerprint: fingerprint(
-            dialect,
-            [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort().join("\0"),
-          ),
+          fingerprint: identify([...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort().join("\0")),
           semantics: mergeQuerySemantics(
             resolvedVariants.map(({ variant, resolved }) => sourceSemantics(source, variant.query, resolved.semantics)),
           ),
@@ -219,10 +232,10 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       }
       continue;
     }
-    const resolved = dialect.analyze(query.sql, schema, options.typePolicy);
+    const resolved = analyze(query.sql);
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-      const queryFingerprint = fingerprint(dialect, query.sql);
+      const queryFingerprint = identify(query.sql);
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
@@ -248,7 +261,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       range: { ...base.range, end: fragment.range.end },
       sqlOffsetMap: contextualSql.flatMap((item) => item.sqlOffsetMap),
     };
-    const resolved = dialect.analyze(combined.sql, schema, options.typePolicy);
+    const resolved = analyze(combined.sql);
     const fragmentStart = combined.sql.length - fragment.sql.length;
     const fragmentDiagnostics = resolved.diagnostics.filter((diagnostic) => diagnostic.range.start >= fragmentStart);
     diagnostics.push(...fragmentDiagnostics.map((diagnostic) => mapDiagnostic(source, combined, diagnostic)));

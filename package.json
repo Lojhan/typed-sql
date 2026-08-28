@@ -22,7 +22,7 @@
     "e2e:mysql": "pnpm build && pnpm --filter @typed-sql/e2e-mysql e2e",
     "e2e:packed": "pnpm build && pnpm --filter @typed-sql/e2e-packed e2e",
     "e2e:registry": "pnpm --filter @typed-sql/e2e-packed e2e:registry",
-    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm test:contracts",
+    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm --filter './examples/**' --if-present test && pnpm test:contracts",
     "test:contracts": "poku test/contracts --reporter=compact --enforce",
     "docs:check": "poku test/contracts/documentation.test.ts --reporter=compact --enforce",
     "docs:start": "pnpm --filter typed-sql-docs start",
@@ -40,7 +40,7 @@
     "release:stable": "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
     "release:rehearse": "node scripts/rehearse-stable-release.mjs",
     "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --prod --audit-level high",
-    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage",
+    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
     "version-packages": "node scripts/version-packages.mjs"

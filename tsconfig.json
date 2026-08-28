@@ -8,10 +8,12 @@
     { "path": "./packages/postgres" },
     { "path": "./packages/mysql" },
     { "path": "./packages/compiler" },
+    { "path": "./packages/conformance" },
     { "path": "./packages/ts-bridge" },
     { "path": "./packages/language-server" },
     { "path": "./packages/cli" },
     { "path": "./packages/vscode" },
+    { "path": "./examples/synthetic-grammar" },
     { "path": "./test" }
   ]
 }

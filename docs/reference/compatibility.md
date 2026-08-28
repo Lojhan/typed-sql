@@ -38,7 +38,7 @@ Driver configurations that change decoded value shapes can violate static types.
 
 | Surface | Status |
 | --- | --- |
-| `core`, `ast`, `schema`, `config`, `compiler`, `postgres`, `mysql`, `cli` | Stable package contract |
+| `core`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `cli` | Stable package contract |
 | `ts-bridge`, `language-server` | Experimental while they depend on preview TypeScript APIs |
 | VS Code and Zed integrations | Experimental distribution |
 
@@ -53,3 +53,8 @@ The language server replaces the normal TypeScript server for a configured proje
 ## Grammar and snapshot compatibility
 
 PostgreSQL and MySQL implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.
+
+`@typed-sql/conformance` versions its fixture contract independently through
+`GRAMMAR_CONFORMANCE_VERSION`. Grammar packages should run the public suite before publishing and
+when upgrading typed-sql. A capability is supported only when its positive probe passes; unsupported
+features must have a diagnostic probe and fail closed.
