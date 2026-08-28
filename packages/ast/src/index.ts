@@ -46,3 +46,5 @@ export type {
   WindowSpecification,
   WithClause,
 } from "./types.js";
+export type { SqlAstContext, SqlAstVisitor } from "./walk.js";
+export { walkStatement } from "./walk.js";

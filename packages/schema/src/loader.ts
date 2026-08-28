@@ -73,6 +73,14 @@ function parseFunction(value: unknown, path: string): FunctionSnapshot {
   if (value.setReturning !== undefined && typeof value.setReturning !== "boolean") {
     throw new TypeError(`${path}.setReturning must be a boolean`);
   }
+  if (
+    value.volatility !== undefined &&
+    value.volatility !== "immutable" &&
+    value.volatility !== "stable" &&
+    value.volatility !== "volatile"
+  ) {
+    throw new TypeError(`${path}.volatility must be immutable, stable, or volatile`);
+  }
   return {
     name: value.name,
     argumentTypes: value.argumentTypes as string[],
@@ -81,6 +89,7 @@ function parseFunction(value: unknown, path: string): FunctionSnapshot {
     ...(value.schema === undefined ? {} : { schema: value.schema }),
     ...(value.databaseReturnType === undefined ? {} : { databaseReturnType: value.databaseReturnType }),
     ...(value.setReturning === undefined ? {} : { setReturning: value.setReturning }),
+    ...(value.volatility === undefined ? {} : { volatility: value.volatility }),
   };
 }
 

@@ -10,6 +10,7 @@
   "latencyMs": {
     "scanner.largeFile": { "p50": 10, "p95": 25 },
     "compiler.manyQueries": { "p50": 20, "p95": 50 },
+    "compiler.semanticMetadata": { "p50": 10, "p95": 25 },
     "compiler.correlatedConditions": { "p50": 5, "p95": 10 },
     "compiler.independentConditions": { "p50": 10, "p95": 25 },
     "compiler.structuralLimit": { "p50": 5, "p95": 10 },

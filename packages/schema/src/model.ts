@@ -52,6 +52,7 @@ export interface FunctionSnapshot {
   readonly returnType: string;
   readonly nullable: boolean;
   readonly setReturning?: boolean;
+  readonly volatility?: "immutable" | "stable" | "volatile";
 }
 
 export type TypePolicy = Readonly<Record<string, unknown>>;

@@ -23,6 +23,7 @@ import {
   type SqlRenderer,
   sql,
   unionTypeLiterals,
+  unknownQuerySemantics,
 } from "../src/index.js";
 
 const renderer: SqlRenderer = {
@@ -333,7 +334,12 @@ await describe("core contracts", async () => {
     defaultTypePolicy: {},
     placeholder: (index) => `?${index}`,
     quoteIdentifier: (identifier) => `"${identifier}"`,
-    analyze: () => ({ columns: [], parameters: [], diagnostics: [] }),
+    analyze: (sql) => ({
+      columns: [],
+      parameters: [],
+      diagnostics: [],
+      semantics: unknownQuerySemantics({ start: 0, end: sql.length, line: 1, column: 1 }, "Test grammar"),
+    }),
     validateSnapshot: () => schema,
   };
 
@@ -350,7 +356,7 @@ await describe("core contracts", async () => {
     strict.throws(
       () =>
         defineConfig({
-          dialect: { ...dialect, contractVersion: 4 as never },
+          dialect: { ...dialect, contractVersion: 5 as never },
           schema: { file: "schema.json" },
           outDir: "generated",
         }),

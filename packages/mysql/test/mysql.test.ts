@@ -45,6 +45,7 @@ const schema = {
       databaseReturnType: "bigint",
       returnType: "bigint",
       nullable: true,
+      volatility: "stable",
     },
   },
 } as const satisfies SchemaSnapshot;
@@ -85,6 +86,41 @@ await describe("MySQL dialect", async () => {
     strict.strictEqual(sql`SELECT 1`.segments[0]?.kind, "text");
     strict.strictEqual(typePolicy, defaultMySqlTypePolicy);
     strict.strictEqual(mysql({ typePolicy }).defaultTypePolicy, typePolicy);
+  });
+
+  await it("emits conservative MySQL semantics and stable dependencies", () => {
+    const dialect = mysql();
+    const typedSchema = schema as typeof schema & { readonly dialect: "mysql" };
+    const read = dialect.analyze("SELECT id FROM users", typedSchema);
+    strict.strictEqual(read.semantics.operation.value, "read");
+    strict.strictEqual(read.semantics.volatility.value, "stable");
+    strict.ok(read.semantics.dependencies.some(({ kind, name }) => kind === "relation" && name === "users"));
+
+    const scalar = dialect.analyze("SELECT 1 AS value", typedSchema);
+    strict.strictEqual(scalar.semantics.cardinality.minimum, 1);
+    strict.strictEqual(scalar.semantics.cardinality.maximum, 1);
+    strict.strictEqual(scalar.semantics.volatility.value, "immutable");
+
+    const write = dialect.analyze("UPDATE users SET email = ? WHERE id = ?", typedSchema);
+    strict.strictEqual(write.semantics.operation.value, "write");
+    strict.strictEqual(write.semantics.volatility.value, "volatile");
+    strict.ok(write.semantics.dependencies.some(({ kind, access }) => kind === "relation" && access === "write"));
+
+    const volatile = dialect.analyze("SELECT UUID() AS value", typedSchema);
+    strict.strictEqual(volatile.semantics.volatility.value, "volatile");
+    const unresolved = dialect.analyze("SELECT not_catalogued() AS value", typedSchema);
+    strict.strictEqual(unresolved.semantics.volatility.value, "unknown");
+    strict.strictEqual(
+      dialect.analyze("SELECT user_count() AS value", typedSchema).semantics.volatility.value,
+      "stable",
+    );
+    strict.strictEqual(dialect.analyze("SELECT", typedSchema).semantics.operation.value, "unknown");
+    for (const unsupported of ["SELECT id FROM users FOR UPDATE", "CREATE TABLE audit (id bigint)"]) {
+      const analysis = dialect.analyze(unsupported, typedSchema);
+      strict.ok(analysis.diagnostics.some(({ severity }) => severity === "error"));
+      strict.strictEqual(analysis.semantics.operation.value, "unknown");
+      strict.strictEqual(analysis.semantics.locking.value, "unknown");
+    }
   });
 
   await it("resolves CTEs, aggregates, JSON, joins, subqueries, windows, and MySQL LIMIT", () => {

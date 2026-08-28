@@ -39,6 +39,7 @@ Every grammar implements the same public contract for:
 - identifier, quoting, and placeholder rules;
 - catalog snapshot validation and introspection;
 - result-column and ordered-parameter resolution;
+- evidence-backed operation, dependency, cardinality, volatility, locking, and connection-affinity semantics;
 - database-to-TypeScript mapping;
 - runtime encoding and decoding;
 - feature and server-version capabilities.
@@ -46,6 +47,10 @@ Every grammar implements the same public contract for:
 The compiler recognizes the `sqlModule` declared by the configured dialect. It does not branch on package names, dialect ids, or drivers. PostgreSQL, MySQL, and third-party grammars use the same compiler and schema infrastructure while owning their SQL semantics.
 
 Core exposes grammar-neutral resolver mechanisms such as indexed catalog lookup, ordered parameter collection, literal-union normalization, and name suggestions. Identifiers, operators, built-ins, nullability, feature gates, and diagnostics remain grammar responsibilities.
+
+Every successful analysis also returns versioned `QuerySemantics`. A semantic fact includes the source evidence that supports it. Dependencies distinguish schema-resolved objects from syntactic references, and unsupported or ambiguous statements return unknown semantics. For conditional composition, the compiler merges all possible branches conservatively: dependencies and capabilities are combined, cardinality widens, and the highest-risk volatility, locking, or connection requirement wins.
+
+Compiled queries expose a path-independent SHA-256 fingerprint and the fingerprints of their structural variants. These identify compiler artifacts; they do not contain parameter values and are not a security signature.
 
 ## Generated metadata
 

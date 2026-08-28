@@ -78,7 +78,15 @@ class CatalogClient implements MySqlQueryable {
         },
       ].filter((row) => (values ?? []).includes(row.schema_name));
     else if (sqlText.includes("information_schema.ROUTINES"))
-      rows = [{ schema_name: "app", function_name: "user_count", database_return_type: "bigint" }];
+      rows = [
+        {
+          schema_name: "app",
+          function_name: "user_count",
+          database_return_type: "bigint",
+          is_deterministic: "YES",
+          sql_data_access: "READS SQL DATA",
+        },
+      ];
     else throw new Error("unexpected catalog query");
     return { rows: rows as readonly Row[] };
   }
@@ -167,6 +175,7 @@ await describe("MySQL provider and runtime", async () => {
     strict.strictEqual(snapshot.tables.users?.columns.status?.defaultExpression, "active");
     strict.strictEqual(snapshot.tables.users?.columns.budget?.nullable, true);
     strict.strictEqual(snapshot.functions?.["app.user_count()"]?.returnType, "bigint");
+    strict.strictEqual(snapshot.functions?.["app.user_count()"]?.volatility, "stable");
     strict.ok(
       client.calls
         .filter((call) => call.values !== undefined)

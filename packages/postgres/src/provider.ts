@@ -71,6 +71,7 @@ interface FunctionCatalogRow extends Record<string, unknown> {
   readonly argument_types: string[];
   readonly database_return_type: string;
   readonly set_returning: boolean;
+  readonly volatility: "i" | "s" | "v";
 }
 
 interface VersionRow extends Record<string, unknown> {
@@ -133,7 +134,8 @@ export const postgresCatalogQueries = {
         ORDER BY position
       ) AS argument_types,
       format_type(p.prorettype, NULL) AS database_return_type,
-      p.proretset AS set_returning
+      p.proretset AS set_returning,
+      p.provolatile AS volatility
     FROM pg_catalog.pg_proc AS p
     JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
     WHERE p.prokind = 'f'
@@ -278,6 +280,7 @@ export class PostgresSchemaProvider implements SchemaProvider {
           returnType: mapPostgresType(row.database_return_type, policy, schemaForFunctions),
           nullable: true,
           ...(row.set_returning ? { setReturning: true } : {}),
+          volatility: row.volatility === "i" ? "immutable" : row.volatility === "s" ? "stable" : "volatile",
         };
       }
 

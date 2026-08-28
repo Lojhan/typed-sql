@@ -17,7 +17,7 @@ The configured provider introspects the selected schemas and writes deterministi
 
 - the dialect and grammar version;
 - database server version;
-- tables, views, columns, defaults, enums, domains, and supported functions;
+- tables, views, columns, defaults, enums, domains, and supported functions, including function volatility when the catalog exposes it;
 - database-to-TypeScript mappings;
 - the schema hash and type-policy hash.
 

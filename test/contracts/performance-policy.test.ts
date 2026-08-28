@@ -33,6 +33,7 @@ await describe("performance regression policy", async () => {
       "compiler.correlatedConditions",
       "compiler.independentConditions",
       "compiler.manyQueries",
+      "compiler.semanticMetadata",
       "compiler.structuralLimit",
       "editor.cancelledRequest",
       "editor.coldAnalysis",

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
+import type { SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
 import type {
   CheckFileOptions,
@@ -21,15 +22,26 @@ import type {
   OptionalSqlFragment,
   Query,
   QueryBatch,
+  QueryCardinality,
+  QueryConnectionAffinity,
+  QueryDependency,
+  QueryDependencyAccess,
+  QueryDependencyKind,
   QueryExecutor,
+  QueryLocking,
+  QueryOperation,
   QueryParameters,
   QueryRenderSkeleton,
   QueryResult,
   QueryResults,
   QueryRow,
+  QuerySemantics,
   QueryStream,
+  QueryVolatility,
   RenderedQuery,
   SchemaSnapshot,
+  SemanticEvidence,
+  SemanticFact,
   SqlDiagnostic,
   SqlDiagnosticFix,
   SqlFragment,
@@ -241,6 +253,15 @@ type ReferencedStableTypes =
   | DialectCapabilities
   | DialectPlugin
   | OptionalSqlFragment
+  | QueryCardinality
+  | QueryConnectionAffinity
+  | QueryDependency
+  | QueryDependencyAccess
+  | QueryDependencyKind
+  | QueryLocking
+  | QueryOperation
+  | QuerySemantics
+  | QueryVolatility
   | QueryBatch<readonly [ExactQuery]>
   | QueryExecutor
   | QueryRenderSkeleton
@@ -252,7 +273,11 @@ type ReferencedStableTypes =
   | SqlRenderer
   | SqlSegment
   | SqlTag
+  | SqlAstVisitor
+  | SqlAstContext
   | StreamOptions
+  | SemanticEvidence
+  | SemanticFact<string>
   | TransactionDatabase
   | TransactionRunner
   | TypedSqlConfig;
@@ -295,6 +320,7 @@ const expectedRuntimeExports = {
     "parseSelect",
     "parseStatement",
     "tokenize",
+    "walkStatement",
   ],
   compiler: ["checkFile", "compileSource", "extractStaticQueries", "mapSqlRange"],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
@@ -308,13 +334,18 @@ const expectedRuntimeExports = {
     "closestName",
     "createDatabase",
     "defineConfig",
+    "defineQuerySemantics",
     "diagnosticRegistry",
     "isTypedSqlDiagnosticCode",
+    "mapQuerySemanticRanges",
+    "mergeQuerySemantics",
     "parameterTypeLiteral",
+    "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "rowTypeLiteral",
     "sql",
     "unionTypeLiterals",
+    "unknownQuerySemantics",
   ],
   mysql: [
     "MYSQL_DIALECT_VERSION",

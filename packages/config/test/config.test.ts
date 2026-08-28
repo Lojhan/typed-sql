@@ -31,7 +31,7 @@ await describe("typed-sql config", async () => {
     const source = `
       export default {
         dialect: {
-          contractVersion: 3,
+          contractVersion: 4,
           id: "fixture",
           grammarVersion: "1.0.0",
           sqlModule: "@example/typed-sql-fixture",
@@ -63,11 +63,11 @@ await describe("typed-sql config", async () => {
       "{}",
       "{ dialect: null }",
       "{ dialect: { contractVersion: 1 } }",
-      "{ dialect: { contractVersion: 3, id: 1 } }",
-      "{ dialect: { contractVersion: 3, id: 'x' } }",
-      "{ dialect: { contractVersion: 3, id: 'x', analyze() {} } }",
-      "{ dialect: { contractVersion: 3, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
-      "{ dialect: { contractVersion: 3, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
+      "{ dialect: { contractVersion: 4, id: 1 } }",
+      "{ dialect: { contractVersion: 4, id: 'x' } }",
+      "{ dialect: { contractVersion: 4, id: 'x', analyze() {} } }",
+      "{ dialect: { contractVersion: 4, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
+      "{ dialect: { contractVersion: 4, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
     ];
     try {
       for (const [index, candidate] of candidates.entries()) {
