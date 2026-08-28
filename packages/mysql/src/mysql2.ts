@@ -1,4 +1,4 @@
-import type { DatabaseObserver } from "@typed-sql/core";
+import type { DatabaseObserver, LiveQueryVerifier } from "@typed-sql/core";
 import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import type { MySqlSchemaSnapshot } from "./index.js";
@@ -12,7 +12,7 @@ import {
   type MySqlPoolLike,
   type MySqlProtocolStream,
 } from "./runtime.js";
-import type { MySqlTypePolicy } from "./type-policy.js";
+import { defaultMySqlTypePolicy, isKnownMySqlType, type MySqlTypePolicy, mapMySqlType } from "./type-policy.js";
 
 export interface MySql2Options {
   readonly connectionUri: string | (() => string | Promise<string>);
@@ -44,6 +44,43 @@ export interface MySql2SchemaProviderOptions {
   readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
 }
 
+interface MySql2VerificationField {
+  readonly name?: string;
+  readonly columnType?: number;
+  readonly type?: number;
+  readonly columnLength?: number;
+  readonly length?: number;
+  readonly flags?: number | readonly string[];
+}
+
+interface MySql2VerificationStatement {
+  readonly statement?: {
+    readonly columns?: readonly MySql2VerificationField[];
+    readonly parameters?: readonly MySql2VerificationField[];
+  };
+  close(): Promise<void>;
+}
+
+export interface MySql2LiveVerifierConnection {
+  prepare(sql: string): Promise<MySql2VerificationStatement>;
+  release(): void;
+}
+
+export interface MySql2LiveVerifierPool {
+  query<Row extends Record<string, unknown>[]>(sql: string): Promise<readonly [Row, unknown]>;
+  getConnection(): Promise<MySql2LiveVerifierConnection>;
+  end(): Promise<void>;
+}
+
+export interface MySql2LiveVerifierOptions {
+  readonly connectionUri?: string | (() => string | Promise<string>);
+  readonly pool?: MySql2LiveVerifierPool;
+  readonly poolConfig?: Omit<PoolOptions, "uri">;
+  readonly typePolicy?: MySqlTypePolicy;
+  readonly schema?: MySqlSchemaSnapshot;
+  readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
+}
+
 interface Executable {
   execute(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
   query(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
@@ -69,6 +106,126 @@ async function uri(value: MySql2Options["connectionUri"]): Promise<string> {
   const result = typeof value === "function" ? await value() : value;
   if (result.length === 0) throw new TypeError("MySQL connectionUri must not be empty");
   return result;
+}
+
+const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v1";
+const mysqlTypeNames = new Map<number, string>([
+  [0, "decimal"],
+  [1, "tinyint"],
+  [2, "smallint"],
+  [3, "int"],
+  [4, "float"],
+  [5, "double"],
+  [6, "null"],
+  [7, "timestamp"],
+  [8, "bigint"],
+  [9, "mediumint"],
+  [10, "date"],
+  [11, "time"],
+  [12, "datetime"],
+  [13, "year"],
+  [15, "varchar"],
+  [16, "bit"],
+  [245, "json"],
+  [246, "decimal"],
+  [247, "enum"],
+  [248, "set"],
+  [249, "tinyblob"],
+  [250, "mediumblob"],
+  [251, "longblob"],
+  [252, "blob"],
+  [253, "varchar"],
+  [254, "char"],
+  [255, "geometry"],
+]);
+
+function verificationField(
+  field: MySql2VerificationField,
+  index: number,
+  policy: MySqlTypePolicy,
+  schema?: MySqlSchemaSnapshot,
+  exposeNullability = true,
+) {
+  const code = field.columnType ?? field.type ?? 6;
+  const length = field.columnLength ?? field.length;
+  const base = mysqlTypeNames.get(code) ?? `mysql-type-${code}`;
+  const databaseType = code === 1 && length === 1 ? "tinyint(1)" : base;
+  const flags = field.flags;
+  return {
+    index,
+    ...(field.name === undefined || field.name.length === 0 ? {} : { name: field.name }),
+    databaseType,
+    ...(isKnownMySqlType(databaseType, schema) ? { tsType: mapMySqlType(databaseType, policy, schema) } : {}),
+    ...(exposeNullability && typeof flags === "number" ? { nullable: (flags & 1) === 0 } : {}),
+  };
+}
+
+/** Creates a lazy adapter over MySQL's binary COM_STMT_PREPARE metadata. */
+export function createMySql2LiveVerifier(options: MySql2LiveVerifierOptions): LiveQueryVerifier {
+  const ownsPool = options.pool === undefined;
+  let poolPromise: Promise<MySql2LiveVerifierPool> | undefined;
+  let serverPromise: ReturnType<LiveQueryVerifier["server"]> | undefined;
+  const acquirePool = (): Promise<MySql2LiveVerifierPool> => {
+    poolPromise ??= (async () => {
+      if (options.pool !== undefined) return options.pool;
+      if (options.connectionUri === undefined)
+        throw new TypeError("MySQL live verification requires connectionUri or pool");
+      const driver = await loadMySql2Driver(options.driverImporter);
+      return driver.createPool({
+        ...options.poolConfig,
+        uri: await uri(options.connectionUri),
+      }) as unknown as MySql2LiveVerifierPool;
+    })();
+    return poolPromise;
+  };
+  const server = async () => {
+    serverPromise ??= (async () => {
+      const pool = await acquirePool();
+      const [rows] = await pool.query<
+        Array<{ readonly version: string; readonly comment: string; readonly sqlMode: string }>
+      >('SELECT VERSION() AS version, @@version_comment AS comment, @@sql_mode AS "sqlMode"');
+      const row = rows[0];
+      return {
+        version: row?.version ?? "unknown",
+        features: [`comment:${row?.comment ?? "unknown"}`, `sql-mode:${row?.sqlMode ?? ""}`],
+      };
+    })();
+    return serverPromise;
+  };
+  return {
+    dialect: "mysql",
+    adapterVersion: MYSQL_LIVE_VERIFIER_VERSION,
+    server,
+    async verify(request) {
+      const connection = await (await acquirePool()).getConnection();
+      let statement: MySql2VerificationStatement | undefined;
+      try {
+        statement = await connection.prepare(request.sql);
+        const native = statement.statement;
+        if (native === undefined) {
+          return { columns: [], parameters: [], unavailable: ["columns", "parameters"] };
+        }
+        const policy = options.typePolicy ?? defaultMySqlTypePolicy;
+        return {
+          columns: (native.columns ?? []).map((field, offset) =>
+            verificationField(field, offset + 1, policy, options.schema),
+          ),
+          parameters: (native.parameters ?? []).map((field, offset) =>
+            verificationField(field, offset + 1, policy, options.schema, false),
+          ),
+        };
+      } finally {
+        try {
+          if (statement !== undefined) await statement.close();
+        } finally {
+          connection.release();
+        }
+      }
+    },
+    async close() {
+      if (ownsPool && poolPromise !== undefined) await (await poolPromise).end();
+    },
+  };
 }
 
 const managedPoolOptions = [

@@ -62,6 +62,8 @@ codecs. The interpolation is also checked as `bigint` because it is compared wit
   consume the same public interface.
 - **Carry build evidence into production.** Deterministic query manifests correlate runtime
   fingerprints with inferred types, dependencies, and capabilities without storing SQL or values.
+- **Prove inference against the database.** Optional native prepare metadata verifies safe variants
+  and produces a deterministic, secret-free proof that CI can later validate offline.
 
 ## Install
 
@@ -86,6 +88,8 @@ pnpm exec typed-sql generate
 pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
 pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
+pnpm exec typed-sql verify --live
+pnpm exec typed-sql verify
 ```
 
 See [Installation](./docs/getting-started/installation.md),
@@ -127,11 +131,11 @@ the structural-variant bound.
 | `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | Stable |
 | `@typed-sql/schema` | Versioned snapshots, hashes, migrations, and drift | Stable |
 | `@typed-sql/config` | Config discovery and loading | Stable |
-| `@typed-sql/compiler` | Grammar-neutral TypeScript source analysis and query manifests | Stable |
+| `@typed-sql/compiler` | Grammar-neutral source analysis, manifests, and verification proofs | Stable |
 | `@typed-sql/conformance` | Executable compatibility kit for SQL grammar packages | Stable |
 | `@typed-sql/postgres` | PostgreSQL grammar, codecs, introspection, and optional `pg` adapter | Stable |
 | `@typed-sql/mysql` | MySQL grammar, codecs, introspection, and optional `mysql2` adapter | Stable |
-| `@typed-sql/cli` | Snapshot generation, query checking, drift, and manifest commands | Stable |
+| `@typed-sql/cli` | Snapshot, checking, drift, manifest, and verification commands | Stable |
 | `@typed-sql/ts-bridge` | Isolated TypeScript preview integration | Experimental |
 | `@typed-sql/language-server` | TypeScript semantic proxy and SQL editor features | Experimental |
 
@@ -142,6 +146,7 @@ the structural-variant bound.
 - [Execution adapters](./docs/guides/execution.md)
 - [Database observability](./docs/guides/observability.md)
 - [Query manifests](./docs/guides/query-manifests.md)
+- [Live database verification](./docs/guides/live-verification.md)
 - [PostgreSQL grammar](./docs/dialects/postgresql.md)
 - [MySQL grammar](./docs/dialects/mysql.md)
 - [Inference and safety](./docs/concepts/type-safety.md)

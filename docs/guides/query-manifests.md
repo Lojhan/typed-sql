@@ -7,6 +7,8 @@ description: Emit deterministic, secret-free query metadata for CI, deployment c
 
 A query manifest turns compiler analysis into a versioned JSON artifact. It records every statically visible query, its bounded structural variants, inferred parameters and results, semantic dependencies, capabilities, diagnostics, and observation fingerprints.
 
+The same artifact is the offline input to [live verification](./live-verification.md), which compares compiler evidence with native database prepare metadata and writes a separate secret-free proof.
+
 Application code does not import the manifest or generated query wrappers. It continues importing `sql` from the selected grammar package:
 
 ```ts

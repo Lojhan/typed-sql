@@ -3,11 +3,16 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  assertQueryVerificationProofCurrent,
   buildQueryManifest,
   checkFile,
+  collectQueryVerificationCandidates,
   listProjectSourceFiles,
   parseQueryManifest,
+  parseQueryVerificationProof,
   serializeQueryManifest,
+  serializeQueryVerificationProof,
+  verifyQueryManifest,
 } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
@@ -18,7 +23,7 @@ interface ParsedArguments {
   readonly options: Readonly<Record<string, string>>;
 }
 
-const commands = new Set(["check", "generate", "drift", "manifest"]);
+const commands = new Set(["check", "generate", "drift", "manifest", "verify"]);
 
 async function packageVersion(): Promise<string> {
   let directory = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +54,7 @@ Commands:
   generate   Introspect or load a schema snapshot and generate the typed contract
   drift      Compare the generated contract with the live database catalog
   manifest   Emit a deterministic manifest for every project query
+  verify     Verify a manifest from cached proof or native live metadata
 
 Global options:
   -h, --help       Show this help
@@ -59,6 +65,7 @@ Examples:
   typed-sql generate --config typed-sql.config.ts --out generated/db
   typed-sql drift --config typed-sql.config.ts
   typed-sql manifest --config typed-sql.config.ts --project tsconfig.json --out .typed-sql/queries.json
+  typed-sql verify --config typed-sql.config.ts --live --manifest .typed-sql/queries.json
 `;
 }
 
@@ -68,6 +75,10 @@ function parseArguments(args: readonly string[]): ParsedArguments {
   for (let index = 1; index < args.length; index += 1) {
     const argument = args[index]!;
     if (!argument.startsWith("--")) throw new Error(`Unexpected argument ${argument}`);
+    if (argument === "--live") {
+      options.live = "true";
+      continue;
+    }
     const equals = argument.indexOf("=");
     if (equals !== -1) options[argument.slice(2, equals)] = argument.slice(equals + 1);
     else {
@@ -96,6 +107,53 @@ async function readPreviousManifest(path: string) {
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
     throw error;
+  }
+}
+
+async function projectSources(
+  directory: string,
+  configured: readonly string[] | undefined,
+  projectOption: string | undefined,
+) {
+  const projects =
+    projectOption === undefined
+      ? (configured ?? ["tsconfig.json"]).map((project) => fromConfig(directory, project))
+      : [resolve(projectOption)];
+  if (projects.length === 0) throw new Error("typed-sql requires at least one TypeScript project");
+  const sourceFiles = [
+    ...new Set(
+      (await Promise.all(projects.map((project) => listProjectSourceFiles({ project, cwd: directory })))).flat(),
+    ),
+  ].sort();
+  const sources = await Promise.all(sourceFiles.map(async (file) => ({ file, source: await readFile(file, "utf8") })));
+  return { projects, sources };
+}
+
+function reportVerification(
+  entries: readonly {
+    readonly status: string;
+    readonly source: { readonly file: string; readonly range: { readonly line: number; readonly column: number } };
+    readonly code?: string;
+    readonly mismatches?: readonly {
+      readonly kind: string;
+      readonly target: string;
+      readonly index?: number;
+      readonly expected: string;
+      readonly actual: string;
+    }[];
+  }[],
+): void {
+  for (const entry of entries) {
+    if (entry.status === "verified") continue;
+    process.stderr.write(
+      `${entry.source.file}:${entry.source.range.line}:${entry.source.range.column} - ${entry.code ?? "TSQ502"}: ${entry.status}\n`,
+    );
+    for (const mismatch of entry.mismatches ?? []) {
+      const position = mismatch.index === undefined ? mismatch.target : `${mismatch.target} ${mismatch.index}`;
+      process.stderr.write(
+        `  ${position} ${mismatch.kind}: compiler=${mismatch.expected}, database=${mismatch.actual}\n`,
+      );
+    }
   }
 }
 
@@ -162,21 +220,7 @@ async function main(): Promise<void> {
 
   if (parsed.command === "manifest") {
     const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
-    const projects =
-      parsed.options.project === undefined
-        ? (config.projects ?? ["tsconfig.json"]).map((project) => fromConfig(loaded.directory, project))
-        : [resolve(parsed.options.project)];
-    if (projects.length === 0) throw new Error("typed-sql manifest requires at least one TypeScript project");
-    const sourceFiles = [
-      ...new Set(
-        (
-          await Promise.all(projects.map((project) => listProjectSourceFiles({ project, cwd: loaded.directory })))
-        ).flat(),
-      ),
-    ].sort();
-    const sources = await Promise.all(
-      sourceFiles.map(async (file) => ({ file, source: await readFile(file, "utf8") })),
-    );
+    const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
     const outFile = fromConfig(
       loaded.directory,
       parsed.options.out ?? config.manifest?.outFile ?? ".typed-sql/queries.json",
@@ -201,6 +245,69 @@ async function main(): Promise<void> {
       `Generated ${result.manifest.queries.length} queries (${result.stats.unresolvedQueries} unresolved, ${result.stats.reusedFiles} files reused) at ${outFile}\n`,
     );
     if (result.stats.unresolvedQueries > 0) process.exitCode = 2;
+    return;
+  }
+
+  if (parsed.command === "verify") {
+    if (parsed.options.live !== undefined && parsed.options.live !== "true") {
+      throw new Error("--live does not accept a value");
+    }
+    const manifestFile = fromConfig(
+      loaded.directory,
+      parsed.options.manifest ?? config.manifest?.outFile ?? ".typed-sql/queries.json",
+    );
+    const proofFile = fromConfig(
+      loaded.directory,
+      parsed.options.proof ?? config.verification?.proofFile ?? ".typed-sql/verification.json",
+    );
+    const manifest = parseQueryManifest(JSON.parse(await readFile(manifestFile, "utf8")) as unknown);
+    if (parsed.options.live === "true") {
+      const verifier = config.verification?.live;
+      if (verifier === undefined)
+        throw new Error("typed-sql verify --live requires verification.live in typed-sql.config.ts");
+      const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
+      const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
+      const candidates = collectQueryVerificationCandidates({
+        manifest,
+        rootDir: loaded.directory,
+        sources,
+        projects,
+        dialect,
+        schema,
+        typePolicy: policy,
+        ...(config.compiler?.maxStructuralVariants === undefined
+          ? {}
+          : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
+      });
+      try {
+        const result = await verifyQueryManifest({
+          manifest,
+          candidates,
+          verifier,
+          ...(config.verification?.concurrency === undefined ? {} : { concurrency: config.verification.concurrency }),
+        });
+        await mkdir(dirname(proofFile), { recursive: true });
+        await writeFile(proofFile, serializeQueryVerificationProof(result.proof), "utf8");
+        reportVerification(result.proof.entries);
+        process.stdout.write(
+          `Verified ${result.verified} variants (${result.mismatched} mismatched, ${result.skipped} skipped, ${result.failed} failed) at ${proofFile}\n`,
+        );
+        if (result.mismatched > 0 || result.failed > 0) process.exitCode = 1;
+        else if (result.skipped > 0) process.exitCode = 2;
+      } finally {
+        await verifier.close();
+      }
+    } else {
+      const proof = parseQueryVerificationProof(JSON.parse(await readFile(proofFile, "utf8")) as unknown);
+      assertQueryVerificationProofCurrent(manifest, proof, config.verification?.live);
+      reportVerification(proof.entries);
+      const mismatched = proof.entries.filter((entry) => entry.status === "mismatch").length;
+      const skipped = proof.entries.filter((entry) => entry.status === "skipped").length;
+      const failed = proof.entries.filter((entry) => entry.status === "error").length;
+      process.stdout.write(`Cached verification is current (${proof.entries.length} entries)\n`);
+      if (mismatched > 0 || failed > 0) process.exitCode = 1;
+      else if (skipped > 0) process.exitCode = 2;
+    }
     return;
   }
 

@@ -12,14 +12,16 @@ Create `typed-sql.config.ts` in the application root. The config selects the dia
 ```ts
 import { defineConfig } from "@typed-sql/core";
 import { postgres, typePolicy } from "@typed-sql/postgres";
-import { pg } from "@typed-sql/postgres/pg";
+import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
+
+const connectionString = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
   dialect: postgres({ typePolicy }),
   schema: {
     file: "src/generated/db/schema.json",
     provider: pg({
-      connectionString: () => process.env.DATABASE_URL!,
+      connectionString,
       schemas: ["public"],
       typePolicy,
     }),
@@ -33,6 +35,11 @@ export default defineConfig({
   manifest: {
     outFile: ".typed-sql/queries.json",
   },
+  verification: {
+    live: createPgLiveVerifier({ connectionString, typePolicy }),
+    proofFile: ".typed-sql/verification.json",
+    concurrency: 4,
+  },
 });
 ```
 
@@ -41,14 +48,16 @@ export default defineConfig({
 ```ts
 import { defineConfig } from "@typed-sql/core";
 import { mysql, typePolicy } from "@typed-sql/mysql";
-import { mysql2 } from "@typed-sql/mysql/mysql2";
+import { createMySql2LiveVerifier, mysql2 } from "@typed-sql/mysql/mysql2";
+
+const connectionUri = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
   dialect: mysql({ typePolicy }),
   schema: {
     file: "src/generated/db/schema.json",
     provider: mysql2({
-      connectionUri: () => process.env.DATABASE_URL!,
+      connectionUri,
       schemas: ["app"],
       typePolicy,
     }),
@@ -62,6 +71,11 @@ export default defineConfig({
   manifest: {
     outFile: ".typed-sql/queries.json",
   },
+  verification: {
+    live: createMySql2LiveVerifier({ connectionUri, typePolicy }),
+    proofFile: ".typed-sql/verification.json",
+    concurrency: 4,
+  },
 });
 ```
 
@@ -72,9 +86,11 @@ pnpm exec typed-sql generate
 pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
 pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
+pnpm exec typed-sql verify --live
+pnpm exec typed-sql verify
 ```
 
-`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md).
+`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md). `verify --live` compares that evidence with native prepare metadata, while `verify` validates the cached proof offline; see [Live verification](../guides/live-verification.md).
 
 Connection strings stay in the config callback or environment. They are not written to generated files. Commit the generated snapshot so schema and type-policy changes are reviewable.
 

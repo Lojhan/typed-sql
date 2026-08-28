@@ -39,3 +39,28 @@ export type { ListProjectSourceFilesOptions } from "./project.js";
 export { listProjectSourceFiles } from "./project.js";
 export type { ExtractedDynamicQuery, ExtractedInterpolation, ExtractedQuery } from "./scanner.js";
 export { extractDynamicQueries, extractStaticQueries, mapSqlRange } from "./scanner.js";
+export type {
+  CollectQueryVerificationCandidatesOptions,
+  FailedQueryProofEntry,
+  MismatchedQueryProofEntry,
+  QueryVerificationCandidate,
+  QueryVerificationEvidence,
+  QueryVerificationExpectedField,
+  QueryVerificationMismatch,
+  QueryVerificationMismatchKind,
+  QueryVerificationProof,
+  QueryVerificationProofEntry,
+  SkippedQueryProofEntry,
+  VerifiedQueryProofEntry,
+  VerifyQueryManifestOptions,
+  VerifyQueryManifestResult,
+} from "./verification.js";
+export {
+  assertQueryVerificationProofCurrent,
+  collectQueryVerificationCandidates,
+  parseQueryVerificationProof,
+  QUERY_VERIFICATION_FORMAT_VERSION,
+  QUERY_VERIFIER_VERSION,
+  serializeQueryVerificationProof,
+  verifyQueryManifest,
+} from "./verification.js";

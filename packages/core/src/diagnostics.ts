@@ -28,6 +28,9 @@ export const diagnosticRegistry = Object.freeze({
   TSQ217: { category: "result", summary: "An IN subquery does not return exactly one column." },
   TSQ301: { category: "drift", summary: "The live schema or type policy differs from the generated snapshot." },
   TSQ401: { category: "support", summary: "The dialect surface is intentionally unsupported." },
+  TSQ500: { category: "verification", summary: "Live database metadata differs from compiler evidence." },
+  TSQ501: { category: "verification", summary: "A query could not be verified safely or statically." },
+  TSQ502: { category: "verification", summary: "Native live verification failed without persisting driver details." },
 } as const);
 
 export type TypedSqlDiagnosticCode = keyof typeof diagnosticRegistry;

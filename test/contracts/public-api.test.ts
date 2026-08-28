@@ -7,6 +7,7 @@ import type {
   BuildQueryManifestResult,
   CheckFileOptions,
   CheckFileResult,
+  CollectQueryVerificationCandidatesOptions,
   CompiledFragment,
   CompiledQuery,
   CompiledQueryVariant,
@@ -29,9 +30,18 @@ import type {
   QueryManifestSource,
   QueryManifestSourceInput,
   QueryManifestVariant,
+  QueryVerificationCandidate,
+  QueryVerificationEvidence,
+  QueryVerificationExpectedField,
+  QueryVerificationMismatch,
+  QueryVerificationMismatchKind,
+  QueryVerificationProof,
+  QueryVerificationProofEntry,
   ResolvedQueryManifestEntry,
   TypeScriptCheckResult,
   UnresolvedQueryManifestEntry,
+  VerifyQueryManifestOptions,
+  VerifyQueryManifestResult,
 } from "../../packages/compiler/src/index.js";
 import * as compilerApi from "../../packages/compiler/src/index.js";
 import * as configApi from "../../packages/config/src/index.js";
@@ -69,6 +79,11 @@ import type {
   ExecutionCapabilities,
   ExecutionCapability,
   ExecutionOptions,
+  LiveQueryVerificationEvidence,
+  LiveQueryVerificationField,
+  LiveQueryVerificationRequest,
+  LiveQueryVerificationServer,
+  LiveQueryVerifier,
   OptionalSqlFragment,
   Query,
   QueryBatch,
@@ -323,6 +338,7 @@ type ReferencedStableTypes =
   | ExtractedInterpolation
   | ExtractedQuery
   | ListProjectSourceFilesOptions
+  | CollectQueryVerificationCandidatesOptions<SchemaSnapshot, unknown>
   | QueryManifest
   | QueryManifestBuildStats
   | QueryManifestColumn
@@ -336,8 +352,17 @@ type ReferencedStableTypes =
   | QueryManifestSource
   | QueryManifestSourceInput
   | QueryManifestVariant
+  | QueryVerificationCandidate
+  | QueryVerificationEvidence
+  | QueryVerificationExpectedField
+  | QueryVerificationMismatch
+  | QueryVerificationMismatchKind
+  | QueryVerificationProof
+  | QueryVerificationProofEntry
   | ResolvedQueryManifestEntry
   | UnresolvedQueryManifestEntry
+  | VerifyQueryManifestOptions
+  | VerifyQueryManifestResult
   | TypeScriptCheckResult
   | CodecConformanceCase<unknown, unknown>
   | CodecConformanceFixture<unknown, unknown>
@@ -368,6 +393,11 @@ type ReferencedStableTypes =
   | ExecutionCapabilities
   | ExecutionCapability
   | ExecutionOptions
+  | LiveQueryVerificationEvidence
+  | LiveQueryVerificationField
+  | LiveQueryVerificationRequest
+  | LiveQueryVerificationServer
+  | LiveQueryVerifier
   | OptionalSqlFragment
   | OpenTelemetryObserverOptions
   | QueryCardinality
@@ -450,15 +480,22 @@ const expectedRuntimeExports = {
     "QUERY_FINGERPRINT_ALGORITHM",
     "QUERY_MANIFEST_FORMAT_VERSION",
     "QUERY_MANIFEST_JSON_SCHEMA",
+    "QUERY_VERIFICATION_FORMAT_VERSION",
+    "QUERY_VERIFIER_VERSION",
+    "assertQueryVerificationProofCurrent",
     "buildQueryManifest",
     "checkFile",
     "compileSource",
+    "collectQueryVerificationCandidates",
     "extractDynamicQueries",
     "extractStaticQueries",
     "listProjectSourceFiles",
     "mapSqlRange",
     "parseQueryManifest",
+    "parseQueryVerificationProof",
     "serializeQueryManifest",
+    "serializeQueryVerificationProof",
+    "verifyQueryManifest",
   ],
   conformance: [
     "GRAMMAR_CONFORMANCE_VERSION",
@@ -516,7 +553,7 @@ const expectedRuntimeExports = {
     "sql",
     "typePolicy",
   ],
-  mysql2: ["adaptMySql2Pool", "createMySql2Database", "loadMySql2Driver", "mysql2"],
+  mysql2: ["adaptMySql2Pool", "createMySql2Database", "createMySql2LiveVerifier", "loadMySql2Driver", "mysql2"],
   mysqlRuntime: ["createMySqlDatabase", "mysqlRenderer"],
   opentelemetry: ["createOpenTelemetryObserver"],
   postgres: [
@@ -533,7 +570,7 @@ const expectedRuntimeExports = {
     "sql",
     "typePolicy",
   ],
-  pg: ["adaptPgPool", "createPgDatabase", "loadPgCursorDriver", "loadPgDriver", "pg"],
+  pg: ["adaptPgPool", "createPgDatabase", "createPgLiveVerifier", "loadPgCursorDriver", "loadPgDriver", "pg"],
   postgresRuntime: ["createPostgresDatabase", "createPostgresTypeParsers", "postgresRenderer"],
   schema: [
     "SCHEMA_FORMAT_VERSION",

@@ -130,6 +130,44 @@ export interface SchemaProvider<Snapshot extends SchemaSnapshot = SchemaSnapshot
   introspect(): Promise<Snapshot>;
 }
 
+export interface LiveQueryVerificationField {
+  readonly index: number;
+  readonly name?: string;
+  readonly databaseType?: string;
+  readonly tsType?: string;
+  /** `undefined` means that the native protocol does not expose nullability. */
+  readonly nullable?: boolean;
+}
+
+export interface LiveQueryVerificationRequest {
+  readonly fingerprint: string;
+  /** Compiler-owned SQL. Adapters must never persist or include it in errors or proof artifacts. */
+  readonly sql: string;
+  readonly operation: QuerySemantics["operation"]["value"];
+}
+
+export interface LiveQueryVerificationEvidence {
+  readonly columns: readonly LiveQueryVerificationField[];
+  readonly parameters: readonly LiveQueryVerificationField[];
+  /** Native metadata classes unavailable on this server/driver combination. */
+  readonly unavailable?: readonly ("columns" | "parameters")[];
+}
+
+export interface LiveQueryVerificationServer {
+  readonly version: string;
+  /** Sorted, non-secret server features that affect native analysis, such as installed extensions. */
+  readonly features?: readonly string[];
+}
+
+/** Grammar-owned adapter over a database's native prepare/describe protocol. */
+export interface LiveQueryVerifier {
+  readonly dialect: string;
+  readonly adapterVersion: string;
+  server(): Promise<LiveQueryVerificationServer>;
+  verify(request: LiveQueryVerificationRequest): Promise<LiveQueryVerificationEvidence>;
+  close(): Promise<void>;
+}
+
 export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: {
@@ -145,6 +183,13 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
   readonly manifest?: {
     /** Output path relative to the typed-sql config file. */
     readonly outFile?: string;
+  };
+  readonly verification?: {
+    /** Optional and lazy: ordinary compilation never opens a database connection. */
+    readonly live?: LiveQueryVerifier;
+    /** Proof path relative to the typed-sql config file. */
+    readonly proofFile?: string;
+    readonly concurrency?: number;
   };
 }
 
@@ -184,6 +229,30 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   }
   if (config.manifest?.outFile !== undefined && config.manifest.outFile.length === 0) {
     throw new TypeError("manifest.outFile must be a non-empty string");
+  }
+  if (
+    config.verification?.proofFile !== undefined &&
+    (typeof config.verification.proofFile !== "string" || config.verification.proofFile.length === 0)
+  ) {
+    throw new TypeError("verification.proofFile must be a non-empty string");
+  }
+  const concurrency = config.verification?.concurrency;
+  if (concurrency !== undefined && (!Number.isSafeInteger(concurrency) || concurrency < 1)) {
+    throw new TypeError("verification.concurrency must be a positive safe integer");
+  }
+  if (config.verification?.live !== undefined && config.verification.live.dialect !== config.dialect.id) {
+    throw new TypeError(
+      `verification.live dialect ${config.verification.live.dialect} does not match ${config.dialect.id}`,
+    );
+  }
+  const live = config.verification?.live;
+  if (live !== undefined) {
+    if (typeof live.adapterVersion !== "string" || live.adapterVersion.length === 0) {
+      throw new TypeError("verification.live.adapterVersion must be a non-empty string");
+    }
+    for (const method of ["server", "verify", "close"] as const) {
+      if (typeof live[method] !== "function") throw new TypeError(`verification.live.${method} must be a function`);
+    }
   }
   return Object.freeze(config);
 }

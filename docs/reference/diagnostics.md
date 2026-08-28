@@ -38,6 +38,9 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ217` | An `IN` subquery does not return exactly one column. |
 | `TSQ301` | The live schema or type policy differs from the generated snapshot. |
 | `TSQ401` | The dialect surface is intentionally unsupported. |
+| `TSQ500` | Live database metadata differs from compiler evidence. |
+| `TSQ501` | A query could not be verified safely or completely. |
+| `TSQ502` | Native verification failed; driver details are not persisted. |
 
 ## Fixes
 

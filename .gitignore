@@ -5,6 +5,7 @@ target/
 *.tsbuildinfo
 .typed-sql-*
 e2e/*/generated/
+e2e/*/.typed-sql/
 .DS_Store
 *.pcap
 *.pcapng

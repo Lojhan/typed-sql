@@ -11,7 +11,7 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 - `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, and type mapping.
 - `@typed-sql/mysql/runtime` — driver-neutral rendering and codec utilities.
-- `@typed-sql/mysql/mysql2` — schema provider and executable database adapter for application-owned `mysql2`.
+- `@typed-sql/mysql/mysql2` — schema provider, executable database adapter, and lazy live verifier for application-owned `mysql2`.
 
 ## Supported SQL
 
@@ -26,6 +26,8 @@ The grammar targets MySQL 8.4 LTS and supports:
 - ordered parameters inferred from comparisons, DML targets, casts, ranges, limits, and cataloged function arguments.
 
 Catalog inference covers enums, unsigned integers, decimals, JSON, temporal types, binary values, and configurable `tinyint(1)` mapping.
+
+`createMySql2LiveVerifier()` reads binary `COM_STMT_PREPARE` parameter and result metadata and closes the statement without executing it or sending values. See [Live verification](../guides/live-verification.md).
 
 Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER`, and incompatible `RETURNING` clauses produce `TSQ401`. Commands without a result surface infer `Query<never, Parameters>`. Unknown functions warn and infer `unknown`; ambiguous or structurally unsafe queries are errors.
 
