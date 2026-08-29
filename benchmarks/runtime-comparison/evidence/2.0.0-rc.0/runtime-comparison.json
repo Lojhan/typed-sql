@@ -1,0 +1,181 @@
+{
+  "generatedAt": "2026-08-29T17:06:25.872Z",
+  "environment": {
+    "node": "v24.10.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "iterations": 2000,
+    "samples": 20,
+    "warmups": 500
+  },
+  "results": [
+    {
+      "name": "raw pg",
+      "workload": "request",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.1861473545000001,
+        "p95": 0.19407237500000002,
+        "minimum": 0.1747041664999997,
+        "maximum": 0.197577625
+      },
+      "operationsPerSecond": 5372.088164701795
+    },
+    {
+      "name": "typed-sql",
+      "workload": "request",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.18508610450000015,
+        "p95": 0.19235429149999983,
+        "minimum": 0.17948068750000037,
+        "maximum": 0.19256720800000038
+      },
+      "operationsPerSecond": 5402.890739428789
+    },
+    {
+      "name": "Drizzle",
+      "workload": "request",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.20756997950000006,
+        "p95": 0.21031189599999925,
+        "minimum": 0.2009409584999994,
+        "maximum": 0.2110555209999984
+      },
+      "operationsPerSecond": 4817.652352275729
+    },
+    {
+      "name": "Kysely",
+      "workload": "request",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.18951085400000012,
+        "p95": 0.19590120849999948,
+        "minimum": 0.16834304150000026,
+        "maximum": 0.19676168750000034
+      },
+      "operationsPerSecond": 5276.742618657607
+    },
+    {
+      "name": "Prisma",
+      "workload": "request",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.22492520800000057,
+        "p95": 0.2302613124999989,
+        "minimum": 0.20164581249999902,
+        "maximum": 0.23758895799999846
+      },
+      "operationsPerSecond": 4445.922308539101
+    },
+    {
+      "name": "TypeORM",
+      "workload": "request",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.19698593749999782,
+        "p95": 0.20117752100000144,
+        "minimum": 0.19059429150000143,
+        "maximum": 0.2022784795000007
+      },
+      "operationsPerSecond": 5076.504509363827
+    },
+    {
+      "name": "raw pg named prepared",
+      "workload": "prepared",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.1701533124999987,
+        "p95": 0.17183397949999926,
+        "minimum": 0.15927352099999917,
+        "maximum": 0.17212308349999875
+      },
+      "operationsPerSecond": 5877.052790259418
+    },
+    {
+      "name": "typed-sql prepared",
+      "workload": "prepared",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.17131858300000022,
+        "p95": 0.1768729585000001,
+        "minimum": 0.15777772950000143,
+        "maximum": 0.18005002099999912
+      },
+      "operationsPerSecond": 5837.0783979692305
+    },
+    {
+      "name": "Drizzle prepared",
+      "workload": "prepared",
+      "driver": "postgres",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.17165618749999703,
+        "p95": 0.17586791699999957,
+        "minimum": 0.1527675209999943,
+        "maximum": 0.17619674999999915
+      },
+      "operationsPerSecond": 5825.598334461537
+    },
+    {
+      "name": "raw mysql2 execute",
+      "workload": "request",
+      "driver": "mysql",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.17917072899999767,
+        "p95": 0.1824441044999985,
+        "minimum": 0.16713556249999964,
+        "maximum": 0.18266941650000082
+      },
+      "operationsPerSecond": 5581.268802003998
+    },
+    {
+      "name": "typed-sql",
+      "workload": "request",
+      "driver": "mysql",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.1819727084999977,
+        "p95": 0.1869134794999991,
+        "minimum": 0.16941585399999895,
+        "maximum": 0.1875172290000046
+      },
+      "operationsPerSecond": 5495.329537286151
+    },
+    {
+      "name": "typed-sql prepared",
+      "workload": "prepared",
+      "driver": "mysql",
+      "iterations": 2000,
+      "samples": 20,
+      "milliseconds": {
+        "p50": 0.1856758539999937,
+        "p95": 0.18858181250000053,
+        "minimum": 0.1591926669999957,
+        "maximum": 0.18922566650000225
+      },
+      "operationsPerSecond": 5385.729907562638
+    }
+  ]
+}
