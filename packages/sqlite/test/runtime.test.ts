@@ -1,7 +1,9 @@
+import type { PathLike } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import { QueryResultValidationError, type StandardSchemaV1, sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { adaptNodeSqliteDatabase, createNodeSqliteDatabase, nodeSqlite } from "../src/node-sqlite.js";
@@ -13,6 +15,53 @@ interface Account {
 }
 
 await describe("node:sqlite runtime adapter", async () => {
+  await it("normalizes file URLs for Node releases whose DatabaseSync accepts only strings", async () => {
+    const paths: PathLike[] = [];
+    const url = new URL("file:///tmp/typed-sql-node-sqlite.db");
+    const driverImporter = async () => ({
+      DatabaseSync: class {
+        constructor(path: PathLike) {
+          paths.push(path);
+        }
+        prepare(_sql: string) {
+          return {
+            all: () => [],
+            *iterate() {},
+            setReadBigInts() {},
+          };
+        }
+        exec(_sql: string) {}
+        close() {}
+      },
+    });
+    const database = await createNodeSqliteDatabase({
+      path: url,
+      driverImporter,
+    });
+    await database.close();
+    strict.deepStrictEqual(paths, [fileURLToPath(url)]);
+  });
+
+  await it("preserves stream semantics before StatementSync.iterate is available", async () => {
+    const driverImporter = async () => ({
+      DatabaseSync: class {
+        prepare(_sql: string) {
+          return {
+            all: () => [{ id: 1n }, { id: 2n }],
+            setReadBigInts() {},
+          };
+        }
+        exec(_sql: string) {}
+        close() {}
+      },
+    });
+    const database = await createNodeSqliteDatabase({ path: ":memory:", driverImporter });
+    const rows: { id: bigint }[] = [];
+    for await (const row of database.stream(sql<{ id: bigint }>`SELECT id FROM account`)) rows.push(row);
+    strict.deepStrictEqual(rows, [{ id: 1n }, { id: 2n }]);
+    await database.close();
+  });
+
   await it("validates cardinality, batch, stream, and transaction results", async () => {
     const native = new DatabaseSync(":memory:");
     native.exec("CREATE TABLE account (id INTEGER PRIMARY KEY, email TEXT NOT NULL) STRICT");

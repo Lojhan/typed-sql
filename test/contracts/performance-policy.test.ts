@@ -17,6 +17,11 @@ interface PerformanceBudgets {
   readonly latencyMs: Readonly<Record<string, { readonly p50: number; readonly p95: number }>>;
   readonly throughput: Readonly<Record<string, { readonly minimumOperationsPerSecond: number }>>;
   readonly memory: Readonly<Record<string, { readonly maximum: number }>>;
+  readonly overrides: Readonly<{
+    githubActions: {
+      readonly latencyMs: Readonly<Record<string, { readonly p50: number; readonly p95: number }>>;
+    };
+  }>;
 }
 
 await describe("performance regression policy", async () => {
@@ -55,6 +60,12 @@ await describe("performance regression policy", async () => {
     strict.ok((budgets.throughput["core.composeAndRender"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.throughput["routing.semanticCacheHit"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.memory["editor.retainedHeapMiB"]?.maximum ?? 0) > 0);
+    strict.deepStrictEqual(Object.keys(budgets.overrides.githubActions.latencyMs), ["compiler.semanticMetadata"]);
+    const defaultSemanticBudget = budgets.latencyMs["compiler.semanticMetadata"];
+    const githubSemanticBudget = budgets.overrides.githubActions.latencyMs["compiler.semanticMetadata"];
+    if (defaultSemanticBudget === undefined || githubSemanticBudget === undefined)
+      throw new Error("Semantic metadata budgets are incomplete");
+    strict.ok(githubSemanticBudget.p50 >= defaultSemanticBudget.p50);
   });
 
   await it("runs the gate after production build and records reproducibility context", async () => {
@@ -71,6 +82,7 @@ await describe("performance regression policy", async () => {
       "coefficientOfVariation",
       "cpuModel",
       "productionBuild: true",
+      "budgetProfile",
       "globalThis.gc",
       '"TSQ003"',
       "expectedAnalyses",

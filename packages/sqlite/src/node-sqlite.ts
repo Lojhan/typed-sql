@@ -1,4 +1,5 @@
 import type { PathLike } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { type SqliteQueryable, SqliteSchemaProvider } from "./provider.js";
 import { createSqliteDatabase, type SqliteConnectionLike, type SqliteDatabase } from "./runtime.js";
 import type { SqliteSchemaSnapshot } from "./snapshot.js";
@@ -8,7 +9,7 @@ type SqliteInput = null | number | bigint | string | ArrayBufferView;
 
 export interface NodeSqliteStatementLike {
   all(...values: readonly SqliteInput[]): Record<string, unknown>[];
-  iterate(...values: readonly SqliteInput[]): IterableIterator<Record<string, unknown>>;
+  iterate?(...values: readonly SqliteInput[]): IterableIterator<Record<string, unknown>>;
   setReadBigInts(enabled: boolean): void;
 }
 
@@ -107,7 +108,9 @@ export function adaptNodeSqliteDatabase(
       database.exec(sql);
     },
     iterate(sql, values = []) {
-      return prepared(sql).iterate(...values.map(input));
+      const statement = prepared(sql);
+      const inputs = values.map(input);
+      return statement.iterate?.(...inputs) ?? statement.all(...inputs)[Symbol.iterator]();
     },
     close() {
       database.close();
@@ -134,7 +137,7 @@ async function open(options: NodeSqliteDatabaseOptions): Promise<NodeSqliteDatab
   validateDatabaseOptions(options.databaseOptions);
   validateCacheSize(options.statementCacheSize);
   const driver = await loadNodeSqlite(options.driverImporter);
-  return new driver.DatabaseSync(options.path, {
+  return new driver.DatabaseSync(options.path instanceof URL ? fileURLToPath(options.path) : options.path, {
     ...options.databaseOptions,
   });
 }

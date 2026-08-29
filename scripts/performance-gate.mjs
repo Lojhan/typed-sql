@@ -33,11 +33,19 @@ const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const budgets = JSON.parse(await readFile(join(workspace, "performance-budgets.json"), "utf8"));
 const methodology = budgets.methodology;
 const results = {};
-const context = capturePerformanceContext({
-  workspace,
-  productionBuild: true,
-  budgetVersion: budgets.version,
-});
+const budgetProfile = process.env.GITHUB_ACTIONS === "true" ? "githubActions" : "default";
+const latencyBudgets = {
+  ...budgets.latencyMs,
+  ...(budgetProfile === "default" ? {} : budgets.overrides?.[budgetProfile]?.latencyMs),
+};
+const context = {
+  ...capturePerformanceContext({
+    workspace,
+    productionBuild: true,
+    budgetVersion: budgets.version,
+  }),
+  budgetProfile,
+};
 assert.equal(typeof context.cpuModel, "string");
 console.log(`typed-sql performance context\n${JSON.stringify(context, null, 2)}`);
 
@@ -47,7 +55,7 @@ async function latency(name, operation, options = {}) {
   const iterations = options.iterations ?? 1;
   const measured = await measureLatency({ operation, warmups, samples: sampleCount, iterations });
   assert.ok(Number.isFinite(measured.coefficientOfVariation));
-  const budget = budgets.latencyMs[name];
+  const budget = latencyBudgets[name];
   assert.ok(budget !== undefined, `Missing latency budget for ${name}`);
   results[name] = { unit: "ms", iterationsPerSample: iterations, ...measured, budget };
   warnNearBudget(name, measured.p50, budget.p50, "p50");
