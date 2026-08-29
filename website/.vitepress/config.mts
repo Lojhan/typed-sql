@@ -53,6 +53,7 @@ export default defineConfig({
           { text: "Verify against a database", link: "/guides/live-verification" },
           { text: "Govern query plans", link: "/guides/query-plan-governance" },
           { text: "Check migration compatibility", link: "/guides/migration-compatibility" },
+          { text: "Upgrade from v1", link: "/guides/upgrading-from-v1" },
           { text: "Compose conditional SQL", link: "/guides/composition" },
           { text: "Manage schema snapshots", link: "/guides/schema-snapshots" },
           { text: "Configure editors", link: "/guides/editors" },

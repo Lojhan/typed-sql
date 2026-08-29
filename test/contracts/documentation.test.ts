@@ -28,6 +28,7 @@ const expectedPublicDocs = [
   "docs/guides/result-validation.md",
   "docs/guides/routing-and-retries.md",
   "docs/guides/schema-snapshots.md",
+  "docs/guides/upgrading-from-v1.md",
   "docs/index.md",
   "docs/reference/api.md",
   "docs/reference/compatibility.md",
@@ -222,6 +223,44 @@ await describe("public documentation", async () => {
         Object.keys(languageServerPackage.bin)[0] ?? "missing-language-server",
       ),
     );
+  });
+
+  await it("keeps the v1 upgrade contract aligned with public version boundaries", async () => {
+    const migration = await text("docs/guides/upgrading-from-v1.md");
+    const customGrammars = await text("docs/extending/custom-grammars.md");
+    const compatibility = await text("docs/guides/migration-compatibility.md");
+
+    for (const boundary of [
+      "DIALECT_CONTRACT_VERSION",
+      "QUERY_SEMANTICS_VERSION",
+      "SCHEMA_FORMAT_VERSION",
+      "QUERY_MANIFEST_FORMAT_VERSION",
+      "QUERY_FINGERPRINT_ALGORITHM",
+      "QUERY_VERIFICATION_FORMAT_VERSION",
+      "QUERY_VERIFIER_VERSION",
+      "QUERY_PLAN_FORMAT_VERSION",
+      "QUERY_PLAN_CAPTURE_VERSION",
+      "QUERY_PLAN_REVIEW_FORMAT_VERSION",
+      "SCHEMA_COMPATIBILITY_FORMAT_VERSION",
+      "SCHEMA_COMPATIBILITY_ANALYZER_VERSION",
+      "GRAMMAR_CONFORMANCE_VERSION",
+      "adapterVersion",
+    ]) {
+      strict.ok(migration.includes(`\`${boundary}\``), `upgrade guide is missing ${boundary}`);
+    }
+
+    for (const durableInvariant of [
+      'from "@typed-sql/postgres"',
+      'from "@typed-sql/postgres/pg"',
+      "application-owned dependencies",
+      "unknownQuerySemantics()",
+      "compiler inputs",
+    ]) {
+      strict.ok(migration.includes(durableInvariant), `upgrade guide is missing ${durableInvariant}`);
+    }
+
+    strict.ok(customGrammars.includes("../guides/upgrading-from-v1.md#upgrade-a-custom-grammar"));
+    strict.ok(compatibility.includes("./upgrading-from-v1.md#adopt-compiler-and-ci-artifacts"));
   });
 
   await it("renders the canonical docs through a reproducible GitHub Pages site", async () => {
