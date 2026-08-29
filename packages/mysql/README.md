@@ -13,7 +13,8 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 of the grammar.
 
 ```ts
-import { sql, typePolicy } from "@typed-sql/mysql";
+import { requireAdapterCapability } from "@typed-sql/core";
+import { mysqlBulk, sql, typePolicy } from "@typed-sql/mysql";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 
 const query = sql`
@@ -41,6 +42,13 @@ const [selectedAccounts, allAccounts] = await database.batch([accountById(42n), 
 for await (const account of database.stream(accountById(42n), { batchSize: 500 })) {
   // account retains the query's inferred row type
 }
+
+const bulk = requireAdapterCapability(database, mysqlBulk);
+await bulk.loadData(
+  (account: { readonly id: bigint; readonly email: string }) =>
+    sql`INSERT INTO users (id, email) VALUES (${account.id}, ${account.email})`,
+  accounts,
+);
 ```
 
 The package root exports `sql`, `mysql`, and the MySQL type policy. The `/mysql2` entrypoint exports
@@ -53,6 +61,7 @@ creating `mysql2` pools.
 
 Read the [MySQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/mysql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
+[bulk data guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/bulk-data.md),
 [observability guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/observability.md),
 [live verification guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md),
 [query plan governance guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-plan-governance.md),

@@ -114,7 +114,7 @@ All three retain the query's inferred row type. Cardinality is checked after the
 
 Inspect `database.executionCapabilities` before accepting optional controls in adapter-generic infrastructure. The official `pg` and `mysql2` adapters advertise cancellation and deadlines. A custom adapter that cannot safely interrupt work reports the unsupported capability immediately. `execute(query)` and `all(query)` without controls retain the existing thin buffered path.
 
-Execution options intentionally do not alter `batch()`, PostgreSQL `pipeline()`, or `stream()`. Those APIs own multiple operations or a longer-lived resource and keep their documented cleanup semantics.
+Execution options intentionally do not alter `batch()`, PostgreSQL `pipeline()`, or `stream()`. Those APIs own multiple operations or a longer-lived resource and keep their documented cleanup semantics. Optional PostgreSQL COPY and MySQL LOAD DATA capabilities accept their own execution options; see [Transfer bulk data](./bulk-data.md).
 
 ## Prepare repeated queries
 
@@ -169,6 +169,12 @@ const [accounts, projects] = await database.transaction((transaction) =>
 Always await a transaction batch before returning from its callback. The adapters reject escaped or concurrent batch work rather than allowing queries to run after commit or connection release.
 
 The surrounding database's transaction rules still apply. For example, MySQL statements that implicitly commit cannot be made atomic by placing them in a batch.
+
+For high-volume ingestion, do not emulate a bulk protocol with a larger batch. PostgreSQL COPY and
+MySQL LOAD DATA have distinct dependencies, wire behavior, encoding, and security constraints, so
+they are exposed through optional dialect-owned capabilities. The [bulk data guide](./bulk-data.md)
+starts from an ordinary typed `INSERT` factory and explains backpressure, transaction ownership,
+cancellation, and export behavior.
 
 ## Pipeline independent PostgreSQL queries
 

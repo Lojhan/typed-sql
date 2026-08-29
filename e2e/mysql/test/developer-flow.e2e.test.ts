@@ -2,8 +2,21 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart, Query } from "@typed-sql/core";
-import { createMySqlRoutedDatabase, type MySqlSchemaSnapshot, mysql, sql, typePolicy } from "@typed-sql/mysql";
+import {
+  type DatabaseObserver,
+  type DatabaseOperationEnd,
+  type DatabaseOperationStart,
+  type Query,
+  requireAdapterCapability,
+} from "@typed-sql/core";
+import {
+  createMySqlRoutedDatabase,
+  type MySqlSchemaSnapshot,
+  mysql,
+  mysqlBulk,
+  sql,
+  typePolicy,
+} from "@typed-sql/mysql";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
@@ -98,6 +111,7 @@ try {
     "--env",
     "MYSQL_ROOT_PASSWORD=typed_sql_root",
     imageName,
+    "--local-infile=ON",
   ]);
   containerStarted = true;
   try {
@@ -576,6 +590,67 @@ try {
           strict.ok(!("values" in operation));
           strict.ok(!("connectionUri" in operation));
         }
+      } finally {
+        await database.close();
+      }
+    });
+
+    await it("loads typed rows through mysql2's application-owned local infile stream", async () => {
+      const database = await createMySql2Database({
+        connectionUri,
+        typePolicy,
+        poolConfig: { connectionLimit: 1 },
+      });
+      try {
+        await database.execute(sql`
+          CREATE TABLE bulk_accounts (
+            id BIGINT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            note TEXT
+          )
+        `);
+        const bulk = requireAdapterCapability(database, mysqlBulk);
+        const rowQuery = (row: { readonly id: bigint; readonly email: string; readonly note: string | null }) =>
+          sql`INSERT INTO bulk_accounts (id, email, note) VALUES (${row.id}, ${row.email}, ${row.note})`;
+        const loaded = await bulk.loadData(rowQuery, [
+          { id: 1n, email: "one@example.com", note: null },
+          { id: 2n, email: "two\texample.com", note: "line\nbreak\\tail" },
+        ]);
+        strict.strictEqual(loaded.rows, 2);
+        strict.ok(loaded.bytes > 0);
+
+        await database.transaction(async (transaction) => {
+          await requireAdapterCapability(transaction, mysqlBulk).loadData(rowQuery, [
+            { id: 3n, email: "three@example.com", note: "committed" },
+          ]);
+        });
+
+        strict.deepStrictEqual(
+          await database.execute(
+            sql<{
+              readonly id: bigint;
+              readonly email: string;
+              readonly note: string | null;
+            }>`SELECT id, email, note FROM bulk_accounts ORDER BY id`,
+          ),
+          [
+            { id: 1n, email: "one@example.com", note: null },
+            { id: 2n, email: "two\texample.com", note: "line\nbreak\\tail" },
+            { id: 3n, email: "three@example.com", note: "committed" },
+          ],
+        );
+
+        const producerError = new Error("producer failed");
+        async function* failedRows() {
+          yield { id: 4n, email: "four@example.com", note: null };
+          throw producerError;
+        }
+        await strict.rejects(() => bulk.loadData(rowQuery, failedRows()), producerError);
+        strict.deepStrictEqual(
+          await database.execute(sql<{ readonly total: bigint }>`SELECT COUNT(*) AS total FROM bulk_accounts`),
+          [{ total: 3n }],
+        );
+        await database.execute(sql`DROP TABLE bulk_accounts`);
       } finally {
         await database.close();
       }

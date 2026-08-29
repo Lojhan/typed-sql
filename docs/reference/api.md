@@ -57,6 +57,21 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 
 Most applications use `createPgDatabase` or `createMySql2Database` rather than constructing a neutral adapter directly.
 
+### Optional adapter capabilities
+
+`defineAdapterCapability<Service>(id)` creates an immutable namespaced token for functionality that
+does not belong on every database. `getAdapterCapability(host, token)` returns the typed service or
+`undefined`; `requireAdapterCapability(host, token)` returns it or throws
+`UnsupportedAdapterCapabilityError` with code `TSQL_UNSUPPORTED_ADAPTER_CAPABILITY`.
+
+Official dialect tokens include `postgresCopy` for PostgreSQL COPY FROM/TO and `mysqlBulk` for MySQL
+LOAD DATA. Their services are available on both root databases and transaction scopes when the
+selected adapter supports them. Driver and protocol types remain outside `@typed-sql/core`; see
+[Transfer bulk data](../guides/bulk-data.md).
+
+Adapter authors install services with `adapterCapabilities` and
+`createAdapterCapabilityResolver()`. Capability IDs must be namespaced and globally unique.
+
 ### Semantic routing and transaction retry
 
 `createRoutedDatabase(options)` composes application-owned databases through a grammar-neutral `QuerySemanticResolver`. The PostgreSQL and MySQL roots expose `createPostgresRoutedDatabase()` and `createMySqlRoutedDatabase()` with dialect resolvers configured from a schema snapshot.

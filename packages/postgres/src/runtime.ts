@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import {
+  type AdapterCapabilityResolver,
+  adapterCapabilities,
   assertExecutionCapabilities,
+  createAdapterCapabilityResolver,
   type Database,
   type DatabaseObserver,
   databaseErrorCompletion,
@@ -19,6 +22,7 @@ import {
   type StreamOptions,
   startDatabaseObservation,
 } from "@typed-sql/core";
+import { createPostgresCopyCapability, type PostgresCopyTransport, postgresCopy } from "./bulk.js";
 import {
   createPostgresPreparedQueryState,
   type PostgresPreparedQueryFactory,
@@ -54,10 +58,22 @@ export interface PostgresQueryResult {
   readonly rows: readonly Record<string, unknown>[];
 }
 
+export interface PostgresCopyFromSink {
+  write(chunk: Uint8Array): Promise<void>;
+  finish(): Promise<void>;
+  abort(error: unknown): Promise<void>;
+}
+
+export interface PostgresCopyToSource extends QueryStream<Uint8Array> {
+  abort(error: unknown): Promise<void>;
+}
+
 export interface PostgresClientLike {
   readonly pipeline?: boolean;
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
   openCursor?(config: PostgresQueryConfig): PostgresCursorLike | Promise<PostgresCursorLike>;
+  openCopyFrom?(statement: string): Promise<PostgresCopyFromSink>;
+  openCopyTo?(statement: string): Promise<PostgresCopyToSource>;
   release(error?: Error | boolean): void;
 }
 
@@ -65,6 +81,7 @@ export interface PostgresPoolLike {
   readonly executionCapabilities?: ExecutionCapabilities;
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
   ensureCursor?(): Promise<void>;
+  ensureCopy?(): Promise<void>;
   connect(): Promise<PostgresClientLike>;
   end(): Promise<void>;
 }
@@ -249,6 +266,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   #transactionOperationError: unknown;
   readonly #transactionState: {
     activeBatch: Promise<unknown> | undefined;
+    activeCopy: Promise<unknown> | undefined;
     readonly activeExecutes: Set<Promise<unknown>>;
     activePipeline: Promise<unknown> | undefined;
     readonly activeStreams: Set<QueryStream<unknown>>;
@@ -263,6 +281,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #transactionExecutes = new Set<Promise<unknown>>();
   readonly #transactionStreams = new Set<QueryStream<unknown>>();
   readonly executionCapabilities: ExecutionCapabilities;
+  readonly [adapterCapabilities]: AdapterCapabilityResolver;
 
   constructor(
     pool: PostgresPoolLike,
@@ -274,6 +293,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     observation: PostgresObservationState,
     transactionState = {
       activeBatch: undefined as Promise<unknown> | undefined,
+      activeCopy: undefined as Promise<unknown> | undefined,
       activeExecutes: new Set<Promise<unknown>>(),
       activePipeline: undefined as Promise<unknown> | undefined,
       activeStreams: new Set<QueryStream<unknown>>(),
@@ -298,6 +318,13 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       cancellation: pool.executionCapabilities?.cancellation ?? false,
       deadlines: pool.executionCapabilities?.deadlines ?? false,
     });
+    const copyTransport: PostgresCopyTransport = {
+      copyFrom: (statement, chunks, options) => this.#copyFrom(statement, chunks, options),
+      copyTo: (statement, options) => this.#copyTo(statement, options),
+    };
+    this[adapterCapabilities] = createAdapterCapabilityResolver(
+      pool.ensureCopy === undefined ? [] : [[postgresCopy, createPostgresCopyCapability(copyTransport)]],
+    );
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
@@ -309,6 +336,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute another query");
     this.#rejectOperationDuringTransactionBatch("execute another query");
+    this.#rejectOperationDuringTransactionCopy("execute another query");
     this.#rejectOperationDuringTransactionPipeline("execute another query");
     const config = this.#queryConfig(query);
     let operation: Promise<PostgresQueryResult>;
@@ -352,6 +380,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute another query");
     this.#rejectOperationDuringTransactionBatch("execute another query");
+    this.#rejectOperationDuringTransactionCopy("execute another query");
     this.#rejectOperationDuringTransactionPipeline("execute another query");
 
     if (options.signal?.aborted || (options.deadline !== undefined && Number(options.deadline) <= Date.now())) {
@@ -480,6 +509,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute a query batch");
     this.#rejectOperationDuringTransactionBatch("execute another query batch");
+    this.#rejectOperationDuringTransactionCopy("execute a query batch");
     this.#rejectOperationDuringTransactionPipeline("execute a query batch");
     if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
     const querySnapshot = [...queries] as unknown as QueryBatch<Queries>;
@@ -526,6 +556,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("execute a query pipeline");
     this.#rejectOperationDuringTransactionBatch("execute a query pipeline");
+    this.#rejectOperationDuringTransactionCopy("execute a query pipeline");
     this.#rejectOperationDuringTransactionExecute("execute a query pipeline");
     this.#rejectOperationDuringTransactionPipeline("execute another query pipeline");
     if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
@@ -608,6 +639,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start another query stream");
     this.#rejectOperationDuringTransactionBatch("start a query stream");
+    this.#rejectOperationDuringTransactionCopy("start a query stream");
     this.#rejectOperationDuringTransactionPipeline("start a query stream");
     const batchSize = validatePostgresStreamBatchSize(options.batchSize);
     const config = this.#queryConfig(query);
@@ -636,7 +668,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
         }
         try {
           const cursor = await client.openCursor(config);
-          return { cursor, ...(release === undefined ? {} : { release }) };
+          return { cursor: cursor as PostgresCursorLike<Row>, ...(release === undefined ? {} : { release }) };
         } catch (error) {
           this.#recordTransactionOperationFailure(error);
           try {
@@ -654,6 +686,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
               this.#assertTransactionScopeOpen();
               this.#rejectOperationDuringTransactionStream("start another query stream");
               this.#rejectOperationDuringTransactionBatch("start a query stream");
+              this.#rejectOperationDuringTransactionCopy("start a query stream");
               this.#rejectOperationDuringTransactionPipeline("start a query stream");
               this.#transactionState.activeStreams.add(exposedStream as QueryStream<unknown>);
             },
@@ -675,6 +708,142 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
             fingerprint: postgresQueryFingerprint(this.#observation, query),
             prepared: this.#prepared.queries.has(query),
           });
+    if (this.#client !== undefined) this.#transactionStreams.add(exposedStream as QueryStream<unknown>);
+    return exposedStream;
+  }
+
+  async #copyFrom(statement: string, chunks: AsyncIterable<Uint8Array>, options: ExecutionOptions): Promise<void> {
+    assertExecutionCapabilities(this.executionCapabilities, options);
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("start COPY FROM");
+    this.#rejectOperationDuringTransactionBatch("start COPY FROM");
+    this.#rejectOperationDuringTransactionCopy("start another COPY operation");
+    this.#rejectOperationDuringTransactionExecute("start COPY FROM");
+    this.#rejectOperationDuringTransactionPipeline("start COPY FROM");
+    await this.#pool.ensureCopy?.();
+    const client = this.#client ?? (await this.#pool.connect());
+    let sink: PostgresCopyFromSink | undefined;
+    const operation = runControlledExecution(
+      options,
+      async () => {
+        if (client.openCopyFrom === undefined) {
+          throw new Error(
+            "PostgreSQL COPY requires the application-owned pg-copy-streams package. Install it with: pnpm add pg-copy-streams",
+          );
+        }
+        sink = await client.openCopyFrom(statement);
+        try {
+          for await (const chunk of chunks) await sink.write(chunk);
+          await sink.finish();
+        } catch (error) {
+          try {
+            await sink.abort(error);
+          } catch {
+            /* Preserve the producer or database failure. */
+          }
+          throw error;
+        }
+      },
+      (error) => {
+        void sink?.abort(error).catch(() => undefined);
+      },
+    );
+    if (this.#client !== undefined) this.#transactionState.activeCopy = operation;
+    try {
+      await operation;
+      if (this.#client === undefined) client.release();
+    } catch (error) {
+      this.#recordTransactionOperationFailure(error);
+      if (this.#client === undefined) {
+        try {
+          client.release(error instanceof Error ? error : true);
+        } catch {
+          /* Preserve the COPY failure. */
+        }
+      }
+      throw error;
+    } finally {
+      if (this.#transactionState.activeCopy === operation) this.#transactionState.activeCopy = undefined;
+    }
+  }
+
+  #copyTo(statement: string, options: ExecutionOptions): QueryStream<Uint8Array> {
+    assertExecutionCapabilities(this.executionCapabilities, options);
+    this.#assertTransactionScopeOpen();
+    this.#rejectOperationDuringTransactionStream("start COPY TO");
+    this.#rejectOperationDuringTransactionBatch("start COPY TO");
+    this.#rejectOperationDuringTransactionCopy("start COPY TO");
+    this.#rejectOperationDuringTransactionPipeline("start COPY TO");
+    let exposedStream: QueryStream<Uint8Array>;
+    const stream = new PostgresQueryStream<Uint8Array>({
+      batchSize: 1,
+      start: async () => {
+        await this.#pool.ensureCopy?.();
+        const client = this.#client ?? (await this.#pool.connect());
+        const release =
+          this.#client === undefined
+            ? (cleanupError?: unknown): void =>
+                client.release(
+                  cleanupError === undefined ? undefined : cleanupError instanceof Error ? cleanupError : true,
+                )
+            : undefined;
+        if (client.openCopyTo === undefined) {
+          try {
+            release?.();
+          } catch {
+            /* The missing optional dependency remains primary. */
+          }
+          throw new Error(
+            "PostgreSQL COPY requires the application-owned pg-copy-streams package. Install it with: pnpm add pg-copy-streams",
+          );
+        }
+        try {
+          const source = await client.openCopyTo(statement);
+          return {
+            cursor: {
+              async read(): Promise<readonly Uint8Array[]> {
+                const result = await runControlledExecution(
+                  options,
+                  () => source.next(),
+                  (error) => {
+                    void source.abort(error).catch(() => undefined);
+                  },
+                );
+                return result.done === true ? [] : [result.value];
+              },
+              close: () => source.close(),
+            },
+            ...(release === undefined ? {} : { release }),
+          };
+        } catch (error) {
+          this.#recordTransactionOperationFailure(error);
+          try {
+            release?.(error);
+          } catch {
+            /* Preserve source creation or optional-dependency failures. */
+          }
+          throw error;
+        }
+      },
+      ...(this.#client === undefined
+        ? {}
+        : {
+            onStart: () => {
+              this.#assertTransactionScopeOpen();
+              this.#rejectOperationDuringTransactionStream("start COPY TO");
+              this.#rejectOperationDuringTransactionBatch("start COPY TO");
+              this.#rejectOperationDuringTransactionCopy("start COPY TO");
+              this.#rejectOperationDuringTransactionPipeline("start COPY TO");
+              this.#transactionState.activeStreams.add(exposedStream as QueryStream<unknown>);
+            },
+            onClose: () => {
+              this.#transactionState.activeStreams.delete(exposedStream as QueryStream<unknown>);
+              this.#transactionStreams.delete(exposedStream as QueryStream<unknown>);
+            },
+            onError: (error: unknown) => this.#recordTransactionOperationFailure(error),
+          }),
+    });
+    exposedStream = stream;
     if (this.#client !== undefined) this.#transactionStreams.add(exposedStream as QueryStream<unknown>);
     return exposedStream;
   }
@@ -710,6 +879,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#assertTransactionScopeOpen();
     this.#rejectOperationDuringTransactionStream("start a nested transaction");
     this.#rejectOperationDuringTransactionBatch("start a nested transaction");
+    this.#rejectOperationDuringTransactionCopy("start a nested transaction");
     this.#rejectOperationDuringTransactionPipeline("start a nested transaction");
     if (this.#client !== undefined) return this.#nestedTransaction(fn);
     const client = await this.#pool.connect();
@@ -723,6 +893,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       this.#observation,
       {
         activeBatch: undefined,
+        activeCopy: undefined,
         activeExecutes: new Set(),
         activePipeline: undefined,
         activeStreams: new Set(),
@@ -764,6 +935,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       await scope.#closeTransactionStreamsPreservingError();
       await scope.#settleTransactionPipelinePreservingError();
       await scope.#settleTransactionBatchPreservingError();
+      await scope.#settleTransactionCopyPreservingError();
       if (!scope.#transactionState.leaseReleased) {
         try {
           await client.query("ROLLBACK");
@@ -827,6 +999,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       await scope.#closeTransactionStreamsPreservingError();
       await scope.#settleTransactionPipelinePreservingError();
       await scope.#settleTransactionBatchPreservingError();
+      await scope.#settleTransactionCopyPreservingError();
       if (scope.#transactionState.valid && !scope.#transactionState.leaseReleased) {
         try {
           await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
@@ -904,11 +1077,13 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     const leakedExecutes = this.#transactionExecutes.size > 0 || this.#transactionState.activeExecutes.size > 0;
     const leakedPipeline = this.#transactionState.activePipeline !== undefined;
     const leakedBatch = this.#transactionState.activeBatch !== undefined;
-    if (!leakedStreams && !leakedExecutes && !leakedPipeline && !leakedBatch) return;
+    const leakedCopy = this.#transactionState.activeCopy !== undefined;
+    if (!leakedStreams && !leakedExecutes && !leakedPipeline && !leakedBatch && !leakedCopy) return;
     await this.#settleTransactionExecutesPreservingError();
     await this.#closeTransactionStreamsPreservingError();
     await this.#settleTransactionPipelinePreservingError();
     await this.#settleTransactionBatchPreservingError();
+    await this.#settleTransactionCopyPreservingError();
     if (leakedExecutes) {
       throw new Error(
         "A PostgreSQL transaction callback returned before an execute operation completed; await execute before returning",
@@ -922,6 +1097,11 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     if (leakedPipeline) {
       throw new Error(
         "A PostgreSQL transaction callback returned before its query pipeline completed; await the pipeline before returning",
+      );
+    }
+    if (leakedCopy) {
+      throw new Error(
+        "A PostgreSQL transaction callback returned before its COPY operation completed; await COPY before returning",
       );
     }
     throw new Error("A PostgreSQL transaction callback returned before all query streams were completed or closed");
@@ -969,6 +1149,16 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
   }
 
+  async #settleTransactionCopyPreservingError(): Promise<void> {
+    const operation = this.#transactionState.activeCopy;
+    if (operation === undefined) return;
+    try {
+      await operation;
+    } catch {
+      /* The callback or transaction misuse error remains primary. */
+    }
+  }
+
   #rejectOperationDuringTransactionStream(operation: string): void {
     if (this.#client !== undefined && this.#transactionState.activeStreams.size > 0) {
       throw new Error(
@@ -981,6 +1171,14 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     if (this.#client !== undefined && this.#transactionState.activeBatch !== undefined) {
       throw new Error(
         `Cannot ${operation} while a PostgreSQL transaction query batch is still running; await the batch first`,
+      );
+    }
+  }
+
+  #rejectOperationDuringTransactionCopy(operation: string): void {
+    if (this.#client !== undefined && this.#transactionState.activeCopy !== undefined) {
+      throw new Error(
+        `Cannot ${operation} while a PostgreSQL transaction COPY operation is still running; await COPY first`,
       );
     }
   }

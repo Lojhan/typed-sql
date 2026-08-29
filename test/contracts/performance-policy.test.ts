@@ -112,6 +112,7 @@ await describe("performance regression policy", async () => {
       "kysely",
       "mysql2",
       "pg",
+      "pg-copy-streams",
       "typeorm",
     ]) {
       strict.ok(manifest.dependencies[dependency] !== undefined, `comparison does not pin ${dependency}`);
@@ -120,6 +121,19 @@ await describe("performance regression policy", async () => {
     strict.ok(compose.includes("postgres:18.0-alpine"));
     strict.ok(compose.includes("mysql:9.5"));
     strict.ok(compose.includes("healthcheck:"));
+    strict.ok(compose.includes("--local-infile=ON"));
+    const bulk = await readFile(join(benchmark, "src", "bulk.ts"), "utf8");
+    for (const evidence of [
+      "typed-sql COPY FROM",
+      "typed-sql LOAD DATA",
+      "typed-sql ordered batch",
+      "typed-sql native pipeline",
+      "raw pg-copy-streams",
+      "raw mysql2 LOAD DATA",
+    ]) {
+      strict.ok(bulk.includes(evidence), `bulk comparison does not include ${evidence}`);
+    }
+    strict.ok(bulk.includes("BULK_BENCHMARK_ROW_COUNTS"));
     const documentation = await readFile(join(benchmark, "README.md"), "utf8");
     strict.ok(documentation.includes("not a universal leaderboard"));
     strict.ok(documentation.includes("generated numbers are intentionally ignored"));

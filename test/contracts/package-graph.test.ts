@@ -23,7 +23,7 @@ interface PackageManifest {
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(directory, "../..");
-const forbiddenDrivers = new Set(["pg", "mysql2", "better-sqlite3", "sqlite3"]);
+const forbiddenDrivers = new Set(["pg", "pg-copy-streams", "mysql2", "better-sqlite3", "sqlite3"]);
 const publicPackages = [
   "ast",
   "core",
@@ -122,8 +122,11 @@ await describe("public package graph", async () => {
   await it("keeps pg entirely application-owned instead of declaring a peer", async () => {
     const packageManifest = await manifest("postgres");
     strict.strictEqual(packageManifest.dependencies?.pg, undefined);
+    strict.strictEqual(packageManifest.dependencies?.["pg-copy-streams"], undefined);
     strict.strictEqual(packageManifest.optionalDependencies?.pg, undefined);
+    strict.strictEqual(packageManifest.optionalDependencies?.["pg-copy-streams"], undefined);
     strict.strictEqual(packageManifest.peerDependencies?.pg, undefined);
+    strict.strictEqual(packageManifest.peerDependencies?.["pg-copy-streams"], undefined);
     strict.strictEqual(packageManifest.dependencies?.["@types/pg"], "8.23.1");
   });
 

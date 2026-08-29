@@ -47,6 +47,18 @@ The adapter controls mysql2 options that affect row shape and decoding. Supplyin
 
 The runtime constructors and mysql2 adapter accept a grammar-neutral `observer`. Query, prepared-query, batch, stream, cancellation, and nested-transaction lifecycles carry MySQL compiler-compatible fingerprints without exposing SQL or values. See [Observe database work](../guides/observability.md).
 
+## Bulk transfer
+
+The package root exports the `mysqlBulk` capability token. The mysql2 adapter implements
+`loadData()` with `LOAD DATA LOCAL INFILE`, but supplies the infile stream from the application's
+typed row source and rejects every path except its fixed internal sentinel. It never opens an
+arbitrary local or server-provided path. The MySQL server must explicitly enable `local_infile`.
+
+The input remains an ordinary typed single-row `INSERT` factory. Stable text-safe scalar values use
+an escaped UTF-8 tab stream with bounded buffering. Binary, structured, and connection-timezone
+dependent Date values fail closed and should use normal parameter execution. No native bulk export capability is claimed. See
+[Transfer bulk data](../guides/bulk-data.md).
+
 ## Streaming
 
 MySQL streaming uses mysql2's protocol-backed execute stream and does not require another package. `batchSize` maps to the object-mode high-water mark, so it controls client-side buffering rather than server cursor page size.

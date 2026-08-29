@@ -17,3 +17,9 @@ SELECT
   IF(MOD(value, 5) = 0, 'suspended', 'active'),
   value * 10.25
 FROM sequence;
+
+CREATE TABLE bulk_account (
+  id bigint PRIMARY KEY,
+  email varchar(255) NOT NULL UNIQUE,
+  status enum('active', 'suspended') NOT NULL
+);

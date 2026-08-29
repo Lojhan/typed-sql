@@ -20,11 +20,36 @@ class FakeCallbackCommand extends EventEmitter {
 class FakeCallbackConnection extends EventEmitter {
   readonly commands: FakeCallbackCommand[] = [];
   readonly calls: { readonly sql: string; readonly values: readonly unknown[] }[] = [];
+  readonly localInfileChunks: Buffer[] = [];
+  readonly localInfileStatements: string[] = [];
+  localInfilePath = "typed-sql-stream";
 
   execute(sql: string, values: readonly unknown[]): FakeCallbackCommand {
     const command = new FakeCallbackCommand();
     this.commands.push(command);
     this.calls.push({ sql, values });
+    return command;
+  }
+
+  query(
+    options: { readonly sql: string; readonly infileStreamFactory: (path: string) => Readable },
+    callback: (error: Error | null) => void,
+  ): FakeCallbackCommand {
+    const command = new FakeCallbackCommand();
+    this.localInfileStatements.push(options.sql);
+    try {
+      const source = options.infileStreamFactory(this.localInfilePath);
+      void (async () => {
+        try {
+          for await (const chunk of source) this.localInfileChunks.push(Buffer.from(chunk));
+          callback(null);
+        } catch (error) {
+          callback(error instanceof Error ? error : new Error(String(error)));
+        }
+      })();
+    } catch (error) {
+      callback(error instanceof Error ? error : new Error(String(error)));
+    }
     return command;
   }
 }
@@ -167,6 +192,36 @@ await describe("application-owned mysql2 integration", async () => {
     await pool.end();
     strict.strictEqual(raw.pooledConnection.released, true);
     strict.strictEqual(raw.ended, true);
+  });
+
+  await it("streams LOAD DATA only through the exact application-owned infile sentinel", async () => {
+    const raw = new FakeRawPool();
+    const connection = await adaptMySql2Pool(raw as unknown as Pool).getConnection();
+    await connection.loadData!(
+      "LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE account",
+      (async function* () {
+        yield new TextEncoder().encode("1\tone@example.com\n");
+      })(),
+    );
+    strict.deepStrictEqual(raw.pooledConnection.connection.localInfileStatements, [
+      "LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE account",
+    ]);
+    strict.strictEqual(
+      Buffer.concat(raw.pooledConnection.connection.localInfileChunks).toString("utf8"),
+      "1\tone@example.com\n",
+    );
+
+    raw.pooledConnection.connection.localInfilePath = "/tmp/untrusted.csv";
+    await strict.rejects(
+      () =>
+        connection.loadData!(
+          "LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE account",
+          (async function* () {
+            yield new Uint8Array([1]);
+          })(),
+        ),
+      /unexpected local infile path/u,
+    );
   });
 
   await it("normalizes native mysql2 DML metadata in an ordered batch", async () => {

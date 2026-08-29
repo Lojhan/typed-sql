@@ -1,8 +1,18 @@
 import { EventEmitter } from "node:events";
+import { Readable, Writable } from "node:stream";
 import type { Pool as PgPool } from "pg";
 import { describe, it, strict } from "poku";
-import { type DatabaseOperationEnd, sql } from "../../core/src/index.js";
-import { adaptPgPool, createPgDatabase, loadPgCursorDriver, loadPgDriver, type PgOptions, pg } from "../src/pg.js";
+import { type DatabaseOperationEnd, requireAdapterCapability, sql } from "../../core/src/index.js";
+import { postgresCopy } from "../src/index.js";
+import {
+  adaptPgPool,
+  createPgDatabase,
+  loadPgCopyStreams,
+  loadPgCursorDriver,
+  loadPgDriver,
+  type PgOptions,
+  pg,
+} from "../src/pg.js";
 import type { PostgresQueryable, PostgresQueryResult } from "../src/provider.js";
 import { createPostgresDatabase, type PostgresQueryConfig } from "../src/runtime.js";
 
@@ -50,8 +60,27 @@ class FakePgClient extends EventEmitter {
   releaseError: Error | boolean | undefined;
   queryError: Error | undefined;
   readonly calls: unknown[] = [];
-  query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> | FakeNativeCursor {
+  readonly copyInput: Buffer[] = [];
+  readonly copyStatements: string[] = [];
+  query(
+    config: unknown,
+  ): Promise<{ rows: readonly Record<string, unknown>[] }> | FakeNativeCursor | Readable | Writable {
     this.calls.push(config);
+    if (typeof config === "object" && config !== null && "copy" in config && "statement" in config) {
+      const marker = config as { readonly copy: "from" | "to"; readonly statement: string };
+      this.copyStatements.push(marker.statement);
+      if (marker.copy === "to") {
+        return marker.statement.includes("string")
+          ? Readable.from(["1,one@example.com\n"])
+          : Readable.from([Buffer.from("1,one@example.com\n")]);
+      }
+      return new Writable({
+        write: (chunk, _encoding, callback) => {
+          this.copyInput.push(Buffer.from(chunk));
+          callback();
+        },
+      });
+    }
     if (
       typeof config === "object" &&
       config !== null &&
@@ -275,6 +304,62 @@ await describe("application-owned pg integration", async () => {
     strict.strictEqual(cursor?.closeCount, 1);
   });
 
+  await it("bridges application-owned COPY streams and makes early export close successful", async () => {
+    const original = new FakePgPool();
+    let imports = 0;
+    const pool = adaptPgPool(
+      original as unknown as PgPool,
+      async () => ({ default: FakePgCursor }),
+      async () => {
+        imports += 1;
+        return {
+          from: (statement: string) => ({ copy: "from", statement }),
+          to: (statement: string) => ({ copy: "to", statement }),
+        };
+      },
+    );
+    await pool.ensureCopy!();
+    const client = await pool.connect();
+    const sink = await client.openCopyFrom!("COPY account FROM STDIN");
+    await sink.write(new TextEncoder().encode("1\tone@example.com\n"));
+    await sink.finish();
+    strict.strictEqual(Buffer.concat(original.client.copyInput).toString("utf8"), "1\tone@example.com\n");
+
+    const source = await client.openCopyTo!("COPY account TO STDOUT");
+    strict.deepStrictEqual(await source.next(), {
+      done: false,
+      value: Buffer.from("1,one@example.com\n"),
+    });
+    await source.close();
+
+    const completed = await client.openCopyTo!("COPY complete TO STDOUT");
+    await completed.next();
+    strict.deepStrictEqual(await completed.next(), { done: true, value: undefined });
+    await completed.close();
+
+    const returned = await client.openCopyTo!("COPY returned TO STDOUT");
+    await returned.return!();
+    const disposed = await client.openCopyTo!("COPY disposed TO STDOUT");
+    await disposed[Symbol.asyncDispose]();
+    const stringSource = await client.openCopyTo!("COPY string TO STDOUT");
+    strict.deepStrictEqual((await stringSource.next()).value, Buffer.from("1,one@example.com\n"));
+    await stringSource.close();
+
+    const abortedSink = await client.openCopyFrom!("COPY aborted FROM STDIN");
+    await abortedSink.abort("stop");
+    strict.deepStrictEqual(original.client.copyStatements, [
+      "COPY account FROM STDIN",
+      "COPY account TO STDOUT",
+      "COPY complete TO STDOUT",
+      "COPY returned TO STDOUT",
+      "COPY disposed TO STDOUT",
+      "COPY string TO STDOUT",
+      "COPY aborted FROM STDIN",
+    ]);
+    strict.strictEqual(imports, 1);
+    client.release();
+  });
+
   await it("discards the client with the primary cursor SQL error", async () => {
     const sqlError = new Error("invalid input syntax");
     let closeCount = 0;
@@ -426,6 +511,20 @@ await describe("application-owned pg integration", async () => {
     strict.strictEqual(await loadPgCursorDriver(async () => ({ default: FakePgCursor })), FakePgCursor);
   });
 
+  await it("normalizes missing or invalid application-owned pg-copy-streams failures", async () => {
+    const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
+    await strict.rejects(
+      () =>
+        loadPgCopyStreams(async () => {
+          throw missing;
+        }),
+      /pnpm add pg-copy-streams/,
+    );
+    await strict.rejects(() => loadPgCopyStreams(async () => ({ from: () => undefined })), /from\(\).*to\(\)/);
+    const module = { from: () => ({}), to: () => ({}) };
+    strict.strictEqual(await loadPgCopyStreams(async () => module), module);
+  });
+
   await it("does not lease a pg client when the lazy cursor dependency is missing", async () => {
     const original = new FakePgPool();
     const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
@@ -437,6 +536,22 @@ await describe("application-owned pg integration", async () => {
     const stream = database.stream(sql`SELECT 1`);
     strict.strictEqual(original.connectCount, 0);
     await strict.rejects(() => stream.next(), /pnpm add pg-cursor/);
+    strict.strictEqual(original.connectCount, 0);
+  });
+
+  await it("does not lease a pg client when the lazy COPY dependency is missing", async () => {
+    const original = new FakePgPool();
+    const missing = Object.assign(new Error("missing"), { code: "ERR_MODULE_NOT_FOUND" });
+    const database = createPostgresDatabase({
+      pool: adaptPgPool(original as unknown as PgPool, undefined, async () => {
+        throw missing;
+      }),
+    });
+    const copy = requireAdapterCapability(database, postgresCopy);
+    await strict.rejects(
+      () => copy.copyFrom((id: bigint) => sql`INSERT INTO account (id) VALUES (${id})`, [1n]),
+      /pnpm add pg-copy-streams/,
+    );
     strict.strictEqual(original.connectCount, 0);
   });
 });

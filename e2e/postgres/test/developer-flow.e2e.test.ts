@@ -2,11 +2,17 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart } from "@typed-sql/core";
+import {
+  type DatabaseObserver,
+  type DatabaseOperationEnd,
+  type DatabaseOperationStart,
+  requireAdapterCapability,
+} from "@typed-sql/core";
 import {
   createPostgresRoutedDatabase,
   type PostgresSchemaSnapshot,
   postgres,
+  postgresCopy,
   sql,
   typePolicy,
 } from "@typed-sql/postgres";
@@ -50,6 +56,7 @@ interface GeneratedSnapshot {
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspaceDirectory = resolve(packageDirectory, "../..");
 const pgCursorPackage: string = "pg-cursor";
+const pgCopyStreamsPackage: string = "pg-copy-streams";
 const generatedDirectory = join(packageDirectory, "generated");
 const generatedDatabaseDirectory = join(generatedDirectory, "db");
 const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
@@ -714,6 +721,61 @@ try {
           strict.ok(!("values" in operation));
           strict.ok(!("connectionString" in operation));
         }
+      } finally {
+        await database.close();
+      }
+    });
+
+    await it("imports and exports typed rows through application-owned PostgreSQL COPY", async () => {
+      const database = await createPgDatabase({
+        connectionString,
+        typePolicy,
+        poolConfig: { max: 1, connectionTimeoutMillis: 2_000 },
+        copyStreamsImporter: () => import(pgCopyStreamsPackage),
+      });
+      try {
+        await database.execute(sql`
+          CREATE TABLE bulk_accounts (
+            id BIGINT PRIMARY KEY,
+            email TEXT NOT NULL,
+            note TEXT
+          )
+        `);
+        const copy = requireAdapterCapability(database, postgresCopy);
+        const rowQuery = (row: { readonly id: bigint; readonly email: string; readonly note: string | null }) =>
+          sql`INSERT INTO bulk_accounts (id, email, note) VALUES (${row.id}, ${row.email}, ${row.note})`;
+        const imported = await copy.copyFrom(rowQuery, [
+          { id: 1n, email: "one@example.com", note: null },
+          { id: 2n, email: 'two,"quoted"@example.com', note: "line\nbreak" },
+        ]);
+        strict.strictEqual(imported.rows, 2);
+        strict.ok(imported.bytes > 0);
+
+        await database.transaction(async (transaction) => {
+          const transactionalCopy = requireAdapterCapability(transaction, postgresCopy);
+          await transactionalCopy.copyFrom(rowQuery, [{ id: 3n, email: "three@example.com", note: "committed" }]);
+        });
+
+        const exported: Uint8Array[] = [];
+        for await (const chunk of copy.copyTo(sql`SELECT id, email, note FROM bulk_accounts ORDER BY id`)) {
+          exported.push(chunk);
+        }
+        strict.strictEqual(
+          new TextDecoder().decode(Buffer.concat(exported)),
+          '1,one@example.com,\n2,"two,""quoted""@example.com","line\nbreak"\n3,three@example.com,committed\n',
+        );
+
+        const producerError = new Error("producer failed");
+        async function* failedRows() {
+          yield { id: 4n, email: "four@example.com", note: null };
+          throw producerError;
+        }
+        await strict.rejects(() => copy.copyFrom(rowQuery, failedRows()), producerError);
+        strict.deepStrictEqual(
+          await database.execute(sql<{ readonly total: bigint }>`SELECT COUNT(*) AS total FROM bulk_accounts`),
+          [{ total: 3n }],
+        );
+        await database.execute(sql`DROP TABLE bulk_accounts`);
       } finally {
         await database.close();
       }

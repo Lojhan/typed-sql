@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { once } from "node:events";
+import type { Readable, Writable } from "node:stream";
+import { finished } from "node:stream/promises";
 import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
 import type { Pool as PgPool, PoolClient, PoolConfig, QueryConfig } from "pg";
 import type { PostgresSchemaSnapshot } from "./index.js";
@@ -6,6 +9,8 @@ import { type PostgresQueryable, PostgresSchemaProvider } from "./provider.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
+  type PostgresCopyFromSink,
+  type PostgresCopyToSource,
   type PostgresCursorLike,
   type PostgresDatabase,
   type PostgresPoolLike,
@@ -31,12 +36,24 @@ export interface PgCursorConstructor {
 
 export type PgCursorImporter = () => Promise<unknown>;
 
+export interface PgCopyStreamsModule {
+  readonly from: (statement: string) => unknown;
+  readonly to: (statement: string) => unknown;
+}
+
+export type PgCopyStreamsImporter = () => Promise<unknown>;
+
 const pgCursorPackage = "pg-cursor";
+const pgCopyStreamsPackage = "pg-copy-streams";
 const queryTimeoutError =
   "@typed-sql/postgres/pg does not accept pg query_timeout because pg can reject before the connection is ready for reuse; use PostgreSQL statement_timeout instead";
 
 async function defaultPgCursorImporter(): Promise<unknown> {
   return import(pgCursorPackage);
+}
+
+async function defaultPgCopyStreamsImporter(): Promise<unknown> {
+  return import(pgCopyStreamsPackage);
 }
 
 function pgCursorConstructor(module: unknown): PgCursorConstructor {
@@ -66,6 +83,31 @@ export async function loadPgCursorDriver(
   }
 }
 
+export async function loadPgCopyStreams(
+  importer: PgCopyStreamsImporter = defaultPgCopyStreamsImporter,
+): Promise<PgCopyStreamsModule> {
+  try {
+    const module = await importer();
+    if (
+      typeof module !== "object" ||
+      module === null ||
+      typeof (module as Partial<PgCopyStreamsModule>).from !== "function" ||
+      typeof (module as Partial<PgCopyStreamsModule>).to !== "function"
+    ) {
+      throw new TypeError("The application-owned pg-copy-streams package must export from() and to() factories");
+    }
+    return module as PgCopyStreamsModule;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ERR_MODULE_NOT_FOUND") {
+      throw new Error(
+        "@typed-sql/postgres/pg COPY requires the application-owned pg-copy-streams package. Install it with: pnpm add pg-copy-streams",
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
+
 export interface PgOptions {
   readonly connectionString: string | (() => string | Promise<string>);
   readonly poolConfig?: Omit<PoolConfig, "connectionString" | "query_timeout" | "types">;
@@ -73,6 +115,8 @@ export interface PgOptions {
   readonly decimal?: (value: string) => unknown;
   /** Host-injected loader for workspaces or runtimes with nonstandard package resolution. */
   readonly cursorImporter?: PgCursorImporter;
+  /** Host-injected loader for the optional pg-copy-streams bulk protocol package. */
+  readonly copyStreamsImporter?: PgCopyStreamsImporter;
   readonly observer?: DatabaseObserver;
 }
 
@@ -437,6 +481,7 @@ function queryConfig(config: PostgresQueryConfig): QueryConfig<unknown[]> {
 export function adaptPgPool(
   pool: PgPool,
   cursorImporter: PgCursorImporter = defaultPgCursorImporter,
+  copyStreamsImporter: PgCopyStreamsImporter = defaultPgCopyStreamsImporter,
 ): PostgresPoolLike {
   const options = (
     pool as PgPool & {
@@ -449,6 +494,11 @@ export function adaptPgPool(
   const loadCursor = (): Promise<PgCursorConstructor> => {
     cursorConstructorPromise ??= loadPgCursorDriver(cursorImporter);
     return cursorConstructorPromise;
+  };
+  let copyStreamsPromise: Promise<PgCopyStreamsModule> | undefined;
+  const loadCopyStreams = (): Promise<PgCopyStreamsModule> => {
+    copyStreamsPromise ??= loadPgCopyStreams(copyStreamsImporter);
+    return copyStreamsPromise;
   };
   const wrapClient = (client: PoolClient): PostgresClientLike => {
     let fatalError: Error | undefined;
@@ -497,6 +547,73 @@ export function adaptPgPool(
           },
         };
       },
+      async openCopyFrom(statement: string): Promise<PostgresCopyFromSink> {
+        const copy = await loadCopyStreams();
+        const nativeQuery = client.query.bind(client) as unknown as (query: unknown) => Writable;
+        const writable = nativeQuery(copy.from(statement));
+        const terminal = finished(writable);
+        void terminal.catch(() => undefined);
+        return {
+          async write(chunk): Promise<void> {
+            if (!writable.write(chunk)) await once(writable, "drain");
+          },
+          async finish(): Promise<void> {
+            writable.end();
+            await terminal;
+          },
+          async abort(error): Promise<void> {
+            writable.destroy(error instanceof Error ? error : new Error("PostgreSQL COPY FROM aborted"));
+            await terminal.catch(() => undefined);
+          },
+        };
+      },
+      async openCopyTo(statement: string): Promise<PostgresCopyToSource> {
+        const copy = await loadCopyStreams();
+        const nativeQuery = client.query.bind(client) as unknown as (query: unknown) => Readable;
+        const readable = nativeQuery(copy.to(statement));
+        const terminal = finished(readable);
+        void terminal.catch(() => undefined);
+        const iterator = readable[Symbol.asyncIterator]();
+        let complete = false;
+        const close = async (): Promise<void> => {
+          const early = !complete;
+          complete = true;
+          if (early) readable.destroy();
+          if (early) await terminal.catch(() => undefined);
+          else await terminal;
+        };
+        const source: PostgresCopyToSource = {
+          [Symbol.asyncIterator](): PostgresCopyToSource {
+            return source;
+          },
+          async next(): Promise<IteratorResult<Uint8Array, undefined>> {
+            const result = await iterator.next();
+            if (result.done === true) {
+              complete = true;
+              return { done: true, value: undefined };
+            }
+            const value = result.value;
+            return {
+              done: false,
+              value: value instanceof Uint8Array ? value : Buffer.from(value as string),
+            };
+          },
+          async return(): Promise<IteratorResult<Uint8Array, undefined>> {
+            await close();
+            return { done: true, value: undefined };
+          },
+          close,
+          async abort(error): Promise<void> {
+            readable.destroy(error instanceof Error ? error : new Error("PostgreSQL COPY TO aborted"));
+            await terminal.catch(() => undefined);
+            complete = true;
+          },
+          async [Symbol.asyncDispose](): Promise<void> {
+            await close();
+          },
+        };
+        return source;
+      },
       release(error?: Error | boolean): void {
         client.removeListener("error", onError);
         client.removeListener("end", onEnd);
@@ -516,6 +633,9 @@ export function adaptPgPool(
     async ensureCursor(): Promise<void> {
       await loadCursor();
     },
+    async ensureCopy(): Promise<void> {
+      await loadCopyStreams();
+    },
     async connect(): Promise<PostgresClientLike> {
       return wrapClient(await pool.connect());
     },
@@ -533,7 +653,7 @@ export async function createPgDatabase(options: PgOptions): Promise<PostgresData
   const { Pool } = driver;
   const pool = new Pool({ ...options.poolConfig, connectionString: resolvedConnectionString });
   return createPostgresDatabase({
-    pool: adaptPgPool(pool, options.cursorImporter),
+    pool: adaptPgPool(pool, options.cursorImporter, options.copyStreamsImporter),
     ownsPool: true,
     fallbackTypeParsers: driver.types,
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),

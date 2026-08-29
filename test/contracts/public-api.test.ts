@@ -77,6 +77,10 @@ import type {
 import * as conformanceApi from "../../packages/conformance/src/index.js";
 import type {
   ActiveDatabaseObservation,
+  AdapterCapability,
+  AdapterCapabilityHost,
+  AdapterCapabilityResolver,
+  AdapterCapabilityService,
   BatchOperationStart,
   ControlledQueryExecutor,
   Database,
@@ -150,7 +154,14 @@ import type {
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
-import type { MySqlQuerySemanticResolverOptions, MySqlRoutedDatabaseOptions } from "../../packages/mysql/src/index.js";
+import type {
+  MySqlBulkCapability,
+  MySqlBulkProgress,
+  MySqlBulkResult,
+  MySqlLoadDataOptions,
+  MySqlQuerySemanticResolverOptions,
+  MySqlRoutedDatabaseOptions,
+} from "../../packages/mysql/src/index.js";
 import * as mysqlApi from "../../packages/mysql/src/index.js";
 import * as mysql2Api from "../../packages/mysql/src/mysql2.js";
 import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from "../../packages/mysql/src/runtime.js";
@@ -158,6 +169,11 @@ import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import type { OpenTelemetryObserverOptions } from "../../packages/opentelemetry/src/index.js";
 import * as openTelemetryApi from "../../packages/opentelemetry/src/index.js";
 import type {
+  PostgresCopyCapability,
+  PostgresCopyFromOptions,
+  PostgresCopyProgress,
+  PostgresCopyResult,
+  PostgresCopyToOptions,
   PostgresQuerySemanticResolverOptions,
   PostgresRoutedDatabaseOptions,
 } from "../../packages/postgres/src/index.js";
@@ -188,6 +204,17 @@ const queryResults: Assert<
 const rowInvariant: Assert<Equal<Assignable<ExactQuery, Query<{ readonly id: bigint }, readonly [bigint]>>, false>> =
   true;
 const parametersInvariant: Assert<Equal<Assignable<ExactQuery, Query<Account, readonly [unknown]>>, false>> = true;
+
+type CapabilityService = { readonly execute: (value: bigint) => Promise<void> };
+const capability = coreApi.defineAdapterCapability<CapabilityService>("contract.execute");
+const capabilityService: Assert<Equal<AdapterCapabilityService<typeof capability>, CapabilityService>> = true;
+const capabilityResolver: AdapterCapabilityResolver = coreApi.createAdapterCapabilityResolver([
+  [capability, { execute: async () => undefined }],
+]);
+const capabilityHost: AdapterCapabilityHost = { [coreApi.adapterCapabilities]: capabilityResolver };
+const optionalCapability: CapabilityService | undefined = coreApi.getAdapterCapability(capabilityHost, capability);
+const requiredCapability: CapabilityService = coreApi.requireAdapterCapability(capabilityHost, capability);
+const hasCapability: boolean = coreApi.hasAdapterCapability(capabilityHost, capability);
 
 const base = coreApi.sql<Account, readonly []>`SELECT account.id, account.status FROM account`;
 const predicate = coreApi.sql.fragment`account.id >= ${1n}`;
@@ -284,6 +311,34 @@ function mysqlPreparedContract(database: MySqlDatabase): ExactQuery {
     true;
   void exact;
   return prepared(1n);
+}
+
+interface BulkAccountInput {
+  readonly id: bigint;
+  readonly email: string;
+  readonly note: string | null;
+}
+
+const bulkAccountQuery = (row: BulkAccountInput) =>
+  coreApi.sql.__typed<never, readonly [bigint, string, string | null]>()`
+    INSERT INTO account (id, email, note) VALUES (${row.id}, ${row.email}, ${row.note})
+  `;
+
+function postgresCopyContract(database: PostgresDatabase): Promise<PostgresCopyResult> {
+  const copy = coreApi.requireAdapterCapability(database, postgresApi.postgresCopy);
+  void copy.copyTo(coreApi.sql.__typed<Account, readonly []>()`SELECT id, status FROM account`);
+  // @ts-expect-error COPY input rows retain the INSERT factory's scalar and nullability contract
+  void copy.copyFrom(bulkAccountQuery, [{ id: "1", email: "wrong@example.com", note: undefined }]);
+  // @ts-expect-error COPY TO cannot turn a parameterized query into a static export
+  void copy.copyTo(coreApi.sql.__typed<Account, readonly [bigint]>()`SELECT id, status FROM account WHERE id = ${1n}`);
+  return copy.copyFrom(bulkAccountQuery, [{ id: 1n, email: "one@example.com", note: null }]);
+}
+
+function mysqlBulkContract(database: MySqlDatabase): Promise<MySqlBulkResult> {
+  const bulk = coreApi.requireAdapterCapability(database, mysqlApi.mysqlBulk);
+  // @ts-expect-error LOAD DATA input rows retain the INSERT factory's scalar and nullability contract
+  void bulk.loadData(bulkAccountQuery, [{ id: 1n, email: 42, note: undefined }]);
+  return bulk.loadData(bulkAccountQuery, [{ id: 1n, email: "one@example.com", note: null }]);
 }
 
 function postgresStreamingContract(database: PostgresDatabase, query: ExactQuery): QueryStream<Account> {
@@ -423,6 +478,10 @@ type ReferencedStableTypes =
   | RuntimeAdapterConformanceFixture<Account, readonly [bigint]>
   | ControlledQueryExecutor
   | ActiveDatabaseObservation
+  | AdapterCapability<CapabilityService>
+  | AdapterCapabilityHost
+  | AdapterCapabilityResolver
+  | AdapterCapabilityService<typeof capability>
   | BatchOperationStart
   | DatabaseObservation
   | DatabaseObservationStatus
@@ -492,8 +551,17 @@ type ReferencedStableTypes =
   | TypedSqlConfig
   | PostgresQuerySemanticResolverOptions
   | PostgresRoutedDatabaseOptions
+  | PostgresCopyCapability
+  | PostgresCopyFromOptions
+  | PostgresCopyProgress
+  | PostgresCopyResult
+  | PostgresCopyToOptions
   | MySqlQuerySemanticResolverOptions
-  | MySqlRoutedDatabaseOptions;
+  | MySqlRoutedDatabaseOptions
+  | MySqlBulkCapability
+  | MySqlBulkProgress
+  | MySqlBulkResult
+  | MySqlLoadDataOptions;
 
 void queryRow;
 void queryParameters;
@@ -501,6 +569,10 @@ void queryResult;
 void queryResults;
 void rowInvariant;
 void parametersInvariant;
+void capabilityService;
+void optionalCapability;
+void requiredCapability;
+void hasCapability;
 void composedParameters;
 void emptyParameters;
 void executionContract;
@@ -516,6 +588,8 @@ void postgresTransactionOmitsClose;
 void mysqlTransactionOmitsClose;
 void postgresPreparedContract;
 void mysqlPreparedContract;
+void postgresCopyContract;
+void mysqlBulkContract;
 void postgresStreamingContract;
 void mysqlStreamingContract;
 void transactionStreamingContract;
@@ -583,11 +657,13 @@ const expectedRuntimeExports = {
   ],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
+    "UnsupportedAdapterCapabilityError",
     "QueryCancelledError",
     "QueryCardinalityError",
     "UnsupportedExecutionCapabilityError",
     "assertDialectPlugin",
     "assertExecutionCapabilities",
+    "adapterCapabilities",
     "bindQueryRenderSkeleton",
     "compileQueryRenderSkeleton",
     "DIALECT_CONTRACT_VERSION",
@@ -595,12 +671,16 @@ const expectedRuntimeExports = {
     "ResolverSchemaIndex",
     "closestName",
     "createDatabase",
+    "createAdapterCapabilityResolver",
     "createRoutedDatabase",
+    "defineAdapterCapability",
     "defineConfig",
     "defineQuerySemantics",
     "databaseErrorCompletion",
     "diagnosticRegistry",
     "executionDeadline",
+    "getAdapterCapability",
+    "hasAdapterCapability",
     "isTypedSqlDiagnosticCode",
     "mapQuerySemanticRanges",
     "mergeQuerySemantics",
@@ -609,6 +689,7 @@ const expectedRuntimeExports = {
     "queryRoute",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
+    "requireAdapterCapability",
     "rowTypeLiteral",
     "runControlledExecution",
     "sql",
@@ -628,6 +709,7 @@ const expectedRuntimeExports = {
     "isMySqlRetryableTransactionError",
     "mapMySqlType",
     "mysql",
+    "mysqlBulk",
     "mysqlCatalogQueries",
     "parseSchemaSnapshot",
     "sql",
@@ -656,6 +738,7 @@ const expectedRuntimeExports = {
     "mapPostgresType",
     "parseSchemaSnapshot",
     "postgres",
+    "postgresCopy",
     "postgresCatalogQueries",
     "sql",
     "typePolicy",
@@ -666,6 +749,7 @@ const expectedRuntimeExports = {
     "createPgLiveVerifier",
     "createPgPlanInspector",
     "loadPgCursorDriver",
+    "loadPgCopyStreams",
     "loadPgDriver",
     "pg",
   ],

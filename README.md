@@ -70,6 +70,8 @@ codecs. The interpolation is also checked as `bigint` because it is compared wit
   deployment directions and link breaks to exact query variants.
 - **Route with semantic proof.** Opt-in routed databases send only proven-safe reads to
   application-owned replicas and support bounded retries for explicit transactions.
+- **Use native bulk protocols without losing SQL.** Optional PostgreSQL COPY and MySQL LOAD DATA
+  capabilities compile ordinary typed `INSERT` factories into backpressured application streams.
 
 ## Install
 
@@ -160,6 +162,7 @@ the structural-variant bound.
 - [Documentation site](https://lojhan.github.io/typed-sql/)
 - [Documentation source](./docs/index.md)
 - [Execution adapters](./docs/guides/execution.md)
+- [Bulk data transfer](./docs/guides/bulk-data.md)
 - [Database observability](./docs/guides/observability.md)
 - [Query manifests](./docs/guides/query-manifests.md)
 - [Live database verification](./docs/guides/live-verification.md)

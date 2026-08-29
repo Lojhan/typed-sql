@@ -57,6 +57,18 @@ The runtime constructors and `pg` adapter accept a grammar-neutral `observer`. Q
 
 `database.pipeline(queries)` is the explicit lower-latency alternative for independent PostgreSQL statements. It requires `pg` 8.23.0 or newer. Enable node-postgres's public pipeline mode through `poolConfig: { pipeline: true }` or an application-created `Pool({ pipeline: true })`. The adapter checks the leased client's public `pipeline` flag, dispatches every typed query before awaiting results, and preserves exact tuple order and prepared names. It waits for all responses before releasing the client. Because later statements are already in flight, pipeline failure semantics are intentionally different from `batch()`: dispatch does not stop at the first server error. Root pipelines are non-atomic; transaction pipelines are atomic only through the surrounding PostgreSQL transaction.
 
+## Bulk transfer
+
+The package root exports the `postgresCopy` capability token. Applications that use it install
+`pg-copy-streams` beside `pg`; ordinary execution and cursor streaming do not load that optional
+package. `copyFrom()` derives PostgreSQL COPY FROM STDIN from a typed single-row `INSERT` factory,
+while `copyTo()` streams raw CSV bytes from a static typed `SELECT`.
+
+Both directions use client STDIN or STDOUT streams. The adapter never accepts a server filesystem
+path or `PROGRAM`, applies native backpressure, and owns connection cleanup for completion,
+cancellation, early export return, producer failure, and server rejection. See
+[Transfer bulk data](../guides/bulk-data.md).
+
 ## Streaming
 
 Install `pg-cursor` only in applications that call `stream()`:

@@ -16,8 +16,15 @@ the grammar. Applications that stream rows also install the optional application
 pnpm add pg-cursor
 ```
 
+Applications that use PostgreSQL COPY also install its optional application-owned stream:
+
+```sh
+pnpm add pg-copy-streams
+```
+
 ```ts
-import { sql, typePolicy } from "@typed-sql/postgres";
+import { requireAdapterCapability } from "@typed-sql/core";
+import { postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 
 const query = sql`
@@ -30,6 +37,7 @@ const database = await createPgDatabase({
   connectionString: process.env.DATABASE_URL!,
   poolConfig: { pipeline: true },
   typePolicy,
+  copyStreamsImporter: () => import("pg-copy-streams"),
   // observer: createOpenTelemetryObserver(),
 });
 
@@ -49,6 +57,13 @@ const [pipelinedAccount, pipelinedAll] = await database.pipeline([accountById(42
 for await (const account of database.stream(accountById(42n), { batchSize: 500 })) {
   // account retains the query's inferred row type
 }
+
+const copy = requireAdapterCapability(database, postgresCopy);
+await copy.copyFrom(
+  (account: { readonly id: bigint; readonly email: string }) =>
+    sql`INSERT INTO users (id, email) VALUES (${account.id}, ${account.email})`,
+  accounts,
+);
 ```
 
 The package root exports `sql`, `postgres`, and the PostgreSQL type policy. The `/pg` entrypoint
@@ -61,6 +76,7 @@ creating `pg` pools.
 
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
+[bulk data guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/bulk-data.md),
 [observability guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/observability.md),
 [live verification guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/live-verification.md),
 [query plan governance guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/query-plan-governance.md),
