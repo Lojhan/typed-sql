@@ -1,5 +1,12 @@
 # @typed-sql/cli
 
+## 2.0.0-rc.1
+
+### Patch Changes
+
+- Updated dependencies [9c72dab]
+  - @typed-sql/compiler@2.0.0-rc.1
+
 ## 2.0.0-rc.0
 
 ### Major Changes

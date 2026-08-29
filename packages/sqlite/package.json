@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/sqlite",
-  "version": "2.0.0-rc.0",
+  "version": "2.0.0-rc.1",
   "description": "SQLite grammar, sound schema introspection, type resolution, and optional application-owned adapters for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
