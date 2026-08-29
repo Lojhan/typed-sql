@@ -1,3 +1,18 @@
+export type {
+  AdapterCapability,
+  AdapterCapabilityHost,
+  AdapterCapabilityResolver,
+  AdapterCapabilityService,
+} from "./adapter-capabilities.js";
+export {
+  adapterCapabilities,
+  createAdapterCapabilityResolver,
+  defineAdapterCapability,
+  getAdapterCapability,
+  hasAdapterCapability,
+  requireAdapterCapability,
+  UnsupportedAdapterCapabilityError,
+} from "./adapter-capabilities.js";
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
 export type {

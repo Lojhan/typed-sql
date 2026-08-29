@@ -6,6 +6,14 @@ import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
+export type {
+  PostgresCopyCapability,
+  PostgresCopyFromOptions,
+  PostgresCopyProgress,
+  PostgresCopyResult,
+  PostgresCopyToOptions,
+} from "./bulk.js";
+export { postgresCopy } from "./bulk.js";
 export { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export type PostgresSchemaSnapshot = SchemaSnapshot & { readonly dialect: "postgres" };

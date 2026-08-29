@@ -11,12 +11,13 @@ services:
       timeout: 5s
       retries: 30
     ports:
-      - "55432:5432"
+      - "${TYPED_SQL_BENCHMARK_POSTGRES_PORT:-55432}:5432"
     volumes:
       - ./schema/postgres.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
 
   mysql:
     image: mysql:9.5
+    command: ["--local-infile=ON"]
     environment:
       MYSQL_DATABASE: typed_sql_benchmark
       MYSQL_PASSWORD: typed_sql
@@ -28,6 +29,6 @@ services:
       timeout: 5s
       retries: 60
     ports:
-      - "53306:3306"
+      - "${TYPED_SQL_BENCHMARK_MYSQL_PORT:-53306}:3306"
     volumes:
       - ./schema/mysql.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro

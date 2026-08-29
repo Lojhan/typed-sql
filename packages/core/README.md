@@ -31,6 +31,10 @@ preserve the inferred row, accept optional signals or absolute deadlines, and ex
 cardinality and cancellation errors. Adapter capabilities are explicit; unsupported controls are
 never silently ignored.
 
+Optional adapter services use namespaced capability tokens rather than widening the common
+`Database` interface. `getAdapterCapability` and `requireAdapterCapability` preserve the service
+type without adding a protocol or driver dependency to core.
+
 `DatabaseObserver` provides redacted query, batch, pipeline, stream, cancellation, and nested
 transaction lifecycles. It is disabled by default and does not add a telemetry dependency to core.
 
@@ -45,7 +49,8 @@ database driver, TypeScript compiler, or editor dependency.
 
 Read the [query API](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/api.md),
 [architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md),
-[routing and retry guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/routing-and-retries.md), and
+[routing and retry guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/routing-and-retries.md),
+[bulk data guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/bulk-data.md), and
 [custom grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md).
 
 MIT © typed-sql contributors

@@ -33,9 +33,9 @@ Adapter microbenchmarks are tracking baselines rather than database latency clai
 
 ## Driver and ORM comparison
 
-The repository also contains an [isolated runtime comparison](https://github.com/Lojhan/typed-sql/tree/main/benchmarks/runtime-comparison) against raw `pg`, raw `mysql2`, Drizzle, Kysely, Prisma, and TypeORM. It runs one indexed lookup against fixed PostgreSQL and MySQL containers and reports ordinary request paths separately from comparable prepared paths.
+The repository also contains an [isolated runtime comparison](https://github.com/Lojhan/typed-sql/tree/main/benchmarks/runtime-comparison) against raw `pg`, raw `mysql2`, Drizzle, Kysely, Prisma, and TypeORM. Its indexed-lookup workload reports ordinary request paths separately from comparable prepared paths. A second real-database workload measures PostgreSQL COPY, pipeline, ordered batch, and direct-driver inserts plus MySQL LOAD DATA, ordered batch, and direct-driver inserts across multiple row counts.
 
-Generated comparison results are not committed. They depend on the machine, database transport, operating-system scheduling, and dependency versions. The durable public artifact is the pinned fixture and its methodology, which lets maintainers and users reproduce a result on the hardware that matters to them.
+Generated comparison results are not committed. They depend on the machine, database transport, operating-system scheduling, and dependency versions. The durable public artifact is the pinned fixture and its methodology, which lets maintainers and users reproduce a result on the hardware that matters to them. Bulk samples time ingestion only, verify committed row counts outside the timed region, and keep every protocol dependency application-owned.
 
 At runtime, interpolation-free fragment templates may reuse their complete immutable value at the same JavaScript callsite. Query templates and parameterized fragments reuse only immutable text segments; their containing query and value segments remain isolated per call so one invocation cannot retain another invocation's execution metadata or parameters.
 

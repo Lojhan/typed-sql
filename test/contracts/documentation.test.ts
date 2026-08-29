@@ -16,6 +16,7 @@ const expectedPublicDocs = [
   "docs/getting-started/configuration.md",
   "docs/getting-started/first-query.md",
   "docs/getting-started/installation.md",
+  "docs/guides/bulk-data.md",
   "docs/guides/composition.md",
   "docs/guides/editors.md",
   "docs/guides/execution.md",

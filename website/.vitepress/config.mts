@@ -45,6 +45,7 @@ export default defineConfig({
         text: "Guides",
         items: [
           { text: "Execute queries", link: "/guides/execution" },
+          { text: "Transfer bulk data", link: "/guides/bulk-data" },
           { text: "Observe database work", link: "/guides/observability" },
           { text: "Route reads and retry transactions", link: "/guides/routing-and-retries" },
           { text: "Emit query manifests", link: "/guides/query-manifests" },

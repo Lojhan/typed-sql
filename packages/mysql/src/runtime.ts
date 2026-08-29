@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import {
+  type AdapterCapabilityResolver,
+  adapterCapabilities,
   assertExecutionCapabilities,
+  createAdapterCapabilityResolver,
   type Database,
   type DatabaseObserver,
   databaseErrorCompletion,
@@ -20,6 +23,7 @@ import {
   startDatabaseObservation,
   UnsupportedExecutionCapabilityError,
 } from "@typed-sql/core";
+import { createMySqlBulkCapability, type MySqlBulkTransport, mysqlBulk } from "./bulk.js";
 import {
   decodeMySqlRows,
   encodeMySqlValue,
@@ -49,6 +53,7 @@ export interface MySqlExecutionResult {
 export interface MySqlConnectionLike extends MySqlStreamingConnection {
   execute(sql: string, values?: readonly unknown[]): Promise<MySqlExecutionResult>;
   query(sql: string): Promise<MySqlExecutionResult>;
+  loadData?(statement: string, chunks: AsyncIterable<Uint8Array>): Promise<void>;
   beginTransaction(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
@@ -58,6 +63,7 @@ export interface MySqlConnectionLike extends MySqlStreamingConnection {
 
 export interface MySqlPoolLike {
   readonly executionCapabilities?: ExecutionCapabilities;
+  readonly bulkLoad?: boolean;
   execute(sql: string, values?: readonly unknown[]): Promise<MySqlExecutionResult>;
   getConnection(): Promise<MySqlConnectionLike>;
   end(): Promise<void>;
@@ -123,6 +129,7 @@ export const mysqlRenderer: SqlRenderer = Object.freeze({
 interface MySqlTransactionConnectionState {
   active: QueryStream<unknown> | undefined;
   batch: MySqlConnectionOperation | undefined;
+  bulk: MySqlConnectionOperation | undefined;
   execute: MySqlConnectionOperation | undefined;
   discarded: boolean;
   usable: boolean;
@@ -154,6 +161,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #transactionState: MySqlTransactionConnectionState | undefined;
   #scopeOpen = true;
   readonly executionCapabilities: ExecutionCapabilities;
+  readonly [adapterCapabilities]: AdapterCapabilityResolver;
 
   constructor(
     pool: MySqlPoolLike,
@@ -179,6 +187,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       cancellation: pool.executionCapabilities?.cancellation ?? false,
       deadlines: pool.executionCapabilities?.deadlines ?? false,
     });
+    const bulkTransport: MySqlBulkTransport = {
+      loadData: (statement, chunks, options) => this.#loadData(statement, chunks, options),
+    };
+    this[adapterCapabilities] = createAdapterCapabilityResolver(
+      pool.bulkLoad === true ? [[mysqlBulk, createMySqlBulkCapability(bulkTransport)]] : [],
+    );
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
@@ -472,6 +486,42 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     return exposedStream;
   }
 
+  async #loadData(statement: string, chunks: AsyncIterable<Uint8Array>, options: ExecutionOptions): Promise<void> {
+    assertExecutionCapabilities(this.executionCapabilities, options);
+    this.#assertScopeOpen();
+    this.#assertConnectionAvailable("start LOAD DATA");
+    const connection = this.#connection ?? (await this.#pool.getConnection());
+    if (connection.loadData === undefined) {
+      if (this.#connection === undefined) connection.release();
+      throw new Error(
+        "MySQL LOAD DATA requires an adapter with an application-owned local infile stream implementation",
+      );
+    }
+    const state = createMySqlConnectionOperation();
+    if (this.#connection !== undefined) this.#transactionState!.bulk = state;
+    let discarded = false;
+    const discard = (): void => {
+      if (discarded || connection.destroy === undefined) return;
+      discarded = true;
+      connection.destroy();
+      if (this.#transactionState !== undefined) {
+        this.#transactionState.usable = false;
+        this.#transactionState.discarded = true;
+      }
+    };
+    try {
+      await runControlledExecution(options, () => connection.loadData!(statement, chunks), discard);
+      if (this.#connection === undefined) connection.release();
+    } catch (error) {
+      discard();
+      if (!discarded && this.#connection === undefined) connection.release();
+      throw error;
+    } finally {
+      if (this.#transactionState?.bulk === state) this.#transactionState.bulk = undefined;
+      state.finish();
+    }
+  }
+
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
     statementName: string,
     factory: (...args: Arguments) => Query<Row, Params>,
@@ -515,7 +565,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#prepared,
         this.#decoderPlans,
         this.#observation,
-        { active: undefined, batch: undefined, execute: undefined, discarded: false, usable: true },
+        { active: undefined, batch: undefined, bulk: undefined, execute: undefined, discarded: false, usable: true },
       );
       result = await fn(transaction);
       transaction.#scopeOpen = false;
@@ -604,12 +654,14 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     await this.#closeStreams();
     await this.#settleExecutes();
     await this.#settleBatch();
+    await this.#settleBulk();
   }
 
   async #assertTransactionReadyForFinalize(connectionFinalizing = false): Promise<void> {
     const leakedExecutes = new Set(this.#executes);
     if (this.#transactionState?.execute !== undefined) leakedExecutes.add(this.#transactionState.execute);
     const leakedBatch = this.#transactionState?.batch;
+    const leakedBulk = this.#transactionState?.bulk;
     await this.#rejectActiveStreams();
     const active = this.#transactionState?.active;
     if (active !== undefined) {
@@ -630,6 +682,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         "MySQL transaction callback returned while an ordered batch owned its connection; await the batch before returning",
       );
     }
+    if (leakedBulk !== undefined) {
+      await leakedBulk.completion;
+      throw new Error(
+        "MySQL transaction callback returned while LOAD DATA owned its connection; await LOAD DATA before returning",
+      );
+    }
     if (!connectionFinalizing && this.#transactionState?.usable === false)
       throw new Error("This MySQL transaction connection is no longer active");
   }
@@ -639,6 +697,8 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       throw new Error(`Cannot ${action} while a MySQL query stream owns the transaction connection`);
     if (this.#transactionState?.batch !== undefined)
       throw new Error(`Cannot ${action} while a MySQL ordered batch owns the transaction connection`);
+    if (this.#transactionState?.bulk !== undefined)
+      throw new Error(`Cannot ${action} while MySQL LOAD DATA owns the transaction connection`);
     if (this.#transactionState?.execute !== undefined)
       throw new Error(`Cannot ${action} while a MySQL execute operation owns the transaction connection`);
   }
@@ -652,6 +712,11 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async #settleBatch(): Promise<void> {
     const batch = this.#transactionState?.batch;
     if (batch !== undefined) await batch.completion;
+  }
+
+  async #settleBulk(): Promise<void> {
+    const bulk = this.#transactionState?.bulk;
+    if (bulk !== undefined) await bulk.completion;
   }
 
   async #settleExecutes(): Promise<void> {

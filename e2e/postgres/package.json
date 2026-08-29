@@ -16,6 +16,7 @@
     "@typed-sql/postgres": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
     "pg": "8.23.0",
+    "pg-copy-streams": "7.0.0",
     "pg-cursor": "2.22.0"
   },
   "devDependencies": {

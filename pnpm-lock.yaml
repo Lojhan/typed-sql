@@ -111,6 +111,9 @@ importers:
       pg:
         specifier: 8.23.0
         version: 8.23.0
+      pg-copy-streams:
+        specifier: 7.0.0
+        version: 7.0.0
       pg-cursor:
         specifier: 2.22.0
         version: 2.22.0(pg@8.23.0)
@@ -2443,6 +2446,9 @@ packages:
 
   pg-connection-string@2.14.0:
     resolution: {integrity: sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg==}
+
+  pg-copy-streams@7.0.0:
+    resolution: {integrity: sha512-zBvnY6wtaBRE2ae2xXWOOGMaNVPkXh1vhypAkNSKgMdciJeTyIQAHZaEeRAxUjs/p1El5jgzYmwG5u871Zj3dQ==}
 
   pg-cursor@2.22.0:
     resolution: {integrity: sha512-knzXLKqarTjOvb3qDSW0JiGsazmxwEKXrqHfWRte7XUsOYccQRafn3BLnQobWwInkzFJSyOej8y8cQRh2z3kGw==}
@@ -5170,6 +5176,8 @@ snapshots:
     optional: true
 
   pg-connection-string@2.14.0: {}
+
+  pg-copy-streams@7.0.0: {}
 
   pg-cursor@2.22.0(pg@8.23.0):
     dependencies:

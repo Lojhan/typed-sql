@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Readable } from "node:stream";
 import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
 import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
@@ -106,6 +107,16 @@ export interface MySql2PlanInspectorOptions {
 interface Executable {
   execute(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
   query(sql: string, values?: readonly unknown[]): Promise<readonly [unknown, (readonly FieldPacket[])?]>;
+}
+
+interface MySql2LoadDataConnection {
+  query(
+    options: {
+      readonly sql: string;
+      readonly infileStreamFactory: (path: string) => Readable;
+    },
+    callback: (error: Error | null) => void,
+  ): CallbackQuery;
 }
 
 export async function loadMySql2Driver(
@@ -455,12 +466,41 @@ function connectionAdapter(connection: PoolConnection): MySqlConnectionLike {
         options.batchSize,
       ),
     query: (sql) => execute(executable, "query", sql),
+    loadData: (statement, chunks) =>
+      loadData(connection.connection as unknown as CallbackConnection, statement, chunks),
     beginTransaction: () => connection.beginTransaction(),
     commit: () => connection.commit(),
     rollback: () => connection.rollback(),
     destroy: () => connection.destroy(),
     release: () => connection.release(),
   };
+}
+
+function loadData(connection: CallbackConnection, statement: string, chunks: AsyncIterable<Uint8Array>): Promise<void> {
+  const source = Readable.from(
+    (async function* (): AsyncGenerator<Buffer> {
+      for await (const chunk of chunks) yield Buffer.from(chunk);
+    })(),
+    { objectMode: false },
+  );
+  return new Promise((resolve, reject) => {
+    const native = connection as unknown as MySql2LoadDataConnection;
+    native.query(
+      {
+        sql: statement,
+        infileStreamFactory(path) {
+          if (path !== "typed-sql-stream") {
+            throw new Error(`MySQL requested an unexpected local infile path: ${path}`);
+          }
+          return source;
+        },
+      },
+      (error) => {
+        if (error === null) resolve();
+        else reject(error);
+      },
+    );
+  });
 }
 
 function createMySql2ProtocolStream(
@@ -576,6 +616,7 @@ export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
   const executable = pool as unknown as Executable;
   return {
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
+    bulkLoad: true,
     execute: (sql, values) => execute(executable, "execute", sql, values),
     async getConnection(): Promise<MySqlConnectionLike> {
       return connectionAdapter(await pool.getConnection());

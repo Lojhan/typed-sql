@@ -1,18 +1,18 @@
 import type { QueryStream } from "@typed-sql/core";
 
-export interface PostgresCursorLike {
-  read(rowCount: number): Promise<readonly Record<string, unknown>[]>;
+export interface PostgresCursorLike<Row = Record<string, unknown>> {
+  read(rowCount: number): Promise<readonly Row[]>;
   close(): Promise<void>;
 }
 
-export interface PostgresCursorLease {
-  readonly cursor: PostgresCursorLike;
+export interface PostgresCursorLease<Row = Record<string, unknown>> {
+  readonly cursor: PostgresCursorLike<Row>;
   release?(cleanupError?: unknown): void | Promise<void>;
 }
 
-export interface PostgresQueryStreamOptions {
+export interface PostgresQueryStreamOptions<Row = Record<string, unknown>> {
   readonly batchSize: number;
-  readonly start: () => Promise<PostgresCursorLease>;
+  readonly start: () => Promise<PostgresCursorLease<Row>>;
   readonly onError?: (error: unknown) => void;
   readonly onStart?: () => void;
   readonly onClose?: () => void;
@@ -31,17 +31,17 @@ function done(): IteratorReturnResult<undefined> {
  */
 export class PostgresQueryStream<Row> implements QueryStream<Row> {
   readonly #batchSize: number;
-  readonly #start: () => Promise<PostgresCursorLease>;
+  readonly #start: () => Promise<PostgresCursorLease<Row>>;
   readonly #onClose: (() => void) | undefined;
   readonly #onError: ((error: unknown) => void) | undefined;
   readonly #onStart: (() => void) | undefined;
   #buffer: readonly Row[] = [];
   #bufferIndex = 0;
-  #lease: PostgresCursorLease | undefined;
+  #lease: PostgresCursorLease<Row> | undefined;
   #operation: Promise<void> = Promise.resolve();
   #terminal = false;
 
-  constructor(options: PostgresQueryStreamOptions) {
+  constructor(options: PostgresQueryStreamOptions<Row>) {
     this.#batchSize = options.batchSize;
     this.#start = options.start;
     this.#onStart = options.onStart;
