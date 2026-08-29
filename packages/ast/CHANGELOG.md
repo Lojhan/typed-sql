@@ -1,5 +1,20 @@
 # @typed-sql/ast
 
+## 1.1.0
+
+### Minor Changes
+
+- 29afc3d: Add conservative semantic primary/replica routing over application-owned databases, scoped
+  read-after-write pinning, explicit role requirements, stable unsafe-route errors, dialect runtime
+  semantic resolvers, and bounded abortable transaction retry policies with native PostgreSQL and
+  MySQL error classifiers. Parse and classify dialect locking reads so uncertain or affine work
+  always fails closed to primary.
+- af27a0e: Add the experimental SQLite grammar with sound flexible-table storage unions, precise STRICT-table
+  types, catalog snapshots for views, generated columns, indexes, foreign keys, and attached schemas,
+  compound-query and RETURNING inference, and an optional application-owned `node:sqlite` adapter for
+  prepared execution, nested transactions, ordered batches, and typed streams.
+- 3050209: Add the dialect contract v4 semantic query evidence foundation. PostgreSQL and MySQL now report operation, dependencies, cardinality, volatility, locking, connection affinity, and required capabilities; compiler results add deterministic query and structural-variant fingerprints and conservatively merged source-mapped semantics. Schema snapshots can record function volatility, and the AST package exposes a neutral statement walker for grammar implementations.
+
 ## 1.0.0
 
 ### Major Changes

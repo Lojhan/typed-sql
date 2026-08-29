@@ -1,5 +1,42 @@
 # @typed-sql/compiler
 
+## 2.0.0
+
+### Major Changes
+
+- 3f063f6: Add deterministic, secret-free query manifests with bounded structural variants, inferred result
+  and parameter descriptions, semantic evidence, runtime-correlatable fingerprints, unresolved
+  entries, compatible parsing, canonical serialization, incremental per-file reuse, tsconfig project
+  discovery, and a dedicated CLI command.
+- 6a7ae58: Add opt-in live query verification through grammar-owned PostgreSQL PREPARE and MySQL
+  COM_STMT_PREPARE adapters, bounded neutral comparison, deterministic secret-free proof artifacts,
+  offline cache validation, explicit unsupported classifications, CLI workflows, real database E2E,
+  and performance budgets.
+- 3050209: Add the dialect contract v4 semantic query evidence foundation. PostgreSQL and MySQL now report operation, dependencies, cardinality, volatility, locking, connection affinity, and required capabilities; compiler results add deterministic query and structural-variant fingerprints and conservatively merged source-mapped semantics. Schema snapshots can record function volatility, and the AST package exposes a neutral statement walker for grammar implementations.
+- b4f1b6e: Add deterministic migration compatibility analysis across before/after schema snapshots and query
+  manifests. Reports classify both rolling-deployment directions, retain exact source and dependency
+  evidence, fail closed for unknown semantics, redact defaults and paths, and support configurable CI
+  severity through `typed-sql compat`.
+- b2ec119: Add opt-in, grammar-neutral query-plan governance with PostgreSQL and MySQL structured EXPLAIN
+  adapters, transient application-owned samples, redacted fingerprint-keyed artifacts, absolute and
+  comparable regression budgets, explicit uncertainty, CLI capture and review, documentation, and
+  performance coverage.
+
+### Patch Changes
+
+- Updated dependencies [29afc3d]
+- Updated dependencies [3f063f6]
+- Updated dependencies [6a7ae58]
+- Updated dependencies [b06fd0a]
+- Updated dependencies [3050209]
+- Updated dependencies [1b054b6]
+- Updated dependencies [b4f1b6e]
+- Updated dependencies [87189c3]
+- Updated dependencies [e654fae]
+- Updated dependencies [b2ec119]
+  - @typed-sql/core@2.0.0
+  - @typed-sql/schema@1.1.0
+
 ## 1.0.0
 
 ### Major Changes

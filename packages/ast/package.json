@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/ast",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Bounded multi-dialect SQL tokenizer, AST, parser, and source ranges for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
