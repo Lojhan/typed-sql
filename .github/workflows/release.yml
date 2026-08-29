@@ -40,13 +40,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - id: pending_changesets
         name: Detect pending changesets
-        shell: bash
-        run: |
-          if compgen -G '.changeset/*.md' | grep -qv '^.changeset/README.md$'; then
-            echo 'present=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'present=false' >> "$GITHUB_OUTPUT"
-          fi
+        run: node scripts/detect-pending-changesets.mjs >> "$GITHUB_OUTPUT"
       - uses: changesets/action/version@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2
         if: steps.pending_changesets.outputs.present == 'true'
         with:

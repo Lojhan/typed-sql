@@ -1,5 +1,11 @@
 # @typed-sql/schema
 
+## 2.0.0-rc.0
+
+### Minor Changes
+
+- 3050209: Add the dialect contract v4 semantic query evidence foundation. PostgreSQL and MySQL now report operation, dependencies, cardinality, volatility, locking, connection affinity, and required capabilities; compiler results add deterministic query and structural-variant fingerprints and conservatively merged source-mapped semantics. Schema snapshots can record function volatility, and the AST package exposes a neutral statement walker for grammar implementations.
+
 ## 1.0.0
 
 ### Major Changes
