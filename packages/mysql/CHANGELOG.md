@@ -1,5 +1,12 @@
 # @typed-sql/mysql
 
+## 2.0.0-rc.1
+
+### Minor Changes
+
+- 9c72dab: Use live MySQL catalog origins to preserve enum result evidence, and compare parameter metadata in
+  the safe input direction so compiler-enforced literal subsets do not become false mismatches.
+
 ## 2.0.0-rc.0
 
 ### Major Changes

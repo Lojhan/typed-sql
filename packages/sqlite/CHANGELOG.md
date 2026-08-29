@@ -1,5 +1,11 @@
 # @typed-sql/sqlite
 
+## 2.0.0-rc.1
+
+### Patch Changes
+
+- Publish the coherent 2.0.0-rc.1 release-candidate train.
+
 ## 2.0.0-rc.0
 
 ### Minor Changes
