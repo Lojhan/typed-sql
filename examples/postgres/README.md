@@ -9,7 +9,9 @@ From the repository root:
 pnpm --filter @typed-sql/example-postgres db:up
 pnpm --filter @typed-sql/example-postgres generate
 pnpm --filter @typed-sql/example-postgres check
+pnpm --filter @typed-sql/example-postgres test
 pnpm --filter @typed-sql/example-postgres start
+pnpm --filter @typed-sql/example-postgres test:database
 pnpm --filter @typed-sql/example-postgres db:down
 ```
 
@@ -18,6 +20,11 @@ against another PostgreSQL database.
 
 The checked-in snapshot makes editor inference available immediately. Running `generate` replaces
 it with a live introspection of the reproducible container.
+
+The focused modules under `src/` cover queries and CTEs, mutations and transactions, cardinality,
+prepared statements, batches, pipeline mode, cursor streaming, COPY import/export, Standard Schema
+validation, cancellation, routing, and observation. `database-test/` executes all of them against
+the real `pg` driver.
 
 After installing the Zed development extension, open this directory as its own workspace with
 `zed examples/postgres` to use the included language-server settings.

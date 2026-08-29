@@ -9,14 +9,16 @@
     "db:down": "node ../compose.mjs down",
     "generate": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --config typed-sql.config.ts",
     "generate:snapshot": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --config typed-sql.config.ts --snapshot schema/catalog.snapshot.json",
-    "check": "node ../../packages/cli/dist/packages/cli/src/cli.js check --config typed-sql.config.ts --file src/queries.ts --project tsconfig.json",
+    "check": "node ../check.mjs",
     "start": "tsx src/main.ts",
-    "test": "poku test --reporter=compact --enforce"
+    "test": "poku test --reporter=compact --enforce",
+    "test:database": "poku database-test --reporter=compact --enforce"
   },
   "dependencies": {
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
-    "mysql2": "3.24.1"
+    "mysql2": "3.24.1",
+    "valibot": "1.4.2"
   },
   "devDependencies": {
     "@typed-sql/cli": "workspace:*",

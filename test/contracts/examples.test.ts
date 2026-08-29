@@ -12,6 +12,21 @@ const examples = [
     driver: ["pg", "8.23.0"],
     documentation: "postgresql",
     databaseFiles: ["Containerfile", ".containerignore", ".dockerignore", "compose.yaml"],
+    capabilityFiles: [
+      "batches",
+      "bulk",
+      "cancellation",
+      "cardinality",
+      "mutations",
+      "observation",
+      "pipelines",
+      "prepared",
+      "queries",
+      "routing",
+      "streams",
+      "transactions",
+      "validation",
+    ],
   },
   {
     directory: "mysql",
@@ -19,6 +34,20 @@ const examples = [
     driver: ["mysql2", "3.24.1"],
     documentation: "mysql",
     databaseFiles: ["Containerfile", ".containerignore", ".dockerignore", "compose.yaml"],
+    capabilityFiles: [
+      "batches",
+      "bulk",
+      "cancellation",
+      "cardinality",
+      "mutations",
+      "observation",
+      "prepared",
+      "queries",
+      "routing",
+      "streams",
+      "transactions",
+      "validation",
+    ],
   },
   {
     directory: "sqlite",
@@ -26,6 +55,17 @@ const examples = [
     driver: undefined,
     documentation: "sqlite",
     databaseFiles: ["src/setup.ts"],
+    capabilityFiles: [
+      "batches",
+      "capabilities",
+      "cardinality",
+      "mutations",
+      "prepared",
+      "queries",
+      "streams",
+      "transactions",
+      "validation",
+    ],
   },
 ] as const;
 
@@ -76,9 +116,10 @@ await describe("maintained application examples", async () => {
         "generated/db/index.ts",
         "generated/db/schema.json",
         "src/main.ts",
-        "src/queries.ts",
         "src/run.ts",
         "test/example.test.ts",
+        "database-test/capabilities.test.ts",
+        ...example.capabilityFiles.map((file) => `src/${file}.ts`),
         ...example.databaseFiles,
       ]) {
         strict.ok(await exists(`${directory}/${path}`), `${directory}/${path} is missing`);
@@ -87,7 +128,7 @@ await describe("maintained application examples", async () => {
       const packageJson = JSON.parse(await text(`${directory}/package.json`)) as {
         readonly scripts: Readonly<Record<string, string>>;
       };
-      for (const script of ["generate", "generate:snapshot", "check", "start", "test"]) {
+      for (const script of ["generate", "generate:snapshot", "check", "start", "test", "test:database"]) {
         strict.ok(packageJson.scripts[script], `${directory} is missing its ${script} script`);
       }
 
@@ -100,15 +141,34 @@ await describe("maintained application examples", async () => {
     }
   });
 
-  await it("renders the maintained config, query, and execution sources in the website", async () => {
+  await it("renders every maintained capability and its real test in the website", async () => {
     for (const example of examples) {
       const documentation = await text(`docs/examples/${example.documentation}.md`);
-      for (const source of ["schema/001-schema.sql", "typed-sql.config.ts", "src/queries.ts", "src/run.ts"]) {
+      for (const source of [
+        "schema/001-schema.sql",
+        "typed-sql.config.ts",
+        "src/run.ts",
+        "database-test/capabilities.test.ts",
+        ...example.capabilityFiles.map((file) => `src/${file}.ts`),
+      ]) {
         strict.ok(
           documentation.includes(`<<< ../../examples/${example.directory}/${source}`),
           `${example.documentation} does not render ${source}`,
         );
       }
     }
+  });
+
+  await it("keeps the complete lifecycle protected by the repository and CI entrypoints", async () => {
+    const rootPackage = JSON.parse(await text("package.json")) as {
+      readonly scripts: Readonly<Record<string, string>>;
+    };
+    strict.strictEqual(rootPackage.scripts["e2e:examples"], "pnpm build && node examples/e2e.mjs");
+    strict.ok(await exists("examples/check.mjs"));
+    strict.ok(await exists("examples/e2e.mjs"));
+
+    const workflow = await text(".github/workflows/ci.yml");
+    strict.match(workflow, /examples-e2e:/u);
+    for (const example of examples) strict.match(workflow, new RegExp(`example: ${example.directory}`, "u"));
   });
 });

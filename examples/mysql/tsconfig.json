@@ -4,7 +4,7 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["generated/**/*.ts", "src/**/*.ts", "typed-sql.config.ts"],
+  "include": ["database-test/**/*.ts", "generated/**/*.ts", "src/**/*.ts", "test/**/*.ts", "typed-sql.config.ts"],
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/mysql" },

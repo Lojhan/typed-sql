@@ -1,3 +1,3 @@
 import { runSqliteExample } from "./run.js";
 
-console.table(await runSqliteExample());
+console.dir(await runSqliteExample(), { depth: null });

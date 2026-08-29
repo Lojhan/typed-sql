@@ -1,3 +1,3 @@
 import { runMySqlExample } from "./run.js";
 
-console.table(await runMySqlExample());
+console.dir(await runMySqlExample(), { depth: null });

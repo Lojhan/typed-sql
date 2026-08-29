@@ -1,3 +1,3 @@
 import { runPostgresExample } from "./run.js";
 
-console.table(await runPostgresExample());
+console.dir(await runPostgresExample(), { depth: null });

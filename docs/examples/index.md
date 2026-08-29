@@ -9,15 +9,16 @@ The repository includes complete application packages that use typed-sql through
 workspace dependencies resolve to the current source tree, while each database driver remains an explicit
 application dependency.
 
-| Example | What it demonstrates | Database setup |
+| Example | Driver capabilities exercised | Database setup |
 | --- | --- | --- |
-| [PostgreSQL](./postgresql.md) | Conditional selection and filters, `pg`, exact ordered parameters | Pinned PostgreSQL container |
-| [MySQL](./mysql.md) | The same grammar-neutral application shape with `mysql2` | Pinned MySQL container |
-| [SQLite](./sqlite.md) | The same query primitives with Node's built-in SQLite adapter | Recreated local database file |
+| [PostgreSQL](./postgresql.md) | Queries, mutations, transactions, prepared queries, cursors, pipelines, COPY, cancellation, routing, observation, validation | Pinned PostgreSQL container |
+| [MySQL](./mysql.md) | Queries, mutations, transactions, prepared queries, streams, `LOAD DATA`, cancellation, routing, observation, validation | Pinned MySQL container |
+| [SQLite](./sqlite.md) | Queries, mutations, transactions, prepared queries, streams, small batches, validation, explicit capability discovery | Recreated local database file |
 | [Custom grammar](../extending/custom-grammars.md) | A third-party grammar using only published contracts | In-memory conformance fixture |
 
-Each database example contains its schema, typed-sql config, generated snapshot, queries, adapter execution,
-and Poku tests. The checked-in generated snapshot enables editor inference as soon as the workspace opens.
+Each database example contains its schema, typed-sql config, generated snapshot, focused capability modules,
+adapter execution, service-free Poku tests, and a Poku suite that runs against the real driver. The checked-in
+generated snapshot enables editor inference as soon as the workspace opens.
 
 ## Run an example from the repository
 
@@ -28,9 +29,19 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-Then follow the dialect page. PostgreSQL and MySQL use a container only for generation and execution. Their
-Poku tests validate structural composition, placeholders, and ordered values without connecting to a database.
-The SQLite example is entirely local.
+Run every example through generation, analysis, its executable entrypoint, and its real database suite:
+
+```sh
+pnpm e2e:examples
+```
+
+Pass `postgres`, `mysql`, or `sqlite` to `node examples/e2e.mjs` to run one example. Set
+`TYPED_SQL_CONTAINER_ENGINE=podman` to use Podman for the container-backed examples. PostgreSQL and MySQL
+containers are always removed in a `finally` path. SQLite uses a recreated local file.
+
+The normal `pnpm test` gate keeps a service-free construction suite for each example. CI also runs the real
+database suites as a protected three-entry matrix, so the documented adapter paths are executable rather than
+illustrative snippets.
 
 Applications outside this repository install released package versions rather than `workspace:*`. The source
 code and API usage are otherwise the same.

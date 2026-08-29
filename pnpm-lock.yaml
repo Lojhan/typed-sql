@@ -145,6 +145,9 @@ importers:
       mysql2:
         specifier: 3.24.1
         version: 3.24.1(@types/node@24.13.3)
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
     devDependencies:
       '@typed-sql/cli':
         specifier: workspace:*
@@ -173,6 +176,15 @@ importers:
       pg:
         specifier: 8.23.0
         version: 8.23.0
+      pg-copy-streams:
+        specifier: 7.0.0
+        version: 7.0.0
+      pg-cursor:
+        specifier: 2.22.0
+        version: 2.22.0(pg@8.23.0)
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
     devDependencies:
       '@typed-sql/cli':
         specifier: workspace:*
@@ -198,6 +210,9 @@ importers:
       '@typed-sql/sqlite':
         specifier: workspace:*
         version: link:../../packages/sqlite
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
     devDependencies:
       '@typed-sql/cli':
         specifier: workspace:*
