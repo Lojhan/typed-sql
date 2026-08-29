@@ -48,7 +48,15 @@ const registryPreviewTag = process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next";
 if (!registryOnly && consumerSource !== "packed") {
   throw new Error(`TYPED_SQL_CONSUMER_SOURCE must be packed or registry, received ${consumerSource}`);
 }
-const { NODE_PATH: _nodePath, ...cleanEnvironment } = process.env;
+const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split(".").map(Number);
+const requiresExperimentalSqlite = nodeMajor === 22 && nodeMinor < 13;
+const { NODE_PATH: _nodePath, ...environmentWithoutNodePath } = process.env;
+const cleanEnvironment = {
+  ...environmentWithoutNodePath,
+  ...(requiresExperimentalSqlite
+    ? { NODE_OPTIONS: [process.env.NODE_OPTIONS, "--experimental-sqlite"].filter(Boolean).join(" ") }
+    : {}),
+};
 const started: string[] = [];
 
 function run(command: string, args: readonly string[], cwd = workspace): Promise<CommandResult> {
@@ -375,7 +383,8 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         join(consumer, "sqlite", "initialize.mjs"),
         `
         import { DatabaseSync } from "node:sqlite";
-        const database = new DatabaseSync(new URL("./database.sqlite", import.meta.url));
+        import { fileURLToPath } from "node:url";
+        const database = new DatabaseSync(fileURLToPath(new URL("./database.sqlite", import.meta.url)));
         try {
           database.exec(\`
             CREATE TABLE account (

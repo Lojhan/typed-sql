@@ -73,8 +73,10 @@ transaction when the batch must be atomic.
 Transactions use `BEGIN` at the root and savepoints when nested. A root operation queue keeps
 ordinary calls from accidentally entering an active transaction. Streams wrap the native
 synchronous iterator in the common async iterator contract and hold exclusive connection ownership
-until exhaustion or `close()`. `batchSize` is validated for API portability but does not create
-server-side pages in an embedded database.
+until exhaustion or `close()`. On Node.js 22.11 and 22.12, where `StatementSync.iterate()` is not
+available yet, the adapter preserves the stream contract with a buffered `all()` iterator. Node.js
+22.13 and newer use the native iterator. `batchSize` is validated for API portability but does not
+create server-side pages in an embedded database.
 
 `node:sqlite` is synchronous and can block the Node event loop during database work. The adapter
 does not claim cancellation or deadline support. For write-heavy or latency-isolated services,
