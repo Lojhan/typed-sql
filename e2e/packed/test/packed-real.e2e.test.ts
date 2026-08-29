@@ -33,10 +33,14 @@ const packageNames = [
   "cli",
   "postgres",
   "mysql",
+  "sqlite",
   "ts-bridge",
   "language-server",
 ] as const;
-const previewPackageNames = new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"]);
+const previewPackageNames = new Set(["@typed-sql/sqlite", "@typed-sql/ts-bridge", "@typed-sql/language-server"]);
+const dialectNames = ["postgres", "mysql", "sqlite"] as const;
+const artifactParameterSentinel = "typed-sql-packed-parameter-sentinel";
+const artifactCredentialSentinel = "typed-sql-packed-credential-sentinel";
 const consumerSource = process.env.TYPED_SQL_CONSUMER_SOURCE ?? "packed";
 const registryOnly = consumerSource === "registry";
 const registryTag = process.env.TYPED_SQL_REGISTRY_TAG ?? "next";
@@ -95,6 +99,24 @@ async function ensureImage(image: string, context: string): Promise<void> {
 
 async function write(path: string, value: string): Promise<void> {
   await writeFile(path, value.trimStart());
+}
+
+async function assertPortableArtifact(path: string, checkout: string): Promise<string> {
+  const source = await readFile(path, "utf8");
+  JSON.parse(source);
+  for (const forbidden of [
+    checkout,
+    workspace,
+    "postgresql://",
+    "mysql://",
+    artifactCredentialSentinel,
+    "typed_sql_root",
+    "127.0.0.1",
+    artifactParameterSentinel,
+  ]) {
+    strict.ok(!source.includes(forbidden), `${path} contains forbidden artifact data: ${forbidden}`);
+  }
+  return source;
 }
 
 await describe(`${consumerSource} real-database consumers`, async () => {
@@ -200,8 +222,9 @@ await describe(`${consumerSource} real-database consumers`, async () => {
             readonly optionalDependencies?: Readonly<Record<string, string>>;
           };
           for (const field of [installedManifest.dependencies, installedManifest.optionalDependencies]) {
-            strict.strictEqual(field?.pg, undefined, `${directory} installed pg implicitly`);
-            strict.strictEqual(field?.mysql2, undefined, `${directory} installed mysql2 implicitly`);
+            for (const driver of ["pg", "mysql2", "better-sqlite3", "sqlite3"]) {
+              strict.strictEqual(field?.[driver], undefined, `${directory} installed ${driver} implicitly`);
+            }
           }
         }
       }
@@ -220,7 +243,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         "--env",
         "POSTGRES_USER=typed_sql",
         "--env",
-        "POSTGRES_PASSWORD=typed_sql_e2e",
+        `POSTGRES_PASSWORD=${artifactCredentialSentinel}`,
         postgresImage,
       ]);
       started.push(postgresContainer);
@@ -236,7 +259,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         "--env",
         "MYSQL_USER=typed_sql",
         "--env",
-        "MYSQL_PASSWORD=typed_sql_e2e",
+        `MYSQL_PASSWORD=${artifactCredentialSentinel}`,
         "--env",
         "MYSQL_ROOT_PASSWORD=typed_sql_root",
         mysqlImage,
@@ -278,22 +301,35 @@ await describe(`${consumerSource} real-database consumers`, async () => {
               "ping",
               "--host=127.0.0.1",
               "--user=typed_sql",
-              "--password=typed_sql_e2e",
+              `--password=${artifactCredentialSentinel}`,
             ])
           ).code,
         0,
         { interval: 250, timeout: 90_000, strict: true },
       );
 
-      for (const name of ["postgres", "mysql"]) await mkdir(join(consumer, name, "src"), { recursive: true });
+      for (const name of dialectNames) await mkdir(join(consumer, name, "src"), { recursive: true });
       await write(
         join(consumer, "postgres", "typed-sql.config.ts"),
         `
         import { defineConfig } from "@typed-sql/core";
         import { postgres, typePolicy } from "@typed-sql/postgres";
-        import { pg } from "@typed-sql/postgres/pg";
+        import { createPgLiveVerifier, pg } from "@typed-sql/postgres/pg";
+        const connectionString = "postgresql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${postgresPort}/typed_sql_e2e";
         const dialect = postgres({ typePolicy });
-        export default defineConfig({ dialect, schema: { file: "generated/schema.json", provider: pg({ connectionString: "postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${postgresPort}/typed_sql_e2e", schemas: ["public"], typePolicy }) }, outDir: "generated", projects: ["tsconfig.json"], typePolicy });
+        export default defineConfig({
+          dialect,
+          schema: { file: "generated/schema.json", provider: pg({ connectionString, schemas: ["public"], typePolicy }) },
+          outDir: "generated",
+          projects: ["tsconfig.json"],
+          typePolicy,
+          manifest: { outFile: ".typed-sql/queries.json" },
+          verification: {
+            live: createPgLiveVerifier({ connectionString, typePolicy }),
+            proofFile: ".typed-sql/verification.json",
+            concurrency: 2,
+          },
+        });
       `,
       );
       await write(
@@ -301,9 +337,80 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         `
         import { defineConfig } from "@typed-sql/core";
         import { mysql, typePolicy } from "@typed-sql/mysql";
-        import { mysql2 } from "@typed-sql/mysql/mysql2";
+        import { createMySql2LiveVerifier, mysql2 } from "@typed-sql/mysql/mysql2";
+        const connectionUri = "mysql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${mysqlPort}/typed_sql_e2e";
         const dialect = mysql({ typePolicy });
-        export default defineConfig({ dialect, schema: { file: "generated/schema.json", provider: mysql2({ connectionUri: "mysql://typed_sql:typed_sql_e2e@127.0.0.1:${mysqlPort}/typed_sql_e2e", schemas: ["typed_sql_e2e"], typePolicy }) }, outDir: "generated", projects: ["tsconfig.json"], typePolicy });
+        export default defineConfig({
+          dialect,
+          schema: { file: "generated/schema.json", provider: mysql2({ connectionUri, schemas: ["typed_sql_e2e"], typePolicy }) },
+          outDir: "generated",
+          projects: ["tsconfig.json"],
+          typePolicy,
+          manifest: { outFile: ".typed-sql/queries.json" },
+          verification: {
+            live: createMySql2LiveVerifier({ connectionUri, typePolicy }),
+            proofFile: ".typed-sql/verification.json",
+            concurrency: 2,
+          },
+        });
+      `,
+      );
+      await write(
+        join(consumer, "mysql", "typed-sql.verification.config.ts"),
+        `
+        import { defineConfig } from "@typed-sql/core";
+        import config from "./typed-sql.config.js";
+        export default defineConfig({
+          ...config,
+          projects: ["tsconfig.verification.json"],
+          manifest: { outFile: ".typed-sql/verification-queries.json" },
+          verification: {
+            ...config.verification,
+            proofFile: ".typed-sql/verification.json",
+          },
+        });
+      `,
+      );
+      await write(
+        join(consumer, "sqlite", "initialize.mjs"),
+        `
+        import { DatabaseSync } from "node:sqlite";
+        const database = new DatabaseSync(new URL("./database.sqlite", import.meta.url));
+        try {
+          database.exec(\`
+            CREATE TABLE account (
+              id INTEGER PRIMARY KEY,
+              email TEXT NOT NULL,
+              balance REAL,
+              enabled INTEGER NOT NULL
+            ) STRICT;
+            INSERT INTO account (id, email, balance, enabled) VALUES
+              (1, 'alice@example.com', 12500.5, 1),
+              (2, 'bob@example.com', NULL, 0);
+          \`);
+        } finally {
+          database.close();
+        }
+      `,
+      );
+      await mustRun(process.execPath, [join(consumer, "sqlite", "initialize.mjs")], join(consumer, "sqlite"));
+      await write(
+        join(consumer, "sqlite", "typed-sql.config.ts"),
+        `
+        import { fileURLToPath } from "node:url";
+        import { defineConfig } from "@typed-sql/core";
+        import { sqlite, typePolicy } from "@typed-sql/sqlite";
+        import { nodeSqlite } from "@typed-sql/sqlite/node-sqlite";
+        const path = fileURLToPath(new URL("./database.sqlite", import.meta.url));
+        const dialect = sqlite({ typePolicy });
+        export default defineConfig({
+          dialect,
+          schema: { file: "generated/schema.json", provider: nodeSqlite({ path, typePolicy }) },
+          outDir: "generated",
+          projects: ["tsconfig.json"],
+          typePolicy,
+          manifest: { outFile: ".typed-sql/queries.json" },
+        });
       `,
       );
       const tsconfig = JSON.stringify(
@@ -323,8 +430,20 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       );
       await write(join(consumer, "postgres", "tsconfig.json"), tsconfig);
       await write(join(consumer, "mysql", "tsconfig.json"), tsconfig);
+      await write(join(consumer, "sqlite", "tsconfig.json"), tsconfig);
+      await write(
+        join(consumer, "mysql", "tsconfig.verification.json"),
+        JSON.stringify(
+          {
+            extends: "./tsconfig.json",
+            include: ["src/verification-query.ts", "generated", "typed-sql.config.ts"],
+          },
+          null,
+          2,
+        ),
+      );
       const cli = join(consumer, "node_modules", "@typed-sql", "cli", "dist", "packages", "cli", "src", "cli.js");
-      for (const name of ["postgres", "mysql"])
+      for (const name of dialectNames)
         await mustRun(
           process.execPath,
           [cli, "generate", "--config", join(consumer, name, "typed-sql.config.ts")],
@@ -345,9 +464,10 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           FROM users AS account
           LEFT JOIN projects AS project ON project.owner_id = account.id
           WHERE account.id >= \${1n}
+            AND account.email <> \${${JSON.stringify(artifactParameterSentinel)}}
           ORDER BY account.id
         \`;
-        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint]>> = true;
+        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint, string]>> = true;
         void queryParameters;
         const querySchema = z.object({
           id: z.bigint(), email: z.string(), status: z.enum(["active", "suspended"]), budget: z.string().nullable(),
@@ -425,9 +545,10 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           FROM users AS account
           LEFT JOIN projects AS project ON project.owner_id = account.id
           WHERE account.id >= \${1n}
+            AND account.email <> \${${JSON.stringify(artifactParameterSentinel)}}
           ORDER BY account.id
         \`;
-        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint]>> = true;
+        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint, string]>> = true;
         void queryParameters;
         const querySchema = v.object({
           id: v.bigint(), email: v.string(), status: v.picklist(["active", "suspended"]), budget: v.nullable(v.string()),
@@ -492,6 +613,64 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       `,
       );
       await write(
+        join(consumer, "sqlite", "src", "query.ts"),
+        `
+        import { sql, typePolicy } from "@typed-sql/sqlite";
+        import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
+        import type { QueryParameters, QueryRow } from "@typed-sql/core";
+        type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+        type Assert<T extends true> = T;
+
+        export const query = sql\`
+          WITH enabled_accounts AS (
+            SELECT account.id, account.email, account.balance
+            FROM account
+            WHERE account.enabled = \${1n}
+          )
+          SELECT enabled_accounts.id, enabled_accounts.email, enabled_accounts.balance
+          FROM enabled_accounts
+          WHERE enabled_accounts.email <> \${${JSON.stringify(artifactParameterSentinel)}}
+          ORDER BY enabled_accounts.id
+        \`;
+        const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint, string]>> = true;
+        const queryRow: Assert<Equal<QueryRow<typeof query>, {
+          id: bigint; email: string; balance: number | null;
+        }>> = true;
+        void [queryParameters, queryRow];
+
+        export const byId = (id: bigint) => sql\`
+          SELECT account.id, account.email, account.balance
+          FROM account
+          WHERE account.id = \${id}
+        \`;
+        const byIdParameters: Assert<Equal<QueryParameters<ReturnType<typeof byId>>, readonly [bigint]>> = true;
+        void byIdParameters;
+
+        async function verifyInferredRows(): Promise<void> {
+          const database = await createNodeSqliteDatabase({ path: new URL("../database.sqlite", import.meta.url), typePolicy });
+          const rows = await database.execute(query);
+          const exact: Assert<Equal<(typeof rows)[number], {
+            id: bigint; email: string; balance: number | null;
+          }>> = true;
+          void exact;
+          await database.close();
+        }
+        void verifyInferredRows;
+      `,
+      );
+      await write(
+        join(consumer, "mysql", "src", "verification-query.ts"),
+        `
+        import { sql } from "@typed-sql/mysql";
+        export const verifiedAccount = sql\`
+          SELECT account.id, account.email
+          FROM users AS account
+          WHERE account.id = \${1n}
+            AND account.email <> \${${JSON.stringify(artifactParameterSentinel)}}
+        \`;
+      `,
+      );
+      await write(
         join(consumer, "postgres", "src", "server.ts"),
         `
         import { createServer, type Server } from "node:http";
@@ -513,7 +692,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
 
         export async function loadDashboard() {
           const database = await createPgDatabase({
-            connectionString: "postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${postgresPort}/typed_sql_e2e",
+            connectionString: "postgresql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${postgresPort}/typed_sql_e2e",
             typePolicy,
           });
           try {
@@ -543,7 +722,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         }
       `,
       );
-      for (const name of ["postgres", "mysql"])
+      for (const name of dialectNames)
         await mustRun(
           process.execPath,
           [
@@ -573,8 +752,45 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         join(consumer, "postgres"),
       );
 
-      const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
+      for (const name of dialectNames) {
+        const directory = join(consumer, name);
+        const manifestPath = join(directory, ".typed-sql", "queries.json");
+        const manifest = await mustRun(
+          process.execPath,
+          [cli, "manifest", "--config", join(directory, "typed-sql.config.ts")],
+          directory,
+        );
+        strict.match(manifest.stdout, /Generated \d+ queries \(0 unresolved/u);
+        const firstManifest = await assertPortableArtifact(manifestPath, consumer);
+        await mustRun(
+          process.execPath,
+          [cli, "manifest", "--config", join(directory, "typed-sql.config.ts")],
+          directory,
+        );
+        strict.strictEqual(
+          await readFile(manifestPath, "utf8"),
+          firstManifest,
+          `${name} manifest is not deterministic`,
+        );
+      }
       for (const name of ["postgres", "mysql"] as const) {
+        const directory = join(consumer, name);
+        const config = join(directory, name === "mysql" ? "typed-sql.verification.config.ts" : "typed-sql.config.ts");
+        if (name === "mysql") {
+          // COM_STMT_PREPARE exposes ENUM selections as generic strings, so live verification uses a
+          // separate exact-native corpus while the application manifest still retains enum inference.
+          await mustRun(process.execPath, [cli, "manifest", "--config", config], directory);
+          await assertPortableArtifact(join(directory, ".typed-sql", "verification-queries.json"), consumer);
+        }
+        const live = await mustRun(process.execPath, [cli, "verify", "--live", "--config", config], directory);
+        strict.match(live.stdout, /Verified \d+ variants \(0 mismatched, 0 skipped, 0 failed/u);
+        const cached = await mustRun(process.execPath, [cli, "verify", "--config", config], directory);
+        strict.match(cached.stdout, /Cached verification is current/u);
+        await assertPortableArtifact(join(directory, ".typed-sql", "verification.json"), consumer);
+      }
+
+      const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
+      for (const name of dialectNames) {
         const directory = join(consumer, name);
         const queryFile = join(directory, "src", "query.ts");
         const source = await readFile(queryFile, "utf8");
@@ -611,11 +827,13 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         import { join } from "node:path";
         import { mysql } from "@typed-sql/mysql";
         import { postgres } from "@typed-sql/postgres";
+        import { sqlite } from "@typed-sql/sqlite";
         import { analyzeSource } from "@typed-sql/ts-bridge";
         import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
         const cases = [
           { name: "postgres", dialect: postgres(), expected: ["id: bigint", "email: string"] },
           { name: "mysql", dialect: mysql(), expected: ["id: bigint", 'status: "active" | "suspended"'] },
+          { name: "sqlite", dialect: sqlite(), expected: ["id: bigint", "balance: number | null"] },
         ] as const;
         const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: ${JSON.stringify(consumer)} });
         try {
@@ -646,11 +864,13 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         import { createPgDatabase } from "@typed-sql/postgres/pg";
         import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
         import { createMySql2Database } from "@typed-sql/mysql/mysql2";
+        import { sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite";
+        import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
         import { createDashboardServer } from "./postgres/src/server.js";
         import { z } from "zod";
         import * as v from "valibot";
-        const postgres = await createPgDatabase({ connectionString: "postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${postgresPort}/typed_sql_e2e", typePolicy: postgresTypePolicy });
-        const mysql = await createMySql2Database({ connectionUri: "mysql://typed_sql:typed_sql_e2e@127.0.0.1:${mysqlPort}/typed_sql_e2e", typePolicy: mysqlTypePolicy });
+        const postgres = await createPgDatabase({ connectionString: "postgresql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${postgresPort}/typed_sql_e2e", typePolicy: postgresTypePolicy });
+        const mysql = await createMySql2Database({ connectionUri: "mysql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${mysqlPort}/typed_sql_e2e", typePolicy: mysqlTypePolicy });
         try {
           const pgRows = await postgres.execute(postgresSql.validateResult(
             postgresSql<{ id: bigint; email: string }>\`SELECT id, email FROM users ORDER BY id\`,
@@ -663,6 +883,33 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           if (pgRows[0]?.id !== 1n || pgRows[0]?.email !== "alice@example.com") throw new Error("packed pg execution failed");
           if (myRows[0]?.id !== 1n || myRows[0]?.status !== "active") throw new Error("packed mysql2 execution failed");
         } finally { await postgres.close(); await mysql.close(); }
+
+        const sqlite = await createNodeSqliteDatabase({
+          path: new URL("./sqlite/database.sqlite", import.meta.url),
+          typePolicy: sqliteTypePolicy,
+        });
+        try {
+          type SqliteAccount = { id: bigint; email: string; balance: number | null };
+          const allAccounts = sqliteSql<SqliteAccount>\`
+            SELECT id, email, balance FROM account ORDER BY id
+          \`;
+          const byId = sqlite.prepare("packed-account-by-id", (id: bigint) => sqliteSql<SqliteAccount>\`
+            SELECT id, email, balance FROM account WHERE id = \${id}
+          \`);
+          const first = await sqlite.one(byId(1n));
+          if (first.email !== "alice@example.com") throw new Error("packed SQLite prepared execution failed");
+
+          const [secondRows, allRows] = await sqlite.batch([byId(2n), allAccounts]);
+          if (secondRows[0]?.email !== "bob@example.com" || allRows.length !== 2) {
+            throw new Error("packed SQLite batch execution failed");
+          }
+
+          const streamed: bigint[] = [];
+          for await (const row of sqlite.stream(allAccounts, { batchSize: 1 })) streamed.push(row.id);
+          if (streamed.length !== 2 || streamed[0] !== 1n || streamed[1] !== 2n) {
+            throw new Error("packed SQLite stream execution failed");
+          }
+        } finally { await sqlite.close(); }
 
         const server = createDashboardServer();
         try {
@@ -687,7 +934,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       `,
       );
       await mustRun(process.execPath, ["--import", "tsx", join(consumer, "verify.ts")], consumer);
-      for (const name of ["postgres", "mysql"] as const) {
+      for (const name of dialectNames) {
         const drift = await mustRun(
           process.execPath,
           [cli, "drift", "--config", join(consumer, name, "typed-sql.config.ts")],
