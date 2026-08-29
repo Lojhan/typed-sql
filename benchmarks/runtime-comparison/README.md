@@ -18,6 +18,10 @@ The bulk-ingestion workload compares multiple row counts through:
 
 It is a reproducible experiment, not a universal leaderboard. Database version, host scheduling, connection transport, driver version, result decoding, pool configuration, and query shape all affect the result. The committed harness is the claim; generated numbers are intentionally ignored.
 
+The [2.0.0-rc.0 assessment](./ASSESSMENT.md) records one version-pinned run, its complete aggregated
+results, and a feature and maintenance comparison. Treat that document as release evidence for the
+named versions and environment, not as a timeless performance claim.
+
 ## Run it
 
 Build typed-sql from the repository root first. Then run the isolated benchmark workspace:

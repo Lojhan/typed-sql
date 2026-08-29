@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, it, strict } from "poku";
+import { detectPendingChangesets } from "../../scripts/detect-pending-changesets.mjs";
 import { type ReleaseManifest, validateReleaseManifest } from "../../scripts/release-policy.mjs";
 import {
   nextReleaseCandidateNumber,
@@ -54,8 +55,8 @@ await describe("release-candidate policy", async () => {
         },
         {
           directory: "compiler",
-          version: "1.0.0-beta.2",
-          changelog: "# @typed-sql/compiler\n\n## 1.0.0-beta.2\n\n- History.\n",
+          version: "1.1.0-rc.0",
+          changelog: "# @typed-sql/compiler\n\n## 1.1.0-rc.0\n\n- History.\n",
         },
       ] as const;
       for (const fixture of fixtures) {
@@ -73,7 +74,7 @@ await describe("release-candidate policy", async () => {
         rcRelease,
         new Map([
           ["@typed-sql/core", "1.0.0-beta.2"],
-          ["@typed-sql/compiler", "1.0.0-beta.2"],
+          ["@typed-sql/compiler", "1.0.0"],
         ]),
         0,
       );
@@ -85,8 +86,8 @@ await describe("release-candidate policy", async () => {
         strict.strictEqual(manifest.version, target);
         const changelog = await readFile(join(temporary, "packages", fixture.directory, "CHANGELOG.md"), "utf8");
         strict.ok(changelog.includes("## 1.0.0-rc.0\n"));
-        strict.ok(changelog.includes("## 1.0.0-beta.2\n"), "historical beta notes must remain unchanged");
         if (fixture.directory === "core") {
+          strict.ok(changelog.includes("## 1.0.0-beta.2\n"), "historical beta notes must remain unchanged");
           strict.ok(changelog.includes("Updated @typed-sql/compiler@1.0.0-rc.0."));
           strict.ok(changelog.includes("Historical reference to 1.0.0-rc.3."));
         }
@@ -151,5 +152,35 @@ await describe("release-candidate policy", async () => {
     const verifyRegistryCandidate = workflow.indexOf("name: Verify registry-only release candidate");
     const publishStable = workflow.indexOf("script: pnpm release:stable");
     strict.ok(verifyRegistryCandidate > 0 && publishStable > verifyRegistryCandidate);
+    strict.ok(workflow.includes('node scripts/detect-pending-changesets.mjs >> "$GITHUB_OUTPUT"'));
+  });
+
+  await it("distinguishes new changesets from prerelease files already consumed", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-pending-changesets-"));
+    try {
+      const directory = join(temporary, ".changeset");
+      await mkdir(directory, { recursive: true });
+      await writeFile(join(directory, "README.md"), "# Changesets\n");
+      await writeFile(join(directory, "consumed.md"), "---\n---\nConsumed.\n");
+      await writeFile(join(directory, "new-change.md"), "---\n---\nNew.\n");
+
+      strict.deepStrictEqual(await detectPendingChangesets(temporary), ["consumed", "new-change"]);
+      await writeFile(join(directory, "pre.json"), JSON.stringify({ mode: "pre", tag: "rc" }));
+      strict.deepStrictEqual(await detectPendingChangesets(temporary), ["consumed", "new-change"]);
+      await writeFile(
+        join(directory, "pre.json"),
+        JSON.stringify({ mode: "pre", tag: "rc", changesets: ["consumed"] }),
+      );
+      strict.deepStrictEqual(await detectPendingChangesets(temporary), ["new-change"]);
+      await writeFile(
+        join(directory, "pre.json"),
+        JSON.stringify({ mode: "pre", tag: "rc", changesets: ["consumed", "new-change"] }),
+      );
+      strict.deepStrictEqual(await detectPendingChangesets(temporary), []);
+      await writeFile(join(directory, "pre.json"), JSON.stringify({ mode: "exit", tag: "rc", changesets: [] }));
+      strict.deepStrictEqual(await detectPendingChangesets(temporary), ["prerelease-exit"]);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 });

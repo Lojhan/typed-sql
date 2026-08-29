@@ -42,35 +42,47 @@ function addReleaseHeading(changelog, targetVersion) {
   return `${changelog.slice(0, newline)}\n\n## ${targetVersion}\n\n### Patch Changes\n\n- Publish the coherent ${targetVersion} release-candidate train.\n${changelog.slice(newline + 1)}`;
 }
 
-function rewriteLatestRelease(changelog, provisionalVersion, targetVersion, packageName, series) {
+function rewriteLatestRelease(changelog, provisionalVersion, provisionalVersions, targetVersion, packageName, series) {
   const heading = `## ${provisionalVersion}\n`;
   const start = changelog.indexOf(heading);
   if (start < 0) throw new Error(`${packageName} changelog is missing ${heading.trim()}`);
   const nextRelease = changelog.indexOf("\n## ", start + heading.length);
   const end = nextRelease < 0 ? changelog.length : nextRelease;
   const prereleaseVersion = new RegExp(`${escapeRegularExpression(series)}-(?:beta|rc)\\.\\d+`, "gu");
-  const normalized = changelog
-    .slice(start, end)
-    .replaceAll(provisionalVersion, targetVersion)
-    .replace(prereleaseVersion, targetVersion);
+  let normalized = changelog.slice(start, end).replaceAll(provisionalVersion, targetVersion);
+  for (const version of provisionalVersions) normalized = normalized.replaceAll(version, targetVersion);
+  normalized = normalized.replace(prereleaseVersion, targetVersion);
   return `${changelog.slice(0, start)}${normalized}${changelog.slice(end)}`;
 }
 
 export async function normalizeReleaseCandidateVersions(workspace, release, originalVersions, number) {
   const targetVersion = `${release.series}-rc.${number}`;
+  const packages = [];
   for (const name of release.packages) {
     const directory = packageDirectory(workspace, name);
     const manifestPath = join(directory, "package.json");
-    const changelogPath = join(directory, "CHANGELOG.md");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-    const provisionalVersion = manifest.version;
+    packages.push({ name, directory, manifestPath, manifest, provisionalVersion: manifest.version });
+  }
+  const provisionalVersions = new Set(
+    packages.map(({ provisionalVersion }) => provisionalVersion).filter((version) => version.includes("-")),
+  );
+  for (const { name, directory, manifestPath, manifest, provisionalVersion } of packages) {
+    const changelogPath = join(directory, "CHANGELOG.md");
     const changedByChangesets = provisionalVersion !== originalVersions.get(name);
     manifest.version = targetVersion;
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
     let changelog = await readFile(changelogPath, "utf8");
     if (changedByChangesets && provisionalVersion !== targetVersion) {
-      changelog = rewriteLatestRelease(changelog, provisionalVersion, targetVersion, name, release.series);
+      changelog = rewriteLatestRelease(
+        changelog,
+        provisionalVersion,
+        provisionalVersions,
+        targetVersion,
+        name,
+        release.series,
+      );
     }
     if (!changelog.includes(`## ${targetVersion}\n`)) changelog = addReleaseHeading(changelog, targetVersion);
     await writeFile(changelogPath, changelog);

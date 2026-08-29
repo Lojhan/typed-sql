@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/mysql",
-  "version": "1.0.0",
+  "version": "2.0.0-rc.0",
   "description": "MySQL grammar, schema introspection, type resolution, and application-owned mysql2 integration for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",

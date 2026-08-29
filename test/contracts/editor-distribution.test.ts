@@ -11,6 +11,7 @@ async function text(path: string): Promise<string> {
 
 await describe("external editor distribution", async () => {
   await it("keeps preview-backed editor surfaces explicitly experimental", async () => {
+    const release = JSON.parse(await text("release-manifest.json")) as { readonly series: string };
     const languageServer = JSON.parse(await text("packages/language-server/package.json")) as {
       readonly version: string;
       readonly typedSql?: { readonly releaseTrack?: string };
@@ -19,7 +20,8 @@ await describe("external editor distribution", async () => {
       readonly private?: boolean;
       readonly version: string;
     };
-    strict.match(languageServer.version, /^1\.0\.0-(?:beta|rc)\.\d+$/u);
+    const prerelease = new RegExp(`^${release.series.replaceAll(".", "\\.")}-(?:beta|rc)\\.\\d+$`, "u");
+    strict.match(languageServer.version, prerelease);
     strict.strictEqual(languageServer.typedSql?.releaseTrack, "experimental");
     strict.strictEqual(vscode.private, true);
     strict.match(vscode.version, /^0\.1\./u);

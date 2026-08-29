@@ -1,5 +1,21 @@
 # @typed-sql/config
 
+## 2.0.0-rc.0
+
+### Patch Changes
+
+- Updated dependencies [29afc3d]
+- Updated dependencies [3f063f6]
+- Updated dependencies [6a7ae58]
+- Updated dependencies [b06fd0a]
+- Updated dependencies [3050209]
+- Updated dependencies [1b054b6]
+- Updated dependencies [b4f1b6e]
+- Updated dependencies [87189c3]
+- Updated dependencies [e654fae]
+- Updated dependencies [b2ec119]
+  - @typed-sql/core@2.0.0-rc.0
+
 ## 1.0.0
 
 ### Major Changes

@@ -1,0 +1,391 @@
+{
+  "generatedAt": "2026-08-29T17:07:34.746Z",
+  "environment": {
+    "node": "v24.10.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "rowCounts": [100, 1000, 5000],
+    "samples": 5,
+    "warmups": 2
+  },
+  "results": [
+    {
+      "database": "postgres",
+      "strategy": "bulk",
+      "name": "typed-sql COPY FROM",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 1.113584000000003,
+        "p95": 1.3588340000000017,
+        "minimum": 0.9022090000000276,
+        "maximum": 1.3588340000000017
+      },
+      "rowsPerSecond": 89800.14080662055
+    },
+    {
+      "database": "postgres",
+      "strategy": "batch",
+      "name": "typed-sql ordered batch",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 26.52974999999998,
+        "p95": 27.079666999999972,
+        "minimum": 25.801041999999995,
+        "maximum": 27.079666999999972
+      },
+      "rowsPerSecond": 3769.3532732121516
+    },
+    {
+      "database": "postgres",
+      "strategy": "pipeline",
+      "name": "typed-sql native pipeline",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 12.281417000000033,
+        "p95": 12.450666999999953,
+        "minimum": 12.080332999999996,
+        "maximum": 12.450666999999953
+      },
+      "rowsPerSecond": 8142.382918843952
+    },
+    {
+      "database": "postgres",
+      "strategy": "direct-driver",
+      "name": "raw pg-copy-streams",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 1.2070830000000115,
+        "p95": 1.2432909999999993,
+        "minimum": 1.0402499999999009,
+        "maximum": 1.2432909999999993
+      },
+      "rowsPerSecond": 82844.34458939364
+    },
+    {
+      "database": "postgres",
+      "strategy": "direct-driver",
+      "name": "raw pg named inserts",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 21.442332999999962,
+        "p95": 22.02491699999996,
+        "minimum": 20.996167000000014,
+        "maximum": 22.02491699999996
+      },
+      "rowsPerSecond": 4663.671625657534
+    },
+    {
+      "database": "mysql",
+      "strategy": "bulk",
+      "name": "typed-sql LOAD DATA",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 2.0741250000000946,
+        "p95": 2.343917000000033,
+        "minimum": 2.0052500000000464,
+        "maximum": 2.343917000000033
+      },
+      "rowsPerSecond": 48213.10191044196
+    },
+    {
+      "database": "mysql",
+      "strategy": "batch",
+      "name": "typed-sql ordered batch",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 49.26370900000006,
+        "p95": 68.35554100000002,
+        "minimum": 48.56941600000005,
+        "maximum": 68.35554100000002
+      },
+      "rowsPerSecond": 2029.8918215841172
+    },
+    {
+      "database": "mysql",
+      "strategy": "direct-driver",
+      "name": "raw mysql2 LOAD DATA",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 1.9301250000000891,
+        "p95": 1.9989169999998921,
+        "minimum": 1.784167000000025,
+        "maximum": 1.9989169999998921
+      },
+      "rowsPerSecond": 51810.11592513199
+    },
+    {
+      "database": "mysql",
+      "strategy": "direct-driver",
+      "name": "raw mysql2 execute inserts",
+      "rows": 100,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 46.65729199999987,
+        "p95": 47.74533399999996,
+        "minimum": 45.66583300000002,
+        "maximum": 47.74533399999996
+      },
+      "rowsPerSecond": 2143.2876987374293
+    },
+    {
+      "database": "postgres",
+      "strategy": "bulk",
+      "name": "typed-sql COPY FROM",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 4.470792000000074,
+        "p95": 5.291167000000087,
+        "minimum": 4.167249999999967,
+        "maximum": 5.291167000000087
+      },
+      "rowsPerSecond": 223674.0157001228
+    },
+    {
+      "database": "postgres",
+      "strategy": "batch",
+      "name": "typed-sql ordered batch",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 270.26012500000024,
+        "p95": 300.505459,
+        "minimum": 266.8829999999998,
+        "maximum": 300.505459
+      },
+      "rowsPerSecond": 3700.1388939637286
+    },
+    {
+      "database": "postgres",
+      "strategy": "pipeline",
+      "name": "typed-sql native pipeline",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 121.26499999999987,
+        "p95": 130.0837919999999,
+        "minimum": 117.5863330000002,
+        "maximum": 130.0837919999999
+      },
+      "rowsPerSecond": 8246.40250690637
+    },
+    {
+      "database": "postgres",
+      "strategy": "direct-driver",
+      "name": "raw pg-copy-streams",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 5.802708999999595,
+        "p95": 6.0757919999996375,
+        "minimum": 5.621374999999716,
+        "maximum": 6.0757919999996375
+      },
+      "rowsPerSecond": 172333.30156657344
+    },
+    {
+      "database": "postgres",
+      "strategy": "direct-driver",
+      "name": "raw pg named inserts",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 212.28912500000024,
+        "p95": 258.29120799999964,
+        "minimum": 206.0890419999996,
+        "maximum": 258.29120799999964
+      },
+      "rowsPerSecond": 4710.556887923481
+    },
+    {
+      "database": "mysql",
+      "strategy": "bulk",
+      "name": "typed-sql LOAD DATA",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 7.4506250000004,
+        "p95": 8.579458000000159,
+        "minimum": 7.224167000000307,
+        "maximum": 8.579458000000159
+      },
+      "rowsPerSecond": 134216.92811005068
+    },
+    {
+      "database": "mysql",
+      "strategy": "batch",
+      "name": "typed-sql ordered batch",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 470.7428749999999,
+        "p95": 498.4329170000001,
+        "minimum": 466.84929100000045,
+        "maximum": 498.4329170000001
+      },
+      "rowsPerSecond": 2124.3019344690033
+    },
+    {
+      "database": "mysql",
+      "strategy": "direct-driver",
+      "name": "raw mysql2 LOAD DATA",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 7.674750000000131,
+        "p95": 7.868457999999009,
+        "minimum": 7.533167000001413,
+        "maximum": 7.868457999999009
+      },
+      "rowsPerSecond": 130297.40382422658
+    },
+    {
+      "database": "mysql",
+      "strategy": "direct-driver",
+      "name": "raw mysql2 execute inserts",
+      "rows": 1000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 474.5647919999992,
+        "p95": 478.55425000000105,
+        "minimum": 462.304666,
+        "maximum": 478.55425000000105
+      },
+      "rowsPerSecond": 2107.1938265491926
+    },
+    {
+      "database": "postgres",
+      "strategy": "bulk",
+      "name": "typed-sql COPY FROM",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 12.22333400000025,
+        "p95": 12.391540999999052,
+        "minimum": 12.041333999999551,
+        "maximum": 12.391540999999052
+      },
+      "rowsPerSecond": 409053.70007887355
+    },
+    {
+      "database": "postgres",
+      "strategy": "batch",
+      "name": "typed-sql ordered batch",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 1346.6034169999984,
+        "p95": 1356.8137920000008,
+        "minimum": 1301.439459000001,
+        "maximum": 1356.8137920000008
+      },
+      "rowsPerSecond": 3713.045679877408
+    },
+    {
+      "database": "postgres",
+      "strategy": "pipeline",
+      "name": "typed-sql native pipeline",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 597.6471659999988,
+        "p95": 623.9419170000001,
+        "minimum": 589.8562920000004,
+        "maximum": 623.9419170000001
+      },
+      "rowsPerSecond": 8366.140231977624
+    },
+    {
+      "database": "postgres",
+      "strategy": "direct-driver",
+      "name": "raw pg-copy-streams",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 19.05712499999936,
+        "p95": 19.724957999998878,
+        "minimum": 18.98183400000198,
+        "maximum": 19.724957999998878
+      },
+      "rowsPerSecond": 262369.0614402838
+    },
+    {
+      "database": "postgres",
+      "strategy": "direct-driver",
+      "name": "raw pg named inserts",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 1232.1463750000003,
+        "p95": 1312.5897079999995,
+        "minimum": 1102.994584,
+        "maximum": 1312.5897079999995
+      },
+      "rowsPerSecond": 4057.9594287245286
+    },
+    {
+      "database": "mysql",
+      "strategy": "bulk",
+      "name": "typed-sql LOAD DATA",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 35.85462499999994,
+        "p95": 39.35445900000195,
+        "minimum": 29.530209000004106,
+        "maximum": 39.35445900000195
+      },
+      "rowsPerSecond": 139452.0232745429
+    },
+    {
+      "database": "mysql",
+      "strategy": "batch",
+      "name": "typed-sql ordered batch",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 2352.042708000001,
+        "p95": 2404.470792,
+        "minimum": 2333.186791,
+        "maximum": 2404.470792
+      },
+      "rowsPerSecond": 2125.81173929942
+    },
+    {
+      "database": "mysql",
+      "strategy": "direct-driver",
+      "name": "raw mysql2 LOAD DATA",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 33.52179199999955,
+        "p95": 37.706915999995545,
+        "minimum": 33.039749999996275,
+        "maximum": 37.706915999995545
+      },
+      "rowsPerSecond": 149156.70379435763
+    },
+    {
+      "database": "mysql",
+      "strategy": "direct-driver",
+      "name": "raw mysql2 execute inserts",
+      "rows": 5000,
+      "samples": 5,
+      "milliseconds": {
+        "p50": 2350.8058329999913,
+        "p95": 2383.453665999994,
+        "minimum": 2337.6640419999967,
+        "maximum": 2383.453665999994
+      },
+      "rowsPerSecond": 2126.9302337995427
+    }
+  ]
+}
