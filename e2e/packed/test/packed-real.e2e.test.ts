@@ -45,8 +45,12 @@ const consumerSource = process.env.TYPED_SQL_CONSUMER_SOURCE ?? "packed";
 const registryOnly = consumerSource === "registry";
 const registryTag = process.env.TYPED_SQL_REGISTRY_TAG ?? "next";
 const registryPreviewTag = process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next";
+const registryExpected = process.env.TYPED_SQL_REGISTRY_EXPECTED;
 if (!registryOnly && consumerSource !== "packed") {
   throw new Error(`TYPED_SQL_CONSUMER_SOURCE must be packed or registry, received ${consumerSource}`);
+}
+if (registryExpected !== undefined && registryExpected !== "workspace") {
+  throw new Error(`TYPED_SQL_REGISTRY_EXPECTED must be workspace when set, received ${registryExpected}`);
 }
 const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split(".").map(Number);
 const requiresExperimentalSqlite = nodeMajor === 22 && nodeMinor < 13;
@@ -142,10 +146,13 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       for (const directory of packageNames) {
         const manifest = JSON.parse(await readFile(join(workspace, "packages", directory, "package.json"), "utf8")) as {
           readonly name: string;
+          readonly version: string;
         };
-        if (registryOnly)
-          dependencies[manifest.name] = previewPackageNames.has(manifest.name) ? registryPreviewTag : registryTag;
-        else {
+        if (registryOnly) {
+          const sourceTag = previewPackageNames.has(manifest.name) ? registryPreviewTag : registryTag;
+          dependencies[manifest.name] =
+            registryExpected === "workspace" && sourceTag === registryTag ? manifest.version : sourceTag;
+        } else {
           const before = new Set(await readdir(tarballs));
           await execFile("pnpm", ["--silent", "--filter", manifest.name, "pack", "--pack-destination", tarballs], {
             cwd: workspace,

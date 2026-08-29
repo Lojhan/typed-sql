@@ -111,6 +111,7 @@ jobs:
         run: pnpm e2e:registry
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_REGISTRY_EXPECTED: workspace
           TYPED_SQL_REGISTRY_TAG: next
           TYPED_SQL_REGISTRY_PREVIEW_TAG: next
       - name: Publish stable
@@ -125,5 +126,6 @@ jobs:
         run: pnpm e2e:registry
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_REGISTRY_EXPECTED: workspace
           TYPED_SQL_REGISTRY_TAG: latest
           TYPED_SQL_REGISTRY_PREVIEW_TAG: next
