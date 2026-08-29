@@ -53,6 +53,9 @@ await describe("stable release rehearsal policy", async () => {
       "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
     );
     strict.ok(!manifest.scripts["release:stable"]?.includes("changeset publish"));
+    const publisher = await readFile(resolve(workspace, "scripts/publish-prerelease.mjs"), "utf8");
+    strict.ok(publisher.includes("loadExperimentalCompanionPlan"));
+    strict.ok(publisher.includes('return { npmTag: "next", packages }'));
   });
 
   await it("publishes durable release notes with the supported and experimental boundaries", async () => {
