@@ -134,6 +134,133 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  examples/multi-database:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@typed-sql/postgres':
+        specifier: workspace:*
+        version: link:../../packages/postgres
+      '@typed-sql/sqlite':
+        specifier: workspace:*
+        version: link:../../packages/sqlite
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+    devDependencies:
+      '@typed-sql/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@typed-sql/language-server':
+        specifier: workspace:*
+        version: link:../../packages/language-server
+      poku:
+        specifier: 4.5.0
+        version: 4.5.0
+      tsx:
+        specifier: 4.23.12
+        version: 4.23.12
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  examples/mysql:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@typed-sql/mysql':
+        specifier: workspace:*
+        version: link:../../packages/mysql
+      mysql2:
+        specifier: 3.24.1
+        version: 3.24.1(@types/node@24.13.3)
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
+    devDependencies:
+      '@typed-sql/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@typed-sql/language-server':
+        specifier: workspace:*
+        version: link:../../packages/language-server
+      poku:
+        specifier: 4.5.0
+        version: 4.5.0
+      tsx:
+        specifier: 4.23.12
+        version: 4.23.12
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  examples/postgres:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@typed-sql/postgres':
+        specifier: workspace:*
+        version: link:../../packages/postgres
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+      pg-copy-streams:
+        specifier: 7.0.0
+        version: 7.0.0
+      pg-cursor:
+        specifier: 2.22.0
+        version: 2.22.0(pg@8.23.0)
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
+    devDependencies:
+      '@typed-sql/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@typed-sql/language-server':
+        specifier: workspace:*
+        version: link:../../packages/language-server
+      poku:
+        specifier: 4.5.0
+        version: 4.5.0
+      tsx:
+        specifier: 4.23.12
+        version: 4.23.12
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  examples/sqlite:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@typed-sql/sqlite':
+        specifier: workspace:*
+        version: link:../../packages/sqlite
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
+    devDependencies:
+      '@typed-sql/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+      '@typed-sql/language-server':
+        specifier: workspace:*
+        version: link:../../packages/language-server
+      poku:
+        specifier: 4.5.0
+        version: 4.5.0
+      tsx:
+        specifier: 4.23.12
+        version: 4.23.12
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   examples/synthetic-grammar:
     dependencies:
       '@typed-sql/conformance':

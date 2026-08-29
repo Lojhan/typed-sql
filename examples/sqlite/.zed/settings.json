@@ -1,0 +1,19 @@
+{
+  "languages": {
+    "TypeScript": {
+      "language_servers": ["typed-sql", "!vtsls", "!typescript-language-server"]
+    },
+    "TSX": {
+      "language_servers": ["typed-sql", "!vtsls", "!typescript-language-server"]
+    }
+  },
+  "lsp": {
+    "typed-sql": {
+      "settings": {
+        "configPath": "typed-sql.config.ts",
+        "projectFile": "tsconfig.json",
+        "nativePreview": true
+      }
+    }
+  }
+}

@@ -11,6 +11,22 @@ import {
 
 type Account = { readonly id: bigint; readonly email: string };
 
+interface EcosystemSchema {
+  readonly "~standard": {
+    readonly version: 1;
+    readonly vendor: string;
+    readonly types?: { readonly input: unknown; readonly output: Account } | undefined;
+    readonly validate: (value: unknown) =>
+      | { readonly value: Account; readonly issues?: undefined }
+      | {
+          readonly issues: readonly {
+            readonly message: string;
+            readonly path?: readonly (PropertyKey | { readonly key: PropertyKey })[] | undefined;
+          }[];
+        };
+  };
+}
+
 function accountSchema(
   validate: StandardSchemaV1<unknown, Account>["~standard"]["validate"],
 ): StandardSchemaV1<unknown, Account> {
@@ -30,6 +46,21 @@ async function captureValidationError(operation: Promise<unknown>): Promise<Quer
 }
 
 await describe("Standard Schema result validation", async () => {
+  await it("accepts the exact optional-property shape used by ecosystem validators", async () => {
+    const schema: EcosystemSchema = {
+      "~standard": {
+        version: 1,
+        vendor: "ecosystem-compatible",
+        validate(value) {
+          return { value: value as Account };
+        },
+      },
+    };
+    const query = sql.validateResult(sql<Account>`SELECT id, email FROM account`, schema);
+    const database = createDatabase({ execute: async () => [{ id: 1n, email: "a@example.test" }] }, renderer);
+    strict.deepStrictEqual(await database.one(query), { id: 1n, email: "a@example.test" });
+  });
+
   await it("validates and transforms decoded rows without changing the base query", async () => {
     const base = sql<Account>`SELECT id, email FROM account`;
     const validated = sql.validateResult(

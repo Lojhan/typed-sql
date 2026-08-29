@@ -1,0 +1,32 @@
+{
+  "name": "@typed-sql/example-postgres",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runnable PostgreSQL example using typed-sql from the current workspace.",
+  "type": "module",
+  "scripts": {
+    "db:up": "node ../compose.mjs up",
+    "db:down": "node ../compose.mjs down",
+    "generate": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --config typed-sql.config.ts",
+    "generate:snapshot": "node ../../packages/cli/dist/packages/cli/src/cli.js generate --config typed-sql.config.ts --snapshot schema/catalog.snapshot.json",
+    "check": "node ../check.mjs",
+    "start": "tsx src/main.ts",
+    "test": "poku test --reporter=compact --enforce",
+    "test:database": "poku database-test --reporter=compact --enforce"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/postgres": "workspace:*",
+    "pg": "8.23.0",
+    "pg-copy-streams": "7.0.0",
+    "pg-cursor": "2.22.0",
+    "valibot": "1.4.2"
+  },
+  "devDependencies": {
+    "@typed-sql/cli": "workspace:*",
+    "@typed-sql/language-server": "workspace:*",
+    "poku": "4.5.0",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  }
+}

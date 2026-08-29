@@ -16,7 +16,8 @@
       "!!**/target",
       "!!**/coverage",
       "!!artifacts",
-      "!!e2e/*/generated"
+      "!!e2e/*/generated",
+      "!!examples/**/generated"
     ]
   },
   "formatter": {

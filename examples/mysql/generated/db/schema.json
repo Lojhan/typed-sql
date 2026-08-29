@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "dialect": "mysql",
+  "dialectVersion": "1.0.0",
+  "tables": {
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "varchar(255)",
+          "tsType": "string",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "enum('active','suspended')",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "active"
+        }
+      },
+      "schema": "typed_sql_examples"
+    },
+    "projects": {
+      "name": "projects",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "varchar(120)",
+          "tsType": "string",
+          "nullable": false
+        },
+        "budget": {
+          "name": "budget",
+          "databaseType": "decimal(14,2)",
+          "tsType": "string",
+          "nullable": true
+        }
+      },
+      "schema": "typed_sql_examples"
+    }
+  },
+  "version": "8.4.11",
+  "metadata": {
+    "generatorVersion": "1.0.0",
+    "schemaHash": "91f817bfabb75df1f30b74c9b60bad46fb67d28fc6335da25959c6ff440daa9a",
+    "typePolicyHash": "7f3e449f7c363169d4855e338d52273380217dc71366afc4712bee853e741c79"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@typed-sql/example-multi-database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runnable PostgreSQL and SQLite application using typed-sql from the current workspace.",
+  "type": "module",
+  "scripts": {
+    "db:up": "node ../compose.mjs up",
+    "db:down": "node ../compose.mjs down",
+    "generate": "node scripts/generate.mjs",
+    "generate:snapshot": "node scripts/generate.mjs --snapshot",
+    "check": "node ../check.mjs postgres/typed-sql.config.ts postgres/src sqlite/typed-sql.config.ts sqlite/src",
+    "start": "tsx src/main.ts",
+    "test": "poku test --reporter=compact --enforce",
+    "test:database": "poku database-test --reporter=compact --enforce"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/postgres": "workspace:*",
+    "@typed-sql/sqlite": "workspace:*",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@typed-sql/cli": "workspace:*",
+    "@typed-sql/language-server": "workspace:*",
+    "poku": "4.5.0",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  }
+}

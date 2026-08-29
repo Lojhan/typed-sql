@@ -87,6 +87,36 @@ jobs:
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
 
+  examples-e2e:
+    name: examples-e2e (${{ matrix.example }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - example: postgres
+            node: 22.11
+          - example: mysql
+            node: 22.11
+          - example: sqlite
+            node: 22.13
+          - example: multi-database
+            node: 22.13
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node examples/e2e.mjs ${{ matrix.example }}
+        env:
+          TYPED_SQL_CONTAINER_ENGINE: docker
+
   editor-artifacts:
     runs-on: ubuntu-latest
     steps:

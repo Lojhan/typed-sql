@@ -163,6 +163,7 @@ the structural-variant bound.
 
 - [Documentation site](https://lojhan.github.io/typed-sql/)
 - [Documentation source](./docs/index.md)
+- [Executable PostgreSQL, MySQL, and SQLite examples](./docs/examples/index.md)
 - [Execution adapters](./docs/guides/execution.md)
 - [Standard Schema result validation](./docs/guides/result-validation.md)
 - [Bulk data transfer](./docs/guides/bulk-data.md)

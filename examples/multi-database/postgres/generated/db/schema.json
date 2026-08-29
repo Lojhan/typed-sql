@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "dialect": "postgres",
+  "dialectVersion": "1.0.0",
+  "tables": {
+    "customer": {
+      "name": "customer",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        }
+      },
+      "schema": "public"
+    }
+  },
+  "version": "18.4",
+  "metadata": {
+    "generatorVersion": "1.0.0",
+    "schemaHash": "4882e9b0faba1caaf3ae767349dc209ec4d0055987db30ba7d6a345b7ef3cb3b",
+    "typePolicyHash": "fff28bed837f9e4a3ae6c99da77e301413c980a01d443522778c31079241a51c"
+  }
+}

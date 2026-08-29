@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "dialect": "sqlite",
+  "dialectVersion": "1.0.0",
+  "tables": {
+    "customer_preference": {
+      "name": "customer_preference",
+      "columns": {
+        "customer_id": {
+          "name": "customer_id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "theme": {
+          "name": "theme",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "email_notifications": {
+          "name": "email_notifications",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false
+        }
+      },
+      "schema": "main",
+      "kind": "table",
+      "strict": true,
+      "withoutRowid": false,
+      "indexes": [],
+      "foreignKeys": []
+    }
+  },
+  "version": "3.50.4",
+  "metadata": {
+    "generatorVersion": "1.0.0",
+    "schemaHash": "943809e8c6b0dbd56a806b4a9cd324219415cb2239ac97b12ad63c889994dc77",
+    "typePolicyHash": "11dfa860af2ba2997d752a95bd8448538406a84ed23da56bf90903f2de2dd49b"
+  }
+}

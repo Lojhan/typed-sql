@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["database-test/**/*.ts", "generated/**/*.ts", "src/**/*.ts", "test/**/*.ts", "typed-sql.config.ts"],
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/sqlite" },
+    { "path": "../../packages/cli" }
+  ]
+}

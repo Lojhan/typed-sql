@@ -10,7 +10,7 @@ export namespace StandardTypedV1 {
   export interface Props<Input = unknown, Output = Input> {
     readonly version: 1;
     readonly vendor: string;
-    readonly types?: Types<Input, Output>;
+    readonly types?: Types<Input, Output> | undefined;
   }
 
   export interface Types<Input = unknown, Output = Input> {
@@ -49,7 +49,7 @@ export namespace StandardSchemaV1 {
 
   export interface Issue {
     readonly message: string;
-    readonly path?: ReadonlyArray<PropertyKey | PathSegment>;
+    readonly path?: ReadonlyArray<PropertyKey | PathSegment> | undefined;
   }
 
   export interface PathSegment {

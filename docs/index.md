@@ -16,6 +16,8 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 3. [Write and check your first query](./getting-started/first-query.md).
 4. [Execute queries](./guides/execution.md) with your selected driver.
 
+Prefer to begin from running code? Open the maintained [PostgreSQL, MySQL, and SQLite examples](./examples/index.md).
+
 ## Guides
 
 - [Compose conditional SQL](./guides/composition.md) without creating a parallel query-builder API.
@@ -40,6 +42,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 - [Database type mappings](./reference/type-mappings.md)
 - [Diagnostics](./reference/diagnostics.md)
 - [Authoring a custom grammar](./extending/custom-grammars.md)
+- [Runnable examples](./examples/index.md)
 
 ## Core guarantees
 

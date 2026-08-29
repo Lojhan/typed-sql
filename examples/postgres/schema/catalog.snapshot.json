@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "dialect": "postgres",
+  "dialectVersion": "1.0.0",
+  "version": "18.4",
+  "tables": {
+    "users": {
+      "schema": "public",
+      "name": "users",
+      "columns": {
+        "id": { "name": "id", "databaseType": "bigint", "tsType": "bigint", "nullable": false },
+        "email": { "name": "email", "databaseType": "text", "tsType": "string", "nullable": false },
+        "status": {
+          "name": "status",
+          "databaseType": "account_status",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "'active'::account_status"
+        }
+      }
+    },
+    "projects": {
+      "schema": "public",
+      "name": "projects",
+      "columns": {
+        "id": { "name": "id", "databaseType": "bigint", "tsType": "bigint", "nullable": false },
+        "owner_id": { "name": "owner_id", "databaseType": "bigint", "tsType": "bigint", "nullable": false },
+        "name": { "name": "name", "databaseType": "text", "tsType": "string", "nullable": false },
+        "budget": {
+          "name": "budget",
+          "databaseType": "numeric(14,2)",
+          "tsType": "string",
+          "nullable": true
+        }
+      }
+    }
+  },
+  "enums": { "account_status": ["active", "suspended"] }
+}

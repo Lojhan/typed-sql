@@ -1,0 +1,43 @@
+{
+  "formatVersion": 1,
+  "dialect": "mysql",
+  "dialectVersion": "1.0.0",
+  "version": "8.4.11",
+  "tables": {
+    "users": {
+      "schema": "typed_sql_examples",
+      "name": "users",
+      "columns": {
+        "id": { "name": "id", "databaseType": "bigint unsigned", "tsType": "bigint", "nullable": false },
+        "email": { "name": "email", "databaseType": "varchar(255)", "tsType": "string", "nullable": false },
+        "status": {
+          "name": "status",
+          "databaseType": "enum('active','suspended')",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "active"
+        }
+      }
+    },
+    "projects": {
+      "schema": "typed_sql_examples",
+      "name": "projects",
+      "columns": {
+        "id": { "name": "id", "databaseType": "bigint unsigned", "tsType": "bigint", "nullable": false },
+        "owner_id": {
+          "name": "owner_id",
+          "databaseType": "bigint unsigned",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": { "name": "name", "databaseType": "varchar(120)", "tsType": "string", "nullable": false },
+        "budget": {
+          "name": "budget",
+          "databaseType": "decimal(14,2)",
+          "tsType": "string",
+          "nullable": true
+        }
+      }
+    }
+  }
+}
