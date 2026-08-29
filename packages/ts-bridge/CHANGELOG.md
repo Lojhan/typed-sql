@@ -1,5 +1,12 @@
 # @typed-sql/ts-bridge
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- Align the experimental TypeScript preview bridge with the stable 2.0.0 compiler, core, and schema
+  packages while keeping the bridge on the independent `next` track.
+
 ## 2.0.0-rc.1
 
 ### Patch Changes

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import {
   isPublishedOnNpm,
+  loadExperimentalCompanionPlan,
   loadPrereleasePlan,
   loadReleasePlan,
   type PrereleasePlan,
@@ -213,6 +214,57 @@ await describe("prerelease publisher", async () => {
     strict.deepStrictEqual(events, ["tags"]);
   });
 
+  await it("reconciles experimental companions on next after an immutable stable train", async () => {
+    const stablePlan = {
+      npmTag: "latest" as const,
+      packages: [{ name: "@typed-sql/core", version: "2.0.0", directory: "/packages/core" }],
+    };
+    const companionPlan: PrereleasePlan = {
+      npmTag: "next",
+      packages: [
+        { name: "@typed-sql/ts-bridge", version: "2.0.0-rc.2", directory: "/packages/ts-bridge" },
+        { name: "@typed-sql/sqlite", version: "2.0.0-rc.2", directory: "/packages/sqlite" },
+      ],
+    };
+    const published = new Set(["@typed-sql/core@2.0.0"]);
+    const firstRun: string[] = [];
+    await strict.rejects(
+      publishRelease({
+        channel: "stable",
+        plan: stablePlan,
+        companionPlan,
+        isPublished: async (name, version) => published.has(`${name}@${version}`),
+        publishPackage: async ({ name, version }, npmTag) => {
+          published.add(`${name}@${version}`);
+          firstRun.push(`publish:${name}:${npmTag}`);
+          if (name === "@typed-sql/sqlite") throw new Error("registry response lost after acceptance");
+        },
+        createTags: async () => {
+          firstRun.push("tags");
+        },
+        log: () => undefined,
+      }),
+      /registry response lost/u,
+    );
+    strict.deepStrictEqual(firstRun, ["publish:@typed-sql/ts-bridge:next", "publish:@typed-sql/sqlite:next"]);
+
+    const retry: string[] = [];
+    await publishRelease({
+      channel: "stable",
+      plan: stablePlan,
+      companionPlan,
+      isPublished: async (name, version) => published.has(`${name}@${version}`),
+      publishPackage: async ({ name }) => {
+        retry.push(`republished:${name}`);
+      },
+      createTags: async () => {
+        retry.push("tags");
+      },
+      log: () => undefined,
+    });
+    strict.deepStrictEqual(retry, ["tags"]);
+  });
+
   await it("splits mixed Changesets without losing experimental release notes", () => {
     const split = splitChangeset(
       `---\n"@typed-sql/core": patch\n"@typed-sql/ts-bridge": patch\n---\n\nDescribe the shared change.\n`,
@@ -317,6 +369,16 @@ await describe("prerelease publisher", async () => {
       strict.deepStrictEqual(await loadReleasePlan("stable", temporary), {
         npmTag: "latest",
         packages: [{ name: "@typed-sql/core", version: "1.0.0", directory: join(temporary, "packages", "core") }],
+      });
+      strict.deepStrictEqual(await loadExperimentalCompanionPlan(temporary), {
+        npmTag: "next",
+        packages: [
+          {
+            name: "@typed-sql/ts-bridge",
+            version: "1.0.0-beta.3",
+            directory: join(temporary, "packages", "ts-bridge"),
+          },
+        ],
       });
     } finally {
       await rm(temporary, { recursive: true, force: true });

@@ -1,5 +1,12 @@
 # @typed-sql/language-server
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- Align the experimental language server with the stable 2.0.0 packages and the compatible
+  `@typed-sql/ts-bridge@2.0.0-rc.2` companion.
+
 ## 2.0.0-rc.1
 
 ### Patch Changes

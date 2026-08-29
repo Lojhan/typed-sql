@@ -26,6 +26,7 @@ export interface PublishReleaseOptions {
   readonly channel?: "beta" | "rc" | "stable";
   readonly workspace?: string;
   readonly plan?: ReleasePlan;
+  readonly companionPlan?: ReleasePlan;
   readonly isPublished?: (name: string, version: string) => Promise<boolean>;
   readonly publishPackage?: (pkg: ReleasePackage, npmTag: string) => Promise<void>;
   readonly createTags?: (workspace: string) => Promise<void>;
@@ -40,6 +41,7 @@ export interface RegistryLookupOptions {
 
 export function loadPrereleasePlan(workspace?: string): Promise<PrereleasePlan>;
 export function loadReleasePlan(channel: "beta" | "rc" | "stable", workspace?: string): Promise<ReleasePlan>;
+export function loadExperimentalCompanionPlan(workspace?: string): Promise<PrereleasePlan>;
 export function isPublishedOnNpm(name: string, version: string, options?: RegistryLookupOptions): Promise<boolean>;
 export function publicationCommands(
   pkg: ReleasePackage,

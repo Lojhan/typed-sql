@@ -1,5 +1,12 @@
 # @typed-sql/sqlite
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- Align the experimental SQLite package with the stable 2.0.0 core, AST, and schema packages so npm
+  consumers retain one coherent set of branded query and fragment types.
+
 ## 2.0.0-rc.1
 
 ### Patch Changes

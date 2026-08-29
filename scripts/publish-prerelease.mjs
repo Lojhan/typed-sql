@@ -64,6 +64,29 @@ export async function loadReleasePlan(requestedChannel, workspace = defaultWorks
   return { npmTag: release.npmTag, packages };
 }
 
+export async function loadExperimentalCompanionPlan(workspace = defaultWorkspace) {
+  const release = await loadReleaseManifest(workspace);
+  if (release.channel !== "stable") {
+    throw new Error(`Experimental companion publication requires stable, found ${release.channel}:${release.npmTag}`);
+  }
+
+  const versionPattern = new RegExp(`^${escapeRegularExpression(release.series)}-(?:beta|rc)\\.\\d+$`, "u");
+  const packages = [];
+  for (const expectedName of release.packagePolicy.experimental) {
+    const directory = packageDirectory(workspace, expectedName);
+    const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8"));
+    if (manifest.name !== expectedName) {
+      throw new Error(`${directory}/package.json declares ${manifest.name}, expected ${expectedName}`);
+    }
+    if (!versionPattern.test(manifest.version)) {
+      throw new Error(`${manifest.name}@${manifest.version} is not an experimental version for ${release.series}`);
+    }
+    packages.push({ name: manifest.name, version: manifest.version, directory });
+  }
+
+  return { npmTag: "next", packages };
+}
+
 export async function loadPrereleasePlan(workspace = defaultWorkspace) {
   return loadReleasePlan("beta", workspace);
 }
@@ -139,18 +162,25 @@ export async function publishRelease(options = {}) {
   const workspace = options.workspace ?? defaultWorkspace;
   const requestedChannel = options.channel ?? "beta";
   const plan = options.plan ?? (await loadReleasePlan(requestedChannel, workspace));
+  const companionPlan =
+    requestedChannel === "stable"
+      ? (options.companionPlan ??
+        (options.plan === undefined ? await loadExperimentalCompanionPlan(workspace) : undefined))
+      : undefined;
   const isPublished = options.isPublished ?? isPublishedOnNpm;
   const publishPackage = options.publishPackage ?? publishWithNpm;
   const createTags = options.createTags ?? createChangesetsTags;
   const log = options.log ?? console.log;
 
-  for (const pkg of plan.packages) {
-    if (await isPublished(pkg.name, pkg.version)) {
-      log(`Skipping ${pkg.name}@${pkg.version}: already published.`);
-      continue;
+  for (const currentPlan of companionPlan === undefined ? [plan] : [plan, companionPlan]) {
+    for (const pkg of currentPlan.packages) {
+      if (await isPublished(pkg.name, pkg.version)) {
+        log(`Skipping ${pkg.name}@${pkg.version}: already published.`);
+        continue;
+      }
+      log(`Publishing ${pkg.name}@${pkg.version} to npm tag ${currentPlan.npmTag}.`);
+      await publishPackage(pkg, currentPlan.npmTag);
     }
-    log(`Publishing ${pkg.name}@${pkg.version} to npm tag ${plan.npmTag}.`);
-    await publishPackage(pkg, plan.npmTag);
   }
 
   await createTags(workspace);
