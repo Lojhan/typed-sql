@@ -1,5 +1,12 @@
 # @typed-sql/core
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- 7ea5d2f: Match the Standard Schema V1 optional-property contract under `exactOptionalPropertyTypes` so
+  unwrapped Zod, Valibot, and other conforming validators are accepted directly.
+
 ## 2.0.0-rc.1
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @typed-sql/cli
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- Updated dependencies [7ea5d2f]
+  - @typed-sql/core@2.0.0-rc.2
+  - @typed-sql/compiler@2.0.0-rc.2
+  - @typed-sql/config@2.0.0-rc.2
+
 ## 2.0.0-rc.1
 
 ### Patch Changes

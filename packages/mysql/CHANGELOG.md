@@ -1,5 +1,12 @@
 # @typed-sql/mysql
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- Updated dependencies [7ea5d2f]
+  - @typed-sql/core@2.0.0-rc.2
+
 ## 2.0.0-rc.1
 
 ### Minor Changes
