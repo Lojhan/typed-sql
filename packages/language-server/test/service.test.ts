@@ -42,6 +42,16 @@ await describe("typed-sql language service", async () => {
     const definition = await service.definition(current, positionAt(source, tableOffset));
     strict.strictEqual(Array.isArray(definition), false);
     strict.strictEqual((definition as { readonly uri?: string } | undefined)?.uri, pathToFileURL(schemaFile).href);
+
+    const dynamicSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      'const users = "users";',
+      "const query = sql`SELECT user.id FROM users AS user WHERE user.name = ${users}`;",
+    ].join("\n");
+    const dynamic = document("dynamic-navigation.ts", dynamicSource);
+    const dynamicOffset = dynamicSource.lastIndexOf("users") + 1;
+    strict.strictEqual(await service.definition(dynamic, positionAt(dynamicSource, dynamicOffset)), undefined);
+    strict.deepStrictEqual(await service.completions(dynamic, positionAt(dynamicSource, dynamicOffset)), []);
   });
 
   await it("returns preferred safe spelling fixes from resolver suggestions", async () => {

@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -12,6 +13,7 @@ import { compileSource } from "../../compiler/src/index.js";
 import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
 import { type MySqlSchemaSnapshot, mysql } from "../../mysql/src/index.js";
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { type SqliteSchemaSnapshot, sqlite } from "../../sqlite/src/index.js";
 import { TypedSqlLanguageService } from "../src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -25,7 +27,7 @@ const mysqlSchema = JSON.parse(
 ) as MySqlSchemaSnapshot;
 
 interface EditorFixture<Snapshot extends SchemaSnapshot, Policy> {
-  readonly name: "postgres" | "mysql";
+  readonly name: "postgres" | "mysql" | "sqlite";
   readonly directory: string;
   readonly schema: Snapshot;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
@@ -78,6 +80,54 @@ async function verifyCase<Snapshot extends SchemaSnapshot, Policy>(
 }
 
 await describe("editor service soundness parity", async () => {
+  const sqliteDirectory = await mkdtemp(join(tmpdir(), "typed-sql-editor-sqlite-"));
+  const sqliteSchema = {
+    formatVersion: 1,
+    dialect: "sqlite",
+    dialectVersion: "1.0.0",
+    tables: {
+      users: {
+        schema: "main",
+        name: "users",
+        kind: "table",
+        strict: true,
+        withoutRowid: false,
+        indexes: [],
+        foreignKeys: [],
+        columns: {
+          id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
+          email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
+          status: { name: "status", databaseType: "TEXT", tsType: "string", nullable: false },
+          deleted_at: { name: "deleted_at", databaseType: "TEXT", tsType: "string", nullable: true },
+        },
+      },
+      projects: {
+        schema: "main",
+        name: "projects",
+        kind: "table",
+        strict: true,
+        withoutRowid: false,
+        indexes: [],
+        foreignKeys: [],
+        columns: {
+          id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
+          owner_id: { name: "owner_id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
+        },
+      },
+    },
+  } as const satisfies SqliteSchemaSnapshot;
+  const sqliteSchemaPath = join(sqliteDirectory, "schema.json");
+  const sqliteConfigPath = join(sqliteDirectory, "typed-sql.config.mjs");
+  const sqliteProjectPath = join(sqliteDirectory, "tsconfig.json");
+  const sqliteModule = pathToFileURL(resolve(workspace, "packages/sqlite/dist/packages/sqlite/src/index.js")).href;
+  await Promise.all([
+    writeFile(sqliteSchemaPath, `${JSON.stringify(sqliteSchema, null, 2)}\n`),
+    writeFile(
+      sqliteConfigPath,
+      `import { sqlite } from ${JSON.stringify(sqliteModule)};\nexport default { dialect: sqlite(), schema: { file: "schema.json" }, outDir: "generated", projects: ["tsconfig.json"] };\n`,
+    ),
+    writeFile(sqliteProjectPath, `${JSON.stringify({ compilerOptions: { strict: true }, include: ["*.ts"] })}\n`),
+  ]);
   const postgresFixture = {
     name: "postgres" as const,
     directory: postgresDirectory,
@@ -92,12 +142,26 @@ await describe("editor service soundness parity", async () => {
     dialect: mysql(),
     service: editorService(mysqlDirectory),
   };
+  const sqliteFixture = {
+    name: "sqlite" as const,
+    directory: sqliteDirectory,
+    schema: sqliteSchema,
+    dialect: sqlite(),
+    service: new TypedSqlLanguageService(sqliteDirectory, {
+      configPath: sqliteConfigPath,
+      schemaPath: sqliteSchemaPath,
+      projectFile: sqliteProjectPath,
+      nativePreview: false,
+    }),
+  };
   try {
     for (const [index, testCase] of sourceSoundnessCorpus.entries()) {
       await it(`postgres: ${testCase.id}`, () => verifyCase(postgresFixture, testCase, index));
       await it(`mysql: ${testCase.id}`, () => verifyCase(mysqlFixture, testCase, index));
+      await it(`sqlite: ${testCase.id}`, () => verifyCase(sqliteFixture, testCase, index));
     }
   } finally {
-    await Promise.all([postgresFixture.service.close(), mysqlFixture.service.close()]);
+    await Promise.all([postgresFixture.service.close(), mysqlFixture.service.close(), sqliteFixture.service.close()]);
+    await rm(sqliteDirectory, { recursive: true, force: true });
   }
 });

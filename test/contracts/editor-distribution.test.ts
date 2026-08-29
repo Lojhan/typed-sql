@@ -36,7 +36,8 @@ await describe("external editor distribution", async () => {
     strict.ok(path > installed);
     strict.ok(development >= 0);
     strict.ok(source.indexOf("join(DEVELOPMENT_SERVER)") > path);
-    strict.ok(source.includes("pnpm add -D @typed-sql/language-server@next"));
+    strict.ok(source.includes("pnpm add -D @typed-sql/language-server"));
+    strict.ok(!source.includes("@next"));
     strict.ok(!source.includes("/Users/"));
   });
 
@@ -59,9 +60,32 @@ await describe("external editor distribution", async () => {
     const server = await text("packages/language-server/src/server.ts");
     strict.ok(server.includes("could not start or communicate with its pinned TypeScript preview process"));
     strict.ok(server.includes("TYPESCRIPT_PREVIEW_VERSION"));
-    strict.ok(server.includes("Reinstall @typed-sql/language-server@next"));
+    strict.ok(server.includes("Reinstall @typed-sql/language-server"));
+    strict.ok(!server.includes("@next"));
     strict.ok(server.includes('preview.once("error"'));
     strict.ok(server.includes('preview.on("exit"'));
     strict.ok(server.includes("nativeRequest"));
+  });
+
+  await it("keeps VS Code a thin client of the shared language server", async () => {
+    const source = await text("packages/vscode/src/extension.ts");
+    const manifest = JSON.parse(await text("packages/vscode/package.json")) as {
+      readonly dependencies?: Readonly<Record<string, string>>;
+    };
+    strict.ok(source.includes('from "vscode-languageclient/node"'));
+    strict.ok(source.includes("@typed-sql/language-server"));
+    strict.ok(source.includes('sendRequest<TypedSqlServerStatus>("typedSql/status")'));
+    strict.ok(!source.includes("analyzeSource"));
+    strict.ok(!source.includes("NativePreviewTypeScriptBridge"));
+    strict.deepStrictEqual(manifest.dependencies, { "vscode-languageclient": "10.1.0" });
+  });
+
+  await it("smokes the packaged VS Code and Zed artifacts in CI", async () => {
+    const workflow = await text(".github/workflows/ci.yml");
+    const smoke = await text("scripts/assert-editor-artifacts.mjs");
+    strict.ok(workflow.includes("pnpm editor:artifacts:smoke"));
+    strict.ok(smoke.includes('execFile("unzip", ["-Z1", vsix])'));
+    strict.ok(smoke.includes("[0x00, 0x61, 0x73, 0x6d]"));
+    strict.ok(smoke.includes("typedSql\\/status"));
   });
 });

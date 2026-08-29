@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { ProtocolClient, positionAt } from "../../../test/helpers/protocol-client.js";
+import { TYPED_SQL_STATUS_REQUEST, type TypedSqlLanguageServerStatus } from "../src/index.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(testDirectory, "../../..");
@@ -27,7 +28,7 @@ await describe("typed-sql stdio language server", async () => {
             rootUri: pathToFileURL(workspaceDirectory).href,
             capabilities: {},
           }),
-        /pinned TypeScript preview process[\s\S]*Reinstall @typed-sql\/language-server@next/u,
+        /pinned TypeScript preview process[\s\S]*Reinstall @typed-sql\/language-server/u,
       );
     } finally {
       await client.close().catch(() => undefined);
@@ -145,6 +146,14 @@ await describe("typed-sql stdio language server", async () => {
       });
       const diagnostics = (await diagnosticsPromise) as { readonly diagnostics?: readonly unknown[] };
       strict.deepStrictEqual(diagnostics.diagnostics, []);
+
+      const status = (await client.request(TYPED_SQL_STATUS_REQUEST, null)) as TypedSqlLanguageServerStatus;
+      strict.strictEqual(status.name, "@typed-sql/language-server");
+      strict.strictEqual(status.mode, "pinned-preview-proxy");
+      strict.match(status.typescriptVersion, /^7\.1\.0-dev\./u);
+      strict.deepStrictEqual(status.workspaceRoots, [workspaceDirectory]);
+      strict.strictEqual(status.openDocuments, 1);
+      strict.ok(status.indexedDocuments >= 1);
 
       const hoverAt = async (needle: string): Promise<string> => {
         const hover = (await client.request("textDocument/hover", {

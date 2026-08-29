@@ -28,6 +28,7 @@
     "docs:start": "pnpm --filter typed-sql-docs start",
     "docs:build": "pnpm --filter typed-sql-docs build",
     "docs:serve": "pnpm --filter typed-sql-docs serve",
+    "editor:artifacts:smoke": "node scripts/assert-editor-artifacts.mjs",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
     "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/sqlite/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "performance": "pnpm build && pnpm performance:gate",

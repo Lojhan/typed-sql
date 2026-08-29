@@ -18,6 +18,7 @@ export interface BridgeQuery {
   readonly queryType: string;
   readonly sourceRange: OffsetRange;
   readonly transformedRange: OffsetRange;
+  readonly interpolationRanges: readonly OffsetRange[];
   readonly binding?: QueryBinding;
 }
 
@@ -106,6 +107,10 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
         start: query.range.start + shiftBefore(query.range.start),
         end: query.range.end + shiftBefore(query.range.end),
       },
+      interpolationRanges: query.interpolations.map(({ sourceStart, sourceEnd }) => ({
+        start: sourceStart,
+        end: sourceEnd,
+      })),
       ...(() => {
         const binding = bindingBefore(source, query.range.start);
         return binding === undefined ? {} : { binding };
@@ -127,5 +132,13 @@ export function queryAtPosition(analysis: BridgeAnalysis, position: number): Bri
     (query) =>
       (position >= query.sourceRange.start && position <= query.sourceRange.end) ||
       (query.binding !== undefined && position >= query.binding.range.start && position <= query.binding.range.end),
+  );
+}
+
+export function isStaticQueryPosition(query: BridgeQuery, position: number): boolean {
+  return (
+    position >= query.sourceRange.start &&
+    position <= query.sourceRange.end &&
+    query.interpolationRanges.every(({ start, end }) => position < start || position >= end)
   );
 }

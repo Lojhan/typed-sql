@@ -53,10 +53,32 @@
           "default": "",
           "description": "Optional generated schema override. Empty uses schema.file from typed-sql.config.ts."
         },
+        "typedSql.projectFile": {
+          "type": "string",
+          "default": "",
+          "description": "Optional tsconfig override. Empty uses the projects declared by typed-sql.config.ts."
+        },
+        "typedSql.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional language-server module override. Empty uses the workspace-installed @typed-sql/language-server."
+        },
         "typedSql.nativePreview": {
           "type": "boolean",
           "default": true,
-          "description": "Use the TypeScript 7.1 preview API connection for authoritative transformed-source type hovers when available."
+          "description": "Use the language server's pinned TypeScript 7.1 preview for authoritative transformed-source semantics."
+        },
+        "typedSql.maxCacheEntries": {
+          "type": "number",
+          "default": 256,
+          "minimum": 1,
+          "description": "Maximum document analyses and native inspections retained by each workspace server."
+        },
+        "typedSql.maxWorkspaceFiles": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 1,
+          "description": "Maximum TypeScript files preloaded by each workspace server."
         }
       }
     }
@@ -66,10 +88,7 @@
     "package:vsix": "node -e \"require('node:fs').mkdirSync('../../artifacts',{recursive:true})\" && pnpm build:bundle && vsce package --no-dependencies --out ../../artifacts/typed-sql-vscode.vsix"
   },
   "dependencies": {
-    "@typed-sql/config": "workspace:*",
-    "@typed-sql/core": "workspace:*",
-    "@typed-sql/schema": "workspace:*",
-    "@typed-sql/ts-bridge": "workspace:*"
+    "vscode-languageclient": "10.1.0"
   },
   "devDependencies": {
     "@types/vscode": "1.134.0",
