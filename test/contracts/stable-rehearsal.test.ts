@@ -54,4 +54,47 @@ await describe("stable release rehearsal policy", async () => {
     );
     strict.ok(!manifest.scripts["release:stable"]?.includes("changeset publish"));
   });
+
+  await it("publishes durable release notes with the supported and experimental boundaries", async () => {
+    const notes = await readFile(resolve(workspace, ".github/release-notes/2.0.0.md"), "utf8");
+    const normalizedNotes = notes.replaceAll(/\s+/gu, " ");
+    for (const required of [
+      "https://lojhan.github.io/typed-sql/guides/upgrading-from-v1",
+      "https://lojhan.github.io/typed-sql/reference/compatibility",
+      "Node.js 22.11 or newer",
+      "TypeScript 7.0.2",
+      "PostgreSQL and MySQL are stable dialect packages",
+      "@typed-sql/ts-bridge",
+      "@typed-sql/language-server",
+      "@typed-sql/sqlite",
+      "remain experimental",
+    ]) {
+      strict.ok(normalizedNotes.includes(required), `stable release notes lost required boundary: ${required}`);
+    }
+
+    const workflow = await readFile(resolve(workspace, ".github/workflows/release.yml"), "utf8");
+    const publishStable = workflow.indexOf("name: Publish stable");
+    const publishNotes = workflow.indexOf("name: Publish aggregate stable release notes");
+    const verifyRegistry = workflow.indexOf("name: Verify published stable packages from npm");
+    strict.ok(publishStable > 0 && verifyRegistry > publishStable && publishNotes > verifyRegistry);
+    strict.ok(workflow.includes('notes_file=".github/release-notes/${release_series}.md"'));
+    strict.ok(workflow.includes('gh release view "${release_tag}"'));
+    strict.ok(workflow.includes('gh release create "${release_tag}"'));
+  });
+
+  await it("documents a non-destructive and retry-safe recovery procedure", async () => {
+    const guide = await readFile(resolve(workspace, "CONTRIBUTING.md"), "utf8");
+    for (const required of [
+      "Release publication is append-only.",
+      "publisher is safe to retry on the same commit",
+      "npm dist-tag add <package>@<known-good-version> latest",
+      "Poku release-publisher contract simulates failure and retry at every package boundary",
+      "pnpm release:rehearse",
+    ]) {
+      strict.ok(guide.includes(required), `release recovery guide lost required contract: ${required}`);
+    }
+    for (const forbidden of ["npm unpublish", "npm dist-tag rm", "git push --force", "git reset --hard"]) {
+      strict.ok(!guide.includes(forbidden), `release recovery guide suggests destructive command: ${forbidden}`);
+    }
+  });
 });

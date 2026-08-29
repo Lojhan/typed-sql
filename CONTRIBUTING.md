@@ -64,6 +64,33 @@ Pages.
 Maintainer procedures, release mechanics, and automation instructions belong in `AGENTS.md` or
 repository configuration rather than the public documentation.
 
+## Recover a release safely
+
+Release publication is append-only. Never unpublish a package version, delete or move a protected
+release tag, rewrite release history, or force-push a recovery. Diagnose the failed step against
+the exact commit and package version before changing registry state.
+
+The publisher is safe to retry on the same commit. It queries npm for every exact package version,
+skips versions that already exist, publishes only the missing suffix of the manifest-ordered train,
+and creates release tags only after every package exists. If publication or tag creation fails,
+rerun the protected Release workflow with the same channel and commit. Do not create another
+Changeset or version commit for a partial publication.
+
+If post-publication verification finds a defect:
+
+1. Preserve the published version and its tags as evidence.
+2. If installation must be stopped immediately, first verify the intended prior version with
+   `npm view <package> versions --json`, then move `latest` with
+   `npm dist-tag add <package>@<known-good-version> latest`. Apply the same decision explicitly to
+   every affected stable package; never assume their histories are identical.
+3. Fix forward through a reviewed patch release and run the complete protected release workflow.
+4. Record the failed and recovery workflow URLs, exact commits, versions, tag changes, and registry
+   verification in the release issue.
+
+The Poku release-publisher contract simulates failure and retry at every package boundary and after
+tag creation. `pnpm release:rehearse` additionally proves the stable/experimental split, stable-only
+packed installation, and the absence of registry or public Git writes in an isolated worktree.
+
 ## Describe package changes
 
 Add a Changeset for user-visible package behavior:
