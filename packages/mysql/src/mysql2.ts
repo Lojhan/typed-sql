@@ -48,6 +48,11 @@ export interface MySql2SchemaProviderOptions {
 
 interface MySql2VerificationField {
   readonly name?: string;
+  readonly orgName?: string;
+  readonly table?: string;
+  readonly orgTable?: string;
+  readonly db?: string;
+  readonly schema?: string;
   readonly columnType?: number;
   readonly type?: number;
   readonly columnLength?: number;
@@ -141,7 +146,7 @@ async function uri(value: MySql2Options["connectionUri"]): Promise<string> {
   return result;
 }
 
-const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v1";
+const MYSQL_LIVE_VERIFIER_VERSION = "mysql-com-stmt-prepare-v2";
 const mysqlTypeNames = new Map<number, string>([
   [0, "decimal"],
   [1, "tinyint"],
@@ -172,17 +177,41 @@ const mysqlTypeNames = new Map<number, string>([
   [255, "geometry"],
 ]);
 
+interface MySqlCatalogColumnRow extends Record<string, unknown> {
+  readonly tableSchema: string;
+  readonly tableName: string;
+  readonly columnName: string;
+  readonly columnType: string;
+}
+
+function catalogColumnKey(schema: string, table: string, column: string): string {
+  return `${schema}\0${table}\0${column}`;
+}
+
 function verificationField(
   field: MySql2VerificationField,
   index: number,
   policy: MySqlTypePolicy,
   schema?: MySqlSchemaSnapshot,
+  catalogColumns?: ReadonlyMap<string, string>,
   exposeNullability = true,
 ) {
   const code = field.columnType ?? field.type ?? 6;
   const length = field.columnLength ?? field.length;
   const base = mysqlTypeNames.get(code) ?? `mysql-type-${code}`;
-  const databaseType = code === 1 && length === 1 ? "tinyint(1)" : base;
+  const originSchema = field.schema ?? field.db;
+  const originTable = field.orgTable ?? field.table;
+  const originColumn = field.orgName;
+  const catalogType =
+    originSchema === undefined ||
+    originSchema.length === 0 ||
+    originTable === undefined ||
+    originTable.length === 0 ||
+    originColumn === undefined ||
+    originColumn.length === 0
+      ? undefined
+      : catalogColumns?.get(catalogColumnKey(originSchema, originTable, originColumn));
+  const databaseType = catalogType ?? (code === 1 && length === 1 ? "tinyint(1)" : base);
   const flags = field.flags;
   return {
     index,
@@ -198,6 +227,7 @@ export function createMySql2LiveVerifier(options: MySql2LiveVerifierOptions): Li
   const ownsPool = options.pool === undefined;
   let poolPromise: Promise<MySql2LiveVerifierPool> | undefined;
   let serverPromise: ReturnType<LiveQueryVerifier["server"]> | undefined;
+  let catalogColumnsPromise: Promise<ReadonlyMap<string, string>> | undefined;
   const acquirePool = (): Promise<MySql2LiveVerifierPool> => {
     poolPromise ??= (async () => {
       if (options.pool !== undefined) return options.pool;
@@ -225,11 +255,24 @@ export function createMySql2LiveVerifier(options: MySql2LiveVerifierOptions): Li
     })();
     return serverPromise;
   };
+  const catalogColumns = (): Promise<ReadonlyMap<string, string>> => {
+    catalogColumnsPromise ??= (async () => {
+      const pool = await acquirePool();
+      const [rows] = await pool.query<MySqlCatalogColumnRow[]>(
+        "SELECT TABLE_SCHEMA AS tableSchema, TABLE_NAME AS tableName, COLUMN_NAME AS columnName, COLUMN_TYPE AS columnType FROM information_schema.columns WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION",
+      );
+      return new Map(
+        rows.map((row) => [catalogColumnKey(row.tableSchema, row.tableName, row.columnName), row.columnType]),
+      );
+    })();
+    return catalogColumnsPromise;
+  };
   return {
     dialect: "mysql",
     adapterVersion: MYSQL_LIVE_VERIFIER_VERSION,
     server,
     async verify(request) {
+      const catalog = await catalogColumns();
       const connection = await (await acquirePool()).getConnection();
       let statement: MySql2VerificationStatement | undefined;
       try {
@@ -241,10 +284,10 @@ export function createMySql2LiveVerifier(options: MySql2LiveVerifierOptions): Li
         const policy = options.typePolicy ?? defaultMySqlTypePolicy;
         return {
           columns: (native.columns ?? []).map((field, offset) =>
-            verificationField(field, offset + 1, policy, options.schema),
+            verificationField(field, offset + 1, policy, options.schema, catalog),
           ),
           parameters: (native.parameters ?? []).map((field, offset) =>
-            verificationField(field, offset + 1, policy, options.schema, false),
+            verificationField(field, offset + 1, policy, options.schema, catalog, false),
           ),
         };
       } finally {

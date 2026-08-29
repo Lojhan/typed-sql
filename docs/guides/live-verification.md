@@ -63,7 +63,12 @@ Cached verification rejects a missing, malformed, or stale proof. Regenerate the
 The default verifier accepts only evidence-backed `read` and `write` operations. It invokes the database's prepare/describe mechanism but never executes the statement and never supplies parameter values:
 
 - PostgreSQL uses session-local `PREPARE`, reads `pg_prepared_statements`, then always `DEALLOCATE`s. PostgreSQL 18 exposes both parameter and result types. Older servers that do not expose result types are reported as incomplete instead of being treated as verified.
-- MySQL uses binary `COM_STMT_PREPARE` metadata through the application-installed `mysql2` adapter, then closes the prepared statement without `COM_STMT_EXECUTE`.
+- MySQL uses binary `COM_STMT_PREPARE` metadata through the application-installed `mysql2` adapter,
+  resolves origin columns against the live `information_schema.columns` catalog, then closes the
+  prepared statement without `COM_STMT_EXECUTE`. Origin lookup preserves catalog types such as enum
+  value sets that the prepare packet otherwise reports only as a string class. Parameter comparison
+  is directional: a compiler-enforced literal subset is compatible with the broader native input
+  class, while result columns still require native output evidence assignable to the inferred type.
 - DDL, transaction-control, unknown, dynamic, stale, and unsupported queries are explicit skips or errors. They are never silently marked verified.
 
 Prepare metadata does not prove runtime cardinality, business constraints, permissions for every production role, or query-plan quality.
