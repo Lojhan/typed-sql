@@ -129,3 +129,16 @@ jobs:
           TYPED_SQL_REGISTRY_EXPECTED: workspace
           TYPED_SQL_REGISTRY_TAG: latest
           TYPED_SQL_REGISTRY_PREVIEW_TAG: next
+      - name: Publish aggregate stable release notes
+        if: inputs.channel == 'stable'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_series="$(node -p "require('./release-manifest.json').series")"
+          release_tag="v${release_series}"
+          notes_file=".github/release-notes/${release_series}.md"
+          if gh release view "${release_tag}" >/dev/null 2>&1; then
+            echo "${release_tag} already exists; preserving the published release."
+          else
+            gh release create "${release_tag}" --target "${GITHUB_SHA}" --title "typed-sql ${release_series}" --notes-file "${notes_file}"
+          fi

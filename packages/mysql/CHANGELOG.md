@@ -1,5 +1,64 @@
 # @typed-sql/mysql
 
+## 2.0.0
+
+### Major Changes
+
+- 29afc3d: Add conservative semantic primary/replica routing over application-owned databases, scoped
+  read-after-write pinning, explicit role requirements, stable unsafe-route errors, dialect runtime
+  semantic resolvers, and bounded abortable transaction retry policies with native PostgreSQL and
+  MySQL error classifiers. Parse and classify dialect locking reads so uncertain or affine work
+  always fails closed to primary.
+- 6a7ae58: Add opt-in live query verification through grammar-owned PostgreSQL PREPARE and MySQL
+  COM_STMT_PREPARE adapters, bounded neutral comparison, deterministic secret-free proof artifacts,
+  offline cache validation, explicit unsupported classifications, CLI workflows, real database E2E,
+  and performance budgets.
+- b06fd0a: Add grammar-neutral optional adapter capability discovery, typed PostgreSQL COPY import and export
+  through application-owned `pg-copy-streams`, and typed MySQL LOAD DATA import through mysql2's
+  application-owned infile stream. Bulk transfers preserve ordinary `INSERT` parameter evidence,
+  enforce structural row stability, apply bounded backpressure, support cancellation and progress,
+  and integrate with transaction ownership and conservative connection cleanup.
+- 3050209: Add the dialect contract v4 semantic query evidence foundation. PostgreSQL and MySQL now report operation, dependencies, cardinality, volatility, locking, connection affinity, and required capabilities; compiler results add deterministic query and structural-variant fingerprints and conservatively merged source-mapped semantics. Schema snapshots can record function volatility, and the AST package exposes a neutral statement walker for grammar implementations.
+- 1b054b6: Add an adapter-neutral, redacted database observation lifecycle for queries, cardinality contracts,
+  batches, PostgreSQL pipelines, streams, cancellation, and nested transactions. Runtime fingerprints
+  correlate with compiler structural variants while SQL, parameter values, connection configuration,
+  and driver causes remain excluded by default. Publish the optional OpenTelemetry bridge with current
+  database semantic conventions and explicit high-cardinality or exception-capture opt-ins.
+- 87189c3: Add grammar-neutral `all`, `one`, and `maybeOne` execution with exact row types, stable cardinality
+  and cancellation errors, explicit adapter capabilities, AbortSignal support, and absolute deadlines.
+  The pg and mysql2 adapters conservatively discard interrupted connections, including transaction
+  leases, while the existing uncontrolled `execute` path remains unchanged.
+- e654fae: Add opt-in Standard Schema V1 result validation with compile-time output compatibility, immutable
+  query attachment, sync and async validators, redacted fingerprinted errors, and consistent decoded-row
+  handling across buffered cardinality methods, batches, PostgreSQL pipelines, streams, and transactions.
+- b2ec119: Add opt-in, grammar-neutral query-plan governance with PostgreSQL and MySQL structured EXPLAIN
+  adapters, transient application-owned samples, redacted fingerprint-keyed artifacts, absolute and
+  comparable regression budgets, explicit uncertainty, CLI capture and review, documentation, and
+  performance coverage.
+
+### Minor Changes
+
+- 9c72dab: Use live MySQL catalog origins to preserve enum result evidence, and compare parameter metadata in
+  the safe input direction so compiler-enforced literal subsets do not become false mismatches.
+
+### Patch Changes
+
+- Updated dependencies [7ea5d2f]
+- Updated dependencies [29afc3d]
+- Updated dependencies [3f063f6]
+- Updated dependencies [6a7ae58]
+- Updated dependencies [af27a0e]
+- Updated dependencies [b06fd0a]
+- Updated dependencies [3050209]
+- Updated dependencies [1b054b6]
+- Updated dependencies [b4f1b6e]
+- Updated dependencies [87189c3]
+- Updated dependencies [e654fae]
+- Updated dependencies [b2ec119]
+  - @typed-sql/core@2.0.0
+  - @typed-sql/ast@2.0.0
+  - @typed-sql/schema@2.0.0
+
 ## 2.0.0-rc.1
 
 ### Minor Changes
