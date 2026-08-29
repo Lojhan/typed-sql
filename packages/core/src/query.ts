@@ -4,6 +4,14 @@ import {
   type ExecutionOptions,
   QueryCardinalityError,
 } from "./execution.js";
+import {
+  type CompatibleResultSchema,
+  type QueryResultValidationOptions,
+  queryResultValidationSource,
+  type StandardSchemaV1,
+  setQueryResultValidator,
+  validateQueryResultRows,
+} from "./result-validation.js";
 
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
@@ -99,6 +107,11 @@ export interface SqlTag {
     query: Query<Row, QueryParams>,
     ...parts: Parts
   ) => Query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]>;
+  readonly validateResult: <Row, Params extends readonly unknown[], const Schema extends StandardSchemaV1>(
+    query: Query<Row, Params>,
+    schema: Schema & CompatibleResultSchema<Row, Schema>,
+    options?: QueryResultValidationOptions,
+  ) => Query<StandardSchemaV1.InferOutput<Schema>, Params>;
   readonly raw: (text: string) => SqlFragment<readonly []>;
   readonly dynamic: (text: string) => Query<unknown>;
 }
@@ -322,6 +335,25 @@ export const sql: SqlTag = Object.assign(tag, {
     }
     return query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(segments);
   },
+  validateResult<Row, Params extends readonly unknown[], const Schema extends StandardSchemaV1>(
+    queryValue: Query<Row, Params>,
+    schema: Schema,
+    options: QueryResultValidationOptions = {},
+  ): Query<StandardSchemaV1.InferOutput<Schema>, Params> {
+    const standard = schema?.["~standard"];
+    if (
+      typeof standard !== "object" ||
+      standard === null ||
+      standard.version !== 1 ||
+      typeof standard.vendor !== "string" ||
+      typeof standard.validate !== "function"
+    ) {
+      throw new TypeError("sql.validateResult() expects a Standard Schema V1 validator");
+    }
+    const validated = query<StandardSchemaV1.InferOutput<Schema>, Params>([...queryValue.segments]);
+    setQueryResultValidator(validated, queryResultValidationSource(queryValue), schema, options);
+    return validated;
+  },
   raw(sqlText: string): SqlFragment<readonly []> {
     return fragment<readonly []>([text(sqlText)]);
   },
@@ -428,7 +460,8 @@ class DatabaseImplementation implements Database {
 
   async execute<Row, Params extends readonly unknown[]>(queryValue: Query<Row, Params>): Promise<readonly Row[]> {
     const rendered = renderQuery(queryValue, this.#renderer);
-    return (await this.#executor.execute(rendered.text, rendered.values)) as readonly Row[];
+    const rows = await this.#executor.execute(rendered.text, rendered.values);
+    return validateQueryResultRows(queryValue, rows, "generic-adapter");
   }
 
   async all<Row, Params extends readonly unknown[]>(
@@ -441,7 +474,8 @@ class DatabaseImplementation implements Database {
     assertExecutionCapabilities(this.executionCapabilities, options);
     const controlled = this.#executor as ControlledQueryExecutor;
     const rendered = renderQuery(queryValue, this.#renderer);
-    return (await controlled.executeControlled(rendered.text, rendered.values, options)) as readonly Row[];
+    const rows = await controlled.executeControlled(rendered.text, rendered.values, options);
+    return validateQueryResultRows(queryValue, rows, "generic-adapter");
   }
 
   async one<Row, Params extends readonly unknown[]>(

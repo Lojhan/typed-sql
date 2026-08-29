@@ -19,6 +19,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 ## Guides
 
 - [Compose conditional SQL](./guides/composition.md) without creating a parallel query-builder API.
+- [Validate decoded query results](./guides/result-validation.md) with any Standard Schema implementation.
 - [Generate snapshots and detect drift](./guides/schema-snapshots.md).
 - [Trace database work safely](./guides/observability.md) through the neutral observer contract.
 - [Route safe reads and retry explicit transactions](./guides/routing-and-retries.md) with application-owned topology.

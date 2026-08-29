@@ -109,6 +109,7 @@ All three retain the query's inferred row type. Cardinality is checked after the
 | `QueryCardinalityError` | `TSQL_CARDINALITY` | `expected`, `actual` |
 | `QueryCancelledError` | `TSQL_CANCELLED` | `reason` (`signal` or `deadline`) |
 | `UnsupportedExecutionCapabilityError` | `TSQL_UNSUPPORTED_EXECUTION_CAPABILITY` | `capability` |
+| `QueryResultValidationError` | `TSQL_RESULT_VALIDATION` | `fingerprint`, `rowIndex`, `vendor`, `failure`, `issues` |
 
 `deadline` is absolute, expressed as Unix milliseconds or a `Date`. A pre-aborted signal or expired deadline fails before leasing a connection. For an in-flight operation, the pg and mysql2 adapters interrupt conservatively by discarding the checked-out connection, then wait for driver settlement before rejecting. Inside a transaction, cancellation invalidates that transaction and discards its lease; do not catch the cancellation and continue using the scope.
 
@@ -230,6 +231,8 @@ try {
 ```
 
 `QueryStream` also implements `AsyncDisposable`, so runtimes that support explicit resource management can use `await using`.
+
+An attached [Standard Schema result validator](./result-validation.md) runs immediately before each decoded row is yielded. The first invalid row closes the native stream through the same idempotent cleanup path.
 
 PostgreSQL streaming requires the application-owned `pg-cursor` package in addition to `pg`. It is loaded only when iteration begins. MySQL streaming uses mysql2 itself and needs no additional package. See the [PostgreSQL](../dialects/postgresql.md#streaming) and [MySQL](../dialects/mysql.md#streaming) adapter details.
 

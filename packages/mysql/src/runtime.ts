@@ -9,6 +9,7 @@ import {
   databaseErrorCompletion,
   type ExecutionCapabilities,
   type ExecutionOptions,
+  hasQueryResultValidator,
   observeQueryStream,
   type Query,
   type QueryBatch,
@@ -16,12 +17,15 @@ import {
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
+  queryResultValidationSource,
   renderQuery,
   runControlledExecution,
   type SqlRenderer,
   type StreamOptions,
   startDatabaseObservation,
   UnsupportedExecutionCapabilityError,
+  validateQueryResultRows,
+  validateQueryResultStream,
 } from "@typed-sql/core";
 import { createMySqlBulkCapability, type MySqlBulkTransport, mysqlBulk } from "./bulk.js";
 import {
@@ -113,11 +117,11 @@ function mysqlQueryFingerprint<Row, Params extends readonly unknown[]>(
   query: Query<Row, Params>,
 ): string {
   const key = query as unknown as Query<unknown, readonly unknown[]>;
-  const cached = state.fingerprints!.get(key);
+  const cached = state.fingerprints?.get(key);
   if (cached !== undefined) return cached;
   const text = renderQuery(query, mysqlRenderer).text;
   const fingerprint = `sha256:${createHash("sha256").update(`mysql\0${MYSQL_DIALECT_VERSION}\0${text}`).digest("hex")}`;
-  state.fingerprints!.set(key, fingerprint);
+  state.fingerprints?.set(key, fingerprint);
   return fingerprint;
 }
 
@@ -196,8 +200,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
-    if (this.#observation.observer === undefined) return this.#executeUnobserved(query);
-    return this.#observeQuery(query, "many", () => this.#executeUnobserved(query));
+    if (this.#observation.observer === undefined) {
+      return this.#validateRows(query, await this.#executeUnobserved(query));
+    }
+    return this.#observeQuery(query, "many", async () =>
+      this.#validateRows(query, await this.#executeUnobserved(query)),
+    );
   }
 
   async #executeUnobserved<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
@@ -220,8 +228,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     query: Query<Row, Params>,
     options?: ExecutionOptions,
   ): Promise<readonly Row[]> {
-    if (this.#observation.observer === undefined) return this.#allUnobserved(query, options);
-    return this.#observeQuery(query, "many", () => this.#allUnobserved(query, options));
+    if (this.#observation.observer === undefined) {
+      return this.#validateRows(query, await this.#allUnobserved(query, options));
+    }
+    return this.#observeQuery(query, "many", async () =>
+      this.#validateRows(query, await this.#allUnobserved(query, options)),
+    );
   }
 
   async #allUnobserved<Row, Params extends readonly unknown[]>(
@@ -292,12 +304,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     options?: ExecutionOptions,
   ): Promise<Row> {
     if (this.#observation.observer === undefined) {
-      const rows = await this.#allUnobserved(query, options);
+      const rows = await this.#validateRows(query, await this.#allUnobserved(query, options));
       if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
       return rows[0]!;
     }
     const rows = await this.#observeQuery(query, "one", async () => {
-      const result = await this.#allUnobserved(query, options);
+      const result = await this.#validateRows(query, await this.#allUnobserved(query, options));
       if (result.length !== 1) throw new QueryCardinalityError("one", result.length);
       return result;
     });
@@ -309,12 +321,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     options?: ExecutionOptions,
   ): Promise<Row | undefined> {
     if (this.#observation.observer === undefined) {
-      const rows = await this.#allUnobserved(query, options);
+      const rows = await this.#validateRows(query, await this.#allUnobserved(query, options));
       if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
       return rows[0];
     }
     const rows = await this.#observeQuery(query, "maybeOne", async () => {
-      const result = await this.#allUnobserved(query, options);
+      const result = await this.#validateRows(query, await this.#allUnobserved(query, options));
       if (result.length > 1) throw new QueryCardinalityError("maybeOne", result.length);
       return result;
     });
@@ -334,7 +346,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       transactionDepth: this.#depth,
       fingerprint: mysqlQueryFingerprint(this.#observation, query),
       cardinality,
-      prepared: this.#prepared.queries.has(query),
+      prepared: this.#prepared.queries.has(queryResultValidationSource(query)),
     });
     if (observation === undefined) return operation();
     try {
@@ -351,7 +363,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     executor: Pick<MySqlConnectionLike, "execute">,
     query: Query<Row, Params>,
   ): Promise<readonly Row[]> {
-    const prepared = this.#prepared.queries.get(query);
+    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
     const result = await executor.execute(rendered.text, rendered.values.map(encodeMySqlValue));
     if (!Array.isArray(result.rows)) return [];
@@ -361,8 +373,10 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
 
   async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
     if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
-    if (this.#observation.observer === undefined) return this.#batchUnobserved(queries);
-    return this.#observeBatch(queries, () => this.#batchUnobserved(queries));
+    if (this.#observation.observer === undefined) {
+      return this.#validateBatch(queries, await this.#batchUnobserved(queries));
+    }
+    return this.#observeBatch(queries, async () => this.#validateBatch(queries, await this.#batchUnobserved(queries)));
   }
 
   async #batchUnobserved<const Queries extends readonly unknown[]>(
@@ -448,7 +462,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     options: StreamOptions = {},
   ): QueryStream<Row> {
     this.#assertScopeOpen();
-    const prepared = this.#prepared.queries.get(query);
+    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
     const batchSize = validateMySqlStreamBatchSize(options.batchSize);
     let exposedStream: QueryStream<Row>;
@@ -471,10 +485,13 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         if (this.#transactionState?.active === exposedStream) this.#transactionState.active = undefined;
       },
     });
+    const validatedStream = hasQueryResultValidator(query)
+      ? validateQueryResultStream(query, queryStream, mysqlQueryFingerprint(this.#observation, query))
+      : queryStream;
     exposedStream =
       this.#observation.observer === undefined
-        ? queryStream
-        : observeQueryStream(queryStream, this.#observation.observer, {
+        ? validatedStream
+        : observeQueryStream(validatedStream, this.#observation.observer, {
             kind: "stream",
             dialect: "mysql",
             grammarVersion: MYSQL_DIALECT_VERSION,
@@ -484,6 +501,34 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
           });
     this.#streams?.add(exposedStream as QueryStream<unknown>);
     return exposedStream;
+  }
+
+  async #validateRows<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    rows: readonly unknown[],
+  ): Promise<readonly Row[]> {
+    if (!hasQueryResultValidator(query)) return rows as readonly Row[];
+    return validateQueryResultRows(query, rows, mysqlQueryFingerprint(this.#observation, query));
+  }
+
+  async #validateBatch<const Queries extends readonly unknown[]>(
+    queries: QueryBatch<Queries>,
+    results: QueryResults<Queries>,
+  ): Promise<QueryResults<Queries>> {
+    let validated: unknown[] | undefined;
+    const queryList = queries as unknown as readonly Query<unknown, readonly unknown[]>[];
+    const resultList = results as readonly (readonly unknown[])[];
+    for (let index = 0; index < queryList.length; index += 1) {
+      const query = queryList[index]!;
+      if (!hasQueryResultValidator(query)) continue;
+      validated ??= [...resultList];
+      validated[index] = await validateQueryResultRows(
+        query,
+        resultList[index]!,
+        mysqlQueryFingerprint(this.#observation, query),
+      );
+    }
+    return (validated ?? results) as QueryResults<Queries>;
   }
 
   async #loadData(statement: string, chunks: AsyncIterable<Uint8Array>, options: ExecutionOptions): Promise<void> {

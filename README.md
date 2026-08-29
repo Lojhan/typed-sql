@@ -72,6 +72,8 @@ codecs. The interpolation is also checked as `bigint` because it is compared wit
   application-owned replicas and support bounded retries for explicit transactions.
 - **Use native bulk protocols without losing SQL.** Optional PostgreSQL COPY and MySQL LOAD DATA
   capabilities compile ordinary typed `INSERT` factories into backpressured application streams.
+- **Validate only where runtime proof matters.** Attach any Standard Schema V1 validator to decoded
+  results without adding a validator dependency or changing the unvalidated query path.
 
 ## Install
 
@@ -162,6 +164,7 @@ the structural-variant bound.
 - [Documentation site](https://lojhan.github.io/typed-sql/)
 - [Documentation source](./docs/index.md)
 - [Execution adapters](./docs/guides/execution.md)
+- [Standard Schema result validation](./docs/guides/result-validation.md)
 - [Bulk data transfer](./docs/guides/bulk-data.md)
 - [Database observability](./docs/guides/observability.md)
 - [Query manifests](./docs/guides/query-manifests.md)

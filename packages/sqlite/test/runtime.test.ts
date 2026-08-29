@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { QueryResultValidationError, type StandardSchemaV1, sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../src/index.js";
 import { adaptNodeSqliteDatabase, createNodeSqliteDatabase, nodeSqlite } from "../src/node-sqlite.js";
 import { createSqliteDatabase } from "../src/runtime.js";
 
@@ -13,6 +13,50 @@ interface Account {
 }
 
 await describe("node:sqlite runtime adapter", async () => {
+  await it("validates cardinality, batch, stream, and transaction results", async () => {
+    const native = new DatabaseSync(":memory:");
+    native.exec("CREATE TABLE account (id INTEGER PRIMARY KEY, email TEXT NOT NULL) STRICT");
+    native.exec("INSERT INTO account VALUES (1, 'valid@example.test'), (2, 'invalid')");
+    const database = createSqliteDatabase({ connection: adaptNodeSqliteDatabase(native), ownsConnection: true });
+    const schema: StandardSchemaV1<unknown, Account> = {
+      "~standard": {
+        version: 1,
+        vendor: "test-validator",
+        validate(value) {
+          const row = value as Account;
+          return row.email.includes("@") ? { value: row } : { issues: [{ message: "invalid", path: ["email"] }] };
+        },
+      },
+    };
+    const preparedValid = database.prepare(
+      "validated-account",
+      () => sql<Account>`SELECT id, email FROM account WHERE id = 1`,
+    );
+    const valid = sql.validateResult(preparedValid(), schema);
+    const invalid = sql.validateResult(sql<Account>`SELECT id, email FROM account WHERE id = 2`, schema);
+
+    strict.strictEqual((await database.maybeOne(valid))?.id, 1n);
+    await strict.rejects(database.maybeOne(invalid), QueryResultValidationError);
+    await strict.rejects(database.batch([valid, invalid]), QueryResultValidationError);
+    const stream = database.stream(sql.validateResult(sql<Account>`SELECT id, email FROM account ORDER BY id`, schema));
+    const first = await stream.next();
+    strict.strictEqual(first.done, false);
+    strict.strictEqual(first.value.id, 1n);
+    strict.strictEqual(first.value.email, "valid@example.test");
+    await strict.rejects(stream.next(), QueryResultValidationError);
+    strict.deepStrictEqual(await stream.next(), { done: true, value: undefined });
+
+    await strict.rejects(
+      database.transaction(async (transaction) => {
+        await transaction.execute(sql`INSERT INTO account VALUES (3, 'rolled-back')`);
+        await transaction.one(invalid);
+      }),
+      QueryResultValidationError,
+    );
+    strict.strictEqual((await database.one(sql<{ count: bigint }>`SELECT count(*) AS count FROM account`)).count, 2n);
+    await database.close();
+  });
+
   await it("executes, prepares, batches, streams, and nests transactions", async () => {
     const native = new DatabaseSync(":memory:");
     native.exec("CREATE TABLE account (id INTEGER PRIMARY KEY, email TEXT NOT NULL) STRICT");

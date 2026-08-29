@@ -129,6 +129,8 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         ? {
             pg: "8.23.0",
             mysql2: "3.24.1",
+            valibot: "1.4.2",
+            zod: "4.5.2",
             tsx: "4.23.12",
             typescript: "7.0.2",
             "@types/node": "24.13.3",
@@ -136,6 +138,8 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         : {
             pg: `link:${join(workspace, "node_modules", "pg")}`,
             mysql2: `link:${join(workspace, "node_modules", "mysql2")}`,
+            valibot: `link:${join(packageDirectory, "node_modules", "valibot")}`,
+            zod: `link:${join(packageDirectory, "node_modules", "zod")}`,
             tsx: `link:${join(workspace, "node_modules", "tsx")}`,
             typescript: `link:${join(workspace, "node_modules", "typescript")}`,
             "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
@@ -333,6 +337,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         import { sql, typePolicy } from "@typed-sql/postgres";
         import { createPgDatabase } from "@typed-sql/postgres/pg";
         import type { QueryParameters, QueryRow } from "@typed-sql/core";
+        import { z } from "zod";
         type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
         type Assert<T extends true> = T;
         export const query = sql\`
@@ -344,6 +349,12 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         \`;
         const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint]>> = true;
         void queryParameters;
+        const querySchema = z.object({
+          id: z.bigint(), email: z.string(), status: z.enum(["active", "suspended"]), budget: z.string().nullable(),
+        });
+        export const validatedQuery = sql.validateResult(query, querySchema);
+        const validatedRow: Assert<Equal<QueryRow<typeof validatedQuery>, z.output<typeof querySchema>>> = true;
+        void validatedRow;
 
         export const cteQuery = sql\`
           WITH project_totals AS (
@@ -406,6 +417,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         import { sql, typePolicy } from "@typed-sql/mysql";
         import { createMySql2Database } from "@typed-sql/mysql/mysql2";
         import type { QueryParameters, QueryRow } from "@typed-sql/core";
+        import * as v from "valibot";
         type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
         type Assert<T extends true> = T;
         export const query = sql\`
@@ -417,6 +429,12 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         \`;
         const queryParameters: Assert<Equal<QueryParameters<typeof query>, readonly [bigint]>> = true;
         void queryParameters;
+        const querySchema = v.object({
+          id: v.bigint(), email: v.string(), status: v.picklist(["active", "suspended"]), budget: v.nullable(v.string()),
+        });
+        export const validatedQuery = sql.validateResult(query, querySchema);
+        const validatedRow: Assert<Equal<QueryRow<typeof validatedQuery>, v.InferOutput<typeof querySchema>>> = true;
+        void validatedRow;
 
         export const cteQuery = sql\`
           WITH project_totals AS (
@@ -629,11 +647,19 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         import { sql as mysqlSql, typePolicy as mysqlTypePolicy } from "@typed-sql/mysql";
         import { createMySql2Database } from "@typed-sql/mysql/mysql2";
         import { createDashboardServer } from "./postgres/src/server.js";
+        import { z } from "zod";
+        import * as v from "valibot";
         const postgres = await createPgDatabase({ connectionString: "postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${postgresPort}/typed_sql_e2e", typePolicy: postgresTypePolicy });
         const mysql = await createMySql2Database({ connectionUri: "mysql://typed_sql:typed_sql_e2e@127.0.0.1:${mysqlPort}/typed_sql_e2e", typePolicy: mysqlTypePolicy });
         try {
-          const pgRows = await postgres.execute(postgresSql<{ id: bigint; email: string }>\`SELECT id, email FROM users ORDER BY id\`);
-          const myRows = await mysql.execute(mysqlSql<{ id: bigint; status: string }>\`SELECT id, status FROM users ORDER BY id\`);
+          const pgRows = await postgres.execute(postgresSql.validateResult(
+            postgresSql<{ id: bigint; email: string }>\`SELECT id, email FROM users ORDER BY id\`,
+            z.object({ id: z.bigint(), email: z.string() }),
+          ));
+          const myRows = await mysql.execute(mysqlSql.validateResult(
+            mysqlSql<{ id: bigint; status: "active" | "suspended" }>\`SELECT id, status FROM users ORDER BY id\`,
+            v.object({ id: v.bigint(), status: v.picklist(["active", "suspended"]) }),
+          ));
           if (pgRows[0]?.id !== 1n || pgRows[0]?.email !== "alice@example.com") throw new Error("packed pg execution failed");
           if (myRows[0]?.id !== 1n || myRows[0]?.status !== "active") throw new Error("packed mysql2 execution failed");
         } finally { await postgres.close(); await mysql.close(); }

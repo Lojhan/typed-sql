@@ -23,6 +23,7 @@ The production performance suite covers:
 - rejecting structural expansion before grammar work exceeds its bound;
 - core template construction, fragment composition, rendering, and prepared-skeleton binding;
 - adapter render, encode, decode, decoder-plan compilation and cache-hit throughput, 100-row stream, 25-query batch, and PostgreSQL pipeline overhead with deterministic fake drivers;
+- disabled and enabled Standard Schema result-validation overhead at adapter boundaries;
 - cold, unchanged, incrementally edited, and schema-reloaded language-service analysis;
 - cancellation before expensive analysis;
 - retained heap under cache pressure.

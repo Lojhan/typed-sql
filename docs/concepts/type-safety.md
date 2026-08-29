@@ -52,7 +52,7 @@ Use `sql.dynamic()` for SQL whose structure cannot be represented statically. It
 
 ## Runtime trust boundaries
 
-Static types describe the configured schema and adapter policy. They do not validate untrusted request payloads, data written outside database constraints, or serialized responses. Add runtime validation wherever application trust boundaries require it.
+Static types describe the configured schema and adapter policy. They do not validate untrusted request payloads, data written outside database constraints, or serialized responses. At a database result boundary, `sql.validateResult(query, schema)` can attach an application-owned Standard Schema validator whose output agrees with the inferred row. See [Validate query results](../guides/result-validation.md) for the decoding order, execution behavior, and redaction policy.
 
 ## Resource limits
 

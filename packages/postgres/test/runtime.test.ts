@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { describe, it, strict } from "poku";
 import {
   type DatabaseObserver,
   type DatabaseOperationEnd,
@@ -7,8 +6,10 @@ import {
   type Query,
   type QueryParameters,
   type QueryRow,
+  type StandardSchemaV1,
   sql,
-} from "../../core/src/index.js";
+} from "@typed-sql/core";
+import { describe, it, strict } from "poku";
 import {
   createPostgresDatabase,
   createPostgresTypeParsers,
@@ -113,6 +114,63 @@ class MockPool implements PostgresPoolLike {
 }
 
 await describe("PostgreSQL runtime adapter", async () => {
+  await it("validates decoded PostgreSQL rows and retains prepared metadata", async () => {
+    const schema: StandardSchemaV1<unknown, { readonly id: number }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test-validator",
+        validate(value) {
+          const row = value as { readonly id: unknown };
+          return typeof row.id === "number" ? { value: { id: row.id } } : { issues: [{ message: "not number" }] };
+        },
+      },
+    };
+    const starts: DatabaseOperationStart[] = [];
+    const database = createPostgresDatabase({
+      pool: new MockPool(),
+      observer: {
+        start(operation) {
+          starts.push(operation);
+          return { end() {} };
+        },
+      },
+    });
+    const prepared = database.prepare("validated-account", () => sql<{ id: number }>`SELECT id FROM users`);
+    const validated = sql.validateResult(prepared(), schema);
+    strict.deepStrictEqual(await database.one(validated), { id: 1 });
+    const start = starts[0];
+    if (start?.kind !== "query") strict.fail("Expected a query observation");
+    strict.strictEqual(start.prepared, true);
+
+    const [validatedRows, ordinaryRows] = await database.batch([validated, sql<{ id: number }>`SELECT id FROM users`]);
+    strict.deepStrictEqual(validatedRows, [{ id: 1 }]);
+    strict.deepStrictEqual(ordinaryRows, [{ id: 1 }]);
+
+    const [firstValidatedRows, secondValidatedRows] = await database.batch([validated, validated]);
+    strict.deepStrictEqual(firstValidatedRows, [{ id: 1 }]);
+    strict.deepStrictEqual(secondValidatedRows, [{ id: 1 }]);
+
+    const invalidSchema: StandardSchemaV1<unknown, { readonly id: number }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test-validator",
+        validate: () => ({ issues: [{ message: "invalid", path: ["id"] }] }),
+      },
+    };
+    await strict.rejects(
+      database.execute(sql.validateResult(sql<{ id: number }>`SELECT id FROM users`, invalidSchema)),
+      /result validation failed/,
+    );
+
+    const unobserved = createPostgresDatabase({ pool: new MockPool() });
+    const unobservedValidated = sql.validateResult(sql<{ id: number }>`SELECT id FROM users`, schema);
+    strict.deepStrictEqual(await unobserved.execute(unobservedValidated), [{ id: 1 }]);
+    strict.deepStrictEqual(await unobserved.all(unobservedValidated), [{ id: 1 }]);
+    strict.deepStrictEqual(await unobserved.one(unobservedValidated), { id: 1 });
+    strict.deepStrictEqual(await unobserved.maybeOne(unobservedValidated), { id: 1 });
+    strict.deepStrictEqual(await unobserved.batch([unobservedValidated]), [[{ id: 1 }]]);
+  });
+
   await it("emits redacted fingerprinted query, batch, and transaction lifecycles", async () => {
     const starts: DatabaseOperationStart[] = [];
     const ends: DatabaseOperationEnd[] = [];
