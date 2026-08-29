@@ -190,10 +190,20 @@ export async function publishPrerelease(options = {}) {
   return publishRelease({ ...options, channel: "beta" });
 }
 
+export async function publishExperimentalCompanions(options = {}) {
+  const workspace = options.workspace ?? defaultWorkspace;
+  const plan = options.plan ?? (await loadExperimentalCompanionPlan(workspace));
+  return publishRelease({ ...options, channel: "stable", workspace, plan, companionPlan: undefined });
+}
+
 export async function main() {
   const requestedChannel = process.argv[2] ?? "beta";
+  if (requestedChannel === "companions") {
+    await publishExperimentalCompanions();
+    return;
+  }
   if (requestedChannel !== "beta" && requestedChannel !== "rc" && requestedChannel !== "stable") {
-    throw new Error("Usage: node scripts/publish-prerelease.mjs <beta|rc|stable>");
+    throw new Error("Usage: node scripts/publish-prerelease.mjs <beta|rc|stable|companions>");
   }
   await publishRelease({ channel: requestedChannel });
 }

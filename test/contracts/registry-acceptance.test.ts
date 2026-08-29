@@ -52,18 +52,31 @@ await describe("registry-only consumer acceptance", async () => {
     }
   });
 
-  await it("blocks stable publication until npm next passes", async () => {
+  await it("blocks stable publication until a coherent npm graph passes", async () => {
     const workflow = await readFile(resolve(workspace, ".github/workflows/release.yml"), "utf8");
     const gate = workflow.indexOf("Verify registry-only release candidate");
     const stableAssertion = workflow.indexOf("Assert stable release contract");
+    const companionPublish = workflow.indexOf("Publish experimental companions");
+    const sourceResolution = workflow.indexOf("Resolve stable registry source");
     const stablePublish = workflow.indexOf("script: pnpm release:stable");
 
     strict.ok(gate >= 0, "release workflow must run the registry-only gate");
-    strict.ok(workflow.slice(gate, stableAssertion).includes("TYPED_SQL_REGISTRY_TAG: next"));
-    strict.ok(workflow.slice(gate, stableAssertion).includes("TYPED_SQL_REGISTRY_PREVIEW_TAG: next"));
-    strict.ok(workflow.slice(gate, stableAssertion).includes("if: inputs.channel == 'stable'"));
-    strict.ok(gate < stableAssertion, "registry gate must precede the stable release assertion");
-    strict.ok(stableAssertion < stablePublish, "registry gate and assertion must precede stable publication");
+    strict.ok(
+      workflow
+        .slice(gate, stablePublish)
+        .includes("TYPED_SQL_REGISTRY_TAG: ${{ steps.stable_registry_source.outputs.tag }}"),
+    );
+    strict.ok(
+      workflow
+        .slice(gate, stablePublish)
+        .includes("TYPED_SQL_REGISTRY_EXPECTED: ${{ steps.stable_registry_source.outputs.expected }}"),
+    );
+    strict.ok(workflow.slice(gate, stablePublish).includes("TYPED_SQL_REGISTRY_PREVIEW_TAG: next"));
+    strict.ok(workflow.slice(gate, stablePublish).includes("if: inputs.channel == 'stable'"));
+    strict.ok(stableAssertion < companionPublish, "stable policy must pass before companion publication");
+    strict.ok(companionPublish < sourceResolution, "companion publication must precede source resolution");
+    strict.ok(sourceResolution < gate, "registry source resolution must precede registry acceptance");
+    strict.ok(gate < stablePublish, "registry acceptance must precede stable publication");
 
     const stableVerification = workflow.indexOf("Verify published stable packages from npm");
     strict.ok(workflow.slice(stableVerification).includes("TYPED_SQL_REGISTRY_TAG: latest"));

@@ -54,4 +54,5 @@ export function publicationCommands(
 }[];
 export function publishPrerelease(options?: PublishPrereleaseOptions): Promise<void>;
 export function publishRelease(options?: PublishReleaseOptions): Promise<void>;
+export function publishExperimentalCompanions(options?: PublishReleaseOptions): Promise<void>;
 export function main(): Promise<void>;

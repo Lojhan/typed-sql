@@ -39,6 +39,7 @@
     "release:security": "node scripts/code-scanning-policy.mjs",
     "release:beta": "pnpm release:assert beta && node scripts/publish-prerelease.mjs",
     "release:rc": "pnpm release:assert rc && node scripts/publish-prerelease.mjs rc",
+    "release:companions": "pnpm release:assert stable && node scripts/publish-prerelease.mjs companions",
     "release:stable": "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
     "release:rehearse": "node scripts/rehearse-stable-release.mjs",
     "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --prod --audit-level high",
