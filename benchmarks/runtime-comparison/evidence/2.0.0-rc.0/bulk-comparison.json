@@ -4,11 +4,7 @@
     "node": "v24.10.0",
     "platform": "darwin",
     "architecture": "arm64",
-    "rowCounts": [
-      100,
-      1000,
-      5000
-    ],
+    "rowCounts": [100, 1000, 5000],
     "samples": 5,
     "warmups": 2
   },
