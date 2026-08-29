@@ -12,6 +12,10 @@ const expectedPublicDocs = [
   "docs/dialects/mysql.md",
   "docs/dialects/postgresql.md",
   "docs/dialects/sqlite.md",
+  "docs/examples/index.md",
+  "docs/examples/mysql.md",
+  "docs/examples/postgresql.md",
+  "docs/examples/sqlite.md",
   "docs/extending/custom-grammars.md",
   "docs/getting-started/configuration.md",
   "docs/getting-started/first-query.md",
@@ -298,7 +302,9 @@ await describe("public documentation", async () => {
     }
 
     for (const path of expectedPublicDocs) {
-      const id = path === "docs/index.md" ? "/" : `/${path.slice("docs/".length, -".md".length)}`;
+      const relative = path.slice("docs/".length, -".md".length);
+      const id =
+        relative === "index" ? "/" : relative.endsWith("/index") ? `/${relative.slice(0, -5)}` : `/${relative}`;
       strict.ok(siteConfig.includes(`link: "${id}"`), `${path} is missing from the sidebar`);
     }
 

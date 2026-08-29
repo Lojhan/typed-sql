@@ -22,7 +22,7 @@
     "e2e:mysql": "pnpm build && pnpm --filter @typed-sql/e2e-mysql e2e",
     "e2e:packed": "pnpm build && pnpm --filter @typed-sql/e2e-packed e2e",
     "e2e:registry": "pnpm --filter @typed-sql/e2e-packed e2e:registry",
-    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm --filter './examples/**' --if-present test && pnpm test:contracts",
+    "test": "pnpm typecheck && pnpm --filter @typed-sql/e2e-postgres generate:snapshot && pnpm --filter @typed-sql/e2e-mysql generate:snapshot && pnpm --filter './examples/**' --if-present generate:snapshot && pnpm --filter './packages/**' --if-present test && pnpm --filter './examples/**' --if-present test && pnpm test:contracts",
     "test:contracts": "poku test/contracts --reporter=compact --enforce",
     "docs:check": "poku test/contracts/documentation.test.ts --reporter=compact --enforce",
     "docs:start": "pnpm --filter typed-sql-docs start",

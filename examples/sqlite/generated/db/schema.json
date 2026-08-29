@@ -1,0 +1,103 @@
+{
+  "formatVersion": 1,
+  "dialect": "sqlite",
+  "dialectVersion": "1.0.0",
+  "tables": {
+    "project": {
+      "name": "project",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false,
+          "primaryKeyPosition": 1
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "budget": {
+          "name": "budget",
+          "databaseType": "REAL",
+          "tsType": "number",
+          "nullable": true
+        }
+      },
+      "schema": "main",
+      "kind": "table",
+      "strict": true,
+      "withoutRowid": false,
+      "indexes": [],
+      "foreignKeys": [
+        {
+          "columns": [
+            "owner_id"
+          ],
+          "referencedTable": "account",
+          "referencedColumns": [
+            "id"
+          ],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        }
+      ]
+    },
+    "account": {
+      "name": "account",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false,
+          "primaryKeyPosition": 1
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        }
+      },
+      "schema": "main",
+      "kind": "table",
+      "strict": true,
+      "withoutRowid": false,
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_account_1",
+          "unique": true,
+          "partial": false,
+          "origin": "unique",
+          "columns": [
+            {
+              "name": "email"
+            }
+          ]
+        }
+      ],
+      "foreignKeys": []
+    }
+  },
+  "version": "3.50.4",
+  "metadata": {
+    "generatorVersion": "1.0.0",
+    "schemaHash": "b2aa00829694f4e78820b1c358432ca2533a4c615c181979f94b7665ab9d2597",
+    "typePolicyHash": "11dfa860af2ba2997d752a95bd8448538406a84ed23da56bf90903f2de2dd49b"
+  }
+}

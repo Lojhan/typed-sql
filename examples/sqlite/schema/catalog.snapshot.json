@@ -1,0 +1,90 @@
+{
+  "formatVersion": 1,
+  "dialect": "sqlite",
+  "dialectVersion": "1.0.0",
+  "version": "3.50.4",
+  "tables": {
+    "project": {
+      "schema": "main",
+      "name": "project",
+      "kind": "table",
+      "strict": true,
+      "withoutRowid": false,
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false,
+          "primaryKeyPosition": 1
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "budget": {
+          "name": "budget",
+          "databaseType": "REAL",
+          "tsType": "number",
+          "nullable": true
+        }
+      },
+      "indexes": [],
+      "foreignKeys": [
+        {
+          "columns": ["owner_id"],
+          "referencedTable": "account",
+          "referencedColumns": ["id"],
+          "onUpdate": "NO ACTION",
+          "onDelete": "NO ACTION"
+        }
+      ]
+    },
+    "account": {
+      "schema": "main",
+      "name": "account",
+      "kind": "table",
+      "strict": true,
+      "withoutRowid": false,
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false,
+          "primaryKeyPosition": 1
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_account_1",
+          "unique": true,
+          "partial": false,
+          "origin": "unique",
+          "columns": [{ "name": "email" }]
+        }
+      ],
+      "foreignKeys": []
+    }
+  }
+}

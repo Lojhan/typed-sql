@@ -28,6 +28,7 @@ export default defineConfig({
     siteTitle: "typed-sql",
     nav: [
       { text: "Documentation", link: "/" },
+      { text: "Examples", link: "/examples/" },
       { text: "GitHub", link: "https://github.com/Lojhan/typed-sql" },
     ],
     sidebar: [
@@ -39,6 +40,15 @@ export default defineConfig({
           { text: "Installation", link: "/getting-started/installation" },
           { text: "Configuration", link: "/getting-started/configuration" },
           { text: "Your first query", link: "/getting-started/first-query" },
+        ],
+      },
+      {
+        text: "Examples",
+        items: [
+          { text: "Overview", link: "/examples/" },
+          { text: "PostgreSQL", link: "/examples/postgresql" },
+          { text: "MySQL", link: "/examples/mysql" },
+          { text: "SQLite", link: "/examples/sqlite" },
         ],
       },
       {

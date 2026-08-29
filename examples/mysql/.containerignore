@@ -1,0 +1,10 @@
+node_modules
+dist
+generated
+src
+test
+README.md
+package.json
+tsconfig.json
+typed-sql.config.ts
+compose.yaml

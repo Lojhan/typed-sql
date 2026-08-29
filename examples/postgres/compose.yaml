@@ -1,0 +1,21 @@
+name: typed-sql-example-postgres
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/typed-sql-example-postgres:18.4
+    environment:
+      POSTGRES_DB: typed_sql_examples
+      POSTGRES_PASSWORD: typed_sql_examples
+      POSTGRES_USER: typed_sql
+    ports:
+      - "127.0.0.1:55441:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username typed_sql --dbname typed_sql_examples"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql
