@@ -150,8 +150,15 @@ await describe("release-candidate policy", async () => {
     const verifyPublished = workflow.indexOf("name: Verify published prerelease from npm");
     strict.ok(assertRc > 0 && publishRc > assertRc && verifyPublished > publishRc);
     const verifyRegistryCandidate = workflow.indexOf("name: Verify registry-only release candidate");
+    const assertStable = workflow.indexOf("run: pnpm release:assert stable");
+    const publishCompanions = workflow.indexOf("name: Publish experimental companions");
     const publishStable = workflow.indexOf("script: pnpm release:stable");
-    strict.ok(verifyRegistryCandidate > 0 && publishStable > verifyRegistryCandidate);
+    strict.ok(
+      assertStable > 0 &&
+        publishCompanions > assertStable &&
+        verifyRegistryCandidate > publishCompanions &&
+        publishStable > verifyRegistryCandidate,
+    );
     strict.ok(workflow.includes('node scripts/detect-pending-changesets.mjs >> "$GITHUB_OUTPUT"'));
   });
 

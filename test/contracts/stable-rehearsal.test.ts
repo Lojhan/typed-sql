@@ -52,6 +52,10 @@ await describe("stable release rehearsal policy", async () => {
       manifest.scripts["release:stable"],
       "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
     );
+    strict.strictEqual(
+      manifest.scripts["release:companions"],
+      "pnpm release:assert stable && node scripts/publish-prerelease.mjs companions",
+    );
     strict.ok(!manifest.scripts["release:stable"]?.includes("changeset publish"));
     const publisher = await readFile(resolve(workspace, "scripts/publish-prerelease.mjs"), "utf8");
     strict.ok(publisher.includes("loadExperimentalCompanionPlan"));

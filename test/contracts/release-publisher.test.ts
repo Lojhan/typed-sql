@@ -9,11 +9,13 @@ import {
   loadReleasePlan,
   type PrereleasePlan,
   publicationCommands,
+  publishExperimentalCompanions,
   publishPrerelease,
   publishRelease,
 } from "../../scripts/publish-prerelease.mjs";
 import { splitChangeset } from "../../scripts/rehearse-stable-release.mjs";
 import { validateReleaseManifest } from "../../scripts/release-policy.mjs";
+import { resolveStableRegistrySource } from "../../scripts/resolve-stable-registry-source.mjs";
 
 const plan: PrereleasePlan = {
   npmTag: "next",
@@ -263,6 +265,50 @@ await describe("prerelease publisher", async () => {
       log: () => undefined,
     });
     strict.deepStrictEqual(retry, ["tags"]);
+  });
+
+  await it("publishes the companion plan independently before registry acceptance", async () => {
+    const events: string[] = [];
+    await publishExperimentalCompanions({
+      plan: {
+        npmTag: "next",
+        packages: [{ name: "@typed-sql/sqlite", version: "2.0.0-rc.2", directory: "/packages/sqlite" }],
+      },
+      isPublished: async () => false,
+      publishPackage: async ({ name }, npmTag) => {
+        events.push(`publish:${name}:${npmTag}`);
+      },
+      createTags: async () => {
+        events.push("tags");
+      },
+      log: () => undefined,
+    });
+    strict.deepStrictEqual(events, ["publish:@typed-sql/sqlite:next", "tags"]);
+  });
+
+  await it("selects one coherent stable registry graph for fresh and resumed releases", async () => {
+    const stablePlan = {
+      npmTag: "latest" as const,
+      packages: [
+        { name: "@typed-sql/core", version: "2.0.0", directory: "/packages/core" },
+        { name: "@typed-sql/schema", version: "2.0.0", directory: "/packages/schema" },
+      ],
+    };
+
+    strict.deepStrictEqual(
+      await resolveStableRegistrySource({
+        plan: stablePlan,
+        isPublished: async (name) => name === "@typed-sql/core",
+      }),
+      { tag: "next", expected: undefined },
+    );
+    strict.deepStrictEqual(
+      await resolveStableRegistrySource({
+        plan: stablePlan,
+        isPublished: async () => true,
+      }),
+      { tag: "latest", expected: "workspace" },
+    );
   });
 
   await it("splits mixed Changesets without losing experimental release notes", () => {

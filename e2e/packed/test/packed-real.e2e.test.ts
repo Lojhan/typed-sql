@@ -45,7 +45,7 @@ const consumerSource = process.env.TYPED_SQL_CONSUMER_SOURCE ?? "packed";
 const registryOnly = consumerSource === "registry";
 const registryTag = process.env.TYPED_SQL_REGISTRY_TAG ?? "next";
 const registryPreviewTag = process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next";
-const registryExpected = process.env.TYPED_SQL_REGISTRY_EXPECTED;
+const registryExpected = process.env.TYPED_SQL_REGISTRY_EXPECTED || undefined;
 if (!registryOnly && consumerSource !== "packed") {
   throw new Error(`TYPED_SQL_CONSUMER_SOURCE must be packed or registry, received ${consumerSource}`);
 }
