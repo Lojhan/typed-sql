@@ -49,6 +49,7 @@ export default defineConfig({
           { text: "PostgreSQL", link: "/examples/postgresql" },
           { text: "MySQL", link: "/examples/mysql" },
           { text: "SQLite", link: "/examples/sqlite" },
+          { text: "PostgreSQL + SQLite", link: "/examples/multi-database" },
         ],
       },
       {

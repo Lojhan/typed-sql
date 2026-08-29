@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "dialect": "sqlite",
+  "dialectVersion": "1.0.0",
+  "tables": {
+    "customer_preference": {
+      "name": "customer_preference",
+      "columns": {
+        "customer_id": {
+          "name": "customer_id",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "theme": {
+          "name": "theme",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "email_notifications": {
+          "name": "email_notifications",
+          "databaseType": "INTEGER",
+          "tsType": "bigint",
+          "nullable": false
+        }
+      },
+      "schema": "main",
+      "kind": "table",
+      "strict": true,
+      "withoutRowid": false,
+      "indexes": [],
+      "foreignKeys": []
+    }
+  },
+  "version": "3.50.4"
+}

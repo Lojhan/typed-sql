@@ -8,6 +8,7 @@ npm. Their `workspace:*` dependencies always resolve to the currently checked-ou
 | [`postgres`](./postgres/README.md) | `@typed-sql/postgres` | `pg` | pinned PostgreSQL container |
 | [`mysql`](./mysql/README.md) | `@typed-sql/mysql` | `mysql2` | pinned MySQL container |
 | [`sqlite`](./sqlite/README.md) | `@typed-sql/sqlite` | Node `node:sqlite` | local SQLite file |
+| [`multi-database`](./multi-database/README.md) | PostgreSQL and SQLite | `pg` and Node `node:sqlite` | pinned PostgreSQL container and local SQLite file |
 | [`synthetic-grammar`](./synthetic-grammar/README.md) | third-party proof | none | in-memory snapshot |
 
 Each database example keeps its schema, typed-sql config, generated snapshot, focused capability
@@ -21,7 +22,7 @@ After building the workspace, run all three complete lifecycles with:
 pnpm e2e:examples
 ```
 
-Use `node examples/e2e.mjs postgres`, `mysql`, or `sqlite` for one package. The lifecycle generates
+Use `node examples/e2e.mjs postgres`, `mysql`, `sqlite`, or `multi-database` for one package. The lifecycle generates
 the schema, checks every source file, runs both test layers, starts the real application, and always
 tears down container-backed databases.
 

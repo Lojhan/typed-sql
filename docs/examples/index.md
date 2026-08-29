@@ -14,6 +14,7 @@ application dependency.
 | [PostgreSQL](./postgresql.md) | Queries, mutations, transactions, prepared queries, cursors, pipelines, COPY, cancellation, routing, observation, validation | Pinned PostgreSQL container |
 | [MySQL](./mysql.md) | Queries, mutations, transactions, prepared queries, streams, `LOAD DATA`, cancellation, routing, observation, validation | Pinned MySQL container |
 | [SQLite](./sqlite.md) | Queries, mutations, transactions, prepared queries, streams, small batches, validation, explicit capability discovery | Recreated local database file |
+| [PostgreSQL + SQLite](./multi-database.md) | Two grammars, configs, generated contracts, and drivers combined by one application service | Pinned PostgreSQL container and local SQLite file |
 | [Custom grammar](../extending/custom-grammars.md) | A third-party grammar using only published contracts | In-memory conformance fixture |
 
 Each database example contains its schema, typed-sql config, generated snapshot, focused capability modules,
@@ -35,7 +36,7 @@ Run every example through generation, analysis, its executable entrypoint, and i
 pnpm e2e:examples
 ```
 
-Pass `postgres`, `mysql`, or `sqlite` to `node examples/e2e.mjs` to run one example. Set
+Pass `postgres`, `mysql`, `sqlite`, or `multi-database` to `node examples/e2e.mjs` to run one example. Set
 `TYPED_SQL_CONTAINER_ENGINE=podman` to use Podman for the container-backed examples. PostgreSQL and MySQL
 containers are always removed in a `finally` path. SQLite uses a recreated local file.
 

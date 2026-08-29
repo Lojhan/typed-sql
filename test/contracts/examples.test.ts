@@ -171,4 +171,64 @@ await describe("maintained application examples", async () => {
     strict.match(workflow, /examples-e2e:/u);
     for (const example of examples) strict.match(workflow, new RegExp(`example: ${example.directory}`, "u"));
   });
+
+  await it("keeps the mixed PostgreSQL and SQLite application independently generated and executable", async () => {
+    const directory = "examples/multi-database";
+    for (const path of [
+      "README.md",
+      "package.json",
+      "tsconfig.json",
+      "Containerfile",
+      "compose.yaml",
+      "postgres/typed-sql.config.ts",
+      "postgres/schema/001-schema.sql",
+      "postgres/schema/catalog.snapshot.json",
+      "postgres/generated/db/index.ts",
+      "postgres/generated/db/schema.json",
+      "postgres/src/queries.ts",
+      "postgres/.zed/settings.json",
+      "sqlite/typed-sql.config.ts",
+      "sqlite/schema/001-schema.sql",
+      "sqlite/schema/catalog.snapshot.json",
+      "sqlite/generated/db/index.ts",
+      "sqlite/generated/db/schema.json",
+      "sqlite/src/queries.ts",
+      "sqlite/.zed/settings.json",
+      "src/service.ts",
+      "src/run.ts",
+      "src/main.ts",
+      "test/example.test.ts",
+      "database-test/multi-database.test.ts",
+    ]) {
+      strict.ok(await exists(`${directory}/${path}`), `${directory}/${path} is missing`);
+    }
+
+    const packageJson = JSON.parse(await text(`${directory}/package.json`)) as {
+      readonly dependencies: Readonly<Record<string, string>>;
+      readonly scripts: Readonly<Record<string, string>>;
+    };
+    for (const dependency of ["@typed-sql/core", "@typed-sql/postgres", "@typed-sql/sqlite"]) {
+      strict.strictEqual(packageJson.dependencies[dependency], "workspace:*");
+    }
+    strict.strictEqual(packageJson.dependencies.pg, "8.23.0");
+    for (const script of ["generate", "generate:snapshot", "check", "start", "test", "test:database"]) {
+      strict.ok(packageJson.scripts[script], `${directory} is missing its ${script} script`);
+    }
+
+    const documentation = await text("docs/examples/multi-database.md");
+    for (const source of [
+      "postgres/typed-sql.config.ts",
+      "postgres/src/queries.ts",
+      "sqlite/typed-sql.config.ts",
+      "sqlite/src/queries.ts",
+      "src/service.ts",
+      "src/run.ts",
+      "database-test/multi-database.test.ts",
+    ]) {
+      strict.ok(documentation.includes(`<<< ../../examples/multi-database/${source}`));
+    }
+
+    const workflow = await text(".github/workflows/ci.yml");
+    strict.match(workflow, /example: multi-database/u);
+  });
 });

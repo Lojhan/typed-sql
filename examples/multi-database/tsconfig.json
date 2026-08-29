@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": ["database-test/**/*.ts", "postgres/**/*.ts", "sqlite/**/*.ts", "src/**/*.ts", "test/**/*.ts"],
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/postgres" },
+    { "path": "../../packages/sqlite" },
+    { "path": "../../packages/cli" }
+  ]
+}

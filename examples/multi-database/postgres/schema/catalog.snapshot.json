@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "dialect": "postgres",
+  "dialectVersion": "1.0.0",
+  "tables": {
+    "customer": {
+      "name": "customer",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "email": {
+          "name": "email",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        }
+      },
+      "schema": "public"
+    }
+  },
+  "version": "18.4"
+}

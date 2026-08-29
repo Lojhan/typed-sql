@@ -2,11 +2,11 @@ import { spawn } from "node:child_process";
 
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const requested = process.argv[2];
-const names = requested === undefined ? ["postgres", "mysql", "sqlite"] : [requested];
-const supported = new Set(["postgres", "mysql", "sqlite"]);
+const names = requested === undefined ? ["postgres", "mysql", "sqlite", "multi-database"] : [requested];
+const supported = new Set(["postgres", "mysql", "sqlite", "multi-database"]);
 
 if (names.some((name) => !supported.has(name))) {
-  throw new TypeError("usage: node examples/e2e.mjs [postgres|mysql|sqlite]");
+  throw new TypeError("usage: node examples/e2e.mjs [postgres|mysql|sqlite|multi-database]");
 }
 
 function run(args) {

@@ -3,8 +3,22 @@ import { readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 
 const directory = process.cwd();
-const sourceDirectory = join(directory, "src");
 const cli = resolve(directory, "../../packages/cli/dist/packages/cli/src/cli.js");
+const requested = process.argv.slice(2);
+const targets =
+  requested.length === 0
+    ? [{ config: "typed-sql.config.ts", sourceDirectory: "src" }]
+    : Array.from({ length: requested.length / 2 }, (_, index) => ({
+        config: requested[index * 2],
+        sourceDirectory: requested[index * 2 + 1],
+      }));
+
+if (
+  requested.length % 2 !== 0 ||
+  targets.some((target) => target.config === undefined || target.sourceDirectory === undefined)
+) {
+  throw new TypeError("usage: node examples/check.mjs [config source-directory]...");
+}
 
 async function sourceFiles(path) {
   const entries = await readdir(path, { withFileTypes: true });
@@ -17,12 +31,12 @@ async function sourceFiles(path) {
   return files.flat();
 }
 
-function check(file) {
+function check(config, file) {
   return new Promise((resolveCheck, rejectCheck) => {
     process.stdout.write(`Checking ${relative(directory, file)}\n`);
     const child = spawn(
       process.execPath,
-      [cli, "check", "--config", "typed-sql.config.ts", "--file", file, "--project", "tsconfig.json"],
+      [cli, "check", "--config", config, "--file", file, "--project", "tsconfig.json"],
       { cwd: directory, env: process.env, stdio: "inherit" },
     );
     child.once("error", rejectCheck);
@@ -33,4 +47,8 @@ function check(file) {
   });
 }
 
-for (const file of (await sourceFiles(sourceDirectory)).sort()) await check(file);
+for (const target of targets) {
+  for (const file of (await sourceFiles(resolve(directory, target.sourceDirectory))).sort()) {
+    await check(target.config, file);
+  }
+}

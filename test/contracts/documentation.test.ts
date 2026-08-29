@@ -13,6 +13,7 @@ const expectedPublicDocs = [
   "docs/dialects/postgresql.md",
   "docs/dialects/sqlite.md",
   "docs/examples/index.md",
+  "docs/examples/multi-database.md",
   "docs/examples/mysql.md",
   "docs/examples/postgresql.md",
   "docs/examples/sqlite.md",
