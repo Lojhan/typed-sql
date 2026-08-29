@@ -66,7 +66,7 @@ impl zed::Extension for TypedSqlExtension {
             .is_err()
         {
             return Err(
-                "typed-sql language server was not found; run `pnpm add -D @typed-sql/language-server@next`, or configure lsp.typed-sql.binary.path"
+                "typed-sql language server was not found; run `pnpm add -D @typed-sql/language-server`, or configure lsp.typed-sql.binary.path"
                     .to_string(),
             );
         }

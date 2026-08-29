@@ -4,6 +4,5 @@
     "outDir": "dist",
     "types": ["node", "vscode"]
   },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "../config" }, { "path": "../core" }, { "path": "../schema" }, { "path": "../ts-bridge" }]
+  "include": ["src/**/*.ts"]
 }

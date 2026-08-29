@@ -52,6 +52,11 @@ The language server installs an exact TypeScript preview as an internal dependen
 
 The language server replaces the normal TypeScript server for a configured project. Running a second TypeScript server can show the safe baseline `Query<unknown>` beside typed-sql's transformed hover.
 
+The TypeScript 7.1 package currently publishes the native program APIs used by the bridge through
+explicit `unstable/*` entrypoints. For that reason `ts-bridge`, `language-server`, and both editor
+integrations remain experimental even though the CLI/compiler path is stable. The preview dependency
+and its API-specific code remain isolated from grammar and stable packages.
+
 ## Grammar and snapshot compatibility
 
 PostgreSQL, MySQL, and the SQLite preview implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.

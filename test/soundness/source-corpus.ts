@@ -22,7 +22,7 @@ export interface SourceSoundnessCase {
   readonly expectation: SourceSoundnessExpectation;
 }
 
-export function sourceForDialect(testCase: SourceSoundnessCase, dialect: "postgres" | "mysql"): string {
+export function sourceForDialect(testCase: SourceSoundnessCase, dialect: "postgres" | "mysql" | "sqlite"): string {
   return testCase.source.replace("@typed-sql/postgres", `@typed-sql/${dialect}`);
 }
 

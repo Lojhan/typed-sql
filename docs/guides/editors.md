@@ -5,7 +5,7 @@ description: Configure the experimental typed-sql language server for Zed, VS Co
 
 # Editor setup
 
-The experimental language server applies typed-sql's inferred overlay before TypeScript checks the program. It provides exact query and downstream hovers, diagnostics, completion, definitions, quick fixes, schema reloads, and bounded project caches.
+The experimental language server applies typed-sql's inferred overlay before TypeScript checks the program. It provides exact query and downstream hovers, diagnostics, completion, definitions, quick fixes, schema reloads, stale-result suppression, and bounded project caches. PostgreSQL, MySQL, and SQLite use the same protocol and compiler evidence.
 
 Install it in the application:
 
@@ -47,7 +47,14 @@ Do not run `vtsls` or `typescript-language-server` beside this proxy. An ordinar
 
 ## VS Code
 
-The repository includes an experimental VS Code extension that bundles the typed-sql language client. Build and install the VSIX using the instructions in the [`packages/vscode`](https://github.com/Lojhan/typed-sql/tree/main/packages/vscode) package.
+The repository includes an experimental VS Code extension that runs one thin language client per workspace folder. It resolves that folder's installed `@typed-sql/language-server`, so the VS Code integration does not carry a second analyzer or TypeScript bridge. Build and install the VSIX using the instructions in the [`packages/vscode`](https://github.com/Lojhan/typed-sql/tree/main/packages/vscode) package.
+
+Disable VS Code's built-in TypeScript language-features extension for the workspace while using the
+typed-sql proxy. Otherwise both servers can answer hover and diagnostic requests, and the built-in
+server sees the conservative `Query<unknown>` declaration.
+
+Run **typed-sql: Show TypeScript Bridge Status** to inspect the pinned TypeScript version and the
+open/indexed document counts reported by each workspace server.
 
 ## Other LSP clients
 
@@ -71,3 +78,7 @@ Initialization settings accept:
 ```
 
 Relative paths resolve from the LSP workspace root. Each workspace folder receives its own config, grammar, schema, TypeScript project, and bounded cache.
+
+The custom `typedSql/status` request returns the server mode, exact pinned TypeScript version,
+workspace roots, and document counts. It is informational; CLI/compiler output remains the
+correctness boundary.

@@ -4,7 +4,7 @@
 
 The grammar-neutral typed-sql language server provides TypeScript semantics plus inferred SQL
 hovers, downstream value types, diagnostics, completion, definitions, quick fixes, cancellation,
-and bounded workspace caches.
+stale-result suppression, bounded workspace caches, and a protocol status request.
 
 ```sh
 pnpm add -D @typed-sql/language-server
@@ -18,6 +18,10 @@ workspace `tsserver.js`, and source files are never rewritten.
 Initialization settings include `configPath`, `schemaPath`, `projectFile`, `nativePreview`,
 `maxCacheEntries`, and `maxWorkspaceFiles`. Relative paths resolve from the LSP workspace root;
 each workspace folder receives an independent config, grammar, schema, project, and bounded cache.
+
+Clients can request `typedSql/status` to inspect the exact pinned TypeScript preview version,
+workspace roots, and open/indexed document counts. The server suppresses diagnostics from document
+versions that have already been superseded.
 
 Use typed-sql as the sole TypeScript language server for a configured project. A second server sees
 the conservative package declaration and may display a competing `Query<unknown>` hover.

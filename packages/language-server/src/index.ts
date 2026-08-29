@@ -5,7 +5,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
 import { loadSchemaSnapshot } from "@typed-sql/schema";
-import { analyzeSource, type BridgeAnalysis, type NativeTypeInspection, queryAtPosition } from "@typed-sql/ts-bridge";
+import {
+  analyzeSource,
+  type BridgeAnalysis,
+  isStaticQueryPosition,
+  type NativeTypeInspection,
+  queryAtPosition,
+} from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import {
   type CodeAction,
@@ -28,6 +34,17 @@ export interface TypedSqlLanguageServerSettings {
   readonly nativePreview?: boolean;
   readonly maxCacheEntries?: number;
   readonly maxWorkspaceFiles?: number;
+}
+
+export const TYPED_SQL_STATUS_REQUEST = "typedSql/status";
+
+export interface TypedSqlLanguageServerStatus {
+  readonly name: "@typed-sql/language-server";
+  readonly mode: "pinned-preview-proxy";
+  readonly typescriptVersion: string;
+  readonly workspaceRoots: readonly string[];
+  readonly openDocuments: number;
+  readonly indexedDocuments: number;
 }
 
 interface CachedSchema {
@@ -244,7 +261,7 @@ export class TypedSqlLanguageService {
     if (result === undefined) return [];
     const offset = document.offsetAt(position);
     const query = queryAtPosition(result.analysis, offset);
-    if (query === undefined) return [];
+    if (query === undefined || !isStaticQueryPosition(query, offset)) return [];
     cancelled(token);
     const source = document.getText();
     const before = source.slice(query.sourceRange.start, offset);
@@ -304,7 +321,7 @@ export class TypedSqlLanguageService {
     if (result === undefined) return undefined;
     const offset = document.offsetAt(position);
     const query = queryAtPosition(result.analysis, offset);
-    if (query === undefined) return undefined;
+    if (query === undefined || !isStaticQueryPosition(query, offset)) return undefined;
     const word = this.#wordAt(document.getText(), offset);
     if (word === undefined) return undefined;
     cancelled(token);

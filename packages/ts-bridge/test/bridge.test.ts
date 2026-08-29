@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
-import { analyzeSource, queryAtPosition } from "../src/index.js";
+import { analyzeSource, isStaticQueryPosition, queryAtPosition } from "../src/index.js";
 import { NativePreviewTypeScriptBridge, TYPESCRIPT_PREVIEW_VERSION } from "../src/native-preview.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +52,20 @@ await describe("TypeScript 7 editor bridge", async () => {
         (insertion, index, values) => index === 0 || insertion.position >= (values[index - 1]?.position ?? 0),
       ),
     );
+  });
+
+  await it("distinguishes static SQL tokens from runtime interpolation expressions", () => {
+    const parameterizedSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      'const name = "Ada";',
+      "const query = sql`SELECT users.id FROM users WHERE users.name = ${name}`;",
+    ].join("\n");
+    const parameterized = analyzeSource(parameterizedSource, schema as PostgresSchemaSnapshot, postgres());
+    const query = parameterized.queries[0];
+    if (query === undefined) throw new Error("Expected a parameterized query");
+    strict.strictEqual(query.interpolationRanges.length, 1);
+    strict.strictEqual(isStaticQueryPosition(query, parameterizedSource.indexOf("users.id")), true);
+    strict.strictEqual(isStaticQueryPosition(query, parameterizedSource.lastIndexOf("name")), false);
   });
 
   await it("maps conditional structural fragment overlays as complete SQL variants", () => {

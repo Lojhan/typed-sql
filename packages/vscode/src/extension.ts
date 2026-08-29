@@ -1,396 +1,220 @@
-import { readFile, stat } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
-import { fromConfig, loadConfig } from "@typed-sql/config";
-import type { SchemaSnapshot } from "@typed-sql/core";
-import { loadSchemaSnapshot } from "@typed-sql/schema";
-import { analyzeSource, type BridgeAnalysis, type NativeTypeInspection, queryAtPosition } from "@typed-sql/ts-bridge";
-import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
+import { existsSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 import * as vscode from "vscode";
+import {
+  LanguageClient,
+  type LanguageClientOptions,
+  type ServerOptions,
+  TransportKind,
+} from "vscode-languageclient/node";
 
-interface NativeTypeScriptExtensionAPI {
-  readonly initializeAPIConnection: (pipe?: string) => Promise<string>;
+interface TypedSqlServerStatus {
+  readonly name: string;
+  readonly mode: "pinned-preview-proxy";
+  readonly typescriptVersion: string;
+  readonly workspaceRoots: readonly string[];
+  readonly openDocuments: number;
+  readonly indexedDocuments: number;
 }
 
-interface CachedSchema {
-  readonly modified: number;
-  readonly snapshot: SchemaSnapshot;
+interface RunningClient {
+  readonly client: LanguageClient;
+  readonly watcher: vscode.FileSystemWatcher;
+  readonly server: string;
 }
 
-interface DocumentAnalysis {
-  readonly version: number;
-  readonly schemaPath: string;
-  readonly schemaModified: number;
-  readonly snapshot: SchemaSnapshot;
-  readonly analysis: BridgeAnalysis;
+const SERVER_RELATIVE_PATH = join(
+  "node_modules",
+  "@typed-sql",
+  "language-server",
+  "dist",
+  "packages",
+  "language-server",
+  "src",
+  "server.js",
+);
+const DEVELOPMENT_SERVER_RELATIVE_PATH = join(
+  "packages",
+  "language-server",
+  "dist",
+  "packages",
+  "language-server",
+  "src",
+  "server.js",
+);
+const clients = new Map<string, RunningClient>();
+const failures = new Map<string, string>();
+const output = vscode.window.createOutputChannel("typed-sql", { log: true });
+let statusBar: vscode.StatusBarItem;
+
+function optionalSetting(settings: vscode.WorkspaceConfiguration, name: string): string | undefined {
+  const value = settings.get<string>(name, "").trim();
+  return value.length === 0 ? undefined : value;
 }
 
-const languageSelector: vscode.DocumentSelector = [
-  { language: "typescript", scheme: "file" },
-  { language: "typescriptreact", scheme: "file" },
-];
-
-const schemaCache = new Map<string, CachedSchema>();
-const analysisCache = new Map<string, DocumentAnalysis>();
-const inspectionCache = new Map<string, readonly NativeTypeInspection[]>();
-const diagnosticSuggestions = new Map<string, string>();
-const MAX_CACHE_ENTRIES = 256;
-const MAX_SCHEMA_CACHE_ENTRIES = 16;
-const output = vscode.window.createOutputChannel("typed-sql");
-let diagnostics: vscode.DiagnosticCollection;
-let nativeBridgePromise: Promise<NativePreviewTypeScriptBridge | undefined> | undefined;
-let nativeBridgeStatus = "not connected";
-
-function cacheSet<K, V>(cache: Map<K, V>, key: K, value: V, maximum: number): void {
-  cache.delete(key);
-  cache.set(key, value);
-  while (cache.size > maximum) cache.delete(cache.keys().next().value!);
+function initializationOptions(folder: vscode.WorkspaceFolder): Record<string, unknown> {
+  const settings = vscode.workspace.getConfiguration("typedSql", folder.uri);
+  const configPath = optionalSetting(settings, "configPath");
+  const schemaPath = optionalSetting(settings, "schemaPath");
+  const projectFile = optionalSetting(settings, "projectFile");
+  return {
+    ...(configPath === undefined ? {} : { configPath }),
+    ...(schemaPath === undefined ? {} : { schemaPath }),
+    ...(projectFile === undefined ? {} : { projectFile }),
+    nativePreview: settings.get<boolean>("nativePreview", true),
+    maxCacheEntries: settings.get<number>("maxCacheEntries", 256),
+    maxWorkspaceFiles: settings.get<number>("maxWorkspaceFiles", 2_000),
+  };
 }
 
-function configuredPath(document: vscode.TextDocument, value: string): string | undefined {
-  if (isAbsolute(value)) return value;
-  const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-  return folder === undefined ? undefined : resolve(folder.uri.fsPath, value);
-}
-
-async function schemaAt(path: string): Promise<CachedSchema> {
-  const file = await stat(path);
-  const cached = schemaCache.get(path);
-  if (cached !== undefined && cached.modified === file.mtimeMs) return cached;
-  const snapshot = await loadSchemaSnapshot(path);
-  const result = { modified: file.mtimeMs, snapshot };
-  cacheSet(schemaCache, path, result, MAX_SCHEMA_CACHE_ENTRIES);
-  return result;
-}
-
-async function documentAnalysis(document: vscode.TextDocument): Promise<DocumentAnalysis | undefined> {
-  const key = document.uri.toString();
-  try {
-    const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-    if (folder === undefined) return undefined;
-    const settings = vscode.workspace.getConfiguration("typedSql", document.uri);
-    const configSetting = settings.get<string>("configPath", "").trim();
-    const loaded = await loadConfig({
-      cwd: folder.uri.fsPath,
-      ...(configSetting.length === 0 ? {} : { file: configuredPath(document, configSetting)! }),
-    });
-    const schemaSetting = settings.get<string>("schemaPath", "").trim();
-    const schemaPath =
-      schemaSetting.length === 0
-        ? fromConfig(loaded.directory, loaded.config.schema.file)
-        : configuredPath(document, schemaSetting)!;
-    const schema = await schemaAt(schemaPath);
-    const cached = analysisCache.get(key);
-    if (
-      cached !== undefined &&
-      cached.version === document.version &&
-      cached.schemaPath === schemaPath &&
-      cached.schemaModified === schema.modified
-    )
-      return cached;
-    const result = {
-      version: document.version,
-      schemaPath,
-      schemaModified: schema.modified,
-      snapshot: schema.snapshot,
-      analysis: analyzeSource(
-        document.getText(),
-        loaded.config.dialect.validateSnapshot(schema.snapshot),
-        loaded.config.dialect,
-        loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
-      ),
-    };
-    cacheSet(analysisCache, key, result, MAX_CACHE_ENTRIES);
-    return result;
-  } catch (error) {
-    output.appendLine(
-      `Unable to analyze ${document.uri.fsPath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return undefined;
+function serverPath(folder: vscode.WorkspaceFolder): string | undefined {
+  const configured = optionalSetting(vscode.workspace.getConfiguration("typedSql", folder.uri), "serverPath");
+  if (configured !== undefined) {
+    const candidate = isAbsolute(configured) ? configured : resolve(folder.uri.fsPath, configured);
+    return existsSync(candidate) ? candidate : undefined;
   }
-}
-
-function diagnosticSeverity(severity: "error" | "info" | "warning"): vscode.DiagnosticSeverity {
-  if (severity === "error") return vscode.DiagnosticSeverity.Error;
-  return severity === "warning" ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Information;
-}
-
-async function refreshDiagnostics(document: vscode.TextDocument): Promise<void> {
-  if (document.languageId !== "typescript" && document.languageId !== "typescriptreact") return;
-  const startingVersion = document.version;
-  const result = await documentAnalysis(document);
-  if (document.version !== startingVersion) return;
-  if (result === undefined) {
-    diagnostics.delete(document.uri);
-    return;
+  for (const candidate of [
+    join(folder.uri.fsPath, SERVER_RELATIVE_PATH),
+    join(folder.uri.fsPath, DEVELOPMENT_SERVER_RELATIVE_PATH),
+  ]) {
+    if (existsSync(candidate)) return candidate;
   }
-  for (const key of diagnosticSuggestions.keys())
-    if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
-  diagnostics.set(
-    document.uri,
-    result.analysis.diagnostics.map((item) => {
-      const diagnostic = new vscode.Diagnostic(
-        new vscode.Range(document.positionAt(item.range.start), document.positionAt(item.range.end)),
-        `${item.code}: ${item.message}`,
-        diagnosticSeverity(item.severity),
-      );
-      diagnostic.source = "typed-sql";
-      diagnostic.code = item.code;
-      if (item.suggestion !== undefined)
-        diagnosticSuggestions.set(
-          `${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`,
-          item.suggestion,
-        );
-      return diagnostic;
-    }),
-  );
-}
-
-function tableForAlias(sqlText: string, alias: string, snapshot: SchemaSnapshot) {
-  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const match = new RegExp(
-    `(?:FROM|JOIN)\\s+(?:[A-Za-z_$][\\w$]*\\.)?([A-Za-z_$][\\w$]*)(?:\\s+(?:AS\\s+)?${escaped})\\b`,
-    "iu",
-  ).exec(sqlText);
-  const tableName = match?.[1];
-  return tableName === undefined
-    ? undefined
-    : Object.values(snapshot.tables).find((table) => table.name.toLowerCase() === tableName.toLowerCase());
-}
-
-async function provideCompletionItems(
-  document: vscode.TextDocument,
-  position: vscode.Position,
-  token: vscode.CancellationToken,
-): Promise<vscode.CompletionItem[]> {
-  const result = await documentAnalysis(document);
-  if (result === undefined || token.isCancellationRequested) return [];
-  const offset = document.offsetAt(position);
-  const query = queryAtPosition(result.analysis, offset);
-  if (query === undefined) return [];
-  const before = document.getText().slice(query.sourceRange.start, offset);
-  const qualifier = /([A-Za-z_$][A-Za-z0-9_$]*)\.[A-Za-z0-9_$]*$/u.exec(before)?.[1];
-  const selected =
-    qualifier === undefined
-      ? undefined
-      : tableForAlias(
-          document.getText().slice(query.sourceRange.start, query.sourceRange.end),
-          qualifier,
-          result.snapshot,
-        );
-  const tables = selected === undefined ? Object.values(result.snapshot.tables) : [selected];
-  const items = new Map<string, vscode.CompletionItem>();
-  if (qualifier === undefined) {
-    for (const table of tables)
-      items.set(table.name, new vscode.CompletionItem(table.name, vscode.CompletionItemKind.Class));
-    for (const keyword of [
-      "SELECT",
-      "FROM",
-      "WHERE",
-      "JOIN",
-      "GROUP BY",
-      "ORDER BY",
-      "INSERT",
-      "UPDATE",
-      "DELETE",
-      "RETURNING",
-    ]) {
-      items.set(keyword, new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword));
-    }
-  }
-  for (const table of tables) {
-    for (const column of Object.values(table.columns)) {
-      const item = new vscode.CompletionItem(column.name, vscode.CompletionItemKind.Field);
-      item.detail = `${column.databaseType}${column.nullable ? " nullable" : " not null"} — ${column.tsType}`;
-      items.set(column.name, item);
-    }
-  }
-  return [...items.values()];
-}
-
-async function provideDefinition(
-  document: vscode.TextDocument,
-  position: vscode.Position,
-  token: vscode.CancellationToken,
-): Promise<vscode.Location | undefined> {
-  const result = await documentAnalysis(document);
-  if (result === undefined || token.isCancellationRequested) return undefined;
-  const offset = document.offsetAt(position);
-  if (queryAtPosition(result.analysis, offset) === undefined) return undefined;
-  const range = document.getWordRangeAtPosition(position, /[A-Za-z0-9_$]+/u);
-  if (range === undefined) return undefined;
-  const word = document.getText(range);
-  const schemaText = await readFile(result.schemaPath, "utf8");
-  const match = schemaText.indexOf(JSON.stringify(word));
-  if (match < 0) return undefined;
-  const schemaDocument = await vscode.workspace.openTextDocument(vscode.Uri.file(result.schemaPath));
-  return new vscode.Location(
-    schemaDocument.uri,
-    new vscode.Range(schemaDocument.positionAt(match + 1), schemaDocument.positionAt(match + word.length + 1)),
-  );
-}
-
-function provideCodeActions(
-  document: vscode.TextDocument,
-  _range: vscode.Range | vscode.Selection,
-  context: vscode.CodeActionContext,
-): vscode.CodeAction[] {
-  const actions: vscode.CodeAction[] = [];
-  for (const diagnostic of context.diagnostics) {
-    if (diagnostic.source !== "typed-sql") continue;
-    const key = `${document.uri.toString()}@${diagnostic.range.start.line}:${diagnostic.range.start.character}:${diagnostic.range.end.line}:${diagnostic.range.end.character}`;
-    const suggestion = diagnosticSuggestions.get(key);
-    const replacement =
-      suggestion === undefined ? undefined : /^Did you mean ([A-Za-z_$][\w$]*)\?$/u.exec(suggestion)?.[1];
-    if (replacement === undefined) continue;
-    const action = new vscode.CodeAction(`Replace with ${replacement}`, vscode.CodeActionKind.QuickFix);
-    action.isPreferred = true;
-    action.diagnostics = [diagnostic];
-    action.edit = new vscode.WorkspaceEdit();
-    action.edit.replace(document.uri, diagnostic.range, replacement);
-    actions.push(action);
-  }
-  return actions;
-}
-
-async function connectNativeBridge(): Promise<NativePreviewTypeScriptBridge | undefined> {
-  if (!vscode.workspace.getConfiguration("typedSql").get<boolean>("nativePreview", true)) {
-    nativeBridgeStatus = "disabled by typedSql.nativePreview";
-    return undefined;
-  }
-  for (const extensionId of ["TypeScriptTeam.native-preview", "vscode.typescript-language-features"]) {
-    const extension = vscode.extensions.getExtension<NativeTypeScriptExtensionAPI | undefined>(extensionId);
-    if (extension === undefined) continue;
-    try {
-      const extensionApi = await extension.activate();
-      if (extensionApi?.initializeAPIConnection === undefined) continue;
-      const pipe = await extensionApi.initializeAPIConnection();
-      const bridge = await NativePreviewTypeScriptBridge.connect(pipe);
-      nativeBridgeStatus = `connected through ${extensionId}`;
-      output.appendLine(`TypeScript 7 preview bridge ${nativeBridgeStatus}`);
-      return bridge;
-    } catch (error) {
-      output.appendLine(
-        `Could not connect through ${extensionId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-  nativeBridgeStatus = "resolver fallback (TypeScript 7 API connection unavailable)";
   return undefined;
 }
 
-function nativeBridge(): Promise<NativePreviewTypeScriptBridge | undefined> {
-  nativeBridgePromise ??= connectNativeBridge();
-  return nativeBridgePromise;
+function serverOptions(server: string, folder: vscode.WorkspaceFolder): ServerOptions {
+  const options = { cwd: folder.uri.fsPath };
+  return {
+    run: { module: server, transport: TransportKind.stdio, options },
+    debug: { module: server, transport: TransportKind.stdio, options },
+  };
 }
 
-async function inspectWithNativeBridge(
-  document: vscode.TextDocument,
-  result: DocumentAnalysis,
-): Promise<readonly NativeTypeInspection[] | undefined> {
-  const key = `${document.uri.toString()}@${document.version}:${result.schemaPath}@${result.schemaModified}`;
-  const cached = inspectionCache.get(key);
-  if (cached !== undefined) return cached;
-  const bridge = await nativeBridge();
-  if (bridge === undefined) return undefined;
-  try {
-    const inspections = await bridge.inspectFile({ fileName: document.uri.fsPath, analysis: result.analysis });
-    cacheSet(inspectionCache, key, inspections, MAX_CACHE_ENTRIES);
-    return inspections;
-  } catch (error) {
-    nativeBridgeStatus = "resolver fallback (preview request failed)";
-    output.appendLine(
-      `TypeScript preview inspection failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return undefined;
+function clientOptions(folder: vscode.WorkspaceFolder, watcher: vscode.FileSystemWatcher): LanguageClientOptions {
+  const workspacePattern = { baseUri: folder.uri.toString(), pattern: "**/*" } as const;
+  return {
+    documentSelector: [
+      { language: "typescript", scheme: "file", pattern: workspacePattern },
+      { language: "typescriptreact", scheme: "file", pattern: workspacePattern },
+    ],
+    workspaceFolder: folder,
+    initializationOptions: initializationOptions(folder),
+    synchronize: { configurationSection: "typedSql", fileEvents: watcher },
+    outputChannel: output,
+  };
+}
+
+function refreshStatusBar(): void {
+  const folders = vscode.workspace.workspaceFolders?.length ?? 0;
+  if (folders === 0) {
+    statusBar.text = "$(database) typed-sql: no workspace";
+    statusBar.tooltip = "Open a workspace containing typed-sql.config.ts.";
+  } else if (failures.size > 0) {
+    statusBar.text = "$(warning) typed-sql";
+    statusBar.tooltip = [...failures.values()].join("\n");
+  } else {
+    statusBar.text = `$(database) typed-sql: ${clients.size}/${folders}`;
+    statusBar.tooltip = `${clients.size} typed-sql language server${clients.size === 1 ? "" : "s"} running`;
   }
+  statusBar.show();
 }
 
-async function provideHover(
-  document: vscode.TextDocument,
-  position: vscode.Position,
-): Promise<vscode.Hover | undefined> {
-  const result = await documentAnalysis(document);
-  if (result === undefined) return undefined;
-  const offset = document.offsetAt(position);
-  const query = queryAtPosition(result.analysis, offset);
-  if (query === undefined) return undefined;
-  const nativeInspections = await inspectWithNativeBridge(document, result);
-  const nativeType = nativeInspections?.find((inspection) => inspection.queryIndex === query.index)?.typeText;
-  const typeText = nativeType ?? query.queryType;
-  const markdown = new vscode.MarkdownString();
-  markdown.appendMarkdown("**typed-sql inferred query type**\n\n");
-  markdown.appendCodeblock(typeText, "typescript");
-  markdown.appendMarkdown(
-    nativeType === undefined
-      ? "\nResolver result; install/enable the TypeScript 7 extension for native snapshot verification."
-      : "\nVerified through a temporary TypeScript 7.1 preview snapshot.",
+async function startClient(folder: vscode.WorkspaceFolder): Promise<void> {
+  const key = folder.uri.toString();
+  if (clients.has(key)) return;
+  const server = serverPath(folder);
+  if (server === undefined) {
+    const message = `${folder.name}: install @typed-sql/language-server in the workspace or configure typedSql.serverPath.`;
+    failures.set(key, message);
+    output.appendLine(message);
+    refreshStatusBar();
+    return;
+  }
+  const watcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(folder, "**/{typed-sql.config.*,schema.json}"),
   );
-  const range =
-    query.binding !== undefined && offset >= query.binding.range.start && offset <= query.binding.range.end
-      ? query.binding.range
-      : query.sourceRange;
-  return new vscode.Hover(markdown, new vscode.Range(document.positionAt(range.start), document.positionAt(range.end)));
+  const client = new LanguageClient(
+    `typed-sql-${folder.index}`,
+    `typed-sql (${folder.name})`,
+    serverOptions(server, folder),
+    clientOptions(folder, watcher),
+  );
+  try {
+    await client.start();
+    failures.delete(key);
+    clients.set(key, { client, watcher, server });
+    output.appendLine(`${folder.name}: started ${server}`);
+  } catch (error) {
+    watcher.dispose();
+    const message = `${folder.name}: ${error instanceof Error ? error.message : String(error)}`;
+    failures.set(key, message);
+    output.appendLine(`Could not start typed-sql: ${message}`);
+  }
+  refreshStatusBar();
 }
 
-async function resetNativeBridge(): Promise<void> {
-  const current = await nativeBridgePromise;
-  nativeBridgePromise = undefined;
-  nativeBridgeStatus = "not connected";
-  inspectionCache.clear();
-  await current?.close();
+async function stopClient(folder: vscode.WorkspaceFolder): Promise<void> {
+  const key = folder.uri.toString();
+  failures.delete(key);
+  const running = clients.get(key);
+  clients.delete(key);
+  if (running !== undefined) {
+    running.watcher.dispose();
+    await running.client.stop();
+  }
+  refreshStatusBar();
+}
+
+async function restartClients(): Promise<void> {
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  await Promise.all(folders.map(stopClient));
+  await Promise.all(folders.map(startClient));
+}
+
+async function showStatus(): Promise<void> {
+  const reports = await Promise.all(
+    [...clients.entries()].map(async ([key, running]) => {
+      try {
+        const status = await running.client.sendRequest<TypedSqlServerStatus>("typedSql/status");
+        const folderName = vscode.workspace.getWorkspaceFolder(vscode.Uri.parse(key))?.name ?? key;
+        return `${folderName}: ${status.mode}, TypeScript ${status.typescriptVersion}; ${status.openDocuments} open, ${status.indexedDocuments} indexed (${running.server})`;
+      } catch (error) {
+        return `${key}: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }),
+  );
+  reports.push(...failures.values());
+  const message = reports.length === 0 ? "No typed-sql language server is running." : reports.join("\n");
+  output.appendLine(message);
+  const selection = await vscode.window.showInformationMessage(message, "Show output");
+  if (selection === "Show output") output.show();
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  diagnostics = vscode.languages.createDiagnosticCollection("typed-sql");
+  statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
+  statusBar.command = "typedSql.showBridgeStatus";
   context.subscriptions.push(
-    diagnostics,
     output,
-    vscode.languages.registerHoverProvider(languageSelector, { provideHover }),
-    vscode.languages.registerCompletionItemProvider(languageSelector, { provideCompletionItems }, "."),
-    vscode.languages.registerDefinitionProvider(languageSelector, { provideDefinition }),
-    vscode.languages.registerCodeActionsProvider(
-      languageSelector,
-      { provideCodeActions },
-      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
-    ),
-    vscode.commands.registerCommand("typedSql.showBridgeStatus", async () => {
-      await nativeBridge();
-      await vscode.window.showInformationMessage(`typed-sql TypeScript bridge: ${nativeBridgeStatus}`);
+    statusBar,
+    vscode.commands.registerCommand("typedSql.showBridgeStatus", showStatus),
+    vscode.workspace.onDidChangeWorkspaceFolders(async ({ added, removed }) => {
+      await Promise.all(removed.map(stopClient));
+      await Promise.all(added.map(startClient));
     }),
-    vscode.workspace.onDidOpenTextDocument((document) => {
-      void refreshDiagnostics(document);
+    vscode.workspace.onDidChangeConfiguration(async (event) => {
+      if (event.affectsConfiguration("typedSql")) await restartClients();
     }),
-    vscode.workspace.onDidSaveTextDocument((document) => {
-      void refreshDiagnostics(document);
-    }),
-    vscode.workspace.onDidChangeTextDocument(({ document }) => {
-      analysisCache.delete(document.uri.toString());
-      for (const key of inspectionCache.keys())
-        if (key.startsWith(`${document.uri.toString()}@`)) inspectionCache.delete(key);
-      void refreshDiagnostics(document);
-    }),
-    vscode.workspace.onDidCloseTextDocument((document) => {
-      analysisCache.delete(document.uri.toString());
-      for (const key of diagnosticSuggestions.keys())
-        if (key.startsWith(`${document.uri.toString()}@`)) diagnosticSuggestions.delete(key);
-      diagnostics.delete(document.uri);
-    }),
-    vscode.workspace.onDidChangeConfiguration((event) => {
-      if (!event.affectsConfiguration("typedSql")) return;
-      schemaCache.clear();
-      analysisCache.clear();
-      void resetNativeBridge();
-      for (const document of vscode.workspace.textDocuments) void refreshDiagnostics(document);
-    }),
-    {
-      dispose: () => {
-        void resetNativeBridge();
-      },
-    },
   );
-  for (const document of vscode.workspace.textDocuments) void refreshDiagnostics(document);
+  await Promise.all((vscode.workspace.workspaceFolders ?? []).map(startClient));
+  refreshStatusBar();
 }
 
 export async function deactivate(): Promise<void> {
-  await resetNativeBridge();
+  await Promise.all(
+    [...clients.values()].map(async ({ client, watcher }) => {
+      watcher.dispose();
+      await client.stop();
+    }),
+  );
+  clients.clear();
 }
