@@ -119,6 +119,9 @@ import type {
   QueryRenderSkeleton,
   QueryResult,
   QueryResults,
+  QueryResultValidationFailure,
+  QueryResultValidationIssue,
+  QueryResultValidationOptions,
   QueryRoute,
   QueryRoutePreference,
   QueryRouteSelection,
@@ -143,6 +146,8 @@ import type {
   SqlRenderer,
   SqlSegment,
   SqlTag,
+  StandardSchemaV1,
+  StandardTypedV1,
   StreamOperationStart,
   StreamOptions,
   TransactionDatabase,
@@ -221,6 +226,22 @@ const predicate = coreApi.sql.fragment`account.id >= ${1n}`;
 const composed = coreApi.sql.where(base, predicate);
 const composedParameters: Assert<Equal<QueryParameters<typeof composed>, readonly [bigint]>> = true;
 const emptyParameters: Assert<Equal<QueryParameters<ReturnType<typeof structuralEmptyContract>>, readonly []>> = true;
+
+function resultValidationContract(
+  accountResultSchema: StandardSchemaV1<unknown, Account>,
+  incompatibleResultSchema: StandardSchemaV1<unknown, { readonly id: string }>,
+  anyResultSchema: StandardSchemaV1<unknown, ReturnType<typeof JSON.parse>>,
+) {
+  const validatedResultQuery = coreApi.sql.validateResult(base, accountResultSchema);
+  const validatedResultRow: Assert<Equal<QueryRow<typeof validatedResultQuery>, Account>> = true;
+  const validatedResultParameters: Assert<Equal<QueryParameters<typeof validatedResultQuery>, readonly []>> = true;
+  // @ts-expect-error validator output must be assignable to the compiler-inferred query row
+  coreApi.sql.validateResult(base, incompatibleResultSchema);
+  // @ts-expect-error `any` cannot provide a sound runtime validation boundary
+  coreApi.sql.validateResult(base, anyResultSchema);
+  void validatedResultRow;
+  void validatedResultParameters;
+}
 
 function structuralEmptyContract() {
   return coreApi.sql`SELECT 1${coreApi.sql.empty}`;
@@ -522,6 +543,9 @@ type ReferencedStableTypes =
   | QueryCardinalityExpectation
   | QueryExecutor
   | QueryRenderSkeleton
+  | QueryResultValidationFailure
+  | QueryResultValidationIssue
+  | QueryResultValidationOptions
   | QueryStream<Account>
   | RenderedQuery
   | ReplicaSelectionContext
@@ -539,6 +563,8 @@ type ReferencedStableTypes =
   | SqlAstContext
   | SelectLockingClause
   | StreamOptions
+  | StandardSchemaV1
+  | StandardTypedV1
   | StreamOperationStart
   | SemanticEvidence
   | SemanticFact<string>
@@ -578,6 +604,7 @@ void emptyParameters;
 void executionContract;
 void governedExecutionContract;
 void defaultTransactionContract;
+void resultValidationContract;
 void enrichedTransactionContract;
 void enrichedIsDefaultCompatible;
 void postgresAdapter;
@@ -660,6 +687,7 @@ const expectedRuntimeExports = {
     "UnsupportedAdapterCapabilityError",
     "QueryCancelledError",
     "QueryCardinalityError",
+    "QueryResultValidationError",
     "UnsupportedExecutionCapabilityError",
     "assertDialectPlugin",
     "assertExecutionCapabilities",
@@ -681,12 +709,14 @@ const expectedRuntimeExports = {
     "executionDeadline",
     "getAdapterCapability",
     "hasAdapterCapability",
+    "hasQueryResultValidator",
     "isTypedSqlDiagnosticCode",
     "mapQuerySemanticRanges",
     "mergeQuerySemantics",
     "observeQueryStream",
     "parameterTypeLiteral",
     "queryRoute",
+    "queryResultValidationSource",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "requireAdapterCapability",
@@ -697,6 +727,8 @@ const expectedRuntimeExports = {
     "unionTypeLiterals",
     "unknownQuerySemantics",
     "UnsafeReplicaRoutingError",
+    "validateQueryResultRows",
+    "validateQueryResultStream",
   ],
   mysql: [
     "MYSQL_DIALECT_VERSION",

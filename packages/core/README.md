@@ -38,6 +38,10 @@ type without adding a protocol or driver dependency to core.
 `DatabaseObserver` provides redacted query, batch, pipeline, stream, cancellation, and nested
 transaction lifecycles. It is disabled by default and does not add a telemetry dependency to core.
 
+`sql.validateResult(query, schema)` optionally validates decoded rows through the structural
+Standard Schema V1 interface. Validator output must agree with the inferred row; core does not
+install Zod, Valibot, or another validator package.
+
 `createRoutedDatabase` provides conservative, grammar-neutral primary/replica selection and bounded
 explicit-transaction retries from semantic evidence. Dialect packages supply the semantic resolver;
 applications continue owning every database adapter and topology decision.
@@ -50,7 +54,8 @@ database driver, TypeScript compiler, or editor dependency.
 Read the [query API](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/api.md),
 [architecture](https://github.com/Lojhan/typed-sql/blob/main/docs/concepts/architecture.md),
 [routing and retry guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/routing-and-retries.md),
-[bulk data guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/bulk-data.md), and
+[bulk data guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/bulk-data.md),
+[result validation guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/result-validation.md), and
 [custom grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md).
 
 MIT © typed-sql contributors

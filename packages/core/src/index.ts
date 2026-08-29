@@ -77,6 +77,21 @@ export {
 export type { ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
+  CompatibleResultSchema,
+  QueryResultValidationFailure,
+  QueryResultValidationIssue,
+  QueryResultValidationOptions,
+  StandardSchemaV1,
+  StandardTypedV1,
+} from "./result-validation.js";
+export {
+  hasQueryResultValidator,
+  QueryResultValidationError,
+  queryResultValidationSource,
+  validateQueryResultRows,
+  validateQueryResultStream,
+} from "./result-validation.js";
+export type {
   QueryRoute,
   QueryRoutePreference,
   QueryRouteSelection,

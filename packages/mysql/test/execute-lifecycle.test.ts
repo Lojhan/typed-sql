@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart } from "@typed-sql/core";
+import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart, StandardSchemaV1 } from "@typed-sql/core";
 import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import {
@@ -118,6 +118,21 @@ class ExecutePool implements MySqlPoolLike {
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 await describe("MySQL transaction execute ownership", async () => {
+  await it("validates after MySQL codec decoding", async () => {
+    const schema: StandardSchemaV1<unknown, { readonly id: bigint }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test-validator",
+        validate(value) {
+          const row = value as { readonly id: unknown };
+          return typeof row.id === "bigint" ? { value: { id: row.id } } : { issues: [{ message: "not bigint" }] };
+        },
+      },
+    };
+    const database = createMySqlDatabase({ pool: new ExecutePool() });
+    strict.deepStrictEqual(await database.one(sql.validateResult(accountQuery, schema)), { id: 1n });
+  });
+
   await it("emits redacted fingerprinted query, batch, and transaction lifecycles", async () => {
     const starts: DatabaseOperationStart[] = [];
     const ends: DatabaseOperationEnd[] = [];

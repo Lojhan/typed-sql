@@ -1,15 +1,20 @@
+import { createHash } from "node:crypto";
 import {
   assertExecutionCapabilities,
   type Database,
   type ExecutionOptions,
+  hasQueryResultValidator,
   type Query,
   type QueryBatch,
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
+  queryResultValidationSource,
   renderQuery,
   type SqlRenderer,
   type StreamOptions,
+  validateQueryResultRows,
+  validateQueryResultStream,
 } from "@typed-sql/core";
 import {
   createSqlitePreparedQueryState,
@@ -17,6 +22,7 @@ import {
   type SqlitePreparedQueryFactory,
   type SqlitePreparedQueryState,
 } from "./prepared.js";
+import { SQLITE_DIALECT_VERSION } from "./version.js";
 
 export interface SqliteConnectionLike {
   all(sql: string, values?: readonly unknown[]): readonly Record<string, unknown>[];
@@ -53,6 +59,11 @@ export const sqliteRenderer: SqlRenderer = Object.freeze({
   placeholder: () => "?",
   quoteIdentifier: (identifier: string) => `"${identifier.replaceAll('"', '""')}"`,
 });
+
+function sqliteQueryFingerprint<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): string {
+  const text = renderQuery(query, sqliteRenderer).text;
+  return `sha256:${createHash("sha256").update(`sqlite\0${SQLITE_DIALECT_VERSION}\0${text}`).digest("hex")}`;
+}
 
 const executionCapabilities = Object.freeze({ cancellation: false, deadlines: false });
 const emptyBatchResults = Object.freeze([]);
@@ -184,11 +195,12 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#assertOpen();
     if (options !== undefined) assertExecutionCapabilities(executionCapabilities, options);
     this.#assertNoStream("execute a query");
-    const prepared = this.#prepared.queries.get(query);
+    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
     const operation = async (): Promise<readonly Row[]> =>
       (await this.#connection.all(rendered.text, rendered.values)) as readonly Row[];
-    return this.#root ? this.#queue.run(operation) : operation();
+    const rows = await (this.#root ? this.#queue.run(operation) : operation());
+    return this.#validateRows(query, rows);
   }
 
   async one<Row, Params extends readonly unknown[]>(
@@ -217,13 +229,16 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     const operation = async (): Promise<QueryResults<Queries>> => {
       const results: (readonly unknown[])[] = [];
       for (const query of snapshot) {
-        const prepared = this.#prepared.queries.get(query as object);
+        const prepared = this.#prepared.queries.get(
+          queryResultValidationSource(query as Query<unknown, readonly unknown[]>),
+        );
         const rendered = prepared?.rendered ?? renderQuery(query as Query<unknown, readonly unknown[]>, sqliteRenderer);
         results.push(await this.#connection.all(rendered.text, rendered.values));
       }
       return results as QueryResults<Queries>;
     };
-    return this.#root ? this.#queue.run(operation) : operation();
+    const results = await (this.#root ? this.#queue.run(operation) : operation());
+    return this.#validateBatch(snapshot, results);
   }
 
   stream<Row, Params extends readonly unknown[]>(
@@ -232,20 +247,20 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
   ): QueryStream<Row> {
     this.#assertOpen();
     validateBatchSize(options.batchSize);
-    const prepared = this.#prepared.queries.get(query);
+    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
-    let stream!: QueryStream<Row>;
-    stream = new SqliteQueryStream<Row>(async () => {
+    let source!: QueryStream<Row>;
+    source = new SqliteQueryStream<Row>(async () => {
       this.#assertOpen();
       this.#assertNoStream("start a query stream");
       const release = this.#root ? await this.#queue.acquire() : () => undefined;
       try {
         const iterator = this.#connection.iterate(rendered.text, rendered.values)[Symbol.iterator]() as Iterator<Row>;
-        this.#streams.add(stream as QueryStream<unknown>);
+        this.#streams.add(source as QueryStream<unknown>);
         return {
           iterator,
           release: () => {
-            this.#streams.delete(stream as QueryStream<unknown>);
+            this.#streams.delete(source as QueryStream<unknown>);
             release();
           },
         };
@@ -254,7 +269,33 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
         throw error;
       }
     });
-    return stream;
+    return hasQueryResultValidator(query)
+      ? validateQueryResultStream(query, source, sqliteQueryFingerprint(query))
+      : source;
+  }
+
+  async #validateRows<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    rows: readonly unknown[],
+  ): Promise<readonly Row[]> {
+    if (!hasQueryResultValidator(query)) return rows as readonly Row[];
+    return validateQueryResultRows(query, rows, sqliteQueryFingerprint(query));
+  }
+
+  async #validateBatch<const Queries extends readonly unknown[]>(
+    queries: QueryBatch<Queries>,
+    results: QueryResults<Queries>,
+  ): Promise<QueryResults<Queries>> {
+    let validated: unknown[] | undefined;
+    const queryList = queries as unknown as readonly Query<unknown, readonly unknown[]>[];
+    const resultList = results as readonly (readonly unknown[])[];
+    for (let index = 0; index < queryList.length; index += 1) {
+      const query = queryList[index]!;
+      if (!hasQueryResultValidator(query)) continue;
+      validated ??= [...resultList];
+      validated[index] = await validateQueryResultRows(query, resultList[index]!, sqliteQueryFingerprint(query));
+    }
+    return (validated ?? results) as QueryResults<Queries>;
   }
 
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(

@@ -37,10 +37,13 @@ Applications import `sql` from their selected dialect root.
 | `sql.or(parts)` | `SqlFragment` | Join present predicates with parenthesized `OR`. |
 | `sql.where(query, predicate)` | `Query` | Preserve the base row and append predicate parameters. |
 | `sql.append(query, ...parts)` | `Query` | Append present fragments while preserving ordered parameters. |
+| `sql.validateResult(query, schema, options?)` | `Query` | Attach an application-owned Standard Schema validator to decoded rows. |
 | `sql.raw(text)` | `SqlFragment<readonly []>` | Insert trusted static SQL unchanged. |
 | `sql.dynamic(text)` | `Query<unknown>` | Opt out of static row inference for dynamic SQL. |
 
 `sql.raw()` is not an escaping function. Do not pass untrusted values to it.
+
+`sql.validateResult()` accepts the dependency-free Standard Schema V1 structural contract. The schema output must be assignable to the query's inferred row, and the returned query retains the original parameter tuple. `QueryResultValidationOptions` controls optional vendor messages and `libraryOptions`; `QueryResultValidationError` exposes a redacted, fingerprinted failure. See [Validate query results](../guides/result-validation.md).
 
 The declarations contain an internal `sql.__typed` member used by compiler overlays. Application code must use the ordinary `sql` tag.
 

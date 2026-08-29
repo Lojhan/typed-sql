@@ -161,6 +161,42 @@ export async function deterministicMicrobenchmarks(methodology) {
   assert.ok(postgresObservationStarts > 0);
   assert.equal(postgresObservationEnds, postgresObservationStarts);
 
+  const validationRows = Array.from({ length: 100 }, (_, index) => ({ id: BigInt(index + 1) }));
+  const validationPool = {
+    async query() {
+      return { rows: validationRows };
+    },
+    async connect() {
+      throw new Error("validation microbenchmark does not acquire a connection");
+    },
+    async end() {},
+  };
+  const validationDatabase = createPostgresDatabase({ pool: validationPool });
+  const unvalidatedQuery = sql`SELECT account.id FROM account`;
+  let validatorCalls = 0;
+  const validatedQuery = sql.validateResult(unvalidatedQuery, {
+    "~standard": {
+      version: 1,
+      vendor: "performance",
+      validate(value) {
+        validatorCalls += 1;
+        return { value };
+      },
+    },
+  });
+  results["micro.postgres.validationDisabled.100Rows"] = await latency(
+    () => validationDatabase.execute(unvalidatedQuery),
+    methodology,
+    asyncIterations,
+  );
+  assert.equal(validatorCalls, 0);
+  results["micro.postgres.validationEnabled.100Rows"] = await latency(
+    () => validationDatabase.execute(validatedQuery),
+    methodology,
+    asyncIterations,
+  );
+  assert.ok(validatorCalls >= validationRows.length);
+
   const postgresStreamRows = Array.from({ length: 100 }, (_, index) => ({ id: BigInt(index + 1) }));
   let postgresStreamReleases = 0;
   const postgresStreamingDatabase = createPostgresDatabase({
