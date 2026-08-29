@@ -1,6 +1,11 @@
-import type { DatabaseObserver, DatabaseOperationEnd, QueryStream } from "@typed-sql/core";
+import {
+  type DatabaseObserver,
+  type DatabaseOperationEnd,
+  type QueryStream,
+  type StandardSchemaV1,
+  sql,
+} from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
@@ -131,6 +136,27 @@ await describe("PostgreSQL query streams", async () => {
     strict.strictEqual(pool.client.cursor.closeCount, 1);
     strict.strictEqual(pool.client.releaseCount, 1);
     strict.deepStrictEqual(await stream.next(), { done: true, value: undefined });
+  });
+
+  await it("validates streamed rows while retaining prepared driver metadata", async () => {
+    const pool = new FakePool();
+    const database = createPostgresDatabase({ pool });
+    const prepared = database.prepare("validated-account-stream", () => sql<{ id: number }>`SELECT id FROM account`);
+    const schema: StandardSchemaV1<unknown, { readonly id: number }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test-validator",
+        validate(value) {
+          const row = value as { readonly id: unknown };
+          return typeof row.id === "number" ? { value: { id: row.id } } : { issues: [{ message: "not number" }] };
+        },
+      },
+    };
+    const stream = database.stream(sql.validateResult(prepared(), schema));
+
+    strict.deepStrictEqual(await stream.next(), { done: false, value: { id: 1 } });
+    strict.strictEqual(pool.client.cursorConfigs[0]?.name, "validated-account-stream");
+    await stream.close();
   });
 
   await it("validates batch sizes without acquiring a connection", () => {

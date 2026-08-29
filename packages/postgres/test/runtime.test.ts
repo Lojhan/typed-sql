@@ -146,6 +146,10 @@ await describe("PostgreSQL runtime adapter", async () => {
     strict.deepStrictEqual(validatedRows, [{ id: 1 }]);
     strict.deepStrictEqual(ordinaryRows, [{ id: 1 }]);
 
+    const [firstValidatedRows, secondValidatedRows] = await database.batch([validated, validated]);
+    strict.deepStrictEqual(firstValidatedRows, [{ id: 1 }]);
+    strict.deepStrictEqual(secondValidatedRows, [{ id: 1 }]);
+
     const invalidSchema: StandardSchemaV1<unknown, { readonly id: number }> = {
       "~standard": {
         version: 1,
@@ -157,6 +161,14 @@ await describe("PostgreSQL runtime adapter", async () => {
       database.execute(sql.validateResult(sql<{ id: number }>`SELECT id FROM users`, invalidSchema)),
       /result validation failed/,
     );
+
+    const unobserved = createPostgresDatabase({ pool: new MockPool() });
+    const unobservedValidated = sql.validateResult(sql<{ id: number }>`SELECT id FROM users`, schema);
+    strict.deepStrictEqual(await unobserved.execute(unobservedValidated), [{ id: 1 }]);
+    strict.deepStrictEqual(await unobserved.all(unobservedValidated), [{ id: 1 }]);
+    strict.deepStrictEqual(await unobserved.one(unobservedValidated), { id: 1 });
+    strict.deepStrictEqual(await unobserved.maybeOne(unobservedValidated), { id: 1 });
+    strict.deepStrictEqual(await unobserved.batch([unobservedValidated]), [[{ id: 1 }]]);
   });
 
   await it("emits redacted fingerprinted query, batch, and transaction lifecycles", async () => {

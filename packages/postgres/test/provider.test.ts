@@ -97,6 +97,14 @@ class CatalogClient implements PostgresIntrospectionClient {
           set_returning: false,
           volatility: "s",
         },
+        {
+          schema_name: "analytics",
+          function_name: "user_count",
+          argument_types: [],
+          database_return_type: "bigint",
+          set_returning: false,
+          volatility: "s",
+        },
       ];
     else throw new Error("Unexpected catalog query");
     return { rows: rows as readonly Row[] };
@@ -138,6 +146,7 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.tables.users?.columns.display_name?.tsType, "string");
     strict.strictEqual(snapshot.functions?.["user_count()"]?.returnType, "bigint");
     strict.strictEqual(snapshot.functions?.["user_count()"]?.volatility, "stable");
+    strict.strictEqual(snapshot.functions?.["analytics.user_count()"]?.returnType, "bigint");
     strict.ok(client.filters.every((filter) => JSON.stringify(filter) === '["public"]'));
   });
 
@@ -166,6 +175,13 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(pool.client.commands.at(-1), "COMMIT");
     strict.strictEqual(pool.client.released, true);
     strict.strictEqual(pool.ended, true);
+
+    const rollbackPool = new CatalogPool();
+    rollbackPool.client.failCatalog = true;
+    await strict.rejects(() => new PostgresSchemaProvider({ pool: rollbackPool }).introspect({ url: "postgres://db" }));
+    strict.ok(rollbackPool.client.commands.includes("ROLLBACK"));
+    strict.strictEqual(rollbackPool.client.released, true);
+    strict.strictEqual(rollbackPool.ended, true);
     strict.ok(pool.client.filters.every((filter) => JSON.stringify(filter) === "[]"));
   });
 
@@ -184,6 +200,21 @@ await describe("PostgreSQL schema provider", async () => {
     strict.ok(pool.client.commands.includes("ROLLBACK"));
     strict.strictEqual(pool.client.released, true);
     strict.strictEqual(pool.ended, true);
+
+    const nonErrorPool: PostgresIntrospectionPool & { ended: boolean } = {
+      ended: false,
+      async connect(): Promise<PostgresIntrospectionClient> {
+        throw "connection unavailable";
+      },
+      async end(): Promise<void> {
+        this.ended = true;
+      },
+    };
+    await strict.rejects(
+      () => introspectPostgres({ url: "postgres://secret@localhost/db" }, { pool: nonErrorPool }),
+      /connection unavailable/,
+    );
+    strict.strictEqual(nonErrorPool.ended, true);
   });
 
   await it("closes pools and redacts connection failures", async () => {

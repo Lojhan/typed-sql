@@ -1,12 +1,13 @@
-import type {
-  DatabaseObserver,
-  DatabaseOperationEnd,
-  DatabaseOperationStart,
-  Query,
-  QueryResults,
+import {
+  type DatabaseObserver,
+  type DatabaseOperationEnd,
+  type DatabaseOperationStart,
+  type Query,
+  type QueryResults,
+  type StandardSchemaV1,
+  sql,
 } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
@@ -110,6 +111,30 @@ const accountQuery = sql<{ id: bigint; email: string }>`SELECT id, email FROM ac
 const projectQuery = sql<{ id: bigint; budget: string | null }>`SELECT id, budget FROM project`;
 
 await describe("PostgreSQL query pipelines", async () => {
+  await it("validates selected pipeline results without changing ordinary members", async () => {
+    const pool = new PipelinePool();
+    pool.client.rows.set("SELECT validated", [{ id: 1 }]);
+    pool.client.rows.set("SELECT ordinary", [{ id: 2 }]);
+    const schema: StandardSchemaV1<unknown, { readonly id: number }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test-validator",
+        validate(value) {
+          const row = value as { readonly id: unknown };
+          return typeof row.id === "number" ? { value: { id: row.id } } : { issues: [{ message: "not number" }] };
+        },
+      },
+    };
+    const validated = sql.validateResult(sql<{ id: number }>`SELECT validated`, schema);
+    const results = await createPostgresDatabase({ pool }).pipeline([
+      validated,
+      sql<{ id: number }>`SELECT ordinary`,
+      validated,
+    ]);
+
+    strict.deepStrictEqual(results, [[{ id: 1 }], [{ id: 2 }], [{ id: 1 }]]);
+  });
+
   await it("preserves exact tuple and homogeneous-array result types", async () => {
     const database = createPostgresDatabase({ pool: new PipelinePool() });
     const tuple = database.pipeline([accountQuery, projectQuery]);
