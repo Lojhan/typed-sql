@@ -12,6 +12,9 @@ Compatibility has two meanings in typed-sql:
 
 A tested version does not imply that every older or newer version is supported. A supported range does not imply that every version in the range runs in every CI job.
 
+For package-major, grammar, snapshot, manifest, verification, plan, compatibility, and adapter
+version boundaries, see [Upgrade from typed-sql v1](../guides/upgrading-from-v1.md).
+
 ## Runtime and compiler
 
 | Surface | Contract |

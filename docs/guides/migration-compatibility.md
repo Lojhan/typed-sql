@@ -12,6 +12,10 @@ description: Compare schema and query artifacts to find source, runtime, and rol
 
 The analyzer is offline and grammar-neutral. It does not apply migrations, contact a database, or require a particular migration framework. Existing tools continue to own migration ordering, locks, rollback, and production execution.
 
+Applications adopting compatibility artifacts from typed-sql v1 should first follow the
+[v1 upgrade guide](./upgrading-from-v1.md#adopt-compiler-and-ci-artifacts) so snapshots and manifests
+come from one coherent package set.
+
 ## Produce the four inputs
 
 Keep one snapshot and manifest from each application revision:

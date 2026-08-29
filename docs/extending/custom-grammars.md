@@ -141,6 +141,9 @@ Three versions have different responsibilities:
 
 Changing placeholder behavior, identifier rules, catalog interpretation, or inferred types requires a grammar-version change whenever an existing snapshot could be interpreted differently. The package version does not replace this explicit check.
 
+For the dialect v3 to v4 semantic boundary and its fail-closed migration path, see
+[Upgrade from typed-sql v1](../guides/upgrading-from-v1.md#upgrade-a-custom-grammar).
+
 ## Conformance kit
 
 `@typed-sql/conformance` is the executable compatibility contract for first- and third-party
