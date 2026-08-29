@@ -13,7 +13,20 @@ class VerificationPool implements MySql2LiveVerifierPool {
   released = 0;
   ended = false;
 
-  async query<Row extends Record<string, unknown>[]>(): Promise<readonly [Row, unknown]> {
+  async query<Row extends Record<string, unknown>[]>(sql: string): Promise<readonly [Row, unknown]> {
+    if (sql.includes("information_schema.columns")) {
+      return [
+        [
+          {
+            tableSchema: "app",
+            tableName: "users",
+            columnName: "status",
+            columnType: "enum('active','suspended')",
+          },
+        ] as unknown as Row,
+        [],
+      ];
+    }
     return [[{ version: "8.4.11", comment: "MySQL Community", sqlMode: "STRICT_TRANS_TABLES" }] as unknown as Row, []];
   }
 
@@ -26,6 +39,14 @@ class VerificationPool implements MySql2LiveVerifierPool {
             columns: [
               { name: "id", columnType: 8, flags: 1 },
               { name: "email", columnType: 253, flags: 0 },
+              {
+                name: "status",
+                orgName: "status",
+                orgTable: "users",
+                schema: "app",
+                columnType: 254,
+                flags: 1,
+              },
             ],
             parameters: [{ columnType: 8 }],
           },
@@ -53,15 +74,22 @@ await describe("MySQL live verification", async () => {
     strict.strictEqual(server.version, "8.4.11");
     const evidence = await verifier.verify({
       fingerprint: `sha256:${"a".repeat(64)}`,
-      sql: "SELECT id, email FROM users WHERE id = ?",
+      sql: "SELECT id, email, status FROM users WHERE id = ?",
       operation: "read",
     });
     strict.deepStrictEqual(evidence.columns, [
       { index: 1, name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
       { index: 2, name: "email", databaseType: "varchar", tsType: "string", nullable: true },
+      {
+        index: 3,
+        name: "status",
+        databaseType: "enum('active','suspended')",
+        tsType: '"active" | "suspended"',
+        nullable: false,
+      },
     ]);
     strict.deepStrictEqual(evidence.parameters, [{ index: 1, databaseType: "bigint", tsType: "bigint" }]);
-    strict.deepStrictEqual(pool.prepared, ["SELECT id, email FROM users WHERE id = ?"]);
+    strict.deepStrictEqual(pool.prepared, ["SELECT id, email, status FROM users WHERE id = ?"]);
     strict.strictEqual(pool.closed, 1);
     strict.strictEqual(pool.released, 1);
     await verifier.close();

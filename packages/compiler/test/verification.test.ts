@@ -153,6 +153,105 @@ await describe("live query verification", async () => {
     strict.ok(!serialized.includes("private"));
   });
 
+  await it("accepts literal parameter subsets without weakening result verification", async () => {
+    const value = fixture();
+    const compareParameterTypes = async (expected: string, actual: string) =>
+      verifyQueryManifest({
+        manifest: value.manifest,
+        candidates: [
+          {
+            ...value.candidates[0]!,
+            parameters: value.candidates[0]!.parameters.map((field) => ({ ...field, tsType: expected })),
+          },
+        ],
+        verifier: verifier({
+          async verify() {
+            return {
+              columns: [
+                { index: 1, databaseType: "bigint", tsType: "bigint" },
+                { index: 2, databaseType: "text", tsType: "string" },
+              ],
+              parameters: [{ index: 1, databaseType: "native", tsType: actual }],
+            };
+          },
+        }),
+      });
+    const literalParameter = {
+      ...value.candidates[0]!,
+      parameters: value.candidates[0]!.parameters.map((field) => ({
+        ...field,
+        tsType: '"active" | "suspended"',
+      })),
+    };
+    const accepted = await verifyQueryManifest({
+      manifest: value.manifest,
+      candidates: [literalParameter],
+      verifier: verifier({
+        async verify() {
+          return {
+            columns: [
+              { index: 1, databaseType: "bigint", tsType: "bigint" },
+              { index: 2, databaseType: "text", tsType: "string" },
+            ],
+            parameters: [{ index: 1, databaseType: "varchar", tsType: "string" }],
+          };
+        },
+      }),
+    });
+    strict.strictEqual(accepted.verified, 1);
+
+    const literalColumn = {
+      ...value.candidates[0]!,
+      columns: value.candidates[0]!.columns.map((field, index) =>
+        index === 1 ? { ...field, tsType: '"active" | "suspended"' } : field,
+      ),
+    };
+    const rejected = await verifyQueryManifest({
+      manifest: value.manifest,
+      candidates: [literalColumn],
+      verifier: verifier(),
+    });
+    strict.strictEqual(rejected.mismatched, 1);
+
+    const broadParameter = {
+      ...value.candidates[0]!,
+      parameters: value.candidates[0]!.parameters.map((field) => ({ ...field, tsType: "string" })),
+    };
+    const narrowNativeInput = await verifyQueryManifest({
+      manifest: value.manifest,
+      candidates: [broadParameter],
+      verifier: verifier({
+        async verify() {
+          return {
+            columns: [
+              { index: 1, databaseType: "bigint", tsType: "bigint" },
+              { index: 2, databaseType: "text", tsType: "string" },
+            ],
+            parameters: [{ index: 1, databaseType: "enum", tsType: '"active" | "suspended"' }],
+          };
+        },
+      }),
+    });
+    strict.strictEqual(narrowNativeInput.mismatched, 1);
+
+    for (const [expected, actual] of [
+      ['"pipe|value" | "escaped\\\\value"', "string"],
+      ["1 | -2.5 | 6e2", "number"],
+      ["1n | -2n", "bigint"],
+      ["true | false", "boolean"],
+      ["null | undefined", "null | undefined"],
+    ] as const) {
+      strict.strictEqual((await compareParameterTypes(expected, actual)).verified, 1, `${expected} -> ${actual}`);
+    }
+    for (const [expected, actual] of [
+      ["number", "1 | 2"],
+      ['{ readonly kind: "x|y" }', "string"],
+      [String.raw`"\q"`, "string"],
+    ] as const) {
+      strict.strictEqual((await compareParameterTypes(expected, actual)).mismatched, 1, `${expected} !-> ${actual}`);
+    }
+  });
+
   await it("bounds native concurrency and rejects stale or malformed proof", async () => {
     const value = fixture();
     const base = value.candidates[0]!;

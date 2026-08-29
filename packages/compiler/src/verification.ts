@@ -237,6 +237,66 @@ function normalizedType(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/gu, " ");
 }
 
+function topLevelUnionMembers(value: string): readonly string[] {
+  const members: string[] = [];
+  let start = 0;
+  let quote: '"' | "'" | undefined;
+  let escaped = false;
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index]!;
+    if (quote !== undefined) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === quote) quote = undefined;
+      continue;
+    }
+    if (char === '"' || char === "'") quote = char;
+    else if (char === "(" || char === "[" || char === "{") depth += 1;
+    else if (char === ")" || char === "]" || char === "}") depth = Math.max(0, depth - 1);
+    else if (char === "|" && depth === 0) {
+      members.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  members.push(value.slice(start).trim());
+  return members;
+}
+
+type PrimitiveType = "string" | "number" | "bigint" | "boolean" | "null" | "undefined";
+
+function primitiveType(member: string): PrimitiveType | undefined {
+  if (["string", "number", "bigint", "boolean", "null", "undefined"].includes(member)) {
+    return member as PrimitiveType;
+  }
+  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:e[+-]?\d+)?$/iu.test(member)) return "number";
+  if (/^-?(?:0|[1-9]\d*)n$/u.test(member)) return "bigint";
+  if (member === "true" || member === "false") return "boolean";
+  if (member.startsWith('"') && member.endsWith('"')) {
+    try {
+      return typeof JSON.parse(member) === "string" ? "string" : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/** Parameter metadata describes what the server accepts, so a compiler-side literal subset is safe. */
+function parameterTypeCompatible(expected: string, actual: string): boolean {
+  if (expected === actual) return true;
+  const accepted = topLevelUnionMembers(actual);
+  const supplied = topLevelUnionMembers(expected);
+  return (
+    supplied.length > 0 &&
+    supplied.every((member) =>
+      accepted.some(
+        (target) => member === target || (primitiveType(target) === target && primitiveType(member) === target),
+      ),
+    )
+  );
+}
+
 function compareField(
   target: "column" | "parameter",
   expected: QueryVerificationExpectedField,
@@ -254,7 +314,12 @@ function compareField(
     add("column-name", expected.name, actual.name);
   }
   if (expected.tsType !== "unknown" && actual.tsType !== undefined) {
-    if (expected.tsType !== actual.tsType) add("typescript-type", expected.tsType, actual.tsType);
+    if (
+      expected.tsType !== actual.tsType &&
+      (target !== "parameter" || !parameterTypeCompatible(expected.tsType, actual.tsType))
+    ) {
+      add("typescript-type", expected.tsType, actual.tsType);
+    }
   } else if (
     expected.databaseType !== undefined &&
     actual.databaseType !== undefined &&
