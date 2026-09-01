@@ -38,6 +38,7 @@ const expectedPublicDocs = [
   "docs/reference/api.md",
   "docs/reference/compatibility.md",
   "docs/reference/diagnostics.md",
+  "docs/reference/grammar-support.md",
   "docs/reference/type-mappings.md",
 ] as const;
 

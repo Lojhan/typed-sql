@@ -54,6 +54,13 @@ jobs:
       - run: pnpm e2e:postgres
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-conformance-postgres-${{ github.run_attempt }}
+          path: artifacts/conformance/postgres*.json
+          if-no-files-found: warn
+          retention-days: 14
 
   mysql-e2e:
     runs-on: ubuntu-latest
@@ -70,6 +77,13 @@ jobs:
       - run: pnpm e2e:mysql
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-conformance-mysql-${{ github.run_attempt }}
+          path: artifacts/conformance/mysql*.json
+          if-no-files-found: warn
+          retention-days: 14
 
   packed-real-databases:
     runs-on: ubuntu-latest
@@ -116,6 +130,100 @@ jobs:
       - run: node examples/e2e.mjs ${{ matrix.example }}
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - if: always() && matrix.example == 'sqlite'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-conformance-sqlite-${{ github.run_attempt }}
+          path: artifacts/conformance/sqlite*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  sqlite-node-matrix:
+    name: sqlite-node (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: node-22-minimum
+            node: 22.13.0
+          - label: node-22-current
+            node: 22.x
+          - label: node-24-current
+            node: 24.x
+          - label: node-26-current
+            node: 26.x
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @typed-sql/sqlite test
+      - run: >-
+          node scripts/sqlite-matrix-probe.mjs
+          --adapter node
+          --label ${{ matrix.label }}
+          --output artifacts/sqlite-matrix/${{ matrix.label }}.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-sqlite-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/sqlite-matrix/${{ matrix.label }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+  sqlite-language-matrix:
+    name: sqlite-language (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: sqlite-3.39.0-minimum
+            version: 3.39.0
+            url: https://www.sqlite.org/2022/sqlite-autoconf-3390000.tar.gz
+            sha3: b8e5b3265992350d40c4ad31efc2e6dec6256813f1d5acc8f0ea805e9f33ca2a
+            experimental: false
+          - label: sqlite-3.53.4-latest
+            version: 3.53.4
+            url: https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz
+            sha3: 454e45f61c6bd75b7420e7190732dea03ce6639c63ada47bbc592f67fc340338
+            experimental: false
+          - label: sqlite-3.54.0-canary
+            version: 3.54.0
+            url: https://www.sqlite.org/snapshot/sqlite-snapshot-202607312245.tar.gz
+            sha3: f7487e5c39a4b89f87d3ddee618c25c65278987b98d30ebc2a8b6bb4e277065a
+            experimental: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+      - run: >-
+          node scripts/build-sqlite-matrix.mjs
+          --url ${{ matrix.url }}
+          --sha3 ${{ matrix.sha3 }}
+          --version ${{ matrix.version }}
+          --output artifacts/sqlite-matrix/bin/${{ matrix.label }}/sqlite3
+      - run: >-
+          node scripts/sqlite-matrix-probe.mjs
+          --adapter cli
+          --label ${{ matrix.label }}
+          --executable artifacts/sqlite-matrix/bin/${{ matrix.label }}/sqlite3
+          --output artifacts/sqlite-matrix/${{ matrix.label }}.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-sqlite-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/sqlite-matrix/${{ matrix.label }}.json
+          if-no-files-found: warn
+          retention-days: 14
 
   editor-artifacts:
     runs-on: ubuntu-latest

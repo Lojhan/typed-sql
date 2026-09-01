@@ -57,7 +57,7 @@ try {
 }
 ```
 
-### SQLite preview
+### SQLite
 
 ```ts
 import { sql, typePolicy } from "@typed-sql/sqlite";

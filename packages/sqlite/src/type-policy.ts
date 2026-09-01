@@ -1,6 +1,8 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { type SqliteAffinity, sqliteAffinity } from "./catalog/coercions.js";
 
-export type SqliteAffinity = "integer" | "text" | "blob" | "real" | "numeric";
+export type { SqliteAffinity };
+export { sqliteAffinity };
 
 export interface SqliteTypePolicy {
   readonly integer: "bigint" | "number";
@@ -13,15 +15,6 @@ export const defaultSqliteTypePolicy: SqliteTypePolicy = Object.freeze({
   flexible: "union",
   unknown: "unknown",
 });
-
-export function sqliteAffinity(databaseType: string): SqliteAffinity {
-  const type = databaseType.trim().toUpperCase();
-  if (type.includes("INT")) return "integer";
-  if (type.includes("CHAR") || type.includes("CLOB") || type.includes("TEXT")) return "text";
-  if (type.length === 0 || type.includes("BLOB")) return "blob";
-  if (type.includes("REAL") || type.includes("FLOA") || type.includes("DOUB")) return "real";
-  return "numeric";
-}
 
 export function isKnownStrictSqliteType(databaseType: string): boolean {
   return ["ANY", "BLOB", "INT", "INTEGER", "REAL", "TEXT"].includes(databaseType.trim().toUpperCase());

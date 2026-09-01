@@ -1,7 +1,8 @@
 import { describe, it, strict } from "poku";
-import { parseSelect, parseStatement } from "../../ast/src/index.js";
 import { rowTypeLiteral } from "../../core/src/index.js";
-import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
+import { postgresServerEvidence } from "../src/capabilities.js";
+import { parseSelect, parseStatement } from "../src/parser/index.js";
 import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
 const schema = {
@@ -25,6 +26,26 @@ const schema = {
     },
   },
 } as const satisfies SchemaSnapshot;
+
+const v2Schema = (() => {
+  const upgraded = upgradeSchemaSnapshotV1(schema);
+  const users = upgraded.relations.users!;
+  return {
+    ...upgraded,
+    relations: {
+      ...upgraded.relations,
+      users: {
+        ...users,
+        columns: {
+          ...users.columns,
+          id: { ...users.columns.id!, default: "present", identity: "always", insertable: false, updatable: false },
+          name: { ...users.columns.name!, default: "none", identity: "none", insertable: true, updatable: true },
+          age: { ...users.columns.age!, default: "none", identity: "none", insertable: true, updatable: false },
+        },
+      },
+    },
+  } as const satisfies SchemaSnapshot;
+})();
 
 await describe("query resolver", async () => {
   await it("infers the acceptance row and cast policy", async () => {
@@ -210,6 +231,7 @@ await describe("query resolver", async () => {
              label_for(u.id) AS computed,
              mystery(u.id) AS unsupported
       FROM users u RIGHT JOIN ages a ON u.id = a.user_id
+      GROUP BY u.id, a.label
     `),
       functions,
     );
@@ -322,6 +344,245 @@ await describe("query resolver", async () => {
     strict.ok(mismatch.diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"));
   });
 
+  await it("uses v2 write eligibility and required-column evidence without changing v1 behavior", () => {
+    const invalidInsert = resolveStatement(parseStatement("INSERT INTO users (id) VALUES (1)"), v2Schema);
+    strict.deepStrictEqual(
+      invalidInsert.diagnostics.map(({ code }) => code),
+      ["TSQ218", "TSQ219"],
+    );
+    const invalidUpdate = resolveStatement(parseStatement("UPDATE users SET age = 1"), v2Schema);
+    strict.ok(invalidUpdate.diagnostics.some(({ code }) => code === "TSQ218"));
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("INSERT INTO users (id) VALUES (1)"), schema).diagnostics,
+      [],
+    );
+  });
+
+  await it("uses v2 primary-key evidence for PostgreSQL grouping functional dependencies", () => {
+    const users = v2Schema.relations.users!;
+    const primarySchema = {
+      ...v2Schema,
+      relations: {
+        ...v2Schema.relations,
+        users: {
+          ...users,
+          columns: {
+            ...users.columns,
+            age: { ...users.columns.age!, updatable: true },
+          },
+          constraints: [
+            {
+              kind: "primary-key",
+              identity: "users_pkey",
+              columns: ["id"],
+              partial: false,
+              expressionBased: false,
+              deferrable: false,
+              initiallyDeferred: false,
+              nullsDistinct: false,
+            },
+          ],
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const dependent = resolveSelect(
+      parseSelect("SELECT id, name, COUNT(*) AS total FROM users GROUP BY id"),
+      primarySchema,
+    );
+    strict.deepStrictEqual(dependent.diagnostics, []);
+    const omittedKey = resolveSelect(
+      parseSelect("SELECT name, COUNT(*) AS total FROM users GROUP BY GROUPING SETS ((id), ())"),
+      primarySchema,
+    );
+    strict.ok(omittedKey.diagnostics.some(({ code }) => code === "TSQ228"));
+  });
+
+  await it("uses snapshot v2 table-returning routine shapes in function relations", () => {
+    const routineSchema = {
+      ...v2Schema,
+      routines: {
+        "public.list_users()": [
+          {
+            name: "list_users",
+            schema: "public",
+            identity: "public.list_users()",
+            kind: "function",
+            arguments: [],
+            result: {
+              kind: "table",
+              columns: {
+                id: {
+                  name: "id",
+                  position: 1,
+                  typeIdentity: "pg_catalog.int4",
+                  databaseType: "integer",
+                  tsType: "number",
+                  nullable: false,
+                  nullabilitySource: "declared",
+                  default: "none",
+                  generated: "none",
+                  identity: "none",
+                  classification: "normal",
+                  insertable: false,
+                  updatable: false,
+                },
+                name: {
+                  name: "name",
+                  position: 2,
+                  typeIdentity: "pg_catalog.text",
+                  databaseType: "text",
+                  tsType: "string",
+                  nullable: true,
+                  nullabilitySource: "declared",
+                  default: "none",
+                  generated: "none",
+                  identity: "none",
+                  classification: "normal",
+                  insertable: false,
+                  updatable: false,
+                },
+              },
+            },
+            volatility: "stable",
+            deterministic: "unknown",
+            dataAccess: "reads-sql",
+            nullInput: "called",
+          },
+        ],
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect("SELECT listed.id, listed.name FROM public.list_users() AS listed"),
+      routineSchema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ tsType, nullable }) => ({ tsType, nullable })),
+      [
+        { tsType: "number", nullable: false },
+        { tsType: "string", nullable: true },
+      ],
+    );
+  });
+
+  await it("resolves PostgreSQL conflict namespaces, identity overriding, MERGE, and v18 RETURNING aliases", () => {
+    const users = v2Schema.relations.users!;
+    const dmlSchema = {
+      ...v2Schema,
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+      relations: {
+        ...v2Schema.relations,
+        users: {
+          ...users,
+          constraints: [
+            {
+              kind: "primary-key",
+              identity: "users_pkey",
+              columns: ["id"],
+              partial: false,
+              expressionBased: false,
+              deferrable: false,
+              initiallyDeferred: false,
+              nullsDistinct: false,
+            },
+          ],
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+
+    const conflict = resolveStatement(
+      parseStatement(`
+        INSERT INTO users (id, name, age) OVERRIDING SYSTEM VALUE
+        VALUES ($1, $2, $3)
+        ON CONFLICT (id) DO UPDATE
+          SET name = excluded.name
+          WHERE users.id = excluded.id
+        RETURNING WITH (OLD AS previous, NEW AS current)
+          previous.name AS old_name, current.name AS new_name
+      `),
+      dmlSchema,
+    );
+    strict.deepStrictEqual(conflict.diagnostics, []);
+    strict.deepStrictEqual(
+      conflict.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "number" },
+        { index: 2, tsType: "string" },
+        { index: 3, tsType: "number" },
+      ],
+    );
+    strict.deepStrictEqual(
+      conflict.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
+      [
+        { name: "old_name", tsType: "string", nullable: true },
+        { name: "new_name", tsType: "string", nullable: false },
+      ],
+    );
+
+    const merge = resolveStatement(
+      parseStatement(`
+        MERGE INTO users AS target
+        USING ages AS source
+        ON target.id = source.user_id
+        WHEN MATCHED THEN UPDATE SET name = source.label
+        WHEN NOT MATCHED BY TARGET THEN
+          INSERT (name, age) VALUES (source.label, $1)
+        WHEN NOT MATCHED BY SOURCE THEN DELETE
+        RETURNING merge_action() AS action, target.id
+      `),
+      dmlSchema,
+    );
+    strict.deepStrictEqual(merge.diagnostics, []);
+    strict.deepStrictEqual(
+      merge.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [{ index: 1, tsType: "number" }],
+    );
+    strict.deepStrictEqual(
+      merge.columns.map(({ name, tsType }) => ({ name, tsType })),
+      [
+        { name: "action", tsType: "string" },
+        { name: "id", tsType: "number" },
+      ],
+    );
+
+    const postgres16 = {
+      ...dmlSchema,
+      server: postgresServerEvidence("16.15", [], { standardConformingStrings: "on" }),
+    };
+    strict.ok(
+      resolveStatement(
+        parseStatement(
+          "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN MATCHED THEN DO NOTHING RETURNING u.id",
+        ),
+        postgres16,
+      ).diagnostics.some(({ code }) => code === "TSQ403"),
+    );
+
+    for (const invalid of [
+      "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT DO UPDATE SET name = excluded.name",
+      "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT ON CONSTRAINT missing DO NOTHING",
+      "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT ((name)) WHERE age > 0 DO NOTHING",
+      "UPDATE users SET (name, name) = ROW($1)",
+      "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN NOT MATCHED THEN UPDATE SET name = a.label",
+      "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN NOT MATCHED THEN DELETE",
+      "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN MATCHED THEN DO NOTHING WHEN MATCHED THEN DELETE",
+      "MERGE INTO users u USING (VALUES (1), (2, 'extra')) AS source(id) ON u.id = source.id WHEN MATCHED THEN DO NOTHING",
+    ]) {
+      strict.ok(resolveStatement(parseStatement(invalid), dmlSchema).diagnostics.length > 0, invalid);
+    }
+    strict.ok(
+      resolveSelect(parseSelect("SELECT merge_action() AS action"), dmlSchema).diagnostics.some(
+        ({ code }) => code === "TSQ227",
+      ),
+    );
+    strict.ok(
+      resolveStatement(
+        parseStatement("UPDATE users SET name = 'Ada' RETURNING WITH (OLD AS before) before.name"),
+        postgres16,
+      ).diagnostics.some(({ code }) => code === "TSQ403"),
+    );
+  });
+
   await it("resolves arrays, JSON operators, filtered windows, and exact overloads", () => {
     const richSchema = {
       ...schema,
@@ -384,12 +645,13 @@ await describe("query resolver", async () => {
     );
   });
 
-  await it("fails recursive CTEs and ambiguous overloads safely", () => {
+  await it("accepts the recursive keyword and fails ambiguous overloads safely", () => {
     const recursive = resolveStatement(
       parseStatement("WITH RECURSIVE n(value) AS (SELECT 1 AS value) SELECT value FROM n"),
       schema,
     );
-    strict.strictEqual(recursive.diagnostics[0]?.code, "TSQ210");
+    strict.deepStrictEqual(recursive.diagnostics, []);
+    strict.strictEqual(recursive.columns[0]?.tsType, "number");
     const overloaded = resolveSelect(parseSelect("SELECT mystery($1) AS value"), {
       ...schema,
       functions: {

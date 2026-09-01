@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { QueryCancelledError } from "@typed-sql/core";
-import { sql, typePolicy } from "@typed-sql/mysql";
+import { mysql, sql, typePolicy } from "@typed-sql/mysql";
 import { createMySql2Database } from "@typed-sql/mysql/mysql2";
 import { describe, it, strict } from "poku";
 import { loadAccountWorkspace } from "../src/batches.js";
@@ -116,7 +116,9 @@ try {
     });
 
     await it("routes proven reads with the grammar snapshot and emits redacted observations", async () => {
-      const snapshot = JSON.parse(await readFile(new URL("../generated/db/schema.json", import.meta.url), "utf8"));
+      const snapshot = mysql().validateSnapshot(
+        JSON.parse(await readFile(new URL("../generated/db/schema.json", import.meta.url), "utf8")),
+      );
       const replica = await createMySql2Database({ connectionUri, typePolicy, observer: operationLog.observer });
       try {
         const routed = createAccountRouter(database, [replica], snapshot).context();

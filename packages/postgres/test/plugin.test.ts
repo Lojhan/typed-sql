@@ -1,5 +1,14 @@
+import { resolveDialectCapabilityStates } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { defaultPostgresTypePolicy, type PostgresSchemaSnapshot, postgres, sql, typePolicy } from "../src/index.js";
+import {
+  defaultPostgresTypePolicy,
+  POSTGRES_SUPPORT_POLICY,
+  type PostgresSchemaSnapshot,
+  postgres,
+  postgresVersionSupport,
+  sql,
+  typePolicy,
+} from "../src/index.js";
 
 const schema = {
   formatVersion: 1,
@@ -24,6 +33,104 @@ const schema = {
 } as const satisfies PostgresSchemaSnapshot;
 
 await describe("PostgreSQL dialect plugin", async () => {
+  await it("freezes the upstream-supported major, exact minor, canary, and deprecation policy", () => {
+    strict.deepStrictEqual(POSTGRES_SUPPORT_POLICY.stableMajors, [14, 15, 16, 17, 18]);
+    strict.deepStrictEqual(POSTGRES_SUPPORT_POLICY.matrixMinors, {
+      14: "14.24",
+      15: "15.19",
+      16: "16.15",
+      17: "17.11",
+      18: "18.6",
+    });
+    strict.deepStrictEqual(POSTGRES_SUPPORT_POLICY.canary, { major: 19, version: "19beta3" });
+    strict.strictEqual(POSTGRES_SUPPORT_POLICY.deprecation.noticeBeforeUpstreamEolDays, 90);
+    strict.strictEqual(POSTGRES_SUPPORT_POLICY.deprecation.removal, "first-typed-sql-minor-after-upstream-eol");
+    strict.strictEqual(postgresVersionSupport("14.24"), "supported");
+    strict.strictEqual(postgresVersionSupport("18.6"), "supported");
+    strict.strictEqual(postgresVersionSupport("13.23"), "below-supported");
+    strict.strictEqual(postgresVersionSupport("19beta3"), "prerelease");
+    strict.strictEqual(postgresVersionSupport("19beta3", "canary"), "canary");
+    strict.strictEqual(postgresVersionSupport("20devel", "canary"), "prerelease");
+    strict.strictEqual(postgresVersionSupport("20"), "newer-than-tested");
+    strict.strictEqual(postgresVersionSupport("development"), "unknown");
+    strict.ok(Object.isFrozen(POSTGRES_SUPPORT_POLICY));
+    strict.ok(Object.isFrozen(POSTGRES_SUPPORT_POLICY.matrixMinors));
+  });
+
+  await it("resolves exact capabilities only inside the tested PostgreSQL support band", () => {
+    const dialect = postgres();
+    const exact = resolveDialectCapabilityStates(dialect, {
+      ...schema,
+      version: "18.6",
+      server: {
+        product: "postgres",
+        version: "18.6",
+        versionKey: "18",
+        features: ["plpgsql:1.0"],
+        settings: { standardConformingStrings: "on" },
+      },
+    });
+    strict.strictEqual(exact.returning?.level, "exact");
+    strict.ok(exact.returning?.evidence.some(({ kind, key }) => kind === "feature" && key === "plpgsql:1.0"));
+    strict.strictEqual(dialect.resolveCapabilities?.(schema).returning?.level, "conservative");
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "postgres",
+          version: "13.9",
+          versionKey: "13",
+          features: [],
+          settings: { standardConformingStrings: "on" },
+        },
+      }).returning?.diagnostic,
+      "TSQ403",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "postgres",
+          version: "14.0",
+          versionKey: "14",
+          features: [],
+          settings: { standardConformingStrings: "on" },
+        },
+      }).returning?.level,
+      "exact",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "postgres",
+          version: "18.6",
+          versionKey: "18",
+          features: [],
+          settings: { standardConformingStrings: "off" },
+        },
+      }).returning?.diagnostic,
+      "TSQ407",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({ ...schema, version: "19beta1" }).returning?.level,
+      "conservative",
+    );
+    strict.strictEqual(
+      postgres({ versionPolicy: "canary" }).resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "postgres",
+          version: "19beta1",
+          versionKey: "19",
+          features: [],
+          settings: { standardConformingStrings: "on" },
+        },
+      }).returning?.level,
+      "exact",
+    );
+  });
+
   await it("validates snapshots and delegates analysis", () => {
     const dialect = postgres();
     strict.strictEqual(dialect.id, "postgres");
@@ -43,6 +150,34 @@ await describe("PostgreSQL dialect plugin", async () => {
     strict.throws(
       () => dialect.validateSnapshot({ ...schema, dialectVersion: "999" }),
       /cannot use snapshot dialectVersion 999/,
+    );
+    strict.throws(
+      () =>
+        dialect.validateSnapshot({
+          ...schema,
+          server: {
+            product: "postgres",
+            version: "18.6",
+            versionKey: "18",
+            features: [],
+            settings: { applicationName: "unsafe" },
+          },
+        }),
+      /non-allowlisted/u,
+    );
+    strict.throws(
+      () =>
+        dialect.validateSnapshot({
+          ...schema,
+          server: {
+            product: "postgres",
+            version: "18.6",
+            versionKey: "17",
+            features: [],
+            settings: { standardConformingStrings: "on" },
+          },
+        }),
+      /versionKey must match/u,
     );
   });
 

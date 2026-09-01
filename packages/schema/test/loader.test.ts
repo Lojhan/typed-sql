@@ -16,6 +16,13 @@ const fullSnapshot = {
   dialect: "postgres",
   dialectVersion: "0.2.0",
   version: "18.6",
+  server: {
+    product: "postgres",
+    version: "18.6",
+    versionKey: "18.6",
+    features: [],
+    settings: {},
+  },
   tables: {
     users: {
       schema: "public",
@@ -102,7 +109,24 @@ await describe("schema snapshot loader", async () => {
       [{ dialect: "", tables: {} }, /schema.dialect/],
       [{ dialect: "oracle", dialectVersion: 1, tables: {} }, /schema.dialectVersion/],
       [{ dialect: "postgres", tables: [] }, /schema.tables/],
-      [{ dialect: "postgres", tables: {}, formatVersion: 2 }, /formatVersion/],
+      [{ dialect: "postgres", tables: {}, formatVersion: 3 }, /formatVersion/],
+      [
+        {
+          dialect: "postgres",
+          version: "18.6",
+          server: { product: "postgres", version: "18.5", versionKey: "18.5", features: [], settings: {} },
+          tables: {},
+        },
+        /schema.version must match schema.server.version/u,
+      ],
+      [
+        {
+          dialect: "postgres",
+          server: { product: "postgres", version: "18.6", versionKey: "18.6", features: [], settings: { token: "x" } },
+          tables: {},
+        },
+        /secret connection material/u,
+      ],
       [{ dialect: "postgres", tables: { users: null } }, /users must be an object/],
       [{ dialect: "postgres", tables: { users: { columns: {} } } }, /users.name/],
       [{ dialect: "postgres", tables: { users: { name: "users", schema: 1, columns: {} } } }, /users.schema/],
@@ -261,7 +285,9 @@ await describe("schema snapshot loader", async () => {
         /volatility/,
       ],
     ];
-    for (const [input, expected] of failures) strict.throws(() => parseSchemaSnapshot(input), expected);
+    for (const [input, expected] of failures) {
+      strict.throws(() => parseSchemaSnapshot(input), expected, JSON.stringify(input));
+    }
   });
 
   await it("validates generated metadata and every policy field", async () => {

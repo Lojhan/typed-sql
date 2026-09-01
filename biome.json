@@ -16,6 +16,7 @@
       "!!**/target",
       "!!**/coverage",
       "!!artifacts",
+      "!!packages/postgres/src/catalog/generated",
       "!!e2e/*/generated",
       "!!examples/**/generated"
     ]

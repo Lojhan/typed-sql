@@ -90,6 +90,7 @@ export default defineConfig({
         text: "Reference",
         items: [
           { text: "Query API", link: "/reference/api" },
+          { text: "Grammar support", link: "/reference/grammar-support" },
           { text: "Compatibility", link: "/reference/compatibility" },
           { text: "Type mappings", link: "/reference/type-mappings" },
           { text: "Diagnostics", link: "/reference/diagnostics" },

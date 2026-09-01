@@ -117,6 +117,9 @@ export interface QueryVerificationProof {
   readonly verifierVersion: typeof QUERY_VERIFIER_VERSION;
   readonly adapterVersion: string;
   readonly dialect: string;
+  /** Additive binding to the schema contract and its canonical content. */
+  readonly schemaFormat?: 1 | 2;
+  readonly schemaHash?: string;
   readonly manifestHash: string;
   readonly cacheKey: string;
   readonly server: LiveQueryVerificationServer;
@@ -536,6 +539,8 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
     verifierVersion: QUERY_VERIFIER_VERSION,
     adapterVersion: options.verifier.adapterVersion,
     dialect: options.verifier.dialect,
+    ...(options.manifest.schemaFormat === undefined ? {} : { schemaFormat: options.manifest.schemaFormat }),
+    schemaHash: options.manifest.schemaHash,
     manifestHash,
     cacheKey,
     server,
@@ -616,6 +621,15 @@ export function parseQueryVerificationProof(value: unknown): QueryVerificationPr
   }
   fingerprint(value.manifestHash, "Query verification manifestHash");
   fingerprint(value.cacheKey, "Query verification cacheKey");
+  if (value.schemaFormat !== undefined && value.schemaFormat !== 1 && value.schemaFormat !== 2) {
+    throw new TypeError("Query verification proof schemaFormat must be 1 or 2");
+  }
+  if (
+    value.schemaHash !== undefined &&
+    (typeof value.schemaHash !== "string" || !/^[a-f\d]{64}$/u.test(value.schemaHash))
+  ) {
+    throw new TypeError("Query verification schemaHash must be a SHA-256 hash");
+  }
   if (
     !record(value.server) ||
     typeof value.server.version !== "string" ||
@@ -688,6 +702,12 @@ export function assertQueryVerificationProofCurrent(
   const manifestHash = `sha256:${sha256(serializeQueryManifest(manifest))}`;
   if (proof.manifestHash !== manifestHash) throw new TypeError("Query verification proof is stale for this manifest");
   if (proof.dialect !== manifest.dialect.id) throw new TypeError("Query verification proof dialect is stale");
+  if (proof.schemaFormat !== undefined && proof.schemaFormat !== manifest.schemaFormat) {
+    throw new TypeError("Query verification proof schema format is stale");
+  }
+  if (proof.schemaHash !== undefined && proof.schemaHash !== manifest.schemaHash) {
+    throw new TypeError("Query verification proof schema hash is stale");
+  }
   if (
     verifier !== undefined &&
     (proof.dialect !== verifier.dialect || proof.adapterVersion !== verifier.adapterVersion)

@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 10,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -20,6 +20,8 @@
     "compiler.correlatedConditions": { "p50": 5, "p95": 10 },
     "compiler.independentConditions": { "p50": 10, "p95": 25 },
     "compiler.structuralLimit": { "p50": 5, "p95": 10 },
+    "conformance.v2StaticCorpus": { "p50": 15, "p95": 30 },
+    "parser.ownedLargeQuery": { "p50": 12, "p95": 30 },
     "editor.coldAnalysis": { "p50": 75, "p95": 150 },
     "editor.incrementalAnalysis": { "p50": 30, "p95": 75 },
     "editor.unchangedAnalysis": { "p50": 0.5, "p95": 1 },
@@ -28,10 +30,12 @@
   },
   "throughput": {
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
+    "parser.toolkitTokens": { "minimumTokensPerSecond": 500000 },
     "routing.semanticCacheHit": { "minimumOperationsPerSecond": 250000 }
   },
   "memory": {
-    "editor.retainedHeapMiB": { "maximum": 16 }
+    "editor.retainedHeapMiB": { "maximum": 16 },
+    "parser.astBytesPerParse": { "maximum": 524288 }
   },
   "overrides": {
     "githubActions": {

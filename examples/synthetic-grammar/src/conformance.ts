@@ -9,6 +9,8 @@ const snapshot = {
   formatVersion: 1,
   dialect: "synthetic",
   dialectVersion: "1.0.0",
+  version: "1.0.0",
+  server: { product: "synthetic", version: "1.0.0", versionKey: "1", features: [], settings: {} },
   tables: {
     widgets: {
       name: "widgets",

@@ -737,4 +737,103 @@ await describe("core contracts", async () => {
     strict.strictEqual(closestName("x", ["accounts"]), undefined);
     strict.strictEqual(closestName("users", []), undefined);
   });
+
+  await it("indexes v2 relation, uniqueness, DML, and routine evidence without dialect semantics", () => {
+    const table = {
+      schema: "app",
+      name: "users",
+      columns: {
+        id: { name: "id", databaseType: "int", tsType: "number", nullable: false },
+        email: { name: "email", databaseType: "text", tsType: "string", nullable: false },
+      },
+    } as const;
+    const snapshot: SchemaSnapshot = {
+      formatVersion: 2,
+      dialect: "test",
+      tables: { users: table },
+      relations: {
+        users: {
+          schema: "app",
+          name: "users",
+          kind: "table",
+          columns: {
+            id: {
+              name: "id",
+              position: 0,
+              databaseType: "int",
+              typeIdentity: "test:int",
+              tsType: "number",
+              nullable: false,
+              default: "present",
+              generated: "none",
+              identity: "by-default",
+              insertable: true,
+              updatable: true,
+            },
+            email: {
+              name: "email",
+              position: 1,
+              databaseType: "text",
+              typeIdentity: "test:text",
+              tsType: "string",
+              nullable: false,
+              default: "none",
+              generated: "none",
+              identity: "none",
+              insertable: true,
+              updatable: false,
+            },
+          },
+          constraints: [
+            {
+              kind: "primary-key",
+              identity: "users-pkey",
+              columns: ["id"],
+              partial: false,
+              expressionBased: false,
+              nullsDistinct: false,
+            },
+            {
+              kind: "unique",
+              identity: "users-email-partial",
+              columns: ["email"],
+              partial: true,
+              expressionBased: false,
+              nullsDistinct: true,
+            },
+          ],
+        },
+      },
+      routines: {
+        "app.lookup": [
+          {
+            name: "lookup",
+            schema: "app",
+            identity: "lookup-int",
+            kind: "function",
+            arguments: [{ mode: "in", databaseType: "int", tsType: "number" }],
+            result: { kind: "scalar", databaseType: "text", tsType: "string", nullable: false },
+            volatility: "stable",
+          },
+        ],
+      },
+    };
+    const index = new ResolverSchemaIndex(snapshot);
+    strict.deepStrictEqual(index.uniqueColumnSets(table), [["id"]]);
+    strict.strictEqual(index.isUnique(table, ["ID"]), true);
+    strict.strictEqual(index.isUnique(table, ["email"]), false);
+    strict.strictEqual(index.columnEligibility(table, table.columns.email, "update"), false);
+    const required = index.requiredInsertColumns(table);
+    if (required === "unknown") throw new Error("expected v2 insert evidence");
+    strict.deepStrictEqual(
+      required.map(({ name }) => name),
+      ["email"],
+    );
+    strict.strictEqual(index.functions("lookup", 1, "app")[0]?.returnType, "string");
+    strict.strictEqual(index.routineOverloads("lookup", 1, "APP")[0]?.identity, "lookup-int");
+
+    const legacy = new ResolverSchemaIndex({ formatVersion: 1, dialect: "test", tables: { users: table } });
+    strict.strictEqual(legacy.isUnique(table, ["id"]), "unknown");
+    strict.strictEqual(legacy.requiredInsertColumns(table), "unknown");
+  });
 });

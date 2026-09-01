@@ -39,5 +39,7 @@
   "exports": {
     ".": "./dist/packages/schema/src/index.js"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@typed-sql/core": "workspace:*"
+  }
 }

@@ -1,3 +1,5 @@
+import { ParameterCollector, type ResolvedParameter, ResolverSchemaIndex, unionTypeLiterals } from "@typed-sql/core";
+import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
 import type {
   CallExpression,
   Expression,
@@ -9,9 +11,7 @@ import type {
   Statement,
   TableReference,
   WithClause,
-} from "@typed-sql/ast";
-import { ParameterCollector, type ResolvedParameter, ResolverSchemaIndex, unionTypeLiterals } from "@typed-sql/core";
-import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+} from "./parser/index.js";
 import { defaultMySqlTypePolicy, isKnownMySqlType, type MySqlTypePolicy, mapMySqlType } from "./type-policy.js";
 
 interface ResolvedType {
@@ -134,6 +134,23 @@ class Resolver {
         statement.columns.length === 0
           ? Object.values(target?.table.columns ?? {})
           : statement.columns.map((column) => this.#findColumn(target?.table, column));
+      if (target !== undefined && statement.columns.length > 0) {
+        statement.columns.forEach((identifier, index) => {
+          const column = targets[index];
+          if (column !== undefined && this.#index.columnEligibility(target.table, column, "insert") === false) {
+            this.#diagnostic("TSQ218", `Cannot INSERT into non-insertable column ${column.name}`, identifier.range);
+          }
+        });
+        const supplied = new Set(statement.columns.map((column) => name(column).toLowerCase()));
+        const required = this.#index.requiredInsertColumns(target.table);
+        if (required !== "unknown") {
+          for (const column of required) {
+            if (!supplied.has(column.name.toLowerCase())) {
+              this.#diagnostic("TSQ219", `INSERT omits required column ${column.name}`, statement.table.range);
+            }
+          }
+        }
+      }
       if (statement.source.kind === "values") {
         for (const row of statement.source.rows) {
           if (row.length !== targets.length)
@@ -154,6 +171,8 @@ class Resolver {
             `INSERT has ${targets.length} target columns but SELECT returns ${selected.columns.length}`,
             statement.source.range,
           );
+      } else {
+        this.#unsupported("MySQL does not support INSERT DEFAULT VALUES", statement.source.range);
       }
       if (statement.returning.length > 0)
         this.#unsupported("MySQL does not support INSERT RETURNING", statement.returning[0]!.range);
@@ -162,9 +181,19 @@ class Resolver {
     if (statement.kind === "update") {
       for (const assignment of statement.assignments) {
         const column = this.#findColumn(target?.table, assignment.column);
+        if (
+          target !== undefined &&
+          column !== undefined &&
+          this.#index.columnEligibility(target.table, column, "update") === false
+        ) {
+          this.#diagnostic("TSQ218", `Cannot UPDATE non-updatable column ${column.name}`, assignment.column.range);
+        }
         this.#expression(assignment.value, scope, ctes, this.#snapshotType(column));
       }
-      if (statement.from !== undefined) this.#relation(statement.from, false, scope, ctes);
+      if (statement.from !== undefined) {
+        this.#unsupported("MySQL does not support PostgreSQL-style UPDATE FROM", statement.from.range);
+        this.#relation(statement.from, false, scope, ctes);
+      }
       for (const join of statement.joins) this.#join(join, scope, ctes);
       if (statement.where !== undefined)
         this.#expression(statement.where, scope, ctes, this.#databaseType("boolean", false));

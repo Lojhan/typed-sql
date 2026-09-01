@@ -1,5 +1,11 @@
-import { parseStatement, SqlParseError } from "@typed-sql/ast";
-import { DIALECT_CONTRACT_VERSION, type DialectPlugin, unknownQuerySemantics } from "@typed-sql/core";
+import {
+  applyDialectCapabilityStates,
+  DIALECT_CONTRACT_VERSION,
+  type DialectPlugin,
+  unknownQuerySemantics,
+} from "@typed-sql/core";
+import { assertSqliteServerEvidence, resolveSqliteCapabilities, SQLITE_CAPABILITIES } from "./capabilities.js";
+import { parseStatement, SqlParseError } from "./parser/index.js";
 import { resolveSqliteStatement } from "./resolver.js";
 import { analyzeSqliteSemantics } from "./semantics.js";
 import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot } from "./snapshot.js";
@@ -10,18 +16,6 @@ export interface SqliteDialectOptions {
   readonly typePolicy?: SqliteTypePolicy;
 }
 
-const capabilities = Object.freeze({
-  aggregateFilter: true,
-  arrays: false,
-  distinctOn: false,
-  fullJoins: true,
-  lockingReads: false,
-  recursiveCtes: false,
-  returning: true,
-  setOperations: true,
-  strictTables: true,
-});
-
 export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<SqliteSchemaSnapshot, SqliteTypePolicy> {
   const defaultTypePolicy = options.typePolicy ?? defaultSqliteTypePolicy;
   return Object.freeze({
@@ -29,7 +23,8 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
     id: "sqlite",
     grammarVersion: SQLITE_DIALECT_VERSION,
     sqlModule: "@typed-sql/sqlite",
-    capabilities,
+    capabilities: SQLITE_CAPABILITIES,
+    resolveCapabilities: resolveSqliteCapabilities,
     defaultTypePolicy,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("SQLite parameter indexes start at 1");
@@ -40,14 +35,15 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
     },
     analyze(sql: string, snapshot: SqliteSchemaSnapshot, policy = defaultTypePolicy) {
       try {
-        const statement = parseStatement(sql, { syntax: "sqlite" });
+        const statement = parseStatement(sql);
         const resolved = resolveSqliteStatement(statement, snapshot, { typePolicy: policy });
-        return {
+        const analysis = {
           ...resolved,
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
             ? unknownQuerySemantics(statement.range, "SQLite semantic analysis reported an error.")
             : analyzeSqliteSemantics(statement, snapshot),
         };
+        return applyDialectCapabilityStates(analysis, resolveSqliteCapabilities(snapshot), statement.range);
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
         return {
@@ -60,6 +56,10 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
     },
     validateSnapshot(value: unknown) {
       const snapshot = parseSqliteSchemaSnapshot(value);
+      if (snapshot.server !== undefined && snapshot.server.product !== "sqlite") {
+        throw new TypeError(`@typed-sql/sqlite cannot use ${snapshot.server.product} server evidence`);
+      }
+      if (snapshot.server !== undefined) assertSqliteServerEvidence(snapshot.server);
       if (snapshot.dialectVersion !== undefined && snapshot.dialectVersion !== SQLITE_DIALECT_VERSION) {
         throw new TypeError(
           `@typed-sql/sqlite grammar ${SQLITE_DIALECT_VERSION} cannot use snapshot dialectVersion ${snapshot.dialectVersion}`,
@@ -72,7 +72,14 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
 
 export { sql } from "@typed-sql/core";
 export type { FunctionSnapshot, SchemaSnapshot } from "@typed-sql/schema";
-export type { SqliteQueryable, SqliteSchemaProviderOptions } from "./provider.js";
+export { resolveSqliteCapabilities, sqliteServerEvidence } from "./capabilities.js";
+export type {
+  SqliteQueryable,
+  SqliteRoutineArgumentDeclaration,
+  SqliteRoutineDeclaration,
+  SqliteRoutineResultDeclaration,
+  SqliteSchemaProviderOptions,
+} from "./provider.js";
 export { introspectSqlite, SqliteSchemaProvider } from "./provider.js";
 export type {
   SqliteColumnSnapshot,
@@ -80,9 +87,20 @@ export type {
   SqliteIndexColumnSnapshot,
   SqliteIndexSnapshot,
   SqliteSchemaSnapshot,
+  SqliteSchemaSnapshotV1,
+  SqliteSchemaSnapshotV2,
   SqliteTableSnapshot,
 } from "./snapshot.js";
 export { parseSqliteSchemaSnapshot } from "./snapshot.js";
+export type { SqliteVersion, SqliteVersionSupport } from "./support.js";
+export {
+  compareSqliteVersions,
+  isNodeSqliteRuntimeSupported,
+  NODE_SQLITE_RUNTIME_SUPPORT,
+  parseSqliteVersion,
+  SQLITE_LANGUAGE_SUPPORT,
+  sqliteVersionSupport,
+} from "./support.js";
 export type { SqliteAffinity, SqliteTypePolicy } from "./type-policy.js";
 export {
   defaultSqliteTypePolicy,

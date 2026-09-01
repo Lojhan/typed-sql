@@ -1,8 +1,16 @@
 import { performance } from "node:perf_hooks";
+import { resolveDialectCapabilityStates } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { parseStatement } from "../../ast/src/index.js";
-import type { SchemaSnapshot } from "../../schema/src/index.js";
-import { mysql, sql, typePolicy } from "../src/index.js";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
+import {
+  mySqlServerEvidence,
+  mysql,
+  parseMySqlVersion,
+  resolveMySqlCapabilities,
+  sql,
+  typePolicy,
+} from "../src/index.js";
+import { parseStatement } from "../src/parser/index.js";
 import { resolveMySqlStatement } from "../src/resolver.js";
 import { defaultMySqlTypePolicy, isKnownMySqlType, mapMySqlType } from "../src/type-policy.js";
 
@@ -50,7 +58,144 @@ const schema = {
   },
 } as const satisfies SchemaSnapshot;
 
+const v2Schema = (() => {
+  const upgraded = upgradeSchemaSnapshotV1(schema);
+  const users = upgraded.relations.users!;
+  return {
+    ...upgraded,
+    relations: {
+      ...upgraded.relations,
+      users: {
+        ...users,
+        columns: {
+          ...users.columns,
+          id: { ...users.columns.id!, default: "present", identity: "always", insertable: false, updatable: false },
+          email: { ...users.columns.email!, default: "none", identity: "none", insertable: true, updatable: true },
+          status: { ...users.columns.status!, default: "none", identity: "none", insertable: true, updatable: true },
+          profile: { ...users.columns.profile!, default: "none", identity: "none", insertable: true, updatable: false },
+        },
+      },
+    },
+  } as const satisfies SchemaSnapshot;
+})();
+
 await describe("MySQL dialect", async () => {
+  await it("resolves exact capabilities only for tested MySQL LTS lines", () => {
+    const dialect = mysql();
+    const exact = resolveDialectCapabilityStates(dialect, {
+      ...schema,
+      version: "8.4.6",
+      server: { product: "mysql", version: "8.4.6", versionKey: "8.4.6", features: [], settings: { sqlMode: "" } },
+    });
+    strict.strictEqual(exact.lockingReads?.level, "exact");
+    strict.strictEqual(dialect.resolveCapabilities?.(schema).lockingReads?.level, "conservative");
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "8.3.0",
+          versionKey: "8.3.0",
+          features: [],
+          settings: { sqlMode: "" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ403",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "9.7.0",
+          versionKey: "9.7.0",
+          features: [],
+          settings: { sqlMode: "STRICT_TRANS_TABLES" },
+        },
+      }).lockingReads?.level,
+      "exact",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "8.4.6-rc1",
+          versionKey: "8.4.6",
+          features: [],
+          settings: { sqlMode: "" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ403",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "8.4.6",
+          versionKey: "8.4.6",
+          features: [],
+          settings: {},
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ402",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "8.4.6",
+          versionKey: "8.4.6",
+          features: [],
+          settings: { sqlMode: "ANSI_QUOTES" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ407",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({ ...schema, version: "26.7.0" }).lockingReads?.level,
+      "conservative",
+    );
+    strict.strictEqual(
+      mysql({ versionPolicy: "canary" }).resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "26.7.0",
+          versionKey: "26.7.0",
+          features: [],
+          settings: { sqlMode: "STRICT_TRANS_TABLES" },
+        },
+      }).lockingReads?.level,
+      "exact",
+    );
+
+    strict.strictEqual(parseMySqlVersion("8.4"), undefined);
+    strict.throws(() => mySqlServerEvidence("not-a-version"), /Cannot normalize MySQL version/u);
+    strict.deepStrictEqual(mySqlServerEvidence("8.4.6-MariaDB", "strict_trans_tables,STRICT_TRANS_TABLES"), {
+      product: "mariadb",
+      version: "8.4.6-MariaDB",
+      versionKey: "8.4.6",
+      features: [],
+      settings: { sqlMode: "STRICT_TRANS_TABLES" },
+    });
+    strict.strictEqual(
+      resolveMySqlCapabilities({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "not-a-version",
+          versionKey: "not-a-version",
+          features: [],
+          settings: { sqlMode: "" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ402",
+    );
+  });
+
   await it("implements the shared plugin contract with MySQL placeholders", () => {
     const dialect = mysql();
     strict.strictEqual(dialect.id, "mysql");
@@ -61,6 +206,20 @@ await describe("MySQL dialect", async () => {
     strict.throws(() => dialect.placeholder(0), /start at 1/);
     strict.throws(() => dialect.validateSnapshot({ ...schema, dialect: "postgres" }), /cannot use a postgres/);
     strict.throws(() => dialect.validateSnapshot({ ...schema, dialectVersion: "999" }), /dialectVersion 999/);
+    strict.throws(
+      () =>
+        dialect.validateSnapshot({
+          ...schema,
+          server: {
+            product: "mysql",
+            version: "8.4.6",
+            versionKey: "8.4.6",
+            features: [],
+            settings: { sqlMode: "STRICT_TRANS_TABLES,ANSI_QUOTES" },
+          },
+        }),
+      /normalized mode list/u,
+    );
     const result = dialect.analyze(
       "SELECT `id`, `status` FROM `users` WHERE `id` = ?",
       schema as typeof schema & { readonly dialect: "mysql" },
@@ -140,11 +299,22 @@ await describe("MySQL dialect", async () => {
       strict.strictEqual(invalidLocking.semantics.operation.value, "unknown");
     }
 
-    for (const unsupported of ["CREATE TABLE audit (id bigint)", "SET @tenant_id = 1"]) {
+    for (const unsupported of [
+      "CREATE TABLE audit (id bigint)",
+      "SET @tenant_id = 1",
+      "WITH RECURSIVE tree(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM tree) SEARCH DEPTH FIRST BY id SET traversal SELECT id FROM tree",
+    ]) {
       const analysis = dialect.analyze(unsupported, typedSchema);
       strict.ok(analysis.diagnostics.some(({ severity }) => severity === "error"));
       strict.strictEqual(analysis.semantics.operation.value, "unknown");
       strict.strictEqual(analysis.semantics.locking.value, "unknown");
+    }
+    for (const postgresFromSyntax of [
+      "SELECT * FROM generate_series(1, 2)",
+      "SELECT * FROM ROWS FROM (generate_series(1, 2)) AS values(value)",
+      "SELECT id FROM users TABLESAMPLE SYSTEM(10)",
+    ]) {
+      strict.strictEqual(dialect.analyze(postgresFromSyntax, typedSchema).diagnostics[0]?.code, "TSQ001");
     }
   });
 
@@ -241,6 +411,16 @@ await describe("MySQL dialect", async () => {
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"),
     );
+    for (const source of [
+      "INSERT INTO users DEFAULT VALUES",
+      "UPDATE users SET email = 'x' FROM projects WHERE users.id = projects.owner_id",
+    ]) {
+      strict.ok(
+        resolveMySqlStatement(parseStatement(source, { syntax: "mysql" }), schema).diagnostics.some(
+          (diagnostic) => diagnostic.code === "TSQ401",
+        ),
+      );
+    }
     strict.ok(
       resolveMySqlStatement(
         parseStatement("UPDATE users SET missing = 1 WHERE id = ? RETURNING id", { syntax: "mysql" }),
@@ -278,6 +458,25 @@ await describe("MySQL dialect", async () => {
         parseStatement("WITH RECURSIVE ids(id) AS (SELECT 1) SELECT id FROM ids", { syntax: "mysql" }),
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
+    );
+  });
+
+  await it("uses v2 write eligibility and required-column evidence without changing v1 behavior", () => {
+    const invalidInsert = resolveMySqlStatement(
+      parseStatement("INSERT INTO users (id) VALUES (1)", { syntax: "mysql" }),
+      v2Schema,
+    );
+    strict.ok(invalidInsert.diagnostics.some(({ code }) => code === "TSQ218"));
+    strict.ok(invalidInsert.diagnostics.some(({ code }) => code === "TSQ219"));
+    const invalidUpdate = resolveMySqlStatement(
+      parseStatement("UPDATE users SET profile = '{}'", { syntax: "mysql" }),
+      v2Schema,
+    );
+    strict.ok(invalidUpdate.diagnostics.some(({ code }) => code === "TSQ218"));
+    strict.deepStrictEqual(
+      resolveMySqlStatement(parseStatement("INSERT INTO users (id) VALUES (1)", { syntax: "mysql" }), schema)
+        .diagnostics,
+      [],
     );
   });
 

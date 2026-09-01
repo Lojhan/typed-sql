@@ -2,9 +2,31 @@ export {
   assertCodecConformance,
   assertGrammarConformance,
   assertRuntimeAdapterConformance,
+  assertVersionedCapabilityConformance,
   defineCodecConformanceFixture,
   defineGrammarConformanceFixture,
 } from "./assertions.js";
+export type {
+  GrammarDialectPolicy,
+  GrammarFeatureCategory,
+  GrammarFeatureEntry,
+  GrammarFeatureLedger,
+  GrammarFeatureScope,
+  GrammarFeatureSource,
+  GrammarFeatureSupport,
+  GrammarFeatureSupportLevel,
+  GrammarVersionRange,
+  GrammarVersionScheme,
+} from "./feature-ledger.js";
+export {
+  compareGrammarVersions,
+  defineGrammarFeatureLedger,
+  FEATURE_LEDGER_FORMAT_VERSION,
+  featureSupport,
+  featureSupportAtVersion,
+  grammarVersionInRange,
+  parseGrammarFeatureLedger,
+} from "./feature-ledger.js";
 export { measureGrammarPerformance } from "./performance.js";
 export type {
   CodecConformanceCase,
@@ -22,5 +44,8 @@ export type {
   GrammarUnsupportedProbe,
   RequiredGrammarProbe,
   RuntimeAdapterConformanceFixture,
+  VersionedCapabilityConformanceFixture,
+  VersionedCapabilityExpectation,
+  VersionedCapabilityProbe,
 } from "./types.js";
 export { GRAMMAR_CONFORMANCE_VERSION, REQUIRED_GRAMMAR_PROBES } from "./types.js";

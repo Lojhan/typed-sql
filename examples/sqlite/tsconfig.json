@@ -8,6 +8,7 @@
   "references": [
     { "path": "../../packages/core" },
     { "path": "../../packages/sqlite" },
+    { "path": "../../packages/conformance" },
     { "path": "../../packages/cli" }
   ]
 }

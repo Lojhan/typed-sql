@@ -69,7 +69,7 @@ function mapDiagnostic(source: string, query: ExtractedQuery, diagnostic: SqlDia
   return { ...diagnostic, range: mapSqlRange(source, query, diagnostic.range) };
 }
 
-function fingerprint(dialect: DialectPlugin, sql: string): string {
+function fingerprint(dialect: Pick<DialectPlugin, "id" | "grammarVersion">, sql: string): string {
   return `sha256:${createHash("sha256").update(`${dialect.id}\0${dialect.grammarVersion}\0${sql}`).digest("hex")}`;
 }
 

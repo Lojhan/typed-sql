@@ -1,7 +1,7 @@
 {
   "name": "@typed-sql/ast",
   "version": "2.0.0",
-  "description": "Bounded multi-dialect SQL tokenizer, AST, parser, and source ranges for typed-sql.",
+  "description": "Grammar-neutral SQL source ranges, tokenizer profiles, bounded cursors, and parser utilities for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
   "repository": {
@@ -37,6 +37,7 @@
     "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
   "exports": {
-    ".": "./dist/packages/ast/src/index.js"
+    ".": "./dist/packages/ast/src/index.js",
+    "./toolkit": "./dist/packages/ast/src/toolkit/index.js"
   }
 }

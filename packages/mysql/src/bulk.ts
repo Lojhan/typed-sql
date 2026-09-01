@@ -1,4 +1,3 @@
-import { parseStatement } from "@typed-sql/ast";
 import {
   bindQueryRenderSkeleton,
   compileQueryRenderSkeleton,
@@ -8,6 +7,7 @@ import {
   QueryCancelledError,
   type SqlRenderer,
 } from "@typed-sql/core";
+import { parseStatement } from "./parser/index.js";
 
 const mysqlRenderer: SqlRenderer = Object.freeze({
   placeholder: () => "?",
@@ -92,7 +92,7 @@ function chunkSize(value: number | undefined): number {
 }
 
 function loadDataStatement(text: string, parameterCount: number): string {
-  const statement = parseStatement(text, { syntax: "mysql" });
+  const statement = parseStatement(text);
   if (
     statement.kind !== "insert" ||
     statement.with !== undefined ||

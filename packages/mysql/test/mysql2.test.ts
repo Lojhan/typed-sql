@@ -391,6 +391,9 @@ await describe("application-owned mysql2 integration", async () => {
             [],
           ];
         if (sql.includes("information_schema.ROUTINES")) return [[], []];
+        if (sql.includes("information_schema.PARAMETERS")) return [[], []];
+        if (sql.includes("information_schema.TABLE_CONSTRAINTS")) return [[], []];
+        if (sql.includes("information_schema.STATISTICS")) return [[], []];
         throw new Error("unexpected query");
       }
     }

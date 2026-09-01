@@ -1,4 +1,3 @@
-import { type CallExpression, type Statement, walkStatement } from "@typed-sql/ast";
 import {
   defineQuerySemantics,
   QUERY_SEMANTICS_VERSION,
@@ -9,6 +8,7 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
   AVG: "immutable",

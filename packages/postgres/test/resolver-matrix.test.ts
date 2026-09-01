@@ -1,6 +1,6 @@
 import { describe, it, strict } from "poku";
-import { parseSelect, parseStatement } from "../../ast/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { parseSelect, parseStatement } from "../src/parser/index.js";
 import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
 const schema = {
@@ -64,6 +64,111 @@ function codes(sql: string): readonly string[] {
 }
 
 await describe("PostgreSQL resolver branch matrix", async () => {
+  await it("infers set-operation rows and diagnoses incompatible arity", () => {
+    const compound = resolveSelect(
+      parseSelect("SELECT 1 AS value UNION ALL SELECT 'two' AS ignored INTERSECT SELECT 3 AS final_name"),
+      schema,
+    );
+    strict.deepStrictEqual(compound.diagnostics, []);
+    strict.strictEqual(compound.columns[0]?.name, "value");
+    strict.strictEqual(compound.columns[0]?.tsType, "string | number");
+    const invalid = resolveSelect(parseSelect("SELECT id FROM users UNION SELECT id, name FROM users"), schema);
+    strict.ok(invalid.diagnostics.some(({ code }) => code === "TSQ214"));
+  });
+
+  await it("infers recursive CTE seeds and members and rejects invalid recursive shapes", () => {
+    const recursive = resolveSelect(
+      parseSelect(`
+        WITH RECURSIVE counter(n) AS (
+          SELECT 1 AS n
+          UNION ALL
+          SELECT n + 1 AS n FROM counter WHERE n < 3
+        )
+        SELECT n FROM counter
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(recursive.diagnostics, []);
+    strict.strictEqual(recursive.columns[0]?.tsType, "number");
+
+    const missingKeyword = resolveSelect(
+      parseSelect("WITH counter(n) AS (SELECT 1 AS n UNION ALL SELECT n + 1 AS n FROM counter) SELECT n FROM counter"),
+      schema,
+    );
+    strict.ok(missingKeyword.diagnostics.some(({ code }) => code === "TSQ220"));
+    const invalidOperator = resolveSelect(
+      parseSelect(
+        "WITH RECURSIVE counter(n) AS (SELECT 1 AS n INTERSECT SELECT n + 1 AS n FROM counter) SELECT n FROM counter",
+      ),
+      schema,
+    );
+    strict.ok(invalidOperator.diagnostics.some(({ code }) => code === "TSQ220"));
+    for (const invalidShape of [
+      "WITH RECURSIVE counter(n) AS (SELECT n FROM counter) SELECT n FROM counter",
+      "WITH RECURSIVE counter(n) AS (SELECT 1 AS n UNION ALL SELECT left_side.n AS n FROM counter left_side JOIN counter right_side ON true) SELECT n FROM counter",
+      "WITH RECURSIVE counter(n) AS (SELECT 1 AS n UNION ALL SELECT n + 1 AS n FROM counter UNION ALL SELECT 2 AS n) SELECT n FROM counter",
+    ]) {
+      const invalid = resolveSelect(parseSelect(invalidShape), schema);
+      strict.ok(invalid.diagnostics.some(({ code }) => code === "TSQ220"));
+    }
+  });
+
+  await it("parses SEARCH and CYCLE and exposes their generated columns conservatively", () => {
+    const result = resolveSelect(
+      parseSelect(`
+        WITH RECURSIVE tree(id) AS (
+          SELECT 1 AS id
+          UNION ALL
+          SELECT id + 1 AS id FROM tree WHERE id < 3
+        ) SEARCH DEPTH FIRST BY id SET traversal
+          CYCLE id SET is_cycle USING cycle_path
+        SELECT id, traversal, is_cycle, cycle_path FROM tree
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, tsType }) => ({ name, tsType })),
+      [
+        { name: "id", tsType: "number" },
+        { name: "traversal", tsType: "unknown" },
+        { name: "is_cycle", tsType: "boolean" },
+        { name: "cycle_path", tsType: "unknown" },
+      ],
+    );
+
+    const customMarks = resolveSelect(
+      parseSelect(`
+        WITH RECURSIVE tree(id) AS (
+          SELECT 1 AS id
+          UNION ALL
+          SELECT id + 1 AS id FROM tree WHERE id < 3
+        ) SEARCH BREADTH FIRST BY id SET traversal
+          CYCLE id SET is_cycle TO 'Y' DEFAULT 'N' USING cycle_path
+        SELECT traversal, is_cycle, cycle_path FROM tree
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(customMarks.diagnostics, []);
+    strict.deepStrictEqual(
+      customMarks.columns.map(({ name, tsType }) => ({ name, tsType })),
+      [
+        { name: "traversal", tsType: "unknown" },
+        { name: "is_cycle", tsType: "string" },
+        { name: "cycle_path", tsType: "unknown" },
+      ],
+    );
+
+    for (const invalid of [
+      "WITH RECURSIVE tree(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM tree) SEARCH DEPTH FIRST BY missing SET traversal SELECT id FROM tree",
+      "WITH RECURSIVE tree(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM tree) CYCLE missing SET is_cycle USING cycle_path SELECT id FROM tree",
+      "WITH RECURSIVE tree(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM tree) SEARCH DEPTH FIRST BY id SET id SELECT id FROM tree",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), schema);
+      strict.ok(invalidResult.diagnostics.some(({ code }) => code === "TSQ101" || code === "TSQ105"));
+    }
+  });
+
   await it("validates CTE declarations and data-changing CTE result contracts", () => {
     const result = resolveStatement(
       parseStatement(`
@@ -76,6 +181,18 @@ await describe("PostgreSQL resolver branch matrix", async () => {
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ211"));
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ212"));
     strict.ok(result.diagnostics.some((diagnostic) => diagnostic.code === "TSQ213"));
+    const materialized = resolveSelect(
+      parseSelect(
+        "WITH active AS MATERIALIZED (SELECT id FROM users), names AS NOT MATERIALIZED (SELECT name FROM users) SELECT active.id, names.name FROM active CROSS JOIN names",
+      ),
+      schema,
+    );
+    strict.deepStrictEqual(materialized.diagnostics, []);
+    strict.ok(
+      codes("WITH tree AS (SELECT 1 AS id) SEARCH DEPTH FIRST BY id SET traversal SELECT id FROM tree").includes(
+        "TSQ220",
+      ),
+    );
   });
 
   await it("covers INSERT sources, defaults, target validation, UPDATE joins, and DELETE USING", () => {
@@ -123,6 +240,230 @@ await describe("PostgreSQL resolver branch matrix", async () => {
       schema,
     );
     strict.ok(nonLateral.diagnostics.some((diagnostic) => diagnostic.code === "TSQ103"));
+  });
+
+  await it("resolves grouping sets and ordered and hypothetical aggregate families", () => {
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT name,
+               COUNT(*) AS total,
+               GROUPING(name) AS grouping_mask,
+               MODE() WITHIN GROUP (ORDER BY age) AS modal_age,
+               RANK(42) WITHIN GROUP (ORDER BY age) AS hypothetical_rank,
+               ARRAY_AGG(name ORDER BY id DESC) FILTER (WHERE active) AS ordered_names
+        FROM users
+        GROUP BY GROUPING SETS ((name), ROLLUP(age), CUBE(active), ())
+        HAVING COUNT(*) > 0
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
+      [
+        { name: "name", tsType: "string", nullable: true },
+        { name: "total", tsType: "bigint", nullable: false },
+        { name: "grouping_mask", tsType: "number", nullable: false },
+        { name: "modal_age", tsType: "number", nullable: true },
+        { name: "hypothetical_rank", tsType: "bigint", nullable: false },
+        { name: "ordered_names", tsType: "readonly (string)[]", nullable: true },
+      ],
+    );
+
+    const aliases = resolveSelect(
+      parseSelect(`
+        SELECT active AS enabled, COUNT(*) AS total
+        FROM users
+        GROUP BY DISTINCT enabled
+        ORDER BY total
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(aliases.diagnostics, []);
+
+    for (const invalid of [
+      "SELECT name, COUNT(*) AS total FROM users GROUP BY age",
+      "SELECT id FROM users WHERE COUNT(*) > 0",
+      "SELECT id FROM users GROUP BY SUM(age)",
+      "SELECT id FROM users GROUP BY id HAVING ROW_NUMBER() OVER () > 0",
+      "SELECT id, COUNT(*) FROM users GROUP BY id FOR UPDATE",
+    ]) {
+      strict.ok(codes(invalid).includes("TSQ228"));
+    }
+  });
+
+  await it("resolves inherited windows and all PostgreSQL frame shapes", () => {
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT ROW_NUMBER() OVER ranked AS row_number,
+               LAG(name) OVER (
+                 PARTITION BY active ORDER BY id
+                 ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING EXCLUDE CURRENT ROW
+               ) AS previous_name,
+               CUME_DIST() OVER (
+                 ORDER BY id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE NO OTHERS
+               ) AS distribution
+        FROM users
+        WINDOW base AS (PARTITION BY active),
+               ranked AS (base ORDER BY id GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE TIES)
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
+      [
+        { name: "row_number", tsType: "bigint", nullable: false },
+        { name: "previous_name", tsType: "string", nullable: true },
+        { name: "distribution", tsType: "number", nullable: false },
+      ],
+    );
+
+    for (const invalid of [
+      "SELECT ROW_NUMBER() OVER missing AS value FROM users",
+      "SELECT ROW_NUMBER() OVER child AS value FROM users WINDOW base AS (PARTITION BY active), child AS (base PARTITION BY id)",
+      "SELECT ROW_NUMBER() OVER (ORDER BY id ROWS UNBOUNDED FOLLOWING) AS value FROM users",
+      "SELECT ROW_NUMBER() OVER (RANGE 1 PRECEDING) AS value FROM users",
+    ]) {
+      strict.ok(codes(invalid).includes("TSQ222"));
+    }
+    for (const invalid of [
+      "SELECT ROW_NUMBER() AS value FROM users",
+      "SELECT ROW_NUMBER() FILTER (WHERE active) OVER () AS value FROM users",
+      "SELECT SUM(DISTINCT age) OVER () AS value FROM users",
+      "SELECT GREATEST(id ORDER BY age) AS value FROM users",
+    ]) {
+      strict.ok(codes(invalid).includes("TSQ223"));
+    }
+    strict.ok(codes("SELECT SUM(age) WITHIN GROUP (ORDER BY id) AS value FROM users").includes("TSQ227"));
+  });
+
+  await it("validates DISTINCT ON ordering and PostgreSQL pagination variants", () => {
+    const paginated = resolveSelect(
+      parseSelect("SELECT id FROM users ORDER BY id USING > OFFSET $1 ROWS FETCH NEXT $2 ROWS WITH TIES"),
+      schema,
+    );
+    strict.deepStrictEqual(paginated.diagnostics, []);
+    strict.deepStrictEqual(
+      paginated.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "number" },
+        { index: 2, tsType: "number" },
+      ],
+    );
+    strict.deepStrictEqual(resolveSelect(parseSelect("SELECT id FROM users LIMIT ALL"), schema).diagnostics, []);
+    strict.ok(codes("SELECT DISTINCT ON (name) id, name FROM users ORDER BY id, name").includes("TSQ228"));
+    strict.deepStrictEqual(
+      resolveSelect(parseSelect("SELECT DISTINCT ON (name, id) id, name FROM users ORDER BY id, name"), schema)
+        .diagnostics,
+      [],
+    );
+  });
+
+  await it("resolves implicit-lateral table functions, ROWS FROM, ordinality, records, and sampling", () => {
+    const series = resolveSelect(
+      parseSelect(`
+        SELECT series.value, series.ordinality
+        FROM users u
+        CROSS JOIN generate_series(u.id, u.id + 1) WITH ORDINALITY AS series(value, ordinality)
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(series.diagnostics, []);
+    strict.deepStrictEqual(
+      series.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
+      [
+        { name: "value", tsType: "number", nullable: false },
+        { name: "ordinality", tsType: "bigint", nullable: false },
+      ],
+    );
+
+    const rowsFrom = resolveSelect(
+      parseSelect(`
+        SELECT expanded.score, expanded.sequence, expanded.ordinality
+        FROM users u
+        CROSS JOIN ROWS FROM (unnest(u.scores), generate_series(1, 2))
+          WITH ORDINALITY AS expanded(score, sequence, ordinality)
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(rowsFrom.diagnostics, []);
+    strict.deepStrictEqual(
+      rowsFrom.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
+      [
+        { name: "score", tsType: "number", nullable: true },
+        { name: "sequence", tsType: "number", nullable: true },
+        { name: "ordinality", tsType: "bigint", nullable: false },
+      ],
+    );
+
+    const record = resolveSelect(
+      parseSelect(`
+        SELECT records.id, records.label
+        FROM jsonb_to_recordset('[]'::jsonb) AS records(id integer, label text)
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(record.diagnostics, []);
+    strict.deepStrictEqual(
+      record.columns.map(({ tsType }) => tsType),
+      ["number", "string"],
+    );
+
+    const sampled = resolveSelect(parseSelect("SELECT id FROM users TABLESAMPLE SYSTEM($1) REPEATABLE($2)"), schema);
+    strict.deepStrictEqual(sampled.diagnostics, []);
+    strict.deepStrictEqual(
+      sampled.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "string" },
+        { index: 2, tsType: "number" },
+      ],
+    );
+    strict.ok(
+      codes(
+        "SELECT series.value FROM users u RIGHT JOIN LATERAL generate_series(u.id, u.id) AS series(value) ON true",
+      ).includes("TSQ103"),
+    );
+    strict.ok(codes("SELECT id FROM users TABLESAMPLE SYSTEM() REPEATABLE(NULL)").includes("TSQ227"));
+  });
+
+  await it("covers PostgreSQL table-function result families and invalid declarations", () => {
+    const variants = resolveSelect(
+      parseSelect(`
+        SELECT object.key, object.value,
+               text_object.value AS text_value,
+               json_item.value AS json_value,
+               text_item.value AS item_text,
+               subscript.value AS item_index,
+               label.value AS label_value
+        FROM users u
+        CROSS JOIN jsonb_each(u.payload) AS object
+        CROSS JOIN jsonb_each_text(u.payload) AS text_object
+        CROSS JOIN jsonb_array_elements(u.payload) AS json_item
+        CROSS JOIN jsonb_array_elements_text(u.payload) AS text_item
+        CROSS JOIN generate_subscripts(u.scores, 1) AS subscript(value)
+        CROSS JOIN one_arg(u.name) AS label(value)
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(variants.diagnostics, []);
+    strict.deepStrictEqual(
+      variants.columns.map(({ tsType }) => tsType),
+      ["string", "unknown", "string", "unknown", "string", "number", "string"],
+    );
+
+    strict.ok(codes("SELECT 1 AS value FROM jsonb_to_recordset('[]'::jsonb)").includes("TSQ213"));
+    strict.ok(codes("SELECT value FROM generate_series(1, 2) AS series(value, extra)").includes("TSQ213"));
+    strict.ok(
+      codes("SELECT value FROM jsonb_to_recordset('[]'::jsonb) WITH ORDINALITY AS records(value integer)").includes(
+        "TSQ227",
+      ),
+    );
+    strict.strictEqual(
+      resolveSelect(parseSelect("SELECT mystery.value FROM mystery_rows() AS mystery(value)"), schema).diagnostics[0]
+        ?.code,
+      "TSQ202",
+    );
   });
 
   await it("covers every expression result family and nullability path", () => {

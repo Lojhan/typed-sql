@@ -5,6 +5,7 @@ import {
   type GrammarAnalysisProbe,
   type GrammarSemanticExpectation,
 } from "@typed-sql/conformance";
+import { runAdaptedGrammarConformanceV1 } from "@typed-sql/conformance/v2";
 import { describe, it, strict } from "poku";
 import { type SqliteSchemaSnapshot, sqlite } from "../src/index.js";
 
@@ -12,6 +13,14 @@ const snapshot = {
   formatVersion: 1,
   dialect: "sqlite",
   dialectVersion: "1.0.0",
+  version: "3.53.0",
+  server: {
+    product: "sqlite",
+    version: "3.53.0",
+    versionKey: "3.53.0",
+    features: [],
+    settings: {},
+  },
   tables: {
     account: {
       schema: "main",
@@ -132,11 +141,13 @@ const fixture = defineGrammarConformanceFixture({
     },
     {
       capability: "recursiveCtes",
-      supported: false,
-      unsupported: {
-        sql: "WITH RECURSIVE selected AS (SELECT id FROM account) SELECT id FROM selected",
-        diagnosticCode: "TSQ401",
-      },
+      supported: true,
+      analysis: probe(
+        "WITH RECURSIVE selected(id) AS (SELECT id FROM account UNION ALL SELECT selected.id FROM selected) SELECT id FROM selected",
+        '{ "id": bigint; }',
+        "readonly []",
+        { ...stableMany, capabilities: ["recursiveCtes", "setOperations"] },
+      ),
     },
     {
       capability: "returning",
@@ -187,5 +198,9 @@ await describe("SQLite public grammar conformance", async () => {
     const report = assertGrammarConformance(fixture);
     strict.strictEqual(report.grammar, "sqlite");
     strict.strictEqual(report.structuralVariants, 2);
+    strict.strictEqual(
+      runAdaptedGrammarConformanceV1(fixture).every(({ status }) => status === "pass"),
+      true,
+    );
   });
 });

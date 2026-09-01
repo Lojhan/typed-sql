@@ -74,6 +74,16 @@ The root also exports `createPostgresRoutedDatabase`, the runtime semantic resol
 transaction retry classifier. These compose application-owned adapters without installing or
 creating `pg` pools.
 
+The stable grammar supports PostgreSQL majors 14 through 18. `POSTGRES_SUPPORT_POLICY` exposes the
+current per-major matrix targets, the PostgreSQL 19 canary, and the upstream end-of-life deprecation
+rule; future and prerelease majors remain conservative unless canary policy is selected explicitly.
+
+The grammar resolves PostgreSQL grouping sets and ordered aggregates, inherited and framed windows,
+lateral function relations and `ROWS FROM`, `WITH ORDINALITY`, `TABLESAMPLE`, and `FETCH` pagination.
+PostgreSQL DML includes identity overriding, `ON CONFLICT` and `excluded`, row assignments,
+versioned `MERGE`, and PostgreSQL 18 old/new `RETURNING` namespaces.
+Unsupported or structurally invalid forms fail closed with source diagnostics.
+
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),
 [bulk data guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/bulk-data.md),

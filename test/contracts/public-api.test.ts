@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import type { SelectLockingClause, SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
+import * as astToolkitApi from "../../packages/ast/src/toolkit/index.js";
 import type {
   AnalyzeSchemaCompatibilityOptions,
   BuildQueryManifestOptions,
@@ -26,6 +27,7 @@ import type {
   ListProjectSourceFilesOptions,
   QueryManifest,
   QueryManifestBuildStats,
+  QueryManifestCapabilityEvidence,
   QueryManifestColumn,
   QueryManifestDiagnostic,
   QueryManifestEntry,
@@ -65,16 +67,30 @@ import type {
   GrammarConformanceFixture,
   GrammarConformanceReport,
   GrammarDependencyExpectation,
+  GrammarDialectPolicy,
+  GrammarFeatureCategory,
+  GrammarFeatureEntry,
+  GrammarFeatureLedger,
+  GrammarFeatureScope,
+  GrammarFeatureSource,
+  GrammarFeatureSupport,
+  GrammarFeatureSupportLevel,
   GrammarPerformanceOptions,
   GrammarPerformanceResult,
   GrammarPolicyProbe,
   GrammarSemanticExpectation,
   GrammarStructuralProbe,
   GrammarUnsupportedProbe,
+  GrammarVersionRange,
+  GrammarVersionScheme,
   RequiredGrammarProbe,
   RuntimeAdapterConformanceFixture,
+  VersionedCapabilityConformanceFixture,
+  VersionedCapabilityExpectation,
+  VersionedCapabilityProbe,
 } from "../../packages/conformance/src/index.js";
 import * as conformanceApi from "../../packages/conformance/src/index.js";
+import * as conformanceV2Api from "../../packages/conformance/src/v2/index.js";
 import type {
   ActiveDatabaseObservation,
   AdapterCapability,
@@ -82,6 +98,7 @@ import type {
   AdapterCapabilityResolver,
   AdapterCapabilityService,
   BatchOperationStart,
+  BooleanDialectCapabilities,
   ControlledQueryExecutor,
   Database,
   DatabaseObservation,
@@ -91,7 +108,16 @@ import type {
   DatabaseOperationEnd,
   DatabaseOperationStart,
   DialectCapabilities,
+  DialectCapabilityEvidence,
+  DialectCapabilityEvidenceKind,
+  DialectCapabilityHost,
+  DialectCapabilityIssue,
+  DialectCapabilityLevel,
+  DialectCapabilityState,
+  DialectCapabilityStates,
   DialectPlugin,
+  DialectServerEvidence,
+  DialectServerSetting,
   ExecutionCapabilities,
   ExecutionCapability,
   ExecutionOptions,
@@ -454,6 +480,7 @@ type ReferencedStableTypes =
   | DeploymentDirection
   | QueryManifest
   | QueryManifestBuildStats
+  | QueryManifestCapabilityEvidence
   | QueryManifestColumn
   | QueryManifestDiagnostic
   | QueryManifestEntry
@@ -484,6 +511,16 @@ type ReferencedStableTypes =
   | TypeScriptCheckResult
   | CodecConformanceCase<unknown, unknown>
   | CodecConformanceFixture<unknown, unknown>
+  | GrammarDialectPolicy
+  | GrammarFeatureCategory
+  | GrammarFeatureEntry
+  | GrammarFeatureLedger
+  | GrammarFeatureScope
+  | GrammarFeatureSource
+  | GrammarFeatureSupport
+  | GrammarFeatureSupportLevel
+  | GrammarVersionRange
+  | GrammarVersionScheme
   | GrammarAnalysisProbe
   | GrammarCapabilityProbe
   | GrammarConformanceFixture<SchemaSnapshot, unknown>
@@ -497,6 +534,9 @@ type ReferencedStableTypes =
   | GrammarUnsupportedProbe
   | RequiredGrammarProbe
   | RuntimeAdapterConformanceFixture<Account, readonly [bigint]>
+  | VersionedCapabilityConformanceFixture<SchemaSnapshot, unknown>
+  | VersionedCapabilityExpectation
+  | VersionedCapabilityProbe<SchemaSnapshot, unknown>
   | ControlledQueryExecutor
   | ActiveDatabaseObservation
   | AdapterCapability<CapabilityService>
@@ -510,8 +550,18 @@ type ReferencedStableTypes =
   | DatabaseOperationCompletion
   | DatabaseOperationEnd
   | DatabaseOperationStart
+  | BooleanDialectCapabilities
+  | DialectCapabilityEvidence
+  | DialectCapabilityEvidenceKind
+  | DialectCapabilityHost<SchemaSnapshot>
+  | DialectCapabilityIssue
+  | DialectCapabilityLevel
+  | DialectCapabilityState
+  | DialectCapabilityStates
   | DialectCapabilities
   | DialectPlugin
+  | DialectServerEvidence
+  | DialectServerSetting
   | ExecutionCapabilities
   | ExecutionCapability
   | ExecutionOptions
@@ -637,6 +687,19 @@ const expectedRuntimeExports = {
     "tokenize",
     "walkStatement",
   ],
+  astToolkit: [
+    "DEFAULT_MAX_PARSE_DEPTH",
+    "DEFAULT_MAX_SQL_LENGTH",
+    "DEFAULT_MAX_TOKENS",
+    "SQL_PARSER_TOOLKIT_VERSION",
+    "SqlToolkitError",
+    "TokenCursor",
+    "definePrecedenceTable",
+    "defineSqlLexicalProfile",
+    "mergeSourceRanges",
+    "tokenizeSql",
+    "walkTree",
+  ],
   compiler: [
     "QUERY_FINGERPRINT_ALGORITHM",
     "QUERY_MANIFEST_FORMAT_VERSION",
@@ -673,14 +736,43 @@ const expectedRuntimeExports = {
     "verifyQueryManifest",
   ],
   conformance: [
+    "FEATURE_LEDGER_FORMAT_VERSION",
     "GRAMMAR_CONFORMANCE_VERSION",
     "REQUIRED_GRAMMAR_PROBES",
     "assertCodecConformance",
     "assertGrammarConformance",
     "assertRuntimeAdapterConformance",
+    "assertVersionedCapabilityConformance",
+    "compareGrammarVersions",
     "defineCodecConformanceFixture",
     "defineGrammarConformanceFixture",
+    "defineGrammarFeatureLedger",
+    "featureSupport",
+    "featureSupportAtVersion",
+    "grammarVersionInRange",
     "measureGrammarPerformance",
+    "parseGrammarFeatureLedger",
+  ],
+  conformanceV2: [
+    "CONFORMANCE_LAYERS",
+    "CONFORMANCE_REPORT_FORMAT_VERSION",
+    "CONFORMANCE_VERSION",
+    "adaptGrammarConformanceV1",
+    "assertExactConformance",
+    "createConformanceReport",
+    "createConformanceReproductionBundle",
+    "defineConformanceProbe",
+    "defineConformanceSuite",
+    "discoverConformanceFixtures",
+    "formatConformanceReport",
+    "minimizeConformanceSource",
+    "runAdaptedGrammarConformanceV1",
+    "runLiveConformanceProbe",
+    "runStaticConformanceProbe",
+    "selectExpectedOutcome",
+    "serializeConformanceReport",
+    "serializeConformanceReproductionBundle",
+    "targetMatches",
   ],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
@@ -691,6 +783,7 @@ const expectedRuntimeExports = {
     "UnsupportedExecutionCapabilityError",
     "assertDialectPlugin",
     "assertExecutionCapabilities",
+    "applyDialectCapabilityStates",
     "adapterCapabilities",
     "bindQueryRenderSkeleton",
     "compileQueryRenderSkeleton",
@@ -702,9 +795,12 @@ const expectedRuntimeExports = {
     "createAdapterCapabilityResolver",
     "createRoutedDatabase",
     "defineAdapterCapability",
+    "defineDialectCapabilityStates",
+    "defineDialectServerEvidence",
     "defineConfig",
     "defineQuerySemantics",
     "databaseErrorCompletion",
+    "dialectCapabilityIssues",
     "diagnosticRegistry",
     "executionDeadline",
     "getAdapterCapability",
@@ -715,15 +811,18 @@ const expectedRuntimeExports = {
     "mergeQuerySemantics",
     "observeQueryStream",
     "parameterTypeLiteral",
+    "parseDialectServerEvidence",
     "queryRoute",
     "queryResultValidationSource",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
+    "resolveDialectCapabilityStates",
     "requireAdapterCapability",
     "rowTypeLiteral",
     "runControlledExecution",
     "sql",
     "startDatabaseObservation",
+    "staticDialectCapabilityStates",
     "unionTypeLiterals",
     "unknownQuerySemantics",
     "UnsafeReplicaRoutingError",
@@ -743,7 +842,10 @@ const expectedRuntimeExports = {
     "mysql",
     "mysqlBulk",
     "mysqlCatalogQueries",
+    "mySqlServerEvidence",
+    "parseMySqlVersion",
     "parseSchemaSnapshot",
+    "resolveMySqlCapabilities",
     "sql",
     "typePolicy",
   ],
@@ -759,6 +861,8 @@ const expectedRuntimeExports = {
   opentelemetry: ["createOpenTelemetryObserver"],
   postgres: [
     "POSTGRES_DIALECT_VERSION",
+    "POSTGRES_CORE_CATALOG_FORMAT_VERSION",
+    "POSTGRES_SUPPORT_POLICY",
     "PostgresSchemaProvider",
     "createPostgresQuerySemanticResolver",
     "createPostgresRoutedDatabase",
@@ -769,9 +873,14 @@ const expectedRuntimeExports = {
     "loadPostgresDriver",
     "mapPostgresType",
     "parseSchemaSnapshot",
+    "parsePostgresMajor",
     "postgres",
+    "postgresServerEvidence",
+    "postgresVersionSupport",
     "postgresCopy",
+    "postgresCoreCatalog",
     "postgresCatalogQueries",
+    "resolvePostgresCapabilities",
     "sql",
     "typePolicy",
   ],
@@ -787,10 +896,14 @@ const expectedRuntimeExports = {
   ],
   postgresRuntime: ["createPostgresDatabase", "createPostgresTypeParsers", "postgresRenderer"],
   schema: [
+    "LEGACY_SCHEMA_FORMAT_VERSION",
     "SCHEMA_FORMAT_VERSION",
     "calculateSchemaHash",
     "calculateTypePolicyHash",
+    "canonicalizeSchemaValue",
     "checkSchemaDrift",
+    "defineSchemaSnapshotV2",
+    "fingerprintSchemaExpression",
     "generateSchemaPackage",
     "loadGeneratedSchemaSnapshot",
     "loadSchemaSnapshot",
@@ -798,6 +911,8 @@ const expectedRuntimeExports = {
     "migrateSchemaSnapshot",
     "parseSchemaSnapshot",
     "parseTypePolicy",
+    "serializeSchemaSnapshot",
+    "upgradeSchemaSnapshotV1",
   ],
 } as const;
 
@@ -805,8 +920,10 @@ await describe("stable public API", async () => {
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
       ast: Object.keys(astApi).sort(),
+      astToolkit: Object.keys(astToolkitApi).sort(),
       compiler: Object.keys(compilerApi).sort(),
       conformance: Object.keys(conformanceApi).sort(),
+      conformanceV2: Object.keys(conformanceV2Api).sort(),
       config: Object.keys(configApi).sort(),
       core: Object.keys(coreApi).sort(),
       mysql: Object.keys(mysqlApi).sort(),

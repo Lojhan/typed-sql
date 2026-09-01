@@ -250,6 +250,7 @@ await describe("packed public packages", async () => {
           import {
             DIALECT_CONTRACT_VERSION,
             assertDialectPlugin,
+            defineDialectCapabilityStates,
             sql,
             unknownQuerySemantics,
           } from "@typed-sql/core";
@@ -275,12 +276,31 @@ await describe("packed public packages", async () => {
             return snapshot;
           }
 
+          function resolveCapabilities(snapshot) {
+            return defineDialectCapabilityStates({
+              returning: {
+                level: "unsupported",
+                reason: "The synthetic grammar deliberately omits RETURNING.",
+                diagnostic: "SYN001",
+                evidence: [
+                  { kind: "grammar", key: "grammarVersion", value: SYNTHETIC_DIALECT_VERSION },
+                  ...(snapshot.server === undefined ? [] : [{
+                    kind: "server-version",
+                    key: snapshot.server.product,
+                    value: snapshot.server.versionKey,
+                  }]),
+                ],
+              },
+            }, Object.keys(capabilities));
+          }
+
           const plugin = Object.freeze({
             contractVersion: DIALECT_CONTRACT_VERSION,
             id: "synthetic",
             grammarVersion: SYNTHETIC_DIALECT_VERSION,
             sqlModule: "@acme/typed-sql-synthetic",
             capabilities,
+            resolveCapabilities,
             defaultTypePolicy: typePolicy,
             placeholder(index) {
               if (!Number.isInteger(index) || index < 1) throw new RangeError("synthetic parameters start at 1");
@@ -370,9 +390,10 @@ await describe("packed public packages", async () => {
         import { createNodeSqliteDatabase, loadNodeSqlite } from "@typed-sql/sqlite/node-sqlite";
         import { buildQueryManifest, compileSource, parseQueryManifest, serializeQueryManifest } from "@typed-sql/compiler";
         import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
+        import { CONFORMANCE_VERSION, runAdaptedGrammarConformanceV1 } from "@typed-sql/conformance/v2";
         import { createOpenTelemetryObserver } from "@typed-sql/opentelemetry";
         import { syntheticConformanceFixture } from "@typed-sql/example-synthetic-grammar/conformance";
-        import { parseSchemaSnapshot } from "@typed-sql/schema";
+        import { parseSchemaSnapshot, serializeSchemaSnapshot, upgradeSchemaSnapshotV1 } from "@typed-sql/schema";
         import "@typed-sql/ast";
         import "@typed-sql/config";
         import "@typed-sql/ts-bridge";
@@ -397,10 +418,15 @@ await describe("packed public packages", async () => {
         if (postgresSql\`SELECT \${1}\`.segments.length !== 3 || mysqlSql\`SELECT \${1}\`.segments.length !== 3 || sqliteSql\`SELECT \${1}\`.segments.length !== 3) throw new Error("dialect sql export failed");
         if (typeof compileSource !== "function") throw new Error("compiler import failed");
         if (GRAMMAR_CONFORMANCE_VERSION !== 1) throw new Error("conformance version import failed");
+        if (CONFORMANCE_VERSION !== 2) throw new Error("conformance v2 import failed");
         if (typeof createOpenTelemetryObserver !== "function") throw new Error("OpenTelemetry integration import failed");
         const conformance = assertGrammarConformance(syntheticConformanceFixture);
         if (conformance.grammar !== "synthetic" || conformance.structuralVariants !== 2) {
           throw new Error("packed third-party grammar conformance failed");
+        }
+        const conformanceV2 = runAdaptedGrammarConformanceV1(syntheticConformanceFixture);
+        if (conformanceV2.length !== 7 || conformanceV2.some(({ status }) => status !== "pass")) {
+          throw new Error("packed third-party grammar conformance v2 failed");
         }
         const compiled = compileSource({
           source: 'import { sql } from "@typed-sql/postgres"; const query = sql\`SELECT 1 AS value\`;',
@@ -416,6 +442,8 @@ await describe("packed public packages", async () => {
           formatVersion: 1,
           dialect: "synthetic",
           dialectVersion: "1.0.0",
+          version: "1.0.0",
+          server: { product: "synthetic", version: "1.0.0", versionKey: "1", features: [], settings: {} },
           tables: {
             widgets: {
               name: "widgets",
@@ -425,10 +453,20 @@ await describe("packed public packages", async () => {
             },
           },
         }));
+        const externalCapabilities = externalDialect.resolveCapabilities(externalSnapshot, syntheticTypePolicy);
+        if (externalCapabilities.returning.level !== "unsupported" || !externalCapabilities.returning.evidence.some((item) => item.kind === "server-version")) {
+          throw new Error("packed third-party versioned capability resolution failed");
+        }
+        const externalV2 = externalDialect.validateSnapshot(parseSchemaSnapshot(JSON.parse(
+          serializeSchemaSnapshot(upgradeSchemaSnapshotV1(externalSnapshot)),
+        )));
+        if (externalV2.formatVersion !== 2 || externalV2.relations.widgets?.columns.value?.tsType !== "number") {
+          throw new Error("packed third-party grammar could not validate schema v2");
+        }
         const externalCompiled = compileSource({
           source: 'import { sql } from "@acme/typed-sql-synthetic"; const query = sql\`SELECT value FROM widgets WHERE value = \${1}\`;',
           dialect: externalDialect,
-          schema: externalSnapshot,
+          schema: externalV2,
           typePolicy: syntheticTypePolicy,
         });
         if (externalCompiled.diagnostics.length !== 0 || externalCompiled.queries.length !== 1) {
@@ -441,12 +479,12 @@ await describe("packed public packages", async () => {
             source: 'import { sql } from "@acme/typed-sql-synthetic"; const query = sql\`SELECT value FROM widgets WHERE value = \${1}\`;'
           }],
           dialect: externalDialect,
-          schema: externalSnapshot,
+          schema: externalV2,
           typePolicy: syntheticTypePolicy,
           compilerVersion: "packed-test",
         });
         const serializedManifest = serializeQueryManifest(externalManifest.manifest);
-        if (externalManifest.manifest.queries.length !== 1 || serializedManifest.includes("/portable/checkout")) {
+        if (externalManifest.manifest.schemaFormat !== 2 || externalManifest.manifest.queries.length !== 1 || serializedManifest.includes("/portable/checkout")) {
           throw new Error("packed query manifest contract failed");
         }
         if (parseQueryManifest(JSON.parse(serializedManifest)).queries[0]?.status !== "resolved") {
@@ -548,9 +586,9 @@ await describe("packed public packages", async () => {
           if (dialect === "postgres") {
             const schemaFile = join(project.directory, "schema.json");
             const schema = JSON.parse(await readFile(schemaFile, "utf8")) as {
-              tables: { users: { columns: { email: { nullable: boolean } } } };
+              relations: { users: { columns: { email: { nullable: boolean } } } };
             };
-            schema.tables.users.columns.email.nullable = true;
+            schema.relations.users.columns.email.nullable = true;
             await writeFile(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);
             const reloaded = client.notification(
               "textDocument/publishDiagnostics",

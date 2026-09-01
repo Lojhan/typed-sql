@@ -2,6 +2,7 @@ import { describe, it, strict } from "poku";
 import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
 import { mysql } from "../../mysql/src/index.js";
 import { postgres } from "../../postgres/src/index.js";
+import { defineSchemaSnapshotV2, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import {
   analyzeSchemaCompatibility,
   buildQueryManifest,
@@ -606,6 +607,201 @@ await describe("schema migration compatibility", async () => {
     );
   });
 
+  await it("classifies every v2 structural object family with fingerprint-only evidence", () => {
+    const dialect = postgres();
+    const upgraded = upgradeSchemaSnapshotV1({
+      formatVersion: 1,
+      dialect: "postgres",
+      dialectVersion: dialect.grammarVersion,
+      server: {
+        product: "postgres",
+        version: "18.4",
+        versionKey: "18",
+        features: [],
+        settings: { standardConformingStrings: "on" },
+      },
+      tables: {
+        "public.users": {
+          schema: "public",
+          name: "users",
+          columns: { id: { name: "id", databaseType: "integer", tsType: "number", nullable: false } },
+        },
+      },
+      enums: { "public.mood": ["calm"] },
+      functions: {
+        "public.lookup()": {
+          schema: "public",
+          name: "lookup",
+          argumentTypes: [],
+          databaseReturnType: "integer",
+          returnType: "number",
+          nullable: false,
+          volatility: "stable",
+        },
+      },
+    });
+    const relation = upgraded.relations["public.users"]!;
+    const routine = upgraded.routines["public.lookup"]![0]!;
+    const before = defineSchemaSnapshotV2({
+      formatVersion: 2,
+      dialect: "postgres",
+      dialectVersion: dialect.grammarVersion,
+      server: upgraded.server,
+      namespaces: upgraded.namespaces,
+      types: upgraded.types,
+      relations: {
+        "public.users": {
+          ...relation,
+          constraints: [
+            {
+              kind: "primary-key",
+              name: "users_pkey",
+              identity: "public.users.users_pkey",
+              columns: ["id"],
+              partial: false,
+              expressionBased: false,
+              deferrable: false,
+              initiallyDeferred: false,
+              nullsDistinct: false,
+            },
+          ],
+          indexes: [
+            {
+              name: "users_pkey",
+              identity: "public.users.users_pkey",
+              unique: true,
+              columns: [{ column: "id" }],
+              predicate: "none",
+              valid: true,
+            },
+          ],
+        },
+      },
+      routines: { "public.lookup": [routine] },
+      extension: { version: "1", attributes: { policy: "raw-policy-before" } },
+    });
+    const beforeRelation = before.relations["public.users"]!;
+    const beforeType = before.types["public.mood"]!;
+    const after = defineSchemaSnapshotV2({
+      formatVersion: 2,
+      dialect: "postgres",
+      dialectVersion: dialect.grammarVersion,
+      server: { ...before.server, features: ["citext:1.6"] },
+      namespaces: { ...before.namespaces, audit: { name: "audit", kind: "schema" } },
+      types: {
+        ...before.types,
+        "public.mood": { ...beforeType, kind: "enum", labels: ["calm", "busy"] },
+        "public.extra": {
+          kind: "scalar",
+          name: "extra",
+          schema: "public",
+          identity: "public.extra",
+          databaseType: "extra",
+          tsType: "unknown",
+        },
+      },
+      relations: {
+        "public.users": {
+          ...beforeRelation,
+          kind: "view",
+          columns: {
+            ...beforeRelation.columns,
+            id: { ...beforeRelation.columns.id!, updatable: false },
+            tenant_id: {
+              ...beforeRelation.columns.id!,
+              name: "tenant_id",
+              position: 1,
+              default: "none",
+              identity: "none",
+              insertable: true,
+            },
+          },
+          constraints: [
+            { ...beforeRelation.constraints[0]!, deferrable: true },
+            {
+              kind: "unique",
+              name: "users_tenant_key",
+              identity: "public.users.users_tenant_key",
+              columns: ["tenant_id"],
+              partial: false,
+              expressionBased: false,
+              deferrable: false,
+              initiallyDeferred: false,
+              nullsDistinct: true,
+            },
+          ],
+          indexes: [
+            { ...beforeRelation.indexes[0]!, valid: false },
+            {
+              name: "users_tenant_idx",
+              identity: "public.users.users_tenant_idx",
+              unique: false,
+              columns: [{ column: "tenant_id" }],
+              predicate: "none",
+              valid: true,
+            },
+          ],
+        },
+        "public.archived": { ...beforeRelation, name: "archived" },
+      },
+      routines: { "public.lookup": [{ ...routine, volatility: "volatile" }] },
+      extension: { version: "1", attributes: { policy: "raw-policy-after" } },
+    });
+    const source = [
+      'import { sql } from "@typed-sql/postgres";',
+      "export const query = sql`SELECT id FROM public.users`;",
+    ].join("\n");
+    const report = analyzeSchemaCompatibility({
+      before,
+      after,
+      beforeManifest: manifest(dialect, before, source),
+      afterManifest: manifest(dialect, after, source),
+    });
+    for (const kind of [
+      "namespace-added",
+      "relation-added",
+      "relation-definition",
+      "column-added",
+      "column-structure",
+      "constraint-added",
+      "constraint-definition",
+      "index-added",
+      "index-definition",
+      "type-added",
+      "type-definition",
+      "routine-definition",
+      "server-evidence",
+      "extension-definition",
+    ] as const) {
+      strict.ok(
+        report.changes.some((item) => item.kind === kind),
+        `v2 fixture does not cover ${kind}`,
+      );
+    }
+    const serialized = serializeSchemaCompatibilityReport(report);
+    strict.ok(!serialized.includes("raw-policy-"));
+    strict.strictEqual(parseSchemaCompatibilityReport(JSON.parse(serialized)).changes.length, report.changes.length);
+    const reverse = analyzeSchemaCompatibility({
+      before: after,
+      after: before,
+      beforeManifest: manifest(dialect, after, source),
+      afterManifest: manifest(dialect, before, source),
+    });
+    for (const kind of [
+      "namespace-removed",
+      "relation-removed",
+      "column-removed",
+      "constraint-removed",
+      "index-removed",
+      "type-removed",
+    ] as const) {
+      strict.ok(
+        reverse.changes.some((item) => item.kind === kind),
+        `reverse v2 fixture does not cover ${kind}`,
+      );
+    }
+  });
+
   await it("validates report envelopes", () => {
     const artifact = { schemaHash: "0".repeat(64), manifestHash: `sha256:${"0".repeat(64)}` };
     const valid = {
@@ -623,6 +819,7 @@ await describe("schema migration compatibility", async () => {
       [{ formatVersion: 1, analyzerVersion: "future" }, /analyzer/u],
       [{ ...valid, dialect: "" }, /dialect/u],
       [{ ...valid, before: { ...artifact, schemaHash: "invalid" } }, /schemaHash/u],
+      [{ ...valid, before: { ...artifact, schemaFormat: 3 } }, /schemaFormat/u],
       [{ ...valid, summary: { info: "0", warning: 0, error: 0 } }, /summary/u],
     ] as const) {
       strict.throws(() => parseSchemaCompatibilityReport(value), pattern);

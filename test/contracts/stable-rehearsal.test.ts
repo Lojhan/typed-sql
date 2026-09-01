@@ -70,11 +70,12 @@ await describe("stable release rehearsal policy", async () => {
       "https://lojhan.github.io/typed-sql/reference/compatibility",
       "Node.js 22.11 or newer",
       "TypeScript 7.0.2",
-      "PostgreSQL and MySQL are stable dialect packages",
+      "PostgreSQL, MySQL, and SQLite are stable dialect packages",
       "@typed-sql/ts-bridge",
       "@typed-sql/language-server",
       "@typed-sql/sqlite",
       "remain experimental",
+      "eleven-package stable train",
     ]) {
       strict.ok(normalizedNotes.includes(required), `stable release notes lost required boundary: ${required}`);
     }

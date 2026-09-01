@@ -1,6 +1,6 @@
 import { describe, it, strict } from "poku";
-import type { QueryPlanInspector, SchemaSnapshot } from "../../core/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
+import type { QueryPlanInspector } from "../../core/src/index.js";
+import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import {
   buildQueryManifest,
   captureQueryPlans,
@@ -14,7 +14,7 @@ import {
 
 const rootDir = "/portable/project";
 const file = `${rootDir}/src/queries.ts`;
-const snapshot: SchemaSnapshot = {
+const snapshot: PostgresSchemaSnapshot = {
   formatVersion: 1,
   dialect: "postgres",
   tables: {
@@ -328,6 +328,7 @@ await describe("query plan governance", async () => {
       { ...result.artifact, adapterVersion: "" },
       { ...result.artifact, parameterMode: "other" },
       { ...result.artifact, manifestHash: "bad" },
+      { ...result.artifact, schemaFormat: 3 },
       { ...result.artifact, schemaHash: "bad" },
       { ...result.artifact, environment: null },
       { ...result.artifact, entries: null },

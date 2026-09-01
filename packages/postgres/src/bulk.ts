@@ -1,4 +1,3 @@
-import { parseStatement } from "@typed-sql/ast";
 import {
   bindQueryRenderSkeleton,
   compileQueryRenderSkeleton,
@@ -9,6 +8,7 @@ import {
   type QueryStream,
   type SqlRenderer,
 } from "@typed-sql/core";
+import { parseStatement } from "./parser/index.js";
 
 const postgresRenderer: SqlRenderer = Object.freeze({
   placeholder: (index: number) => `$${index}`,

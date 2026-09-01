@@ -1,3 +1,4 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
@@ -134,4 +135,54 @@ await describe("typed-sql language service", async () => {
   });
 
   await service.close();
+});
+
+await describe("typed-sql capability evidence reload", async () => {
+  await it("reanalyzes open SQL after watched server evidence changes", async () => {
+    const temporary = await mkdtemp(join(workspaceDirectory, ".typed-sql-language-capabilities-"));
+    const config = join(temporary, "typed-sql.config.ts");
+    const schema = join(temporary, "schema.json");
+    const snapshot = (version: string) => ({
+      formatVersion: 1,
+      dialect: "sqlite",
+      version,
+      server: { product: "sqlite", version, versionKey: version, features: [], settings: {} },
+      tables: {
+        account: {
+          name: "account",
+          strict: true,
+          kind: "table",
+          withoutRowid: false,
+          indexes: [],
+          foreignKeys: [],
+          columns: { id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false } },
+        },
+      },
+    });
+    try {
+      await writeFile(
+        config,
+        [
+          'import { defineConfig } from "../packages/core/src/index.ts";',
+          'import { sqlite } from "../packages/sqlite/src/index.ts";',
+          'export default defineConfig({ dialect: sqlite(), schema: { file: "schema.json" }, outDir: "generated" });',
+        ].join("\n"),
+      );
+      await writeFile(schema, `${JSON.stringify(snapshot("3.34.1"))}\n`);
+      const service = new TypedSqlLanguageService(temporary, {
+        configPath: config,
+        schemaPath: schema,
+        nativePreview: false,
+      });
+      const text = 'import { sql } from "@typed-sql/sqlite"; sql`UPDATE account SET id = 1 RETURNING id`;';
+      const current = TextDocument.create(pathToFileURL(join(temporary, "query.ts")).href, "typescript", 1, text);
+      strict.ok((await service.diagnostics(current)).some(({ code }) => code === "TSQ404"));
+      await writeFile(schema, `${JSON.stringify(snapshot("3.35.0"))}\n`);
+      service.invalidate();
+      strict.ok(!(await service.diagnostics(current)).some(({ code }) => code === "TSQ404"));
+      await service.close();
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
 });

@@ -34,6 +34,7 @@ export type {
   BuildQueryManifestResult,
   QueryManifest,
   QueryManifestBuildStats,
+  QueryManifestCapabilityEvidence,
   QueryManifestColumn,
   QueryManifestDiagnostic,
   QueryManifestEntry,

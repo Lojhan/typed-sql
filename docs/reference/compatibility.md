@@ -34,8 +34,8 @@ TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by 
 | `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.0 |
 | MySQL | Grammar targets MySQL 8.4 LTS | MySQL 8.4.11 |
 | `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.1 |
-| SQLite preview | SQLite grammar and PRAGMA catalog provider | SQLite 3.50.4 through Node 24.10.0 |
-| `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13 or newer | Node 24.10.0 |
+| SQLite | SQLite 3.39.0–3.53.4 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.53.4, every supported Node line's bundled library, and a non-blocking 3.54.0 canary |
+| `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |
 
 Driver configurations that change decoded value shapes can violate static types. The adapters own or reject those settings as documented in [Database type mappings](./type-mappings.md).
 
@@ -43,8 +43,8 @@ Driver configurations that change decoded value shapes can violate static types.
 
 | Surface | Status |
 | --- | --- |
-| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `cli` | Stable package contract |
-| `ts-bridge`, `language-server`, `sqlite` | Experimental while their preview contracts are exercised |
+| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `cli` | Stable package contract |
+| `ts-bridge`, `language-server` | Experimental while their preview contracts are exercised |
 | VS Code and Zed integrations | Experimental distribution |
 
 Every public package records its classification in `typedSql.releaseTrack`.
@@ -62,9 +62,16 @@ and its API-specific code remain isolated from grammar and stable packages.
 
 ## Grammar and snapshot compatibility
 
-PostgreSQL, MySQL, and the SQLite preview implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.
+PostgreSQL, MySQL, and SQLite implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.
 
-`@typed-sql/conformance` versions its fixture contract independently through
-`GRAMMAR_CONFORMANCE_VERSION`. Grammar packages should run the public suite before publishing and
-when upgrading typed-sql. A capability is supported only when its positive probe passes; unsupported
-features must have a diagnostic probe and fail closed.
+`@typed-sql/conformance/v2` uses permanent, feature-addressable probe IDs and independently versioned
+probe/report formats. Grammar packages should run the public suite before publishing and when upgrading
+typed-sql. A capability is supported only when its positive probe passes; unsupported features must
+have a diagnostic probe and fail closed. The package-root `GRAMMAR_CONFORMANCE_VERSION` contract is the
+deprecated typed-sql 2.x bridge and is removed with the rest of conformance v1 in typed-sql 3.0.
+
+The boolean `DialectPlugin.capabilities` map remains an additive compatibility view for the current
+major line. New tooling uses `resolveCapabilities(snapshot, policy?)` to distinguish exact,
+conservative, and unsupported states from normalized server evidence. Boolean-only third-party
+grammars continue to load, but their `true` values resolve conservatively until they implement the
+versioned contract.

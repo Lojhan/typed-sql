@@ -10,6 +10,7 @@ import {
   QUERY_SEMANTICS_VERSION,
   type QuerySemantics,
   renderQuery,
+  resolveDialectCapabilityStates,
   rowTypeLiteral,
   type SchemaSnapshot,
   type SourceRange,
@@ -25,8 +26,10 @@ import {
   type GrammarUnsupportedProbe,
   REQUIRED_GRAMMAR_PROBES,
   type RuntimeAdapterConformanceFixture,
+  type VersionedCapabilityConformanceFixture,
 } from "./types.js";
 
+/** @deprecated Use `defineConformanceSuite` from `@typed-sql/conformance/v2`. Removed in typed-sql 3.0. */
 export function defineGrammarConformanceFixture<Snapshot extends SchemaSnapshot, Policy>(
   fixture: GrammarConformanceFixture<Snapshot, Policy>,
 ): GrammarConformanceFixture<Snapshot, Policy> {
@@ -167,6 +170,7 @@ function assertUnsupported<Snapshot extends SchemaSnapshot, Policy>(
   );
 }
 
+/** @deprecated Use the layer runners from `@typed-sql/conformance/v2`. Removed in typed-sql 3.0. */
 export function assertGrammarConformance<Snapshot extends SchemaSnapshot, Policy>(
   fixture: GrammarConformanceFixture<Snapshot, Policy>,
 ): GrammarConformanceReport {
@@ -203,6 +207,7 @@ export function assertGrammarConformance<Snapshot extends SchemaSnapshot, Policy
   }
 
   const capabilityNames = Object.keys(fixture.dialect.capabilities).sort();
+  const capabilityStates = resolveDialectCapabilityStates(fixture.dialect, fixture.snapshot);
   assert.deepStrictEqual(
     fixture.capabilities.map(({ capability }) => capability).sort(),
     capabilityNames,
@@ -264,8 +269,42 @@ export function assertGrammarConformance<Snapshot extends SchemaSnapshot, Policy
     grammarVersion: fixture.dialect.grammarVersion,
     requiredProbes: REQUIRED_GRAMMAR_PROBES,
     capabilities: Object.freeze({ ...fixture.dialect.capabilities }),
+    capabilityStates,
     structuralVariants: compiled.variantFingerprints.length,
   });
+}
+
+/** Verifies deterministic, frozen version and condition boundaries without knowing vendor rules. */
+export function assertVersionedCapabilityConformance<Snapshot extends SchemaSnapshot, Policy>(
+  fixture: VersionedCapabilityConformanceFixture<Snapshot, Policy>,
+): void {
+  assert.ok(fixture.probes.length > 0, "Versioned capability conformance requires at least one probe");
+  assert.strictEqual(
+    new Set(fixture.probes.map(({ name }) => name)).size,
+    fixture.probes.length,
+    "Probe names must be unique",
+  );
+  for (const probe of fixture.probes) {
+    const first = resolveDialectCapabilityStates(fixture.dialect, probe.snapshot, probe.policy);
+    const second = resolveDialectCapabilityStates(fixture.dialect, probe.snapshot, probe.policy);
+    assert.deepStrictEqual(second, first, `${probe.name} capability resolution must be deterministic`);
+    assertDeepFrozen(first);
+    for (const expected of probe.expected) {
+      const state = first[expected.capability];
+      assert.ok(state !== undefined, `${probe.name}.${expected.capability} was not declared`);
+      assert.strictEqual(state.level, expected.level, `${probe.name}.${expected.capability} level`);
+      if (expected.diagnostic !== undefined) {
+        assert.strictEqual(state.diagnostic, expected.diagnostic, `${probe.name}.${expected.capability} diagnostic`);
+      }
+      if (expected.evidenceKinds !== undefined) {
+        assert.deepStrictEqual(
+          [...new Set(state.evidence.map(({ kind }) => kind))].sort(),
+          [...expected.evidenceKinds].sort(),
+          `${probe.name}.${expected.capability} evidence kinds`,
+        );
+      }
+    }
+  }
 }
 
 export function assertCodecConformance<Input, Output>(fixture: CodecConformanceFixture<Input, Output>): void {

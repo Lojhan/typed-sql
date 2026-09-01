@@ -45,7 +45,7 @@ function baseType(value: string): string {
   return parameters === -1 ? type : type.slice(0, parameters);
 }
 
-function enumValues(databaseType: string): readonly string[] | undefined {
+export function mySqlEnumValues(databaseType: string): readonly string[] | undefined {
   const type = databaseType.trim();
   if (type.slice(0, 5).toLowerCase() !== "enum(" || !type.endsWith(")")) return undefined;
   const body = type.slice(5, -1);
@@ -128,7 +128,7 @@ export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot):
 
 export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, schema?: SchemaSnapshot): string {
   const type = baseType(databaseType);
-  const values = enumValues(databaseType);
+  const values = mySqlEnumValues(databaseType);
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";
   if (type === "tinyint" && /^tinyint\(1\)/iu.test(databaseType)) return policy.tinyint1;
   if (["tinyint", "smallint", "mediumint", "int", "integer", "float", "double", "real", "year"].includes(type))

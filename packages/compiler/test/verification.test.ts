@@ -442,6 +442,15 @@ await describe("live query verification", async () => {
       proof.manifestHash = "nope";
     }, /fingerprint/u);
     invalid((proof) => {
+      proof.schemaFormat = 3;
+    }, /schemaFormat/u);
+    invalid((proof) => {
+      proof.schemaHash = 1;
+    }, /schemaHash/u);
+    invalid((proof) => {
+      proof.schemaHash = "invalid";
+    }, /schemaHash/u);
+    invalid((proof) => {
       asRecord(proof.server).features = [1];
     }, /server or entries/u);
     invalid((proof) => {

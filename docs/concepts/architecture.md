@@ -13,14 +13,14 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | --- | --- | --- |
 | `@typed-sql/core` | SQL tag, query and fragment types, rendering, database and dialect contracts | No |
 | `@typed-sql/opentelemetry` | Optional bridge from the neutral observer contract to OpenTelemetry spans | No |
-| `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | No |
+| `@typed-sql/ast` | Grammar-neutral tokenizer profiles, bounded cursor mechanics, tree walking, and source ranges | No |
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
 | `@typed-sql/compiler` | Dialect-neutral extraction, transforms, diagnostics, manifests, verification, plan governance, and migration analysis | No |
 | `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
-| `@typed-sql/sqlite` | Preview SQLite grammar, dynamic-type model, introspection, and optional built-in Node adapter | No |
+| `@typed-sql/sqlite` | SQLite grammar, dynamic-type model, introspection, and optional built-in Node adapter | No |
 | `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, plan governance, compatibility, and provider discovery | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |

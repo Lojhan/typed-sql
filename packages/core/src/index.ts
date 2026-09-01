@@ -16,6 +16,27 @@ export {
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
 export type {
+  BooleanDialectCapabilities,
+  DialectCapabilityEvidence,
+  DialectCapabilityEvidenceKind,
+  DialectCapabilityHost,
+  DialectCapabilityIssue,
+  DialectCapabilityLevel,
+  DialectCapabilityState,
+  DialectCapabilityStates,
+  DialectServerEvidence,
+  DialectServerSetting,
+} from "./dialect-capabilities.js";
+export {
+  applyDialectCapabilityStates,
+  defineDialectCapabilityStates,
+  defineDialectServerEvidence,
+  dialectCapabilityIssues,
+  parseDialectServerEvidence,
+  resolveDialectCapabilityStates,
+  staticDialectCapabilityStates,
+} from "./dialect-capabilities.js";
+export type {
   ExecutionCapabilities,
   ExecutionCapability,
   ExecutionOptions,
@@ -74,7 +95,7 @@ export {
   renderQuery,
   sql,
 } from "./query.js";
-export type { ResolverType } from "./resolver.js";
+export type { IndexedTable, ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
   CompatibleResultSchema,
@@ -158,6 +179,11 @@ export type {
   SourceRange,
   SqlDiagnostic,
   SqlDiagnosticFix,
+  StructuralColumnSnapshot,
+  StructuralConstraintSnapshot,
+  StructuralRelationSnapshot,
+  StructuralRoutineArgumentSnapshot,
+  StructuralRoutineSnapshot,
   TableSnapshot,
   TypedSqlConfig,
 } from "./types.js";

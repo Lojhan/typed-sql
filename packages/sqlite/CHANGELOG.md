@@ -1,5 +1,13 @@
 # @typed-sql/sqlite
 
+## 2.0.0
+
+### Major Changes
+
+- Graduate the SQLite grammar and optional `node:sqlite` adapter to the stable release track with a
+  documented SQLite 3.39.0–3.53.4 language baseline, fail-closed version and compile-option gates,
+  snapshot v2 evidence, and runtime compatibility checks.
+
 ## 2.0.0-rc.2
 
 ### Patch Changes

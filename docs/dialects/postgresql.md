@@ -13,27 +13,50 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
 
+## Supported versions
+
+The stable grammar supports PostgreSQL majors 14 through 18. Patch releases are compatible within
+their major; the release matrix selects one current upstream minor for each major. PostgreSQL 19 is
+a non-blocking canary and requires `postgres({ versionPolicy: "canary" })`; prerelease evidence does
+not enter the stable range implicitly. Unlisted older or newer majors remain conservative.
+
+`POSTGRES_SUPPORT_POLICY` exposes the selected major lines, matrix minors, canary identity, and
+deprecation rule. typed-sql announces an upstream end-of-life removal at least 90 days ahead, keeps
+the major through its upstream final release, and removes it no earlier than the first typed-sql
+minor released afterward.
+
 ## Supported SQL
 
 | Surface | Behavior |
 | --- | --- |
 | Static tagged templates | Recognizes imports and aliases from `@typed-sql/postgres`. |
-| `SELECT`, `DISTINCT`, `DISTINCT ON` | Infers static row shapes. |
+| `SELECT`, `DISTINCT`, `DISTINCT ON` | Infers static row shapes and validates leftmost `ORDER BY` agreement. |
 | Tables, schemas, aliases, and stars | Resolves catalog names, ambiguity, and `USING` column merging. |
 | Inner and outer joins | Propagates outer-join nullability. |
-| CTEs and derived, correlated, or scalar subqueries | Validates unsafe scalar and `IN` arity. |
-| Grouping, aggregates, and windows | Covers common aggregates, `FILTER`, and named or inline windows. |
+| Ordinary and recursive CTEs; derived, correlated, or scalar subqueries | Infers seed/member rows, validates recursive shape, and models PostgreSQL 14+ `SEARCH`/`CYCLE` generated columns conservatively. |
+| `UNION`, `INTERSECT`, and `EXCEPT` | Preserves leftmost output names, merges row types and nullability, and diagnoses arity mismatches. |
+| Grouping and aggregates | Covers grouping sets, `ROLLUP`, `CUBE`, functional dependencies, aggregate ordering, `FILTER`, and ordered/hypothetical-set aggregates. |
+| Windows | Covers named inheritance, inline definitions, all frame units, bounds, exclusions, and built-in window nullability. |
+| Lateral and function relations | Covers implicit/explicit lateral arguments, `ROWS FROM`, record definitions, null-padding, and `WITH ORDINALITY`. |
+| Ordering, sampling, and pagination | Covers ordering operators, `TABLESAMPLE`/`REPEATABLE`, `LIMIT ALL`, offsets, and `FETCH` variants. |
 | Expressions, `CASE`, casts, and parameters | Infers parameters from columns, casts, DML targets, ranges, limits, and catalog functions. |
 | Arrays, enums, domains, JSON, and catalog functions | Resolves known types and function name or arity. |
-| `INSERT`, `UPDATE`, `DELETE`, `RETURNING` | Commands without `RETURNING` infer `Query<never, Parameters>`. |
+| `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `RETURNING` | Covers identity overriding, conflict targets and `excluded`, row assignments, source namespaces, PostgreSQL 15+ `MERGE`, PostgreSQL 17+ merge returning/by-source actions, and PostgreSQL 18 old/new aliases. Commands without `RETURNING` infer `Query<never, Parameters>`. |
 
-Set operations and `WITHIN GROUP` are not supported. Dynamic identifiers receive no static inference; use `sql.ident()` explicitly.
+Dynamic identifiers receive no static inference; use `sql.ident()` explicitly.
 
 Unsupported, ambiguous, or version-gated SQL produces a diagnostic or conservative `unknown`. It does not receive an optimistic row type.
 
 ## Introspection
 
-The provider records tables, views, columns, defaults, server version, arrays, enums, domains, and user functions for the configured schemas. Generated snapshots include grammar, catalog, and type-policy hashes.
+The provider records tables, views, columns, defaults, server version, arrays, enums, domains, user
+functions, installed extension identities, and `standard_conforming_strings` for the configured
+schemas. Generated snapshots include grammar, catalog, type-policy, and normalized capability
+evidence.
+
+Stable resolution covers the documented PostgreSQL major range. Canary testing is explicit:
+`postgres({ versionPolicy: "canary" })` selects the grammar-owned canary major; prerelease text never
+satisfies the stable range accidentally.
 
 `createPgLiveVerifier()` uses session-local `PREPARE` and `pg_prepared_statements` without executing the statement or sending values. PostgreSQL 18 provides parameter and result types; older versions are explicitly incomplete. See [Live verification](../guides/live-verification.md).
 

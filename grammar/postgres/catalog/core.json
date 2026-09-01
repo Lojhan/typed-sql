@@ -1,0 +1,153 @@
+{
+  "formatVersion": 1,
+  "types": [
+    { "name": "bigint", "aliases": ["int8"], "mapping": "bigint", "introduced": 14 },
+    { "name": "boolean", "aliases": ["bool"], "mapping": "boolean", "introduced": 14 },
+    { "name": "bytea", "aliases": [], "mapping": "bytes", "introduced": 14 },
+    { "name": "date", "aliases": [], "mapping": "date", "introduced": 14 },
+    { "name": "double precision", "aliases": ["float8"], "mapping": "number", "introduced": 14 },
+    { "name": "integer", "aliases": ["int", "int4"], "mapping": "number", "introduced": 14 },
+    { "name": "json", "aliases": [], "mapping": "json", "introduced": 14 },
+    { "name": "jsonb", "aliases": [], "mapping": "json", "introduced": 14 },
+    { "name": "numeric", "aliases": ["decimal"], "mapping": "numeric", "introduced": 14 },
+    { "name": "real", "aliases": ["float4"], "mapping": "number", "introduced": 14 },
+    { "name": "smallint", "aliases": ["int2"], "mapping": "number", "introduced": 14 },
+    {
+      "name": "text",
+      "aliases": ["char", "character varying", "uuid", "varchar"],
+      "mapping": "string",
+      "introduced": 14
+    },
+    { "name": "timestamp", "aliases": ["timestamp without time zone"], "mapping": "date", "introduced": 14 },
+    { "name": "timestamptz", "aliases": ["timestamp with time zone"], "mapping": "date", "introduced": 14 }
+  ],
+  "operators": [
+    {
+      "name": "boolean",
+      "operators": [
+        "!~",
+        "!~*",
+        "!=",
+        "<",
+        "<@",
+        "<=",
+        "<>",
+        "=",
+        ">",
+        ">=",
+        "?",
+        "?&",
+        "?|",
+        "AND",
+        "ILIKE",
+        "IS",
+        "IS DISTINCT FROM",
+        "IS NOT",
+        "IS NOT DISTINCT FROM",
+        "LIKE",
+        "NOT ILIKE",
+        "NOT LIKE",
+        "NOT SIMILAR",
+        "OR",
+        "SIMILAR TO",
+        "@>",
+        "~",
+        "~*",
+        "&&"
+      ],
+      "result": "boolean",
+      "introduced": 14
+    },
+    { "name": "concatenation", "operators": ["||"], "result": "concatenation", "introduced": 14 },
+    { "name": "json", "operators": ["#>", "->"], "result": "json", "introduced": 14 },
+    { "name": "json-text", "operators": ["#>>", "->>"], "result": "json-text", "introduced": 14 },
+    { "name": "numeric", "operators": ["%", "*", "+", "-", "/", "^"], "result": "numeric", "introduced": 14 }
+  ],
+  "routines": [
+    { "name": "array-aggregate", "routines": ["ARRAY_AGG"], "result": "array-aggregate", "introduced": 14 },
+    {
+      "name": "bigint-window",
+      "routines": ["DENSE_RANK", "RANK", "ROW_NUMBER"],
+      "result": "bigint-window",
+      "introduced": 14
+    },
+    {
+      "name": "boolean-aggregate",
+      "routines": ["BOOL_AND", "BOOL_OR", "EVERY"],
+      "result": "boolean-aggregate",
+      "introduced": 14
+    },
+    { "name": "coalesce", "routines": ["COALESCE"], "result": "coalesce", "introduced": 14 },
+    { "name": "count", "routines": ["COUNT"], "result": "count", "introduced": 14 },
+    {
+      "name": "double-window",
+      "routines": ["CUME_DIST", "PERCENT_RANK"],
+      "result": "double-window",
+      "introduced": 14
+    },
+    { "name": "extrema", "routines": ["GREATEST", "LEAST", "MAX", "MIN"], "result": "extrema", "introduced": 14 },
+    { "name": "grouping", "routines": ["GROUPING"], "result": "grouping", "introduced": 14 },
+    { "name": "integer-window", "routines": ["NTILE"], "result": "integer-window", "introduced": 14 },
+    {
+      "name": "json-aggregate",
+      "routines": ["JSON_AGG", "JSON_OBJECT_AGG", "JSONB_AGG", "JSONB_OBJECT_AGG"],
+      "result": "json-aggregate",
+      "introduced": 14
+    },
+    { "name": "nullif", "routines": ["NULLIF"], "result": "nullif", "introduced": 14 },
+    { "name": "numeric-aggregate", "routines": ["AVG", "SUM"], "result": "numeric-aggregate", "introduced": 14 },
+    {
+      "name": "ordered-set-value",
+      "routines": ["MODE", "PERCENTILE_CONT", "PERCENTILE_DISC"],
+      "result": "ordered-set-value",
+      "introduced": 14
+    },
+    { "name": "string-aggregate", "routines": ["STRING_AGG"], "result": "string-aggregate", "introduced": 14 },
+    {
+      "name": "value-window",
+      "routines": ["FIRST_VALUE", "LAG", "LAST_VALUE", "LEAD", "NTH_VALUE"],
+      "result": "value-window",
+      "introduced": 14
+    }
+  ],
+  "tableRoutines": [
+    { "name": "array-elements", "routines": ["UNNEST"], "result": "array-elements", "introduced": 14 },
+    {
+      "name": "first-argument",
+      "routines": ["GENERATE_SERIES"],
+      "result": "first-argument",
+      "introduced": 14
+    },
+    { "name": "integer", "routines": ["GENERATE_SUBSCRIPTS"], "result": "integer", "introduced": 14 },
+    {
+      "name": "json-array-elements",
+      "routines": ["JSON_ARRAY_ELEMENTS", "JSONB_ARRAY_ELEMENTS"],
+      "result": "json-array-elements",
+      "introduced": 14
+    },
+    {
+      "name": "json-array-elements-text",
+      "routines": ["JSON_ARRAY_ELEMENTS_TEXT", "JSONB_ARRAY_ELEMENTS_TEXT"],
+      "result": "json-array-elements-text",
+      "introduced": 14
+    },
+    {
+      "name": "json-each",
+      "routines": ["JSON_EACH", "JSONB_EACH"],
+      "result": "json-each",
+      "introduced": 14
+    },
+    {
+      "name": "json-each-text",
+      "routines": ["JSON_EACH_TEXT", "JSONB_EACH_TEXT"],
+      "result": "json-each-text",
+      "introduced": 14
+    },
+    {
+      "name": "record",
+      "routines": ["JSON_POPULATE_RECORDSET", "JSON_TO_RECORDSET", "JSONB_POPULATE_RECORDSET", "JSONB_TO_RECORDSET"],
+      "result": "record",
+      "introduced": 14
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import type {
+  DialectCapabilityStates,
   DialectPlugin,
   Query,
   QueryCardinality,
@@ -12,6 +13,7 @@ import type {
   SqlRenderer,
 } from "@typed-sql/core";
 
+/** @deprecated Use `CONFORMANCE_VERSION` from `@typed-sql/conformance/v2`. Removed in typed-sql 3.0. */
 export const GRAMMAR_CONFORMANCE_VERSION = 1 as const;
 
 export const REQUIRED_GRAMMAR_PROBES = Object.freeze([
@@ -110,7 +112,27 @@ export interface GrammarConformanceReport {
   readonly grammarVersion: string;
   readonly requiredProbes: readonly RequiredGrammarProbe[];
   readonly capabilities: Readonly<Record<string, boolean>>;
+  readonly capabilityStates: DialectCapabilityStates;
   readonly structuralVariants: number;
+}
+
+export interface VersionedCapabilityExpectation {
+  readonly capability: string;
+  readonly level: "exact" | "conservative" | "unsupported";
+  readonly diagnostic?: string;
+  readonly evidenceKinds?: readonly ("server-version" | "feature" | "setting" | "policy" | "grammar")[];
+}
+
+export interface VersionedCapabilityProbe<Snapshot, Policy = unknown> {
+  readonly name: string;
+  readonly snapshot: Snapshot;
+  readonly policy?: Policy;
+  readonly expected: readonly VersionedCapabilityExpectation[];
+}
+
+export interface VersionedCapabilityConformanceFixture<Snapshot extends SchemaSnapshot, Policy = unknown> {
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+  readonly probes: readonly VersionedCapabilityProbe<Snapshot, Policy>[];
 }
 
 export interface CodecConformanceCase<Input, Output> {

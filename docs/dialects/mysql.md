@@ -27,6 +27,11 @@ The grammar targets MySQL 8.4 LTS and supports:
 
 Catalog inference covers enums, unsigned integers, decimals, JSON, temporal types, binary values, and configurable `tinyint(1)` mapping.
 
+Schema introspection records normalized `sql_mode`. Modes that change token meaning, including
+`ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES`, and `PIPES_AS_CONCAT`, keep capability resolution
+conservative until that lexical mode is modeled exactly. `mysql({ versionPolicy: "canary" })`
+explicitly selects the grammar-owned canary line; prereleases never satisfy stable LTS ranges.
+
 `createMySql2LiveVerifier()` reads binary `COM_STMT_PREPARE` parameter and result metadata and closes the statement without executing it or sending values. See [Live verification](../guides/live-verification.md).
 
 `createMySql2PlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. Parameterized statements require application-supplied transient samples; normalized evidence excludes conditions and literals. See [Query plan governance](../guides/query-plan-governance.md).
@@ -34,6 +39,10 @@ Catalog inference covers enums, unsigned integers, decimals, JSON, temporal type
 `createMySqlRoutedDatabase()` composes application-owned databases and parses runtime query shapes with the MySQL grammar. Stable, non-locking reads may use a supplied replica. `FOR UPDATE`, `FOR SHARE`, legacy `LOCK IN SHARE MODE`, writes, volatile functions, session state, and unknown statements use primary. `isMySqlRetryableTransactionError()` recognizes InnoDB deadlock identity and deliberately excludes lock-wait timeout `1205`. See [Route reads and retry transactions](../guides/routing-and-retries.md).
 
 Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER`, and incompatible `RETURNING` clauses produce `TSQ401`. Commands without a result surface infer `Query<never, Parameters>`. Unknown functions warn and infer `unknown`; ambiguous or structurally unsafe queries are errors.
+
+PostgreSQL's recursive-CTE `SEARCH`/`CYCLE`, function-relation `ROWS FROM`/`WITH ORDINALITY`, and
+`TABLESAMPLE` clauses are rejected as unsupported syntax. MySQL's separately modeled `JSON_TABLE`
+surface is not treated as PostgreSQL function-relation syntax.
 
 ## Runtime behavior
 

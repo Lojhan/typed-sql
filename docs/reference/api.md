@@ -75,6 +75,24 @@ selected adapter supports them. Driver and protocol types remain outside `@typed
 Adapter authors install services with `adapterCapabilities` and
 `createAdapterCapabilityResolver()`. Capability IDs must be namespaced and globally unique.
 
+### Versioned dialect capabilities
+
+`DialectPlugin.capabilities` remains the boolean compatibility view for dialect-contract version 4.
+`resolveCapabilities(snapshot, policy?)` is the authoritative detailed view and returns one deeply
+frozen `DialectCapabilityState` per declared key. Levels are `exact`, `conservative`, or
+`unsupported`; evidence can identify the grammar version, server version, setting, feature, or
+policy that selected the state.
+
+`resolveDialectCapabilityStates()` validates first- and third-party results and supplies conservative
+migration states for legacy boolean-only plugins. `defineDialectServerEvidence()` and
+`defineDialectCapabilityStates()` canonicalize grammar-owned inputs. The core package treats
+`versionKey` as opaque and contains no vendor version table.
+
+Use `staticDialectCapabilityStates()` only for features that do not change inside a grammar's
+declared support range. It reports supported booleans conservatively until normalized server evidence
+is available. `dialectCapabilityIssues()` and `applyDialectCapabilityStates()` provide neutral,
+fail-closed lookup and analysis helpers.
+
 ### Semantic routing and transaction retry
 
 `createRoutedDatabase(options)` composes application-owned databases through a grammar-neutral `QuerySemanticResolver`. The PostgreSQL and MySQL roots expose `createPostgresRoutedDatabase()` and `createMySqlRoutedDatabase()` with dialect resolvers configured from a schema snapshot.
@@ -223,6 +241,21 @@ See [Authoring a custom grammar](../extending/custom-grammars.md).
 
 `@typed-sql/conformance` is a stable, driver-free test package for grammar authors:
 
+- `@typed-sql/conformance/v2` exports permanent feature probes, version/capability target selection,
+  static and live layer runners, exact-claim enforcement, fixture discovery/minimization, redacted
+  reproduction bundles, and JSON/terminal reports.
+- `CONFORMANCE_VERSION` and `CONFORMANCE_REPORT_FORMAT_VERSION` independently version probe and report
+  contracts.
+- `defineConformanceProbe()` and `defineConformanceSuite()` validate and deeply freeze v2 fixtures.
+- `runStaticConformanceProbe()` and `runLiveConformanceProbe()` combine parser, resolver, compiler,
+  rendering, prepare, execution, and normalized plan evidence.
+- `assertExactConformance()` prevents skipped, quarantined, or failed layers from contributing to an
+  exact completeness claim.
+- `runAdaptedGrammarConformanceV1()` provides a non-inflating typed-sql 2.x migration bridge.
+
+The following package-root exports are the deprecated v1 compatibility contract and are removed in
+typed-sql 3.0:
+
 - `GRAMMAR_CONFORMANCE_VERSION` versions the public fixture contract.
 - `REQUIRED_GRAMMAR_PROBES` lists the inference families every grammar must exercise.
 - `assertGrammarConformance(fixture)` verifies plugin, renderer, snapshot, inference, semantic,
@@ -232,12 +265,18 @@ See [Authoring a custom grammar](../extending/custom-grammars.md).
 - `defineCodecConformanceFixture(fixture)` defines a typed codec corpus.
 - `assertRuntimeAdapterConformance(fixture)` verifies rendering, values, execution, and transaction
   dispatch through a driver-free recorder.
+- `parseGrammarFeatureLedger(value)` validates, canonicalizes, and freezes the repository feature
+  inventory, including dialect release lines, ownership, evidence, diagnostics, tests, and documentation.
+- `compareGrammarVersions()`, `grammarVersionInRange()`, `featureSupport()`, and
+  `featureSupportAtVersion()` apply the generic release-line comparison policy selected by each grammar
+  without treating every database version as interchangeable semantic versions.
 - `measureGrammarPerformance(options)` returns warmup-normalized p50, p95, and minimum throughput
   evidence without imposing a machine-independent budget.
 
 The package exports its fixture, expectation, report, codec, and performance types from its root. It
 does not install a SQL grammar, database driver, or test runner. See the
-[conformance guide](../extending/custom-grammars.md#conformance-kit).
+[conformance guide](../extending/custom-grammars.md#conformance-kit) and the generated
+[grammar support matrix](./grammar-support.md).
 
 ## Compatibility policy
 

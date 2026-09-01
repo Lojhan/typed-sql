@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/sqlite",
-  "version": "2.0.0-rc.2",
+  "version": "2.0.0",
   "description": "SQLite grammar, sound schema introspection, type resolution, and optional application-owned adapters for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
@@ -28,14 +28,14 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "experimental"
+    "releaseTrack": "stable"
   },
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "test": "poku test --reporter=compact --enforce",
+    "test": "poku test --sequential --reporter=compact --enforce",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
-    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+    "coverage": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
   "exports": {
     ".": "./dist/packages/sqlite/src/index.js",

@@ -1,4 +1,3 @@
-import { parseStatement, SqlParseError } from "@typed-sql/ast";
 import {
   createRoutedDatabase,
   type Database,
@@ -11,6 +10,7 @@ import {
   unknownQuerySemantics,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { parseStatement, SqlParseError } from "./parser/index.js";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";

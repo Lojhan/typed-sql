@@ -1,11 +1,17 @@
 import { performance } from "node:perf_hooks";
 import { describe, it, strict } from "poku";
-import { ResolverSchemaIndex, renderQuery, type SchemaSnapshot, sql } from "../src/index.js";
+import {
+  ResolverSchemaIndex,
+  renderQuery,
+  type SchemaSnapshot,
+  type StructuralRelationSnapshot,
+  sql,
+} from "../src/index.js";
 
 const budget = (name: string, fallback: number): number => Number(process.env[name] ?? fallback);
 
 await describe("core performance budgets", async () => {
-  await it("indexes and repeatedly resolves a large grammar-neutral schema", () => {
+  await it("indexes and repeatedly resolves a large grammar-neutral v2 schema", () => {
     const tables = Object.fromEntries(
       Array.from({ length: 5_000 }, (_, index) => [
         `schema_${index % 10}.table_${index}`,
@@ -19,7 +25,49 @@ await describe("core performance budgets", async () => {
         },
       ]),
     );
-    const snapshot: SchemaSnapshot = { formatVersion: 1, dialect: "performance", tables };
+    const relations: Readonly<Record<string, StructuralRelationSnapshot>> = Object.fromEntries(
+      Object.entries(tables).map(([key, table]) => [
+        key,
+        {
+          schema: table.schema,
+          name: table.name,
+          kind: "table",
+          columns: {
+            id: {
+              ...table.columns.id,
+              position: 0,
+              typeIdentity: "performance:integer",
+              default: "none",
+              generated: "none",
+              identity: "none",
+              insertable: true,
+              updatable: true,
+            },
+            label: {
+              ...table.columns.label,
+              position: 1,
+              typeIdentity: "performance:text",
+              default: "none",
+              generated: "none",
+              identity: "none",
+              insertable: true,
+              updatable: true,
+            },
+          },
+          constraints: [
+            {
+              kind: "primary-key",
+              identity: `${key}.pk`,
+              columns: ["id"],
+              partial: false,
+              expressionBased: false,
+              nullsDistinct: false,
+            },
+          ],
+        },
+      ]),
+    );
+    const snapshot: SchemaSnapshot = { formatVersion: 2, dialect: "performance", tables, relations, routines: {} };
     const start = performance.now();
     const index = new ResolverSchemaIndex(snapshot);
     for (let iteration = 0; iteration < 100_000; iteration += 1) {
@@ -28,6 +76,7 @@ await describe("core performance budgets", async () => {
       if (table === undefined || index.column(table, "LABEL")?.tsType !== "string") {
         throw new Error(`Resolver index missed table_${tableIndex}`);
       }
+      if (index.isUnique(table, ["id"]) !== true) throw new Error(`Resolver index missed table_${tableIndex} PK`);
     }
     const duration = performance.now() - start;
     const maximum = budget("TYPED_SQL_CORE_INDEX_BUDGET_MS", 1_500);

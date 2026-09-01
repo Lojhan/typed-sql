@@ -1,8 +1,10 @@
+import { defineSqlLexicalProfile, SqlToolkitError, tokenizeSql } from "@typed-sql/ast/toolkit";
 import {
   assertDialectPlugin,
   DIALECT_CONTRACT_VERSION,
   type DialectAnalysis,
   type DialectPlugin,
+  defineDialectCapabilityStates,
   type SchemaSnapshot,
   type SourceRange,
   sql,
@@ -21,6 +23,33 @@ export const SYNTHETIC_GRAMMAR_VERSION = "1.0.0";
 export type SyntheticSnapshot = SchemaSnapshot & { readonly dialect: "synthetic" };
 
 const capabilities = Object.freeze({ returning: false });
+
+const lexicalProfile = defineSqlLexicalProfile({
+  keywords: new Set(["AS", "FROM", "JOIN", "SELECT", "SET", "UPDATE", "WHERE", "WITH"]),
+  operators: ["=", "*"],
+  identifierQuotes: [{ open: "[", close: "]", escape: "double-close" }],
+  stringModes: [{ prefix: "", quote: "'" }],
+  parameterModes: [{ kind: "numbered-question", startAt: 1 }],
+});
+
+function resolveCapabilities(snapshot: SyntheticSnapshot) {
+  return defineDialectCapabilityStates(
+    {
+      returning: {
+        level: "unsupported",
+        reason: "The synthetic grammar deliberately omits RETURNING.",
+        diagnostic: "SYN001",
+        evidence: [
+          { kind: "grammar", key: "grammarVersion", value: SYNTHETIC_GRAMMAR_VERSION },
+          ...(snapshot.server === undefined
+            ? []
+            : [{ kind: "server-version" as const, key: snapshot.server.product, value: snapshot.server.versionKey }]),
+        ],
+      },
+    },
+    Object.keys(capabilities),
+  );
+}
 
 function range(sqlText: string): SourceRange {
   return { start: 0, end: sqlText.length, line: 1, column: 1 };
@@ -81,6 +110,18 @@ function supported(sqlText: string, policy: SyntheticTypePolicy): DialectAnalysi
 }
 
 function analyze(sqlText: string, _snapshot: SyntheticSnapshot, policy: SyntheticTypePolicy): DialectAnalysis {
+  try {
+    tokenizeSql(sqlText, lexicalProfile, { maxDepth: 32, maxTokens: 2_000, maxSqlLength: 10_000 });
+  } catch (error) {
+    if (!(error instanceof SqlToolkitError)) throw error;
+    const code = error.code === "TSQ002" ? error.code : "SYN001";
+    return {
+      columns: [],
+      parameters: [],
+      diagnostics: [{ code, message: error.message, severity: "error", range: error.range }],
+      semantics: unknownQuerySemantics(error.range, "The synthetic grammar rejected malformed SQL."),
+    };
+  }
   const analysis = supported(sqlText, policy);
   if (analysis !== undefined) return analysis;
   return {
@@ -113,6 +154,7 @@ const plugin = Object.freeze({
   grammarVersion: SYNTHETIC_GRAMMAR_VERSION,
   sqlModule: "@typed-sql/example-synthetic-grammar",
   capabilities,
+  resolveCapabilities,
   defaultTypePolicy: typePolicy,
   placeholder(index: number) {
     if (!Number.isInteger(index) || index < 1) throw new RangeError("Synthetic parameters start at 1");

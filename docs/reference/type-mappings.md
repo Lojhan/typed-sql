@@ -68,7 +68,7 @@ Policy alternatives:
 | `json` | `unknown`, `JsonValue`, `string` | Object modes use parsed JSON; `string` serializes it. |
 | `tinyint1` | `boolean`, `number` | Conversion follows field type and length metadata. |
 
-## SQLite preview
+## SQLite
 
 SQLite mappings depend on whether the table is STRICT. Ordinary tables use a declared affinity but
 can store values from another storage class, so a narrower declared-type mapping would be unsound.
@@ -76,6 +76,7 @@ can store values from another storage class, so a narrower declared-type mapping
 | SQLite catalog evidence | Default TypeScript type | `node:sqlite` runtime value |
 | --- | --- | --- |
 | non-STRICT column | `bigint \| number \| string \| Uint8Array` | Native SQLite storage-class value |
+| rowid or exact `INTEGER PRIMARY KEY` alias | `bigint` | Native `bigint` through `setReadBigInts(true)` |
 | STRICT `INT`, `INTEGER` | `bigint` | Native `bigint` through `setReadBigInts(true)` |
 | STRICT `REAL` | `number` | JavaScript number |
 | STRICT `TEXT` | `string` | JavaScript string |
@@ -83,9 +84,23 @@ can store values from another storage class, so a narrower declared-type mapping
 | STRICT `ANY` | Flexible storage union | Native SQLite storage-class value |
 | nullable column | `T \| null` | `null` |
 
+SQLite JSON functions return `string` for JSON text and `Uint8Array` for JSONB. A single-path
+`json_extract`/`jsonb_extract` can instead produce any SQLite storage class, so it uses the flexible
+storage union; multiple paths return JSON text or JSONB respectively. `json_each` and `json_tree`
+use the same flexible union for `value` and `atom`.
+
+SQLite date/time text functions return `string | null`, `julianday` returns `number | null`, and
+`unixepoch` returns the configured integer type unless a literal `subsec`/`subsecond` modifier makes
+the result `number | null`. Optional math and percentile functions return `number | null` after
+their compile-option evidence has been established.
+
 The `integer` policy can select `number`; use it only when the application accepts JavaScript's
 safe-integer limit. The `flexible` policy can select `unknown` instead of the storage union. The
 same policy must be passed to the dialect, provider, and adapter.
+
+SQLite's historical primary-key nullability exception is preserved: an ordinary non-STRICT rowid
+table can report nullable non-rowid primary-key columns. Exact rowid aliases, STRICT primary keys,
+and `WITHOUT ROWID` primary keys remain non-null.
 
 ## Nullability, aggregates, and drift
 

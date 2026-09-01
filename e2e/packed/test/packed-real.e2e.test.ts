@@ -37,7 +37,7 @@ const packageNames = [
   "ts-bridge",
   "language-server",
 ] as const;
-const previewPackageNames = new Set(["@typed-sql/sqlite", "@typed-sql/ts-bridge", "@typed-sql/language-server"]);
+const previewPackageNames = new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"]);
 const dialectNames = ["postgres", "mysql", "sqlite"] as const;
 const artifactParameterSentinel = "typed-sql-packed-parameter-sentinel";
 const artifactCredentialSentinel = "typed-sql-packed-credential-sentinel";
@@ -857,7 +857,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
             const directory = join(${JSON.stringify(consumer)}, item.name);
             const fileName = join(directory, "src", "query.ts");
             const source = await readFile(fileName, "utf8");
-            const schema = JSON.parse(await readFile(join(directory, "generated", "schema.json"), "utf8"));
+            const schema = item.dialect.validateSnapshot(JSON.parse(await readFile(join(directory, "generated", "schema.json"), "utf8")) as never);
             const analysis = analyzeSource(source, schema, item.dialect as never);
             const inspections = await bridge.inspectFile({ fileName, projectFile: join(directory, "tsconfig.json"), analysis });
             const typeText = inspections[0]?.typeText ?? "";

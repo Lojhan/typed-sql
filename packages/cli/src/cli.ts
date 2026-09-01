@@ -22,7 +22,7 @@ import {
   verifyQueryManifest,
 } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
-import type { SchemaSnapshot } from "@typed-sql/core";
+import { resolveDialectCapabilityStates, type SchemaSnapshot } from "@typed-sql/core";
 import {
   checkSchemaDrift,
   generateSchemaPackage,
@@ -35,7 +35,7 @@ interface ParsedArguments {
   readonly options: Readonly<Record<string, string>>;
 }
 
-const commands = new Set(["check", "compat", "explain", "generate", "drift", "manifest", "verify"]);
+const commands = new Set(["capabilities", "check", "compat", "explain", "generate", "drift", "manifest", "verify"]);
 
 async function packageVersion(): Promise<string> {
   let directory = dirname(fileURLToPath(import.meta.url));
@@ -62,6 +62,7 @@ Usage:
   typed-sql <command> [options]
 
 Commands:
+  capabilities  Report versioned grammar support from the generated snapshot
   check      Infer SQL result types and verify them with TypeScript 7
   compat     Analyze rolling-deployment compatibility from two snapshots and manifests
   explain    Capture and review structured database query plans
@@ -75,6 +76,7 @@ Global options:
   -v, --version    Show the installed CLI version
 
 Examples:
+  typed-sql capabilities --config typed-sql.config.ts
   typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
   typed-sql explain --manifest .typed-sql/queries.json --out .typed-sql/plans.json
@@ -238,6 +240,23 @@ async function main(): Promise<void> {
   const dialect = config.dialect;
   const policy = config.typePolicy ?? dialect.defaultTypePolicy;
   const schemaFile = fromConfig(loaded.directory, parsed.options.schema ?? config.schema.file);
+
+  if (parsed.command === "capabilities") {
+    const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
+    const states = resolveDialectCapabilityStates(dialect, schema, policy);
+    process.stdout.write(
+      [
+        `Capabilities for ${dialect.id} grammar ${dialect.grammarVersion}`,
+        ...Object.entries(states).flatMap(([capability, state]) => [
+          `${capability}: ${state.level}${state.diagnostic === undefined ? "" : ` (${state.diagnostic})`}`,
+          `  ${state.reason}`,
+          ...state.evidence.map(({ kind, key, value }) => `  ${kind}: ${key}=${value}`),
+        ]),
+        "",
+      ].join("\n"),
+    );
+    return;
+  }
 
   if (parsed.command === "compat") {
     const beforeFile = fromConfig(loaded.directory, required(parsed.options, "before"));
@@ -493,8 +512,9 @@ async function main(): Promise<void> {
     const current = await config.schema.provider.introspect();
     const drift = checkSchemaDrift(generated, current as never, policy);
     if (drift.drifted) {
+      const changes = drift.changes.map(({ kind, key }) => `${kind}:${key}`).join(",");
       process.stderr.write(
-        `error TSQ301: Schema drift detected (schemaChanged=${drift.schemaChanged}, typePolicyChanged=${drift.typePolicyChanged})\n`,
+        `error TSQ301: Schema drift detected (schemaChanged=${drift.schemaChanged}, typePolicyChanged=${drift.typePolicyChanged}, changes=${changes})\n`,
       );
       process.exitCode = 1;
     } else process.stdout.write("No schema drift detected\n");

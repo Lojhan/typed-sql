@@ -33,8 +33,9 @@ const row = await database.one(account);
 ```
 
 `pg`, `mysql2`, validation libraries, and OpenTelemetry remain application-owned dependencies. The
-grammar package does not install them. SQLite uses the built-in `node:sqlite` adapter and remains an
-experimental package surface.
+grammar package does not install them. SQLite is a stable package surface; its optional built-in
+`node:sqlite` adapter requires Node 22.13+, 24, or 26 even though the grammar follows typed-sql's
+general Node.js range.
 
 After upgrading packages, regenerate and check the project:
 
@@ -53,6 +54,27 @@ The v1 `execute()` and `transaction()` methods remain available. v2 adds `all()`
 `maybeOne()` cardinality methods, cancellation and deadlines, prepared execution, streams, batches,
 routing, and optional adapter capabilities. Adopt them incrementally; no production feature is
 enabled merely by upgrading the package.
+
+### Regenerate SQLite evidence
+
+SQLite graduation makes several previously broad or provisional outcomes evidence-backed. Regenerate
+the snapshot before accepting the new types and diagnostics:
+
+- non-STRICT columns remain the sound SQLite storage union; STRICT columns, rowid aliases, generated
+  columns, and `WITHOUT ROWID` keys can now narrow from catalog evidence;
+- the default integer result is `bigint`, including rowid and exact `INTEGER PRIMARY KEY` aliases;
+- recursive queries, compound selects, windows, UPSERT, `RETURNING`, `UPDATE FROM`, JSON, date/time,
+  math, and versioned built-ins now produce exact results when their version and compile evidence is
+  present;
+- unavailable versions and compile options now report stable `TSQ402`–`TSQ407` diagnostics instead
+  of accepting a best-effort type; invalid SQLite-specific invocation shapes can additionally report
+  `TSQ220`–`TSQ227`;
+- the Node adapter rejects a generated snapshot when the live library version, compile options, or
+  type-policy hash differs, and it no longer supports Node 22.11 or 22.12.
+
+Review inferred row and parameter declarations after `typed-sql generate`, then run
+`typed-sql check` and the application's runtime tests. If application routines are used, provide the
+same explicit declarations during introspection that are installed on the runtime connection.
 
 ## Adopt compiler and CI artifacts
 
@@ -171,7 +193,7 @@ they are not aliases for the typed-sql npm major.
 | `DIALECT_CONTRACT_VERSION` | `4` | A grammar must implement the exact plugin protocol. |
 | `QUERY_SEMANTICS_VERSION` | `1` | Semantic evidence must use the exact supported shape. |
 | grammar `grammarVersion` | grammar-owned | A snapshot's `dialectVersion` must be accepted explicitly by the grammar. |
-| `SCHEMA_FORMAT_VERSION` | `1` | Parse through `parseSchemaSnapshot()`; regenerate when unsupported. |
+| `SCHEMA_FORMAT_VERSION` | `2` | Parse through `parseSchemaSnapshot()`; typed-sql 2 can read isolated v1 snapshots and emits v2. |
 | `QUERY_MANIFEST_FORMAT_VERSION` | `1` | Parse through `parseQueryManifest()`; regenerate when unsupported. |
 | `QUERY_FINGERPRINT_ALGORITHM` | `typed-sql-v1` | Fingerprints correlate only when the algorithm, grammar, schema, and policy evidence agree. |
 | `QUERY_VERIFICATION_FORMAT_VERSION` | `1` | Parse proofs through `parseQueryVerificationProof()`. |

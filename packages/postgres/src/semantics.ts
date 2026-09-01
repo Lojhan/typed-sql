@@ -1,4 +1,3 @@
-import { type CallExpression, type Statement, walkStatement } from "@typed-sql/ast";
 import {
   defineQuerySemantics,
   QUERY_SEMANTICS_VERSION,
@@ -9,6 +8,7 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
   ARRAY_AGG: "immutable",
@@ -170,7 +170,9 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
     statement.groupBy.length === 0 &&
     statement.having === undefined &&
     statement.limit === undefined &&
+    statement.limitAll !== true &&
     statement.offset === undefined &&
+    statement.fetch === undefined &&
     statement.compounds.length === 0 &&
     !hasCall;
   const command = statement.kind !== "select" && statement.returning.length === 0;

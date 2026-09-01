@@ -11,20 +11,20 @@ import {
 } from "../../../test/soundness/source-corpus.js";
 import { compileSource } from "../../compiler/src/index.js";
 import type { DialectPlugin, SchemaSnapshot } from "../../core/src/index.js";
-import { type MySqlSchemaSnapshot, mysql } from "../../mysql/src/index.js";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/index.js";
+import { postgres } from "../../postgres/src/index.js";
 import { type SqliteSchemaSnapshot, sqlite } from "../../sqlite/src/index.js";
 import { TypedSqlLanguageService } from "../src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const postgresDirectory = resolve(workspace, "e2e/postgres");
 const mysqlDirectory = resolve(workspace, "e2e/mysql");
-const postgresSchema = JSON.parse(
-  await readFile(resolve(postgresDirectory, "generated/db/schema.json"), "utf8"),
-) as PostgresSchemaSnapshot;
-const mysqlSchema = JSON.parse(
-  await readFile(resolve(mysqlDirectory, "generated/db/schema.json"), "utf8"),
-) as MySqlSchemaSnapshot;
+const postgresSchema = postgres().validateSnapshot(
+  JSON.parse(await readFile(resolve(postgresDirectory, "generated/db/schema.json"), "utf8")) as unknown,
+);
+const mysqlSchema = mysql().validateSnapshot(
+  JSON.parse(await readFile(resolve(mysqlDirectory, "generated/db/schema.json"), "utf8")) as unknown,
+);
 
 interface EditorFixture<Snapshot extends SchemaSnapshot, Policy> {
   readonly name: "postgres" | "mysql" | "sqlite";

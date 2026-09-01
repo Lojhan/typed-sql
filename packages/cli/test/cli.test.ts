@@ -172,6 +172,46 @@ await describe("typed-sql manifest command", async () => {
   });
 });
 
+await describe("typed-sql capabilities command", async () => {
+  await it("reports actionable, secret-free capability evidence from the configured snapshot", async () => {
+    const temporary = await mkdtemp(join(workspace, ".typed-sql-cli-capabilities-"));
+    try {
+      await writeFile(
+        join(temporary, "typed-sql.config.ts"),
+        [
+          'import { defineConfig } from "@typed-sql/core";',
+          'import { postgres } from "@typed-sql/postgres";',
+          'export default defineConfig({ dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated" });',
+        ].join("\n"),
+      );
+      await writeFile(
+        join(temporary, "schema.json"),
+        `${JSON.stringify({
+          formatVersion: 1,
+          dialect: "postgres",
+          version: "18.6",
+          server: {
+            product: "postgres",
+            version: "18.6",
+            versionKey: "18",
+            features: ["plpgsql:1.0"],
+            settings: { standardConformingStrings: "on" },
+          },
+          tables: {},
+        })}\n`,
+      );
+      const result = await execute(["capabilities"], temporary);
+      strict.match(result.stdout, /Capabilities for postgres grammar/u);
+      strict.match(result.stdout, /returning: exact/u);
+      strict.match(result.stdout, /feature: plpgsql:1\.0=present/u);
+      strict.ok(!result.stdout.includes("connection"));
+      strict.strictEqual(result.stderr, "");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+});
+
 await describe("typed-sql compat command", async () => {
   await it("writes a secret-free rolling-deployment report and enforces configured severity", async () => {
     const temporary = await mkdtemp(join(workspace, ".typed-sql-cli-compat-"));

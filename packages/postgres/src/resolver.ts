@@ -1,6 +1,24 @@
+import {
+  closestName,
+  ParameterCollector,
+  type ResolvedParameter,
+  ResolverSchemaIndex,
+  type StructuralRoutineSnapshot,
+  unionTypeLiterals,
+} from "@typed-sql/core";
+import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+import {
+  postgresCatalogOperatorRule,
+  postgresCatalogRoutineRule,
+  postgresCatalogTableRoutineRule,
+  postgresCatalogTypeMapping,
+} from "./catalog/index.js";
 import type {
   CallExpression,
+  CommonTableExpression,
   Expression,
+  FunctionTableReference,
+  GroupingElement,
   Identifier,
   SelectItem,
   SelectStatement,
@@ -8,17 +26,14 @@ import type {
   SqlDiagnostic,
   Statement,
   TableReference,
+  UpdateAssignment,
   UpdateStatement,
+  WindowFrameBound,
+  WindowSpecification,
   WithClause,
-} from "@typed-sql/ast";
-import {
-  closestName,
-  ParameterCollector,
-  type ResolvedParameter,
-  ResolverSchemaIndex,
-  unionTypeLiterals,
-} from "@typed-sql/core";
-import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+} from "./parser/index.js";
+import { walkStatement } from "./parser/index.js";
+import { parsePostgresMajor } from "./support.js";
 import {
   defaultPostgresTypePolicy,
   isKnownPostgresType,
@@ -29,12 +44,14 @@ import {
 interface Relation {
   readonly alias: string;
   readonly table: TableSnapshot;
+  readonly qualifiedOnly?: boolean;
   nullable: boolean;
 }
 
 interface Scope {
   readonly relations: Relation[];
   readonly usingColumns: Map<string, ResolvedType>;
+  readonly windows: Map<string, WindowSpecification>;
   readonly outer?: Scope;
 }
 
@@ -42,6 +59,13 @@ interface ResolvedType {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+}
+
+interface FunctionColumn {
+  name: string;
+  databaseType: string;
+  tsType: string;
+  nullable: boolean;
 }
 
 export interface ResolvedColumn extends ResolvedType {
@@ -61,54 +85,6 @@ export interface ResolveOptions {
   readonly strictExpressions?: boolean;
 }
 
-const booleanOperators = new Set([
-  "=",
-  "!=",
-  "<>",
-  "<",
-  "<=",
-  ">",
-  ">=",
-  "IS",
-  "IS NOT",
-  "IS DISTINCT FROM",
-  "IS NOT DISTINCT FROM",
-  "LIKE",
-  "NOT LIKE",
-  "ILIKE",
-  "NOT ILIKE",
-  "SIMILAR TO",
-  "NOT SIMILAR",
-  "~",
-  "~*",
-  "!~",
-  "!~*",
-  "AND",
-  "OR",
-  "@>",
-  "<@",
-  "?",
-  "?|",
-  "?&",
-  "&&",
-]);
-
-const numericTypes = new Set([
-  "smallint",
-  "int2",
-  "integer",
-  "int",
-  "int4",
-  "bigint",
-  "int8",
-  "numeric",
-  "decimal",
-  "real",
-  "float4",
-  "double precision",
-  "float8",
-]);
-
 function sqlName(identifier: Identifier): string {
   return identifier.quoted ? identifier.name : identifier.name.toLowerCase();
 }
@@ -127,6 +103,51 @@ function suggestion(name: string, candidates: readonly string[]): string | undef
   return `Did you mean ${candidate}?`;
 }
 
+function mergeTypeLiterals(left: string, right: string): string {
+  if (left === right) return left;
+  const leftMembers = left.split(" | ");
+  if (leftMembers.includes(right)) return left;
+  const rightMembers = right.split(" | ");
+  if (rightMembers.includes(left)) return right;
+  return unionTypeLiterals([left, right]);
+}
+
+function structuralExpression(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(structuralExpression);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "range")
+      .map(([key, nested]) => [key, structuralExpression(nested)]),
+  );
+}
+
+function expressionIdentity(expression: Expression): string {
+  return JSON.stringify(structuralExpression(expression));
+}
+
+const aggregateRoutineRules = new Set([
+  "array-aggregate",
+  "boolean-aggregate",
+  "count",
+  "json-aggregate",
+  "numeric-aggregate",
+  "ordered-set-value",
+  "string-aggregate",
+]);
+
+const aggregateExtrema = new Set(["MAX", "MIN"]);
+const hypotheticalAggregates = new Set(["CUME_DIST", "DENSE_RANK", "PERCENT_RANK", "RANK"]);
+
+function isSpecialGrouping(
+  grouping: GroupingElement,
+): grouping is Extract<
+  GroupingElement,
+  { readonly kind: "empty-group" | "grouping-set" | "rollup" | "cube" | "grouping-sets" }
+> {
+  return ["empty-group", "grouping-set", "rollup", "cube", "grouping-sets"].includes(grouping.kind);
+}
+
 class Resolver {
   readonly #schema: SchemaSnapshot;
   readonly #policy: PostgresTypePolicy;
@@ -134,12 +155,17 @@ class Resolver {
   readonly #diagnostics: SqlDiagnostic[] = [];
   readonly #parameters = new ParameterCollector();
   readonly #index: ResolverSchemaIndex;
+  readonly #serverMajor: number | undefined;
+  #insideMergeReturning = false;
 
   constructor(schema: SchemaSnapshot, options: ResolveOptions) {
     this.#schema = schema;
     this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultPostgresTypePolicy;
     this.#strictExpressions = options.strictExpressions ?? true;
+    this.#serverMajor = parsePostgresMajor(
+      schema.server?.versionKey ?? ("version" in schema ? (schema.version ?? "") : ""),
+    );
   }
 
   resolve(statement: Statement): ResolvedQuery {
@@ -169,6 +195,8 @@ class Resolver {
         return this.#resolveUpdate(statement, outer, ctes);
       case "delete":
         return this.#resolveDelete(statement, outer, ctes);
+      case "merge":
+        return this.#resolveMerge(statement, outer, ctes);
     }
   }
 
@@ -179,30 +207,27 @@ class Resolver {
   ): Map<string, TableSnapshot> {
     const ctes = new Map(inherited);
     if (withClause === undefined) return ctes;
-    if (withClause.recursive) {
-      this.#diagnostic(
-        "TSQ210",
-        "Recursive CTE inference is not supported safely",
-        withClause.range,
-        "Use a non-recursive CTE or annotate the query explicitly.",
-      );
-    }
     for (const query of withClause.queries) {
       const key = sqlName(query.name);
       if (ctes.has(key)) this.#diagnostic("TSQ211", `Duplicate CTE ${query.name.name}`, query.name.range);
-      if (withClause.recursive) {
-        const placeholderColumns: Record<string, ColumnSnapshot> = {};
-        for (const column of query.columns) {
-          placeholderColumns[sqlName(column)] = {
-            name: sqlName(column),
-            databaseType: "unknown",
-            tsType: "unknown",
-            nullable: true,
-          };
-        }
-        ctes.set(key, { name: key, columns: placeholderColumns });
+      const selfReferences = query.statement.kind === "select" ? this.#selfReferences(query.statement, query.name) : 0;
+      if (
+        (query.search !== undefined || query.cycle !== undefined) &&
+        (!withClause.recursive || selfReferences === 0)
+      ) {
+        this.#diagnostic("TSQ220", `SEARCH and CYCLE require a recursive CTE ${query.name.name}`, query.range);
       }
-      const resolved = this.#resolveStatement(query.statement, outer, ctes);
+      if (selfReferences > 0 && !withClause.recursive) {
+        this.#diagnostic("TSQ220", `Recursive CTE ${query.name.name} requires WITH RECURSIVE`, query.range);
+      }
+      const resolved =
+        selfReferences > 0 && query.statement.kind === "select"
+          ? this.#resolveRecursiveCte(
+              query as CommonTableExpression & { readonly statement: SelectStatement },
+              outer,
+              ctes,
+            )
+          : this.#resolveStatement(query.statement, outer, ctes);
       if (resolved.resultKind === "command") {
         this.#diagnostic(
           "TSQ212",
@@ -229,9 +254,185 @@ class Resolver {
           nullable: column.nullable,
         };
       });
+      const addGenerated = (identifier: Identifier, column: ColumnSnapshot): void => {
+        const generatedName = sqlName(identifier);
+        if (columns[generatedName] !== undefined) {
+          this.#diagnostic(
+            "TSQ105",
+            `CTE generated column ${identifier.name} conflicts with an output column`,
+            identifier.range,
+          );
+          return;
+        }
+        columns[generatedName] = column;
+      };
+      if (query.search !== undefined) {
+        for (const identifier of query.search.by) {
+          if (columns[sqlName(identifier)] === undefined)
+            this.#diagnostic("TSQ101", `Unknown SEARCH column ${identifier.name}`, identifier.range);
+        }
+        addGenerated(query.search.set, {
+          name: sqlName(query.search.set),
+          databaseType: query.search.order === "depth" ? "record[]" : "record",
+          tsType: "unknown",
+          nullable: false,
+        });
+      }
+      if (query.cycle !== undefined) {
+        for (const identifier of query.cycle.columns) {
+          if (columns[sqlName(identifier)] === undefined)
+            this.#diagnostic("TSQ101", `Unknown CYCLE column ${identifier.name}`, identifier.range);
+        }
+        const markScope: Scope = {
+          relations: [],
+          usingColumns: new Map(),
+          windows: new Map(),
+          ...(outer === undefined ? {} : { outer }),
+        };
+        const markValue =
+          query.cycle.markValue === undefined
+            ? this.#databaseType("boolean", false)
+            : this.#resolveExpression(query.cycle.markValue, markScope, ctes);
+        const markDefault =
+          query.cycle.markDefault === undefined
+            ? this.#databaseType("boolean", false)
+            : this.#resolveExpression(query.cycle.markDefault, markScope, ctes, markValue);
+        for (const mark of [query.cycle.markValue, query.cycle.markDefault]) {
+          if (
+            mark !== undefined &&
+            mark.kind !== "literal" &&
+            !(mark.kind === "cast" && mark.expression.kind === "literal")
+          ) {
+            this.#diagnostic("TSQ220", "CYCLE mark values must be constants", mark.range);
+          }
+        }
+        addGenerated(query.cycle.set, {
+          name: sqlName(query.cycle.set),
+          databaseType:
+            markValue.databaseType === markDefault.databaseType && markValue.databaseType !== undefined
+              ? markValue.databaseType
+              : "unknown",
+          tsType: mergeTypeLiterals(markValue.tsType, markDefault.tsType),
+          nullable: markValue.nullable || markDefault.nullable,
+        });
+        addGenerated(query.cycle.using, {
+          name: sqlName(query.cycle.using),
+          databaseType: "record[]",
+          tsType: "unknown",
+          nullable: false,
+        });
+      }
       ctes.set(key, { name: key, columns });
     }
     return ctes;
+  }
+
+  #resolveRecursiveCte(
+    query: CommonTableExpression & { readonly statement: SelectStatement },
+    outer: Scope | undefined,
+    inherited: ReadonlyMap<string, TableSnapshot>,
+  ): { readonly columns: readonly ResolvedColumn[]; readonly resultKind: "rows" } {
+    const arms = this.#selectArms(query.statement);
+    const references = arms.map(({ statement }) => ({
+      direct: this.#directSelfReferences(statement, query.name),
+      total: this.#selfReferences(statement, query.name),
+    }));
+    const firstRecursive = references.findIndex(({ total }) => total > 0);
+    if (firstRecursive <= 0) {
+      this.#diagnostic(
+        "TSQ220",
+        `Recursive CTE ${query.name.name} requires a non-recursive SELECT before its recursive member`,
+        query.range,
+      );
+    }
+    for (let index = Math.max(firstRecursive, 0); index < arms.length; index += 1) {
+      const arm = arms[index]!;
+      const reference = references[index]!;
+      if (reference.total === 0) {
+        this.#diagnostic(
+          "TSQ220",
+          `Non-recursive members of ${query.name.name} must precede recursive members`,
+          arm.range,
+        );
+      } else if (reference.direct !== 1 || reference.total !== 1) {
+        this.#diagnostic(
+          "TSQ220",
+          `Each recursive member of ${query.name.name} must reference itself exactly once in its top-level FROM`,
+          arm.statement.range,
+        );
+      }
+      if (arm.operator !== "union") {
+        this.#diagnostic("TSQ220", `Recursive members of ${query.name.name} must use UNION or UNION ALL`, arm.range);
+      }
+    }
+
+    const seedStatements = arms.slice(0, Math.max(firstRecursive, 1)).map(({ statement }) => statement);
+    const seedColumns = seedStatements.map((statement) => this.#resolveSelect(statement, outer, inherited));
+    const mergedSeed = [...(seedColumns[0] ?? [])];
+    for (const columns of seedColumns.slice(1)) this.#mergeCompoundColumns(mergedSeed, columns, query.range);
+    const provisional: Record<string, ColumnSnapshot> = {};
+    const width = Math.max(query.columns.length, mergedSeed.length);
+    for (let index = 0; index < width; index += 1) {
+      const seed = mergedSeed[index];
+      const name = query.columns[index] === undefined ? seed?.name : sqlName(query.columns[index]!);
+      if (name === undefined) continue;
+      provisional[name] = {
+        name,
+        databaseType: seed?.databaseType ?? "unknown",
+        tsType: seed?.tsType ?? "unknown",
+        nullable: seed?.nullable ?? true,
+      };
+    }
+    const recursiveScope = new Map(inherited);
+    recursiveScope.set(sqlName(query.name), { name: sqlName(query.name), columns: provisional });
+    return { columns: this.#resolveSelect(query.statement, outer, recursiveScope), resultKind: "rows" };
+  }
+
+  #selectArms(statement: SelectStatement): readonly {
+    readonly statement: SelectStatement;
+    readonly operator?: "union" | "intersect" | "except";
+    readonly all?: boolean;
+    readonly range: SourceRange;
+  }[] {
+    const { compounds, ...simple } = statement;
+    const arms: {
+      statement: SelectStatement;
+      operator?: "union" | "intersect" | "except";
+      all?: boolean;
+      range: SourceRange;
+    }[] = [{ statement: { ...simple, compounds: [] }, range: statement.range }];
+    for (const compound of compounds) {
+      const [first, ...rest] = this.#selectArms(compound.statement);
+      if (first !== undefined)
+        arms.push({ ...first, operator: compound.operator, all: compound.all, range: compound.range });
+      arms.push(...rest);
+    }
+    return arms;
+  }
+
+  #directSelfReferences(statement: SelectStatement, identifier: Identifier): number {
+    return [statement.from, ...statement.joins.map(({ table }) => table)].filter(
+      (reference) =>
+        reference?.kind === "table" &&
+        reference.schema === undefined &&
+        sqlName(reference.name) === sqlName(identifier),
+    ).length;
+  }
+
+  #selfReferences(statement: SelectStatement, identifier: Identifier): number {
+    let references = 0;
+    walkStatement(statement, {
+      table(reference) {
+        if (
+          reference.kind === "table" &&
+          reference.schema === undefined &&
+          sqlName(reference.name) === sqlName(identifier)
+        ) {
+          references += 1;
+        }
+      },
+    });
+    return references;
   }
 
   #resolveSelect(
@@ -239,14 +440,12 @@ class Resolver {
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): readonly ResolvedColumn[] {
-    if (statement.compounds.length > 0) {
-      this.#diagnostic(
-        "TSQ401",
-        "PostgreSQL set-operation inference is not supported safely",
-        statement.compounds[0]!.range,
-      );
-    }
-    const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
+    const scope: Scope = {
+      relations: [],
+      usingColumns: new Map(),
+      windows: new Map(),
+      ...(outer === undefined ? {} : { outer }),
+    };
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);
     for (const clause of statement.locking) {
@@ -256,22 +455,433 @@ class Resolver {
         }
       }
     }
+    for (const window of statement.windows) {
+      const name = sqlName(window.name);
+      if (scope.windows.has(name)) {
+        this.#diagnostic("TSQ222", `Duplicate window ${window.name.name}`, window.name.range);
+        continue;
+      }
+      const resolved = this.#resolveWindowSpecification(window.specification, scope, ctes);
+      scope.windows.set(name, resolved);
+    }
     if (statement.where !== undefined)
       this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
-    for (const expression of statement.groupBy) this.#resolveExpression(expression, scope, ctes);
+    for (const grouping of statement.groupBy) this.#resolveGrouping(grouping, statement.columns, scope, ctes);
     if (statement.having !== undefined)
       this.#resolveExpression(statement.having, scope, ctes, this.#databaseType("boolean", false));
     for (const expression of statement.distinctOn) this.#resolveExpression(expression, scope, ctes);
-    for (const window of statement.windows) {
-      for (const expression of window.specification.partitionBy) this.#resolveExpression(expression, scope, ctes);
-      for (const order of window.specification.orderBy) this.#resolveExpression(order.expression, scope, ctes);
+    for (const order of statement.orderBy) {
+      const output = this.#outputReference(order.expression, statement.columns, scope, true);
+      this.#resolveExpression(output ?? order.expression, scope, ctes);
     }
-    for (const order of statement.orderBy) this.#resolveExpression(order.expression, scope, ctes);
+    if (statement.distinctOn.length > 0 && statement.orderBy.length > 0) {
+      const distinct = new Set(statement.distinctOn.map((expression) => this.#groupKey(expression, scope)));
+      const leading = statement.orderBy
+        .slice(0, statement.distinctOn.length)
+        .map(({ expression }) => this.#outputReference(expression, statement.columns, scope, true) ?? expression)
+        .map((expression) => this.#groupKey(expression, scope));
+      if (leading.length !== distinct.size || leading.some((key) => !distinct.has(key))) {
+        this.#diagnostic(
+          "TSQ228",
+          "DISTINCT ON expressions must match the leftmost ORDER BY expressions",
+          statement.orderBy[0]!.range,
+        );
+      }
+    }
     if (statement.limit !== undefined)
       this.#resolveExpression(statement.limit, scope, ctes, this.#databaseType("integer", false));
     if (statement.offset !== undefined)
       this.#resolveExpression(statement.offset, scope, ctes, this.#databaseType("integer", false));
-    return this.#resolveItems(statement.columns, scope, ctes);
+    if (statement.fetch?.count !== undefined)
+      this.#resolveExpression(statement.fetch.count, scope, ctes, this.#databaseType("integer", false));
+    const columns = [...this.#resolveItems(statement.columns, scope, ctes)];
+    this.#validateGroupedQuery(statement, columns, scope);
+    for (const compound of statement.compounds) {
+      const right = this.#resolveSelect(compound.statement, outer, ctes);
+      this.#mergeCompoundColumns(columns, right, compound.range);
+    }
+    return columns;
+  }
+
+  #resolveGrouping(
+    grouping: GroupingElement,
+    items: readonly SelectItem[],
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): void {
+    if (!isSpecialGrouping(grouping)) {
+      const output = this.#outputReference(grouping, items, scope, false);
+      this.#resolveExpression(output ?? grouping, scope, ctes);
+      return;
+    }
+    if (grouping.kind !== "empty-group") {
+      for (const element of grouping.elements) this.#resolveGrouping(element, items, scope, ctes);
+    }
+  }
+
+  #outputReference(
+    expression: Expression,
+    items: readonly SelectItem[],
+    scope: Scope,
+    preferOutput: boolean,
+  ): Expression | undefined {
+    if (
+      expression.kind === "literal" &&
+      typeof expression.value === "number" &&
+      Number.isSafeInteger(expression.value) &&
+      expression.value >= 1
+    ) {
+      return items[expression.value - 1]?.expression;
+    }
+    if (expression.kind !== "column" || expression.relation !== undefined) return undefined;
+    const name = sqlName(expression.column);
+    if (!preferOutput && this.#columnMatches(undefined, name, scope, expression.column.quoted).length > 0)
+      return undefined;
+    const matches = items.filter((item) => item.alias !== undefined && sqlName(item.alias) === name);
+    if (matches.length > 1) {
+      this.#diagnostic("TSQ105", `Output reference ${expression.column.name} is ambiguous`, expression.range);
+      return undefined;
+    }
+    return matches[0]?.expression;
+  }
+
+  #validateGroupedQuery(statement: SelectStatement, columns: ResolvedColumn[], scope: Scope): void {
+    if (statement.where !== undefined) this.#validateClauseFunctions(statement.where, false, false, "WHERE");
+    for (const grouping of statement.groupBy) {
+      this.#forEachGroupingExpression(grouping, (expression) =>
+        this.#validateClauseFunctions(expression, false, false, "GROUP BY"),
+      );
+    }
+    if (statement.having !== undefined) this.#validateClauseFunctions(statement.having, true, false, "HAVING");
+    const aggregateQuery =
+      statement.groupBy.length > 0 ||
+      statement.having !== undefined ||
+      statement.columns.some(({ expression }) => this.#containsAggregate(expression));
+    if (!aggregateQuery) return;
+    if (statement.locking.length > 0) {
+      this.#diagnostic("TSQ228", "Locking clauses are not allowed on grouped queries", statement.locking[0]!.range);
+    }
+    const groupingSets = this.#expandGroupingList(statement.groupBy, statement.columns, scope);
+    const groupedKeys = new Set(groupingSets.flatMap((set) => [...set]));
+    for (const item of statement.columns)
+      this.#validateGroupedExpression(item.expression, groupedKeys, groupingSets, scope);
+    if (statement.having !== undefined) {
+      this.#validateGroupedExpression(statement.having, groupedKeys, groupingSets, scope);
+    }
+    statement.columns.forEach((item, index) => {
+      const column = columns[index];
+      if (column === undefined) return;
+      const keys = this.#columnKeysOutsideAggregates(item.expression, scope);
+      if (keys.some((key) => groupingSets.some((set) => !set.has(key)))) {
+        columns[index] = { ...column, nullable: true };
+      }
+    });
+  }
+
+  #validateClauseFunctions(
+    expression: Expression,
+    allowAggregate: boolean,
+    allowWindow: boolean,
+    clause: string,
+  ): void {
+    if (expression.kind === "subquery" || expression.kind === "exists") return;
+    if (expression.kind === "call") {
+      const window = expression.over !== undefined;
+      const aggregate = !window && this.#isAggregateCall(expression);
+      if (window && !allowWindow) {
+        this.#diagnostic("TSQ228", `Window functions are not allowed in ${clause}`, expression.range);
+        return;
+      }
+      if (aggregate && !allowAggregate) {
+        this.#diagnostic("TSQ228", `Aggregate functions are not allowed in ${clause}`, expression.range);
+        return;
+      }
+    }
+    for (const child of this.#expressionChildren(expression)) {
+      this.#validateClauseFunctions(child, allowAggregate, allowWindow, clause);
+    }
+  }
+
+  #validateGroupedExpression(
+    expression: Expression,
+    groupedKeys: ReadonlySet<string>,
+    groupingSets: readonly ReadonlySet<string>[],
+    scope: Scope,
+  ): void {
+    if (groupedKeys.has(this.#groupKey(expression, scope))) return;
+    if (expression.kind === "subquery" || expression.kind === "exists") return;
+    if (expression.kind === "call" && expression.over === undefined && this.#isAggregateCall(expression)) return;
+    if (expression.kind === "column") {
+      const matches = this.#columnMatches(
+        expression.relation,
+        sqlName(expression.column),
+        scope,
+        expression.column.quoted,
+      );
+      const match = matches.length === 1 ? matches[0] : undefined;
+      if (match !== undefined && this.#functionallyDependent(match[0], groupingSets)) return;
+      this.#diagnostic(
+        "TSQ228",
+        `Column ${expression.column.name} must appear in GROUP BY or be used in an aggregate`,
+        expression.range,
+      );
+      return;
+    }
+    for (const child of this.#expressionChildren(expression)) {
+      this.#validateGroupedExpression(child, groupedKeys, groupingSets, scope);
+    }
+  }
+
+  #functionallyDependent(relation: Relation, groupingSets: readonly ReadonlySet<string>[]): boolean {
+    const primaryKey = this.#index
+      .relation(relation.table)
+      ?.constraints.find(({ kind }) => kind === "primary-key")
+      ?.columns.map((column) => `column:${relation.alias}.${column.toLowerCase()}`);
+    return (
+      primaryKey !== undefined &&
+      primaryKey.length > 0 &&
+      groupingSets.every((set) => primaryKey.every((key) => set.has(key)))
+    );
+  }
+
+  #containsAggregate(expression: Expression): boolean {
+    if (expression.kind === "subquery" || expression.kind === "exists") return false;
+    if (expression.kind === "call" && expression.over === undefined && this.#isAggregateCall(expression)) return true;
+    return this.#expressionChildren(expression).some((child) => this.#containsAggregate(child));
+  }
+
+  #isAggregateCall(expression: CallExpression): boolean {
+    const name = expression.name.name.toUpperCase();
+    const rule = postgresCatalogRoutineRule(name, this.#schema);
+    if (rule !== undefined && aggregateRoutineRules.has(rule)) return true;
+    if (aggregateExtrema.has(name)) return true;
+    if ((expression.withinGroup?.length ?? 0) > 0 && hypotheticalAggregates.has(name)) return true;
+    const schemaName = expression.schema === undefined ? undefined : sqlName(expression.schema);
+    return this.#index
+      .routineOverloads(sqlName(expression.name), expression.arguments.length, schemaName)
+      .some(({ kind }) => kind === "aggregate");
+  }
+
+  #expressionChildren(expression: Expression): readonly Expression[] {
+    switch (expression.kind) {
+      case "array":
+      case "row":
+        return expression.elements;
+      case "call": {
+        const window =
+          expression.over !== undefined && "partitionBy" in expression.over
+            ? [
+                ...expression.over.partitionBy,
+                ...expression.over.orderBy.map(({ expression: item }) => item),
+                ...(expression.over.frame?.start.kind === "preceding" ||
+                expression.over.frame?.start.kind === "following"
+                  ? [expression.over.frame.start.expression]
+                  : []),
+                ...(expression.over.frame?.end?.kind === "preceding" || expression.over.frame?.end?.kind === "following"
+                  ? [expression.over.frame.end.expression]
+                  : []),
+              ]
+            : [];
+        return [
+          ...expression.arguments,
+          ...(expression.orderBy ?? []).map(({ expression: item }) => item),
+          ...(expression.withinGroup ?? []).map(({ expression: item }) => item),
+          ...(expression.filter === undefined ? [] : [expression.filter]),
+          ...window,
+        ];
+      }
+      case "cast":
+      case "unary":
+        return [expression.expression];
+      case "binary":
+        return [expression.left, expression.right];
+      case "case":
+        return [
+          ...(expression.operand === undefined ? [] : [expression.operand]),
+          ...expression.branches.flatMap(({ when, then }) => [when, then]),
+          ...(expression.elseExpression === undefined ? [] : [expression.elseExpression]),
+        ];
+      case "in":
+        return [
+          expression.expression,
+          ...(Array.isArray(expression.values) ? (expression.values as readonly Expression[]) : []),
+        ];
+      case "between":
+        return [expression.expression, expression.lower, expression.upper];
+      case "column":
+      case "exists":
+      case "literal":
+      case "parameter":
+      case "star":
+      case "subquery":
+        return [];
+    }
+  }
+
+  #columnKeysOutsideAggregates(expression: Expression, scope: Scope): readonly string[] {
+    if (expression.kind === "subquery" || expression.kind === "exists") return [];
+    if (expression.kind === "call" && expression.over === undefined && this.#isAggregateCall(expression)) return [];
+    if (expression.kind === "call" && postgresCatalogRoutineRule(expression.name.name, this.#schema) === "grouping") {
+      return [];
+    }
+    if (expression.kind === "column") return [this.#groupKey(expression, scope)];
+    return this.#expressionChildren(expression).flatMap((child) => this.#columnKeysOutsideAggregates(child, scope));
+  }
+
+  #groupKey(expression: Expression, scope: Scope): string {
+    if (expression.kind === "column") {
+      const matches = this.#columnMatches(
+        expression.relation,
+        sqlName(expression.column),
+        scope,
+        expression.column.quoted,
+      );
+      if (matches.length === 1) return `column:${matches[0]![0].alias}.${matches[0]![1].name.toLowerCase()}`;
+    }
+    return `expression:${expressionIdentity(expression)}`;
+  }
+
+  #forEachGroupingExpression(grouping: GroupingElement, visit: (expression: Expression) => void): void {
+    if (!isSpecialGrouping(grouping)) visit(grouping);
+    else if (grouping.kind !== "empty-group")
+      for (const element of grouping.elements) this.#forEachGroupingExpression(element, visit);
+  }
+
+  #expandGroupingList(
+    groupings: readonly GroupingElement[],
+    items: readonly SelectItem[],
+    scope: Scope,
+  ): readonly ReadonlySet<string>[] {
+    let result: ReadonlySet<string>[] = [new Set()];
+    for (const grouping of groupings) {
+      const alternatives = this.#expandGrouping(grouping, items, scope);
+      result = result.flatMap((left) => alternatives.map((right) => new Set([...left, ...right])));
+    }
+    return result;
+  }
+
+  #expandGrouping(
+    grouping: GroupingElement,
+    items: readonly SelectItem[],
+    scope: Scope,
+  ): readonly ReadonlySet<string>[] {
+    if (grouping.kind === "empty-group") return [new Set()];
+    if (!isSpecialGrouping(grouping)) {
+      const expression = this.#outputReference(grouping, items, scope, false) ?? grouping;
+      return [new Set([this.#groupKey(expression, scope)])];
+    }
+    if (grouping.kind === "grouping-sets") {
+      return grouping.elements.flatMap((element) => this.#expandGrouping(element, items, scope));
+    }
+    const units = grouping.elements.map((element) => {
+      const expanded = this.#expandGrouping(element, items, scope);
+      return new Set(expanded.flatMap((set) => [...set]));
+    });
+    if (grouping.kind === "grouping-set") {
+      return [new Set(units.flatMap((set) => [...set]))];
+    }
+    if (grouping.kind === "rollup") {
+      return Array.from(
+        { length: units.length + 1 },
+        (_, omitted) => new Set(units.slice(0, units.length - omitted).flatMap((set) => [...set])),
+      );
+    }
+    return Array.from(
+      { length: 2 ** units.length },
+      (_, mask) => new Set(units.flatMap((set, index) => ((mask & (1 << index)) === 0 ? [] : [...set]))),
+    );
+  }
+
+  #resolveWindowSpecification(
+    specification: WindowSpecification,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): WindowSpecification {
+    const base = specification.base === undefined ? undefined : scope.windows.get(sqlName(specification.base));
+    if (specification.base !== undefined && base === undefined) {
+      this.#diagnostic("TSQ222", `Unknown window ${specification.base.name}`, specification.base.range);
+    }
+    if (base !== undefined && specification.partitionBy.length > 0) {
+      this.#diagnostic("TSQ222", "A derived window cannot override PARTITION BY", specification.range);
+    }
+    if (base !== undefined && base.orderBy.length > 0 && specification.orderBy.length > 0) {
+      this.#diagnostic("TSQ222", "A derived window cannot override ORDER BY", specification.range);
+    }
+    if (base?.frame !== undefined) {
+      this.#diagnostic("TSQ222", "A framed window cannot be inherited", specification.range);
+    }
+    const partitionBy = specification.partitionBy.length > 0 ? specification.partitionBy : (base?.partitionBy ?? []);
+    const orderBy = specification.orderBy.length > 0 ? specification.orderBy : (base?.orderBy ?? []);
+    for (const expression of specification.partitionBy) this.#resolveExpression(expression, scope, ctes);
+    for (const order of specification.orderBy) this.#resolveExpression(order.expression, scope, ctes);
+    if (specification.frame !== undefined) {
+      const { frame } = specification;
+      if (frame.start.kind === "unbounded-following") {
+        this.#diagnostic("TSQ222", "A window frame cannot start with UNBOUNDED FOLLOWING", frame.start.range);
+      }
+      if (frame.end?.kind === "unbounded-preceding") {
+        this.#diagnostic("TSQ222", "A window frame cannot end with UNBOUNDED PRECEDING", frame.end.range);
+      }
+      const boundRank = (bound: WindowFrameBound): number => {
+        if (bound.kind === "unbounded-preceding") return 0;
+        if (bound.kind === "preceding") return 1;
+        if (bound.kind === "current-row") return 2;
+        if (bound.kind === "following") return 3;
+        return 4;
+      };
+      if (frame.end !== undefined && boundRank(frame.start) > boundRank(frame.end)) {
+        this.#diagnostic("TSQ222", "A window frame end cannot precede its start", frame.range);
+      }
+      const offsetBounds = [frame.start, frame.end].filter(
+        (bound): bound is Extract<WindowFrameBound, { readonly kind: "preceding" | "following" }> =>
+          bound?.kind === "preceding" || bound?.kind === "following",
+      );
+      if (frame.unit === "range" && offsetBounds.length > 0 && orderBy.length !== 1) {
+        this.#diagnostic("TSQ222", "RANGE offset frames require exactly one ORDER BY expression", frame.range);
+      }
+      for (const bound of offsetBounds) {
+        const orderType =
+          frame.unit === "range" && orderBy.length === 1
+            ? this.#resolveExpression(orderBy[0]!.expression, scope, ctes)
+            : undefined;
+        const expected =
+          frame.unit === "range"
+            ? orderType?.databaseType !== undefined && this.#isNumericType(orderType.databaseType)
+              ? orderType
+              : undefined
+            : this.#databaseType("integer", false);
+        this.#resolveExpression(bound.expression, scope, ctes, expected);
+      }
+    }
+    return {
+      ...specification,
+      partitionBy,
+      orderBy,
+    };
+  }
+
+  #mergeCompoundColumns(columns: ResolvedColumn[], right: readonly ResolvedColumn[], range: SourceRange): void {
+    if (right.length !== columns.length) {
+      this.#diagnostic(
+        "TSQ214",
+        `Compound query has ${columns.length} columns on the left and ${right.length} on the right`,
+        range,
+      );
+      return;
+    }
+    for (let index = 0; index < columns.length; index += 1) {
+      const left = columns[index]!;
+      const candidate = right[index]!;
+      const { databaseType: _databaseType, ...base } = left;
+      columns[index] = {
+        ...base,
+        tsType: mergeTypeLiterals(left.tsType, candidate.tsType),
+        nullable: left.nullable || candidate.nullable,
+        ...(left.databaseType === candidate.databaseType && left.databaseType !== undefined
+          ? { databaseType: left.databaseType }
+          : {}),
+      };
+    }
   }
 
   #resolveInsert(
@@ -279,12 +889,43 @@ class Resolver {
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): { readonly columns: readonly ResolvedColumn[]; readonly resultKind: "rows" | "command" } {
-    const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
+    const scope: Scope = {
+      relations: [],
+      usingColumns: new Map(),
+      windows: new Map(),
+      ...(outer === undefined ? {} : { outer }),
+    };
     const target = this.#addRelation(statement.table, false, scope, ctes);
     const targetColumns =
       statement.columns.length === 0
         ? Object.values(target?.table.columns ?? {})
         : statement.columns.map((column) => this.#findColumn(target?.table, column));
+    const insertNames = statement.columns.map(sqlName);
+    if (new Set(insertNames).size !== insertNames.length)
+      this.#diagnostic("TSQ227", "INSERT cannot target the same column more than once", statement.table.range);
+    if (target !== undefined && statement.columns.length > 0) {
+      statement.columns.forEach((identifier, index) => {
+        const column = targetColumns[index];
+        const evidence = column === undefined ? undefined : this.#index.columnEvidence(target.table, column);
+        const identityOverride = statement.overriding !== undefined && evidence?.identity !== "none";
+        if (
+          column !== undefined &&
+          this.#index.columnEligibility(target.table, column, "insert") === false &&
+          !identityOverride
+        ) {
+          this.#diagnostic("TSQ218", `Cannot INSERT into non-insertable column ${column.name}`, identifier.range);
+        }
+      });
+      const supplied = new Set(statement.columns.map((column) => sqlName(column).toLowerCase()));
+      const required = this.#index.requiredInsertColumns(target.table);
+      if (required !== "unknown") {
+        for (const column of required) {
+          if (!supplied.has(column.name.toLowerCase())) {
+            this.#diagnostic("TSQ219", `INSERT omits required column ${column.name}`, statement.table.range);
+          }
+        }
+      }
+    }
     if (statement.source.kind === "values") {
       for (const row of statement.source.rows) {
         if (row.length !== targetColumns.length) {
@@ -308,7 +949,80 @@ class Resolver {
         );
       }
     }
-    const columns = this.#resolveItems(statement.returning, scope, ctes);
+    if (statement.conflict !== undefined && target !== undefined) {
+      const conflict = statement.conflict;
+      if (conflict.action.kind === "update" && conflict.target === undefined) {
+        this.#diagnostic("TSQ227", "ON CONFLICT DO UPDATE requires a conflict target", conflict.range);
+      }
+      if (conflict.target?.kind === "constraint") {
+        const requested = sqlName(conflict.target.constraint);
+        const match = this.#index
+          .relation(target.table)
+          ?.constraints.some(
+            (constraint) =>
+              (constraint.kind === "primary-key" || constraint.kind === "unique" || constraint.kind === "exclusion") &&
+              (constraint.identity.toLowerCase() === requested ||
+                constraint.identity.toLowerCase().endsWith(`.${requested}`)),
+          );
+        if (match === false) {
+          this.#diagnostic("TSQ227", `Unknown conflict constraint ${requested}`, conflict.target.range);
+        } else if (match === undefined) {
+          this.#diagnostic(
+            "TSQ402",
+            `Conflict constraint ${requested} requires schema snapshot v2 evidence`,
+            conflict.target.range,
+            undefined,
+            "warning",
+          );
+        }
+      } else if (conflict.target?.kind === "inference") {
+        const names: string[] = [];
+        for (const element of conflict.target.elements) {
+          this.#resolveExpression(element.expression, scope, ctes);
+          if (element.expression.kind === "column" && element.expression.relation === undefined) {
+            names.push(sqlName(element.expression.column));
+          }
+        }
+        if (conflict.target.predicate !== undefined)
+          this.#resolveExpression(conflict.target.predicate, scope, ctes, this.#databaseType("boolean", false));
+        if (names.length === conflict.target.elements.length && conflict.target.predicate === undefined) {
+          const unique = this.#index.isUnique(target.table, names);
+          if (unique === false)
+            this.#diagnostic(
+              "TSQ227",
+              "Conflict target does not match a unique or primary-key constraint",
+              conflict.target.range,
+            );
+          else if (unique === "unknown")
+            this.#diagnostic(
+              "TSQ402",
+              "Exact conflict-target inference requires schema snapshot v2 evidence",
+              conflict.target.range,
+              undefined,
+              "warning",
+            );
+        } else {
+          this.#diagnostic(
+            "TSQ402",
+            "Expression and partial conflict targets require canonical index-expression evidence",
+            conflict.target.range,
+            undefined,
+            "warning",
+          );
+        }
+      }
+      if (conflict.action.kind === "update") {
+        const excludedAlias = "excluded";
+        if (!scope.relations.some(({ alias }) => alias === excludedAlias)) {
+          scope.relations.push({ alias: excludedAlias, table: target.table, nullable: false });
+        }
+        this.#resolveAssignments(conflict.action.assignments, target.table, scope, ctes);
+        if (conflict.action.where !== undefined)
+          this.#resolveExpression(conflict.action.where, scope, ctes, this.#databaseType("boolean", false));
+      }
+    }
+    const returningScope = this.#returningScope(scope, target?.table, statement.returningAliases, "insert");
+    const columns = this.#resolveItems(statement.returning, returningScope, ctes);
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
   }
 
@@ -317,17 +1031,23 @@ class Resolver {
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): { readonly columns: readonly ResolvedColumn[]; readonly resultKind: "rows" | "command" } {
-    const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
+    const scope: Scope = {
+      relations: [],
+      usingColumns: new Map(),
+      windows: new Map(),
+      ...(outer === undefined ? {} : { outer }),
+    };
     const target = this.#addRelation(statement.table, false, scope, ctes);
-    for (const assignment of statement.assignments) {
-      const column = this.#findColumn(target?.table, assignment.column);
-      this.#resolveExpression(assignment.value, scope, ctes, this.#snapshotType(column));
-    }
+    this.#resolveAssignments(statement.assignments, target?.table, scope, ctes);
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);
     if (statement.where !== undefined)
       this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
-    const columns = this.#resolveItems(statement.returning, scope, ctes);
+    const columns = this.#resolveItems(
+      statement.returning,
+      this.#returningScope(scope, target?.table, statement.returningAliases, "update"),
+      ctes,
+    );
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
   }
 
@@ -336,19 +1056,221 @@ class Resolver {
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): { readonly columns: readonly ResolvedColumn[]; readonly resultKind: "rows" | "command" } {
-    const scope: Scope = { relations: [], usingColumns: new Map(), ...(outer === undefined ? {} : { outer }) };
-    this.#addRelation(statement.table, false, scope, ctes);
+    const scope: Scope = {
+      relations: [],
+      usingColumns: new Map(),
+      windows: new Map(),
+      ...(outer === undefined ? {} : { outer }),
+    };
+    const target = this.#addRelation(statement.table, false, scope, ctes);
     for (const reference of statement.using) this.#addRelation(reference, false, scope, ctes);
     if (statement.where !== undefined)
       this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
-    const columns = this.#resolveItems(statement.returning, scope, ctes);
+    const columns = this.#resolveItems(
+      statement.returning,
+      this.#returningScope(scope, target?.table, statement.returningAliases, "delete"),
+      ctes,
+    );
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
+  }
+
+  #resolveMerge(
+    statement: Extract<Statement, { readonly kind: "merge" }>,
+    outer: Scope | undefined,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): { readonly columns: readonly ResolvedColumn[]; readonly resultKind: "rows" | "command" } {
+    this.#requireServerMajor(15, "MERGE", statement.range);
+    if (statement.with?.recursive)
+      this.#diagnostic("TSQ227", "MERGE does not support WITH RECURSIVE", statement.with.range);
+    const scope: Scope = {
+      relations: [],
+      usingColumns: new Map(),
+      windows: new Map(),
+      ...(outer === undefined ? {} : { outer }),
+    };
+    const target = this.#addRelation(statement.table, false, scope, ctes);
+    const targetAlias = target?.alias;
+    if (statement.source.kind === "values") {
+      const rows = statement.source.rows.map((row) =>
+        row.map((expression) => this.#resolveExpression(expression, { ...scope, relations: [] }, ctes)),
+      );
+      const width = Math.max(0, ...rows.map((row) => row.length));
+      if (rows.some((row) => row.length !== width))
+        this.#diagnostic("TSQ214", "MERGE VALUES source rows must have equal arity", statement.source.range);
+      if (statement.source.columns.length > 0 && statement.source.columns.length !== width)
+        this.#diagnostic("TSQ214", "MERGE VALUES source alias list does not match row arity", statement.source.range);
+      const columns: Record<string, ColumnSnapshot> = {};
+      for (let index = 0; index < width; index += 1) {
+        const candidates = rows.map((row) => row[index]).filter((value): value is ResolvedType => value !== undefined);
+        const name = statement.source.columns[index]?.name ?? `column${index + 1}`;
+        columns[name] = {
+          name,
+          databaseType: candidates[0]?.databaseType ?? "unknown",
+          tsType: unionTypeLiterals(candidates.map(({ tsType }) => tsType)),
+          nullable: candidates.some(({ nullable }) => nullable),
+        };
+      }
+      scope.relations.push({
+        alias: sqlName(statement.source.alias),
+        table: { name: statement.source.alias.name, columns },
+        nullable: false,
+      });
+    } else this.#addRelation(statement.source, false, scope, ctes);
+    this.#resolveExpression(statement.on, scope, ctes, this.#databaseType("boolean", false));
+    const terminal = new Set<string>();
+    for (const clause of statement.clauses) {
+      if (clause.match === "not-matched-source")
+        this.#requireServerMajor(17, "MERGE WHEN NOT MATCHED BY SOURCE", clause.range);
+      if (terminal.has(clause.match))
+        this.#diagnostic("TSQ227", `Unreachable MERGE ${clause.match} clause`, clause.range);
+      if (clause.condition === undefined) terminal.add(clause.match);
+      const clauseScope: Scope = {
+        ...scope,
+        relations: scope.relations.filter(({ alias }) => {
+          if (clause.match === "matched") return true;
+          return clause.match === "not-matched-source" ? alias === targetAlias : alias !== targetAlias;
+        }),
+      };
+      if (clause.condition !== undefined)
+        this.#resolveExpression(clause.condition, clauseScope, ctes, this.#databaseType("boolean", false));
+      const action = clause.action;
+      if (action.kind === "insert") {
+        if (clause.match !== "not-matched-target")
+          this.#diagnostic("TSQ227", "MERGE INSERT is only valid for NOT MATCHED BY TARGET", action.range);
+        const targetColumns =
+          action.columns.length === 0
+            ? Object.values(target?.table.columns ?? {})
+            : action.columns.map((column) => this.#findColumn(target?.table, column));
+        if (action.source.kind === "values") {
+          const values = action.source.rows[0] ?? [];
+          if (values.length !== targetColumns.length)
+            this.#diagnostic(
+              "TSQ214",
+              `MERGE INSERT has ${targetColumns.length} columns but ${values.length} values`,
+              action.range,
+            );
+          values.forEach((value, index) => {
+            this.#resolveExpression(value, clauseScope, ctes, this.#snapshotType(targetColumns[index]));
+          });
+        }
+      } else if (action.kind === "update") {
+        if (clause.match === "not-matched-target")
+          this.#diagnostic("TSQ227", "MERGE UPDATE cannot modify an unmatched target row", action.range);
+        this.#resolveAssignments(action.assignments, target?.table, clauseScope, ctes);
+      } else if (action.kind === "delete" && clause.match === "not-matched-target") {
+        this.#diagnostic("TSQ227", "MERGE DELETE cannot delete an unmatched target row", action.range);
+      }
+    }
+    if (statement.returning.length > 0) this.#requireServerMajor(17, "MERGE RETURNING", statement.range);
+    const returningScope = this.#returningScope(scope, target?.table, statement.returningAliases, "merge");
+    this.#insideMergeReturning = true;
+    const columns = this.#resolveItems(statement.returning, returningScope, ctes);
+    this.#insideMergeReturning = false;
+    return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
+  }
+
+  #resolveAssignments(
+    assignments: readonly UpdateAssignment[],
+    table: TableSnapshot | undefined,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): void {
+    for (const assignment of assignments) {
+      const identifiers = "column" in assignment ? [assignment.column] : assignment.columns;
+      const names = identifiers.map(sqlName);
+      if (new Set(names).size !== names.length) {
+        this.#diagnostic("TSQ227", "An assignment cannot target the same column more than once", assignment.range);
+      }
+      const columns = identifiers.map((identifier) => this.#findColumn(table, identifier));
+      for (let index = 0; index < columns.length; index += 1) {
+        const column = columns[index];
+        if (
+          table !== undefined &&
+          column !== undefined &&
+          this.#index.columnEligibility(table, column, "update") === false
+        ) {
+          this.#diagnostic("TSQ218", `Cannot UPDATE non-updatable column ${column.name}`, identifiers[index]!.range);
+        }
+      }
+      if (identifiers.length === 1)
+        this.#resolveExpression(assignment.value, scope, ctes, this.#snapshotType(columns[0]));
+      else {
+        const resolved =
+          assignment.value.kind === "row"
+            ? (() => {
+                assignment.value.elements.forEach((element, index) => {
+                  this.#resolveExpression(element, scope, ctes, this.#snapshotType(columns[index]));
+                });
+                return { tsType: "row", nullable: false };
+              })()
+            : this.#resolveExpression(assignment.value, scope, ctes);
+        const width = assignment.value.kind === "row" ? assignment.value.elements.length : undefined;
+        if (width !== undefined && width !== identifiers.length)
+          this.#diagnostic(
+            "TSQ214",
+            `Row assignment has ${identifiers.length} targets but ${width} values`,
+            assignment.range,
+          );
+        if (resolved.tsType === "unknown" && assignment.value.kind !== "subquery" && assignment.value.kind !== "row")
+          this.#diagnostic("TSQ227", "Multi-column assignment requires a row or scalar subquery", assignment.range);
+      }
+    }
+  }
+
+  #returningScope(
+    scope: Scope,
+    table: TableSnapshot | undefined,
+    aliases: { readonly old?: Identifier; readonly new?: Identifier; readonly range: SourceRange } | undefined,
+    operation: "insert" | "update" | "delete" | "merge",
+  ): Scope {
+    if (aliases !== undefined) this.#requireServerMajor(18, "RETURNING OLD/NEW aliases", aliases.range);
+    if (table === undefined || (aliases === undefined && (this.#serverMajor ?? 0) < 18)) return scope;
+    const oldAlias = aliases?.old === undefined ? "old" : sqlName(aliases.old);
+    const newAlias = aliases?.new === undefined ? "new" : sqlName(aliases.new);
+    const hiddenOld = aliases !== undefined && aliases.old !== undefined;
+    const hiddenNew = aliases !== undefined && aliases.new !== undefined;
+    return {
+      ...scope,
+      relations: [
+        ...scope.relations,
+        ...(!hiddenOld || aliases?.old !== undefined
+          ? [{ alias: oldAlias, table, nullable: operation === "insert" || operation === "merge", qualifiedOnly: true }]
+          : []),
+        ...(!hiddenNew || aliases?.new !== undefined
+          ? [{ alias: newAlias, table, nullable: operation === "delete" || operation === "merge", qualifiedOnly: true }]
+          : []),
+      ],
+    };
+  }
+
+  #requireServerMajor(minimum: number, feature: string, range: SourceRange): void {
+    if (this.#serverMajor === undefined) {
+      this.#diagnostic("TSQ402", `${feature} requires PostgreSQL server-version evidence`, range);
+    } else if (this.#serverMajor < minimum) {
+      this.#diagnostic("TSQ403", `${feature} requires PostgreSQL ${minimum} or newer`, range);
+    }
   }
 
   #addJoin(join: SelectStatement["joins"][number], scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): void {
     const previous = [...scope.relations];
     if (join.kind === "right" || join.kind === "full") for (const relation of previous) relation.nullable = true;
-    const relation = this.#addRelation(join.table, join.kind === "left" || join.kind === "full", scope, ctes);
+    const restrictLateral =
+      (join.kind === "right" || join.kind === "full") &&
+      (join.table.kind === "function" || (join.table.kind === "subquery" && join.table.lateral));
+    const relationScope: Scope = restrictLateral
+      ? {
+          relations: [],
+          usingColumns: new Map(),
+          windows: scope.windows,
+          ...(scope.outer === undefined ? {} : { outer: scope.outer }),
+        }
+      : scope;
+    const relation = this.#addRelation(join.table, join.kind === "left" || join.kind === "full", relationScope, ctes);
+    if (restrictLateral && relation !== undefined) {
+      if (scope.relations.some(({ alias }) => alias === relation.alias)) {
+        this.#diagnostic("TSQ108", `Duplicate relation alias ${relation.alias}`, join.table.range);
+      } else scope.relations.push(relation);
+    }
     if (join.on !== undefined) this.#resolveExpression(join.on, scope, ctes, this.#databaseType("boolean", false));
     if (join.using !== undefined && relation !== undefined) {
       for (const identifier of join.using) {
@@ -391,7 +1313,10 @@ class Resolver {
   ): Relation | undefined {
     let table: TableSnapshot | undefined;
     let alias: string;
-    if (reference.kind === "subquery") {
+    if (reference.kind === "function") {
+      table = this.#resolveFunctionTable(reference, scope, ctes);
+      alias = reference.alias === undefined ? sqlName(reference.functions[0]!.call.name) : sqlName(reference.alias);
+    } else if (reference.kind === "subquery") {
       const outer = reference.lateral ? scope : scope.outer;
       const resolved = this.#resolveStatement(reference.query, outer, ctes);
       const columns: Record<string, ColumnSnapshot> = {};
@@ -443,7 +1368,245 @@ class Resolver {
     }
     const relation: Relation = { alias, table, nullable };
     scope.relations.push(relation);
+    if (reference.kind === "table" && reference.sample !== undefined) {
+      const sampleMethod = reference.sample.method.name.toUpperCase();
+      if ((sampleMethod === "SYSTEM" || sampleMethod === "BERNOULLI") && reference.sample.arguments.length !== 1) {
+        this.#diagnostic(
+          "TSQ227",
+          `${sampleMethod} TABLESAMPLE requires one percentage argument`,
+          reference.sample.range,
+        );
+      }
+      if (reference.sample.repeatable?.kind === "literal" && reference.sample.repeatable.value === null) {
+        this.#diagnostic("TSQ227", "TABLESAMPLE REPEATABLE seed cannot be NULL", reference.sample.repeatable.range);
+      }
+      const sampleScope: Scope = {
+        relations: [],
+        usingColumns: new Map(),
+        windows: scope.windows,
+        ...(scope.outer === undefined ? {} : { outer: scope.outer }),
+      };
+      for (const argument of reference.sample.arguments) {
+        this.#resolveExpression(argument, sampleScope, ctes, this.#databaseType("numeric", false));
+      }
+      if (reference.sample.repeatable !== undefined) {
+        this.#resolveExpression(
+          reference.sample.repeatable,
+          sampleScope,
+          ctes,
+          this.#databaseType("double precision", false),
+        );
+      }
+    }
     return relation;
+  }
+
+  #resolveFunctionTable(
+    reference: FunctionTableReference,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): TableSnapshot {
+    const outerDefinitions = reference.columns.some(({ databaseType }) => databaseType !== undefined);
+    const directDefinitions =
+      reference.functions.length === 1 &&
+      reference.columns.length > 0 &&
+      reference.columns.every(({ databaseType }) => databaseType !== undefined);
+    if (
+      outerDefinitions &&
+      (reference.withOrdinality || (reference.rowsFrom === true && reference.functions.length > 1))
+    ) {
+      this.#diagnostic(
+        "TSQ227",
+        "An outer record definition list requires one function and cannot be combined with WITH ORDINALITY",
+        reference.range,
+      );
+    }
+    const resolvedColumns = reference.functions.flatMap((item) =>
+      this.#resolveTableFunctionItem(directDefinitions ? { ...item, columns: reference.columns } : item, scope, ctes),
+    );
+    if (reference.functions.length > 1) {
+      for (const column of resolvedColumns) column.nullable = true;
+    }
+    if (reference.withOrdinality) {
+      resolvedColumns.push({
+        name: "ordinality",
+        databaseType: "bigint",
+        tsType: this.#policy.bigint,
+        nullable: false,
+      });
+    }
+    (directDefinitions ? [] : reference.columns).forEach((definition, index) => {
+      const column = resolvedColumns[index];
+      if (column === undefined) {
+        this.#diagnostic("TSQ213", "Table-function column alias list has more names than outputs", definition.range);
+        return;
+      }
+      column.name = sqlName(definition.name);
+      if (definition.databaseType !== undefined) {
+        column.databaseType = normalizeDatabaseType(definition.databaseType.name);
+        column.tsType = mapPostgresType(definition.databaseType.name, this.#policy, this.#schema);
+      }
+    });
+    const columns: Record<string, ColumnSnapshot> = {};
+    for (const column of resolvedColumns) {
+      if (columns[column.name] !== undefined) {
+        this.#diagnostic("TSQ105", `Duplicate table-function column ${column.name}`, reference.range);
+        continue;
+      }
+      columns[column.name] = column;
+    }
+    return {
+      name: reference.alias === undefined ? sqlName(reference.functions[0]!.call.name) : sqlName(reference.alias),
+      columns,
+    };
+  }
+
+  #resolveTableFunctionItem(
+    item: FunctionTableReference["functions"][number],
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): FunctionColumn[] {
+    const expression = item.call;
+    const argumentsList = expression.arguments.map((argument) => this.#resolveExpression(argument, scope, ctes));
+    if (item.columns.length > 0) {
+      return item.columns.map((definition) => ({
+        name: sqlName(definition.name),
+        databaseType: definition.databaseType?.name ?? "unknown",
+        tsType:
+          definition.databaseType === undefined
+            ? "unknown"
+            : mapPostgresType(definition.databaseType.name, this.#policy, this.#schema),
+        nullable: true,
+      }));
+    }
+    const functionName = sqlName(expression.name);
+    const schemaName = expression.schema === undefined ? undefined : sqlName(expression.schema);
+    const routines = this.#index.routineOverloads(functionName, expression.arguments.length, schemaName);
+    const routine = this.#selectTableRoutine(routines, argumentsList, expression);
+    if (routine !== undefined) {
+      const result = routine.result;
+      if (result.kind === "record" || result.kind === "table") {
+        return Object.values(result.columns)
+          .sort((left, right) => left.position - right.position)
+          .map((column) => ({
+            name: column.name,
+            databaseType: column.databaseType,
+            tsType: column.tsType,
+            nullable: column.nullable,
+          }));
+      }
+      if (result.kind === "scalar" || result.kind === "set") {
+        return [
+          {
+            name: functionName,
+            databaseType: result.databaseType,
+            tsType: result.tsType,
+            nullable: result.nullable,
+          },
+        ];
+      }
+      this.#diagnostic("TSQ212", `Routine ${expression.name.name} does not return rows`, expression.range);
+      return [];
+    }
+    const rule = postgresCatalogTableRoutineRule(expression.name.name, this.#schema);
+    if (rule === "array-elements") {
+      return argumentsList.map((argument, index) => ({
+        name: index === 0 ? functionName : `${functionName}_${index + 1}`,
+        databaseType: argument.databaseType?.replace(/\[\]$/u, "") ?? "unknown",
+        tsType: this.#arrayElementType(argument.tsType),
+        nullable: true,
+      }));
+    }
+    if (rule === "first-argument") {
+      const value = argumentsList[0] ?? { tsType: "unknown", nullable: true };
+      return [
+        { name: functionName, databaseType: value.databaseType ?? "unknown", tsType: value.tsType, nullable: false },
+      ];
+    }
+    if (rule === "integer") {
+      return [{ name: functionName, databaseType: "integer", tsType: "number", nullable: false }];
+    }
+    if (rule === "json-each" || rule === "json-each-text") {
+      const json = rule === "json-each";
+      return [
+        { name: "key", databaseType: "text", tsType: "string", nullable: false },
+        {
+          name: "value",
+          databaseType: json ? (expression.name.name.toUpperCase().startsWith("JSONB") ? "jsonb" : "json") : "text",
+          tsType: json ? this.#policy.json : "string",
+          nullable: false,
+        },
+      ];
+    }
+    if (rule === "json-array-elements" || rule === "json-array-elements-text") {
+      const json = rule === "json-array-elements";
+      return [
+        {
+          name: "value",
+          databaseType: json ? (expression.name.name.toUpperCase().startsWith("JSONB") ? "jsonb" : "json") : "text",
+          tsType: json ? this.#policy.json : "string",
+          nullable: false,
+        },
+      ];
+    }
+    if (rule === "record") {
+      this.#diagnostic(
+        "TSQ213",
+        `Record-returning routine ${expression.name.name} requires a typed column definition list`,
+        expression.range,
+      );
+      return [];
+    }
+    const candidates = this.#index.functions(functionName, expression.arguments.length, schemaName);
+    if (candidates.length === 1) {
+      const type = this.#functionType(candidates[0]!);
+      return [
+        {
+          name: functionName,
+          databaseType: type.databaseType ?? "unknown",
+          tsType: type.tsType,
+          nullable: type.nullable,
+        },
+      ];
+    }
+    this.#diagnostic(
+      "TSQ202",
+      `Unknown table function ${expression.name.name}`,
+      expression.range,
+      undefined,
+      "warning",
+    );
+    return [{ name: functionName, databaseType: "unknown", tsType: "unknown", nullable: true }];
+  }
+
+  #selectTableRoutine(
+    candidates: readonly StructuralRoutineSnapshot[],
+    argumentsList: readonly ResolvedType[],
+    expression: CallExpression,
+  ): StructuralRoutineSnapshot | undefined {
+    const exact = candidates.filter((candidate) =>
+      candidate.arguments
+        .filter(({ mode }) => mode !== "out")
+        .every((argument, index) => {
+          const actual = argumentsList[index]?.databaseType;
+          return actual === undefined || this.#typesCompatible(argument.databaseType, actual);
+        }),
+    );
+    if (exact.length === 1) return exact[0];
+    if (exact.length > 1 || candidates.length > 1) {
+      this.#diagnostic(
+        "TSQ204",
+        `Ambiguous overloaded table function ${expression.name.name}`,
+        expression.range,
+        "Cast arguments to select a specific overload.",
+      );
+    }
+    return candidates.length === 1 ? candidates[0] : undefined;
+  }
+
+  #arrayElementType(type: string): string {
+    const match = /^readonly \((.*)\)\[\]$/u.exec(type);
+    return match?.[1] ?? "unknown";
   }
 
   #resolveItems(
@@ -471,7 +1634,7 @@ class Resolver {
         const star = item.expression;
         const relations =
           star.relation === undefined
-            ? scope.relations
+            ? scope.relations.filter((relation) => relation.qualifiedOnly !== true)
             : scope.relations.filter((relation) => relation.alias === sqlName(star.relation!));
         if (relations.length === 0) {
           this.#diagnostic(
@@ -687,7 +1850,8 @@ class Resolver {
         expression.right.kind === "parameter" ? left : undefined,
       );
     }
-    if (booleanOperators.has(expression.operator)) {
+    const operatorRule = postgresCatalogOperatorRule(expression.operator, this.#schema);
+    if (operatorRule === "boolean") {
       const neverNull = expression.operator.startsWith("IS");
       return {
         tsType: "boolean",
@@ -695,10 +1859,9 @@ class Resolver {
         databaseType: "boolean",
       };
     }
-    if (["->", "#>"].includes(expression.operator))
-      return { tsType: this.#policy.json, nullable: true, databaseType: "jsonb" };
-    if (["->>", "#>>"].includes(expression.operator)) return { tsType: "string", nullable: true, databaseType: "text" };
-    if (expression.operator === "||") {
+    if (operatorRule === "json") return { tsType: this.#policy.json, nullable: true, databaseType: "jsonb" };
+    if (operatorRule === "json-text") return { tsType: "string", nullable: true, databaseType: "text" };
+    if (operatorRule === "concatenation") {
       if (left.tsType.startsWith("readonly (") && right.tsType.startsWith("readonly (")) {
         const databaseType = left.databaseType ?? right.databaseType;
         return {
@@ -712,10 +1875,11 @@ class Resolver {
     const leftDatabase = left.databaseType === undefined ? undefined : normalizeDatabaseType(left.databaseType);
     const rightDatabase = right.databaseType === undefined ? undefined : normalizeDatabaseType(right.databaseType);
     if (
+      operatorRule === "numeric" &&
       leftDatabase !== undefined &&
       rightDatabase !== undefined &&
-      numericTypes.has(leftDatabase) &&
-      numericTypes.has(rightDatabase)
+      this.#isNumericType(leftDatabase) &&
+      this.#isNumericType(rightDatabase)
     ) {
       const databaseType = [leftDatabase, rightDatabase].some((type) => type === "numeric" || type === "decimal")
         ? "numeric"
@@ -794,6 +1958,7 @@ class Resolver {
       return relation === undefined || column === undefined ? [] : [[relation, column]];
     }
     return scope.relations.flatMap((relation): readonly [Relation, ColumnSnapshot][] => {
+      if (relation.qualifiedOnly === true) return [];
       const column = this.#column(relation, name, quoted);
       return column === undefined ? [] : [[relation, column]];
     });
@@ -826,14 +1991,114 @@ class Resolver {
 
   #resolveCall(expression: CallExpression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
     const resolved = expression.arguments.map((argument) => this.#resolveExpression(argument, scope, ctes));
-    if (expression.filter !== undefined) this.#resolveExpression(expression.filter, scope, ctes);
-    if (expression.over !== undefined && "partitionBy" in expression.over) {
-      for (const item of expression.over.partitionBy) this.#resolveExpression(item, scope, ctes);
-      for (const item of expression.over.orderBy) this.#resolveExpression(item.expression, scope, ctes);
+    const aggregateOrder = (expression.orderBy ?? []).map((item) =>
+      this.#resolveExpression(item.expression, scope, ctes),
+    );
+    const withinOrder = (expression.withinGroup ?? []).map((item) =>
+      this.#resolveExpression(item.expression, scope, ctes),
+    );
+    if (expression.filter !== undefined) {
+      this.#resolveExpression(expression.filter, scope, ctes, this.#databaseType("boolean", false));
+    }
+    if ((expression.orderBy?.length ?? 0) > 0 && (expression.withinGroup?.length ?? 0) > 0) {
+      this.#diagnostic("TSQ223", "An aggregate cannot use both argument ORDER BY and WITHIN GROUP", expression.range);
+    }
+    if (expression.over !== undefined) {
+      if ("partitionBy" in expression.over) this.#resolveWindowSpecification(expression.over, scope, ctes);
+      else if (!scope.windows.has(sqlName(expression.over))) {
+        this.#diagnostic("TSQ222", `Unknown window ${expression.over.name}`, expression.over.range);
+      }
     }
     const name = expression.name.name.toUpperCase();
-    if (name === "COUNT") return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
-    if (name === "COALESCE") {
+    if (name === "MERGE_ACTION" && expression.arguments.length === 0) {
+      this.#requireServerMajor(17, "merge_action()", expression.range);
+      if (!this.#insideMergeReturning)
+        this.#diagnostic("TSQ227", "merge_action() is only valid in MERGE RETURNING", expression.range);
+      return { tsType: "string", nullable: false, databaseType: "text" };
+    }
+    const routineRule = postgresCatalogRoutineRule(name, this.#schema);
+    const aggregate = this.#isAggregateCall(expression);
+    const windowOnly =
+      routineRule === "bigint-window" ||
+      routineRule === "double-window" ||
+      routineRule === "integer-window" ||
+      routineRule === "value-window";
+    const hypothetical = (expression.withinGroup?.length ?? 0) > 0 && hypotheticalAggregates.has(name);
+    if (
+      expression.distinct &&
+      (expression.orderBy ?? []).some(
+        ({ expression: ordered }) =>
+          !expression.arguments.some((argument) => expressionIdentity(argument) === expressionIdentity(ordered)),
+      )
+    ) {
+      this.#diagnostic(
+        "TSQ227",
+        "DISTINCT aggregate ORDER BY expressions must appear in its arguments",
+        expression.range,
+      );
+    }
+    if (name === "MODE" && (expression.arguments.length !== 0 || withinOrder.length !== 1)) {
+      this.#diagnostic("TSQ227", "MODE requires no direct arguments and one WITHIN GROUP key", expression.range);
+    }
+    if (
+      (name === "PERCENTILE_CONT" || name === "PERCENTILE_DISC") &&
+      (expression.arguments.length !== 1 || withinOrder.length !== 1)
+    ) {
+      this.#diagnostic(
+        "TSQ227",
+        `${expression.name.name} requires one fraction and one WITHIN GROUP key`,
+        expression.range,
+      );
+    }
+    if (hypothetical && (expression.arguments.length === 0 || expression.arguments.length !== withinOrder.length)) {
+      this.#diagnostic(
+        "TSQ227",
+        `${expression.name.name} hypothetical arguments must match its WITHIN GROUP keys`,
+        expression.range,
+      );
+    }
+    if (windowOnly && expression.over === undefined && !hypothetical) {
+      this.#diagnostic("TSQ223", `${expression.name.name} requires an OVER clause`, expression.range);
+    }
+    if ((expression.withinGroup?.length ?? 0) > 0 && routineRule !== "ordered-set-value" && !hypothetical) {
+      this.#diagnostic("TSQ227", `${expression.name.name} does not accept WITHIN GROUP`, expression.range);
+    }
+    if (
+      expression.over !== undefined &&
+      (expression.distinct || (expression.orderBy?.length ?? 0) > 0 || (expression.withinGroup?.length ?? 0) > 0)
+    ) {
+      this.#diagnostic(
+        "TSQ223",
+        "Window invocations cannot use DISTINCT, argument ORDER BY, or WITHIN GROUP",
+        expression.range,
+      );
+    }
+    if (expression.filter !== undefined && !aggregate) {
+      this.#diagnostic("TSQ223", "FILTER is only valid for aggregate functions", expression.filter.range);
+    }
+    if (expression.distinct && !aggregate) {
+      this.#diagnostic("TSQ223", "DISTINCT is only valid for aggregate functions", expression.range);
+    }
+    if ((expression.orderBy?.length ?? 0) > 0 && !aggregate) {
+      this.#diagnostic("TSQ223", "Argument ORDER BY is only valid for aggregate functions", expression.range);
+    }
+    if (routineRule === "count") return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
+    if (routineRule === "bigint-window")
+      return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
+    if (routineRule === "double-window") return { tsType: "number", nullable: false, databaseType: "double precision" };
+    if (routineRule === "integer-window" || routineRule === "grouping")
+      return { tsType: "number", nullable: false, databaseType: "integer" };
+    if (routineRule === "value-window") {
+      return { ...(resolved[0] ?? { tsType: "unknown" }), nullable: true };
+    }
+    if (routineRule === "ordered-set-value") {
+      if (withinOrder.length === 0) {
+        this.#diagnostic("TSQ227", `${expression.name.name} requires WITHIN GROUP`, expression.range);
+        return { tsType: "unknown", nullable: true };
+      }
+      return { ...withinOrder[0]!, nullable: true };
+    }
+    if (routineRule === "coalesce") {
       const known = resolved.filter((_, index) => {
         const argument = expression.arguments[index];
         return argument?.kind !== "literal" || argument.value !== null;
@@ -848,25 +2113,24 @@ class Resolver {
           : {}),
       };
     }
-    if (name === "NULLIF") return { ...(resolved[0] ?? { tsType: "unknown" }), nullable: true };
-    if (["MIN", "MAX", "GREATEST", "LEAST"].includes(name))
+    if (routineRule === "nullif") return { ...(resolved[0] ?? { tsType: "unknown" }), nullable: true };
+    if (routineRule === "extrema")
       return {
         ...(resolved[0] ?? { tsType: "unknown", nullable: true }),
         nullable: name === "MIN" || name === "MAX" ? true : resolved.some((result) => result.nullable),
       };
-    if (name === "SUM" || name === "AVG")
+    if (routineRule === "numeric-aggregate")
       return {
         tsType: resolved[0]?.tsType ?? this.#policy.numeric,
         nullable: true,
         databaseType: resolved[0]?.databaseType ?? "numeric",
       };
-    if (["BOOL_AND", "BOOL_OR", "EVERY"].includes(name))
-      return { tsType: "boolean", nullable: true, databaseType: "boolean" };
-    if (name === "STRING_AGG") return { tsType: "string", nullable: true, databaseType: "text" };
-    if (["JSON_AGG", "JSONB_AGG", "JSON_OBJECT_AGG", "JSONB_OBJECT_AGG"].includes(name))
+    if (routineRule === "boolean-aggregate") return { tsType: "boolean", nullable: true, databaseType: "boolean" };
+    if (routineRule === "string-aggregate") return { tsType: "string", nullable: true, databaseType: "text" };
+    if (routineRule === "json-aggregate")
       return { tsType: this.#policy.json, nullable: true, databaseType: name.startsWith("JSONB") ? "jsonb" : "json" };
-    if (name === "ARRAY_AGG") {
-      const item = resolved[0] ?? { tsType: "unknown", nullable: true };
+    if (routineRule === "array-aggregate") {
+      const item = resolved[0] ?? aggregateOrder[0] ?? { tsType: "unknown", nullable: true };
       return {
         tsType: `readonly (${item.tsType}${item.nullable ? " | null" : ""})[]`,
         nullable: true,
@@ -909,8 +2173,13 @@ class Resolver {
     const left = normalizeDatabaseType(expected);
     const right = normalizeDatabaseType(actual);
     if (left === right) return true;
-    if (numericTypes.has(left) && numericTypes.has(right)) return true;
+    if (this.#isNumericType(left) && this.#isNumericType(right)) return true;
     return false;
+  }
+
+  #isNumericType(databaseType: string): boolean {
+    const mapping = postgresCatalogTypeMapping(databaseType, this.#schema);
+    return mapping === "bigint" || mapping === "number" || mapping === "numeric";
   }
 
   #functionType(value: FunctionSnapshot): ResolvedType {

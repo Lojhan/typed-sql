@@ -11,20 +11,20 @@ import {
   sourceForDialect,
   sourceSoundnessCorpus,
 } from "../../../test/soundness/source-corpus.js";
-import { type MySqlSchemaSnapshot, mysql } from "../../mysql/src/index.js";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { mysql } from "../../mysql/src/index.js";
+import { postgres } from "../../postgres/src/index.js";
 
 const execFile = promisify(execFileCallback);
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = resolve(packageDirectory, "../..");
 const postgresDirectory = resolve(workspace, "e2e/postgres");
 const mysqlDirectory = resolve(workspace, "e2e/mysql");
-const postgresSchema = JSON.parse(
-  await readFile(resolve(postgresDirectory, "generated/db/schema.json"), "utf8"),
-) as PostgresSchemaSnapshot;
-const mysqlSchema = JSON.parse(
-  await readFile(resolve(mysqlDirectory, "generated/db/schema.json"), "utf8"),
-) as MySqlSchemaSnapshot;
+const postgresSchema = postgres().validateSnapshot(
+  JSON.parse(await readFile(resolve(postgresDirectory, "generated/db/schema.json"), "utf8")) as unknown,
+);
+const mysqlSchema = mysql().validateSnapshot(
+  JSON.parse(await readFile(resolve(mysqlDirectory, "generated/db/schema.json"), "utf8")) as unknown,
+);
 const cli = join(packageDirectory, "src", "cli.ts");
 const tsx = fileURLToPath(import.meta.resolve("tsx"));
 

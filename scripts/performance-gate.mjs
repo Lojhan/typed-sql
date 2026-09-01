@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { defineSqlLexicalProfile, tokenizeSql } from "../packages/ast/dist/packages/ast/src/toolkit/index.js";
 import {
   analyzeSchemaCompatibility,
   buildQueryManifest,
@@ -13,12 +14,20 @@ import {
   reviewQueryPlans,
   verifyQueryManifest,
 } from "../packages/compiler/dist/packages/compiler/src/index.js";
+import {
+  CONFORMANCE_VERSION,
+  defineConformanceProbe,
+  runStaticConformanceProbe,
+} from "../packages/conformance/dist/packages/conformance/src/v2/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
+import { parseStatement as parseMysqlStatement } from "../packages/mysql/dist/packages/mysql/src/parser/index.js";
 import {
   createPostgresQuerySemanticResolver,
   postgres,
 } from "../packages/postgres/dist/packages/postgres/src/index.js";
+import { parseStatement as parsePostgresStatement } from "../packages/postgres/dist/packages/postgres/src/parser/index.js";
+import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
 import {
   capturePerformanceContext,
   createPerformanceArtifact,
@@ -117,6 +126,127 @@ const snapshot = {
 const dialect = postgres();
 const scannerSource = manyQuerySource(1_000);
 const compilerSource = manyQuerySource(250);
+const parserSource = `SELECT ${Array.from(
+  { length: 250 },
+  (_, index) => `account.id + ${index} AS value_${index}`,
+).join(", ")} FROM users AS account`;
+const parserLexicalProfile = defineSqlLexicalProfile({
+  keywords: new Set(["AS", "FROM", "SELECT"]),
+  operators: ["+"],
+  identifierQuotes: [{ open: '"', close: '"', escape: "double-close" }],
+  stringModes: [{ prefix: "", quote: "'" }],
+  parameterModes: [{ kind: "numbered-dollar" }],
+});
+
+const conformanceTarget = {
+  grammar: "postgres",
+  grammarVersion: dialect.grammarVersion,
+  databaseVersion: "18.0",
+};
+const conformanceCorpus = Array.from({ length: 7 }, (_, index) =>
+  defineConformanceProbe({
+    version: CONFORMANCE_VERSION,
+    id: `postgres.statement.select.performance.case${index}`,
+    featureId: "statement.select",
+    grammar: "postgres",
+    targets: [conformanceTarget],
+    source: "SELECT id FROM users WHERE id = $1",
+    schemaFixture: "packages/conformance/fixtures/postgres/statement.select/schema.json",
+    query: sql`SELECT id FROM users WHERE id = ${BigInt(index)}`,
+    compilerSource: `import { sql } from "@typed-sql/postgres";\nexport const query = sql\`SELECT id FROM users WHERE id = \${${index}n}\`;`,
+    expected: [
+      {
+        target: { grammarVersion: dialect.grammarVersion, databaseVersion: "18.0" },
+        support: "conservative",
+        rows: [
+          {
+            name: "id",
+            tsType: "bigint",
+            nullable: false,
+            databaseType: "bigint",
+            range: { start: 7, end: 9, line: 1, column: 8 },
+          },
+        ],
+        parameters: [{ index: 1, tsType: "bigint", nullable: false, databaseType: "bigint" }],
+        diagnostics: [],
+        rendered: { text: "SELECT id FROM users WHERE id = $1", values: [BigInt(index)] },
+        compiled: { rowType: '{ "id": bigint; }', parameterType: "readonly [bigint]" },
+        skips: {
+          "lex-parse": "grammar-parser-private",
+          prepare: "no-live-adapter",
+          execute: "no-live-adapter",
+          plan: "no-live-adapter",
+        },
+      },
+    ],
+  }),
+);
+
+await latency("parser.ownedLargeQuery", () => {
+  assert.equal(parsePostgresStatement(parserSource).kind, "select");
+  assert.equal(parseMysqlStatement(parserSource).kind, "select");
+  assert.equal(parseSqliteStatement(parserSource).kind, "select");
+});
+
+const parserTokenCount = tokenizeSql(parserSource, parserLexicalProfile).length - 1;
+const parserTokenizerIterations = 100;
+const parserTokenizerThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: parserTokenizerIterations,
+  operation() {
+    assert.equal(tokenizeSql(parserSource, parserLexicalProfile).length - 1, parserTokenCount);
+  },
+});
+const parserTokensPerSecond = {
+  ...parserTokenizerThroughput,
+  rawSamples: Object.freeze(parserTokenizerThroughput.rawSamples.map((sample) => sample * parserTokenCount)),
+  minimum: parserTokenizerThroughput.minimum * parserTokenCount,
+  mean: parserTokenizerThroughput.mean * parserTokenCount,
+  standardDeviation: parserTokenizerThroughput.standardDeviation * parserTokenCount,
+  p50: parserTokenizerThroughput.p50 * parserTokenCount,
+  p95: parserTokenizerThroughput.p95 * parserTokenCount,
+  maximum: parserTokenizerThroughput.maximum * parserTokenCount,
+};
+const parserTokenBudget = budgets.throughput["parser.toolkitTokens"];
+results["parser.toolkitTokens"] = {
+  unit: "tokens/second",
+  tokenCount: parserTokenCount,
+  ...parserTokensPerSecond,
+  budget: parserTokenBudget,
+};
+assert.ok(
+  parserTokensPerSecond.p50 >= parserTokenBudget.minimumTokensPerSecond,
+  `parser.toolkitTokens p50 ${parserTokensPerSecond.p50.toFixed(0)} tokens/s fell below ${parserTokenBudget.minimumTokensPerSecond}`,
+);
+
+globalThis.gc?.();
+const parserHeapBefore = process.memoryUsage().heapUsed;
+const retainedParserAsts = Array.from({ length: 32 }, (_, index) =>
+  index % 3 === 0
+    ? parsePostgresStatement(parserSource)
+    : index % 3 === 1
+      ? parseMysqlStatement(parserSource)
+      : parseSqliteStatement(parserSource),
+);
+globalThis.gc?.();
+const parserAstBytesPerParse =
+  Math.max(0, process.memoryUsage().heapUsed - parserHeapBefore) / retainedParserAsts.length;
+assert.equal(
+  retainedParserAsts.every((statement) => statement.kind === "select"),
+  true,
+);
+const parserAllocationBudget = budgets.memory["parser.astBytesPerParse"];
+results["parser.astBytesPerParse"] = {
+  unit: "estimated retained bytes/parse",
+  value: parserAstBytesPerParse,
+  samples: retainedParserAsts.length,
+  budget: parserAllocationBudget,
+};
+assert.ok(
+  parserAstBytesPerParse <= parserAllocationBudget.maximum,
+  `parser.astBytesPerParse ${parserAstBytesPerParse.toFixed(0)} bytes exceeded ${parserAllocationBudget.maximum} bytes`,
+);
 
 await latency("scanner.largeFile", () => {
   const extracted = extractStaticQueries(scannerSource, (index) => `$${index}`, ["@typed-sql/postgres"]);
@@ -357,6 +487,20 @@ await structuralMetric(
   0,
   "TSQ003",
 );
+
+await latency("conformance.v2StaticCorpus", () => {
+  for (const probe of conformanceCorpus) {
+    const result = runStaticConformanceProbe(probe, conformanceTarget, {
+      dialect,
+      snapshot,
+      renderer: {
+        placeholder: (index) => dialect.placeholder(index),
+        quoteIdentifier: (identifier) => dialect.quoteIdentifier(identifier),
+      },
+    });
+    assert.equal(result.status, "pass");
+  }
+});
 
 const coreIterations = 10_000;
 const coreThroughput = measureThroughput({

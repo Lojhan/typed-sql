@@ -37,7 +37,8 @@
     "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
   "exports": {
-    ".": "./dist/packages/conformance/src/index.js"
+    ".": "./dist/packages/conformance/src/index.js",
+    "./v2": "./dist/packages/conformance/src/v2/index.js"
   },
   "dependencies": {
     "@typed-sql/compiler": "workspace:*",

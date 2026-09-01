@@ -5,8 +5,15 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { QueryResultValidationError, type StandardSchemaV1, sql } from "@typed-sql/core";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
-import { adaptNodeSqliteDatabase, createNodeSqliteDatabase, nodeSqlite } from "../src/node-sqlite.js";
+import { sqliteServerEvidence } from "../src/capabilities.js";
+import {
+  adaptNodeSqliteDatabase,
+  createNodeSqliteDatabase,
+  NodeSqliteCompatibilityError,
+  nodeSqlite,
+} from "../src/node-sqlite.js";
 import { createSqliteDatabase } from "../src/runtime.js";
 
 interface Account {
@@ -23,9 +30,14 @@ await describe("node:sqlite runtime adapter", async () => {
         constructor(path: PathLike) {
           paths.push(path);
         }
-        prepare(_sql: string) {
+        prepare(source: string) {
           return {
-            all: () => [],
+            all: () =>
+              source === "SELECT sqlite_version() AS version"
+                ? [{ version: "3.45.0" }]
+                : source === "PRAGMA compile_options"
+                  ? []
+                  : [],
             *iterate() {},
             setReadBigInts() {},
           };
@@ -45,9 +57,14 @@ await describe("node:sqlite runtime adapter", async () => {
   await it("preserves stream semantics before StatementSync.iterate is available", async () => {
     const driverImporter = async () => ({
       DatabaseSync: class {
-        prepare(_sql: string) {
+        prepare(source: string) {
           return {
-            all: () => [{ id: 1n }, { id: 2n }],
+            all: () =>
+              source === "SELECT sqlite_version() AS version"
+                ? [{ version: "3.45.0" }]
+                : source === "PRAGMA compile_options"
+                  ? []
+                  : [{ id: 1n }, { id: 2n }],
             setReadBigInts() {},
           };
         }
@@ -178,6 +195,40 @@ await describe("node:sqlite runtime adapter", async () => {
     }
   });
 
+  await it("preserves SQLite busy errors without hiding rollback or close behavior", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-sqlite-lock-"));
+    const path = join(directory, "locked.db");
+    const holder = new DatabaseSync(path);
+    let blocked: Awaited<ReturnType<typeof createNodeSqliteDatabase>> | undefined;
+    try {
+      holder.exec("CREATE TABLE account (id INTEGER PRIMARY KEY) STRICT");
+      holder.exec("BEGIN IMMEDIATE");
+      holder.exec("INSERT INTO account VALUES (1)");
+      blocked = await createNodeSqliteDatabase({ path, databaseOptions: { timeout: 0 } });
+      await strict.rejects(
+        blocked.execute(sql`INSERT INTO account VALUES (${2n})`),
+        (error) =>
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ERR_SQLITE_ERROR" &&
+          "errcode" in error &&
+          error.errcode === 5,
+      );
+      holder.exec("ROLLBACK");
+      await blocked.execute(sql`INSERT INTO account VALUES (${2n})`);
+      strict.strictEqual((await blocked.one(sql<{ count: bigint }>`SELECT count(*) AS count FROM account`)).count, 1n);
+    } finally {
+      try {
+        holder.exec("ROLLBACK");
+      } catch {
+        // The successful path already ended the transaction.
+      }
+      await blocked?.close();
+      holder.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   await it("protects runtime row-shape and integer-decoding invariants", async () => {
     await strict.rejects(
       createNodeSqliteDatabase({ path: ":memory:", databaseOptions: { returnArrays: true } }),
@@ -191,5 +242,91 @@ await describe("node:sqlite runtime adapter", async () => {
       createNodeSqliteDatabase({ path: ":memory:", statementCacheSize: 0 }),
       /positive safe integer/,
     );
+  });
+
+  await it("validates generated snapshot evidence before execution", async () => {
+    const source = new DatabaseSync(":memory:");
+    const snapshot = await nodeSqlite({ database: source }).introspect();
+    source.close();
+
+    const compatible = await createNodeSqliteDatabase({
+      path: ":memory:",
+      snapshot: {
+        ...snapshot,
+        metadata: {
+          generatorVersion: "test",
+          schemaFormat: 2,
+          schemaHash: "0".repeat(64),
+          typePolicyHash: calculateTypePolicyHash({}),
+        },
+      },
+    });
+    await compatible.close();
+
+    await strict.rejects(
+      createNodeSqliteDatabase({
+        path: ":memory:",
+        snapshot: { ...snapshot, server: sqliteServerEvidence("3.39.0", snapshot.server.features) },
+      }),
+      (error) => error instanceof NodeSqliteCompatibilityError && error.reason === "version",
+    );
+
+    await strict.rejects(
+      createNodeSqliteDatabase({
+        path: ":memory:",
+        snapshot: {
+          ...snapshot,
+          server: sqliteServerEvidence(
+            snapshot.server.version,
+            snapshot.server.features.length === 0 ? ["OMIT_JSON"] : snapshot.server.features.slice(1),
+          ),
+        },
+      }),
+      (error) => error instanceof NodeSqliteCompatibilityError && error.reason === "compile-options",
+    );
+
+    await strict.rejects(
+      createNodeSqliteDatabase({
+        path: ":memory:",
+        typePolicy: { integer: "number", flexible: "union", unknown: "unknown" },
+        snapshot: {
+          ...snapshot,
+          metadata: {
+            generatorVersion: "test",
+            schemaFormat: 2,
+            schemaHash: "0".repeat(64),
+            typePolicyHash: calculateTypePolicyHash({}),
+          },
+        },
+      }),
+      (error) => error instanceof NodeSqliteCompatibilityError && error.reason === "type-policy",
+    );
+  });
+
+  await it("keeps runtime codecs aligned with SQLite storage classes", async () => {
+    const bigintDatabase = await createNodeSqliteDatabase({ path: ":memory:" });
+    const bigintRow = await bigintDatabase.one(sql<{
+      integerValue: bigint;
+      realValue: number;
+      textValue: string;
+      blobValue: Uint8Array;
+      nullValue: null;
+    }>`
+      SELECT ${true} AS integerValue, 1.5 AS realValue, json('{"ok":true}') AS textValue,
+             ${new Uint8Array([1, 2, 3])} AS blobValue, NULL AS nullValue
+    `);
+    strict.strictEqual(bigintRow.integerValue, 1n);
+    strict.strictEqual(bigintRow.realValue, 1.5);
+    strict.strictEqual(bigintRow.textValue, '{"ok":true}');
+    strict.deepStrictEqual(bigintRow.blobValue, new Uint8Array([1, 2, 3]));
+    strict.strictEqual(bigintRow.nullValue, null);
+    await bigintDatabase.close();
+
+    const numberDatabase = await createNodeSqliteDatabase({
+      path: ":memory:",
+      typePolicy: { integer: "number", flexible: "union", unknown: "unknown" },
+    });
+    strict.strictEqual((await numberDatabase.one(sql<{ value: number }>`SELECT ${true} AS value`)).value, 1);
+    await numberDatabase.close();
   });
 });

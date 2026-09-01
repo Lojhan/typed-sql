@@ -1,11 +1,13 @@
 import { describe, it, strict } from "poku";
-import { sql } from "../src/index.js";
+import { isNodeSqliteRuntimeSupported, sql } from "../src/index.js";
 import {
   adaptNodeSqliteDatabase,
   loadNodeSqlite,
+  NodeSqliteCompatibilityError,
   type NodeSqliteDatabaseLike,
   type NodeSqliteStatementLike,
   nodeSqlite,
+  readNodeSqliteServerEvidence,
 } from "../src/node-sqlite.js";
 import { createSqliteDatabase, type SqliteConnectionLike } from "../src/runtime.js";
 
@@ -36,6 +38,10 @@ await describe("SQLite runtime edge contracts", async () => {
     await strict.rejects(
       empty.all(sql`SELECT 1 AS value`, { deadline: Date.now() + 10 }),
       /does not support deadlines/,
+    );
+    await strict.rejects(
+      empty.all(sql`SELECT 1 AS value`, { signal: AbortSignal.abort("cancelled") }),
+      /does not support cancellation/,
     );
     await empty.close();
     await empty.close();
@@ -161,13 +167,21 @@ await describe("SQLite runtime edge contracts", async () => {
   });
 
   await it("adapts node:sqlite values, caching, import failures, and provider preconditions", async () => {
+    strict.strictEqual(isNodeSqliteRuntimeSupported("22.12.0"), false);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("v22.13.0"), true);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("24.10.0"), true);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("26.0.0"), true);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("23.11.0"), false);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("25.8.0"), false);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("27.0.0"), false);
+    strict.strictEqual(isNodeSqliteRuntimeSupported("future"), false);
     const calls: unknown[][] = [];
     const readModes: boolean[] = [];
     let prepares = 0;
     const statement: NodeSqliteStatementLike = {
       all(...values) {
         calls.push([...values]);
-        return [];
+        return values.length === 0 ? [{ blob: new DataView(new Uint8Array([7, 8]).buffer), value: null }] : [];
       },
       iterate(...values) {
         calls.push([...values]);
@@ -196,8 +210,9 @@ await describe("SQLite runtime edge contracts", async () => {
     connection.all("SELECT ?", [1, 1n, "one", null]);
     strict.strictEqual(prepares, 3);
     strict.deepStrictEqual(readModes, [false, false, false]);
-    strict.deepStrictEqual(calls[0], [1n]);
-    strict.deepStrictEqual(calls[1], [0n]);
+    strict.deepStrictEqual(calls[0], [1]);
+    strict.deepStrictEqual(calls[1], [0]);
+    strict.deepStrictEqual(connection.all("SELECT storage"), [{ blob: new Uint8Array([7, 8]), value: null }]);
     strict.throws(() => connection.all("SELECT ?", [undefined]), /cannot bind undefined/);
     strict.throws(() => connection.all("SELECT ?", [{}]), /cannot bind object/);
 
@@ -211,5 +226,61 @@ await describe("SQLite runtime edge contracts", async () => {
       /loader failed/,
     );
     await strict.rejects(nodeSqlite({}).introspect(), /requires path or database/);
+  });
+
+  await it("reads canonical server evidence and invalidates cached statements after schema changes", () => {
+    const prepares: string[] = [];
+    const readModes: boolean[] = [];
+    const native: NodeSqliteDatabaseLike = {
+      prepare(source) {
+        prepares.push(source);
+        return {
+          all() {
+            if (source === "SELECT sqlite_version() AS version") return [{ version: "3.45.2" }];
+            if (source === "PRAGMA compile_options") {
+              return [{ compile_options: "THREADSAFE=1" }, { compile_options: "ENABLE_FTS5" }];
+            }
+            return [];
+          },
+          setReadBigInts(enabled) {
+            readModes.push(enabled);
+          },
+        };
+      },
+      exec() {},
+      close() {},
+    };
+    strict.deepStrictEqual(readNodeSqliteServerEvidence(native), {
+      product: "sqlite",
+      version: "3.45.2",
+      versionKey: "3.45.2",
+      features: ["ENABLE_FTS5", "THREADSAFE=1"],
+      settings: {},
+    });
+
+    const connection = adaptNodeSqliteDatabase(native);
+    connection.all("SELECT 1");
+    connection.all("SELECT 1");
+    connection.all("/* migration */ CREATE TABLE account (id INTEGER)");
+    connection.all("SELECT 1");
+    strict.strictEqual(prepares.filter((source) => source === "SELECT 1").length, 2);
+    strict.deepStrictEqual(readModes, [true, true, true]);
+  });
+
+  await it("rejects malformed server evidence", () => {
+    const native: NodeSqliteDatabaseLike = {
+      prepare(source) {
+        return {
+          all() {
+            return source === "SELECT sqlite_version() AS version" ? [] : [{ compile_options: 1 }];
+          },
+          setReadBigInts() {},
+        };
+      },
+      exec() {},
+      close() {},
+    };
+    strict.throws(() => readNodeSqliteServerEvidence(native), /sqlite_version\(\) evidence/);
+    strict.strictEqual(new NodeSqliteCompatibilityError("version", "mismatch").code, "SQLITE_RUNTIME_INCOMPATIBLE");
   });
 });
