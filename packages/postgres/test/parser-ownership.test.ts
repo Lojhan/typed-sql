@@ -552,6 +552,51 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 16 IS JSON predicates", () => {
+    const statement = parseStatement(`
+      SELECT $1 IS JSON AS any_json,
+             $2 IS NOT JSON VALUE AS not_value,
+             $3 IS JSON SCALAR AS scalar,
+             $4 IS JSON ARRAY WITH UNIQUE KEYS AS unique_array,
+             $5 IS JSON OBJECT WITHOUT UNIQUE AS object_value
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns.map(({ expression }) =>
+        expression.kind === "json-is"
+          ? {
+              constraint: expression.constraint,
+              negated: expression.negated,
+              uniqueKeys: expression.uniqueKeys,
+            }
+          : expression.kind,
+      ),
+      [
+        { constraint: "value", negated: false, uniqueKeys: false },
+        { constraint: "value", negated: true, uniqueKeys: false },
+        { constraint: "scalar", negated: false, uniqueKeys: false },
+        { constraint: "array", negated: false, uniqueKeys: true },
+        { constraint: "object", negated: false, uniqueKeys: false },
+      ],
+    );
+    let parameters = 0;
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "parameter") parameters += 1;
+      },
+    });
+    strict.strictEqual(parameters, 5);
+
+    for (const invalid of [
+      "SELECT 1 WHERE '{}' IS JSON VALUE SCALAR",
+      "SELECT 1 WHERE '{}' IS JSON WITH KEYS",
+      "SELECT 1 WHERE '{}' IS JSON UNIQUE KEYS",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

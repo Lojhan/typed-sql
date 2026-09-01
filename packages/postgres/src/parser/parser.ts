@@ -1439,6 +1439,23 @@ class Parser {
             operator += " DISTINCT FROM";
           }
         }
+        if (this.#syntax === "postgres" && (operator === "IS" || operator === "IS NOT") && this.#matchWord("JSON")) {
+          let constraint: "value" | "scalar" | "array" | "object" = "value";
+          if (this.#matchWord("VALUE")) constraint = "value";
+          else if (this.#matchWord("SCALAR")) constraint = "scalar";
+          else if (this.#matchWord("ARRAY")) constraint = "array";
+          else if (this.#matchWord("OBJECT")) constraint = "object";
+          const uniqueKeys = this.#parseJsonUniqueKeys();
+          left = {
+            kind: "json-is",
+            expression: left,
+            constraint,
+            negated: operator === "IS NOT",
+            uniqueKeys,
+            range: mergeRanges(left.range, this.#previous().range),
+          };
+          continue;
+        }
         if (this.#syntax === "postgres" && ["ANY", "SOME", "ALL"].includes(this.#current().value)) {
           const quantifier = this.#advance().value.toLowerCase() as "any" | "some" | "all";
           this.#expectPunctuation("(");

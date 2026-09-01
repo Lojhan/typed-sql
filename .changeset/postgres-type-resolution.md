@@ -58,6 +58,9 @@ PostgreSQL 17 and newer also own `JSON`, `JSON_SCALAR`, and `JSON_SERIALIZE`, in
 inputs, uniqueness declarations, scalar and composite conversion, string or binary returns, UTF-8
 encoding, parameter inference, null propagation, and version diagnostics. The overlapping pre-17
 functional `json(...)` cast keeps its earlier cast semantics.
+PostgreSQL 16 and newer now own `IS JSON` and `IS NOT JSON` predicates across value, scalar,
+array, object, and unique-key constraints, with JSON-compatible input validation, text parameter
+inference, SQL-null propagation, and server-version diagnostics.
 PostgreSQL 17 `JSON_TABLE` now owns its table-reference grammar and resolves root, ordinality,
 scalar, formatted, `EXISTS`, and nested columns with implicit lateral scope, alias lists, declared
 types, behavior validation, nested null-padding, and server-version diagnostics.

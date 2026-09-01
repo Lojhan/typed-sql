@@ -182,6 +182,15 @@ export interface JsonSerializeExpression {
   readonly range: SourceRange;
 }
 
+export interface JsonIsExpression {
+  readonly kind: "json-is";
+  readonly expression: Expression;
+  readonly constraint: "value" | "scalar" | "array" | "object";
+  readonly negated: boolean;
+  readonly uniqueKeys: boolean;
+  readonly range: SourceRange;
+}
+
 export interface JsonExistsExpression {
   readonly kind: "json-exists";
   readonly context: JsonValueExpression;
@@ -321,6 +330,7 @@ export type Expression =
   | JsonParseExpression
   | JsonScalarExpression
   | JsonSerializeExpression
+  | JsonIsExpression
   | JsonExistsExpression
   | JsonQueryExpression
   | JsonValueQueryExpression

@@ -82,6 +82,9 @@ function walkExpression(
       walkExpression(expression.value.expression, statement, visitor, context);
       if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
       break;
+    case "json-is":
+      walkExpression(expression.expression, statement, visitor, context);
+      break;
     case "json-exists":
       walkExpression(expression.context.expression, statement, visitor, context);
       walkExpression(expression.path, statement, visitor, context);

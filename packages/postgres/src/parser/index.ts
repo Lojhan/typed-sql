@@ -37,6 +37,7 @@ export type {
   JsonBehavior,
   JsonExistsExpression,
   JsonFormat,
+  JsonIsExpression,
   JsonObjectEntry,
   JsonObjectExpression,
   JsonParseExpression,

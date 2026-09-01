@@ -746,6 +746,8 @@ class Resolver {
         return [expression.expression];
       case "json-serialize":
         return [expression.value.expression];
+      case "json-is":
+        return [expression.expression];
       case "json-exists":
         return [
           expression.context.expression,
@@ -2628,6 +2630,18 @@ class Resolver {
           ? output.resolved
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
+      case "json-is": {
+        this.#requireServerMajor(16, "IS JSON predicate", expression.range);
+        const input = this.#resolveJsonStringInput(
+          { expression: expression.expression, range: expression.expression.range },
+          scope,
+          ctes,
+          "IS JSON predicate",
+        );
+        return input.valid
+          ? { tsType: "boolean", nullable: input.resolved.nullable, databaseType: "boolean" }
+          : { tsType: "unknown", nullable: true, databaseType: "unknown" };
+      }
       case "json-exists": {
         this.#requireServerMajor(17, "JSON_EXISTS", expression.range);
         const context = this.#resolveSqlJsonValue(expression.context, scope, ctes, true);
@@ -3946,7 +3960,7 @@ class Resolver {
     value: JsonValueExpression,
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
-    feature: "JSON constructor" | "JSON_SERIALIZE",
+    feature: "JSON constructor" | "JSON_SERIALIZE" | "IS JSON predicate",
   ): { readonly resolved: ResolvedType; readonly valid: boolean } {
     const expected = value.format?.encoding === undefined ? this.#databaseType("text", true) : undefined;
     const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);

@@ -704,6 +704,61 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves and version-gates PostgreSQL 16 IS JSON predicates", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT $1 IS JSON AS parameterized,
+               name IS NOT JSON SCALAR AS named_scalar,
+               NULL::text IS JSON VALUE AS nullable_value,
+               JSONB '{"key":1}' IS JSON OBJECT WITH UNIQUE KEYS AS object_value,
+               $2::bytea IS JSON ARRAY WITHOUT UNIQUE AS binary_array
+        FROM users
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "parameterized", databaseType: "boolean", tsType: "boolean", nullable: true },
+        { name: "named_scalar", databaseType: "boolean", tsType: "boolean", nullable: false },
+        { name: "nullable_value", databaseType: "boolean", tsType: "boolean", nullable: true },
+        { name: "object_value", databaseType: "boolean", tsType: "boolean", nullable: false },
+        { name: "binary_array", databaseType: "boolean", tsType: "boolean", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "text", tsType: "string" },
+        { index: 2, databaseType: "bytea", tsType: "Uint8Array" },
+      ],
+    );
+
+    const invalid = resolveSelect(parseSelect("SELECT 1 IS JSON AS value"), postgres18);
+    strict.ok(invalid.diagnostics.some(({ code }) => code === "TSQ203"));
+    strict.strictEqual(invalid.columns[0]?.tsType, "unknown");
+
+    const postgres15 = {
+      ...postgres18,
+      server: postgresServerEvidence("15.14", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT '{}' IS JSON AS value"), postgres15).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
+    strict.ok(
+      resolveSelect(parseSelect("SELECT '{}' IS JSON AS value"), upgradeSchemaSnapshotV1(schema)).diagnostics.some(
+        ({ code }) => code === "TSQ402",
+      ),
+    );
+  });
+
   await it("resolves and version-gates PostgreSQL 17 JSON_TABLE", () => {
     const postgres18 = {
       ...upgradeSchemaSnapshotV1(schema),
