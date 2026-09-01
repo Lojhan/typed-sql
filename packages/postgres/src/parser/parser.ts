@@ -1222,7 +1222,10 @@ class Parser {
       this.#matchOperator("@@") ||
       this.#matchOperator("#") ||
       this.#matchOperator("?-") ||
-      this.#matchOperator("?|")
+      this.#matchOperator("?|") ||
+      this.#matchOperator("@") ||
+      this.#matchOperator("|/") ||
+      this.#matchOperator("||/")
     ) {
       const expression = this.#parseUnary();
       return {

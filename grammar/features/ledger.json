@@ -362,6 +362,7 @@
         "resolver:postgres.geometric-operator-signatures",
         "resolver:postgres.operator-candidate-selection",
         "resolver:postgres.operator-catalog",
+        "resolver:postgres.scalar-operator-signatures",
         "resolver:postgres.special-operator-signatures",
         "resolver:postgres.unary-bitwise-operators",
         "resolver:sqlite.operator-catalog"
@@ -395,6 +396,26 @@
         {
           "title": "PostgreSQL geometric operators",
           "url": "https://www.postgresql.org/docs/18/functions-geometry.html"
+        },
+        {
+          "title": "PostgreSQL mathematical operators",
+          "url": "https://www.postgresql.org/docs/18/functions-math.html"
+        },
+        {
+          "title": "PostgreSQL bit string operators",
+          "url": "https://www.postgresql.org/docs/18/functions-bitstring.html"
+        },
+        {
+          "title": "PostgreSQL binary string operators",
+          "url": "https://www.postgresql.org/docs/18/functions-binarystring.html"
+        },
+        {
+          "title": "PostgreSQL monetary type",
+          "url": "https://www.postgresql.org/docs/18/datatype-money.html"
+        },
+        {
+          "title": "PostgreSQL pg_lsn type",
+          "url": "https://www.postgresql.org/docs/18/datatype-pg-lsn.html"
         },
         {
           "title": "SQLite operators and parse-affecting attributes",

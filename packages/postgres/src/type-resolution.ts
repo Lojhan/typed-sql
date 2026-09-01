@@ -389,6 +389,33 @@ function categoryTypes(categoryName: PostgresTypeCategory, schema?: SchemaSnapsh
     .map(({ name }) => name);
 }
 
+function numericOperatorCandidates(operator: string): readonly PostgresCandidate<string>[] {
+  const candidates: PostgresCandidate<string>[] = [];
+  const add = (left: string, right: string, resultType: string): void => {
+    candidates.push({ value: operator, argumentTypes: [left, right], resultType });
+  };
+  const integral = ["smallint", "integer", "bigint"] as const;
+  const integralResult = (left: (typeof integral)[number], right: (typeof integral)[number]): string =>
+    integral[Math.max(integral.indexOf(left), integral.indexOf(right))]!;
+  if (["+", "-", "*", "/"].includes(operator)) {
+    for (const left of integral) {
+      for (const right of integral) add(left, right, integralResult(left, right));
+    }
+    add("real", "real", "real");
+    add("real", "double precision", "double precision");
+    add("double precision", "real", "double precision");
+    add("double precision", "double precision", "double precision");
+    add("numeric", "numeric", "numeric");
+  } else if (operator === "%") {
+    for (const type of integral) add(type, type, type);
+    add("numeric", "numeric", "numeric");
+  } else if (operator === "^") {
+    add("numeric", "numeric", "numeric");
+    add("double precision", "double precision", "double precision");
+  }
+  return candidates;
+}
+
 function temporalOperatorCandidates(operator: string): readonly PostgresCandidate<string>[] {
   const candidates: PostgresCandidate<string>[] = [];
   const add = (left: string, right: string, resultType: string): void => {
@@ -568,6 +595,10 @@ function specialOperatorCandidates(operator: string): readonly PostgresCandidate
   } else if (operator === "?-" || operator === "?|") add("point", "point", "boolean");
   else if (operator === "?-|" || operator === "?||") sameGeometric(["line", "lseg"], "boolean");
   else if (operator === "~=") sameGeometric(["point", "box", "polygon", "circle"], "boolean");
+  if (operator === "<<" || operator === ">>") {
+    for (const type of ["smallint", "integer", "bigint"] as const) add(type, "integer", type);
+    add("bit", "integer", "bit");
+  }
   if (["<<", "<<=", ">>", ">>=", "&&"].includes(operator)) add("inet", "inet", "boolean");
   if (operator === "&" || operator === "|") {
     add("inet", "inet", "inet");
@@ -577,12 +608,27 @@ function specialOperatorCandidates(operator: string): readonly PostgresCandidate
   if (operator === "+") {
     add("inet", "bigint", "inet");
     add("bigint", "inet", "inet");
+    add("money", "money", "money");
+    add("pg_lsn", "numeric", "pg_lsn");
+    add("numeric", "pg_lsn", "pg_lsn");
   } else if (operator === "-") {
     add("inet", "bigint", "inet");
     add("inet", "inet", "bigint");
     add("jsonb", "text", "jsonb");
     add("jsonb", "text[]", "jsonb");
     add("jsonb", "integer", "jsonb");
+    add("money", "money", "money");
+    add("pg_lsn", "numeric", "pg_lsn");
+    add("pg_lsn", "pg_lsn", "numeric");
+  } else if (operator === "*") {
+    for (const numeric of ["smallint", "integer", "bigint", "real", "double precision"] as const) {
+      add("money", numeric, "money");
+      add(numeric, "money", "money");
+    }
+  } else if (operator === "/") {
+    for (const numeric of ["smallint", "integer", "bigint", "real", "double precision"] as const)
+      add("money", numeric, "money");
+    add("money", "money", "double precision");
   } else if (operator === "#-") add("jsonb", "text[]", "jsonb");
   else if (operator === "@?") add("jsonb", "jsonpath", "boolean");
   else if (operator === "@@") {
@@ -592,6 +638,11 @@ function specialOperatorCandidates(operator: string): readonly PostgresCandidate
     add("text", "tsquery", "boolean");
   } else if (operator === "&&") add("tsquery", "tsquery", "tsquery");
   else if (operator === "||") {
+    add("text", "anynonarray", "text");
+    add("anynonarray", "text", "text");
+    add("bytea", "bytea", "bytea");
+    add("varbit", "varbit", "varbit");
+    add("jsonb", "jsonb", "jsonb");
     add("tsvector", "tsvector", "tsvector");
     add("tsquery", "tsquery", "tsquery");
   } else if (operator === "^@") add("text", "text", "boolean");
@@ -606,36 +657,22 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
   const rule = postgresCatalogOperatorRule(operator, schema);
   const special = specialOperatorCandidates(operator);
   if (rule === "numeric") {
-    return [
-      ...categoryPairs("numeric", schema)
-        .filter(([left, right]) => numericOperatorTypes.has(left) && numericOperatorTypes.has(right))
-        .map(([left, right, result]) => ({
-          value: operator,
-          argumentTypes: [left, right],
-          resultType: result,
-        })),
-      ...temporalOperatorCandidates(operator),
-      ...special,
-    ];
+    return [...numericOperatorCandidates(operator), ...temporalOperatorCandidates(operator), ...special];
   }
   if (rule === "bitwise") {
     return [
-      ...[...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({
+      ...["smallint", "integer", "bigint"].map((type) => ({
         value: operator,
         argumentTypes: [type, type],
         resultType: type,
       })),
+      { value: operator, argumentTypes: ["bit", "bit"], resultType: "bit" },
       ...special,
     ];
   }
   if (rule === "concatenation") {
     return [
       { value: operator, argumentTypes: ["text", "text"], resultType: "text" },
-      ...categoryTypes("bit-string", schema).map((type) => ({
-        value: operator,
-        argumentTypes: [type, type],
-        resultType: type,
-      })),
       {
         value: operator,
         argumentTypes: ["anycompatiblearray", "anycompatiblearray"],
@@ -701,6 +738,8 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
     { value: operator, argumentTypes: ["uuid", "uuid"], resultType: "boolean" },
     { value: operator, argumentTypes: ["bytea", "bytea"], resultType: "boolean" },
     { value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" },
+    { value: operator, argumentTypes: ["pg_lsn", "pg_lsn"], resultType: "boolean" },
+    { value: operator, argumentTypes: ["tid", "tid"], resultType: "boolean" },
     { value: operator, argumentTypes: ["anyenum", "anyenum"], resultType: "boolean" },
     { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
     ...special,
@@ -726,37 +765,52 @@ export function resolvePostgresUnaryOperator(
               resultType: type,
             }))
         : normalizedOperator === "~"
-          ? [
-              ...["smallint", "integer", "bigint", "inet", "macaddr", "macaddr8"],
-              ...categoryTypes("bit-string", schema),
-            ].map((type) => ({ value: normalizedOperator, argumentTypes: [type], resultType: type }))
+          ? ["smallint", "integer", "bigint", "bit", "inet", "macaddr", "macaddr8"].map((type) => ({
+              value: normalizedOperator,
+              argumentTypes: [type],
+              resultType: type,
+            }))
           : normalizedOperator === "!!"
             ? [{ value: normalizedOperator, argumentTypes: ["tsquery"], resultType: "tsquery" }]
-            : normalizedOperator === "@-@"
-              ? ["lseg", "path"].map((type) => ({
+            : normalizedOperator === "@"
+              ? [...numericOperatorTypes].map((type) => ({
                   value: normalizedOperator,
                   argumentTypes: [type],
-                  resultType: "double precision",
+                  resultType: type,
                 }))
-              : normalizedOperator === "@@"
-                ? ["box", "lseg", "polygon", "circle"].map((type) => ({
-                    value: normalizedOperator,
-                    argumentTypes: [type],
-                    resultType: "point",
-                  }))
-                : normalizedOperator === "#"
-                  ? ["path", "polygon"].map((type) => ({
+              : normalizedOperator === "|/" || normalizedOperator === "||/"
+                ? [
+                    {
+                      value: normalizedOperator,
+                      argumentTypes: ["double precision"],
+                      resultType: "double precision",
+                    },
+                  ]
+                : normalizedOperator === "@-@"
+                  ? ["lseg", "path"].map((type) => ({
                       value: normalizedOperator,
                       argumentTypes: [type],
-                      resultType: "integer",
+                      resultType: "double precision",
                     }))
-                  : normalizedOperator === "?-" || normalizedOperator === "?|"
-                    ? ["line", "lseg"].map((type) => ({
+                  : normalizedOperator === "@@"
+                    ? ["box", "lseg", "polygon", "circle"].map((type) => ({
                         value: normalizedOperator,
                         argumentTypes: [type],
-                        resultType: "boolean",
+                        resultType: "point",
                       }))
-                    : [];
+                    : normalizedOperator === "#"
+                      ? ["path", "polygon"].map((type) => ({
+                          value: normalizedOperator,
+                          argumentTypes: [type],
+                          resultType: "integer",
+                        }))
+                      : normalizedOperator === "?-" || normalizedOperator === "?|"
+                        ? ["line", "lseg"].map((type) => ({
+                            value: normalizedOperator,
+                            argumentTypes: [type],
+                            resultType: "boolean",
+                          }))
+                        : [];
   if (operand === undefined && candidates.length !== 1) {
     return candidates.length === 0 ? { kind: "none" } : { kind: "ambiguous" };
   }

@@ -157,6 +157,11 @@ await describe("query resolver", async () => {
              '(2,2),(0,0)'::box <-> '(3,3)'::point AS shape_distance,
              @@ ('(2,2),(0,0)'::box) AS shape_center,
              # ('((0,0),(1,1))'::path) AS shape_points,
+             |/ (25::double precision) AS square_root,
+             '101'::varbit << 1 AS shifted_bits,
+             '\\x01'::bytea || '\\x02'::bytea AS combined_bytes,
+             '0/10'::pg_lsn - '0/8'::pg_lsn AS lsn_distance,
+             '$2.00'::money * 2 AS scaled_money,
              CASE WHEN age IS NULL THEN 0 END AS maybe_age,
              CASE WHEN age IS NULL THEN 0 ELSE age END AS safe_age
       FROM users
@@ -193,6 +198,11 @@ await describe("query resolver", async () => {
         { name: "shape_distance", tsType: "number", nullable: false },
         { name: "shape_center", tsType: "string", nullable: false },
         { name: "shape_points", tsType: "number", nullable: false },
+        { name: "square_root", tsType: "number", nullable: false },
+        { name: "shifted_bits", tsType: "string", nullable: false },
+        { name: "combined_bytes", tsType: "Uint8Array", nullable: false },
+        { name: "lsn_distance", tsType: "string", nullable: false },
+        { name: "scaled_money", tsType: "string", nullable: false },
         { name: "maybe_age", tsType: "number", nullable: true },
         { name: "safe_age", tsType: "number", nullable: true },
       ],

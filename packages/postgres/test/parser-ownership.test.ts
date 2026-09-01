@@ -73,6 +73,18 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("tokenizes PostgreSQL scalar prefix, shift, and concatenation operators", () => {
+    for (const query of [
+      "SELECT @ amount AS magnitude FROM measurements",
+      "SELECT |/ variance AS deviation FROM measurements",
+      "SELECT ||/ volume AS edge FROM measurements",
+      "SELECT flags << 2 AS shifted FROM measurements",
+      "SELECT payload || suffix AS combined FROM measurements",
+    ]) {
+      strict.doesNotThrow(() => parseStatement(query), query);
+    }
+  });
+
   await it("preserves PostgreSQL compound-query precedence and parentheses", () => {
     const intersectionFirst = parseStatement("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3 ORDER BY 1");
     strict.strictEqual(intersectionFirst.kind, "select");

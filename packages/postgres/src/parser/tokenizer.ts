@@ -130,6 +130,8 @@ const keywords = new Set([
 ]);
 
 const operators = [
+  "||/",
+  "|/",
   "&<|",
   "?-|",
   "?||",
@@ -190,6 +192,7 @@ const operators = [
   "&",
   "|",
   "#",
+  "@",
 ] as const;
 
 export class SqlTokenizeError extends Error {

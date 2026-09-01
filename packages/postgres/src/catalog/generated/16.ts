@@ -4,6 +4,12 @@ import type { PostgresCoreCatalog } from "../types.js";
 export default Object.freeze({
   "casts": [
     {
+      "context": "explicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "bit"
+    },
+    {
       "context": "implicit",
       "method": "function",
       "source": "bigint",
@@ -14,6 +20,12 @@ export default Object.freeze({
       "method": "function",
       "source": "bigint",
       "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "bigint",
+      "target": "money"
     },
     {
       "context": "implicit",
@@ -32,6 +44,18 @@ export default Object.freeze({
       "method": "function",
       "source": "bigint",
       "target": "smallint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bit",
+      "target": "bigint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bit",
+      "target": "integer"
     },
     {
       "context": "implicit",
@@ -115,6 +139,12 @@ export default Object.freeze({
       "context": "explicit",
       "method": "function",
       "source": "integer",
+      "target": "bit"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "integer",
       "target": "boolean"
     },
     {
@@ -122,6 +152,12 @@ export default Object.freeze({
       "method": "function",
       "source": "integer",
       "target": "double precision"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "integer",
+      "target": "money"
     },
     {
       "context": "implicit",
@@ -156,6 +192,12 @@ export default Object.freeze({
     {
       "context": "assignment",
       "method": "function",
+      "source": "money",
+      "target": "numeric"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
       "source": "numeric",
       "target": "bigint"
     },
@@ -170,6 +212,12 @@ export default Object.freeze({
       "method": "function",
       "source": "numeric",
       "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "numeric",
+      "target": "money"
     },
     {
       "context": "implicit",
@@ -280,7 +328,7 @@ export default Object.freeze({
       "target": "timestamp"
     },
     {
-      "context": "assignment",
+      "context": "implicit",
       "method": "binary",
       "source": "varbit",
       "target": "bit"
@@ -396,12 +444,15 @@ export default Object.freeze({
         "?-",
         "?-|",
         "?||",
+        "@",
         "@-@",
         "@?",
         "@@",
         "^@",
         "|&>",
+        "|/",
         "|>>",
+        "||/",
         "~="
       ],
       "result": "special"
@@ -1077,5 +1128,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:6324d9e9ed0d274afb9bd1bc49b11316795cbcfde578251bcdddc17648b0150c"
+  "revision": "sha256:02200ff0f517a10836acdf00c0e89d77910b0ae8b20a8d8128214aec4ae48f9f"
 }) as unknown as PostgresCoreCatalog;

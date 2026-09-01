@@ -18,6 +18,8 @@ full-text search composition, JSON-path predicates and deletion, and their multi
 now use exact grammar-owned signatures.
 Geometric transformation, position, intersection, distance, containment, and relationship operators
 now resolve through their exact operand and result signatures, including prefix forms.
+Numeric promotion, mathematical prefix, bit-string shift, binary/JSON/text concatenation, money,
+`pg_lsn`, and tuple-identifier operators now use catalog-derived signatures and coercions.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

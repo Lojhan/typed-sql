@@ -4,6 +4,18 @@ import type { PostgresCoreCatalog } from "../types.js";
 export default Object.freeze({
   "casts": [
     {
+      "context": "explicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "bit"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "bytea"
+    },
+    {
       "context": "implicit",
       "method": "function",
       "source": "bigint",
@@ -14,6 +26,12 @@ export default Object.freeze({
       "method": "function",
       "source": "bigint",
       "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "bigint",
+      "target": "money"
     },
     {
       "context": "implicit",
@@ -34,6 +52,18 @@ export default Object.freeze({
       "target": "smallint"
     },
     {
+      "context": "explicit",
+      "method": "function",
+      "source": "bit",
+      "target": "bigint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bit",
+      "target": "integer"
+    },
+    {
       "context": "implicit",
       "method": "binary",
       "source": "bit",
@@ -50,6 +80,24 @@ export default Object.freeze({
       "method": "function",
       "source": "bpchar",
       "target": "text"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bytea",
+      "target": "bigint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bytea",
+      "target": "integer"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bytea",
+      "target": "smallint"
     },
     {
       "context": "implicit",
@@ -115,13 +163,31 @@ export default Object.freeze({
       "context": "explicit",
       "method": "function",
       "source": "integer",
+      "target": "bit"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "integer",
       "target": "boolean"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "integer",
+      "target": "bytea"
     },
     {
       "context": "implicit",
       "method": "function",
       "source": "integer",
       "target": "double precision"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "integer",
+      "target": "money"
     },
     {
       "context": "implicit",
@@ -156,6 +222,12 @@ export default Object.freeze({
     {
       "context": "assignment",
       "method": "function",
+      "source": "money",
+      "target": "numeric"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
       "source": "numeric",
       "target": "bigint"
     },
@@ -170,6 +242,12 @@ export default Object.freeze({
       "method": "function",
       "source": "numeric",
       "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "numeric",
+      "target": "money"
     },
     {
       "context": "implicit",
@@ -218,6 +296,12 @@ export default Object.freeze({
       "method": "function",
       "source": "smallint",
       "target": "bigint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "bytea"
     },
     {
       "context": "implicit",
@@ -280,7 +364,7 @@ export default Object.freeze({
       "target": "timestamp"
     },
     {
-      "context": "assignment",
+      "context": "implicit",
       "method": "binary",
       "source": "varbit",
       "target": "bit"
@@ -396,12 +480,15 @@ export default Object.freeze({
         "?-",
         "?-|",
         "?||",
+        "@",
         "@-@",
         "@?",
         "@@",
         "^@",
         "|&>",
+        "|/",
         "|>>",
+        "||/",
         "~="
       ],
       "result": "special"
@@ -1077,5 +1164,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:562970a5e2704ac3d3d9adedfdad60088c552762b840d9beaf77826dce7df496"
+  "revision": "sha256:a179c8dc316a46d6c25ee30fafa1f70c56fb48b450b4a145571d53006b52e5f9"
 }) as unknown as PostgresCoreCatalog;
