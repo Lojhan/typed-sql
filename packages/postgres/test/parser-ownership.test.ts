@@ -199,6 +199,56 @@ await describe("PostgreSQL-owned parser", async () => {
     );
   });
 
+  await it("owns PostgreSQL 17 SQL/JSON JSON_EXISTS syntax", () => {
+    const statement = parseStatement(`
+      SELECT JSON_EXISTS(
+        $1 FORMAT JSON,
+        $2 PASSING $3 AS threshold,
+                   convert_to($4, 'UTF8') FORMAT JSON ENCODING UTF8 AS "document"
+        UNKNOWN ON ERROR
+      ) AS matches
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    const expression = statement.columns[0]?.expression;
+    strict.strictEqual(expression?.kind, "json-exists");
+    if (expression?.kind !== "json-exists") return;
+    strict.strictEqual(expression.context.format?.encoding, undefined);
+    strict.strictEqual(expression.path.kind, "parameter");
+    strict.deepStrictEqual(
+      expression.passing.map(({ name, value }) => ({ name: name.name, encoding: value.format?.encoding })),
+      [
+        { name: "threshold", encoding: undefined },
+        { name: "document", encoding: "UTF8" },
+      ],
+    );
+    strict.strictEqual(expression.onError, "unknown");
+    strict.ok(expression.range.end > expression.range.start);
+
+    const visited: string[] = [];
+    walkStatement(statement, {
+      expression(node) {
+        visited.push(node.kind);
+      },
+    });
+    strict.deepStrictEqual(
+      visited.filter((kind) => kind === "parameter"),
+      ["parameter", "parameter", "parameter", "parameter"],
+    );
+
+    const quoted = parseStatement(`SELECT "JSON_EXISTS"('{}', '$') AS ordinary_call`);
+    strict.strictEqual(quoted.kind === "select" ? quoted.columns[0]?.expression.kind : undefined, "call");
+    const lowercase = parseStatement(`select json_exists('{}', '$' passing 1 as x false on error)`);
+    strict.strictEqual(lowercase.kind === "select" ? lowercase.columns[0]?.expression.kind : undefined, "json-exists");
+    for (const invalid of [
+      "SELECT JSON_EXISTS('{}', '$' NULL ON ERROR)",
+      "SELECT JSON_EXISTS('{}', '$' PASSING 1 x)",
+      "SELECT JSON_EXISTS('{}' FORMAT JSON ENCODING LATIN1, '$')",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

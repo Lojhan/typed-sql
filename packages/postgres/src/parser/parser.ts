@@ -12,6 +12,8 @@ import {
   type InsertStatement,
   type JoinClause,
   type JoinKind,
+  type JsonPassingArgument,
+  type JsonValueExpression,
   type MergeStatement,
   mergeRanges,
   type NamedTableReference,
@@ -1400,6 +1402,10 @@ class Parser {
     if (simpleTypedLiteralTypes.has(token.value) && this.#peekToken(1).kind === "string") {
       return this.#parseSimpleTypedLiteral();
     }
+    if (this.#isWord(token, "JSON_EXISTS") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonExists(token);
+    }
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -1432,6 +1438,65 @@ class Parser {
       return { kind: "column", column: first, range: first.range };
     }
     throw this.#error(`Expected expression, found ${token.text || "end of query"}`, token.range);
+  }
+
+  #parseJsonExists(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const context = this.#parseJsonValueExpression();
+    this.#expectPunctuation(",");
+    const path = this.#parseExpression();
+    const passing: JsonPassingArgument[] = [];
+    if (this.#matchWord("PASSING")) {
+      do {
+        const value = this.#parseJsonValueExpression();
+        this.#expectKeyword("AS");
+        const name = this.#parseIdentifier(true);
+        passing.push({ value, name, range: mergeRanges(value.range, name.range) });
+      } while (this.#matchPunctuation(","));
+    }
+    let onError: "true" | "false" | "unknown" | "error" | undefined;
+    if (
+      ["TRUE", "FALSE", "UNKNOWN", "ERROR"].some((word) => this.#isWord(this.#current(), word)) &&
+      this.#isWord(this.#peekToken(1), "ON") &&
+      this.#isWord(this.#peekToken(2), "ERROR")
+    ) {
+      onError = this.#advance().value.toLowerCase() as typeof onError;
+      this.#expectKeyword("ON");
+      this.#expectWord("ERROR");
+    }
+    const close = this.#expectPunctuation(")");
+    return {
+      kind: "json-exists",
+      context,
+      path,
+      passing,
+      ...(onError === undefined ? {} : { onError }),
+      range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonValueExpression(): JsonValueExpression {
+    const expression = this.#parseExpression();
+    if (!this.#matchWord("FORMAT")) return { expression, range: expression.range };
+    const formatStart = this.#previous();
+    const json = this.#expectWord("JSON");
+    let encoding: "UTF8" | "UTF16" | "UTF32" | undefined;
+    let end = json;
+    if (this.#matchWord("ENCODING")) {
+      const token = this.#current();
+      const normalized = token.value.toUpperCase();
+      if (!this.#isIdentifierLike(token) || !["UTF8", "UTF16", "UTF32"].includes(normalized)) {
+        throw this.#error(`Unsupported JSON encoding ${token.text || "end of query"}`, token.range);
+      }
+      this.#advance();
+      encoding = normalized as typeof encoding;
+      end = token;
+    }
+    const format = {
+      ...(encoding === undefined ? {} : { encoding }),
+      range: mergeRanges(formatStart.range, end.range),
+    };
+    return { expression, format, range: mergeRanges(expression.range, format.range) };
   }
 
   #parseCall(schema: Identifier | undefined, name: Identifier): Expression {
@@ -1844,11 +1909,15 @@ class Parser {
   }
 
   #matchWord(word: string): boolean {
-    if (this.#isIdentifierLike(this.#current()) && this.#current().value === word) {
+    if (this.#isWord(this.#current(), word)) {
       this.#advance();
       return true;
     }
     return false;
+  }
+
+  #isWord(token: Token, word: string): boolean {
+    return token.kind !== "quoted-identifier" && this.#isIdentifierLike(token) && token.value.toUpperCase() === word;
   }
 
   #matchOperator(operator: string): boolean {

@@ -290,6 +290,74 @@ await describe("query resolver", async () => {
     strict.ok(invalidTable.diagnostics.some(({ code }) => code === "TSQ202"));
   });
 
+  await it("resolves and version-gates PostgreSQL 17 JSON_EXISTS", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT JSON_EXISTS(
+                 JSONB '{"items":[1,2]}',
+                 JSONPATH 'strict $.items[*] ? (@ > $minimum)'
+                 PASSING 1 AS minimum FALSE ON ERROR
+               ) AS exact_match,
+               JSON_EXISTS($1, $2 PASSING $3 AS variable UNKNOWN ON ERROR) AS maybe_match,
+               JSON_EXISTS(NULL, JSONPATH '$') AS null_input,
+               JSON_EXISTS('{}'::text FORMAT JSON, '$'::text TRUE ON ERROR)
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "exact_match", databaseType: "boolean", tsType: "boolean", nullable: false },
+        { name: "maybe_match", databaseType: "boolean", tsType: "boolean", nullable: true },
+        { name: "null_input", databaseType: "boolean", tsType: "boolean", nullable: true },
+        { name: "json_exists", databaseType: "boolean", tsType: "boolean", nullable: false },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "text", tsType: "string" },
+        { index: 2, databaseType: "jsonpath", tsType: "string" },
+        { index: 3, databaseType: "text", tsType: "string" },
+      ],
+    );
+
+    for (const invalid of [
+      "SELECT JSON_EXISTS(1, '$') AS value",
+      "SELECT JSON_EXISTS('{}', 1) AS value",
+      "SELECT JSON_EXISTS('{}', '$' PASSING 1 FORMAT JSON AS value) AS value",
+      "SELECT JSON_EXISTS($1::bytea FORMAT JSON ENCODING UTF16, '$') AS value",
+      "SELECT JSON_EXISTS($1 FORMAT JSON ENCODING UTF8, '$') AS value",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), postgres18);
+      strict.ok(
+        invalidResult.diagnostics.some(({ code }) => code === "TSQ203"),
+        invalid,
+      );
+      strict.strictEqual(invalidResult.columns[0]?.tsType, "unknown", invalid);
+    }
+
+    const postgres16 = {
+      ...postgres18,
+      server: postgresServerEvidence("16.10", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_EXISTS('{}', '$')"), postgres16).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_EXISTS('{}', '$')"), upgradeSchemaSnapshotV1(schema)).diagnostics.some(
+        ({ code }) => code === "TSQ402",
+      ),
+    );
+  });
+
   await it("infers ordered parameter types from SQL context", () => {
     const parameterSchema = {
       ...schema,

@@ -27,6 +27,7 @@ import type {
   GroupingElement,
   Identifier,
   InsertConflictTarget,
+  JsonValueExpression,
   QualifiedIdentifier,
   SelectItem,
   SelectStatement,
@@ -730,6 +731,12 @@ class Resolver {
         return [expression.expression];
       case "at-time-zone":
         return [expression.expression, ...(expression.zone === undefined ? [] : [expression.zone])];
+      case "json-exists":
+        return [
+          expression.context.expression,
+          expression.path,
+          ...expression.passing.map(({ value }) => value.expression),
+        ];
       case "binary":
         return [expression.left, expression.right];
       case "case":
@@ -1967,6 +1974,7 @@ class Resolver {
     if (expression.kind === "field-access") return sqlName(expression.field);
     if (expression.kind === "collate") return this.#outputName(expression.expression);
     if (expression.kind === "at-time-zone") return "timezone";
+    if (expression.kind === "json-exists") return "json_exists";
     if (expression.kind === "call") return sqlName(expression.name);
     if (expression.kind === "case") return "case";
     return undefined;
@@ -2264,6 +2272,33 @@ class Resolver {
       }
       case "binary":
         return this.#resolveBinary(expression, scope, ctes);
+      case "json-exists": {
+        this.#requireServerMajor(17, "JSON_EXISTS", expression.range);
+        const context = this.#resolveSqlJsonValue(expression.context, scope, ctes, true);
+        const path = this.#resolveExpression(expression.path, scope, ctes, this.#databaseType("jsonpath", true));
+        const pathType =
+          path.databaseType === undefined ? undefined : postgresCanonicalType(path.databaseType, this.#schema);
+        const pathValid =
+          pathType === "jsonpath" ||
+          (pathType !== undefined && postgresTypeCategory(pathType, this.#schema) === "string") ||
+          (expression.path.kind === "literal" && expression.path.value === null);
+        if (!pathValid) {
+          this.#diagnostic(
+            "TSQ203",
+            `JSON_EXISTS path must resolve to jsonpath or a character string, received ${path.databaseType ?? path.tsType}`,
+            expression.path.range,
+          );
+        }
+        const passing = expression.passing.map(({ value }) => this.#resolveSqlJsonValue(value, scope, ctes, false));
+        if (!context.valid || !pathValid || passing.some(({ valid }) => !valid)) {
+          return { tsType: "unknown", nullable: true };
+        }
+        return {
+          tsType: "boolean",
+          nullable: context.resolved.nullable || path.nullable || expression.onError === "unknown",
+          databaseType: "boolean",
+        };
+      }
       case "call":
         return this.#resolveCall(expression, scope, ctes);
       case "case": {
@@ -3343,6 +3378,57 @@ class Resolver {
     const elementType = normalizeDatabaseType(variadicType).replace(/\[\]$/u, "");
     if (elementType === normalizeDatabaseType(variadicType)) return undefined;
     return expression.arguments.map((_, index) => (index < fixed.length ? fixed[index]!.databaseType : elementType));
+  }
+
+  #resolveSqlJsonValue(
+    value: JsonValueExpression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    requireJsonInput: boolean,
+  ): { readonly resolved: ResolvedType; readonly valid: boolean } {
+    const expected = value.format?.encoding === undefined ? this.#databaseType("text", true) : undefined;
+    const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);
+    const canonical =
+      resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
+    let valid = true;
+
+    if (value.format?.encoding !== undefined) {
+      if (value.format.encoding !== "UTF8") {
+        this.#diagnostic(
+          "TSQ203",
+          `PostgreSQL JSON ENCODING supports UTF8, received ${value.format.encoding}`,
+          value.format.range,
+        );
+        valid = false;
+      }
+      if (canonical !== "bytea") {
+        this.#diagnostic(
+          "TSQ203",
+          `JSON ENCODING requires bytea input, received ${resolved.databaseType ?? resolved.tsType}`,
+          value.expression.range,
+        );
+        valid = false;
+      }
+    }
+
+    if (requireJsonInput || value.format !== undefined) {
+      const nullLiteral = value.expression.kind === "literal" && value.expression.value === null;
+      const jsonInput =
+        canonical === "json" ||
+        canonical === "jsonb" ||
+        (canonical !== undefined && postgresTypeCategory(canonical, this.#schema) === "string") ||
+        (value.format !== undefined && canonical === "bytea");
+      if (!nullLiteral && !jsonInput) {
+        this.#diagnostic(
+          "TSQ203",
+          `SQL/JSON input must resolve to jsonb, a character string, or formatted bytea; received ${resolved.databaseType ?? resolved.tsType}`,
+          value.expression.range,
+        );
+        valid = false;
+      }
+    }
+
+    return { resolved, valid };
   }
 
   #isDefaultValue(expression: Expression | undefined): boolean {

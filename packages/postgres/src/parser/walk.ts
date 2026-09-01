@@ -60,6 +60,13 @@ function walkExpression(
       walkExpression(expression.expression, statement, visitor, context);
       if (expression.zone !== undefined) walkExpression(expression.zone, statement, visitor, context);
       break;
+    case "json-exists":
+      walkExpression(expression.context.expression, statement, visitor, context);
+      walkExpression(expression.path, statement, visitor, context);
+      for (const argument of expression.passing) {
+        walkExpression(argument.value.expression, statement, visitor, context);
+      }
+      break;
     case "binary":
       walkExpression(expression.left, statement, visitor, context);
       walkExpression(expression.right, statement, visitor, context);

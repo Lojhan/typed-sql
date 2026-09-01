@@ -43,6 +43,9 @@ and resolver cover `jsonb_path_exists`, `jsonb_path_match`, query-array, query-f
 query variants, including timezone-aware forms, optional variables/silent arguments, and nullability.
 Database parameter identities are now retained even when their configured TypeScript mapping is
 `unknown`, so JSON and other deliberately opaque codecs still produce typed prepared parameters.
+PostgreSQL 17 and newer now parse and resolve the grammar-owned `JSON_EXISTS` SQL/JSON expression,
+including formatted inputs, `PASSING` variables, error behavior, parameter identities, nullability,
+and server-version diagnostics.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

@@ -108,6 +108,32 @@ export interface AtTimeZoneExpression {
   readonly range: SourceRange;
 }
 
+export interface JsonFormat {
+  readonly encoding?: "UTF8" | "UTF16" | "UTF32";
+  readonly range: SourceRange;
+}
+
+export interface JsonValueExpression {
+  readonly expression: Expression;
+  readonly format?: JsonFormat;
+  readonly range: SourceRange;
+}
+
+export interface JsonPassingArgument {
+  readonly value: JsonValueExpression;
+  readonly name: Identifier;
+  readonly range: SourceRange;
+}
+
+export interface JsonExistsExpression {
+  readonly kind: "json-exists";
+  readonly context: JsonValueExpression;
+  readonly path: Expression;
+  readonly passing: readonly JsonPassingArgument[];
+  readonly onError?: "true" | "false" | "unknown" | "error";
+  readonly range: SourceRange;
+}
+
 export interface CallExpression {
   readonly kind: "call";
   readonly name: Identifier;
@@ -209,6 +235,7 @@ export type Expression =
   | FieldAccessExpression
   | CollateExpression
   | AtTimeZoneExpression
+  | JsonExistsExpression
   | CallExpression
   | CastExpression
   | BinaryExpression
