@@ -48,6 +48,19 @@ await describe("PostgreSQL-owned parser", async () => {
     strict.throws(() => parseStatement("SELECT sum_many(VARIADIC ARRAY[1], 2)"), SqlParseError);
   });
 
+  await it("tokenizes PostgreSQL range, network, text-search, and JSON-path operators", () => {
+    for (const query of [
+      "SELECT left_range << right_range AS before FROM periods",
+      "SELECT left_range -|- right_range AS adjacent FROM periods",
+      "SELECT document @@ query AS matches FROM search_documents",
+      "SELECT payload @? path AS matches FROM documents",
+      "SELECT payload #- ARRAY['private'] AS redacted FROM documents",
+      "SELECT !! (query::tsquery) AS negated FROM search_documents",
+    ]) {
+      strict.doesNotThrow(() => parseStatement(query), query);
+    }
+  });
+
   await it("preserves PostgreSQL compound-query precedence and parentheses", () => {
     const intersectionFirst = parseStatement("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3 ORDER BY 1");
     strict.strictEqual(intersectionFirst.kind, "select");

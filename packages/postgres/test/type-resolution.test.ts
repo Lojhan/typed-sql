@@ -188,6 +188,21 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(selectedResult("*", "interval", "numeric"), "interval");
     strict.strictEqual(selectedResult("/", "interval", "double precision"), "interval");
     strict.strictEqual(selectedResult("+", "date", undefined), "ambiguous");
+    strict.strictEqual(selectedResult("<<", "cidr", "inet"), "boolean");
+    strict.strictEqual(selectedResult("&", "inet", "inet"), "inet");
+    strict.strictEqual(selectedResult("+", "inet", "bigint"), "inet");
+    strict.strictEqual(selectedResult("-", "inet", "inet"), "bigint");
+    strict.strictEqual(selectedResult("@>", "int4range", "integer"), "boolean");
+    strict.strictEqual(selectedResult("<@", "integer", "int4multirange"), "boolean");
+    strict.strictEqual(selectedResult("&&", "int4range", "int4multirange"), "boolean");
+    strict.strictEqual(selectedResult("-|-", "numrange", "nummultirange"), "boolean");
+    strict.strictEqual(selectedResult("+", "int8range", "int8range"), "int8range");
+    strict.strictEqual(selectedResult("*", "int8multirange", "int8multirange"), "int8multirange");
+    strict.strictEqual(selectedResult("@@", "tsvector", "tsquery"), "boolean");
+    strict.strictEqual(selectedResult("&&", "tsquery", "tsquery"), "tsquery");
+    strict.strictEqual(selectedResult("||", "tsvector", "tsvector"), "tsvector");
+    strict.strictEqual(selectedResult("@?", "jsonb", "jsonpath"), "boolean");
+    strict.strictEqual(selectedResult("#-", "jsonb", "text[]"), "jsonb");
 
     const unaryResult = (operator: string, operand?: string) => {
       const result = resolvePostgresUnaryOperator(operator, operand);
@@ -199,6 +214,8 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(unaryResult("NOT", undefined), "boolean");
     strict.strictEqual(unaryResult("-", undefined), "ambiguous");
     strict.strictEqual(unaryResult("-", "text"), "none");
+    strict.strictEqual(unaryResult("~", "inet"), "inet");
+    strict.strictEqual(unaryResult("!!", "tsquery"), "tsquery");
   });
 
   await it("binds snapshot domains, enums, collections, ranges, and multiranges", () => {

@@ -23,7 +23,14 @@ export type PostgresTypeCategory =
   | "user";
 export type PostgresCastContext = "assignment" | "explicit" | "implicit";
 export type PostgresCastMethod = "binary" | "function" | "io";
-export type PostgresOperatorResultRule = "bitwise" | "boolean" | "concatenation" | "json" | "json-text" | "numeric";
+export type PostgresOperatorResultRule =
+  | "bitwise"
+  | "boolean"
+  | "concatenation"
+  | "json"
+  | "json-text"
+  | "numeric"
+  | "special";
 export type PostgresRoutineResultRule =
   | "array-aggregate"
   | "bigint-window"

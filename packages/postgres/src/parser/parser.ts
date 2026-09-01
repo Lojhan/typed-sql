@@ -77,6 +77,16 @@ const precedence = new Map<string, number>([
   ["?|", 3],
   ["?&", 3],
   ["&&", 3],
+  ["<<", 3],
+  ["<<=", 3],
+  [">>", 3],
+  [">>=", 3],
+  ["&<", 3],
+  ["&>", 3],
+  ["-\u007c-", 3],
+  ["@?", 3],
+  ["@@", 3],
+  ["^@", 3],
   ["||", 4],
   ["&", 4],
   ["|", 4],
@@ -85,6 +95,7 @@ const precedence = new Map<string, number>([
   ["->>", 4],
   ["#>", 4],
   ["#>>", 4],
+  ["#-", 4],
   ["+", 5],
   ["-", 5],
   ["*", 6],
@@ -1187,7 +1198,13 @@ class Parser {
 
   #parseUnary(): Expression {
     const token = this.#current();
-    if (this.#matchKeyword("NOT") || this.#matchOperator("+") || this.#matchOperator("-") || this.#matchOperator("~")) {
+    if (
+      this.#matchKeyword("NOT") ||
+      this.#matchOperator("+") ||
+      this.#matchOperator("-") ||
+      this.#matchOperator("~") ||
+      this.#matchOperator("!!")
+    ) {
       const expression = this.#parseUnary();
       return {
         kind: "unary",

@@ -421,8 +421,99 @@ function temporalOperatorCandidates(operator: string): readonly PostgresCandidat
   return candidates;
 }
 
+const builtInRangeFamilies = [
+  ["int4range", "int4multirange", "integer"],
+  ["int8range", "int8multirange", "bigint"],
+  ["numrange", "nummultirange", "numeric"],
+  ["tsrange", "tsmultirange", "timestamp"],
+  ["tstzrange", "tstzmultirange", "timestamptz"],
+  ["daterange", "datemultirange", "date"],
+] as const;
+
+function specialOperatorCandidates(operator: string): readonly PostgresCandidate<string>[] {
+  const candidates: PostgresCandidate<string>[] = [];
+  const add = (left: string, right: string, resultType: string): void => {
+    candidates.push({ value: operator, argumentTypes: [left, right], resultType });
+  };
+  for (const [range, multirange, element] of builtInRangeFamilies) {
+    if (operator === "@>") {
+      for (const [left, right] of [
+        [range, range],
+        [range, element],
+        [range, multirange],
+        [multirange, multirange],
+        [multirange, range],
+        [multirange, element],
+      ] as const)
+        add(left, right, "boolean");
+    } else if (operator === "<@") {
+      for (const [left, right] of [
+        [range, range],
+        [element, range],
+        [multirange, multirange],
+        [multirange, range],
+        [range, multirange],
+        [element, multirange],
+      ] as const)
+        add(left, right, "boolean");
+    } else if (["&&", "<<", ">>", "&<", "&>"].includes(operator)) {
+      for (const [left, right] of [
+        [range, range],
+        [multirange, multirange],
+        [range, multirange],
+        [multirange, range],
+      ] as const)
+        add(left, right, "boolean");
+    } else if (operator === "-\u007c-") {
+      for (const [left, right] of [
+        [range, range],
+        [multirange, multirange],
+        [range, multirange],
+        [multirange, range],
+      ] as const)
+        add(left, right, "boolean");
+    } else if (["+", "*", "-"].includes(operator)) {
+      add(range, range, range);
+      add(multirange, multirange, multirange);
+    }
+  }
+  if (["<<", "<<=", ">>", ">>=", "&&"].includes(operator)) add("inet", "inet", "boolean");
+  if (operator === "&" || operator === "|") {
+    add("inet", "inet", "inet");
+    add("macaddr", "macaddr", "macaddr");
+    add("macaddr8", "macaddr8", "macaddr8");
+  }
+  if (operator === "+") {
+    add("inet", "bigint", "inet");
+    add("bigint", "inet", "inet");
+  } else if (operator === "-") {
+    add("inet", "bigint", "inet");
+    add("inet", "inet", "bigint");
+    add("jsonb", "text", "jsonb");
+    add("jsonb", "text[]", "jsonb");
+    add("jsonb", "integer", "jsonb");
+  } else if (operator === "#-") add("jsonb", "text[]", "jsonb");
+  else if (operator === "@?") add("jsonb", "jsonpath", "boolean");
+  else if (operator === "@@") {
+    add("jsonb", "jsonpath", "boolean");
+    add("tsvector", "tsquery", "boolean");
+    add("tsquery", "tsvector", "boolean");
+    add("text", "tsquery", "boolean");
+  } else if (operator === "&&") add("tsquery", "tsquery", "tsquery");
+  else if (operator === "||") {
+    add("tsvector", "tsvector", "tsvector");
+    add("tsquery", "tsquery", "tsquery");
+  } else if (operator === "^@") add("text", "text", "boolean");
+  if (comparisonOperators.has(operator)) {
+    add("tsvector", "tsvector", "boolean");
+    add("tsquery", "tsquery", "boolean");
+  }
+  return candidates;
+}
+
 function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly PostgresCandidate<string>[] {
   const rule = postgresCatalogOperatorRule(operator, schema);
+  const special = specialOperatorCandidates(operator);
   if (rule === "numeric") {
     return [
       ...categoryPairs("numeric", schema)
@@ -433,14 +524,18 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
           resultType: result,
         })),
       ...temporalOperatorCandidates(operator),
+      ...special,
     ];
   }
   if (rule === "bitwise") {
-    return [...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({
-      value: operator,
-      argumentTypes: [type, type],
-      resultType: type,
-    }));
+    return [
+      ...[...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({
+        value: operator,
+        argumentTypes: [type, type],
+        resultType: type,
+      })),
+      ...special,
+    ];
   }
   if (rule === "concatenation") {
     return [
@@ -457,25 +552,30 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       },
       { value: operator, argumentTypes: ["anycompatible", "anycompatiblearray"], resultType: "anycompatiblearray" },
       { value: operator, argumentTypes: ["anycompatiblearray", "anycompatible"], resultType: "anycompatiblearray" },
+      ...special,
     ];
   }
   if (rule === "json" || rule === "json-text") {
     const result = rule === "json-text" ? "text" : undefined;
     const path = operator.startsWith("#") ? "text[]" : undefined;
-    return ["json", "jsonb"].flatMap((left) =>
-      (path === undefined ? ["integer", "text"] : [path]).map((right) => ({
-        value: operator,
-        argumentTypes: [left, right],
-        resultType: result ?? left,
-      })),
-    );
+    return [
+      ...["json", "jsonb"].flatMap((left) =>
+        (path === undefined ? ["integer", "text"] : [path]).map((right) => ({
+          value: operator,
+          argumentTypes: [left, right],
+          resultType: result ?? left,
+        })),
+      ),
+      ...special,
+    ];
   }
-  if (rule !== "boolean") return [];
+  if (rule === "special") return special;
+  if (rule !== "boolean") return special;
   if (operator === "AND" || operator === "OR") {
-    return [{ value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" }];
+    return [{ value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" }, ...special];
   }
   if (patternOperators.has(operator)) {
-    return [{ value: operator, argumentTypes: ["text", "text"], resultType: "boolean" }];
+    return [{ value: operator, argumentTypes: ["text", "text"], resultType: "boolean" }, ...special];
   }
   if (operator === "?" || operator === "?&" || operator === "?|") {
     return [
@@ -484,12 +584,14 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
         argumentTypes: ["jsonb", operator === "?" ? "text" : "text[]"],
         resultType: "boolean",
       },
+      ...special,
     ];
   }
   if (operator === "@>" || operator === "<@" || operator === "&&") {
     return [
       { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
       ...(operator === "&&" ? [] : [{ value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" }]),
+      ...special,
     ];
   }
   if (!comparisonOperators.has(operator)) return [];
@@ -510,6 +612,7 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
     { value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" },
     { value: operator, argumentTypes: ["anyenum", "anyenum"], resultType: "boolean" },
     { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
+    ...special,
   ];
 }
 
@@ -532,12 +635,13 @@ export function resolvePostgresUnaryOperator(
               resultType: type,
             }))
         : normalizedOperator === "~"
-          ? [...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({
-              value: normalizedOperator,
-              argumentTypes: [type],
-              resultType: type,
-            }))
-          : [];
+          ? [
+              ...["smallint", "integer", "bigint", "inet", "macaddr", "macaddr8"],
+              ...categoryTypes("bit-string", schema),
+            ].map((type) => ({ value: normalizedOperator, argumentTypes: [type], resultType: type }))
+          : normalizedOperator === "!!"
+            ? [{ value: normalizedOperator, argumentTypes: ["tsquery"], resultType: "tsquery" }]
+            : [];
   if (operand === undefined && candidates.length !== 1) {
     return candidates.length === 0 ? { kind: "none" } : { kind: "ambiguous" };
   }

@@ -373,6 +373,24 @@ export default Object.freeze({
         "^"
       ],
       "result": "numeric"
+    },
+    {
+      "name": "special",
+      "operators": [
+        "!!",
+        "#-",
+        "&<",
+        "&>",
+        "-|-",
+        "<<",
+        "<<=",
+        ">>",
+        ">>=",
+        "@?",
+        "@@",
+        "^@"
+      ],
+      "result": "special"
     }
   ],
   "routines": [
@@ -1045,5 +1063,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:3ae8228c185b205c011c5a60730193ea4c4b0f0fea1777080307f59929600811"
+  "revision": "sha256:7db662d156338bce48268738d3a0bfe7d111ab6e18d3373a3723feeda0944d03"
 }) as unknown as PostgresCoreCatalog;

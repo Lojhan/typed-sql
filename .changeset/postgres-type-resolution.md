@@ -13,6 +13,9 @@ full-text, XML, range, multirange, object-identifier, and related scalar types. 
 bitwise operators, plus binary integer and bit-string operators, now resolve through typed
 candidates and reject invalid operands. Date, timestamp, time, and interval arithmetic now uses
 asymmetric PostgreSQL signatures, with parameter inference deferred until candidate selection.
+Built-in range/multirange containment and arithmetic, network containment and address arithmetic,
+full-text search composition, JSON-path predicates and deletion, and their multi-character tokens
+now use exact grammar-owned signatures.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

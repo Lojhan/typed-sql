@@ -647,7 +647,13 @@
     { "name": "concatenation", "operators": ["||"], "result": "concatenation", "introduced": 14 },
     { "name": "json", "operators": ["#>", "->"], "result": "json", "introduced": 14 },
     { "name": "json-text", "operators": ["#>>", "->>"], "result": "json-text", "introduced": 14 },
-    { "name": "numeric", "operators": ["%", "*", "+", "-", "/", "^"], "result": "numeric", "introduced": 14 }
+    { "name": "numeric", "operators": ["%", "*", "+", "-", "/", "^"], "result": "numeric", "introduced": 14 },
+    {
+      "name": "special",
+      "operators": ["!!", "#-", "&<", "&>", "-|-", "<<", "<<=", ">>", ">>=", "@?", "@@", "^@"],
+      "result": "special",
+      "introduced": 14
+    }
   ],
   "routines": [
     { "name": "array-aggregate", "routines": ["ARRAY_AGG"], "result": "array-aggregate", "introduced": 14 },

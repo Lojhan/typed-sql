@@ -361,6 +361,7 @@
         "resolver:postgres.core-type-families",
         "resolver:postgres.operator-candidate-selection",
         "resolver:postgres.operator-catalog",
+        "resolver:postgres.special-operator-signatures",
         "resolver:postgres.unary-bitwise-operators",
         "resolver:sqlite.operator-catalog"
       ],
@@ -373,6 +374,22 @@
         {
           "title": "PostgreSQL operator precedence",
           "url": "https://www.postgresql.org/docs/18/sql-syntax-lexical.html#SQL-PRECEDENCE"
+        },
+        {
+          "title": "PostgreSQL range and multirange operators",
+          "url": "https://www.postgresql.org/docs/18/functions-range.html"
+        },
+        {
+          "title": "PostgreSQL network address operators",
+          "url": "https://www.postgresql.org/docs/18/functions-net.html"
+        },
+        {
+          "title": "PostgreSQL text search operators",
+          "url": "https://www.postgresql.org/docs/18/functions-textsearch.html"
+        },
+        {
+          "title": "PostgreSQL JSON operators",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html"
         },
         {
           "title": "SQLite operators and parse-affecting attributes",
