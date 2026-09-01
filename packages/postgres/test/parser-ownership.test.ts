@@ -106,6 +106,34 @@ await describe("PostgreSQL-owned parser", async () => {
     strict.throws(() => parseStatement("SELECT scores[] FROM events"), SqlParseError);
   });
 
+  await it("owns quantified and row comparisons", () => {
+    const statement = parseStatement(`
+      SELECT id = ANY(scores),
+             id <> ALL(ARRAY[1, 2]),
+             id = SOME(SELECT user_id FROM ages),
+             (id, active) IS DISTINCT FROM (2, false)
+      FROM events
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns
+        .slice(0, 3)
+        .map(({ expression }) =>
+          expression.kind === "quantified-comparison" ? expression.quantifier : expression.kind,
+        ),
+      ["any", "all", "some"],
+    );
+    strict.strictEqual(statement.columns[3]?.expression.kind, "binary");
+    let quantified = 0;
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "quantified-comparison") quantified += 1;
+      },
+    });
+    strict.strictEqual(quantified, 3);
+  });
+
   await it("preserves PostgreSQL compound-query precedence and parentheses", () => {
     const intersectionFirst = parseStatement("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3 ORDER BY 1");
     strict.strictEqual(intersectionFirst.kind, "select");

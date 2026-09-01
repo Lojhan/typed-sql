@@ -1026,6 +1026,14 @@ await describe("query resolver", async () => {
              scores[1] AS first_score,
              scores[1:2] AS top_scores,
              ('(1,2)'::point)[0] AS x_coordinate,
+             team_id = ANY(scores) AS any_score,
+             team_id = ALL($1) AS every_score,
+             team_id = SOME(SELECT candidate.team_id FROM events candidate) AS subquery_score,
+             (team_id, active) = ANY(
+               SELECT candidate.team_id, candidate.active FROM events candidate
+             ) AS row_subquery_matches,
+             (team_id, active) = ($2, $3) AS row_matches,
+             (team_id, active) IS DISTINCT FROM (NULL, false) AS row_differs,
              COUNT(*) FILTER (WHERE active) OVER (PARTITION BY team_id) AS active_count,
              label_for(team_id) AS team_label
       FROM events
@@ -1042,11 +1050,30 @@ await describe("query resolver", async () => {
         { name: "first_score", tsType: "number" },
         { name: "top_scores", tsType: "readonly (number)[]" },
         { name: "x_coordinate", tsType: "number" },
+        { name: "any_score", tsType: "boolean" },
+        { name: "every_score", tsType: "boolean" },
+        { name: "subquery_score", tsType: "boolean" },
+        { name: "row_subquery_matches", tsType: "boolean" },
+        { name: "row_matches", tsType: "boolean" },
+        { name: "row_differs", tsType: "boolean" },
         { name: "active_count", tsType: "bigint" },
         { name: "team_label", tsType: "string" },
       ],
     );
     strict.strictEqual(result.columns.find(({ name }) => name === "first_score")?.nullable, true);
+    strict.strictEqual(result.columns.find(({ name }) => name === "any_score")?.nullable, true);
+    strict.strictEqual(result.columns.find(({ name }) => name === "subquery_score")?.nullable, false);
+    strict.strictEqual(result.columns.find(({ name }) => name === "row_subquery_matches")?.nullable, false);
+    strict.strictEqual(result.columns.find(({ name }) => name === "row_matches")?.nullable, true);
+    strict.strictEqual(result.columns.find(({ name }) => name === "row_differs")?.nullable, false);
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "readonly (number)[]" },
+        { index: 2, tsType: "number" },
+        { index: 3, tsType: "boolean" },
+      ],
+    );
     strict.deepStrictEqual(
       resolveSelect(parseSelect("SELECT scores['x'] FROM events"), richSchema).diagnostics.map(({ code }) => code),
       ["TSQ203"],
@@ -1059,6 +1086,20 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       parameterized.parameters.map(({ index, tsType }) => ({ index, tsType })),
       [{ index: 1, tsType: "number" }],
+    );
+    for (const query of [
+      "SELECT team_id = ANY(1) FROM events",
+      "SELECT active = ANY(scores) FROM events",
+      "SELECT (team_id, active) = (1) FROM events",
+    ]) {
+      strict.ok(
+        resolveSelect(parseSelect(query), richSchema).diagnostics.some(({ code }) => code === "TSQ203"),
+        query,
+      );
+    }
+    strict.deepStrictEqual(
+      resolveSelect(parseSelect("SELECT team_id = ANY(ARRAY[]) AS matches FROM events"), richSchema).diagnostics,
+      [],
     );
   });
 

@@ -461,6 +461,54 @@
       }
     },
     {
+      "id": "expression.quantified-comparison",
+      "title": "ANY, SOME, and ALL comparisons",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.quantified-comparison-expression",
+        "resolver:postgres.quantified-array-comparison",
+        "resolver:postgres.quantified-subquery-comparison"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL array and subquery comparisons",
+          "url": "https://www.postgresql.org/docs/18/functions-comparisons.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.row-comparison",
+      "title": "Row constructor comparisons",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["resolver:postgres.row-comparison-arity", "resolver:postgres.row-comparison-operators"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL row constructor comparison",
+          "url": "https://www.postgresql.org/docs/18/functions-comparisons.html#ROW-WISE-COMPARISON"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": { "level": "conservative", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
       "id": "expression.scalar",
       "title": "Columns, stars, literals, and parameters",
       "category": "expression",

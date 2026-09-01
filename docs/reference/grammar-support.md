@@ -32,6 +32,8 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `expression.function.math-extensions` — SQLite compile-option math and extension functions | function-family | out-of-scope | out-of-scope | exact (from 3.39.0) |
 | `expression.function.registry` — SQLite application-defined scalar, aggregate, and window routine registry | function-family | out-of-scope | out-of-scope | exact (from 3.39.0) |
 | `expression.operator` — Unary and binary operators | operator | conservative | conservative | conservative (from 3.39.0) |
+| `expression.quantified-comparison` — ANY, SOME, and ALL comparisons | expression | conservative | exact | unsupported |
+| `expression.row-comparison` — Row constructor comparisons | expression | conservative | exact | conservative |
 | `expression.scalar` — Columns, stars, literals, and parameters | expression | exact | exact | exact |
 | `expression.structured` — Row, CASE, predicate, and subquery expressions | expression | exact | exact | exact |
 | `lexical.structure` — Identifiers, literals, comments, parameters, tokens, and source ranges | lexical | conservative | exact | conservative |

@@ -42,6 +42,7 @@ export type {
   OrderByItem,
   ParameterExpression,
   QualifiedIdentifier,
+  QuantifiedComparisonExpression,
   ReturningAliases,
   RowExpression,
   SelectItem,

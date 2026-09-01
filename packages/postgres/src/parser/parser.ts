@@ -1207,6 +1207,27 @@ class Parser {
             operator += " DISTINCT FROM";
           }
         }
+        if (this.#syntax === "postgres" && ["ANY", "SOME", "ALL"].includes(this.#current().value)) {
+          const quantifier = this.#advance().value.toLowerCase() as "any" | "some" | "all";
+          this.#expectPunctuation("(");
+          let right: Expression | SelectStatement;
+          if (this.#isStatementStart()) {
+            const statement = this.#parseStatement();
+            if (statement.kind !== "select")
+              throw this.#error(`${quantifier.toUpperCase()} requires a SELECT subquery`, statement.range);
+            right = statement;
+          } else right = this.#parseExpression();
+          const close = this.#expectPunctuation(")");
+          left = {
+            kind: "quantified-comparison",
+            left,
+            operator,
+            quantifier,
+            right,
+            range: mergeRanges(left.range, close.range),
+          };
+          continue;
+        }
         const right = this.#parseExpression(strength + 1);
         left = { kind: "binary", left, operator, right, range: mergeRanges(left.range, right.range) };
       }

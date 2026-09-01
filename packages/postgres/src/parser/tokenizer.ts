@@ -12,6 +12,7 @@ export interface TokenizeOptions {
 const keywords = new Set([
   "ALL",
   "AND",
+  "ANY",
   "ARRAY",
   "AS",
   "ASC",
@@ -109,6 +110,7 @@ const keywords = new Set([
   "SETS",
   "SHARE",
   "SIMILAR",
+  "SOME",
   "SKIP",
   "SUM",
   "TABLESAMPLE",

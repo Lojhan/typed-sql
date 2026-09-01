@@ -44,6 +44,7 @@ import {
 } from "./type-policy.js";
 import {
   postgresCanCoerce,
+  postgresCommonType,
   postgresElementType,
   resolvePostgresCandidates,
   resolvePostgresOperator,
@@ -730,6 +731,8 @@ class Resolver {
         ];
       case "between":
         return [expression.expression, expression.lower, expression.upper];
+      case "quantified-comparison":
+        return [expression.left, ...(expression.right.kind === "select" ? [] : [expression.right])];
       case "column":
       case "exists":
       case "literal":
@@ -1947,17 +1950,25 @@ class Resolver {
       case "star":
         return { tsType: "unknown", nullable: false };
       case "array": {
-        const elements = expression.elements.map((element) => this.#resolveExpression(element, scope, ctes));
+        const expectedElement =
+          expected?.databaseType === undefined ? undefined : postgresElementType(expected.databaseType, this.#schema);
+        const expectedElementType =
+          expectedElement === undefined ? undefined : this.#databaseType(expectedElement, expected?.nullable ?? true);
+        const elements = expression.elements.map((element) =>
+          this.#resolveExpression(element, scope, ctes, expectedElementType),
+        );
         const elementType = unionTypeLiterals(elements.map((element) => element.tsType));
-        const databaseTypes = [
-          ...new Set(
-            elements.map((element) => element.databaseType).filter((value): value is string => value !== undefined),
-          ),
-        ];
+        const databaseType =
+          (elements.length === 0
+            ? undefined
+            : postgresCommonType(
+                elements.map((element) => element.databaseType),
+                this.#schema,
+              )) ?? expectedElement;
         return {
           tsType: `readonly (${elementType})[]`,
           nullable: false,
-          ...(databaseTypes.length === 1 ? { databaseType: `${databaseTypes[0]}[]` } : {}),
+          ...(databaseType === undefined ? {} : { databaseType: `${databaseType}[]` }),
         };
       }
       case "row": {
@@ -2136,6 +2147,78 @@ class Resolver {
         this.#resolveStatement(expression.query, scope, ctes);
         return { tsType: "boolean", nullable: false, databaseType: "boolean" };
       }
+      case "quantified-comparison": {
+        if (expression.left.kind === "row" && expression.right.kind === "select") {
+          return this.#resolveQuantifiedRowSubquery(expression, scope, ctes);
+        }
+        let left = this.#resolveExpression(expression.left, scope, ctes);
+        let rightExpression: ResolvedType | undefined;
+        let rightType: string | undefined;
+        let nullable = left.nullable;
+        if (expression.right.kind === "select") {
+          const resolved = this.#resolveStatement(expression.right, scope, ctes);
+          if (resolved.columns.length !== 1) {
+            this.#diagnostic(
+              "TSQ217",
+              `${expression.quantifier.toUpperCase()} subquery returns ${resolved.columns.length} columns instead of one`,
+              expression.range,
+            );
+          }
+          rightType = resolved.columns[0]?.databaseType;
+          nullable ||= resolved.columns[0]?.nullable ?? true;
+        } else {
+          rightExpression = this.#resolveExpression(expression.right, scope, ctes);
+          rightType =
+            rightExpression.databaseType === undefined
+              ? undefined
+              : postgresElementType(rightExpression.databaseType, this.#schema);
+          if (rightExpression.databaseType !== undefined && rightType === undefined) {
+            this.#diagnostic(
+              "TSQ203",
+              `Quantified comparison requires an array, received ${rightExpression.databaseType}`,
+              expression.right.range,
+            );
+            return { tsType: "unknown", nullable: true };
+          }
+          nullable = true;
+        }
+        if (expression.right.kind === "select" && rightType === undefined) {
+          this.#diagnostic("TSQ203", "Quantified subquery result type is unknown", expression.right.range);
+          return { tsType: "unknown", nullable: true };
+        }
+        const operator = resolvePostgresOperator(
+          expression.operator,
+          this.#overloadInputType(expression.left, left),
+          rightType,
+          this.#schema,
+        );
+        if (operator.kind !== "selected") {
+          this.#diagnostic(
+            "TSQ203",
+            `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} quantified operator ${expression.operator} for ${left.databaseType ?? left.tsType} and ${rightType ?? rightExpression?.databaseType ?? "unknown collection"}`,
+            expression.range,
+            operator.kind === "ambiguous" ? "Cast the left operand or quantified input." : undefined,
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+        if (expression.left.kind === "parameter") {
+          left = this.#resolveExpression(
+            expression.left,
+            scope,
+            ctes,
+            this.#databaseType(operator.argumentTypes[0]!, left.nullable),
+          );
+        }
+        if (expression.right.kind !== "select") {
+          rightExpression = this.#resolveExpression(
+            expression.right,
+            scope,
+            ctes,
+            this.#databaseType(`${operator.argumentTypes[1]}[]`, rightExpression?.nullable ?? true),
+          );
+        }
+        return { tsType: "boolean", nullable, databaseType: "boolean" };
+      }
       case "in": {
         const subject = this.#resolveExpression(expression.expression, scope, ctes);
         let nullable = subject.nullable;
@@ -2172,6 +2255,15 @@ class Resolver {
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): ResolvedType {
+    if (expression.left.kind === "row" && expression.right.kind === "row") {
+      return this.#resolveRowComparison(expression, scope, ctes);
+    }
+    if (expression.left.kind === "row" || expression.right.kind === "row") {
+      this.#resolveExpression(expression.left, scope, ctes);
+      this.#resolveExpression(expression.right, scope, ctes);
+      this.#diagnostic("TSQ203", "Row comparison requires a row constructor on both sides", expression.range);
+      return { tsType: "unknown", nullable: true };
+    }
     let left: ResolvedType;
     let right: ResolvedType;
     if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
@@ -2237,6 +2329,115 @@ class Resolver {
       operator.kind === "ambiguous" ? "Cast an operand to select a specific overload." : undefined,
     );
     return { tsType: "unknown", nullable: true };
+  }
+
+  #resolveQuantifiedRowSubquery(
+    expression: Extract<Expression, { readonly kind: "quantified-comparison" }>,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): ResolvedType {
+    const leftRow = expression.left as Extract<Expression, { readonly kind: "row" }>;
+    const subquery = expression.right as SelectStatement;
+    const resolved = this.#resolveStatement(subquery, scope, ctes);
+    if (leftRow.elements.length !== resolved.columns.length) {
+      for (const element of leftRow.elements) this.#resolveExpression(element, scope, ctes);
+      this.#diagnostic(
+        "TSQ217",
+        `${expression.quantifier.toUpperCase()} row comparison requires ${leftRow.elements.length} subquery columns, received ${resolved.columns.length}`,
+        expression.range,
+      );
+      return { tsType: "unknown", nullable: true };
+    }
+    let nullable = false;
+    leftRow.elements.forEach((leftExpression, index) => {
+      let left = this.#resolveExpression(leftExpression, scope, ctes);
+      const right = resolved.columns[index]!;
+      const operator = resolvePostgresOperator(
+        expression.operator,
+        this.#overloadInputType(leftExpression, left),
+        right.databaseType,
+        this.#schema,
+      );
+      if (operator.kind !== "selected") {
+        this.#diagnostic(
+          "TSQ203",
+          `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} quantified row operator ${expression.operator} for position ${index + 1}`,
+          expression.range,
+        );
+      } else if (leftExpression.kind === "parameter") {
+        left = this.#resolveExpression(
+          leftExpression,
+          scope,
+          ctes,
+          this.#databaseType(operator.argumentTypes[0]!, left.nullable),
+        );
+      }
+      nullable ||= left.nullable || right.nullable;
+    });
+    return { tsType: "boolean", nullable, databaseType: "boolean" };
+  }
+
+  #resolveRowComparison(
+    expression: Extract<Expression, { readonly kind: "binary" }>,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): ResolvedType {
+    const leftRow = expression.left as Extract<Expression, { readonly kind: "row" }>;
+    const rightRow = expression.right as Extract<Expression, { readonly kind: "row" }>;
+    const supported = ["=", "!=", "<>", "<", "<=", ">", ">=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM"].includes(
+      expression.operator,
+    );
+    if (!supported || leftRow.elements.length !== rightRow.elements.length) {
+      for (const element of [...leftRow.elements, ...rightRow.elements]) this.#resolveExpression(element, scope, ctes);
+      this.#diagnostic(
+        "TSQ203",
+        supported
+          ? `Row comparison requires equal arity, received ${leftRow.elements.length} and ${rightRow.elements.length}`
+          : `PostgreSQL does not support row comparison operator ${expression.operator}`,
+        expression.range,
+      );
+      return { tsType: "unknown", nullable: true };
+    }
+    let nullable = false;
+    leftRow.elements.forEach((leftExpression, index) => {
+      const rightExpression = rightRow.elements[index]!;
+      let left = this.#resolveExpression(leftExpression, scope, ctes);
+      let right = this.#resolveExpression(rightExpression, scope, ctes);
+      const operator = resolvePostgresOperator(
+        expression.operator,
+        this.#overloadInputType(leftExpression, left),
+        this.#overloadInputType(rightExpression, right),
+        this.#schema,
+      );
+      if (operator.kind !== "selected") {
+        this.#diagnostic(
+          "TSQ203",
+          `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} row operator ${expression.operator} for position ${index + 1}`,
+          expression.range,
+        );
+      } else {
+        if (leftExpression.kind === "parameter")
+          left = this.#resolveExpression(
+            leftExpression,
+            scope,
+            ctes,
+            this.#databaseType(operator.argumentTypes[0]!, left.nullable),
+          );
+        if (rightExpression.kind === "parameter")
+          right = this.#resolveExpression(
+            rightExpression,
+            scope,
+            ctes,
+            this.#databaseType(operator.argumentTypes[1]!, right.nullable),
+          );
+      }
+      nullable ||= left.nullable || right.nullable;
+    });
+    return {
+      tsType: "boolean",
+      nullable: expression.operator.includes("DISTINCT FROM") ? false : nullable,
+      databaseType: "boolean",
+    };
   }
 
   #resolveColumn(relationIdentifier: Identifier | undefined, columnIdentifier: Identifier, scope: Scope): ResolvedType {

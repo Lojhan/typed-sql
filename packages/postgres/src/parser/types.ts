@@ -167,6 +167,15 @@ export interface BetweenExpression {
   readonly range: SourceRange;
 }
 
+export interface QuantifiedComparisonExpression {
+  readonly kind: "quantified-comparison";
+  readonly left: Expression;
+  readonly operator: string;
+  readonly quantifier: "any" | "some" | "all";
+  readonly right: Expression | SelectStatement;
+  readonly range: SourceRange;
+}
+
 export type Expression =
   | ColumnExpression
   | StarExpression
@@ -183,7 +192,8 @@ export type Expression =
   | SubqueryExpression
   | ExistsExpression
   | InExpression
-  | BetweenExpression;
+  | BetweenExpression
+  | QuantifiedComparisonExpression;
 
 export interface SelectItem {
   readonly expression: Expression;

@@ -80,6 +80,11 @@ function walkExpression(
       walkExpression(expression.lower, statement, visitor, context);
       walkExpression(expression.upper, statement, visitor, context);
       break;
+    case "quantified-comparison":
+      walkExpression(expression.left, statement, visitor, context);
+      if (expression.right.kind === "select") walkStatementWithContext(expression.right, visitor, context.ctes);
+      else walkExpression(expression.right, statement, visitor, context);
+      break;
     case "column":
     case "star":
     case "literal":

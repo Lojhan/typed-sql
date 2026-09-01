@@ -22,6 +22,8 @@ Numeric promotion, mathematical prefix, bit-string shift, binary/JSON/text conca
 `pg_lsn`, and tuple-identifier operators now use catalog-derived signatures and coercions.
 Array subscripts infer nullable element types, slices preserve the array type, omitted bounds are
 represented explicitly, index parameters infer `integer`, and nested array mappings retain every dimension.
+`ANY`, `SOME`, and `ALL` comparisons now resolve array elements or single-column subqueries through
+the operator catalog, while row comparisons validate arity and select an operator for each field pair.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.
