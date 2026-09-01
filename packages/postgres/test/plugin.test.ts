@@ -240,6 +240,10 @@ await describe("PostgreSQL dialect plugin", async () => {
     strict.strictEqual(locking.semantics.locking.value, "row");
     strict.strictEqual(locking.semantics.connectionAffinity.value, "transaction");
     strict.ok(locking.semantics.capabilities.includes("lockingReads"));
+    const positioned = dialect.analyze("UPDATE users SET id = 1 WHERE CURRENT OF active_users", schema);
+    strict.deepStrictEqual(positioned.diagnostics, []);
+    strict.strictEqual(positioned.semantics.connectionAffinity.value, "transaction");
+    strict.ok(positioned.semantics.capabilities.includes("positionedDml"));
     const invalidLockingTarget = dialect.analyze("SELECT id FROM users FOR UPDATE OF missing", schema);
     strict.ok(invalidLockingTarget.diagnostics.some(({ code }) => code === "TSQ103"));
     strict.strictEqual(invalidLockingTarget.semantics.operation.value, "unknown");

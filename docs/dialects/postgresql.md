@@ -33,7 +33,7 @@ minor released afterward.
 | `SELECT`, `DISTINCT`, `DISTINCT ON` | Infers static row shapes and validates leftmost `ORDER BY` agreement. |
 | Tables, schemas, aliases, and stars | Resolves catalog names, ambiguity, and `USING` column merging. |
 | Inner and outer joins | Propagates outer-join nullability. |
-| Ordinary and recursive CTEs; derived, correlated, or scalar subqueries | Infers seed/member rows, validates recursive shape, and models PostgreSQL 14+ `SEARCH`/`CYCLE` generated columns conservatively. |
+| Ordinary and recursive CTEs; derived, correlated, or scalar subqueries | Infers seed/member rows, validates recursive shape, models PostgreSQL 14+ `SEARCH`/`CYCLE` generated columns conservatively, and gates unaliased derived tables to PostgreSQL 16+. |
 | `UNION`, `INTERSECT`, and `EXCEPT` | Preserves leftmost output names, merges row types and nullability, and diagnoses arity mismatches. |
 | Grouping and aggregates | Covers grouping sets, `ROLLUP`, `CUBE`, functional dependencies, aggregate ordering, `FILTER`, and ordered/hypothetical-set aggregates. |
 | Windows | Covers named inheritance, inline definitions, all frame units, bounds, exclusions, and built-in window nullability. |
@@ -41,7 +41,7 @@ minor released afterward.
 | Ordering, sampling, and pagination | Covers ordering operators, `TABLESAMPLE`/`REPEATABLE`, `LIMIT ALL`, offsets, and `FETCH` variants. |
 | Expressions, `CASE`, casts, and parameters | Infers parameters from columns, casts, DML targets, ranges, limits, and catalog functions. |
 | Arrays, enums, domains, JSON, and catalog functions | Resolves known types and function name or arity. |
-| `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `RETURNING` | Covers identity overriding, conflict targets and `excluded`, row assignments, source namespaces, PostgreSQL 15+ `MERGE`, PostgreSQL 17+ merge returning/by-source actions, and PostgreSQL 18 old/new aliases. Commands without `RETURNING` infer `Query<never, Parameters>`. |
+| `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `RETURNING` | Covers identity overriding, snapshot-backed expression and partial-index conflict targets, action-scoped `excluded`, row/subquery assignments, comma and joined update/delete sources, positioned `WHERE CURRENT OF` writes, source-type validation, PostgreSQL 15+ `MERGE`, PostgreSQL 17+ merge returning and explicit by-target/by-source actions, and PostgreSQL 18 old/new rows and aliases. Commands without `RETURNING` infer `Query<never, Parameters>`. |
 
 Dynamic identifiers receive no static inference; use `sql.ident()` explicitly.
 

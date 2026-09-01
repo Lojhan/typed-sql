@@ -13,6 +13,7 @@ import type {
 } from "@typed-sql/schema";
 import { defineSchemaSnapshotV2, fingerprintSchemaExpression } from "@typed-sql/schema";
 import { postgresServerEvidence } from "./capabilities.js";
+import { fingerprintPostgresExpressionSql } from "./expression-evidence.js";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
@@ -717,7 +718,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
                       predicate: row.predicate_expression === undefined ? "unknown" : "present",
                       ...(row.predicate_expression === undefined || row.predicate_expression === null
                         ? {}
-                        : { predicateHash: fingerprintSchemaExpression(row.predicate_expression) }),
+                        : { predicateHash: fingerprintPostgresExpressionSql(row.predicate_expression) }),
                     } as const)
                   : ({
                       kind: "exclusion",
@@ -730,7 +731,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
                       })),
                       ...(row.predicate_expression === undefined || row.predicate_expression === null
                         ? {}
-                        : { predicateHash: fingerprintSchemaExpression(row.predicate_expression) }),
+                        : { predicateHash: fingerprintPostgresExpressionSql(row.predicate_expression) }),
                     } as const);
         relations[relationKey] = { ...relation, constraints: [...relation.constraints, constraint] };
       }
@@ -746,7 +747,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
           columns: row.key_columns.map((column, offset) => ({
             ...(column === null
               ? {
-                  expressionHash: fingerprintSchemaExpression(
+                  expressionHash: fingerprintPostgresExpressionSql(
                     row.key_expressions[offset] ?? `${row.index_name}:${offset}`,
                   ),
                 }
@@ -764,7 +765,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
           predicate: row.predicate_expression === null ? "none" : "present",
           ...(row.predicate_expression === null
             ? {}
-            : { predicateHash: fingerprintSchemaExpression(row.predicate_expression) }),
+            : { predicateHash: fingerprintPostgresExpressionSql(row.predicate_expression) }),
           valid: row.valid,
         };
         relations[relationKey] = { ...relation, indexes: [...relation.indexes, index] };

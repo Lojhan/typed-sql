@@ -66,12 +66,17 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
   let hasRelation = false;
   let hasCall = false;
   let hasLockingRead = false;
+  let hasPositionedDml = false;
 
   walkStatement(statement, {
     statement(current) {
       if (current.kind !== "select") write = true;
       if (current.with !== undefined) capabilities.add(current.with.recursive ? "recursiveCtes" : "ctes");
       if (current.kind !== "select" && current.returning.length > 0) capabilities.add("returning");
+      if ((current.kind === "update" || current.kind === "delete") && current.currentOf !== undefined) {
+        hasPositionedDml = true;
+        capabilities.add("positionedDml");
+      }
       if (current.kind === "select") {
         if (current.compounds.length > 0) capabilities.add("setOperations");
         if (current.locking.length > 0) {
@@ -220,12 +225,14 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
       ],
     },
     connectionAffinity: {
-      value: hasLockingRead ? "transaction" : "none",
+      value: hasLockingRead || hasPositionedDml ? "transaction" : "none",
       evidence: [
         syntax(
-          hasLockingRead
-            ? "A locking read must remain on its primary transaction connection."
-            : "The supported statement contains no session or transaction control.",
+          hasPositionedDml
+            ? "A positioned update or delete must use the transaction connection that owns its cursor."
+            : hasLockingRead
+              ? "A locking read must remain on its primary transaction connection."
+              : "The supported statement contains no session or transaction control.",
           statement.range,
         ),
       ],

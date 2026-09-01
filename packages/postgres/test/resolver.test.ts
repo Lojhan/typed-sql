@@ -2,6 +2,7 @@ import { describe, it, strict } from "poku";
 import { rowTypeLiteral } from "../../core/src/index.js";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { postgresServerEvidence } from "../src/capabilities.js";
+import { fingerprintPostgresExpressionSql } from "../src/expression-evidence.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
 import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
@@ -350,6 +351,11 @@ await describe("query resolver", async () => {
       invalidInsert.diagnostics.map(({ code }) => code),
       ["TSQ218", "TSQ219"],
     );
+    strict.ok(
+      resolveStatement(parseStatement("INSERT INTO users DEFAULT VALUES"), v2Schema).diagnostics.some(
+        ({ code }) => code === "TSQ219",
+      ),
+    );
     const invalidUpdate = resolveStatement(parseStatement("UPDATE users SET age = 1"), v2Schema);
     strict.ok(invalidUpdate.diagnostics.some(({ code }) => code === "TSQ218"));
     strict.deepStrictEqual(
@@ -486,6 +492,24 @@ await describe("query resolver", async () => {
               nullsDistinct: false,
             },
           ],
+          indexes: [
+            {
+              name: "users_lower_name_active_key",
+              identity: "users.users_lower_name_active_key",
+              unique: true,
+              method: "btree",
+              columns: [
+                {
+                  expressionHash: fingerprintPostgresExpressionSql("name || ''"),
+                  operatorClass: "pg_catalog.text_ops",
+                  collation: "pg_catalog.default",
+                },
+              ],
+              predicate: "present",
+              predicateHash: fingerprintPostgresExpressionSql("age > 0"),
+              valid: true,
+            },
+          ],
         },
       },
     } as const satisfies SchemaSnapshot;
@@ -519,6 +543,278 @@ await describe("query resolver", async () => {
       ],
     );
 
+    const expressionConflict = resolveStatement(
+      parseStatement(`
+        INSERT INTO users (name, age) VALUES ('Ada', 1)
+        ON CONFLICT ((name || '') COLLATE "default" text_ops) WHERE age > 0 DO NOTHING
+      `),
+      dmlSchema,
+    );
+    strict.deepStrictEqual(expressionConflict.diagnostics, []);
+    strict.deepStrictEqual(
+      resolveStatement(
+        parseStatement(`
+          INSERT INTO users (name, age) VALUES ('Ada', 1)
+          ON CONFLICT ((name || '') COLLATE pg_catalog."default" pg_catalog.text_ops)
+          WHERE age > 0 DO NOTHING
+        `),
+        dmlSchema,
+      ).diagnostics,
+      [],
+    );
+    const unknownIndexSchema = {
+      ...dmlSchema,
+      relations: {
+        ...dmlSchema.relations,
+        users: {
+          ...dmlSchema.relations.users!,
+          constraints: [],
+          indexes: dmlSchema.relations.users!.indexes.map((index) => ({ ...index, valid: "unknown" as const })),
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveStatement(
+        parseStatement(`
+          INSERT INTO users (name, age) VALUES ('Ada', 1)
+          ON CONFLICT ((name || '')) WHERE age > 0 DO NOTHING
+        `),
+        unknownIndexSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+    const invalidIndexSchema = {
+      ...unknownIndexSchema,
+      relations: {
+        ...unknownIndexSchema.relations,
+        users: {
+          ...unknownIndexSchema.relations.users!,
+          indexes: unknownIndexSchema.relations.users!.indexes.map((index) => ({ ...index, valid: false })),
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveStatement(
+        parseStatement("INSERT INTO users (name, age) VALUES ('Ada', 1) ON CONFLICT ((name || '')) DO NOTHING"),
+        invalidIndexSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ226"),
+    );
+    const unknownPredicateSchema = {
+      ...dmlSchema,
+      relations: {
+        ...dmlSchema.relations,
+        users: {
+          ...dmlSchema.relations.users!,
+          constraints: [],
+          indexes: dmlSchema.relations.users!.indexes.map(({ predicateHash: _predicateHash, ...index }) => ({
+            ...index,
+            predicate: "unknown" as const,
+          })),
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveStatement(
+        parseStatement(`
+          INSERT INTO users (name, age) VALUES ('Ada', 1)
+          ON CONFLICT ((name || '')) WHERE age > 0 DO NOTHING
+        `),
+        unknownPredicateSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+    const missingPredicateHashSchema = {
+      ...dmlSchema,
+      relations: {
+        ...dmlSchema.relations,
+        users: {
+          ...dmlSchema.relations.users!,
+          constraints: [],
+          indexes: dmlSchema.relations.users!.indexes.map(({ predicateHash: _predicateHash, ...index }) => index),
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveStatement(
+        parseStatement(`
+          INSERT INTO users (name, age) VALUES ('Ada', 1)
+          ON CONFLICT ((name || '')) WHERE age > 0 DO NOTHING
+        `),
+        missingPredicateHashSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+    const incompleteElementSchema = {
+      ...dmlSchema,
+      relations: {
+        ...dmlSchema.relations,
+        users: {
+          ...dmlSchema.relations.users!,
+          constraints: [],
+          indexes: dmlSchema.relations.users!.indexes.map((index) => ({
+            ...index,
+            columns: [{}],
+            predicate: "none" as const,
+          })),
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveStatement(
+        parseStatement("INSERT INTO users (name) VALUES ('Ada') ON CONFLICT (name) DO NOTHING"),
+        incompleteElementSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+    const nonPartialExpressionSchema = {
+      ...dmlSchema,
+      relations: {
+        ...dmlSchema.relations,
+        users: {
+          ...dmlSchema.relations.users!,
+          constraints: [],
+          indexes: dmlSchema.relations.users!.indexes.map(({ predicateHash: _predicateHash, ...index }) => ({
+            ...index,
+            predicate: "none" as const,
+          })),
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    strict.deepStrictEqual(
+      resolveStatement(
+        parseStatement(`
+          INSERT INTO users (name, age) VALUES ('Ada', 1)
+          ON CONFLICT ((name || '')) WHERE age > 0 DO NOTHING
+        `),
+        nonPartialExpressionSchema,
+      ).diagnostics,
+      [],
+    );
+    strict.ok(
+      resolveStatement(
+        parseStatement("INSERT INTO users (name, age) VALUES ('Ada', 1) ON CONFLICT ((name || '')) DO NOTHING"),
+        schema,
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+    for (const [deferrable, code] of [
+      [true, "TSQ224"],
+      ["unknown", "TSQ402"],
+    ] as const) {
+      const constraintSchema = {
+        ...dmlSchema,
+        relations: {
+          ...dmlSchema.relations,
+          users: {
+            ...dmlSchema.relations.users!,
+            constraints: dmlSchema.relations.users!.constraints.map((constraint) => ({
+              ...constraint,
+              deferrable,
+            })),
+          },
+        },
+      } as const satisfies SchemaSnapshot;
+      strict.ok(
+        resolveStatement(
+          parseStatement(
+            "INSERT INTO users (name, age) VALUES ('Ada', 1) ON CONFLICT ON CONSTRAINT users_pkey DO NOTHING",
+          ),
+          constraintSchema,
+        ).diagnostics.some((diagnostic) => diagnostic.code === code),
+      );
+    }
+    strict.ok(
+      resolveStatement(
+        parseStatement(`
+          INSERT INTO users (name, age) VALUES ('Ada', 1)
+          ON CONFLICT ((name || '') text_ops) WHERE age > 1 DO NOTHING
+        `),
+        dmlSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+    strict.deepStrictEqual(
+      resolveStatement(
+        parseStatement("INSERT INTO users (name, age) VALUES ('Ada', 1) ON CONFLICT (id) WHERE age > 0 DO NOTHING"),
+        dmlSchema,
+      ).diagnostics,
+      [],
+    );
+    strict.deepStrictEqual(
+      resolveStatement(
+        parseStatement(`
+          MERGE INTO users AS target
+          USING (VALUES (1)) source(id) ON target.id = source.id
+          WHEN MATCHED THEN DO NOTHING
+        `),
+        dmlSchema,
+      ).diagnostics,
+      [],
+    );
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("INSERT INTO users (name) VALUES ('Ada') ON CONFLICT (\"id\") DO NOTHING"), {
+        ...dmlSchema,
+        relations: {
+          ...dmlSchema.relations,
+          users: { ...dmlSchema.relations.users!, indexes: [] },
+        },
+      }).diagnostics,
+      [],
+    );
+    const conflictEvidenceCases = [
+      {
+        schema: {
+          ...dmlSchema,
+          relations: {
+            ...dmlSchema.relations,
+            users: {
+              ...dmlSchema.relations.users!,
+              constraints: [],
+              indexes: dmlSchema.relations.users!.indexes.map((index) => ({ ...index, unique: false })),
+            },
+          },
+        } as const satisfies SchemaSnapshot,
+        sql: "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT (name) DO NOTHING",
+        code: "TSQ226",
+      },
+      {
+        schema: {
+          ...nonPartialExpressionSchema,
+          relations: {
+            ...nonPartialExpressionSchema.relations,
+            users: {
+              ...nonPartialExpressionSchema.relations.users!,
+              indexes: nonPartialExpressionSchema.relations.users!.indexes.map((index) => ({
+                ...index,
+                columns: index.columns.map(({ operatorClass: _operatorClass, ...column }) => column),
+              })),
+            },
+          },
+        } as const satisfies SchemaSnapshot,
+        sql: "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT ((name || '') text_ops) DO NOTHING",
+        code: "TSQ226",
+      },
+      {
+        schema: {
+          ...dmlSchema,
+          relations: {
+            ...dmlSchema.relations,
+            users: {
+              ...dmlSchema.relations.users!,
+              constraints: [],
+              indexes: dmlSchema.relations.users!.indexes.map((index) => ({
+                ...index,
+                predicate: "unknown" as const,
+              })),
+            },
+          },
+        } as const satisfies SchemaSnapshot,
+        sql: "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT ((name || '')) DO NOTHING",
+        code: "TSQ402",
+      },
+    ];
+    for (const evidenceCase of conflictEvidenceCases) {
+      strict.ok(
+        resolveStatement(parseStatement(evidenceCase.sql), evidenceCase.schema).diagnostics.some(
+          ({ code }) => code === evidenceCase.code,
+        ),
+      );
+    }
+
     const merge = resolveStatement(
       parseStatement(`
         MERGE INTO users AS target
@@ -544,6 +840,17 @@ await describe("query resolver", async () => {
         { name: "id", tsType: "number" },
       ],
     );
+    strict.deepStrictEqual(
+      resolveStatement(
+        parseStatement(`
+          MERGE INTO users AS target
+          USING (VALUES (1)) ON target.id = column1
+          WHEN MATCHED THEN DO NOTHING
+        `),
+        dmlSchema,
+      ).diagnostics,
+      [],
+    );
 
     const postgres16 = {
       ...dmlSchema,
@@ -557,16 +864,27 @@ await describe("query resolver", async () => {
         postgres16,
       ).diagnostics.some(({ code }) => code === "TSQ403"),
     );
+    strict.ok(
+      resolveStatement(
+        parseStatement(
+          "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN NOT MATCHED BY TARGET THEN DO NOTHING",
+        ),
+        postgres16,
+      ).diagnostics.some(({ code }) => code === "TSQ403"),
+    );
 
     for (const invalid of [
       "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT DO UPDATE SET name = excluded.name",
       "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT ON CONSTRAINT missing DO NOTHING",
       "INSERT INTO users (name) VALUES ('Ada') ON CONFLICT ((name)) WHERE age > 0 DO NOTHING",
+      "INSERT INTO users (name, age) VALUES ('Ada', 1) ON CONFLICT (id) DO UPDATE SET name = excluded.name RETURNING excluded.name",
+      "INSERT INTO users AS excluded (name, age) VALUES ('Ada', 1) ON CONFLICT (id) DO UPDATE SET name = excluded.name",
       "UPDATE users SET (name, name) = ROW($1)",
       "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN NOT MATCHED THEN UPDATE SET name = a.label",
       "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN NOT MATCHED THEN DELETE",
       "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN MATCHED THEN DO NOTHING WHEN MATCHED THEN DELETE",
       "MERGE INTO users u USING (VALUES (1), (2, 'extra')) AS source(id) ON u.id = source.id WHEN MATCHED THEN DO NOTHING",
+      "MERGE INTO users u USING ages a ON u.id = a.user_id WHEN NOT MATCHED THEN INSERT OVERRIDING USER VALUE DEFAULT VALUES",
     ]) {
       strict.ok(resolveStatement(parseStatement(invalid), dmlSchema).diagnostics.length > 0, invalid);
     }
@@ -580,6 +898,37 @@ await describe("query resolver", async () => {
         parseStatement("UPDATE users SET name = 'Ada' RETURNING WITH (OLD AS before) before.name"),
         postgres16,
       ).diagnostics.some(({ code }) => code === "TSQ403"),
+    );
+    strict.ok(
+      resolveStatement(parseStatement("UPDATE users SET name = 'Ada' RETURNING old.name"), postgres16).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("UPDATE users AS old SET name = 'Ada' RETURNING old.name"), postgres16)
+        .diagnostics,
+      [],
+    );
+    strict.deepStrictEqual(
+      resolveStatement(
+        parseStatement(
+          "UPDATE users SET name = 'Ada' RETURNING WITH (OLD AS before) before.name AS old_name, new.name AS new_name",
+        ),
+        dmlSchema,
+      ).diagnostics,
+      [],
+    );
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("INSERT INTO users (id, name) VALUES (DEFAULT, 'Ada')"), dmlSchema).diagnostics,
+      [],
+    );
+    strict.ok(
+      resolveStatement(
+        parseStatement(
+          "UPDATE users SET name = 'Ada' RETURNING WITH (OLD AS row_value, NEW AS row_value) row_value.name",
+        ),
+        dmlSchema,
+      ).diagnostics.some(({ code }) => code === "TSQ108"),
     );
   });
 

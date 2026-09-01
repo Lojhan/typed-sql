@@ -29,6 +29,11 @@ export interface Identifier {
   readonly range: SourceRange;
 }
 
+export interface QualifiedIdentifier {
+  readonly parts: readonly Identifier[];
+  readonly range: SourceRange;
+}
+
 export interface TypeName {
   readonly name: string;
   readonly range: SourceRange;
@@ -188,7 +193,8 @@ export interface NamedTableReference {
 export interface SubqueryTableReference {
   readonly kind: "subquery";
   readonly query: SelectStatement;
-  readonly alias: Identifier;
+  readonly alias?: Identifier;
+  readonly columns: readonly Identifier[];
   readonly lateral: boolean;
   readonly name?: never;
   readonly schema?: never;
@@ -373,8 +379,8 @@ export interface DefaultValuesClause {
 
 export interface InsertConflictElement {
   readonly expression: Expression;
-  readonly collation?: Identifier;
-  readonly operatorClass?: Identifier;
+  readonly collation?: QualifiedIdentifier;
+  readonly operatorClass?: QualifiedIdentifier;
   readonly range: SourceRange;
 }
 
@@ -433,6 +439,11 @@ export type UpdateAssignment =
       readonly range: SourceRange;
     };
 
+export interface CurrentOfClause {
+  readonly cursor: Identifier;
+  readonly range: SourceRange;
+}
+
 export interface UpdateStatement {
   readonly kind: "update";
   readonly with?: WithClause;
@@ -441,6 +452,7 @@ export interface UpdateStatement {
   readonly from?: TableReference;
   readonly joins: readonly JoinClause[];
   readonly where?: Expression;
+  readonly currentOf?: CurrentOfClause;
   readonly returningAliases?: ReturningAliases;
   readonly returning: readonly SelectItem[];
   readonly range: SourceRange;
@@ -451,7 +463,9 @@ export interface DeleteStatement {
   readonly with?: WithClause;
   readonly table: NamedTableReference;
   readonly using: readonly TableReference[];
+  readonly joins: readonly JoinClause[];
   readonly where?: Expression;
+  readonly currentOf?: CurrentOfClause;
   readonly returningAliases?: ReturningAliases;
   readonly returning: readonly SelectItem[];
   readonly range: SourceRange;
@@ -478,6 +492,7 @@ export type MergeAction =
 
 export interface MergeWhenClause {
   readonly match: "matched" | "not-matched-target" | "not-matched-source";
+  readonly by?: "target" | "source";
   readonly condition?: Expression;
   readonly action: MergeAction;
   readonly range: SourceRange;
@@ -498,7 +513,7 @@ export interface MergeStatement {
 export interface MergeValuesReference {
   readonly kind: "values";
   readonly rows: readonly (readonly Expression[])[];
-  readonly alias: Identifier;
+  readonly alias?: Identifier;
   readonly columns: readonly Identifier[];
   readonly range: SourceRange;
 }

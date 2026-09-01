@@ -80,8 +80,9 @@ rule; future and prerelease majors remain conservative unless canary policy is s
 
 The grammar resolves PostgreSQL grouping sets and ordered aggregates, inherited and framed windows,
 lateral function relations and `ROWS FROM`, `WITH ORDINALITY`, `TABLESAMPLE`, and `FETCH` pagination.
-PostgreSQL DML includes identity overriding, `ON CONFLICT` and `excluded`, row assignments,
-versioned `MERGE`, and PostgreSQL 18 old/new `RETURNING` namespaces.
+PostgreSQL DML includes identity overriding, snapshot-backed expression and partial-index
+`ON CONFLICT` inference, action-scoped `excluded`, typed row/subquery assignments, versioned
+`MERGE`, and PostgreSQL 18 old/new `RETURNING` namespaces.
 Unsupported or structurally invalid forms fail closed with source diagnostics.
 
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),

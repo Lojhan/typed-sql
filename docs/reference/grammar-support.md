@@ -44,6 +44,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `query.ordering-pagination` — Ordering, limiting, and offsetting rows | clause | exact | exact | exact |
 | `query.projection` — Projection items, aliases, and output naming | clause | exact | exact | exact |
 | `query.relation` — Named tables and derived table references | clause | exact | exact | exact |
+| `query.relation.derived-alias-optional` — PostgreSQL unaliased derived tables | clause | unsupported | exact (from 16) | out-of-scope |
 | `query.relation.function` — Function calls as table relations | clause | unsupported | exact | exact |
 | `query.relation.lateral` — LATERAL derived tables | clause | exact (from 8.0.14) | exact (from 9.3) | unsupported |
 | `query.relation.rows-from` — PostgreSQL ROWS FROM and WITH ORDINALITY | clause | unsupported | exact | unsupported |
@@ -68,6 +69,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `statement.cte.data-modifying` — Data-modifying statements in common table expressions | statement | conservative | exact | unsupported |
 | `statement.delete` — DELETE statements | statement | exact | exact | exact |
 | `statement.dml.delete-using` — DELETE USING source relations | clause | exact | exact | unsupported |
+| `statement.dml.positioned-update-delete` — PostgreSQL positioned UPDATE and DELETE | clause | unsupported | exact | unsupported |
 | `statement.dml.returning` — DML RETURNING clause | clause | unsupported | exact | exact (from 3.35.0) |
 | `statement.dml.returning-old-new` — PostgreSQL OLD and NEW RETURNING namespaces | clause | unsupported | exact (from 18) | unsupported |
 | `statement.dml.update-from` — UPDATE FROM source relations | clause | unsupported | exact | exact (from 3.33.0) |

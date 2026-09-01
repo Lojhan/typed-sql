@@ -747,6 +747,27 @@
       }
     },
     {
+      "id": "query.relation.derived-alias-optional",
+      "title": "PostgreSQL unaliased derived tables",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.unaliased-derived-table", "resolver:postgres.derived-table-version"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        { "title": "PostgreSQL 16 release notes", "url": "https://www.postgresql.org/docs/16/release-16.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "16",
+          "tests": ["packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
       "id": "query.relation.function",
       "title": "Function calls as table relations",
       "category": "clause",
@@ -1451,6 +1472,27 @@
           "diagnostic": "TSQ401",
           "tests": ["packages/sqlite/test/sqlite.test.ts"]
         }
+      }
+    },
+    {
+      "id": "statement.dml.positioned-update-delete",
+      "title": "PostgreSQL positioned UPDATE and DELETE",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.current-of", "resolver:postgres.positioned-dml-affinity"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        { "title": "PostgreSQL UPDATE", "url": "https://www.postgresql.org/docs/18/sql-update.html" },
+        { "title": "PostgreSQL DELETE", "url": "https://www.postgresql.org/docs/18/sql-delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts", "packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
       }
     },
     {

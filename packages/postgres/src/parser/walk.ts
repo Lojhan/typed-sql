@@ -191,6 +191,10 @@ function walkStatementWithContext(
     if (statement.where !== undefined) walkExpression(statement.where, statement, visitor, context);
   } else if (statement.kind === "delete") {
     for (const table of statement.using) walkTable(table, statement, visitor, context);
+    for (const join of statement.joins) {
+      walkTable(join.table, statement, visitor, context);
+      if (join.on !== undefined) walkExpression(join.on, statement, visitor, context);
+    }
     if (statement.where !== undefined) walkExpression(statement.where, statement, visitor, context);
   } else {
     if (statement.source.kind === "values") {

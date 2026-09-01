@@ -1,5 +1,6 @@
 import { describe, it, strict } from "poku";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { postgresServerEvidence } from "../src/capabilities.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
 import { resolveSelect, resolveStatement } from "../src/resolver.js";
 
@@ -203,6 +204,23 @@ await describe("PostgreSQL resolver branch matrix", async () => {
       schema,
     );
     strict.deepStrictEqual(allColumns.diagnostics, []);
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("INSERT INTO users VALUES (1, 'Ada')"), schema).diagnostics,
+      [],
+    );
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("INSERT INTO users SELECT $1 AS id, $2 AS name"), schema).parameters.map(
+        ({ index, tsType }) => ({ index, tsType }),
+      ),
+      [
+        { index: 1, tsType: "number" },
+        { index: 2, tsType: "string" },
+      ],
+    );
+    strict.ok(codes("INSERT INTO users VALUES (1, 'Ada'), (2)").includes("TSQ214"));
+    strict.ok(
+      codes("INSERT INTO users SELECT 1 AS a, 2 AS b, 3 AS c, 4 AS d, 5 AS e, 6 AS f, 7 AS g").includes("TSQ214"),
+    );
     const selection = resolveStatement(parseStatement("INSERT INTO users (id, name) SELECT id FROM users"), schema);
     strict.ok(selection.diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"));
     strict.ok(codes("INSERT INTO users (missing) VALUES (1)").includes("TSQ101"));
@@ -221,6 +239,58 @@ await describe("PostgreSQL resolver branch matrix", async () => {
       schema,
     );
     strict.strictEqual(deletion.columns[0]?.nullable, true);
+    const updateList = resolveStatement(
+      parseStatement("UPDATE users u SET name = a.label FROM accounts a, users other WHERE other.id = a.id"),
+      schema,
+    );
+    strict.deepStrictEqual(updateList.diagnostics, []);
+    const deleteJoin = resolveStatement(
+      parseStatement(
+        "DELETE FROM users u USING accounts a LEFT JOIN users other ON other.id = a.id WHERE u.id = a.id RETURNING other.name",
+      ),
+      schema,
+    );
+    strict.deepStrictEqual(deleteJoin.diagnostics, []);
+    strict.strictEqual(deleteJoin.columns[0]?.nullable, true);
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("UPDATE users SET name = 'Ada' WHERE CURRENT OF active_users"), schema)
+        .diagnostics,
+      [],
+    );
+    strict.deepStrictEqual(
+      resolveStatement(parseStatement("DELETE FROM users WHERE CURRENT OF active_users"), schema).diagnostics,
+      [],
+    );
+  });
+
+  await it("propagates and validates data-modification source types", () => {
+    const insert = resolveStatement(parseStatement("INSERT INTO users (id, name) SELECT $1 AS id, $2 AS name"), schema);
+    strict.deepStrictEqual(insert.diagnostics, []);
+    strict.deepStrictEqual(
+      insert.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "number" },
+        { index: 2, tsType: "string" },
+      ],
+    );
+
+    const rowAssignment = resolveStatement(
+      parseStatement("UPDATE users SET (id, name) = (SELECT $1 AS id, $2 AS name)"),
+      schema,
+    );
+    strict.deepStrictEqual(rowAssignment.diagnostics, []);
+    strict.deepStrictEqual(
+      rowAssignment.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "number" },
+        { index: 2, tsType: "string" },
+      ],
+    );
+
+    strict.ok(codes("INSERT INTO users (id) SELECT active FROM users").includes("TSQ229"));
+    strict.ok(codes("UPDATE users SET age = active").includes("TSQ229"));
+    strict.ok(codes("UPDATE users SET (id, active) = (SELECT name, age FROM users LIMIT 1)").includes("TSQ229"));
+    strict.ok(codes("UPDATE users SET age = 1, age = 2").includes("TSQ227"));
   });
 
   await it("validates star expansion, aliases, USING, CTEs, and lateral scopes", () => {
@@ -235,6 +305,34 @@ await describe("PostgreSQL resolver branch matrix", async () => {
       schema,
     );
     strict.deepStrictEqual(lateral.diagnostics, []);
+    const postgres18 = {
+      ...schema,
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.deepStrictEqual(
+      resolveSelect(parseSelect("SELECT id FROM (SELECT id FROM users)"), postgres18).diagnostics,
+      [],
+    );
+    strict.strictEqual(
+      resolveSelect(parseSelect("SELECT renamed FROM (SELECT id FROM users) AS derived(renamed)"), postgres18)
+        .columns[0]?.name,
+      "renamed",
+    );
+    strict.ok(
+      resolveSelect(
+        parseSelect("SELECT renamed FROM (SELECT id, name FROM users) derived(renamed)"),
+        postgres18,
+      ).diagnostics.some(({ code }) => code === "TSQ213"),
+    );
+    const postgres15 = {
+      ...postgres18,
+      server: postgresServerEvidence("15.19", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT id FROM (SELECT id FROM users)"), postgres15).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
     const nonLateral = resolveSelect(
       parseSelect("SELECT derived.id FROM users u CROSS JOIN (SELECT u.id) derived"),
       schema,

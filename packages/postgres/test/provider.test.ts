@@ -1,5 +1,6 @@
 import { describe, it, strict } from "poku";
 import { calculateSchemaHash } from "../../schema/src/index.js";
+import { fingerprintPostgresExpressionSql } from "../src/expression-evidence.js";
 import {
   introspectPostgres,
   loadPostgresDriver,
@@ -468,6 +469,12 @@ class CatalogPool implements PostgresIntrospectionPool {
 }
 
 await describe("PostgreSQL schema provider", async () => {
+  await it("canonicalizes server-deparsed expression evidence before hashing", () => {
+    strict.strictEqual(fingerprintPostgresExpressionSql("((age > 0))"), fingerprintPostgresExpressionSql("age>0"));
+    strict.notStrictEqual(fingerprintPostgresExpressionSql("age > 0"), fingerprintPostgresExpressionSql("age > 1"));
+    strict.strictEqual(fingerprintPostgresExpressionSql("("), fingerprintPostgresExpressionSql("("));
+  });
+
   await it("introspects tables, defaults, enums, domains, functions, and version", async () => {
     const client = new CatalogClient();
     const provider = new PostgresSchemaProvider({ client, includeSchemas: ["public"] });

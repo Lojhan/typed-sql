@@ -495,9 +495,24 @@ class Parser {
     const joins: JoinClause[] = [];
     if (this.#matchKeyword("FROM")) {
       from = this.#parseTableReference();
-      while (this.#isJoinStart()) joins.push(this.#parseJoin());
+      while (true) {
+        if (this.#matchPunctuation(",")) {
+          const table = this.#parseTableReference();
+          joins.push({ kind: "cross", table, range: table.range });
+        } else if (this.#isJoinStart()) joins.push(this.#parseJoin());
+        else break;
+      }
     }
-    const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
+    let where: Expression | undefined;
+    let currentOf: UpdateStatement["currentOf"];
+    if (this.#matchKeyword("WHERE")) {
+      const whereStart = this.#previous().range;
+      if (this.#matchKeyword("CURRENT")) {
+        this.#expectKeyword("OF");
+        const cursor = this.#parseIdentifier(true);
+        currentOf = { cursor, range: mergeRanges(whereStart, cursor.range) };
+      } else where = this.#parseExpression();
+    }
     const { aliases: returningAliases, items: returning } = this.#parseReturning();
     return {
       kind: "update",
@@ -507,6 +522,7 @@ class Parser {
       ...(from === undefined ? {} : { from }),
       joins,
       ...(where === undefined ? {} : { where }),
+      ...(currentOf === undefined ? {} : { currentOf }),
       ...(returningAliases === undefined ? {} : { returningAliases }),
       returning,
       range: mergeRanges(start, this.#previous().range),
@@ -519,18 +535,34 @@ class Parser {
     this.#expectKeyword("FROM");
     const table = this.#parseNamedTableReference(true);
     const using: TableReference[] = [];
+    const joins: JoinClause[] = [];
     if (this.#matchKeyword("USING")) {
-      do using.push(this.#parseTableReference());
-      while (this.#matchPunctuation(","));
+      using.push(this.#parseTableReference());
+      while (true) {
+        if (this.#matchPunctuation(",")) using.push(this.#parseTableReference());
+        else if (this.#isJoinStart()) joins.push(this.#parseJoin());
+        else break;
+      }
     }
-    const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
+    let where: Expression | undefined;
+    let currentOf: DeleteStatement["currentOf"];
+    if (this.#matchKeyword("WHERE")) {
+      const whereStart = this.#previous().range;
+      if (this.#matchKeyword("CURRENT")) {
+        this.#expectKeyword("OF");
+        const cursor = this.#parseIdentifier(true);
+        currentOf = { cursor, range: mergeRanges(whereStart, cursor.range) };
+      } else where = this.#parseExpression();
+    }
     const { aliases: returningAliases, items: returning } = this.#parseReturning();
     return {
       kind: "delete",
       ...(withClause === undefined ? {} : { with: withClause }),
       table,
       using,
+      joins,
       ...(where === undefined ? {} : { where }),
+      ...(currentOf === undefined ? {} : { currentOf }),
       ...(returningAliases === undefined ? {} : { returningAliases }),
       returning,
       range: mergeRanges(start, this.#previous().range),
@@ -550,15 +582,19 @@ class Parser {
     while (this.#matchKeyword("WHEN")) {
       const clauseStart = this.#previous().range;
       let match: MergeStatement["clauses"][number]["match"];
+      let by: MergeStatement["clauses"][number]["by"];
       if (this.#matchKeyword("MATCHED")) match = "matched";
       else {
         this.#expectKeyword("NOT");
         this.#expectKeyword("MATCHED");
         if (this.#matchKeyword("BY")) {
-          if (this.#matchWord("SOURCE")) match = "not-matched-source";
-          else {
+          if (this.#matchWord("SOURCE")) {
+            match = "not-matched-source";
+            by = "source";
+          } else {
             this.#expectWord("TARGET");
             match = "not-matched-target";
+            by = "target";
           }
         } else match = "not-matched-target";
       }
@@ -617,6 +653,7 @@ class Parser {
       }
       clauses.push({
         match,
+        ...(by === undefined ? {} : { by }),
         ...(condition === undefined ? {} : { condition }),
         action,
         range: mergeRanges(clauseStart, action.range),
@@ -650,9 +687,9 @@ class Parser {
       do {
         const elementStart = this.#current().range;
         const expression = this.#parseExpression();
-        const collation = this.#matchKeyword("COLLATE") ? this.#parseIdentifier(true) : undefined;
+        const collation = this.#matchKeyword("COLLATE") ? this.#parseQualifiedIdentifier() : undefined;
         const operatorClass =
-          this.#current().value !== "," && this.#current().value !== ")" ? this.#parseIdentifier(true) : undefined;
+          this.#current().value !== "," && this.#current().value !== ")" ? this.#parseQualifiedIdentifier() : undefined;
         elements.push({
           expression,
           ...(collation === undefined ? {} : { collation }),
@@ -701,15 +738,23 @@ class Parser {
       rows.push(row);
     } while (this.#matchPunctuation(","));
     this.#expectPunctuation(")");
-    this.#matchKeyword("AS");
-    const alias = this.#parseIdentifier();
+    let alias: Identifier | undefined;
+    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
+    else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+      alias = this.#parseIdentifier();
     const columns: Identifier[] = [];
-    if (this.#matchPunctuation("(")) {
+    if (alias !== undefined && this.#matchPunctuation("(")) {
       do columns.push(this.#parseIdentifier());
       while (this.#matchPunctuation(","));
       this.#expectPunctuation(")");
     }
-    return { kind: "values", rows, alias, columns, range: mergeRanges(start, this.#previous().range) };
+    return {
+      kind: "values",
+      rows,
+      ...(alias === undefined ? {} : { alias }),
+      columns,
+      range: mergeRanges(start, this.#previous().range),
+    };
   }
 
   #parseUpdateAssignments(): readonly UpdateAssignment[] {
@@ -796,10 +841,25 @@ class Parser {
       }
       const statement = this.#parseStatement();
       if (statement.kind !== "select") throw this.#error("FROM subquery must be SELECT", statement.range);
-      this.#expectPunctuation(")");
-      this.#matchKeyword("AS");
-      const alias = this.#parseIdentifier();
-      return { kind: "subquery", query: statement, alias, lateral, range: mergeRanges(start, alias.range) };
+      const close = this.#expectPunctuation(")");
+      let alias: Identifier | undefined;
+      if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
+      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+        alias = this.#parseIdentifier();
+      const columns: Identifier[] = [];
+      if (alias !== undefined && this.#matchPunctuation("(")) {
+        do columns.push(this.#parseIdentifier());
+        while (this.#matchPunctuation(","));
+        this.#expectPunctuation(")");
+      }
+      return {
+        kind: "subquery",
+        query: statement,
+        ...(alias === undefined ? {} : { alias }),
+        columns,
+        lateral,
+        range: mergeRanges(start, alias === undefined ? close.range : this.#previous().range),
+      };
     }
     if (this.#current().value === "ROWS" || this.#isTableFunctionStart()) {
       return this.#parseFunctionTableReference(lateral, start);
@@ -896,7 +956,7 @@ class Parser {
     }
     const includeDescendants = this.#matchOperator("*");
     let alias: Identifier | undefined;
-    if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier();
+    if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
     else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier"))
       alias = this.#parseIdentifier();
     let sample: NamedTableReference["sample"];
@@ -1425,6 +1485,13 @@ class Parser {
     }
     this.#advance();
     return { name: token.value, quoted: token.kind === "quoted-identifier", range: token.range };
+  }
+
+  #parseQualifiedIdentifier(): { readonly parts: readonly Identifier[]; readonly range: SourceRange } {
+    const first = this.#parseIdentifier(true);
+    const parts = [first];
+    if (this.#matchPunctuation(".")) parts.push(this.#parseIdentifier(true));
+    return { parts, range: mergeRanges(first.range, parts.at(-1)!.range) };
   }
 
   #isIdentifierLike(token: Token): boolean {

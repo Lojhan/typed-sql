@@ -80,7 +80,30 @@ export interface StructuralConstraintSnapshot {
   readonly columns: readonly string[];
   readonly partial: boolean | "unknown";
   readonly expressionBased: boolean | "unknown";
+  readonly deferrable?: boolean | "unknown";
+  readonly initiallyDeferred?: boolean | "unknown";
   readonly nullsDistinct?: boolean | "unknown";
+}
+
+export interface StructuralIndexColumnSnapshot {
+  readonly column?: string;
+  readonly expressionHash?: string;
+  readonly descending?: boolean;
+  readonly nulls?: "first" | "last";
+  readonly operatorClass?: string;
+  readonly collation?: string;
+}
+
+export interface StructuralIndexSnapshot {
+  readonly name: string;
+  readonly identity: string;
+  readonly unique: boolean;
+  readonly method?: string;
+  readonly columns: readonly StructuralIndexColumnSnapshot[];
+  readonly includedColumns?: readonly string[];
+  readonly predicate: "none" | "present" | "unknown";
+  readonly predicateHash?: string;
+  readonly valid: boolean | "unknown";
 }
 
 export interface StructuralRelationSnapshot {
@@ -89,6 +112,7 @@ export interface StructuralRelationSnapshot {
   readonly kind: "table" | "view" | "materialized-view" | "foreign-table" | "virtual-table";
   readonly columns: Readonly<Record<string, StructuralColumnSnapshot>>;
   readonly constraints: readonly StructuralConstraintSnapshot[];
+  readonly indexes?: readonly StructuralIndexSnapshot[];
 }
 
 export interface StructuralRoutineArgumentSnapshot {

@@ -13,6 +13,7 @@ import {
   postgresCatalogTableRoutineRule,
   postgresCatalogTypeMapping,
 } from "./catalog/index.js";
+import { fingerprintPostgresExpression, postgresExpressionIdentity } from "./expression-evidence.js";
 import type {
   CallExpression,
   CommonTableExpression,
@@ -20,6 +21,8 @@ import type {
   FunctionTableReference,
   GroupingElement,
   Identifier,
+  InsertConflictTarget,
+  QualifiedIdentifier,
   SelectItem,
   SelectStatement,
   SourceRange,
@@ -68,6 +71,16 @@ interface FunctionColumn {
   nullable: boolean;
 }
 
+interface ConflictInferenceElement {
+  readonly column?: string;
+  readonly columnCaseSensitive?: boolean;
+  readonly expressionHash?: string;
+  readonly operatorClass?: string;
+  readonly operatorClassCaseSensitive?: boolean;
+  readonly collation?: string;
+  readonly collationCaseSensitive?: boolean;
+}
+
 export interface ResolvedColumn extends ResolvedType {
   readonly name: string;
   readonly range: SourceRange;
@@ -87,6 +100,14 @@ export interface ResolveOptions {
 
 function sqlName(identifier: Identifier): string {
   return identifier.quoted ? identifier.name : identifier.name.toLowerCase();
+}
+
+function qualifiedSqlName(identifier: QualifiedIdentifier): string {
+  return identifier.parts.map(sqlName).join(".");
+}
+
+function qualifiedNameIsCaseSensitive(identifier: QualifiedIdentifier): boolean {
+  return identifier.parts.some(({ quoted }) => quoted);
 }
 
 function normalizeDatabaseType(value: string): string {
@@ -110,20 +131,6 @@ function mergeTypeLiterals(left: string, right: string): string {
   const rightMembers = right.split(" | ");
   if (rightMembers.includes(left)) return right;
   return unionTypeLiterals([left, right]);
-}
-
-function structuralExpression(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(structuralExpression);
-  if (typeof value !== "object" || value === null) return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => key !== "range")
-      .map(([key, nested]) => [key, structuralExpression(nested)]),
-  );
-}
-
-function expressionIdentity(expression: Expression): string {
-  return JSON.stringify(structuralExpression(expression));
 }
 
 const aggregateRoutineRules = new Set([
@@ -184,11 +191,12 @@ class Resolver {
     statement: Statement,
     outer: Scope | undefined,
     inheritedCtes: ReadonlyMap<string, TableSnapshot>,
+    expectedOutput?: readonly (ResolvedType | undefined)[],
   ): { readonly columns: readonly ResolvedColumn[]; readonly resultKind: "rows" | "command" } {
     const ctes = this.#resolveWith(statement.with, outer, inheritedCtes);
     switch (statement.kind) {
       case "select":
-        return { columns: this.#resolveSelect(statement, outer, ctes), resultKind: "rows" };
+        return { columns: this.#resolveSelect(statement, outer, ctes, expectedOutput), resultKind: "rows" };
       case "insert":
         return this.#resolveInsert(statement, outer, ctes);
       case "update":
@@ -439,6 +447,7 @@ class Resolver {
     statement: SelectStatement,
     outer: Scope | undefined,
     ctes: ReadonlyMap<string, TableSnapshot>,
+    expectedOutput?: readonly (ResolvedType | undefined)[],
   ): readonly ResolvedColumn[] {
     const scope: Scope = {
       relations: [],
@@ -494,10 +503,10 @@ class Resolver {
       this.#resolveExpression(statement.offset, scope, ctes, this.#databaseType("integer", false));
     if (statement.fetch?.count !== undefined)
       this.#resolveExpression(statement.fetch.count, scope, ctes, this.#databaseType("integer", false));
-    const columns = [...this.#resolveItems(statement.columns, scope, ctes)];
+    const columns = [...this.#resolveItems(statement.columns, scope, ctes, expectedOutput)];
     this.#validateGroupedQuery(statement, columns, scope);
     for (const compound of statement.compounds) {
-      const right = this.#resolveSelect(compound.statement, outer, ctes);
+      const right = this.#resolveSelect(compound.statement, outer, ctes, expectedOutput);
       this.#mergeCompoundColumns(columns, right, compound.range);
     }
     return columns;
@@ -738,7 +747,7 @@ class Resolver {
       );
       if (matches.length === 1) return `column:${matches[0]![0].alias}.${matches[0]![1].name.toLowerCase()}`;
     }
-    return `expression:${expressionIdentity(expression)}`;
+    return `expression:${postgresExpressionIdentity(expression)}`;
   }
 
   #forEachGroupingExpression(grouping: GroupingElement, visit: (expression: Expression) => void): void {
@@ -896,36 +905,18 @@ class Resolver {
       ...(outer === undefined ? {} : { outer }),
     };
     const target = this.#addRelation(statement.table, false, scope, ctes);
-    const targetColumns =
-      statement.columns.length === 0
-        ? Object.values(target?.table.columns ?? {})
-        : statement.columns.map((column) => this.#findColumn(target?.table, column));
+    const allTargetColumns = Object.values(target?.table.columns ?? {});
+    let targetColumns =
+      statement.columns.length > 0
+        ? statement.columns.map((column) => this.#findColumn(target?.table, column))
+        : statement.source.kind === "values"
+          ? allTargetColumns.slice(0, statement.source.rows[0]?.length ?? 0)
+          : statement.source.kind === "default-values"
+            ? []
+            : allTargetColumns;
     const insertNames = statement.columns.map(sqlName);
     if (new Set(insertNames).size !== insertNames.length)
       this.#diagnostic("TSQ227", "INSERT cannot target the same column more than once", statement.table.range);
-    if (target !== undefined && statement.columns.length > 0) {
-      statement.columns.forEach((identifier, index) => {
-        const column = targetColumns[index];
-        const evidence = column === undefined ? undefined : this.#index.columnEvidence(target.table, column);
-        const identityOverride = statement.overriding !== undefined && evidence?.identity !== "none";
-        if (
-          column !== undefined &&
-          this.#index.columnEligibility(target.table, column, "insert") === false &&
-          !identityOverride
-        ) {
-          this.#diagnostic("TSQ218", `Cannot INSERT into non-insertable column ${column.name}`, identifier.range);
-        }
-      });
-      const supplied = new Set(statement.columns.map((column) => sqlName(column).toLowerCase()));
-      const required = this.#index.requiredInsertColumns(target.table);
-      if (required !== "unknown") {
-        for (const column of required) {
-          if (!supplied.has(column.name.toLowerCase())) {
-            this.#diagnostic("TSQ219", `INSERT omits required column ${column.name}`, statement.table.range);
-          }
-        }
-      }
-    }
     if (statement.source.kind === "values") {
       for (const row of statement.source.rows) {
         if (row.length !== targetColumns.length) {
@@ -936,17 +927,69 @@ class Resolver {
           );
         }
         row.forEach((value, index) => {
-          this.#resolveExpression(value, scope, ctes, this.#snapshotType(targetColumns[index]));
+          const resolved = this.#resolveExpression(value, scope, ctes, this.#snapshotType(targetColumns[index]));
+          this.#validateWriteValue(targetColumns[index], resolved, value.range, "INSERT");
         });
       }
     } else if (statement.source.kind === "select") {
-      const source = this.#resolveStatement(statement.source, outer, ctes);
-      if (source.columns.length !== targetColumns.length) {
+      const source = this.#resolveStatement(
+        statement.source,
+        outer,
+        ctes,
+        targetColumns.map((column) => this.#snapshotType(column)),
+      );
+      if (statement.columns.length === 0) targetColumns = allTargetColumns.slice(0, source.columns.length);
+      if (
+        (statement.columns.length > 0 && source.columns.length !== targetColumns.length) ||
+        source.columns.length > allTargetColumns.length
+      ) {
         this.#diagnostic(
           "TSQ214",
           `INSERT has ${targetColumns.length} target columns but SELECT returns ${source.columns.length}`,
           statement.source.range,
         );
+      }
+      this.#validateWriteColumns(targetColumns, source.columns, statement.source.range, "INSERT");
+    }
+    if (target !== undefined) {
+      targetColumns.forEach((column, index) => {
+        if (column === undefined) return;
+        const evidence = this.#index.columnEvidence(target.table, column);
+        const identityOverride = statement.overriding !== undefined && evidence?.identity !== "none";
+        const defaultOnly =
+          statement.source.kind === "default-values" ||
+          (statement.source.kind === "values" &&
+            statement.source.rows.every((row) => this.#isDefaultValue(row[index])));
+        if (
+          this.#index.columnEligibility(target.table, column, "insert") === false &&
+          !identityOverride &&
+          !defaultOnly
+        ) {
+          this.#diagnostic(
+            "TSQ218",
+            `Cannot INSERT into non-insertable column ${column.name}`,
+            statement.columns[index]?.range ?? statement.source.range,
+          );
+        }
+      });
+      const supplied = new Set(
+        targetColumns.flatMap((column, index) => {
+          if (column === undefined || statement.source.kind === "default-values") return [];
+          if (
+            statement.source.kind === "values" &&
+            statement.source.rows.every((row) => this.#isDefaultValue(row[index]))
+          )
+            return [];
+          return [column.name.toLowerCase()];
+        }),
+      );
+      const required = this.#index.requiredInsertColumns(target.table);
+      if (required !== "unknown") {
+        for (const column of required) {
+          if (!supplied.has(column.name.toLowerCase())) {
+            this.#diagnostic("TSQ219", `INSERT omits required column ${column.name}`, statement.table.range);
+          }
+        }
       }
     }
     if (statement.conflict !== undefined && target !== undefined) {
@@ -955,18 +998,18 @@ class Resolver {
         this.#diagnostic("TSQ227", "ON CONFLICT DO UPDATE requires a conflict target", conflict.range);
       }
       if (conflict.target?.kind === "constraint") {
-        const requested = sqlName(conflict.target.constraint);
-        const match = this.#index
-          .relation(target.table)
-          ?.constraints.some(
-            (constraint) =>
-              (constraint.kind === "primary-key" || constraint.kind === "unique" || constraint.kind === "exclusion") &&
-              (constraint.identity.toLowerCase() === requested ||
-                constraint.identity.toLowerCase().endsWith(`.${requested}`)),
-          );
-        if (match === false) {
-          this.#diagnostic("TSQ227", `Unknown conflict constraint ${requested}`, conflict.target.range);
-        } else if (match === undefined) {
+        const targetConstraint = conflict.target;
+        const requested = sqlName(targetConstraint.constraint);
+        const relation = this.#index.relation(target.table);
+        const match = relation?.constraints.find((constraint) => {
+          if (constraint.kind !== "primary-key" && constraint.kind !== "unique" && constraint.kind !== "exclusion")
+            return false;
+          const name = constraint.identity.slice(constraint.identity.lastIndexOf(".") + 1);
+          return targetConstraint.constraint.quoted ? name === requested : name.toLowerCase() === requested;
+        });
+        if (relation !== undefined && match === undefined) {
+          this.#diagnostic("TSQ226", `Unknown conflict constraint ${requested}`, conflict.target.range);
+        } else if (relation === undefined) {
           this.#diagnostic(
             "TSQ402",
             `Conflict constraint ${requested} requires schema snapshot v2 evidence`,
@@ -974,54 +1017,77 @@ class Resolver {
             undefined,
             "warning",
           );
-        }
-      } else if (conflict.target?.kind === "inference") {
-        const names: string[] = [];
-        for (const element of conflict.target.elements) {
-          this.#resolveExpression(element.expression, scope, ctes);
-          if (element.expression.kind === "column" && element.expression.relation === undefined) {
-            names.push(sqlName(element.expression.column));
-          }
-        }
-        if (conflict.target.predicate !== undefined)
-          this.#resolveExpression(conflict.target.predicate, scope, ctes, this.#databaseType("boolean", false));
-        if (names.length === conflict.target.elements.length && conflict.target.predicate === undefined) {
-          const unique = this.#index.isUnique(target.table, names);
-          if (unique === false)
-            this.#diagnostic(
-              "TSQ227",
-              "Conflict target does not match a unique or primary-key constraint",
-              conflict.target.range,
-            );
-          else if (unique === "unknown")
-            this.#diagnostic(
-              "TSQ402",
-              "Exact conflict-target inference requires schema snapshot v2 evidence",
-              conflict.target.range,
-              undefined,
-              "warning",
-            );
-        } else {
+        } else if (match?.deferrable === true) {
+          this.#diagnostic(
+            "TSQ224",
+            `Deferrable constraint ${requested} cannot arbitrate ON CONFLICT`,
+            conflict.target.range,
+          );
+        } else if (match !== undefined && (match.deferrable === "unknown" || match.deferrable === undefined)) {
           this.#diagnostic(
             "TSQ402",
-            "Expression and partial conflict targets require canonical index-expression evidence",
+            `Conflict constraint ${requested} has unknown deferrability`,
             conflict.target.range,
             undefined,
             "warning",
+          );
+        } else if (match?.kind === "exclusion" && conflict.action.kind === "update") {
+          this.#diagnostic(
+            "TSQ224",
+            "Exclusion constraints cannot arbitrate ON CONFLICT DO UPDATE",
+            conflict.target.range,
+          );
+        }
+      } else if (conflict.target?.kind === "inference") {
+        for (const element of conflict.target.elements) {
+          this.#resolveExpression(element.expression, scope, ctes);
+        }
+        if (conflict.target.predicate !== undefined)
+          this.#resolveExpression(conflict.target.predicate, scope, ctes, this.#databaseType("boolean", false));
+        const inference = this.#matchConflictInference(target.table, conflict.target);
+        if (inference === "unknown") {
+          this.#diagnostic(
+            "TSQ402",
+            "Exact conflict-target inference requires canonical schema snapshot v2 evidence",
+            conflict.target.range,
+            undefined,
+            "warning",
+          );
+        } else if (!inference) {
+          this.#diagnostic(
+            "TSQ226",
+            "Conflict target does not match a valid unique index or primary-key constraint",
+            conflict.target.range,
           );
         }
       }
       if (conflict.action.kind === "update") {
         const excludedAlias = "excluded";
-        if (!scope.relations.some(({ alias }) => alias === excludedAlias)) {
-          scope.relations.push({ alias: excludedAlias, table: target.table, nullable: false });
-        }
-        this.#resolveAssignments(conflict.action.assignments, target.table, scope, ctes);
+        if (scope.relations.some(({ alias }) => alias === excludedAlias))
+          this.#diagnostic(
+            "TSQ108",
+            "INSERT target alias excluded conflicts with the ON CONFLICT excluded row",
+            statement.table.range,
+          );
+        const conflictScope: Scope = {
+          ...scope,
+          relations: [
+            ...scope.relations.filter(({ alias }) => alias !== excludedAlias),
+            { alias: excludedAlias, table: target.table, nullable: false, qualifiedOnly: true },
+          ],
+        };
+        this.#resolveAssignments(conflict.action.assignments, target.table, conflictScope, ctes);
         if (conflict.action.where !== undefined)
-          this.#resolveExpression(conflict.action.where, scope, ctes, this.#databaseType("boolean", false));
+          this.#resolveExpression(conflict.action.where, conflictScope, ctes, this.#databaseType("boolean", false));
       }
     }
-    const returningScope = this.#returningScope(scope, target?.table, statement.returningAliases, "insert");
+    const returningScope = this.#returningScope(
+      scope,
+      target?.table,
+      statement.returningAliases,
+      statement.returning,
+      "insert",
+    );
     const columns = this.#resolveItems(statement.returning, returningScope, ctes);
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
   }
@@ -1038,14 +1104,14 @@ class Resolver {
       ...(outer === undefined ? {} : { outer }),
     };
     const target = this.#addRelation(statement.table, false, scope, ctes);
-    this.#resolveAssignments(statement.assignments, target?.table, scope, ctes);
     if (statement.from !== undefined) this.#addRelation(statement.from, false, scope, ctes);
     for (const join of statement.joins) this.#addJoin(join, scope, ctes);
+    this.#resolveAssignments(statement.assignments, target?.table, scope, ctes);
     if (statement.where !== undefined)
       this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     const columns = this.#resolveItems(
       statement.returning,
-      this.#returningScope(scope, target?.table, statement.returningAliases, "update"),
+      this.#returningScope(scope, target?.table, statement.returningAliases, statement.returning, "update"),
       ctes,
     );
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
@@ -1064,11 +1130,12 @@ class Resolver {
     };
     const target = this.#addRelation(statement.table, false, scope, ctes);
     for (const reference of statement.using) this.#addRelation(reference, false, scope, ctes);
+    for (const join of statement.joins) this.#addJoin(join, scope, ctes);
     if (statement.where !== undefined)
       this.#resolveExpression(statement.where, scope, ctes, this.#databaseType("boolean", false));
     const columns = this.#resolveItems(
       statement.returning,
-      this.#returningScope(scope, target?.table, statement.returningAliases, "delete"),
+      this.#returningScope(scope, target?.table, statement.returningAliases, statement.returning, "delete"),
       ctes,
     );
     return { columns, resultKind: statement.returning.length === 0 ? "command" : "rows" };
@@ -1110,17 +1177,23 @@ class Resolver {
           nullable: candidates.some(({ nullable }) => nullable),
         };
       }
+      const sourceAlias =
+        statement.source.alias === undefined
+          ? `*merge-values*${statement.source.range.start}`
+          : sqlName(statement.source.alias);
+      if (sourceAlias === targetAlias)
+        this.#diagnostic("TSQ108", `Duplicate relation alias ${sourceAlias}`, statement.source.range);
       scope.relations.push({
-        alias: sqlName(statement.source.alias),
-        table: { name: statement.source.alias.name, columns },
+        alias: sourceAlias,
+        table: { name: statement.source.alias?.name ?? sourceAlias, columns },
         nullable: false,
       });
     } else this.#addRelation(statement.source, false, scope, ctes);
     this.#resolveExpression(statement.on, scope, ctes, this.#databaseType("boolean", false));
     const terminal = new Set<string>();
     for (const clause of statement.clauses) {
-      if (clause.match === "not-matched-source")
-        this.#requireServerMajor(17, "MERGE WHEN NOT MATCHED BY SOURCE", clause.range);
+      if (clause.by !== undefined)
+        this.#requireServerMajor(17, `MERGE WHEN NOT MATCHED BY ${clause.by.toUpperCase()}`, clause.range);
       if (terminal.has(clause.match))
         this.#diagnostic("TSQ227", `Unreachable MERGE ${clause.match} clause`, clause.range);
       if (clause.condition === undefined) terminal.add(clause.match);
@@ -1137,10 +1210,51 @@ class Resolver {
       if (action.kind === "insert") {
         if (clause.match !== "not-matched-target")
           this.#diagnostic("TSQ227", "MERGE INSERT is only valid for NOT MATCHED BY TARGET", action.range);
+        const actionNames = action.columns.map(sqlName);
+        if (new Set(actionNames).size !== actionNames.length)
+          this.#diagnostic("TSQ227", "MERGE INSERT cannot target the same column more than once", action.range);
+        if (action.source.kind === "default-values" && action.overriding !== undefined)
+          this.#diagnostic("TSQ227", "MERGE DEFAULT VALUES cannot use OVERRIDING", action.range);
         const targetColumns =
           action.columns.length === 0
             ? Object.values(target?.table.columns ?? {})
             : action.columns.map((column) => this.#findColumn(target?.table, column));
+        if (target !== undefined) {
+          targetColumns.forEach((column, index) => {
+            if (column === undefined) return;
+            const evidence = this.#index.columnEvidence(target.table, column);
+            const identityOverride = action.overriding !== undefined && evidence?.identity !== "none";
+            const defaultOnly =
+              action.source.kind === "default-values" ||
+              action.source.rows.every((row) => this.#isDefaultValue(row[index]));
+            if (
+              this.#index.columnEligibility(target.table, column, "insert") === false &&
+              !identityOverride &&
+              !defaultOnly
+            ) {
+              this.#diagnostic(
+                "TSQ218",
+                `Cannot INSERT into non-insertable column ${column.name}`,
+                action.columns[index]?.range ?? action.range,
+              );
+            }
+          });
+          const supplied = new Set<string>();
+          if (action.source.kind === "values") {
+            const rows = action.source.rows;
+            targetColumns.forEach((column, index) => {
+              if (column !== undefined && !rows.every((row) => this.#isDefaultValue(row[index])))
+                supplied.add(column.name.toLowerCase());
+            });
+          }
+          const required = this.#index.requiredInsertColumns(target.table);
+          if (required !== "unknown") {
+            for (const column of required) {
+              if (!supplied.has(column.name.toLowerCase()))
+                this.#diagnostic("TSQ219", `MERGE INSERT omits required column ${column.name}`, action.range);
+            }
+          }
+        }
         if (action.source.kind === "values") {
           const values = action.source.rows[0] ?? [];
           if (values.length !== targetColumns.length)
@@ -1150,7 +1264,13 @@ class Resolver {
               action.range,
             );
           values.forEach((value, index) => {
-            this.#resolveExpression(value, clauseScope, ctes, this.#snapshotType(targetColumns[index]));
+            const resolved = this.#resolveExpression(
+              value,
+              clauseScope,
+              ctes,
+              this.#snapshotType(targetColumns[index]),
+            );
+            this.#validateWriteValue(targetColumns[index], resolved, value.range, "MERGE INSERT");
           });
         }
       } else if (action.kind === "update") {
@@ -1162,7 +1282,13 @@ class Resolver {
       }
     }
     if (statement.returning.length > 0) this.#requireServerMajor(17, "MERGE RETURNING", statement.range);
-    const returningScope = this.#returningScope(scope, target?.table, statement.returningAliases, "merge");
+    const returningScope = this.#returningScope(
+      scope,
+      target?.table,
+      statement.returningAliases,
+      statement.returning,
+      "merge",
+    );
     this.#insideMergeReturning = true;
     const columns = this.#resolveItems(statement.returning, returningScope, ctes);
     this.#insideMergeReturning = false;
@@ -1175,12 +1301,14 @@ class Resolver {
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
   ): void {
+    const assigned = new Set<string>();
     for (const assignment of assignments) {
       const identifiers = "column" in assignment ? [assignment.column] : assignment.columns;
       const names = identifiers.map(sqlName);
-      if (new Set(names).size !== names.length) {
+      if (new Set(names).size !== names.length || names.some((name) => assigned.has(name))) {
         this.#diagnostic("TSQ227", "An assignment cannot target the same column more than once", assignment.range);
       }
+      for (const name of names) assigned.add(name);
       const columns = identifiers.map((identifier) => this.#findColumn(table, identifier));
       for (let index = 0; index < columns.length; index += 1) {
         const column = columns[index];
@@ -1192,27 +1320,37 @@ class Resolver {
           this.#diagnostic("TSQ218", `Cannot UPDATE non-updatable column ${column.name}`, identifiers[index]!.range);
         }
       }
-      if (identifiers.length === 1)
-        this.#resolveExpression(assignment.value, scope, ctes, this.#snapshotType(columns[0]));
-      else {
-        const resolved =
-          assignment.value.kind === "row"
-            ? (() => {
-                assignment.value.elements.forEach((element, index) => {
-                  this.#resolveExpression(element, scope, ctes, this.#snapshotType(columns[index]));
-                });
-                return { tsType: "row", nullable: false };
-              })()
-            : this.#resolveExpression(assignment.value, scope, ctes);
-        const width = assignment.value.kind === "row" ? assignment.value.elements.length : undefined;
-        if (width !== undefined && width !== identifiers.length)
+      if (identifiers.length === 1) {
+        const resolved = this.#resolveExpression(assignment.value, scope, ctes, this.#snapshotType(columns[0]));
+        this.#validateWriteValue(columns[0], resolved, assignment.value.range, "UPDATE");
+      } else if (assignment.value.kind === "row") {
+        assignment.value.elements.forEach((element, index) => {
+          const resolved = this.#resolveExpression(element, scope, ctes, this.#snapshotType(columns[index]));
+          this.#validateWriteValue(columns[index], resolved, element.range, "row assignment");
+        });
+        if (assignment.value.elements.length !== identifiers.length)
           this.#diagnostic(
             "TSQ214",
-            `Row assignment has ${identifiers.length} targets but ${width} values`,
+            `Row assignment has ${identifiers.length} targets but ${assignment.value.elements.length} values`,
             assignment.range,
           );
-        if (resolved.tsType === "unknown" && assignment.value.kind !== "subquery" && assignment.value.kind !== "row")
-          this.#diagnostic("TSQ227", "Multi-column assignment requires a row or scalar subquery", assignment.range);
+      } else if (assignment.value.kind === "subquery") {
+        const resolved = this.#resolveStatement(
+          assignment.value.query,
+          scope,
+          ctes,
+          columns.map((column) => this.#snapshotType(column)),
+        );
+        if (resolved.columns.length !== identifiers.length)
+          this.#diagnostic(
+            "TSQ214",
+            `Row assignment has ${identifiers.length} targets but subquery returns ${resolved.columns.length} columns`,
+            assignment.range,
+          );
+        this.#validateWriteColumns(columns, resolved.columns, assignment.range, "row assignment");
+      } else {
+        this.#resolveExpression(assignment.value, scope, ctes);
+        this.#diagnostic("TSQ227", "Multi-column assignment requires a row or scalar subquery", assignment.range);
       }
     }
   }
@@ -1221,14 +1359,36 @@ class Resolver {
     scope: Scope,
     table: TableSnapshot | undefined,
     aliases: { readonly old?: Identifier; readonly new?: Identifier; readonly range: SourceRange } | undefined,
+    items: readonly SelectItem[],
     operation: "insert" | "update" | "delete" | "merge",
   ): Scope {
     if (aliases !== undefined) this.#requireServerMajor(18, "RETURNING OLD/NEW aliases", aliases.range);
+    if (
+      aliases === undefined &&
+      items.some(({ expression }) => this.#referencesDefaultReturningRow(expression, scope))
+    ) {
+      this.#requireServerMajor(18, "RETURNING OLD/NEW rows", items[0]!.range);
+    }
+    if (items.length === 0) return scope;
     if (table === undefined || (aliases === undefined && (this.#serverMajor ?? 0) < 18)) return scope;
     const oldAlias = aliases?.old === undefined ? "old" : sqlName(aliases.old);
     const newAlias = aliases?.new === undefined ? "new" : sqlName(aliases.new);
     const hiddenOld = aliases !== undefined && aliases.old !== undefined;
     const hiddenNew = aliases !== undefined && aliases.new !== undefined;
+    if (oldAlias === newAlias)
+      this.#diagnostic(
+        "TSQ108",
+        `RETURNING OLD and NEW rows cannot share alias ${oldAlias}`,
+        aliases?.range ?? items[0]!.range,
+      );
+    for (const alias of [oldAlias, newAlias]) {
+      if (scope.relations.some((relation) => relation.alias === alias))
+        this.#diagnostic(
+          "TSQ108",
+          `RETURNING row alias ${alias} conflicts with an existing relation`,
+          aliases?.range ?? items[0]!.range,
+        );
+    }
     return {
       ...scope,
       relations: [
@@ -1241,6 +1401,21 @@ class Resolver {
           : []),
       ],
     };
+  }
+
+  #referencesDefaultReturningRow(expression: Expression, scope: Scope): boolean {
+    if (
+      expression.kind === "column" &&
+      expression.relation !== undefined &&
+      (sqlName(expression.relation) === "old" || sqlName(expression.relation) === "new") &&
+      !scope.relations.some(({ alias }) => alias === sqlName(expression.relation!))
+    )
+      return true;
+    if (expression.kind === "star" && expression.relation !== undefined) {
+      const alias = sqlName(expression.relation);
+      return (alias === "old" || alias === "new") && !scope.relations.some((relation) => relation.alias === alias);
+    }
+    return this.#expressionChildren(expression).some((child) => this.#referencesDefaultReturningRow(child, scope));
   }
 
   #requireServerMajor(minimum: number, feature: string, range: SourceRange): void {
@@ -1317,19 +1492,23 @@ class Resolver {
       table = this.#resolveFunctionTable(reference, scope, ctes);
       alias = reference.alias === undefined ? sqlName(reference.functions[0]!.call.name) : sqlName(reference.alias);
     } else if (reference.kind === "subquery") {
+      if (reference.alias === undefined) this.#requireServerMajor(16, "Unaliased derived tables", reference.range);
       const outer = reference.lateral ? scope : scope.outer;
       const resolved = this.#resolveStatement(reference.query, outer, ctes);
       const columns: Record<string, ColumnSnapshot> = {};
-      for (const column of resolved.columns) {
-        columns[column.name] = {
-          name: column.name,
+      resolved.columns.forEach((column, index) => {
+        const name = reference.columns[index] === undefined ? column.name : sqlName(reference.columns[index]!);
+        columns[name] = {
+          name,
           databaseType: column.databaseType ?? "unknown",
           tsType: column.tsType,
           nullable: column.nullable,
         };
-      }
-      table = { name: sqlName(reference.alias), columns };
-      alias = sqlName(reference.alias);
+      });
+      if (reference.columns.length > 0 && reference.columns.length !== resolved.columns.length)
+        this.#diagnostic("TSQ213", "Derived-table column alias list has the wrong arity", reference.range);
+      alias = reference.alias === undefined ? `*derived*${reference.range.start}` : sqlName(reference.alias);
+      table = { name: alias, columns };
     } else {
       const requested = sqlName(reference.name);
       const requestedSchema = reference.schema === undefined ? undefined : sqlName(reference.schema);
@@ -1613,6 +1792,7 @@ class Resolver {
     items: readonly SelectItem[],
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
+    expectedOutput?: readonly (ResolvedType | undefined)[],
   ): readonly ResolvedColumn[] {
     const columns: ResolvedColumn[] = [];
     const names = new Set<string>();
@@ -1661,7 +1841,7 @@ class Resolver {
         }
         continue;
       }
-      const type = this.#resolveExpression(item.expression, scope, ctes);
+      const type = this.#resolveExpression(item.expression, scope, ctes, expectedOutput?.[columns.length]);
       const inferredName = this.#outputName(item.expression);
       const name = item.alias === undefined ? inferredName : sqlName(item.alias);
       if (name === undefined) {
@@ -1780,7 +1960,12 @@ class Resolver {
         };
       }
       case "subquery": {
-        const resolved = this.#resolveStatement(expression.query, scope, ctes);
+        const resolved = this.#resolveStatement(
+          expression.query,
+          scope,
+          ctes,
+          expected === undefined ? undefined : [expected],
+        );
         if (resolved.columns.length !== 1) {
           this.#diagnostic(
             "TSQ216",
@@ -1807,7 +1992,7 @@ class Resolver {
           const values = expression.values.map((value) => this.#resolveExpression(value, scope, ctes, subject));
           nullable ||= values.some((value) => value.nullable);
         } else {
-          const resolved = this.#resolveStatement(expression.values as SelectStatement, scope, ctes);
+          const resolved = this.#resolveStatement(expression.values as SelectStatement, scope, ctes, [subject]);
           if (resolved.columns.length !== 1)
             this.#diagnostic(
               "TSQ217",
@@ -2028,7 +2213,9 @@ class Resolver {
       expression.distinct &&
       (expression.orderBy ?? []).some(
         ({ expression: ordered }) =>
-          !expression.arguments.some((argument) => expressionIdentity(argument) === expressionIdentity(ordered)),
+          !expression.arguments.some(
+            (argument) => postgresExpressionIdentity(argument) === postgresExpressionIdentity(ordered),
+          ),
       )
     ) {
       this.#diagnostic(
@@ -2175,6 +2362,179 @@ class Resolver {
     if (left === right) return true;
     if (this.#isNumericType(left) && this.#isNumericType(right)) return true;
     return false;
+  }
+
+  #isDefaultValue(expression: Expression | undefined): boolean {
+    return (
+      expression?.kind === "column" &&
+      expression.relation === undefined &&
+      expression.column.quoted === false &&
+      expression.column.name === "DEFAULT"
+    );
+  }
+
+  #matchConflictInference(
+    table: TableSnapshot,
+    target: Extract<InsertConflictTarget, { readonly kind: "inference" }>,
+  ): boolean | "unknown" {
+    const relation = this.#index.relation(table);
+    if (relation === undefined) return "unknown";
+    const requested: ConflictInferenceElement[] = target.elements.map((element) => ({
+      ...(element.expression.kind === "column" && element.expression.relation === undefined
+        ? {
+            column: sqlName(element.expression.column),
+            columnCaseSensitive: element.expression.column.quoted,
+          }
+        : { expressionHash: fingerprintPostgresExpression(element.expression) }),
+      ...(element.operatorClass === undefined
+        ? {}
+        : {
+            operatorClass: qualifiedSqlName(element.operatorClass),
+            operatorClassCaseSensitive: qualifiedNameIsCaseSensitive(element.operatorClass),
+          }),
+      ...(element.collation === undefined
+        ? {}
+        : {
+            collation: qualifiedSqlName(element.collation),
+            collationCaseSensitive: qualifiedNameIsCaseSensitive(element.collation),
+          }),
+    }));
+    const predicateHash = target.predicate === undefined ? undefined : fingerprintPostgresExpression(target.predicate);
+    let incomplete = false;
+    const matchesElements = (candidates: readonly ConflictInferenceElement[]): boolean => {
+      if (candidates.length !== requested.length) return false;
+      const remaining = [...candidates];
+      const matchesNamedEvidence = (candidate: string | undefined, name: string, caseSensitive: boolean): boolean => {
+        if (candidate === undefined) return false;
+        const candidateName = name.includes(".") ? candidate : candidate.slice(candidate.lastIndexOf(".") + 1);
+        return caseSensitive ? candidateName === name : candidateName.toLowerCase() === name;
+      };
+      for (const element of requested) {
+        const index = remaining.findIndex((candidate) => {
+          const identityMatches =
+            element.column === undefined
+              ? candidate.expressionHash === element.expressionHash
+              : element.columnCaseSensitive
+                ? candidate.column === element.column
+                : candidate.column?.toLowerCase() === element.column;
+          return (
+            identityMatches &&
+            (element.operatorClass === undefined ||
+              matchesNamedEvidence(
+                candidate.operatorClass,
+                element.operatorClass,
+                element.operatorClassCaseSensitive ?? false,
+              )) &&
+            (element.collation === undefined ||
+              matchesNamedEvidence(candidate.collation, element.collation, element.collationCaseSensitive ?? false))
+          );
+        });
+        if (index < 0) return false;
+        remaining.splice(index, 1);
+      }
+      return true;
+    };
+
+    if (relation.indexes === undefined) incomplete = true;
+    for (const index of relation.indexes ?? []) {
+      if (!index.unique) continue;
+      if (index.valid !== true) {
+        if (index.valid === "unknown") incomplete = true;
+        continue;
+      }
+      if (target.predicate === undefined) {
+        if (index.predicate === "unknown") {
+          incomplete = true;
+          continue;
+        }
+        if (index.predicate !== "none") continue;
+      } else {
+        if (index.predicate === "unknown") {
+          incomplete = true;
+          continue;
+        }
+        if (index.predicate === "present" && index.predicateHash === undefined) {
+          incomplete = true;
+          continue;
+        }
+        if (index.predicate === "present" && index.predicateHash !== predicateHash && matchesElements(index.columns)) {
+          incomplete = true;
+          continue;
+        }
+      }
+      if (matchesElements(index.columns)) return true;
+      if (
+        requested.some(
+          (element) => (element.operatorClass?.includes(".") ?? false) || (element.collation?.includes(".") ?? false),
+        ) &&
+        index.columns.some(
+          (column) =>
+            (column.operatorClass !== undefined && !column.operatorClass.includes(".")) ||
+            (column.collation !== undefined && !column.collation.includes(".")),
+        )
+      )
+        incomplete = true;
+      if (index.columns.some((column) => column.column === undefined && column.expressionHash === undefined)) {
+        incomplete = true;
+      }
+    }
+
+    if (requested.every((element) => element.column !== undefined)) {
+      const requestedColumns = requested as readonly (ConflictInferenceElement & { readonly column: string })[];
+      for (const constraint of relation.constraints) {
+        if (
+          (constraint.kind !== "primary-key" && constraint.kind !== "unique") ||
+          constraint.partial !== false ||
+          constraint.expressionBased !== false ||
+          constraint.columns.length !== requestedColumns.length ||
+          !constraint.columns.every((column) =>
+            requestedColumns.some((requestedColumn) =>
+              requestedColumn.columnCaseSensitive
+                ? column === requestedColumn.column
+                : column.toLowerCase() === requestedColumn.column,
+            ),
+          )
+        )
+          continue;
+        if (constraint.deferrable === false) return true;
+        if (constraint.deferrable === "unknown" || constraint.deferrable === undefined) incomplete = true;
+      }
+    }
+    return incomplete ? "unknown" : false;
+  }
+
+  #validateWriteColumns(
+    targets: readonly (ColumnSnapshot | undefined)[],
+    sources: readonly ResolvedColumn[],
+    range: SourceRange,
+    operation: string,
+  ): void {
+    for (let index = 0; index < Math.min(targets.length, sources.length); index += 1) {
+      this.#validateWriteValue(targets[index], sources[index]!, range, operation);
+    }
+  }
+
+  #validateWriteValue(
+    target: ColumnSnapshot | undefined,
+    source: ResolvedType,
+    range: SourceRange,
+    operation: string,
+  ): void {
+    if (
+      target === undefined ||
+      source.databaseType === undefined ||
+      source.tsType === "unknown" ||
+      this.#typesCompatible(target.databaseType, source.databaseType)
+    )
+      return;
+    const expectedTsType = mapPostgresType(target.databaseType, this.#policy, this.#schema);
+    const actualTsType = mapPostgresType(source.databaseType, this.#policy, this.#schema);
+    if (expectedTsType === actualTsType) return;
+    this.#diagnostic(
+      "TSQ229",
+      `${operation} value of type ${source.databaseType} cannot be assigned to ${target.name} (${target.databaseType})`,
+      range,
+    );
   }
 
   #isNumericType(databaseType: string): boolean {
