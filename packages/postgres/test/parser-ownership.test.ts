@@ -249,6 +249,60 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 17 SQL/JSON JSON_QUERY clauses", () => {
+    const statement = parseStatement(`
+      SELECT JSON_QUERY(
+        $1 FORMAT JSON,
+        $2 PASSING $3 AS threshold
+        RETURNING bytea FORMAT JSON ENCODING UTF8
+        WITH CONDITIONAL ARRAY WRAPPER
+        KEEP QUOTES ON SCALAR STRING
+        EMPTY OBJECT ON EMPTY
+        DEFAULT ('{}'::text) ON ERROR
+      ) AS result
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    const expression = statement.columns[0]?.expression;
+    strict.strictEqual(expression?.kind, "json-query");
+    if (expression?.kind !== "json-query") return;
+    strict.strictEqual(expression.returning?.databaseType.name, "bytea");
+    strict.strictEqual(expression.returning?.format?.encoding, "UTF8");
+    strict.strictEqual(expression.wrapper, "conditional");
+    strict.strictEqual(expression.quotes, "keep");
+    strict.strictEqual(expression.onEmpty?.kind, "empty-object");
+    strict.strictEqual(expression.onError?.kind, "default");
+    strict.strictEqual(expression.onError?.expression?.kind, "cast");
+
+    const visited = { parameters: 0, types: [] as string[] };
+    walkStatement(statement, {
+      expression(node) {
+        if (node.kind === "parameter") visited.parameters += 1;
+      },
+      type(type) {
+        visited.types.push(type.name);
+      },
+    });
+    strict.strictEqual(visited.parameters, 3);
+    strict.deepStrictEqual(visited.types, ["bytea", "text"]);
+
+    const lowercase = parseStatement(
+      `select json_query('{}', '$' returning text without array wrapper omit quotes null on empty error on error)`,
+    );
+    strict.strictEqual(lowercase.kind === "select" ? lowercase.columns[0]?.expression.kind : undefined, "json-query");
+    strict.doesNotThrow(() =>
+      parseStatement("SELECT JSON_QUERY('{}', '$' RETURNING timestamp with time zone WITH WRAPPER)"),
+    );
+    for (const invalid of [
+      "SELECT JSON_QUERY('{}', '$' TRUE ON ERROR)",
+      "SELECT JSON_QUERY('{}', '$' NULL ON ERROR NULL ON EMPTY)",
+      "SELECT JSON_QUERY('{}', '$' RETURNING)",
+      "SELECT JSON_QUERY('{}', '$' WITH CONDITIONAL)",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

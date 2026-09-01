@@ -125,12 +125,37 @@ export interface JsonPassingArgument {
   readonly range: SourceRange;
 }
 
+export interface JsonBehavior {
+  readonly kind: "error" | "null" | "empty-array" | "empty-object" | "default";
+  readonly expression?: Expression;
+  readonly range: SourceRange;
+}
+
+export interface JsonReturning {
+  readonly databaseType: TypeName;
+  readonly format?: JsonFormat;
+  readonly range: SourceRange;
+}
+
 export interface JsonExistsExpression {
   readonly kind: "json-exists";
   readonly context: JsonValueExpression;
   readonly path: Expression;
   readonly passing: readonly JsonPassingArgument[];
   readonly onError?: "true" | "false" | "unknown" | "error";
+  readonly range: SourceRange;
+}
+
+export interface JsonQueryExpression {
+  readonly kind: "json-query";
+  readonly context: JsonValueExpression;
+  readonly path: Expression;
+  readonly passing: readonly JsonPassingArgument[];
+  readonly returning?: JsonReturning;
+  readonly wrapper?: "without" | "conditional" | "unconditional";
+  readonly quotes?: "keep" | "omit";
+  readonly onEmpty?: JsonBehavior;
+  readonly onError?: JsonBehavior;
   readonly range: SourceRange;
 }
 
@@ -236,6 +261,7 @@ export type Expression =
   | CollateExpression
   | AtTimeZoneExpression
   | JsonExistsExpression
+  | JsonQueryExpression
   | CallExpression
   | CastExpression
   | BinaryExpression

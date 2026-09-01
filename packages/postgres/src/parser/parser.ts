@@ -12,7 +12,10 @@ import {
   type InsertStatement,
   type JoinClause,
   type JoinKind,
+  type JsonBehavior,
+  type JsonFormat,
   type JsonPassingArgument,
+  type JsonReturning,
   type JsonValueExpression,
   type MergeStatement,
   mergeRanges,
@@ -1406,6 +1409,10 @@ class Parser {
       this.#advance();
       return this.#parseJsonExists(token);
     }
+    if (this.#isWord(token, "JSON_QUERY") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonQuery(token);
+    }
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -1445,15 +1452,7 @@ class Parser {
     const context = this.#parseJsonValueExpression();
     this.#expectPunctuation(",");
     const path = this.#parseExpression();
-    const passing: JsonPassingArgument[] = [];
-    if (this.#matchWord("PASSING")) {
-      do {
-        const value = this.#parseJsonValueExpression();
-        this.#expectKeyword("AS");
-        const name = this.#parseIdentifier(true);
-        passing.push({ value, name, range: mergeRanges(value.range, name.range) });
-      } while (this.#matchPunctuation(","));
-    }
+    const passing = this.#parseJsonPassing();
     let onError: "true" | "false" | "unknown" | "error" | undefined;
     if (
       ["TRUE", "FALSE", "UNKNOWN", "ERROR"].some((word) => this.#isWord(this.#current(), word)) &&
@@ -1475,9 +1474,93 @@ class Parser {
     };
   }
 
+  #parseJsonQuery(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const context = this.#parseJsonValueExpression();
+    this.#expectPunctuation(",");
+    const path = this.#parseExpression();
+    const passing = this.#parseJsonPassing();
+    let returning: JsonReturning | undefined;
+    if (this.#matchKeyword("RETURNING")) {
+      const returningStart = this.#previous();
+      const databaseType = this.#parseTypeName(false, () => this.#isJsonQueryClauseStart());
+      const format = this.#parseJsonFormat();
+      returning = {
+        databaseType,
+        ...(format === undefined ? {} : { format }),
+        range: mergeRanges(returningStart.range, format?.range ?? databaseType.range),
+      };
+    }
+    let wrapper: "without" | "conditional" | "unconditional" | undefined;
+    if (this.#matchWord("WITHOUT")) {
+      wrapper = "without";
+      this.#matchKeyword("ARRAY");
+      this.#expectWord("WRAPPER");
+    } else if (this.#matchWord("WITH")) {
+      wrapper = this.#matchWord("CONDITIONAL") ? "conditional" : "unconditional";
+      if (wrapper === "unconditional") this.#matchWord("UNCONDITIONAL");
+      this.#matchKeyword("ARRAY");
+      this.#expectWord("WRAPPER");
+    }
+    let quotes: "keep" | "omit" | undefined;
+    if (this.#matchWord("KEEP") || this.#matchWord("OMIT")) {
+      quotes = this.#previous().value.toLowerCase() as typeof quotes;
+      this.#expectWord("QUOTES");
+      if (this.#matchKeyword("ON")) {
+        this.#expectWord("SCALAR");
+        this.#expectWord("STRING");
+      }
+    }
+    let onEmpty: JsonBehavior | undefined;
+    let onError: JsonBehavior | undefined;
+    if (this.#isJsonQueryBehaviorStart()) {
+      const clause = this.#parseJsonBehaviorClause();
+      if (clause.target === "empty") onEmpty = clause.behavior;
+      else onError = clause.behavior;
+    }
+    if (onEmpty !== undefined && this.#isJsonQueryBehaviorStart()) {
+      const clause = this.#parseJsonBehaviorClause();
+      if (clause.target !== "error") {
+        throw this.#error("JSON_QUERY ON EMPTY must precede ON ERROR", clause.behavior.range);
+      }
+      onError = clause.behavior;
+    }
+    const close = this.#expectPunctuation(")");
+    return {
+      kind: "json-query",
+      context,
+      path,
+      passing,
+      ...(returning === undefined ? {} : { returning }),
+      ...(wrapper === undefined ? {} : { wrapper }),
+      ...(quotes === undefined ? {} : { quotes }),
+      ...(onEmpty === undefined ? {} : { onEmpty }),
+      ...(onError === undefined ? {} : { onError }),
+      range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonPassing(): JsonPassingArgument[] {
+    const passing: JsonPassingArgument[] = [];
+    if (!this.#matchWord("PASSING")) return passing;
+    do {
+      const value = this.#parseJsonValueExpression();
+      this.#expectKeyword("AS");
+      const name = this.#parseIdentifier(true);
+      passing.push({ value, name, range: mergeRanges(value.range, name.range) });
+    } while (this.#matchPunctuation(","));
+    return passing;
+  }
+
   #parseJsonValueExpression(): JsonValueExpression {
     const expression = this.#parseExpression();
-    if (!this.#matchWord("FORMAT")) return { expression, range: expression.range };
+    const format = this.#parseJsonFormat();
+    if (format === undefined) return { expression, range: expression.range };
+    return { expression, format, range: mergeRanges(expression.range, format.range) };
+  }
+
+  #parseJsonFormat(): JsonFormat | undefined {
+    if (!this.#matchWord("FORMAT")) return undefined;
     const formatStart = this.#previous();
     const json = this.#expectWord("JSON");
     let encoding: "UTF8" | "UTF16" | "UTF32" | undefined;
@@ -1492,11 +1575,54 @@ class Parser {
       encoding = normalized as typeof encoding;
       end = token;
     }
-    const format = {
+    return {
       ...(encoding === undefined ? {} : { encoding }),
       range: mergeRanges(formatStart.range, end.range),
     };
-    return { expression, format, range: mergeRanges(expression.range, format.range) };
+  }
+
+  #isJsonQueryBehaviorStart(): boolean {
+    return ["DEFAULT", "ERROR", "NULL", "EMPTY"].some((word) => this.#isWord(this.#current(), word));
+  }
+
+  #isJsonQueryClauseStart(): boolean {
+    if (
+      ["FORMAT", "KEEP", "OMIT", "DEFAULT", "ERROR", "NULL", "EMPTY"].some((word) =>
+        this.#isWord(this.#current(), word),
+      )
+    ) {
+      return true;
+    }
+    if (this.#isWord(this.#current(), "WITHOUT")) {
+      return this.#isWord(this.#peekToken(1), "ARRAY") || this.#isWord(this.#peekToken(1), "WRAPPER");
+    }
+    if (!this.#isWord(this.#current(), "WITH")) return false;
+    return ["CONDITIONAL", "UNCONDITIONAL", "ARRAY", "WRAPPER"].some((word) => this.#isWord(this.#peekToken(1), word));
+  }
+
+  #parseJsonBehaviorClause(): { readonly behavior: JsonBehavior; readonly target: "empty" | "error" } {
+    const start = this.#current();
+    let behavior: JsonBehavior;
+    if (this.#matchKeyword("DEFAULT")) {
+      const expression = this.#parseExpression();
+      behavior = { kind: "default", expression, range: mergeRanges(start.range, expression.range) };
+    } else if (this.#matchWord("ERROR")) {
+      behavior = { kind: "error", range: start.range };
+    } else if (this.#matchKeyword("NULL")) {
+      behavior = { kind: "null", range: start.range };
+    } else {
+      this.#expectWord("EMPTY");
+      const object = this.#matchWord("OBJECT");
+      if (!object) this.#matchKeyword("ARRAY");
+      behavior = {
+        kind: object ? "empty-object" : "empty-array",
+        range: mergeRanges(start.range, this.#previous().range),
+      };
+    }
+    this.#expectKeyword("ON");
+    if (this.#matchWord("EMPTY")) return { behavior, target: "empty" };
+    this.#expectWord("ERROR");
+    return { behavior, target: "error" };
   }
 
   #parseCall(schema: Identifier | undefined, name: Identifier): Expression {
@@ -1762,7 +1888,7 @@ class Parser {
     return { start, end: this.#expectPunctuation(")") };
   }
 
-  #parseTypeName(stopAtClose: boolean): TypeName {
+  #parseTypeName(stopAtClose: boolean, stopBefore?: () => boolean): TypeName {
     const start = this.#current();
     if (!this.#isIdentifierLike(start))
       throw this.#error(`Expected identifier, found ${start.text || "end of query"}`, start.range);
@@ -1801,6 +1927,7 @@ class Parser {
       };
     }
     while (true) {
+      if (stopBefore?.() === true) break;
       if (schemaSeparatorAllowed && this.#matchPunctuation(".")) {
         this.#parseIdentifier(true);
         end = this.#previous();

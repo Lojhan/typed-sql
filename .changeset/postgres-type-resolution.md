@@ -46,6 +46,8 @@ Database parameter identities are now retained even when their configured TypeSc
 PostgreSQL 17 and newer now parse and resolve the grammar-owned `JSON_EXISTS` SQL/JSON expression,
 including formatted inputs, `PASSING` variables, error behavior, parameter identities, nullability,
 and server-version diagnostics.
+The grammar-owned PostgreSQL 17 `JSON_QUERY` form also resolves returning types, JSON output formats,
+wrapper and quote behavior, constant `ON EMPTY` and `ON ERROR` defaults, and exact output nullability.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

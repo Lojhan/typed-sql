@@ -27,6 +27,7 @@ import type {
   GroupingElement,
   Identifier,
   InsertConflictTarget,
+  JsonBehavior,
   JsonValueExpression,
   QualifiedIdentifier,
   SelectItem,
@@ -736,6 +737,14 @@ class Resolver {
           expression.context.expression,
           expression.path,
           ...expression.passing.map(({ value }) => value.expression),
+        ];
+      case "json-query":
+        return [
+          expression.context.expression,
+          expression.path,
+          ...expression.passing.map(({ value }) => value.expression),
+          ...(expression.onEmpty?.expression === undefined ? [] : [expression.onEmpty.expression]),
+          ...(expression.onError?.expression === undefined ? [] : [expression.onError.expression]),
         ];
       case "binary":
         return [expression.left, expression.right];
@@ -1975,6 +1984,7 @@ class Resolver {
     if (expression.kind === "collate") return this.#outputName(expression.expression);
     if (expression.kind === "at-time-zone") return "timezone";
     if (expression.kind === "json-exists") return "json_exists";
+    if (expression.kind === "json-query") return "json_query";
     if (expression.kind === "call") return sqlName(expression.name);
     if (expression.kind === "case") return "case";
     return undefined;
@@ -2297,6 +2307,93 @@ class Resolver {
           tsType: "boolean",
           nullable: context.resolved.nullable || path.nullable || expression.onError === "unknown",
           databaseType: "boolean",
+        };
+      }
+      case "json-query": {
+        this.#requireServerMajor(17, "JSON_QUERY", expression.range);
+        const context = this.#resolveSqlJsonValue(expression.context, scope, ctes, true);
+        const path = this.#resolveExpression(expression.path, scope, ctes, this.#databaseType("jsonpath", true));
+        const pathType =
+          path.databaseType === undefined ? undefined : postgresCanonicalType(path.databaseType, this.#schema);
+        const pathValid =
+          pathType === "jsonpath" ||
+          (pathType !== undefined && postgresTypeCategory(pathType, this.#schema) === "string") ||
+          (expression.path.kind === "literal" && expression.path.value === null);
+        if (!pathValid) {
+          this.#diagnostic(
+            "TSQ203",
+            `JSON_QUERY path must resolve to jsonpath or a character string, received ${path.databaseType ?? path.tsType}`,
+            expression.path.range,
+          );
+        }
+        const passing = expression.passing.map(({ value }) => this.#resolveSqlJsonValue(value, scope, ctes, false));
+        const outputType = expression.returning?.databaseType.name ?? "jsonb";
+        const outputKnown = isKnownPostgresType(outputType, this.#schema);
+        if (!outputKnown) {
+          this.#diagnostic(
+            "TSQ106",
+            `Invalid or unknown PostgreSQL JSON_QUERY return type ${outputType}`,
+            expression.returning?.databaseType.range ?? expression.range,
+          );
+        }
+        const canonicalOutput = outputKnown ? postgresCanonicalType(outputType, this.#schema) : undefined;
+        let outputValid = outputKnown;
+        const outputFormat = expression.returning?.format;
+        if (outputFormat !== undefined) {
+          const mapping =
+            canonicalOutput === undefined ? undefined : postgresCatalogTypeMapping(canonicalOutput, this.#schema);
+          if (mapping !== "string" && mapping !== "bytes" && mapping !== "json") {
+            this.#diagnostic(
+              "TSQ203",
+              `JSON_QUERY FORMAT JSON requires a string, bytea, json, or jsonb return type, received ${outputType}`,
+              outputFormat.range,
+            );
+            outputValid = false;
+          }
+          if (outputFormat.encoding !== undefined) {
+            if (outputFormat.encoding !== "UTF8") {
+              this.#diagnostic(
+                "TSQ203",
+                `PostgreSQL JSON ENCODING supports UTF8, received ${outputFormat.encoding}`,
+                outputFormat.range,
+              );
+              outputValid = false;
+            }
+            if (canonicalOutput !== "bytea") {
+              this.#diagnostic(
+                "TSQ203",
+                `JSON ENCODING requires bytea output, received ${outputType}`,
+                outputFormat.range,
+              );
+              outputValid = false;
+            }
+          }
+        }
+        if (expression.quotes === "omit" && expression.wrapper !== undefined && expression.wrapper !== "without") {
+          this.#diagnostic(
+            "TSQ203",
+            "JSON_QUERY QUOTES behavior cannot be combined with WITH WRAPPER",
+            expression.range,
+          );
+          outputValid = false;
+        }
+        const expectedOutput = canonicalOutput === undefined ? undefined : this.#databaseType(canonicalOutput, true);
+        const onEmpty = this.#resolveJsonQueryBehavior(expression.onEmpty, expectedOutput, scope, ctes);
+        const onError = this.#resolveJsonQueryBehavior(expression.onError, expectedOutput, scope, ctes);
+        if (
+          !context.valid ||
+          !pathValid ||
+          passing.some(({ valid }) => !valid) ||
+          !outputValid ||
+          !onEmpty.valid ||
+          !onError.valid
+        ) {
+          return { tsType: "unknown", nullable: true };
+        }
+        return {
+          tsType: mapPostgresType(canonicalOutput!, this.#policy, this.#schema),
+          nullable: context.resolved.nullable || path.nullable || onEmpty.nullable || onError.nullable,
+          databaseType: canonicalOutput!,
         };
       }
       case "call":
@@ -3429,6 +3526,57 @@ class Resolver {
     }
 
     return { resolved, valid };
+  }
+
+  #resolveJsonQueryBehavior(
+    behavior: JsonBehavior | undefined,
+    expected: ResolvedType | undefined,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): { readonly nullable: boolean; readonly valid: boolean } {
+    if (behavior === undefined || behavior.kind === "null") return { nullable: true, valid: true };
+    if (behavior.kind !== "default") return { nullable: false, valid: true };
+    const expression = behavior.expression!;
+    const resolved = this.#resolveExpression(expression, scope, ctes, expected);
+    let valid = true;
+    if (!this.#isSqlJsonDefaultExpression(expression)) {
+      this.#diagnostic(
+        "TSQ203",
+        "SQL/JSON DEFAULT must be a constant expression without parameters, columns, subqueries, aggregates, or windows",
+        expression.range,
+      );
+      valid = false;
+    }
+    if (
+      expected?.databaseType !== undefined &&
+      resolved.databaseType !== undefined &&
+      !this.#isUnknownCastSource(expression) &&
+      !postgresCanCoerce(resolved.databaseType, expected.databaseType, "assignment", this.#schema)
+    ) {
+      this.#diagnostic(
+        "TSQ203",
+        `SQL/JSON DEFAULT of type ${resolved.databaseType} cannot be coerced to ${expected.databaseType}`,
+        expression.range,
+      );
+      valid = false;
+    }
+    return { nullable: resolved.nullable, valid };
+  }
+
+  #isSqlJsonDefaultExpression(expression: Expression): boolean {
+    if (
+      expression.kind === "column" ||
+      expression.kind === "parameter" ||
+      expression.kind === "star" ||
+      expression.kind === "subquery" ||
+      expression.kind === "exists"
+    ) {
+      return false;
+    }
+    if (expression.kind === "call" && (expression.over !== undefined || this.#isAggregateCall(expression))) {
+      return false;
+    }
+    return this.#expressionChildren(expression).every((child) => this.#isSqlJsonDefaultExpression(child));
   }
 
   #isDefaultValue(expression: Expression | undefined): boolean {
