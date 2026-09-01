@@ -17,6 +17,7 @@ import {
   type NamedTableReference,
   type NamedWindow,
   type OrderByItem,
+  type QualifiedIdentifier,
   type SelectItem,
   type SelectLockingClause,
   type SelectStatement,
@@ -714,8 +715,12 @@ class Parser {
       const elements = [];
       do {
         const elementStart = this.#current().range;
-        const expression = this.#parseExpression();
-        const collation = this.#matchKeyword("COLLATE") ? this.#parseQualifiedIdentifier() : undefined;
+        let expression = this.#parseExpression();
+        let collation: QualifiedIdentifier | undefined;
+        if (expression.kind === "collate") {
+          collation = expression.collation;
+          expression = expression.expression;
+        } else if (this.#matchKeyword("COLLATE")) collation = this.#parseQualifiedIdentifier();
         const operatorClass =
           this.#current().value !== "," && this.#current().value !== ")" ? this.#parseQualifiedIdentifier() : undefined;
         elements.push({
@@ -1149,6 +1154,41 @@ class Parser {
             syntax: "postgres",
             range: mergeRanges(left.range, databaseType.range),
           };
+          continue;
+        }
+        if (this.#syntax === "postgres" && this.#matchKeyword("COLLATE")) {
+          const collation = this.#parseQualifiedIdentifier();
+          left = {
+            kind: "collate",
+            expression: left,
+            collation,
+            range: mergeRanges(left.range, collation.range),
+          };
+          continue;
+        }
+        if (this.#syntax === "postgres" && this.#current().value === "AT") {
+          const strength = 8;
+          if (strength < minimum) break;
+          this.#advance();
+          if (this.#matchKeyword("TIME")) {
+            this.#expectKeyword("ZONE");
+            const zone = this.#parseExpression(strength + 1);
+            left = {
+              kind: "at-time-zone",
+              expression: left,
+              zone,
+              local: false,
+              range: mergeRanges(left.range, zone.range),
+            };
+          } else {
+            const local = this.#expectKeyword("LOCAL");
+            left = {
+              kind: "at-time-zone",
+              expression: left,
+              local: true,
+              range: mergeRanges(left.range, local.range),
+            };
+          }
           continue;
         }
 

@@ -132,6 +132,32 @@ await describe("PostgreSQL-owned parser", async () => {
     strict.strictEqual(fields, 4);
   });
 
+  await it("owns COLLATE and AT TIME ZONE expression modifiers", () => {
+    const statement = parseStatement(`
+      SELECT name COLLATE pg_catalog."C",
+             created_at AT TIME ZONE 'UTC',
+             (created_at AT TIME ZONE zone_name) COLLATE "default",
+             created_at AT LOCAL
+      FROM events
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns.map(({ expression }) => expression.kind),
+      ["collate", "at-time-zone", "collate", "at-time-zone"],
+    );
+    const nested = statement.columns[2]?.expression;
+    strict.strictEqual(nested?.kind === "collate" ? nested.expression.kind : undefined, "at-time-zone");
+    const visited: string[] = [];
+    walkStatement(statement, {
+      expression(expression) {
+        visited.push(expression.kind);
+      },
+    });
+    strict.strictEqual(visited.filter((kind) => kind === "collate").length, 2);
+    strict.strictEqual(visited.filter((kind) => kind === "at-time-zone").length, 3);
+  });
+
   await it("owns quantified and row comparisons", () => {
     const statement = parseStatement(`
       SELECT id = ANY(scores),

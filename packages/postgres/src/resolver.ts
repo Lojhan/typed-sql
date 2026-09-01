@@ -53,6 +53,7 @@ import {
   postgresCanonicalType,
   postgresCommonType,
   postgresElementType,
+  postgresTypeCategory,
   resolvePostgresCandidates,
   resolvePostgresOperator,
   resolvePostgresUnaryOperator,
@@ -725,6 +726,10 @@ class Resolver {
         ];
       case "field-access":
         return [expression.expression];
+      case "collate":
+        return [expression.expression];
+      case "at-time-zone":
+        return [expression.expression, ...(expression.zone === undefined ? [] : [expression.zone])];
       case "binary":
         return [expression.left, expression.right];
       case "case":
@@ -1690,7 +1695,7 @@ class Resolver {
     if (selectedRoutine !== undefined) {
       const { routine, argumentTypes, resultType } = selectedRoutine;
       expression.arguments.forEach((argument, index) => {
-        if (argument.kind === "parameter") {
+        if (this.#acceptsTypeContext(argument)) {
           this.#resolveExpression(argument, scope, ctes, this.#databaseType(argumentTypes[index]!, true));
         }
       });
@@ -1926,6 +1931,8 @@ class Resolver {
     if (expression.kind === "cast") return this.#outputName(expression.expression);
     if (expression.kind === "subscript") return this.#outputName(expression.expression);
     if (expression.kind === "field-access") return sqlName(expression.field);
+    if (expression.kind === "collate") return this.#outputName(expression.expression);
+    if (expression.kind === "at-time-zone") return "timezone";
     if (expression.kind === "call") return sqlName(expression.name);
     if (expression.kind === "case") return "case";
     return undefined;
@@ -2092,6 +2099,73 @@ class Resolver {
           databaseType: field.databaseType,
         };
       }
+      case "collate": {
+        const contextual =
+          expected !== undefined && this.#acceptsTypeContext(expression.expression)
+            ? { ...expected, nullable: true }
+            : expected;
+        const source = this.#resolveExpression(expression.expression, scope, ctes, contextual);
+        if (
+          source.databaseType === undefined &&
+          (this.#acceptsTypeContext(expression.expression) ||
+            (expression.expression.kind === "literal" && expression.expression.value === null))
+        )
+          return source;
+        if (source.databaseType === undefined || postgresTypeCategory(source.databaseType, this.#schema) !== "string") {
+          this.#diagnostic(
+            "TSQ203",
+            `COLLATE requires a collatable string value, received ${source.databaseType ?? source.tsType}`,
+            expression.range,
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+        return source;
+      }
+      case "at-time-zone": {
+        const conversion = expression.local ? "AT LOCAL" : "AT TIME ZONE";
+        if (expression.local) this.#requireServerMajor(17, "AT LOCAL", expression.range);
+        const source = this.#resolveExpression(expression.expression, scope, ctes);
+        const zone =
+          expression.zone === undefined
+            ? undefined
+            : this.#resolveExpression(expression.zone, scope, ctes, this.#databaseType("text", true));
+        const sourceType =
+          source.databaseType === undefined ? undefined : postgresCanonicalType(source.databaseType, this.#schema);
+        const zoneType =
+          zone?.databaseType === undefined ? undefined : postgresCanonicalType(zone.databaseType, this.#schema);
+        const validZone =
+          expression.local ||
+          (zoneType !== undefined &&
+            (zoneType === "interval" || postgresCanCoerce(zoneType, "text", "implicit", this.#schema)));
+        const resultType =
+          sourceType === "timestamp"
+            ? "timestamptz"
+            : sourceType === "timestamptz"
+              ? "timestamp"
+              : sourceType === "timetz"
+                ? "timetz"
+                : undefined;
+        if (resultType === undefined) {
+          this.#diagnostic(
+            "TSQ203",
+            `${conversion} requires timestamp, timestamp with time zone, or time with time zone; received ${source.databaseType ?? source.tsType}`,
+            expression.expression.range,
+          );
+        }
+        if (!validZone) {
+          this.#diagnostic(
+            "TSQ203",
+            `${conversion} requires a text or interval zone, received ${zone?.databaseType ?? zone?.tsType ?? "unknown"}`,
+            expression.zone?.range ?? expression.range,
+          );
+        }
+        if (resultType === undefined || !validZone) return { tsType: "unknown", nullable: true };
+        return {
+          tsType: mapPostgresType(resultType, this.#policy, this.#schema),
+          nullable: source.nullable || (zone?.nullable ?? false),
+          databaseType: resultType,
+        };
+      }
       case "cast": {
         const castType = this.#databaseType(expression.databaseType.name, true);
         const source = this.#resolveExpression(expression.expression, scope, ctes, castType);
@@ -2140,7 +2214,7 @@ class Resolver {
           );
           return { tsType: "unknown", nullable: true };
         }
-        if (expression.expression.kind === "parameter") {
+        if (this.#acceptsTypeContext(expression.expression)) {
           operand = this.#resolveExpression(
             expression.expression,
             scope,
@@ -2255,7 +2329,7 @@ class Resolver {
           );
           return { tsType: "unknown", nullable: true };
         }
-        if (expression.left.kind === "parameter") {
+        if (this.#acceptsTypeContext(expression.left)) {
           left = this.#resolveExpression(
             expression.left,
             scope,
@@ -2320,7 +2394,7 @@ class Resolver {
     }
     let left: ResolvedType;
     let right: ResolvedType;
-    if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
+    if (this.#acceptsTypeContext(expression.left) && !this.#acceptsTypeContext(expression.right)) {
       right = this.#resolveExpression(expression.right, scope, ctes);
       left = this.#resolveExpression(expression.left, scope, ctes);
     } else {
@@ -2354,7 +2428,7 @@ class Resolver {
         );
         return { tsType: "unknown", nullable: true };
       }
-      if (expression.left.kind === "parameter") {
+      if (this.#acceptsTypeContext(expression.left)) {
         left = this.#resolveExpression(
           expression.left,
           scope,
@@ -2362,7 +2436,7 @@ class Resolver {
           this.#databaseType(operator.argumentTypes[0]!, right.nullable),
         );
       }
-      if (expression.right.kind === "parameter") {
+      if (this.#acceptsTypeContext(expression.right)) {
         right = this.#resolveExpression(
           expression.right,
           scope,
@@ -2418,7 +2492,7 @@ class Resolver {
           `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} quantified row operator ${expression.operator} for position ${index + 1}`,
           expression.range,
         );
-      } else if (leftExpression.kind === "parameter") {
+      } else if (this.#acceptsTypeContext(leftExpression)) {
         left = this.#resolveExpression(
           leftExpression,
           scope,
@@ -2470,14 +2544,14 @@ class Resolver {
           expression.range,
         );
       } else {
-        if (leftExpression.kind === "parameter")
+        if (this.#acceptsTypeContext(leftExpression))
           left = this.#resolveExpression(
             leftExpression,
             scope,
             ctes,
             this.#databaseType(operator.argumentTypes[0]!, left.nullable),
           );
-        if (rightExpression.kind === "parameter")
+        if (this.#acceptsTypeContext(rightExpression))
           right = this.#resolveExpression(
             rightExpression,
             scope,
@@ -2757,7 +2831,7 @@ class Resolver {
       );
       if (selection.kind === "selected") {
         expression.arguments.forEach((argument, index) => {
-          if (argument.kind === "parameter") {
+          if (this.#acceptsTypeContext(argument)) {
             this.#resolveExpression(argument, scope, ctes, this.#databaseType(selection.argumentTypes[index]!, true));
           }
         });
@@ -2801,7 +2875,7 @@ class Resolver {
     const selected = exact.length === 1 ? exact[0] : candidates.length === 1 ? candidates[0] : undefined;
     if (selected !== undefined) {
       expression.arguments.forEach((argument, index) => {
-        if (argument.kind === "parameter") {
+        if (this.#acceptsTypeContext(argument)) {
           this.#resolveExpression(argument, scope, ctes, this.#databaseType(selected.argumentTypes[index]!, true));
         }
       });
@@ -2829,11 +2903,18 @@ class Resolver {
   }
 
   #overloadInputType(expression: Expression, resolved: ResolvedType | undefined): string | undefined {
-    if (expression.kind === "parameter") return undefined;
+    if (this.#acceptsTypeContext(expression)) return undefined;
     if (expression.kind === "literal" && (expression.value === null || typeof expression.value === "string")) {
       return undefined;
     }
     return resolved?.databaseType;
+  }
+
+  #acceptsTypeContext(expression: Expression): boolean {
+    return (
+      expression.kind === "parameter" ||
+      (expression.kind === "collate" && this.#acceptsTypeContext(expression.expression))
+    );
   }
 
   #isUnknownCastSource(expression: Expression): boolean {

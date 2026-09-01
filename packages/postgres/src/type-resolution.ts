@@ -136,6 +136,11 @@ function category(databaseType: string, schema?: SchemaSnapshot): PostgresTypeCa
   return evidence === undefined ? undefined : "user";
 }
 
+/** PostgreSQL type category after aliases and domains are resolved. */
+export function postgresTypeCategory(databaseType: string, schema?: SchemaSnapshot): PostgresTypeCategory | undefined {
+  return category(databaseType, schema);
+}
+
 function isPreferred(databaseType: string, schema?: SchemaSnapshot): boolean {
   return postgresCatalogType(baseType(databaseType, schema), schema)?.preferred ?? false;
 }

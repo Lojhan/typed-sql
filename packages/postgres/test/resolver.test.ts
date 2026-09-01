@@ -1174,6 +1174,101 @@ await describe("query resolver", async () => {
     strict.ok(nonComposite.diagnostics.some(({ code }) => code === "TSQ203"));
   });
 
+  await it("resolves COLLATE and exact AT TIME ZONE signatures", () => {
+    const temporalSchema = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        events: {
+          name: "events",
+          columns: {
+            title: { name: "title", databaseType: "text", tsType: "string", nullable: false },
+            local_time: { name: "local_time", databaseType: "timestamp", tsType: "Date", nullable: false },
+            instant: { name: "instant", databaseType: "timestamptz", tsType: "Date", nullable: true },
+            local_clock: { name: "local_clock", databaseType: "time", tsType: "string", nullable: false },
+            clock: { name: "clock", databaseType: "timetz", tsType: "string", nullable: false },
+            zone_interval: {
+              name: "zone_interval",
+              databaseType: "interval",
+              tsType: "string",
+              nullable: false,
+            },
+            count: { name: "count", databaseType: "integer", tsType: "number", nullable: false },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT title COLLATE pg_catalog."C",
+               local_time AT TIME ZONE $1 AS instant_from_local,
+               instant AT TIME ZONE 'UTC' AS local_from_instant,
+               clock AT TIME ZONE zone_interval AS shifted_clock,
+               title = ($2 COLLATE "C") AS title_matches,
+               NULL COLLATE "default" AS nullable_text
+        FROM events
+      `),
+      temporalSchema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "title", databaseType: "text", tsType: "string", nullable: false },
+        { name: "instant_from_local", databaseType: "timestamptz", tsType: "Date", nullable: true },
+        { name: "local_from_instant", databaseType: "timestamp", tsType: "Date", nullable: true },
+        { name: "shifted_clock", databaseType: "timetz", tsType: "string", nullable: false },
+        { name: "title_matches", databaseType: "boolean", tsType: "boolean", nullable: true },
+        { name: "nullable_text", databaseType: undefined, tsType: "unknown", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "string" },
+        { index: 2, tsType: "string" },
+      ],
+    );
+
+    const postgres17 = {
+      ...temporalSchema,
+      server: postgresServerEvidence("17.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const local = resolveSelect(
+      parseSelect("SELECT local_time AT LOCAL AS instant, instant AT LOCAL AS local_time FROM events"),
+      postgres17,
+    );
+    strict.deepStrictEqual(local.diagnostics, []);
+    strict.deepStrictEqual(
+      local.columns.map(({ databaseType, nullable }) => ({ databaseType, nullable })),
+      [
+        { databaseType: "timestamptz", nullable: false },
+        { databaseType: "timestamp", nullable: true },
+      ],
+    );
+    const postgres16 = {
+      ...temporalSchema,
+      server: postgresServerEvidence("16.10", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT instant AT LOCAL FROM events"), postgres16).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
+
+    for (const invalid of [
+      'SELECT count COLLATE "C" FROM events',
+      "SELECT title AT TIME ZONE 'UTC' FROM events",
+      "SELECT local_time AT TIME ZONE count FROM events",
+      "SELECT local_clock AT TIME ZONE 'UTC' FROM events",
+    ]) {
+      strict.ok(
+        resolveSelect(parseSelect(invalid), temporalSchema).diagnostics.some(({ code }) => code === "TSQ203"),
+        invalid,
+      );
+    }
+  });
+
   await it("resolves v2 polymorphic and implicitly coercible routine overloads", () => {
     const routineDefaults = {
       kind: "function",

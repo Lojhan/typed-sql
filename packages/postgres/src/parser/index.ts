@@ -4,12 +4,14 @@ export type { TokenizeOptions } from "./tokenizer.js";
 export { DEFAULT_MAX_SQL_LENGTH, DEFAULT_MAX_TOKENS, SqlTokenizeError, tokenize } from "./tokenizer.js";
 export type {
   ArrayExpression,
+  AtTimeZoneExpression,
   BetweenExpression,
   BinaryExpression,
   CallExpression,
   CaseBranch,
   CaseExpression,
   CastExpression,
+  CollateExpression,
   ColumnExpression,
   CommonTableExpression,
   CompoundSelect,

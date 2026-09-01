@@ -16,6 +16,7 @@ const keywords = new Set([
   "ARRAY",
   "AS",
   "ASC",
+  "AT",
   "BETWEEN",
   "BREADTH",
   "BY",
@@ -68,6 +69,7 @@ const keywords = new Set([
   "LEFT",
   "LIKE",
   "LIMIT",
+  "LOCAL",
   "LOCK",
   "LOCKED",
   "MAX",
@@ -115,6 +117,7 @@ const keywords = new Set([
   "SUM",
   "TABLESAMPLE",
   "THEN",
+  "TIME",
   "TIES",
   "TO",
   "TRUE",
@@ -129,6 +132,7 @@ const keywords = new Set([
   "WINDOW",
   "WITH",
   "WITHIN",
+  "ZONE",
 ]);
 
 const operators = [

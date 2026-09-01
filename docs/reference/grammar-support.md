@@ -25,7 +25,10 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `expression.aggregate.within-group` — Ordered-set aggregate WITHIN GROUP syntax | clause | unsupported | exact | unsupported |
 | `expression.array.constructor` — Array constructor and expressions | expression | unsupported | exact | unsupported |
 | `expression.array.subscript` — PostgreSQL array subscripts and slices | expression | unsupported | exact | unsupported |
+| `expression.at-local` — PostgreSQL AT LOCAL conversion | expression | unsupported | exact (from 17) | unsupported |
+| `expression.at-time-zone` — PostgreSQL AT TIME ZONE conversion | expression | unsupported | exact | unsupported |
 | `expression.cast` — CAST expressions and type names | expression | exact | exact | exact |
+| `expression.collate` — Explicit expression collation | expression | unsupported | conservative | unsupported |
 | `expression.composite-field` — PostgreSQL composite field selection | expression | unsupported | exact | unsupported |
 | `expression.function.call` — Catalog and application function calls | function-family | conservative | conservative | conservative (from 3.39.0) |
 | `expression.function.date-time` — SQLite date and time functions and modifiers | function-family | out-of-scope | out-of-scope | exact (from 3.39.0) |

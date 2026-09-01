@@ -26,6 +26,9 @@ represented explicitly, index parameters infer `integer`, and nested array mappi
 the operator catalog, while row comparisons validate arity and select an operator for each field pair.
 Parenthesized composite field selection now uses snapshot v2 field evidence for its database type,
 TypeScript type, nullability, parameter context, and unknown-field diagnostics.
+`COLLATE` now preserves collatable expression types, and `AT TIME ZONE` resolves PostgreSQL's exact
+timestamp, timestamp-with-time-zone, and time-with-time-zone conversions with text or interval zones.
+PostgreSQL 17 and newer also resolve and version-gate the corresponding `AT LOCAL` forms.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

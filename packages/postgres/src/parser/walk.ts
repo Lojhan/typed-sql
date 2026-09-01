@@ -53,6 +53,13 @@ function walkExpression(
     case "field-access":
       walkExpression(expression.expression, statement, visitor, context);
       break;
+    case "collate":
+      walkExpression(expression.expression, statement, visitor, context);
+      break;
+    case "at-time-zone":
+      walkExpression(expression.expression, statement, visitor, context);
+      if (expression.zone !== undefined) walkExpression(expression.zone, statement, visitor, context);
+      break;
     case "binary":
       walkExpression(expression.left, statement, visitor, context);
       walkExpression(expression.right, statement, visitor, context);

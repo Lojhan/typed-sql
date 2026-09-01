@@ -93,6 +93,21 @@ export interface FieldAccessExpression {
   readonly range: SourceRange;
 }
 
+export interface CollateExpression {
+  readonly kind: "collate";
+  readonly expression: Expression;
+  readonly collation: QualifiedIdentifier;
+  readonly range: SourceRange;
+}
+
+export interface AtTimeZoneExpression {
+  readonly kind: "at-time-zone";
+  readonly expression: Expression;
+  readonly zone?: Expression;
+  readonly local: boolean;
+  readonly range: SourceRange;
+}
+
 export interface CallExpression {
   readonly kind: "call";
   readonly name: Identifier;
@@ -192,6 +207,8 @@ export type Expression =
   | RowExpression
   | SubscriptExpression
   | FieldAccessExpression
+  | CollateExpression
+  | AtTimeZoneExpression
   | CallExpression
   | CastExpression
   | BinaryExpression
