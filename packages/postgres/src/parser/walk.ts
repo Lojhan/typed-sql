@@ -72,6 +72,16 @@ function walkExpression(
       if (expression.query !== undefined) walkStatementWithContext(expression.query, visitor, context.ctes);
       if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
       break;
+    case "json-parse":
+      walkExpression(expression.value.expression, statement, visitor, context);
+      break;
+    case "json-scalar":
+      walkExpression(expression.expression, statement, visitor, context);
+      break;
+    case "json-serialize":
+      walkExpression(expression.value.expression, statement, visitor, context);
+      if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
+      break;
     case "json-exists":
       walkExpression(expression.context.expression, statement, visitor, context);
       walkExpression(expression.path, statement, visitor, context);

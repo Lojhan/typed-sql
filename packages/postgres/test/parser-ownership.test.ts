@@ -492,6 +492,66 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 17 SQL/JSON parse, scalar, and serialization syntax", () => {
+    const statement = parseStatement(`
+      SELECT JSON($1 FORMAT JSON ENCODING UTF8 WITH UNIQUE KEYS) AS document,
+             JSON_SCALAR(ARRAY[1, 2]) AS scalar,
+             JSON_SERIALIZE(
+               $2 FORMAT JSON
+               RETURNING bytea FORMAT JSON ENCODING UTF8
+             ) AS serialized
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    const parsed = statement.columns[0]?.expression;
+    strict.strictEqual(parsed?.kind, "json-parse");
+    if (parsed?.kind === "json-parse") {
+      strict.strictEqual(parsed.value.format?.encoding, "UTF8");
+      strict.strictEqual(parsed.uniqueKeys, true);
+    }
+    const scalar = statement.columns[1]?.expression;
+    strict.strictEqual(scalar?.kind, "json-scalar");
+    strict.strictEqual(scalar?.kind === "json-scalar" ? scalar.expression.kind : undefined, "array");
+    const serialized = statement.columns[2]?.expression;
+    strict.strictEqual(serialized?.kind, "json-serialize");
+    if (serialized?.kind === "json-serialize") {
+      strict.strictEqual(serialized.value.format?.encoding, undefined);
+      strict.strictEqual(serialized.returning?.databaseType.name, "bytea");
+      strict.strictEqual(serialized.returning?.format?.encoding, "UTF8");
+    }
+
+    const visited = { parameters: 0, types: [] as string[] };
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "parameter") visited.parameters += 1;
+      },
+      type(type) {
+        visited.types.push(type.name);
+      },
+    });
+    strict.strictEqual(visited.parameters, 2);
+    strict.deepStrictEqual(visited.types, ["bytea"]);
+
+    const typedLiteral = parseStatement("SELECT JSON '{}'");
+    strict.strictEqual(typedLiteral.kind === "select" ? typedLiteral.columns[0]?.expression.kind : undefined, "cast");
+    for (const quoted of ['SELECT "JSON"($1)', 'SELECT "JSON_SCALAR"($1)', 'SELECT "JSON_SERIALIZE"($1)']) {
+      const quotedStatement = parseStatement(quoted);
+      strict.strictEqual(
+        quotedStatement.kind === "select" ? quotedStatement.columns[0]?.expression.kind : undefined,
+        "call",
+      );
+    }
+    for (const invalid of [
+      "SELECT JSON()",
+      "SELECT JSON_SCALAR()",
+      "SELECT JSON_SCALAR(1, 2)",
+      "SELECT JSON_SERIALIZE()",
+      "SELECT JSON_SERIALIZE('{}' RETURNING)",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

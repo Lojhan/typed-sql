@@ -740,6 +740,12 @@ class Resolver {
         return expression.entries.flatMap(({ key, value }) => [key, value.expression]);
       case "json-array":
         return expression.values.map(({ expression: value }) => value);
+      case "json-parse":
+        return [expression.value.expression];
+      case "json-scalar":
+        return [expression.expression];
+      case "json-serialize":
+        return [expression.value.expression];
       case "json-exists":
         return [
           expression.context.expression,
@@ -2201,6 +2207,9 @@ class Resolver {
     if (expression.kind === "at-time-zone") return "timezone";
     if (expression.kind === "json-object") return "json_object";
     if (expression.kind === "json-array") return "json_array";
+    if (expression.kind === "json-parse") return "json";
+    if (expression.kind === "json-scalar") return "json_scalar";
+    if (expression.kind === "json-serialize") return "json_serialize";
     if (expression.kind === "json-exists") return "json_exists";
     if (expression.kind === "json-query") return "json_query";
     if (expression.kind === "json-value") return "json_value";
@@ -2559,6 +2568,63 @@ class Resolver {
         }
         const output = this.#resolveJsonConstructorOutput(expression.returning, "JSON_ARRAY", expression.range);
         return inputsValid && output.valid
+          ? output.resolved
+          : { tsType: "unknown", nullable: true, databaseType: "unknown" };
+      }
+      case "json-parse": {
+        if (this.#serverMajor !== undefined && this.#serverMajor < 17) {
+          if (expression.value.format !== undefined || expression.uniqueKeys) {
+            this.#requireServerMajor(17, "JSON constructor", expression.range);
+            this.#resolveExpression(expression.value.expression, scope, ctes);
+            return { tsType: "unknown", nullable: true, databaseType: "unknown" };
+          }
+          const source = this.#resolveExpression(expression.value.expression, scope, ctes);
+          const nullLiteral =
+            expression.value.expression.kind === "literal" && expression.value.expression.value === null;
+          if (source.databaseType === undefined && !nullLiteral) {
+            this.#diagnostic(
+              "TSQ202",
+              "PostgreSQL before 17 cannot resolve this functional json cast input",
+              expression.value.expression.range,
+            );
+            return { tsType: "unknown", nullable: true, databaseType: "unknown" };
+          }
+          if (
+            source.databaseType !== undefined &&
+            !this.#isUnknownCastSource(expression.value.expression) &&
+            !postgresCanCoerce(source.databaseType, "json", "explicit", this.#schema)
+          ) {
+            this.#diagnostic(
+              "TSQ230",
+              `PostgreSQL has no recorded explicit cast from ${source.databaseType} to json`,
+              expression.range,
+            );
+            return { tsType: "unknown", nullable: true, databaseType: "unknown" };
+          }
+          return { tsType: this.#policy.json, nullable: source.nullable, databaseType: "json" };
+        }
+        this.#requireServerMajor(17, "JSON constructor", expression.range);
+        const input = this.#resolveJsonStringInput(expression.value, scope, ctes, "JSON constructor");
+        return input.valid
+          ? { tsType: this.#policy.json, nullable: input.resolved.nullable, databaseType: "json" }
+          : { tsType: "unknown", nullable: true, databaseType: "unknown" };
+      }
+      case "json-scalar": {
+        this.#requireServerMajor(17, "JSON_SCALAR", expression.range);
+        const input = this.#resolveExpression(expression.expression, scope, ctes, this.#databaseType("text", true));
+        return input.databaseType !== undefined || input.tsType !== "unknown"
+          ? { tsType: this.#policy.json, nullable: input.nullable, databaseType: "json" }
+          : { tsType: "unknown", nullable: true, databaseType: "unknown" };
+      }
+      case "json-serialize": {
+        this.#requireServerMajor(17, "JSON_SERIALIZE", expression.range);
+        const input = this.#resolveJsonStringInput(expression.value, scope, ctes, "JSON_SERIALIZE");
+        const output = this.#resolveJsonSerializeOutput(
+          expression.returning,
+          expression.range,
+          input.resolved.nullable,
+        );
+        return input.valid && output.valid
           ? output.resolved
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
@@ -3874,6 +3940,101 @@ class Resolver {
     return (
       resolved.databaseType !== undefined || (value.expression.kind === "literal" && value.expression.value === null)
     );
+  }
+
+  #resolveJsonStringInput(
+    value: JsonValueExpression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    feature: "JSON constructor" | "JSON_SERIALIZE",
+  ): { readonly resolved: ResolvedType; readonly valid: boolean } {
+    const expected = value.format?.encoding === undefined ? this.#databaseType("text", true) : undefined;
+    const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);
+    const canonical =
+      resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
+    const validInput =
+      canonical === "json" ||
+      canonical === "jsonb" ||
+      canonical === "bytea" ||
+      (canonical !== undefined && postgresTypeCategory(canonical, this.#schema) === "string");
+    let valid = validInput;
+    if (!validInput) {
+      this.#diagnostic(
+        "TSQ203",
+        `${feature} input must resolve to json, jsonb, a character string, or bytea; received ${resolved.databaseType ?? resolved.tsType}`,
+        value.expression.range,
+      );
+    }
+    if (value.format?.encoding !== undefined) {
+      if (value.format.encoding !== "UTF8") {
+        this.#diagnostic(
+          "TSQ203",
+          `PostgreSQL JSON ENCODING supports UTF8, received ${value.format.encoding}`,
+          value.format.range,
+        );
+        valid = false;
+      }
+      if (canonical !== "bytea") {
+        this.#diagnostic(
+          "TSQ203",
+          `JSON ENCODING requires bytea input, received ${resolved.databaseType ?? resolved.tsType}`,
+          value.format.range,
+        );
+        valid = false;
+      }
+    }
+    return { resolved, valid };
+  }
+
+  #resolveJsonSerializeOutput(
+    returning: JsonReturning | undefined,
+    range: SourceRange,
+    nullable: boolean,
+  ): { readonly resolved: ResolvedType; readonly valid: boolean } {
+    const requestedType = returning?.databaseType.name ?? "text";
+    const known = isKnownPostgresType(requestedType, this.#schema);
+    if (!known) {
+      this.#diagnostic(
+        "TSQ106",
+        `Invalid or unknown PostgreSQL JSON_SERIALIZE return type ${requestedType}`,
+        returning?.databaseType.range ?? range,
+      );
+      return { resolved: { tsType: "unknown", nullable: true, databaseType: "unknown" }, valid: false };
+    }
+    const canonical = postgresCanonicalType(requestedType, this.#schema);
+    const mapping = postgresCatalogTypeMapping(canonical, this.#schema);
+    let valid = mapping === "string" || mapping === "bytes";
+    if (!valid) {
+      this.#diagnostic(
+        "TSQ203",
+        `JSON_SERIALIZE RETURNING requires a character string or bytea type; received ${requestedType}`,
+        returning?.databaseType.range ?? range,
+      );
+    }
+    if (returning?.format?.encoding !== undefined) {
+      if (returning.format.encoding !== "UTF8") {
+        this.#diagnostic(
+          "TSQ203",
+          `PostgreSQL JSON ENCODING supports UTF8, received ${returning.format.encoding}`,
+          returning.format.range,
+        );
+        valid = false;
+      }
+      if (canonical !== "bytea") {
+        this.#diagnostic(
+          "TSQ203",
+          `JSON ENCODING requires bytea output, received ${requestedType}`,
+          returning.format.range,
+        );
+        valid = false;
+      }
+    }
+    return {
+      resolved: valid
+        ? { tsType: mapPostgresType(canonical, this.#policy, this.#schema), nullable, databaseType: canonical }
+        : { tsType: "unknown", nullable: true, databaseType: "unknown" },
+      valid,
+    };
   }
 
   #validateSqlJsonFormat(format: JsonFormat, resolved: ResolvedType, feature: string): boolean {

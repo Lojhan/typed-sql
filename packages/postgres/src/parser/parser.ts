@@ -1592,6 +1592,18 @@ class Parser {
       this.#advance();
       return this.#parseJsonArray(token);
     }
+    if (this.#isWord(token, "JSON") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonParse(token);
+    }
+    if (this.#isWord(token, "JSON_SCALAR") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonScalar(token);
+    }
+    if (this.#isWord(token, "JSON_SERIALIZE") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonSerialize(token);
+    }
     if (this.#isWord(token, "JSON_EXISTS") && this.#peekToken(1).value === "(") {
       this.#advance();
       return this.#parseJsonExists(token);
@@ -1721,6 +1733,34 @@ class Parser {
       ...(query === undefined ? {} : { query }),
       ...(queryFormat === undefined ? {} : { queryFormat }),
       nullPolicy,
+      ...(returning === undefined ? {} : { returning }),
+      range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonParse(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const value = this.#parseJsonValueExpression();
+    const uniqueKeys = this.#parseJsonUniqueKeys();
+    const close = this.#expectPunctuation(")");
+    return { kind: "json-parse", value, uniqueKeys, range: mergeRanges(start.range, close.range) };
+  }
+
+  #parseJsonScalar(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const expression = this.#parseExpression();
+    const close = this.#expectPunctuation(")");
+    return { kind: "json-scalar", expression, range: mergeRanges(start.range, close.range) };
+  }
+
+  #parseJsonSerialize(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const value = this.#parseJsonValueExpression();
+    const returning = this.#parseJsonReturning();
+    const close = this.#expectPunctuation(")");
+    return {
+      kind: "json-serialize",
+      value,
       ...(returning === undefined ? {} : { returning }),
       range: mergeRanges(start.range, close.range),
     };

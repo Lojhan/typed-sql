@@ -589,6 +589,121 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves and version-gates PostgreSQL 17 SQL/JSON identity forms", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT JSON('{}') AS document,
+               JSON(name) AS named_document,
+               JSON($2 WITH UNIQUE KEYS) AS parameterized_document,
+               JSON_SCALAR(id) AS scalar,
+               JSON_SCALAR(age) AS nullable_scalar,
+               JSON_SCALAR($3) AS parameterized_scalar,
+               JSON_SERIALIZE('{}') AS serialized,
+               JSON_SERIALIZE(name RETURNING varchar) AS named_serialized,
+               JSON_SERIALIZE(
+                 $1::bytea FORMAT JSON ENCODING UTF8
+                 RETURNING bytea FORMAT JSON ENCODING UTF8
+               ) AS binary_serialized,
+               JSON_SERIALIZE($4 FORMAT JSON) AS parameterized_serialized
+        FROM users
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "document", databaseType: "json", tsType: "unknown", nullable: false },
+        { name: "named_document", databaseType: "json", tsType: "unknown", nullable: false },
+        { name: "parameterized_document", databaseType: "json", tsType: "unknown", nullable: true },
+        { name: "scalar", databaseType: "json", tsType: "unknown", nullable: false },
+        { name: "nullable_scalar", databaseType: "json", tsType: "unknown", nullable: true },
+        { name: "parameterized_scalar", databaseType: "json", tsType: "unknown", nullable: true },
+        { name: "serialized", databaseType: "text", tsType: "string", nullable: false },
+        { name: "named_serialized", databaseType: "varchar", tsType: "string", nullable: false },
+        { name: "binary_serialized", databaseType: "bytea", tsType: "Uint8Array", nullable: true },
+        { name: "parameterized_serialized", databaseType: "text", tsType: "string", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "bytea", tsType: "Uint8Array" },
+        { index: 2, databaseType: "text", tsType: "string" },
+        { index: 3, databaseType: "text", tsType: "string" },
+        { index: 4, databaseType: "text", tsType: "string" },
+      ],
+    );
+
+    const composites = resolveSelect(
+      parseSelect("SELECT JSON_SCALAR(ARRAY[1, 2]) AS array_value, JSON_SCALAR(ROW(1, true)) AS row_value"),
+      postgres18,
+    );
+    strict.deepStrictEqual(composites.diagnostics, []);
+    strict.deepStrictEqual(
+      composites.columns.map(({ databaseType, nullable }) => ({ databaseType, nullable })),
+      [
+        { databaseType: "json", nullable: false },
+        { databaseType: "json", nullable: false },
+      ],
+    );
+
+    for (const invalid of [
+      "SELECT JSON(1) AS value",
+      "SELECT JSON('{}' FORMAT JSON ENCODING UTF8) AS value",
+      "SELECT JSON(convert_to('{}', 'UTF8') FORMAT JSON ENCODING UTF16) AS value",
+      "SELECT JSON_SERIALIZE(1) AS value",
+      "SELECT JSON_SERIALIZE('{}' RETURNING jsonb) AS value",
+      "SELECT JSON_SERIALIZE('{}' RETURNING integer) AS value",
+      "SELECT JSON_SERIALIZE('{}' RETURNING missing_type) AS value",
+      "SELECT JSON_SERIALIZE('{}' RETURNING text FORMAT JSON ENCODING UTF8) AS value",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), postgres18);
+      strict.ok(
+        invalidResult.diagnostics.some(({ code }) => ["TSQ106", "TSQ203"].includes(code)),
+        invalid,
+      );
+      strict.strictEqual(invalidResult.columns[0]?.tsType, "unknown", invalid);
+    }
+
+    const postgres16 = {
+      ...postgres18,
+      server: postgresServerEvidence("16.10", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const legacyCast = resolveSelect(parseSelect("SELECT JSON('{}') AS value"), postgres16);
+    strict.deepStrictEqual(legacyCast.diagnostics, []);
+    strict.deepStrictEqual(
+      legacyCast.columns.map(({ databaseType, nullable }) => ({ databaseType, nullable })),
+      [{ databaseType: "json", nullable: false }],
+    );
+    const unresolvedLegacyCast = resolveSelect(parseSelect("SELECT JSON($1) AS value"), postgres16);
+    strict.ok(unresolvedLegacyCast.diagnostics.some(({ code }) => code === "TSQ202"));
+    strict.strictEqual(unresolvedLegacyCast.columns[0]?.tsType, "unknown");
+    strict.deepStrictEqual(
+      unresolvedLegacyCast.parameters.map(({ databaseType, tsType }) => ({ databaseType, tsType })),
+      [{ databaseType: undefined, tsType: "unknown" }],
+    );
+    const invalidLegacyCast = resolveSelect(parseSelect("SELECT JSON(1) AS value"), postgres16);
+    strict.ok(invalidLegacyCast.diagnostics.some(({ code }) => code === "TSQ230"));
+    strict.strictEqual(invalidLegacyCast.columns[0]?.tsType, "unknown");
+    for (const query of [
+      "SELECT JSON('{}' WITH UNIQUE KEYS)",
+      "SELECT JSON_SCALAR(1)",
+      "SELECT JSON_SERIALIZE('{}')",
+    ]) {
+      strict.ok(resolveSelect(parseSelect(query), postgres16).diagnostics.some(({ code }) => code === "TSQ403"));
+    }
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_SCALAR(1)"), upgradeSchemaSnapshotV1(schema)).diagnostics.some(
+        ({ code }) => code === "TSQ402",
+      ),
+    );
+  });
+
   await it("resolves and version-gates PostgreSQL 17 JSON_TABLE", () => {
     const postgres18 = {
       ...upgradeSchemaSnapshotV1(schema),

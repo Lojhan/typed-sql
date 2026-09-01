@@ -54,6 +54,10 @@ PostgreSQL 16 and newer now parse and resolve the standard `JSON_OBJECT` and `JS
 constructors, including key/value and query forms, null handling, unique-key declarations, formatted
 inputs, encoded returns, parameter identities, non-null output types, and server-version diagnostics.
 Legacy and quoted `json_object(...)` calls remain ordinary catalog-backed routine calls.
+PostgreSQL 17 and newer also own `JSON`, `JSON_SCALAR`, and `JSON_SERIALIZE`, including JSON-compatible
+inputs, uniqueness declarations, scalar and composite conversion, string or binary returns, UTF-8
+encoding, parameter inference, null propagation, and version diagnostics. The overlapping pre-17
+functional `json(...)` cast keeps its earlier cast semantics.
 PostgreSQL 17 `JSON_TABLE` now owns its table-reference grammar and resolves root, ordinality,
 scalar, formatted, `EXISTS`, and nested columns with implicit lateral scope, alias lists, declared
 types, behavior validation, nested null-padding, and server-version diagnostics.

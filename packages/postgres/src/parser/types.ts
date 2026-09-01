@@ -162,6 +162,26 @@ export interface JsonArrayExpression {
   readonly range: SourceRange;
 }
 
+export interface JsonParseExpression {
+  readonly kind: "json-parse";
+  readonly value: JsonValueExpression;
+  readonly uniqueKeys: boolean;
+  readonly range: SourceRange;
+}
+
+export interface JsonScalarExpression {
+  readonly kind: "json-scalar";
+  readonly expression: Expression;
+  readonly range: SourceRange;
+}
+
+export interface JsonSerializeExpression {
+  readonly kind: "json-serialize";
+  readonly value: JsonValueExpression;
+  readonly returning?: JsonReturning;
+  readonly range: SourceRange;
+}
+
 export interface JsonExistsExpression {
   readonly kind: "json-exists";
   readonly context: JsonValueExpression;
@@ -298,6 +318,9 @@ export type Expression =
   | AtTimeZoneExpression
   | JsonObjectExpression
   | JsonArrayExpression
+  | JsonParseExpression
+  | JsonScalarExpression
+  | JsonSerializeExpression
   | JsonExistsExpression
   | JsonQueryExpression
   | JsonValueQueryExpression
