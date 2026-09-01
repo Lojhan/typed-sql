@@ -162,6 +162,29 @@ export interface JsonArrayExpression {
   readonly range: SourceRange;
 }
 
+export interface JsonObjectAggregateExpression {
+  readonly kind: "json-object-aggregate";
+  readonly key: Expression;
+  readonly value: JsonValueExpression;
+  readonly nullPolicy: "null" | "absent";
+  readonly uniqueKeys: boolean;
+  readonly returning?: JsonReturning;
+  readonly filter?: Expression;
+  readonly over?: Identifier | WindowSpecification;
+  readonly range: SourceRange;
+}
+
+export interface JsonArrayAggregateExpression {
+  readonly kind: "json-array-aggregate";
+  readonly value: JsonValueExpression;
+  readonly orderBy: readonly OrderByItem[];
+  readonly nullPolicy: "null" | "absent";
+  readonly returning?: JsonReturning;
+  readonly filter?: Expression;
+  readonly over?: Identifier | WindowSpecification;
+  readonly range: SourceRange;
+}
+
 export interface JsonParseExpression {
   readonly kind: "json-parse";
   readonly value: JsonValueExpression;
@@ -327,6 +350,8 @@ export type Expression =
   | AtTimeZoneExpression
   | JsonObjectExpression
   | JsonArrayExpression
+  | JsonObjectAggregateExpression
+  | JsonArrayAggregateExpression
   | JsonParseExpression
   | JsonScalarExpression
   | JsonSerializeExpression

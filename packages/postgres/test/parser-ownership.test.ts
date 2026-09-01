@@ -492,6 +492,64 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 16 SQL/JSON aggregate syntax", () => {
+    const statement = parseStatement(`
+      SELECT JSON_OBJECTAGG(
+               ($1::text) VALUE $2 FORMAT JSON
+               ABSENT ON NULL
+               WITH UNIQUE KEYS
+               RETURNING jsonb
+             ) FILTER (WHERE $3) AS object_value,
+             JSON_ARRAYAGG(
+               $4 ORDER BY created_at DESC NULLS LAST
+               NULL ON NULL
+               RETURNING bytea FORMAT JSON ENCODING UTF8
+             ) OVER (PARTITION BY account_id ORDER BY created_at) AS array_value
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    const object = statement.columns[0]?.expression;
+    strict.strictEqual(object?.kind, "json-object-aggregate");
+    if (object?.kind !== "json-object-aggregate") return;
+    strict.strictEqual(object.key.kind, "cast");
+    strict.strictEqual(object.nullPolicy, "absent");
+    strict.strictEqual(object.uniqueKeys, true);
+    strict.strictEqual(object.returning?.databaseType.name, "jsonb");
+    strict.strictEqual(object.filter?.kind, "parameter");
+
+    const array = statement.columns[1]?.expression;
+    strict.strictEqual(array?.kind, "json-array-aggregate");
+    if (array?.kind !== "json-array-aggregate") return;
+    strict.strictEqual(array.orderBy[0]?.direction, "desc");
+    strict.strictEqual(array.orderBy[0]?.nulls, "last");
+    strict.strictEqual(array.nullPolicy, "null");
+    strict.strictEqual(array.returning?.format?.encoding, "UTF8");
+    strict.ok(array.over !== undefined && "partitionBy" in array.over);
+
+    const visited = { parameters: 0, types: [] as string[] };
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "parameter") visited.parameters += 1;
+      },
+      type(type) {
+        visited.types.push(type.name);
+      },
+    });
+    strict.strictEqual(visited.parameters, 4);
+    strict.deepStrictEqual(visited.types, ["text", "jsonb", "bytea"]);
+
+    const quoted = parseStatement('SELECT "JSON_ARRAYAGG"(1)');
+    strict.strictEqual(quoted.kind === "select" ? quoted.columns[0]?.expression.kind : undefined, "call");
+    for (const invalid of [
+      "SELECT JSON_OBJECTAGG('key')",
+      "SELECT JSON_OBJECTAGG('key' VALUE 1 WITH UNIQUE KEYS ABSENT ON NULL)",
+      "SELECT JSON_ARRAYAGG()",
+      "SELECT JSON_ARRAYAGG(1 WITH UNIQUE KEYS)",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns PostgreSQL 17 SQL/JSON parse, scalar, and serialization syntax", () => {
     const statement = parseStatement(`
       SELECT JSON($1 FORMAT JSON ENCODING UTF8 WITH UNIQUE KEYS) AS document,

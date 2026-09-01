@@ -61,6 +61,10 @@ functional `json(...)` cast keeps its earlier cast semantics.
 PostgreSQL 16 and newer now own `IS JSON` and `IS NOT JSON` predicates across value, scalar,
 array, object, and unique-key constraints, with JSON-compatible input validation, text parameter
 inference, SQL-null propagation, and server-version diagnostics.
+PostgreSQL 16 and newer now also own the standard `JSON_OBJECTAGG` and `JSON_ARRAYAGG` grammar,
+including null and uniqueness clauses, aggregate-local ordering, `FILTER`, `OVER`, formatted inputs,
+encoded returns, grouping validation, parameter inference, nullable empty-input results, and
+server-version diagnostics.
 PostgreSQL 17 `JSON_TABLE` now owns its table-reference grammar and resolves root, ordinality,
 scalar, formatted, `EXISTS`, and nested columns with implicit lateral scope, alias lists, declared
 types, behavior validation, nested null-padding, and server-version diagnostics.

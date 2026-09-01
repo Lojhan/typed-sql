@@ -12,9 +12,11 @@ import {
   type InsertStatement,
   type JoinClause,
   type JoinKind,
+  type JsonArrayAggregateExpression,
   type JsonArrayExpression,
   type JsonBehavior,
   type JsonFormat,
+  type JsonObjectAggregateExpression,
   type JsonObjectEntry,
   type JsonPassingArgument,
   type JsonReturning,
@@ -1597,6 +1599,14 @@ class Parser {
     if (simpleTypedLiteralTypes.has(token.value) && this.#peekToken(1).kind === "string") {
       return this.#parseSimpleTypedLiteral();
     }
+    if (this.#isWord(token, "JSON_OBJECTAGG") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonObjectAggregate(token);
+    }
+    if (this.#isWord(token, "JSON_ARRAYAGG") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonArrayAggregate(token);
+    }
     if (
       this.#isWord(token, "JSON_OBJECT") &&
       this.#peekToken(1).value === "(" &&
@@ -1752,6 +1762,80 @@ class Parser {
       nullPolicy,
       ...(returning === undefined ? {} : { returning }),
       range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonObjectAggregate(start: Token): JsonObjectAggregateExpression {
+    this.#expectPunctuation("(");
+    const key = this.#parseExpression();
+    if (!this.#matchWord("VALUE")) this.#expectPunctuation(":");
+    const value = this.#parseJsonValueExpression();
+    const nullPolicy = this.#parseJsonConstructorNullPolicy("null");
+    const uniqueKeys = this.#parseJsonUniqueKeys();
+    const returning = this.#parseJsonReturning();
+    const close = this.#expectPunctuation(")");
+    const suffix = this.#parseAggregateSuffix(close);
+    return {
+      kind: "json-object-aggregate",
+      key,
+      value,
+      nullPolicy,
+      uniqueKeys,
+      ...(returning === undefined ? {} : { returning }),
+      ...suffix,
+      range: mergeRanges(start.range, suffix.end.range),
+    };
+  }
+
+  #parseJsonArrayAggregate(start: Token): JsonArrayAggregateExpression {
+    this.#expectPunctuation("(");
+    const value = this.#parseJsonValueExpression();
+    let orderBy: OrderByItem[] = [];
+    if (this.#matchKeyword("ORDER")) {
+      this.#expectKeyword("BY");
+      orderBy = this.#parseOrderByList();
+    }
+    const nullPolicy = this.#parseJsonConstructorNullPolicy("absent");
+    const returning = this.#parseJsonReturning();
+    const close = this.#expectPunctuation(")");
+    const suffix = this.#parseAggregateSuffix(close);
+    return {
+      kind: "json-array-aggregate",
+      value,
+      orderBy,
+      nullPolicy,
+      ...(returning === undefined ? {} : { returning }),
+      ...suffix,
+      range: mergeRanges(start.range, suffix.end.range),
+    };
+  }
+
+  #parseAggregateSuffix(close: Token): {
+    readonly filter?: Expression;
+    readonly over?: Identifier | WindowSpecification;
+    readonly end: Token;
+  } {
+    let end = close;
+    let filter: Expression | undefined;
+    if (this.#syntax !== "mysql" && this.#matchKeyword("FILTER")) {
+      this.#expectPunctuation("(");
+      this.#expectKeyword("WHERE");
+      filter = this.#parseExpression();
+      end = this.#expectPunctuation(")");
+    }
+    let over: Identifier | WindowSpecification | undefined;
+    if (this.#matchKeyword("OVER")) {
+      if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") {
+        over = this.#parseIdentifier();
+      } else {
+        over = this.#parseWindowSpecification();
+      }
+      end = { ...end, range: over.range };
+    }
+    return {
+      ...(filter === undefined ? {} : { filter }),
+      ...(over === undefined ? {} : { over }),
+      end,
     };
   }
 

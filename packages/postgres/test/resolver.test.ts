@@ -589,6 +589,110 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves PostgreSQL 16 SQL/JSON aggregates with grouping and window semantics", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT JSON_OBJECTAGG(
+                 name VALUE age
+                 ABSENT ON NULL WITH UNIQUE KEYS RETURNING jsonb
+               ) FILTER (WHERE age IS NOT NULL) AS by_name,
+               JSON_ARRAYAGG(
+                 age ORDER BY id DESC NULLS LAST
+                 NULL ON NULL RETURNING text
+               ) AS ages
+        FROM users
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "by_name", databaseType: "jsonb", tsType: "unknown", nullable: true },
+        { name: "ages", databaseType: "text", tsType: "string", nullable: true },
+      ],
+    );
+
+    const parameterized = resolveSelect(
+      parseSelect("SELECT JSON_OBJECTAGG('key' VALUE $1), JSON_ARRAYAGG($2)"),
+      postgres18,
+    );
+    strict.deepStrictEqual(parameterized.diagnostics, []);
+    strict.deepStrictEqual(
+      parameterized.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "text", tsType: "string" },
+        { index: 2, databaseType: "text", tsType: "string" },
+      ],
+    );
+    strict.ok(parameterized.columns.every(({ nullable }) => nullable));
+
+    const windowed = resolveSelect(
+      parseSelect("SELECT JSON_ARRAYAGG(age) OVER (PARTITION BY name ORDER BY id) AS running_ages FROM users"),
+      postgres18,
+    );
+    strict.deepStrictEqual(windowed.diagnostics, []);
+    strict.deepStrictEqual(
+      windowed.columns.map(({ databaseType, nullable }) => ({ databaseType, nullable })),
+      [{ databaseType: "json", nullable: true }],
+    );
+
+    const grouped = resolveSelect(parseSelect("SELECT name, JSON_ARRAYAGG(age) FROM users"), postgres18);
+    strict.ok(grouped.diagnostics.some(({ code }) => code === "TSQ228"));
+    const forbiddenClause = resolveSelect(
+      parseSelect("SELECT id FROM users WHERE JSON_ARRAYAGG(age) IS NOT NULL"),
+      postgres18,
+    );
+    strict.ok(forbiddenClause.diagnostics.some(({ code }) => code === "TSQ228"));
+
+    for (const invalid of [
+      "SELECT JSON_OBJECTAGG(NULL VALUE 1) AS value",
+      "SELECT JSON_OBJECTAGG(JSON '{\"key\":1}' VALUE 1) AS value",
+      "SELECT JSON_OBJECTAGG(ROW(1, 2) VALUE 1) AS value",
+      "SELECT JSON_OBJECTAGG('key' VALUE 1 RETURNING integer) AS value",
+      "SELECT JSON_ARRAYAGG(1 FORMAT JSON) AS value",
+      "SELECT JSON_ARRAYAGG(1 RETURNING missing_type) AS value",
+      "SELECT JSON_ARRAYAGG(convert_to('{}', 'UTF8') FORMAT JSON ENCODING UTF16) AS value",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), postgres18);
+      strict.ok(
+        invalidResult.diagnostics.some(({ code }) => code === "TSQ106" || code === "TSQ203"),
+        invalid,
+      );
+      strict.strictEqual(invalidResult.columns[0]?.tsType, "unknown", invalid);
+    }
+
+    const unresolvedKey = resolveSelect(parseSelect("SELECT JSON_OBJECTAGG($1 VALUE $2)"), postgres18);
+    strict.strictEqual(unresolvedKey.columns[0]?.tsType, "unknown");
+    strict.deepStrictEqual(
+      unresolvedKey.parameters.map(({ databaseType, tsType }) => ({ databaseType, tsType })),
+      [
+        { databaseType: undefined, tsType: "unknown" },
+        { databaseType: "text", tsType: "string" },
+      ],
+    );
+
+    const postgres15 = {
+      ...postgres18,
+      server: postgresServerEvidence("15.14", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_ARRAYAGG(1)"), postgres15).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
+    strict.ok(
+      resolveSelect(
+        parseSelect("SELECT JSON_OBJECTAGG('key' VALUE 1)"),
+        upgradeSchemaSnapshotV1(schema),
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+  });
+
   await it("resolves and version-gates PostgreSQL 17 SQL/JSON identity forms", () => {
     const postgres18 = {
       ...upgradeSchemaSnapshotV1(schema),

@@ -72,6 +72,24 @@ function walkExpression(
       if (expression.query !== undefined) walkStatementWithContext(expression.query, visitor, context.ctes);
       if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
       break;
+    case "json-object-aggregate":
+      walkExpression(expression.key, statement, visitor, context);
+      walkExpression(expression.value.expression, statement, visitor, context);
+      if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
+      if (expression.filter !== undefined) walkExpression(expression.filter, statement, visitor, context);
+      if (expression.over !== undefined && "partitionBy" in expression.over) {
+        walkWindow(expression.over, statement, visitor, context);
+      }
+      break;
+    case "json-array-aggregate":
+      walkExpression(expression.value.expression, statement, visitor, context);
+      for (const item of expression.orderBy) walkExpression(item.expression, statement, visitor, context);
+      if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
+      if (expression.filter !== undefined) walkExpression(expression.filter, statement, visitor, context);
+      if (expression.over !== undefined && "partitionBy" in expression.over) {
+        walkWindow(expression.over, statement, visitor, context);
+      }
+      break;
     case "json-parse":
       walkExpression(expression.value.expression, statement, visitor, context);
       break;

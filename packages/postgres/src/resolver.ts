@@ -27,8 +27,10 @@ import type {
   GroupingElement,
   Identifier,
   InsertConflictTarget,
+  JsonArrayAggregateExpression,
   JsonBehavior,
   JsonFormat,
+  JsonObjectAggregateExpression,
   JsonReturning,
   JsonTableColumn,
   JsonTableReference,
@@ -627,6 +629,17 @@ class Resolver {
         return;
       }
     }
+    if (expression.kind === "json-object-aggregate" || expression.kind === "json-array-aggregate") {
+      const window = expression.over !== undefined;
+      if (window && !allowWindow) {
+        this.#diagnostic("TSQ228", `Window functions are not allowed in ${clause}`, expression.range);
+        return;
+      }
+      if (!window && !allowAggregate) {
+        this.#diagnostic("TSQ228", `Aggregate functions are not allowed in ${clause}`, expression.range);
+        return;
+      }
+    }
     for (const child of this.#expressionChildren(expression)) {
       this.#validateClauseFunctions(child, allowAggregate, allowWindow, clause);
     }
@@ -641,6 +654,12 @@ class Resolver {
     if (groupedKeys.has(this.#groupKey(expression, scope))) return;
     if (expression.kind === "subquery" || expression.kind === "exists") return;
     if (expression.kind === "call" && expression.over === undefined && this.#isAggregateCall(expression)) return;
+    if (
+      (expression.kind === "json-object-aggregate" || expression.kind === "json-array-aggregate") &&
+      expression.over === undefined
+    ) {
+      return;
+    }
     if (expression.kind === "column") {
       const matches = this.#columnMatches(
         expression.relation,
@@ -677,6 +696,12 @@ class Resolver {
   #containsAggregate(expression: Expression): boolean {
     if (expression.kind === "subquery" || expression.kind === "exists") return false;
     if (expression.kind === "call" && expression.over === undefined && this.#isAggregateCall(expression)) return true;
+    if (
+      (expression.kind === "json-object-aggregate" || expression.kind === "json-array-aggregate") &&
+      expression.over === undefined
+    ) {
+      return true;
+    }
     return this.#expressionChildren(expression).some((child) => this.#containsAggregate(child));
   }
 
@@ -740,6 +765,30 @@ class Resolver {
         return expression.entries.flatMap(({ key, value }) => [key, value.expression]);
       case "json-array":
         return expression.values.map(({ expression: value }) => value);
+      case "json-object-aggregate":
+      case "json-array-aggregate": {
+        const window =
+          expression.over !== undefined && "partitionBy" in expression.over
+            ? [
+                ...expression.over.partitionBy,
+                ...expression.over.orderBy.map(({ expression: item }) => item),
+                ...(expression.over.frame?.start.kind === "preceding" ||
+                expression.over.frame?.start.kind === "following"
+                  ? [expression.over.frame.start.expression]
+                  : []),
+                ...(expression.over.frame?.end?.kind === "preceding" || expression.over.frame?.end?.kind === "following"
+                  ? [expression.over.frame.end.expression]
+                  : []),
+              ]
+            : [];
+        return [
+          ...(expression.kind === "json-object-aggregate" ? [expression.key] : []),
+          expression.value.expression,
+          ...(expression.kind === "json-array-aggregate" ? expression.orderBy.map(({ expression: item }) => item) : []),
+          ...(expression.filter === undefined ? [] : [expression.filter]),
+          ...window,
+        ];
+      }
       case "json-parse":
         return [expression.value.expression];
       case "json-scalar":
@@ -800,6 +849,12 @@ class Resolver {
   #columnKeysOutsideAggregates(expression: Expression, scope: Scope): readonly string[] {
     if (expression.kind === "subquery" || expression.kind === "exists") return [];
     if (expression.kind === "call" && expression.over === undefined && this.#isAggregateCall(expression)) return [];
+    if (
+      (expression.kind === "json-object-aggregate" || expression.kind === "json-array-aggregate") &&
+      expression.over === undefined
+    ) {
+      return [];
+    }
     if (expression.kind === "call" && postgresCatalogRoutineRule(expression.name.name, this.#schema) === "grouping") {
       return [];
     }
@@ -2209,6 +2264,8 @@ class Resolver {
     if (expression.kind === "at-time-zone") return "timezone";
     if (expression.kind === "json-object") return "json_object";
     if (expression.kind === "json-array") return "json_array";
+    if (expression.kind === "json-object-aggregate") return "json_objectagg";
+    if (expression.kind === "json-array-aggregate") return "json_arrayagg";
     if (expression.kind === "json-parse") return "json";
     if (expression.kind === "json-scalar") return "json_scalar";
     if (expression.kind === "json-serialize") return "json_serialize";
@@ -2516,30 +2573,43 @@ class Resolver {
         this.#requireServerMajor(16, "JSON_OBJECT constructor", expression.range);
         let inputsValid = true;
         for (const entry of expression.entries) {
-          const key = this.#resolveExpression(entry.key, scope, ctes);
-          const keyType =
-            key.databaseType === undefined ? undefined : postgresCanonicalType(key.databaseType, this.#schema);
-          const keyCategory = keyType === undefined ? undefined : postgresTypeCategory(keyType, this.#schema);
-          if (
-            (entry.key.kind === "literal" && entry.key.value === null) ||
-            entry.key.kind === "row" ||
-            keyType === "json" ||
-            keyType === "jsonb" ||
-            keyCategory === "array" ||
-            keyCategory === "composite"
-          ) {
-            this.#diagnostic(
-              "TSQ203",
-              "JSON_OBJECT keys must be non-null scalar values and cannot be arrays, composites, json, or jsonb",
-              entry.key.range,
-            );
-            inputsValid = false;
-          } else if (key.databaseType === undefined) inputsValid = false;
+          const keyValid = this.#resolveJsonObjectKey(entry.key, scope, ctes, "JSON_OBJECT");
+          inputsValid = keyValid && inputsValid;
           const valueValid = this.#resolveJsonConstructorValue(entry.value, scope, ctes);
           inputsValid = valueValid && inputsValid;
         }
         const output = this.#resolveJsonConstructorOutput(expression.returning, "JSON_OBJECT", expression.range);
         return inputsValid && output.valid
+          ? output.resolved
+          : { tsType: "unknown", nullable: true, databaseType: "unknown" };
+      }
+      case "json-object-aggregate": {
+        this.#requireServerMajor(16, "JSON_OBJECTAGG aggregate", expression.range);
+        const keyValid = this.#resolveJsonObjectKey(expression.key, scope, ctes, "JSON_OBJECTAGG");
+        const valueValid = this.#resolveJsonAggregateValue(expression.value, scope, ctes);
+        this.#resolveJsonAggregateSuffix(expression, scope, ctes);
+        const output = this.#resolveJsonConstructorOutput(
+          expression.returning,
+          "JSON_OBJECTAGG",
+          expression.range,
+          true,
+        );
+        return keyValid && valueValid && output.valid
+          ? output.resolved
+          : { tsType: "unknown", nullable: true, databaseType: "unknown" };
+      }
+      case "json-array-aggregate": {
+        this.#requireServerMajor(16, "JSON_ARRAYAGG aggregate", expression.range);
+        const valueValid = this.#resolveJsonAggregateValue(expression.value, scope, ctes);
+        for (const item of expression.orderBy) this.#resolveExpression(item.expression, scope, ctes);
+        this.#resolveJsonAggregateSuffix(expression, scope, ctes);
+        const output = this.#resolveJsonConstructorOutput(
+          expression.returning,
+          "JSON_ARRAYAGG",
+          expression.range,
+          true,
+        );
+        return valueValid && output.valid
           ? output.resolved
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
@@ -3956,6 +4026,60 @@ class Resolver {
     );
   }
 
+  #resolveJsonObjectKey(
+    expression: Expression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    feature: "JSON_OBJECT" | "JSON_OBJECTAGG",
+  ): boolean {
+    const key = this.#resolveExpression(expression, scope, ctes);
+    const keyType = key.databaseType === undefined ? undefined : postgresCanonicalType(key.databaseType, this.#schema);
+    const keyCategory = keyType === undefined ? undefined : postgresTypeCategory(keyType, this.#schema);
+    if (
+      (expression.kind === "literal" && expression.value === null) ||
+      expression.kind === "row" ||
+      keyType === "json" ||
+      keyType === "jsonb" ||
+      keyCategory === "array" ||
+      keyCategory === "composite"
+    ) {
+      this.#diagnostic(
+        "TSQ203",
+        `${feature} keys must be non-null scalar values and cannot be arrays, composites, json, or jsonb`,
+        expression.range,
+      );
+      return false;
+    }
+    return key.databaseType !== undefined;
+  }
+
+  #resolveJsonAggregateValue(
+    value: JsonValueExpression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): boolean {
+    if (value.format !== undefined) return this.#resolveSqlJsonValue(value, scope, ctes, false).valid;
+    const resolved = this.#resolveExpression(value.expression, scope, ctes, this.#databaseType("text", true));
+    return (
+      resolved.databaseType !== undefined || (value.expression.kind === "literal" && value.expression.value === null)
+    );
+  }
+
+  #resolveJsonAggregateSuffix(
+    expression: JsonObjectAggregateExpression | JsonArrayAggregateExpression,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): void {
+    if (expression.filter !== undefined) {
+      this.#resolveExpression(expression.filter, scope, ctes, this.#databaseType("boolean", false));
+    }
+    if (expression.over === undefined) return;
+    if ("partitionBy" in expression.over) this.#resolveWindowSpecification(expression.over, scope, ctes);
+    else if (!scope.windows.has(sqlName(expression.over))) {
+      this.#diagnostic("TSQ222", `Unknown window ${expression.over.name}`, expression.over.range);
+    }
+  }
+
   #resolveJsonStringInput(
     value: JsonValueExpression,
     scope: Scope,
@@ -4086,8 +4210,9 @@ class Resolver {
 
   #resolveJsonConstructorOutput(
     returning: JsonReturning | undefined,
-    feature: "JSON_OBJECT" | "JSON_ARRAY",
+    feature: "JSON_OBJECT" | "JSON_ARRAY" | "JSON_OBJECTAGG" | "JSON_ARRAYAGG",
     range: SourceRange,
+    nullable = false,
   ): { readonly resolved: ResolvedType; readonly valid: boolean } {
     const requestedType = returning?.databaseType.name ?? "json";
     const known = isKnownPostgresType(requestedType, this.#schema);
@@ -4131,7 +4256,7 @@ class Resolver {
       resolved: valid
         ? {
             tsType: mapPostgresType(canonical, this.#policy, this.#schema),
-            nullable: false,
+            nullable,
             databaseType: canonical,
           }
         : { tsType: "unknown", nullable: true, databaseType: "unknown" },
@@ -4199,6 +4324,7 @@ class Resolver {
     if (expression.kind === "call" && (expression.over !== undefined || this.#isAggregateCall(expression))) {
       return false;
     }
+    if (expression.kind === "json-object-aggregate" || expression.kind === "json-array-aggregate") return false;
     return this.#expressionChildren(expression).every((child) => this.#isSqlJsonDefaultExpression(child));
   }
 
