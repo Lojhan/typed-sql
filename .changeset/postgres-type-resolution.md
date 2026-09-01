@@ -16,6 +16,8 @@ asymmetric PostgreSQL signatures, with parameter inference deferred until candid
 Built-in range/multirange containment and arithmetic, network containment and address arithmetic,
 full-text search composition, JSON-path predicates and deletion, and their multi-character tokens
 now use exact grammar-owned signatures.
+Geometric transformation, position, intersection, distance, containment, and relationship operators
+now resolve through their exact operand and result signatures, including prefix forms.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

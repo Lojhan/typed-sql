@@ -42,6 +42,7 @@ await describe("PostgreSQL versioned core catalogs", async () => {
     strict.strictEqual(postgresCatalogOperatorRule("&"), "bitwise");
     strict.strictEqual(postgresCatalogOperatorRule("@@"), "special");
     strict.strictEqual(postgresCatalogOperatorRule("!!"), "special");
+    strict.strictEqual(postgresCatalogOperatorRule("<->"), "special");
     strict.strictEqual(postgresCatalogOperatorRule("<=>"), undefined);
     strict.strictEqual(postgresCatalogRoutineRule("count"), "count");
     strict.strictEqual(postgresCatalogRoutineRule("jsonb_agg"), "json-aggregate");

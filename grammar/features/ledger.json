@@ -359,6 +359,7 @@
         "diagnostic:sqlite.vendor-operator",
         "resolver:mysql.operator-catalog",
         "resolver:postgres.core-type-families",
+        "resolver:postgres.geometric-operator-signatures",
         "resolver:postgres.operator-candidate-selection",
         "resolver:postgres.operator-catalog",
         "resolver:postgres.special-operator-signatures",
@@ -390,6 +391,10 @@
         {
           "title": "PostgreSQL JSON operators",
           "url": "https://www.postgresql.org/docs/18/functions-json.html"
+        },
+        {
+          "title": "PostgreSQL geometric operators",
+          "url": "https://www.postgresql.org/docs/18/functions-geometry.html"
         },
         {
           "title": "SQLite operators and parse-affecting attributes",

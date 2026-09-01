@@ -203,6 +203,19 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(selectedResult("||", "tsvector", "tsvector"), "tsvector");
     strict.strictEqual(selectedResult("@?", "jsonb", "jsonpath"), "boolean");
     strict.strictEqual(selectedResult("#-", "jsonb", "text[]"), "jsonb");
+    strict.strictEqual(selectedResult("+", "box", "point"), "box");
+    strict.strictEqual(selectedResult("#", "lseg", "lseg"), "point");
+    strict.strictEqual(selectedResult("##", "point", "line"), "point");
+    strict.strictEqual(selectedResult("<->", "polygon", "circle"), "double precision");
+    strict.strictEqual(selectedResult("@>", "circle", "point"), "boolean");
+    strict.strictEqual(selectedResult("<@", "point", "path"), "boolean");
+    strict.strictEqual(selectedResult("&&", "polygon", "polygon"), "boolean");
+    strict.strictEqual(selectedResult("<<|", "point", "point"), "boolean");
+    strict.strictEqual(selectedResult("<^", "point", "point"), "boolean");
+    strict.strictEqual(selectedResult("?#", "lseg", "line"), "boolean");
+    strict.strictEqual(selectedResult("?-|", "line", "line"), "boolean");
+    strict.strictEqual(selectedResult("~=", "circle", "circle"), "boolean");
+    strict.strictEqual(selectedResult("@>", "point", "circle"), "none");
 
     const unaryResult = (operator: string, operand?: string) => {
       const result = resolvePostgresUnaryOperator(operator, operand);
@@ -216,6 +229,10 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(unaryResult("-", "text"), "none");
     strict.strictEqual(unaryResult("~", "inet"), "inet");
     strict.strictEqual(unaryResult("!!", "tsquery"), "tsquery");
+    strict.strictEqual(unaryResult("@-@", "path"), "double precision");
+    strict.strictEqual(unaryResult("@@", "box"), "point");
+    strict.strictEqual(unaryResult("#", "polygon"), "integer");
+    strict.strictEqual(unaryResult("?-", "line"), "boolean");
   });
 
   await it("binds snapshot domains, enums, collections, ranges, and multiranges", () => {

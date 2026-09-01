@@ -433,6 +433,15 @@ const builtInRangeFamilies = [
 function specialOperatorCandidates(operator: string): readonly PostgresCandidate<string>[] {
   const candidates: PostgresCandidate<string>[] = [];
   const add = (left: string, right: string, resultType: string): void => {
+    if (
+      candidates.some(
+        (candidate) =>
+          candidate.argumentTypes[0] === left &&
+          candidate.argumentTypes[1] === right &&
+          candidate.resultType === resultType,
+      )
+    )
+      return;
     candidates.push({ value: operator, argumentTypes: [left, right], resultType });
   };
   for (const [range, multirange, element] of builtInRangeFamilies) {
@@ -477,6 +486,88 @@ function specialOperatorCandidates(operator: string): readonly PostgresCandidate
       add(multirange, multirange, multirange);
     }
   }
+  const geometric = ["point", "box", "lseg", "line", "path", "polygon", "circle"] as const;
+  const sameGeometric = (types: readonly string[], resultType: string): void => {
+    for (const type of types) add(type, type, resultType);
+  };
+  if (["+", "-", "*", "/"].includes(operator)) {
+    for (const type of ["point", "box", "path", "circle"] as const) add(type, "point", type);
+    if (operator === "+") add("path", "path", "path");
+  } else if (operator === "#") {
+    add("lseg", "lseg", "point");
+    add("line", "line", "point");
+    add("box", "box", "box");
+  } else if (operator === "##") {
+    for (const [left, right] of [
+      ["point", "box"],
+      ["point", "lseg"],
+      ["point", "line"],
+      ["lseg", "box"],
+      ["lseg", "lseg"],
+      ["line", "lseg"],
+    ] as const)
+      add(left, right, "point");
+  } else if (operator === "<->") {
+    sameGeometric(geometric, "double precision");
+    for (const type of geometric) {
+      add("point", type, "double precision");
+      add(type, "point", "double precision");
+    }
+    for (const [left, right] of [
+      ["box", "lseg"],
+      ["lseg", "line"],
+      ["polygon", "circle"],
+    ] as const) {
+      add(left, right, "double precision");
+      add(right, left, "double precision");
+    }
+  } else if (operator === "@>") {
+    for (const [left, right] of [
+      ["box", "point"],
+      ["box", "box"],
+      ["path", "point"],
+      ["polygon", "point"],
+      ["polygon", "polygon"],
+      ["circle", "point"],
+      ["circle", "circle"],
+    ] as const)
+      add(left, right, "boolean");
+  } else if (operator === "<@") {
+    for (const [left, right] of [
+      ["point", "box"],
+      ["point", "lseg"],
+      ["point", "line"],
+      ["point", "path"],
+      ["point", "polygon"],
+      ["point", "circle"],
+      ["box", "box"],
+      ["lseg", "box"],
+      ["lseg", "line"],
+      ["polygon", "polygon"],
+      ["circle", "circle"],
+    ] as const)
+      add(left, right, "boolean");
+  } else if (operator === "&&") sameGeometric(["box", "polygon", "circle"], "boolean");
+  else if (operator === "<<" || operator === ">>") sameGeometric(["point", "box", "polygon", "circle"], "boolean");
+  else if (["&<", "&>", "&<|", "|&>"].includes(operator)) sameGeometric(["box", "polygon", "circle"], "boolean");
+  else if (operator === "<<|" || operator === "|>>") sameGeometric(["point", "box", "polygon", "circle"], "boolean");
+  else if (operator === "<^" || operator === ">^") {
+    add("box", "box", "boolean");
+    add("point", "point", "boolean");
+  } else if (operator === "?#") {
+    for (const [left, right] of [
+      ["box", "box"],
+      ["lseg", "box"],
+      ["lseg", "lseg"],
+      ["lseg", "line"],
+      ["line", "box"],
+      ["line", "line"],
+      ["path", "path"],
+    ] as const)
+      add(left, right, "boolean");
+  } else if (operator === "?-" || operator === "?|") add("point", "point", "boolean");
+  else if (operator === "?-|" || operator === "?||") sameGeometric(["line", "lseg"], "boolean");
+  else if (operator === "~=") sameGeometric(["point", "box", "polygon", "circle"], "boolean");
   if (["<<", "<<=", ">>", ">>=", "&&"].includes(operator)) add("inet", "inet", "boolean");
   if (operator === "&" || operator === "|") {
     add("inet", "inet", "inet");
@@ -641,7 +732,31 @@ export function resolvePostgresUnaryOperator(
             ].map((type) => ({ value: normalizedOperator, argumentTypes: [type], resultType: type }))
           : normalizedOperator === "!!"
             ? [{ value: normalizedOperator, argumentTypes: ["tsquery"], resultType: "tsquery" }]
-            : [];
+            : normalizedOperator === "@-@"
+              ? ["lseg", "path"].map((type) => ({
+                  value: normalizedOperator,
+                  argumentTypes: [type],
+                  resultType: "double precision",
+                }))
+              : normalizedOperator === "@@"
+                ? ["box", "lseg", "polygon", "circle"].map((type) => ({
+                    value: normalizedOperator,
+                    argumentTypes: [type],
+                    resultType: "point",
+                  }))
+                : normalizedOperator === "#"
+                  ? ["path", "polygon"].map((type) => ({
+                      value: normalizedOperator,
+                      argumentTypes: [type],
+                      resultType: "integer",
+                    }))
+                  : normalizedOperator === "?-" || normalizedOperator === "?|"
+                    ? ["line", "lseg"].map((type) => ({
+                        value: normalizedOperator,
+                        argumentTypes: [type],
+                        resultType: "boolean",
+                      }))
+                    : [];
   if (operand === undefined && candidates.length !== 1) {
     return candidates.length === 0 ? { kind: "none" } : { kind: "ambiguous" };
   }

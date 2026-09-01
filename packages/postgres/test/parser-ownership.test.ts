@@ -61,6 +61,18 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("tokenizes PostgreSQL geometric operators in prefix and binary positions", () => {
+    for (const query of [
+      "SELECT left_box <-> right_box AS distance FROM shapes",
+      "SELECT @@ (bounds::box) AS center FROM shapes",
+      "SELECT left_box <<| right_box AS below FROM shapes",
+      "SELECT first_line ?|| second_line AS parallel FROM shapes",
+      "SELECT # (outline::path) AS points FROM shapes",
+    ]) {
+      strict.doesNotThrow(() => parseStatement(query), query);
+    }
+  });
+
   await it("preserves PostgreSQL compound-query precedence and parentheses", () => {
     const intersectionFirst = parseStatement("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3 ORDER BY 1");
     strict.strictEqual(intersectionFirst.kind, "select");

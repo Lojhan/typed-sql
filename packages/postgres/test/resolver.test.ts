@@ -154,6 +154,9 @@ await describe("query resolver", async () => {
              '{}'::jsonb @? '$.a'::jsonpath AS path_matches,
              '{}'::jsonb #- ARRAY['private'] AS redacted,
              !! ('cat'::tsquery) AS negated_query,
+             '(2,2),(0,0)'::box <-> '(3,3)'::point AS shape_distance,
+             @@ ('(2,2),(0,0)'::box) AS shape_center,
+             # ('((0,0),(1,1))'::path) AS shape_points,
              CASE WHEN age IS NULL THEN 0 END AS maybe_age,
              CASE WHEN age IS NULL THEN 0 ELSE age END AS safe_age
       FROM users
@@ -187,6 +190,9 @@ await describe("query resolver", async () => {
         { name: "path_matches", tsType: "boolean", nullable: false },
         { name: "redacted", tsType: "unknown", nullable: false },
         { name: "negated_query", tsType: "string", nullable: false },
+        { name: "shape_distance", tsType: "number", nullable: false },
+        { name: "shape_center", tsType: "string", nullable: false },
+        { name: "shape_points", tsType: "number", nullable: false },
         { name: "maybe_age", tsType: "number", nullable: true },
         { name: "safe_age", tsType: "number", nullable: true },
       ],
