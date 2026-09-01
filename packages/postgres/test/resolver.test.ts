@@ -1034,6 +1034,12 @@ await describe("query resolver", async () => {
              ) AS row_subquery_matches,
              (team_id, active) = ($2, $3) AS row_matches,
              (team_id, active) IS DISTINCT FROM (NULL, false) AS row_differs,
+             (team_id, active) IN ((1, true), ($4, $5)) AS row_in_list,
+             (team_id, active) IN (
+               SELECT candidate.team_id, candidate.active FROM events candidate
+             ) AS row_in_subquery,
+             $6 IN (team_id) AS contextual_subject_in,
+             $7 IN ($8) AS inferred_text_in,
              COUNT(*) FILTER (WHERE active) OVER (PARTITION BY team_id) AS active_count,
              label_for(team_id) AS team_label
       FROM events
@@ -1056,6 +1062,10 @@ await describe("query resolver", async () => {
         { name: "row_subquery_matches", tsType: "boolean" },
         { name: "row_matches", tsType: "boolean" },
         { name: "row_differs", tsType: "boolean" },
+        { name: "row_in_list", tsType: "boolean" },
+        { name: "row_in_subquery", tsType: "boolean" },
+        { name: "contextual_subject_in", tsType: "boolean" },
+        { name: "inferred_text_in", tsType: "boolean" },
         { name: "active_count", tsType: "bigint" },
         { name: "team_label", tsType: "string" },
       ],
@@ -1066,12 +1076,21 @@ await describe("query resolver", async () => {
     strict.strictEqual(result.columns.find(({ name }) => name === "row_subquery_matches")?.nullable, false);
     strict.strictEqual(result.columns.find(({ name }) => name === "row_matches")?.nullable, true);
     strict.strictEqual(result.columns.find(({ name }) => name === "row_differs")?.nullable, false);
+    strict.strictEqual(result.columns.find(({ name }) => name === "row_in_list")?.nullable, false);
+    strict.strictEqual(result.columns.find(({ name }) => name === "row_in_subquery")?.nullable, false);
+    strict.strictEqual(result.columns.find(({ name }) => name === "contextual_subject_in")?.nullable, true);
+    strict.strictEqual(result.columns.find(({ name }) => name === "inferred_text_in")?.nullable, true);
     strict.deepStrictEqual(
       result.parameters.map(({ index, tsType }) => ({ index, tsType })),
       [
         { index: 1, tsType: "readonly (number)[]" },
         { index: 2, tsType: "number" },
         { index: 3, tsType: "boolean" },
+        { index: 4, tsType: "number" },
+        { index: 5, tsType: "boolean" },
+        { index: 6, tsType: "number" },
+        { index: 7, tsType: "string" },
+        { index: 8, tsType: "string" },
       ],
     );
     strict.deepStrictEqual(
@@ -1091,9 +1110,19 @@ await describe("query resolver", async () => {
       "SELECT team_id = ANY(1) FROM events",
       "SELECT active = ANY(scores) FROM events",
       "SELECT (team_id, active) = (1) FROM events",
+      "SELECT active IN (scores) FROM events",
+      "SELECT team_id IN ('not-a-number') FROM events",
+      "SELECT 'not-a-number' IN (team_id) FROM events",
+      "SELECT team_id IN ((1, 2)) FROM events",
+      "SELECT (team_id, active) IN ((1)) FROM events",
+      "SELECT (team_id, active) IN (1, ROW(1, true)) FROM events",
+      "SELECT (team_id, active) IN (SELECT candidate.team_id FROM events candidate) FROM events",
+      "SELECT team_id IN (SELECT candidate.team_id, candidate.active FROM events candidate) FROM events",
     ]) {
       strict.ok(
-        resolveSelect(parseSelect(query), richSchema).diagnostics.some(({ code }) => code === "TSQ203"),
+        resolveSelect(parseSelect(query), richSchema).diagnostics.some(
+          ({ code }) => code === "TSQ203" || code === "TSQ217",
+        ),
         query,
       );
     }
@@ -1101,6 +1130,12 @@ await describe("query resolver", async () => {
       resolveSelect(parseSelect("SELECT team_id = ANY(ARRAY[]) AS matches FROM events"), richSchema).diagnostics,
       [],
     );
+    const scalarIn = resolveSelect(
+      parseSelect("SELECT '2' IN (team_id) AS numeric_text, team_id IN (NULL) AS nullable_match FROM events"),
+      richSchema,
+    );
+    strict.deepStrictEqual(scalarIn.diagnostics, []);
+    strict.strictEqual(scalarIn.columns.find(({ name }) => name === "nullable_match")?.nullable, true);
   });
 
   await it("resolves snapshot-backed composite field selection", () => {
@@ -1125,6 +1160,13 @@ await describe("query resolver", async () => {
       ...compositeBase,
       types: {
         ...compositeBase.types,
+        integer: {
+          kind: "scalar",
+          name: "int4",
+          identity: "pg:23",
+          databaseType: "integer",
+          tsType: "number",
+        },
         address: {
           kind: "composite",
           name: "address",
@@ -1149,7 +1191,11 @@ await describe("query resolver", async () => {
       parseSelect(`
         SELECT (profile).zip AS zip,
                (profile)."DisplayName" AS label,
-               ($1::address).zip AS input_zip
+               ($1::address).zip AS input_zip,
+               profile IN ($2) AS profile_matches,
+               profile = $3 AS profile_equal,
+               $4 IS DISTINCT FROM profile AS profile_differs,
+               profile < $5 AS profile_before
         FROM people
       `),
       compositeSchema,
@@ -1161,17 +1207,29 @@ await describe("query resolver", async () => {
         { name: "zip", tsType: "number", nullable: false },
         { name: "label", tsType: "string", nullable: true },
         { name: "input_zip", tsType: "number", nullable: true },
+        { name: "profile_matches", tsType: "boolean", nullable: false },
+        { name: "profile_equal", tsType: "boolean", nullable: true },
+        { name: "profile_differs", tsType: "boolean", nullable: false },
+        { name: "profile_before", tsType: "boolean", nullable: true },
       ],
     );
     strict.deepStrictEqual(
       result.parameters.map(({ index, tsType }) => ({ index, tsType })),
-      [{ index: 1, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" }],
+      [
+        { index: 1, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" },
+        { index: 2, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" },
+        { index: 3, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" },
+        { index: 4, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" },
+        { index: 5, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" },
+      ],
     );
 
     const unknownField = resolveSelect(parseSelect("SELECT (profile).missing FROM people"), compositeSchema);
     strict.ok(unknownField.diagnostics.some(({ code }) => code === "TSQ101"));
     const nonComposite = resolveSelect(parseSelect("SELECT ((profile).zip).missing FROM people"), compositeSchema);
     strict.ok(nonComposite.diagnostics.some(({ code }) => code === "TSQ203"));
+    const invalidComposite = resolveSelect(parseSelect("SELECT profile = 1 FROM people"), compositeSchema);
+    strict.ok(invalidComposite.diagnostics.some(({ code }) => code === "TSQ203"));
   });
 
   await it("resolves COLLATE and exact AT TIME ZONE signatures", () => {

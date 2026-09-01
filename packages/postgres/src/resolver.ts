@@ -2347,24 +2347,8 @@ class Resolver {
         }
         return { tsType: "boolean", nullable, databaseType: "boolean" };
       }
-      case "in": {
-        const subject = this.#resolveExpression(expression.expression, scope, ctes);
-        let nullable = subject.nullable;
-        if (Array.isArray(expression.values)) {
-          const values = expression.values.map((value) => this.#resolveExpression(value, scope, ctes, subject));
-          nullable ||= values.some((value) => value.nullable);
-        } else {
-          const resolved = this.#resolveStatement(expression.values as SelectStatement, scope, ctes, [subject]);
-          if (resolved.columns.length !== 1)
-            this.#diagnostic(
-              "TSQ217",
-              `IN subquery returns ${resolved.columns.length} columns instead of one`,
-              expression.range,
-            );
-          nullable ||= resolved.columns[0]?.nullable ?? true;
-        }
-        return { tsType: "boolean", nullable, databaseType: "boolean" };
-      }
+      case "in":
+        return this.#resolveIn(expression, scope, ctes);
       case "between": {
         const subject = this.#resolveExpression(expression.expression, scope, ctes);
         const lower = this.#resolveExpression(expression.lower, scope, ctes, subject);
@@ -2450,6 +2434,37 @@ class Resolver {
         databaseType: operator.resultType,
       };
     }
+    const compositeLeftType =
+      left.databaseType ?? (this.#acceptsTypeContext(expression.left) ? right.databaseType : undefined);
+    const compositeRightType =
+      right.databaseType ?? (this.#acceptsTypeContext(expression.right) ? left.databaseType : undefined);
+    if (
+      compositeLeftType !== undefined &&
+      compositeRightType !== undefined &&
+      this.#compositeTypesComparable(compositeLeftType, compositeRightType, expression.operator)
+    ) {
+      if (this.#acceptsTypeContext(expression.left)) {
+        left = this.#resolveExpression(
+          expression.left,
+          scope,
+          ctes,
+          this.#databaseType(compositeLeftType, left.nullable),
+        );
+      }
+      if (this.#acceptsTypeContext(expression.right)) {
+        right = this.#resolveExpression(
+          expression.right,
+          scope,
+          ctes,
+          this.#databaseType(compositeRightType, right.nullable),
+        );
+      }
+      return {
+        tsType: "boolean",
+        nullable: expression.operator.includes("DISTINCT FROM") ? false : left.nullable || right.nullable,
+        databaseType: "boolean",
+      };
+    }
     this.#diagnostic(
       "TSQ203",
       `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} operator ${expression.operator} for ${left.databaseType ?? left.tsType} and ${right.databaseType ?? right.tsType}`,
@@ -2457,6 +2472,225 @@ class Resolver {
       operator.kind === "ambiguous" ? "Cast an operand to select a specific overload." : undefined,
     );
     return { tsType: "unknown", nullable: true };
+  }
+
+  #resolveIn(
+    expression: Extract<Expression, { readonly kind: "in" }>,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): ResolvedType {
+    if (expression.expression.kind === "row") return this.#resolveRowIn(expression, scope, ctes);
+    let subject = this.#resolveExpression(expression.expression, scope, ctes);
+    let nullable = subject.nullable;
+    if (Array.isArray(expression.values)) {
+      for (const valueExpression of expression.values as readonly Expression[]) {
+        let value = this.#resolveExpression(valueExpression, scope, ctes, subject);
+        const compared = this.#resolveEqualityPair(
+          expression.expression,
+          subject,
+          valueExpression,
+          value,
+          expression.range,
+          "IN value",
+          scope,
+          ctes,
+        );
+        subject = compared.left;
+        value = compared.right;
+        nullable ||= value.nullable;
+      }
+    } else {
+      const resolved = this.#resolveStatement(expression.values as SelectStatement, scope, ctes, [subject]);
+      if (resolved.columns.length !== 1) {
+        this.#diagnostic(
+          "TSQ217",
+          `IN subquery returns ${resolved.columns.length} columns instead of one`,
+          expression.range,
+        );
+      } else {
+        const compared = this.#resolveEqualityPair(
+          expression.expression,
+          subject,
+          undefined,
+          resolved.columns[0]!,
+          expression.range,
+          "IN subquery",
+          scope,
+          ctes,
+        );
+        subject = compared.left;
+        nullable ||= compared.right.nullable;
+      }
+    }
+    return { tsType: "boolean", nullable, databaseType: "boolean" };
+  }
+
+  #resolveRowIn(
+    expression: Extract<Expression, { readonly kind: "in" }>,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): ResolvedType {
+    const row = expression.expression as Extract<Expression, { readonly kind: "row" }>;
+    const leftExpressions = row.elements;
+    const left = leftExpressions.map((element) => this.#resolveExpression(element, scope, ctes));
+    let nullable = left.some((element) => element.nullable);
+    const compare = (
+      rightExpressions: readonly (Expression | undefined)[],
+      right: readonly ResolvedType[],
+      range: SourceRange,
+    ): void => {
+      if (left.length !== right.length) {
+        this.#diagnostic(
+          "TSQ217",
+          `Row IN comparison requires ${left.length} columns, received ${right.length}`,
+          range,
+        );
+        nullable = true;
+        return;
+      }
+      left.forEach((leftType, index) => {
+        const compared = this.#resolveEqualityPair(
+          leftExpressions[index]!,
+          leftType,
+          rightExpressions[index],
+          right[index]!,
+          range,
+          `row IN position ${index + 1}`,
+          scope,
+          ctes,
+        );
+        left[index] = compared.left;
+        nullable ||= compared.left.nullable || compared.right.nullable;
+      });
+    };
+    if (Array.isArray(expression.values)) {
+      for (const valueExpression of expression.values as readonly Expression[]) {
+        if (valueExpression.kind !== "row") {
+          const value = this.#resolveExpression(valueExpression, scope, ctes);
+          this.#diagnostic("TSQ203", "A row-valued IN list requires row values", valueExpression.range);
+          nullable ||= value.nullable;
+          continue;
+        }
+        const right = valueExpression.elements.map((element, index) =>
+          this.#resolveExpression(element, scope, ctes, left[index]),
+        );
+        compare(valueExpression.elements, right, valueExpression.range);
+      }
+    } else {
+      const resolved = this.#resolveStatement(expression.values as SelectStatement, scope, ctes, left);
+      compare(
+        resolved.columns.map(() => undefined),
+        resolved.columns,
+        expression.range,
+      );
+    }
+    return { tsType: "boolean", nullable, databaseType: "boolean" };
+  }
+
+  #resolveEqualityPair(
+    leftExpression: Expression,
+    initialLeft: ResolvedType,
+    rightExpression: Expression | undefined,
+    initialRight: ResolvedType,
+    range: SourceRange,
+    label: string,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): { readonly left: ResolvedType; readonly right: ResolvedType } {
+    let left = initialLeft;
+    let right = initialRight;
+    if (
+      (left.databaseType === undefined && !this.#isUnknownOverloadExpression(leftExpression)) ||
+      (right.databaseType === undefined &&
+        (rightExpression === undefined || !this.#isUnknownOverloadExpression(rightExpression)))
+    ) {
+      this.#diagnostic(
+        "TSQ203",
+        `No recorded equality type for ${label}: ${left.databaseType ?? left.tsType} and ${right.databaseType ?? right.tsType}`,
+        range,
+      );
+      return { left, right };
+    }
+    const operator = resolvePostgresOperator(
+      "=",
+      this.#overloadInputType(leftExpression, left),
+      rightExpression === undefined ? right.databaseType : this.#overloadInputType(rightExpression, right),
+      this.#schema,
+    );
+    let argumentTypes = operator.kind === "selected" ? operator.argumentTypes : undefined;
+    const compositeLeftType =
+      left.databaseType ?? (this.#acceptsTypeContext(leftExpression) ? right.databaseType : undefined);
+    const compositeRightType =
+      right.databaseType ??
+      (rightExpression !== undefined && this.#acceptsTypeContext(rightExpression) ? left.databaseType : undefined);
+    if (
+      argumentTypes === undefined &&
+      compositeLeftType !== undefined &&
+      compositeRightType !== undefined &&
+      this.#compositeTypesComparable(compositeLeftType, compositeRightType, "=")
+    ) {
+      argumentTypes = [compositeLeftType, compositeRightType];
+    }
+    if (argumentTypes === undefined) {
+      this.#diagnostic(
+        "TSQ203",
+        `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} equality operator for ${label}: ${left.databaseType ?? left.tsType} and ${right.databaseType ?? right.tsType}`,
+        range,
+        operator.kind === "ambiguous" ? "Cast an operand to select a specific equality overload." : undefined,
+      );
+      return { left, right };
+    }
+    const invalidNumericLiteral = (candidate: Expression | undefined, databaseType: string): boolean =>
+      candidate?.kind === "literal" &&
+      typeof candidate.value === "string" &&
+      this.#isNumericType(databaseType) &&
+      !this.#validNumericLiteral(candidate.value, databaseType);
+    if (
+      invalidNumericLiteral(leftExpression, argumentTypes[0]!) ||
+      invalidNumericLiteral(rightExpression, argumentTypes[1]!)
+    ) {
+      this.#diagnostic("TSQ203", `A string literal is not valid input for ${label}'s numeric type`, range);
+      return { left, right };
+    }
+    if (this.#acceptsTypeContext(leftExpression)) {
+      left = this.#resolveExpression(leftExpression, scope, ctes, this.#databaseType(argumentTypes[0]!, left.nullable));
+    }
+    if (rightExpression !== undefined && this.#acceptsTypeContext(rightExpression)) {
+      right = this.#resolveExpression(
+        rightExpression,
+        scope,
+        ctes,
+        this.#databaseType(argumentTypes[1]!, right.nullable),
+      );
+    }
+    return { left, right };
+  }
+
+  #compositeTypesComparable(leftType: string, rightType: string, operator: string): boolean {
+    const schema = this.#schema;
+    if (schema.formatVersion !== 2) return false;
+    const composite = (databaseType: string): CompositeTypeSnapshot | undefined => {
+      const canonical = postgresCanonicalType(databaseType, schema);
+      return Object.values(schema.types).find((type): type is CompositeTypeSnapshot => {
+        if (type.kind !== "composite") return false;
+        const qualified = type.schema === undefined ? type.name : `${type.schema}.${type.name}`;
+        return [type.databaseType, type.identity, qualified].some(
+          (identity) => normalizeDatabaseType(identity) === normalizeDatabaseType(canonical),
+        );
+      });
+    };
+    const left = composite(leftType);
+    const right = composite(rightType);
+    if (left === undefined || right === undefined || left.fields.length !== right.fields.length) return false;
+    return left.fields.every((field, index) => {
+      const candidate = resolvePostgresOperator(
+        operator,
+        field.databaseType,
+        right.fields[index]!.databaseType,
+        schema,
+      );
+      return candidate.kind === "selected";
+    });
   }
 
   #resolveQuantifiedRowSubquery(
@@ -2486,7 +2720,19 @@ class Resolver {
         right.databaseType,
         this.#schema,
       );
-      if (operator.kind !== "selected") {
+      let argumentTypes = operator.kind === "selected" ? operator.argumentTypes : undefined;
+      const compositeLeftType =
+        left.databaseType ?? (this.#acceptsTypeContext(leftExpression) ? right.databaseType : undefined);
+      const compositeRightType = right.databaseType;
+      if (
+        argumentTypes === undefined &&
+        compositeLeftType !== undefined &&
+        compositeRightType !== undefined &&
+        this.#compositeTypesComparable(compositeLeftType, compositeRightType, expression.operator)
+      ) {
+        argumentTypes = [compositeLeftType, compositeRightType];
+      }
+      if (argumentTypes === undefined) {
         this.#diagnostic(
           "TSQ203",
           `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} quantified row operator ${expression.operator} for position ${index + 1}`,
@@ -2497,7 +2743,7 @@ class Resolver {
           leftExpression,
           scope,
           ctes,
-          this.#databaseType(operator.argumentTypes[0]!, left.nullable),
+          this.#databaseType(argumentTypes[0]!, left.nullable),
         );
       }
       nullable ||= left.nullable || right.nullable;
@@ -2537,7 +2783,20 @@ class Resolver {
         this.#overloadInputType(rightExpression, right),
         this.#schema,
       );
-      if (operator.kind !== "selected") {
+      let argumentTypes = operator.kind === "selected" ? operator.argumentTypes : undefined;
+      const compositeLeftType =
+        left.databaseType ?? (this.#acceptsTypeContext(leftExpression) ? right.databaseType : undefined);
+      const compositeRightType =
+        right.databaseType ?? (this.#acceptsTypeContext(rightExpression) ? left.databaseType : undefined);
+      if (
+        argumentTypes === undefined &&
+        compositeLeftType !== undefined &&
+        compositeRightType !== undefined &&
+        this.#compositeTypesComparable(compositeLeftType, compositeRightType, expression.operator)
+      ) {
+        argumentTypes = [compositeLeftType, compositeRightType];
+      }
+      if (argumentTypes === undefined) {
         this.#diagnostic(
           "TSQ203",
           `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} row operator ${expression.operator} for position ${index + 1}`,
@@ -2549,14 +2808,14 @@ class Resolver {
             leftExpression,
             scope,
             ctes,
-            this.#databaseType(operator.argumentTypes[0]!, left.nullable),
+            this.#databaseType(argumentTypes[0]!, left.nullable),
           );
         if (this.#acceptsTypeContext(rightExpression))
           right = this.#resolveExpression(
             rightExpression,
             scope,
             ctes,
-            this.#databaseType(operator.argumentTypes[1]!, right.nullable),
+            this.#databaseType(argumentTypes[1]!, right.nullable),
           );
       }
       nullable ||= left.nullable || right.nullable;
@@ -2903,11 +3162,15 @@ class Resolver {
   }
 
   #overloadInputType(expression: Expression, resolved: ResolvedType | undefined): string | undefined {
-    if (this.#acceptsTypeContext(expression)) return undefined;
-    if (expression.kind === "literal" && (expression.value === null || typeof expression.value === "string")) {
-      return undefined;
-    }
+    if (this.#isUnknownOverloadExpression(expression)) return undefined;
     return resolved?.databaseType;
+  }
+
+  #isUnknownOverloadExpression(expression: Expression): boolean {
+    return (
+      this.#acceptsTypeContext(expression) ||
+      (expression.kind === "literal" && (expression.value === null || typeof expression.value === "string"))
+    );
   }
 
   #acceptsTypeContext(expression: Expression): boolean {
@@ -3156,6 +3419,11 @@ class Resolver {
   #isNumericType(databaseType: string): boolean {
     const mapping = postgresCatalogTypeMapping(databaseType, this.#schema);
     return mapping === "bigint" || mapping === "number" || mapping === "numeric";
+  }
+
+  #validNumericLiteral(value: string, databaseType: string): boolean {
+    const integer = ["smallint", "integer", "bigint"].includes(normalizeDatabaseType(databaseType));
+    return integer ? /^[+-]?\d+$/u.test(value) : /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/iu.test(value);
   }
 
   #functionType(value: FunctionSnapshot): ResolvedType {

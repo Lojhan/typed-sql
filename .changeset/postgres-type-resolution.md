@@ -29,6 +29,8 @@ TypeScript type, nullability, parameter context, and unknown-field diagnostics.
 `COLLATE` now preserves collatable expression types, and `AT TIME ZONE` resolves PostgreSQL's exact
 timestamp, timestamp-with-time-zone, and time-with-time-zone conversions with text or interval zones.
 PostgreSQL 17 and newer also resolve and version-gate the corresponding `AT LOCAL` forms.
+Scalar and row-valued `IN` lists and subqueries now validate equality candidates, numeric literals,
+row arity, composite field comparability, nullability, and per-position parameter contexts.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

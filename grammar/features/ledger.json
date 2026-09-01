@@ -603,7 +603,12 @@
       "category": "expression",
       "scope": "application-query",
       "owner": "@typed-sql/conformance",
-      "coverage": ["resolver:postgres.row-comparison-arity", "resolver:postgres.row-comparison-operators"],
+      "coverage": [
+        "resolver:postgres.row-comparison-arity",
+        "resolver:postgres.row-comparison-operators",
+        "resolver:postgres.row-in-list-and-subquery",
+        "resolver:postgres.snapshot-composite-comparison"
+      ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
       "sources": [
         {
@@ -663,7 +668,8 @@
         "ast:node.exists-expression",
         "ast:node.in-expression",
         "ast:node.row-expression",
-        "ast:node.subquery-expression"
+        "ast:node.subquery-expression",
+        "resolver:postgres.in-equality-selection"
       ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
       "sources": [
@@ -682,7 +688,10 @@
       ],
       "dialects": {
         "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
-        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
         "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
       }
     },

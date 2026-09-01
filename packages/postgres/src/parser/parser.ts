@@ -1213,7 +1213,7 @@ class Parser {
               throw this.#error("IN requires at least one value", this.#current().range);
             values = this.#parseExpressionList();
           }
-          const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+          const close = this.#expectPunctuation(")");
           left = { kind: "in", expression: left, values, negated, range: mergeRanges(start, close.range) };
           continue;
         }

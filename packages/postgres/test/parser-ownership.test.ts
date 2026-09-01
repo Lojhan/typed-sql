@@ -163,7 +163,9 @@ await describe("PostgreSQL-owned parser", async () => {
       SELECT id = ANY(scores),
              id <> ALL(ARRAY[1, 2]),
              id = SOME(SELECT user_id FROM ages),
-             (id, active) IS DISTINCT FROM (2, false)
+             (id, active) IS DISTINCT FROM (2, false),
+             (id, active) IN ((1, true), (2, false)),
+             (id, active) IN (SELECT user_id, active FROM ages)
       FROM events
     `);
     strict.strictEqual(statement.kind, "select");
@@ -177,6 +179,8 @@ await describe("PostgreSQL-owned parser", async () => {
       ["any", "all", "some"],
     );
     strict.strictEqual(statement.columns[3]?.expression.kind, "binary");
+    strict.strictEqual(statement.columns[4]?.expression.kind, "in");
+    strict.strictEqual(statement.columns[5]?.expression.kind, "in");
     let quantified = 0;
     walkStatement(statement, {
       expression(expression) {
