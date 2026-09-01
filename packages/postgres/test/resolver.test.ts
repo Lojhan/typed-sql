@@ -232,6 +232,64 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves PostgreSQL JSON-path typed literals and routine signatures", () => {
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT jsonb_path_exists(JSONB '{"a":[1,2]}', JSONPATH '$.a[*] ? (@ > 1)') AS exists_value,
+               jsonb_path_match(JSONB '{"a":1}', JSONPATH '$.a == 1') AS match_value,
+               jsonb_path_query_array(JSONB '{"a":[1,2]}', JSONPATH '$.a[*]') AS array_value,
+               jsonb_path_query_first(JSONB '{"a":[1,2]}', JSONPATH '$.a[*]') AS first_value,
+               jsonb_path_query(JSONB '{"a":[1,2]}', JSONPATH '$.a[*]') AS set_value,
+               jsonb_path_exists(path => JSONPATH '$.a', target => JSONB '{"a":1}', silent => true) AS named_value,
+               jsonb_path_exists($1, $2, $3, $4) AS parameterized
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, nullable }) => ({ name, databaseType, nullable })),
+      [
+        { name: "exists_value", databaseType: "boolean", nullable: false },
+        { name: "match_value", databaseType: "boolean", nullable: true },
+        { name: "array_value", databaseType: "jsonb", nullable: false },
+        { name: "first_value", databaseType: "jsonb", nullable: true },
+        { name: "set_value", databaseType: "jsonb", nullable: false },
+        { name: "named_value", databaseType: "boolean", nullable: false },
+        { name: "parameterized", databaseType: "boolean", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType }) => ({ index, databaseType })),
+      [
+        { index: 1, databaseType: "jsonb" },
+        { index: 2, databaseType: "jsonpath" },
+        { index: 3, databaseType: "jsonb" },
+        { index: 4, databaseType: "boolean" },
+      ],
+    );
+
+    for (const source of [
+      "SELECT jsonb_path_exists(1, JSONPATH '$') AS invalid",
+      "SELECT jsonb_path_exists(JSONB '{}') AS invalid",
+      "SELECT jsonb_path_exists(target => JSONB '{}', target => JSONB '{}') AS invalid",
+    ]) {
+      strict.ok(resolveSelect(parseSelect(source), schema).diagnostics.some(({ code }) => code === "TSQ202"));
+    }
+
+    const table = resolveSelect(
+      parseSelect(`
+        SELECT paths.jsonb_path_query AS value
+        FROM jsonb_path_query(JSONB '{"a":[1,2]}', JSONPATH '$.a[*]') AS paths
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(table.diagnostics, []);
+    strict.strictEqual(table.columns[0]?.databaseType, "jsonb");
+    strict.strictEqual(table.columns[0]?.nullable, false);
+    const invalidTable = resolveSelect(parseSelect("SELECT * FROM jsonb_path_query(1, JSONPATH '$') AS paths"), schema);
+    strict.ok(invalidTable.diagnostics.some(({ code }) => code === "TSQ202"));
+  });
+
   await it("infers ordered parameter types from SQL context", () => {
     const parameterSchema = {
       ...schema,

@@ -42,6 +42,9 @@ export type PostgresRoutineResultRule =
   | "grouping"
   | "integer-window"
   | "json-aggregate"
+  | "json-path-boolean"
+  | "json-path-json"
+  | "json-path-set"
   | "nullif"
   | "numeric-aggregate"
   | "ordered-set-value"
@@ -56,6 +59,7 @@ export type PostgresTableRoutineResultRule =
   | "json-array-elements-text"
   | "json-each"
   | "json-each-text"
+  | "json-path-query"
   | "record";
 
 export interface PostgresCatalogType {

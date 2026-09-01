@@ -1393,6 +1393,34 @@ export default Object.freeze({
       ]
     },
     {
+      "name": "json-path-boolean",
+      "result": "json-path-boolean",
+      "routines": [
+        "JSONB_PATH_EXISTS",
+        "JSONB_PATH_EXISTS_TZ",
+        "JSONB_PATH_MATCH",
+        "JSONB_PATH_MATCH_TZ"
+      ]
+    },
+    {
+      "name": "json-path-json",
+      "result": "json-path-json",
+      "routines": [
+        "JSONB_PATH_QUERY_ARRAY",
+        "JSONB_PATH_QUERY_ARRAY_TZ",
+        "JSONB_PATH_QUERY_FIRST",
+        "JSONB_PATH_QUERY_FIRST_TZ"
+      ]
+    },
+    {
+      "name": "json-path-set",
+      "result": "json-path-set",
+      "routines": [
+        "JSONB_PATH_QUERY",
+        "JSONB_PATH_QUERY_TZ"
+      ]
+    },
+    {
       "name": "nullif",
       "result": "nullif",
       "routines": [
@@ -1487,6 +1515,14 @@ export default Object.freeze({
       "routines": [
         "JSONB_EACH_TEXT",
         "JSON_EACH_TEXT"
+      ]
+    },
+    {
+      "name": "json-path-query",
+      "result": "json-path-query",
+      "routines": [
+        "JSONB_PATH_QUERY",
+        "JSONB_PATH_QUERY_TZ"
       ]
     },
     {
@@ -1980,5 +2016,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:3c56079a819b9a91dcf849e2a31629298ee390c4ccadfe1f292fbece9e5c41aa"
+  "revision": "sha256:804167d24ada8b0e9675a28bf48ac3e07211c5bfb0bd08594f338dffc77a68cb"
 }) as unknown as PostgresCoreCatalog;

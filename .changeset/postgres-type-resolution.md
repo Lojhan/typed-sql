@@ -38,6 +38,11 @@ server's fallback conversion rules.
 PostgreSQL interval literals now parse prefix precision, every valid field and field-range qualifier,
 suffix second precision, and qualified interval cast types while retaining typed-literal source spans.
 All forms resolve through the canonical `interval` type, and invalid field ranges fail during parsing.
+JSON, JSONB, and JSONPATH typed literals now preserve their grammar-owned cast form. The core catalog
+and resolver cover `jsonb_path_exists`, `jsonb_path_match`, query-array, query-first, and set-returning
+query variants, including timezone-aware forms, optional variables/silent arguments, and nullability.
+Database parameter identities are now retained even when their configured TypeScript mapping is
+`unknown`, so JSON and other deliberately opaque codecs still produce typed prepared parameters.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

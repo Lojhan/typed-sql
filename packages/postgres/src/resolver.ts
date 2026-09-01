@@ -1767,6 +1767,40 @@ class Resolver {
         },
       ];
     }
+    if (rule === "json-path-query") {
+      const signature = this.#jsonPathCallTypes(expression);
+      const selection =
+        signature === undefined
+          ? { kind: "none" as const }
+          : resolvePostgresCandidates(
+              [{ value: functionName, argumentTypes: signature, resultType: "jsonb" }],
+              expression.arguments.map((argument, index) => this.#overloadInputType(argument, argumentsList[index])),
+              this.#schema,
+            );
+      if (signature === undefined || selection.kind !== "selected") {
+        this.#diagnostic(
+          "TSQ202",
+          `No overload of ${expression.name.name} accepts these argument types`,
+          expression.range,
+          "Use jsonb, jsonpath, optional jsonb variables, and an optional boolean silent flag.",
+          "warning",
+        );
+        return [];
+      }
+      expression.arguments.forEach((argument, index) => {
+        if (this.#acceptsTypeContext(argument)) {
+          this.#resolveExpression(argument, scope, ctes, this.#databaseType(signature[index]!, true));
+        }
+      });
+      return [
+        {
+          name: functionName,
+          databaseType: "jsonb",
+          tsType: this.#policy.json,
+          nullable: false,
+        },
+      ];
+    }
     if (rule === "record") {
       this.#diagnostic(
         "TSQ213",
@@ -3058,6 +3092,51 @@ class Resolver {
     if (routineRule === "string-aggregate") return { tsType: "string", nullable: true, databaseType: "text" };
     if (routineRule === "json-aggregate")
       return { tsType: this.#policy.json, nullable: true, databaseType: name.startsWith("JSONB") ? "jsonb" : "json" };
+    if (routineRule === "json-path-boolean" || routineRule === "json-path-json" || routineRule === "json-path-set") {
+      const signature = this.#jsonPathCallTypes(expression);
+      const selection =
+        signature === undefined
+          ? { kind: "none" as const }
+          : resolvePostgresCandidates(
+              [
+                {
+                  value: name,
+                  argumentTypes: signature,
+                  resultType: routineRule === "json-path-boolean" ? "boolean" : "jsonb",
+                },
+              ],
+              expression.arguments.map((argument, index) => this.#overloadInputType(argument, resolved[index])),
+              this.#schema,
+            );
+      if (signature === undefined || selection.kind !== "selected") {
+        this.#diagnostic(
+          "TSQ202",
+          `No overload of ${expression.name.name} accepts these argument types`,
+          expression.range,
+          "Use jsonb, jsonpath, optional jsonb variables, and an optional boolean silent flag.",
+          "warning",
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      expression.arguments.forEach((argument, index) => {
+        if (this.#acceptsTypeContext(argument)) {
+          this.#resolveExpression(argument, scope, ctes, this.#databaseType(signature[index]!, true));
+        }
+      });
+      if (routineRule === "json-path-boolean") {
+        return {
+          tsType: "boolean",
+          nullable: name.includes("MATCH") || resolved.some(({ nullable }) => nullable),
+          databaseType: "boolean",
+        };
+      }
+      return {
+        tsType: this.#policy.json,
+        nullable:
+          routineRule === "json-path-json" && (name.includes("FIRST") || resolved.some(({ nullable }) => nullable)),
+        databaseType: "jsonb",
+      };
+    }
     if (routineRule === "array-aggregate") {
       const item = resolved[0] ?? aggregateOrder[0] ?? { tsType: "unknown", nullable: true };
       return {
@@ -3178,6 +3257,29 @@ class Resolver {
       expression.kind === "parameter" ||
       (expression.kind === "collate" && this.#acceptsTypeContext(expression.expression))
     );
+  }
+
+  #jsonPathCallTypes(expression: CallExpression): readonly string[] | undefined {
+    const declaredNames = ["target", "path", "vars", "silent"] as const;
+    const declaredTypes = ["jsonb", "jsonpath", "jsonb", "boolean"] as const;
+    const assigned = new Set<number>();
+    const argumentTypes = expression.arguments.map((_, index) => {
+      const name = expression.argumentNames?.[index];
+      const position =
+        name === undefined ? index : declaredNames.indexOf(sqlName(name) as (typeof declaredNames)[number]);
+      if (position < 0 || assigned.has(position)) return undefined;
+      assigned.add(position);
+      return declaredTypes[position];
+    });
+    if (
+      expression.arguments.length > declaredTypes.length ||
+      argumentTypes.some((type) => type === undefined) ||
+      !assigned.has(0) ||
+      !assigned.has(1)
+    ) {
+      return undefined;
+    }
+    return argumentTypes as readonly string[];
   }
 
   #isUnknownCastSource(expression: Expression): boolean {

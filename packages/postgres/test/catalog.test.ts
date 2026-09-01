@@ -62,9 +62,13 @@ await describe("PostgreSQL versioned core catalogs", async () => {
     strict.strictEqual(postgresCatalogOperatorRule("<=>"), undefined);
     strict.strictEqual(postgresCatalogRoutineRule("count"), "count");
     strict.strictEqual(postgresCatalogRoutineRule("jsonb_agg"), "json-aggregate");
+    strict.strictEqual(postgresCatalogRoutineRule("jsonb_path_exists"), "json-path-boolean");
+    strict.strictEqual(postgresCatalogRoutineRule("jsonb_path_query_array_tz"), "json-path-json");
+    strict.strictEqual(postgresCatalogRoutineRule("jsonb_path_query"), "json-path-set");
     strict.strictEqual(postgresCatalogRoutineRule("made_up"), undefined);
     strict.strictEqual(postgresCatalogTableRoutineRule("unnest"), "array-elements");
     strict.strictEqual(postgresCatalogTableRoutineRule("generate_series"), "first-argument");
+    strict.strictEqual(postgresCatalogTableRoutineRule("jsonb_path_query"), "json-path-query");
     strict.strictEqual(postgresCatalogTableRoutineRule("made_up"), undefined);
   });
 

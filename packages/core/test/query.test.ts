@@ -730,6 +730,14 @@ await describe("core contracts", async () => {
     parameters.record(2);
     parameters.record(2, { tsType: "string", nullable: false, databaseType: "text" });
     strict.deepStrictEqual(parameters.values()[1], { index: 2, tsType: "string", nullable: false });
+    parameters.record(3);
+    parameters.record(3, { tsType: "unknown", nullable: true, databaseType: "jsonb" });
+    strict.deepStrictEqual(parameters.values()[2], {
+      index: 3,
+      tsType: "unknown",
+      nullable: true,
+      databaseType: "jsonb",
+    });
     strict.strictEqual(unionTypeLiterals(["string", "number", "string"]), "string | number");
     strict.strictEqual(unionTypeLiterals(["string", "unknown"]), "unknown");
     strict.strictEqual(unionTypeLiterals([]), "unknown");

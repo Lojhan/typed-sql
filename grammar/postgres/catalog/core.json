@@ -903,6 +903,29 @@
       "result": "json-aggregate",
       "introduced": 14
     },
+    {
+      "name": "json-path-boolean",
+      "routines": ["JSONB_PATH_EXISTS", "JSONB_PATH_EXISTS_TZ", "JSONB_PATH_MATCH", "JSONB_PATH_MATCH_TZ"],
+      "result": "json-path-boolean",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-json",
+      "routines": [
+        "JSONB_PATH_QUERY_ARRAY",
+        "JSONB_PATH_QUERY_ARRAY_TZ",
+        "JSONB_PATH_QUERY_FIRST",
+        "JSONB_PATH_QUERY_FIRST_TZ"
+      ],
+      "result": "json-path-json",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-set",
+      "routines": ["JSONB_PATH_QUERY", "JSONB_PATH_QUERY_TZ"],
+      "result": "json-path-set",
+      "introduced": 14
+    },
     { "name": "nullif", "routines": ["NULLIF"], "result": "nullif", "introduced": 14 },
     { "name": "numeric-aggregate", "routines": ["AVG", "SUM"], "result": "numeric-aggregate", "introduced": 14 },
     {
@@ -950,6 +973,12 @@
       "name": "json-each-text",
       "routines": ["JSON_EACH_TEXT", "JSONB_EACH_TEXT"],
       "result": "json-each-text",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-query",
+      "routines": ["JSONB_PATH_QUERY", "JSONB_PATH_QUERY_TZ"],
+      "result": "json-path-query",
       "introduced": 14
     },
     {

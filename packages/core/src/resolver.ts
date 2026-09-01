@@ -26,7 +26,11 @@ export class ParameterCollector {
     const current = this.#parameters.get(index);
     const existingConflict = this.#conflicts.get(index);
     if (existingConflict !== undefined) return existingConflict;
-    if (current === undefined || (current.tsType === "unknown" && candidate.tsType !== "unknown")) {
+    if (
+      current === undefined ||
+      (current.tsType === "unknown" && candidate.tsType !== "unknown") ||
+      (current.databaseType === undefined && candidate.databaseType !== undefined)
+    ) {
       this.#parameters.set(index, candidate);
       return candidate;
     }

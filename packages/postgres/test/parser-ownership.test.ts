@@ -179,6 +179,26 @@ await describe("PostgreSQL-owned parser", async () => {
     strict.doesNotThrow(() => parseStatement("SELECT CAST(ARRAY['1 day'] AS INTERVAL[]) AS interval_values"));
   });
 
+  await it("owns PostgreSQL JSON and JSON-path typed literals", () => {
+    const statement = parseStatement(`
+      SELECT JSON '{"enabled":true}' AS document,
+             JSONB '{"items":[1,2]}' AS binary_document,
+             JSONPATH 'strict $.items[*] ? (@ > 1)' AS path
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns.map(({ expression }) =>
+        expression.kind === "cast" ? [expression.syntax, expression.databaseType.name.toLowerCase()] : undefined,
+      ),
+      [
+        ["typed-literal", "json"],
+        ["typed-literal", "jsonb"],
+        ["typed-literal", "jsonpath"],
+      ],
+    );
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

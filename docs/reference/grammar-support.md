@@ -36,6 +36,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `expression.function.math-extensions` — SQLite compile-option math and extension functions | function-family | out-of-scope | out-of-scope | exact (from 3.39.0) |
 | `expression.function.registry` — SQLite application-defined scalar, aggregate, and window routine registry | function-family | out-of-scope | out-of-scope | exact (from 3.39.0) |
 | `expression.interval-literal` — PostgreSQL interval literals and field qualifiers | expression | unsupported | exact | unsupported |
+| `expression.json-path` — PostgreSQL JSON-path literals, operators, and core routines | expression | unsupported | exact | unsupported |
 | `expression.operator` — Unary and binary operators | operator | conservative | conservative | conservative (from 3.39.0) |
 | `expression.quantified-comparison` — ANY, SOME, and ALL comparisons | expression | conservative | exact | unsupported |
 | `expression.row-comparison` — Row constructor comparisons | expression | conservative | exact | conservative |

@@ -139,6 +139,7 @@ const intervalFieldRanges = new Map<string, ReadonlySet<string>>([
   ["HOUR", new Set(["MINUTE", "SECOND"])],
   ["MINUTE", new Set(["SECOND"])],
 ]);
+const simpleTypedLiteralTypes = new Set(["JSON", "JSONB", "JSONPATH"]);
 
 class Parser {
   readonly #source: string;
@@ -1396,6 +1397,9 @@ class Parser {
     }
     if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);
     if (this.#isIntervalLiteralStart()) return this.#parseIntervalLiteral();
+    if (simpleTypedLiteralTypes.has(token.value) && this.#peekToken(1).kind === "string") {
+      return this.#parseSimpleTypedLiteral();
+    }
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -1646,6 +1650,18 @@ class Parser {
       databaseType: { name: typeName, range: mergeRanges(start.range, typeEnd.range) },
       syntax: "typed-literal",
       range: mergeRanges(start.range, end.range),
+    };
+  }
+
+  #parseSimpleTypedLiteral(): Expression {
+    const type = this.#advance();
+    const value = this.#expect("string", `${type.value.toLowerCase()} string literal`);
+    return {
+      kind: "cast",
+      expression: { kind: "literal", value: value.value, range: value.range },
+      databaseType: { name: type.text, range: type.range },
+      syntax: "typed-literal",
+      range: mergeRanges(type.range, value.range),
     };
   }
 
