@@ -16,7 +16,10 @@ import {
   type JsonFormat,
   type JsonPassingArgument,
   type JsonReturning,
+  type JsonTableColumn,
+  type JsonTableReference,
   type JsonValueExpression,
+  type LiteralExpression,
   type MergeStatement,
   mergeRanges,
   type NamedTableReference,
@@ -907,10 +910,163 @@ class Parser {
         range: mergeRanges(start, alias === undefined ? close.range : this.#previous().range),
       };
     }
+    if (this.#isWord(this.#current(), "JSON_TABLE") && this.#peekToken(1).value === "(") {
+      return this.#parseJsonTableReference(lateral, start);
+    }
     if (this.#current().value === "ROWS" || this.#isTableFunctionStart()) {
       return this.#parseFunctionTableReference(lateral, start);
     }
     return this.#parseNamedTableReference(true, lateral, start);
+  }
+
+  #parseJsonTableReference(lateral: boolean, start: SourceRange): JsonTableReference {
+    this.#expectWord("JSON_TABLE");
+    this.#expectPunctuation("(");
+    const context = this.#parseJsonValueExpression();
+    this.#expectPunctuation(",");
+    const path = this.#parseExpression();
+    const pathName = this.#matchKeyword("AS") ? this.#parseIdentifier(true) : undefined;
+    const passing = this.#parseJsonPassing();
+    this.#expectWord("COLUMNS");
+    this.#expectPunctuation("(");
+    const jsonColumns = this.#parseJsonTableColumns();
+    this.#expectPunctuation(")");
+    const onError = this.#isJsonTableBehaviorStart() ? this.#parseJsonOnErrorBehavior() : undefined;
+    const close = this.#expectPunctuation(")");
+    let alias: Identifier | undefined;
+    if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
+    else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+      alias = this.#parseIdentifier();
+    const columns: Identifier[] = [];
+    if (alias !== undefined && this.#matchPunctuation("(")) {
+      do columns.push(this.#parseIdentifier());
+      while (this.#matchPunctuation(","));
+      this.#expectPunctuation(")");
+    }
+    return {
+      kind: "json-table",
+      context,
+      path,
+      ...(pathName === undefined ? {} : { pathName }),
+      passing,
+      jsonColumns,
+      ...(onError === undefined ? {} : { onError }),
+      ...(alias === undefined ? {} : { alias }),
+      columns,
+      lateral,
+      range: mergeRanges(start, alias === undefined ? close.range : this.#previous().range),
+    };
+  }
+
+  #parseJsonTableColumns(): JsonTableColumn[] {
+    if (this.#current().value === ")") {
+      throw this.#error("JSON_TABLE COLUMNS requires at least one column", this.#current().range);
+    }
+    const columns: JsonTableColumn[] = [];
+    do columns.push(this.#parseJsonTableColumn());
+    while (this.#matchPunctuation(","));
+    return columns;
+  }
+
+  #parseJsonTableColumn(): JsonTableColumn {
+    const start = this.#current();
+    if (this.#matchWord("NESTED")) {
+      this.#matchWord("PATH");
+      const path = this.#parseJsonTablePathLiteral();
+      const pathName = this.#matchKeyword("AS") ? this.#parseIdentifier(true) : undefined;
+      this.#expectWord("COLUMNS");
+      this.#expectPunctuation("(");
+      const columns = this.#parseJsonTableColumns();
+      const close = this.#expectPunctuation(")");
+      return {
+        kind: "nested",
+        path,
+        ...(pathName === undefined ? {} : { pathName }),
+        columns,
+        range: mergeRanges(start.range, close.range),
+      };
+    }
+
+    const name = this.#parseIdentifier(true);
+    if (this.#matchKeyword("FOR")) {
+      const ordinality = this.#expectWord("ORDINALITY");
+      return { kind: "ordinality", name, range: mergeRanges(start.range, ordinality.range) };
+    }
+
+    const databaseType = this.#parseTypeName(false, () => this.#isJsonTableColumnClauseStart());
+    if (this.#matchWord("EXISTS")) {
+      const path = this.#matchWord("PATH") ? this.#parseJsonTablePathLiteral() : undefined;
+      const onError = this.#isJsonTableBehaviorStart() ? this.#parseJsonOnErrorBehavior() : undefined;
+      return {
+        kind: "exists",
+        name,
+        databaseType,
+        ...(path === undefined ? {} : { path }),
+        ...(onError === undefined ? {} : { onError }),
+        range: mergeRanges(start.range, onError?.range ?? path?.range ?? databaseType.range),
+      };
+    }
+
+    const format = this.#parseJsonFormat();
+    const path = this.#matchWord("PATH") ? this.#parseJsonTablePathLiteral() : undefined;
+    const wrapper = this.#parseJsonWrapper();
+    const quotes = this.#parseJsonQuotes();
+    let onEmpty: JsonBehavior | undefined;
+    let onError: JsonBehavior | undefined;
+    if (this.#isJsonTableBehaviorStart()) {
+      const clause = this.#parseJsonBehaviorClause(true);
+      if (clause.target === "empty") onEmpty = clause.behavior;
+      else onError = clause.behavior;
+    }
+    if (onEmpty !== undefined && this.#isJsonTableBehaviorStart()) {
+      const clause = this.#parseJsonBehaviorClause(true);
+      if (clause.target !== "error") {
+        throw this.#error("JSON_TABLE ON EMPTY must precede ON ERROR", clause.behavior.range);
+      }
+      onError = clause.behavior;
+    }
+    return {
+      kind: "value",
+      name,
+      databaseType,
+      ...(format === undefined ? {} : { format }),
+      ...(path === undefined ? {} : { path }),
+      ...(wrapper === undefined ? {} : { wrapper }),
+      ...(quotes === undefined ? {} : { quotes }),
+      ...(onEmpty === undefined ? {} : { onEmpty }),
+      ...(onError === undefined ? {} : { onError }),
+      range: mergeRanges(start.range, onError?.range ?? onEmpty?.range ?? this.#previous().range),
+    };
+  }
+
+  #parseJsonTablePathLiteral(): LiteralExpression {
+    const token = this.#expect("string", "JSON_TABLE path string literal");
+    return { kind: "literal", value: token.value, range: token.range };
+  }
+
+  #isJsonTableColumnClauseStart(): boolean {
+    if (
+      [
+        "EXISTS",
+        "FORMAT",
+        "PATH",
+        "KEEP",
+        "OMIT",
+        "DEFAULT",
+        "ERROR",
+        "NULL",
+        "TRUE",
+        "FALSE",
+        "UNKNOWN",
+        "EMPTY",
+      ].some((word) => this.#isWord(this.#current(), word))
+    )
+      return true;
+    if (this.#isWord(this.#current(), "WITHOUT")) {
+      return this.#isWord(this.#peekToken(1), "ARRAY") || this.#isWord(this.#peekToken(1), "WRAPPER");
+    }
+    if (!this.#isWord(this.#current(), "WITH")) return false;
+    return ["CONDITIONAL", "UNCONDITIONAL", "ARRAY", "WRAPPER"].some((word) => this.#isWord(this.#peekToken(1), word));
   }
 
   #isTableFunctionStart(): boolean {
@@ -1495,26 +1651,8 @@ class Parser {
         range: mergeRanges(returningStart.range, format?.range ?? databaseType.range),
       };
     }
-    let wrapper: "without" | "conditional" | "unconditional" | undefined;
-    if (this.#matchWord("WITHOUT")) {
-      wrapper = "without";
-      this.#matchKeyword("ARRAY");
-      this.#expectWord("WRAPPER");
-    } else if (this.#matchWord("WITH")) {
-      wrapper = this.#matchWord("CONDITIONAL") ? "conditional" : "unconditional";
-      if (wrapper === "unconditional") this.#matchWord("UNCONDITIONAL");
-      this.#matchKeyword("ARRAY");
-      this.#expectWord("WRAPPER");
-    }
-    let quotes: "keep" | "omit" | undefined;
-    if (this.#matchWord("KEEP") || this.#matchWord("OMIT")) {
-      quotes = this.#previous().value.toLowerCase() as typeof quotes;
-      this.#expectWord("QUOTES");
-      if (this.#matchKeyword("ON")) {
-        this.#expectWord("SCALAR");
-        this.#expectWord("STRING");
-      }
-    }
+    const wrapper = this.#parseJsonWrapper();
+    const quotes = this.#parseJsonQuotes();
     let onEmpty: JsonBehavior | undefined;
     let onError: JsonBehavior | undefined;
     if (this.#isJsonQueryBehaviorStart()) {
@@ -1633,6 +1771,37 @@ class Parser {
     return ["DEFAULT", "ERROR", "NULL", "EMPTY"].some((word) => this.#isWord(this.#current(), word));
   }
 
+  #isJsonTableBehaviorStart(): boolean {
+    return ["DEFAULT", "ERROR", "NULL", "TRUE", "FALSE", "UNKNOWN", "EMPTY"].some((word) =>
+      this.#isWord(this.#current(), word),
+    );
+  }
+
+  #parseJsonWrapper(): "without" | "conditional" | "unconditional" | undefined {
+    if (this.#matchWord("WITHOUT")) {
+      this.#matchKeyword("ARRAY");
+      this.#expectWord("WRAPPER");
+      return "without";
+    }
+    if (!this.#matchWord("WITH")) return undefined;
+    const wrapper = this.#matchWord("CONDITIONAL") ? "conditional" : "unconditional";
+    if (wrapper === "unconditional") this.#matchWord("UNCONDITIONAL");
+    this.#matchKeyword("ARRAY");
+    this.#expectWord("WRAPPER");
+    return wrapper;
+  }
+
+  #parseJsonQuotes(): "keep" | "omit" | undefined {
+    if (!this.#matchWord("KEEP") && !this.#matchWord("OMIT")) return undefined;
+    const quotes = this.#previous().value.toLowerCase() as "keep" | "omit";
+    this.#expectWord("QUOTES");
+    if (this.#matchKeyword("ON")) {
+      this.#expectWord("SCALAR");
+      this.#expectWord("STRING");
+    }
+    return quotes;
+  }
+
   #isJsonQueryClauseStart(): boolean {
     if (
       ["FORMAT", "KEEP", "OMIT", "DEFAULT", "ERROR", "NULL", "EMPTY"].some((word) =>
@@ -1648,7 +1817,10 @@ class Parser {
     return ["CONDITIONAL", "UNCONDITIONAL", "ARRAY", "WRAPPER"].some((word) => this.#isWord(this.#peekToken(1), word));
   }
 
-  #parseJsonBehaviorClause(): { readonly behavior: JsonBehavior; readonly target: "empty" | "error" } {
+  #parseJsonBehaviorClause(allowTruthValues = false): {
+    readonly behavior: JsonBehavior;
+    readonly target: "empty" | "error";
+  } {
     const start = this.#current();
     let behavior: JsonBehavior;
     if (this.#matchKeyword("DEFAULT")) {
@@ -1658,6 +1830,14 @@ class Parser {
       behavior = { kind: "error", range: start.range };
     } else if (this.#matchKeyword("NULL")) {
       behavior = { kind: "null", range: start.range };
+    } else if (
+      allowTruthValues &&
+      (this.#matchKeyword("TRUE") || this.#matchKeyword("FALSE") || this.#matchWord("UNKNOWN"))
+    ) {
+      behavior = {
+        kind: this.#previous().value.toLowerCase() as "true" | "false" | "unknown",
+        range: start.range,
+      };
     } else {
       this.#expectWord("EMPTY");
       const object = this.#matchWord("OBJECT");
@@ -1671,6 +1851,14 @@ class Parser {
     if (this.#matchWord("EMPTY")) return { behavior, target: "empty" };
     this.#expectWord("ERROR");
     return { behavior, target: "error" };
+  }
+
+  #parseJsonOnErrorBehavior(): JsonBehavior {
+    const clause = this.#parseJsonBehaviorClause(true);
+    if (clause.target !== "error") {
+      throw this.#error("JSON_TABLE behavior must target ON ERROR", clause.behavior.range);
+    }
+    return clause.behavior;
   }
 
   #parseCall(schema: Identifier | undefined, name: Identifier): Expression {

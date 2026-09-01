@@ -28,6 +28,8 @@ import type {
   Identifier,
   InsertConflictTarget,
   JsonBehavior,
+  JsonTableColumn,
+  JsonTableReference,
   JsonValueExpression,
   QualifiedIdentifier,
   SelectItem,
@@ -1485,7 +1487,9 @@ class Resolver {
     if (join.kind === "right" || join.kind === "full") for (const relation of previous) relation.nullable = true;
     const restrictLateral =
       (join.kind === "right" || join.kind === "full") &&
-      (join.table.kind === "function" || (join.table.kind === "subquery" && join.table.lateral));
+      (join.table.kind === "function" ||
+        join.table.kind === "json-table" ||
+        (join.table.kind === "subquery" && join.table.lateral));
     const relationScope: Scope = restrictLateral
       ? {
           relations: [],
@@ -1545,6 +1549,9 @@ class Resolver {
     if (reference.kind === "function") {
       table = this.#resolveFunctionTable(reference, scope, ctes);
       alias = reference.alias === undefined ? sqlName(reference.functions[0]!.call.name) : sqlName(reference.alias);
+    } else if (reference.kind === "json-table") {
+      table = this.#resolveJsonTable(reference, scope, ctes);
+      alias = reference.alias === undefined ? "json_table" : sqlName(reference.alias);
     } else if (reference.kind === "subquery") {
       if (reference.alias === undefined) this.#requireServerMajor(16, "Unaliased derived tables", reference.range);
       const outer = reference.lateral ? scope : scope.outer;
@@ -1632,6 +1639,201 @@ class Resolver {
       }
     }
     return relation;
+  }
+
+  #resolveJsonTable(
+    reference: JsonTableReference,
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+  ): TableSnapshot {
+    this.#requireServerMajor(17, "JSON_TABLE", reference.range);
+    const context = this.#resolveSqlJsonValue(reference.context, scope, ctes, true);
+    let pathValid = reference.path.kind === "literal" && typeof reference.path.value === "string";
+    if (!pathValid) {
+      this.#resolveExpression(reference.path, scope, ctes);
+      this.#diagnostic("TSQ203", "PostgreSQL JSON_TABLE path must be a string constant", reference.path.range);
+    }
+    const passing = reference.passing.map((argument) => this.#resolveSqlJsonValue(argument.value, scope, ctes, false));
+    const topOnErrorValid =
+      reference.onError === undefined || reference.onError.kind === "error" || reference.onError.kind === "empty-array";
+    if (!topOnErrorValid) {
+      this.#diagnostic("TSQ203", "JSON_TABLE allows only ERROR or EMPTY ARRAY ON ERROR", reference.onError!.range);
+      this.#resolveJsonQueryBehavior(reference.onError, undefined, scope, ctes);
+    }
+    if (!context.valid || passing.some(({ valid }) => !valid)) pathValid = false;
+
+    const jsonNames = new Set<string>();
+    if (reference.pathName !== undefined) jsonNames.add(sqlName(reference.pathName));
+    this.#validateJsonTableNames(reference.jsonColumns, jsonNames);
+    const resolvedColumns = this.#resolveJsonTableColumns(reference.jsonColumns, scope, ctes, false);
+    reference.columns.forEach((identifier, index) => {
+      const column = resolvedColumns[index];
+      if (column === undefined) {
+        this.#diagnostic("TSQ213", "JSON_TABLE column alias list has more names than outputs", identifier.range);
+      } else column.name = sqlName(identifier);
+    });
+    const columns: Record<string, ColumnSnapshot> = {};
+    for (const column of resolvedColumns) {
+      if (columns[column.name] !== undefined) {
+        this.#diagnostic("TSQ105", `Duplicate JSON_TABLE column ${column.name}`, reference.range);
+        continue;
+      }
+      columns[column.name] =
+        pathValid && topOnErrorValid
+          ? column
+          : { ...column, databaseType: "unknown", tsType: "unknown", nullable: true };
+    }
+    return { name: reference.alias === undefined ? "json_table" : sqlName(reference.alias), columns };
+  }
+
+  #validateJsonTableNames(definitions: readonly JsonTableColumn[], names: Set<string>): void {
+    for (const definition of definitions) {
+      const identifier = definition.kind === "nested" ? definition.pathName : definition.name;
+      if (identifier !== undefined) {
+        const name = sqlName(identifier);
+        if (names.has(name)) {
+          this.#diagnostic("TSQ105", `Duplicate JSON_TABLE column or path name ${name}`, identifier.range);
+        }
+        names.add(name);
+      }
+      if (definition.kind === "nested") this.#validateJsonTableNames(definition.columns, names);
+    }
+  }
+
+  #resolveJsonTableColumns(
+    definitions: readonly JsonTableColumn[],
+    scope: Scope,
+    ctes: ReadonlyMap<string, TableSnapshot>,
+    nested: boolean,
+  ): FunctionColumn[] {
+    return definitions.flatMap((definition) => {
+      if (definition.kind === "nested") {
+        return this.#resolveJsonTableColumns(definition.columns, scope, ctes, true).map((column) => ({
+          ...column,
+          nullable: true,
+        }));
+      }
+      if (definition.kind === "ordinality") {
+        return [{ name: sqlName(definition.name), databaseType: "integer", tsType: "number", nullable: nested }];
+      }
+
+      const requestedType = definition.databaseType.name;
+      const known = isKnownPostgresType(requestedType, this.#schema);
+      if (!known) {
+        this.#diagnostic(
+          "TSQ106",
+          `Invalid or unknown PostgreSQL JSON_TABLE column type ${requestedType}`,
+          definition.databaseType.range,
+        );
+      }
+      const canonical = known ? postgresCanonicalType(requestedType, this.#schema) : undefined;
+      let valid = known;
+
+      if (definition.kind === "exists") {
+        if (canonical !== undefined && !postgresCanCoerce("boolean", canonical, "explicit", this.#schema)) {
+          this.#diagnostic(
+            "TSQ203",
+            `JSON_TABLE EXISTS result cannot be coerced to ${requestedType}`,
+            definition.databaseType.range,
+          );
+          valid = false;
+        }
+        if (
+          definition.onError !== undefined &&
+          !["error", "true", "false", "unknown"].includes(definition.onError.kind)
+        ) {
+          this.#diagnostic(
+            "TSQ203",
+            "JSON_TABLE EXISTS allows only ERROR, TRUE, FALSE, or UNKNOWN ON ERROR",
+            definition.onError.range,
+          );
+          this.#resolveJsonQueryBehavior(definition.onError, undefined, scope, ctes);
+          valid = false;
+        }
+        return [
+          {
+            name: sqlName(definition.name),
+            databaseType: valid ? canonical! : "unknown",
+            tsType: valid ? mapPostgresType(canonical!, this.#policy, this.#schema) : "unknown",
+            nullable: nested || definition.onError?.kind === "unknown",
+          },
+        ];
+      }
+
+      if (definition.format !== undefined && canonical !== undefined) {
+        const mapping = postgresCatalogTypeMapping(canonical, this.#schema);
+        if (mapping !== "string" && mapping !== "bytes" && mapping !== "json") {
+          this.#diagnostic(
+            "TSQ203",
+            `JSON_TABLE FORMAT JSON requires a string, bytea, json, or jsonb column type, received ${requestedType}`,
+            definition.format.range,
+          );
+          valid = false;
+        }
+        if (definition.format.encoding !== undefined) {
+          if (definition.format.encoding !== "UTF8") {
+            this.#diagnostic(
+              "TSQ203",
+              `PostgreSQL JSON ENCODING supports UTF8, received ${definition.format.encoding}`,
+              definition.format.range,
+            );
+            valid = false;
+          }
+          if (canonical !== "bytea") {
+            this.#diagnostic(
+              "TSQ203",
+              `JSON ENCODING requires bytea output, received ${requestedType}`,
+              definition.format.range,
+            );
+            valid = false;
+          }
+        }
+      }
+      if (definition.quotes === "omit" && definition.wrapper !== undefined && definition.wrapper !== "without") {
+        this.#diagnostic("TSQ203", "JSON_TABLE QUOTES behavior cannot be combined with WITH WRAPPER", definition.range);
+        valid = false;
+      }
+      for (const behavior of [definition.onEmpty, definition.onError]) {
+        if (behavior !== undefined && ["true", "false", "unknown"].includes(behavior.kind)) {
+          this.#diagnostic(
+            "TSQ203",
+            "JSON_TABLE value columns do not allow TRUE, FALSE, or UNKNOWN behavior",
+            behavior.range,
+          );
+          valid = false;
+        }
+      }
+      const expected = canonical === undefined ? undefined : this.#databaseType(canonical, true);
+      const allowCollections =
+        definition.format !== undefined || definition.wrapper !== undefined || definition.quotes !== undefined;
+      const onEmpty = this.#resolveJsonQueryBehavior(
+        definition.onEmpty,
+        expected,
+        scope,
+        ctes,
+        allowCollections,
+        "JSON_TABLE scalar columns",
+      );
+      const onError = this.#resolveJsonQueryBehavior(
+        definition.onError,
+        expected,
+        scope,
+        ctes,
+        allowCollections,
+        "JSON_TABLE scalar columns",
+      );
+      valid &&= onEmpty.valid && onError.valid;
+      return [
+        {
+          name: sqlName(definition.name),
+          databaseType: valid ? canonical! : "unknown",
+          tsType: valid ? mapPostgresType(canonical!, this.#policy, this.#schema) : "unknown",
+          // Scalar columns convert JSON null to SQL NULL. Formatted columns
+          // preserve JSON null and are nullable only through their behaviors.
+          nullable: nested || !allowCollections || onEmpty.nullable || onError.nullable,
+        },
+      ];
+    });
   }
 
   #resolveFunctionTable(
@@ -3599,11 +3801,16 @@ class Resolver {
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
     allowEmptyCollections = true,
+    scalarFeature = "JSON_VALUE",
   ): { readonly nullable: boolean; readonly valid: boolean } {
     if (behavior === undefined || behavior.kind === "null") return { nullable: true, valid: true };
     if (behavior.kind !== "default") {
       if (!allowEmptyCollections && (behavior.kind === "empty-array" || behavior.kind === "empty-object")) {
-        this.#diagnostic("TSQ203", "JSON_VALUE allows only ERROR, NULL, or DEFAULT behavior", behavior.range);
+        this.#diagnostic(
+          "TSQ203",
+          `Only ERROR, NULL, or DEFAULT behavior is valid for ${scalarFeature}`,
+          behavior.range,
+        );
         return { nullable: true, valid: false };
       }
       return { nullable: false, valid: true };

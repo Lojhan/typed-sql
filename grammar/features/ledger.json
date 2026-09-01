@@ -1214,6 +1214,42 @@
       }
     },
     {
+      "id": "query.relation.json-table",
+      "title": "PostgreSQL SQL/JSON JSON_TABLE row source",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-table",
+        "resolver:postgres.sql-json-table-columns",
+        "resolver:postgres.sql-json-table-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL JSON_TABLE",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-TABLE"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
       "id": "query.relation.lateral",
       "title": "LATERAL derived tables",
       "category": "clause",

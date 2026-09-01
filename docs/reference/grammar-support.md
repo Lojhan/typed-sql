@@ -58,6 +58,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `query.relation` — Named tables and derived table references | clause | exact | exact | exact |
 | `query.relation.derived-alias-optional` — PostgreSQL unaliased derived tables | clause | unsupported | exact (from 16) | out-of-scope |
 | `query.relation.function` — Function calls as table relations | clause | unsupported | exact | exact |
+| `query.relation.json-table` — PostgreSQL SQL/JSON JSON_TABLE row source | clause | unsupported | exact (from 17) | unsupported |
 | `query.relation.lateral` — LATERAL derived tables | clause | exact (from 8.0.14) | exact (from 9.3) | unsupported |
 | `query.relation.rows-from` — PostgreSQL ROWS FROM and WITH ORDINALITY | clause | unsupported | exact | unsupported |
 | `query.relation.table-sample` — PostgreSQL TABLESAMPLE and REPEATABLE | clause | unsupported | exact | unsupported |

@@ -126,7 +126,7 @@ export interface JsonPassingArgument {
 }
 
 export interface JsonBehavior {
-  readonly kind: "error" | "null" | "empty-array" | "empty-object" | "default";
+  readonly kind: "error" | "null" | "true" | "false" | "unknown" | "empty-array" | "empty-object" | "default";
   readonly expression?: Expression;
   readonly range: SourceRange;
 }
@@ -339,6 +339,64 @@ export interface FunctionTableReference {
   readonly range: SourceRange;
 }
 
+export interface JsonTableOrdinalityColumn {
+  readonly kind: "ordinality";
+  readonly name: Identifier;
+  readonly range: SourceRange;
+}
+
+export interface JsonTableValueColumn {
+  readonly kind: "value";
+  readonly name: Identifier;
+  readonly databaseType: TypeName;
+  readonly format?: JsonFormat;
+  readonly path?: LiteralExpression;
+  readonly wrapper?: "without" | "conditional" | "unconditional";
+  readonly quotes?: "keep" | "omit";
+  readonly onEmpty?: JsonBehavior;
+  readonly onError?: JsonBehavior;
+  readonly range: SourceRange;
+}
+
+export interface JsonTableExistsColumn {
+  readonly kind: "exists";
+  readonly name: Identifier;
+  readonly databaseType: TypeName;
+  readonly path?: LiteralExpression;
+  readonly onError?: JsonBehavior;
+  readonly range: SourceRange;
+}
+
+export interface JsonTableNestedColumn {
+  readonly kind: "nested";
+  readonly path: LiteralExpression;
+  readonly pathName?: Identifier;
+  readonly columns: readonly JsonTableColumn[];
+  readonly range: SourceRange;
+}
+
+export type JsonTableColumn =
+  | JsonTableOrdinalityColumn
+  | JsonTableValueColumn
+  | JsonTableExistsColumn
+  | JsonTableNestedColumn;
+
+export interface JsonTableReference {
+  readonly kind: "json-table";
+  readonly context: JsonValueExpression;
+  readonly path: Expression;
+  readonly pathName?: Identifier;
+  readonly passing: readonly JsonPassingArgument[];
+  readonly jsonColumns: readonly JsonTableColumn[];
+  readonly onError?: JsonBehavior;
+  readonly alias?: Identifier;
+  readonly columns: readonly Identifier[];
+  readonly lateral: boolean;
+  readonly name?: never;
+  readonly schema?: never;
+  readonly range: SourceRange;
+}
+
 export interface TableSampleClause {
   readonly method: Identifier;
   readonly arguments: readonly Expression[];
@@ -346,7 +404,7 @@ export interface TableSampleClause {
   readonly range: SourceRange;
 }
 
-export type TableReference = NamedTableReference | SubqueryTableReference | FunctionTableReference;
+export type TableReference = NamedTableReference | SubqueryTableReference | FunctionTableReference | JsonTableReference;
 
 export type JoinKind = "inner" | "left" | "right" | "full" | "cross";
 

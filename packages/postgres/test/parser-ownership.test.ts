@@ -353,6 +353,73 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 17 SQL/JSON JSON_TABLE row sources", () => {
+    const statement = parseStatement(`
+      SELECT jt.*
+      FROM JSON_TABLE(
+        $1 FORMAT JSON,
+        '$.items[*]' AS item_path
+        PASSING $2 AS threshold
+        COLUMNS (
+          ord FOR ORDINALITY,
+          amount numeric(10, 2) PATH '$.amount' DEFAULT 0 ON EMPTY ERROR ON ERROR,
+          document bytea FORMAT JSON ENCODING UTF8 PATH '$.document'
+            WITH CONDITIONAL ARRAY WRAPPER KEEP QUOTES EMPTY ARRAY ON EMPTY NULL ON ERROR,
+          has integer EXISTS PATH '$.value' UNKNOWN ON ERROR,
+          NESTED PATH '$.children[*]' AS child_path COLUMNS (
+            child_ord FOR ORDINALITY,
+            label text PATH '$.label'
+          )
+        )
+        EMPTY ARRAY ON ERROR
+      ) AS jt(row_number, amount_value, document_value, has_value, child_number, child_label)
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.strictEqual(statement.from?.kind, "json-table");
+    if (statement.from?.kind !== "json-table") return;
+    strict.strictEqual(statement.from.pathName?.name, "item_path");
+    strict.strictEqual(statement.from.alias?.name, "jt");
+    strict.strictEqual(statement.from.onError?.kind, "empty-array");
+    strict.deepStrictEqual(
+      statement.from.jsonColumns.map(({ kind }) => kind),
+      ["ordinality", "value", "value", "exists", "nested"],
+    );
+    const nested = statement.from.jsonColumns[4];
+    strict.strictEqual(nested?.kind, "nested");
+    if (nested?.kind !== "nested") return;
+    strict.strictEqual(nested.pathName?.name, "child_path");
+    strict.deepStrictEqual(
+      nested.columns.map(({ kind }) => kind),
+      ["ordinality", "value"],
+    );
+
+    const visited = { parameters: 0, types: [] as string[] };
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "parameter") visited.parameters += 1;
+      },
+      type(type) {
+        visited.types.push(type.name);
+      },
+    });
+    strict.strictEqual(visited.parameters, 2);
+    strict.deepStrictEqual(visited.types, ["numeric(10, 2)", "bytea", "integer", "text"]);
+
+    const lowercase = parseStatement(
+      `select * from json_table('{}', '$' columns (n for ordinality, value text path '$.value')) jt`,
+    );
+    strict.strictEqual(lowercase.kind === "select" ? lowercase.from?.kind : undefined, "json-table");
+    for (const invalid of [
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS ())",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (NESTED PATH $1 COLUMNS (x text)))",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (x text EXISTS PATH '$' NULL ON EMPTY))",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (x text NULL ON ERROR NULL ON EMPTY))",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

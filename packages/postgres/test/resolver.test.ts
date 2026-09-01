@@ -499,6 +499,130 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves and version-gates PostgreSQL 17 JSON_TABLE", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT row_number, amount, present, present_int, child_number, label
+        FROM JSON_TABLE(
+          $1,
+          '$.items[*]' AS item_path
+          PASSING $2 AS threshold
+          COLUMNS (
+            row_number FOR ORDINALITY,
+            amount numeric PATH '$.amount' DEFAULT 0 ON EMPTY ERROR ON ERROR,
+            present boolean EXISTS PATH '$.amount' FALSE ON ERROR,
+            present_int integer EXISTS PATH '$.amount' UNKNOWN ON ERROR,
+            NESTED PATH '$.children[*]' AS child_path COLUMNS (
+              child_number FOR ORDINALITY,
+              label text PATH '$.label' ERROR ON EMPTY ERROR ON ERROR
+            )
+          )
+          EMPTY ARRAY ON ERROR
+        ) AS jt
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "row_number", databaseType: "integer", tsType: "number", nullable: false },
+        { name: "amount", databaseType: "numeric", tsType: "string", nullable: true },
+        { name: "present", databaseType: "boolean", tsType: "boolean", nullable: false },
+        { name: "present_int", databaseType: "integer", tsType: "number", nullable: true },
+        { name: "child_number", databaseType: "integer", tsType: "number", nullable: true },
+        { name: "label", databaseType: "text", tsType: "string", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "text", tsType: "string" },
+        { index: 2, databaseType: "text", tsType: "string" },
+      ],
+    );
+
+    const lateral = resolveSelect(
+      parseSelect(`
+        SELECT jt.renamed
+        FROM users AS u,
+             JSON_TABLE(u.name, '$' COLUMNS(value text PATH '$')) AS jt(renamed)
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(lateral.diagnostics, []);
+    strict.strictEqual(lateral.columns[0]?.name, "renamed");
+    const formattedBehavior = resolveSelect(
+      parseSelect(`
+        SELECT value
+        FROM JSON_TABLE(
+          '{}', '$'
+          PASSING 1 AS duplicate_name, 2 AS duplicate_name
+          COLUMNS (value text PATH '$.missing' WITH WRAPPER EMPTY ARRAY ON EMPTY ERROR ON ERROR)
+        ) AS jt
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(formattedBehavior.diagnostics, []);
+    strict.strictEqual(formattedBehavior.columns[0]?.nullable, false);
+
+    for (const invalid of [
+      "SELECT * FROM JSON_TABLE('{}', $1 COLUMNS (value text)) AS jt",
+      "SELECT * FROM JSON_TABLE(1, '$' COLUMNS (value text)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value missing_type)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value date EXISTS)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value boolean EXISTS NULL ON ERROR)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value text TRUE ON ERROR)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value integer FORMAT JSON)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value bytea FORMAT JSON ENCODING UTF16)) AS jt",
+      "SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value integer DEFAULT $1 ON EMPTY)) AS jt",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), postgres18);
+      strict.ok(
+        invalidResult.diagnostics.some(({ code }) => code === "TSQ106" || code === "TSQ203"),
+        invalid,
+      );
+      strict.ok(
+        invalidResult.columns.some(({ tsType }) => tsType === "unknown"),
+        invalid,
+      );
+    }
+
+    const duplicate = resolveSelect(
+      parseSelect("SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value text, value integer)) AS jt"),
+      postgres18,
+    );
+    strict.ok(duplicate.diagnostics.some(({ code }) => code === "TSQ105"));
+    const duplicatePath = resolveSelect(
+      parseSelect(
+        "SELECT * FROM JSON_TABLE('{}', '$' AS item COLUMNS (NESTED '$' AS item COLUMNS (value text))) AS jt",
+      ),
+      postgres18,
+    );
+    strict.ok(duplicatePath.diagnostics.some(({ code }) => code === "TSQ105"));
+
+    const postgres16 = {
+      ...postgres18,
+      server: postgresServerEvidence("16.10", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(
+        parseSelect("SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value text)) AS jt"),
+        postgres16,
+      ).diagnostics.some(({ code }) => code === "TSQ403"),
+    );
+    strict.ok(
+      resolveSelect(
+        parseSelect("SELECT * FROM JSON_TABLE('{}', '$' COLUMNS (value text)) AS jt"),
+        upgradeSchemaSnapshotV1(schema),
+      ).diagnostics.some(({ code }) => code === "TSQ402"),
+    );
+  });
+
   await it("infers ordered parameter types from SQL context", () => {
     const parameterSchema = {
       ...schema,

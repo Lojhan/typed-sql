@@ -175,6 +175,29 @@ function walkTable(table: TableReference, statement: Statement, visitor: SqlAstV
     }
     for (const column of table.columns)
       if (column.databaseType !== undefined) visitor.type?.(column.databaseType, statement);
+  } else if (table.kind === "json-table") {
+    walkExpression(table.context.expression, statement, visitor, context);
+    walkExpression(table.path, statement, visitor, context);
+    for (const argument of table.passing) walkExpression(argument.value.expression, statement, visitor, context);
+    const walkColumns = (columns: typeof table.jsonColumns): void => {
+      for (const column of columns) {
+        if (column.kind === "nested") {
+          walkExpression(column.path, statement, visitor, context);
+          walkColumns(column.columns);
+          continue;
+        }
+        if (column.kind === "ordinality") continue;
+        visitor.type?.(column.databaseType, statement);
+        if (column.path !== undefined) walkExpression(column.path, statement, visitor, context);
+        if (column.kind === "value") {
+          if (column.onEmpty?.expression !== undefined)
+            walkExpression(column.onEmpty.expression, statement, visitor, context);
+          if (column.onError?.expression !== undefined)
+            walkExpression(column.onError.expression, statement, visitor, context);
+        }
+      }
+    };
+    walkColumns(table.jsonColumns);
   } else if (table.sample !== undefined) {
     for (const argument of table.sample.arguments) walkExpression(argument, statement, visitor, context);
     if (table.sample.repeatable !== undefined) walkExpression(table.sample.repeatable, statement, visitor, context);
