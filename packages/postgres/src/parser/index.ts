@@ -40,6 +40,7 @@ export type {
   JsonQueryExpression,
   JsonReturning,
   JsonValueExpression,
+  JsonValueQueryExpression,
   LiteralExpression,
   MergeAction,
   MergeInsertAction,

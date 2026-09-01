@@ -429,6 +429,76 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves and version-gates PostgreSQL 17 JSON_VALUE", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT JSON_VALUE(JSONB '{"value":4}', JSONPATH '$.value') AS scalar_text,
+               JSON_VALUE(
+                 JSONB '{"value":4}', JSONPATH '$.value'
+                 RETURNING integer ERROR ON EMPTY ERROR ON ERROR
+               ) AS scalar_number,
+               JSON_VALUE(
+                 JSONB '{}', JSONPATH '$.missing'
+                 RETURNING numeric DEFAULT 0 ON EMPTY DEFAULT 1 ON ERROR
+               ) AS fallback_number,
+               JSON_VALUE($1, $2 PASSING $3 AS variable RETURNING date) AS parameterized,
+               JSON_VALUE(JSONB '{"value":null}', JSONPATH '$.value' RETURNING integer ERROR ON EMPTY ERROR ON ERROR)
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "scalar_text", databaseType: "text", tsType: "string", nullable: true },
+        { name: "scalar_number", databaseType: "integer", tsType: "number", nullable: true },
+        { name: "fallback_number", databaseType: "numeric", tsType: "string", nullable: true },
+        { name: "parameterized", databaseType: "date", tsType: "Date", nullable: true },
+        { name: "json_value", databaseType: "integer", tsType: "number", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "text", tsType: "string" },
+        { index: 2, databaseType: "jsonpath", tsType: "string" },
+        { index: 3, databaseType: "text", tsType: "string" },
+      ],
+    );
+
+    for (const invalid of [
+      "SELECT JSON_VALUE('{}', '$' RETURNING missing_type) AS value",
+      "SELECT JSON_VALUE('{}', '$' RETURNING text FORMAT JSON) AS value",
+      "SELECT JSON_VALUE('{}', '$' EMPTY ARRAY ON EMPTY) AS value",
+      "SELECT JSON_VALUE('{}', '$' EMPTY OBJECT ON ERROR) AS value",
+      "SELECT JSON_VALUE('{}', '$' RETURNING integer DEFAULT $1 ON EMPTY) AS value",
+      "SELECT JSON_VALUE('{}', '$' RETURNING integer DEFAULT name ON EMPTY) AS value FROM users",
+      "SELECT JSON_VALUE(1, '$') AS value",
+      "SELECT JSON_VALUE('{}', 1) AS value",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), postgres18);
+      strict.ok(
+        invalidResult.diagnostics.some(({ code }) => code === "TSQ106" || code === "TSQ203"),
+        invalid,
+      );
+      strict.strictEqual(invalidResult.columns[0]?.tsType, "unknown", invalid);
+    }
+
+    const postgres16 = {
+      ...postgres18,
+      server: postgresServerEvidence("16.10", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_VALUE('{}', '$')"), postgres16).diagnostics.some(
+        ({ code }) => code === "TSQ403",
+      ),
+    );
+  });
+
   await it("infers ordered parameter types from SQL context", () => {
     const parameterSchema = {
       ...schema,

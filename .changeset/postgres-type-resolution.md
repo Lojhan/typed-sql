@@ -48,6 +48,8 @@ including formatted inputs, `PASSING` variables, error behavior, parameter ident
 and server-version diagnostics.
 The grammar-owned PostgreSQL 17 `JSON_QUERY` form also resolves returning types, JSON output formats,
 wrapper and quote behavior, constant `ON EMPTY` and `ON ERROR` defaults, and exact output nullability.
+PostgreSQL 17 `JSON_VALUE` now resolves scalar return types and behaviors while preserving its
+always-possible SQL null result for JSON null and rejecting unsupported collection or format clauses.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

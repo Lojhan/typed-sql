@@ -794,6 +794,43 @@
       }
     },
     {
+      "id": "expression.sql-json-value",
+      "title": "PostgreSQL SQL/JSON JSON_VALUE expression",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-value",
+        "resolver:postgres.sql-json-value-behaviors",
+        "resolver:postgres.sql-json-value-returns",
+        "resolver:postgres.sql-json-value-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON query functions",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-QUERYING"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
       "id": "expression.structured",
       "title": "Row, CASE, predicate, and subquery expressions",
       "category": "expression",

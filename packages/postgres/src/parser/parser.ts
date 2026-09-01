@@ -1413,6 +1413,10 @@ class Parser {
       this.#advance();
       return this.#parseJsonQuery(token);
     }
+    if (this.#isWord(token, "JSON_VALUE") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonValueQuery(token);
+    }
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -1534,6 +1538,50 @@ class Parser {
       ...(returning === undefined ? {} : { returning }),
       ...(wrapper === undefined ? {} : { wrapper }),
       ...(quotes === undefined ? {} : { quotes }),
+      ...(onEmpty === undefined ? {} : { onEmpty }),
+      ...(onError === undefined ? {} : { onError }),
+      range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonValueQuery(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const context = this.#parseJsonValueExpression();
+    this.#expectPunctuation(",");
+    const path = this.#parseExpression();
+    const passing = this.#parseJsonPassing();
+    let returning: JsonReturning | undefined;
+    if (this.#matchKeyword("RETURNING")) {
+      const returningStart = this.#previous();
+      const databaseType = this.#parseTypeName(false, () => this.#isJsonQueryClauseStart());
+      const format = this.#parseJsonFormat();
+      returning = {
+        databaseType,
+        ...(format === undefined ? {} : { format }),
+        range: mergeRanges(returningStart.range, format?.range ?? databaseType.range),
+      };
+    }
+    let onEmpty: JsonBehavior | undefined;
+    let onError: JsonBehavior | undefined;
+    if (this.#isJsonQueryBehaviorStart()) {
+      const clause = this.#parseJsonBehaviorClause();
+      if (clause.target === "empty") onEmpty = clause.behavior;
+      else onError = clause.behavior;
+    }
+    if (onEmpty !== undefined && this.#isJsonQueryBehaviorStart()) {
+      const clause = this.#parseJsonBehaviorClause();
+      if (clause.target !== "error") {
+        throw this.#error("JSON_VALUE ON EMPTY must precede ON ERROR", clause.behavior.range);
+      }
+      onError = clause.behavior;
+    }
+    const close = this.#expectPunctuation(")");
+    return {
+      kind: "json-value",
+      context,
+      path,
+      passing,
+      ...(returning === undefined ? {} : { returning }),
       ...(onEmpty === undefined ? {} : { onEmpty }),
       ...(onError === undefined ? {} : { onError }),
       range: mergeRanges(start.range, close.range),

@@ -303,6 +303,56 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 17 SQL/JSON JSON_VALUE clauses", () => {
+    const statement = parseStatement(`
+      SELECT JSON_VALUE(
+        $1 FORMAT JSON,
+        $2 PASSING $3 AS offset
+        RETURNING numeric(10, 2)
+        DEFAULT 0 ON EMPTY
+        ERROR ON ERROR
+      ) AS amount
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    const expression = statement.columns[0]?.expression;
+    strict.strictEqual(expression?.kind, "json-value");
+    if (expression?.kind !== "json-value") return;
+    strict.strictEqual(expression.returning?.databaseType.name, "numeric(10, 2)");
+    strict.strictEqual(expression.onEmpty?.kind, "default");
+    strict.strictEqual(expression.onError?.kind, "error");
+
+    const visited = { parameters: 0, types: [] as string[] };
+    walkStatement(statement, {
+      expression(node) {
+        if (node.kind === "parameter") visited.parameters += 1;
+      },
+      type(type) {
+        visited.types.push(type.name);
+      },
+    });
+    strict.strictEqual(visited.parameters, 3);
+    strict.deepStrictEqual(visited.types, ["numeric(10, 2)"]);
+
+    const formatted = parseStatement("SELECT JSON_VALUE('{}', '$' RETURNING text FORMAT JSON)");
+    strict.strictEqual(
+      formatted.kind === "select" && formatted.columns[0]?.expression.kind === "json-value"
+        ? formatted.columns[0].expression.returning?.format !== undefined
+        : false,
+      true,
+    );
+    strict.doesNotThrow(() =>
+      parseStatement("select json_value('{}', '$' returning timestamp without time zone null on error)"),
+    );
+    for (const invalid of [
+      "SELECT JSON_VALUE('{}', '$' TRUE ON ERROR)",
+      "SELECT JSON_VALUE('{}', '$' NULL ON ERROR NULL ON EMPTY)",
+      "SELECT JSON_VALUE('{}', '$' RETURNING)",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

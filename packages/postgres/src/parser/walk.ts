@@ -81,6 +81,20 @@ function walkExpression(
         walkExpression(expression.onError.expression, statement, visitor, context);
       }
       break;
+    case "json-value":
+      walkExpression(expression.context.expression, statement, visitor, context);
+      walkExpression(expression.path, statement, visitor, context);
+      for (const argument of expression.passing) {
+        walkExpression(argument.value.expression, statement, visitor, context);
+      }
+      if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
+      if (expression.onEmpty?.expression !== undefined) {
+        walkExpression(expression.onEmpty.expression, statement, visitor, context);
+      }
+      if (expression.onError?.expression !== undefined) {
+        walkExpression(expression.onError.expression, statement, visitor, context);
+      }
+      break;
     case "binary":
       walkExpression(expression.left, statement, visitor, context);
       walkExpression(expression.right, statement, visitor, context);

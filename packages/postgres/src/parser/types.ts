@@ -159,6 +159,17 @@ export interface JsonQueryExpression {
   readonly range: SourceRange;
 }
 
+export interface JsonValueQueryExpression {
+  readonly kind: "json-value";
+  readonly context: JsonValueExpression;
+  readonly path: Expression;
+  readonly passing: readonly JsonPassingArgument[];
+  readonly returning?: JsonReturning;
+  readonly onEmpty?: JsonBehavior;
+  readonly onError?: JsonBehavior;
+  readonly range: SourceRange;
+}
+
 export interface CallExpression {
   readonly kind: "call";
   readonly name: Identifier;
@@ -262,6 +273,7 @@ export type Expression =
   | AtTimeZoneExpression
   | JsonExistsExpression
   | JsonQueryExpression
+  | JsonValueQueryExpression
   | CallExpression
   | CastExpression
   | BinaryExpression
