@@ -294,7 +294,7 @@ class Scanner {
       for (let offset = 0; offset < operator.length; offset += 1) this.#advance();
       return this.#token("operator", operator, operator, start);
     }
-    if (["(", ")", ",", ".", ";", "[", "]"].includes(char)) {
+    if (["(", ")", ",", ".", ";", "[", "]", ":"].includes(char)) {
       this.#advance();
       return this.#token("punctuation", char, char, start);
     }

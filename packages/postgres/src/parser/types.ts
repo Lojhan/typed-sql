@@ -76,6 +76,16 @@ export interface RowExpression {
   readonly range: SourceRange;
 }
 
+export interface SubscriptExpression {
+  readonly kind: "subscript";
+  readonly expression: Expression;
+  readonly index?: Expression;
+  readonly lower?: Expression;
+  readonly upper?: Expression;
+  readonly slice: boolean;
+  readonly range: SourceRange;
+}
+
 export interface CallExpression {
   readonly kind: "call";
   readonly name: Identifier;
@@ -164,6 +174,7 @@ export type Expression =
   | ParameterExpression
   | ArrayExpression
   | RowExpression
+  | SubscriptExpression
   | CallExpression
   | CastExpression
   | BinaryExpression

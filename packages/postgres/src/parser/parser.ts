@@ -1132,6 +1132,10 @@ class Parser {
     return this.#nested(() => {
       let left = this.#parseUnary();
       while (true) {
+        if (this.#current().value === "[") {
+          left = this.#parseSubscript(left);
+          continue;
+        }
         if (this.#syntax === "postgres" && this.#matchOperator("::")) {
           const databaseType = this.#parseTypeName(false);
           left = {
@@ -1242,7 +1246,39 @@ class Parser {
       const close = this.#expectPunctuation(")");
       return { kind: "exists", query: statement, range: mergeRanges(token.range, close.range) };
     }
-    return this.#parsePrimary();
+    let expression = this.#parsePrimary();
+    while (this.#current().value === "[") expression = this.#parseSubscript(expression);
+    return expression;
+  }
+
+  #parseSubscript(expression: Expression): Expression {
+    this.#expectPunctuation("[");
+    let index: Expression | undefined;
+    let lower: Expression | undefined;
+    let upper: Expression | undefined;
+    let slice = false;
+    if (this.#matchPunctuation(":")) {
+      slice = true;
+      if (this.#current().value !== "]") upper = this.#parseExpression();
+    } else {
+      if (this.#current().value === "]") throw this.#error("Array subscript cannot be empty", this.#current().range);
+      const first = this.#parseExpression();
+      if (this.#matchPunctuation(":")) {
+        slice = true;
+        lower = first;
+        if (this.#current().value !== "]") upper = this.#parseExpression();
+      } else index = first;
+    }
+    const close = this.#expectPunctuation("]");
+    return {
+      kind: "subscript",
+      expression,
+      ...(index === undefined ? {} : { index }),
+      ...(lower === undefined ? {} : { lower }),
+      ...(upper === undefined ? {} : { upper }),
+      slice,
+      range: mergeRanges(expression.range, close.range),
+    };
   }
 
   #parsePrimary(): Expression {

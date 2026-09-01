@@ -1023,6 +1023,9 @@ await describe("query resolver", async () => {
       SELECT ARRAY[1, 2] AS ids,
              payload->>'name' AS name,
              scores || ARRAY[3] AS all_scores,
+             scores[1] AS first_score,
+             scores[1:2] AS top_scores,
+             ('(1,2)'::point)[0] AS x_coordinate,
              COUNT(*) FILTER (WHERE active) OVER (PARTITION BY team_id) AS active_count,
              label_for(team_id) AS team_label
       FROM events
@@ -1036,9 +1039,26 @@ await describe("query resolver", async () => {
         { name: "ids", tsType: "readonly (number)[]" },
         { name: "name", tsType: "string" },
         { name: "all_scores", tsType: "readonly (number)[]" },
+        { name: "first_score", tsType: "number" },
+        { name: "top_scores", tsType: "readonly (number)[]" },
+        { name: "x_coordinate", tsType: "number" },
         { name: "active_count", tsType: "bigint" },
         { name: "team_label", tsType: "string" },
       ],
+    );
+    strict.strictEqual(result.columns.find(({ name }) => name === "first_score")?.nullable, true);
+    strict.deepStrictEqual(
+      resolveSelect(parseSelect("SELECT scores['x'] FROM events"), richSchema).diagnostics.map(({ code }) => code),
+      ["TSQ203"],
+    );
+    strict.deepStrictEqual(
+      resolveSelect(parseSelect("SELECT team_id[1] FROM events"), richSchema).diagnostics.map(({ code }) => code),
+      ["TSQ203"],
+    );
+    const parameterized = resolveSelect(parseSelect("SELECT scores[$1] FROM events"), richSchema);
+    strict.deepStrictEqual(
+      parameterized.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [{ index: 1, tsType: "number" }],
     );
   });
 

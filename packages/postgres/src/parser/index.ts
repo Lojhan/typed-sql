@@ -53,6 +53,7 @@ export type {
   Statement,
   SubqueryExpression,
   SubqueryTableReference,
+  SubscriptExpression,
   TableFunctionColumn,
   TableFunctionItem,
   TableReference,

@@ -44,6 +44,7 @@ import {
 } from "./type-policy.js";
 import {
   postgresCanCoerce,
+  postgresElementType,
   resolvePostgresCandidates,
   resolvePostgresOperator,
   resolvePostgresUnaryOperator,
@@ -707,6 +708,13 @@ class Resolver {
       case "cast":
       case "unary":
         return [expression.expression];
+      case "subscript":
+        return [
+          expression.expression,
+          ...(expression.index === undefined ? [] : [expression.index]),
+          ...(expression.lower === undefined ? [] : [expression.lower]),
+          ...(expression.upper === undefined ? [] : [expression.upper]),
+        ];
       case "binary":
         return [expression.left, expression.right];
       case "case":
@@ -1904,6 +1912,7 @@ class Resolver {
   #outputName(expression: Expression): string | undefined {
     if (expression.kind === "column") return sqlName(expression.column);
     if (expression.kind === "cast") return this.#outputName(expression.expression);
+    if (expression.kind === "subscript") return this.#outputName(expression.expression);
     if (expression.kind === "call") return sqlName(expression.name);
     if (expression.kind === "case") return "case";
     return undefined;
@@ -1956,6 +1965,66 @@ class Resolver {
         return {
           tsType: `readonly [${elements.map((element) => element.tsType + (element.nullable ? " | null" : "")).join(", ")}]`,
           nullable: false,
+        };
+      }
+      case "subscript": {
+        const source = this.#resolveExpression(expression.expression, scope, ctes);
+        const expectedIndex = this.#databaseType("integer", false);
+        const bounds = [expression.index, expression.lower, expression.upper]
+          .filter((bound): bound is Expression => bound !== undefined)
+          .map((bound) => ({
+            expression: bound,
+            resolved: this.#resolveExpression(bound, scope, ctes, expectedIndex),
+          }));
+        for (const bound of bounds) {
+          if (
+            bound.resolved.databaseType !== undefined &&
+            !postgresCanCoerce(bound.resolved.databaseType, "integer", "implicit", this.#schema)
+          ) {
+            this.#diagnostic(
+              "TSQ203",
+              `Array subscript must resolve to integer, received ${bound.resolved.databaseType}`,
+              bound.expression.range,
+            );
+          }
+        }
+        if (expression.slice) {
+          if (
+            source.databaseType === undefined ||
+            postgresElementType(source.databaseType, this.#schema) === undefined
+          ) {
+            this.#diagnostic(
+              "TSQ203",
+              `Array slicing requires an array value, received ${source.databaseType ?? source.tsType}`,
+              expression.range,
+            );
+            return { tsType: "unknown", nullable: true };
+          }
+          return {
+            ...source,
+            nullable: source.nullable || bounds.some((bound) => bound.resolved.nullable),
+          };
+        }
+        const elementType =
+          source.databaseType === "point"
+            ? "double precision"
+            : source.databaseType === "box" || source.databaseType === "lseg"
+              ? "point"
+              : source.databaseType === undefined
+                ? undefined
+                : postgresElementType(source.databaseType, this.#schema);
+        if (elementType === undefined) {
+          this.#diagnostic(
+            "TSQ203",
+            `Subscripting requires an array or subscriptable geometric value, received ${source.databaseType ?? source.tsType}`,
+            expression.range,
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+        return {
+          tsType: mapPostgresType(elementType, this.#policy, this.#schema),
+          nullable: true,
+          databaseType: elementType,
         };
       }
       case "cast": {

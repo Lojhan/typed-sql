@@ -85,6 +85,27 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL array subscripts and slices", () => {
+    const statement = parseStatement("SELECT scores[1], scores[2:4], scores[:3], scores[2:], matrix[1][2] FROM events");
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns.map(({ expression }) => expression.kind),
+      ["subscript", "subscript", "subscript", "subscript", "subscript"],
+    );
+    const slice = statement.columns[1]?.expression;
+    strict.strictEqual(slice?.kind === "subscript" ? slice.slice : undefined, true);
+    const visited: string[] = [];
+    walkStatement(statement, {
+      expression(expression) {
+        visited.push(expression.kind);
+      },
+    });
+    strict.ok(visited.filter((kind) => kind === "subscript").length >= 5);
+    strict.ok(visited.filter((kind) => kind === "literal").length >= 7);
+    strict.throws(() => parseStatement("SELECT scores[] FROM events"), SqlParseError);
+  });
+
   await it("preserves PostgreSQL compound-query precedence and parentheses", () => {
     const intersectionFirst = parseStatement("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3 ORDER BY 1");
     strict.strictEqual(intersectionFirst.kind, "select");

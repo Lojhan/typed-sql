@@ -44,6 +44,12 @@ function walkExpression(
       walkExpression(expression.expression, statement, visitor, context);
       visitor.type?.(expression.databaseType, statement);
       break;
+    case "subscript":
+      walkExpression(expression.expression, statement, visitor, context);
+      if (expression.index !== undefined) walkExpression(expression.index, statement, visitor, context);
+      if (expression.lower !== undefined) walkExpression(expression.lower, statement, visitor, context);
+      if (expression.upper !== undefined) walkExpression(expression.upper, statement, visitor, context);
+      break;
     case "binary":
       walkExpression(expression.left, statement, visitor, context);
       walkExpression(expression.right, statement, visitor, context);

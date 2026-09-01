@@ -20,6 +20,8 @@ Geometric transformation, position, intersection, distance, containment, and rel
 now resolve through their exact operand and result signatures, including prefix forms.
 Numeric promotion, mathematical prefix, bit-string shift, binary/JSON/text concatenation, money,
 `pg_lsn`, and tuple-identifier operators now use catalog-derived signatures and coercions.
+Array subscripts infer nullable element types, slices preserve the array type, omitted bounds are
+represented explicitly, index parameters infer `integer`, and nested array mappings retain every dimension.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

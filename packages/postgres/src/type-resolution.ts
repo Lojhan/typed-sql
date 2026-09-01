@@ -149,6 +149,11 @@ function elementType(databaseType: string, schema?: SchemaSnapshot): string | un
   return element === undefined ? undefined : postgresCanonicalType(element.databaseType, schema);
 }
 
+/** Returns the element identity for a PostgreSQL array or snapshot collection type. */
+export function postgresElementType(databaseType: string, schema?: SchemaSnapshot): string | undefined {
+  return elementType(databaseType, schema);
+}
+
 function rangeSubtype(databaseType: string, schema?: SchemaSnapshot): string | undefined {
   const evidence = typeEvidence(databaseType, schema);
   if (evidence?.kind !== "range" && evidence?.kind !== "multirange") return undefined;

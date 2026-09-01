@@ -43,11 +43,13 @@ await describe("PostgreSQL type policy", async () => {
     strict.strictEqual(mapPostgresType("positive", policy, schema), "number");
     strict.strictEqual(mapPostgresType("mood", policy, schema), '"happy" | "sad"');
     strict.strictEqual(mapPostgresType("app.state[]", policy, schema), 'readonly ("on" | "off")[]');
+    strict.strictEqual(mapPostgresType("integer[][]", policy, schema), "readonly (readonly (number)[])[]");
     strict.strictEqual(mapPostgresType("mood", { ...policy, enums: "string" }, schema), "string");
   });
 
   await it("recognizes built-ins and snapshot-defined types", () => {
     strict.strictEqual(isKnownPostgresType("numeric(10,2)[]"), true);
+    strict.strictEqual(isKnownPostgresType("integer[][]"), true);
     strict.strictEqual(isKnownPostgresType("macaddr8"), true);
     strict.strictEqual(isKnownPostgresType("datemultirange"), true);
     strict.strictEqual(isKnownPostgresType("mood", schema), true);
