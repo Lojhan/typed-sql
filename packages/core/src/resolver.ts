@@ -120,6 +120,7 @@ export class ResolverSchemaIndex {
   readonly #foldedColumns = new WeakMap<TableSnapshot, ReadonlyMap<string, ColumnSnapshot>>();
   readonly #functions = new Map<string, FunctionSnapshot[]>();
   readonly #routines = new Map<string, StructuralRoutineSnapshot[]>();
+  readonly #routinesByName = new Map<string, StructuralRoutineSnapshot[]>();
   readonly #relationEvidence = new WeakMap<TableSnapshot, StructuralRelationSnapshot>();
 
   constructor(snapshot: SchemaSnapshot) {
@@ -139,6 +140,7 @@ export class ResolverSchemaIndex {
         for (const routine of overloads) {
           const inputs = routine.arguments.filter(({ mode }) => mode !== "out");
           addToIndex(this.#routines, `${routine.name.toLowerCase()}/${inputs.length}`, routine);
+          addToIndex(this.#routinesByName, routine.name.toLowerCase(), routine);
           if (routine.kind === "procedure") continue;
           const result = routine.result;
           const value: FunctionSnapshot = {
@@ -185,7 +187,15 @@ export class ResolverSchemaIndex {
   }
 
   routineOverloads(name: string, arity: number, schema?: string): readonly StructuralRoutineSnapshot[] {
-    const matches = this.#routines.get(`${name.toLowerCase()}/${arity}`) ?? [];
+    const exact = this.#routines.get(`${name.toLowerCase()}/${arity}`) ?? [];
+    const flexible = (this.#routinesByName.get(name.toLowerCase()) ?? []).filter((candidate) => {
+      const inputs = candidate.arguments.filter(({ mode }) => mode !== "out");
+      const variadic = inputs.at(-1)?.mode === "variadic";
+      const fixed = variadic ? inputs.slice(0, -1) : inputs;
+      const required = fixed.filter(({ default: defaultValue }) => defaultValue !== "present").length;
+      return arity >= required && (variadic || arity <= inputs.length);
+    });
+    const matches = [...new Set([...exact, ...flexible])];
     return schema === undefined
       ? matches
       : matches.filter((candidate) => candidate.schema?.toLowerCase() === schema.toLowerCase());

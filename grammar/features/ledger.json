@@ -197,6 +197,7 @@
         "ast:node.call-expression",
         "resolver:mysql.function-catalog",
         "resolver:postgres.function-catalog",
+        "resolver:postgres.named-default-variadic-calls",
         "resolver:postgres.polymorphic-candidate-selection",
         "resolver:sqlite.function-catalog"
       ],

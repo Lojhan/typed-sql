@@ -26,6 +26,28 @@ await describe("PostgreSQL-owned parser", async () => {
     );
   });
 
+  await it("owns named and explicit variadic function arguments", () => {
+    const named = parseStatement("SELECT format_value(value => 1, prefix := 'id') AS label");
+    strict.strictEqual(named.kind, "select");
+    if (named.kind !== "select") return;
+    const expression = named.columns[0]?.expression;
+    strict.strictEqual(expression?.kind, "call");
+    if (expression?.kind !== "call") return;
+    strict.deepStrictEqual(
+      expression.argumentNames?.map((name) => name?.name),
+      ["value", "prefix"],
+    );
+
+    const variadic = parseStatement("SELECT sum_many(VARIADIC ARRAY[1, 2]) AS total");
+    strict.strictEqual(variadic.kind, "select");
+    if (variadic.kind !== "select") return;
+    const variadicCall = variadic.columns[0]?.expression;
+    strict.strictEqual(variadicCall?.kind === "call" ? variadicCall.variadic : undefined, true);
+
+    strict.throws(() => parseStatement("SELECT format_value(value => 1, 'id')"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT sum_many(VARIADIC ARRAY[1], 2)"), SqlParseError);
+  });
+
   await it("preserves PostgreSQL compound-query precedence and parentheses", () => {
     const intersectionFirst = parseStatement("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3 ORDER BY 1");
     strict.strictEqual(intersectionFirst.kind, "select");

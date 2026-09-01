@@ -220,7 +220,11 @@
     { "source": "timestamp", "target": "date", "context": "assignment", "method": "function", "introduced": 14 },
     { "source": "timestamp", "target": "timestamptz", "context": "implicit", "method": "function", "introduced": 14 },
     { "source": "timestamptz", "target": "date", "context": "assignment", "method": "function", "introduced": 14 },
-    { "source": "timestamptz", "target": "timestamp", "context": "assignment", "method": "function", "introduced": 14 }
+    { "source": "timestamptz", "target": "timestamp", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "boolean", "target": "integer", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "boolean", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "json", "target": "jsonb", "context": "assignment", "method": "io", "introduced": 14 },
+    { "source": "jsonb", "target": "json", "context": "assignment", "method": "io", "introduced": 14 }
   ],
   "operators": [
     {

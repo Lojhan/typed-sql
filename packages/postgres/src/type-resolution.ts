@@ -190,6 +190,14 @@ export function postgresCanCoerce(
   if (sourceType.endsWith("[]") && targetType.endsWith("[]")) {
     return postgresCanCoerce(sourceType.slice(0, -2), targetType.slice(0, -2), context, schema);
   }
+  if (
+    context === "explicit" &&
+    category(sourceType, schema) !== undefined &&
+    category(targetType, schema) !== undefined &&
+    (category(sourceType, schema) === "string" || category(targetType, schema) === "string")
+  ) {
+    return true;
+  }
   return postgresCatalogCanCast(sourceType, targetType, context, schema);
 }
 

@@ -119,6 +119,7 @@ const keywords = new Set([
   "UNION",
   "UNBOUNDED",
   "UPDATE",
+  "VARIADIC",
   "USING",
   "VALUES",
   "WHEN",
@@ -131,6 +132,8 @@ const keywords = new Set([
 const operators = [
   "#>>",
   "->>",
+  "=>",
+  ":=",
   "::",
   "<=",
   ">=",

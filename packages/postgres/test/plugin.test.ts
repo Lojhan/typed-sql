@@ -1,14 +1,18 @@
 import { resolveDialectCapabilityStates } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import {
   defaultPostgresTypePolicy,
   POSTGRES_SUPPORT_POLICY,
   type PostgresSchemaSnapshot,
   postgres,
+  postgresServerEvidence,
   postgresVersionSupport,
   sql,
   typePolicy,
 } from "../src/index.js";
+import { parseStatement } from "../src/parser/index.js";
+import { analyzePostgresSemantics } from "../src/semantics.js";
 
 const schema = {
   formatVersion: 1,
@@ -254,6 +258,116 @@ await describe("PostgreSQL dialect plugin", async () => {
       strict.strictEqual(analysis.semantics.operation.value, "unknown");
       strict.strictEqual(analysis.semantics.locking.value, "unknown");
     }
+  });
+
+  await it("uses defaulted and variadic v2 routines as exact semantic evidence", () => {
+    const routineDefaults = {
+      kind: "function",
+      deterministic: true,
+      dataAccess: "none",
+      nullInput: "strict",
+    } as const;
+    const routineSchema = {
+      ...upgradeSchemaSnapshotV1(schema),
+      dialect: "postgres",
+      version: "18.6",
+      server: postgresServerEvidence("18.6"),
+      routines: {
+        format_value: [
+          {
+            ...routineDefaults,
+            name: "format_value",
+            schema: "public",
+            identity: "public.format_value(text,integer)",
+            arguments: [
+              {
+                name: "prefix",
+                mode: "in",
+                typeIdentity: "text",
+                databaseType: "text",
+                tsType: "string",
+                default: "none",
+              },
+              {
+                name: "value",
+                mode: "in",
+                typeIdentity: "integer",
+                databaseType: "integer",
+                tsType: "number",
+                default: "present",
+              },
+            ],
+            result: {
+              kind: "scalar",
+              typeIdentity: "text",
+              databaseType: "text",
+              tsType: "string",
+              nullable: false,
+            },
+            volatility: "immutable",
+          },
+        ],
+        sum_many: [
+          {
+            ...routineDefaults,
+            name: "sum_many",
+            schema: "public",
+            identity: "public.sum_many(numeric[])",
+            arguments: [
+              {
+                name: "values",
+                mode: "variadic",
+                typeIdentity: "numeric[]",
+                databaseType: "numeric[]",
+                tsType: "readonly string[]",
+                default: "none",
+              },
+            ],
+            result: {
+              kind: "scalar",
+              typeIdentity: "numeric",
+              databaseType: "numeric",
+              tsType: "string",
+              nullable: false,
+            },
+            volatility: "stable",
+          },
+        ],
+      },
+    } as const satisfies SchemaSnapshot;
+    const dialect = postgres();
+    const defaulted = dialect.analyze("SELECT format_value('id') AS value", routineSchema);
+    strict.deepStrictEqual(defaulted.diagnostics, []);
+    strict.strictEqual(defaulted.semantics.volatility.value, "immutable");
+    strict.ok(
+      defaulted.semantics.dependencies.some(
+        ({ kind, name, certainty }) => kind === "function" && name === "format_value" && certainty === "resolved",
+      ),
+    );
+    const variadic = dialect.analyze("SELECT sum_many(1, 2, 3) AS value", routineSchema);
+    strict.deepStrictEqual(variadic.diagnostics, []);
+    strict.strictEqual(variadic.semantics.volatility.value, "stable");
+    strict.ok(
+      variadic.semantics.dependencies.some(
+        ({ kind, name, certainty }) => kind === "function" && name === "sum_many" && certainty === "resolved",
+      ),
+    );
+    const syntactic = analyzePostgresSemantics(
+      parseStatement("SELECT pg_catalog.count(*) AS row_count FROM missing_table"),
+      routineSchema,
+    );
+    strict.strictEqual(syntactic.volatility.value, "unknown");
+    strict.ok(
+      syntactic.dependencies.some(
+        ({ kind, name, certainty }) => kind === "relation" && name === "missing_table" && certainty === "syntactic",
+      ),
+    );
+    strict.ok(
+      syntactic.dependencies.some(
+        ({ kind, schema: dependencySchema, certainty }) =>
+          kind === "function" && dependencySchema === "pg_catalog" && certainty === "syntactic",
+      ),
+    );
   });
 
   await it("accepts an explicit default type policy", () => {

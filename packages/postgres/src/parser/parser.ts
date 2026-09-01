@@ -1273,12 +1273,37 @@ class Parser {
   #parseCall(schema: Identifier | undefined, name: Identifier): Expression {
     const distinct = this.#matchKeyword("DISTINCT");
     const args: Expression[] = [];
+    const argumentNames: (Identifier | undefined)[] = [];
+    let named = false;
+    let variadic = false;
     let orderBy: OrderByItem[] = [];
     let close: Token;
     if (this.#matchPunctuation(")")) close = this.#previous();
     else {
       do {
-        args.push(this.#parseExpression());
+        if (variadic) throw this.#error("VARIADIC must be the final function argument", this.#current().range);
+        if (this.#matchKeyword("VARIADIC")) {
+          if (named) throw this.#error("VARIADIC cannot follow a named function argument", this.#previous().range);
+          variadic = true;
+          argumentNames.push(undefined);
+          args.push(this.#parseExpression());
+        } else if (
+          this.#isIdentifierLike(this.#current()) &&
+          this.#peekToken(1).kind === "operator" &&
+          (this.#peekToken(1).value === "=>" || this.#peekToken(1).value === ":=")
+        ) {
+          const argumentName = this.#parseIdentifier(true);
+          this.#advance();
+          named = true;
+          argumentNames.push(argumentName);
+          args.push(this.#parseExpression());
+        } else {
+          if (named) {
+            throw this.#error("Positional arguments cannot follow named function arguments", this.#current().range);
+          }
+          argumentNames.push(undefined);
+          args.push(this.#parseExpression());
+        }
         if (!this.#matchPunctuation(",")) break;
       } while (this.#current().value !== "ORDER");
       if (this.#matchKeyword("ORDER")) {
@@ -1315,6 +1340,8 @@ class Parser {
       name,
       ...(schema === undefined ? {} : { schema }),
       arguments: args,
+      ...(named ? { argumentNames } : {}),
+      ...(variadic ? { variadic: true as const } : {}),
       distinct,
       ...(orderBy.length === 0 ? {} : { orderBy }),
       ...(withinGroup.length === 0 ? {} : { withinGroup }),

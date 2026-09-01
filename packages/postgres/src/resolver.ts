@@ -1782,12 +1782,12 @@ class Resolver {
       candidates.flatMap((candidate) => {
         const routineResult = candidate.result;
         if (routineResult.kind === "void" || routineResult.kind === "command") return [];
+        const argumentTypes = this.#routineCallTypes(candidate, expression);
+        if (argumentTypes === undefined) return [];
         return [
           {
             value: candidate,
-            argumentTypes: candidate.arguments
-              .filter(({ mode }) => mode !== "out")
-              .map(({ databaseType }) => databaseType),
+            argumentTypes,
             resultType:
               routineResult.kind === "scalar" || routineResult.kind === "set"
                 ? routineResult.databaseType
@@ -1961,6 +1961,17 @@ class Resolver {
             "TSQ106",
             `Invalid or unknown PostgreSQL cast type ${expression.databaseType.name}`,
             expression.databaseType.range,
+          );
+        } else if (
+          source.databaseType !== undefined &&
+          !this.#isUnknownCastSource(expression.expression) &&
+          !postgresCanCoerce(source.databaseType, expression.databaseType.name, "explicit", this.#schema)
+        ) {
+          this.#diagnostic(
+            "TSQ230",
+            `PostgreSQL has no recorded explicit cast from ${source.databaseType} to ${expression.databaseType.name}`,
+            expression.range,
+            "Use a supported intermediate type or add exact extension cast evidence.",
           );
         }
         return {
@@ -2378,12 +2389,12 @@ class Resolver {
         routines.flatMap((routine) => {
           const result = routine.result;
           if (result.kind !== "scalar" && result.kind !== "set") return [];
+          const argumentTypes = this.#routineCallTypes(routine, expression);
+          if (argumentTypes === undefined) return [];
           return [
             {
               value: routine,
-              argumentTypes: routine.arguments
-                .filter(({ mode }) => mode !== "out")
-                .map(({ databaseType }) => databaseType),
+              argumentTypes,
               resultType: result.databaseType,
             },
           ];
@@ -2470,6 +2481,69 @@ class Resolver {
       return undefined;
     }
     return resolved?.databaseType;
+  }
+
+  #isUnknownCastSource(expression: Expression): boolean {
+    return (
+      expression.kind === "parameter" ||
+      (expression.kind === "literal" && (expression.value === null || typeof expression.value === "string"))
+    );
+  }
+
+  #routineCallTypes(routine: StructuralRoutineSnapshot, expression: CallExpression): readonly string[] | undefined {
+    const inputs = routine.arguments.filter(({ mode }) => mode !== "out");
+    const names = expression.argumentNames;
+    if (names !== undefined) {
+      const used = new Set<number>();
+      let positional = 0;
+      const mapped = names.map((name): string | undefined => {
+        let index: number;
+        if (name === undefined) {
+          while (used.has(positional)) positional += 1;
+          index = positional;
+          positional += 1;
+        } else {
+          index = inputs.findIndex(
+            (argument) => argument.name !== undefined && argument.name.toLowerCase() === sqlName(name),
+          );
+        }
+        if (index < 0 || index >= inputs.length || used.has(index)) return undefined;
+        used.add(index);
+        return inputs[index]!.databaseType;
+      });
+      if (mapped.some((type) => type === undefined)) return undefined;
+      if (
+        inputs.some(
+          (argument, index) => !used.has(index) && argument.mode !== "variadic" && argument.default !== "present",
+        )
+      )
+        return undefined;
+      return mapped as readonly string[];
+    }
+    const variadic = inputs.at(-1)?.mode === "variadic";
+    if (!variadic) {
+      if (expression.variadic === true) return undefined;
+      if (expression.arguments.length > inputs.length) return undefined;
+      if (inputs.slice(expression.arguments.length).some(({ default: defaultValue }) => defaultValue !== "present")) {
+        return undefined;
+      }
+      return inputs.slice(0, expression.arguments.length).map(({ databaseType }) => databaseType);
+    }
+    const fixed = inputs.slice(0, -1);
+    const variadicType = inputs.at(-1)!.databaseType;
+    if (expression.variadic === true) {
+      if (expression.arguments.length !== inputs.length) return undefined;
+      return [...fixed.map(({ databaseType }) => databaseType), variadicType];
+    }
+    if (
+      expression.arguments.length < fixed.length &&
+      fixed.slice(expression.arguments.length).some(({ default: defaultValue }) => defaultValue !== "present")
+    ) {
+      return undefined;
+    }
+    const elementType = normalizeDatabaseType(variadicType).replace(/\[\]$/u, "");
+    if (elementType === normalizeDatabaseType(variadicType)) return undefined;
+    return expression.arguments.map((_, index) => (index < fixed.length ? fixed[index]!.databaseType : elementType));
   }
 
   #isDefaultValue(expression: Expression | undefined): boolean {

@@ -116,9 +116,11 @@ export interface StructuralRelationSnapshot {
 }
 
 export interface StructuralRoutineArgumentSnapshot {
+  readonly name?: string;
   readonly mode: "in" | "out" | "inout" | "variadic";
   readonly databaseType: string;
   readonly tsType: string;
+  readonly default?: "none" | "present" | "unknown";
 }
 
 export interface StructuralRoutineSnapshot {

@@ -34,6 +34,12 @@ export default Object.freeze({
       "target": "smallint"
     },
     {
+      "context": "explicit",
+      "method": "function",
+      "source": "boolean",
+      "target": "integer"
+    },
+    {
       "context": "implicit",
       "method": "function",
       "source": "bpchar",
@@ -88,6 +94,12 @@ export default Object.freeze({
       "target": "bigint"
     },
     {
+      "context": "explicit",
+      "method": "function",
+      "source": "integer",
+      "target": "boolean"
+    },
+    {
       "context": "implicit",
       "method": "function",
       "source": "integer",
@@ -110,6 +122,18 @@ export default Object.freeze({
       "method": "function",
       "source": "integer",
       "target": "smallint"
+    },
+    {
+      "context": "assignment",
+      "method": "io",
+      "source": "json",
+      "target": "jsonb"
+    },
+    {
+      "context": "assignment",
+      "method": "io",
+      "source": "jsonb",
+      "target": "json"
     },
     {
       "context": "assignment",
@@ -653,5 +677,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:787b9f94c5758c65d580ca89ebf5f6e1ce723251dfadc58ed5b12411a18f8b45"
+  "revision": "sha256:ddf35c0dd2510a224b8034890dd9cbd37985d409e482c58833d422bf38f03825"
 }) as unknown as PostgresCoreCatalog;

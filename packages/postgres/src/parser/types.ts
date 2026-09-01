@@ -81,6 +81,8 @@ export interface CallExpression {
   readonly name: Identifier;
   readonly schema?: Identifier;
   readonly arguments: readonly Expression[];
+  readonly argumentNames?: readonly (Identifier | undefined)[];
+  readonly variadic?: true;
   readonly distinct: boolean;
   readonly orderBy?: readonly OrderByItem[];
   readonly withinGroup?: readonly OrderByItem[];

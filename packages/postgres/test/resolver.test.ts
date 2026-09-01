@@ -117,6 +117,12 @@ await describe("query resolver", async () => {
     strict.strictEqual(unknownAlias.diagnostics[0]?.code, "TSQ103");
     const invalidCast = resolveSelect(parseSelect("SELECT id::made_up AS value FROM users"), schema);
     strict.strictEqual(invalidCast.diagnostics[0]?.code, "TSQ106");
+    strict.deepStrictEqual(resolveSelect(parseSelect("SELECT true::integer AS value"), schema).diagnostics, []);
+    strict.ok(
+      resolveSelect(parseSelect("SELECT true::date AS value"), schema).diagnostics.some(
+        ({ code }) => code === "TSQ230",
+      ),
+    );
 
     const unnamed = resolveSelect(parseSelect("SELECT id + 1 FROM users"), schema);
     strict.strictEqual(unnamed.diagnostics[0]?.code, "TSQ104");
@@ -1051,6 +1057,62 @@ await describe("query resolver", async () => {
             polymorphicFamily: "compatible",
           },
         ],
+        format_value: [
+          {
+            ...routineDefaults,
+            name: "format_value",
+            identity: "public.format_value(text,integer)",
+            arguments: [
+              {
+                name: "prefix",
+                mode: "in",
+                typeIdentity: "text",
+                databaseType: "text",
+                tsType: "string",
+                default: "none",
+              },
+              {
+                name: "value",
+                mode: "in",
+                typeIdentity: "integer",
+                databaseType: "integer",
+                tsType: "number",
+                default: "present",
+              },
+            ],
+            result: {
+              kind: "scalar",
+              typeIdentity: "text",
+              databaseType: "text",
+              tsType: "string",
+              nullable: false,
+            },
+          },
+        ],
+        sum_many: [
+          {
+            ...routineDefaults,
+            name: "sum_many",
+            identity: "public.sum_many(numeric[])",
+            arguments: [
+              {
+                name: "values",
+                mode: "variadic",
+                typeIdentity: "numeric[]",
+                databaseType: "numeric[]",
+                tsType: "readonly string[]",
+                default: "none",
+              },
+            ],
+            result: {
+              kind: "scalar",
+              typeIdentity: "numeric",
+              databaseType: "numeric",
+              tsType: "string",
+              nullable: false,
+            },
+          },
+        ],
         widen: [
           {
             ...routineDefaults,
@@ -1102,7 +1164,14 @@ await describe("query resolver", async () => {
         SELECT same(1, 2) AS same_value,
                make_array2($1, 2.5) AS numeric_values,
                make_array2('a', 'b') AS labels,
-               widen(1) AS widened
+               widen(1) AS widened,
+               format_value('id') AS defaulted,
+               format_value(value => $2, prefix => 'id') AS named,
+               format_value('id', value => 2) AS mixed_notation,
+               sum_many(1, 2.5) AS expanded_variadic,
+               sum_many(VARIADIC ARRAY[1, 2]) AS explicit_variadic,
+               sum_many() AS empty_variadic,
+               sum_many(values => ARRAY[1]) AS named_variadic
       `),
       polymorphicSchema,
     );
@@ -1114,17 +1183,39 @@ await describe("query resolver", async () => {
         { name: "numeric_values", tsType: "readonly (string)[]", databaseType: "numeric[]" },
         { name: "labels", tsType: "readonly (string)[]", databaseType: "text[]" },
         { name: "widened", tsType: "number", databaseType: "integer" },
+        { name: "defaulted", tsType: "string", databaseType: "text" },
+        { name: "named", tsType: "string", databaseType: "text" },
+        { name: "mixed_notation", tsType: "string", databaseType: "text" },
+        { name: "expanded_variadic", tsType: "string", databaseType: "numeric" },
+        { name: "explicit_variadic", tsType: "string", databaseType: "numeric" },
+        { name: "empty_variadic", tsType: "string", databaseType: "numeric" },
+        { name: "named_variadic", tsType: "string", databaseType: "numeric" },
       ],
     );
     strict.deepStrictEqual(
       result.parameters.map(({ index, tsType, databaseType }) => ({ index, tsType, databaseType })),
-      [{ index: 1, tsType: "string", databaseType: "numeric" }],
+      [
+        { index: 1, tsType: "string", databaseType: "numeric" },
+        { index: 2, tsType: "number", databaseType: "integer" },
+      ],
     );
     strict.ok(
       resolveSelect(parseSelect("SELECT same(1, 2.5) AS invalid"), polymorphicSchema).diagnostics.some(
         ({ code }) => code === "TSQ202",
       ),
     );
+    for (const invalid of [
+      "SELECT format_value(value => 1) AS invalid",
+      "SELECT format_value(prefix => 'x', prefix => 'y') AS invalid",
+      "SELECT format_value(missing => 1, prefix => 'x') AS invalid",
+      "SELECT format_value(VARIADIC ARRAY[1]) AS invalid",
+      "SELECT sum_many(values => ARRAY[1], missing => 2) AS invalid",
+    ]) {
+      strict.ok(
+        resolveSelect(parseSelect(invalid), polymorphicSchema).diagnostics.some(({ code }) => code === "TSQ202"),
+        invalid,
+      );
+    }
   });
 
   await it("accepts the recursive keyword and fails ambiguous overloads safely", () => {

@@ -816,6 +816,31 @@ await describe("core contracts", async () => {
             volatility: "stable",
           },
         ],
+        "app.format": [
+          {
+            name: "format",
+            schema: "app",
+            identity: "format-default",
+            kind: "function",
+            arguments: [
+              { name: "value", mode: "in", databaseType: "text", tsType: "string", default: "none" },
+              { name: "style", mode: "in", databaseType: "text", tsType: "string", default: "present" },
+            ],
+            result: { kind: "scalar", databaseType: "text", tsType: "string", nullable: false },
+            volatility: "immutable",
+          },
+        ],
+        "app.collect": [
+          {
+            name: "collect",
+            schema: "app",
+            identity: "collect-variadic",
+            kind: "function",
+            arguments: [{ name: "values", mode: "variadic", databaseType: "text[]", tsType: "readonly string[]" }],
+            result: { kind: "scalar", databaseType: "text", tsType: "string", nullable: false },
+            volatility: "immutable",
+          },
+        ],
       },
     };
     const index = new ResolverSchemaIndex(snapshot);
@@ -831,6 +856,9 @@ await describe("core contracts", async () => {
     );
     strict.strictEqual(index.functions("lookup", 1, "app")[0]?.returnType, "string");
     strict.strictEqual(index.routineOverloads("lookup", 1, "APP")[0]?.identity, "lookup-int");
+    strict.strictEqual(index.routineOverloads("format", 1, "app")[0]?.identity, "format-default");
+    strict.strictEqual(index.routineOverloads("collect", 0, "app")[0]?.identity, "collect-variadic");
+    strict.strictEqual(index.routineOverloads("collect", 3, "app")[0]?.identity, "collect-variadic");
 
     const legacy = new ResolverSchemaIndex({ formatVersion: 1, dialect: "test", tables: { users: table } });
     strict.strictEqual(legacy.isUnique(table, ["id"]), "unknown");

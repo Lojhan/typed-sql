@@ -53,6 +53,8 @@ function key(dependency: QueryDependency): string {
 function functionVolatility(expression: CallExpression, index: ResolverSchemaIndex): QueryVolatility {
   const builtin = builtinVolatility[expression.name.name.toUpperCase()];
   if (builtin !== undefined && expression.schema === undefined) return builtin;
+  const routines = index.routineOverloads(expression.name.name, expression.arguments.length, expression.schema?.name);
+  if (routines.length === 1) return routines[0]!.volatility;
   const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
   return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";
 }
@@ -125,8 +127,13 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
         hasCall = true;
         if (expression.filter !== undefined) capabilities.add("aggregateFilter");
         if (expression.over !== undefined) capabilities.add("windows");
+        const routines = index.routineOverloads(
+          expression.name.name,
+          expression.arguments.length,
+          expression.schema?.name,
+        );
         const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
-        const resolved = candidates.length === 1 ? candidates[0] : undefined;
+        const resolved = routines.length === 1 ? routines[0] : candidates.length === 1 ? candidates[0] : undefined;
         const schema = resolved?.schema ?? expression.schema?.name;
         const dependency: QueryDependency = {
           kind: "function",
