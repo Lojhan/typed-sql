@@ -14,6 +14,7 @@ import type {
 import { defineSchemaSnapshotV2, fingerprintSchemaExpression } from "@typed-sql/schema";
 import { postgresServerEvidence } from "./capabilities.js";
 import { fingerprintPostgresExpressionSql } from "./expression-evidence.js";
+import { introspectPostgresExtensionManifests, type PostgresExtensionManifest } from "./extensions.js";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
@@ -48,6 +49,7 @@ export interface PostgresSchemaProviderOptions {
   readonly pool?: PostgresIntrospectionPool;
   readonly includeSchemas?: readonly string[];
   readonly typePolicy?: PostgresTypePolicy;
+  readonly extensionManifests?: readonly PostgresExtensionManifest[];
 }
 
 interface ColumnCatalogRow extends Record<string, unknown> {
@@ -966,7 +968,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
           .sort()
           .map((name) => [name, { name, kind: "schema" as const }]),
       );
-      return defineSchemaSnapshotV2({
+      const snapshot = defineSchemaSnapshotV2({
         formatVersion: 2,
         dialect: "postgres",
         dialectVersion: POSTGRES_DIALECT_VERSION,
@@ -990,6 +992,9 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
           },
         },
       });
+      if ((this.#options.extensionManifests?.length ?? 0) === 0) return snapshot;
+      return (await introspectPostgresExtensionManifests(snapshot, this.#options.extensionManifests ?? [], client))
+        .snapshot;
     });
   }
 }

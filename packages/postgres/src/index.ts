@@ -6,6 +6,7 @@ import {
 } from "@typed-sql/core";
 import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
+import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
 import { parseStatement, SqlParseError } from "./parser/index.js";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
@@ -22,12 +23,30 @@ export type {
 export { postgresCopy } from "./bulk.js";
 export type { PostgresCoreCatalog } from "./catalog/index.js";
 export { POSTGRES_CORE_CATALOG_FORMAT_VERSION, postgresCoreCatalog } from "./catalog/index.js";
+export type {
+  PostgresExtensionCast,
+  PostgresExtensionCodec,
+  PostgresExtensionContribution,
+  PostgresExtensionIssue,
+  PostgresExtensionManifest,
+  PostgresExtensionOperator,
+  PostgresExtensionQueryable,
+  ResolvedPostgresExtensions,
+} from "./extensions.js";
+export {
+  definePostgresExtensionManifest,
+  introspectPostgresExtensionManifests,
+  POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION,
+  PostgresExtensionResolutionError,
+  resolvePostgresExtensionManifests,
+} from "./extensions.js";
 export { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export type PostgresSchemaSnapshot = SchemaSnapshot & { readonly dialect: "postgres" };
 export interface PostgresDialectOptions {
   readonly typePolicy?: PostgresTypePolicy;
   readonly versionPolicy?: import("./capabilities.js").PostgresVersionPolicy;
+  readonly extensions?: readonly PostgresExtensionManifest[];
 }
 
 function validatePostgresSnapshot(value: unknown): PostgresSchemaSnapshot {
@@ -70,12 +89,28 @@ export function postgres(
     analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
       try {
         const statement = parseStatement(sql);
-        const resolved = resolveStatement(statement, snapshot, { typePolicy: policy });
+        const extensions =
+          (options.extensions?.length ?? 0) === 0
+            ? undefined
+            : resolvePostgresExtensionManifests(snapshot, options.extensions ?? []);
+        const analysisSnapshot = extensions?.snapshot ?? snapshot;
+        const extensionIssues = extensions?.issues ?? [];
+        const resolved = resolveStatement(statement, analysisSnapshot, { typePolicy: policy });
         const analysis = {
           ...resolved,
-          semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
-            ? unknownQuerySemantics(statement.range, "PostgreSQL semantic analysis reported an error.")
-            : analyzePostgresSemantics(statement, snapshot),
+          diagnostics: [
+            ...resolved.diagnostics,
+            ...extensionIssues.map(({ code, message }) => ({
+              code,
+              message,
+              severity: "error" as const,
+              range: statement.range,
+            })),
+          ],
+          semantics:
+            resolved.diagnostics.some(({ severity }) => severity === "error") || extensionIssues.length > 0
+              ? unknownQuerySemantics(statement.range, "PostgreSQL semantic analysis reported an error.")
+              : analyzePostgresSemantics(statement, analysisSnapshot),
         };
         return applyDialectCapabilityStates(
           analysis,

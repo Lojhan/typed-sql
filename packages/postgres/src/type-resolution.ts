@@ -7,6 +7,7 @@ import {
   postgresCatalogType,
   postgresCoreCatalogForSchema,
 } from "./catalog/index.js";
+import { postgresExtensionCasts, postgresExtensionOperators } from "./extensions.js";
 
 const comparisonOperators = new Set([
   "<",
@@ -181,13 +182,13 @@ export function postgresCommonType(
   let candidate = known[0]!;
   for (const value of known.slice(1)) {
     if (candidate === value) continue;
-    const candidateToValue = postgresCatalogCanCast(candidate, value, "implicit", schema);
-    const valueToCandidate = postgresCatalogCanCast(value, candidate, "implicit", schema);
+    const candidateToValue = postgresCanCoerce(candidate, value, "implicit", schema);
+    const valueToCandidate = postgresCanCoerce(value, candidate, "implicit", schema);
     if (!candidateToValue && !valueToCandidate) return undefined;
     if (candidateToValue && !valueToCandidate) candidate = value;
     if (isPreferred(candidate, schema)) break;
   }
-  return known.every((value) => postgresCatalogCanCast(value, candidate, "implicit", schema)) ? candidate : undefined;
+  return known.every((value) => postgresCanCoerce(value, candidate, "implicit", schema)) ? candidate : undefined;
 }
 
 export function postgresCanCoerce(
@@ -210,7 +211,18 @@ export function postgresCanCoerce(
   ) {
     return true;
   }
-  return postgresCatalogCanCast(sourceType, targetType, context, schema);
+  if (postgresCatalogCanCast(sourceType, targetType, context, schema)) return true;
+  const cast = postgresExtensionCasts(schema).find(
+    (candidate) =>
+      postgresCanonicalType(candidate.sourceType, schema) === sourceType &&
+      postgresCanonicalType(candidate.targetType, schema) === targetType,
+  );
+  return (
+    cast !== undefined &&
+    (context === "explicit" ||
+      cast.context === "implicit" ||
+      (context === "assignment" && cast.context === "assignment"))
+  );
 }
 
 function bindExact(binding: string | undefined, value: string): string | false {
@@ -665,10 +677,17 @@ function specialOperatorCandidates(operator: string): readonly PostgresCandidate
 }
 
 function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly PostgresCandidate<string>[] {
+  const extension = postgresExtensionOperators(schema)
+    .filter((candidate) => candidate.name.toUpperCase() === operator && candidate.argumentTypes.length === 2)
+    .map((candidate) => ({
+      value: operator,
+      argumentTypes: candidate.argumentTypes,
+      resultType: candidate.resultType,
+    }));
   const rule = postgresCatalogOperatorRule(operator, schema);
   const special = specialOperatorCandidates(operator);
   if (rule === "numeric") {
-    return [...numericOperatorCandidates(operator), ...temporalOperatorCandidates(operator), ...special];
+    return [...numericOperatorCandidates(operator), ...temporalOperatorCandidates(operator), ...special, ...extension];
   }
   if (rule === "bitwise") {
     return [
@@ -679,6 +698,7 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       })),
       { value: operator, argumentTypes: ["bit", "bit"], resultType: "bit" },
       ...special,
+      ...extension,
     ];
   }
   if (rule === "concatenation") {
@@ -692,6 +712,7 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       { value: operator, argumentTypes: ["anycompatible", "anycompatiblearray"], resultType: "anycompatiblearray" },
       { value: operator, argumentTypes: ["anycompatiblearray", "anycompatible"], resultType: "anycompatiblearray" },
       ...special,
+      ...extension,
     ];
   }
   if (rule === "json" || rule === "json-text") {
@@ -706,15 +727,20 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
         })),
       ),
       ...special,
+      ...extension,
     ];
   }
-  if (rule === "special") return special;
-  if (rule !== "boolean") return special;
+  if (rule === "special") return [...special, ...extension];
+  if (rule !== "boolean") return [...special, ...extension];
   if (operator === "AND" || operator === "OR") {
-    return [{ value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" }, ...special];
+    return [
+      { value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" },
+      ...special,
+      ...extension,
+    ];
   }
   if (patternOperators.has(operator)) {
-    return [{ value: operator, argumentTypes: ["text", "text"], resultType: "boolean" }, ...special];
+    return [{ value: operator, argumentTypes: ["text", "text"], resultType: "boolean" }, ...special, ...extension];
   }
   if (operator === "?" || operator === "?&" || operator === "?|") {
     return [
@@ -724,6 +750,7 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
         resultType: "boolean",
       },
       ...special,
+      ...extension,
     ];
   }
   if (operator === "@>" || operator === "<@" || operator === "&&") {
@@ -731,9 +758,10 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
       ...(operator === "&&" ? [] : [{ value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" }]),
       ...special,
+      ...extension,
     ];
   }
-  if (!comparisonOperators.has(operator)) return [];
+  if (!comparisonOperators.has(operator)) return extension;
   const categoryCandidates = (
     ["numeric", "string", "datetime", "timespan", "bit-string", "network", "range"] as const
   ).flatMap((categoryName) =>
@@ -754,6 +782,7 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
     { value: operator, argumentTypes: ["anyenum", "anyenum"], resultType: "boolean" },
     { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
     ...special,
+    ...extension,
   ];
 }
 
@@ -764,7 +793,7 @@ export function resolvePostgresUnaryOperator(
   schema?: SchemaSnapshot,
 ): PostgresOperatorResolution {
   const normalizedOperator = operator.toUpperCase();
-  const candidates: readonly PostgresCandidate<string>[] =
+  const builtins: readonly PostgresCandidate<string>[] =
     normalizedOperator === "NOT"
       ? [{ value: normalizedOperator, argumentTypes: ["boolean"], resultType: "boolean" }]
       : normalizedOperator === "+" || normalizedOperator === "-"
@@ -822,6 +851,14 @@ export function resolvePostgresUnaryOperator(
                             resultType: "boolean",
                           }))
                         : [];
+  const extension = postgresExtensionOperators(schema)
+    .filter((candidate) => candidate.name.toUpperCase() === normalizedOperator && candidate.argumentTypes.length === 1)
+    .map((candidate) => ({
+      value: normalizedOperator,
+      argumentTypes: candidate.argumentTypes,
+      resultType: candidate.resultType,
+    }));
+  const candidates = [...builtins, ...extension];
   if (operand === undefined && candidates.length !== 1) {
     return candidates.length === 0 ? { kind: "none" } : { kind: "ambiguous" };
   }

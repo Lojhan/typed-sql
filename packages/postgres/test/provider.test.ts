@@ -1,6 +1,7 @@
 import { describe, it, strict } from "poku";
 import { calculateSchemaHash } from "../../schema/src/index.js";
 import { fingerprintPostgresExpressionSql } from "../src/expression-evidence.js";
+import { definePostgresExtensionManifest } from "../src/extensions.js";
 import {
   introspectPostgres,
   loadPostgresDriver,
@@ -637,6 +638,41 @@ await describe("PostgreSQL schema provider", async () => {
     const snapshot = await provider.introspect({});
     strict.strictEqual(snapshot.tables.users?.columns.role?.tsType, "string");
     strict.strictEqual(snapshot.functions?.["public.user_count()"]?.returnType, "string");
+  });
+
+  await it("runs optional extension introspection through the driver-neutral manifest contract", async () => {
+    let installedVersion: string | undefined;
+    const manifest = definePostgresExtensionManifest({
+      formatVersion: 1,
+      name: "plpgsql",
+      supportedVersions: ["1.0"],
+      revision: "1",
+      async introspect(_client, version) {
+        installedVersion = version;
+        return {
+          types: [
+            {
+              kind: "opaque",
+              name: "plpgsql_internal",
+              schema: "public",
+              identity: "extension:plpgsql.internal",
+              databaseType: "plpgsql_internal",
+              tsType: "unknown",
+              reason: "The extension does not expose a runtime representation.",
+            },
+          ],
+        };
+      },
+    });
+    const snapshot = await new PostgresSchemaProvider({
+      client: new CatalogClient(),
+      extensionManifests: [manifest],
+    }).introspect({});
+    strict.strictEqual(installedVersion, "1.0");
+    strict.strictEqual(snapshot.types.plpgsql_internal?.identity, "extension:plpgsql.internal");
+    strict.deepStrictEqual(snapshot.extension?.attributes.postgresManifests, [
+      { name: "plpgsql", installedVersion: "1.0", revision: "1" },
+    ]);
   });
 
   await it("maps complete structural catalog evidence conservatively", async () => {

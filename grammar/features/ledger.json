@@ -1800,6 +1800,44 @@
       }
     },
     {
+      "id": "runtime.extension-manifest.postgres",
+      "title": "Versioned PostgreSQL extension manifests",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "resolver:postgres.extension-casts",
+        "resolver:postgres.extension-operators",
+        "resolver:postgres.extension-routines",
+        "runtime:postgres.extension-codecs",
+        "schema:postgres.extension-introspection",
+        "schema:postgres.extension-types"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL extension packaging",
+          "url": "https://www.postgresql.org/docs/18/extend-extensions.html"
+        },
+        {
+          "title": "PostgreSQL extension catalog",
+          "url": "https://www.postgresql.org/docs/18/catalog-pg-extension.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ401", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/extension.test.ts", "packages/postgres/test/provider.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
       "id": "runtime.introspection",
       "title": "Schema and server-evidence introspection",
       "category": "schema",

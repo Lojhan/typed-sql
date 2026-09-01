@@ -75,6 +75,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `runtime.codec-policy` — Compile-time and runtime type codec policy | runtime | exact | exact | exact |
 | `runtime.execution` — Buffered, prepared, batched, and transactional execution | runtime | exact | exact | exact |
 | `runtime.execution-control` — Cancellation signals and absolute deadlines | runtime | exact | exact | unsupported |
+| `runtime.extension-manifest.postgres` — Versioned PostgreSQL extension manifests | runtime | unsupported | exact | unsupported |
 | `runtime.introspection` — Schema and server-evidence introspection | schema | exact | exact | exact (from 3.39.0) |
 | `runtime.pipeline.postgres` — PostgreSQL protocol pipeline execution | runtime | out-of-scope | exact | out-of-scope |
 | `runtime.streaming` — Bounded asynchronous row streaming | runtime | exact | exact | exact |

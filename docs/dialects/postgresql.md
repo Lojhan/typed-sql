@@ -67,6 +67,21 @@ Stable resolution covers the documented PostgreSQL major range. Canary testing i
 `postgres({ versionPolicy: "canary" })` selects the grammar-owned canary major; prerelease text never
 satisfies the stable range accidentally.
 
+### Extension manifests
+
+`definePostgresExtensionManifest()` declares an extension name, an exact installed-version list,
+and a reviewable manifest revision. Active manifests may contribute snapshot-v2 types and routines,
+unary or binary operator signatures, cast contexts, runtime codecs, and an optional driver-neutral
+introspection callback. Pass manifests to `postgres({ extensions })` for analysis and to
+`PostgresSchemaProvider({ extensionManifests })` when their introspection callbacks should augment a
+generated snapshot.
+
+Manifests activate only when the snapshot records a matching installed extension version. Unknown
+extensions remain conservative. Unsupported versions produce `TSQ403`; conflicting type, routine,
+operator, cast, or codec declarations produce `TSQ407` and make query semantics unknown. Codec and
+introspection callbacks receive typed-sql's driver-neutral contracts, so importing the default
+PostgreSQL entrypoint does not load `pg` or another database driver.
+
 `createPgLiveVerifier()` uses session-local `PREPARE` and `pg_prepared_statements` without executing the statement or sending values. PostgreSQL 18 provides parameter and result types; older versions are explicitly incomplete. See [Live verification](../guides/live-verification.md).
 
 `createPgPlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. PostgreSQL 18 generic plans need no parameter values; optional transient samples request a custom plan. Normalized evidence excludes expressions and literals. See [Query plan governance](../guides/query-plan-governance.md).
