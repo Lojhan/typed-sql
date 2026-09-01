@@ -485,6 +485,36 @@
       }
     },
     {
+      "id": "expression.interval-literal",
+      "title": "PostgreSQL interval literals and field qualifiers",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.interval-typed-literal",
+        "resolver:postgres.interval-field-and-precision-canonicalization"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL date/time and interval types",
+          "url": "https://www.postgresql.org/docs/18/datatype-datetime.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
       "id": "expression.operator",
       "title": "Unary and binary operators",
       "category": "operator",

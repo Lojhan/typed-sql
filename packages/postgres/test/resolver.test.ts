@@ -209,6 +209,29 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves PostgreSQL interval literal forms through canonical interval typing", () => {
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT INTERVAL '1 day' AS plain,
+               INTERVAL (3) '1.2345 seconds' AS precise,
+               INTERVAL '1-2' YEAR TO MONTH AS year_month,
+               INTERVAL '1 day 2:03:04.5678' DAY TO SECOND (3) * 2 AS doubled,
+               CAST('2:03:04.567' AS INTERVAL HOUR TO SECOND(2)) AS casted
+      `),
+      schema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, tsType, nullable, databaseType }) => ({ name, tsType, nullable, databaseType })),
+      ["plain", "precise", "year_month", "doubled", "casted"].map((name) => ({
+        name,
+        tsType: "string",
+        nullable: false,
+        databaseType: "interval",
+      })),
+    );
+  });
+
   await it("infers ordered parameter types from SQL context", () => {
     const parameterSchema = {
       ...schema,

@@ -106,6 +106,79 @@ await describe("PostgreSQL-owned parser", async () => {
     strict.throws(() => parseStatement("SELECT scores[] FROM events"), SqlParseError);
   });
 
+  await it("owns PostgreSQL interval literals, fields, and precision", () => {
+    const statement = parseStatement(`
+      SELECT INTERVAL '1 day' AS plain,
+             INTERVAL (3) '1.2345 seconds' AS prefix_precision,
+             INTERVAL '1-2' YEAR TO MONTH AS year_month,
+             INTERVAL '1 day 2:03:04.5678' DAY TO SECOND (3) AS day_second,
+             CAST('2:03:04.567' AS INTERVAL HOUR TO SECOND(2)) AS cast_interval,
+             '1 day'::INTERVAL DAY AS postgres_cast,
+             interval(1) AS routine_call,
+             interval(value) AS named_routine_call,
+             interval(1, 2) AS multi_routine_call
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns.map(({ expression }) => expression.kind),
+      ["cast", "cast", "cast", "cast", "cast", "cast", "call", "call", "call"],
+    );
+    strict.deepStrictEqual(
+      statement.columns
+        .slice(0, 5)
+        .map(({ expression }) =>
+          expression.kind === "cast" ? [expression.syntax, expression.databaseType.name.toLowerCase()] : undefined,
+        ),
+      [
+        ["typed-literal", "interval"],
+        ["typed-literal", "interval(3)"],
+        ["typed-literal", "interval year to month"],
+        ["typed-literal", "interval day to second(3)"],
+        ["cast", "interval hour to second(2)"],
+      ],
+    );
+    const visitedTypes: string[] = [];
+    walkStatement(statement, {
+      type(type) {
+        visitedTypes.push(type.name.toLowerCase());
+      },
+    });
+    strict.deepStrictEqual(visitedTypes, [
+      "interval",
+      "interval(3)",
+      "interval year to month",
+      "interval day to second(3)",
+      "interval hour to second(2)",
+      "interval day",
+    ]);
+    for (const fields of [
+      "YEAR",
+      "MONTH",
+      "DAY",
+      "HOUR",
+      "MINUTE",
+      "SECOND",
+      "YEAR TO MONTH",
+      "DAY TO HOUR",
+      "DAY TO MINUTE",
+      "DAY TO SECOND",
+      "HOUR TO MINUTE",
+      "HOUR TO SECOND",
+      "MINUTE TO SECOND",
+    ]) {
+      strict.doesNotThrow(() => parseStatement(`SELECT INTERVAL '1' ${fields} AS value`), fields);
+    }
+    strict.throws(() => parseStatement("SELECT INTERVAL '1' YEAR TO DAY"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT INTERVAL '1' SECOND TO MINUTE"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT INTERVAL '1' DAY (3)"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT INTERVAL (3) '1' SECOND"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT INTERVAL (3.5) '1 second'"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT CAST('1' AS INTERVAL(3) SECOND)"), SqlParseError);
+    strict.throws(() => parseStatement("SELECT CAST('1' AS INTERVAL SECOND trailing)"), SqlParseError);
+    strict.doesNotThrow(() => parseStatement("SELECT CAST(ARRAY['1 day'] AS INTERVAL[]) AS interval_values"));
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

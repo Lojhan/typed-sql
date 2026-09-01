@@ -35,6 +35,9 @@ The versioned cast catalogs now include every direct `pg_cast` conversion among 
 for PostgreSQL 14 through 18, including the PostgreSQL 15 geometric removal and PostgreSQL 18
 integer/bytea additions. Automatic assignment-to-string and explicit string I/O casts follow the
 server's fallback conversion rules.
+PostgreSQL interval literals now parse prefix precision, every valid field and field-range qualifier,
+suffix second precision, and qualified interval cast types while retaining typed-literal source spans.
+All forms resolve through the canonical `interval` type, and invalid field ranges fail during parsing.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

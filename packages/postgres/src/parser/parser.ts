@@ -132,6 +132,13 @@ const typeContinuationWords = new Set([
   "WITHOUT",
   "ZONE",
 ]);
+const intervalFields = new Set(["YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"]);
+const intervalFieldRanges = new Map<string, ReadonlySet<string>>([
+  ["YEAR", new Set(["MONTH"])],
+  ["DAY", new Set(["HOUR", "MINUTE", "SECOND"])],
+  ["HOUR", new Set(["MINUTE", "SECOND"])],
+  ["MINUTE", new Set(["SECOND"])],
+]);
 
 class Parser {
   readonly #source: string;
@@ -1388,6 +1395,7 @@ class Parser {
       return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
     }
     if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);
+    if (this.#isIntervalLiteralStart()) return this.#parseIntervalLiteral();
     if (this.#matchKeyword("CASE")) return this.#parseCase(token.range);
     if (this.#matchKeyword("NULL")) return { kind: "literal", value: null, range: token.range };
     if (this.#matchKeyword("TRUE")) return { kind: "literal", value: true, range: token.range };
@@ -1590,6 +1598,89 @@ class Parser {
     return { kind: "cast", expression, databaseType, syntax: "cast", range: mergeRanges(start, close.range) };
   }
 
+  #isIntervalLiteralStart(): boolean {
+    if (this.#current().value !== "INTERVAL") return false;
+    if (this.#peekToken(1).kind === "string") return true;
+    return (
+      this.#peekToken(1).value === "(" &&
+      this.#peekToken(2).kind === "number" &&
+      this.#peekToken(3).value === ")" &&
+      this.#peekToken(4).kind === "string"
+    );
+  }
+
+  #parseIntervalLiteral(): Expression {
+    const start = this.#advance();
+    let typeEnd = start;
+    let typeName = start.text;
+    let prefixPrecision = false;
+    if (this.#current().value === "(") {
+      const precision = this.#parseIntervalPrecision();
+      typeEnd = precision.end;
+      typeName += this.#source.slice(precision.start.range.start, precision.end.range.end);
+      prefixPrecision = true;
+    }
+    const value = this.#expect("string", "interval string literal");
+    let end = value;
+    if (prefixPrecision && intervalFields.has(this.#current().value)) {
+      throw this.#error("Interval fields cannot follow prefix precision", this.#current().range);
+    }
+    if (!prefixPrecision && intervalFields.has(this.#current().value)) {
+      const qualifier = this.#parseIntervalFields();
+      typeEnd = qualifier.end;
+      typeName += ` ${qualifier.text}`;
+      end = qualifier.end;
+      if (this.#current().value === "(") {
+        if (qualifier.endField !== "SECOND") {
+          throw this.#error("Interval precision requires SECOND as the least significant field", this.#current().range);
+        }
+        const precision = this.#parseIntervalPrecision();
+        typeEnd = precision.end;
+        typeName += this.#source.slice(precision.start.range.start, precision.end.range.end);
+        end = precision.end;
+      }
+    }
+    return {
+      kind: "cast",
+      expression: { kind: "literal", value: value.value, range: value.range },
+      databaseType: { name: typeName, range: mergeRanges(start.range, typeEnd.range) },
+      syntax: "typed-literal",
+      range: mergeRanges(start.range, end.range),
+    };
+  }
+
+  #parseIntervalFields(): { readonly text: string; readonly end: Token; readonly endField: string } {
+    const start = this.#current();
+    if (!intervalFields.has(start.value)) {
+      throw this.#error(`Expected interval field, found ${start.text || "end of query"}`, start.range);
+    }
+    this.#advance();
+    let end = start;
+    let endField = start.value;
+    if (this.#matchWord("TO")) {
+      const target = this.#current();
+      if (!intervalFieldRanges.get(start.value)?.has(target.value)) {
+        throw this.#error(`Invalid interval field range ${start.value} TO ${target.value}`, target.range);
+      }
+      end = this.#advance();
+      endField = end.value;
+    }
+    return {
+      text: this.#source.slice(start.range.start, end.range.end),
+      end,
+      endField,
+    };
+  }
+
+  #parseIntervalPrecision(): { readonly start: Token; readonly end: Token } {
+    const start = this.#expectPunctuation("(");
+    const precision = this.#expect("number", "interval precision");
+    if (!/^\d+$/u.test(precision.value)) {
+      throw this.#error("Interval precision must be a non-negative integer", precision.range);
+    }
+    return { start, end: this.#expectPunctuation(")") };
+  }
+
   #parseTypeName(stopAtClose: boolean): TypeName {
     const start = this.#current();
     if (!this.#isIdentifierLike(start))
@@ -1597,6 +1688,37 @@ class Parser {
     this.#advance();
     let end = start;
     let schemaSeparatorAllowed = true;
+    if (start.value === "INTERVAL" && this.#current().value !== ".") {
+      let prefixPrecision = false;
+      if (this.#current().value === "(") {
+        end = this.#parseIntervalPrecision().end;
+        prefixPrecision = true;
+      }
+      if (prefixPrecision && intervalFields.has(this.#current().value)) {
+        throw this.#error("Interval fields cannot follow prefix precision", this.#current().range);
+      }
+      if (!prefixPrecision && intervalFields.has(this.#current().value)) {
+        const qualifier = this.#parseIntervalFields();
+        end = qualifier.end;
+        if (this.#current().value === "(") {
+          if (qualifier.endField !== "SECOND") {
+            throw this.#error(
+              "Interval precision requires SECOND as the least significant field",
+              this.#current().range,
+            );
+          }
+          end = this.#parseIntervalPrecision().end;
+        }
+      }
+      while (this.#matchPunctuation("[")) end = this.#expectPunctuation("]");
+      if (stopAtClose && this.#current().value !== ")") {
+        throw this.#error(`Expected ) after type name, found ${this.#current().text}`, this.#current().range);
+      }
+      return {
+        name: this.#source.slice(start.range.start, end.range.end).trim(),
+        range: mergeRanges(start.range, end.range),
+      };
+    }
     while (true) {
       if (schemaSeparatorAllowed && this.#matchPunctuation(".")) {
         this.#parseIdentifier(true);

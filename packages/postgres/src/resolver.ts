@@ -2190,7 +2190,7 @@ class Resolver {
         return {
           tsType: mapPostgresType(expression.databaseType.name, this.#policy, this.#schema),
           nullable: source.nullable,
-          databaseType: normalizeDatabaseType(expression.databaseType.name),
+          databaseType: postgresCanonicalType(expression.databaseType.name, this.#schema),
         };
       }
       case "unary": {

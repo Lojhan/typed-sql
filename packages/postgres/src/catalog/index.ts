@@ -86,12 +86,13 @@ function index(catalog: PostgresCoreCatalog): CatalogIndex {
 }
 
 function normalizeType(value: string): string {
-  return value
+  const normalized = value
     .trim()
     .toLowerCase()
     .replace(/\[\]$/u, "")
     .replace(/\(\d+(?:,\s*\d+)?\)/gu, "")
     .replace(/\s+/gu, " ");
+  return /^interval(?:\s|$)/u.test(normalized) ? "interval" : normalized;
 }
 
 export function postgresCoreCatalog(major: number): PostgresCoreCatalog | undefined {

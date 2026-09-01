@@ -127,7 +127,7 @@ export interface CastExpression {
   readonly kind: "cast";
   readonly expression: Expression;
   readonly databaseType: TypeName;
-  readonly syntax: "cast" | "postgres";
+  readonly syntax: "cast" | "postgres" | "typed-literal";
   readonly range: SourceRange;
 }
 
