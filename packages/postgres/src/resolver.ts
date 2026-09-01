@@ -8,7 +8,6 @@ import {
 } from "@typed-sql/core";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
 import {
-  postgresCatalogOperatorRule,
   postgresCatalogRoutineRule,
   postgresCatalogTableRoutineRule,
   postgresCatalogTypeMapping,
@@ -43,6 +42,7 @@ import {
   mapPostgresType,
   type PostgresTypePolicy,
 } from "./type-policy.js";
+import { postgresCanCoerce, resolvePostgresCandidates, resolvePostgresOperator } from "./type-resolution.js";
 
 interface Relation {
   readonly alias: string;
@@ -1661,8 +1661,14 @@ class Resolver {
     const functionName = sqlName(expression.name);
     const schemaName = expression.schema === undefined ? undefined : sqlName(expression.schema);
     const routines = this.#index.routineOverloads(functionName, expression.arguments.length, schemaName);
-    const routine = this.#selectTableRoutine(routines, argumentsList, expression);
-    if (routine !== undefined) {
+    const selectedRoutine = this.#selectTableRoutine(routines, argumentsList, expression);
+    if (selectedRoutine !== undefined) {
+      const { routine, argumentTypes, resultType } = selectedRoutine;
+      expression.arguments.forEach((argument, index) => {
+        if (argument.kind === "parameter") {
+          this.#resolveExpression(argument, scope, ctes, this.#databaseType(argumentTypes[index]!, true));
+        }
+      });
       const result = routine.result;
       if (result.kind === "record" || result.kind === "table") {
         return Object.values(result.columns)
@@ -1678,8 +1684,11 @@ class Resolver {
         return [
           {
             name: functionName,
-            databaseType: result.databaseType,
-            tsType: result.tsType,
+            databaseType: resultType,
+            tsType:
+              resultType === normalizeDatabaseType(result.databaseType)
+                ? result.tsType
+                : mapPostgresType(resultType, this.#policy, this.#schema),
             nullable: result.nullable,
           },
         ];
@@ -1762,25 +1771,53 @@ class Resolver {
     candidates: readonly StructuralRoutineSnapshot[],
     argumentsList: readonly ResolvedType[],
     expression: CallExpression,
-  ): StructuralRoutineSnapshot | undefined {
-    const exact = candidates.filter((candidate) =>
-      candidate.arguments
-        .filter(({ mode }) => mode !== "out")
-        .every((argument, index) => {
-          const actual = argumentsList[index]?.databaseType;
-          return actual === undefined || this.#typesCompatible(argument.databaseType, actual);
-        }),
+  ):
+    | {
+        readonly routine: StructuralRoutineSnapshot;
+        readonly argumentTypes: readonly string[];
+        readonly resultType: string;
+      }
+    | undefined {
+    const result = resolvePostgresCandidates(
+      candidates.flatMap((candidate) => {
+        const routineResult = candidate.result;
+        if (routineResult.kind === "void" || routineResult.kind === "command") return [];
+        return [
+          {
+            value: candidate,
+            argumentTypes: candidate.arguments
+              .filter(({ mode }) => mode !== "out")
+              .map(({ databaseType }) => databaseType),
+            resultType:
+              routineResult.kind === "scalar" || routineResult.kind === "set"
+                ? routineResult.databaseType
+                : routineResult.kind,
+          },
+        ];
+      }),
+      expression.arguments.map((argument, index) => this.#overloadInputType(argument, argumentsList[index])),
+      this.#schema,
     );
-    if (exact.length === 1) return exact[0];
-    if (exact.length > 1 || candidates.length > 1) {
+    if (result.kind === "selected") {
+      return { routine: result.candidate, argumentTypes: result.argumentTypes, resultType: result.resultType };
+    }
+    if (result.kind === "ambiguous") {
       this.#diagnostic(
         "TSQ204",
         `Ambiguous overloaded table function ${expression.name.name}`,
         expression.range,
         "Cast arguments to select a specific overload.",
       );
+    } else if (candidates.length > 0) {
+      this.#diagnostic(
+        "TSQ202",
+        `No table-function overload of ${expression.name.name} accepts these argument types`,
+        expression.range,
+        "Cast arguments to a supported overload.",
+        "warning",
+      );
     }
-    return candidates.length === 1 ? candidates[0] : undefined;
+    return undefined;
   }
 
   #arrayElementType(type: string): string {
@@ -2035,52 +2072,60 @@ class Resolver {
         expression.right.kind === "parameter" ? left : undefined,
       );
     }
-    const operatorRule = postgresCatalogOperatorRule(expression.operator, this.#schema);
-    if (operatorRule === "boolean") {
-      const neverNull = expression.operator.startsWith("IS");
-      return {
-        tsType: "boolean",
-        nullable: neverNull ? false : left.nullable || right.nullable,
-        databaseType: "boolean",
-      };
+    if (expression.operator === "IS" || expression.operator === "IS NOT") {
+      return { tsType: "boolean", nullable: false, databaseType: "boolean" };
     }
-    if (operatorRule === "json") return { tsType: this.#policy.json, nullable: true, databaseType: "jsonb" };
-    if (operatorRule === "json-text") return { tsType: "string", nullable: true, databaseType: "text" };
-    if (operatorRule === "concatenation") {
-      if (left.tsType.startsWith("readonly (") && right.tsType.startsWith("readonly (")) {
-        const databaseType = left.databaseType ?? right.databaseType;
-        return {
-          tsType: unionTypeLiterals([left.tsType, right.tsType]),
-          nullable: left.nullable || right.nullable,
-          ...(databaseType === undefined ? {} : { databaseType }),
-        };
+    const operator = resolvePostgresOperator(
+      expression.operator,
+      this.#overloadInputType(expression.left, left),
+      this.#overloadInputType(expression.right, right),
+      this.#schema,
+    );
+    if (operator.kind === "selected") {
+      const invalidNumericLiteral = ([expression.left, expression.right] as const).some((operand, index) => {
+        if (operand.kind !== "literal" || typeof operand.value !== "string") return false;
+        const target = operator.argumentTypes[index]!;
+        if (!this.#isNumericType(target)) return false;
+        const integer = ["smallint", "integer", "bigint"].includes(normalizeDatabaseType(target));
+        return integer
+          ? !/^[+-]?\d+$/u.test(operand.value)
+          : !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/iu.test(operand.value);
+      });
+      if (invalidNumericLiteral) {
+        this.#diagnostic(
+          "TSQ203",
+          `A string literal is not valid input for the selected ${expression.operator} numeric overload`,
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
       }
-      return { tsType: "string", nullable: left.nullable || right.nullable, databaseType: "text" };
-    }
-    const leftDatabase = left.databaseType === undefined ? undefined : normalizeDatabaseType(left.databaseType);
-    const rightDatabase = right.databaseType === undefined ? undefined : normalizeDatabaseType(right.databaseType);
-    if (
-      operatorRule === "numeric" &&
-      leftDatabase !== undefined &&
-      rightDatabase !== undefined &&
-      this.#isNumericType(leftDatabase) &&
-      this.#isNumericType(rightDatabase)
-    ) {
-      const databaseType = [leftDatabase, rightDatabase].some((type) => type === "numeric" || type === "decimal")
-        ? "numeric"
-        : "double precision";
+      if (expression.left.kind === "parameter") {
+        left = this.#resolveExpression(
+          expression.left,
+          scope,
+          ctes,
+          this.#databaseType(operator.argumentTypes[0]!, right.nullable),
+        );
+      }
+      if (expression.right.kind === "parameter") {
+        right = this.#resolveExpression(
+          expression.right,
+          scope,
+          ctes,
+          this.#databaseType(operator.argumentTypes[1]!, left.nullable),
+        );
+      }
       return {
-        tsType: databaseType === "numeric" ? this.#policy.numeric : "number",
-        nullable: left.nullable || right.nullable,
-        databaseType,
+        tsType: mapPostgresType(operator.resultType, this.#policy, this.#schema),
+        nullable: expression.operator.startsWith("IS ") ? false : left.nullable || right.nullable,
+        databaseType: operator.resultType,
       };
     }
-    if (left.tsType === "unknown" || right.tsType === "unknown")
-      return { tsType: "unknown", nullable: left.nullable || right.nullable };
     this.#diagnostic(
       "TSQ203",
-      `Cannot safely infer operator ${expression.operator} for ${leftDatabase ?? left.tsType} and ${rightDatabase ?? right.tsType}`,
+      `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} operator ${expression.operator} for ${left.databaseType ?? left.tsType} and ${right.databaseType ?? right.tsType}`,
       expression.range,
+      operator.kind === "ambiguous" ? "Cast an operand to select a specific overload." : undefined,
     );
     return { tsType: "unknown", nullable: true };
   }
@@ -2327,6 +2372,61 @@ class Resolver {
 
     const functionName = sqlName(expression.name);
     const schemaName = expression.schema === undefined ? undefined : sqlName(expression.schema);
+    const routines = this.#index.routineOverloads(functionName, expression.arguments.length, schemaName);
+    if (routines.length > 0) {
+      const selection = resolvePostgresCandidates(
+        routines.flatMap((routine) => {
+          const result = routine.result;
+          if (result.kind !== "scalar" && result.kind !== "set") return [];
+          return [
+            {
+              value: routine,
+              argumentTypes: routine.arguments
+                .filter(({ mode }) => mode !== "out")
+                .map(({ databaseType }) => databaseType),
+              resultType: result.databaseType,
+            },
+          ];
+        }),
+        expression.arguments.map((argument, index) => this.#overloadInputType(argument, resolved[index])),
+        this.#schema,
+      );
+      if (selection.kind === "selected") {
+        expression.arguments.forEach((argument, index) => {
+          if (argument.kind === "parameter") {
+            this.#resolveExpression(argument, scope, ctes, this.#databaseType(selection.argumentTypes[index]!, true));
+          }
+        });
+        const result = selection.candidate.result;
+        if (result.kind === "scalar" || result.kind === "set") {
+          return {
+            tsType:
+              selection.resultType === normalizeDatabaseType(result.databaseType)
+                ? result.tsType
+                : mapPostgresType(selection.resultType, this.#policy, this.#schema),
+            nullable: result.nullable,
+            databaseType: selection.resultType,
+          };
+        }
+      }
+      if (selection.kind === "ambiguous") {
+        this.#diagnostic(
+          "TSQ204",
+          `Ambiguous overloaded function ${expression.name.name}`,
+          expression.range,
+          "Cast arguments to select a specific overload.",
+        );
+      } else {
+        this.#diagnostic(
+          "TSQ202",
+          `No overload of ${expression.name.name} accepts these argument types`,
+          expression.range,
+          "Cast arguments to a supported overload.",
+          "warning",
+        );
+      }
+      return { tsType: "unknown", nullable: true };
+    }
     const candidates = this.#index.functions(functionName, expression.arguments.length, schemaName);
     const exact = candidates.filter((candidate) =>
       candidate.argumentTypes.every((type, index) => {
@@ -2356,12 +2456,20 @@ class Resolver {
     return { tsType: "unknown", nullable: true };
   }
 
-  #typesCompatible(expected: string, actual: string): boolean {
-    const left = normalizeDatabaseType(expected);
-    const right = normalizeDatabaseType(actual);
-    if (left === right) return true;
-    if (this.#isNumericType(left) && this.#isNumericType(right)) return true;
-    return false;
+  #typesCompatible(
+    expected: string,
+    actual: string,
+    context: "assignment" | "explicit" | "implicit" = "implicit",
+  ): boolean {
+    return postgresCanCoerce(actual, expected, context, this.#schema);
+  }
+
+  #overloadInputType(expression: Expression, resolved: ResolvedType | undefined): string | undefined {
+    if (expression.kind === "parameter") return undefined;
+    if (expression.kind === "literal" && (expression.value === null || typeof expression.value === "string")) {
+      return undefined;
+    }
+    return resolved?.databaseType;
   }
 
   #isDefaultValue(expression: Expression | undefined): boolean {
@@ -2524,7 +2632,7 @@ class Resolver {
       target === undefined ||
       source.databaseType === undefined ||
       source.tsType === "unknown" ||
-      this.#typesCompatible(target.databaseType, source.databaseType)
+      this.#typesCompatible(target.databaseType, source.databaseType, "assignment")
     )
       return;
     const expectedTsType = mapPostgresType(target.databaseType, this.#policy, this.#schema);

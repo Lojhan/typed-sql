@@ -7,6 +7,9 @@ import catalog17 from "./generated/17.js";
 import catalog18 from "./generated/18.js";
 import catalog19 from "./generated/19.js";
 import type {
+  PostgresCastContext,
+  PostgresCatalogCast,
+  PostgresCatalogType,
   PostgresCatalogTypeMapping,
   PostgresCoreCatalog,
   PostgresOperatorResultRule,
@@ -15,6 +18,9 @@ import type {
 } from "./types.js";
 
 export type {
+  PostgresCastContext,
+  PostgresCastMethod,
+  PostgresCatalogCast,
   PostgresCatalogOperatorFamily,
   PostgresCatalogRoutineFamily,
   PostgresCatalogTableRoutineFamily,
@@ -24,6 +30,7 @@ export type {
   PostgresOperatorResultRule,
   PostgresRoutineResultRule,
   PostgresTableRoutineResultRule,
+  PostgresTypeCategory,
 } from "./types.js";
 
 export const POSTGRES_CORE_CATALOG_FORMAT_VERSION = 1 as const;
@@ -44,6 +51,8 @@ const catalogs = new Map<number, PostgresCoreCatalog>(
 
 interface CatalogIndex {
   readonly types: ReadonlyMap<string, PostgresCatalogTypeMapping>;
+  readonly typeDefinitions: ReadonlyMap<string, PostgresCatalogType>;
+  readonly casts: ReadonlyMap<string, PostgresCatalogCast>;
   readonly operators: ReadonlyMap<string, PostgresOperatorResultRule>;
   readonly routines: ReadonlyMap<string, PostgresRoutineResultRule>;
   readonly tableRoutines: ReadonlyMap<string, PostgresTableRoutineResultRule>;
@@ -58,6 +67,10 @@ function index(catalog: PostgresCoreCatalog): CatalogIndex {
     types: new Map(
       catalog.types.flatMap((type) => [type.name, ...type.aliases].map((name) => [name, type.mapping] as const)),
     ),
+    typeDefinitions: new Map(
+      catalog.types.flatMap((type) => [type.name, ...type.aliases].map((name) => [name, type] as const)),
+    ),
+    casts: new Map(catalog.casts.map((cast) => [`${cast.source}>${cast.target}`, cast])),
     operators: new Map(
       catalog.operators.flatMap((family) => family.operators.map((operator) => [operator, family.result] as const)),
     ),
@@ -99,6 +112,37 @@ export function postgresCatalogTypeMapping(
   schema?: SchemaSnapshot,
 ): PostgresCatalogTypeMapping | undefined {
   return index(postgresCoreCatalogForSchema(schema)).types.get(normalizeType(databaseType));
+}
+
+export function postgresCatalogType(databaseType: string, schema?: SchemaSnapshot): PostgresCatalogType | undefined {
+  return index(postgresCoreCatalogForSchema(schema)).typeDefinitions.get(normalizeType(databaseType));
+}
+
+export function postgresCatalogCast(
+  source: string,
+  target: string,
+  schema?: SchemaSnapshot,
+): PostgresCatalogCast | undefined {
+  const catalogIndex = index(postgresCoreCatalogForSchema(schema));
+  const sourceType = catalogIndex.typeDefinitions.get(normalizeType(source))?.name ?? normalizeType(source);
+  const targetType = catalogIndex.typeDefinitions.get(normalizeType(target))?.name ?? normalizeType(target);
+  return catalogIndex.casts.get(`${sourceType}>${targetType}`);
+}
+
+export function postgresCatalogCanCast(
+  source: string,
+  target: string,
+  context: PostgresCastContext,
+  schema?: SchemaSnapshot,
+): boolean {
+  const sourceType = postgresCatalogType(source, schema)?.name ?? normalizeType(source);
+  const targetType = postgresCatalogType(target, schema)?.name ?? normalizeType(target);
+  if (sourceType === targetType) return true;
+  const cast = postgresCatalogCast(sourceType, targetType, schema);
+  if (cast === undefined) return false;
+  return (
+    context === "explicit" || cast.context === "implicit" || (context === "assignment" && cast.context === "assignment")
+  );
 }
 
 export function postgresCatalogOperatorRule(

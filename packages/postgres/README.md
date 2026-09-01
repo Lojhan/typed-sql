@@ -78,6 +78,10 @@ The stable grammar supports PostgreSQL majors 14 through 18. `POSTGRES_SUPPORT_P
 current per-major matrix targets, the PostgreSQL 19 canary, and the upstream end-of-life deprecation
 rule; future and prerelease majors remain conservative unless canary policy is selected explicitly.
 
+Operator and snapshot-routine overloads use PostgreSQL-owned canonical types, cast contexts,
+preferred categories, unknown-literal selection, and simple/common polymorphic families. Ambiguous
+or incompatible candidates produce diagnostics instead of optimistic result types.
+
 The grammar resolves PostgreSQL grouping sets and ordered aggregates, inherited and framed windows,
 lateral function relations and `ROWS FROM`, `WITH ORDINALITY`, `TABLESAMPLE`, and `FETCH` pagination.
 PostgreSQL DML includes identity overriding, snapshot-backed expression and partial-index

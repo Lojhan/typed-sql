@@ -994,6 +994,139 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves v2 polymorphic and implicitly coercible routine overloads", () => {
+    const routineDefaults = {
+      kind: "function",
+      volatility: "immutable",
+      deterministic: true,
+      dataAccess: "none",
+      nullInput: "strict",
+    } as const;
+    const polymorphicSchema = {
+      ...v2Schema,
+      routines: {
+        same: [
+          {
+            ...routineDefaults,
+            name: "same",
+            identity: "public.same(anyelement,anyelement)",
+            arguments: ["left", "right"].map((name) => ({
+              name,
+              mode: "in" as const,
+              typeIdentity: "anyelement",
+              databaseType: "anyelement",
+              tsType: "unknown",
+              default: "none" as const,
+            })),
+            result: {
+              kind: "scalar",
+              typeIdentity: "anyelement",
+              databaseType: "anyelement",
+              tsType: "unknown",
+              nullable: false,
+            },
+            polymorphicFamily: "simple",
+          },
+        ],
+        make_array2: [
+          {
+            ...routineDefaults,
+            name: "make_array2",
+            identity: "public.make_array2(anycompatible,anycompatible)",
+            arguments: ["left", "right"].map((name) => ({
+              name,
+              mode: "in" as const,
+              typeIdentity: "anycompatible",
+              databaseType: "anycompatible",
+              tsType: "unknown",
+              default: "none" as const,
+            })),
+            result: {
+              kind: "scalar",
+              typeIdentity: "anycompatiblearray",
+              databaseType: "anycompatiblearray",
+              tsType: "unknown",
+              nullable: false,
+            },
+            polymorphicFamily: "compatible",
+          },
+        ],
+        widen: [
+          {
+            ...routineDefaults,
+            name: "widen",
+            identity: "public.widen(integer)",
+            arguments: [
+              {
+                mode: "in",
+                typeIdentity: "integer",
+                databaseType: "integer",
+                tsType: "number",
+                default: "none",
+              },
+            ],
+            result: {
+              kind: "scalar",
+              typeIdentity: "integer",
+              databaseType: "integer",
+              tsType: "number",
+              nullable: false,
+            },
+          },
+          {
+            ...routineDefaults,
+            name: "widen",
+            identity: "public.widen(numeric)",
+            arguments: [
+              {
+                mode: "in",
+                typeIdentity: "numeric",
+                databaseType: "numeric",
+                tsType: "string",
+                default: "none",
+              },
+            ],
+            result: {
+              kind: "scalar",
+              typeIdentity: "numeric",
+              databaseType: "numeric",
+              tsType: "string",
+              nullable: false,
+            },
+          },
+        ],
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT same(1, 2) AS same_value,
+               make_array2($1, 2.5) AS numeric_values,
+               make_array2('a', 'b') AS labels,
+               widen(1) AS widened
+      `),
+      polymorphicSchema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, tsType, databaseType }) => ({ name, tsType, databaseType })),
+      [
+        { name: "same_value", tsType: "number", databaseType: "integer" },
+        { name: "numeric_values", tsType: "readonly (string)[]", databaseType: "numeric[]" },
+        { name: "labels", tsType: "readonly (string)[]", databaseType: "text[]" },
+        { name: "widened", tsType: "number", databaseType: "integer" },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, tsType, databaseType }) => ({ index, tsType, databaseType })),
+      [{ index: 1, tsType: "string", databaseType: "numeric" }],
+    );
+    strict.ok(
+      resolveSelect(parseSelect("SELECT same(1, 2.5) AS invalid"), polymorphicSchema).diagnostics.some(
+        ({ code }) => code === "TSQ202",
+      ),
+    );
+  });
+
   await it("accepts the recursive keyword and fails ambiguous overloads safely", () => {
     const recursive = resolveStatement(
       parseStatement("WITH RECURSIVE n(value) AS (SELECT 1 AS value) SELECT value FROM n"),

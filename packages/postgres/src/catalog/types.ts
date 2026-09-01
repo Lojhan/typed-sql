@@ -7,6 +7,21 @@ export type PostgresCatalogTypeMapping =
   | "number"
   | "numeric"
   | "string";
+export type PostgresTypeCategory =
+  | "array"
+  | "bit-string"
+  | "boolean"
+  | "composite"
+  | "datetime"
+  | "enum"
+  | "geometric"
+  | "network"
+  | "numeric"
+  | "range"
+  | "string"
+  | "user";
+export type PostgresCastContext = "assignment" | "explicit" | "implicit";
+export type PostgresCastMethod = "binary" | "function" | "io";
 export type PostgresOperatorResultRule = "boolean" | "concatenation" | "json" | "json-text" | "numeric";
 export type PostgresRoutineResultRule =
   | "array-aggregate"
@@ -39,6 +54,15 @@ export interface PostgresCatalogType {
   readonly name: string;
   readonly aliases: readonly string[];
   readonly mapping: PostgresCatalogTypeMapping;
+  readonly category: PostgresTypeCategory;
+  readonly preferred: boolean;
+}
+
+export interface PostgresCatalogCast {
+  readonly source: string;
+  readonly target: string;
+  readonly context: PostgresCastContext;
+  readonly method: PostgresCastMethod;
 }
 
 export interface PostgresCatalogOperatorFamily {
@@ -64,6 +88,7 @@ export interface PostgresCoreCatalog {
   readonly major: number;
   readonly revision: string;
   readonly types: readonly PostgresCatalogType[];
+  readonly casts: readonly PostgresCatalogCast[];
   readonly operators: readonly PostgresCatalogOperatorFamily[];
   readonly routines: readonly PostgresCatalogRoutineFamily[];
   readonly tableRoutines: readonly PostgresCatalogTableRoutineFamily[];

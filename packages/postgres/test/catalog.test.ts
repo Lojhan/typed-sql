@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import {
+  postgresCatalogCanCast,
+  postgresCatalogCast,
   postgresCatalogOperatorRule,
   postgresCatalogRoutineRule,
   postgresCatalogTableRoutineRule,
@@ -32,6 +34,9 @@ await describe("PostgreSQL versioned core catalogs", async () => {
     strict.strictEqual(postgresCatalogTypeMapping("INTEGER"), "number");
     strict.strictEqual(postgresCatalogTypeMapping("numeric(20, 2)[]"), "numeric");
     strict.strictEqual(postgresCatalogTypeMapping("made_up"), undefined);
+    strict.strictEqual(postgresCatalogCast("integer", "numeric")?.context, "implicit");
+    strict.strictEqual(postgresCatalogCanCast("numeric", "integer", "implicit"), false);
+    strict.strictEqual(postgresCatalogCanCast("numeric", "integer", "assignment"), true);
     strict.strictEqual(postgresCatalogOperatorRule("IS DISTINCT FROM"), "boolean");
     strict.strictEqual(postgresCatalogOperatorRule("->>"), "json-text");
     strict.strictEqual(postgresCatalogOperatorRule("!!"), undefined);

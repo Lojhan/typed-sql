@@ -2,6 +2,248 @@
 import type { PostgresCoreCatalog } from "../types.js";
 
 export default Object.freeze({
+  "casts": [
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "double precision"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "bigint",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "numeric"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "real"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "bigint",
+      "target": "smallint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bpchar",
+      "target": "text"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "date",
+      "target": "timestamp"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "date",
+      "target": "timestamptz"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "double precision",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "double precision",
+      "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "double precision",
+      "target": "numeric"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "double precision",
+      "target": "real"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "double precision",
+      "target": "smallint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "integer",
+      "target": "bigint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "integer",
+      "target": "double precision"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "integer",
+      "target": "numeric"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "integer",
+      "target": "real"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "integer",
+      "target": "smallint"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "numeric",
+      "target": "bigint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "numeric",
+      "target": "double precision"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "numeric",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "numeric",
+      "target": "real"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "numeric",
+      "target": "smallint"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "real",
+      "target": "bigint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "real",
+      "target": "double precision"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "real",
+      "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "real",
+      "target": "numeric"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "real",
+      "target": "smallint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "bigint"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "double precision"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "numeric"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "real"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "text",
+      "target": "bpchar"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "text",
+      "target": "varchar"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timestamp",
+      "target": "date"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "timestamp",
+      "target": "timestamptz"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timestamptz",
+      "target": "date"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timestamptz",
+      "target": "timestamp"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "varchar",
+      "target": "text"
+    }
+  ],
   "formatVersion": 1,
   "major": 15,
   "operators": [
@@ -271,96 +513,145 @@ export default Object.freeze({
       "aliases": [
         "int8"
       ],
+      "category": "numeric",
       "mapping": "bigint",
-      "name": "bigint"
+      "name": "bigint",
+      "preferred": false
     },
     {
       "aliases": [
         "bool"
       ],
+      "category": "boolean",
       "mapping": "boolean",
-      "name": "boolean"
+      "name": "boolean",
+      "preferred": true
+    },
+    {
+      "aliases": [
+        "char",
+        "character"
+      ],
+      "category": "string",
+      "mapping": "string",
+      "name": "bpchar",
+      "preferred": false
     },
     {
       "aliases": [],
+      "category": "user",
       "mapping": "bytes",
-      "name": "bytea"
+      "name": "bytea",
+      "preferred": false
     },
     {
       "aliases": [],
+      "category": "datetime",
       "mapping": "date",
-      "name": "date"
+      "name": "date",
+      "preferred": false
     },
     {
       "aliases": [
         "float8"
       ],
+      "category": "numeric",
       "mapping": "number",
-      "name": "double precision"
+      "name": "double precision",
+      "preferred": true
     },
     {
       "aliases": [
         "int",
         "int4"
       ],
+      "category": "numeric",
       "mapping": "number",
-      "name": "integer"
+      "name": "integer",
+      "preferred": false
     },
     {
       "aliases": [],
+      "category": "user",
       "mapping": "json",
-      "name": "json"
+      "name": "json",
+      "preferred": false
     },
     {
       "aliases": [],
+      "category": "user",
       "mapping": "json",
-      "name": "jsonb"
+      "name": "jsonb",
+      "preferred": false
     },
     {
       "aliases": [
         "decimal"
       ],
+      "category": "numeric",
       "mapping": "numeric",
-      "name": "numeric"
+      "name": "numeric",
+      "preferred": false
     },
     {
       "aliases": [
         "float4"
       ],
+      "category": "numeric",
       "mapping": "number",
-      "name": "real"
+      "name": "real",
+      "preferred": false
     },
     {
       "aliases": [
         "int2"
       ],
+      "category": "numeric",
       "mapping": "number",
-      "name": "smallint"
+      "name": "smallint",
+      "preferred": false
     },
     {
-      "aliases": [
-        "char",
-        "character varying",
-        "uuid",
-        "varchar"
-      ],
+      "aliases": [],
+      "category": "string",
       "mapping": "string",
-      "name": "text"
+      "name": "text",
+      "preferred": true
     },
     {
       "aliases": [
         "timestamp without time zone"
       ],
+      "category": "datetime",
       "mapping": "date",
-      "name": "timestamp"
+      "name": "timestamp",
+      "preferred": false
     },
     {
       "aliases": [
         "timestamp with time zone"
       ],
+      "category": "datetime",
       "mapping": "date",
-      "name": "timestamptz"
+      "name": "timestamptz",
+      "preferred": true
+    },
+    {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "uuid",
+      "preferred": false
+    },
+    {
+      "aliases": [
+        "character varying"
+      ],
+      "category": "string",
+      "mapping": "string",
+      "name": "varchar",
+      "preferred": false
     }
   ],
-  "revision": "sha256:3d9647ae387adaa548f8bbd5932cc5de8d685b1c575958880a51f0cbe434a830"
+  "revision": "sha256:795c344e64b84a2497c1817dfa2508991bb03ca57351614433bb7742a206bcf5"
 }) as unknown as PostgresCoreCatalog;

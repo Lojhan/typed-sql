@@ -39,8 +39,8 @@ minor released afterward.
 | Windows | Covers named inheritance, inline definitions, all frame units, bounds, exclusions, and built-in window nullability. |
 | Lateral and function relations | Covers implicit/explicit lateral arguments, `ROWS FROM`, record definitions, null-padding, and `WITH ORDINALITY`. |
 | Ordering, sampling, and pagination | Covers ordering operators, `TABLESAMPLE`/`REPEATABLE`, `LIMIT ALL`, offsets, and `FETCH` variants. |
-| Expressions, `CASE`, casts, and parameters | Infers parameters from columns, casts, DML targets, ranges, limits, and catalog functions. |
-| Arrays, enums, domains, JSON, and catalog functions | Resolves known types and function name or arity. |
+| Expressions, `CASE`, casts, and parameters | Infers parameters from columns, casts, DML targets, ranges, limits, and catalog functions. Generated catalogs record canonical identities, preferred categories, and explicit/assignment/implicit cast contexts. |
+| Arrays, enums, domains, JSON, and catalog functions | Selects typed operator and snapshot-routine candidates using exact and implicit-cast matches. Resolves array/range/enum relationships and the `anyelement` and `anycompatible` polymorphic families; unresolved or ambiguous candidates fail closed. |
 | `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `RETURNING` | Covers identity overriding, snapshot-backed expression and partial-index conflict targets, action-scoped `excluded`, row/subquery assignments, comma and joined update/delete sources, positioned `WHERE CURRENT OF` writes, source-type validation, PostgreSQL 15+ `MERGE`, PostgreSQL 17+ merge returning and explicit by-target/by-source actions, and PostgreSQL 18 old/new rows and aliases. Commands without `RETURNING` infer `Query<never, Parameters>`. |
 
 Dynamic identifiers receive no static inference; use `sql.ident()` explicitly.
