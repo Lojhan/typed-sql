@@ -60,6 +60,18 @@ function walkExpression(
       walkExpression(expression.expression, statement, visitor, context);
       if (expression.zone !== undefined) walkExpression(expression.zone, statement, visitor, context);
       break;
+    case "json-object":
+      for (const entry of expression.entries) {
+        walkExpression(entry.key, statement, visitor, context);
+        walkExpression(entry.value.expression, statement, visitor, context);
+      }
+      if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
+      break;
+    case "json-array":
+      for (const value of expression.values) walkExpression(value.expression, statement, visitor, context);
+      if (expression.query !== undefined) walkStatementWithContext(expression.query, visitor, context.ctes);
+      if (expression.returning !== undefined) visitor.type?.(expression.returning.databaseType, statement);
+      break;
     case "json-exists":
       walkExpression(expression.context.expression, statement, visitor, context);
       walkExpression(expression.path, statement, visitor, context);

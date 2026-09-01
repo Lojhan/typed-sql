@@ -12,8 +12,10 @@ import {
   type InsertStatement,
   type JoinClause,
   type JoinKind,
+  type JsonArrayExpression,
   type JsonBehavior,
   type JsonFormat,
+  type JsonObjectEntry,
   type JsonPassingArgument,
   type JsonReturning,
   type JsonTableColumn,
@@ -153,6 +155,7 @@ class Parser {
   readonly #source: string;
   readonly #cursor: TokenCursor;
   readonly #syntax: string = "postgres";
+  #stopSelectListBeforeJsonFormat = false;
 
   constructor(source: string, options: ParseOptions) {
     this.#source = source;
@@ -870,7 +873,10 @@ class Parser {
       const expression = this.#parseExpression();
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
-      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+      else if (
+        (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier") &&
+        !this.#isJsonArrayQueryFormatStart()
+      )
         alias = this.#parseIdentifier();
       items.push({
         expression,
@@ -893,7 +899,10 @@ class Parser {
       const close = this.#expectPunctuation(")");
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
-      else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+      else if (
+        !this.#isJsonArrayQueryFormatStart() &&
+        (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+      )
         alias = this.#parseIdentifier();
       const columns: Identifier[] = [];
       if (alias !== undefined && this.#matchPunctuation("(")) {
@@ -935,7 +944,10 @@ class Parser {
     const close = this.#expectPunctuation(")");
     let alias: Identifier | undefined;
     if (this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
-    else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+    else if (
+      !this.#isJsonArrayQueryFormatStart() &&
+      (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+    )
       alias = this.#parseIdentifier();
     const columns: Identifier[] = [];
     if (alias !== undefined && this.#matchPunctuation("(")) {
@@ -1090,7 +1102,10 @@ class Parser {
     const withOrdinality = this.#matchKeyword("WITH");
     if (withOrdinality) this.#expectKeyword("ORDINALITY");
     const hasAs = this.#matchKeyword("AS");
-    const alias = this.#isIdentifierLike(this.#current()) ? this.#parseIdentifier(true) : undefined;
+    const alias =
+      !this.#isJsonArrayQueryFormatStart() && this.#isIdentifierLike(this.#current())
+        ? this.#parseIdentifier(true)
+        : undefined;
     if (hasAs && alias === undefined && this.#current().value !== "(") {
       throw this.#error("Expected table-function alias or column definition list", this.#current().range);
     }
@@ -1159,7 +1174,11 @@ class Parser {
     const includeDescendants = this.#matchOperator("*");
     let alias: Identifier | undefined;
     if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier(true);
-    else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier"))
+    else if (
+      allowAlias &&
+      !this.#isJsonArrayQueryFormatStart() &&
+      (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
+    )
       alias = this.#parseIdentifier();
     let sample: NamedTableReference["sample"];
     if (allowAlias && this.#matchKeyword("TABLESAMPLE")) {
@@ -1561,6 +1580,18 @@ class Parser {
     if (simpleTypedLiteralTypes.has(token.value) && this.#peekToken(1).kind === "string") {
       return this.#parseSimpleTypedLiteral();
     }
+    if (
+      this.#isWord(token, "JSON_OBJECT") &&
+      this.#peekToken(1).value === "(" &&
+      this.#isJsonObjectConstructorStart()
+    ) {
+      this.#advance();
+      return this.#parseJsonObject(token);
+    }
+    if (this.#isWord(token, "JSON_ARRAY") && this.#peekToken(1).value === "(") {
+      this.#advance();
+      return this.#parseJsonArray(token);
+    }
     if (this.#isWord(token, "JSON_EXISTS") && this.#peekToken(1).value === "(") {
       this.#advance();
       return this.#parseJsonExists(token);
@@ -1605,6 +1636,139 @@ class Parser {
       return { kind: "column", column: first, range: first.range };
     }
     throw this.#error(`Expected expression, found ${token.text || "end of query"}`, token.range);
+  }
+
+  #isJsonObjectConstructorStart(): boolean {
+    let nesting = 0;
+    let sawTopLevelToken = false;
+    for (let offset = 1; ; offset += 1) {
+      const token = this.#peekToken(offset);
+      if (token.kind === "eof") return false;
+      if (token.value === "(" || token.value === "[") {
+        nesting += 1;
+        continue;
+      }
+      if (token.value === "]") {
+        nesting -= 1;
+        continue;
+      }
+      if (token.value === ")") {
+        if (nesting === 1) return !sawTopLevelToken;
+        nesting -= 1;
+        continue;
+      }
+      if (nesting !== 1) continue;
+      if (!sawTopLevelToken && this.#isWord(token, "RETURNING")) return true;
+      sawTopLevelToken = true;
+      if (token.value === ":" || this.#isWord(token, "VALUE")) return true;
+      if (token.value === ",") return false;
+    }
+  }
+
+  #parseJsonObject(start: Token): Expression {
+    this.#expectPunctuation("(");
+    const entries: JsonObjectEntry[] = [];
+    if (this.#current().value !== ")" && !this.#isWord(this.#current(), "RETURNING")) {
+      do {
+        const key = this.#parseExpression();
+        if (!this.#matchWord("VALUE")) this.#expectPunctuation(":");
+        const value = this.#parseJsonValueExpression();
+        entries.push({ key, value, range: mergeRanges(key.range, value.range) });
+      } while (this.#matchPunctuation(","));
+    }
+    const nullPolicy = this.#parseJsonConstructorNullPolicy("null");
+    const uniqueKeys = this.#parseJsonUniqueKeys();
+    const returning = this.#parseJsonReturning();
+    const close = this.#expectPunctuation(")");
+    return {
+      kind: "json-object",
+      entries,
+      nullPolicy,
+      uniqueKeys,
+      ...(returning === undefined ? {} : { returning }),
+      range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonArray(start: Token): JsonArrayExpression {
+    this.#expectPunctuation("(");
+    const values: JsonValueExpression[] = [];
+    let query: SelectStatement | undefined;
+    let queryFormat: JsonFormat | undefined;
+    let nullPolicy: "null" | "absent" = "absent";
+    if (this.#isStatementStart()) {
+      const previousStop = this.#stopSelectListBeforeJsonFormat;
+      this.#stopSelectListBeforeJsonFormat = true;
+      let statement: Statement;
+      try {
+        statement = this.#parseStatement();
+      } finally {
+        this.#stopSelectListBeforeJsonFormat = previousStop;
+      }
+      if (statement.kind !== "select") throw this.#error("JSON_ARRAY query must be SELECT", statement.range);
+      query = statement;
+      queryFormat = this.#parseJsonFormat();
+    } else if (this.#current().value !== ")" && !this.#isWord(this.#current(), "RETURNING")) {
+      do values.push(this.#parseJsonValueExpression());
+      while (this.#matchPunctuation(","));
+      nullPolicy = this.#parseJsonConstructorNullPolicy("absent");
+    }
+    const returning = this.#parseJsonReturning();
+    const close = this.#expectPunctuation(")");
+    return {
+      kind: "json-array",
+      values,
+      ...(query === undefined ? {} : { query }),
+      ...(queryFormat === undefined ? {} : { queryFormat }),
+      nullPolicy,
+      ...(returning === undefined ? {} : { returning }),
+      range: mergeRanges(start.range, close.range),
+    };
+  }
+
+  #parseJsonConstructorNullPolicy(defaultPolicy: "null" | "absent"): "null" | "absent" {
+    const nullPolicy = this.#isWord(this.#current(), "NULL")
+      ? "null"
+      : this.#isWord(this.#current(), "ABSENT")
+        ? "absent"
+        : undefined;
+    if (
+      nullPolicy === undefined ||
+      !this.#isWord(this.#peekToken(1), "ON") ||
+      !this.#isWord(this.#peekToken(2), "NULL")
+    ) {
+      return defaultPolicy;
+    }
+    this.#advance();
+    this.#expectKeyword("ON");
+    this.#expectKeyword("NULL");
+    return nullPolicy;
+  }
+
+  #parseJsonUniqueKeys(): boolean {
+    if (
+      (!this.#isWord(this.#current(), "WITH") && !this.#isWord(this.#current(), "WITHOUT")) ||
+      !this.#isWord(this.#peekToken(1), "UNIQUE")
+    ) {
+      return false;
+    }
+    const unique = this.#matchWord("WITH");
+    if (!unique) this.#expectWord("WITHOUT");
+    this.#expectWord("UNIQUE");
+    this.#matchWord("KEYS");
+    return unique;
+  }
+
+  #parseJsonReturning(): JsonReturning | undefined {
+    if (!this.#matchKeyword("RETURNING")) return undefined;
+    const start = this.#previous();
+    const databaseType = this.#parseTypeName(false, () => this.#isWord(this.#current(), "FORMAT"));
+    const format = this.#parseJsonFormat();
+    return {
+      databaseType,
+      ...(format === undefined ? {} : { format }),
+      range: mergeRanges(start.range, format?.range ?? databaseType.range),
+    };
   }
 
   #parseJsonExists(start: Token): Expression {
@@ -2245,6 +2409,14 @@ class Parser {
 
   #isStatementStart(): boolean {
     return ["SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "WITH"].includes(this.#current().value);
+  }
+
+  #isJsonArrayQueryFormatStart(): boolean {
+    return (
+      this.#stopSelectListBeforeJsonFormat &&
+      this.#isWord(this.#current(), "FORMAT") &&
+      this.#isWord(this.#peekToken(1), "JSON")
+    );
   }
 
   #current(): Token {

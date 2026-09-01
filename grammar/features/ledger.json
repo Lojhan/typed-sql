@@ -721,6 +721,43 @@
       }
     },
     {
+      "id": "expression.sql-json-constructors",
+      "title": "PostgreSQL SQL/JSON object and array constructors",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-constructors",
+        "resolver:postgres.sql-json-constructor-inputs",
+        "resolver:postgres.sql-json-constructor-returns",
+        "resolver:postgres.sql-json-constructor-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON constructors",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-JSON-CREATION-TABLE"
+        },
+        {
+          "title": "PostgreSQL 16 SQL/JSON constructors",
+          "url": "https://www.postgresql.org/docs/16/release-16.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "16",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
       "id": "expression.sql-json-exists",
       "title": "PostgreSQL SQL/JSON JSON_EXISTS expression",
       "category": "expression",

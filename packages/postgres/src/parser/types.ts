@@ -137,6 +137,31 @@ export interface JsonReturning {
   readonly range: SourceRange;
 }
 
+export interface JsonObjectEntry {
+  readonly key: Expression;
+  readonly value: JsonValueExpression;
+  readonly range: SourceRange;
+}
+
+export interface JsonObjectExpression {
+  readonly kind: "json-object";
+  readonly entries: readonly JsonObjectEntry[];
+  readonly nullPolicy: "null" | "absent";
+  readonly uniqueKeys: boolean;
+  readonly returning?: JsonReturning;
+  readonly range: SourceRange;
+}
+
+export interface JsonArrayExpression {
+  readonly kind: "json-array";
+  readonly values: readonly JsonValueExpression[];
+  readonly query?: SelectStatement;
+  readonly queryFormat?: JsonFormat;
+  readonly nullPolicy: "null" | "absent";
+  readonly returning?: JsonReturning;
+  readonly range: SourceRange;
+}
+
 export interface JsonExistsExpression {
   readonly kind: "json-exists";
   readonly context: JsonValueExpression;
@@ -271,6 +296,8 @@ export type Expression =
   | FieldAccessExpression
   | CollateExpression
   | AtTimeZoneExpression
+  | JsonObjectExpression
+  | JsonArrayExpression
   | JsonExistsExpression
   | JsonQueryExpression
   | JsonValueQueryExpression

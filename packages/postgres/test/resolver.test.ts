@@ -499,6 +499,96 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves and version-gates PostgreSQL 16 SQL/JSON constructors", () => {
+    const postgres18 = {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT JSON_OBJECT('id' VALUE id, 'age': age ABSENT ON NULL RETURNING jsonb) AS document,
+               JSON_ARRAY(id, age NULL ON NULL RETURNING text) AS array_values,
+               JSON_ARRAY(SELECT name FROM users RETURNING bytea) AS names,
+               JSON_OBJECT() AS empty_object,
+               JSON_OBJECT(
+                 $1::text VALUE $2::integer,
+                 'raw' VALUE $3 FORMAT JSON
+                 RETURNING bytea FORMAT JSON ENCODING UTF8
+               ) AS parameterized_object,
+               JSON_ARRAY($4::date, $5 FORMAT JSON RETURNING jsonb) AS parameterized_array
+        FROM users
+      `),
+      postgres18,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
+      [
+        { name: "document", databaseType: "jsonb", tsType: "unknown", nullable: false },
+        { name: "array_values", databaseType: "text", tsType: "string", nullable: false },
+        { name: "names", databaseType: "bytea", tsType: "Uint8Array", nullable: false },
+        { name: "empty_object", databaseType: "json", tsType: "unknown", nullable: false },
+        { name: "parameterized_object", databaseType: "bytea", tsType: "Uint8Array", nullable: false },
+        { name: "parameterized_array", databaseType: "jsonb", tsType: "unknown", nullable: false },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: "text", tsType: "string" },
+        { index: 2, databaseType: "integer", tsType: "number" },
+        { index: 3, databaseType: "text", tsType: "string" },
+        { index: 4, databaseType: "date", tsType: "Date" },
+        { index: 5, databaseType: "text", tsType: "string" },
+      ],
+    );
+
+    const unresolved = resolveSelect(parseSelect("SELECT JSON_OBJECT($1 VALUE $2), JSON_ARRAY($3)"), postgres18);
+    strict.deepStrictEqual(
+      unresolved.columns.map(({ tsType }) => tsType),
+      ["unknown", "unknown"],
+    );
+    strict.deepStrictEqual(
+      unresolved.parameters.map(({ index, databaseType, tsType }) => ({ index, databaseType, tsType })),
+      [
+        { index: 1, databaseType: undefined, tsType: "unknown" },
+        { index: 2, databaseType: undefined, tsType: "unknown" },
+        { index: 3, databaseType: undefined, tsType: "unknown" },
+      ],
+    );
+
+    for (const invalid of [
+      "SELECT JSON_OBJECT(NULL VALUE 1) AS value",
+      "SELECT JSON_OBJECT(JSON '{\"key\":1}' VALUE 1) AS value",
+      "SELECT JSON_OBJECT(ROW(1, 2) VALUE 1) AS value",
+      "SELECT JSON_OBJECT('key' VALUE 1 RETURNING integer) AS value",
+      "SELECT JSON_ARRAY(1 RETURNING missing_type) AS value",
+      "SELECT JSON_ARRAY(1 FORMAT JSON) AS value",
+      "SELECT JSON_ARRAY(convert_to('{}', 'UTF8') FORMAT JSON ENCODING UTF16) AS value",
+      "SELECT JSON_ARRAY(SELECT 1, 2) AS value",
+    ]) {
+      const invalidResult = resolveSelect(parseSelect(invalid), postgres18);
+      strict.ok(
+        invalidResult.diagnostics.some(({ code }) => ["TSQ106", "TSQ203", "TSQ216"].includes(code)),
+        invalid,
+      );
+      strict.strictEqual(invalidResult.columns[0]?.tsType, "unknown", invalid);
+    }
+
+    const postgres15 = {
+      ...postgres18,
+      server: postgresServerEvidence("15.14", [], { standardConformingStrings: "on" }),
+    } as const satisfies SchemaSnapshot;
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_ARRAY(1)"), postgres15).diagnostics.some(({ code }) => code === "TSQ403"),
+    );
+    strict.ok(
+      resolveSelect(parseSelect("SELECT JSON_OBJECT('key' VALUE 1)"), upgradeSchemaSnapshotV1(schema)).diagnostics.some(
+        ({ code }) => code === "TSQ402",
+      ),
+    );
+  });
+
   await it("resolves and version-gates PostgreSQL 17 JSON_TABLE", () => {
     const postgres18 = {
       ...upgradeSchemaSnapshotV1(schema),

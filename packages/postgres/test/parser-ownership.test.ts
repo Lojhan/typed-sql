@@ -420,6 +420,78 @@ await describe("PostgreSQL-owned parser", async () => {
     }
   });
 
+  await it("owns PostgreSQL 16 SQL/JSON constructor syntax", () => {
+    const statement = parseStatement(`
+      SELECT JSON_OBJECT(
+               $1 VALUE $2 FORMAT JSON,
+               'count': 2
+               ABSENT ON NULL
+               WITH UNIQUE KEYS
+               RETURNING bytea FORMAT JSON ENCODING UTF8
+             ) AS document,
+             JSON_ARRAY($3 FORMAT JSON, NULL NULL ON NULL RETURNING jsonb) AS items,
+             JSON_ARRAY(
+               SELECT name FROM users FORMAT JSON
+               RETURNING text FORMAT JSON
+             ) AS names
+    `);
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    const object = statement.columns[0]?.expression;
+    strict.strictEqual(object?.kind, "json-object");
+    if (object?.kind !== "json-object") return;
+    strict.strictEqual(object.entries.length, 2);
+    strict.strictEqual(object.nullPolicy, "absent");
+    strict.strictEqual(object.uniqueKeys, true);
+    strict.strictEqual(object.returning?.format?.encoding, "UTF8");
+
+    const values = statement.columns[1]?.expression;
+    strict.strictEqual(values?.kind, "json-array");
+    if (values?.kind !== "json-array") return;
+    strict.strictEqual(values.values.length, 2);
+    strict.strictEqual(values.nullPolicy, "null");
+    strict.strictEqual(values.returning?.databaseType.name, "jsonb");
+
+    const query = statement.columns[2]?.expression;
+    strict.strictEqual(query?.kind, "json-array");
+    if (query?.kind !== "json-array") return;
+    strict.strictEqual(query.query?.kind, "select");
+    strict.ok(query.queryFormat !== undefined);
+    strict.strictEqual(query.returning?.databaseType.name, "text");
+
+    const visited = { parameters: 0, types: [] as string[] };
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "parameter") visited.parameters += 1;
+      },
+      type(type) {
+        visited.types.push(type.name);
+      },
+    });
+    strict.strictEqual(visited.parameters, 3);
+    strict.deepStrictEqual(visited.types, ["bytea", "jsonb", "text"]);
+
+    const empty = parseStatement("SELECT JSON_OBJECT(), JSON_ARRAY(RETURNING jsonb)");
+    strict.deepStrictEqual(empty.kind === "select" ? empty.columns.map(({ expression }) => expression.kind) : [], [
+      "json-object",
+      "json-array",
+    ]);
+    const legacy = parseStatement("SELECT JSON_OBJECT(ARRAY['a', 'value'])");
+    strict.strictEqual(legacy.kind === "select" ? legacy.columns[0]?.expression.kind : undefined, "call");
+    const quoted = parseStatement(`SELECT "JSON_ARRAY"(1)`);
+    strict.strictEqual(quoted.kind === "select" ? quoted.columns[0]?.expression.kind : undefined, "call");
+
+    for (const invalid of [
+      "SELECT JSON_OBJECT('key' VALUE)",
+      "SELECT JSON_OBJECT('key' VALUE 1 WITH UNIQUE KEYS ABSENT ON NULL)",
+      "SELECT JSON_ARRAY(1 WITH UNIQUE KEYS)",
+      "SELECT JSON_ARRAY(SELECT 1 NULL ON NULL)",
+      "SELECT JSON_OBJECT(RETURNING)",
+    ]) {
+      strict.throws(() => parseStatement(invalid), SqlParseError, invalid);
+    }
+  });
+
   await it("owns parenthesized composite field selection", () => {
     const statement = parseStatement(
       'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',

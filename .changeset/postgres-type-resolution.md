@@ -50,6 +50,10 @@ The grammar-owned PostgreSQL 17 `JSON_QUERY` form also resolves returning types,
 wrapper and quote behavior, constant `ON EMPTY` and `ON ERROR` defaults, and exact output nullability.
 PostgreSQL 17 `JSON_VALUE` now resolves scalar return types and behaviors while preserving its
 always-possible SQL null result for JSON null and rejecting unsupported collection or format clauses.
+PostgreSQL 16 and newer now parse and resolve the standard `JSON_OBJECT` and `JSON_ARRAY`
+constructors, including key/value and query forms, null handling, unique-key declarations, formatted
+inputs, encoded returns, parameter identities, non-null output types, and server-version diagnostics.
+Legacy and quoted `json_object(...)` calls remain ordinary catalog-backed routine calls.
 PostgreSQL 17 `JSON_TABLE` now owns its table-reference grammar and resolves root, ordinality,
 scalar, formatted, `EXISTS`, and nested columns with implicit lateral scope, alias lists, declared
 types, behavior validation, nested null-padding, and server-version diagnostics.

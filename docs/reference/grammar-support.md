@@ -41,6 +41,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `expression.quantified-comparison` — ANY, SOME, and ALL comparisons | expression | conservative | exact | unsupported |
 | `expression.row-comparison` — Row constructor comparisons | expression | conservative | exact | conservative |
 | `expression.scalar` — Columns, stars, literals, and parameters | expression | exact | exact | exact |
+| `expression.sql-json-constructors` — PostgreSQL SQL/JSON object and array constructors | expression | unsupported | exact (from 16) | unsupported |
 | `expression.sql-json-exists` — PostgreSQL SQL/JSON JSON_EXISTS expression | expression | unsupported | exact (from 17) | unsupported |
 | `expression.sql-json-query` — PostgreSQL SQL/JSON JSON_QUERY expression | expression | unsupported | exact (from 17) | unsupported |
 | `expression.sql-json-value` — PostgreSQL SQL/JSON JSON_VALUE expression | expression | unsupported | exact (from 17) | unsupported |
