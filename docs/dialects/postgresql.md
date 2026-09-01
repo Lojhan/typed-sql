@@ -53,10 +53,15 @@ Unsupported, ambiguous, or version-gated SQL produces a diagnostic or conservati
 
 ## Introspection
 
-The provider records tables, views, columns, defaults, server version, arrays, enums, domains, user
-functions, installed extension identities, and `standard_conforming_strings` for the configured
-schemas. Generated snapshots include grammar, catalog, type-policy, and normalized capability
-evidence.
+The provider records tables, views, materialized views, foreign tables, partition parents and
+strategies, columns, defaults, constraints, indexes, arrays, enums, domains, composites, ranges,
+multiranges, and user routines for the configured schemas. Routine evidence includes argument
+names, modes, defaults, polymorphic family, volatility, strictness, parallel safety, and scalar,
+set, record, table, or command results. Server evidence records the exact server version, installed
+extension identities, `standard_conforming_strings`, search path, and the fact that catalog
+visibility is scoped to the current database role without storing the role name. Generated
+snapshots include grammar, catalog, type-policy, normalized capability, and explicit introspection
+scope evidence.
 
 Stable resolution covers the documented PostgreSQL major range. Canary testing is explicit:
 `postgres({ versionPolicy: "canary" })` selects the grammar-owned canary major; prerelease text never

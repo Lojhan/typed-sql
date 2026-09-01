@@ -41,6 +41,7 @@ class CatalogClient implements PostgresIntrospectionClient {
         {
           server_version: "18.1",
           standard_conforming_strings: "on",
+          search_path: '"$user", public',
           extensions: ["plpgsql:1.0"],
         },
       ];
@@ -129,6 +130,18 @@ class CatalogClient implements PostgresIntrospectionClient {
           multirange: false,
         },
       ];
+    else if (text.includes("FROM pg_catalog.pg_class AS c"))
+      rows = [
+        {
+          schema_name: "public",
+          table_name: "users",
+          relation_kind: "r",
+          is_partition: false,
+          partition_parent_schema: null,
+          partition_parent_table: null,
+          partition_strategy: null,
+        },
+      ];
     else if (text.includes("pg_catalog.pg_attribute"))
       rows = [
         {
@@ -212,6 +225,7 @@ class CatalogClient implements PostgresIntrospectionClient {
           argument_modes: [],
           argument_defaults: 0,
           strict: false,
+          parallel_safety: "s",
         },
         {
           schema_name: "analytics",
@@ -226,6 +240,7 @@ class CatalogClient implements PostgresIntrospectionClient {
           argument_modes: [],
           argument_defaults: 0,
           strict: false,
+          parallel_safety: "r",
         },
       ];
     else throw new Error("Unexpected catalog query");
@@ -359,6 +374,64 @@ class CatalogClient implements PostgresIntrospectionClient {
           multirange: true,
         },
       ];
+    } else if (this.richRows && text.includes("FROM pg_catalog.pg_class AS c")) {
+      rows = [
+        ...rows,
+        {
+          schema_name: "public",
+          table_name: "generated_users",
+          relation_kind: "v",
+          is_partition: false,
+          partition_parent_schema: null,
+          partition_parent_table: null,
+          partition_strategy: null,
+        },
+        {
+          schema_name: "public",
+          table_name: "materialized_users",
+          relation_kind: "m",
+          is_partition: false,
+          partition_parent_schema: null,
+          partition_parent_table: null,
+          partition_strategy: null,
+        },
+        {
+          schema_name: "public",
+          table_name: "foreign_users",
+          relation_kind: "f",
+          is_partition: false,
+          partition_parent_schema: null,
+          partition_parent_table: null,
+          partition_strategy: null,
+        },
+        {
+          schema_name: "public",
+          table_name: "partitioned_users",
+          relation_kind: "p",
+          is_partition: false,
+          partition_parent_schema: null,
+          partition_parent_table: null,
+          partition_strategy: "r",
+        },
+        {
+          schema_name: "public",
+          table_name: "users_2026",
+          relation_kind: "r",
+          is_partition: true,
+          partition_parent_schema: "public",
+          partition_parent_table: "partitioned_users",
+          partition_strategy: null,
+        },
+        {
+          schema_name: "public",
+          table_name: "zero_column_table",
+          relation_kind: "r",
+          is_partition: false,
+          partition_parent_schema: null,
+          partition_parent_table: null,
+          partition_strategy: null,
+        },
+      ];
     } else if (this.richRows && text.includes("pg_catalog.pg_attribute")) {
       rows = [
         ...rows,
@@ -403,6 +476,36 @@ class CatalogClient implements PostgresIntrospectionClient {
           generated_kind: "",
           identity_kind: "",
         },
+        {
+          schema_name: "public",
+          table_name: "partitioned_users",
+          column_name: "id",
+          database_type: "integer",
+          not_null: true,
+          is_array: false,
+          default_expression: null,
+          column_position: 0,
+          relation_kind: "p",
+          generated_kind: "",
+          identity_kind: "",
+          partition_strategy: "r",
+        },
+        {
+          schema_name: "public",
+          table_name: "users_2026",
+          column_name: "id",
+          database_type: "integer",
+          not_null: true,
+          is_array: false,
+          default_expression: null,
+          column_position: 0,
+          relation_kind: "r",
+          generated_kind: "",
+          identity_kind: "",
+          is_partition: true,
+          partition_parent_schema: "public",
+          partition_parent_table: "partitioned_users",
+        },
       ];
     } else if (this.richRows && text.includes("pg_catalog.pg_proc")) {
       rows = [
@@ -420,6 +523,7 @@ class CatalogClient implements PostgresIntrospectionClient {
           argument_modes: ["o", "b", "v"],
           argument_defaults: 1,
           strict: true,
+          parallel_safety: "s",
         },
         {
           schema_name: "public",
@@ -431,6 +535,7 @@ class CatalogClient implements PostgresIntrospectionClient {
           routine_identity: null,
           routine_kind: "p",
           strict: undefined,
+          parallel_safety: "u",
         },
         {
           schema_name: "public",
@@ -444,6 +549,7 @@ class CatalogClient implements PostgresIntrospectionClient {
           argument_modes: ["i"],
           argument_defaults: 0,
           strict: false,
+          parallel_safety: "r",
         },
       ];
     }
@@ -483,7 +589,11 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.formatVersion, 2);
     strict.strictEqual(snapshot.version, "18.1");
     strict.deepStrictEqual(snapshot.server?.features, ["plpgsql:1.0"]);
-    strict.deepStrictEqual(snapshot.server?.settings, { standardConformingStrings: "on" });
+    strict.deepStrictEqual(snapshot.server?.settings, {
+      searchPath: '"$user", public',
+      standardConformingStrings: "on",
+      visibilityScope: "current-role",
+    });
     strict.deepStrictEqual(snapshot.enums?.user_role, ["user", "admin"]);
     strict.strictEqual(snapshot.domains?.positive_int?.tsType, "number");
     strict.strictEqual(snapshot.tables.users?.columns.id?.nullable, false);
@@ -507,6 +617,8 @@ await describe("PostgreSQL schema provider", async () => {
     );
     strict.strictEqual(snapshot.relations.users?.indexes[0]?.includedColumns?.[0], "id");
     strict.strictEqual(snapshot.routines.user_count?.[0]?.dataAccess, "unknown");
+    strict.strictEqual(snapshot.routines.user_count?.[0]?.extension?.attributes.parallelSafety, "safe");
+    strict.strictEqual(snapshot.extension?.attributes.evidenceScope, "current-role");
     strict.ok(client.filters.every((filter) => JSON.stringify(filter) === '["public"]'));
   });
 
@@ -539,12 +651,23 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.relations.generated_users?.columns.computed?.generated, "stored");
     strict.strictEqual(snapshot.relations.materialized_users?.kind, "materialized-view");
     strict.strictEqual(snapshot.relations.foreign_users?.kind, "foreign-table");
+    strict.deepStrictEqual(snapshot.relations.partitioned_users?.capabilities, {
+      partitioned: true,
+      partitionStrategy: "range",
+    });
+    strict.deepStrictEqual(snapshot.relations.users_2026?.capabilities, {
+      partition: true,
+      partitionParent: "partitioned_users",
+    });
+    strict.deepStrictEqual(snapshot.relations.zero_column_table?.columns, {});
     strict.ok(snapshot.relations.users?.constraints.some(({ kind }) => kind === "foreign-key"));
     strict.ok(snapshot.relations.users?.constraints.some(({ kind }) => kind === "exclusion"));
     strict.ok(snapshot.relations.users?.indexes.some(({ columns }) => columns[0]?.expressionHash !== undefined));
     strict.strictEqual(snapshot.routines.table_result?.[0]?.result.kind, "table");
     strict.strictEqual(snapshot.routines.refresh_users?.[0]?.result.kind, "command");
     strict.strictEqual(snapshot.routines.user_count?.length, 2);
+    strict.strictEqual(snapshot.routines.user_count?.[1]?.polymorphicFamily, "postgres-anyelement");
+    strict.strictEqual(snapshot.routines.table_result?.[0]?.extension?.attributes.parallelSafety, "safe");
   });
 
   await it("is canonical across shuffled catalog row order and version-safe catalog branches", async () => {
@@ -557,6 +680,8 @@ await describe("PostgreSQL schema provider", async () => {
     strict.ok(!postgresCatalogQueries.constraints(14).includes("i.indnullsnotdistinct AS nulls_not_distinct"));
     strict.ok(postgresCatalogQueries.constraints(15).includes("i.indnullsnotdistinct AS nulls_not_distinct"));
     strict.ok(postgresCatalogQueries.columns.includes("& 8) = 8"));
+    strict.ok(postgresCatalogQueries.relations.includes("pg_catalog.pg_partitioned_table"));
+    strict.ok(postgresCatalogQueries.functions.includes("p.proparallel AS parallel_safety"));
   });
 
   await it("runs URL introspection in a read-only transaction using an injected pool", async () => {

@@ -35,12 +35,20 @@ export function assertPostgresServerEvidence(server: DialectServerEvidence): voi
     throw new TypeError("PostgreSQL server versionKey must match the normalized server major");
   }
   const settings = Object.keys(server.settings);
-  if (settings.some((key) => key !== "standardConformingStrings")) {
+  if (settings.some((key) => !["searchPath", "standardConformingStrings", "visibilityScope"].includes(key))) {
     throw new TypeError("PostgreSQL server evidence contains a non-allowlisted semantic setting");
   }
   const strings = server.settings.standardConformingStrings;
   if (strings !== undefined && strings !== "on" && strings !== "off") {
     throw new TypeError("PostgreSQL standardConformingStrings evidence must be on or off");
+  }
+  const searchPath = server.settings.searchPath;
+  if (searchPath !== undefined && (typeof searchPath !== "string" || searchPath.length === 0)) {
+    throw new TypeError("PostgreSQL searchPath evidence must be a non-empty string");
+  }
+  const visibilityScope = server.settings.visibilityScope;
+  if (visibilityScope !== undefined && visibilityScope !== "current-role") {
+    throw new TypeError("PostgreSQL visibilityScope evidence must be current-role");
   }
   if (server.features.some((feature) => !/^[A-Za-z0-9_.-]+:[A-Za-z0-9_.+-]+$/u.test(feature))) {
     throw new TypeError("PostgreSQL server features must be normalized extension name/version identities");

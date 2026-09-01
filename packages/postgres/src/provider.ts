@@ -68,6 +68,16 @@ interface ColumnCatalogRow extends Record<string, unknown> {
   readonly updatable?: boolean;
 }
 
+interface RelationCatalogRow extends Record<string, unknown> {
+  readonly schema_name: string;
+  readonly table_name: string;
+  readonly relation_kind: "r" | "p" | "v" | "m" | "f";
+  readonly is_partition: boolean;
+  readonly partition_parent_schema: string | null;
+  readonly partition_parent_table: string | null;
+  readonly partition_strategy: "h" | "l" | "r" | null;
+}
+
 interface EnumCatalogRow extends Record<string, unknown> {
   readonly schema_name: string;
   readonly type_name: string;
@@ -97,6 +107,7 @@ interface FunctionCatalogRow extends Record<string, unknown> {
   readonly argument_modes?: readonly ("i" | "o" | "b" | "v" | "t")[];
   readonly argument_defaults?: number;
   readonly strict?: boolean;
+  readonly parallel_safety?: "r" | "s" | "u";
 }
 
 interface ConstraintCatalogRow extends Record<string, unknown> {
@@ -159,6 +170,7 @@ interface RangeCatalogRow extends Record<string, unknown> {
 interface VersionRow extends Record<string, unknown> {
   readonly server_version: string;
   readonly standard_conforming_strings?: string;
+  readonly search_path?: string;
   readonly extensions?: readonly string[];
 }
 
@@ -166,7 +178,29 @@ export const postgresCatalogQueries = {
   version: `
     SELECT current_setting('server_version') AS server_version,
            current_setting('standard_conforming_strings') AS standard_conforming_strings,
+           current_setting('search_path') AS search_path,
            ARRAY(SELECT extname || ':' || extversion FROM pg_catalog.pg_extension ORDER BY extname) AS extensions
+  `,
+  relations: `
+    SELECT
+      n.nspname AS schema_name,
+      c.relname AS table_name,
+      c.relkind AS relation_kind,
+      c.relispartition AS is_partition,
+      pn.nspname AS partition_parent_schema,
+      pc.relname AS partition_parent_table,
+      pt.partstrat AS partition_strategy
+    FROM pg_catalog.pg_class AS c
+    JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+    LEFT JOIN pg_catalog.pg_inherits AS inh ON inh.inhrelid = c.oid AND c.relispartition
+    LEFT JOIN pg_catalog.pg_class AS pc ON pc.oid = inh.inhparent
+    LEFT JOIN pg_catalog.pg_namespace AS pn ON pn.oid = pc.relnamespace
+    LEFT JOIN pg_catalog.pg_partitioned_table AS pt ON pt.partrelid = c.oid
+    WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f')
+      AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+      AND n.nspname NOT LIKE 'pg_toast%'
+      AND ($1::text[] IS NULL OR n.nspname = ANY($1::text[]))
+    ORDER BY n.nspname, c.relname
   `,
   columns: `
     SELECT
@@ -251,7 +285,8 @@ export const postgresCatalogQueries = {
       format_type(p.prorettype, NULL) AS database_return_type,
       p.proretset AS set_returning,
       p.provolatile AS volatility,
-      p.proisstrict AS strict
+      p.proisstrict AS strict,
+      p.proparallel AS parallel_safety
     FROM pg_catalog.pg_proc AS p
     JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
     WHERE p.prokind IN ('f', 'p', 'a', 'w')
@@ -421,6 +456,26 @@ function routineKind(kind: FunctionCatalogRow["routine_kind"]): RoutineSnapshot[
   return "function";
 }
 
+function partitionStrategy(strategy: RelationCatalogRow["partition_strategy"]): string | undefined {
+  if (strategy === "h") return "hash";
+  if (strategy === "l") return "list";
+  if (strategy === "r") return "range";
+  return undefined;
+}
+
+function parallelSafety(safety: FunctionCatalogRow["parallel_safety"]): string {
+  if (safety === "r") return "restricted";
+  if (safety === "s") return "safe";
+  if (safety === "u") return "unsafe";
+  return "unknown";
+}
+
+function polymorphicFamily(types: readonly string[]): string | undefined {
+  if (types.some((type) => /^anycompatible/u.test(type))) return "postgres-anycompatible";
+  if (types.some((type) => /^any/u.test(type))) return "postgres-anyelement";
+  return undefined;
+}
+
 function redactError(error: unknown, connectionString: string): Error {
   const message = error instanceof Error ? error.message : String(error);
   return new Error(message.replaceAll(connectionString, "[REDACTED_DATABASE_URL]"));
@@ -502,6 +557,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
       // repeatable-read transaction so this remains valid with pg 9 and driver-compatible clients.
       const enumResult = await client.query<EnumCatalogRow>(postgresCatalogQueries.enums, values);
       const domainResult = await client.query<DomainCatalogRow>(postgresCatalogQueries.domains, values);
+      const relationResult = await client.query<RelationCatalogRow>(postgresCatalogQueries.relations, values);
       const columnResult = await client.query<ColumnCatalogRow>(postgresCatalogQueries.columns, values);
       const functionResult = await client.query<FunctionCatalogRow>(postgresCatalogQueries.functions, values);
       const constraintResult = await client.query<ConstraintCatalogRow>(
@@ -614,6 +670,28 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
       }
 
       const relations: Record<string, RelationSnapshot> = {};
+      for (const row of relationResult.rows) {
+        const parent =
+          row.partition_parent_table === null
+            ? undefined
+            : qualifiedKey(row.partition_parent_schema ?? "public", row.partition_parent_table);
+        const strategy = partitionStrategy(row.partition_strategy);
+        const capabilities = {
+          ...(row.relation_kind === "p" ? { partitioned: true } : {}),
+          ...(row.is_partition ? { partition: true } : {}),
+          ...(parent === undefined ? {} : { partitionParent: parent }),
+          ...(strategy === undefined ? {} : { partitionStrategy: strategy }),
+        };
+        relations[qualifiedKey(row.schema_name, row.table_name)] = {
+          schema: row.schema_name,
+          name: row.table_name,
+          kind: relationKind(row.relation_kind),
+          columns: {},
+          constraints: [],
+          indexes: [],
+          ...(Object.keys(capabilities).length === 0 ? {} : { capabilities }),
+        };
+      }
       for (const row of columnResult.rows) {
         const tableKey = qualifiedKey(row.schema_name, row.table_name);
         const existing = relations[tableKey];
@@ -649,6 +727,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
           columns,
           constraints: existing?.constraints ?? [],
           indexes: existing?.indexes ?? [],
+          ...(existing?.capabilities === undefined ? {} : { capabilities: existing.capabilities }),
         };
       }
       for (const row of columnResult.rows) {
@@ -842,13 +921,16 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
                     ]),
                   ),
                 } as const)
-              : ({
-                  kind: row.set_returning ? "set" : "scalar",
-                  typeIdentity: row.database_return_type,
-                  databaseType: row.database_return_type,
-                  tsType: mapPostgresType(row.database_return_type, policy, schemaForFunctions),
-                  nullable: !row.strict,
-                } as const);
+              : row.database_return_type === "record"
+                ? ({ kind: "record", columns: {} } as const)
+                : ({
+                    kind: row.set_returning ? "set" : "scalar",
+                    typeIdentity: row.database_return_type,
+                    databaseType: row.database_return_type,
+                    tsType: mapPostgresType(row.database_return_type, policy, schemaForFunctions),
+                    nullable: !row.strict,
+                  } as const);
+        const family = polymorphicFamily([...row.argument_types, row.database_return_type]);
         const routine: RoutineSnapshot = {
           name: row.function_name,
           schema: row.schema_name,
@@ -860,9 +942,11 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
           deterministic: row.volatility === "i" ? true : "unknown",
           dataAccess: "unknown",
           nullInput: row.strict === undefined ? "unknown" : row.strict ? "strict" : "called",
-          ...(row.argument_types.some((type) => /^any/u.test(type)) || /^any/u.test(row.database_return_type)
-            ? { polymorphicFamily: "postgres-any" }
-            : {}),
+          ...(family === undefined ? {} : { polymorphicFamily: family }),
+          extension: {
+            version: "1",
+            attributes: { parallelSafety: parallelSafety(row.parallel_safety) },
+          },
         };
         const overloads = routines[name];
         if (overloads === undefined) routines[name] = [routine];
@@ -873,6 +957,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
         [
           ...new Set([
             ...columnResult.rows.map(({ schema_name }) => schema_name),
+            ...relationResult.rows.map(({ schema_name }) => schema_name),
             ...enumResult.rows.map(({ schema_name }) => schema_name),
             ...domainResult.rows.map(({ schema_name }) => schema_name),
             ...functionResult.rows.map(({ schema_name }) => schema_name),
@@ -885,17 +970,25 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
         formatVersion: 2,
         dialect: "postgres",
         dialectVersion: POSTGRES_DIALECT_VERSION,
-        server: postgresServerEvidence(
-          version,
-          serverRow.extensions ?? [],
-          serverRow.standard_conforming_strings === undefined
+        server: postgresServerEvidence(version, serverRow.extensions ?? [], {
+          ...(serverRow.standard_conforming_strings === undefined
             ? {}
-            : { standardConformingStrings: serverRow.standard_conforming_strings },
-        ),
+            : { standardConformingStrings: serverRow.standard_conforming_strings }),
+          ...(serverRow.search_path === undefined ? {} : { searchPath: serverRow.search_path }),
+          visibilityScope: "current-role",
+        }),
         namespaces,
         types,
         relations,
         routines,
+        extension: {
+          version: "1",
+          attributes: {
+            evidenceScope: "current-role",
+            partitionRelationships: "captured",
+            routineParallelSafety: "captured",
+          },
+        },
       });
     });
   }
