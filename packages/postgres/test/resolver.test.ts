@@ -139,8 +139,12 @@ await describe("query resolver", async () => {
              $1 AS input,
              NOT (age IS NULL) AS has_age,
              -id AS negative_id,
+             ~id AS inverted_id,
+             id & 3 AS masked_id,
              id + 1 AS next_id,
              id + 'x' AS mixed,
+             -'x' AS invalid_negative,
+             NOT id AS invalid_not,
              CASE WHEN age IS NULL THEN 0 END AS maybe_age,
              CASE WHEN age IS NULL THEN 0 ELSE age END AS safe_age
       FROM users
@@ -149,7 +153,7 @@ await describe("query resolver", async () => {
     );
     strict.deepStrictEqual(
       result.diagnostics.map((diagnostic) => diagnostic.code),
-      ["TSQ203"],
+      ["TSQ203", "TSQ203", "TSQ203"],
     );
     strict.deepStrictEqual(
       result.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
@@ -159,8 +163,12 @@ await describe("query resolver", async () => {
         { name: "input", tsType: "unknown", nullable: true },
         { name: "has_age", tsType: "boolean", nullable: false },
         { name: "negative_id", tsType: "number", nullable: false },
+        { name: "inverted_id", tsType: "number", nullable: false },
+        { name: "masked_id", tsType: "number", nullable: false },
         { name: "next_id", tsType: "number", nullable: false },
         { name: "mixed", tsType: "unknown", nullable: true },
+        { name: "invalid_negative", tsType: "unknown", nullable: true },
+        { name: "invalid_not", tsType: "unknown", nullable: true },
         { name: "maybe_age", tsType: "number", nullable: true },
         { name: "safe_age", tsType: "number", nullable: true },
       ],

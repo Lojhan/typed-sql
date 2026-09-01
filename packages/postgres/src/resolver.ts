@@ -42,7 +42,12 @@ import {
   mapPostgresType,
   type PostgresTypePolicy,
 } from "./type-policy.js";
-import { postgresCanCoerce, resolvePostgresCandidates, resolvePostgresOperator } from "./type-resolution.js";
+import {
+  postgresCanCoerce,
+  resolvePostgresCandidates,
+  resolvePostgresOperator,
+  resolvePostgresUnaryOperator,
+} from "./type-resolution.js";
 
 interface Relation {
   readonly alias: string;
@@ -1981,10 +1986,39 @@ class Resolver {
         };
       }
       case "unary": {
-        const operand = this.#resolveExpression(expression.expression, scope, ctes);
-        return expression.operator === "NOT"
-          ? { tsType: "boolean", nullable: operand.nullable, databaseType: "boolean" }
-          : operand;
+        let operand = this.#resolveExpression(
+          expression.expression,
+          scope,
+          ctes,
+          expression.operator === "NOT" ? this.#databaseType("boolean", false) : undefined,
+        );
+        const operator = resolvePostgresUnaryOperator(
+          expression.operator,
+          this.#overloadInputType(expression.expression, operand),
+          this.#schema,
+        );
+        if (operator.kind !== "selected") {
+          this.#diagnostic(
+            "TSQ203",
+            `${operator.kind === "ambiguous" ? "Ambiguous" : "No matching"} unary operator ${expression.operator} for ${operand.databaseType ?? operand.tsType}`,
+            expression.range,
+            operator.kind === "ambiguous" ? "Cast the operand to select a specific overload." : undefined,
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+        if (expression.expression.kind === "parameter") {
+          operand = this.#resolveExpression(
+            expression.expression,
+            scope,
+            ctes,
+            this.#databaseType(operator.argumentTypes[0]!, operand.nullable),
+          );
+        }
+        return {
+          tsType: mapPostgresType(operator.resultType, this.#policy, this.#schema),
+          nullable: operand.nullable,
+          databaseType: operator.resultType,
+        };
       }
       case "binary":
         return this.#resolveBinary(expression, scope, ctes);

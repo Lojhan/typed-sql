@@ -7,6 +7,7 @@ import {
   postgresCommonType,
   resolvePostgresCandidates,
   resolvePostgresOperator,
+  resolvePostgresUnaryOperator,
 } from "../src/type-resolution.js";
 
 const structuralSchema = (() => {
@@ -171,6 +172,26 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(selectedResult("&&", "jsonb", "jsonb"), "none");
     strict.strictEqual(selectedResult("=", "uuid", "uuid"), "boolean");
     strict.strictEqual(selectedResult("!!", "integer", "integer"), "none");
+    strict.strictEqual(selectedResult("&", "integer", "integer"), "integer");
+    strict.strictEqual(selectedResult("|", "smallint", "integer"), "integer");
+    strict.strictEqual(selectedResult("#", "text", "text"), "none");
+    strict.strictEqual(selectedResult("&", "bit", "bit"), "bit");
+    strict.strictEqual(selectedResult("||", "varbit", "varbit"), "varbit");
+    strict.strictEqual(selectedResult("=", "inet", "cidr"), "boolean");
+    strict.strictEqual(selectedResult("=", "int4range", "int4range"), "boolean");
+    strict.strictEqual(selectedResult("<", "interval", "interval"), "boolean");
+    strict.strictEqual(selectedResult("+", "oid", "oid"), "none");
+
+    const unaryResult = (operator: string, operand?: string) => {
+      const result = resolvePostgresUnaryOperator(operator, operand);
+      return result.kind === "selected" ? result.resultType : result.kind;
+    };
+    strict.strictEqual(unaryResult("-", "integer"), "integer");
+    strict.strictEqual(unaryResult("+", "numeric"), "numeric");
+    strict.strictEqual(unaryResult("~", "bigint"), "bigint");
+    strict.strictEqual(unaryResult("NOT", undefined), "boolean");
+    strict.strictEqual(unaryResult("-", undefined), "ambiguous");
+    strict.strictEqual(unaryResult("-", "text"), "none");
   });
 
   await it("binds snapshot domains, enums, collections, ranges, and multiranges", () => {

@@ -47,6 +47,7 @@ const compatiblePolymorphicTypes = new Set([
   "anycompatiblerange",
   "anycompatiblemultirange",
 ]);
+const numericOperatorTypes = new Set(["smallint", "integer", "bigint", "numeric", "real", "double precision"]);
 
 export interface PostgresCandidate<Value> {
   readonly value: Value;
@@ -364,18 +365,38 @@ function categoryPairs(
   );
 }
 
+function categoryTypes(categoryName: PostgresTypeCategory, schema?: SchemaSnapshot): readonly string[] {
+  return postgresCoreCatalogForSchema(schema)
+    .types.filter(({ category: candidateCategory }) => candidateCategory === categoryName)
+    .map(({ name }) => name);
+}
+
 function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly PostgresCandidate<string>[] {
   const rule = postgresCatalogOperatorRule(operator, schema);
   if (rule === "numeric") {
-    return categoryPairs("numeric", schema).map(([left, right, result]) => ({
+    return categoryPairs("numeric", schema)
+      .filter(([left, right]) => numericOperatorTypes.has(left) && numericOperatorTypes.has(right))
+      .map(([left, right, result]) => ({
+        value: operator,
+        argumentTypes: [left, right],
+        resultType: result,
+      }));
+  }
+  if (rule === "bitwise") {
+    return [...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({
       value: operator,
-      argumentTypes: [left, right],
-      resultType: result,
+      argumentTypes: [type, type],
+      resultType: type,
     }));
   }
   if (rule === "concatenation") {
     return [
       { value: operator, argumentTypes: ["text", "text"], resultType: "text" },
+      ...categoryTypes("bit-string", schema).map((type) => ({
+        value: operator,
+        argumentTypes: [type, type],
+        resultType: type,
+      })),
       {
         value: operator,
         argumentTypes: ["anycompatiblearray", "anycompatiblearray"],
@@ -419,7 +440,9 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
     ];
   }
   if (!comparisonOperators.has(operator)) return [];
-  const categoryCandidates = (["numeric", "string", "datetime"] as const).flatMap((categoryName) =>
+  const categoryCandidates = (
+    ["numeric", "string", "datetime", "timespan", "bit-string", "network", "range"] as const
+  ).flatMap((categoryName) =>
     categoryPairs(categoryName, schema).map(([left, right]) => ({
       value: operator,
       argumentTypes: [left, right],
@@ -435,6 +458,37 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
     { value: operator, argumentTypes: ["anyenum", "anyenum"], resultType: "boolean" },
     { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
   ];
+}
+
+/** Resolves PostgreSQL prefix operators through grammar-owned operator candidates. */
+export function resolvePostgresUnaryOperator(
+  operator: string,
+  operand: string | undefined,
+  schema?: SchemaSnapshot,
+): PostgresOperatorResolution {
+  const normalizedOperator = operator.toUpperCase();
+  const candidates: readonly PostgresCandidate<string>[] =
+    normalizedOperator === "NOT"
+      ? [{ value: normalizedOperator, argumentTypes: ["boolean"], resultType: "boolean" }]
+      : normalizedOperator === "+" || normalizedOperator === "-"
+        ? categoryTypes("numeric", schema)
+            .filter((type) => numericOperatorTypes.has(type))
+            .map((type) => ({
+              value: normalizedOperator,
+              argumentTypes: [type],
+              resultType: type,
+            }))
+        : normalizedOperator === "~"
+          ? [...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({
+              value: normalizedOperator,
+              argumentTypes: [type],
+              resultType: type,
+            }))
+          : [];
+  if (operand === undefined && candidates.length !== 1) {
+    return candidates.length === 0 ? { kind: "none" } : { kind: "ambiguous" };
+  }
+  return resolvePostgresCandidates(candidates, [operand], schema);
 }
 
 /** Resolves built-in binary operators through the same candidate machinery as routine calls. */

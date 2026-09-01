@@ -19,10 +19,11 @@ export type PostgresTypeCategory =
   | "numeric"
   | "range"
   | "string"
+  | "timespan"
   | "user";
 export type PostgresCastContext = "assignment" | "explicit" | "implicit";
 export type PostgresCastMethod = "binary" | "function" | "io";
-export type PostgresOperatorResultRule = "boolean" | "concatenation" | "json" | "json-text" | "numeric";
+export type PostgresOperatorResultRule = "bitwise" | "boolean" | "concatenation" | "json" | "json-text" | "numeric";
 export type PostgresRoutineResultRule =
   | "array-aggregate"
   | "bigint-window"

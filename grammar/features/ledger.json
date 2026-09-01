@@ -358,8 +358,10 @@
         "ast:node.unary-expression",
         "diagnostic:sqlite.vendor-operator",
         "resolver:mysql.operator-catalog",
+        "resolver:postgres.core-type-families",
         "resolver:postgres.operator-candidate-selection",
         "resolver:postgres.operator-catalog",
+        "resolver:postgres.unary-bitwise-operators",
         "resolver:sqlite.operator-catalog"
       ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],

@@ -30,6 +30,12 @@ await describe("PostgreSQL type policy", async () => {
     strict.strictEqual(mapPostgresType("timestamp with time zone", policy), "Date");
     strict.strictEqual(mapPostgresType("jsonb", policy), "unknown");
     strict.strictEqual(mapPostgresType("bytea", policy), "Uint8Array");
+    strict.strictEqual(mapPostgresType("inet", policy), "string");
+    strict.strictEqual(mapPostgresType("bit varying(8)", policy), "string");
+    strict.strictEqual(mapPostgresType("interval", policy), "string");
+    strict.strictEqual(mapPostgresType("int4range", policy), "string");
+    strict.strictEqual(mapPostgresType("tsvector", policy), "string");
+    strict.strictEqual(mapPostgresType("xml", policy), "string");
     strict.strictEqual(mapPostgresType("made_up", policy), "never");
   });
 
@@ -42,6 +48,8 @@ await describe("PostgreSQL type policy", async () => {
 
   await it("recognizes built-ins and snapshot-defined types", () => {
     strict.strictEqual(isKnownPostgresType("numeric(10,2)[]"), true);
+    strict.strictEqual(isKnownPostgresType("macaddr8"), true);
+    strict.strictEqual(isKnownPostgresType("datemultirange"), true);
     strict.strictEqual(isKnownPostgresType("mood", schema), true);
     strict.strictEqual(isKnownPostgresType("positive", schema), true);
     strict.strictEqual(isKnownPostgresType("made_up", schema), false);

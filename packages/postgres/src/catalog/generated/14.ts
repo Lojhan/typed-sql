@@ -34,6 +34,12 @@ export default Object.freeze({
       "target": "smallint"
     },
     {
+      "context": "implicit",
+      "method": "binary",
+      "source": "bit",
+      "target": "varbit"
+    },
+    {
       "context": "explicit",
       "method": "function",
       "source": "boolean",
@@ -44,6 +50,12 @@ export default Object.freeze({
       "method": "function",
       "source": "bpchar",
       "target": "text"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "cidr",
+      "target": "inet"
     },
     {
       "context": "implicit",
@@ -86,6 +98,12 @@ export default Object.freeze({
       "method": "function",
       "source": "double precision",
       "target": "smallint"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "inet",
+      "target": "cidr"
     },
     {
       "context": "implicit",
@@ -262,6 +280,12 @@ export default Object.freeze({
       "target": "timestamp"
     },
     {
+      "context": "assignment",
+      "method": "binary",
+      "source": "varbit",
+      "target": "bit"
+    },
+    {
       "context": "implicit",
       "method": "binary",
       "source": "varchar",
@@ -271,6 +295,15 @@ export default Object.freeze({
   "formatVersion": 1,
   "major": 14,
   "operators": [
+    {
+      "name": "bitwise",
+      "operators": [
+        "#",
+        "&",
+        "|"
+      ],
+      "result": "bitwise"
+    },
     {
       "name": "boolean",
       "operators": [
@@ -543,6 +576,13 @@ export default Object.freeze({
       "preferred": false
     },
     {
+      "aliases": [],
+      "category": "bit-string",
+      "mapping": "string",
+      "name": "bit",
+      "preferred": false
+    },
+    {
       "aliases": [
         "bool"
       ],
@@ -550,6 +590,13 @@ export default Object.freeze({
       "mapping": "boolean",
       "name": "boolean",
       "preferred": true
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "box",
+      "preferred": false
     },
     {
       "aliases": [
@@ -570,9 +617,37 @@ export default Object.freeze({
     },
     {
       "aliases": [],
+      "category": "network",
+      "mapping": "string",
+      "name": "cidr",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "circle",
+      "preferred": false
+    },
+    {
+      "aliases": [],
       "category": "datetime",
       "mapping": "date",
       "name": "date",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "datemultirange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "daterange",
       "preferred": false
     },
     {
@@ -585,6 +660,41 @@ export default Object.freeze({
       "preferred": true
     },
     {
+      "aliases": [],
+      "category": "network",
+      "mapping": "string",
+      "name": "inet",
+      "preferred": true
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "int4multirange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "int4range",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "int8multirange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "int8range",
+      "preferred": false
+    },
+    {
       "aliases": [
         "int",
         "int4"
@@ -593,6 +703,13 @@ export default Object.freeze({
       "mapping": "number",
       "name": "integer",
       "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "timespan",
+      "mapping": "string",
+      "name": "interval",
+      "preferred": true
     },
     {
       "aliases": [],
@@ -609,6 +726,48 @@ export default Object.freeze({
       "preferred": false
     },
     {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "jsonpath",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "line",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "lseg",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "network",
+      "mapping": "string",
+      "name": "macaddr",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "network",
+      "mapping": "string",
+      "name": "macaddr8",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "money",
+      "preferred": false
+    },
+    {
       "aliases": [
         "decimal"
       ],
@@ -618,12 +777,138 @@ export default Object.freeze({
       "preferred": false
     },
     {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "nummultirange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "numrange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "number",
+      "name": "oid",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "path",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "pg_lsn",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "point",
+      "preferred": true
+    },
+    {
+      "aliases": [],
+      "category": "geometric",
+      "mapping": "string",
+      "name": "polygon",
+      "preferred": false
+    },
+    {
       "aliases": [
         "float4"
       ],
       "category": "numeric",
       "mapping": "number",
       "name": "real",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regclass",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regcollation",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regconfig",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regdictionary",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regnamespace",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regoper",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regoperator",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regproc",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regprocedure",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regrole",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "numeric",
+      "mapping": "string",
+      "name": "regtype",
       "preferred": false
     },
     {
@@ -641,6 +926,22 @@ export default Object.freeze({
       "mapping": "string",
       "name": "text",
       "preferred": true
+    },
+    {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "tid",
+      "preferred": false
+    },
+    {
+      "aliases": [
+        "time without time zone"
+      ],
+      "category": "datetime",
+      "mapping": "string",
+      "name": "time",
+      "preferred": false
     },
     {
       "aliases": [
@@ -661,11 +962,71 @@ export default Object.freeze({
       "preferred": true
     },
     {
+      "aliases": [
+        "time with time zone"
+      ],
+      "category": "datetime",
+      "mapping": "string",
+      "name": "timetz",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "tsmultirange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "tsquery",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "tsrange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "tstzmultirange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "range",
+      "mapping": "string",
+      "name": "tstzrange",
+      "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "tsvector",
+      "preferred": false
+    },
+    {
       "aliases": [],
       "category": "user",
       "mapping": "string",
       "name": "uuid",
       "preferred": false
+    },
+    {
+      "aliases": [
+        "bit varying"
+      ],
+      "category": "bit-string",
+      "mapping": "string",
+      "name": "varbit",
+      "preferred": true
     },
     {
       "aliases": [
@@ -675,7 +1036,14 @@ export default Object.freeze({
       "mapping": "string",
       "name": "varchar",
       "preferred": false
+    },
+    {
+      "aliases": [],
+      "category": "user",
+      "mapping": "string",
+      "name": "xml",
+      "preferred": false
     }
   ],
-  "revision": "sha256:ddf35c0dd2510a224b8034890dd9cbd37985d409e482c58833d422bf38f03825"
+  "revision": "sha256:500c49cc33e8fbe1b957287fc6a1b4e6ba13f6556a80829be7bd4e9bf3f4ef77"
 }) as unknown as PostgresCoreCatalog;

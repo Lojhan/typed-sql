@@ -39,6 +39,7 @@ await describe("PostgreSQL versioned core catalogs", async () => {
     strict.strictEqual(postgresCatalogCanCast("numeric", "integer", "assignment"), true);
     strict.strictEqual(postgresCatalogOperatorRule("IS DISTINCT FROM"), "boolean");
     strict.strictEqual(postgresCatalogOperatorRule("->>"), "json-text");
+    strict.strictEqual(postgresCatalogOperatorRule("&"), "bitwise");
     strict.strictEqual(postgresCatalogOperatorRule("!!"), undefined);
     strict.strictEqual(postgresCatalogRoutineRule("count"), "count");
     strict.strictEqual(postgresCatalogRoutineRule("jsonb_agg"), "json-aggregate");

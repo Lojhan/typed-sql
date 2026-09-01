@@ -67,6 +67,7 @@ function validateEntries(entries, collection, names) {
           "numeric",
           "range",
           "string",
+          "timespan",
           "user",
         ].includes(entry.category)
       )
