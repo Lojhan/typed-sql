@@ -6,7 +6,13 @@ import {
   type StructuralRoutineSnapshot,
   unionTypeLiterals,
 } from "@typed-sql/core";
-import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+import type {
+  ColumnSnapshot,
+  CompositeTypeSnapshot,
+  FunctionSnapshot,
+  SchemaSnapshot,
+  TableSnapshot,
+} from "@typed-sql/schema";
 import {
   postgresCatalogRoutineRule,
   postgresCatalogTableRoutineRule,
@@ -44,6 +50,7 @@ import {
 } from "./type-policy.js";
 import {
   postgresCanCoerce,
+  postgresCanonicalType,
   postgresCommonType,
   postgresElementType,
   resolvePostgresCandidates,
@@ -716,6 +723,8 @@ class Resolver {
           ...(expression.lower === undefined ? [] : [expression.lower]),
           ...(expression.upper === undefined ? [] : [expression.upper]),
         ];
+      case "field-access":
+        return [expression.expression];
       case "binary":
         return [expression.left, expression.right];
       case "case":
@@ -1916,6 +1925,7 @@ class Resolver {
     if (expression.kind === "column") return sqlName(expression.column);
     if (expression.kind === "cast") return this.#outputName(expression.expression);
     if (expression.kind === "subscript") return this.#outputName(expression.expression);
+    if (expression.kind === "field-access") return sqlName(expression.field);
     if (expression.kind === "call") return sqlName(expression.name);
     if (expression.kind === "case") return "case";
     return undefined;
@@ -2036,6 +2046,50 @@ class Resolver {
           tsType: mapPostgresType(elementType, this.#policy, this.#schema),
           nullable: true,
           databaseType: elementType,
+        };
+      }
+      case "field-access": {
+        const source = this.#resolveExpression(expression.expression, scope, ctes);
+        const canonical =
+          source.databaseType === undefined ? undefined : postgresCanonicalType(source.databaseType, this.#schema);
+        const composite =
+          canonical === undefined || this.#schema.formatVersion !== 2
+            ? undefined
+            : Object.values(this.#schema.types).find((type): type is CompositeTypeSnapshot => {
+                if (type.kind !== "composite") return false;
+                const qualified = type.schema === undefined ? type.name : `${type.schema}.${type.name}`;
+                return [type.databaseType, type.identity, qualified].some(
+                  (identity) => normalizeDatabaseType(identity) === normalizeDatabaseType(canonical),
+                );
+              });
+        if (composite === undefined) {
+          this.#diagnostic(
+            "TSQ203",
+            `Field selection requires snapshot composite evidence for ${source.databaseType ?? source.tsType}`,
+            expression.range,
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+        const fieldName = sqlName(expression.field);
+        const field = composite.fields.find((candidate) =>
+          expression.field.quoted ? candidate.name === fieldName : candidate.name.toLowerCase() === fieldName,
+        );
+        if (field === undefined) {
+          this.#diagnostic(
+            "TSQ101",
+            `Unknown field ${expression.field.name} on composite ${composite.databaseType}`,
+            expression.field.range,
+            suggestion(
+              fieldName,
+              composite.fields.map(({ name }) => name),
+            ),
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+        return {
+          tsType: field.tsType,
+          nullable: source.nullable || field.nullable,
+          databaseType: field.databaseType,
         };
       }
       case "cast": {

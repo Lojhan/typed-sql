@@ -19,6 +19,7 @@ export type {
   ExistsExpression,
   Expression,
   FetchClause,
+  FieldAccessExpression,
   FunctionTableReference,
   GroupingElement,
   Identifier,

@@ -1132,6 +1132,10 @@ class Parser {
     return this.#nested(() => {
       let left = this.#parseUnary();
       while (true) {
+        if (this.#current().value === ".") {
+          left = this.#parseFieldAccess(left);
+          continue;
+        }
         if (this.#current().value === "[") {
           left = this.#parseSubscript(left);
           continue;
@@ -1268,8 +1272,17 @@ class Parser {
       return { kind: "exists", query: statement, range: mergeRanges(token.range, close.range) };
     }
     let expression = this.#parsePrimary();
-    while (this.#current().value === "[") expression = this.#parseSubscript(expression);
+    while (this.#current().value === "[" || this.#current().value === ".") {
+      expression =
+        this.#current().value === "[" ? this.#parseSubscript(expression) : this.#parseFieldAccess(expression);
+    }
     return expression;
+  }
+
+  #parseFieldAccess(expression: Expression): Expression {
+    this.#expectPunctuation(".");
+    const field = this.#parseIdentifier(true);
+    return { kind: "field-access", expression, field, range: mergeRanges(expression.range, field.range) };
   }
 
   #parseSubscript(expression: Expression): Expression {

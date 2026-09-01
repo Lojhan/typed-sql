@@ -216,6 +216,33 @@
       }
     },
     {
+      "id": "expression.composite-field",
+      "title": "PostgreSQL composite field selection",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.field-access-expression", "resolver:postgres.snapshot-composite-field"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL composite type field access",
+          "url": "https://www.postgresql.org/docs/18/rowtypes.html#ROWTYPES-ACCESSING"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
       "id": "expression.function.call",
       "title": "Catalog and application function calls",
       "category": "function-family",

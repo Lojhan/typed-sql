@@ -1103,6 +1103,77 @@ await describe("query resolver", async () => {
     );
   });
 
+  await it("resolves snapshot-backed composite field selection", () => {
+    const compositeBase = upgradeSchemaSnapshotV1({
+      formatVersion: 1,
+      dialect: "postgres",
+      tables: {
+        people: {
+          name: "people",
+          columns: {
+            profile: {
+              name: "profile",
+              databaseType: "address",
+              tsType: "{ readonly zip: number; readonly DisplayName: string | null; }",
+              nullable: false,
+            },
+          },
+        },
+      },
+    });
+    const compositeSchema = {
+      ...compositeBase,
+      types: {
+        ...compositeBase.types,
+        address: {
+          kind: "composite",
+          name: "address",
+          schema: "public",
+          identity: "pg:address",
+          databaseType: "address",
+          tsType: "{ readonly zip: number; readonly DisplayName: string | null; }",
+          fields: [
+            { name: "zip", typeIdentity: "pg:23", databaseType: "integer", tsType: "number", nullable: false },
+            {
+              name: "DisplayName",
+              typeIdentity: "pg:25",
+              databaseType: "text",
+              tsType: "string",
+              nullable: true,
+            },
+          ],
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect(`
+        SELECT (profile).zip AS zip,
+               (profile)."DisplayName" AS label,
+               ($1::address).zip AS input_zip
+        FROM people
+      `),
+      compositeSchema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, tsType, nullable }) => ({ name, tsType, nullable })),
+      [
+        { name: "zip", tsType: "number", nullable: false },
+        { name: "label", tsType: "string", nullable: true },
+        { name: "input_zip", tsType: "number", nullable: true },
+      ],
+    );
+    strict.deepStrictEqual(
+      result.parameters.map(({ index, tsType }) => ({ index, tsType })),
+      [{ index: 1, tsType: "{ readonly zip: number; readonly DisplayName: string | null; }" }],
+    );
+
+    const unknownField = resolveSelect(parseSelect("SELECT (profile).missing FROM people"), compositeSchema);
+    strict.ok(unknownField.diagnostics.some(({ code }) => code === "TSQ101"));
+    const nonComposite = resolveSelect(parseSelect("SELECT ((profile).zip).missing FROM people"), compositeSchema);
+    strict.ok(nonComposite.diagnostics.some(({ code }) => code === "TSQ203"));
+  });
+
   await it("resolves v2 polymorphic and implicitly coercible routine overloads", () => {
     const routineDefaults = {
       kind: "function",

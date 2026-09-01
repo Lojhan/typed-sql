@@ -86,6 +86,13 @@ export interface SubscriptExpression {
   readonly range: SourceRange;
 }
 
+export interface FieldAccessExpression {
+  readonly kind: "field-access";
+  readonly expression: Expression;
+  readonly field: Identifier;
+  readonly range: SourceRange;
+}
+
 export interface CallExpression {
   readonly kind: "call";
   readonly name: Identifier;
@@ -184,6 +191,7 @@ export type Expression =
   | ArrayExpression
   | RowExpression
   | SubscriptExpression
+  | FieldAccessExpression
   | CallExpression
   | CastExpression
   | BinaryExpression

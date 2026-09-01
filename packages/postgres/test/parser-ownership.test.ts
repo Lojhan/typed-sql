@@ -106,6 +106,32 @@ await describe("PostgreSQL-owned parser", async () => {
     strict.throws(() => parseStatement("SELECT scores[] FROM events"), SqlParseError);
   });
 
+  await it("owns parenthesized composite field selection", () => {
+    const statement = parseStatement(
+      'SELECT (profile).zip, (profile).location.latitude, (profile)."DisplayName" FROM people',
+    );
+    strict.strictEqual(statement.kind, "select");
+    if (statement.kind !== "select") return;
+    strict.deepStrictEqual(
+      statement.columns.map(({ expression }) => expression.kind),
+      ["field-access", "field-access", "field-access"],
+    );
+    const nested = statement.columns[1]?.expression;
+    strict.strictEqual(
+      nested?.kind === "field-access" && nested.expression.kind === "field-access"
+        ? nested.expression.field.name
+        : undefined,
+      "location",
+    );
+    let fields = 0;
+    walkStatement(statement, {
+      expression(expression) {
+        if (expression.kind === "field-access") fields += 1;
+      },
+    });
+    strict.strictEqual(fields, 4);
+  });
+
   await it("owns quantified and row comparisons", () => {
     const statement = parseStatement(`
       SELECT id = ANY(scores),

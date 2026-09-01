@@ -22,9 +22,21 @@ export const defaultPostgresTypePolicy: PostgresTypePolicy = Object.freeze({
 const normalized = (databaseType: string): string => databaseType.trim().toLowerCase().replace(/\s+/g, " ");
 const withoutModifiers = (databaseType: string): string => databaseType.replace(/\(\d+(?:,\s*\d+)?\)/g, "");
 
+function snapshotType(databaseType: string, schema?: SchemaSnapshot) {
+  if (schema?.formatVersion !== 2) return undefined;
+  const target = withoutModifiers(normalized(databaseType));
+  return Object.values(schema.types).find((type) => {
+    const qualified = type.schema === undefined ? type.name : `${type.schema}.${type.name}`;
+    return [type.databaseType, type.identity, qualified].some(
+      (identity) => withoutModifiers(normalized(identity)) === target,
+    );
+  });
+}
+
 export function isKnownPostgresType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = withoutModifiers(normalized(databaseType).replace(/(?:\[\])+$/, ""));
   if (postgresCatalogTypeMapping(type, schema) !== undefined) return true;
+  if (snapshotType(type, schema) !== undefined) return true;
   return schema?.enums?.[type] !== undefined || schema?.domains?.[type] !== undefined;
 }
 
@@ -37,6 +49,7 @@ export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy
   }
   const type = withoutModifiers(unmodifiedType);
   const catalogMapping = postgresCatalogTypeMapping(type, schema);
+  const snapshotMapping = snapshotType(unmodifiedType, schema);
   let mapped: string;
   if (catalogMapping === "number") mapped = "number";
   else if (catalogMapping === "bigint") mapped = policy.bigint;
@@ -46,6 +59,7 @@ export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy
   else if (catalogMapping === "date") mapped = policy.date;
   else if (catalogMapping === "json") mapped = policy.json;
   else if (catalogMapping === "bytes") mapped = "Uint8Array";
+  else if (snapshotMapping !== undefined) mapped = snapshotMapping.tsType;
   else if (schema?.domains?.[unmodifiedType] !== undefined || schema?.domains?.[type] !== undefined)
     mapped = (schema.domains[unmodifiedType] ?? schema.domains[type]!).tsType;
   else if (schema?.enums?.[unmodifiedType] !== undefined || schema?.enums?.[type] !== undefined) {

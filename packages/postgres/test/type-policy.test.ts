@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { isKnownPostgresType, mapPostgresType, type PostgresTypePolicy } from "../src/type-policy.js";
 
 const policy: PostgresTypePolicy = {
@@ -17,6 +17,23 @@ const schema = {
   enums: { mood: ["happy", "sad"], "app.state": ["on", "off"] },
   domains: {
     positive: { name: "positive", databaseType: "integer", tsType: "number", nullable: false },
+  },
+} as const satisfies SchemaSnapshot;
+
+const compositeBase = upgradeSchemaSnapshotV1({ formatVersion: 1, dialect: "postgres", tables: {} });
+const compositeSchema = {
+  ...compositeBase,
+  namespaces: { public: { name: "public", kind: "schema" } },
+  types: {
+    address: {
+      kind: "composite",
+      name: "address",
+      schema: "public",
+      identity: "pg:address",
+      databaseType: "address",
+      tsType: "{ readonly zip: number; }",
+      fields: [{ name: "zip", typeIdentity: "pg:23", databaseType: "integer", tsType: "number", nullable: false }],
+    },
   },
 } as const satisfies SchemaSnapshot;
 
@@ -56,5 +73,16 @@ await describe("PostgreSQL type policy", async () => {
     strict.strictEqual(isKnownPostgresType("positive", schema), true);
     strict.strictEqual(isKnownPostgresType("made_up", schema), false);
     strict.strictEqual(isKnownPostgresType("made_up"), false);
+  });
+
+  await it("recognizes and maps snapshot v2 composite identities", () => {
+    strict.strictEqual(isKnownPostgresType("address", compositeSchema), true);
+    strict.strictEqual(isKnownPostgresType("public.address", compositeSchema), true);
+    strict.strictEqual(isKnownPostgresType("pg:address", compositeSchema), true);
+    strict.strictEqual(mapPostgresType("address", policy, compositeSchema), "{ readonly zip: number; }");
+    strict.strictEqual(
+      mapPostgresType("public.address[]", policy, compositeSchema),
+      "readonly ({ readonly zip: number; })[]",
+    );
   });
 });
