@@ -2107,15 +2107,10 @@ class Resolver {
     let right: ResolvedType;
     if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
       right = this.#resolveExpression(expression.right, scope, ctes);
-      left = this.#resolveExpression(expression.left, scope, ctes, right);
+      left = this.#resolveExpression(expression.left, scope, ctes);
     } else {
       left = this.#resolveExpression(expression.left, scope, ctes);
-      right = this.#resolveExpression(
-        expression.right,
-        scope,
-        ctes,
-        expression.right.kind === "parameter" ? left : undefined,
-      );
+      right = this.#resolveExpression(expression.right, scope, ctes);
     }
     if (expression.operator === "IS" || expression.operator === "IS NOT") {
       return { tsType: "boolean", nullable: false, databaseType: "boolean" };

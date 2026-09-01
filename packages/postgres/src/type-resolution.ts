@@ -333,6 +333,24 @@ export function resolvePostgresCandidates<Value>(
     .map((candidate) => rankCandidate(candidate, actualTypes, schema))
     .filter((candidate): candidate is RankedCandidate<Value> => candidate !== undefined);
   if (matches.length === 0) return { kind: "none" };
+  for (const [index, actual] of actualTypes.entries()) {
+    if (actual !== undefined) continue;
+    const categories = new Set(
+      matches
+        .map((candidate) => category(candidate.argumentTypes[index]!, schema))
+        .filter((candidate): candidate is PostgresTypeCategory => candidate !== undefined),
+    );
+    const selectedCategory = categories.has("string")
+      ? "string"
+      : categories.size === 1
+        ? [...categories][0]
+        : undefined;
+    if (selectedCategory === undefined) return { kind: "ambiguous" };
+    matches = matches.filter((candidate) => category(candidate.argumentTypes[index]!, schema) === selectedCategory);
+    const preferred = matches.filter((candidate) => isPreferred(candidate.argumentTypes[index]!, schema));
+    if (preferred.length > 0) matches = preferred;
+    if (matches.length === 1) return matches[0]!;
+  }
   for (const score of ["exact", "preferred", "unknownString"] as const) {
     const maximum = Math.max(...matches.map((candidate) => candidate[score]));
     if (maximum > 0) matches = matches.filter((candidate) => candidate[score] === maximum);
@@ -371,16 +389,51 @@ function categoryTypes(categoryName: PostgresTypeCategory, schema?: SchemaSnapsh
     .map(({ name }) => name);
 }
 
+function temporalOperatorCandidates(operator: string): readonly PostgresCandidate<string>[] {
+  const candidates: PostgresCandidate<string>[] = [];
+  const add = (left: string, right: string, resultType: string): void => {
+    candidates.push({ value: operator, argumentTypes: [left, right], resultType });
+  };
+  if (operator === "+") {
+    add("date", "integer", "date");
+    add("integer", "date", "date");
+    for (const type of ["timestamp", "timestamptz", "time"] as const) {
+      add(type, "interval", type);
+      add("interval", type, type);
+    }
+    add("interval", "interval", "interval");
+  } else if (operator === "-") {
+    add("date", "integer", "date");
+    add("date", "date", "integer");
+    for (const type of ["timestamp", "timestamptz", "time"] as const) {
+      add(type, type, "interval");
+      add(type, "interval", type);
+    }
+    add("interval", "interval", "interval");
+  } else if (operator === "*") {
+    for (const numeric of numericOperatorTypes) {
+      add("interval", numeric, "interval");
+      add(numeric, "interval", "interval");
+    }
+  } else if (operator === "/") {
+    for (const numeric of numericOperatorTypes) add("interval", numeric, "interval");
+  }
+  return candidates;
+}
+
 function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly PostgresCandidate<string>[] {
   const rule = postgresCatalogOperatorRule(operator, schema);
   if (rule === "numeric") {
-    return categoryPairs("numeric", schema)
-      .filter(([left, right]) => numericOperatorTypes.has(left) && numericOperatorTypes.has(right))
-      .map(([left, right, result]) => ({
-        value: operator,
-        argumentTypes: [left, right],
-        resultType: result,
-      }));
+    return [
+      ...categoryPairs("numeric", schema)
+        .filter(([left, right]) => numericOperatorTypes.has(left) && numericOperatorTypes.has(right))
+        .map(([left, right, result]) => ({
+          value: operator,
+          argumentTypes: [left, right],
+          resultType: result,
+        })),
+      ...temporalOperatorCandidates(operator),
+    ];
   }
   if (rule === "bitwise") {
     return [...["smallint", "integer", "bigint"], ...categoryTypes("bit-string", schema)].map((type) => ({

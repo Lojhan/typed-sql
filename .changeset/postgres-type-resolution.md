@@ -11,7 +11,8 @@ argument evidence, while known invalid explicit casts produce a stable diagnosti
 The versioned core catalog now recognizes PostgreSQL temporal, bit-string, network, geometric,
 full-text, XML, range, multirange, object-identifier, and related scalar types. Unary numeric and
 bitwise operators, plus binary integer and bit-string operators, now resolve through typed
-candidates and reject invalid operands.
+candidates and reject invalid operands. Date, timestamp, time, and interval arithmetic now uses
+asymmetric PostgreSQL signatures, with parameter inference deferred until candidate selection.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

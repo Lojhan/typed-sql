@@ -145,6 +145,8 @@ await describe("query resolver", async () => {
              id + 'x' AS mixed,
              -'x' AS invalid_negative,
              NOT id AS invalid_not,
+             '2026-01-02'::date - '2026-01-01'::date AS elapsed_days,
+             '1 day'::interval * 2 AS doubled_interval,
              CASE WHEN age IS NULL THEN 0 END AS maybe_age,
              CASE WHEN age IS NULL THEN 0 ELSE age END AS safe_age
       FROM users
@@ -169,6 +171,8 @@ await describe("query resolver", async () => {
         { name: "mixed", tsType: "unknown", nullable: true },
         { name: "invalid_negative", tsType: "unknown", nullable: true },
         { name: "invalid_not", tsType: "unknown", nullable: true },
+        { name: "elapsed_days", tsType: "number", nullable: false },
+        { name: "doubled_interval", tsType: "string", nullable: false },
         { name: "maybe_age", tsType: "number", nullable: true },
         { name: "safe_age", tsType: "number", nullable: true },
       ],

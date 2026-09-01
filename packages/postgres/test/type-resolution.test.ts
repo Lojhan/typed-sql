@@ -181,6 +181,13 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(selectedResult("=", "int4range", "int4range"), "boolean");
     strict.strictEqual(selectedResult("<", "interval", "interval"), "boolean");
     strict.strictEqual(selectedResult("+", "oid", "oid"), "none");
+    strict.strictEqual(selectedResult("+", "date", "integer"), "date");
+    strict.strictEqual(selectedResult("-", "date", "date"), "integer");
+    strict.strictEqual(selectedResult("-", "timestamp", "timestamp"), "interval");
+    strict.strictEqual(selectedResult("+", "interval", "timestamptz"), "timestamptz");
+    strict.strictEqual(selectedResult("*", "interval", "numeric"), "interval");
+    strict.strictEqual(selectedResult("/", "interval", "double precision"), "interval");
+    strict.strictEqual(selectedResult("+", "date", undefined), "ambiguous");
 
     const unaryResult = (operator: string, operand?: string) => {
       const result = resolvePostgresUnaryOperator(operator, operand);
