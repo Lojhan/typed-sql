@@ -201,11 +201,12 @@ export function postgresCanCoerce(
   if (sourceType.endsWith("[]") && targetType.endsWith("[]")) {
     return postgresCanCoerce(sourceType.slice(0, -2), targetType.slice(0, -2), context, schema);
   }
+  const sourceCategory = category(sourceType, schema);
+  const targetCategory = category(targetType, schema);
   if (
-    context === "explicit" &&
-    category(sourceType, schema) !== undefined &&
-    category(targetType, schema) !== undefined &&
-    (category(sourceType, schema) === "string" || category(targetType, schema) === "string")
+    sourceCategory !== undefined &&
+    targetCategory !== undefined &&
+    ((context !== "implicit" && targetCategory === "string") || (context === "explicit" && sourceCategory === "string"))
   ) {
     return true;
   }

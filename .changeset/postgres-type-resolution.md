@@ -31,6 +31,10 @@ timestamp, timestamp-with-time-zone, and time-with-time-zone conversions with te
 PostgreSQL 17 and newer also resolve and version-gate the corresponding `AT LOCAL` forms.
 Scalar and row-valued `IN` lists and subqueries now validate equality candidates, numeric literals,
 row arity, composite field comparability, nullability, and per-position parameter contexts.
+The versioned cast catalogs now include every direct `pg_cast` conversion among shipped core types
+for PostgreSQL 14 through 18, including the PostgreSQL 15 geometric removal and PostgreSQL 18
+integer/bytea additions. Automatic assignment-to-string and explicit string I/O casts follow the
+server's fallback conversion rules.
 
 Expose optional routine argument names and default evidence through the neutral resolver bridge so
 grammar packages can implement named, defaulted, and variadic call selection.

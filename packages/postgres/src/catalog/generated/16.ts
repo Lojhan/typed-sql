@@ -37,7 +37,79 @@ export default Object.freeze({
       "context": "implicit",
       "method": "function",
       "source": "bigint",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
       "target": "real"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regclass"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regcollation"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regconfig"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regdictionary"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regnamespace"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regoper"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regoperator"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regproc"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regprocedure"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regrole"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bigint",
+      "target": "regtype"
     },
     {
       "context": "assignment",
@@ -64,10 +136,52 @@ export default Object.freeze({
       "target": "varbit"
     },
     {
+      "context": "assignment",
+      "method": "function",
+      "source": "boolean",
+      "target": "bpchar"
+    },
+    {
       "context": "explicit",
       "method": "function",
       "source": "boolean",
       "target": "integer"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "boolean",
+      "target": "text"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "boolean",
+      "target": "varchar"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "box",
+      "target": "circle"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "box",
+      "target": "lseg"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "box",
+      "target": "point"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "box",
+      "target": "polygon"
     },
     {
       "context": "implicit",
@@ -77,9 +191,57 @@ export default Object.freeze({
     },
     {
       "context": "implicit",
+      "method": "function",
+      "source": "bpchar",
+      "target": "varchar"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "bpchar",
+      "target": "xml"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "cidr",
+      "target": "bpchar"
+    },
+    {
+      "context": "implicit",
       "method": "binary",
       "source": "cidr",
       "target": "inet"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "cidr",
+      "target": "text"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "cidr",
+      "target": "varchar"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "circle",
+      "target": "box"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "circle",
+      "target": "point"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "circle",
+      "target": "polygon"
     },
     {
       "context": "implicit",
@@ -92,6 +254,12 @@ export default Object.freeze({
       "method": "function",
       "source": "date",
       "target": "timestamptz"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "daterange",
+      "target": "datemultirange"
     },
     {
       "context": "assignment",
@@ -127,7 +295,37 @@ export default Object.freeze({
       "context": "assignment",
       "method": "function",
       "source": "inet",
+      "target": "bpchar"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "inet",
       "target": "cidr"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "inet",
+      "target": "text"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "inet",
+      "target": "varchar"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "int4range",
+      "target": "int4multirange"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "int8range",
+      "target": "int8multirange"
     },
     {
       "context": "implicit",
@@ -167,9 +365,81 @@ export default Object.freeze({
     },
     {
       "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
       "method": "function",
       "source": "integer",
       "target": "real"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regclass"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regcollation"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regconfig"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regdictionary"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regnamespace"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regoper"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regoperator"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regproc"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regprocedure"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regrole"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "integer",
+      "target": "regtype"
     },
     {
       "context": "assignment",
@@ -179,15 +449,81 @@ export default Object.freeze({
     },
     {
       "context": "assignment",
+      "method": "function",
+      "source": "interval",
+      "target": "time"
+    },
+    {
+      "context": "assignment",
       "method": "io",
       "source": "json",
       "target": "jsonb"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "bigint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "boolean"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "double precision"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "integer"
     },
     {
       "context": "assignment",
       "method": "io",
       "source": "jsonb",
       "target": "json"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "numeric"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "real"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "jsonb",
+      "target": "smallint"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "lseg",
+      "target": "point"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "macaddr",
+      "target": "macaddr8"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "macaddr8",
+      "target": "macaddr"
     },
     {
       "context": "assignment",
@@ -232,6 +568,126 @@ export default Object.freeze({
       "target": "smallint"
     },
     {
+      "context": "explicit",
+      "method": "function",
+      "source": "numrange",
+      "target": "nummultirange"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "oid",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "oid",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regclass"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regcollation"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regconfig"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regdictionary"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regnamespace"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regoper"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regoperator"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regproc"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regprocedure"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regrole"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "oid",
+      "target": "regtype"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "path",
+      "target": "polygon"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "point",
+      "target": "box"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "polygon",
+      "target": "box"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "polygon",
+      "target": "circle"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "polygon",
+      "target": "path"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "polygon",
+      "target": "point"
+    },
+    {
       "context": "assignment",
       "method": "function",
       "source": "real",
@@ -262,6 +718,228 @@ export default Object.freeze({
       "target": "smallint"
     },
     {
+      "context": "assignment",
+      "method": "function",
+      "source": "regclass",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regclass",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regclass",
+      "target": "oid"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regcollation",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regcollation",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regcollation",
+      "target": "oid"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regconfig",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regconfig",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regconfig",
+      "target": "oid"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regdictionary",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regdictionary",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regdictionary",
+      "target": "oid"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regnamespace",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regnamespace",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regnamespace",
+      "target": "oid"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regoper",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regoper",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regoper",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regoper",
+      "target": "regoperator"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regoperator",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regoperator",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regoperator",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regoperator",
+      "target": "regoper"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regproc",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regproc",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regproc",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regproc",
+      "target": "regprocedure"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regprocedure",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regprocedure",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regprocedure",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regprocedure",
+      "target": "regproc"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regrole",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regrole",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regrole",
+      "target": "oid"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "regtype",
+      "target": "bigint"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "regtype",
+      "target": "integer"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "regtype",
+      "target": "oid"
+    },
+    {
       "context": "implicit",
       "method": "function",
       "source": "smallint",
@@ -289,25 +967,127 @@ export default Object.freeze({
       "context": "implicit",
       "method": "function",
       "source": "smallint",
+      "target": "oid"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
       "target": "real"
     },
     {
-      "context": "assignment",
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regclass"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regcollation"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regconfig"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regdictionary"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regnamespace"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regoper"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regoperator"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regproc"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regprocedure"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regrole"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "smallint",
+      "target": "regtype"
+    },
+    {
+      "context": "implicit",
       "method": "binary",
       "source": "text",
       "target": "bpchar"
     },
     {
-      "context": "assignment",
+      "context": "implicit",
+      "method": "function",
+      "source": "text",
+      "target": "regclass"
+    },
+    {
+      "context": "implicit",
       "method": "binary",
       "source": "text",
       "target": "varchar"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "text",
+      "target": "xml"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "time",
+      "target": "interval"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "time",
+      "target": "timetz"
     },
     {
       "context": "assignment",
       "method": "function",
       "source": "timestamp",
       "target": "date"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timestamp",
+      "target": "time"
     },
     {
       "context": "implicit",
@@ -325,7 +1105,37 @@ export default Object.freeze({
       "context": "assignment",
       "method": "function",
       "source": "timestamptz",
+      "target": "time"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timestamptz",
       "target": "timestamp"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timestamptz",
+      "target": "timetz"
+    },
+    {
+      "context": "assignment",
+      "method": "function",
+      "source": "timetz",
+      "target": "time"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "tsrange",
+      "target": "tsmultirange"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "tstzrange",
+      "target": "tstzmultirange"
     },
     {
       "context": "implicit",
@@ -337,7 +1147,43 @@ export default Object.freeze({
       "context": "implicit",
       "method": "binary",
       "source": "varchar",
+      "target": "bpchar"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "varchar",
+      "target": "regclass"
+    },
+    {
+      "context": "implicit",
+      "method": "binary",
+      "source": "varchar",
       "target": "text"
+    },
+    {
+      "context": "explicit",
+      "method": "function",
+      "source": "varchar",
+      "target": "xml"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "xml",
+      "target": "bpchar"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "xml",
+      "target": "text"
+    },
+    {
+      "context": "assignment",
+      "method": "binary",
+      "source": "xml",
+      "target": "varchar"
     }
   ],
   "formatVersion": 1,
@@ -1128,5 +1974,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:02200ff0f517a10836acdf00c0e89d77910b0ae8b20a8d8128214aec4ae48f9f"
+  "revision": "sha256:dcde64b9eb301c652441a5002e00fe855d4e4774aabebd93a2927fd7085a54c0"
 }) as unknown as PostgresCoreCatalog;

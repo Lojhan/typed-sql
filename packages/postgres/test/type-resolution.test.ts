@@ -80,12 +80,18 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(postgresCatalogCanCast("numeric", "integer", "implicit"), false);
     strict.strictEqual(postgresCatalogCanCast("numeric", "integer", "assignment"), true);
     strict.strictEqual(postgresCanCoerce("integer[]", "numeric[]", "implicit"), true);
+    strict.strictEqual(postgresCanCoerce("uuid", "text", "assignment"), true);
+    strict.strictEqual(postgresCanCoerce("text", "uuid", "explicit"), true);
+    strict.strictEqual(postgresCanCoerce("text", "uuid", "assignment"), false);
+    strict.strictEqual(postgresCanCoerce("uuid", "text", "implicit"), false);
+    strict.strictEqual(postgresCanCoerce("boolean", "date", "explicit"), false);
   });
 
   await it("selects common types without allowing reverse narrowing", () => {
     strict.strictEqual(postgresCommonType(["integer", "bigint"]), "bigint");
     strict.strictEqual(postgresCommonType(["integer", "numeric"]), "numeric");
-    strict.strictEqual(postgresCommonType(["varchar", "text"]), "text");
+    strict.strictEqual(postgresCommonType(["varchar", "text"]), "varchar");
+    strict.strictEqual(postgresCommonType(["text", "varchar"]), "text");
     strict.strictEqual(postgresCommonType([undefined, undefined]), "text");
     strict.strictEqual(postgresCommonType(["integer", "text"]), undefined);
   });
