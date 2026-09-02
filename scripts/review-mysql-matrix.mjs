@@ -20,7 +20,7 @@ for (const file of files) {
   if (artifact?.formatVersion === 1 && artifact?.target?.driver === "mysql2") artifacts.push(artifact);
 }
 
-const profiles = Object.freeze(["default", "lexical", "numeric"]);
+const profiles = MYSQL_SUPPORT_POLICY.sqlModeProfiles.map(({ name }) => name);
 const expectedStable = MYSQL_SUPPORT_POLICY.stable.flatMap(({ series, matrixVersion }) =>
   profiles.map((modeProfile) => ({ series, matrixVersion, modeProfile, key: `${series}/${modeProfile}` })),
 );

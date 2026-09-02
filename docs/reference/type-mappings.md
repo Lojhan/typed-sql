@@ -52,6 +52,7 @@ Policy alternatives:
 | `bit` | `Uint8Array` | Node.js `Buffer` |
 | character, text, `time`, `set` | `string` | JavaScript string |
 | binary and blob types | `Uint8Array` | Node.js `Buffer` |
+| spatial types | `Uint8Array` | Opaque MySQL geometry bytes in a Node.js `Buffer` |
 | `date`, `datetime`, `timestamp` | `Date` | Date converted from lossless text |
 | `year` | `number` | JavaScript number |
 | `json` | `unknown` | Parsed JSON value |
@@ -77,6 +78,13 @@ Policy alternatives:
 | `date` | `Date`, `string` | Conversion occurs after mysql2 returns text. |
 | `json` | `unknown`, `JsonValue`, `string` | Object modes use parsed JSON; `string` serializes it. |
 | `tinyint1` | `boolean`, `number` | Conversion follows field type and length metadata. |
+
+The adapter requests date, datetime, and timestamp values from mysql2 as text before applying the
+selected policy. `string` preserves fractional precision, zero components, and the server text.
+`Date` uses JavaScript date parsing, loses precision below milliseconds, and represents a MySQL
+zero-date value as an invalid `Date`; applications that permit zero dates or require lossless
+temporal values should select `string`. Snapshot compatibility checks the session and system time
+zones before dispatch when `compatibilitySnapshot` is enabled.
 
 ## SQLite
 

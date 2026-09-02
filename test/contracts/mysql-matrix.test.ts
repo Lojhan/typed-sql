@@ -23,7 +23,13 @@ await describe("MySQL support matrix", async () => {
       "mysql-26.7.1-canary",
     ])
       strict.ok(workflow.includes(label), `workflow is missing ${label}`);
-    for (const mode of ["ANSI_QUOTES", "NO_BACKSLASH_ESCAPES", "PIPES_AS_CONCAT", "NO_UNSIGNED_SUBTRACTION"])
+    for (const mode of [
+      "ANSI_QUOTES",
+      "IGNORE_SPACE",
+      "NO_BACKSLASH_ESCAPES",
+      "PIPES_AS_CONCAT",
+      "NO_UNSIGNED_SUBTRACTION",
+    ])
       strict.ok(workflow.includes(mode), `workflow is missing ${mode}`);
     strict.ok(workflow.includes("continue-on-error: ${{ matrix.experimental }}"));
     strict.ok(workflow.includes("node scripts/review-mysql-matrix.mjs"));

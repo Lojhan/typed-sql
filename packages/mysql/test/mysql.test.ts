@@ -150,6 +150,22 @@ await describe("MySQL dialect", async () => {
       }).lockingReads?.level,
       "exact",
     );
+    const unmodeled = dialect.resolveCapabilities?.({
+      ...schema,
+      server: serverEvidence("8.4.6", "HIGH_NOT_PRECEDENCE,STRICT_TRANS_TABLES"),
+    }).lockingReads;
+    strict.strictEqual(unmodeled?.level, "conservative");
+    strict.strictEqual(unmodeled?.diagnostic, "TSQ407");
+    strict.match(unmodeled?.reason ?? "", /HIGH_NOT_PRECEDENCE/u);
+    const unmodeledAnalysis = dialect.analyze(
+      "SELECT NOT 1 BETWEEN 0 AND 2 AS value",
+      { ...schema, server: serverEvidence("8.4.6", "HIGH_NOT_PRECEDENCE") },
+      dialect.defaultTypePolicy,
+    );
+    strict.deepStrictEqual(unmodeledAnalysis.columns, []);
+    strict.deepStrictEqual(unmodeledAnalysis.parameters, []);
+    strict.strictEqual(unmodeledAnalysis.diagnostics[0]?.code, "TSQ407");
+    strict.strictEqual(unmodeledAnalysis.semantics.operation.value, "unknown");
     strict.strictEqual(
       dialect.resolveCapabilities?.({ ...schema, version: "26.7.0" }).lockingReads?.level,
       "conservative",

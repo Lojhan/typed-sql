@@ -14,10 +14,18 @@ await describe("MySQL support policy", async () => {
       channel: "innovation",
     });
     strict.strictEqual(MYSQL_SUPPORT_POLICY.patchCompatibility, "within-lts-series");
+    strict.deepStrictEqual(
+      MYSQL_SUPPORT_POLICY.sqlModeProfiles.map(({ name }) => name),
+      ["default", "lexical", "numeric"],
+    );
+    strict.ok(MYSQL_SUPPORT_POLICY.sqlModeProfiles[0]!.modes.includes("IGNORE_SPACE"));
+    strict.strictEqual(MYSQL_SUPPORT_POLICY.customSqlModePolicy, "exact-only-for-modeled-modes");
     strict.strictEqual(MYSQL_SUPPORT_POLICY.upstreamSupportWindow, "premier-and-extended");
     strict.strictEqual(MYSQL_SUPPORT_POLICY.deprecation.noticeBeforeUpstreamEndDays, 90);
     strict.ok(Object.isFrozen(MYSQL_SUPPORT_POLICY));
     strict.ok(Object.isFrozen(MYSQL_SUPPORT_POLICY.stable));
+    strict.ok(Object.isFrozen(MYSQL_SUPPORT_POLICY.sqlModeProfiles));
+    strict.ok(MYSQL_SUPPORT_POLICY.sqlModeProfiles.every(({ modes }) => Object.isFrozen(modes)));
     strict.ok(MYSQL_SUPPORT_POLICY.stable.every(Object.isFrozen));
   });
 

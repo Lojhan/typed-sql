@@ -53,7 +53,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `query.cte` — Ordinary common table expressions | clause | exact (from 8.0.1) | exact (from 8.4) | exact (from 3.8.3) |
 | `query.distinct` — DISTINCT and ALL projection modifiers | clause | exact | exact | exact |
 | `query.distinct-on` — DISTINCT ON | clause | unsupported | exact | unsupported |
-| `query.grouping` — GROUP BY, HAVING, grouping sets, ROLLUP, and CUBE | clause | exact | exact | exact |
+| `query.grouping` — GROUP BY, HAVING, and grammar-specific grouping forms | clause | exact | exact | exact |
 | `query.join` — Named, cross, inner, and outer joins | clause | exact | exact | exact |
 | `query.join.full` — FULL OUTER JOIN | clause | unsupported | exact | exact (from 3.39.0) |
 | `query.locking.read` — Locking read clauses | clause | exact | exact | unsupported |

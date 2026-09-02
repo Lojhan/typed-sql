@@ -176,6 +176,64 @@ await describe("MySQL buffered row decoding", async () => {
     strict.deepStrictEqual(decimals, [{ budget: { source: "98.76" } }]);
   });
 
+  await it("makes zero-date, fractional temporal, and spatial boundaries explicit", async () => {
+    const geometry = Buffer.from([0, 1, 2, 3]);
+    const temporalText = await decode<{
+      zero_date: string;
+      fractional_datetime: string;
+      location: Uint8Array;
+    }>(
+      {
+        rows: [
+          {
+            zero_date: "0000-00-00",
+            fractional_datetime: "2026-01-02 03:04:05.123456",
+            location: geometry,
+          },
+        ],
+        fields: [
+          { name: "zero_date", columnType: 10 },
+          { name: "fractional_datetime", columnType: 12 },
+          { name: "location", columnType: 255 },
+        ],
+      },
+      {
+        typePolicy: {
+          bigint: "bigint",
+          decimal: "string",
+          date: "string",
+          json: "unknown",
+          tinyint1: "boolean",
+        },
+      },
+    );
+    strict.strictEqual(temporalText[0]?.zero_date, "0000-00-00");
+    strict.strictEqual(temporalText[0]?.fractional_datetime, "2026-01-02 03:04:05.123456");
+    strict.strictEqual(temporalText[0]?.location, geometry);
+    strict.ok(temporalText[0]?.location instanceof Uint8Array);
+
+    const temporalDates = await decode<{ zero_date: Date; fractional_datetime: Date }>(
+      {
+        rows: [{ zero_date: "0000-00-00", fractional_datetime: "2026-01-02T03:04:05.123456Z" }],
+        fields: [
+          { name: "zero_date", columnType: 10 },
+          { name: "fractional_datetime", columnType: 12 },
+        ],
+      },
+      {
+        typePolicy: {
+          bigint: "bigint",
+          decimal: "string",
+          date: "Date",
+          json: "unknown",
+          tinyint1: "boolean",
+        },
+      },
+    );
+    strict.ok(Number.isNaN(temporalDates[0]?.zero_date.getTime()));
+    strict.strictEqual(temporalDates[0]?.fractional_datetime.getUTCMilliseconds(), 123);
+  });
+
   await it("preserves nullish values and their row identities across active decoders", async () => {
     const nulls = {
       id: null,

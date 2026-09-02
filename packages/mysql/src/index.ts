@@ -5,7 +5,12 @@ import {
   unknownQuerySemantics,
 } from "@typed-sql/core";
 import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
-import { assertMySqlServerEvidence, MYSQL_CAPABILITIES, resolveMySqlCapabilities } from "./capabilities.js";
+import {
+  assertMySqlServerEvidence,
+  MYSQL_CAPABILITIES,
+  resolveMySqlCapabilities,
+  unmodeledMySqlSqlModes,
+} from "./capabilities.js";
 import { parseStatement, SqlParseError } from "./parser/index.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
@@ -67,6 +72,24 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
       try {
         const sqlMode = snapshot.server?.settings.sqlMode;
+        const unmodeledModes = typeof sqlMode === "string" ? unmodeledMySqlSqlModes(sqlMode) : [];
+        if (unmodeledModes.length > 0) {
+          const range = { start: 0, end: sql.length, line: 1, column: 1 };
+          return {
+            columns: [],
+            parameters: [],
+            diagnostics: [
+              {
+                code: "TSQ407",
+                message: `Exact MySQL analysis does not cover these sql_mode values: ${unmodeledModes.join(", ")}.`,
+                severity: "error" as const,
+                range,
+                suggestion: "Use a modeled SQL mode or remove the query from exact static analysis.",
+              },
+            ],
+            semantics: unknownQuerySemantics(range, "The recorded MySQL SQL mode is not modeled."),
+          };
+        }
         const statement = parseStatement(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
         const resolved = resolveMySqlStatement(statement, snapshot, { typePolicy: policy });
         const analysis = {

@@ -33,12 +33,8 @@ for (const required of [
 if (options.channel !== "stable" && options.channel !== "canary")
   throw new TypeError("--channel must be stable or canary");
 
-const requiredModes = Object.freeze({
-  default: [],
-  lexical: ["ANSI_QUOTES", "NO_BACKSLASH_ESCAPES", "PIPES_AS_CONCAT"],
-  numeric: ["NO_UNSIGNED_SUBTRACTION"],
-});
-if (!(options["mode-profile"] in requiredModes)) throw new TypeError("Unknown --mode-profile");
+const modeProfile = MYSQL_SUPPORT_POLICY.sqlModeProfiles.find(({ name }) => name === options["mode-profile"]);
+if (modeProfile === undefined) throw new TypeError("Unknown --mode-profile");
 
 const connectionString = options["connection-string"];
 const expectedVersion = options["expected-version"];
@@ -90,11 +86,10 @@ try {
   );
   results.push(result("server.oracle-mysql", /mysql|source distribution/iu.test(String(settings.version_comment))));
   results.push(
-    result(
-      "server.mode-profile",
-      requiredModes[options["mode-profile"]].every((mode) => actualModes.includes(mode)),
-      actualModes,
-    ),
+    result("server.mode-profile", JSON.stringify(actualModes) === JSON.stringify(modeProfile.modes), {
+      expected: modeProfile.modes,
+      actual: actualModes,
+    }),
   );
   results.push(result("snapshot.v2", snapshot.formatVersion === 2 && snapshot.dialect === "mysql"));
   results.push(result("snapshot.server-version", snapshot.server?.version === actualVersion));

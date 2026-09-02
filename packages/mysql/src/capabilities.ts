@@ -7,7 +7,7 @@ import {
   staticDialectCapabilityStates,
 } from "@typed-sql/core";
 import type { MySqlSchemaSnapshot } from "./index.js";
-import { type MySqlVersionPolicy, mySqlVersionSupport, parseMySqlVersion } from "./support.js";
+import { MYSQL_SUPPORT_POLICY, type MySqlVersionPolicy, mySqlVersionSupport, parseMySqlVersion } from "./support.js";
 import { MYSQL_DIALECT_VERSION } from "./version.js";
 
 export const MYSQL_CAPABILITIES = Object.freeze({
@@ -48,6 +48,11 @@ const mysqlSettingKeys = Object.freeze([
 ] as const);
 
 const exactMySqlSettingKeys = Object.freeze([...mysqlSettingKeys]);
+const modeledSqlModes = new Set(MYSQL_SUPPORT_POLICY.sqlModeProfiles.flatMap(({ modes }) => modes));
+
+export function unmodeledMySqlSqlModes(sqlMode: string): readonly string[] {
+  return Object.freeze(sqlMode.split(",").filter((mode) => mode.length > 0 && !modeledSqlModes.has(mode)));
+}
 
 export function assertMySqlServerEvidence(server: DialectServerEvidence): void {
   const settings = Object.keys(server.settings);
@@ -306,6 +311,15 @@ export function resolveMySqlCapabilities(
       "Exact MySQL lexical analysis requires normalized sql_mode evidence.",
       server,
       "TSQ402",
+      versionPolicy,
+    );
+  }
+  const unmodeledModes = unmodeledMySqlSqlModes(sqlMode);
+  if (unmodeledModes.length > 0) {
+    return conservativeStates(
+      `Exact MySQL analysis does not cover these sql_mode values: ${unmodeledModes.join(", ")}.`,
+      server,
+      "TSQ407",
       versionPolicy,
     );
   }

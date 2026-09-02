@@ -58,6 +58,12 @@ the exact 8.4.12 and 9.7.3 images. Each LTS patch runs a default profile, a lexi
 `ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES`, and `PIPES_AS_CONCAT`, and a numeric profile with
 `NO_UNSIGNED_SUBTRACTION`. All six LTS jobs are release-blocking.
 
+Those profiles contain the modeled SQL modes published by `MYSQL_SUPPORT_POLICY`. A custom profile
+made only from modeled modes keeps exact capability evidence because the snapshot supplies the
+normalized set before parsing. If a profile adds a mode whose lexical or semantic effect is not
+modeled, supported capabilities resolve conservatively and query analysis fails closed with
+`TSQ407`; typed-sql does not assume the extra mode is harmless.
+
 MySQL 26.7.1 runs separately with `versionPolicy: "canary"`. It reports innovation-line catalog,
 keyword, collation, syntax, protocol, decoding, and introspection differences against the 9.7
 default profile, but it does not contribute to the stable score. A canary failure therefore exposes
@@ -117,8 +123,9 @@ deprecated `VALUES(column)` duplicate-key reference also emits a warning; insert
 the same target-column inference without relying on deprecated syntax.
 
 PostgreSQL's recursive-CTE `SEARCH`/`CYCLE`, function-relation `ROWS FROM`/`WITH ORDINALITY`, and
-`TABLESAMPLE` clauses are rejected as unsupported syntax. MySQL's separately modeled `JSON_TABLE`
-surface is not treated as PostgreSQL function-relation syntax.
+`TABLESAMPLE` clauses are rejected as unsupported syntax. MySQL `JSON_TABLE` row sources also remain
+unsupported and fail closed; the live differential probe records server acceptance without
+promoting that syntax into the grammar.
 
 ## Runtime behavior
 
@@ -135,6 +142,21 @@ For buffered and batched execution, `onWarning` receives `{ count, fingerprint }
 `all`, `one`, and `maybeOne` accept an `AbortSignal` and absolute deadline. mysql2 has no per-command `AbortSignal` contract, so typed-sql interrupts a buffered query by destroying its checked-out connection. The pool replaces it for later work, while a cancelled transaction is invalidated and cannot continue.
 
 The runtime constructors and mysql2 adapter accept a grammar-neutral `observer`. Query, prepared-query, batch, stream, cancellation, and nested-transaction lifecycles carry MySQL compiler-compatible fingerprints without exposing SQL or values. See [Observe database work](../guides/observability.md).
+
+## Upgrade and compatibility review
+
+Regenerate the schema snapshot and query manifest after changing the MySQL server line, `sql_mode`,
+connection charset or collation, time zone, type policy, or typed-sql version. Then run
+`typed-sql compat` with the before and after artifacts. Catalog and coercion corrections can narrow an
+`unknown` result, change a numeric or collation result, or introduce a fail-closed diagnostic; the
+compatibility report identifies affected queries in both rolling-deployment directions.
+
+MySQL warnings are runtime evidence rather than schema drift. Exercise representative writes with
+`onWarning` during an upgrade, or use `rejectWarnings` when warnings are deployment failures. This
+is especially important when a server or mode change turns coercion, truncation, zero-date, or
+deprecated syntax behavior from a warning into an error. See
+[Migration compatibility](../guides/migration-compatibility.md) and
+[Database type mappings](../reference/type-mappings.md).
 
 ## Bulk transfer
 

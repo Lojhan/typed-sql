@@ -16,6 +16,7 @@ The stable grammar contract covers the MySQL 8.4 and 9.7 LTS series. Protected d
 exercise exact 8.4.12 and 9.7.3 images under default, lexical, and unsigned-arithmetic SQL-mode
 profiles. MySQL 26.7.1 is reported separately as a non-blocking innovation canary and requires
 `mysql({ versionPolicy: "canary" })`.
+These are the supported SQL-mode profiles; custom profiles containing an unmodeled mode fail closed.
 
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";

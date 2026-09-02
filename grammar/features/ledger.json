@@ -1149,7 +1149,7 @@
     },
     {
       "id": "query.grouping",
-      "title": "GROUP BY, HAVING, grouping sets, ROLLUP, and CUBE",
+      "title": "GROUP BY, HAVING, and grammar-specific grouping forms",
       "category": "clause",
       "scope": "application-query",
       "owner": "@typed-sql/conformance",
