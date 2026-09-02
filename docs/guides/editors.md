@@ -80,16 +80,20 @@ Initialization settings accept:
   "projectFile": "tsconfig.json",
   "nativePreview": true,
   "maxCacheEntries": 256,
-  "maxWorkspaceFiles": 2000
+  "maxWorkspaceFiles": 2000,
+  "protocolVersion": 1,
+  "protocolCapabilities": ["analysis-identity", "diagnostic-fixes", "status"]
 }
 ```
 
 Relative paths resolve from the LSP workspace root. Each workspace folder receives its own config, grammar, schema, TypeScript project, and bounded cache.
 
 The custom `typedSql/status` request returns the server mode, exact pinned TypeScript version,
-workspace roots, and document counts. It is informational; CLI/compiler output remains the
-correctness boundary.
+workspace roots, document counts, and negotiated protocol. It is informational; CLI/compiler output
+remains the correctness boundary.
 
-The current typed-sql-specific request and initialization shape is protocol v1. Existing clients
-without an explicit protocol version are v1-compatible. The server publishes its accepted window
-through `TYPED_SQL_PROTOCOL_SUPPORT_POLICY`; removal requires a language-server major release.
+The current typed-sql-specific request and initialization shape is protocol v1. The server returns
+the negotiated capability intersection in `initialize.typedSql.protocol`. Existing clients without
+an explicit protocol version retain every v1 capability. Unsupported versions fail before workspace
+analysis begins. Diagnostics are published only while their source, project/config generation,
+grammar capabilities, schema, and type-policy identities remain current.

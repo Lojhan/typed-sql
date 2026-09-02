@@ -76,6 +76,12 @@ Protocol v1 is the current accepted window; clients that predate the version fie
 shape. Removing an accepted protocol version requires a language-server major release and at least
 one language-server minor of notice.
 
+Versioned clients negotiate the optional `analysis-identity`, `diagnostic-fixes`, and `status`
+capabilities during LSP initialization. A client outside the accepted version window is rejected
+with an upgrade instruction before workspace setup. Diagnostics carrying an analysis identity are
+valid only for the matching source hash/version, project generation and config hash,
+grammar/capability fingerprint, schema hash, and type-policy hash.
+
 ## Grammar and snapshot compatibility
 
 PostgreSQL, MySQL, and SQLite implement the current typed-sql dialect contract. A grammar's `grammarVersion` describes its snapshot and resolution semantics independently from the package version. Generated snapshots record that version, and the grammar rejects incompatible snapshots.

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import {
+  TYPED_SQL_PROTOCOL_CAPABILITIES,
   TYPED_SQL_PROTOCOL_SUPPORT_POLICY,
   TYPED_SQL_PROTOCOL_VERSION,
 } from "../../packages/language-server/src/index.js";
@@ -57,6 +58,7 @@ await describe("TypeScript 7 compatibility matrix", async () => {
       server.typedSql?.acceptedProtocolVersions,
       TYPED_SQL_PROTOCOL_SUPPORT_POLICY.acceptedVersions,
     );
+    strict.deepStrictEqual(server.typedSql?.protocolCapabilities, TYPED_SQL_PROTOCOL_CAPABILITIES);
     strict.strictEqual(
       server.typedSql?.legacyUnversionedProtocolVersion,
       TYPED_SQL_PROTOCOL_SUPPORT_POLICY.currentVersion,

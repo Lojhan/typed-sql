@@ -39,6 +39,8 @@ await describe("external editor distribution", async () => {
     strict.ok(development >= 0);
     strict.ok(source.indexOf("join(DEVELOPMENT_SERVER)") > path);
     strict.ok(source.includes("pnpm add -D @typed-sql/language-server"));
+    strict.ok(source.includes("TYPED_SQL_PROTOCOL_VERSION"));
+    strict.ok(source.includes("protocolCapabilities"));
     strict.ok(!source.includes("@next"));
     strict.ok(!source.includes("/Users/"));
   });
@@ -77,6 +79,8 @@ await describe("external editor distribution", async () => {
     strict.ok(source.includes('from "vscode-languageclient/node"'));
     strict.ok(source.includes("@typed-sql/language-server"));
     strict.ok(source.includes('sendRequest<TypedSqlServerStatus>("typedSql/status")'));
+    strict.ok(source.includes("protocolVersion: TYPED_SQL_PROTOCOL_VERSION"));
+    strict.ok(source.includes("protocolCapabilities: [...TYPED_SQL_PROTOCOL_CAPABILITIES]"));
     strict.ok(!source.includes("analyzeSource"));
     strict.ok(!source.includes("NativePreviewTypeScriptBridge"));
     strict.deepStrictEqual(manifest.dependencies, { "vscode-languageclient": "10.1.0" });

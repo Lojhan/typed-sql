@@ -3,7 +3,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { ProtocolClient, positionAt } from "../../../test/helpers/protocol-client.js";
-import { TYPED_SQL_STATUS_REQUEST, type TypedSqlLanguageServerStatus } from "../src/index.js";
+import {
+  TYPED_SQL_PROTOCOL_CAPABILITIES,
+  TYPED_SQL_PROTOCOL_VERSION,
+  TYPED_SQL_STATUS_REQUEST,
+  type TypedSqlLanguageServerStatus,
+} from "../src/index.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(testDirectory, "../../..");
@@ -29,6 +34,24 @@ await describe("typed-sql stdio language server", async () => {
             capabilities: {},
           }),
         /pinned TypeScript preview process[\s\S]*Reinstall @typed-sql\/language-server/u,
+      );
+    } finally {
+      await client.close().catch(() => undefined);
+    }
+  });
+
+  await it("rejects an unsupported typed-sql protocol before workspace setup", async () => {
+    const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
+    try {
+      await strict.rejects(
+        () =>
+          client.request("initialize", {
+            processId: process.pid,
+            rootUri: pathToFileURL(workspaceDirectory).href,
+            capabilities: {},
+            initializationOptions: { protocolVersion: 2 },
+          }),
+        /-32098:[\s\S]*protocol 2 is newer-than-supported[\s\S]*Update the editor extension/u,
       );
     } finally {
       await client.close().catch(() => undefined);
@@ -81,7 +104,14 @@ await describe("typed-sql stdio language server", async () => {
         rootUri: pathToFileURL(workspaceDirectory).href,
         workspaceFolders: [{ uri: pathToFileURL(workspaceDirectory).href, name: "typed-sql" }],
         capabilities: {},
-        initializationOptions: { configPath: configFile, schemaPath: schemaFile, projectFile, nativePreview: false },
+        initializationOptions: {
+          configPath: configFile,
+          schemaPath: schemaFile,
+          projectFile,
+          nativePreview: false,
+          protocolVersion: 1,
+          protocolCapabilities: ["diagnostic-fixes"],
+        },
       });
       client.notify("initialized", {});
       const published = client.notification("textDocument/publishDiagnostics", (params) => {
@@ -96,6 +126,10 @@ await describe("typed-sql stdio language server", async () => {
       };
       const diagnostic = report.diagnostics?.find(({ code }) => code === "TSQ004");
       strict.ok(diagnostic !== undefined);
+      const data = diagnostic?.data as Readonly<Record<string, unknown>> | undefined;
+      strict.strictEqual(data?.analysisRevision, undefined);
+      strict.strictEqual(data?.identity, undefined);
+      strict.ok(data?.fix !== undefined);
       const actions = (await client.request("textDocument/codeAction", {
         textDocument: { uri },
         range: diagnostic?.range,
@@ -128,13 +162,20 @@ await describe("typed-sql stdio language server", async () => {
           schemaPath: schemaFile,
           projectFile,
           nativePreview: true,
+          protocolVersion: TYPED_SQL_PROTOCOL_VERSION,
+          protocolCapabilities: [...TYPED_SQL_PROTOCOL_CAPABILITIES],
         },
       })) as {
         readonly capabilities?: { readonly hoverProvider?: boolean };
         readonly serverInfo?: { readonly name?: string };
+        readonly typedSql?: {
+          readonly protocol?: { readonly version?: number; readonly capabilities?: readonly string[] };
+        };
       };
       strict.strictEqual(initialize.serverInfo?.name, "typed-sql + TypeScript preview");
       strict.strictEqual(initialize.capabilities?.hoverProvider, true);
+      strict.strictEqual(initialize.typedSql?.protocol?.version, TYPED_SQL_PROTOCOL_VERSION);
+      strict.deepStrictEqual(initialize.typedSql?.protocol?.capabilities, TYPED_SQL_PROTOCOL_CAPABILITIES);
       client.notify("initialized", {});
 
       const diagnosticsPromise = client.notification(
@@ -154,6 +195,8 @@ await describe("typed-sql stdio language server", async () => {
       strict.deepStrictEqual(status.workspaceRoots, [workspaceDirectory]);
       strict.strictEqual(status.openDocuments, 1);
       strict.ok(status.indexedDocuments >= 1);
+      strict.strictEqual(status.protocol.client, "versioned");
+      strict.deepStrictEqual(status.protocol.capabilities, TYPED_SQL_PROTOCOL_CAPABILITIES);
 
       const hoverAt = async (needle: string): Promise<string> => {
         const hover = (await client.request("textDocument/hover", {
@@ -214,6 +257,23 @@ await describe("typed-sql stdio language server", async () => {
         (diagnostic) => diagnostic.source === "typed-sql" && diagnostic.code === "TSQ101",
       );
       strict.ok(unknown !== undefined);
+      const diagnosticData = unknown?.data as
+        | {
+            readonly analysisRevision?: string;
+            readonly identity?: {
+              readonly source?: { readonly version?: number };
+              readonly project?: { readonly generation?: number; readonly configHash?: string };
+              readonly grammar?: { readonly capabilityFingerprint?: string };
+              readonly schema?: { readonly hash?: string };
+            };
+          }
+        | undefined;
+      strict.match(diagnosticData?.analysisRevision ?? "", /^sha256:[a-f\d]{64}$/u);
+      strict.strictEqual(diagnosticData?.identity?.source?.version, 2);
+      strict.ok(Number.isSafeInteger(diagnosticData?.identity?.project?.generation));
+      strict.match(diagnosticData?.identity?.project?.configHash ?? "", /^sha256:[a-f\d]{64}$/u);
+      strict.match(diagnosticData?.identity?.grammar?.capabilityFingerprint ?? "", /^sha256:[a-f\d]{64}$/u);
+      strict.match(diagnosticData?.identity?.schema?.hash ?? "", /^[a-f\d]{64}$/u);
       const actions = (await client.request("textDocument/codeAction", {
         textDocument: { uri },
         range: unknown?.range,

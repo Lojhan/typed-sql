@@ -1,7 +1,10 @@
 import { describe, it, strict } from "poku";
 import {
+  negotiateTypedSqlProtocol,
+  TYPED_SQL_PROTOCOL_CAPABILITIES,
   TYPED_SQL_PROTOCOL_SUPPORT_POLICY,
   TYPED_SQL_PROTOCOL_VERSION,
+  TypedSqlProtocolCompatibilityError,
   typedSqlProtocolVersionSupport,
 } from "../src/index.js";
 
@@ -14,6 +17,7 @@ await describe("typed-sql language-server protocol support policy", async () => 
     strict.ok(Object.isFrozen(TYPED_SQL_PROTOCOL_SUPPORT_POLICY));
     strict.ok(Object.isFrozen(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.acceptedVersions));
     strict.ok(Object.isFrozen(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.deprecation));
+    strict.ok(Object.isFrozen(TYPED_SQL_PROTOCOL_CAPABILITIES));
   });
 
   await it("classifies current, legacy, invalid, and out-of-window clients", () => {
@@ -23,5 +27,33 @@ await describe("typed-sql language-server protocol support policy", async () => 
     strict.strictEqual(typedSqlProtocolVersionSupport(1.5), "invalid");
     strict.strictEqual(typedSqlProtocolVersionSupport("1"), "invalid");
     strict.strictEqual(typedSqlProtocolVersionSupport(2), "newer-than-supported");
+  });
+
+  await it("negotiates a deterministic capability intersection", () => {
+    strict.deepStrictEqual(negotiateTypedSqlProtocol(undefined), {
+      version: 1,
+      client: "legacy-unversioned",
+      capabilities: ["analysis-identity", "diagnostic-fixes", "status"],
+    });
+    strict.deepStrictEqual(
+      negotiateTypedSqlProtocol({
+        typedSql: { protocol: { version: 1, capabilities: ["status", "future-capability"] } },
+      }),
+      { version: 1, client: "versioned", capabilities: ["status"] },
+    );
+  });
+
+  await it("rejects invalid and unsupported client advertisements", () => {
+    strict.throws(
+      () => negotiateTypedSqlProtocol({ protocolVersion: 2 }),
+      (error: unknown) =>
+        error instanceof TypedSqlProtocolCompatibilityError &&
+        error.code === "TYPED_SQL_PROTOCOL_UNSUPPORTED" &&
+        /Update the editor extension and language server together/u.test(error.message),
+    );
+    strict.throws(
+      () => negotiateTypedSqlProtocol({ protocolVersion: 1, protocolCapabilities: "status" }),
+      TypedSqlProtocolCompatibilityError,
+    );
   });
 });

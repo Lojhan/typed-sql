@@ -20,12 +20,17 @@ Initialization settings include `configPath`, `schemaPath`, `projectFile`, `nati
 each workspace folder receives an independent config, grammar, schema, project, and bounded cache.
 
 Clients can request `typedSql/status` to inspect the exact pinned TypeScript preview version,
-workspace roots, and open/indexed document counts. The server suppresses diagnostics from document
-versions that have already been superseded.
+workspace roots, open/indexed document counts, and negotiated protocol. The server suppresses
+diagnostics unless the source version, source hash, project generation, config hash, grammar and
+capability identity, schema identity, and type-policy identity are still current.
 
-The existing typed-sql-specific request and initialization shape is protocol v1. Unversioned clients
-are treated as v1, and `TYPED_SQL_PROTOCOL_SUPPORT_POLICY` publishes the accepted compatibility
-window. Removing an accepted protocol version requires a language-server major release.
+The typed-sql-specific request and initialization shape is protocol v1. A versioned client sends
+`protocol: { version: 1, capabilities: [...] }` inside its `typedSql` initialization options (the
+flat `protocolVersion` and `protocolCapabilities` keys are also accepted). The server returns the
+negotiated intersection in `initialize.typedSql.protocol`. Protocol capabilities are
+`analysis-identity`, `diagnostic-fixes`, and `status`. Unversioned clients are treated as v1 with all
+v1 capabilities, while invalid or unsupported versions fail initialization with an upgrade message.
+Removing an accepted protocol version requires a language-server major release.
 
 Startup validates the bundled TypeScript preview patch before spawning it. Run `typed-sql doctor`
 from the workspace for a redacted compatibility report when the server or an editor client cannot

@@ -38,7 +38,8 @@ the sole TypeScript and TSX server:
 
 No binary path is required. The extension resolves an explicit Zed setting first, then the local
 package, a worktree `PATH` binary, and finally a typed-sql monorepo development build. `schemaPath`
-is optional; without it, the server uses `schema.file` from the config.
+is optional; without it, the server uses `schema.file` from the config. The launcher adds its
+protocol v1 identity, fix, and status capabilities to the initialization settings automatically.
 
 TypeScript 7 may omit the legacy `tsserver.js` expected by Zed's built-in integration. typed-sql
 does not use that file. Disabling the competing servers prevents their conservative

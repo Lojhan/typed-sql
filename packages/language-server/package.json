@@ -33,6 +33,11 @@
     "acceptedProtocolVersions": [
       1
     ],
+    "protocolCapabilities": [
+      "analysis-identity",
+      "diagnostic-fixes",
+      "status"
+    ],
     "legacyUnversionedProtocolVersion": 1,
     "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
   },

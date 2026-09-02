@@ -94,6 +94,8 @@ await describe("typed-sql language service", async () => {
       strict.strictEqual(actions[0]?.isPreferred, true);
       edits.push(...(actions[0]?.edit?.changes?.[current.uri] ?? []));
     }
+    service.invalidate();
+    strict.deepStrictEqual(await service.codeActions(current, [diagnostics[0]!]), []);
     let fixed = text;
     for (const edit of edits.sort(
       (left, right) => current.offsetAt(right.range.start) - current.offsetAt(left.range.start),
@@ -120,6 +122,24 @@ await describe("typed-sql language service", async () => {
     strict.strictEqual(identified?.identity.source.id, document("cache-a.ts").uri);
     strict.strictEqual(identified?.identity.source.version, 7);
     strict.strictEqual(identified?.identity.grammar.id, "postgres");
+    strict.strictEqual(identified?.identity.project?.id, projectFile);
+    strict.match(identified?.identity.project?.configHash ?? "", /^sha256:[a-f\d]{64}$/u);
+    strict.match(identified?.identity.schema.hash ?? "", /^[a-f\d]{64}$/u);
+    strict.match(identified?.identity.grammar.capabilityFingerprint ?? "", /^sha256:[a-f\d]{64}$/u);
+    strict.match(identified?.identity.typePolicyHash ?? "", /^[a-f\d]{64}$/u);
+    strict.strictEqual(
+      identified === undefined ? false : service.isAnalysisCurrent(document("cache-a.ts", source, 7), identified),
+      true,
+    );
+    const generation = identified?.identity.project?.generation ?? -1;
+    service.invalidate();
+    strict.strictEqual(
+      identified === undefined ? true : service.isAnalysisCurrent(document("cache-a.ts", source, 7), identified),
+      false,
+    );
+    const refreshed = await service.analysis(document("cache-a.ts", source, 7));
+    strict.ok((refreshed?.identity.project?.generation ?? -1) > generation);
+    strict.notStrictEqual(refreshed?.revision, identified?.revision);
     await service.analysis(document("cache-b.ts"));
     await service.analysis(document("cache-c.ts"));
     strict.ok(service.cacheSizes().analyses <= 2);
