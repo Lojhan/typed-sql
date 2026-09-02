@@ -24,7 +24,7 @@ export type MySqlSchemaSnapshot = SchemaSnapshot & { readonly dialect: "mysql" }
 
 export interface MySqlDialectOptions {
   readonly typePolicy?: MySqlTypePolicy;
-  readonly versionPolicy?: import("./capabilities.js").MySqlVersionPolicy;
+  readonly versionPolicy?: import("./support.js").MySqlVersionPolicy;
 }
 
 function validateMySqlSnapshot(value: unknown): MySqlSchemaSnapshot {
@@ -93,8 +93,7 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
 export { sql } from "@typed-sql/core";
 export type { SchemaSnapshot } from "@typed-sql/schema";
 export { parseSchemaSnapshot } from "@typed-sql/schema";
-export type { MySqlVersionPolicy } from "./capabilities.js";
-export { mySqlServerEvidence, parseMySqlVersion, resolveMySqlCapabilities } from "./capabilities.js";
+export { mySqlServerEvidence, resolveMySqlCapabilities } from "./capabilities.js";
 export type { MySqlQueryable, MySqlSchemaProviderOptions } from "./provider.js";
 export { introspectMySql, MySqlSchemaProvider, mysqlCatalogQueries } from "./provider.js";
 export type { MySqlQuerySemanticResolverOptions, MySqlRoutedDatabaseOptions } from "./routing.js";
@@ -103,6 +102,8 @@ export {
   createMySqlRoutedDatabase,
   isMySqlRetryableTransactionError,
 } from "./routing.js";
+export type { MySqlVersionPolicy, MySqlVersionSupport } from "./support.js";
+export { MYSQL_SUPPORT_POLICY, mySqlVersionSupport, parseMySqlVersion } from "./support.js";
 export type { MySqlTypePolicy } from "./type-policy.js";
 export {
   defaultMySqlTypePolicy,

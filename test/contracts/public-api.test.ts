@@ -831,6 +831,7 @@ const expectedRuntimeExports = {
   ],
   mysql: [
     "MYSQL_DIALECT_VERSION",
+    "MYSQL_SUPPORT_POLICY",
     "MySqlSchemaProvider",
     "createMySqlQuerySemanticResolver",
     "createMySqlRoutedDatabase",
@@ -843,6 +844,7 @@ const expectedRuntimeExports = {
     "mysqlBulk",
     "mysqlCatalogQueries",
     "mySqlServerEvidence",
+    "mySqlVersionSupport",
     "parseMySqlVersion",
     "parseSchemaSnapshot",
     "resolveMySqlCapabilities",

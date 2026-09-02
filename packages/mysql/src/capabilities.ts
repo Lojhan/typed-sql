@@ -7,6 +7,7 @@ import {
   staticDialectCapabilityStates,
 } from "@typed-sql/core";
 import type { MySqlSchemaSnapshot } from "./index.js";
+import { type MySqlVersionPolicy, mySqlVersionSupport, parseMySqlVersion } from "./support.js";
 import { MYSQL_DIALECT_VERSION } from "./version.js";
 
 export const MYSQL_CAPABILITIES = Object.freeze({
@@ -20,9 +21,6 @@ export const MYSQL_CAPABILITIES = Object.freeze({
   setOperations: false,
 });
 
-type MySqlVersion = readonly [major: number, minor: number, patch: number];
-export type MySqlVersionPolicy = "stable" | "canary";
-
 export function assertMySqlServerEvidence(server: DialectServerEvidence): void {
   const settings = Object.keys(server.settings);
   if (settings.some((key) => key !== "sqlMode")) {
@@ -33,13 +31,6 @@ export function assertMySqlServerEvidence(server: DialectServerEvidence): void {
     throw new TypeError("MySQL sqlMode evidence must be a normalized mode list");
   }
   if (server.features.length > 0) throw new TypeError("MySQL server evidence does not allow feature identifiers");
-}
-
-export function parseMySqlVersion(value: string): MySqlVersion | undefined {
-  const match = /^(\d+)\.(\d+)\.(\d+)(?:\D.*)?$/u.exec(value.trim());
-  if (match === null) return undefined;
-  const version = match.slice(1, 4).map(Number) as unknown as MySqlVersion;
-  return version.every(Number.isSafeInteger) ? version : undefined;
 }
 
 function normalizeSqlMode(value: string): string {
@@ -65,14 +56,6 @@ export function mySqlServerEvidence(version: string, sqlMode?: string): DialectS
     features: [],
     settings: sqlMode === undefined ? {} : { sqlMode: normalizeSqlMode(sqlMode) },
   });
-}
-
-function supportedVersion(version: MySqlVersion, versionPolicy: MySqlVersionPolicy): boolean {
-  return (
-    (version[0] === 8 && version[1] === 4) ||
-    (version[0] === 9 && version[1] === 7) ||
-    (versionPolicy === "canary" && version[0] === 26 && version[1] === 7)
-  );
 }
 
 function serverConditions(
@@ -160,9 +143,8 @@ export function resolveMySqlCapabilities(
   if (version === undefined) {
     return conservativeStates("The MySQL server version could not be normalized.", server, "TSQ402", versionPolicy);
   }
-  const prerelease = /(?:alpha|beta|rc)/iu.test(server.version);
-  const selectedCanary = versionPolicy === "canary" && version[0] === 26 && version[1] === 7;
-  if (prerelease && !selectedCanary) {
+  const support = mySqlVersionSupport(server.version, versionPolicy);
+  if (support === "prerelease") {
     return conservativeStates(
       "Pre-release MySQL versions require an explicit canary support policy.",
       server,
@@ -170,7 +152,7 @@ export function resolveMySqlCapabilities(
       versionPolicy,
     );
   }
-  if (!supportedVersion(version, versionPolicy)) {
+  if (support !== "supported" && support !== "canary") {
     return conservativeStates(
       `MySQL ${version.join(".")} is not in the tested 8.4 or 9.7 LTS support lines.`,
       server,
