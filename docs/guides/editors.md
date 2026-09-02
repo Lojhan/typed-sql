@@ -81,6 +81,7 @@ Initialization settings accept:
   "nativePreview": true,
   "maxCacheEntries": 256,
   "maxWorkspaceFiles": 2000,
+  "analysisDebounceMs": 20,
   "protocolVersion": 1,
   "protocolCapabilities": ["analysis-identity", "diagnostic-fixes", "status"]
 }
@@ -97,3 +98,10 @@ the negotiated capability intersection in `initialize.typedSql.protocol`. Existi
 an explicit protocol version retain every v1 capability. Unsupported versions fail before workspace
 analysis begins. Diagnostics are published only while their source, project/config generation,
 grammar capabilities, schema, and type-policy identities remain current.
+
+The server actively cancels superseded edit analysis, applies incremental changes to a separate
+current document snapshot, and serializes configuration/schema refreshes. If config, grammar, or
+schema loading fails, it replaces prior positive output with a redacted
+`TYPED_SQL_PROJECT_UNAVAILABLE` diagnostic. Correct the input and trigger a file refresh to retry
+without restarting the editor. `typedSql/status` includes cache hit/miss/eviction counters and
+native-bridge restart counts for troubleshooting.

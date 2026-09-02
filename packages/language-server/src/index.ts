@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { access, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
@@ -12,6 +13,7 @@ import {
   isStaticQueryPosition,
   type NativeTypeInspection,
   queryAtPosition,
+  type TypeScriptBridge,
 } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import {
@@ -49,6 +51,11 @@ export interface TypedSqlLanguageServerSettings {
   readonly nativePreview?: boolean;
   readonly maxCacheEntries?: number;
   readonly maxWorkspaceFiles?: number;
+  readonly analysisDebounceMs?: number;
+}
+
+export interface TypedSqlLanguageServiceOptions {
+  readonly nativeBridge?: () => TypeScriptBridge;
 }
 
 export const TYPED_SQL_STATUS_REQUEST = "typedSql/status";
@@ -61,6 +68,10 @@ export interface TypedSqlLanguageServerStatus {
   readonly openDocuments: number;
   readonly indexedDocuments: number;
   readonly protocol: import("./protocol.js").TypedSqlProtocolNegotiation;
+  readonly workspaces: readonly {
+    readonly root: string;
+    readonly metrics: TypedSqlLanguageServiceMetrics;
+  }[];
 }
 
 interface CachedSchema {
@@ -79,6 +90,29 @@ interface DocumentAnalysis {
   readonly analysis: BridgeAnalysis;
 }
 
+export interface TypedSqlCacheMetrics {
+  readonly entries: number;
+  readonly hits: number;
+  readonly misses: number;
+  readonly evictions: number;
+}
+
+export interface TypedSqlLanguageServiceMetrics {
+  readonly generation: number;
+  readonly cache: {
+    readonly schemas: TypedSqlCacheMetrics;
+    readonly analyses: TypedSqlCacheMetrics;
+    readonly inspections: TypedSqlCacheMetrics;
+  };
+  readonly bridgeRestarts: number;
+}
+
+interface CacheCounters {
+  hits: number;
+  misses: number;
+  evictions: number;
+}
+
 const defaultSettings: Required<Pick<TypedSqlLanguageServerSettings, "schemaPath" | "nativePreview">> = {
   schemaPath: "src/generated/db/schema.json",
   nativePreview: true,
@@ -86,6 +120,7 @@ const defaultSettings: Required<Pick<TypedSqlLanguageServerSettings, "schemaPath
 const DEFAULT_MAX_CACHE_ENTRIES = 256;
 const DEFAULT_MAX_SCHEMA_CACHE_ENTRIES = 16;
 const DEFAULT_MAX_WORKSPACE_FILES = 2_000;
+const DEFAULT_ANALYSIS_DEBOUNCE_MS = 20;
 const sha256 = (value: string): string => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
 function canonical(value: unknown): unknown {
@@ -111,10 +146,20 @@ function cancelled(token?: CancellationLike): void {
   }
 }
 
-function cacheSet<K, V>(cache: Map<K, V>, key: K, value: V, maximum: number): void {
+function cacheGet<K, V>(cache: Map<K, V>, key: K, counters: CacheCounters): V | undefined {
+  const value = cache.get(key);
+  if (value === undefined) counters.misses += 1;
+  else counters.hits += 1;
+  return value;
+}
+
+function cacheSet<K, V>(cache: Map<K, V>, key: K, value: V, maximum: number, counters: CacheCounters): void {
   cache.delete(key);
   cache.set(key, value);
-  while (cache.size > maximum) cache.delete(cache.keys().next().value!);
+  while (cache.size > maximum) {
+    cache.delete(cache.keys().next().value!);
+    counters.evictions += 1;
+  }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -179,6 +224,7 @@ export function settingsFrom(value: unknown): TypedSqlLanguageServerSettings {
     ...(typeof candidate.nativePreview === "boolean" ? { nativePreview: candidate.nativePreview } : {}),
     ...(typeof candidate.maxCacheEntries === "number" ? { maxCacheEntries: candidate.maxCacheEntries } : {}),
     ...(typeof candidate.maxWorkspaceFiles === "number" ? { maxWorkspaceFiles: candidate.maxWorkspaceFiles } : {}),
+    ...(typeof candidate.analysisDebounceMs === "number" ? { analysisDebounceMs: candidate.analysisDebounceMs } : {}),
   };
 }
 
@@ -188,13 +234,26 @@ export class TypedSqlLanguageService {
   readonly #schemaCache = new Map<string, CachedSchema>();
   readonly #analysisCache = new Map<string, DocumentAnalysis>();
   readonly #inspectionCache = new Map<string, Promise<readonly NativeTypeInspection[] | undefined>>();
-  #nativeBridgePromise: Promise<NativePreviewTypeScriptBridge> | undefined;
+  #nativeBridgePromise: Promise<TypeScriptBridge> | undefined;
+  readonly #nativeBridgeFactory: () => TypeScriptBridge;
   #configPromise: ReturnType<typeof loadConfig> | undefined;
   #generation = 0;
+  #bridgeRestarts = 0;
+  readonly #cacheCounters = {
+    schemas: { hits: 0, misses: 0, evictions: 0 },
+    analyses: { hits: 0, misses: 0, evictions: 0 },
+    inspections: { hits: 0, misses: 0, evictions: 0 },
+  } satisfies Record<string, CacheCounters>;
 
-  constructor(rootDirectory: string, settings: TypedSqlLanguageServerSettings = {}) {
+  constructor(
+    rootDirectory: string,
+    settings: TypedSqlLanguageServerSettings = {},
+    options: TypedSqlLanguageServiceOptions = {},
+  ) {
     this.#rootDirectory = resolve(rootDirectory);
     this.#settings = this.#validatedSettings(settings);
+    this.#nativeBridgeFactory =
+      options.nativeBridge ?? (() => NativePreviewTypeScriptBridge.spawn({ cwd: this.#rootDirectory }));
   }
 
   configure(rootDirectory: string, settings: TypedSqlLanguageServerSettings): void {
@@ -438,6 +497,20 @@ export class TypedSqlLanguageService {
     };
   }
 
+  metrics(): TypedSqlLanguageServiceMetrics {
+    const metric = (cache: Map<unknown, unknown>, counters: CacheCounters): TypedSqlCacheMetrics =>
+      Object.freeze({ entries: cache.size, ...counters });
+    return Object.freeze({
+      generation: this.#generation,
+      cache: Object.freeze({
+        schemas: metric(this.#schemaCache, this.#cacheCounters.schemas),
+        analyses: metric(this.#analysisCache, this.#cacheCounters.analyses),
+        inspections: metric(this.#inspectionCache, this.#cacheCounters.inspections),
+      }),
+      bridgeRestarts: this.#bridgeRestarts,
+    });
+  }
+
   isAnalysisCurrent(document: TextDocument, analysis: BridgeAnalysis): boolean {
     return (
       analysis.identity.project?.generation === this.#generation &&
@@ -445,6 +518,13 @@ export class TypedSqlLanguageService {
       analysis.identity.source.version === document.version &&
       analysis.identity.source.hash === sha256(document.getText())
     );
+  }
+
+  async debounce(token?: CancellationLike): Promise<void> {
+    cancelled(token);
+    const milliseconds = this.#settings.analysisDebounceMs ?? DEFAULT_ANALYSIS_DEBOUNCE_MS;
+    if (milliseconds > 0) await wait(milliseconds);
+    cancelled(token);
   }
 
   async workspaceFiles(token?: CancellationLike): Promise<readonly string[]> {
@@ -536,7 +616,7 @@ export class TypedSqlLanguageService {
         ),
       );
       const sourceHash = sha256(document.getText());
-      const cached = this.#analysisCache.get(document.uri);
+      const cached = cacheGet(this.#analysisCache, document.uri, this.#cacheCounters.analyses);
       if (
         cached !== undefined &&
         cached.version === document.version &&
@@ -546,7 +626,7 @@ export class TypedSqlLanguageService {
         cached.schemaModified === schema.modified &&
         cached.analysis.identity.source.hash === sourceHash
       ) {
-        cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries());
+        cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries(), this.#cacheCounters.analyses);
         return cached;
       }
       const analysis = analyzeSource(
@@ -578,20 +658,20 @@ export class TypedSqlLanguageService {
         analysis,
       };
       cancelled(token);
-      cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries());
+      cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries(), this.#cacheCounters.analyses);
       return result;
     }
   }
 
   async #schemaAt(path: string): Promise<CachedSchema> {
     const file = await stat(path);
-    const cached = this.#schemaCache.get(path);
+    const cached = cacheGet(this.#schemaCache, path, this.#cacheCounters.schemas);
     if (cached !== undefined && cached.modified === file.mtimeMs) {
-      cacheSet(this.#schemaCache, path, cached, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES);
+      cacheSet(this.#schemaCache, path, cached, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES, this.#cacheCounters.schemas);
       return cached;
     }
     const result = { modified: file.mtimeMs, snapshot: await loadSchemaSnapshot(path) };
-    cacheSet(this.#schemaCache, path, result, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES);
+    cacheSet(this.#schemaCache, path, result, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES, this.#cacheCounters.schemas);
     return result;
   }
 
@@ -599,8 +679,8 @@ export class TypedSqlLanguageService {
     return isAbsolute(path) ? path : resolve(this.#rootDirectory, path);
   }
 
-  #nativeBridge(): Promise<NativePreviewTypeScriptBridge> {
-    this.#nativeBridgePromise ??= Promise.resolve(NativePreviewTypeScriptBridge.spawn({ cwd: this.#rootDirectory }));
+  #nativeBridge(): Promise<TypeScriptBridge> {
+    this.#nativeBridgePromise ??= Promise.resolve(this.#nativeBridgeFactory());
     return this.#nativeBridgePromise;
   }
 
@@ -624,14 +704,14 @@ export class TypedSqlLanguageService {
   ): Promise<readonly NativeTypeInspection[] | undefined> {
     if ((this.#settings.nativePreview ?? defaultSettings.nativePreview) === false) return undefined;
     const key = `${document.uri}@${result.analysis.revision}`;
-    const cached = this.#inspectionCache.get(key);
+    const cached = cacheGet(this.#inspectionCache, key, this.#cacheCounters.inspections);
     if (cached !== undefined) {
-      cacheSet(this.#inspectionCache, key, cached, this.#maxCacheEntries());
+      cacheSet(this.#inspectionCache, key, cached, this.#maxCacheEntries(), this.#cacheCounters.inspections);
       const inspections = await cached;
       return this.isAnalysisCurrent(document, result.analysis) ? inspections : undefined;
     }
-    const inspection = this.#inspect(document, result).catch(() => undefined);
-    cacheSet(this.#inspectionCache, key, inspection, this.#maxCacheEntries());
+    const inspection = this.#inspectWithRecovery(document, result).catch(() => undefined);
+    cacheSet(this.#inspectionCache, key, inspection, this.#maxCacheEntries(), this.#cacheCounters.inspections);
     const inspections = await inspection;
     return this.isAnalysisCurrent(document, result.analysis) ? inspections : undefined;
   }
@@ -647,6 +727,21 @@ export class TypedSqlLanguageService {
     });
   }
 
+  async #inspectWithRecovery(
+    document: TextDocument,
+    result: DocumentAnalysis,
+  ): Promise<readonly NativeTypeInspection[]> {
+    try {
+      return await this.#inspect(document, result);
+    } catch {
+      const failed = this.#nativeBridgePromise;
+      this.#nativeBridgePromise = undefined;
+      this.#bridgeRestarts += 1;
+      await failed?.then(async (bridge) => bridge.close()).catch(() => undefined);
+      return this.#inspect(document, result);
+    }
+  }
+
   #maxCacheEntries(): number {
     return this.#settings.maxCacheEntries ?? DEFAULT_MAX_CACHE_ENTRIES;
   }
@@ -659,6 +754,11 @@ export class TypedSqlLanguageService {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1))
         throw new TypeError(`${name} must be a positive safe integer`);
     }
+    if (
+      settings.analysisDebounceMs !== undefined &&
+      (!Number.isSafeInteger(settings.analysisDebounceMs) || settings.analysisDebounceMs < 0)
+    )
+      throw new TypeError("analysisDebounceMs must be a non-negative safe integer");
     return Object.freeze({ ...settings });
   }
 

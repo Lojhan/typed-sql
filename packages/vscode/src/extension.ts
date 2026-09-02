@@ -16,6 +16,7 @@ interface TypedSqlServerStatus {
   readonly openDocuments: number;
   readonly indexedDocuments: number;
   readonly protocol: { readonly version: number; readonly capabilities: readonly string[] };
+  readonly workspaces: readonly { readonly metrics: { readonly bridgeRestarts: number } }[];
 }
 
 interface RunningClient {
@@ -67,6 +68,7 @@ function initializationOptions(folder: vscode.WorkspaceFolder): Record<string, u
     nativePreview: settings.get<boolean>("nativePreview", true),
     maxCacheEntries: settings.get<number>("maxCacheEntries", 256),
     maxWorkspaceFiles: settings.get<number>("maxWorkspaceFiles", 2_000),
+    analysisDebounceMs: settings.get<number>("analysisDebounceMs", 20),
     protocolVersion: TYPED_SQL_PROTOCOL_VERSION,
     protocolCapabilities: [...TYPED_SQL_PROTOCOL_CAPABILITIES],
   };

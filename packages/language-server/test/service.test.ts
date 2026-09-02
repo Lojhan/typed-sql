@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import type { TypeScriptBridge } from "../../ts-bridge/src/index.js";
 import { TypedSqlLanguageService } from "../src/index.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
@@ -140,14 +141,23 @@ await describe("typed-sql language service", async () => {
     const refreshed = await service.analysis(document("cache-a.ts", source, 7));
     strict.ok((refreshed?.identity.project?.generation ?? -1) > generation);
     strict.notStrictEqual(refreshed?.revision, identified?.revision);
+    await service.analysis(document("cache-a.ts", source, 7));
     await service.analysis(document("cache-b.ts"));
     await service.analysis(document("cache-c.ts"));
     strict.ok(service.cacheSizes().analyses <= 2);
+    const metrics = service.metrics();
+    strict.ok(metrics.cache.analyses.hits >= 1);
+    strict.ok(metrics.cache.analyses.misses >= 3);
+    strict.ok(metrics.cache.analyses.evictions >= 1);
+    strict.strictEqual(metrics.cache.analyses.entries, service.cacheSizes().analyses);
+    strict.ok(Object.isFrozen(metrics));
+    strict.ok(Object.isFrozen(metrics.cache));
     await strict.rejects(
       () => service.analysis(document("cancelled.ts"), { isCancellationRequested: true }),
       (error: unknown) => error instanceof Error && error.name === "AbortError",
     );
     strict.throws(() => service.configure(workspaceDirectory, { maxCacheEntries: 0 }), /positive safe integer/);
+    strict.throws(() => service.configure(workspaceDirectory, { analysisDebounceMs: -1 }), /non-negative safe integer/);
   });
 
   await it("claims only typed-sql config and schema watcher events", async () => {
@@ -207,5 +217,50 @@ await describe("typed-sql capability evidence reload", async () => {
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
+  });
+});
+
+await describe("typed-sql native bridge recovery", async () => {
+  await it("disposes a failed bridge and retries once with a clean instance", async () => {
+    let created = 0;
+    let closed = 0;
+    const nativeBridge = (): TypeScriptBridge => {
+      created += 1;
+      const attempt = created;
+      return {
+        identity: {
+          id: "test-preview",
+          line: "7.1",
+          version: "7.1.0-test",
+          apiStability: "unstable",
+        },
+        async inspectFile() {
+          if (attempt === 1) throw new Error("injected bridge failure");
+          return [{ queryIndex: 0, typeText: "Query<Recovered, readonly []>" }];
+        },
+        async inspectFiles() {
+          return new Map();
+        },
+        async close() {
+          closed += 1;
+        },
+      };
+    };
+    const service = new TypedSqlLanguageService(
+      workspaceDirectory,
+      { configPath: configFile, schemaPath: schemaFile, projectFile, nativePreview: true },
+      { nativeBridge },
+    );
+    try {
+      const current = document("bridge-recovery.ts");
+      const hover = await service.hover(current, current.positionAt(source.indexOf("query")));
+      strict.ok(JSON.stringify(hover?.contents).includes("Query<Recovered"));
+      strict.strictEqual(created, 2);
+      strict.strictEqual(closed, 1);
+      strict.strictEqual(service.metrics().bridgeRestarts, 1);
+    } finally {
+      await service.close();
+    }
+    strict.strictEqual(closed, 2);
   });
 });
