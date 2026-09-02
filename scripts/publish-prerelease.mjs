@@ -129,7 +129,7 @@ export function publicationCommands(pkg, npmTag, tarballPath) {
     { command: "pnpm", args: ["pack", "--out", tarballPath], cwd: pkg.directory },
     {
       command: "npm",
-      args: ["publish", tarballPath, "--access", "public", "--tag", npmTag],
+      args: ["publish", tarballPath, "--access", "public", "--tag", npmTag, "--provenance"],
       cwd: pkg.directory,
     },
   ];

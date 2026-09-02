@@ -52,7 +52,7 @@
     "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/sqlite/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "performance": "pnpm build && pnpm performance:gate",
     "performance:gate": "node --expose-gc scripts/performance-gate.mjs",
-    "release:artifacts": "pnpm build && pnpm test:pack",
+    "release:artifacts": "pnpm build && node scripts/verify-release-artifacts.mjs --output artifacts/release/artifacts.json && pnpm test:pack",
     "release:assert": "node scripts/assert-release-channel.mjs",
     "release:security": "node scripts/code-scanning-policy.mjs",
     "release:beta": "pnpm release:assert beta && node scripts/publish-prerelease.mjs",
