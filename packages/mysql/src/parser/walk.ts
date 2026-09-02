@@ -40,6 +40,9 @@ function walkExpression(
       walkExpression(expression.expression, statement, visitor, context);
       visitor.type?.(expression.databaseType, statement);
       break;
+    case "collate":
+      walkExpression(expression.expression, statement, visitor, context);
+      break;
     case "binary":
       walkExpression(expression.left, statement, visitor, context);
       walkExpression(expression.right, statement, visitor, context);

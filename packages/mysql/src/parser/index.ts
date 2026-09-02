@@ -10,6 +10,7 @@ export type {
   CaseBranch,
   CaseExpression,
   CastExpression,
+  CollateExpression,
   ColumnExpression,
   CommonTableExpression,
   CompoundSelect,

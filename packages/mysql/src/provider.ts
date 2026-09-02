@@ -6,10 +6,12 @@ import {
   type RoutineSnapshot,
   type SchemaInput,
   type SchemaProvider,
+  type SchemaSnapshot,
   type SchemaSnapshotV2,
   type TypeSnapshot,
 } from "@typed-sql/schema";
 import { mySqlServerEvidence } from "./capabilities.js";
+import { mySqlCoreCatalogForSchema } from "./catalog/index.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy, mapMySqlType, mySqlEnumValues } from "./type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "./version.js";
 
@@ -368,6 +370,30 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
     const versionRow = (await this.#client.query<VersionRow>(mysqlCatalogQueries.version)).rows[0];
     if (versionRow === undefined) throw new TypeError("MySQL introspection did not return a server version");
     const version = versionRow.server_version;
+    const server = mySqlServerEvidence(version, {
+      ...(versionRow.sql_mode === undefined ? {} : { sqlMode: versionRow.sql_mode }),
+      ...(versionRow.version_comment === undefined ? {} : { versionComment: versionRow.version_comment }),
+      ...(versionRow.character_set_server === undefined ? {} : { characterSetServer: versionRow.character_set_server }),
+      ...(versionRow.collation_server === undefined ? {} : { collationServer: versionRow.collation_server }),
+      ...(versionRow.character_set_connection === undefined
+        ? {}
+        : { characterSetConnection: versionRow.character_set_connection }),
+      ...(versionRow.collation_connection === undefined
+        ? {}
+        : { collationConnection: versionRow.collation_connection }),
+      ...(versionRow.time_zone === undefined ? {} : { timeZone: versionRow.time_zone }),
+      ...(versionRow.system_time_zone === undefined ? {} : { systemTimeZone: versionRow.system_time_zone }),
+      ...(versionRow.lower_case_table_names === undefined
+        ? {}
+        : { lowerCaseTableNames: versionRow.lower_case_table_names }),
+    });
+    const typeContext = {
+      formatVersion: 1,
+      dialect: "mysql",
+      tables: {},
+      server,
+    } as const satisfies SchemaSnapshot;
+    const mapType = (databaseType: string): string => mapMySqlType(databaseType, this.#policy, typeContext);
     const currentDatabase = (await this.#client.query<DatabaseRow>(mysqlCatalogQueries.database)).rows[0]
       ?.database_name;
     const schemas =
@@ -403,7 +429,7 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
         position: Math.max(0, (row.ordinal_position ?? Object.keys(columns).length + 1) - 1),
         databaseType: row.database_type,
         typeIdentity: `mysql:${row.database_type.toLowerCase()}`,
-        tsType: mapMySqlType(row.database_type, this.#policy),
+        tsType: mapType(row.database_type),
         nullable: row.is_nullable === "YES",
         nullabilitySource: "declared",
         default: row.default_expression === null ? "none" : "present",
@@ -437,7 +463,7 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
           name: row.database_type,
           identity: `mysql:${row.database_type.toLowerCase()}`,
           databaseType: row.database_type,
-          tsType: mapMySqlType(row.database_type, this.#policy),
+          tsType: mapType(row.database_type),
         };
         types[row.database_type] =
           labels === undefined
@@ -556,7 +582,7 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
                 : ("in" as const),
           typeIdentity: `mysql:${parameter.database_type.toLowerCase()}`,
           databaseType: parameter.database_type,
-          tsType: mapMySqlType(parameter.database_type, this.#policy),
+          tsType: mapType(parameter.database_type),
           default: "none" as const,
         }));
       const kind = row.routine_type === "PROCEDURE" ? "procedure" : "function";
@@ -576,7 +602,7 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
                 kind: "scalar",
                 typeIdentity: `mysql:${row.database_return_type.toLowerCase()}`,
                 databaseType: row.database_return_type,
-                tsType: mapMySqlType(row.database_return_type, this.#policy),
+                tsType: mapType(row.database_return_type),
                 nullable: true,
               },
         volatility: routineVolatility(row),
@@ -592,29 +618,19 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
       formatVersion: 2,
       dialect: "mysql",
       dialectVersion: MYSQL_DIALECT_VERSION,
-      server: mySqlServerEvidence(version, {
-        ...(versionRow.sql_mode === undefined ? {} : { sqlMode: versionRow.sql_mode }),
-        ...(versionRow.version_comment === undefined ? {} : { versionComment: versionRow.version_comment }),
-        ...(versionRow.character_set_server === undefined
-          ? {}
-          : { characterSetServer: versionRow.character_set_server }),
-        ...(versionRow.collation_server === undefined ? {} : { collationServer: versionRow.collation_server }),
-        ...(versionRow.character_set_connection === undefined
-          ? {}
-          : { characterSetConnection: versionRow.character_set_connection }),
-        ...(versionRow.collation_connection === undefined
-          ? {}
-          : { collationConnection: versionRow.collation_connection }),
-        ...(versionRow.time_zone === undefined ? {} : { timeZone: versionRow.time_zone }),
-        ...(versionRow.system_time_zone === undefined ? {} : { systemTimeZone: versionRow.system_time_zone }),
-        ...(versionRow.lower_case_table_names === undefined
-          ? {}
-          : { lowerCaseTableNames: versionRow.lower_case_table_names }),
-      }),
+      server,
       namespaces: Object.fromEntries([...schemas].sort().map((name) => [name, { name, kind: "database" as const }])),
       types,
       relations,
       routines,
+      ...(mySqlCoreCatalogForSchema(typeContext) === undefined
+        ? {}
+        : {
+            extension: {
+              version: "1",
+              attributes: { catalogRevision: mySqlCoreCatalogForSchema(typeContext)!.revision },
+            },
+          }),
     });
   }
 }

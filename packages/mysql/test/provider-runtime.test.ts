@@ -438,6 +438,7 @@ await describe("MySQL provider and runtime", async () => {
     strict.strictEqual(snapshot.formatVersion, 2);
     strict.strictEqual(snapshot.dialect, "mysql");
     strict.strictEqual(snapshot.version, "8.4.11");
+    strict.match(String(snapshot.extension?.attributes.catalogRevision), /^sha256:[a-f\d]{64}$/u);
     strict.deepStrictEqual(snapshot.server?.settings, {
       characterSetConnection: "utf8mb4",
       characterSetServer: "utf8mb4",

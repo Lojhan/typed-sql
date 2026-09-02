@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { isDeepStrictEqual } from "node:util";
 import { compileSource } from "@typed-sql/compiler";
-import { type Query, renderQuery, type SchemaSnapshot } from "@typed-sql/core";
+import { type Query, renderQuery, type SchemaSnapshot, type SourceRange } from "@typed-sql/core";
 import { selectExpectedOutcome } from "./contracts.js";
 import {
   CONFORMANCE_REPORT_FORMAT_VERSION,
@@ -113,6 +113,20 @@ function columns(value: readonly ExpectedColumn[] | undefined): readonly Readonl
   return (value ?? []).map((column) => omitUndefined(column));
 }
 
+function resolvedColumns(
+  value: readonly {
+    readonly name: string;
+    readonly tsType: string;
+    readonly nullable: boolean;
+    readonly databaseType?: string;
+    readonly range: SourceRange;
+  }[],
+): readonly Readonly<Record<string, unknown>>[] {
+  return value.map(({ name, tsType, nullable, databaseType, range }) =>
+    omitUndefined({ name, tsType, nullable, databaseType, range }),
+  );
+}
+
 function parameters(value: readonly ExpectedParameter[] | undefined): readonly Readonly<Record<string, unknown>>[] {
   return (value ?? []).map((parameter) => omitUndefined(parameter));
 }
@@ -221,7 +235,7 @@ export function runStaticConformanceProbe<Snapshot extends SchemaSnapshot, Polic
     const started = performance.now();
     try {
       const analysis = context.dialect.analyze(probe.source, context.snapshot, context.policy);
-      const actualColumns = analysis.columns.map((column) => omitUndefined(column));
+      const actualColumns = resolvedColumns(analysis.columns);
       const actualParameters = analysis.parameters.map((parameter) => omitUndefined(parameter));
       const actualDiagnostics = analysis.diagnostics.map(({ code, severity, range }) => ({ code, severity, range }));
       const differences = [

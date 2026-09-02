@@ -830,6 +830,7 @@ const expectedRuntimeExports = {
     "validateQueryResultStream",
   ],
   mysql: [
+    "MYSQL_CORE_CATALOG_FORMAT_VERSION",
     "MYSQL_DIALECT_VERSION",
     "MYSQL_SUPPORT_POLICY",
     "MySqlSchemaProvider",
@@ -840,6 +841,7 @@ const expectedRuntimeExports = {
     "isKnownMySqlType",
     "isMySqlRetryableTransactionError",
     "mapMySqlType",
+    "mySqlCoreCatalog",
     "mysql",
     "mysqlBulk",
     "mysqlCatalogQueries",

@@ -32,6 +32,25 @@ The grammar targets MySQL 8.4 LTS and supports:
 
 Catalog inference covers enums, unsigned integers, decimals, JSON, temporal types, binary values, and configurable `tinyint(1)` mapping.
 
+The package ships immutable generated built-in catalogs for the supported `8.4` and `9.7` LTS
+series and the `26.7` canary. Catalog revisions are recorded in schema snapshots, so a catalog
+change participates in artifact and schema compatibility instead of silently changing inference.
+Version-gated types and functions fail closed; for example, `VECTOR` and `VECTOR_DIM()` are
+available from the 9.x catalog and are rejected for an 8.4 snapshot. The checked-in catalog source
+owns type families, coercion safety, operators, built-in result rules, and supported collations.
+
+Character-set introducers and explicit `COLLATE` expressions preserve source spans and resolve
+MySQL coercibility. Explicit collations outrank columns and literals; equal-coercibility Unicode and
+binary-collation tie-breaking follows MySQL rules, while incompatible or unknown combinations are
+diagnostics. Exact collation analysis requires v2 column charset/collation evidence plus connection
+charset/collation evidence. Valid collations not yet present in the reviewed catalog remain
+conservative rather than being accepted optimistically.
+
+Numeric expressions distinguish integer, decimal, and approximate families. Decimal operands stay
+under the configured decimal policy, approximate operands produce `number`, and integer arithmetic
+preserves unsigned evidence. `NO_UNSIGNED_SUBTRACTION` changes subtraction to a signed result.
+Division of exact values is nullable because division by zero returns `NULL`.
+
 Schema introspection records normalized `sql_mode` before scanning. `ANSI_QUOTES` selects quoted
 identifiers, `NO_BACKSLASH_ESCAPES` changes string-literal decoding, and `PIPES_AS_CONCAT` changes
 `||` from logical OR to concatenation. A snapshot without mode evidence remains conservative.

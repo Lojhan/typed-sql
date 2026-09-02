@@ -275,17 +275,26 @@
       "title": "Explicit expression collation",
       "category": "expression",
       "scope": "application-query",
-      "owner": "@typed-sql/postgres",
-      "coverage": ["ast:postgres.collate-expression", "resolver:postgres.collatable-type-validation"],
-      "documentation": ["docs/dialects/postgresql.md"],
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:mysql.collate-expression",
+        "ast:postgres.collate-expression",
+        "resolver:mysql.collation-coercibility",
+        "resolver:postgres.collatable-type-validation"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md"],
       "sources": [
+        {
+          "title": "MySQL collation coercibility",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/charset-collation-coercibility.html"
+        },
         {
           "title": "PostgreSQL collation expressions",
           "url": "https://www.postgresql.org/docs/18/sql-expressions.html#SQL-SYNTAX-COLLATE-EXPRS"
         }
       ],
       "dialects": {
-        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/type-resolution.test.ts"] },
         "postgres": {
           "level": "conservative",
           "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
@@ -354,7 +363,10 @@
         }
       ],
       "dialects": {
-        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "mysql": {
+          "level": "conservative",
+          "tests": ["packages/mysql/test/catalog.test.ts", "packages/mysql/test/type-resolution.test.ts"]
+        },
         "postgres": { "level": "conservative", "tests": ["packages/postgres/test/plugin.test.ts"] },
         "sqlite": {
           "level": "conservative",
@@ -625,7 +637,10 @@
         }
       ],
       "dialects": {
-        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "mysql": {
+          "level": "conservative",
+          "tests": ["packages/mysql/test/catalog.test.ts", "packages/mysql/test/type-resolution.test.ts"]
+        },
         "postgres": { "level": "conservative", "tests": ["packages/postgres/test/plugin.test.ts"] },
         "sqlite": {
           "level": "conservative",
@@ -1681,7 +1696,14 @@
         { "title": "SQLite type affinities", "url": "https://www.sqlite.org/datatype3.html" }
       ],
       "dialects": {
-        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/resolver-matrix.test.ts"] },
+        "mysql": {
+          "level": "conservative",
+          "tests": [
+            "packages/mysql/test/catalog.test.ts",
+            "packages/mysql/test/resolver-matrix.test.ts",
+            "packages/mysql/test/type-resolution.test.ts"
+          ]
+        },
         "postgres": { "level": "conservative", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
         "sqlite": {
           "level": "conservative",

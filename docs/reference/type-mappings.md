@@ -55,10 +55,18 @@ Policy alternatives:
 | `date`, `datetime`, `timestamp` | `Date` | Date converted from lossless text |
 | `year` | `number` | JavaScript number |
 | `json` | `unknown` | Parsed JSON value |
+| `vector` on MySQL 9.7 or later | `Uint8Array` | Node.js `Buffer` |
 | enum | Literal string union | JavaScript string |
 | nullable column | `T | null` | `null` bypasses scalar codecs |
 
 The adapter owns mysql2 settings that affect row shape and decoding. Supplying conflicting options through `poolConfig` fails before a pool is created.
+
+Expression inference also uses the selected server catalog. Exact integer arithmetic uses the
+`bigint` policy when MySQL produces a 64-bit result; decimal arithmetic uses the `decimal` policy;
+and any approximate operand produces `number`. Unsigned arithmetic remains unsigned except for
+subtraction under `NO_UNSIGNED_SUBTRACTION`. String results carry charset, collation, and
+coercibility evidence internally so comparisons, `CONCAT`, character-set introducers, and explicit
+`COLLATE` clauses can reject incompatible combinations.
 
 Policy alternatives:
 

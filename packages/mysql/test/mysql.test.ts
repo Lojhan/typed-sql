@@ -549,7 +549,7 @@ await describe("MySQL dialect", async () => {
     const budget = Number(process.env.TYPED_SQL_MYSQL_TYPE_SECURITY_BUDGET_MS ?? "1000");
     const start = performance.now();
     strict.strictEqual(mapMySqlType(malformedEnum, defaultMySqlTypePolicy), "unknown");
-    strict.strictEqual(mapMySqlType(spacedType, defaultMySqlTypePolicy), "unknown");
+    strict.strictEqual(mapMySqlType(spacedType, defaultMySqlTypePolicy), "bigint");
     const duration = performance.now() - start;
     strict.ok(duration <= budget, `MySQL type parsing took ${duration.toFixed(1)}ms; budget is ${budget}ms`);
   });

@@ -1,5 +1,16 @@
 import { ParameterCollector, type ResolvedParameter, ResolverSchemaIndex, unionTypeLiterals } from "@typed-sql/core";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
+import {
+  type MySqlCatalogCollation,
+  type MySqlRoutineResultRule,
+  mySqlCatalogCollation,
+  mySqlCatalogHasRoutineInAnotherSeries,
+  mySqlCatalogOperator,
+  mySqlCatalogRoutine,
+  mySqlCatalogType,
+  mySqlCoreCatalogForSchema,
+  normalizeMySqlType,
+} from "./catalog/index.js";
 import type {
   CallExpression,
   Expression,
@@ -20,6 +31,10 @@ interface ResolvedType {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  readonly characterSet?: string;
+  readonly collation?: string;
+  readonly coercibility?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  readonly unsigned?: boolean;
 }
 
 interface Relation {
@@ -53,21 +68,6 @@ export interface ResolveMySqlOptions {
   readonly strictExpressions?: boolean;
 }
 
-const numericTypes = new Set([
-  "tinyint",
-  "smallint",
-  "mediumint",
-  "int",
-  "integer",
-  "bigint",
-  "decimal",
-  "numeric",
-  "float",
-  "double",
-  "real",
-  "bit",
-  "year",
-]);
 const comparisonOperators = new Set([
   "=",
   "!=",
@@ -249,11 +249,11 @@ function name(identifier: Identifier): string {
 }
 
 function normalized(databaseType: string): string {
-  return databaseType
-    .trim()
-    .toLowerCase()
-    .replace(/\s+unsigned$/u, "")
-    .replace(/\(.*/u, "");
+  return normalizeMySqlType(databaseType);
+}
+
+function isUnsigned(databaseType: string | undefined): boolean {
+  return databaseType !== undefined && /(?:^|\s)unsigned(?:\s|$)/iu.test(databaseType);
 }
 
 function unionMySqlTypes(types: readonly string[]): string {
@@ -267,6 +267,7 @@ class Resolver {
   readonly #diagnostics: SqlDiagnostic[] = [];
   readonly #parameters = new ParameterCollector();
   readonly #index: ResolverSchemaIndex;
+  readonly #sqlModes: ReadonlySet<string>;
   #activeWindows: ReadonlyMap<string, WindowSpecification> = new Map();
   #duplicateTarget: Relation | undefined;
 
@@ -275,6 +276,11 @@ class Resolver {
     this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
     this.#strict = options.strictExpressions ?? true;
+    this.#sqlModes = new Set(
+      typeof schema.server?.settings.sqlMode === "string"
+        ? schema.server.settings.sqlMode.split(",").filter(Boolean)
+        : [],
+    );
   }
 
   resolve(statement: Statement): ResolvedMySqlQuery {
@@ -1310,15 +1316,36 @@ class Resolver {
       return this.#resolveColumn(expression.relation, expression.column, scope);
     }
     if (expression.kind === "literal") {
-      if (expression.value === null) return { tsType: "unknown", nullable: true };
-      if (typeof expression.value === "boolean") return { tsType: "boolean", nullable: false, databaseType: "boolean" };
-      if (typeof expression.value === "number")
+      if (expression.value === null) return { tsType: "unknown", nullable: true, coercibility: 6 };
+      if (typeof expression.value === "boolean")
+        return { tsType: "boolean", nullable: false, databaseType: "boolean", coercibility: 5 };
+      if (typeof expression.value === "number") {
+        const databaseType = Number.isInteger(expression.value) ? "int" : "decimal";
         return {
-          tsType: "number",
+          tsType: databaseType === "decimal" ? this.#policy.decimal : "number",
           nullable: false,
-          databaseType: Number.isInteger(expression.value) ? "int" : "decimal",
+          databaseType,
+          unsigned: false,
+          coercibility: 5,
         };
-      return { tsType: "string", nullable: false, databaseType: "varchar" };
+      }
+      const characterSet = expression.characterSet?.name.slice(1).toLowerCase();
+      const connectionCharacterSet = this.#schema.server?.settings.characterSetConnection;
+      const connectionCollation = this.#schema.server?.settings.collationConnection;
+      return {
+        tsType: "string",
+        nullable: false,
+        databaseType: characterSet === "binary" ? "varbinary" : "varchar",
+        ...(typeof (characterSet ?? connectionCharacterSet) === "string"
+          ? { characterSet: String(characterSet ?? connectionCharacterSet) }
+          : {}),
+        ...(characterSet === "binary"
+          ? { collation: "binary" }
+          : characterSet === undefined && typeof connectionCollation === "string"
+            ? { collation: connectionCollation }
+            : {}),
+        coercibility: 4,
+      };
     }
     if (expression.kind === "parameter") return this.#recordParameter(expression.index, expected);
     if (expression.kind === "star") return { tsType: "unknown", nullable: false };
@@ -1350,13 +1377,49 @@ class Resolver {
         tsType: mapMySqlType(expression.databaseType.name, this.#policy, this.#schema),
         nullable: source.nullable,
         databaseType: normalized(expression.databaseType.name),
+        unsigned: isUnsigned(expression.databaseType.name),
+        ...(mySqlCatalogType(expression.databaseType.name, this.#schema)?.category === "string"
+          ? this.#connectionCollation(2)
+          : {}),
+      };
+    }
+    if (expression.kind === "collate") {
+      const source = this.#expression(expression.expression, scope, ctes);
+      const collation = mySqlCatalogCollation(name(expression.collation), this.#schema);
+      if (collation === undefined) {
+        this.#diagnostic("TSQ106", `Unknown MySQL collation ${expression.collation.name}`, expression.collation.range);
+        return { tsType: "unknown", nullable: true };
+      }
+      if (!this.#collatable(source)) {
+        this.#diagnostic(
+          "TSQ203",
+          `COLLATE requires a character string, received ${source.databaseType ?? source.tsType}`,
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      if (source.characterSet !== undefined && source.characterSet !== collation.characterSet) {
+        this.#diagnostic(
+          "TSQ203",
+          `Collation ${collation.name} is not valid for character set ${source.characterSet}`,
+          expression.collation.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      return {
+        ...source,
+        characterSet: collation.characterSet,
+        collation: collation.name,
+        coercibility: 0,
       };
     }
     if (expression.kind === "unary") {
       const operand = this.#expression(expression.expression, scope, ctes);
       return expression.operator === "NOT"
         ? { tsType: "boolean", nullable: operand.nullable, databaseType: "boolean" }
-        : operand;
+        : expression.operator === "-"
+          ? { ...operand, unsigned: false }
+          : operand;
     }
     if (expression.kind === "binary") return this.#binary(expression, scope, ctes);
     if (expression.kind === "call") return this.#call(expression, scope, ctes);
@@ -1434,7 +1497,9 @@ class Resolver {
       left = this.#expression(expression.left, scope, ctes);
       right = this.#expression(expression.right, scope, ctes, expression.right.kind === "parameter" ? left : undefined);
     }
-    if (comparisonOperators.has(expression.operator))
+    const operator = mySqlCatalogOperator(expression.operator, this.#schema);
+    if (comparisonOperators.has(expression.operator)) {
+      if (this.#collatable(left) && this.#collatable(right)) this.#resolveCollation(left, right, expression.range);
       return {
         tsType: "boolean",
         nullable:
@@ -1443,26 +1508,54 @@ class Resolver {
             : left.nullable || right.nullable,
         databaseType: "boolean",
       };
+    }
     if (expression.operator === "->") return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
-    if (expression.operator === "->>") return { tsType: "string", nullable: true, databaseType: "varchar" };
+    if (expression.operator === "->>")
+      return { tsType: "string", nullable: true, databaseType: "varchar", ...this.#connectionCollation(2) };
     if (expression.operator === "||") {
-      return left.tsType === "string" && right.tsType === "string"
-        ? { tsType: "string", nullable: left.nullable || right.nullable, databaseType: "varchar" }
+      const collation = this.#resolveCollation(left, right, expression.range);
+      return this.#collatable(left) && this.#collatable(right)
+        ? {
+            tsType: "string",
+            nullable: left.nullable || right.nullable,
+            databaseType: "varchar",
+            ...(collation ?? {}),
+          }
         : { tsType: "unknown", nullable: left.nullable || right.nullable };
     }
-    const leftType = left.databaseType === undefined ? undefined : normalized(left.databaseType);
-    const rightType = right.databaseType === undefined ? undefined : normalized(right.databaseType);
+    const leftType = left.databaseType === undefined ? undefined : mySqlCatalogType(left.databaseType, this.#schema);
+    const rightType = right.databaseType === undefined ? undefined : mySqlCatalogType(right.databaseType, this.#schema);
     if (
       leftType !== undefined &&
       rightType !== undefined &&
-      numericTypes.has(leftType) &&
-      numericTypes.has(rightType)
+      leftType.category.startsWith("numeric-") &&
+      rightType.category.startsWith("numeric-") &&
+      operator?.result === "numeric"
     ) {
-      const decimal = leftType === "decimal" || rightType === "decimal" || expression.operator === "/";
+      const approximate = leftType.category === "numeric-approximate" || rightType.category === "numeric-approximate";
+      const decimal =
+        !approximate &&
+        (leftType.category === "numeric-decimal" ||
+          rightType.category === "numeric-decimal" ||
+          expression.operator === "/");
+      const unsigned =
+        !approximate &&
+        !decimal &&
+        (left.unsigned === true || right.unsigned === true) &&
+        !(expression.operator === "-" && this.#sqlModes.has("NO_UNSIGNED_SUBTRACTION"));
       return {
-        tsType: decimal ? this.#policy.decimal : "number",
+        tsType: approximate ? "number" : decimal ? this.#policy.decimal : this.#policy.bigint,
+        nullable: left.nullable || right.nullable || expression.operator === "/",
+        databaseType: approximate ? "double" : decimal ? "decimal" : `bigint${unsigned ? " unsigned" : ""}`,
+        unsigned,
+      };
+    }
+    if (operator?.result === "bitwise") {
+      return {
+        tsType: this.#policy.bigint,
         nullable: left.nullable || right.nullable,
-        databaseType: decimal ? "decimal" : "double",
+        databaseType: "bigint unsigned",
+        unsigned: true,
       };
     }
     if (left.tsType === "unknown" || right.tsType === "unknown")
@@ -1532,39 +1625,39 @@ class Resolver {
     ) {
       this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
     }
-    if (["ROW_NUMBER", "RANK", "DENSE_RANK", "NTILE"].includes(functionName)) {
-      return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
+    const builtin = expression.schema === undefined ? mySqlCatalogRoutine(functionName, this.#schema) : undefined;
+    if (builtin !== undefined) {
+      if (
+        values.length < builtin.minimumArguments ||
+        (builtin.maximumArguments !== null && values.length > builtin.maximumArguments)
+      ) {
+        this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
+      }
+      const edition = this.#schema.server?.settings.edition;
+      if (typeof edition === "string" && edition !== "unknown" && !builtin.editions.includes(edition as never)) {
+        this.#diagnostic(
+          "TSQ403",
+          `${functionName} is not available in the ${edition} MySQL edition`,
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      return this.#builtinResult(builtin.result, functionName, values, expression.range);
     }
-    if (["CUME_DIST", "PERCENT_RANK"].includes(functionName)) {
-      return { tsType: "number", nullable: false, databaseType: "double" };
-    }
-    if (["LAG", "LEAD", "NTH_VALUE"].includes(functionName)) {
-      return { ...(values[0] ?? { tsType: "unknown" }), nullable: true };
-    }
-    if (["FIRST_VALUE", "LAST_VALUE"].includes(functionName)) {
-      return values[0] ?? { tsType: "unknown", nullable: true };
+    if (
+      mySqlCoreCatalogForSchema(this.#schema) !== undefined &&
+      mySqlCatalogHasRoutineInAnotherSeries(functionName, this.#schema)
+    ) {
+      this.#diagnostic(
+        "TSQ403",
+        `${functionName} is not available in MySQL ${this.#schema.server?.versionKey ?? this.#schema.version}`,
+        expression.range,
+      );
+      return { tsType: "unknown", nullable: true };
     }
     if (functionName === "GROUPING") {
       return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint unsigned" };
     }
-    if (functionName === "ANY_VALUE") return values[0] ?? { tsType: "unknown", nullable: true };
-    if (functionName === "COUNT") return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
-    if (["SUM", "AVG"].includes(functionName))
-      return { tsType: this.#policy.decimal, nullable: true, databaseType: "decimal" };
-    if (["MIN", "MAX"].includes(functionName)) return { ...(values[0] ?? { tsType: "unknown" }), nullable: true };
-    if (functionName === "COALESCE")
-      return {
-        tsType: unionTypeLiterals(values.map((value) => value.tsType)),
-        nullable: values.every((value) => value.nullable),
-      };
-    if (functionName === "IFNULL" || functionName === "NULLIF")
-      return {
-        ...(values[0] ?? { tsType: "unknown" }),
-        nullable: functionName === "NULLIF" || values.every((value) => value.nullable),
-      };
-    if (functionName === "GROUP_CONCAT") return { tsType: "string", nullable: true, databaseType: "text" };
-    if (["JSON_ARRAYAGG", "JSON_OBJECTAGG", "JSON_EXTRACT"].includes(functionName))
-      return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
     const candidates = this.#index.functions(
       name(expression.name),
       values.length,
@@ -1791,7 +1884,16 @@ class Resolver {
   }
 
   #columnType(relation: Relation, column: ColumnSnapshot): ResolvedType {
-    return { tsType: column.tsType, nullable: column.nullable || relation.nullable, databaseType: column.databaseType };
+    const evidence = this.#index.columnEvidence(relation.table, column);
+    return {
+      tsType: column.tsType,
+      nullable: column.nullable || relation.nullable,
+      databaseType: column.databaseType,
+      unsigned: isUnsigned(column.databaseType),
+      ...(evidence?.characterSet === undefined ? {} : { characterSet: evidence.characterSet }),
+      ...(evidence?.collation === undefined ? {} : { collation: evidence.collation }),
+      ...(evidence?.characterSet === undefined ? {} : { coercibility: 2 as const }),
+    };
   }
 
   #outputName(expression: Expression): string | undefined {
@@ -1810,9 +1912,152 @@ class Resolver {
     };
   }
 
+  #builtinResult(
+    rule: MySqlRoutineResultRule,
+    functionName: string,
+    values: readonly ResolvedType[],
+    range: SourceRange,
+  ): ResolvedType {
+    const argumentNullable = values.some((value) => value.nullable);
+    if (rule === "count")
+      return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint", unsigned: false };
+    if (rule === "bigint")
+      return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint", unsigned: false };
+    if (rule === "integer" || rule === "coercibility")
+      return {
+        tsType: "number",
+        nullable: rule === "integer" && argumentNullable,
+        databaseType: "bigint",
+        unsigned: true,
+      };
+    if (rule === "double") return { tsType: "number", nullable: argumentNullable, databaseType: "double" };
+    if (rule === "decimal-aggregate")
+      return { tsType: this.#policy.decimal, nullable: true, databaseType: "decimal", unsigned: false };
+    if (rule === "extrema") return { ...(values[0] ?? { tsType: "unknown" }), nullable: true };
+    if (rule === "first-argument") {
+      return {
+        ...(values[0] ?? { tsType: "unknown" }),
+        nullable: functionName === "NULLIF" || (functionName === "IFNULL" && values.every((value) => value.nullable)),
+      };
+    }
+    if (rule === "value-window") return { ...(values[0] ?? { tsType: "unknown" }), nullable: true };
+    if (rule === "coalesce") {
+      const collation = values.reduce<Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> | undefined>(
+        (current, value) =>
+          current === undefined ? value : (this.#resolveCollation(current as ResolvedType, value, range) ?? current),
+        undefined,
+      );
+      return {
+        tsType: unionTypeLiterals(values.map((value) => value.tsType)),
+        nullable: values.every((value) => value.nullable),
+        ...(collation ?? {}),
+      };
+    }
+    if (rule === "concat") {
+      const collation = values.reduce<Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> | undefined>(
+        (current, value) =>
+          current === undefined ? value : (this.#resolveCollation(current as ResolvedType, value, range) ?? current),
+        undefined,
+      );
+      return {
+        tsType: "string",
+        nullable: argumentNullable,
+        databaseType: "text",
+        ...(collation ?? this.#connectionCollation(1)),
+        coercibility: values.length > 1 ? 1 : (collation?.coercibility ?? 1),
+      };
+    }
+    if (rule === "string" || rule === "collation-name") {
+      const systemConstant = ["CURRENT_USER", "DATABASE", "USER", "UUID", "VERSION"].includes(functionName);
+      return {
+        tsType: "string",
+        nullable: argumentNullable,
+        databaseType: "varchar",
+        ...this.#connectionCollation(systemConstant ? 3 : 2),
+      };
+    }
+    if (rule === "bytes" || rule === "vector") {
+      return { tsType: "Uint8Array", nullable: argumentNullable, databaseType: rule === "vector" ? "vector" : "blob" };
+    }
+    if (rule === "date") {
+      return { tsType: this.#policy.date, nullable: false, databaseType: "datetime", coercibility: 5 };
+    }
+    return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
+  }
+
+  #connectionCollation(
+    coercibility: 0 | 1 | 2 | 3 | 4 | 5 | 6,
+  ): Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> {
+    const characterSet = this.#schema.server?.settings.characterSetConnection;
+    const collation = this.#schema.server?.settings.collationConnection;
+    return {
+      ...(typeof characterSet === "string" ? { characterSet } : {}),
+      ...(typeof collation === "string" ? { collation } : {}),
+      coercibility,
+    };
+  }
+
+  #collatable(value: ResolvedType): boolean {
+    if (value.characterSet !== undefined) return true;
+    const category =
+      value.databaseType === undefined ? undefined : mySqlCatalogType(value.databaseType, this.#schema)?.category;
+    return category === "string" || category === "collection";
+  }
+
+  #resolveCollation(
+    left: ResolvedType,
+    right: ResolvedType,
+    range: SourceRange,
+  ): Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> | undefined {
+    const leftCollation =
+      left.collation === undefined ? undefined : mySqlCatalogCollation(left.collation, this.#schema);
+    const rightCollation =
+      right.collation === undefined ? undefined : mySqlCatalogCollation(right.collation, this.#schema);
+    if (leftCollation === undefined)
+      return rightCollation === undefined ? undefined : this.#collationResult(rightCollation, right);
+    if (rightCollation === undefined) return this.#collationResult(leftCollation, left);
+    if (leftCollation.name === rightCollation.name) {
+      return this.#collationResult(leftCollation, (left.coercibility ?? 6) <= (right.coercibility ?? 6) ? left : right);
+    }
+    const leftCoercibility = left.coercibility ?? 6;
+    const rightCoercibility = right.coercibility ?? 6;
+    if (leftCoercibility < rightCoercibility) return this.#collationResult(leftCollation, left);
+    if (rightCoercibility < leftCoercibility) return this.#collationResult(rightCollation, right);
+    if (leftCollation.unicode !== rightCollation.unicode) {
+      const selected = leftCollation.unicode ? leftCollation : rightCollation;
+      return this.#collationResult(selected, { coercibility: leftCoercibility } as ResolvedType);
+    }
+    if (leftCollation.characterSet === rightCollation.characterSet && leftCollation.binary !== rightCollation.binary) {
+      const selected = leftCollation.binary ? leftCollation : rightCollation;
+      return this.#collationResult(selected, { coercibility: leftCoercibility } as ResolvedType);
+    }
+    this.#diagnostic(
+      "TSQ203",
+      `Cannot combine collations ${leftCollation.name} and ${rightCollation.name} at equal coercibility`,
+      range,
+    );
+    return undefined;
+  }
+
+  #collationResult(
+    collation: MySqlCatalogCollation,
+    source: Pick<ResolvedType, "coercibility">,
+  ): Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> {
+    return {
+      characterSet: collation.characterSet,
+      collation: collation.name,
+      coercibility: source.coercibility ?? 6,
+    };
+  }
+
   #snapshotType(column: ColumnSnapshot | undefined): ResolvedType | undefined {
     if (column === undefined) return undefined;
-    return { tsType: column.tsType, nullable: column.nullable, databaseType: column.databaseType };
+    return {
+      tsType: column.tsType,
+      nullable: column.nullable,
+      databaseType: column.databaseType,
+      unsigned: isUnsigned(column.databaseType),
+    };
   }
 
   #databaseType(databaseType: string, nullable: boolean): ResolvedType {
@@ -1820,11 +2065,28 @@ class Resolver {
       tsType: mapMySqlType(databaseType, this.#policy, this.#schema),
       nullable,
       databaseType: normalized(databaseType),
+      unsigned: isUnsigned(databaseType),
+      ...(mySqlCatalogType(databaseType, this.#schema)?.category === "string" ? this.#connectionCollation(2) : {}),
     };
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
-    return this.#parameters.record(index, expected);
+    const parameterExpected =
+      expected === undefined
+        ? undefined
+        : {
+            tsType: expected.tsType,
+            nullable: expected.nullable,
+            ...(expected.databaseType === undefined ? {} : { databaseType: expected.databaseType }),
+          };
+    const parameter = this.#parameters.record(index, parameterExpected);
+    return {
+      ...parameter,
+      ...(expected?.characterSet === undefined ? {} : { characterSet: expected.characterSet }),
+      ...(expected?.collation === undefined ? {} : { collation: expected.collation }),
+      ...(expected?.coercibility === undefined ? {} : { coercibility: expected.coercibility }),
+      ...(expected?.unsigned === undefined ? {} : { unsigned: expected.unsigned }),
+    };
   }
 
   #unsupported(message: string, range: SourceRange): void {

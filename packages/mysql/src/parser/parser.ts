@@ -876,7 +876,17 @@ class Parser {
       const close = this.#expectPunctuation(")");
       return { kind: "exists", query: statement, range: mergeRanges(token.range, close.range) };
     }
-    return this.#parsePrimary();
+    let expression = this.#parsePrimary();
+    while (this.#matchKeyword("COLLATE")) {
+      const collation = this.#parseIdentifier(true);
+      expression = {
+        kind: "collate",
+        expression,
+        collation,
+        range: mergeRanges(expression.range, collation.range),
+      };
+    }
+    return expression;
   }
 
   #parsePrimary(): Expression {
@@ -920,7 +930,11 @@ class Parser {
       return { kind: "column", column: { name: "DEFAULT", quoted: false, range: token.range }, range: token.range };
     if (token.kind === "number") {
       this.#advance();
-      return { kind: "literal", value: Number(token.value), range: token.range };
+      return {
+        kind: "literal",
+        value: Number(token.value),
+        range: token.range,
+      };
     }
     if (token.kind === "string") {
       this.#advance();
@@ -931,6 +945,17 @@ class Parser {
       return { kind: "parameter", index: Number(token.value), range: token.range };
     }
     if (this.#matchOperator("*")) return { kind: "star", range: token.range };
+    if (token.kind === "identifier" && token.value.startsWith("_") && this.#peekToken(1).kind === "string") {
+      const characterSet = this.#parseIdentifier();
+      const value = this.#current();
+      this.#advance();
+      return {
+        kind: "literal",
+        value: value.value,
+        characterSet,
+        range: mergeRanges(characterSet.range, value.range),
+      };
+    }
     if (this.#isIdentifierLike(token)) {
       const first = this.#parseIdentifier(true);
       if (this.#matchPunctuation("(")) return this.#parseCall(undefined, first);

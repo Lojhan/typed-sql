@@ -70,6 +70,8 @@ export interface StructuralColumnSnapshot {
   readonly default: "none" | "present" | "unknown";
   readonly generated: "none" | "virtual" | "stored";
   readonly identity: "none" | "always" | "by-default" | "unknown";
+  readonly collation?: string;
+  readonly characterSet?: string;
   readonly insertable: boolean | "unknown";
   readonly updatable: boolean | "unknown";
 }

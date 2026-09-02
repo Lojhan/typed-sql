@@ -1,4 +1,5 @@
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { mySqlCatalogType } from "./catalog/index.js";
 
 export interface MySqlTypePolicy {
   readonly bigint: "bigint" | "string" | "number";
@@ -86,60 +87,23 @@ export function mySqlEnumValues(databaseType: string): readonly string[] | undef
 
 export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot): boolean {
   const type = baseType(databaseType);
-  return (
-    [
-      "tinyint",
-      "smallint",
-      "mediumint",
-      "int",
-      "integer",
-      "bigint",
-      "decimal",
-      "numeric",
-      "float",
-      "double",
-      "real",
-      "bit",
-      "boolean",
-      "bool",
-      "char",
-      "varchar",
-      "tinytext",
-      "text",
-      "mediumtext",
-      "longtext",
-      "binary",
-      "varbinary",
-      "tinyblob",
-      "blob",
-      "mediumblob",
-      "longblob",
-      "date",
-      "datetime",
-      "timestamp",
-      "time",
-      "year",
-      "json",
-      "enum",
-      "set",
-    ].includes(type) || schema?.domains?.[type] !== undefined
-  );
+  return mySqlCatalogType(type, schema) !== undefined || schema?.domains?.[type] !== undefined;
 }
 
 export function mapMySqlType(databaseType: string, policy: MySqlTypePolicy, schema?: SchemaSnapshot): string {
   const type = baseType(databaseType);
   const values = mySqlEnumValues(databaseType);
   if (values !== undefined) return values.map((value) => JSON.stringify(value)).join(" | ") || "never";
+  if (type === "enum") return policy.unknown;
   if (type === "tinyint" && /^tinyint\(1\)/iu.test(databaseType)) return policy.tinyint1;
-  if (["tinyint", "smallint", "mediumint", "int", "integer", "float", "double", "real", "year"].includes(type))
-    return "number";
-  if (type === "bit") return "Uint8Array";
-  if (type === "bigint") return policy.bigint;
-  if (type === "decimal" || type === "numeric") return policy.decimal;
-  if (type === "boolean" || type === "bool") return "boolean";
-  if (["char", "varchar", "tinytext", "text", "mediumtext", "longtext", "set", "time"].includes(type)) return "string";
-  if (["binary", "varbinary", "tinyblob", "blob", "mediumblob", "longblob"].includes(type)) return "Uint8Array";
-  if (["date", "datetime", "timestamp"].includes(type)) return policy.date;
-  if (type === "json") return policy.json;
+  const mapping = mySqlCatalogType(type, schema)?.mapping;
+  if (mapping === "number") return "number";
+  if (mapping === "bytes") return "Uint8Array";
+  if (mapping === "bigint") return policy.bigint;
+  if (mapping === "numeric") return policy.decimal;
+  if (mapping === "boolean") return "boolean";
+  if (mapping === "string") return "string";
+  if (mapping === "date") return policy.date;
+  if (mapping === "json") return policy.json;
   return schema?.domains?.[type]?.tsType ?? policy.unknown;
 }

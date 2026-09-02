@@ -50,6 +50,14 @@ export interface StarExpression {
 export interface LiteralExpression {
   readonly kind: "literal";
   readonly value: string | number | boolean | null;
+  readonly characterSet?: Identifier;
+  readonly range: SourceRange;
+}
+
+export interface CollateExpression {
+  readonly kind: "collate";
+  readonly expression: Expression;
+  readonly collation: Identifier;
   readonly range: SourceRange;
 }
 
@@ -152,6 +160,7 @@ export type Expression =
   | ColumnExpression
   | StarExpression
   | LiteralExpression
+  | CollateExpression
   | ParameterExpression
   | ArrayExpression
   | RowExpression

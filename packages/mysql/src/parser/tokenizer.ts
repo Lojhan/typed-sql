@@ -23,6 +23,7 @@ const keywords = new Set([
   "CASE",
   "CAST",
   "COALESCE",
+  "COLLATE",
   "CONFLICT",
   "COUNT",
   "CROSS",
