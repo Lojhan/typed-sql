@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "minimumKillRatio": 1,
+  "mutants": [
+    {
+      "id": "artifact-comparison-inverted",
+      "file": "packages/core/src/artifact-compatibility.ts",
+      "search": "if (left !== undefined && left !== right) target.push(reason);",
+      "replacement": "if (left !== undefined && left === right) target.push(reason);",
+      "test": "packages/core/test/artifact-compatibility.test.ts"
+    },
+    {
+      "id": "artifact-schema-format-inverted",
+      "file": "packages/core/src/artifact-compatibility.ts",
+      "search": "if (reference.schema.formatVersion !== candidate.schema.formatVersion)",
+      "replacement": "if (reference.schema.formatVersion === candidate.schema.formatVersion)",
+      "test": "packages/core/test/artifact-compatibility.test.ts"
+    },
+    {
+      "id": "parameter-order-reversed",
+      "file": "packages/core/src/query.ts",
+      "search": "values.push(segment.value);",
+      "replacement": "values.unshift(segment.value);",
+      "occurrence": 1,
+      "test": "packages/core/test/query.test.ts"
+    },
+    {
+      "id": "cancellation-capability-inverted",
+      "file": "packages/core/src/execution.ts",
+      "search": "options.signal !== undefined && !capabilities.cancellation",
+      "replacement": "options.signal !== undefined && capabilities.cancellation",
+      "test": "packages/core/test/query.test.ts"
+    },
+    {
+      "id": "diagnostic-membership-inverted",
+      "file": "packages/core/src/diagnostics.ts",
+      "search": "return Object.hasOwn(diagnosticRegistry, value);",
+      "replacement": "return !Object.hasOwn(diagnosticRegistry, value);",
+      "test": "packages/core/test/query.test.ts"
+    }
+  ]
+}
