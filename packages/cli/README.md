@@ -14,6 +14,7 @@ Install a grammar and its application-owned driver, then create `typed-sql.confi
 
 ```sh
 pnpm exec typed-sql generate
+pnpm exec typed-sql doctor
 pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
 pnpm exec typed-sql drift
 pnpm exec typed-sql manifest
@@ -25,6 +26,11 @@ pnpm exec typed-sql compat --before before.schema.json --after after.schema.json
 
 Use `--config path/to/typed-sql.config.ts` to bypass config discovery. Run
 `pnpm exec typed-sql --help` for command options.
+
+`typed-sql doctor` checks the exact Node.js and TypeScript boundary, grammar and schema identities,
+redacted server evidence, installed language-server/bridge metadata, and editor protocol window.
+Use `--json` for automation and `--protocol <version>` to check a specific client. The report emits
+hashes and setting names, never setting values, schema expressions, source text, or absolute paths.
 
 The CLI contains no PostgreSQL, MySQL, `pg`, or `mysql2` dependency. It loads the installed grammar
 and schema provider through the application config. Read

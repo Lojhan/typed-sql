@@ -5,6 +5,7 @@ import { access, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import type { DialectPlugin, SchemaSnapshot, SqlDiagnostic } from "@typed-sql/core";
 import { analyzeSource, SOURCE_ANALYSIS_FORMAT_VERSION, type SourceAnalysisResult } from "./analysis.js";
+import { assertTypeScriptCompilerVersion } from "./typescript.js";
 
 export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly file: string;
@@ -127,13 +128,25 @@ export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
     files: [`./${overlay.slice(directory.length + 1)}`],
     include: [],
   };
+  const timeout = options.typeScriptTimeoutMs ?? 60_000;
+  if (!Number.isSafeInteger(timeout) || timeout < 1)
+    throw new TypeError("typeScriptTimeoutMs must be a positive safe integer");
+  const binary = await tscBinary(directory);
+  const versionResult = spawnSync(binary, ["--version"], {
+    cwd: directory,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+    timeout,
+  });
+  const versionMatch = /^Version\s+([^\s]+)\s*$/u.exec(String(versionResult.stdout ?? "").trim());
+  if (versionResult.status !== 0 || versionMatch?.[1] === undefined) {
+    const detail = `${versionResult.stderr ?? ""}${versionResult.error?.message ?? ""}`.trim();
+    throw new Error(`typed-sql could not determine the TypeScript compiler version${detail ? `: ${detail}` : ""}`);
+  }
+  assertTypeScriptCompilerVersion(versionMatch[1]);
   await writeFile(overlay, analysis.transformedSource, "utf8");
   await writeFile(tempConfig, `${JSON.stringify(config, null, 2)}\n`, "utf8");
   try {
-    const binary = await tscBinary(directory);
-    const timeout = options.typeScriptTimeoutMs ?? 60_000;
-    if (!Number.isSafeInteger(timeout) || timeout < 1)
-      throw new TypeError("typeScriptTimeoutMs must be a positive safe integer");
     const result = spawnSync(binary, ["--project", tempConfig, "--pretty", "false"], {
       cwd: directory,
       encoding: "utf8",

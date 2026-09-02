@@ -34,6 +34,10 @@ disposal, and process disposal without returning TypeScript nodes or symbols. Th
 adapter is `typescript-7.1-native-preview`; every `unstable/*` import is contained in its
 version-specific module. `NativePreviewTypeScriptBridge` remains the simpler compatibility API.
 
+Backend creation validates the installed preview package against the exact supported patch before
+loading a project. Dependency overrides fail with `TypeScriptPreviewCompatibilityError` and an
+actionable reinstall instruction instead of attempting an unknown unstable API.
+
 `TYPESCRIPT_SUPPORT_POLICY` records the exact tested boundary: compiler correctness uses TypeScript
 7.0.2 and the editor backend uses `7.1.0-dev.20260824.1`. Another patch or major/minor line is not
 silently accepted as equivalent. New lines enter the matrix as non-blocking canaries before support.

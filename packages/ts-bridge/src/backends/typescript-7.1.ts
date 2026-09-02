@@ -9,6 +9,7 @@ import type {
   TypeScriptProjectRequest,
   TypeScriptTypeInspection,
 } from "../backend.js";
+import { assertTypeScriptPreviewVersion } from "../compatibility.js";
 import { TYPESCRIPT_SUPPORT_POLICY } from "../support.js";
 
 export const TYPESCRIPT_71_BACKEND_IDENTITY: TypeScriptBackendIdentity = Object.freeze({
@@ -43,10 +44,12 @@ export class TypeScript71PreviewBackend implements TypeScriptBackend {
   }
 
   static connect(pipe: string): Promise<TypeScript71PreviewBackend> {
+    assertTypeScriptPreviewVersion();
     return API.fromLSPConnection({ pipe }).then((api) => new TypeScript71PreviewBackend(api, true));
   }
 
   static spawn(options: TypeScriptBackendSpawnOptions = {}): TypeScript71PreviewBackend {
+    assertTypeScriptPreviewVersion();
     return new TypeScript71PreviewBackend(new API(options), false);
   }
 

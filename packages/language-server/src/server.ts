@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { cwd, stderr, stdin, stdout } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { BridgeAnalysis } from "@typed-sql/ts-bridge";
+import { assertTypeScriptPreviewVersion, type BridgeAnalysis } from "@typed-sql/ts-bridge";
 import { typescriptPreviewCliPath } from "@typed-sql/ts-bridge/native-lsp";
 import { TYPESCRIPT_PREVIEW_VERSION } from "@typed-sql/ts-bridge/native-preview";
 import {
@@ -67,6 +67,7 @@ interface WatchedFileChange {
   readonly type: number;
 }
 
+assertTypeScriptPreviewVersion();
 const previewCli = process.env.TYPED_SQL_TYPESCRIPT_PREVIEW_CLI ?? typescriptPreviewCliPath();
 const preview = spawn(process.execPath, [previewCli, "--lsp", "--stdio"], {
   cwd: cwd(),

@@ -22,6 +22,11 @@ export type {
   TypeScriptTypeInspection,
 } from "./backend.js";
 export { createTypeScriptBackend, TYPESCRIPT_BACKEND_ADAPTERS } from "./backends/index.js";
+export {
+  assertTypeScriptPreviewVersion,
+  installedTypeScriptPreviewVersion,
+  TypeScriptPreviewCompatibilityError,
+} from "./compatibility.js";
 export type { TypeScriptIntegrationSurface, TypeScriptVersionSupport } from "./support.js";
 export { TYPESCRIPT_PREVIEW_VERSION, TYPESCRIPT_SUPPORT_POLICY, typeScriptVersionSupport } from "./support.js";
 

@@ -28,7 +28,13 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "experimental"
+    "releaseTrack": "experimental",
+    "protocolVersion": 1,
+    "acceptedProtocolVersions": [
+      1
+    ],
+    "legacyUnversionedProtocolVersion": 1,
+    "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
   },
   "type": "module",
   "bin": {

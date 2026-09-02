@@ -28,6 +28,15 @@ version boundaries, see [Upgrade from typed-sql v1](../guides/upgrading-from-v1.
 
 TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by some editors. CLI checking and compiler transforms are authoritative and do not depend on that file. Other TypeScript patches are not implicitly supported: each exact compiler or preview patch enters the compatibility matrix as a non-blocking canary before it can replace a supported target.
 
+`typed-sql check` verifies `tsc --version` before writing its temporary overlay. The editor bridge
+similarly verifies its bundled preview package before loading a project. An unsupported patch stops
+with an actionable compatibility error rather than exercising an untested compiler API.
+
+Run `typed-sql doctor` to inspect the active Node.js and TypeScript versions, grammar and schema
+identities, redacted server evidence, installed editor packages, and protocol window. `--json`
+provides deterministic automation output; `--protocol <version>` checks a specific editor client.
+The report excludes setting values, schema expressions, source text, credentials, and absolute paths.
+
 ## Databases and drivers
 
 | Surface | Product contract | Tested environment |

@@ -41,6 +41,10 @@ Source bytes, static query count, structural variants, and generated declaration
 defaults and explicit overrides. Exceeding a limit returns `TSQ006`, the unchanged source overlay,
 and no inferred query contract. Cancellation raises `AbortError` before a partial result is returned.
 
+Native `checkFile()` verification executes only TypeScript 7.0.2. It reads `tsc --version` before
+writing a temporary overlay and throws `TypeScriptCompilerCompatibilityError` with remediation for
+an untested patch or another line.
+
 Live verification APIs collect transient SQL only after sources still match the manifest, schedule
 grammar-owned adapters with bounded concurrency, compare native field evidence, and emit canonical
 proofs that contain no SQL, values, URLs, absolute paths, or driver errors.

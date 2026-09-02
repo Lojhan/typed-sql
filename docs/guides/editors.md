@@ -19,6 +19,9 @@ pnpm add -D @typed-sql/language-server
 
 The package contains its own pinned TypeScript preview process. It does not load the workspace's `tsserver.js`.
 
+If startup reports a TypeScript compatibility error, run `pnpm exec typed-sql doctor` in the
+workspace. The bridge refuses an overridden or mismatched preview patch before project loading.
+
 ## Zed
 
 Install the native extension from the repository's [`editors/zed`](https://github.com/Lojhan/typed-sql/tree/main/editors/zed) directory as a development extension, then configure typed-sql as the sole TypeScript server:

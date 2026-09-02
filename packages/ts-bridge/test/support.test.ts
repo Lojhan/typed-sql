@@ -1,5 +1,12 @@
 import { describe, it, strict } from "poku";
-import { TYPESCRIPT_PREVIEW_VERSION, TYPESCRIPT_SUPPORT_POLICY, typeScriptVersionSupport } from "../src/index.js";
+import {
+  assertTypeScriptPreviewVersion,
+  installedTypeScriptPreviewVersion,
+  TYPESCRIPT_PREVIEW_VERSION,
+  TYPESCRIPT_SUPPORT_POLICY,
+  TypeScriptPreviewCompatibilityError,
+  typeScriptVersionSupport,
+} from "../src/index.js";
 
 await describe("TypeScript integration support policy", async () => {
   await it("publishes immutable exact compiler and preview versions", () => {
@@ -21,5 +28,14 @@ await describe("TypeScript integration support policy", async () => {
     strict.strictEqual(typeScriptVersionSupport("7.1.0-dev.20260825.1", "preview-backend"), "untested-patch");
     strict.strictEqual(typeScriptVersionSupport("8.0.0", "preview-backend"), "unsupported-line");
     strict.strictEqual(typeScriptVersionSupport("next", "compiler"), "unknown");
+    strict.strictEqual(installedTypeScriptPreviewVersion(), TYPESCRIPT_PREVIEW_VERSION);
+    strict.doesNotThrow(() => assertTypeScriptPreviewVersion());
+    strict.throws(
+      () => assertTypeScriptPreviewVersion("7.1.0-dev.20260825.1"),
+      (error: unknown) =>
+        error instanceof TypeScriptPreviewCompatibilityError &&
+        error.code === "TYPESCRIPT_PREVIEW_VERSION_UNSUPPORTED" &&
+        error.message.includes("Reinstall @typed-sql/language-server"),
+    );
   });
 });

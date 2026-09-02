@@ -40,6 +40,33 @@ await describe("TypeScript 7 compatibility matrix", async () => {
     strict.strictEqual(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.legacyUnversionedClients, "accepted-as-version-1");
   });
 
+  await it("keeps package metadata synchronized for startup checks and doctor output", async () => {
+    const bridge = JSON.parse(
+      await readFile(join(workspaceDirectory, "packages", "ts-bridge", "package.json"), "utf8"),
+    ) as { readonly typedSql?: Readonly<Record<string, unknown>> };
+    const server = JSON.parse(
+      await readFile(join(workspaceDirectory, "packages", "language-server", "package.json"), "utf8"),
+    ) as { readonly typedSql?: Readonly<Record<string, unknown>> };
+    strict.strictEqual(
+      bridge.typedSql?.typescriptPreviewVersion,
+      TYPESCRIPT_SUPPORT_POLICY.previewBackend.exactVersion,
+    );
+    strict.strictEqual(bridge.typedSql?.typescriptBackend, "typescript-7.1-native-preview");
+    strict.strictEqual(server.typedSql?.protocolVersion, TYPED_SQL_PROTOCOL_VERSION);
+    strict.deepStrictEqual(
+      server.typedSql?.acceptedProtocolVersions,
+      TYPED_SQL_PROTOCOL_SUPPORT_POLICY.acceptedVersions,
+    );
+    strict.strictEqual(
+      server.typedSql?.legacyUnversionedProtocolVersion,
+      TYPED_SQL_PROTOCOL_SUPPORT_POLICY.currentVersion,
+    );
+    strict.strictEqual(
+      server.typedSql?.typescriptPreviewVersion,
+      TYPESCRIPT_SUPPORT_POLICY.previewBackend.exactVersion,
+    );
+  });
+
   await it("contains unstable TypeScript imports in the exact version adapter", async () => {
     const adapter = await readFile(
       join(workspaceDirectory, "packages", "ts-bridge", "src", "backends", "typescript-7.1.ts"),

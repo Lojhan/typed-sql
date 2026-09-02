@@ -28,7 +28,9 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "experimental"
+    "releaseTrack": "experimental",
+    "typescriptBackend": "typescript-7.1-native-preview",
+    "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
   },
   "sideEffects": false,
   "type": "module",

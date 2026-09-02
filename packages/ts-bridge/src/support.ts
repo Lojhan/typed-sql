@@ -1,3 +1,5 @@
+import { TYPESCRIPT_COMPILER_SUPPORT_POLICY, typeScriptCompilerVersionSupport } from "@typed-sql/compiler";
+
 export type TypeScriptIntegrationSurface = "compiler" | "preview-backend";
 export type TypeScriptVersionSupport = "supported" | "untested-patch" | "unsupported-line" | "unknown";
 
@@ -6,11 +8,7 @@ export type TypeScriptVersionSupport = "supported" | "untested-patch" | "unsuppo
  * paths. A new major/minor line enters as a non-blocking canary before it can become supported.
  */
 export const TYPESCRIPT_SUPPORT_POLICY = Object.freeze({
-  compiler: Object.freeze({
-    line: "7.0",
-    exactVersion: "7.0.2",
-    compatibility: "exact-tested-patch",
-  }),
+  compiler: TYPESCRIPT_COMPILER_SUPPORT_POLICY,
   previewBackend: Object.freeze({
     line: "7.1",
     exactVersion: "7.1.0-dev.20260824.1",
@@ -38,7 +36,8 @@ export function typeScriptVersionSupport(
   value: string,
   surface: TypeScriptIntegrationSurface,
 ): TypeScriptVersionSupport {
-  const target = surface === "compiler" ? TYPESCRIPT_SUPPORT_POLICY.compiler : TYPESCRIPT_SUPPORT_POLICY.previewBackend;
+  if (surface === "compiler") return typeScriptCompilerVersionSupport(value);
+  const target = TYPESCRIPT_SUPPORT_POLICY.previewBackend;
   const normalized = value.trim();
   if (normalized === target.exactVersion) return "supported";
   const line = versionLine(normalized);

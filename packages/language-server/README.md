@@ -27,6 +27,10 @@ The existing typed-sql-specific request and initialization shape is protocol v1.
 are treated as v1, and `TYPED_SQL_PROTOCOL_SUPPORT_POLICY` publishes the accepted compatibility
 window. Removing an accepted protocol version requires a language-server major release.
 
+Startup validates the bundled TypeScript preview patch before spawning it. Run `typed-sql doctor`
+from the workspace for a redacted compatibility report when the server or an editor client cannot
+start.
+
 Use typed-sql as the sole TypeScript language server for a configured project. A second server sees
 the conservative package declaration and may display a competing `Query<unknown>` hover.
 

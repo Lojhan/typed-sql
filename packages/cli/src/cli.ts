@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -19,11 +21,15 @@ import {
   serializeQueryPlanReviewReport,
   serializeQueryVerificationProof,
   serializeSchemaCompatibilityReport,
+  TYPESCRIPT_COMPILER_SUPPORT_POLICY,
+  typeScriptCompilerVersionSupport,
   verifyQueryManifest,
 } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import { resolveDialectCapabilityStates, type SchemaSnapshot } from "@typed-sql/core";
 import {
+  calculateSchemaHash,
+  calculateTypePolicyHash,
   checkSchemaDrift,
   generateSchemaPackage,
   loadGeneratedSchemaSnapshot,
@@ -35,7 +41,17 @@ interface ParsedArguments {
   readonly options: Readonly<Record<string, string>>;
 }
 
-const commands = new Set(["capabilities", "check", "compat", "explain", "generate", "drift", "manifest", "verify"]);
+const commands = new Set([
+  "capabilities",
+  "check",
+  "compat",
+  "doctor",
+  "explain",
+  "generate",
+  "drift",
+  "manifest",
+  "verify",
+]);
 
 async function packageVersion(): Promise<string> {
   let directory = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +81,7 @@ Commands:
   capabilities  Report versioned grammar support from the generated snapshot
   check      Infer SQL result types and verify them with TypeScript 7
   compat     Analyze rolling-deployment compatibility from two snapshots and manifests
+  doctor     Report runtime, compiler, grammar, schema, server, and editor compatibility
   explain    Capture and review structured database query plans
   generate   Introspect or load a schema snapshot and generate the typed contract
   drift      Compare the generated contract with the live database catalog
@@ -79,6 +96,7 @@ Examples:
   typed-sql capabilities --config typed-sql.config.ts
   typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
+  typed-sql doctor --config typed-sql.config.ts --json
   typed-sql explain --manifest .typed-sql/queries.json --out .typed-sql/plans.json
   typed-sql explain --compare .typed-sql/plans.json
   typed-sql generate --config typed-sql.config.ts --out generated/db
@@ -94,8 +112,8 @@ function parseArguments(args: readonly string[]): ParsedArguments {
   for (let index = 1; index < args.length; index += 1) {
     const argument = args[index]!;
     if (!argument.startsWith("--")) throw new Error(`Unexpected argument ${argument}`);
-    if (argument === "--live") {
-      options.live = "true";
+    if (argument === "--live" || argument === "--json") {
+      options[argument.slice(2)] = "true";
       continue;
     }
     const equals = argument.indexOf("=");
@@ -119,6 +137,70 @@ function required(options: Readonly<Record<string, string>>, name: string): stri
 async function readSnapshot(path: string, validate: (value: unknown) => SchemaSnapshot): Promise<SchemaSnapshot> {
   return validate(JSON.parse(await readFile(path, "utf8")) as unknown);
 }
+
+interface PackageMetadata {
+  readonly version?: string;
+  readonly typedSql?: Readonly<Record<string, unknown>>;
+}
+
+async function packageMetadata(directory: string, name: string): Promise<PackageMetadata | undefined> {
+  const require = createRequire(join(directory, "package.json"));
+  let file: string;
+  try {
+    file = require.resolve(`${name}/package.json`);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ERR_PACKAGE_PATH_NOT_EXPORTED")) {
+      if (error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND") return undefined;
+      throw error;
+    }
+    let entry: string;
+    try {
+      entry = require.resolve(name);
+    } catch (entryError) {
+      if (entryError instanceof Error && "code" in entryError && entryError.code === "MODULE_NOT_FOUND") {
+        return undefined;
+      }
+      throw entryError;
+    }
+    let current = dirname(entry);
+    const root = parse(current).root;
+    while (true) {
+      const candidate = join(current, "package.json");
+      try {
+        const manifest = JSON.parse(await readFile(candidate, "utf8")) as { readonly name?: unknown };
+        if (manifest.name === name) {
+          file = candidate;
+          break;
+        }
+      } catch (readError) {
+        if (!(readError instanceof Error && "code" in readError && readError.code === "ENOENT")) throw readError;
+      }
+      if (current === root) return undefined;
+      current = dirname(current);
+    }
+  }
+  const value = JSON.parse(await readFile(file, "utf8")) as {
+    readonly version?: unknown;
+    readonly typedSql?: unknown;
+  };
+  return {
+    ...(typeof value.version === "string" ? { version: value.version } : {}),
+    ...(typeof value.typedSql === "object" && value.typedSql !== null
+      ? { typedSql: value.typedSql as Readonly<Record<string, unknown>> }
+      : {}),
+  };
+}
+
+function nodeVersionSupport(value: string): "supported" | "unsupported" | "unknown" {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/u.exec(value);
+  if (match === null) return "unknown";
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major > 22 || (major === 22 && minor >= 11) ? "supported" : "unsupported";
+}
+
+const fingerprint = (value: unknown): string =>
+  `sha256:${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
 
 async function readPreviousManifest(path: string) {
   try {
@@ -240,6 +322,138 @@ async function main(): Promise<void> {
   const dialect = config.dialect;
   const policy = config.typePolicy ?? dialect.defaultTypePolicy;
   const schemaFile = fromConfig(loaded.directory, parsed.options.schema ?? config.schema.file);
+
+  if (parsed.command === "doctor") {
+    if (parsed.options.json !== undefined && parsed.options.json !== "true") {
+      throw new Error("--json does not accept a value");
+    }
+    const requestedProtocol = parsed.options.protocol === undefined ? undefined : Number(parsed.options.protocol);
+    if (requestedProtocol !== undefined && (!Number.isSafeInteger(requestedProtocol) || requestedProtocol < 1)) {
+      throw new Error("--protocol must be a positive integer");
+    }
+    const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
+    const states = resolveDialectCapabilityStates(dialect, schema, policy);
+    const [typescript, languageServer, bridge] = await Promise.all([
+      packageMetadata(loaded.directory, "typescript"),
+      packageMetadata(loaded.directory, "@typed-sql/language-server"),
+      packageMetadata(loaded.directory, "@typed-sql/ts-bridge"),
+    ]);
+    const typescriptVersion = typescript?.version;
+    const typescriptSupport =
+      typescriptVersion === undefined ? "unknown" : typeScriptCompilerVersionSupport(typescriptVersion);
+    const acceptedProtocols = Array.isArray(languageServer?.typedSql?.acceptedProtocolVersions)
+      ? languageServer.typedSql.acceptedProtocolVersions.filter(
+          (value): value is number => Number.isSafeInteger(value) && (value as number) > 0,
+        )
+      : [];
+    const legacyProtocol = languageServer?.typedSql?.legacyUnversionedProtocolVersion;
+    const clientProtocol =
+      requestedProtocol ??
+      (typeof legacyProtocol === "number" && Number.isSafeInteger(legacyProtocol) ? legacyProtocol : undefined);
+    const protocolCompatibility =
+      languageServer === undefined
+        ? "not-installed"
+        : clientProtocol !== undefined && acceptedProtocols.includes(clientProtocol)
+          ? "compatible"
+          : "unsupported";
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const nodeSupport = nodeVersionSupport(process.version);
+    if (nodeSupport !== "supported") errors.push(`Node.js ${process.version} is outside the supported runtime range.`);
+    if (typescriptSupport !== "supported") {
+      errors.push(
+        `TypeScript ${typescriptVersion ?? "not installed"} does not match ${TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion}.`,
+      );
+    }
+    if (languageServer === undefined)
+      warnings.push("@typed-sql/language-server is not installed; editor analysis is optional.");
+    else {
+      if (bridge === undefined) errors.push("@typed-sql/language-server is installed without @typed-sql/ts-bridge.");
+      if (protocolCompatibility !== "compatible") {
+        errors.push(`Editor protocol ${clientProtocol ?? "unversioned"} is outside the installed server window.`);
+      }
+      const serverPreview = languageServer.typedSql?.typescriptPreviewVersion;
+      const bridgePreview = bridge?.typedSql?.typescriptPreviewVersion;
+      if (typeof serverPreview !== "string" || typeof bridgePreview !== "string" || serverPreview !== bridgePreview) {
+        errors.push("Language-server and bridge TypeScript preview metadata do not match.");
+      }
+    }
+    const capabilityLevels = { exact: 0, conservative: 0, unsupported: 0 };
+    for (const state of Object.values(states)) capabilityLevels[state.level] += 1;
+    const report = {
+      formatVersion: 1,
+      status: errors.length === 0 ? "ok" : "error",
+      runtime: { node: { version: process.version, support: nodeSupport } },
+      typescript: {
+        version: typescriptVersion ?? null,
+        expected: TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion,
+        support: typescriptSupport,
+      },
+      grammar: {
+        id: dialect.id,
+        version: dialect.grammarVersion,
+        capabilityFingerprint: fingerprint(states),
+        capabilityLevels,
+      },
+      schema: {
+        formatVersion: schema.formatVersion,
+        dialect: schema.dialect,
+        dialectVersion: schema.dialectVersion ?? null,
+        hash: calculateSchemaHash(schema),
+        typePolicyHash: calculateTypePolicyHash(policy),
+      },
+      server:
+        schema.server === undefined
+          ? null
+          : {
+              product: schema.server.product,
+              version: schema.server.version,
+              versionKey: schema.server.versionKey,
+              featureCount: schema.server.features.length,
+              settingKeys: Object.keys(schema.server.settings).sort(),
+            },
+      editor: {
+        languageServer: {
+          installed: languageServer !== undefined,
+          version: languageServer?.version ?? null,
+          releaseTrack: languageServer?.typedSql?.releaseTrack ?? null,
+        },
+        bridge: {
+          installed: bridge !== undefined,
+          version: bridge?.version ?? null,
+          backend: bridge?.typedSql?.typescriptBackend ?? null,
+          typescriptPreviewVersion: bridge?.typedSql?.typescriptPreviewVersion ?? null,
+        },
+        protocol: {
+          client: requestedProtocol === undefined ? "legacy-unversioned" : requestedProtocol,
+          normalizedClientVersion: clientProtocol ?? null,
+          acceptedVersions: acceptedProtocols,
+          compatibility: protocolCompatibility,
+        },
+      },
+      errors,
+      warnings,
+    } as const;
+    if (parsed.options.json === "true") process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    else {
+      process.stdout.write(
+        [
+          `typed-sql doctor: ${report.status}`,
+          `Node.js: ${report.runtime.node.version} (${report.runtime.node.support})`,
+          `TypeScript: ${report.typescript.version ?? "not installed"} (${report.typescript.support}; expected ${report.typescript.expected})`,
+          `Grammar: ${report.grammar.id} ${report.grammar.version}`,
+          `Schema: format ${report.schema.formatVersion} ${report.schema.hash}`,
+          `Server: ${report.server === null ? "no evidence" : `${report.server.product} ${report.server.version}`}`,
+          `Language server: ${report.editor.languageServer.installed ? `${report.editor.languageServer.version} (${report.editor.protocol.compatibility})` : "not installed (optional)"}`,
+          ...errors.map((message) => `error: ${message}`),
+          ...warnings.map((message) => `warning: ${message}`),
+          "",
+        ].join("\n"),
+      );
+    }
+    if (errors.length > 0) process.exitCode = 1;
+    return;
+  }
 
   if (parsed.command === "capabilities") {
     const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));

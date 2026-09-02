@@ -212,6 +212,95 @@ await describe("typed-sql capabilities command", async () => {
   });
 });
 
+await describe("typed-sql doctor command", async () => {
+  await it("reports exact compiler, grammar, schema, server, bridge, and protocol compatibility without secrets", async () => {
+    const temporary = await mkdtemp(join(workspace, ".typed-sql-cli-doctor-"));
+    try {
+      await writeFile(
+        join(temporary, "typed-sql.config.ts"),
+        [
+          'import { defineConfig } from "@typed-sql/core";',
+          'import { postgres } from "@typed-sql/postgres";',
+          'export default defineConfig({ dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated" });',
+        ].join("\n"),
+      );
+      await writeFile(
+        join(temporary, "schema.json"),
+        `${JSON.stringify({
+          formatVersion: 1,
+          dialect: "postgres",
+          version: "18.6",
+          server: {
+            product: "postgres",
+            version: "18.6",
+            versionKey: "18",
+            features: [],
+            settings: { standardConformingStrings: "on" },
+          },
+          tables: {
+            users: {
+              name: "users",
+              columns: {
+                id: {
+                  name: "id",
+                  databaseType: "bigint",
+                  tsType: "bigint",
+                  nullable: false,
+                  defaultExpression: "recognizable-doctor-secret",
+                },
+              },
+            },
+          },
+        })}\n`,
+      );
+      const result = await execute(["doctor", "--json"], temporary);
+      const report = JSON.parse(result.stdout) as {
+        readonly status: string;
+        readonly typescript: { readonly version: string; readonly expected: string; readonly support: string };
+        readonly grammar: { readonly id: string; readonly capabilityFingerprint: string };
+        readonly schema: { readonly formatVersion: number; readonly hash: string };
+        readonly server: { readonly product: string; readonly settingKeys: readonly string[] };
+        readonly editor: {
+          readonly languageServer: { readonly installed: boolean; readonly releaseTrack: string };
+          readonly bridge: { readonly backend: string; readonly typescriptPreviewVersion: string };
+          readonly protocol: { readonly normalizedClientVersion: number; readonly compatibility: string };
+        };
+        readonly errors: readonly string[];
+      };
+      strict.strictEqual(report.status, "ok");
+      strict.strictEqual(report.typescript.version, "7.0.2");
+      strict.strictEqual(report.typescript.expected, "7.0.2");
+      strict.strictEqual(report.typescript.support, "supported");
+      strict.strictEqual(report.grammar.id, "postgres");
+      strict.match(report.grammar.capabilityFingerprint, /^sha256:[a-f0-9]{64}$/u);
+      strict.strictEqual(report.schema.formatVersion, 1);
+      strict.match(report.schema.hash, /^[a-f0-9]{64}$/u);
+      strict.strictEqual(report.server.product, "postgres");
+      strict.deepStrictEqual(report.server.settingKeys, ["standardConformingStrings"]);
+      strict.strictEqual(report.editor.languageServer.installed, true);
+      strict.strictEqual(report.editor.languageServer.releaseTrack, "experimental");
+      strict.strictEqual(report.editor.bridge.backend, "typescript-7.1-native-preview");
+      strict.strictEqual(report.editor.bridge.typescriptPreviewVersion, "7.1.0-dev.20260824.1");
+      strict.strictEqual(report.editor.protocol.normalizedClientVersion, 1);
+      strict.strictEqual(report.editor.protocol.compatibility, "compatible");
+      strict.deepStrictEqual(report.errors, []);
+      strict.ok(!result.stdout.includes("recognizable-doctor-secret"));
+      strict.ok(!result.stdout.includes(temporary));
+
+      const human = await execute(["doctor"], temporary);
+      strict.match(human.stdout, /typed-sql doctor: ok[\s\S]*TypeScript: 7\.0\.2 \(supported/u);
+      await strict.rejects(execute(["doctor", "--protocol", "2", "--json"], temporary), (error: unknown) => {
+        if (!(error instanceof Error && "code" in error && "stdout" in error)) return false;
+        strict.strictEqual(error.code, 1);
+        strict.match(String(error.stdout), /"compatibility": "unsupported"/u);
+        return true;
+      });
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+});
+
 await describe("typed-sql compat command", async () => {
   await it("writes a secret-free rolling-deployment report and enforces configured severity", async () => {
     const temporary = await mkdtemp(join(workspace, ".typed-sql-cli-compat-"));

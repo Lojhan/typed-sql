@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -727,6 +727,35 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       strict.strictEqual(invalid.ok, false);
       strict.ok((invalid.typeScript?.output.length ?? 0) > 0);
       await strict.rejects(() => checkFile({ file, schema, dialect: postgres() }), /Could not find tsconfig/);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  await it("rejects an untested TypeScript patch before writing native-check overlays", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-compiler-version-"));
+    try {
+      const binDirectory = join(directory, "node_modules", ".bin");
+      await mkdir(binDirectory, { recursive: true });
+      const binary = join(binDirectory, process.platform === "win32" ? "tsc.cmd" : "tsc");
+      await writeFile(
+        binary,
+        process.platform === "win32" ? "@echo Version 7.0.3\r\n" : "#!/bin/sh\nprintf 'Version 7.0.3\\n'\n",
+      );
+      if (process.platform !== "win32") await chmod(binary, 0o755);
+      const file = join(directory, "query.ts");
+      const project = join(directory, "tsconfig.json");
+      await writeFile(file, 'import { sql } from "@typed-sql/postgres"; const query = sql`SELECT id FROM users`;\n');
+      await writeFile(project, `${JSON.stringify({ compilerOptions: { strict: true }, files: ["query.ts"] })}\n`);
+      const schema = (await loadSchemaSnapshot(schemaPath)) as PostgresSchemaSnapshot;
+      await strict.rejects(
+        () => checkFile({ file, project, schema, dialect: postgres() }),
+        /requires TypeScript 7\.0\.2[\s\S]*found 7\.0\.3/u,
+      );
+      strict.deepStrictEqual(
+        (await readdir(directory)).filter((name) => name.startsWith(".typed-sql-")),
+        [],
+      );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
