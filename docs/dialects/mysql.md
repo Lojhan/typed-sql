@@ -23,7 +23,11 @@ The grammar targets MySQL 8.4 LTS and supports:
 - mode-aware grouping, both `ROLLUP` forms, aggregates, named/framed windows, and `CASE`;
 - scalar, `EXISTS`, `IN`, and `BETWEEN` expressions;
 - common JSON functions and operators;
-- `INSERT`, `UPDATE`, and `DELETE` command typing;
+- `INSERT` from `VALUE(S)`, `VALUES ROW`, `SET`, `SELECT`, or `TABLE`, including priorities,
+  `IGNORE`, partition selection, inserted-row aliases, and `ON DUPLICATE KEY UPDATE`;
+- `REPLACE` value, set, and query forms, with generated-column `DEFAULT` restrictions;
+- single- and multi-table `UPDATE` and `DELETE`, including joined namespaces, writable-target
+  validation, and the single-table-only `ORDER BY` and `LIMIT` tails;
 - ordered parameters inferred from comparisons, DML targets, casts, ranges, limits, and cataloged function arguments.
 
 Catalog inference covers enums, unsigned integers, decimals, JSON, temporal types, binary values, and configurable `tinyint(1)` mapping.
@@ -45,6 +49,12 @@ Invalid recursive members, compound-query ordering, lateral scope, named or fram
 aggregate `FILTER`, and incompatible `RETURNING` clauses remain unsupported. Commands without a
 result surface infer `Query<never, Parameters>`. Unknown functions warn and infer `unknown`;
 ambiguous or structurally unsafe queries are errors.
+
+MySQL still recognizes `INSERT DELAYED` and `REPLACE DELAYED` but executes them without delayed
+behavior. Analysis accepts these value forms with a warning. `DELAYED` query sources and
+`HIGH_PRIORITY REPLACE` are rejected because they are outside the supported server grammar. The
+deprecated `VALUES(column)` duplicate-key reference also emits a warning; inserted-row aliases keep
+the same target-column inference without relying on deprecated syntax.
 
 PostgreSQL's recursive-CTE `SEARCH`/`CYCLE`, function-relation `ROWS FROM`/`WITH ORDINALITY`, and
 `TABLESAMPLE` clauses are rejected as unsupported syntax. MySQL's separately modeled `JSON_TABLE`

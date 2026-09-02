@@ -99,7 +99,7 @@ await describe("MySQL resolver safety matrix", async () => {
     strict.ok(codes("INSERT INTO missing (id) VALUES (1)").includes("TSQ100"));
     strict.ok(codes("UPDATE users SET budget = budget + 1 WHERE active = true").length === 0);
     strict.ok(codes("UPDATE users SET missing = 1").includes("TSQ101"));
-    strict.ok(codes("DELETE FROM users USING projects WHERE users.id = projects.owner_id").length === 0);
+    strict.ok(codes("DELETE FROM users USING users JOIN projects ON users.id = projects.owner_id").length === 0);
     strict.ok(codes("INSERT INTO users (id) VALUES (1) RETURNING id").includes("TSQ401"));
   });
 

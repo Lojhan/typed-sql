@@ -87,6 +87,8 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `statement.cte.data-modifying` — Data-modifying statements in common table expressions | statement | conservative | exact | unsupported |
 | `statement.delete` — DELETE statements | statement | exact | exact | exact |
 | `statement.dml.delete-using` — DELETE USING source relations | clause | exact | exact | unsupported |
+| `statement.dml.modifiers` — DML priority, IGNORE, QUICK, partition, ordering, and limit modifiers | clause | exact | out-of-scope | out-of-scope |
+| `statement.dml.multi-table` — MySQL multi-table UPDATE and DELETE | statement | exact | out-of-scope | out-of-scope |
 | `statement.dml.positioned-update-delete` — PostgreSQL positioned UPDATE and DELETE | clause | unsupported | exact | unsupported |
 | `statement.dml.returning` — DML RETURNING clause | clause | unsupported | exact | exact (from 3.35.0) |
 | `statement.dml.returning-old-new` — PostgreSQL OLD and NEW RETURNING namespaces | clause | unsupported | exact (from 18) | unsupported |
@@ -94,9 +96,11 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `statement.insert` — INSERT statements and multi-row VALUES sources | statement | exact | exact | exact |
 | `statement.insert.conflict` — INSERT conflict handling and UPSERT clauses | clause | unsupported | exact (from 9.5) | exact (from 3.24.0) |
 | `statement.insert.default-values` — INSERT DEFAULT VALUES | clause | unsupported | exact | exact |
+| `statement.insert.duplicate-key` — MySQL ON DUPLICATE KEY UPDATE and inserted-row aliases | clause | exact | out-of-scope | out-of-scope |
 | `statement.insert.identity-overriding` — INSERT identity OVERRIDING clauses | clause | unsupported | exact | unsupported |
 | `statement.merge` — Versioned PostgreSQL MERGE statements | statement | unsupported | exact (from 15) | unsupported |
 | `statement.out-of-scope.commands` — Administrative, replication, maintenance, and procedural commands | statement | out-of-scope | out-of-scope | out-of-scope |
+| `statement.replace` — MySQL REPLACE statements | statement | exact | out-of-scope | out-of-scope |
 | `statement.select` — SELECT statements | statement | exact | exact | exact |
 | `statement.update` — UPDATE statements and assignments | statement | exact | exact | exact |
 | `tooling.compiler.artifacts` — Static extraction, generated declarations, and query manifests | tooling | exact | exact | exact |

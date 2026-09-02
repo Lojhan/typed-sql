@@ -95,11 +95,17 @@ function loadDataStatement(text: string, parameterCount: number): string {
   const statement = parseStatement(text);
   if (
     statement.kind !== "insert" ||
+    statement.operation !== "insert" ||
     statement.with !== undefined ||
+    statement.priority !== undefined ||
+    statement.ignore ||
     statement.table.alias !== undefined ||
+    (statement.table.partitions?.length ?? 0) > 0 ||
     statement.source.kind !== "values" ||
     statement.source.rows.length !== 1 ||
     statement.returning.length !== 0 ||
+    statement.rowAlias !== undefined ||
+    statement.duplicateKey.length > 0 ||
     statement.columns.length === 0
   ) {
     throw new TypeError(

@@ -9,7 +9,6 @@ await describe("MySQL-owned parser", async () => {
       "SELECT `user`.id FROM `users` AS `user` WHERE id = ? LIMIT 5, 10",
       "SELECT id FROM users LOCK IN SHARE MODE",
       "SELECT id FROM users FOR UPDATE SKIP LOCKED",
-      "INSERT INTO users (id) VALUES (?) RETURNING id",
     ]) {
       const statement = parseStatement(source);
       strict.deepStrictEqual(statement, parseCompatibilityStatement(source, { syntax: "mysql" }));

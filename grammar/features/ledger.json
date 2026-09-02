@@ -2134,6 +2134,43 @@
       }
     },
     {
+      "id": "statement.dml.modifiers",
+      "title": "DML priority, IGNORE, QUICK, partition, ordering, and limit modifiers",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:mysql.dml-modifiers", "resolver:mysql.dml-tail-restrictions"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [
+        { "title": "MySQL INSERT", "url": "https://dev.mysql.com/doc/refman/9.7/en/insert.html" },
+        { "title": "MySQL UPDATE", "url": "https://dev.mysql.com/doc/refman/9.7/en/update.html" },
+        { "title": "MySQL DELETE", "url": "https://dev.mysql.com/doc/refman/9.7/en/delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.dml.multi-table",
+      "title": "MySQL multi-table UPDATE and DELETE",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/mysql",
+      "coverage": ["ast:mysql.multi-table-dml", "resolver:mysql.multi-table-write-targets"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [
+        { "title": "MySQL UPDATE", "url": "https://dev.mysql.com/doc/refman/9.7/en/update.html" },
+        { "title": "MySQL DELETE", "url": "https://dev.mysql.com/doc/refman/9.7/en/delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
       "id": "statement.dml.positioned-update-delete",
       "title": "PostgreSQL positioned UPDATE and DELETE",
       "category": "clause",
@@ -2319,6 +2356,26 @@
       }
     },
     {
+      "id": "statement.insert.duplicate-key",
+      "title": "MySQL ON DUPLICATE KEY UPDATE and inserted-row aliases",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/mysql",
+      "coverage": ["ast:mysql.on-duplicate-key", "resolver:mysql.inserted-row-alias"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [
+        {
+          "title": "MySQL INSERT ON DUPLICATE KEY UPDATE",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/insert-on-duplicate.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
       "id": "statement.insert.identity-overriding",
       "title": "INSERT identity OVERRIDING clauses",
       "category": "clause",
@@ -2387,6 +2444,21 @@
           "diagnostic": "TSQ001",
           "tests": ["packages/ast/test/parser.test.ts"]
         }
+      }
+    },
+    {
+      "id": "statement.replace",
+      "title": "MySQL REPLACE statements",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/mysql",
+      "coverage": ["ast:mysql.replace", "resolver:mysql.replace-values"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [{ "title": "MySQL REPLACE", "url": "https://dev.mysql.com/doc/refman/9.7/en/replace.html" }],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
       }
     },
     {

@@ -420,16 +420,17 @@ await describe("MySQL dialect", async () => {
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"),
     );
-    for (const source of [
-      "INSERT INTO users DEFAULT VALUES",
-      "UPDATE users SET email = 'x' FROM projects WHERE users.id = projects.owner_id",
-    ]) {
+    for (const source of ["INSERT INTO users DEFAULT VALUES"]) {
       strict.ok(
         resolveMySqlStatement(parseStatement(source, { syntax: "mysql" }), schema).diagnostics.some(
           (diagnostic) => diagnostic.code === "TSQ401",
         ),
       );
     }
+    strict.throws(
+      () => parseStatement("UPDATE users SET email = 'x' FROM projects WHERE users.id = projects.owner_id"),
+      (error: unknown) => error instanceof Error && "code" in error && error.code === "TSQ401",
+    );
     strict.ok(
       resolveMySqlStatement(
         parseStatement("UPDATE users SET missing = 1 WHERE id = ? RETURNING id", { syntax: "mysql" }),
@@ -438,9 +439,10 @@ await describe("MySQL dialect", async () => {
     );
     strict.ok(
       resolveMySqlStatement(
-        parseStatement("DELETE FROM users USING projects WHERE users.id = projects.owner_id RETURNING users.id", {
-          syntax: "mysql",
-        }),
+        parseStatement(
+          "DELETE FROM users USING users JOIN projects ON users.id = projects.owner_id RETURNING users.id",
+          { syntax: "mysql" },
+        ),
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
     );

@@ -175,6 +175,7 @@ export interface NamedTableReference {
   readonly kind: "table";
   readonly name: Identifier;
   readonly schema?: Identifier;
+  readonly partitions?: readonly Identifier[];
   readonly alias?: Identifier;
   readonly lateral: boolean;
   readonly range: SourceRange;
@@ -295,18 +296,33 @@ export interface DefaultValuesClause {
   readonly range: SourceRange;
 }
 
+export type DmlPriority = "low" | "delayed" | "high";
+
+export interface InsertSetClause {
+  readonly kind: "set";
+  readonly assignments: readonly UpdateAssignment[];
+  readonly range: SourceRange;
+}
+
 export interface InsertStatement {
   readonly kind: "insert";
+  readonly operation: "insert" | "replace";
   readonly with?: WithClause;
   readonly table: NamedTableReference;
+  readonly priority?: DmlPriority;
+  readonly ignore: boolean;
+  readonly columnList: boolean;
   readonly columns: readonly Identifier[];
-  readonly source: ValuesClause | DefaultValuesClause | SelectStatement;
+  readonly source: ValuesClause | DefaultValuesClause | InsertSetClause | SelectStatement;
+  readonly rowAlias?: Identifier;
+  readonly columnAliases: readonly Identifier[];
+  readonly duplicateKey: readonly UpdateAssignment[];
   readonly returning: readonly SelectItem[];
   readonly range: SourceRange;
 }
 
 export interface UpdateAssignment {
-  readonly column: Identifier;
+  readonly column: ColumnExpression;
   readonly value: Expression;
   readonly range: SourceRange;
 }
@@ -314,11 +330,14 @@ export interface UpdateAssignment {
 export interface UpdateStatement {
   readonly kind: "update";
   readonly with?: WithClause;
-  readonly table: NamedTableReference;
+  readonly table: TableReference;
+  readonly priority?: "low";
+  readonly ignore: boolean;
   readonly assignments: readonly UpdateAssignment[];
-  readonly from?: TableReference;
   readonly joins: readonly JoinClause[];
   readonly where?: Expression;
+  readonly orderBy: readonly OrderByItem[];
+  readonly limit?: Expression;
   readonly returning: readonly SelectItem[];
   readonly range: SourceRange;
 }
@@ -326,9 +345,16 @@ export interface UpdateStatement {
 export interface DeleteStatement {
   readonly kind: "delete";
   readonly with?: WithClause;
-  readonly table: NamedTableReference;
-  readonly using: readonly TableReference[];
+  readonly table: TableReference;
+  readonly targets: readonly Identifier[];
+  readonly priority?: "low";
+  readonly quick: boolean;
+  readonly ignore: boolean;
+  readonly multiTable: boolean;
+  readonly joins: readonly JoinClause[];
   readonly where?: Expression;
+  readonly orderBy: readonly OrderByItem[];
+  readonly limit?: Expression;
   readonly returning: readonly SelectItem[];
   readonly range: SourceRange;
 }

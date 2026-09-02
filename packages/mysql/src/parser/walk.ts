@@ -131,18 +131,36 @@ function walkStatementWithContext(
     if (statement.source.kind === "values") {
       for (const row of statement.source.rows)
         for (const expression of row) walkExpression(expression, statement, visitor, context);
+    } else if (statement.source.kind === "set") {
+      for (const assignment of statement.source.assignments) {
+        walkExpression(assignment.column, statement, visitor, context);
+        walkExpression(assignment.value, statement, visitor, context);
+      }
     } else if (statement.source.kind === "select") walkStatementWithContext(statement.source, visitor, context.ctes);
+    for (const assignment of statement.duplicateKey) {
+      walkExpression(assignment.column, statement, visitor, context);
+      walkExpression(assignment.value, statement, visitor, context);
+    }
   } else if (statement.kind === "update") {
-    for (const assignment of statement.assignments) walkExpression(assignment.value, statement, visitor, context);
-    if (statement.from !== undefined) walkTable(statement.from, statement, visitor, context);
+    for (const assignment of statement.assignments) {
+      walkExpression(assignment.column, statement, visitor, context);
+      walkExpression(assignment.value, statement, visitor, context);
+    }
     for (const join of statement.joins) {
       walkTable(join.table, statement, visitor, context);
       if (join.on !== undefined) walkExpression(join.on, statement, visitor, context);
     }
     if (statement.where !== undefined) walkExpression(statement.where, statement, visitor, context);
+    for (const item of statement.orderBy) walkExpression(item.expression, statement, visitor, context);
+    if (statement.limit !== undefined) walkExpression(statement.limit, statement, visitor, context);
   } else {
-    for (const table of statement.using) walkTable(table, statement, visitor, context);
+    for (const join of statement.joins) {
+      walkTable(join.table, statement, visitor, context);
+      if (join.on !== undefined) walkExpression(join.on, statement, visitor, context);
+    }
     if (statement.where !== undefined) walkExpression(statement.where, statement, visitor, context);
+    for (const item of statement.orderBy) walkExpression(item.expression, statement, visitor, context);
+    if (statement.limit !== undefined) walkExpression(statement.limit, statement, visitor, context);
   }
   for (const item of statement.returning) walkExpression(item.expression, statement, visitor, context);
 }

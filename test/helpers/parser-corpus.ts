@@ -55,16 +55,19 @@ const commonValid = [
    FROM users`,
   "SELECT id FROM users INNER JOIN ages a ON users.id = a.user_id RIGHT OUTER JOIN scores s USING (id)",
   "SELECT COUNT(*) OVER (PARTITION BY active ORDER BY id DESC) AS ranked FROM users WINDOW activity AS (ORDER BY id)",
-  "INSERT INTO users AS u (name, age) VALUES ('Ada', 37), ('Grace', NULL) RETURNING u.*",
+  "INSERT INTO users (name, age) VALUES ('Ada', 37), ('Grace', NULL) RETURNING id",
   "INSERT INTO users (name) SELECT name FROM archived_users RETURNING id",
-  "INSERT INTO users DEFAULT VALUES",
-  "UPDATE users u SET name = 'Ada', age = age + 1 FROM ages a WHERE a.user_id = u.id RETURNING u.id",
-  "DELETE FROM users u USING ages a, audit WHERE a.user_id = u.id RETURNING u.*",
+  "UPDATE users SET name = 'Ada', age = age + 1 WHERE id = 1 RETURNING id",
+  "DELETE FROM users WHERE id = 1 RETURNING id",
   "WITH RECURSIVE tree(id) AS (SELECT 1) SELECT id FROM tree",
 ] as const;
 
 const dialectValid: Readonly<Record<OwnedParserCorpusApi["dialect"], readonly string[]>> = {
   postgres: [
+    "INSERT INTO users AS u (name) VALUES ('Ada') RETURNING u.*",
+    "INSERT INTO users DEFAULT VALUES",
+    "UPDATE users u SET name = 'Ada' FROM ages a WHERE a.user_id = u.id RETURNING u.id",
+    "DELETE FROM users u USING ages a, audit WHERE a.user_id = u.id RETURNING u.*",
     "SELECT DISTINCT ON (team_id, created_at) id FROM users ORDER BY team_id, created_at",
     "SELECT ARRAY[1, 2], payload->>'name', value::numeric(14, 2)[] FROM events WHERE payload @> '{}'::jsonb",
     "SELECT COUNT(*) FILTER (WHERE active) OVER activity FROM users",
@@ -73,6 +76,9 @@ const dialectValid: Readonly<Record<OwnedParserCorpusApi["dialect"], readonly st
     "SELECT CAST(value AS timestamp without time zone), CAST(value AS double precision) FROM values_table",
   ],
   mysql: [
+    "REPLACE INTO users (name) VALUES ('Ada')",
+    "UPDATE users u JOIN ages a ON a.user_id = u.id SET u.name = 'Ada', a.age = 38",
+    "DELETE u FROM users u JOIN ages a ON a.user_id = u.id",
     'SELECT `user`.`id`, "text" AS label FROM `users` AS `user` WHERE `user`.`id` = ? LIMIT 5, 10',
     '/* ordinary MySQL block comment */ SELECT "a""b", `a``b` FROM `users` ORDER BY id ASC, id DESC',
     "SELECT id FROM users LOCK IN SHARE MODE",

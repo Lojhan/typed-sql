@@ -121,11 +121,20 @@ class Parser {
         const statement = this.#parseParenthesizedSelect();
         return this.#parseSelectTail(this.#parseCompoundExpression(statement, 0));
       }
-      if (this.#current().value === "INSERT") return this.#parseInsert(withClause);
+      if (this.#current().value === "INSERT" || this.#current().value === "REPLACE") {
+        if (withClause !== undefined) {
+          throw this.#error(
+            "MySQL INSERT and REPLACE place WITH immediately before their query source",
+            withClause.range,
+            "TSQ401",
+          );
+        }
+        return this.#parseInsert();
+      }
       if (this.#current().value === "UPDATE") return this.#parseUpdate(withClause);
       if (this.#current().value === "DELETE") return this.#parseDelete(withClause);
       throw this.#error(
-        `Expected SELECT, INSERT, UPDATE, or DELETE, found ${this.#current().text || "end of query"}`,
+        `Expected SELECT, INSERT, REPLACE, UPDATE, or DELETE, found ${this.#current().text || "end of query"}`,
         this.#current().range,
       );
     });
@@ -401,46 +410,106 @@ class Parser {
   }
 
   #parseInsert(withClause?: WithClause): InsertStatement {
-    const start = withClause?.range ?? this.#expectKeyword("INSERT").range;
-    if (withClause !== undefined) this.#expectKeyword("INSERT");
-    this.#expectKeyword("INTO");
-    const table = this.#parseNamedTableReference(true);
+    const operation = this.#current().value === "REPLACE" ? "replace" : "insert";
+    const start = withClause?.range ?? this.#expectKeyword(operation.toUpperCase()).range;
+    if (withClause !== undefined) this.#expectKeyword(operation.toUpperCase());
+    const priority = this.#parseDmlPriority();
+    const ignore = operation === "insert" && this.#matchKeyword("IGNORE");
+    this.#matchKeyword("INTO");
+    const table = this.#parseNamedTableReference(false);
     const columns: Identifier[] = [];
-    if (this.#matchPunctuation("(")) {
+    const columnList = this.#matchPunctuation("(");
+    if (columnList) {
       if (!this.#matchPunctuation(")")) {
         do columns.push(this.#parseIdentifier());
         while (this.#matchPunctuation(","));
         this.#expectPunctuation(")");
       }
     }
-    let source: ValuesClause | SelectStatement | { readonly kind: "default-values"; readonly range: SourceRange };
+    let source: InsertStatement["source"];
+    let valuesRowConstructor: boolean | undefined;
     if (this.#matchKeyword("DEFAULT")) {
       const sourceStart = this.#previous().range;
       const end = this.#expectKeyword("VALUES").range;
       source = { kind: "default-values", range: mergeRanges(sourceStart, end) };
-    } else if (this.#matchKeyword("VALUES")) {
+    } else if (this.#matchKeyword("VALUES") || this.#matchContextWord("VALUE")) {
       const sourceStart = this.#previous().range;
       const rows: Expression[][] = [];
       do {
+        const rowConstructor = this.#matchKeyword("ROW");
+        if (valuesRowConstructor !== undefined && valuesRowConstructor !== rowConstructor) {
+          throw this.#error("VALUES rows must use one consistent constructor form", this.#current().range, "TSQ224");
+        }
+        valuesRowConstructor = rowConstructor;
         this.#expectPunctuation("(");
         const row = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-        const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+        if (this.#previous().value !== ")") this.#expectPunctuation(")");
         rows.push(row);
-        if (close.value !== ")") throw this.#error("Expected ) after VALUES row", close.range);
       } while (this.#matchPunctuation(","));
       source = { kind: "values", rows, range: mergeRanges(sourceStart, this.#previous().range) };
+    } else if (this.#matchKeyword("SET")) {
+      const sourceStart = this.#previous().range;
+      const assignments = this.#parseAssignments();
+      source = {
+        kind: "set",
+        assignments,
+        range: mergeRanges(sourceStart, assignments.at(-1)?.range ?? sourceStart),
+      };
     } else if (["SELECT", "TABLE", "WITH"].includes(this.#current().value)) {
       const statement = this.#parseStatement();
       if (statement.kind !== "select") throw this.#error("INSERT source must be SELECT or VALUES", statement.range);
       source = statement;
-    } else throw this.#error("Expected VALUES, DEFAULT VALUES, or SELECT after INSERT target", this.#current().range);
+    } else
+      throw this.#error(
+        "Expected VALUES, SET, DEFAULT VALUES, SELECT, or TABLE after DML target",
+        this.#current().range,
+      );
+    if (operation === "replace" && priority === "high") {
+      throw this.#error("REPLACE does not support HIGH_PRIORITY", start, "TSQ224");
+    }
+    if (priority === "delayed" && source.kind === "select") {
+      throw this.#error(`${operation.toUpperCase()} DELAYED does not support a query source`, source.range, "TSQ224");
+    }
+    let rowAlias: Identifier | undefined;
+    const columnAliases: Identifier[] = [];
+    if (this.#matchKeyword("AS")) {
+      if ((source.kind !== "values" && source.kind !== "set") || valuesRowConstructor === true) {
+        throw this.#error("Inserted-row aliases apply only to VALUES or SET sources", this.#previous().range, "TSQ224");
+      }
+      rowAlias = this.#parseIdentifier();
+      if (this.#matchPunctuation("(")) {
+        if (this.#matchPunctuation(")")) {
+          throw this.#error("An inserted-row column alias list cannot be empty", this.#previous().range, "TSQ224");
+        }
+        do columnAliases.push(this.#parseIdentifier());
+        while (this.#matchPunctuation(","));
+        this.#expectPunctuation(")");
+      }
+    }
+    let duplicateKey: readonly UpdateAssignment[] = [];
+    if (this.#matchKeyword("ON")) {
+      if (operation === "replace") {
+        throw this.#error("REPLACE cannot use ON DUPLICATE KEY UPDATE", this.#previous().range, "TSQ224");
+      }
+      this.#expectKeyword("DUPLICATE");
+      this.#expectKeyword("KEY");
+      this.#expectKeyword("UPDATE");
+      duplicateKey = this.#parseAssignments();
+    }
     const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
     return {
       kind: "insert",
+      operation,
       ...(withClause === undefined ? {} : { with: withClause }),
       table,
+      ...(priority === undefined ? {} : { priority }),
+      ignore,
+      columnList,
       columns,
       source,
+      ...(rowAlias === undefined ? {} : { rowAlias }),
+      columnAliases,
+      duplicateKey,
       returning,
       range: mergeRanges(start, this.#previous().range),
     };
@@ -449,31 +518,38 @@ class Parser {
   #parseUpdate(withClause?: WithClause): UpdateStatement {
     const start = withClause?.range ?? this.#expectKeyword("UPDATE").range;
     if (withClause !== undefined) this.#expectKeyword("UPDATE");
-    const table = this.#parseNamedTableReference(true);
+    const priority = this.#matchKeyword("LOW_PRIORITY") ? "low" : undefined;
+    const ignore = this.#matchKeyword("IGNORE");
+    const table = this.#parseTableReference();
+    const joins = this.#parseFollowingTableReferences();
     this.#expectKeyword("SET");
-    const assignments: UpdateAssignment[] = [];
-    do {
-      const column = this.#parseIdentifier();
-      this.#expectOperator("=");
-      const value = this.#parseExpression();
-      assignments.push({ column, value, range: mergeRanges(column.range, value.range) });
-    } while (this.#matchPunctuation(","));
-    let from: TableReference | undefined;
-    const joins: JoinClause[] = [];
-    if (this.#matchKeyword("FROM")) {
-      from = this.#parseTableReference();
-      while (this.#isJoinStart()) joins.push(this.#parseJoin());
+    const assignments = this.#parseAssignments();
+    if (this.#current().value === "FROM") {
+      throw this.#error(
+        "MySQL uses joined table references before SET instead of UPDATE FROM",
+        this.#current().range,
+        "TSQ401",
+      );
     }
     const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
+    let orderBy: readonly OrderByItem[] = [];
+    if (this.#matchKeyword("ORDER")) {
+      this.#expectKeyword("BY");
+      orderBy = this.#parseOrderByList();
+    }
+    const limit = this.#matchKeyword("LIMIT") ? this.#parseExpression() : undefined;
     const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
     return {
       kind: "update",
       ...(withClause === undefined ? {} : { with: withClause }),
       table,
+      ...(priority === undefined ? {} : { priority }),
+      ignore,
       assignments,
-      ...(from === undefined ? {} : { from }),
       joins,
       ...(where === undefined ? {} : { where }),
+      orderBy,
+      ...(limit === undefined ? {} : { limit }),
       returning,
       range: mergeRanges(start, this.#previous().range),
     };
@@ -482,24 +558,104 @@ class Parser {
   #parseDelete(withClause?: WithClause): DeleteStatement {
     const start = withClause?.range ?? this.#expectKeyword("DELETE").range;
     if (withClause !== undefined) this.#expectKeyword("DELETE");
-    this.#expectKeyword("FROM");
-    const table = this.#parseNamedTableReference(true);
-    const using: TableReference[] = [];
-    if (this.#matchKeyword("USING")) {
-      do using.push(this.#parseTableReference());
+    const priority = this.#matchKeyword("LOW_PRIORITY") ? "low" : undefined;
+    const quick = this.#matchKeyword("QUICK");
+    const ignore = this.#matchKeyword("IGNORE");
+    const targets: Identifier[] = [];
+    let table: TableReference;
+    let joins: readonly JoinClause[] = [];
+    let multiTable = false;
+    if (this.#matchKeyword("FROM")) {
+      let first = this.#parseNamedTableReference(true);
+      if (this.#current().value === "USING" || this.#current().value === ",") {
+        targets.push(first.name);
+        while (this.#matchPunctuation(",")) targets.push(this.#parseDeleteTarget());
+        this.#expectKeyword("USING");
+        table = this.#parseTableReference();
+        joins = this.#parseFollowingTableReferences();
+        multiTable = true;
+      } else {
+        if (this.#current().value === "PARTITION") {
+          first = { ...first, partitions: this.#parsePartitions() };
+        }
+        table = first;
+        targets.push(first.alias ?? first.name);
+      }
+    } else {
+      do targets.push(this.#parseDeleteTarget());
       while (this.#matchPunctuation(","));
+      this.#expectKeyword("FROM");
+      table = this.#parseTableReference();
+      joins = this.#parseFollowingTableReferences();
+      multiTable = true;
     }
     const where = this.#matchKeyword("WHERE") ? this.#parseExpression() : undefined;
+    let orderBy: readonly OrderByItem[] = [];
+    if (this.#matchKeyword("ORDER")) {
+      this.#expectKeyword("BY");
+      orderBy = this.#parseOrderByList();
+    }
+    const limit = this.#matchKeyword("LIMIT") ? this.#parseExpression() : undefined;
     const returning = this.#matchKeyword("RETURNING") ? this.#parseSelectList() : [];
     return {
       kind: "delete",
       ...(withClause === undefined ? {} : { with: withClause }),
       table,
-      using,
+      targets,
+      ...(priority === undefined ? {} : { priority }),
+      quick,
+      ignore,
+      multiTable,
+      joins,
       ...(where === undefined ? {} : { where }),
+      orderBy,
+      ...(limit === undefined ? {} : { limit }),
       returning,
       range: mergeRanges(start, this.#previous().range),
     };
+  }
+
+  #parseDmlPriority(): "low" | "delayed" | "high" | undefined {
+    if (this.#matchKeyword("LOW_PRIORITY")) return "low";
+    if (this.#matchKeyword("DELAYED")) return "delayed";
+    if (this.#matchKeyword("HIGH_PRIORITY")) return "high";
+    return undefined;
+  }
+
+  #parseAssignmentColumn(): Extract<Expression, { readonly kind: "column" }> {
+    const first = this.#parseIdentifier();
+    if (!this.#matchPunctuation(".")) return { kind: "column", column: first, range: first.range };
+    const column = this.#parseIdentifier();
+    return { kind: "column", relation: first, column, range: mergeRanges(first.range, column.range) };
+  }
+
+  #parseAssignments(): readonly UpdateAssignment[] {
+    const assignments: UpdateAssignment[] = [];
+    do {
+      const column = this.#parseAssignmentColumn();
+      this.#expectOperator("=");
+      const value = this.#parseExpression();
+      assignments.push({ column, value, range: mergeRanges(column.range, value.range) });
+    } while (this.#matchPunctuation(","));
+    return assignments;
+  }
+
+  #parseFollowingTableReferences(): readonly JoinClause[] {
+    const joins: JoinClause[] = [];
+    while (true) {
+      if (this.#matchPunctuation(",")) {
+        const table = this.#parseTableReference();
+        joins.push({ kind: "cross", table, range: table.range });
+      } else if (this.#isJoinStart()) joins.push(this.#parseJoin());
+      else break;
+    }
+    return joins;
+  }
+
+  #parseDeleteTarget(): Identifier {
+    const target = this.#parseIdentifier();
+    if (this.#matchPunctuation(".")) this.#expectOperator("*");
+    return target;
   }
 
   #parseSelectList(): readonly SelectItem[] {
@@ -547,6 +703,7 @@ class Parser {
       schema = first;
       name = this.#parseIdentifier();
     }
+    const partitions = this.#current().value === "PARTITION" ? this.#parsePartitions() : [];
     let alias: Identifier | undefined;
     if (allowAlias && this.#matchKeyword("AS")) alias = this.#parseIdentifier();
     else if (allowAlias && (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier"))
@@ -555,10 +712,21 @@ class Parser {
       kind: "table",
       name,
       ...(schema === undefined ? {} : { schema }),
+      ...(partitions.length === 0 ? {} : { partitions }),
       ...(alias === undefined ? {} : { alias }),
       lateral,
-      range: mergeRanges(start, alias?.range ?? name.range),
+      range: mergeRanges(start, alias?.range ?? partitions.at(-1)?.range ?? name.range),
     };
+  }
+
+  #parsePartitions(): readonly Identifier[] {
+    this.#expectKeyword("PARTITION");
+    this.#expectPunctuation("(");
+    const partitions: Identifier[] = [];
+    do partitions.push(this.#parseIdentifier());
+    while (this.#matchPunctuation(","));
+    this.#expectPunctuation(")");
+    return partitions;
   }
 
   #isJoinStart(): boolean {
@@ -984,7 +1152,9 @@ class Parser {
   }
 
   #isStatementStart(): boolean {
-    return ["SELECT", "TABLE", "VALUES", "INSERT", "UPDATE", "DELETE", "WITH"].includes(this.#current().value);
+    return ["SELECT", "TABLE", "VALUES", "INSERT", "REPLACE", "UPDATE", "DELETE", "WITH"].includes(
+      this.#current().value,
+    );
   }
 
   #current(): Token {
@@ -1009,6 +1179,12 @@ class Parser {
       return true;
     }
     return false;
+  }
+
+  #matchContextWord(word: string): boolean {
+    if (this.#current().value !== word) return false;
+    this.#advance();
+    return true;
   }
 
   #matchOperator(operator: string): boolean {
