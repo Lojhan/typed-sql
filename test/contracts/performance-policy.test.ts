@@ -14,6 +14,7 @@ interface PerformanceBudgets {
     readonly subMillisecondIterations: number;
     readonly soakIterations: number;
     readonly projectLifecycleIterations: number;
+    readonly componentSoakIterations: number;
     readonly warningRatio: number;
   };
   readonly latencyMs: Readonly<Record<string, { readonly p50: number; readonly p95: number; readonly p99: number }>>;
@@ -41,6 +42,7 @@ await describe("performance regression policy", async () => {
     strict.ok(budgets.methodology.subMillisecondIterations >= 100);
     strict.ok(budgets.methodology.soakIterations >= 100);
     strict.ok(budgets.methodology.projectLifecycleIterations >= 20);
+    strict.ok(budgets.methodology.componentSoakIterations >= 500);
     strict.ok(budgets.methodology.warningRatio > 0 && budgets.methodology.warningRatio < 1);
     strict.deepStrictEqual(Object.keys(budgets.latencyMs).sort(), [
       "compiler.correlatedConditions",
@@ -64,8 +66,10 @@ await describe("performance regression policy", async () => {
       "editor.schemaReload",
       "editor.unchangedAnalysis",
       "parser.ownedLargeQuery",
+      "parser.pathologicalTokens",
       "routing.semanticAnalysis",
       "scanner.largeFile",
+      "schema.canonicalization",
     ]);
     for (const [name, budget] of Object.entries(budgets.latencyMs)) {
       strict.ok(budget.p50 > 0, `${name} has no p50 budget`);
@@ -73,11 +77,14 @@ await describe("performance regression policy", async () => {
       strict.ok(budget.p99 >= budget.p95, `${name} p99 is below p95`);
     }
     strict.ok((budgets.throughput["core.composeAndRender"]?.minimumOperationsPerSecond ?? 0) > 0);
+    strict.ok((budgets.throughput["core.fragmentListRender"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.throughput["parser.toolkitTokens"]?.minimumTokensPerSecond ?? 0) > 0);
     strict.ok((budgets.throughput["routing.semanticCacheHit"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.memory["editor.retainedHeapMiB"]?.maximum ?? 0) > 0);
     strict.ok((budgets.memory["editor.lifecycleHeapGrowthMiB"]?.maximum ?? 0) > 0);
     strict.ok((budgets.memory["parser.astBytesPerParse"]?.maximum ?? 0) > 0);
+    strict.ok((budgets.memory["compiler.soakHeapGrowthMiB"]?.maximum ?? 0) > 0);
+    strict.ok((budgets.memory["core.renderSoakHeapGrowthMiB"]?.maximum ?? 0) > 0);
     strict.deepStrictEqual(Object.keys(budgets.overrides.githubActions.latencyMs), ["compiler.semanticMetadata"]);
     const defaultSemanticBudget = budgets.latencyMs["compiler.semanticMetadata"];
     const githubSemanticBudget = budgets.overrides.githubActions.latencyMs["compiler.semanticMetadata"];
@@ -120,7 +127,13 @@ await describe("performance regression policy", async () => {
       '"editor.projectLifecycle"',
       '"editor.lifecycleHeapGrowthMiB"',
       "parser.astBytesPerParse",
+      "parser.pathologicalTokens",
       "parser.toolkitTokens",
+      "schema.canonicalization",
+      "core.fragmentListRender",
+      "compiler.soakHeapGrowthMiB",
+      "core.renderSoakHeapGrowthMiB",
+      "methodology.componentSoakIterations",
       "conformance.v2StaticCorpus",
     ]) {
       strict.ok(gate.includes(evidence), `performance gate does not record ${evidence}`);

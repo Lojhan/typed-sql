@@ -27,6 +27,7 @@ import {
   postgres,
 } from "../packages/postgres/dist/packages/postgres/src/index.js";
 import { parseStatement as parsePostgresStatement } from "../packages/postgres/dist/packages/postgres/src/parser/index.js";
+import { calculateSchemaHash, canonicalizeSchemaValue } from "../packages/schema/dist/packages/schema/src/index.js";
 import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
 import {
   capturePerformanceContext,
@@ -132,6 +133,10 @@ const parserSource = `SELECT ${Array.from(
   { length: 250 },
   (_, index) => `account.id + ${index} AS value_${index}`,
 ).join(", ")} FROM users AS account`;
+const pathologicalParserSource = `SELECT ${Array.from(
+  { length: 1_000 },
+  (_, index) => `'value''${index}' /* comment ${index} */`,
+).join(", ")}`;
 const parserLexicalProfile = defineSqlLexicalProfile({
   keywords: new Set(["AS", "FROM", "SELECT"]),
   operators: ["+"],
@@ -188,6 +193,12 @@ await latency("parser.ownedLargeQuery", () => {
   assert.equal(parsePostgresStatement(parserSource).kind, "select");
   assert.equal(parseMysqlStatement(parserSource).kind, "select");
   assert.equal(parseSqliteStatement(parserSource).kind, "select");
+});
+
+await latency("parser.pathologicalTokens", () => {
+  assert.equal(parsePostgresStatement(pathologicalParserSource).kind, "select");
+  assert.equal(parseMysqlStatement(pathologicalParserSource).kind, "select");
+  assert.equal(parseSqliteStatement(pathologicalParserSource).kind, "select");
 });
 
 const parserTokenCount = tokenizeSql(parserSource, parserLexicalProfile).length - 1;
@@ -260,6 +271,27 @@ await latency("compiler.manyQueries", () => {
   const compiled = compileSource({ source: compilerSource, schema: snapshot, dialect });
   assert.equal(compiled.queries.length, 250);
   assert.deepEqual(compiled.diagnostics, []);
+});
+
+const canonicalizationSnapshot = {
+  ...snapshot,
+  tables: Object.fromEntries(
+    Array.from({ length: 1_000 }, (_, index) => [
+      `table_${index}`,
+      {
+        name: `table_${index}`,
+        columns: {
+          value: { name: "value", databaseType: "text", tsType: "string", nullable: index % 2 === 0 },
+          id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+        },
+      },
+    ]),
+  ),
+};
+await latency("schema.canonicalization", () => {
+  const canonical = canonicalizeSchemaValue(canonicalizationSnapshot);
+  assert.equal(typeof calculateSchemaHash(canonicalizationSnapshot), "string");
+  assert.equal(Object.keys(canonical.tables).length, 1_000);
 });
 
 const manifestOptions = {
@@ -532,6 +564,63 @@ assert.ok(
   coreThroughput.p50 >= coreBudget.minimumOperationsPerSecond,
   `core.composeAndRender p50 ${coreThroughput.p50.toFixed(0)} ops/s fell below ${coreBudget.minimumOperationsPerSecond}`,
 );
+
+const fragmentList = Array.from({ length: 100 }, (_, index) => sql.fragment`(${index}, ${`value-${index}`})`);
+const fragmentListQuery = sql`VALUES ${sql.join(fragmentList, sql.fragment`, `)}`;
+const fragmentListThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: 1_000,
+  operation() {
+    const rendered = renderQuery(fragmentListQuery, dialect);
+    assert.equal(rendered.values.length, 200);
+  },
+});
+const fragmentListBudget = budgets.throughput["core.fragmentListRender"];
+results["core.fragmentListRender"] = {
+  unit: "operations/second",
+  ...fragmentListThroughput,
+  budget: fragmentListBudget,
+};
+assert.ok(
+  fragmentListThroughput.p50 >= fragmentListBudget.minimumOperationsPerSecond,
+  `core.fragmentListRender p50 ${fragmentListThroughput.p50.toFixed(0)} ops/s fell below ${fragmentListBudget.minimumOperationsPerSecond}`,
+);
+
+globalThis.gc?.();
+const renderSoakHeapBefore = process.memoryUsage().heapUsed;
+for (let index = 0; index < methodology.componentSoakIterations; index += 1) {
+  const rendered = renderQuery(fragmentListQuery, dialect);
+  assert.equal(rendered.values[0], 0);
+}
+globalThis.gc?.();
+const renderSoakHeapGrowthMiB = Math.max(0, process.memoryUsage().heapUsed - renderSoakHeapBefore) / 1024 / 1024;
+const renderSoakBudget = budgets.memory["core.renderSoakHeapGrowthMiB"];
+results["core.renderSoakHeapGrowthMiB"] = {
+  unit: "MiB",
+  value: renderSoakHeapGrowthMiB,
+  cycles: methodology.componentSoakIterations,
+  budget: renderSoakBudget,
+};
+assert.ok(renderSoakHeapGrowthMiB <= renderSoakBudget.maximum);
+
+globalThis.gc?.();
+const compilerSoakHeapBefore = process.memoryUsage().heapUsed;
+const soakCompilerSource = manyQuerySource(12);
+for (let index = 0; index < methodology.componentSoakIterations; index += 1) {
+  const compiled = compileSource({ source: `${soakCompilerSource}\n// cycle ${index}`, schema: snapshot, dialect });
+  assert.equal(compiled.queries.length, 12);
+}
+globalThis.gc?.();
+const compilerSoakHeapGrowthMiB = Math.max(0, process.memoryUsage().heapUsed - compilerSoakHeapBefore) / 1024 / 1024;
+const compilerSoakBudget = budgets.memory["compiler.soakHeapGrowthMiB"];
+results["compiler.soakHeapGrowthMiB"] = {
+  unit: "MiB",
+  value: compilerSoakHeapGrowthMiB,
+  cycles: methodology.componentSoakIterations,
+  budget: compilerSoakBudget,
+};
+assert.ok(compilerSoakHeapGrowthMiB <= compilerSoakBudget.maximum);
 
 const routingResolver = createPostgresQuerySemanticResolver({ schema: snapshot });
 const routedQuery = (id) => sql`SELECT account.id FROM users AS account WHERE account.id = ${id}`;

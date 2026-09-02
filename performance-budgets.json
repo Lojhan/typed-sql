@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 12,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -7,6 +7,7 @@
     "subMillisecondIterations": 100,
     "soakIterations": 100,
     "projectLifecycleIterations": 20,
+    "componentSoakIterations": 500,
     "warningRatio": 0.75
   },
   "latencyMs": {
@@ -24,6 +25,8 @@
     "compiler.structuralLimit": { "p50": 5, "p95": 10, "p99": 20 },
     "conformance.v2StaticCorpus": { "p50": 15, "p95": 30, "p99": 50 },
     "parser.ownedLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
+    "parser.pathologicalTokens": { "p50": 15, "p95": 35, "p99": 60 },
+    "schema.canonicalization": { "p50": 15, "p95": 35, "p99": 60 },
     "editor.coldAnalysis": { "p50": 75, "p95": 150, "p99": 250 },
     "editor.incrementalAnalysis": { "p50": 30, "p95": 75, "p99": 120 },
     "editor.unchangedAnalysis": { "p50": 0.5, "p95": 1, "p99": 2 },
@@ -36,13 +39,16 @@
   },
   "throughput": {
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
+    "core.fragmentListRender": { "minimumOperationsPerSecond": 10000 },
     "parser.toolkitTokens": { "minimumTokensPerSecond": 500000 },
     "routing.semanticCacheHit": { "minimumOperationsPerSecond": 250000 }
   },
   "memory": {
     "editor.retainedHeapMiB": { "maximum": 16 },
     "editor.lifecycleHeapGrowthMiB": { "maximum": 8 },
-    "parser.astBytesPerParse": { "maximum": 524288 }
+    "parser.astBytesPerParse": { "maximum": 524288 },
+    "compiler.soakHeapGrowthMiB": { "maximum": 16 },
+    "core.renderSoakHeapGrowthMiB": { "maximum": 8 }
   },
   "overrides": {
     "githubActions": {
