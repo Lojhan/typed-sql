@@ -90,8 +90,15 @@ await describe("external editor distribution", async () => {
     const workflow = await text(".github/workflows/ci.yml");
     const smoke = await text("scripts/assert-editor-artifacts.mjs");
     strict.ok(workflow.includes("pnpm editor:artifacts:smoke"));
+    strict.ok(workflow.includes("pnpm editor:zed:build"));
+    strict.ok(workflow.includes("poku packages/language-server/test/language-server.test.ts"));
     strict.ok(smoke.includes('execFile("unzip", ["-Z1", vsix])'));
     strict.ok(smoke.includes("[0x00, 0x61, 0x73, 0x6d]"));
     strict.ok(smoke.includes("typedSql\\/status"));
+    strict.ok(smoke.includes("editor-artifacts.json"));
+    strict.ok(smoke.includes("createFileSystemWatcher"));
+    strict.ok(smoke.includes("node_modules/@typed-sql/language-server/package.json"));
+    const build = await text("scripts/build-zed-artifact.mjs");
+    strict.ok(build.includes("--remap-path-prefix"));
   });
 });

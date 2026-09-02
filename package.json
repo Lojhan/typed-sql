@@ -43,6 +43,7 @@
     "mysql:catalog:check": "node scripts/generate-mysql-catalog.mjs --check",
     "docs:serve": "pnpm --filter typed-sql-docs serve",
     "editor:artifacts:smoke": "node scripts/assert-editor-artifacts.mjs",
+    "editor:zed:build": "node scripts/build-zed-artifact.mjs",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
     "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/sqlite/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "performance": "pnpm build && pnpm performance:gate",

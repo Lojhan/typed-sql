@@ -444,11 +444,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm --filter @typed-sql/e2e-postgres generate:snapshot
+      - run: pnpm --filter @typed-sql/e2e-mysql generate:snapshot
+      - run: poku packages/language-server/test/language-server.test.ts --reporter=compact --enforce
       - run: pnpm --filter ./packages/vscode package:vsix
       - run: rustup target add wasm32-wasip2
       - run: cargo test --manifest-path editors/zed/Cargo.toml
-      - run: cargo build --release --target wasm32-wasip2 --manifest-path editors/zed/Cargo.toml
-      - run: cp editors/zed/target/wasm32-wasip2/release/typed_sql_zed.wasm artifacts/typed-sql-zed.wasm
+      - run: pnpm editor:zed:build
       - run: pnpm editor:artifacts:smoke
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
