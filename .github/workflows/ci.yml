@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 4 * * 2"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -49,6 +52,7 @@ jobs:
           retention-days: 14
 
   typescript-editor-matrix:
+    if: github.event_name != 'pull_request'
     name: typescript-editor (${{ matrix.label }})
     runs-on: ubuntu-latest
     strategy:
@@ -76,6 +80,7 @@ jobs:
       - run: pnpm test:editor-matrix
 
   postgres-e2e:
+    if: github.event_name != 'pull_request'
     name: postgres (${{ matrix.label }})
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
@@ -146,7 +151,7 @@ jobs:
           retention-days: 14
 
   postgres-matrix-review:
-    if: always()
+    if: always() && github.event_name != 'pull_request'
     needs: postgres-e2e
     runs-on: ubuntu-latest
     steps:
@@ -178,6 +183,7 @@ jobs:
           retention-days: 14
 
   mysql-e2e:
+    if: github.event_name != 'pull_request'
     name: mysql (${{ matrix.label }})
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
@@ -269,7 +275,7 @@ jobs:
           retention-days: 14
 
   mysql-matrix-review:
-    if: always()
+    if: always() && github.event_name != 'pull_request'
     needs: mysql-e2e
     runs-on: ubuntu-latest
     steps:
@@ -301,6 +307,7 @@ jobs:
           retention-days: 14
 
   packed-real-databases:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -317,6 +324,7 @@ jobs:
           TYPED_SQL_CONTAINER_ENGINE: docker
 
   examples-e2e:
+    if: github.event_name != 'pull_request'
     name: examples-e2e (${{ matrix.example }})
     runs-on: ubuntu-latest
     strategy:
@@ -354,6 +362,7 @@ jobs:
           retention-days: 14
 
   sqlite-node-matrix:
+    if: github.event_name != 'pull_request'
     name: sqlite-node (${{ matrix.label }})
     runs-on: ubuntu-latest
     strategy:
@@ -393,6 +402,7 @@ jobs:
           retention-days: 14
 
   sqlite-language-matrix:
+    if: github.event_name != 'pull_request'
     name: sqlite-language (${{ matrix.label }})
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
@@ -441,6 +451,7 @@ jobs:
           retention-days: 14
 
   editor-artifacts:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -465,3 +476,54 @@ jobs:
         with:
           name: typed-sql-editor-artifacts
           path: artifacts/
+
+  pull-request-distribution:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm api:check
+      - run: pnpm test:pack
+      - run: pnpm docs:check
+      - run: node scripts/write-ci-evidence.mjs --lane pull-request --output artifacts/evidence/pull-request.json --gate api --gate packed-consumer --gate documentation
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-pull-request-evidence-${{ github.run_attempt }}
+          path: artifacts/evidence/pull-request.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  scheduled-reliability:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fuzz:replay
+      - run: pnpm mutation:pilot -- --report artifacts/evidence/mutation.json
+      - run: pnpm audit --prod --audit-level high
+      - run: node scripts/write-ci-evidence.mjs --lane scheduled --output artifacts/evidence/scheduled.json --gate fuzz --gate mutation --gate audit
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-scheduled-reliability-${{ github.run_attempt }}
+          path: artifacts/evidence/
+          if-no-files-found: warn
+          retention-days: 30
