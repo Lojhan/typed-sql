@@ -56,6 +56,40 @@ await describe("typed-sql config", async () => {
     }
   });
 
+  await it("reuses unchanged modules and reloads changed config content", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-config-cache-"));
+    const file = join(directory, "typed-sql.config.mjs");
+    const source = (id: string) => `
+      export default {
+        dialect: {
+          contractVersion: 4,
+          id: ${JSON.stringify(id)},
+          grammarVersion: "1.0.0",
+          sqlModule: "@example/typed-sql-fixture",
+          capabilities: {},
+          defaultTypePolicy: {},
+          placeholder(index) { return "?" + index; },
+          quoteIdentifier(identifier) { return "[" + identifier + "]"; },
+          analyze() { return { columns: [], parameters: [], diagnostics: [] }; },
+          validateSnapshot(value) { return value; }
+        },
+        schema: { file: "schema.json" },
+        outDir: "generated"
+      };
+    `;
+    try {
+      await writeFile(file, source("first"));
+      const first = await loadConfig({ file });
+      strict.strictEqual(await loadConfig({ file }), first);
+      await writeFile(file, source("second"));
+      const second = await loadConfig({ file });
+      strict.notStrictEqual(second, first);
+      strict.strictEqual(second.config.dialect.id, "second");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   await it("rejects malformed default exports at every contract boundary", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-config-invalid-"));
     const candidates = [

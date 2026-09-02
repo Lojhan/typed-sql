@@ -69,8 +69,10 @@ async function latency(name, operation, options = {}) {
   results[name] = { unit: "ms", iterationsPerSample: iterations, ...measured, budget };
   warnNearBudget(name, measured.p50, budget.p50, "p50");
   warnNearBudget(name, measured.p95, budget.p95, "p95");
+  warnNearBudget(name, measured.p99, budget.p99, "p99");
   assert.ok(measured.p50 <= budget.p50, `${name} p50 ${measured.p50.toFixed(2)}ms exceeded ${budget.p50}ms`);
   assert.ok(measured.p95 <= budget.p95, `${name} p95 ${measured.p95.toFixed(2)}ms exceeded ${budget.p95}ms`);
+  assert.ok(measured.p99 <= budget.p99, `${name} p99 ${measured.p99.toFixed(2)}ms exceeded ${budget.p99}ms`);
 }
 
 function warnNearBudget(name, actual, maximum, statistic) {
@@ -206,6 +208,7 @@ const parserTokensPerSecond = {
   standardDeviation: parserTokenizerThroughput.standardDeviation * parserTokenCount,
   p50: parserTokenizerThroughput.p50 * parserTokenCount,
   p95: parserTokenizerThroughput.p95 * parserTokenCount,
+  p99: parserTokenizerThroughput.p99 * parserTokenCount,
   maximum: parserTokenizerThroughput.maximum * parserTokenCount,
 };
 const parserTokenBudget = budgets.throughput["parser.toolkitTokens"];
@@ -556,12 +559,32 @@ Object.assign(results, await deterministicMicrobenchmarks(methodology));
 const temporary = await mkdtemp(join(tmpdir(), "typed-sql-performance-"));
 try {
   const schemaPath = join(temporary, "schema.json");
+  const alternateSchemaPath = join(temporary, "schema-alternate.json");
   const configPath = join(temporary, "typed-sql.config.mjs");
+  const alternateConfigPath = join(temporary, "typed-sql.alternate.config.mjs");
   const postgresModule = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/index.js")).href;
+  const alternateSnapshot = {
+    ...snapshot,
+    tables: {
+      ...snapshot.tables,
+      users: {
+        ...snapshot.tables.users,
+        columns: {
+          ...snapshot.tables.users.columns,
+          email: { ...snapshot.tables.users.columns.email, tsType: "number" },
+        },
+      },
+    },
+  };
   await writeFile(schemaPath, `${JSON.stringify(snapshot)}\n`);
+  await writeFile(alternateSchemaPath, `${JSON.stringify(alternateSnapshot)}\n`);
   await writeFile(
     configPath,
     `import { postgres } from ${JSON.stringify(postgresModule)};\nexport default { dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated" };\n`,
+  );
+  await writeFile(
+    alternateConfigPath,
+    `import { postgres } from ${JSON.stringify(postgresModule)};\nexport default { dialect: postgres(), schema: { file: "schema-alternate.json" }, outDir: "generated" };\n`,
   );
   const editorSource = manyQuerySource(120);
   const editorDocument = (name, version, text = editorSource) => ({
@@ -662,9 +685,129 @@ try {
       retainedHeapMiB <= memoryBudget.maximum,
       `editor.retainedHeapMiB ${retainedHeapMiB.toFixed(2)}MiB exceeded ${memoryBudget.maximum}MiB`,
     );
+
+    const stormSource = manyQuerySource(12);
+    let stormVersion = 1;
+    await latency(
+      "editor.editStorm",
+      async (index) => {
+        stormVersion += 1;
+        const analysis = await service.analysis(
+          editorDocument("edit-storm.ts", stormVersion, `${stormSource}\n// edit ${index}`),
+        );
+        assert.equal(analysis?.queries.length, 12);
+        assert.equal(analysis?.identity.source.version, stormVersion);
+      },
+      { samples: methodology.soakIterations },
+    );
+    const afterEdits = service.metrics();
+    assert.ok(afterEdits.cache.analyses.entries <= settings.maxCacheEntries);
+    assert.ok(afterEdits.cache.analyses.evictions > 0);
+    results["editor.editStorm"].cache = afterEdits.cache;
+
+    let cancellations = 0;
+    const cancellationSource = editorDocument("cancellation-storm.ts", 1, manyQuerySource(2_000));
+    for (let index = 0; index < methodology.soakIterations; index += 1) {
+      await assert.rejects(
+        () => service.analysis(cancellationSource, { isCancellationRequested: true }),
+        (error) => error instanceof Error && error.name === "AbortError",
+      );
+      cancellations += 1;
+    }
+    assert.equal(cancellations, methodology.soakIterations);
+    results["editor.cancellationStorm"] = {
+      unit: "operations",
+      attempted: methodology.soakIterations,
+      cancelled: cancellations,
+      cache: service.metrics().cache,
+    };
+
+    let schemaWrite = 0;
+    await latency(
+      "editor.schemaChurn",
+      async (index) => {
+        schemaWrite += 1;
+        const nullable = index % 2 === 0;
+        const changed = {
+          ...snapshot,
+          tables: {
+            ...snapshot.tables,
+            users: {
+              ...snapshot.tables.users,
+              columns: {
+                ...snapshot.tables.users.columns,
+                email: { ...snapshot.tables.users.columns.email, nullable },
+              },
+            },
+          },
+        };
+        await writeFile(schemaPath, `${JSON.stringify(changed)}\n`);
+        const modified = new Date(Date.now() + schemaWrite * 1_000);
+        await utimes(schemaPath, modified, modified);
+        const analysis = await service.analysis(editorDocument("schema-churn.ts", schemaWrite, stormSource));
+        assert.equal(analysis?.queries.length, 12);
+        assert.equal(analysis?.queries[0]?.rowType.includes("string | null"), nullable);
+      },
+      { samples: methodology.soakIterations },
+    );
+    await writeFile(schemaPath, `${JSON.stringify(snapshot)}\n`);
+
+    await latency(
+      "editor.projectSwitch",
+      async (index) => {
+        const alternate = index % 2 === 1;
+        service.configure(temporary, {
+          configPath: alternate ? alternateConfigPath : configPath,
+          schemaPath: alternate ? alternateSchemaPath : schemaPath,
+          nativePreview: false,
+          maxCacheEntries: settings.maxCacheEntries,
+        });
+        const analysis = await service.analysis(editorDocument("project-switch.ts", index + 1, stormSource));
+        assert.equal(analysis?.queries.length, 12);
+        assert.equal(analysis?.queries[0]?.rowType.includes('"email": number'), alternate);
+      },
+      { samples: methodology.soakIterations },
+    );
+    const afterSwitches = service.metrics();
+    assert.ok(afterSwitches.cache.analyses.entries <= 1);
+    assert.equal(afterSwitches.bridgeRestarts, 0);
+    results["editor.projectSwitch"].resources = afterSwitches;
   } finally {
     await service.close();
   }
+
+  const openAndCloseProject = async (index) => {
+    const lifecycle = new TypedSqlLanguageService(temporary, settings);
+    try {
+      const analysis = await lifecycle.analysis(editorDocument(`lifecycle-${index}.ts`, 1, manyQuerySource(12)));
+      assert.equal(analysis?.queries.length, 12);
+      assert.ok(lifecycle.cacheSizes().analyses <= 1);
+    } finally {
+      await lifecycle.close();
+    }
+  };
+  for (let index = 0; index < methodology.projectLifecycleIterations; index += 1) {
+    await openAndCloseProject(`warm-${index}`);
+  }
+  globalThis.gc?.();
+  const lifecycleHeapBefore = process.memoryUsage().heapUsed;
+  await latency("editor.projectLifecycle", openAndCloseProject, {
+    warmups: 1,
+    samples: methodology.projectLifecycleIterations,
+  });
+  globalThis.gc?.();
+  const lifecycleHeapGrowthMiB = Math.max(0, process.memoryUsage().heapUsed - lifecycleHeapBefore) / 1024 / 1024;
+  const lifecycleMemoryBudget = budgets.memory["editor.lifecycleHeapGrowthMiB"];
+  results["editor.lifecycleHeapGrowthMiB"] = {
+    unit: "MiB",
+    value: lifecycleHeapGrowthMiB,
+    projects: methodology.projectLifecycleIterations,
+    budget: lifecycleMemoryBudget,
+  };
+  assert.ok(
+    lifecycleHeapGrowthMiB <= lifecycleMemoryBudget.maximum,
+    `editor.lifecycleHeapGrowthMiB ${lifecycleHeapGrowthMiB.toFixed(2)}MiB exceeded ${lifecycleMemoryBudget.maximum}MiB`,
+  );
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }
