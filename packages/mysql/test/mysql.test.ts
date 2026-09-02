@@ -58,6 +58,20 @@ const schema = {
   },
 } as const satisfies SchemaSnapshot;
 
+function serverEvidence(version: string, sqlMode = "") {
+  return mySqlServerEvidence(version, {
+    versionComment: "MySQL Community Server - GPL",
+    sqlMode,
+    characterSetServer: "utf8mb4",
+    collationServer: "utf8mb4_0900_ai_ci",
+    characterSetConnection: "utf8mb4",
+    collationConnection: "utf8mb4_0900_ai_ci",
+    timeZone: "SYSTEM",
+    systemTimeZone: "UTC",
+    lowerCaseTableNames: 0,
+  });
+}
+
 const v2Schema = (() => {
   const upgraded = upgradeSchemaSnapshotV1(schema);
   const users = upgraded.relations.users!;
@@ -85,7 +99,7 @@ await describe("MySQL dialect", async () => {
     const exact = resolveDialectCapabilityStates(dialect, {
       ...schema,
       version: "8.4.6",
-      server: { product: "mysql", version: "8.4.6", versionKey: "8.4.6", features: [], settings: { sqlMode: "" } },
+      server: serverEvidence("8.4.6"),
     });
     strict.strictEqual(exact.lockingReads?.level, "exact");
     strict.strictEqual(dialect.resolveCapabilities?.(schema).lockingReads?.level, "conservative");
@@ -105,26 +119,14 @@ await describe("MySQL dialect", async () => {
     strict.strictEqual(
       dialect.resolveCapabilities?.({
         ...schema,
-        server: {
-          product: "mysql",
-          version: "9.7.0",
-          versionKey: "9.7.0",
-          features: [],
-          settings: { sqlMode: "STRICT_TRANS_TABLES" },
-        },
+        server: serverEvidence("9.7.0", "STRICT_TRANS_TABLES"),
       }).lockingReads?.level,
       "exact",
     );
     strict.strictEqual(
       dialect.resolveCapabilities?.({
         ...schema,
-        server: {
-          product: "mysql",
-          version: "8.4.6-rc1",
-          versionKey: "8.4.6",
-          features: [],
-          settings: { sqlMode: "" },
-        },
+        server: serverEvidence("8.4.6-rc1"),
       }).lockingReads?.diagnostic,
       "TSQ403",
     );
@@ -144,13 +146,7 @@ await describe("MySQL dialect", async () => {
     strict.strictEqual(
       dialect.resolveCapabilities?.({
         ...schema,
-        server: {
-          product: "mysql",
-          version: "8.4.6",
-          versionKey: "8.4.6",
-          features: [],
-          settings: { sqlMode: "ANSI_QUOTES" },
-        },
+        server: serverEvidence("8.4.6", "ANSI_QUOTES"),
       }).lockingReads?.diagnostic,
       "TSQ407",
     );
@@ -161,15 +157,19 @@ await describe("MySQL dialect", async () => {
     strict.strictEqual(
       mysql({ versionPolicy: "canary" }).resolveCapabilities?.({
         ...schema,
-        server: {
-          product: "mysql",
-          version: "26.7.0",
-          versionKey: "26.7.0",
-          features: [],
-          settings: { sqlMode: "STRICT_TRANS_TABLES" },
-        },
+        server: serverEvidence("26.7.0", "STRICT_TRANS_TABLES"),
       }).lockingReads?.level,
       "exact",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          ...serverEvidence("8.4.6"),
+          settings: { ...serverEvidence("8.4.6").settings, edition: "unknown" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ403",
     );
 
     strict.strictEqual(parseMySqlVersion("8.4"), undefined);

@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
 import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
+import { mySqlServerEvidence } from "./capabilities.js";
 import type { MySqlSchemaSnapshot } from "./index.js";
 import { type MySqlQueryable, MySqlSchemaProvider } from "./provider.js";
 import {
@@ -245,12 +246,45 @@ export function createMySql2LiveVerifier(options: MySql2LiveVerifierOptions): Li
     serverPromise ??= (async () => {
       const pool = await acquirePool();
       const [rows] = await pool.query<
-        Array<{ readonly version: string; readonly comment: string; readonly sqlMode: string }>
-      >('SELECT VERSION() AS version, @@version_comment AS comment, @@sql_mode AS "sqlMode"');
+        Array<{
+          readonly version: string;
+          readonly versionComment: string;
+          readonly sqlMode: string;
+          readonly characterSetServer: string;
+          readonly collationServer: string;
+          readonly characterSetConnection: string;
+          readonly collationConnection: string;
+          readonly timeZone: string;
+          readonly systemTimeZone: string;
+          readonly lowerCaseTableNames: number | string;
+        }>
+      >(
+        'SELECT VERSION() AS version, @@version_comment AS "versionComment", @@session.sql_mode AS "sqlMode", @@global.character_set_server AS "characterSetServer", @@global.collation_server AS "collationServer", @@session.character_set_connection AS "characterSetConnection", @@session.collation_connection AS "collationConnection", @@session.time_zone AS "timeZone", @@global.system_time_zone AS "systemTimeZone", @@global.lower_case_table_names AS "lowerCaseTableNames"',
+      );
       const row = rows[0];
+      const evidence =
+        row === undefined
+          ? undefined
+          : mySqlServerEvidence(row.version, {
+              versionComment: row.versionComment,
+              sqlMode: row.sqlMode,
+              characterSetServer: row.characterSetServer,
+              collationServer: row.collationServer,
+              characterSetConnection: row.characterSetConnection,
+              collationConnection: row.collationConnection,
+              timeZone: row.timeZone,
+              systemTimeZone: row.systemTimeZone,
+              lowerCaseTableNames: row.lowerCaseTableNames,
+            });
       return {
         version: row?.version ?? "unknown",
-        features: [`comment:${row?.comment ?? "unknown"}`, `sql-mode:${row?.sqlMode ?? ""}`],
+        features:
+          evidence === undefined
+            ? ["product:unknown"]
+            : [
+                `product:${evidence.product}`,
+                ...Object.entries(evidence.settings).map(([key, value]) => `${key}:${String(value)}`),
+              ],
       };
     })();
     return serverPromise;

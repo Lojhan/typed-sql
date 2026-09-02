@@ -30,6 +30,14 @@ export interface MySqlSchemaProviderOptions {
 interface VersionRow extends Record<string, unknown> {
   readonly server_version: string;
   readonly sql_mode?: string;
+  readonly version_comment?: string;
+  readonly character_set_server?: string;
+  readonly collation_server?: string;
+  readonly character_set_connection?: string;
+  readonly collation_connection?: string;
+  readonly time_zone?: string;
+  readonly system_time_zone?: string;
+  readonly lower_case_table_names?: number | string;
 }
 interface DatabaseRow extends Record<string, unknown> {
   readonly database_name: string | null;
@@ -116,7 +124,8 @@ interface NormalizedIndexRow extends IndexRow {
 }
 
 export const mysqlCatalogQueries = Object.freeze({
-  version: "SELECT VERSION() AS server_version, @@sql_mode AS sql_mode",
+  version:
+    "SELECT VERSION() AS server_version, @@version_comment AS version_comment, @@session.sql_mode AS sql_mode, @@global.character_set_server AS character_set_server, @@global.collation_server AS collation_server, @@session.character_set_connection AS character_set_connection, @@session.collation_connection AS collation_connection, @@session.time_zone AS time_zone, @@global.system_time_zone AS system_time_zone, @@global.lower_case_table_names AS lower_case_table_names",
   database: "SELECT DATABASE() AS database_name",
   columns(schemaCount: number): string {
     return `
@@ -583,7 +592,25 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
       formatVersion: 2,
       dialect: "mysql",
       dialectVersion: MYSQL_DIALECT_VERSION,
-      server: mySqlServerEvidence(version, versionRow.sql_mode),
+      server: mySqlServerEvidence(version, {
+        ...(versionRow.sql_mode === undefined ? {} : { sqlMode: versionRow.sql_mode }),
+        ...(versionRow.version_comment === undefined ? {} : { versionComment: versionRow.version_comment }),
+        ...(versionRow.character_set_server === undefined
+          ? {}
+          : { characterSetServer: versionRow.character_set_server }),
+        ...(versionRow.collation_server === undefined ? {} : { collationServer: versionRow.collation_server }),
+        ...(versionRow.character_set_connection === undefined
+          ? {}
+          : { characterSetConnection: versionRow.character_set_connection }),
+        ...(versionRow.collation_connection === undefined
+          ? {}
+          : { collationConnection: versionRow.collation_connection }),
+        ...(versionRow.time_zone === undefined ? {} : { timeZone: versionRow.time_zone }),
+        ...(versionRow.system_time_zone === undefined ? {} : { systemTimeZone: versionRow.system_time_zone }),
+        ...(versionRow.lower_case_table_names === undefined
+          ? {}
+          : { lowerCaseTableNames: versionRow.lower_case_table_names }),
+      }),
       namespaces: Object.fromEntries([...schemas].sort().map((name) => [name, { name, kind: "database" as const }])),
       types,
       relations,

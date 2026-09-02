@@ -31,6 +31,19 @@ const transactionScopeOmitsClose: Assert<Equal<Extract<keyof MySqlTransaction, "
 const rootDatabaseRetainsClose: Assert<Equal<Extract<keyof MySqlDatabase, "close">, "close">> = true;
 void [transactionScopeIsExact, nestedTransactionScopeIsExact, transactionScopeOmitsClose, rootDatabaseRetainsClose];
 
+const serverRow = Object.freeze({
+  server_version: "8.4.11",
+  version_comment: "MySQL Community Server - GPL",
+  sql_mode: "STRICT_TRANS_TABLES,NO_ZERO_DATE",
+  character_set_server: "utf8mb4",
+  collation_server: "utf8mb4_0900_ai_ci",
+  character_set_connection: "utf8mb4",
+  collation_connection: "utf8mb4_0900_ai_ci",
+  time_zone: "SYSTEM",
+  system_time_zone: "UTC",
+  lower_case_table_names: 0,
+});
+
 class CatalogClient implements MySqlQueryable {
   readonly calls: { readonly sql: string; readonly values?: readonly unknown[] }[] = [];
   database: string | null = "app";
@@ -43,8 +56,7 @@ class CatalogClient implements MySqlQueryable {
   ): Promise<MySqlQueryResult<Row>> {
     this.calls.push({ sql: sqlText, ...(values === undefined ? {} : { values }) });
     let rows: readonly Record<string, unknown>[];
-    if (sqlText.includes("VERSION()"))
-      rows = [{ server_version: "8.4.11", sql_mode: "STRICT_TRANS_TABLES,NO_ZERO_DATE" }];
+    if (sqlText.includes("VERSION()")) rows = [serverRow];
     else if (sqlText.includes("DATABASE()")) rows = [{ database_name: this.database }];
     else if (sqlText.includes("information_schema.COLUMNS"))
       rows = [
@@ -180,7 +192,7 @@ class CatalogClient implements MySqlQueryable {
       ];
     else throw new Error("unexpected catalog query");
     if (this.richRows && sqlText.includes("VERSION()")) {
-      rows = [{ server_version: "8.4.11", sql_mode: undefined }];
+      rows = [{ ...serverRow, sql_mode: undefined }];
     } else if (this.richRows && sqlText.includes("information_schema.COLUMNS")) {
       rows = [
         ...rows,
@@ -426,7 +438,17 @@ await describe("MySQL provider and runtime", async () => {
     strict.strictEqual(snapshot.formatVersion, 2);
     strict.strictEqual(snapshot.dialect, "mysql");
     strict.strictEqual(snapshot.version, "8.4.11");
-    strict.deepStrictEqual(snapshot.server?.settings, { sqlMode: "NO_ZERO_DATE,STRICT_TRANS_TABLES" });
+    strict.deepStrictEqual(snapshot.server?.settings, {
+      characterSetConnection: "utf8mb4",
+      characterSetServer: "utf8mb4",
+      collationConnection: "utf8mb4_0900_ai_ci",
+      collationServer: "utf8mb4_0900_ai_ci",
+      edition: "community",
+      lowerCaseTableNames: 0,
+      sqlMode: "NO_ZERO_DATE,STRICT_TRANS_TABLES",
+      systemTimeZone: "UTC",
+      timeZone: "SYSTEM",
+    });
     strict.strictEqual(snapshot.tables.users?.columns.id?.tsType, "bigint");
     strict.strictEqual(snapshot.tables.users?.columns.status?.tsType, '"active" | "suspended"');
     strict.match(snapshot.relations.users?.columns.status?.defaultExpressionHash ?? "", /^sha256:/u);
@@ -477,7 +499,16 @@ await describe("MySQL provider and runtime", async () => {
     const client = new CatalogClient();
     client.richRows = true;
     const snapshot = await new MySqlSchemaProvider({ client, includeSchemas: ["app"] }).introspect({});
-    strict.deepStrictEqual(snapshot.server.settings, {});
+    strict.deepStrictEqual(snapshot.server.settings, {
+      characterSetConnection: "utf8mb4",
+      characterSetServer: "utf8mb4",
+      collationConnection: "utf8mb4_0900_ai_ci",
+      collationServer: "utf8mb4_0900_ai_ci",
+      edition: "community",
+      lowerCaseTableNames: 0,
+      systemTimeZone: "UTC",
+      timeZone: "SYSTEM",
+    });
     strict.strictEqual(snapshot.types.mystery?.kind, "opaque");
     strict.strictEqual(snapshot.types["set('one','two')"]?.kind, "collection");
     strict.strictEqual(snapshot.relations.generated_users?.kind, "view");

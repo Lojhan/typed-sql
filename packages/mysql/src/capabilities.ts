@@ -21,14 +21,70 @@ export const MYSQL_CAPABILITIES = Object.freeze({
   setOperations: false,
 });
 
+export type MySqlServerEdition = "commercial" | "community" | "enterprise" | "source" | "unknown";
+
+export interface MySqlServerEvidenceOptions {
+  readonly sqlMode?: string;
+  readonly characterSetServer?: string;
+  readonly collationServer?: string;
+  readonly characterSetConnection?: string;
+  readonly collationConnection?: string;
+  readonly timeZone?: string;
+  readonly systemTimeZone?: string;
+  readonly lowerCaseTableNames?: number | string;
+  readonly versionComment?: string;
+}
+
+const mysqlSettingKeys = Object.freeze([
+  "characterSetConnection",
+  "characterSetServer",
+  "collationConnection",
+  "collationServer",
+  "edition",
+  "lowerCaseTableNames",
+  "sqlMode",
+  "systemTimeZone",
+  "timeZone",
+] as const);
+
+const exactMySqlSettingKeys = Object.freeze([...mysqlSettingKeys]);
+
 export function assertMySqlServerEvidence(server: DialectServerEvidence): void {
   const settings = Object.keys(server.settings);
-  if (settings.some((key) => key !== "sqlMode")) {
+  if (settings.some((key) => !mysqlSettingKeys.includes(key as (typeof mysqlSettingKeys)[number]))) {
     throw new TypeError("MySQL server evidence contains a non-allowlisted semantic setting");
   }
   const sqlMode = server.settings.sqlMode;
   if (sqlMode !== undefined && (typeof sqlMode !== "string" || normalizeSqlMode(sqlMode) !== sqlMode)) {
     throw new TypeError("MySQL sqlMode evidence must be a normalized mode list");
+  }
+  for (const key of [
+    "characterSetConnection",
+    "characterSetServer",
+    "collationConnection",
+    "collationServer",
+  ] as const) {
+    const value = server.settings[key];
+    if (value !== undefined && (typeof value !== "string" || normalizeIdentifier(value, key) !== value)) {
+      throw new TypeError(`MySQL ${key} evidence must be a normalized identifier`);
+    }
+  }
+  for (const key of ["timeZone", "systemTimeZone"] as const) {
+    const value = server.settings[key];
+    if (value !== undefined && (typeof value !== "string" || normalizeTimeZone(value) !== value)) {
+      throw new TypeError(`MySQL ${key} evidence must be normalized`);
+    }
+  }
+  const lowerCaseTableNames = server.settings.lowerCaseTableNames;
+  if (lowerCaseTableNames !== undefined && ![0, 1, 2].includes(lowerCaseTableNames as number)) {
+    throw new TypeError("MySQL lowerCaseTableNames evidence must be 0, 1, or 2");
+  }
+  const edition = server.settings.edition;
+  if (
+    edition !== undefined &&
+    (typeof edition !== "string" || !["commercial", "community", "enterprise", "source", "unknown"].includes(edition))
+  ) {
+    throw new TypeError("MySQL edition evidence is invalid");
   }
   if (server.features.length > 0) throw new TypeError("MySQL server evidence does not allow feature identifiers");
 }
@@ -46,15 +102,82 @@ function normalizeSqlMode(value: string): string {
     .join(",");
 }
 
-export function mySqlServerEvidence(version: string, sqlMode?: string): DialectServerEvidence {
+function normalizeIdentifier(value: string, name: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!/^[a-z0-9_]+$/u.test(normalized)) throw new TypeError(`MySQL ${name} is not a safe identifier`);
+  return normalized;
+}
+
+function normalizeTimeZone(value: string): string {
+  const normalized = value.trim();
+  if (
+    normalized.length === 0 ||
+    [...normalized].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
+  ) {
+    throw new TypeError("MySQL time-zone evidence is invalid");
+  }
+  return /^system$/iu.test(normalized) ? "SYSTEM" : normalized;
+}
+
+function normalizeLowerCaseTableNames(value: number | string): number {
+  const normalized = typeof value === "string" && /^[012]$/u.test(value.trim()) ? Number(value.trim()) : value;
+  if (normalized !== 0 && normalized !== 1 && normalized !== 2) {
+    throw new TypeError("MySQL lower_case_table_names must be 0, 1, or 2");
+  }
+  return normalized;
+}
+
+function mysqlServerEdition(comment: string | undefined): MySqlServerEdition {
+  if (comment === undefined) return "unknown";
+  if (/community/iu.test(comment)) return "community";
+  if (/enterprise/iu.test(comment)) return "enterprise";
+  if (/commercial/iu.test(comment)) return "commercial";
+  if (/source distribution/iu.test(comment)) return "source";
+  return "unknown";
+}
+
+function mysqlServerProduct(version: string, comment: string | undefined): string {
+  const identity = `${version}\n${comment ?? ""}`;
+  if (/mariadb/iu.test(identity)) return "mariadb";
+  if (/(?:percona|tidb|vitess|planetscale|aurora)/iu.test(identity)) return "mysql-compatible";
+  if (comment === undefined || /mysql|source distribution/iu.test(comment)) return "mysql";
+  return "mysql-compatible";
+}
+
+export function mySqlServerEvidence(
+  version: string,
+  sqlModeOrOptions?: string | MySqlServerEvidenceOptions,
+): DialectServerEvidence {
   const parsed = parseMySqlVersion(version);
   if (parsed === undefined) throw new TypeError(`Cannot normalize MySQL version ${JSON.stringify(version)}`);
+  const options = typeof sqlModeOrOptions === "string" ? { sqlMode: sqlModeOrOptions } : (sqlModeOrOptions ?? {});
+  const settings = {
+    ...(options.sqlMode === undefined ? {} : { sqlMode: normalizeSqlMode(options.sqlMode) }),
+    ...(options.characterSetServer === undefined
+      ? {}
+      : { characterSetServer: normalizeIdentifier(options.characterSetServer, "characterSetServer") }),
+    ...(options.collationServer === undefined
+      ? {}
+      : { collationServer: normalizeIdentifier(options.collationServer, "collationServer") }),
+    ...(options.characterSetConnection === undefined
+      ? {}
+      : { characterSetConnection: normalizeIdentifier(options.characterSetConnection, "characterSetConnection") }),
+    ...(options.collationConnection === undefined
+      ? {}
+      : { collationConnection: normalizeIdentifier(options.collationConnection, "collationConnection") }),
+    ...(options.timeZone === undefined ? {} : { timeZone: normalizeTimeZone(options.timeZone) }),
+    ...(options.systemTimeZone === undefined ? {} : { systemTimeZone: normalizeTimeZone(options.systemTimeZone) }),
+    ...(options.lowerCaseTableNames === undefined
+      ? {}
+      : { lowerCaseTableNames: normalizeLowerCaseTableNames(options.lowerCaseTableNames) }),
+    ...(options.versionComment === undefined ? {} : { edition: mysqlServerEdition(options.versionComment) }),
+  };
   return defineDialectServerEvidence({
-    product: /mariadb/iu.test(version) ? "mariadb" : "mysql",
+    product: mysqlServerProduct(version, options.versionComment),
     version,
     versionKey: parsed.join("."),
     features: [],
-    settings: sqlMode === undefined ? {} : { sqlMode: normalizeSqlMode(sqlMode) },
+    settings,
   });
 }
 
@@ -155,6 +278,23 @@ export function resolveMySqlCapabilities(
   if (support !== "supported" && support !== "canary") {
     return conservativeStates(
       `MySQL ${version.join(".")} is not in the tested 8.4 or 9.7 LTS support lines.`,
+      server,
+      "TSQ403",
+      versionPolicy,
+    );
+  }
+  const missingSettings = exactMySqlSettingKeys.filter((key) => !Object.hasOwn(server.settings, key));
+  if (missingSettings.length > 0) {
+    return conservativeStates(
+      `Exact MySQL analysis requires normalized server settings: ${missingSettings.join(", ")}.`,
+      server,
+      "TSQ402",
+      versionPolicy,
+    );
+  }
+  if (server.settings.edition === "unknown") {
+    return conservativeStates(
+      "The MySQL server edition could not be identified as an approved distribution.",
       server,
       "TSQ403",
       versionPolicy,

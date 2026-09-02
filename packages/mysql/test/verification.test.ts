@@ -27,7 +27,23 @@ class VerificationPool implements MySql2LiveVerifierPool {
         [],
       ];
     }
-    return [[{ version: "8.4.11", comment: "MySQL Community", sqlMode: "STRICT_TRANS_TABLES" }] as unknown as Row, []];
+    return [
+      [
+        {
+          version: "8.4.11",
+          versionComment: "MySQL Community Server - GPL",
+          sqlMode: "STRICT_TRANS_TABLES",
+          characterSetServer: "utf8mb4",
+          collationServer: "utf8mb4_0900_ai_ci",
+          characterSetConnection: "utf8mb4",
+          collationConnection: "utf8mb4_0900_ai_ci",
+          timeZone: "+00:00",
+          systemTimeZone: "UTC",
+          lowerCaseTableNames: 0,
+        },
+      ] as unknown as Row,
+      [],
+    ];
   }
 
   async getConnection(): Promise<MySql2LiveVerifierConnection> {
@@ -72,6 +88,18 @@ await describe("MySQL live verification", async () => {
     const verifier = createMySql2LiveVerifier({ pool });
     const server = await verifier.server();
     strict.strictEqual(server.version, "8.4.11");
+    strict.deepStrictEqual(server.features, [
+      "product:mysql",
+      "characterSetConnection:utf8mb4",
+      "characterSetServer:utf8mb4",
+      "collationConnection:utf8mb4_0900_ai_ci",
+      "collationServer:utf8mb4_0900_ai_ci",
+      "edition:community",
+      "lowerCaseTableNames:0",
+      "sqlMode:STRICT_TRANS_TABLES",
+      "systemTimeZone:UTC",
+      "timeZone:+00:00",
+    ]);
     const evidence = await verifier.verify({
       fingerprint: `sha256:${"a".repeat(64)}`,
       sql: "SELECT id, email, status FROM users WHERE id = ?",

@@ -130,11 +130,24 @@ class HangingRawPool extends FakeRawConnection {
 class CatalogClient implements MySqlQueryable {
   async query<Row extends Record<string, unknown>>(sql: string): Promise<MySqlQueryResult<Row>> {
     let rows: readonly Record<string, unknown>[] = [];
-    if (sql.includes("VERSION()")) rows = [{ server_version: "8.4.11" }];
+    if (sql.includes("VERSION()")) rows = [catalogServerRow];
     else if (sql.includes("DATABASE()")) rows = [{ database_name: "app" }];
     return { rows: rows as readonly Row[] };
   }
 }
+
+const catalogServerRow = Object.freeze({
+  server_version: "8.4.11",
+  version_comment: "MySQL Community Server - GPL",
+  sql_mode: "STRICT_TRANS_TABLES",
+  character_set_server: "utf8mb4",
+  collation_server: "utf8mb4_0900_ai_ci",
+  character_set_connection: "utf8mb4",
+  collation_connection: "utf8mb4_0900_ai_ci",
+  time_zone: "+00:00",
+  system_time_zone: "UTC",
+  lower_case_table_names: 0,
+});
 
 function fakeDriver(pool: FakeRawPool): typeof import("mysql2/promise") {
   return { createPool: () => pool } as unknown as typeof import("mysql2/promise");
@@ -374,7 +387,7 @@ await describe("application-owned mysql2 integration", async () => {
     class CatalogPool extends FakeRawPool {
       override async query(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly never[]]> {
         this.calls.push(sql);
-        if (sql.includes("VERSION()")) return [[{ server_version: "8.4.11" }], []];
+        if (sql.includes("VERSION()")) return [[catalogServerRow], []];
         if (sql.includes("DATABASE()")) return [[{ database_name: "app" }], []];
         if (sql.includes("information_schema.COLUMNS"))
           return [
