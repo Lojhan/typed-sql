@@ -26,7 +26,13 @@ import {
   verifyQueryManifest,
 } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
-import { resolveDialectCapabilityStates, type SchemaSnapshot } from "@typed-sql/core";
+import {
+  createDebugEvent,
+  createSupportBundle,
+  resolveDialectCapabilityStates,
+  type SchemaSnapshot,
+  serializeSupportBundle,
+} from "@typed-sql/core";
 import {
   calculateSchemaHash,
   calculateTypePolicyHash,
@@ -97,6 +103,8 @@ Examples:
   typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
   typed-sql doctor --config typed-sql.config.ts --json
+  typed-sql doctor --config typed-sql.config.ts --support-bundle-preview
+  typed-sql doctor --config typed-sql.config.ts --support-bundle support.json --confirm-support-bundle
   typed-sql explain --manifest .typed-sql/queries.json --out .typed-sql/plans.json
   typed-sql explain --compare .typed-sql/plans.json
   typed-sql generate --config typed-sql.config.ts --out generated/db
@@ -112,7 +120,12 @@ function parseArguments(args: readonly string[]): ParsedArguments {
   for (let index = 1; index < args.length; index += 1) {
     const argument = args[index]!;
     if (!argument.startsWith("--")) throw new Error(`Unexpected argument ${argument}`);
-    if (argument === "--live" || argument === "--json") {
+    if (
+      argument === "--live" ||
+      argument === "--json" ||
+      argument === "--support-bundle-preview" ||
+      argument === "--confirm-support-bundle"
+    ) {
       options[argument.slice(2)] = "true";
       continue;
     }
@@ -434,6 +447,33 @@ async function main(): Promise<void> {
       errors,
       warnings,
     } as const;
+    const supportBundlePath = parsed.options["support-bundle"];
+    const previewSupportBundle = parsed.options["support-bundle-preview"] === "true";
+    const confirmSupportBundle = parsed.options["confirm-support-bundle"] === "true";
+    if (confirmSupportBundle && supportBundlePath === undefined)
+      throw new Error("--confirm-support-bundle requires --support-bundle <path>");
+    if (supportBundlePath !== undefined && !confirmSupportBundle)
+      throw new Error("Preview the inventory, then pass --confirm-support-bundle to write the support bundle");
+    if (previewSupportBundle || supportBundlePath !== undefined) {
+      const bundle = createSupportBundle(
+        [
+          createDebugEvent({
+            phase: "doctor",
+            event: "compatibility",
+            ...(report.status === "error" ? { failure: { code: "TSQL_DOCTOR", classification: "compatibility" } } : {}),
+            context: report,
+          }),
+        ],
+        { version, node: { version: process.version } },
+      );
+      process.stderr.write(`Support bundle inventory:\n${JSON.stringify(bundle.inventory, null, 2)}\n`);
+      if (supportBundlePath !== undefined) {
+        const path = resolve(supportBundlePath);
+        await mkdir(dirname(path), { recursive: true });
+        await writeFile(path, serializeSupportBundle(bundle));
+        process.stderr.write(`Wrote redacted support bundle to ${path}\n`);
+      }
+    }
     if (parsed.options.json === "true") process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     else {
       process.stdout.write(

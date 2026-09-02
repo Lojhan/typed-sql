@@ -68,6 +68,7 @@ export default defineConfig({
           { text: "Compose conditional SQL", link: "/guides/composition" },
           { text: "Manage schema snapshots", link: "/guides/schema-snapshots" },
           { text: "Configure editors", link: "/guides/editors" },
+          { text: "Create a support bundle", link: "/guides/support-bundles" },
         ],
       },
       {

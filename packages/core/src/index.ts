@@ -25,6 +25,19 @@ export {
   parseArtifactCompatibilityIdentity,
   serializeArtifactCompatibilityIdentity,
 } from "./artifact-compatibility.js";
+export type {
+  DebugEvent,
+  DebugEventInput,
+  DebugRedactionOptions,
+  SupportBundle,
+} from "./debug.js";
+export {
+  createDebugEvent,
+  createSupportBundle,
+  redactDebugContext,
+  SUPPORT_BUNDLE_FORMAT_VERSION,
+  serializeSupportBundle,
+} from "./debug.js";
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
 export type {

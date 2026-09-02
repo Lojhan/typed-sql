@@ -113,6 +113,9 @@ import type {
   DatabaseOperationCompletion,
   DatabaseOperationEnd,
   DatabaseOperationStart,
+  DebugEvent,
+  DebugEventInput,
+  DebugRedactionOptions,
   DialectCapabilities,
   DialectCapabilityEvidence,
   DialectCapabilityEvidenceKind,
@@ -182,6 +185,7 @@ import type {
   StandardTypedV1,
   StreamOperationStart,
   StreamOptions,
+  SupportBundle,
   TransactionDatabase,
   TransactionOperationStart,
   TransactionRetryContext,
@@ -569,6 +573,9 @@ type ReferencedStableTypes =
   | DatabaseOperationCompletion
   | DatabaseOperationEnd
   | DatabaseOperationStart
+  | DebugEvent
+  | DebugEventInput
+  | DebugRedactionOptions
   | BooleanDialectCapabilities
   | DialectCapabilityEvidence
   | DialectCapabilityEvidenceKind
@@ -628,6 +635,7 @@ type ReferencedStableTypes =
   | SqlRenderer
   | SqlSegment
   | SqlTag
+  | SupportBundle
   | SqlAstVisitor
   | SqlAstContext
   | SelectLockingClause
@@ -828,8 +836,10 @@ const expectedRuntimeExports = {
     "ResolverSchemaIndex",
     "closestName",
     "createDatabase",
+    "createDebugEvent",
     "createAdapterCapabilityResolver",
     "createRoutedDatabase",
+    "createSupportBundle",
     "defineAdapterCapability",
     "defineDialectCapabilityStates",
     "defineDialectServerEvidence",
@@ -851,6 +861,7 @@ const expectedRuntimeExports = {
     "parseDialectServerEvidence",
     "queryRoute",
     "queryResultValidationSource",
+    "redactDebugContext",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "resolveDialectCapabilityStates",
@@ -861,7 +872,9 @@ const expectedRuntimeExports = {
     "sql",
     "startDatabaseObservation",
     "staticDialectCapabilityStates",
+    "SUPPORT_BUNDLE_FORMAT_VERSION",
     "unionTypeLiterals",
+    "serializeSupportBundle",
     "unknownQuerySemantics",
     "UnsafeReplicaRoutingError",
     "validateQueryResultRows",
