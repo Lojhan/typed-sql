@@ -1,6 +1,9 @@
 import { compileSource } from "@typed-sql/compiler";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 
+export type { TypeScriptIntegrationSurface, TypeScriptVersionSupport } from "./support.js";
+export { TYPESCRIPT_PREVIEW_VERSION, TYPESCRIPT_SUPPORT_POLICY, typeScriptVersionSupport } from "./support.js";
+
 export interface OffsetRange {
   readonly start: number;
   readonly end: number;

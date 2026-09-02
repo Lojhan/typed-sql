@@ -27,6 +27,13 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
+export type { TypedSqlProtocolVersionSupport } from "./protocol.js";
+export {
+  TYPED_SQL_PROTOCOL_SUPPORT_POLICY,
+  TYPED_SQL_PROTOCOL_VERSION,
+  typedSqlProtocolVersionSupport,
+} from "./protocol.js";
+
 export interface TypedSqlLanguageServerSettings {
   readonly configPath?: string;
   readonly schemaPath?: string;

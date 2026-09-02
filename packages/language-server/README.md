@@ -23,6 +23,10 @@ Clients can request `typedSql/status` to inspect the exact pinned TypeScript pre
 workspace roots, and open/indexed document counts. The server suppresses diagnostics from document
 versions that have already been superseded.
 
+The existing typed-sql-specific request and initialization shape is protocol v1. Unversioned clients
+are treated as v1, and `TYPED_SQL_PROTOCOL_SUPPORT_POLICY` publishes the accepted compatibility
+window. Removing an accepted protocol version requires a language-server major release.
+
 Use typed-sql as the sole TypeScript language server for a configured project. A second server sees
 the conservative package declaration and may display a competing `Query<unknown>` hover.
 

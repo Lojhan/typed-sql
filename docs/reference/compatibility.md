@@ -21,10 +21,12 @@ version boundaries, see [Upgrade from typed-sql v1](../guides/upgrading-from-v1.
 | --- | --- |
 | Node.js | 22.11 or newer |
 | TypeScript correctness path | Exactly 7.0.2 |
+| TypeScript editor backend | Exactly `7.1.0-dev.20260824.1`, installed inside the bridge |
+| typed-sql editor protocol | Version 1; the existing unversioned client shape is treated as version 1 |
 | Module format | ESM packages with exported JavaScript and declarations |
 | Package manager | Any package manager that honors package exports; repository examples use pnpm |
 
-TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by some editors. CLI checking and compiler transforms are authoritative and do not depend on that file.
+TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by some editors. CLI checking and compiler transforms are authoritative and do not depend on that file. Other TypeScript patches are not implicitly supported: each exact compiler or preview patch enters the compatibility matrix as a non-blocking canary before it can replace a supported target.
 
 ## Databases and drivers
 
@@ -59,6 +61,11 @@ The TypeScript 7.1 package currently publishes the native program APIs used by t
 explicit `unstable/*` entrypoints. For that reason `ts-bridge`, `language-server`, and both editor
 integrations remain experimental even though the CLI/compiler path is stable. The preview dependency
 and its API-specific code remain isolated from grammar and stable packages.
+
+The typed-sql-specific editor protocol is independently versioned from LSP and the package version.
+Protocol v1 is the current accepted window; clients that predate the version field use the same v1
+shape. Removing an accepted protocol version requires a language-server major release and at least
+one language-server minor of notice.
 
 ## Grammar and snapshot compatibility
 

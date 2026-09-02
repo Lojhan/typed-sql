@@ -5,6 +5,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import {
+  TYPED_SQL_PROTOCOL_SUPPORT_POLICY,
+  TYPED_SQL_PROTOCOL_VERSION,
+} from "../../packages/language-server/src/index.js";
+import { TYPESCRIPT_SUPPORT_POLICY } from "../../packages/ts-bridge/src/index.js";
 
 const execute = promisify(execFile);
 const testDirectory = dirname(fileURLToPath(import.meta.url));
@@ -18,11 +23,20 @@ await describe("TypeScript 7 compatibility matrix", async () => {
     const previewPackage = bridgeRequire.resolve("@typed-sql/typescript-preview/package.json");
     const stable = JSON.parse(await readFile(stablePackage, "utf8")) as { readonly version?: string };
     const preview = JSON.parse(await readFile(previewPackage, "utf8")) as { readonly version?: string };
-    strict.strictEqual(stable.version, "7.0.2");
-    strict.strictEqual(preview.version, "7.1.0-dev.20260824.1");
+    strict.strictEqual(stable.version, TYPESCRIPT_SUPPORT_POLICY.compiler.exactVersion);
+    strict.strictEqual(preview.version, TYPESCRIPT_SUPPORT_POLICY.previewBackend.exactVersion);
     const stableOutput = await execute(process.execPath, [join(dirname(stablePackage), "bin", "tsc"), "--version"]);
     const previewOutput = await execute(process.execPath, [join(dirname(previewPackage), "bin", "tsc"), "--version"]);
-    strict.strictEqual(stableOutput.stdout.trim(), "Version 7.0.2");
-    strict.strictEqual(previewOutput.stdout.trim(), "Version 7.1.0-dev.20260824.1");
+    strict.strictEqual(stableOutput.stdout.trim(), `Version ${TYPESCRIPT_SUPPORT_POLICY.compiler.exactVersion}`);
+    strict.strictEqual(previewOutput.stdout.trim(), `Version ${TYPESCRIPT_SUPPORT_POLICY.previewBackend.exactVersion}`);
+  });
+
+  await it("publishes the TypeScript admission and editor protocol compatibility policies", () => {
+    strict.strictEqual(TYPESCRIPT_SUPPORT_POLICY.compiler.compatibility, "exact-tested-patch");
+    strict.strictEqual(TYPESCRIPT_SUPPORT_POLICY.previewBackend.compatibility, "exact-tested-patch");
+    strict.strictEqual(TYPESCRIPT_SUPPORT_POLICY.newLineAdmission, "non-blocking-canary-first");
+    strict.strictEqual(TYPED_SQL_PROTOCOL_VERSION, 1);
+    strict.deepStrictEqual(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.acceptedVersions, [1]);
+    strict.strictEqual(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.legacyUnversionedClients, "accepted-as-version-1");
   });
 });

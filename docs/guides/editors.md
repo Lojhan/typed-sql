@@ -82,3 +82,7 @@ Relative paths resolve from the LSP workspace root. Each workspace folder receiv
 The custom `typedSql/status` request returns the server mode, exact pinned TypeScript version,
 workspace roots, and document counts. It is informational; CLI/compiler output remains the
 correctness boundary.
+
+The current typed-sql-specific request and initialization shape is protocol v1. Existing clients
+without an explicit protocol version are v1-compatible. The server publishes its accepted window
+through `TYPED_SQL_PROTOCOL_SUPPORT_POLICY`; removal requires a language-server major release.

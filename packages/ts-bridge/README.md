@@ -24,6 +24,10 @@ The bridge creates an in-memory `Query<Row, Parameters>` overlay, delegates the 
 an isolated preview process, and maps positions back to unchanged source. Preview API churn remains
 behind that process boundary.
 
+`TYPESCRIPT_SUPPORT_POLICY` records the exact tested boundary: compiler correctness uses TypeScript
+7.0.2 and the editor backend uses `7.1.0-dev.20260824.1`. Another patch or major/minor line is not
+silently accepted as equivalent. New lines enter the matrix as non-blocking canaries before support.
+
 Public subpaths are `/native-preview` for the preview client and `/native-lsp` for the native LSP
 connection adapter. Applications normally receive this package through
 `@typed-sql/language-server`.

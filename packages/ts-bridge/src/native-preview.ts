@@ -2,7 +2,7 @@ import { type Node, type SourceFile, SyntaxKind } from "@typed-sql/typescript-pr
 import { API, type Checker, type Snapshot } from "@typed-sql/typescript-preview/unstable/async";
 import type { BridgeQuery, NativeTypeInspection, TypeScriptBridge, TypeScriptInspectionInput } from "./index.js";
 
-export const TYPESCRIPT_PREVIEW_VERSION = "7.1.0-dev.20260824.1";
+export { TYPESCRIPT_PREVIEW_VERSION } from "./support.js";
 
 export interface NativePreviewSpawnOptions {
   readonly cwd?: string;
