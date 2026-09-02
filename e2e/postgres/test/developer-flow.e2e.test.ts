@@ -71,8 +71,12 @@ const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
 const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", "cli", "src", "cli.js");
 const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
 const port = Number(process.env.TYPED_SQL_E2E_PORT ?? "55432");
+const expectedVersion = process.env.TYPED_SQL_POSTGRES_VERSION ?? "18.6";
+const matrixLabel = process.env.TYPED_SQL_POSTGRES_MATRIX_LABEL ?? `postgres-${expectedVersion}`;
+const matrixChannel = process.env.TYPED_SQL_POSTGRES_CHANNEL ?? "stable";
+const baseImage = process.env.TYPED_SQL_POSTGRES_IMAGE ?? `docker.io/library/postgres:${expectedVersion}-bookworm`;
 const containerName = `typed-sql-e2e-postgres-${process.pid}`;
-const imageName = "localhost/typed-sql-e2e-postgres:18.4";
+const imageName = `localhost/typed-sql-e2e-${matrixLabel}`;
 const connectionString = `postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
 let containerStarted = false;
 
@@ -108,8 +112,17 @@ const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(proc
 
 await rm(generatedDirectory, { recursive: true, force: true });
 await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
-log(`Building ${imageName} from the digest-pinned Containerfile`);
-await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "."]);
+log(`Building ${imageName} from ${baseImage}`);
+await mustRun(engine, [
+  "build",
+  "--build-arg",
+  `POSTGRES_IMAGE=${baseImage}`,
+  "--tag",
+  imageName,
+  "--file",
+  "Containerfile",
+  ".",
+]);
 
 try {
   await mustRun(engine, [
@@ -187,7 +200,7 @@ try {
       const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as GeneratedSnapshot;
       strict.strictEqual(snapshot.formatVersion, 2);
       strict.strictEqual(snapshot.dialect, "postgres");
-      strict.ok(snapshot.server.version.startsWith("18.4"));
+      strict.ok(snapshot.server.version.startsWith(expectedVersion));
       strict.strictEqual(snapshot.relations.users?.columns.id?.databaseType, "bigint");
       strict.strictEqual(snapshot.relations.users?.columns.id?.tsType, "bigint");
       strict.strictEqual(snapshot.relations.users?.columns.email?.tsType, "string");
@@ -204,6 +217,21 @@ try {
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
       strict.ok(snapshot.metadata.schemaHash.length === 64);
       strict.ok(snapshot.metadata.typePolicyHash.length === 64);
+      await mustRun(process.execPath, [
+        join(workspaceDirectory, "scripts", "postgres-matrix-probe.mjs"),
+        "--connection-string",
+        connectionString,
+        "--expected-version",
+        expectedVersion,
+        "--label",
+        matrixLabel,
+        "--channel",
+        matrixChannel,
+        "--snapshot",
+        generatedSnapshotPath,
+        "--output",
+        join(workspaceDirectory, "artifacts", "postgres-matrix", `${matrixLabel}.json`),
+      ]);
     });
 
     await it("records a redacted conformance v2 differential report", async () => {

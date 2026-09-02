@@ -1,5 +1,7 @@
-# Official postgres:18.4-bookworm, pinned to its immutable multi-architecture digest.
-FROM docker.io/library/postgres@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+# The local default is the latest stable matrix target. CI supplies the exact image selected for
+# each supported major and the next-major canary through this build argument.
+ARG POSTGRES_IMAGE=docker.io/library/postgres:18.6-bookworm
+FROM ${POSTGRES_IMAGE}
 
 COPY schema/001-schema.sql /docker-entrypoint-initdb.d/001-schema.sql
 COPY schema/002-seed.sql /docker-entrypoint-initdb.d/002-seed.sql

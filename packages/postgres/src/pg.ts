@@ -199,6 +199,28 @@ export interface PgLiveVerifierClient {
   release(error?: Error | boolean): void;
 }
 
+interface PgProtocolField {
+  readonly name: string;
+  readonly dataTypeID: number;
+}
+
+interface PgProtocolDescription {
+  readonly parameters: readonly number[];
+  readonly columns: readonly PgProtocolField[];
+}
+
+interface PgProtocolConnection {
+  parse(request: { readonly text: string; readonly name: string; readonly types: readonly number[] }): void;
+  describe(request: { readonly type: "S"; readonly name: string }): void;
+  sync(): void;
+  on(event: "parameterDescription", listener: (message: { readonly dataTypeIDs: readonly number[] }) => void): void;
+  off(event: "parameterDescription", listener: (message: { readonly dataTypeIDs: readonly number[] }) => void): void;
+}
+
+interface PgProtocolClient extends PgLiveVerifierClient {
+  readonly connection?: PgProtocolConnection;
+}
+
 export interface PgLiveVerifierPool {
   query<Row extends Record<string, unknown>>(
     sql: string,
@@ -339,7 +361,59 @@ export async function resolvePgRuntimeCodecs(
   });
 }
 
-const POSTGRES_LIVE_VERIFIER_VERSION = "postgres-prepare-v1";
+const POSTGRES_LIVE_VERIFIER_VERSION = "postgres-describe-v2";
+
+function describePgStatement(
+  client: PgLiveVerifierClient,
+  name: string,
+  sql: string,
+): Promise<PgProtocolDescription> | undefined {
+  const protocolClient = client as PgProtocolClient;
+  if (protocolClient.connection === undefined) return undefined;
+  return new Promise((resolve, reject) => {
+    let parameters: readonly number[] = [];
+    let columns: readonly PgProtocolField[] = [];
+    let connection: PgProtocolConnection | undefined;
+    let settled = false;
+    const parameterDescription = (message: { readonly dataTypeIDs: readonly number[] }): void => {
+      parameters = [...message.dataTypeIDs];
+    };
+    const finish = (error?: unknown): void => {
+      if (settled) return;
+      settled = true;
+      connection?.off("parameterDescription", parameterDescription);
+      if (error === undefined) resolve({ parameters, columns });
+      else reject(error);
+    };
+    const query = {
+      name,
+      text: sql,
+      callback: undefined as ((error?: unknown) => void) | undefined,
+      submit(value: PgProtocolConnection) {
+        connection = value;
+        value.on("parameterDescription", parameterDescription);
+        value.parse({ text: sql, name, types: [] });
+        value.describe({ type: "S", name });
+        value.sync();
+      },
+      handleRowDescription(message: { readonly fields: readonly PgProtocolField[] }) {
+        columns = message.fields.map(({ name: fieldName, dataTypeID }) => ({ name: fieldName, dataTypeID }));
+      },
+      handleError(error: unknown) {
+        finish(error);
+      },
+      handleReadyForQuery() {
+        finish();
+      },
+    };
+    type CustomQueryClient = {
+      query(value: typeof query, callback: (error?: unknown) => void): void;
+    };
+    (client as unknown as CustomQueryClient).query(query, (error) => {
+      if (error !== undefined) finish(error);
+    });
+  });
+}
 
 /** Creates a lazy adapter over PostgreSQL PREPARE and pg_prepared_statements. */
 export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryVerifier {
@@ -385,32 +459,58 @@ export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryV
       let evidence: Awaited<ReturnType<LiveQueryVerifier["verify"]>> | undefined;
       let failure: unknown;
       try {
-        await client.query(`PREPARE ${name} AS ${request.sql}`);
-        prepared = true;
-        const major = Number.parseInt((await server()).version.split(".")[0] ?? "0", 10);
-        const metadata = await client.query<{
-          readonly parameterTypes: readonly string[];
-          readonly resultTypes?: readonly string[] | null;
-        }>(
-          major >= 18
-            ? `SELECT parameter_types::text[] AS "parameterTypes", result_types::text[] AS "resultTypes" FROM pg_prepared_statements WHERE name = '${name}'`
-            : `SELECT parameter_types::text[] AS "parameterTypes" FROM pg_prepared_statements WHERE name = '${name}'`,
-        );
-        const row = metadata.rows[0];
-        if (row === undefined) throw new Error("Prepared statement metadata was not returned");
+        const protocol = describePgStatement(client, name, request.sql);
+        let parameterTypes: readonly string[];
+        let resultTypes: readonly { readonly name?: string; readonly databaseType: string }[];
+        let unavailable: readonly "columns"[] | undefined;
+        if (protocol === undefined) {
+          await client.query(`PREPARE ${name} AS ${request.sql}`);
+          prepared = true;
+          const major = Number.parseInt((await server()).version.split(".")[0] ?? "0", 10);
+          const metadata = await client.query<{
+            readonly parameterTypes: readonly string[];
+            readonly resultTypes?: readonly string[] | null;
+          }>(
+            major >= 18
+              ? `SELECT parameter_types::text[] AS "parameterTypes", result_types::text[] AS "resultTypes" FROM pg_prepared_statements WHERE name = '${name}'`
+              : `SELECT parameter_types::text[] AS "parameterTypes" FROM pg_prepared_statements WHERE name = '${name}'`,
+          );
+          const row = metadata.rows[0];
+          if (row === undefined) throw new Error("Prepared statement metadata was not returned");
+          parameterTypes = row.parameterTypes;
+          resultTypes = (row.resultTypes ?? []).map((databaseType) => ({ databaseType }));
+          if (major < 18) unavailable = ["columns"];
+        } else {
+          const description = await protocol;
+          prepared = true;
+          const oids = [
+            ...new Set([...description.parameters, ...description.columns.map(({ dataTypeID }) => dataTypeID)]),
+          ];
+          const types = await client.query<{ readonly oid: number; readonly databaseType: string }>(
+            `SELECT oid, format_type(oid, NULL) AS "databaseType" FROM pg_type WHERE oid = ANY($1::oid[])`,
+            [oids],
+          );
+          const names = new Map(types.rows.map(({ oid, databaseType }) => [oid, databaseType]));
+          parameterTypes = description.parameters.map((oid) => names.get(oid) ?? `oid:${oid}`);
+          resultTypes = description.columns.map(({ name: fieldName, dataTypeID }) => ({
+            name: fieldName,
+            databaseType: names.get(dataTypeID) ?? `oid:${dataTypeID}`,
+          }));
+        }
         const policy = options.typePolicy ?? defaultPostgresTypePolicy;
-        const fields = (types: readonly string[] | null | undefined) =>
-          (types ?? []).map((databaseType, offset) => ({
+        const fields = (types: readonly { readonly name?: string; readonly databaseType: string }[]) =>
+          types.map(({ name: fieldName, databaseType }, offset) => ({
             index: offset + 1,
             databaseType,
+            ...(fieldName === undefined ? {} : { name: fieldName }),
             ...(isKnownPostgresType(databaseType, options.schema)
               ? { tsType: mapPostgresType(databaseType, policy, options.schema) }
               : {}),
           }));
         evidence = {
-          parameters: fields(row.parameterTypes),
-          columns: fields(row.resultTypes),
-          ...(major >= 18 ? {} : { unavailable: ["columns"] as const }),
+          parameters: fields(parameterTypes.map((databaseType) => ({ databaseType }))),
+          columns: fields(resultTypes),
+          ...(unavailable === undefined ? {} : { unavailable }),
         };
       } catch (error) {
         failure = error;
@@ -437,7 +537,7 @@ export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryV
   };
 }
 
-const POSTGRES_PLAN_INSPECTOR_VERSION = "postgres-explain-json-v1";
+const POSTGRES_PLAN_INSPECTOR_VERSION = "postgres-explain-json-v2";
 const postgresPlanSettings = [
   "cpu_index_tuple_cost",
   "cpu_operator_cost",
@@ -572,10 +672,47 @@ export function createPgPlanInspector(options: PgPlanInspectorOptions): QueryPla
       const client = await (await acquirePool()).connect();
       let failure: unknown;
       try {
-        const prefix =
-          request.values === undefined ? "EXPLAIN (GENERIC_PLAN TRUE, FORMAT JSON) " : "EXPLAIN (FORMAT JSON) ";
-        const result = await client.query<Record<string, unknown>>(`${prefix}${request.sql}`, request.values);
-        return postgresPlan(result.rows[0]?.["QUERY PLAN"]);
+        if (request.values !== undefined) {
+          const result = await client.query<Record<string, unknown>>(
+            `EXPLAIN (FORMAT JSON) ${request.sql}`,
+            request.values,
+          );
+          return postgresPlan(result.rows[0]?.["QUERY PLAN"]);
+        }
+        const major = Number.parseInt((await this.environment()).version.split(".")[0] ?? "0", 10);
+        if (major >= 16) {
+          const result = await client.query<Record<string, unknown>>(
+            `EXPLAIN (GENERIC_PLAN TRUE, FORMAT JSON) ${request.sql}`,
+          );
+          return postgresPlan(result.rows[0]?.["QUERY PLAN"]);
+        }
+        const name = `typed_sql_plan_${request.fingerprint.replace(/^sha256:/u, "").slice(0, 32)}`;
+        const quotedName = quotePreparedStatementName(name);
+        let transaction = false;
+        let prepared = false;
+        try {
+          await client.query("BEGIN");
+          transaction = true;
+          await client.query("SET LOCAL plan_cache_mode = force_generic_plan");
+          await client.query(`PREPARE ${quotedName} AS ${request.sql}`);
+          prepared = true;
+          const parameters =
+            request.parameterCount === 0
+              ? ""
+              : `(${Array.from({ length: request.parameterCount }, () => "NULL").join(", ")})`;
+          const result = await client.query<Record<string, unknown>>(
+            `EXPLAIN (FORMAT JSON) EXECUTE ${quotedName}${parameters}`,
+          );
+          await client.query(`DEALLOCATE ${quotedName}`);
+          prepared = false;
+          await client.query("ROLLBACK");
+          transaction = false;
+          return postgresPlan(result.rows[0]?.["QUERY PLAN"]);
+        } catch (error) {
+          if (transaction) await client.query("ROLLBACK").catch(() => undefined);
+          if (prepared) await client.query(`DEALLOCATE ${quotedName}`).catch(() => undefined);
+          throw error;
+        }
       } catch (error) {
         failure = error;
         throw error;

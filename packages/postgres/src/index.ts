@@ -77,13 +77,22 @@ export function postgres(
 ): DialectPlugin<PostgresSchemaSnapshot, PostgresTypePolicy> {
   const defaultTypePolicy = options.typePolicy ?? defaultPostgresTypePolicy;
   const versionPolicy = options.versionPolicy ?? "stable";
+  const capabilityCache = new WeakMap<PostgresSchemaSnapshot, ReturnType<typeof resolvePostgresCapabilities>>();
+  const extensionCache = new WeakMap<PostgresSchemaSnapshot, ReturnType<typeof resolvePostgresExtensionManifests>>();
+  const capabilitiesFor = (snapshot: PostgresSchemaSnapshot): ReturnType<typeof resolvePostgresCapabilities> => {
+    const cached = capabilityCache.get(snapshot);
+    if (cached !== undefined) return cached;
+    const resolved = resolvePostgresCapabilities(snapshot, versionPolicy);
+    capabilityCache.set(snapshot, resolved);
+    return resolved;
+  };
   return Object.freeze({
     contractVersion: DIALECT_CONTRACT_VERSION,
     id: "postgres",
     grammarVersion: POSTGRES_DIALECT_VERSION,
     sqlModule: "@typed-sql/postgres",
     capabilities: POSTGRES_CAPABILITIES,
-    resolveCapabilities: (snapshot: PostgresSchemaSnapshot) => resolvePostgresCapabilities(snapshot, versionPolicy),
+    resolveCapabilities: capabilitiesFor,
     defaultTypePolicy,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("PostgreSQL parameter indexes start at 1");
@@ -95,10 +104,14 @@ export function postgres(
     analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
       try {
         const statement = parseStatement(sql);
-        const extensions =
-          (options.extensions?.length ?? 0) === 0
-            ? undefined
-            : resolvePostgresExtensionManifests(snapshot, options.extensions ?? []);
+        let extensions: ReturnType<typeof resolvePostgresExtensionManifests> | undefined;
+        if ((options.extensions?.length ?? 0) > 0) {
+          extensions = extensionCache.get(snapshot);
+          if (extensions === undefined) {
+            extensions = resolvePostgresExtensionManifests(snapshot, options.extensions ?? []);
+            extensionCache.set(snapshot, extensions);
+          }
+        }
         const analysisSnapshot = extensions?.snapshot ?? snapshot;
         const extensionIssues = extensions?.issues ?? [];
         const resolved = resolveStatement(statement, analysisSnapshot, { typePolicy: policy });
@@ -118,11 +131,7 @@ export function postgres(
               ? unknownQuerySemantics(statement.range, "PostgreSQL semantic analysis reported an error.")
               : analyzePostgresSemantics(statement, analysisSnapshot),
         };
-        return applyDialectCapabilityStates(
-          analysis,
-          resolvePostgresCapabilities(snapshot, versionPolicy),
-          statement.range,
-        );
+        return applyDialectCapabilityStates(analysis, capabilitiesFor(snapshot), statement.range);
       } catch (error) {
         if (!(error instanceof SqlParseError)) throw error;
         return {

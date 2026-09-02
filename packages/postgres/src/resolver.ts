@@ -3082,7 +3082,9 @@ class Resolver {
       }
       return {
         tsType: mapPostgresType(operator.resultType, this.#policy, this.#schema),
-        nullable: expression.operator.startsWith("IS ") ? false : left.nullable || right.nullable,
+        nullable: expression.operator.startsWith("IS ")
+          ? false
+          : ["->", "->>", "#>", "#>>"].includes(expression.operator) || left.nullable || right.nullable,
         databaseType: operator.resultType,
       };
     }

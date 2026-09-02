@@ -50,6 +50,12 @@ const compatiblePolymorphicTypes = new Set([
 ]);
 const numericOperatorTypes = new Set(["smallint", "integer", "bigint", "numeric", "real", "double precision"]);
 
+// Operator candidate construction expands PostgreSQL type categories and applies schema-owned
+// extension casts. A snapshot is immutable analysis evidence, so retain the expansion alongside
+// the other snapshot-indexed resolver caches instead of rebuilding it for every expression.
+const operatorCandidatesBySchema = new WeakMap<SchemaSnapshot, Map<string, readonly PostgresCandidate<string>[]>>();
+const defaultOperatorCandidates = new Map<string, readonly PostgresCandidate<string>[]>();
+
 export interface PostgresCandidate<Value> {
   readonly value: Value;
   readonly argumentTypes: readonly string[];
@@ -68,6 +74,9 @@ export type PostgresCandidateResolution<Value> =
   | { readonly kind: "ambiguous" | "none" };
 
 export type PostgresOperatorResolution = PostgresCandidateResolution<string>;
+
+const operatorResolutionsBySchema = new WeakMap<SchemaSnapshot, Map<string, PostgresOperatorResolution>>();
+const defaultOperatorResolutions = new Map<string, PostgresOperatorResolution>();
 
 interface TypeBindings {
   simple?: string;
@@ -677,6 +686,17 @@ function specialOperatorCandidates(operator: string): readonly PostgresCandidate
 }
 
 function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly PostgresCandidate<string>[] {
+  const cache =
+    schema === undefined
+      ? defaultOperatorCandidates
+      : (operatorCandidatesBySchema.get(schema) ??
+        (() => {
+          const created = new Map<string, readonly PostgresCandidate<string>[]>();
+          operatorCandidatesBySchema.set(schema, created);
+          return created;
+        })());
+  const cached = cache.get(operator);
+  if (cached !== undefined) return cached;
   const extension = postgresExtensionOperators(schema)
     .filter((candidate) => candidate.name.toUpperCase() === operator && candidate.argumentTypes.length === 2)
     .map((candidate) => ({
@@ -686,11 +706,16 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
     }));
   const rule = postgresCatalogOperatorRule(operator, schema);
   const special = specialOperatorCandidates(operator);
-  if (rule === "numeric") {
-    return [...numericOperatorCandidates(operator), ...temporalOperatorCandidates(operator), ...special, ...extension];
-  }
-  if (rule === "bitwise") {
-    return [
+  let candidates: readonly PostgresCandidate<string>[];
+  if (rule === "numeric")
+    candidates = [
+      ...numericOperatorCandidates(operator),
+      ...temporalOperatorCandidates(operator),
+      ...special,
+      ...extension,
+    ];
+  else if (rule === "bitwise") {
+    candidates = [
       ...["smallint", "integer", "bigint"].map((type) => ({
         value: operator,
         argumentTypes: [type, type],
@@ -700,9 +725,8 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       ...special,
       ...extension,
     ];
-  }
-  if (rule === "concatenation") {
-    return [
+  } else if (rule === "concatenation") {
+    candidates = [
       { value: operator, argumentTypes: ["text", "text"], resultType: "text" },
       {
         value: operator,
@@ -714,11 +738,10 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       ...special,
       ...extension,
     ];
-  }
-  if (rule === "json" || rule === "json-text") {
+  } else if (rule === "json" || rule === "json-text") {
     const result = rule === "json-text" ? "text" : undefined;
     const path = operator.startsWith("#") ? "text[]" : undefined;
-    return [
+    candidates = [
       ...["json", "jsonb"].flatMap((left) =>
         (path === undefined ? ["integer", "text"] : [path]).map((right) => ({
           value: operator,
@@ -729,21 +752,21 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       ...special,
       ...extension,
     ];
-  }
-  if (rule === "special") return [...special, ...extension];
-  if (rule !== "boolean") return [...special, ...extension];
-  if (operator === "AND" || operator === "OR") {
-    return [
+  } else if (rule === "special" || rule !== "boolean") candidates = [...special, ...extension];
+  else if (operator === "AND" || operator === "OR") {
+    candidates = [
       { value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" },
       ...special,
       ...extension,
     ];
-  }
-  if (patternOperators.has(operator)) {
-    return [{ value: operator, argumentTypes: ["text", "text"], resultType: "boolean" }, ...special, ...extension];
-  }
-  if (operator === "?" || operator === "?&" || operator === "?|") {
-    return [
+  } else if (patternOperators.has(operator)) {
+    candidates = [
+      { value: operator, argumentTypes: ["text", "text"], resultType: "boolean" },
+      ...special,
+      ...extension,
+    ];
+  } else if (operator === "?" || operator === "?&" || operator === "?|") {
+    candidates = [
       {
         value: operator,
         argumentTypes: ["jsonb", operator === "?" ? "text" : "text[]"],
@@ -752,38 +775,40 @@ function operatorCandidates(operator: string, schema?: SchemaSnapshot): readonly
       ...special,
       ...extension,
     ];
-  }
-  if (operator === "@>" || operator === "<@" || operator === "&&") {
-    return [
+  } else if (operator === "@>" || operator === "<@" || operator === "&&") {
+    candidates = [
       { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
       ...(operator === "&&" ? [] : [{ value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" }]),
       ...special,
       ...extension,
     ];
+  } else if (!comparisonOperators.has(operator)) candidates = extension;
+  else {
+    const categoryCandidates = (
+      ["numeric", "string", "datetime", "timespan", "bit-string", "network", "range"] as const
+    ).flatMap((categoryName) =>
+      categoryPairs(categoryName, schema).map(([left, right]) => ({
+        value: operator,
+        argumentTypes: [left, right],
+        resultType: "boolean",
+      })),
+    );
+    candidates = [
+      ...categoryCandidates,
+      { value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["uuid", "uuid"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["bytea", "bytea"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["pg_lsn", "pg_lsn"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["tid", "tid"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["anyenum", "anyenum"], resultType: "boolean" },
+      { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
+      ...special,
+      ...extension,
+    ];
   }
-  if (!comparisonOperators.has(operator)) return extension;
-  const categoryCandidates = (
-    ["numeric", "string", "datetime", "timespan", "bit-string", "network", "range"] as const
-  ).flatMap((categoryName) =>
-    categoryPairs(categoryName, schema).map(([left, right]) => ({
-      value: operator,
-      argumentTypes: [left, right],
-      resultType: "boolean",
-    })),
-  );
-  return [
-    ...categoryCandidates,
-    { value: operator, argumentTypes: ["boolean", "boolean"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["uuid", "uuid"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["bytea", "bytea"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["jsonb", "jsonb"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["pg_lsn", "pg_lsn"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["tid", "tid"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["anyenum", "anyenum"], resultType: "boolean" },
-    { value: operator, argumentTypes: ["anyarray", "anyarray"], resultType: "boolean" },
-    ...special,
-    ...extension,
-  ];
+  cache.set(operator, candidates);
+  return candidates;
 }
 
 /** Resolves PostgreSQL prefix operators through grammar-owned operator candidates. */
@@ -873,11 +898,27 @@ export function resolvePostgresOperator(
   schema?: SchemaSnapshot,
 ): PostgresOperatorResolution {
   const normalizedOperator = operator.toUpperCase();
+  const cache =
+    schema === undefined
+      ? defaultOperatorResolutions
+      : (operatorResolutionsBySchema.get(schema) ??
+        (() => {
+          const created = new Map<string, PostgresOperatorResolution>();
+          operatorResolutionsBySchema.set(schema, created);
+          return created;
+        })());
+  const cacheKey = `${normalizedOperator}\0${left ?? "?"}\0${right ?? "?"}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
   const candidates = operatorCandidates(normalizedOperator, schema);
   let inputs: readonly (string | undefined)[] = [left, right];
   if (left === undefined && right !== undefined) inputs = [right, right];
   else if (right === undefined && left !== undefined) inputs = [left, left];
   const assumedExact = resolvePostgresCandidates(candidates, inputs, schema);
-  if (assumedExact.kind === "selected" || (left !== undefined && right !== undefined)) return assumedExact;
-  return resolvePostgresCandidates(candidates, [left, right], schema);
+  const resolved =
+    assumedExact.kind === "selected" || (left !== undefined && right !== undefined)
+      ? assumedExact
+      : resolvePostgresCandidates(candidates, [left, right], schema);
+  cache.set(cacheKey, resolved);
+  return resolved;
 }

@@ -40,7 +40,43 @@ jobs:
       - run: pnpm verify
 
   postgres-e2e:
+    name: postgres (${{ matrix.label }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: postgres-14.24
+            version: "14.24"
+            image: docker.io/library/postgres:14.24-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-15.19
+            version: "15.19"
+            image: docker.io/library/postgres:15.19-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-16.15
+            version: "16.15"
+            image: docker.io/library/postgres:16.15-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-17.11
+            version: "17.11"
+            image: docker.io/library/postgres:17.11-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-18.6
+            version: "18.6"
+            image: docker.io/library/postgres:18.6-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-19beta3-canary
+            version: 19beta3
+            image: docker.io/library/postgres:19beta3-bookworm
+            channel: canary
+            experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -54,11 +90,54 @@ jobs:
       - run: pnpm e2e:postgres
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_POSTGRES_CHANNEL: ${{ matrix.channel }}
+          TYPED_SQL_POSTGRES_IMAGE: ${{ matrix.image }}
+          TYPED_SQL_POSTGRES_MATRIX_LABEL: ${{ matrix.label }}
+          TYPED_SQL_POSTGRES_VERSION: ${{ matrix.version }}
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typed-sql-conformance-postgres-${{ github.run_attempt }}
+          name: typed-sql-conformance-postgres-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/conformance/postgres*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-postgres-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/postgres-matrix/${{ matrix.label }}.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  postgres-matrix-review:
+    if: always()
+    needs: postgres-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: typed-sql-postgres-matrix-*-${{ github.run_attempt }}
+          path: artifacts/postgres-matrix
+          merge-multiple: true
+      - run: >-
+          node scripts/review-postgres-matrix.mjs
+          --input artifacts/postgres-matrix
+          --output artifacts/postgres-matrix/review.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-postgres-matrix-review-${{ github.run_attempt }}
+          path: artifacts/postgres-matrix/review.json
           if-no-files-found: warn
           retention-days: 14
 

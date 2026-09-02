@@ -68,6 +68,21 @@ await describe("query resolver", async () => {
     strict.strictEqual(result.columns[0]?.nullable, true);
   });
 
+  await it("keeps JSON extraction nullable when the document and path are non-null", () => {
+    const result = resolveSelect(
+      parseSelect(`SELECT JSONB '{"value":1}' ->> 'value' AS scalar, JSONB '{}' -> 'missing' AS document`),
+      schema,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.map(({ name, databaseType, nullable }) => ({ name, databaseType, nullable })),
+      [
+        { name: "scalar", databaseType: "text", nullable: true },
+        { name: "document", databaseType: "jsonb", nullable: true },
+      ],
+    );
+  });
+
   await it("reports unknown, ambiguous, and duplicate columns", async () => {
     const unknown = resolveSelect(parseSelect("SELECT u.missing FROM users u"), schema);
     strict.strictEqual(unknown.diagnostics[0]?.code, "TSQ101");
