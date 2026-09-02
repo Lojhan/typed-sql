@@ -2,7 +2,8 @@ import { defineConfig } from "@typed-sql/core";
 import { mysql, typePolicy } from "@typed-sql/mysql";
 import { createMySql2LiveVerifier, createMySql2PlanInspector, mysql2 } from "@typed-sql/mysql/mysql2";
 
-const dialect = mysql({ typePolicy });
+const versionPolicy = process.env.TYPED_SQL_MYSQL_CHANNEL === "canary" ? "canary" : "stable";
+const dialect = mysql({ typePolicy, versionPolicy });
 const connectionUri = () => {
   const port = process.env.TYPED_SQL_MYSQL_E2E_PORT ?? "53306";
   return `mysql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;

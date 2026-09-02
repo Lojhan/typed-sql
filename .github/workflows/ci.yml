@@ -142,7 +142,62 @@ jobs:
           retention-days: 14
 
   mysql-e2e:
+    name: mysql (${{ matrix.label }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: mysql-8.4.12-default
+            version: 8.4.12
+            image: docker.io/library/mysql:8.4.12
+            channel: stable
+            mode_profile: default
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+            experimental: false
+          - label: mysql-8.4.12-lexical
+            version: 8.4.12
+            image: docker.io/library/mysql:8.4.12
+            channel: stable
+            mode_profile: lexical
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,ANSI_QUOTES,NO_BACKSLASH_ESCAPES,PIPES_AS_CONCAT
+            experimental: false
+          - label: mysql-8.4.12-numeric
+            version: 8.4.12
+            image: docker.io/library/mysql:8.4.12
+            channel: stable
+            mode_profile: numeric
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_UNSIGNED_SUBTRACTION
+            experimental: false
+          - label: mysql-9.7.3-default
+            version: 9.7.3
+            image: docker.io/library/mysql:9.7.3
+            channel: stable
+            mode_profile: default
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+            experimental: false
+          - label: mysql-9.7.3-lexical
+            version: 9.7.3
+            image: docker.io/library/mysql:9.7.3
+            channel: stable
+            mode_profile: lexical
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,ANSI_QUOTES,NO_BACKSLASH_ESCAPES,PIPES_AS_CONCAT
+            experimental: false
+          - label: mysql-9.7.3-numeric
+            version: 9.7.3
+            image: docker.io/library/mysql:9.7.3
+            channel: stable
+            mode_profile: numeric
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_UNSIGNED_SUBTRACTION
+            experimental: false
+          - label: mysql-26.7.1-canary
+            version: 26.7.1
+            image: docker.io/library/mysql:26.7.1
+            channel: canary
+            mode_profile: default
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+            experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -156,11 +211,56 @@ jobs:
       - run: pnpm e2e:mysql
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_MYSQL_CHANNEL: ${{ matrix.channel }}
+          TYPED_SQL_MYSQL_IMAGE: ${{ matrix.image }}
+          TYPED_SQL_MYSQL_MATRIX_LABEL: ${{ matrix.label }}
+          TYPED_SQL_MYSQL_MODE_PROFILE: ${{ matrix.mode_profile }}
+          TYPED_SQL_MYSQL_SQL_MODE: ${{ matrix.sql_mode }}
+          TYPED_SQL_MYSQL_VERSION: ${{ matrix.version }}
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: typed-sql-conformance-mysql-${{ github.run_attempt }}
+          name: typed-sql-conformance-mysql-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/conformance/mysql*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-mysql-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/mysql-matrix/${{ matrix.label }}.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  mysql-matrix-review:
+    if: always()
+    needs: mysql-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: typed-sql-mysql-matrix-*-${{ github.run_attempt }}
+          path: artifacts/mysql-matrix
+          merge-multiple: true
+      - run: >-
+          node scripts/review-mysql-matrix.mjs
+          --input artifacts/mysql-matrix
+          --output artifacts/mysql-matrix/review.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-mysql-matrix-review-${{ github.run_attempt }}
+          path: artifacts/mysql-matrix/review.json
           if-no-files-found: warn
           retention-days: 14
 

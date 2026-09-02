@@ -15,7 +15,7 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 ## Supported SQL
 
-The grammar targets MySQL 8.4 LTS and supports:
+The grammar targets the supported MySQL 8.4 and 9.7 LTS series and supports:
 
 - aliases, stars, and inner, outer, or cross joins;
 - ordinary and recursive CTEs, derived tables, and correlated or `LATERAL` subqueries;
@@ -50,6 +50,24 @@ Numeric expressions distinguish integer, decimal, and approximate families. Deci
 under the configured decimal policy, approximate operands produce `number`, and integer arithmetic
 preserves unsigned evidence. `NO_UNSIGNED_SUBTRACTION` changes subtraction to a signed result.
 Division of exact values is nullable because division by zero returns `NULL`.
+
+## Version support and differential evidence
+
+The stable contract is patch-compatible within the MySQL 8.4 and 9.7 LTS series. Protected CI runs
+the exact 8.4.12 and 9.7.3 images. Each LTS patch runs a default profile, a lexical profile with
+`ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES`, and `PIPES_AS_CONCAT`, and a numeric profile with
+`NO_UNSIGNED_SUBTRACTION`. All six LTS jobs are release-blocking.
+
+MySQL 26.7.1 runs separately with `versionPolicy: "canary"`. It reports innovation-line catalog,
+keyword, collation, syntax, protocol, decoding, and introspection differences against the 9.7
+default profile, but it does not contribute to the stable score. A canary failure therefore exposes
+future work without changing the published LTS support boundary.
+
+Every matrix target generates its own schema format 2 snapshot and a redacted differential artifact.
+The artifact proves the exact Oracle MySQL product and patch, normalized `sql_mode`, catalog
+revision, snapshot identity, built-in collation coverage, text/prepared protocol parity, runtime
+codec parity, warning inspection, and disabled multi-statement execution. The stable review fails on
+a missing target, duplicate profile, unexpected stable target, or any failed probe.
 
 ## Schema introspection
 

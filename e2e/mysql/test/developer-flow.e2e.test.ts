@@ -64,9 +64,23 @@ const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", 
 const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
 const port = Number(process.env.TYPED_SQL_MYSQL_E2E_PORT ?? "53306");
 const containerName = `typed-sql-e2e-mysql-${process.pid}`;
-const imageName = "localhost/typed-sql-e2e-mysql:8.4.11";
+const matrixLabel = process.env.TYPED_SQL_MYSQL_MATRIX_LABEL ?? "mysql-8.4.11-local";
+const expectedVersion = process.env.TYPED_SQL_MYSQL_VERSION ?? "8.4.11";
+const baseImage = process.env.TYPED_SQL_MYSQL_IMAGE;
+const channel = process.env.TYPED_SQL_MYSQL_CHANNEL ?? "stable";
+const modeProfile = process.env.TYPED_SQL_MYSQL_MODE_PROFILE ?? "default";
+const sqlMode = process.env.TYPED_SQL_MYSQL_SQL_MODE;
+const imageName = `localhost/typed-sql-e2e-${matrixLabel.replaceAll(/[^a-zA-Z0-9_.-]/gu, "-").toLowerCase()}`;
 const connectionUri = `mysql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
 let containerStarted = false;
+
+if (channel !== "stable" && channel !== "canary")
+  throw new TypeError("TYPED_SQL_MYSQL_CHANNEL must be stable or canary");
+if (!new Set(["default", "lexical", "numeric"]).has(modeProfile))
+  throw new TypeError("TYPED_SQL_MYSQL_MODE_PROFILE must be default, lexical, or numeric");
+
+const versionPolicy = channel;
+const dialect = () => mysql({ typePolicy, versionPolicy });
 
 if (!Number.isInteger(port) || port < 1024 || port > 65_535)
   throw new TypeError("TYPED_SQL_MYSQL_E2E_PORT must be an unprivileged TCP port");
@@ -100,8 +114,11 @@ const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(proc
 
 await rm(generatedDirectory, { recursive: true, force: true });
 await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
-log(`Building ${imageName} from the digest-pinned Containerfile`);
-await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "."]);
+log(`Building ${imageName} for ${matrixLabel}`);
+const buildArguments = ["build", "--tag", imageName, "--file", "Containerfile"];
+if (baseImage !== undefined) buildArguments.push("--build-arg", `MYSQL_BASE_IMAGE=${baseImage}`);
+buildArguments.push(".");
+await mustRun(engine, buildArguments);
 
 try {
   await mustRun(engine, [
@@ -121,6 +138,7 @@ try {
     "MYSQL_ROOT_PASSWORD=typed_sql_root",
     imageName,
     "--local-infile=ON",
+    ...(sqlMode === undefined ? [] : [`--sql-mode=${sqlMode}`]),
   ]);
   containerStarted = true;
   try {
@@ -174,7 +192,7 @@ try {
       const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as GeneratedSnapshot;
       strict.strictEqual(snapshot.formatVersion, 2);
       strict.strictEqual(snapshot.dialect, "mysql");
-      strict.ok(snapshot.server.version.startsWith("8.4.11"));
+      strict.ok(snapshot.server.version.startsWith(expectedVersion));
       strict.strictEqual(snapshot.relations.users?.columns.id?.databaseType, "bigint unsigned");
       strict.strictEqual(snapshot.relations.users?.columns.id?.tsType, "bigint");
       strict.strictEqual(snapshot.relations.users?.columns.status?.tsType, '"active" | "suspended"');
@@ -191,17 +209,17 @@ try {
     });
 
     await it("records a redacted conformance v2 differential report", async () => {
-      const snapshotValue = mysql().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const snapshotValue = dialect().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
       if (snapshotValue.formatVersion !== 2) throw new TypeError("MySQL conformance requires snapshot v2");
       if (snapshotValue.metadata === undefined) throw new TypeError("The generated MySQL snapshot requires metadata");
-      const dialect = mysql();
+      const selectedDialect = dialect();
       const query = sql`SELECT id FROM users WHERE id = ${1n}`;
       const verifier = createMySql2LiveVerifier({ connectionUri, schema: snapshotValue, typePolicy });
       const database = await createMySql2Database({ connectionUri, typePolicy });
       const server = await verifier.server();
       const target = {
         grammar: "mysql",
-        grammarVersion: dialect.grammarVersion,
+        grammarVersion: selectedDialect.grammarVersion,
         databaseVersion: server.version,
       } as const;
       const probe = defineConformanceProbe({
@@ -218,7 +236,7 @@ try {
         live: { prepare: true, execute: true, maximumRows: 1 },
         expected: [
           {
-            target: { grammarVersion: dialect.grammarVersion, databaseVersion: server.version },
+            target: { grammarVersion: selectedDialect.grammarVersion, databaseVersion: server.version },
             support: "conservative",
             rows: [
               {
@@ -310,11 +328,11 @@ try {
       };
       try {
         const staticResult = runStaticConformanceProbe(probe, target, {
-          dialect,
+          dialect: selectedDialect,
           snapshot: snapshotValue,
           renderer: {
-            placeholder: (index) => dialect.placeholder(index),
-            quoteIdentifier: (identifier) => dialect.quoteIdentifier(identifier),
+            placeholder: (index) => selectedDialect.placeholder(index),
+            quoteIdentifier: (identifier) => selectedDialect.quoteIdentifier(identifier),
           },
         });
         const result = await runLiveConformanceProbe(probe, target, adapter, normalizer, staticResult);
@@ -322,7 +340,7 @@ try {
           "mysql-live",
           {
             grammar: "mysql",
-            grammarVersion: dialect.grammarVersion,
+            grammarVersion: selectedDialect.grammarVersion,
             databaseVersion: server.version,
             driver: "mysql2",
             driverVersion: "3.24.1",
@@ -413,9 +431,11 @@ try {
     await it("exposes inferred query types through the TypeScript preview bridge", async () => {
       const sourcePath = join(packageDirectory, "src/query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const dialect = mysql();
-      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown);
-      const analysis = analyzeSource(source, snapshot, dialect);
+      const selectedDialect = dialect();
+      const snapshot = selectedDialect.validateSnapshot(
+        JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown,
+      );
+      const analysis = analyzeSource(source, snapshot, selectedDialect);
       const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
       try {
         const inspections = await bridge.inspectFile({
@@ -436,7 +456,7 @@ try {
 
         const streamSourcePath = join(packageDirectory, "src/stream-query.ts");
         const streamSource = await readFile(streamSourcePath, "utf8");
-        const streamAnalysis = analyzeSource(streamSource, snapshot, dialect);
+        const streamAnalysis = analyzeSource(streamSource, snapshot, selectedDialect);
         const streamInspections = await bridge.inspectFile({
           fileName: streamSourcePath,
           projectFile: join(packageDirectory, "tsconfig.json"),
@@ -454,9 +474,11 @@ try {
     await it("proves the default MySQL codec matrix at the inferred type boundary", async () => {
       const sourcePath = join(packageDirectory, "src/codec-query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const dialect = mysql();
-      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown);
-      const analysis = analyzeSource(source, snapshot, dialect);
+      const selectedDialect = dialect();
+      const snapshot = selectedDialect.validateSnapshot(
+        JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown,
+      );
+      const analysis = analyzeSource(source, snapshot, selectedDialect);
       strict.deepStrictEqual(analysis.diagnostics, []);
       strict.strictEqual(analysis.queries.length, 1);
       const contract = analysis.queries[0]!;
@@ -590,7 +612,7 @@ try {
     });
 
     await it("routes real MySQL reads conservatively and preserves transaction affinity", async () => {
-      const snapshot = mysql().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const snapshot = dialect().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
       const primary = await createMySql2Database({ connectionUri, typePolicy });
       const replica = await createMySql2Database({ connectionUri, typePolicy });
       const routes: string[] = [];
@@ -835,6 +857,39 @@ try {
       } finally {
         await database.close();
       }
+    });
+
+    await it("records version, mode, catalog, protocol, and runtime differential evidence", async () => {
+      const artifactPath = join(workspaceDirectory, "artifacts", "mysql-matrix", `${matrixLabel}.json`);
+      const result = await mustRun(
+        process.execPath,
+        [
+          join(workspaceDirectory, "scripts", "mysql-matrix-probe.mjs"),
+          "--connection-string",
+          connectionUri,
+          "--expected-version",
+          expectedVersion,
+          "--label",
+          matrixLabel,
+          "--channel",
+          versionPolicy,
+          "--mode-profile",
+          modeProfile,
+          "--snapshot",
+          generatedSnapshotPath,
+          "--output",
+          artifactPath,
+        ],
+        workspaceDirectory,
+      );
+      strict.ok(result.stdout.includes(expectedVersion));
+      const artifact = JSON.parse(await readFile(artifactPath, "utf8")) as {
+        readonly target: { readonly label: string; readonly modeProfile: string };
+        readonly summary: { readonly fail: number };
+      };
+      strict.strictEqual(artifact.target.label, matrixLabel);
+      strict.strictEqual(artifact.target.modeProfile, modeProfile);
+      strict.strictEqual(artifact.summary.fail, 0);
     });
 
     await it("reports clean drift and detects a real catalog change as TSQ301", async () => {

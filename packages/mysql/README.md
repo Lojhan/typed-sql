@@ -12,6 +12,11 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 `mysql2` is loaded only through `@typed-sql/mysql/mysql2`; it is not a dependency or peer dependency
 of the grammar.
 
+The stable grammar contract covers the MySQL 8.4 and 9.7 LTS series. Protected differential jobs
+exercise exact 8.4.12 and 9.7.3 images under default, lexical, and unsigned-arithmetic SQL-mode
+profiles. MySQL 26.7.1 is reported separately as a non-blocking innovation canary and requires
+`mysql({ versionPolicy: "canary" })`.
+
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
 import { mysqlBulk, sql, typePolicy } from "@typed-sql/mysql";
