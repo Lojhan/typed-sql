@@ -6,6 +6,12 @@ export {
   defineCodecConformanceFixture,
   defineGrammarConformanceFixture,
 } from "./assertions.js";
+export type { FailureInjection, FailureInjectionSnapshot, FailureInjector } from "./failure-injection.js";
+export {
+  ConformanceInjectedFailure,
+  createFailureInjector,
+  INJECTED_FAILURE_CODE,
+} from "./failure-injection.js";
 export type {
   GrammarDialectPolicy,
   GrammarFeatureCategory,

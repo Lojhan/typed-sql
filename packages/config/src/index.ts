@@ -12,7 +12,7 @@ const configNames = [
   "typed-sql.config.mjs",
   "typed-sql.config.js",
 ] as const;
-const CONFIG_CACHE_LIMIT = 32;
+export const CONFIG_CACHE_LIMIT = 32;
 const configLoader = register({ namespace: "typed-sql-config" });
 const configCache = new Map<string, Promise<LoadedConfig>>();
 

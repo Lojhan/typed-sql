@@ -117,9 +117,9 @@ const defaultSettings: Required<Pick<TypedSqlLanguageServerSettings, "schemaPath
   schemaPath: "src/generated/db/schema.json",
   nativePreview: true,
 };
-const DEFAULT_MAX_CACHE_ENTRIES = 256;
-const DEFAULT_MAX_SCHEMA_CACHE_ENTRIES = 16;
-const DEFAULT_MAX_WORKSPACE_FILES = 2_000;
+export const DEFAULT_MAX_CACHE_ENTRIES = 256;
+export const DEFAULT_MAX_SCHEMA_CACHE_ENTRIES = 16;
+export const DEFAULT_MAX_WORKSPACE_FILES = 2_000;
 const DEFAULT_ANALYSIS_DEBOUNCE_MS = 20;
 const sha256 = (value: string): string => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 

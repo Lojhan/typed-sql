@@ -62,6 +62,9 @@ import * as configApi from "../../packages/config/src/index.js";
 import type {
   CodecConformanceCase,
   CodecConformanceFixture,
+  FailureInjection,
+  FailureInjectionSnapshot,
+  FailureInjector,
   GrammarAnalysisProbe,
   GrammarCapabilityProbe,
   GrammarConformanceFixture,
@@ -524,6 +527,9 @@ type ReferencedStableTypes =
   | TypeScriptCheckResult
   | CodecConformanceCase<unknown, unknown>
   | CodecConformanceFixture<unknown, unknown>
+  | FailureInjection
+  | FailureInjectionSnapshot
+  | FailureInjector
   | GrammarDialectPolicy
   | GrammarFeatureCategory
   | GrammarFeatureEntry
@@ -760,14 +766,17 @@ const expectedRuntimeExports = {
     "verifyQueryManifest",
   ],
   conformance: [
+    "ConformanceInjectedFailure",
     "FEATURE_LEDGER_FORMAT_VERSION",
     "GRAMMAR_CONFORMANCE_VERSION",
+    "INJECTED_FAILURE_CODE",
     "REQUIRED_GRAMMAR_PROBES",
     "assertCodecConformance",
     "assertGrammarConformance",
     "assertRuntimeAdapterConformance",
     "assertVersionedCapabilityConformance",
     "compareGrammarVersions",
+    "createFailureInjector",
     "defineCodecConformanceFixture",
     "defineGrammarConformanceFixture",
     "defineGrammarFeatureLedger",
@@ -798,7 +807,7 @@ const expectedRuntimeExports = {
     "serializeConformanceReproductionBundle",
     "targetMatches",
   ],
-  config: ["discoverConfig", "fromConfig", "loadConfig"],
+  config: ["CONFIG_CACHE_LIMIT", "discoverConfig", "fromConfig", "loadConfig"],
   core: [
     "ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION",
     "CORE_ARTIFACT_COMPATIBILITY_VERSION",
@@ -1017,6 +1026,9 @@ const expectedRuntimeExports = {
   nativeLsp: ["typescriptPreviewCliPath"],
   nativePreview: ["NativePreviewTypeScriptBridge", "TYPESCRIPT_PREVIEW_VERSION"],
   languageServer: [
+    "DEFAULT_MAX_CACHE_ENTRIES",
+    "DEFAULT_MAX_SCHEMA_CACHE_ENTRIES",
+    "DEFAULT_MAX_WORKSPACE_FILES",
     "TYPED_SQL_PROTOCOL_CAPABILITIES",
     "TYPED_SQL_PROTOCOL_SUPPORT_POLICY",
     "TYPED_SQL_PROTOCOL_VERSION",
