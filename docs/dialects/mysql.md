@@ -27,10 +27,11 @@ The grammar targets MySQL 8.4 LTS and supports:
 
 Catalog inference covers enums, unsigned integers, decimals, JSON, temporal types, binary values, and configurable `tinyint(1)` mapping.
 
-Schema introspection records normalized `sql_mode`. Modes that change token meaning, including
-`ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES`, and `PIPES_AS_CONCAT`, keep capability resolution
-conservative until that lexical mode is modeled exactly. `mysql({ versionPolicy: "canary" })`
-explicitly selects the grammar-owned canary line; prereleases never satisfy stable LTS ranges.
+Schema introspection records normalized `sql_mode` before scanning. `ANSI_QUOTES` selects quoted
+identifiers, `NO_BACKSLASH_ESCAPES` changes string-literal decoding, and `PIPES_AS_CONCAT` changes
+`||` from logical OR to concatenation. A snapshot without mode evidence remains conservative.
+`mysql({ versionPolicy: "canary" })` explicitly selects the grammar-owned canary line; prereleases
+never satisfy stable LTS ranges.
 
 `createMySql2LiveVerifier()` reads binary `COM_STMT_PREPARE` parameter and result metadata and closes the statement without executing it or sending values. See [Live verification](../guides/live-verification.md).
 

@@ -74,12 +74,12 @@ const dialectValid: Readonly<Record<OwnedParserCorpusApi["dialect"], readonly st
   ],
   mysql: [
     'SELECT `user`.`id`, "text" AS label FROM `users` AS `user` WHERE `user`.`id` = ? LIMIT 5, 10',
-    '/* outer /* inner */ done */ SELECT "a""b", `a``b` FROM `users` ORDER BY id NULLS FIRST, id NULLS LAST',
+    '/* ordinary MySQL block comment */ SELECT "a""b", `a``b` FROM `users` ORDER BY id ASC, id DESC',
     "SELECT id FROM users LOCK IN SHARE MODE",
     "SELECT u.id FROM users u JOIN projects p ON p.owner_id = u.id FOR SHARE OF u FOR UPDATE OF p",
     "SELECT JSON_EXTRACT(profile, '$.plan'), id IN (?, ?) FROM users",
-    "SELECT id IS DISTINCT FROM owner_id, id IS NOT DISTINCT FROM owner_id FROM users",
-    "SELECT CAST(id AS timestamp without time zone), CAST(id AS numeric(10, 2)[]), CAST(id AS public.money) FROM users",
+    "SELECT id <=> owner_id, id <> owner_id FROM users",
+    "SELECT CAST(id AS DATETIME), CAST(id AS DECIMAL(10, 2)), CAST(id AS CHAR(32)) FROM users",
   ],
   sqlite: [
     "SELECT [account].[id], `account`.`email` FROM [account] WHERE [id] = ?",

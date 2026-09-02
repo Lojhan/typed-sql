@@ -309,16 +309,6 @@ export function resolveMySqlCapabilities(
       versionPolicy,
     );
   }
-  const modes = new Set(sqlMode.split(",").filter(Boolean));
-  const ambiguousModes = ["ANSI_QUOTES", "NO_BACKSLASH_ESCAPES", "PIPES_AS_CONCAT"].filter((mode) => modes.has(mode));
-  if (ambiguousModes.length > 0) {
-    return conservativeStates(
-      `MySQL sql_mode enables syntax not modeled exactly: ${ambiguousModes.join(", ")}.`,
-      server,
-      "TSQ407",
-      versionPolicy,
-    );
-  }
   return staticDialectCapabilityStates(
     MYSQL_CAPABILITIES,
     MYSQL_DIALECT_VERSION,

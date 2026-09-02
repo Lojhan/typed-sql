@@ -50,39 +50,32 @@ export class SqlParseError extends Error {
 
 const precedence = new Map<string, number>([
   ["OR", 1],
-  ["AND", 2],
-  ["=", 3],
-  ["!=", 3],
-  ["<>", 3],
-  ["<", 3],
-  ["<=", 3],
-  [">", 3],
-  [">=", 3],
-  ["IS", 3],
-  ["LIKE", 3],
-  ["ILIKE", 3],
-  ["SIMILAR TO", 3],
-  ["~", 3],
-  ["~*", 3],
-  ["!~", 3],
-  ["!~*", 3],
-  ["@>", 3],
-  ["<@", 3],
-  ["?", 3],
-  ["?|", 3],
-  ["?&", 3],
+  ["XOR", 2],
+  ["AND", 3],
   ["&&", 3],
-  ["||", 4],
-  ["->", 4],
-  ["->>", 4],
-  ["#>", 4],
-  ["#>>", 4],
-  ["+", 5],
-  ["-", 5],
-  ["*", 6],
-  ["/", 6],
-  ["%", 6],
-  ["^", 7],
+  ["=", 4],
+  ["!=", 4],
+  ["<>", 4],
+  ["<", 4],
+  ["<=", 4],
+  [">", 4],
+  [">=", 4],
+  ["<=>", 4],
+  ["IS", 4],
+  ["LIKE", 4],
+  ["|", 5],
+  ["&", 6],
+  ["<<", 7],
+  [">>", 7],
+  ["||", 8],
+  ["+", 9],
+  ["-", 9],
+  ["*", 10],
+  ["/", 10],
+  ["%", 10],
+  ["^", 11],
+  ["->", 12],
+  ["->>", 12],
 ]);
 
 const typeContinuationWords = new Set([
@@ -102,7 +95,6 @@ const typeContinuationWords = new Set([
 class Parser {
   readonly #source: string;
   readonly #cursor: TokenCursor;
-  readonly #syntax: string = "mysql";
 
   constructor(source: string, options: ParseOptions) {
     this.#source = source;
@@ -211,7 +203,7 @@ class Parser {
     }
     if (this.#matchKeyword("LIMIT")) {
       limit = this.#parseExpression();
-      if (this.#syntax !== "postgres" && this.#matchPunctuation(",")) {
+      if (this.#matchPunctuation(",")) {
         offset = limit;
         limit = this.#parseExpression();
       }
@@ -219,7 +211,6 @@ class Parser {
     if (this.#matchKeyword("OFFSET")) offset = this.#parseExpression();
     while (this.#current().value === "FOR") locking.push(this.#parseSelectLockingClause());
     if (this.#current().value === "LOCK") {
-      if (this.#syntax !== "mysql") throw this.#error("LOCK IN SHARE MODE is MySQL syntax", this.#current().range);
       if (locking.length > 0) {
         throw this.#error("LOCK IN SHARE MODE cannot follow another MySQL locking clause", this.#current().range);
       }
@@ -240,9 +231,6 @@ class Parser {
       const operatorToken = this.#current();
       this.#advance();
       const all = this.#matchKeyword("ALL");
-      if (this.#syntax === "sqlite" && all && operatorToken.value !== "UNION") {
-        throw this.#error(`SQLite does not support ${operatorToken.value} ALL`, this.#previous().range);
-      }
       const parsed = this.#parseSelect();
       const {
         orderBy: trailingOrderBy,
@@ -292,14 +280,9 @@ class Parser {
     if (this.#matchKeyword("UPDATE")) strength = "update";
     else if (this.#matchKeyword("SHARE")) strength = "share";
     else if (this.#matchKeyword("NO")) {
-      if (this.#syntax !== "postgres") throw this.#error("FOR NO KEY UPDATE is PostgreSQL syntax", start);
-      this.#expectKeyword("KEY");
-      this.#expectKeyword("UPDATE");
-      strength = "no-key-update";
+      throw this.#error("MySQL does not support FOR NO KEY UPDATE", start);
     } else if (this.#matchKeyword("KEY")) {
-      if (this.#syntax !== "postgres") throw this.#error("FOR KEY SHARE is PostgreSQL syntax", start);
-      this.#expectKeyword("SHARE");
-      strength = "key-share";
+      throw this.#error("MySQL does not support FOR KEY SHARE", start);
     } else {
       throw this.#error("Expected UPDATE, NO KEY UPDATE, SHARE, or KEY SHARE after FOR", this.#current().range);
     }
@@ -545,24 +528,10 @@ class Parser {
     return this.#nested(() => {
       let left = this.#parseUnary();
       while (true) {
-        if (this.#syntax === "postgres" && this.#matchOperator("::")) {
-          const databaseType = this.#parseTypeName(false);
-          left = {
-            kind: "cast",
-            expression: left,
-            databaseType,
-            syntax: "postgres",
-            range: mergeRanges(left.range, databaseType.range),
-          };
-          continue;
-        }
-
-        const negated =
-          this.#current().value === "NOT" &&
-          ["IN", "BETWEEN", "LIKE", "ILIKE", "SIMILAR"].includes(this.#peekToken(1).value);
+        const negated = this.#current().value === "NOT" && ["IN", "BETWEEN", "LIKE"].includes(this.#peekToken(1).value);
         const special = negated ? this.#peekToken(1).value : this.#current().value;
         if (special === "IN") {
-          const strength = 3;
+          const strength = 4;
           if (strength < minimum) break;
           if (negated) this.#advance();
           this.#advance();
@@ -583,7 +552,7 @@ class Parser {
           continue;
         }
         if (special === "BETWEEN") {
-          const strength = 3;
+          const strength = 4;
           if (strength < minimum) break;
           if (negated) this.#advance();
           this.#advance();
@@ -602,19 +571,13 @@ class Parser {
         }
 
         let operator = this.#current().value.toUpperCase();
-        if (special === "SIMILAR") operator = negated ? "NOT SIMILAR TO" : "SIMILAR TO";
-        else if (negated) operator = `NOT ${special}`;
+        if (negated) operator = `NOT ${special}`;
         const strength = precedence.get(operator.replace(/^NOT /u, ""));
         if (strength === undefined || strength < minimum) break;
         if (negated) this.#advance();
         this.#advance();
-        if (operator.endsWith("SIMILAR TO")) this.#expectKeyword("TO");
         if (operator === "IS") {
           if (this.#matchKeyword("NOT")) operator = "IS NOT";
-          if (this.#matchKeyword("DISTINCT")) {
-            this.#expectKeyword("FROM");
-            operator += " DISTINCT FROM";
-          }
         }
         const right = this.#parseExpression(strength + 1);
         left = { kind: "binary", left, operator, right, range: mergeRanges(left.range, right.range) };
@@ -625,11 +588,17 @@ class Parser {
 
   #parseUnary(): Expression {
     const token = this.#current();
-    if (this.#matchKeyword("NOT") || this.#matchOperator("+") || this.#matchOperator("-") || this.#matchOperator("~")) {
+    if (
+      this.#matchKeyword("NOT") ||
+      this.#matchOperator("!") ||
+      this.#matchOperator("+") ||
+      this.#matchOperator("-") ||
+      this.#matchOperator("~")
+    ) {
       const expression = this.#parseUnary();
       return {
         kind: "unary",
-        operator: token.value.toUpperCase(),
+        operator: token.value === "!" ? "NOT" : token.value.toUpperCase(),
         expression,
         range: mergeRanges(token.range, expression.range),
       };
@@ -721,13 +690,7 @@ class Parser {
       while (this.#matchPunctuation(","));
       close = this.#expectPunctuation(")");
     }
-    let filter: Expression | undefined;
-    if (this.#syntax !== "mysql" && this.#matchKeyword("FILTER")) {
-      this.#expectPunctuation("(");
-      this.#expectKeyword("WHERE");
-      filter = this.#parseExpression();
-      close = this.#expectPunctuation(")");
-    }
+    const filter: Expression | undefined = undefined;
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
       if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")

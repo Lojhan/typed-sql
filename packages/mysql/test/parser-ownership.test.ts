@@ -26,6 +26,20 @@ await describe("MySQL-owned parser", async () => {
     );
   });
 
+  await it("applies SQL modes before tokenization", () => {
+    strict.strictEqual(tokenize('SELECT "account"')[1]?.kind, "string");
+    strict.strictEqual(tokenize('SELECT "account"', { sqlMode: "ANSI_QUOTES" })[1]?.kind, "quoted-identifier");
+    strict.strictEqual(tokenize("SELECT 'line\\nnext'")[1]?.value, "line\nnext");
+    strict.strictEqual(tokenize("SELECT 'line\\nnext'", { sqlMode: "NO_BACKSLASH_ESCAPES" })[1]?.value, "line\\nnext");
+    strict.strictEqual(tokenize("SELECT 1 || 0")[2]?.value, "OR");
+    strict.strictEqual(tokenize("SELECT 'a' || 'b'", { sqlMode: "PIPES_AS_CONCAT" })[2]?.value, "||");
+    strict.strictEqual(tokenize("SELECT 1 # comment\n")[2]?.kind, "eof");
+    strict.throws(
+      () => tokenize("SELECT 1 /*!80000 + 1 */"),
+      (error: unknown) => error instanceof Error && "code" in error && error.code === "TSQ401",
+    );
+  });
+
   await it("passes the characterized parser, tokenizer, walker, and fuzz corpus", () => {
     assertOwnedParserCorpus({
       dialect: "mysql",
@@ -33,6 +47,7 @@ await describe("MySQL-owned parser", async () => {
       tokenize,
       walkStatement,
       isParseError: (error) => error instanceof SqlParseError,
+      compareWithCompatibilityParser: false,
     });
   });
 });

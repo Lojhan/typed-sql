@@ -44,7 +44,8 @@ export function createMySqlQuerySemanticResolver(options: MySqlQuerySemanticReso
       }
       let semantics: QuerySemantics;
       try {
-        const statement = parseStatement(source);
+        const sqlMode = options.schema.server?.settings.sqlMode;
+        const statement = parseStatement(source, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
         const resolved = resolveMySqlStatement(statement, options.schema, { typePolicy: policy });
         semantics = resolved.diagnostics.some(({ severity }) => severity === "error")
           ? unknownQuerySemantics(statement.range, "MySQL runtime semantic analysis reported an error.")

@@ -49,7 +49,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `expression.sql-json-query` — PostgreSQL SQL/JSON JSON_QUERY expression | expression | unsupported | exact (from 17) | unsupported |
 | `expression.sql-json-value` — PostgreSQL SQL/JSON JSON_VALUE expression | expression | unsupported | exact (from 17) | unsupported |
 | `expression.structured` — Row, CASE, predicate, and subquery expressions | expression | exact | exact | exact |
-| `lexical.structure` — Identifiers, literals, comments, parameters, tokens, and source ranges | lexical | conservative | exact | conservative |
+| `lexical.structure` — Identifiers, literals, comments, parameters, tokens, and source ranges | lexical | exact | exact | conservative |
 | `query.cte` — Ordinary common table expressions | clause | exact (from 8.0.1) | exact (from 8.4) | exact (from 3.8.3) |
 | `query.distinct` — DISTINCT and ALL projection modifiers | clause | exact | exact | exact |
 | `query.distinct-on` — DISTINCT ON | clause | unsupported | exact | unsupported |

@@ -6,6 +6,9 @@ export const DEFAULT_MAX_TOKENS = 100_000;
 export interface TokenizeOptions {
   readonly maxSqlLength?: number;
   readonly maxTokens?: number;
+  /** Normalized session sql_mode evidence applied before scanning. */
+  readonly sqlMode?: string;
+  /** @deprecated MySQL owns this parser; the syntax selector is ignored. */
   readonly syntax?: "mysql";
 }
 
@@ -41,7 +44,6 @@ const keywords = new Set([
   "FULL",
   "GROUP",
   "HAVING",
-  "ILIKE",
   "IN",
   "INNER",
   "INSERT",
@@ -81,7 +83,6 @@ const keywords = new Set([
   "SELECT",
   "SET",
   "SHARE",
-  "SIMILAR",
   "SKIP",
   "SUM",
   "THEN",
@@ -95,27 +96,22 @@ const keywords = new Set([
   "WHERE",
   "WINDOW",
   "WITH",
+  "XOR",
 ]);
 
 const operators = [
-  "#>>",
   "->>",
-  "::",
+  "<=>",
+  ":=",
+  "<<",
+  ">>",
   "<=",
   ">=",
   "!=",
   "<>",
   "||",
   "->",
-  "#>",
-  "@>",
-  "<@",
-  "?|",
-  "?&",
   "&&",
-  "!~*",
-  "!~",
-  "~*",
   "=",
   "<",
   ">",
@@ -126,10 +122,9 @@ const operators = [
   "%",
   "^",
   "~",
-  "?",
+  "!",
   "&",
   "|",
-  "#",
 ] as const;
 
 export class SqlTokenizeError extends Error {
@@ -165,7 +160,9 @@ class Scanner {
   #line = 1;
   #column = 1;
   #parameterIndex = 0;
-  readonly #syntax: string = "mysql";
+  readonly #ansiQuotes: boolean;
+  readonly #noBackslashEscapes: boolean;
+  readonly #pipesAsConcat: boolean;
 
   constructor(source: string, options: TokenizeOptions) {
     const maxSqlLength = options.maxSqlLength ?? DEFAULT_MAX_SQL_LENGTH;
@@ -182,6 +179,15 @@ class Scanner {
       );
     }
     this.#source = source;
+    const modes = new Set(
+      (options.sqlMode ?? "")
+        .split(",")
+        .map((mode) => mode.trim().toUpperCase())
+        .filter(Boolean),
+    );
+    this.#ansiQuotes = modes.has("ANSI_QUOTES");
+    this.#noBackslashEscapes = modes.has("NO_BACKSLASH_ESCAPES");
+    this.#pipesAsConcat = modes.has("PIPES_AS_CONCAT");
   }
 
   scan(): readonly Token[] {
@@ -207,20 +213,13 @@ class Scanner {
     const start = this.#position();
     const char = this.#peek();
 
-    if ((char === "E" || char === "e") && this.#peek(1) === "'") {
-      this.#advance();
-      return this.#scanString(start, true);
-    }
     if (isWordStart(char)) return this.#scanWord(start);
     if (/[0-9]/.test(char)) return this.#scanNumber(start);
-    if (char === "'") return this.#scanString(start, false, "'");
-    if (char === '"' && this.#syntax === "mysql") return this.#scanString(start, false, '"');
+    if (char === "'") return this.#scanString(start, !this.#noBackslashEscapes, "'");
+    if (char === '"' && !this.#ansiQuotes) return this.#scanString(start, !this.#noBackslashEscapes, '"');
     if (char === '"') return this.#scanQuotedIdentifier(start, '"');
-    if (char === "`" && this.#syntax !== "postgres") return this.#scanQuotedIdentifier(start, "`");
-    if (char === "[" && this.#syntax === "sqlite") return this.#scanBracketIdentifier(start);
-    if (char === "$" && /[0-9]/.test(this.#peek(1))) return this.#scanParameter(start);
-    if (char === "$" && this.#dollarQuoteDelimiter() !== undefined) return this.#scanDollarString(start);
-    if (char === "?" && this.#syntax !== "postgres") {
+    if (char === "`") return this.#scanQuotedIdentifier(start, "`");
+    if (char === "?") {
       this.#advance();
       this.#parameterIndex += 1;
       return this.#token("parameter", "?", String(this.#parameterIndex), start);
@@ -229,7 +228,12 @@ class Scanner {
     const operator = operators.find((candidate) => this.#source.startsWith(candidate, this.#index));
     if (operator !== undefined) {
       for (let offset = 0; offset < operator.length; offset += 1) this.#advance();
-      return this.#token("operator", operator, operator, start);
+      return this.#token(
+        "operator",
+        operator,
+        operator === "||" && !this.#pipesAsConcat ? "OR" : operator === "&&" ? "AND" : operator,
+        start,
+      );
     }
     if (["(", ")", ",", ".", ";", "[", "]"].includes(char)) {
       this.#advance();
@@ -238,18 +242,6 @@ class Scanner {
 
     this.#advance();
     throw new SqlTokenizeError(`Unexpected character ${JSON.stringify(char)}`, this.#range(start));
-  }
-
-  #scanBracketIdentifier(start: Position): Token {
-    this.#advance();
-    let value = "";
-    while (!this.#atEnd()) {
-      const char = this.#advance();
-      if (char === "]")
-        return this.#token("quoted-identifier", this.#source.slice(start.index, this.#index), value, start);
-      value += char;
-    }
-    throw new SqlTokenizeError("Unterminated bracket identifier", this.#range(start));
   }
 
   #scanWord(start: Position): Token {
@@ -291,33 +283,25 @@ class Scanner {
       }
       if (escaped && char === "\\" && !this.#atEnd()) {
         const next = this.#advance();
-        value += next === "n" ? "\n" : next === "r" ? "\r" : next === "t" ? "\t" : next;
+        value +=
+          next === "0"
+            ? "\0"
+            : next === "b"
+              ? "\b"
+              : next === "n"
+                ? "\n"
+                : next === "r"
+                  ? "\r"
+                  : next === "t"
+                    ? "\t"
+                    : next === "Z"
+                      ? "\u001a"
+                      : next === "%" || next === "_"
+                        ? `\\${next}`
+                        : next;
       } else value += char;
     }
     throw new SqlTokenizeError("Unterminated string literal", this.#range(start));
-  }
-
-  #scanDollarString(start: Position): Token {
-    const delimiter = this.#dollarQuoteDelimiter()!;
-    for (let index = 0; index < delimiter.length; index += 1) this.#advance();
-    const contentStart = this.#index;
-    const close = this.#source.indexOf(delimiter, contentStart);
-    if (close === -1) {
-      while (!this.#atEnd()) this.#advance();
-      throw new SqlTokenizeError("Unterminated dollar-quoted string literal", this.#range(start));
-    }
-    while (this.#index < close) this.#advance();
-    const value = this.#source.slice(contentStart, close);
-    for (let index = 0; index < delimiter.length; index += 1) this.#advance();
-    return this.#token("string", this.#source.slice(start.index, this.#index), value, start);
-  }
-
-  #dollarQuoteDelimiter(): string | undefined {
-    if (this.#peek() !== "$") return undefined;
-    let offset = 1;
-    while (/[A-Za-z0-9_]/.test(this.#peek(offset))) offset += 1;
-    if (this.#peek(offset) !== "$") return undefined;
-    return this.#source.slice(this.#index, this.#index + offset + 1);
   }
 
   #scanQuotedIdentifier(start: Position, quote: '"' | "`"): Token {
@@ -338,14 +322,6 @@ class Scanner {
     throw new SqlTokenizeError("Unterminated quoted identifier", this.#range(start));
   }
 
-  #scanParameter(start: Position): Token {
-    this.#advance();
-    while (/[0-9]/.test(this.#peek())) this.#advance();
-    const text = this.#source.slice(start.index, this.#index);
-    if (text === "$0") throw new SqlTokenizeError("PostgreSQL parameters start at $1", this.#range(start));
-    return this.#token("parameter", text, text.slice(1), start);
-  }
-
   #skipTrivia(): void {
     let moved = true;
     while (moved) {
@@ -354,27 +330,37 @@ class Scanner {
         moved = true;
         this.#advance();
       }
-      if (this.#peek() === "-" && this.#peek(1) === "-") {
+      if (this.#peek() === "-" && this.#peek(1) === "-" && (this.#peek(2) === "\0" || /\s/u.test(this.#peek(2)))) {
+        moved = true;
+        while (!this.#atEnd() && this.#peek() !== "\n") this.#advance();
+      } else if (this.#peek() === "#") {
         moved = true;
         while (!this.#atEnd() && this.#peek() !== "\n") this.#advance();
       } else if (this.#peek() === "/" && this.#peek(1) === "*") {
         const start = this.#position();
+        if (this.#peek(2) === "!") {
+          this.#advance();
+          this.#advance();
+          this.#advance();
+          throw new SqlTokenizeError(
+            "Executable MySQL comments require explicit structural SQL instead of implicit server-side expansion",
+            this.#range(start),
+            "TSQ401",
+          );
+        }
         moved = true;
         this.#advance();
         this.#advance();
-        let depth = 1;
-        while (!this.#atEnd() && depth > 0) {
-          if (this.#peek() === "/" && this.#peek(1) === "*") {
-            depth += 1;
+        let closed = false;
+        while (!this.#atEnd()) {
+          if (this.#peek() === "*" && this.#peek(1) === "/") {
             this.#advance();
             this.#advance();
-          } else if (this.#peek() === "*" && this.#peek(1) === "/") {
-            depth -= 1;
-            this.#advance();
-            this.#advance();
+            closed = true;
+            break;
           } else this.#advance();
         }
-        if (depth > 0) throw new SqlTokenizeError("Unterminated block comment", this.#range(start));
+        if (!closed) throw new SqlTokenizeError("Unterminated block comment", this.#range(start));
       }
     }
   }

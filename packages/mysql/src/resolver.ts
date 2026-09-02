@@ -72,14 +72,14 @@ const comparisonOperators = new Set([
   "<=",
   ">",
   ">=",
+  "<=>",
   "IS",
   "IS NOT",
-  "IS DISTINCT FROM",
-  "IS NOT DISTINCT FROM",
   "LIKE",
   "NOT LIKE",
   "AND",
   "OR",
+  "XOR",
 ]);
 
 function name(identifier: Identifier): string {
@@ -563,11 +563,19 @@ class Resolver {
     if (comparisonOperators.has(expression.operator))
       return {
         tsType: "boolean",
-        nullable: expression.operator.startsWith("IS") ? false : left.nullable || right.nullable,
+        nullable:
+          expression.operator.startsWith("IS") || expression.operator === "<=>"
+            ? false
+            : left.nullable || right.nullable,
         databaseType: "boolean",
       };
     if (expression.operator === "->") return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
     if (expression.operator === "->>") return { tsType: "string", nullable: true, databaseType: "varchar" };
+    if (expression.operator === "||") {
+      return left.tsType === "string" && right.tsType === "string"
+        ? { tsType: "string", nullable: left.nullable || right.nullable, databaseType: "varchar" }
+        : { tsType: "unknown", nullable: left.nullable || right.nullable };
+    }
     const leftType = left.databaseType === undefined ? undefined : normalized(left.databaseType);
     const rightType = right.databaseType === undefined ? undefined : normalized(right.databaseType);
     if (

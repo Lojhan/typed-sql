@@ -63,7 +63,8 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     },
     analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
       try {
-        const statement = parseStatement(sql);
+        const sqlMode = snapshot.server?.settings.sqlMode;
+        const statement = parseStatement(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
         const resolved = resolveMySqlStatement(statement, snapshot, { typePolicy: policy });
         const analysis = {
           ...resolved,

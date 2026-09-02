@@ -86,7 +86,7 @@ export interface CastExpression {
   readonly kind: "cast";
   readonly expression: Expression;
   readonly databaseType: TypeName;
-  readonly syntax: "cast" | "postgres";
+  readonly syntax: "cast";
   readonly range: SourceRange;
 }
 
@@ -235,7 +235,7 @@ export interface WithClause {
 }
 
 export interface SelectLockingClause {
-  readonly strength: "update" | "no-key-update" | "share" | "key-share";
+  readonly strength: "update" | "share";
   readonly relations: readonly Identifier[];
   readonly wait?: "nowait" | "skip-locked";
   readonly range: SourceRange;

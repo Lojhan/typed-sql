@@ -146,9 +146,9 @@ await describe("MySQL dialect", async () => {
     strict.strictEqual(
       dialect.resolveCapabilities?.({
         ...schema,
-        server: serverEvidence("8.4.6", "ANSI_QUOTES"),
-      }).lockingReads?.diagnostic,
-      "TSQ407",
+        server: serverEvidence("8.4.6", "ANSI_QUOTES,NO_BACKSLASH_ESCAPES,PIPES_AS_CONCAT"),
+      }).lockingReads?.level,
+      "exact",
     );
     strict.strictEqual(
       dialect.resolveCapabilities?.({ ...schema, version: "26.7.0" }).lockingReads?.level,
@@ -235,6 +235,15 @@ await describe("MySQL dialect", async () => {
     strict.deepStrictEqual(result.parameters, [
       { index: 1, tsType: "bigint", nullable: false, databaseType: "bigint unsigned" },
     ]);
+    const ansiQuoted = dialect.analyze('SELECT "email" FROM users', {
+      ...schema,
+      server: serverEvidence("8.4.6", "ANSI_QUOTES"),
+    } as typeof schema & { readonly dialect: "mysql" });
+    strict.deepStrictEqual(ansiQuoted.diagnostics, []);
+    strict.deepStrictEqual(
+      ansiQuoted.columns.map(({ name, tsType }) => ({ name, tsType })),
+      [{ name: "email", tsType: "string" }],
+    );
     strict.strictEqual(
       dialect.analyze("SELECT", schema as typeof schema & { readonly dialect: "mysql" }).diagnostics[0]?.code,
       "TSQ001",

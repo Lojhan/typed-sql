@@ -1031,6 +1031,7 @@
         "ast:lexical.numbers",
         "ast:lexical.parameters",
         "ast:lexical.strings",
+        "ast:mysql.sql-mode-lexing",
         "ast:node.identifier",
         "ast:node.source-range",
         "ast:node.sql-diagnostic",
@@ -1043,6 +1044,10 @@
           "url": "https://dev.mysql.com/doc/refman/9.7/en/language-structure.html"
         },
         {
+          "title": "MySQL server SQL modes",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/sql-mode.html"
+        },
+        {
           "title": "PostgreSQL lexical structure",
           "url": "https://www.postgresql.org/docs/18/sql-syntax-lexical.html"
         },
@@ -1052,7 +1057,7 @@
         }
       ],
       "dialects": {
-        "mysql": { "level": "conservative", "tests": ["packages/ast/test/parser.test.ts"] },
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/parser-ownership.test.ts"] },
         "postgres": { "level": "exact", "tests": ["packages/ast/test/matrix.test.ts"] },
         "sqlite": { "level": "conservative", "tests": ["packages/ast/test/parser.test.ts"] }
       }
