@@ -86,13 +86,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Assert beta release contract
         if: inputs.channel == 'beta'
-        run: pnpm release:assert beta
+        run: pnpm release:assert beta && pnpm release:evidence:policy beta
       - name: Assert release-candidate contract
         if: inputs.channel == 'rc'
-        run: pnpm release:assert rc
+        run: pnpm release:assert rc && pnpm release:evidence:policy rc
       - name: Assert stable release contract
         if: inputs.channel == 'stable'
-        run: pnpm release:assert stable
+        run: pnpm release:assert stable && pnpm release:evidence:policy stable
       - name: Publish experimental companions
         if: inputs.channel == 'stable'
         run: pnpm release:companions

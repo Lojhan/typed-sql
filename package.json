@@ -54,6 +54,7 @@
     "performance:gate": "node --expose-gc scripts/performance-gate.mjs",
     "release:artifacts": "pnpm build && node scripts/verify-release-artifacts.mjs --output artifacts/release/artifacts.json && pnpm test:pack",
     "release:assert": "node scripts/assert-release-channel.mjs",
+    "release:evidence:policy": "node scripts/assert-release-evidence-policy.mjs",
     "release:security": "node scripts/code-scanning-policy.mjs",
     "release:beta": "pnpm release:assert beta && node scripts/publish-prerelease.mjs",
     "release:rc": "pnpm release:assert rc && node scripts/publish-prerelease.mjs rc",
