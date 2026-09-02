@@ -183,6 +183,29 @@ Live-verification and plan adapters expose their own non-empty `adapterVersion`.
 when native evidence or normalization changes. Cached proofs and plan comparisons include it so
 incompatible evidence is not silently reused.
 
+## Upgrade editor integration
+
+Install the current language server in each application workspace and upgrade the VS Code or Zed
+launcher at the same time. The application does not install the bridge's TypeScript preview
+directly; `@typed-sql/language-server` owns the exact tested preview package.
+
+```sh
+pnpm add -D @typed-sql/language-server
+pnpm exec typed-sql doctor --protocol 1
+```
+
+Keep typed-sql as the only TypeScript language server for the workspace. Remove an older custom
+`tsserver.js` path or direct bridge launcher, then restart the editor so every workspace folder uses
+the installed server. Existing unversioned typed-sql clients are interpreted as protocol v1, while
+current clients explicitly negotiate v1 and the `analysis-identity`, `diagnostic-fixes`, and
+`status` capabilities.
+
+If an overridden preview dependency or protocol mismatch is reported, restore the language
+server's pinned dependencies and upgrade the launcher and server together. Do not bypass the check:
+unsupported TypeScript patches stop before project loading so the editor cannot publish an
+optimistic result from an untested compiler API. See [Editor setup](./editors.md) for per-editor
+configuration and supported feature limits.
+
 ## Version boundary reference
 
 These versions are independent. Their current values describe a contract or artifact generation;

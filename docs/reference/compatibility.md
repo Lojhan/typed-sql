@@ -17,14 +17,14 @@ version boundaries, see [Upgrade from typed-sql v1](../guides/upgrading-from-v1.
 
 ## Runtime and compiler
 
-| Surface | Contract |
-| --- | --- |
-| Node.js | 22.11 or newer |
-| TypeScript correctness path | Exactly 7.0.2 |
-| TypeScript editor backend | Exactly `7.1.0-dev.20260824.1`, installed inside the bridge |
-| typed-sql editor protocol | Version 1; the existing unversioned client shape is treated as version 1 |
-| Module format | ESM packages with exported JavaScript and declarations |
-| Package manager | Any package manager that honors package exports; repository examples use pnpm |
+| Surface | Contract | Tested target |
+| --- | --- | --- |
+| Node.js | 22.11 or newer | 22.11.0, current Node 22, 24, and 26 lines for compiler/editor integration |
+| TypeScript correctness path | Exactly 7.0.2 | 7.0.2 on every tested Node line |
+| TypeScript editor backend | Exactly `7.1.0-dev.20260824.1`, installed inside the bridge | The pinned preview on every tested Node line |
+| typed-sql editor protocol | Version 1; the existing unversioned client shape is treated as version 1 | Versioned and unversioned v1 clients |
+| Module format | ESM packages with exported JavaScript and declarations | NodeNext ESM consumers and packed package exports |
+| Package manager | Any package manager that honors package exports | Repository checks use pnpm |
 
 TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by some editors. CLI checking and compiler transforms are authoritative and do not depend on that file. Other TypeScript patches are not implicitly supported: each exact compiler or preview patch enters the compatibility matrix as a non-blocking canary before it can replace a supported target.
 
@@ -81,6 +81,11 @@ capabilities during LSP initialization. A client outside the accepted version wi
 with an upgrade instruction before workspace setup. Diagnostics carrying an analysis identity are
 valid only for the matching source hash/version, project generation and config hash,
 grammar/capability fingerprint, schema hash, and type-policy hash.
+
+Editor parity covers PostgreSQL, MySQL, SQLite, and the public synthetic third-party grammar. The
+same serialized analysis result supplies inferred rows, ordered parameter tuples, nullability,
+diagnostics, insertions, and source/transformed/interpolation spans in batch and editor modes.
+Ordinary, multi-file, multi-project, and multi-root workspaces use the same result contract.
 
 ## Grammar and snapshot compatibility
 

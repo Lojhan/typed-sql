@@ -105,3 +105,23 @@ schema loading fails, it replaces prior positive output with a redacted
 `TYPED_SQL_PROJECT_UNAVAILABLE` diagnostic. Correct the input and trigger a file refresh to retry
 without restarting the editor. `typedSql/status` includes cache hit/miss/eviction counters and
 native-bridge restart counts for troubleshooting.
+
+## Supported editor features
+
+The server provides query and downstream TypeScript hovers, SQL diagnostics, schema-aware table and
+column completion, definition links into the generated schema, and quick fixes attached to
+typed-sql diagnostics. Definition support is limited to schema objects; references, rename,
+formatting, and general TypeScript refactors are not typed-sql features. The VS Code extension
+surfaces `typedSql/status` through its status command. The Zed extension is a launcher and settings
+adapter; use another LSP-capable client or protocol tooling when direct custom-request UI is needed.
+
+The compiler/editor matrix runs on Node 22 from 22.11, current Node 22, Node 24, and Node 26. It uses
+the exact compiler and preview patches listed in [Compatibility](../reference/compatibility.md).
+Package exports are ESM; CommonJS application entrypoints can consume them only through Node's
+supported ESM interoperation rather than a separate CommonJS build.
+
+The language server reads the local snapshot and does not need a database connection during normal
+editing. Generate or refresh the snapshot with `typed-sql generate`; a watched snapshot replacement
+invalidates dependent results. If the snapshot is temporarily missing or invalid, the server clears
+prior positive analysis and reports `TYPED_SQL_PROJECT_UNAVAILABLE` until a later file refresh
+succeeds.

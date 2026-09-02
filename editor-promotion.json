@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "packages": ["@typed-sql/ts-bridge", "@typed-sql/language-server"],
+  "previewApiStability": "unstable",
+  "requiredConsecutiveCandidates": 2,
+  "verifiedCandidates": []
+}
