@@ -1786,8 +1786,11 @@
       "coverage": [
         "runtime:mysql.batch",
         "runtime:mysql.buffered",
+        "runtime:mysql.compatibility",
         "runtime:mysql.prepared",
+        "runtime:mysql.prepared-cache",
         "runtime:mysql.transaction",
+        "runtime:mysql.warnings",
         "runtime:postgres.batch",
         "runtime:postgres.buffered",
         "runtime:postgres.prepared",
@@ -1797,17 +1800,28 @@
         "runtime:sqlite.prepared",
         "runtime:sqlite.transaction"
       ],
-      "documentation": ["docs/guides/execution.md"],
+      "documentation": ["docs/dialects/mysql.md", "docs/guides/execution.md"],
       "sources": [
         {
           "title": "mysql2 prepared statements",
           "url": "https://sidorares.github.io/node-mysql2/docs/documentation/prepared-statements"
         },
+        {
+          "title": "MySQL SHOW WARNINGS statement",
+          "url": "https://dev.mysql.com/doc/refman/8.4/en/show-warnings.html"
+        },
         { "title": "node-postgres queries", "url": "https://node-postgres.com/features/queries" },
         { "title": "Node.js SQLite API", "url": "https://nodejs.org/api/sqlite.html" }
       ],
       "dialects": {
-        "mysql": { "level": "exact", "tests": ["packages/mysql/test/batch.test.ts"] },
+        "mysql": {
+          "level": "exact",
+          "tests": [
+            "packages/mysql/test/batch.test.ts",
+            "packages/mysql/test/execute-lifecycle.test.ts",
+            "packages/mysql/test/mysql2.test.ts"
+          ]
+        },
         "postgres": { "level": "exact", "tests": ["packages/postgres/test/runtime.test.ts"] },
         "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/runtime.test.ts"] }
       }

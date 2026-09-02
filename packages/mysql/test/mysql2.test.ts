@@ -3,9 +3,10 @@ import { Readable } from "node:stream";
 import { type DatabaseOperationEnd, sql } from "@typed-sql/core";
 import type { Pool } from "mysql2/promise";
 import { describe, it, strict } from "poku";
+import { mySqlServerEvidence } from "../src/capabilities.js";
 import { adaptMySql2Pool, createMySql2Database, loadMySql2Driver, mysql2 } from "../src/mysql2.js";
 import type { MySqlQueryable, MySqlQueryResult } from "../src/provider.js";
-import { createMySqlDatabase } from "../src/runtime.js";
+import { createMySqlDatabase, MySqlRuntimeCompatibilityError, MySqlWarningInspectionError } from "../src/runtime.js";
 
 class FakeCallbackCommand extends EventEmitter {
   readonly readable = new Readable({ objectMode: true, read() {} });
@@ -60,15 +61,20 @@ class FakeRawConnection {
   readonly calls: string[] = [];
   executeCount = 0;
   queryCount = 0;
+  warningCount = 0;
+  warningRows: readonly Record<string, unknown>[] | undefined;
+  runtimeEvidenceRow: Readonly<Record<string, unknown>> = runtimeServerRow;
   async execute(sql: string): Promise<readonly [unknown, (readonly { name: string; columnType: number }[])?]> {
     this.executeCount += 1;
     this.calls.push(sql);
-    if (sql.startsWith("UPDATE")) return [{ affectedRows: 1 }];
+    if (sql.startsWith("UPDATE")) return [{ affectedRows: 1, warningStatus: this.warningCount }];
     return [[{ value: "1" }], [{ name: "value", columnType: 8 }]];
   }
   async query(sql: string): Promise<readonly [readonly Record<string, unknown>[], readonly never[]]> {
     this.queryCount += 1;
     this.calls.push(sql);
+    if (sql.includes("VERSION()")) return [[this.runtimeEvidenceRow], []];
+    if (sql.includes("@@session.warning_count")) return [this.warningRows ?? [{ warningCount: this.warningCount }], []];
     return [[], []];
   }
   async beginTransaction(): Promise<void> {
@@ -89,6 +95,7 @@ class FakeRawPool extends FakeRawConnection {
   ended = false;
   getConnectionCount = 0;
   readonly pooledConnection = new FakeRawConnection();
+  createdPoolOptions: unknown;
   async getConnection(): Promise<FakeRawConnection> {
     this.getConnectionCount += 1;
     return this.pooledConnection;
@@ -150,8 +157,26 @@ const catalogServerRow = Object.freeze({
 });
 
 function fakeDriver(pool: FakeRawPool): typeof import("mysql2/promise") {
-  return { createPool: () => pool } as unknown as typeof import("mysql2/promise");
+  return {
+    createPool: (options: unknown) => {
+      pool.createdPoolOptions = options;
+      return pool;
+    },
+  } as unknown as typeof import("mysql2/promise");
 }
+
+const runtimeServerRow = Object.freeze({
+  version: "8.4.11",
+  versionComment: "MySQL Community Server - GPL",
+  sqlMode: "STRICT_TRANS_TABLES",
+  characterSetServer: "utf8mb4",
+  collationServer: "utf8mb4_0900_ai_ci",
+  characterSetConnection: "utf8mb4",
+  collationConnection: "utf8mb4_0900_ai_ci",
+  timeZone: "+00:00",
+  systemTimeZone: "UTC",
+  lowerCaseTableNames: 0,
+});
 
 await describe("application-owned mysql2 integration", async () => {
   await it("cancels an in-flight query by destroying its checked-out mysql2 connection", async () => {
@@ -197,6 +222,8 @@ await describe("application-owned mysql2 integration", async () => {
     const result = await pool.execute("SELECT ?", [1]);
     strict.deepStrictEqual(result.rows, [{ value: "1" }]);
     strict.strictEqual(result.fields?.[0]?.columnType, 8);
+    raw.warningCount = 3;
+    strict.strictEqual((await pool.execute("UPDATE accounts SET active = 1")).warningCount, 3);
     const connection = await pool.getConnection();
     await connection.beginTransaction();
     await connection.execute("SELECT 1");
@@ -260,6 +287,8 @@ await describe("application-owned mysql2 integration", async () => {
     const prepared = database.prepare("select-value", (value: bigint) => sql`SELECT ${value}`);
     strict.strictEqual(raw.calls.length, 0);
     strict.strictEqual(raw.getConnectionCount, 0);
+    strict.strictEqual((raw.createdPoolOptions as { maxPreparedStatements?: unknown }).maxPreparedStatements, 16_000);
+    strict.strictEqual((raw.createdPoolOptions as { multipleStatements?: unknown }).multipleStatements, false);
     strict.deepStrictEqual(await database.execute(prepared(1n)), [{ value: 1n }]);
     strict.strictEqual(raw.executeCount, 1);
     strict.strictEqual(raw.queryCount, 0);
@@ -267,6 +296,90 @@ await describe("application-owned mysql2 integration", async () => {
     await database.close();
     strict.strictEqual(raw.ended, true);
     await strict.rejects(() => createMySql2Database({ connectionUri: "" }), /must not be empty/);
+  });
+
+  await it("checks compatibility on the leased mysql2 session before dispatch", async () => {
+    const raw = new FakeRawPool();
+    const database = await createMySql2Database({
+      connectionUri: "mysql://unused/app",
+      compatibilitySnapshot: {
+        formatVersion: 2,
+        dialect: "mysql",
+        dialectVersion: "1.0.0",
+        server: mySqlServerEvidence("8.4.11", {
+          versionComment: runtimeServerRow.versionComment,
+          sqlMode: runtimeServerRow.sqlMode,
+          characterSetServer: runtimeServerRow.characterSetServer,
+          collationServer: runtimeServerRow.collationServer,
+          characterSetConnection: runtimeServerRow.characterSetConnection,
+          collationConnection: runtimeServerRow.collationConnection,
+          timeZone: runtimeServerRow.timeZone,
+          systemTimeZone: runtimeServerRow.systemTimeZone,
+          lowerCaseTableNames: runtimeServerRow.lowerCaseTableNames,
+        }),
+      } as never,
+      driverImporter: async () => fakeDriver(raw),
+    });
+    strict.deepStrictEqual(await database.execute(sql<{ value: bigint }>`SELECT 1 AS value`), [{ value: 1n }]);
+    strict.strictEqual(raw.getConnectionCount, 1);
+    strict.strictEqual(raw.pooledConnection.queryCount, 1);
+    strict.deepStrictEqual(raw.pooledConnection.calls.slice(-1), ["SELECT 1 AS value"]);
+    strict.strictEqual(raw.pooledConnection.released, true);
+    raw.pooledConnection.runtimeEvidenceRow = { ...runtimeServerRow, version: 84 };
+    await strict.rejects(() => database.execute(sql`SELECT 1`), MySqlRuntimeCompatibilityError);
+  });
+
+  await it("owns mysql2 statement and multi-statement cache controls", async () => {
+    const raw = new FakeRawPool();
+    const database = await createMySql2Database({
+      connectionUri: "mysql://unused/app",
+      preparedStatementLimit: 7,
+      driverImporter: async () => fakeDriver(raw),
+    });
+    strict.strictEqual((raw.createdPoolOptions as { maxPreparedStatements?: unknown }).maxPreparedStatements, 7);
+    await database.close();
+    for (const option of ["maxPreparedStatements", "multipleStatements"] as const) {
+      await strict.rejects(
+        () =>
+          createMySql2Database({
+            connectionUri: "mysql://unused/app",
+            poolConfig: { [option]: true } as never,
+            driverImporter: async () => fakeDriver(new FakeRawPool()),
+          }),
+        new RegExp(`owns poolConfig\\.${option}`),
+      );
+    }
+    for (const option of ["preparedStatementLimit", "decoderPlanCacheCapacity"] as const) {
+      await strict.rejects(
+        () =>
+          createMySql2Database({
+            connectionUri: "mysql://unused/app",
+            [option]: 0,
+            driverImporter: async () => fakeDriver(new FakeRawPool()),
+          }),
+        /positive safe integer/u,
+      );
+    }
+  });
+
+  await it("inspects result-set warnings on the same mysql2 lease", async () => {
+    const raw = new FakeRawPool();
+    raw.pooledConnection.warningCount = 1;
+    const warnings: number[] = [];
+    const database = await createMySql2Database({
+      connectionUri: "mysql://unused/app",
+      onWarning: (warning) => warnings.push(warning.count),
+      driverImporter: async () => fakeDriver(raw),
+    });
+    strict.deepStrictEqual(await database.execute(sql<{ value: bigint }>`SELECT 1 AS value`), [{ value: 1n }]);
+    strict.deepStrictEqual(warnings, [1]);
+    strict.deepStrictEqual(raw.pooledConnection.calls, [
+      "SELECT 1 AS value",
+      'SELECT @@session.warning_count AS "warningCount"',
+    ]);
+    strict.strictEqual(raw.pooledConnection.released, true);
+    raw.pooledConnection.warningRows = [];
+    await strict.rejects(() => database.execute(sql`SELECT 1`), MySqlWarningInspectionError);
   });
 
   await it("streams mysql2 execute protocol rows and waits for the command terminal event before reuse", async () => {

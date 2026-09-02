@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { DialectServerEvidence } from "@typed-sql/core";
 import {
   type AdapterCapabilityResolver,
   adapterCapabilities,
@@ -27,7 +28,9 @@ import {
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
+import type { SchemaSnapshotV2 } from "@typed-sql/schema";
 import { createMySqlBulkCapability, type MySqlBulkTransport, mysqlBulk } from "./bulk.js";
+import { assertMySqlServerEvidence } from "./capabilities.js";
 import {
   decodeMySqlRows,
   encodeMySqlValue,
@@ -52,6 +55,7 @@ export type { MySqlProtocolStream } from "./stream.js";
 export interface MySqlExecutionResult {
   readonly rows: readonly Record<string, unknown>[] | Record<string, unknown>;
   readonly fields?: readonly MySqlFieldLike[];
+  readonly warningCount?: number;
 }
 
 export interface MySqlConnectionLike extends MySqlStreamingConnection {
@@ -61,6 +65,8 @@ export interface MySqlConnectionLike extends MySqlStreamingConnection {
   beginTransaction(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
+  readServerEvidence?(): Promise<DialectServerEvidence>;
+  readWarningCount?(): Promise<number>;
   destroy?(): void;
   release(): void;
 }
@@ -98,6 +104,48 @@ export interface MySqlDatabaseOptions {
   readonly typePolicy?: Pick<MySqlTypePolicy, "bigint" | "decimal" | "date" | "json" | "tinyint1">;
   readonly decimal?: (value: string) => unknown;
   readonly observer?: DatabaseObserver;
+  /** Snapshot evidence that every physical connection must match before application SQL is sent. */
+  readonly compatibilitySnapshot?: SchemaSnapshotV2 & { readonly dialect: "mysql" };
+  readonly decoderPlanCacheCapacity?: number;
+  readonly preparedStatementLimit?: number;
+  readonly onWarning?: (warning: MySqlExecutionWarning) => void;
+  readonly rejectWarnings?: boolean;
+}
+
+export interface MySqlExecutionWarning {
+  readonly count: number;
+  readonly fingerprint: string;
+}
+
+export class MySqlRuntimeCompatibilityError extends Error {
+  readonly code = "TSQL_MYSQL_INCOMPATIBLE_RUNTIME";
+  readonly differences: readonly string[];
+
+  constructor(message: string, differences: readonly string[] = []) {
+    super(message);
+    this.name = "MySqlRuntimeCompatibilityError";
+    this.differences = Object.freeze([...differences]);
+  }
+}
+
+export class MySqlWarningError extends Error {
+  readonly code = "TSQL_MYSQL_WARNING";
+  readonly warning: MySqlExecutionWarning;
+
+  constructor(warning: MySqlExecutionWarning) {
+    super(`MySQL execution produced ${warning.count} warning${warning.count === 1 ? "" : "s"}`);
+    this.name = "MySqlWarningError";
+    this.warning = warning;
+  }
+}
+
+export class MySqlWarningInspectionError extends Error {
+  readonly code = "TSQL_MYSQL_WARNING_UNAVAILABLE";
+
+  constructor() {
+    super("The MySQL adapter cannot inspect execution warnings required by the configured warning policy");
+    this.name = "MySqlWarningInspectionError";
+  }
 }
 
 const defaultRuntimeTypePolicy: MySqlRuntimeTypePolicy = defaultMySqlTypePolicy;
@@ -120,9 +168,30 @@ function mysqlQueryFingerprint<Row, Params extends readonly unknown[]>(
   const cached = state.fingerprints?.get(key);
   if (cached !== undefined) return cached;
   const text = renderQuery(query, mysqlRenderer).text;
-  const fingerprint = `sha256:${createHash("sha256").update(`mysql\0${MYSQL_DIALECT_VERSION}\0${text}`).digest("hex")}`;
+  const fingerprint = mysqlTextFingerprint(text);
   state.fingerprints?.set(key, fingerprint);
   return fingerprint;
+}
+
+function mysqlTextFingerprint(text: string): string {
+  return `sha256:${createHash("sha256").update(`mysql\0${MYSQL_DIALECT_VERSION}\0${text}`).digest("hex")}`;
+}
+
+interface MySqlRuntimeSafetyState {
+  readonly expectedServer: DialectServerEvidence | undefined;
+  readonly onWarning: ((warning: MySqlExecutionWarning) => void) | undefined;
+  readonly rejectWarnings: boolean;
+}
+
+function serverDifferences(expected: DialectServerEvidence, actual: DialectServerEvidence): readonly string[] {
+  const differences: string[] = [];
+  if (expected.product !== actual.product) differences.push("product");
+  if (expected.versionKey !== actual.versionKey) differences.push("versionKey");
+  const settingKeys = [...new Set([...Object.keys(expected.settings), ...Object.keys(actual.settings)])].sort();
+  for (const key of settingKeys) {
+    if (expected.settings[key] !== actual.settings[key]) differences.push(`settings.${key}`);
+  }
+  return Object.freeze(differences);
 }
 
 export const mysqlRenderer: SqlRenderer = Object.freeze({
@@ -159,6 +228,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #depth: number;
   readonly #prepared: MySqlPreparedQueryState;
   readonly #observation: MySqlObservationState;
+  readonly #safety: MySqlRuntimeSafetyState;
   readonly #decoderPlans: MySqlDecoderPlanCache;
   readonly #executes: Set<MySqlConnectionOperation> | undefined;
   readonly #streams: Set<QueryStream<unknown>> | undefined;
@@ -175,6 +245,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     prepared: MySqlPreparedQueryState,
     decoderPlans: MySqlDecoderPlanCache,
     observation: MySqlObservationState,
+    safety: MySqlRuntimeSafetyState,
     transactionState?: MySqlTransactionConnectionState,
   ) {
     this.#pool = pool;
@@ -184,6 +255,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#prepared = prepared;
     this.#decoderPlans = decoderPlans;
     this.#observation = observation;
+    this.#safety = safety;
     this.#executes = connection === undefined ? undefined : new Set();
     this.#streams = connection === undefined ? undefined : new Set();
     this.#transactionState = transactionState;
@@ -211,7 +283,29 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   async #executeUnobserved<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
     this.#assertScopeOpen();
     this.#assertConnectionAvailable("execute a query");
-    if (this.#connection === undefined) return this.#executeOn(this.#pool, query);
+    if (
+      this.#connection === undefined &&
+      this.#safety.expectedServer === undefined &&
+      this.#safety.onWarning === undefined &&
+      !this.#safety.rejectWarnings
+    )
+      return this.#executeOn(this.#pool, query);
+    if (this.#connection === undefined) {
+      const connection = await this.#pool.getConnection();
+      let rows: readonly Row[];
+      try {
+        rows = await this.#executeOn(connection, query);
+      } catch (error) {
+        try {
+          connection.release();
+        } catch {
+          /* Preserve the compatibility or execution failure. */
+        }
+        throw error;
+      }
+      connection.release();
+      return rows;
+    }
     const operation = createMySqlConnectionOperation();
     this.#executes!.add(operation);
     this.#transactionState!.execute = operation;
@@ -360,15 +454,66 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   }
 
   async #executeOn<Row, Params extends readonly unknown[]>(
-    executor: Pick<MySqlConnectionLike, "execute">,
+    executor: Pick<MySqlConnectionLike, "execute" | "readServerEvidence" | "readWarningCount">,
     query: Query<Row, Params>,
   ): Promise<readonly Row[]> {
+    if (this.#safety.expectedServer !== undefined) await this.#verifyConnection(executor);
     const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, mysqlRenderer);
+    if (
+      (this.#safety.onWarning !== undefined || this.#safety.rejectWarnings) &&
+      executor.readWarningCount === undefined
+    ) {
+      throw new MySqlWarningInspectionError();
+    }
     const result = await executor.execute(rendered.text, rendered.values.map(encodeMySqlValue));
+    if (result.warningCount !== undefined && (!Number.isSafeInteger(result.warningCount) || result.warningCount < 0)) {
+      throw new MySqlWarningInspectionError();
+    }
+    let warningCount = result.warningCount ?? 0;
+    if (result.warningCount === undefined && (this.#safety.onWarning !== undefined || this.#safety.rejectWarnings)) {
+      try {
+        warningCount = await executor.readWarningCount!();
+      } catch {
+        throw new MySqlWarningInspectionError();
+      }
+    }
+    if (warningCount > 0) {
+      const warning = Object.freeze({ count: warningCount, fingerprint: mysqlTextFingerprint(rendered.text) });
+      this.#safety.onWarning?.(warning);
+      if (this.#safety.rejectWarnings) throw new MySqlWarningError(warning);
+    }
     if (!Array.isArray(result.rows)) return [];
     const decoders = this.#decoderPlans.get(result.fields ?? []);
     return decodeMySqlRows(result.rows, decoders) as unknown as readonly Row[];
+  }
+
+  async #verifyConnection(connection: Pick<MySqlConnectionLike, "readServerEvidence">): Promise<void> {
+    const expected = this.#safety.expectedServer;
+    if (expected === undefined) return;
+    if (connection.readServerEvidence === undefined) {
+      throw new MySqlRuntimeCompatibilityError(
+        "The MySQL adapter cannot prove runtime compatibility for the supplied snapshot",
+        ["adapter.serverEvidence"],
+      );
+    }
+    let actual: DialectServerEvidence;
+    try {
+      actual = await connection.readServerEvidence();
+      assertMySqlServerEvidence(actual);
+    } catch {
+      throw new MySqlRuntimeCompatibilityError(
+        "The MySQL adapter could not prove runtime compatibility for the supplied snapshot",
+        ["adapter.serverEvidence"],
+      );
+    }
+    const differences = serverDifferences(expected, actual);
+    if (differences.length > 0) {
+      throw new MySqlRuntimeCompatibilityError(
+        `MySQL runtime evidence differs from the compatibility snapshot (${differences.join(", ")})`,
+        differences,
+      );
+    }
   }
 
   async batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> {
@@ -471,10 +616,22 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         if (this.#connection !== undefined) {
           this.#assertScopeOpen();
           this.#assertConnectionAvailable("start another query stream");
+          await this.#verifyConnection(this.#connection);
           this.#transactionState!.active = exposedStream as QueryStream<unknown>;
           return { connection: this.#connection, release: false };
         }
-        return { connection: await this.#pool.getConnection(), release: true };
+        const connection = await this.#pool.getConnection();
+        try {
+          await this.#verifyConnection(connection);
+          return { connection, release: true };
+        } catch (error) {
+          try {
+            connection.release();
+          } catch {
+            /* Preserve the compatibility failure. */
+          }
+          throw error;
+        }
       },
       text: rendered.text,
       values: rendered.values.map(encodeMySqlValue),
@@ -555,6 +712,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       }
     };
     try {
+      await this.#verifyConnection(connection);
       await runControlledExecution(options, () => connection.loadData!(statement, chunks), discard);
       if (this.#connection === undefined) connection.release();
     } catch (error) {
@@ -599,9 +757,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     if (this.#connection !== undefined) return this.#nested(fn);
     const connection = await this.#pool.getConnection();
     let transaction: MySqlDatabaseImplementation | undefined;
+    let began = false;
     let result: T;
     try {
+      await this.#verifyConnection(connection);
       await connection.beginTransaction();
+      began = true;
       transaction = new MySqlDatabaseImplementation(
         this.#pool,
         connection,
@@ -610,6 +771,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#prepared,
         this.#decoderPlans,
         this.#observation,
+        this.#safety,
         { active: undefined, batch: undefined, bulk: undefined, execute: undefined, discarded: false, usable: true },
       );
       result = await fn(transaction);
@@ -624,10 +786,12 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         await transaction.#invalidateScope();
       }
       if (transaction === undefined || transaction.#transactionState?.discarded !== true) {
-        try {
-          await connection.rollback();
-        } catch {
-          /* Preserve the original failure. */
+        if (began) {
+          try {
+            await connection.rollback();
+          } catch {
+            /* Preserve the original failure. */
+          }
         }
         try {
           connection.release();
@@ -647,6 +811,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     const connection = this.#connection!;
     const depth = this.#depth + 1;
     const savepoint = `typed_sql_${depth}`;
+    await this.#verifyConnection(connection);
     await connection.query(`SAVEPOINT ${savepoint}`);
     let transaction: MySqlDatabaseImplementation | undefined;
     try {
@@ -658,6 +823,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#prepared,
         this.#decoderPlans,
         this.#observation,
+        this.#safety,
         this.#transactionState,
       );
       const result = await fn(transaction);
@@ -791,13 +957,40 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
   const typePolicy: MySqlRuntimeTypePolicy = { ...defaultRuntimeTypePolicy, ...options.typePolicy };
   if (typePolicy.decimal === "Decimal" && options.decimal === undefined)
     throw new TypeError("decimal=Decimal requires a decimal(value) codec");
+  const snapshot = options.compatibilitySnapshot;
+  if (snapshot !== undefined) {
+    if (snapshot.formatVersion !== 2 || snapshot.dialect !== "mysql" || snapshot.server?.product !== "mysql") {
+      throw new MySqlRuntimeCompatibilityError("MySQL runtime compatibility requires an exact MySQL v2 snapshot", [
+        "snapshot.server.product",
+      ]);
+    }
+    if (snapshot.dialectVersion !== MYSQL_DIALECT_VERSION) {
+      throw new MySqlRuntimeCompatibilityError(
+        `MySQL grammar ${MYSQL_DIALECT_VERSION} cannot execute a snapshot compiled for grammar ${snapshot.dialectVersion}`,
+        ["snapshot.dialectVersion"],
+      );
+    }
+    try {
+      assertMySqlServerEvidence(snapshot.server);
+    } catch {
+      throw new MySqlRuntimeCompatibilityError("MySQL runtime compatibility snapshot evidence is invalid", [
+        "snapshot.server",
+      ]);
+    }
+  }
+  const safety: MySqlRuntimeSafetyState = Object.freeze({
+    expectedServer: snapshot?.server,
+    onWarning: options.onWarning,
+    rejectWarnings: options.rejectWarnings ?? false,
+  });
   return new MySqlDatabaseImplementation(
     options.pool,
     undefined,
     options.ownsPool ?? false,
     0,
-    createMySqlPreparedQueryState(),
-    new MySqlDecoderPlanCache(typePolicy, options.decimal),
+    createMySqlPreparedQueryState(options.preparedStatementLimit),
+    new MySqlDecoderPlanCache(typePolicy, options.decimal, options.decoderPlanCacheCapacity),
     createMySqlObservationState(options.observer),
+    safety,
   );
 }

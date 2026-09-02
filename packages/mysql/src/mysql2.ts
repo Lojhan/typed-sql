@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
-import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
+import type {
+  DatabaseObserver,
+  DialectServerEvidence,
+  LiveQueryVerifier,
+  QueryPlanEvidence,
+  QueryPlanInspector,
+} from "@typed-sql/core";
 import type { Connection as CallbackConnection, Query as CallbackQuery } from "mysql2";
 import type { FieldPacket, Pool, PoolConnection, PoolOptions } from "mysql2/promise";
 import { mySqlServerEvidence } from "./capabilities.js";
@@ -29,12 +35,19 @@ export interface MySql2Options {
     | "jsonStrings"
     | "typeCast"
     | "rowsAsArray"
+    | "maxPreparedStatements"
+    | "multipleStatements"
   >;
   readonly typePolicy?: MySqlTypePolicy;
   readonly decimal?: (value: string) => unknown;
   /** Test or host-injected loader. Applications normally leave this unset. */
   readonly driverImporter?: () => Promise<typeof import("mysql2/promise")>;
   readonly observer?: DatabaseObserver;
+  readonly compatibilitySnapshot?: MySqlSchemaSnapshot & { readonly formatVersion: 2 };
+  readonly decoderPlanCacheCapacity?: number;
+  readonly preparedStatementLimit?: number;
+  readonly onWarning?: import("./runtime.js").MySqlDatabaseOptions["onWarning"];
+  readonly rejectWarnings?: boolean;
 }
 
 export interface MySql2SchemaProviderOptions {
@@ -494,6 +507,8 @@ const managedPoolOptions = [
   "jsonStrings",
   "typeCast",
   "rowsAsArray",
+  "maxPreparedStatements",
+  "multipleStatements",
 ] as const;
 
 function validatePoolConfig(poolConfig: MySql2Options["poolConfig"]): void {
@@ -502,9 +517,15 @@ function validatePoolConfig(poolConfig: MySql2Options["poolConfig"]): void {
   for (const option of managedPoolOptions) {
     if (option in configured) {
       throw new TypeError(
-        `@typed-sql/mysql/mysql2 owns poolConfig.${option} so decoded values match typePolicy; remove that option`,
+        `@typed-sql/mysql/mysql2 owns poolConfig.${option} to preserve runtime safety; remove that option`,
       );
     }
+  }
+}
+
+function validateCacheCapacity(value: number | undefined, name: string): void {
+  if (value !== undefined && (!Number.isSafeInteger(value) || value <= 0)) {
+    throw new RangeError(`${name} must be a positive safe integer`);
   }
 }
 
@@ -525,10 +546,53 @@ async function execute(
   values?: readonly unknown[],
 ): Promise<MySqlExecutionResult> {
   const [rows, metadata] = await value[method](sql, values);
+  const command = Array.isArray(rows) ? undefined : (rows as Readonly<Record<string, unknown>>);
+  const warningValue = command?.warningCount ?? command?.warningStatus;
+  const warningCount = numberValue(warningValue);
   return {
     rows: rows as readonly Record<string, unknown>[] | Record<string, unknown>,
     ...(metadata === undefined || metadata.length === 0 ? {} : { fields: fields(metadata) }),
+    ...(warningCount === undefined ? {} : { warningCount }),
   };
+}
+
+const mysqlRuntimeEvidenceQuery =
+  'SELECT VERSION() AS "version", @@version_comment AS "versionComment", @@session.sql_mode AS "sqlMode", @@global.character_set_server AS "characterSetServer", @@global.collation_server AS "collationServer", @@session.character_set_connection AS "characterSetConnection", @@session.collation_connection AS "collationConnection", @@session.time_zone AS "timeZone", @@global.system_time_zone AS "systemTimeZone", @@global.lower_case_table_names AS "lowerCaseTableNames"';
+
+function evidenceString(row: Readonly<Record<string, unknown>>, key: string): string {
+  const value = row[key];
+  if (typeof value !== "string") throw new TypeError(`MySQL runtime evidence ${key} must be a string`);
+  return value;
+}
+
+async function readServerEvidence(executable: Executable): Promise<DialectServerEvidence> {
+  const [value] = await executable.query(mysqlRuntimeEvidenceQuery);
+  const row = Array.isArray(value) ? (value[0] as Readonly<Record<string, unknown>> | undefined) : undefined;
+  if (row === undefined) throw new Error("MySQL did not return runtime server evidence");
+  if (typeof row.lowerCaseTableNames !== "number" && typeof row.lowerCaseTableNames !== "string") {
+    throw new TypeError("MySQL runtime evidence lowerCaseTableNames must be a number or string");
+  }
+  return mySqlServerEvidence(evidenceString(row, "version"), {
+    versionComment: evidenceString(row, "versionComment"),
+    sqlMode: evidenceString(row, "sqlMode"),
+    characterSetServer: evidenceString(row, "characterSetServer"),
+    collationServer: evidenceString(row, "collationServer"),
+    characterSetConnection: evidenceString(row, "characterSetConnection"),
+    collationConnection: evidenceString(row, "collationConnection"),
+    timeZone: evidenceString(row, "timeZone"),
+    systemTimeZone: evidenceString(row, "systemTimeZone"),
+    lowerCaseTableNames: row.lowerCaseTableNames,
+  });
+}
+
+async function readWarningCount(executable: Executable): Promise<number> {
+  const [value] = await executable.query('SELECT @@session.warning_count AS "warningCount"');
+  const row = Array.isArray(value) ? (value[0] as Readonly<Record<string, unknown>> | undefined) : undefined;
+  const count = row === undefined ? undefined : numberValue(row.warningCount);
+  if (count === undefined || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error("MySQL returned an invalid warning count");
+  }
+  return count;
 }
 
 function connectionAdapter(connection: PoolConnection): MySqlConnectionLike {
@@ -548,6 +612,8 @@ function connectionAdapter(connection: PoolConnection): MySqlConnectionLike {
     beginTransaction: () => connection.beginTransaction(),
     commit: () => connection.commit(),
     rollback: () => connection.rollback(),
+    readServerEvidence: () => readServerEvidence(executable),
+    readWarningCount: () => readWarningCount(executable),
     destroy: () => connection.destroy(),
     release: () => connection.release(),
   };
@@ -706,6 +772,8 @@ export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
 
 export async function createMySql2Database(options: MySql2Options): Promise<MySqlDatabase> {
   validatePoolConfig(options.poolConfig);
+  validateCacheCapacity(options.preparedStatementLimit, "MySQL preparedStatementLimit");
+  validateCacheCapacity(options.decoderPlanCacheCapacity, "MySQL decoderPlanCacheCapacity");
   const driver = await loadMySql2Driver(options.driverImporter);
   const pool = driver.createPool({
     ...options.poolConfig,
@@ -716,6 +784,8 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     dateStrings: true,
     jsonStrings: false,
     rowsAsArray: false,
+    maxPreparedStatements: options.preparedStatementLimit ?? 16_000,
+    multipleStatements: false,
   });
   return createMySqlDatabase({
     pool: adaptMySql2Pool(pool),
@@ -723,6 +793,13 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
     ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
     ...(options.observer === undefined ? {} : { observer: options.observer }),
+    ...(options.compatibilitySnapshot === undefined ? {} : { compatibilitySnapshot: options.compatibilitySnapshot }),
+    ...(options.decoderPlanCacheCapacity === undefined
+      ? {}
+      : { decoderPlanCacheCapacity: options.decoderPlanCacheCapacity }),
+    ...(options.preparedStatementLimit === undefined ? {} : { preparedStatementLimit: options.preparedStatementLimit }),
+    ...(options.onWarning === undefined ? {} : { onWarning: options.onWarning }),
+    ...(options.rejectWarnings === undefined ? {} : { rejectWarnings: options.rejectWarnings }),
   });
 }
 

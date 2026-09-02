@@ -26,12 +26,19 @@ interface PreparedStatement {
 }
 
 export interface MySqlPreparedQueryState {
+  readonly capacity: number;
   readonly statements: Map<string, PreparedStatement>;
   readonly queries: WeakMap<object, MySqlPreparedQueryMetadata>;
 }
 
-export function createMySqlPreparedQueryState(): MySqlPreparedQueryState {
+export const defaultMySqlPreparedStatementLimit = 16_000;
+
+export function createMySqlPreparedQueryState(capacity = defaultMySqlPreparedStatementLimit): MySqlPreparedQueryState {
+  if (!Number.isSafeInteger(capacity) || capacity <= 0) {
+    throw new RangeError("MySQL prepared statement limit must be a positive safe integer");
+  }
   return {
+    capacity,
     statements: new Map(),
     queries: new WeakMap(),
   };
@@ -52,6 +59,11 @@ export function prepareMySqlQuery<Arguments extends readonly unknown[], Row, Par
   validateStatementName(statementName);
   if (state.statements.has(statementName)) {
     throw new TypeError(`Prepared statement name ${JSON.stringify(statementName)} is already registered`);
+  }
+  if (state.statements.size >= state.capacity) {
+    throw new RangeError(
+      `MySQL prepared statement limit of ${state.capacity} has been reached; reuse an existing prepared factory or increase preparedStatementLimit`,
+    );
   }
 
   const statement: PreparedStatement = { skeleton: undefined };

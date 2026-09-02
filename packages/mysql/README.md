@@ -26,6 +26,7 @@ const query = sql`
 const database = await createMySql2Database({
   connectionUri: process.env.DATABASE_URL!,
   typePolicy,
+  preparedStatementLimit: 16_000,
   // observer: createOpenTelemetryObserver(),
 });
 
@@ -54,6 +55,11 @@ await bulk.loadData(
 The package root exports `sql`, `mysql`, and the MySQL type policy. The `/mysql2` entrypoint exports
 the schema provider, execution adapter, `createMySql2LiveVerifier`, and `createMySql2PlanInspector`;
 `/runtime` exposes driver-neutral MySQL rendering and codecs.
+
+The adapter can validate a schema format 2 `compatibilitySnapshot` against each leased session,
+report redacted execution warning counts through `onWarning`, reject warnings with
+`rejectWarnings`, and bound prepared and decoder caches. Multi-statement strings remain disabled;
+use the ordered batch API instead. The canonical MySQL guide documents these runtime contracts.
 
 The root also exports `createMySqlRoutedDatabase`, the runtime semantic resolver, and the native
 transaction retry classifier. These compose application-owned adapters without installing or

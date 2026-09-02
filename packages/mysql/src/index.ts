@@ -21,6 +21,7 @@ export type {
 export { mysqlBulk } from "./bulk.js";
 export type { MySqlCoreCatalog } from "./catalog/index.js";
 export { MYSQL_CORE_CATALOG_FORMAT_VERSION, mySqlCoreCatalog } from "./catalog/index.js";
+export { MySqlRuntimeCompatibilityError, MySqlWarningError, MySqlWarningInspectionError } from "./runtime.js";
 export { MYSQL_DIALECT_VERSION } from "./version.js";
 export type MySqlSchemaSnapshot = SchemaSnapshot & { readonly dialect: "mysql" };
 
