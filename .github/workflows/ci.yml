@@ -527,3 +527,57 @@ jobs:
           path: artifacts/evidence/
           if-no-files-found: warn
           retention-days: 30
+
+  release-candidate-evidence:
+    if: always() && github.event_name == 'workflow_dispatch'
+    needs:
+      - quality
+      - typescript-editor-matrix
+      - postgres-matrix-review
+      - mysql-matrix-review
+      - packed-real-databases
+      - examples-e2e
+      - sqlite-node-matrix
+      - sqlite-language-matrix
+      - editor-artifacts
+      - scheduled-reliability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Assemble successful comprehensive-lane evidence
+        if: >-
+          needs.quality.result == 'success' &&
+          needs.typescript-editor-matrix.result == 'success' &&
+          needs.postgres-matrix-review.result == 'success' &&
+          needs.mysql-matrix-review.result == 'success' &&
+          needs.packed-real-databases.result == 'success' &&
+          needs.examples-e2e.result == 'success' &&
+          needs.sqlite-node-matrix.result == 'success' &&
+          needs.sqlite-language-matrix.result == 'success' &&
+          needs.editor-artifacts.result == 'success' &&
+          needs.scheduled-reliability.result == 'success'
+        run: >-
+          node scripts/write-ci-evidence.mjs
+          --lane release-candidate
+          --output artifacts/evidence/candidate.json
+          --gate quality
+          --gate typecheck
+          --gate unit
+          --gate soundness
+          --gate api
+          --gate packed-consumer
+          --gate conformance-smoke
+          --gate database-matrix
+          --gate typescript-editor-matrix
+          --gate fuzz
+          --gate mutation
+          --gate performance
+          --gate soak
+          --gate vulnerability-audit
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-release-candidate-evidence-${{ github.run_attempt }}
+          path: artifacts/evidence/candidate.json
+          if-no-files-found: warn
+          retention-days: 90

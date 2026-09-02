@@ -14,6 +14,10 @@ on:
           - beta
           - rc
           - stable
+      evidence_run_id:
+        description: Successful CI workflow_dispatch run for this commit (required for rc/stable)
+        required: false
+        type: string
 
 concurrency:
   group: release-${{ github.ref }}
@@ -51,6 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     permissions:
+      actions: read
       contents: write
       id-token: write
       security-events: read
@@ -67,6 +72,7 @@ jobs:
           package-manager-cache: false
       - run: npm install --global npm@12.0.2
       - run: pnpm install --frozen-lockfile
+      - run: pnpm release:exceptions:check
       - run: pnpm verify
       - run: pnpm release:artifacts
       - if: always()
@@ -84,6 +90,37 @@ jobs:
         run: pnpm release:security
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Record release-local evidence
+        run: >-
+          node scripts/write-ci-evidence.mjs
+          --lane release
+          --output artifacts/release/local-evidence.json
+          --gate quality
+          --gate typecheck
+          --gate unit
+          --gate soundness
+          --gate api
+          --gate packed-consumer
+          --gate conformance-smoke
+          --gate performance
+          --gate soak
+          --gate artifact-integrity
+          --gate vulnerability-audit
+          --gate security-review
+      - name: Require comprehensive CI evidence
+        if: (inputs.channel == 'rc' || inputs.channel == 'stable') && inputs.evidence_run_id == ''
+        run: |
+          echo "rc and stable releases require evidence_run_id from a successful CI workflow_dispatch run"
+          exit 1
+      - name: Download comprehensive CI evidence
+        if: inputs.channel == 'rc' || inputs.channel == 'stable'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.evidence_run_id }}
+          pattern: typed-sql-release-candidate-evidence-*
+          path: artifacts/release/external
+          merge-multiple: true
       - name: Assert beta release contract
         if: inputs.channel == 'beta'
         run: pnpm release:assert beta && pnpm release:evidence:policy beta
@@ -93,6 +130,46 @@ jobs:
       - name: Assert stable release contract
         if: inputs.channel == 'stable'
         run: pnpm release:assert stable && pnpm release:evidence:policy stable
+      - name: Record stable governance evidence
+        if: inputs.channel == 'stable'
+        run: >-
+          node scripts/write-ci-evidence.mjs
+          --lane stable-governance
+          --output artifacts/release/stable-evidence.json
+          --gate source-candidate
+          --gate security-review
+          --gate provenance
+          --gate partial-publication-retry
+          --gate promotion-record
+      - name: Assemble beta release evidence
+        if: inputs.channel == 'beta'
+        run: >-
+          pnpm release:evidence:assemble --
+          --output artifacts/release/evidence.json
+          --input artifacts/release/local-evidence.json
+      - name: Assemble release-candidate evidence
+        if: inputs.channel == 'rc'
+        run: >-
+          pnpm release:evidence:assemble --
+          --output artifacts/release/evidence.json
+          --input artifacts/release/local-evidence.json
+          --input artifacts/release/external/candidate.json
+      - name: Assemble complete stable evidence
+        if: inputs.channel == 'stable'
+        run: >-
+          pnpm release:evidence:assemble --
+          --require-complete
+          --output artifacts/release/evidence.json
+          --input artifacts/release/local-evidence.json
+          --input artifacts/release/external/candidate.json
+          --input artifacts/release/stable-evidence.json
+      - name: Retain release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-release-evidence-${{ inputs.channel }}-${{ github.run_attempt }}
+          path: artifacts/release/evidence.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Publish experimental companions
         if: inputs.channel == 'stable'
         run: pnpm release:companions
