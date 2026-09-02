@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import {
+  ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION,
+  type ArtifactCompatibilityIdentity,
+  assessArtifactCompatibility,
+  CORE_ARTIFACT_COMPATIBILITY_VERSION,
   type DialectCapabilityState,
   type DialectCapabilityStates,
   type DialectPlugin,
@@ -346,16 +350,52 @@ function compatiblePrevious(
   schemaHash: string,
   typePolicyHash: string,
 ): previous is QueryManifest {
+  if (previous?.schemaFormat === undefined || previous.dialect.capabilityFingerprint === undefined) return false;
+  const identity = (
+    manifest: Pick<
+      QueryManifest,
+      "formatVersion" | "compilerVersion" | "fingerprintAlgorithm" | "schemaHash" | "typePolicyHash"
+    > & {
+      readonly dialect: {
+        readonly id: string;
+        readonly grammarVersion: string;
+        readonly capabilityFingerprint: string;
+      };
+      readonly schemaFormat: 1 | 2;
+    },
+  ): ArtifactCompatibilityIdentity => ({
+    formatVersion: ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION,
+    artifact: {
+      kind: "query-manifest",
+      version: String(manifest.formatVersion),
+      algorithm: manifest.fingerprintAlgorithm,
+    },
+    producer: { core: CORE_ARTIFACT_COMPATIBILITY_VERSION, compiler: manifest.compilerVersion },
+    grammar: {
+      id: manifest.dialect.id,
+      version: manifest.dialect.grammarVersion,
+      capabilityFingerprint: manifest.dialect.capabilityFingerprint,
+    },
+    schema: { formatVersion: manifest.schemaFormat, hash: manifest.schemaHash },
+    typePolicyHash: manifest.typePolicyHash,
+  });
   return (
-    previous?.formatVersion === QUERY_MANIFEST_FORMAT_VERSION &&
-    previous.compilerVersion === compilerVersion &&
-    previous.fingerprintAlgorithm === QUERY_FINGERPRINT_ALGORITHM &&
-    previous.dialect.id === dialect.id &&
-    previous.dialect.grammarVersion === dialect.grammarVersion &&
-    previous.dialect.capabilityFingerprint === capabilityFingerprint &&
-    previous.schemaFormat === schemaFormat &&
-    previous.schemaHash === schemaHash &&
-    previous.typePolicyHash === typePolicyHash
+    assessArtifactCompatibility(
+      identity({
+        formatVersion: QUERY_MANIFEST_FORMAT_VERSION,
+        compilerVersion,
+        fingerprintAlgorithm: QUERY_FINGERPRINT_ALGORITHM,
+        dialect: { id: dialect.id, grammarVersion: dialect.grammarVersion, capabilityFingerprint },
+        schemaFormat,
+        schemaHash,
+        typePolicyHash,
+      }),
+      identity({
+        ...previous,
+        schemaFormat: previous.schemaFormat,
+        dialect: { ...previous.dialect, capabilityFingerprint: previous.dialect.capabilityFingerprint },
+      }),
+    ).outcome === "compatible"
   );
 }
 

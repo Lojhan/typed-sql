@@ -97,6 +97,9 @@ import type {
   AdapterCapabilityHost,
   AdapterCapabilityResolver,
   AdapterCapabilityService,
+  ArtifactCompatibilityAssessment,
+  ArtifactCompatibilityIdentity,
+  ArtifactCompatibilityOutcome,
   BatchOperationStart,
   BooleanDialectCapabilities,
   ControlledQueryExecutor,
@@ -477,6 +480,9 @@ type ReferencedStableTypes =
   | CompatibilityEvidenceValue
   | CompatibilityQueryReference
   | CompatibilitySeverity
+  | ArtifactCompatibilityAssessment
+  | ArtifactCompatibilityIdentity
+  | ArtifactCompatibilityOutcome
   | DeploymentDirection
   | QueryManifest
   | QueryManifestBuildStats
@@ -787,6 +793,8 @@ const expectedRuntimeExports = {
   ],
   config: ["discoverConfig", "fromConfig", "loadConfig"],
   core: [
+    "ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION",
+    "CORE_ARTIFACT_COMPATIBILITY_VERSION",
     "UnsupportedAdapterCapabilityError",
     "QueryCancelledError",
     "QueryCardinalityError",
@@ -794,6 +802,7 @@ const expectedRuntimeExports = {
     "UnsupportedExecutionCapabilityError",
     "assertDialectPlugin",
     "assertExecutionCapabilities",
+    "assessArtifactCompatibility",
     "applyDialectCapabilityStates",
     "adapterCapabilities",
     "bindQueryRenderSkeleton",
@@ -822,6 +831,7 @@ const expectedRuntimeExports = {
     "mergeQuerySemantics",
     "observeQueryStream",
     "parameterTypeLiteral",
+    "parseArtifactCompatibilityIdentity",
     "parseDialectServerEvidence",
     "queryRoute",
     "queryResultValidationSource",
@@ -831,6 +841,7 @@ const expectedRuntimeExports = {
     "requireAdapterCapability",
     "rowTypeLiteral",
     "runControlledExecution",
+    "serializeArtifactCompatibilityIdentity",
     "sql",
     "startDatabaseObservation",
     "staticDialectCapabilityStates",

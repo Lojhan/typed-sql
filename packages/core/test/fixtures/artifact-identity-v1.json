@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "artifact": {
+    "kind": "query-manifest",
+    "version": "1",
+    "algorithm": "typed-sql-v1"
+  },
+  "producer": {
+    "core": "typed-sql-core-v1",
+    "compiler": "2.0.0"
+  },
+  "grammar": {
+    "id": "postgres",
+    "version": "1.0.0",
+    "catalogRevision": "postgres-core-v1",
+    "capabilityFingerprint": "capabilities-v1"
+  },
+  "server": {
+    "product": "postgresql",
+    "version": "18",
+    "capabilityFingerprint": "server-v1"
+  },
+  "schema": {
+    "formatVersion": 2,
+    "hash": "schema-v1"
+  },
+  "typePolicyHash": "policy-v1",
+  "runtimeSettingsHash": "settings-v1",
+  "source": {
+    "hash": "source-v1",
+    "query": "query-v1"
+  },
+  "extensions": {
+    "futureOptional": {
+      "enabled": true
+    }
+  }
+}

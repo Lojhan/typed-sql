@@ -13,6 +13,18 @@ export {
   requireAdapterCapability,
   UnsupportedAdapterCapabilityError,
 } from "./adapter-capabilities.js";
+export type {
+  ArtifactCompatibilityAssessment,
+  ArtifactCompatibilityIdentity,
+  ArtifactCompatibilityOutcome,
+} from "./artifact-compatibility.js";
+export {
+  ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION,
+  assessArtifactCompatibility,
+  CORE_ARTIFACT_COMPATIBILITY_VERSION,
+  parseArtifactCompatibilityIdentity,
+  serializeArtifactCompatibilityIdentity,
+} from "./artifact-compatibility.js";
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
 export type {
