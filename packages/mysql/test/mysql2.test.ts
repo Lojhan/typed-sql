@@ -389,7 +389,19 @@ await describe("application-owned mysql2 integration", async () => {
         this.calls.push(sql);
         if (sql.includes("VERSION()")) return [[catalogServerRow], []];
         if (sql.includes("DATABASE()")) return [[{ database_name: "app" }], []];
-        if (sql.includes("information_schema.COLUMNS"))
+        if (sql.includes("information_schema.SCHEMATA"))
+          return [
+            [
+              {
+                catalog_name: "def",
+                schema_name: "app",
+                default_character_set_name: "utf8mb4",
+                default_collation_name: "utf8mb4_0900_ai_ci",
+              },
+            ],
+            [],
+          ];
+        if (sql.includes("FROM information_schema.COLUMNS"))
           return [
             [
               {

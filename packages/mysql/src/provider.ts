@@ -12,7 +12,13 @@ import {
 } from "@typed-sql/schema";
 import { mySqlServerEvidence } from "./capabilities.js";
 import { mySqlCoreCatalogForSchema } from "./catalog/index.js";
-import { defaultMySqlTypePolicy, type MySqlTypePolicy, mapMySqlType, mySqlEnumValues } from "./type-policy.js";
+import {
+  defaultMySqlTypePolicy,
+  type MySqlTypePolicy,
+  mapMySqlType,
+  mySqlEnumValues,
+  mySqlSetValues,
+} from "./type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "./version.js";
 
 export interface MySqlQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
@@ -27,6 +33,20 @@ export interface MySqlSchemaProviderOptions {
   readonly client?: MySqlQueryable;
   readonly includeSchemas?: readonly string[];
   readonly typePolicy?: MySqlTypePolicy;
+}
+
+export type MySqlIntrospectionCatalog = "schemas" | "columns" | "routines" | "parameters" | "constraints" | "indexes";
+
+export interface MySqlIntrospectionDiagnostic {
+  readonly code: "TSQ406";
+  readonly severity: "warning";
+  readonly catalog: MySqlIntrospectionCatalog;
+  readonly message: string;
+}
+
+export interface MySqlIntrospectionResult {
+  readonly snapshot: SchemaSnapshotV2;
+  readonly diagnostics: readonly MySqlIntrospectionDiagnostic[];
 }
 
 interface VersionRow extends Record<string, unknown> {
@@ -44,6 +64,12 @@ interface VersionRow extends Record<string, unknown> {
 interface DatabaseRow extends Record<string, unknown> {
   readonly database_name: string | null;
 }
+interface SchemaRow extends Record<string, unknown> {
+  readonly catalog_name: string;
+  readonly schema_name: string;
+  readonly default_character_set_name: string;
+  readonly default_collation_name: string;
+}
 interface ColumnRow extends Record<string, unknown> {
   readonly schema_name: string;
   readonly table_name: string;
@@ -58,6 +84,11 @@ interface ColumnRow extends Record<string, unknown> {
   readonly generation_expression?: string | null;
   readonly table_type?: "BASE TABLE" | "VIEW" | "SYSTEM VIEW";
   readonly view_updatable?: "YES" | "NO" | null;
+  readonly character_maximum_length?: number | string | null;
+  readonly numeric_precision?: number | string | null;
+  readonly numeric_scale?: number | string | null;
+  readonly datetime_precision?: number | string | null;
+  readonly spatial_reference_system_id?: number | string | null;
 }
 interface RoutineRow extends Record<string, unknown> {
   readonly schema_name: string;
@@ -66,6 +97,13 @@ interface RoutineRow extends Record<string, unknown> {
   readonly is_deterministic: "YES" | "NO";
   readonly sql_data_access: "CONTAINS SQL" | "NO SQL" | "READS SQL DATA" | "MODIFIES SQL DATA";
   readonly routine_type?: "FUNCTION" | "PROCEDURE";
+  readonly return_character_set?: string | null;
+  readonly return_collation?: string | null;
+  readonly security_type?: "DEFINER" | "INVOKER";
+  readonly creation_sql_mode?: string;
+  readonly creation_character_set?: string | null;
+  readonly creation_collation?: string | null;
+  readonly database_collation?: string | null;
 }
 interface ParameterRow extends Record<string, unknown> {
   readonly schema_name: string;
@@ -74,6 +112,8 @@ interface ParameterRow extends Record<string, unknown> {
   readonly parameter_mode: "IN" | "OUT" | "INOUT" | null;
   readonly parameter_name: string | null;
   readonly database_type: string;
+  readonly character_set_name?: string | null;
+  readonly collation_name?: string | null;
 }
 interface ConstraintRow extends Record<string, unknown> {
   readonly schema_name: string;
@@ -90,6 +130,7 @@ interface ConstraintRow extends Record<string, unknown> {
   readonly delete_rule?: string | null;
   readonly check_clause?: string | null;
   readonly ordinal_position?: number;
+  readonly enforced?: "YES" | "NO";
 }
 interface IndexRow extends Record<string, unknown> {
   readonly schema_name: string;
@@ -102,8 +143,10 @@ interface IndexRow extends Record<string, unknown> {
   readonly expressions?: unknown;
   readonly expression?: string | null;
   readonly descending?: unknown;
-  readonly collations?: unknown;
-  readonly collation?: string | null;
+  readonly column_collations?: unknown;
+  readonly column_collation?: string | null;
+  readonly prefix_lengths?: unknown;
+  readonly prefix_length?: number | string | null;
   readonly visible: unknown;
   readonly ordinal_position?: number;
 }
@@ -122,13 +165,25 @@ interface NormalizedIndexRow extends IndexRow {
   readonly columns: readonly unknown[];
   readonly expressions: readonly unknown[];
   readonly descending: readonly unknown[];
-  readonly collations: readonly unknown[];
+  readonly column_collations: readonly unknown[];
+  readonly prefix_lengths: readonly unknown[];
 }
 
 export const mysqlCatalogQueries = Object.freeze({
   version:
     "SELECT VERSION() AS server_version, @@version_comment AS version_comment, @@session.sql_mode AS sql_mode, @@global.character_set_server AS character_set_server, @@global.collation_server AS collation_server, @@session.character_set_connection AS character_set_connection, @@session.collation_connection AS collation_connection, @@session.time_zone AS time_zone, @@global.system_time_zone AS system_time_zone, @@global.lower_case_table_names AS lower_case_table_names",
   database: "SELECT DATABASE() AS database_name",
+  schemas(schemaCount: number): string {
+    return `
+      SELECT 'def' AS catalog_name,
+             SCHEMA_NAME AS schema_name,
+             DEFAULT_CHARACTER_SET_NAME AS default_character_set_name,
+             DEFAULT_COLLATION_NAME AS default_collation_name
+      FROM information_schema.SCHEMATA
+      WHERE SCHEMA_NAME IN (${Array.from({ length: schemaCount }, () => "?").join(", ")})
+      ORDER BY SCHEMA_NAME
+    `;
+  },
   columns(schemaCount: number): string {
     return `
       SELECT TABLE_SCHEMA AS schema_name,
@@ -142,6 +197,11 @@ export const mysqlCatalogQueries = Object.freeze({
              COLLATION_NAME AS collation_name,
              EXTRA AS extra,
              GENERATION_EXPRESSION AS generation_expression,
+             CHARACTER_MAXIMUM_LENGTH AS character_maximum_length,
+             NUMERIC_PRECISION AS numeric_precision,
+             NUMERIC_SCALE AS numeric_scale,
+             DATETIME_PRECISION AS datetime_precision,
+             SRS_ID AS spatial_reference_system_id,
              t.TABLE_TYPE AS table_type,
              v.IS_UPDATABLE AS view_updatable
       FROM information_schema.COLUMNS
@@ -158,7 +218,14 @@ export const mysqlCatalogQueries = Object.freeze({
              ROUTINE_TYPE AS routine_type,
              DTD_IDENTIFIER AS database_return_type,
              IS_DETERMINISTIC AS is_deterministic,
-             SQL_DATA_ACCESS AS sql_data_access
+             SQL_DATA_ACCESS AS sql_data_access,
+             CHARACTER_SET_NAME AS return_character_set,
+             COLLATION_NAME AS return_collation,
+             SECURITY_TYPE AS security_type,
+             SQL_MODE AS creation_sql_mode,
+             CHARACTER_SET_CLIENT AS creation_character_set,
+             COLLATION_CONNECTION AS creation_collation,
+             DATABASE_COLLATION AS database_collation
       FROM information_schema.ROUTINES
       WHERE ROUTINE_SCHEMA IN (${Array.from({ length: schemaCount }, () => "?").join(", ")})
       ORDER BY ROUTINE_SCHEMA, ROUTINE_NAME
@@ -168,7 +235,8 @@ export const mysqlCatalogQueries = Object.freeze({
     return `
       SELECT SPECIFIC_SCHEMA AS schema_name, SPECIFIC_NAME AS routine_name,
              ORDINAL_POSITION AS ordinal_position, PARAMETER_MODE AS parameter_mode,
-             PARAMETER_NAME AS parameter_name, DTD_IDENTIFIER AS database_type
+             PARAMETER_NAME AS parameter_name, DTD_IDENTIFIER AS database_type,
+             CHARACTER_SET_NAME AS character_set_name, COLLATION_NAME AS collation_name
       FROM information_schema.PARAMETERS
       WHERE SPECIFIC_SCHEMA IN (${Array.from({ length: schemaCount }, () => "?").join(", ")})
       ORDER BY SPECIFIC_SCHEMA, SPECIFIC_NAME, ORDINAL_POSITION
@@ -184,6 +252,7 @@ export const mysqlCatalogQueries = Object.freeze({
              kcu.REFERENCED_COLUMN_NAME AS referenced_column_name,
              rc.UPDATE_RULE AS update_rule, rc.DELETE_RULE AS delete_rule,
              cc.CHECK_CLAUSE AS check_clause,
+             tc.ENFORCED AS enforced,
              COALESCE(kcu.ORDINAL_POSITION, 0) AS ordinal_position
       FROM information_schema.TABLE_CONSTRAINTS AS tc
       LEFT JOIN information_schema.KEY_COLUMN_USAGE AS kcu
@@ -199,15 +268,20 @@ export const mysqlCatalogQueries = Object.freeze({
   },
   indexes(schemaCount: number): string {
     return `
-      SELECT TABLE_SCHEMA AS schema_name, TABLE_NAME AS table_name, INDEX_NAME AS index_name,
-             (NON_UNIQUE = 0) AS is_unique, INDEX_TYPE AS index_type,
-             COLUMN_NAME AS column_name, EXPRESSION AS expression,
-             COALESCE(COLLATION = 'D', 0) AS descending,
-             COLLATION AS collation, (IS_VISIBLE = 'YES') AS visible,
-             SEQ_IN_INDEX AS ordinal_position
-      FROM information_schema.STATISTICS
-      WHERE TABLE_SCHEMA IN (${Array.from({ length: schemaCount }, () => "?").join(", ")})
-      ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX
+      SELECT s.TABLE_SCHEMA AS schema_name, s.TABLE_NAME AS table_name, s.INDEX_NAME AS index_name,
+             (s.NON_UNIQUE = 0) AS is_unique, s.INDEX_TYPE AS index_type,
+             s.COLUMN_NAME AS column_name, s.EXPRESSION AS expression,
+             COALESCE(s.COLLATION = 'D', 0) AS descending,
+             c.COLLATION_NAME AS column_collation,
+             s.SUB_PART AS prefix_length,
+             (s.IS_VISIBLE = 'YES') AS visible,
+             s.SEQ_IN_INDEX AS ordinal_position
+      FROM information_schema.STATISTICS AS s
+      LEFT JOIN information_schema.COLUMNS AS c
+        ON c.TABLE_SCHEMA = s.TABLE_SCHEMA AND c.TABLE_NAME = s.TABLE_NAME
+       AND c.COLUMN_NAME = s.COLUMN_NAME
+      WHERE s.TABLE_SCHEMA IN (${Array.from({ length: schemaCount }, () => "?").join(", ")})
+      ORDER BY s.TABLE_SCHEMA, s.TABLE_NAME, s.INDEX_NAME, s.SEQ_IN_INDEX
     `;
   },
 });
@@ -244,6 +318,47 @@ function catalogBoolean(value: unknown, path: string): boolean {
   if (value === 0 || value === "0") return false;
   if (value === 1 || value === "1") return true;
   throw new TypeError(`MySQL introspection ${path} must be boolean evidence`);
+}
+
+function optionalCatalogInteger(value: unknown, path: string): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const normalized = typeof value === "string" && /^\d+$/u.test(value.trim()) ? Number(value.trim()) : value;
+  if (!Number.isSafeInteger(normalized) || (normalized as number) < 0) {
+    throw new TypeError(`MySQL introspection ${path} must be non-negative integer evidence`);
+  }
+  return normalized as number;
+}
+
+function normalizeCatalogSqlMode(value: string): string {
+  return [
+    ...new Set(
+      value
+        .split(",")
+        .map((mode) => mode.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ]
+    .sort()
+    .join(",");
+}
+
+function normalizeSchemas(values: readonly string[]): readonly string[] {
+  const schemas = values.map((value) => {
+    if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
+      throw new TypeError("MySQL introspection schema names must be non-empty strings without NUL bytes");
+    }
+    return value.trim();
+  });
+  return [...new Set(schemas)].sort();
+}
+
+function incompleteCatalogDiagnostic(catalog: MySqlIntrospectionCatalog): MySqlIntrospectionDiagnostic {
+  return Object.freeze({
+    code: "TSQ406",
+    severity: "warning",
+    catalog,
+    message: `MySQL introspection could not read ${catalog} metadata; the snapshot contains incomplete evidence.`,
+  });
 }
 
 function compareCatalogIdentity(
@@ -324,10 +439,14 @@ function normalizeIndexRows(rows: readonly IndexRow[]): readonly NormalizedIndex
             : typeof first.descending === "string" && first.descending.startsWith("[")
               ? catalogArray(first.descending, "index ordering")
               : ordered.map(({ descending }) => descending ?? false),
-        collations:
-          first.collations === undefined
-            ? ordered.map(({ collation }) => collation ?? null)
-            : catalogArray(first.collations, "index collations"),
+        column_collations:
+          first.column_collations === undefined
+            ? ordered.map(({ column_collation }) => column_collation ?? null)
+            : catalogArray(first.column_collations, "index column collations"),
+        prefix_lengths:
+          first.prefix_lengths === undefined
+            ? ordered.map(({ prefix_length }) => prefix_length ?? null)
+            : catalogArray(first.prefix_lengths, "index prefix lengths"),
       };
     })
     .sort(
@@ -362,12 +481,17 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
     this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
   }
 
-  async introspect(_input: SchemaInput): Promise<SchemaSnapshotV2> {
-    if (this.#client === undefined)
+  async introspect(input: SchemaInput): Promise<SchemaSnapshotV2> {
+    return (await this.introspectWithDiagnostics(input)).snapshot;
+  }
+
+  async introspectWithDiagnostics(_input: SchemaInput): Promise<MySqlIntrospectionResult> {
+    const client = this.#client;
+    if (client === undefined)
       throw new TypeError(
         "MySQL schema provider requires an injected client; use @typed-sql/mysql/mysql2 for a connection URI",
       );
-    const versionRow = (await this.#client.query<VersionRow>(mysqlCatalogQueries.version)).rows[0];
+    const versionRow = (await client.query<VersionRow>(mysqlCatalogQueries.version)).rows[0];
     if (versionRow === undefined) throw new TypeError("MySQL introspection did not return a server version");
     const version = versionRow.server_version;
     const server = mySqlServerEvidence(version, {
@@ -387,6 +511,9 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
         ? {}
         : { lowerCaseTableNames: versionRow.lower_case_table_names }),
     });
+    if (server.product !== "mysql") {
+      throw new TypeError(`MySQL introspection requires an Oracle MySQL server; detected ${server.product}`);
+    }
     const typeContext = {
       formatVersion: 1,
       dialect: "mysql",
@@ -394,25 +521,52 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
       server,
     } as const satisfies SchemaSnapshot;
     const mapType = (databaseType: string): string => mapMySqlType(databaseType, this.#policy, typeContext);
-    const currentDatabase = (await this.#client.query<DatabaseRow>(mysqlCatalogQueries.database)).rows[0]
-      ?.database_name;
-    const schemas =
-      this.#schemas ?? (currentDatabase === null || currentDatabase === undefined ? [] : [currentDatabase]);
+    const currentDatabase = (await client.query<DatabaseRow>(mysqlCatalogQueries.database)).rows[0]?.database_name;
+    const schemas = normalizeSchemas(
+      this.#schemas ?? (currentDatabase === null || currentDatabase === undefined ? [] : [currentDatabase]),
+    );
     if (schemas.length === 0) throw new TypeError("MySQL introspection requires at least one database schema");
-    const [columnRows, routineRows, parameterRows, constraintRows, indexRows] = await Promise.all([
-      this.#client.query<ColumnRow>(mysqlCatalogQueries.columns(schemas.length), schemas).then(({ rows }) => rows),
-      this.#client.query<RoutineRow>(mysqlCatalogQueries.routines(schemas.length), schemas).then(({ rows }) => rows),
-      this.#client
-        .query<ParameterRow>(mysqlCatalogQueries.parameters(schemas.length), schemas)
-        .then(({ rows }) => rows),
-      this.#client
-        .query<ConstraintRow>(mysqlCatalogQueries.constraints(schemas.length), schemas)
-        .then(({ rows }) => rows),
-      this.#client.query<IndexRow>(mysqlCatalogQueries.indexes(schemas.length), schemas).then(({ rows }) => rows),
+    const diagnostics: MySqlIntrospectionDiagnostic[] = [];
+    const catalogEvidence = new Map<MySqlIntrospectionCatalog, "complete" | "incomplete">();
+    const queryCatalog = async <Row extends Record<string, unknown>>(
+      catalog: MySqlIntrospectionCatalog,
+      sql: string,
+    ): Promise<readonly Row[]> => {
+      try {
+        const { rows } = await client.query<Row>(sql, schemas);
+        catalogEvidence.set(catalog, "complete");
+        return rows;
+      } catch {
+        catalogEvidence.set(catalog, "incomplete");
+        diagnostics.push(incompleteCatalogDiagnostic(catalog));
+        return [];
+      }
+    };
+    const [schemaRows, columnRows, routineRows, parameterRows, constraintRows, indexRows] = await Promise.all([
+      queryCatalog<SchemaRow>("schemas", mysqlCatalogQueries.schemas(schemas.length)),
+      queryCatalog<ColumnRow>("columns", mysqlCatalogQueries.columns(schemas.length)),
+      queryCatalog<RoutineRow>("routines", mysqlCatalogQueries.routines(schemas.length)),
+      queryCatalog<ParameterRow>("parameters", mysqlCatalogQueries.parameters(schemas.length)),
+      queryCatalog<ConstraintRow>("constraints", mysqlCatalogQueries.constraints(schemas.length)),
+      queryCatalog<IndexRow>("indexes", mysqlCatalogQueries.indexes(schemas.length)),
     ]);
+    if (catalogEvidence.get("schemas") === "complete") {
+      const visibleSchemas = new Set(schemaRows.map(({ schema_name }) => schema_name));
+      if (schemas.some((schema) => !visibleSchemas.has(schema))) {
+        catalogEvidence.set("schemas", "incomplete");
+        diagnostics.push(incompleteCatalogDiagnostic("schemas"));
+      }
+    }
     const relations: Record<string, RelationSnapshot> = {};
     const types: Record<string, TypeSnapshot> = {};
-    for (const row of columnRows) {
+    const orderedColumnRows = [...columnRows].sort(
+      (left, right) =>
+        left.schema_name.localeCompare(right.schema_name) ||
+        left.table_name.localeCompare(right.table_name) ||
+        (left.ordinal_position ?? Number.MAX_SAFE_INTEGER) - (right.ordinal_position ?? Number.MAX_SAFE_INTEGER) ||
+        left.column_name.localeCompare(right.column_name),
+    );
+    for (const row of orderedColumnRows) {
       const key = relationKey(schemas, row.schema_name, row.table_name);
       const relation = relations[key];
       const columns = relation === undefined ? {} : { ...relation.columns };
@@ -424,15 +578,40 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
         : /GENERATED/iu.test(row.extra ?? "")
           ? "virtual"
           : "none";
+      const isView = row.table_type === "VIEW" || row.table_type === "SYSTEM VIEW";
+      const invisible = /(?:^|\s)INVISIBLE(?:\s|$)/iu.test(row.extra ?? "");
+      const characterMaximumLength = optionalCatalogInteger(
+        row.character_maximum_length,
+        `${row.schema_name}.${row.table_name}.${row.column_name} character length`,
+      );
+      const numericPrecision = optionalCatalogInteger(
+        row.numeric_precision,
+        `${row.schema_name}.${row.table_name}.${row.column_name} numeric precision`,
+      );
+      const numericScale = optionalCatalogInteger(
+        row.numeric_scale,
+        `${row.schema_name}.${row.table_name}.${row.column_name} numeric scale`,
+      );
+      const datetimePrecision = optionalCatalogInteger(
+        row.datetime_precision,
+        `${row.schema_name}.${row.table_name}.${row.column_name} datetime precision`,
+      );
+      const spatialReferenceSystemId = optionalCatalogInteger(
+        row.spatial_reference_system_id,
+        `${row.schema_name}.${row.table_name}.${row.column_name} spatial reference system`,
+      );
       columns[row.column_name] = {
         name: row.column_name,
-        position: Math.max(0, (row.ordinal_position ?? Object.keys(columns).length + 1) - 1),
+        position:
+          typeof row.ordinal_position !== "number"
+            ? Math.max(-1, ...Object.values(columns).map(({ position }) => position)) + 1
+            : Math.max(0, row.ordinal_position - 1),
         databaseType: row.database_type,
         typeIdentity: `mysql:${row.database_type.toLowerCase()}`,
         tsType: mapType(row.database_type),
         nullable: row.is_nullable === "YES",
         nullabilitySource: "declared",
-        default: row.default_expression === null ? "none" : "present",
+        default: row.default_expression === null ? "unknown" : "present",
         ...(row.default_expression === null
           ? {}
           : { defaultExpressionHash: fingerprintSchemaExpression(row.default_expression) }),
@@ -445,20 +624,39 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
         ...(row.character_set_name === undefined || row.character_set_name === null
           ? {}
           : { characterSet: row.character_set_name }),
-        classification: "normal",
-        insertable: generated === "none" && row.table_type !== "VIEW",
-        updatable: generated === "none" && (row.table_type !== "VIEW" || row.view_updatable === "YES"),
+        classification: invisible ? "hidden" : "normal",
+        insertable: generated === "none" && !isView,
+        updatable: generated === "none" && (!isView || row.view_updatable === "YES"),
+        extension: {
+          version: "1",
+          attributes: {
+            unsigned: /(?:^|\s)unsigned(?:\s|$)/iu.test(row.database_type),
+            zerofill: /(?:^|\s)zerofill(?:\s|$)/iu.test(row.database_type),
+            invisible,
+            ...(characterMaximumLength === undefined ? {} : { characterMaximumLength }),
+            ...(numericPrecision === undefined ? {} : { numericPrecision }),
+            ...(numericScale === undefined ? {} : { numericScale }),
+            ...(datetimePrecision === undefined ? {} : { datetimePrecision }),
+            ...(spatialReferenceSystemId === undefined ? {} : { spatialReferenceSystemId }),
+          },
+        },
       };
       relations[key] = {
         schema: row.schema_name,
         name: row.table_name,
-        kind: row.table_type === "VIEW" || row.table_type === "SYSTEM VIEW" ? "view" : "table",
+        kind: isView ? "view" : "table",
         columns,
         constraints: relation?.constraints ?? [],
         indexes: relation?.indexes ?? [],
+        capabilities: {
+          viewUpdatable: !isView || row.view_updatable === "YES",
+          constraintEvidence: catalogEvidence.get("constraints") === "complete",
+          indexEvidence: catalogEvidence.get("indexes") === "complete",
+        },
       };
       if (types[row.database_type] === undefined) {
         const labels = mySqlEnumValues(row.database_type);
+        const setMembers = mySqlSetValues(row.database_type);
         const common = {
           name: row.database_type,
           identity: `mysql:${row.database_type.toLowerCase()}`,
@@ -472,7 +670,15 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
               : ({
                   kind: /^set\(/iu.test(row.database_type) ? "collection" : "scalar",
                   ...common,
-                  ...(/^set\(/iu.test(row.database_type) ? { elementTypeIdentity: "mysql:string" } : {}),
+                  ...(/^set\(/iu.test(row.database_type)
+                    ? {
+                        elementTypeIdentity: "mysql:string",
+                        extension: {
+                          version: "1",
+                          attributes: { members: setMembers ?? [] },
+                        },
+                      }
+                    : {}),
                 } as TypeSnapshot)
             : { kind: "enum", ...common, labels };
       }
@@ -491,6 +697,10 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
         expressionBased: false,
         deferrable: false,
         initiallyDeferred: false,
+        extension: {
+          version: "1",
+          attributes: { enforced: row.enforced === undefined ? "unknown" : row.enforced === "YES" },
+        },
       } as const;
       const constraint =
         row.constraint_type === "PRIMARY KEY"
@@ -525,7 +735,8 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
       const key = relationKey(schemas, row.schema_name, row.table_name);
       const relation = relations[key];
       if (relation === undefined) continue;
-      const { columns, expressions, descending, collations } = row;
+      const { columns, expressions, descending, column_collations, prefix_lengths } = row;
+      const visible = catalogBoolean(row.visible, "index visibility");
       relations[key] = {
         ...relation,
         indexes: [
@@ -538,7 +749,7 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
             columns: columns.map((value, index) => {
               const column = typeof value === "string" ? value : null;
               const expression = expressions[index];
-              const collation = collations[index];
+              const collation = column_collations[index];
               return {
                 ...(column === null
                   ? {
@@ -552,7 +763,16 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
               };
             }),
             predicate: "none",
-            valid: catalogBoolean(row.visible, "index visibility"),
+            valid: true,
+            extension: {
+              version: "1",
+              attributes: {
+                visible,
+                prefixLengths: prefix_lengths.map(
+                  (value, index) => optionalCatalogInteger(value, `${row.index_name} prefix length ${index}`) ?? null,
+                ),
+              },
+            },
           },
         ],
       };
@@ -565,26 +785,25 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
       else rows.push(row);
     }
     const routines: Record<string, RoutineSnapshot[]> = {};
-    for (const row of routineRows) {
+    for (const row of catalogEvidence.get("parameters") === "complete" ? routineRows : []) {
       const name = `${row.schema_name}.${row.function_name}`;
       const allParameters = (parameters.get(name) ?? []).sort(
         (left, right) => left.ordinal_position - right.ordinal_position,
       );
-      const argumentsList = allParameters
-        .filter(({ ordinal_position }) => ordinal_position > 0)
-        .map((parameter) => ({
-          ...(parameter.parameter_name === null ? {} : { name: parameter.parameter_name }),
-          mode:
-            parameter.parameter_mode === "OUT"
-              ? ("out" as const)
-              : parameter.parameter_mode === "INOUT"
-                ? ("inout" as const)
-                : ("in" as const),
-          typeIdentity: `mysql:${parameter.database_type.toLowerCase()}`,
-          databaseType: parameter.database_type,
-          tsType: mapType(parameter.database_type),
-          default: "none" as const,
-        }));
+      const inputParameters = allParameters.filter(({ ordinal_position }) => ordinal_position > 0);
+      const argumentsList = inputParameters.map((parameter) => ({
+        ...(parameter.parameter_name === null ? {} : { name: parameter.parameter_name }),
+        mode:
+          parameter.parameter_mode === "OUT"
+            ? ("out" as const)
+            : parameter.parameter_mode === "INOUT"
+              ? ("inout" as const)
+              : ("in" as const),
+        typeIdentity: `mysql:${parameter.database_type.toLowerCase()}`,
+        databaseType: parameter.database_type,
+        tsType: mapType(parameter.database_type),
+        default: "none" as const,
+      }));
       const kind = row.routine_type === "PROCEDURE" ? "procedure" : "function";
       const routine: RoutineSnapshot = {
         schema: row.schema_name,
@@ -609,29 +828,85 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
         deterministic: row.is_deterministic === "YES",
         dataAccess: routineDataAccess(row.sql_data_access),
         nullInput: "called",
+        extension: {
+          version: "1",
+          attributes: {
+            ...(row.security_type === undefined ? {} : { securityType: row.security_type.toLowerCase() }),
+            ...(row.creation_sql_mode === undefined
+              ? {}
+              : { creationSqlMode: normalizeCatalogSqlMode(row.creation_sql_mode) }),
+            ...(row.creation_character_set == null ? {} : { creationCharacterSet: row.creation_character_set }),
+            ...(row.creation_collation == null ? {} : { creationCollation: row.creation_collation }),
+            ...(row.database_collation == null ? {} : { databaseCollation: row.database_collation }),
+            ...(row.return_character_set == null ? {} : { returnCharacterSet: row.return_character_set }),
+            ...(row.return_collation == null ? {} : { returnCollation: row.return_collation }),
+            argumentCharacterSets: inputParameters.map(({ character_set_name }) => character_set_name ?? null),
+            argumentCollations: inputParameters.map(({ collation_name }) => collation_name ?? null),
+          },
+        },
       };
       const overloads = routines[name];
       if (overloads === undefined) routines[name] = [routine];
       else overloads.push(routine);
     }
-    return defineSchemaSnapshotV2({
+    for (const overloads of Object.values(routines)) {
+      overloads.sort(
+        (left, right) =>
+          left.identity.localeCompare(right.identity) ||
+          left.volatility.localeCompare(right.volatility) ||
+          String(left.deterministic).localeCompare(String(right.deterministic)),
+      );
+    }
+    const schemaByName = new Map(schemaRows.map((row) => [row.schema_name, row]));
+    const namespaces = Object.fromEntries([
+      ["def", { name: "def", kind: "catalog" as const }],
+      ...schemas.map((name) => {
+        const row = schemaByName.get(name);
+        return [
+          name,
+          {
+            name,
+            kind: "database" as const,
+            ...(row === undefined
+              ? {}
+              : {
+                  extension: {
+                    version: "1",
+                    attributes: {
+                      catalog: row.catalog_name,
+                      characterSet: row.default_character_set_name,
+                      collation: row.default_collation_name,
+                    },
+                  },
+                }),
+          },
+        ] as const;
+      }),
+    ]);
+    const coreCatalog = mySqlCoreCatalogForSchema(typeContext);
+    const snapshot = defineSchemaSnapshotV2({
       formatVersion: 2,
       dialect: "mysql",
       dialectVersion: MYSQL_DIALECT_VERSION,
       server,
-      namespaces: Object.fromEntries([...schemas].sort().map((name) => [name, { name, kind: "database" as const }])),
+      namespaces,
       types,
       relations,
       routines,
-      ...(mySqlCoreCatalogForSchema(typeContext) === undefined
-        ? {}
-        : {
-            extension: {
-              version: "1",
-              attributes: { catalogRevision: mySqlCoreCatalogForSchema(typeContext)!.revision },
-            },
-          }),
+      extension: {
+        version: "1",
+        attributes: {
+          catalogRevision: coreCatalog?.revision ?? "unknown",
+          evidenceScope: "current-role",
+          catalogEvidence: Object.fromEntries(
+            [...catalogEvidence.entries()].sort(([left], [right]) => left.localeCompare(right)),
+          ),
+          incompleteEvidence: diagnostics.length > 0,
+          temporaryTables: "not-captured",
+        },
+      },
     });
+    return Object.freeze({ snapshot, diagnostics: Object.freeze([...diagnostics]) });
   }
 }
 

@@ -70,4 +70,10 @@ scalar settings and sorted, non-secret feature identifiers; raw server errors an
 configuration are excluded. Keep credentials in environment variables or the executable config
 callback. Use a least-privilege, read-only introspection account where possible.
 
+MySQL snapshots label catalog evidence with the current database role. If that role cannot read an
+optional `information_schema` surface, introspection omits claims derived from that surface and
+records it as incomplete. Use `MySqlSchemaProvider.introspectWithDiagnostics()` when an integration
+needs the corresponding `TSQ406` warnings directly; never treat a permission-limited empty catalog
+as proof that routines, constraints, or indexes do not exist.
+
 Do not import application APIs from the generated folder. Application code imports `sql` and `typePolicy` from the dialect package; generated output is schema metadata for analysis and review.

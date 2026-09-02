@@ -49,16 +49,36 @@ class CatalogClient implements MySqlQueryable {
   database: string | null = "app";
   reverseRows = false;
   richRows = false;
+  failCatalog: string | undefined;
+  versionComment = "MySQL Community Server - GPL";
 
   async query<Row extends Record<string, unknown>>(
     sqlText: string,
     values?: readonly unknown[],
   ): Promise<MySqlQueryResult<Row>> {
     this.calls.push({ sql: sqlText, ...(values === undefined ? {} : { values }) });
+    if (this.failCatalog !== undefined && sqlText.includes(this.failCatalog)) {
+      throw new Error("catalog access denied");
+    }
     let rows: readonly Record<string, unknown>[];
-    if (sqlText.includes("VERSION()")) rows = [serverRow];
+    if (sqlText.includes("VERSION()")) rows = [{ ...serverRow, version_comment: this.versionComment }];
     else if (sqlText.includes("DATABASE()")) rows = [{ database_name: this.database }];
-    else if (sqlText.includes("information_schema.COLUMNS"))
+    else if (sqlText.includes("information_schema.SCHEMATA"))
+      rows = [
+        {
+          catalog_name: "def",
+          schema_name: "app",
+          default_character_set_name: "utf8mb4",
+          default_collation_name: "utf8mb4_0900_ai_ci",
+        },
+        {
+          catalog_name: "def",
+          schema_name: "audit",
+          default_character_set_name: "utf8mb4",
+          default_collation_name: "utf8mb4_0900_ai_ci",
+        },
+      ].filter((row) => (values ?? []).includes(row.schema_name));
+    else if (sqlText.includes("FROM information_schema.COLUMNS"))
       rows = [
         {
           schema_name: "app",
@@ -74,6 +94,8 @@ class CatalogClient implements MySqlQueryable {
           generation_expression: "",
           table_type: "BASE TABLE",
           view_updatable: null,
+          numeric_precision: 20,
+          numeric_scale: 0,
         },
         {
           schema_name: "app",
@@ -89,6 +111,7 @@ class CatalogClient implements MySqlQueryable {
           generation_expression: "",
           table_type: "BASE TABLE",
           view_updatable: null,
+          character_maximum_length: 9,
         },
         {
           schema_name: "app",
@@ -104,6 +127,24 @@ class CatalogClient implements MySqlQueryable {
           generation_expression: "",
           table_type: "BASE TABLE",
           view_updatable: null,
+          numeric_precision: "14",
+          numeric_scale: "2",
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          column_name: "location",
+          database_type: "point",
+          is_nullable: "YES",
+          default_expression: null,
+          ordinal_position: 4,
+          character_set_name: null,
+          collation_name: null,
+          extra: "INVISIBLE",
+          generation_expression: "",
+          table_type: "BASE TABLE",
+          view_updatable: null,
+          spatial_reference_system_id: "4326",
         },
         {
           schema_name: "audit",
@@ -130,6 +171,13 @@ class CatalogClient implements MySqlQueryable {
           is_deterministic: "YES",
           sql_data_access: "READS SQL DATA",
           routine_type: "FUNCTION",
+          return_character_set: null,
+          return_collation: null,
+          security_type: "INVOKER",
+          creation_sql_mode: "STRICT_TRANS_TABLES,ANSI_QUOTES",
+          creation_character_set: "utf8mb4",
+          creation_collation: "utf8mb4_0900_ai_ci",
+          database_collation: "utf8mb4_0900_ai_ci",
         },
       ];
     else if (sqlText.includes("information_schema.PARAMETERS"))
@@ -141,6 +189,8 @@ class CatalogClient implements MySqlQueryable {
           parameter_mode: null,
           parameter_name: null,
           database_type: "bigint",
+          character_set_name: null,
+          collation_name: null,
         },
       ];
     else if (sqlText.includes("information_schema.TABLE_CONSTRAINTS"))
@@ -158,6 +208,7 @@ class CatalogClient implements MySqlQueryable {
           delete_rule: null,
           check_clause: null,
           ordinal_position: 1,
+          enforced: "YES",
         },
         {
           schema_name: "app",
@@ -172,6 +223,7 @@ class CatalogClient implements MySqlQueryable {
           delete_rule: null,
           check_clause: "status <> ''",
           ordinal_position: 0,
+          enforced: "NO",
         },
       ];
     else if (sqlText.includes("information_schema.STATISTICS"))
@@ -185,15 +237,24 @@ class CatalogClient implements MySqlQueryable {
           column_name: "status",
           expression: null,
           descending: 0,
-          collation: "A",
+          column_collation: "utf8mb4_0900_ai_ci",
+          prefix_length: "16",
           visible: 1,
           ordinal_position: 1,
         },
       ];
     else throw new Error("unexpected catalog query");
     if (this.richRows && sqlText.includes("VERSION()")) {
-      rows = [{ ...serverRow, sql_mode: undefined }];
-    } else if (this.richRows && sqlText.includes("information_schema.COLUMNS")) {
+      rows = [
+        {
+          ...serverRow,
+          sql_mode: undefined,
+          character_set_connection: undefined,
+          collation_connection: undefined,
+          lower_case_table_names: undefined,
+        },
+      ];
+    } else if (this.richRows && sqlText.includes("FROM information_schema.COLUMNS")) {
       rows = [
         ...rows,
         {
@@ -210,6 +271,7 @@ class CatalogClient implements MySqlQueryable {
           generation_expression: "id + 1",
           table_type: "VIEW",
           view_updatable: "NO",
+          numeric_precision: null,
         },
         {
           schema_name: "app",
@@ -225,6 +287,7 @@ class CatalogClient implements MySqlQueryable {
           generation_expression: null,
           table_type: "VIEW",
           view_updatable: "YES",
+          character_maximum_length: 7,
         },
       ];
     } else if (this.richRows && sqlText.includes("information_schema.ROUTINES")) {
@@ -237,6 +300,8 @@ class CatalogClient implements MySqlQueryable {
           is_deterministic: "NO",
           sql_data_access: "MODIFIES SQL DATA",
           routine_type: "PROCEDURE",
+          security_type: "DEFINER",
+          creation_sql_mode: "",
         },
         {
           schema_name: "app",
@@ -245,6 +310,8 @@ class CatalogClient implements MySqlQueryable {
           is_deterministic: "NO",
           sql_data_access: "CONTAINS SQL",
           routine_type: "FUNCTION",
+          security_type: "DEFINER",
+          creation_sql_mode: "NO_ZERO_DATE",
         },
       ];
     } else if (this.richRows && sqlText.includes("information_schema.PARAMETERS")) {
@@ -257,6 +324,8 @@ class CatalogClient implements MySqlQueryable {
           parameter_mode: "OUT",
           parameter_name: "changed",
           database_type: "bigint",
+          character_set_name: null,
+          collation_name: null,
         },
         {
           schema_name: "app",
@@ -265,6 +334,8 @@ class CatalogClient implements MySqlQueryable {
           parameter_mode: "INOUT",
           parameter_name: null,
           database_type: "text",
+          character_set_name: "utf8mb4",
+          collation_name: "utf8mb4_bin",
         },
         {
           schema_name: "app",
@@ -273,6 +344,8 @@ class CatalogClient implements MySqlQueryable {
           parameter_mode: "IN",
           parameter_name: "value",
           database_type: "bigint",
+          character_set_name: null,
+          collation_name: null,
         },
       ];
     } else if (this.richRows && sqlText.includes("information_schema.TABLE_CONSTRAINTS")) {
@@ -290,6 +363,7 @@ class CatalogClient implements MySqlQueryable {
           update_rule: null,
           delete_rule: null,
           check_clause: null,
+          enforced: "YES",
         },
         {
           schema_name: "app",
@@ -303,6 +377,7 @@ class CatalogClient implements MySqlQueryable {
           update_rule: "CASCADE",
           delete_rule: "SET NULL",
           check_clause: null,
+          enforced: "YES",
         },
         {
           schema_name: "app",
@@ -316,6 +391,7 @@ class CatalogClient implements MySqlQueryable {
           update_rule: null,
           delete_rule: null,
           check_clause: null,
+          enforced: "NO",
         },
         {
           schema_name: "app",
@@ -338,7 +414,8 @@ class CatalogClient implements MySqlQueryable {
           columns: [null],
           expressions: [null],
           descending: ["1"],
-          collations: [null],
+          column_collations: [null],
+          prefix_lengths: [null],
           visible: "0",
         },
         {
@@ -350,7 +427,8 @@ class CatalogClient implements MySqlQueryable {
           columns: [],
           expressions: [],
           descending: [],
-          collations: [],
+          column_collations: [],
+          prefix_lengths: [],
           visible: true,
         },
       ];
@@ -439,6 +517,14 @@ await describe("MySQL provider and runtime", async () => {
     strict.strictEqual(snapshot.dialect, "mysql");
     strict.strictEqual(snapshot.version, "8.4.11");
     strict.match(String(snapshot.extension?.attributes.catalogRevision), /^sha256:[a-f\d]{64}$/u);
+    strict.strictEqual(snapshot.extension?.attributes.incompleteEvidence, false);
+    strict.strictEqual(snapshot.extension?.attributes.evidenceScope, "current-role");
+    strict.deepStrictEqual(snapshot.namespaces.app?.extension?.attributes, {
+      catalog: "def",
+      characterSet: "utf8mb4",
+      collation: "utf8mb4_0900_ai_ci",
+    });
+    strict.strictEqual(snapshot.namespaces.def?.kind, "catalog");
     strict.deepStrictEqual(snapshot.server?.settings, {
       characterSetConnection: "utf8mb4",
       characterSetServer: "utf8mb4",
@@ -455,6 +541,14 @@ await describe("MySQL provider and runtime", async () => {
     strict.match(snapshot.relations.users?.columns.status?.defaultExpressionHash ?? "", /^sha256:/u);
     strict.strictEqual(snapshot.relations.users?.columns.status?.characterSet, "utf8mb4");
     strict.strictEqual(snapshot.relations.users?.columns.id?.identity, "by-default");
+    strict.strictEqual(snapshot.relations.users?.columns.id?.default, "unknown");
+    strict.strictEqual(snapshot.relations.users?.columns.id?.extension?.attributes.unsigned, true);
+    strict.strictEqual(snapshot.relations.users?.columns.budget?.extension?.attributes.numericScale, 2);
+    strict.strictEqual(snapshot.relations.users?.columns.location?.classification, "hidden");
+    strict.strictEqual(
+      snapshot.relations.users?.columns.location?.extension?.attributes.spatialReferenceSystemId,
+      4326,
+    );
     strict.strictEqual(snapshot.tables.users?.columns.budget?.nullable, true);
     strict.strictEqual(snapshot.functions?.["app.user_count()"]?.returnType, "bigint");
     strict.strictEqual(snapshot.functions?.["app.user_count()"]?.volatility, "stable");
@@ -464,7 +558,14 @@ await describe("MySQL provider and runtime", async () => {
       ["primary-key", "check"],
     );
     strict.strictEqual(snapshot.relations.users?.indexes[0]?.method, "btree");
+    strict.strictEqual(snapshot.relations.users?.indexes[0]?.columns[0]?.collation, "utf8mb4_0900_ai_ci");
+    strict.deepStrictEqual(snapshot.relations.users?.indexes[0]?.extension?.attributes.prefixLengths, [16]);
+    strict.strictEqual(snapshot.relations.users?.constraints[1]?.extension?.attributes.enforced, false);
     strict.strictEqual(snapshot.routines["app.user_count"]?.[0]?.dataAccess, "reads-sql");
+    strict.strictEqual(
+      snapshot.routines["app.user_count"]?.[0]?.extension?.attributes.creationSqlMode,
+      "ANSI_QUOTES,STRICT_TRANS_TABLES",
+    );
     strict.ok(
       client.calls
         .filter((call) => call.values !== undefined)
@@ -486,6 +587,7 @@ await describe("MySQL provider and runtime", async () => {
     noDatabase.database = null;
     await strict.rejects(() => new MySqlSchemaProvider({ client: noDatabase }).introspect({}), /at least one database/);
     strict.strictEqual(mysqlCatalogQueries.columns(2).match(/\?/gu)?.length, 2);
+    strict.strictEqual(mysqlCatalogQueries.schemas(2).match(/\?/gu)?.length, 2);
     strict.strictEqual(mysqlCatalogQueries.routines(2).match(/\?/gu)?.length, 2);
     strict.strictEqual(mysqlCatalogQueries.parameters(2).match(/\?/gu)?.length, 2);
     strict.strictEqual(mysqlCatalogQueries.constraints(2).match(/\?/gu)?.length, 2);
@@ -494,6 +596,8 @@ await describe("MySQL provider and runtime", async () => {
     strict.doesNotMatch(mysqlCatalogQueries.indexes(1), /JSON_ARRAYAGG/iu);
     strict.match(mysqlCatalogQueries.constraints(1), /ordinal_position/iu);
     strict.match(mysqlCatalogQueries.indexes(1), /SEQ_IN_INDEX/iu);
+    strict.match(mysqlCatalogQueries.indexes(1), /SUB_PART/iu);
+    strict.match(mysqlCatalogQueries.constraints(1), /ENFORCED/iu);
   });
 
   await it("maps complete MySQL structural catalog evidence", async () => {
@@ -501,23 +605,24 @@ await describe("MySQL provider and runtime", async () => {
     client.richRows = true;
     const snapshot = await new MySqlSchemaProvider({ client, includeSchemas: ["app"] }).introspect({});
     strict.deepStrictEqual(snapshot.server.settings, {
-      characterSetConnection: "utf8mb4",
       characterSetServer: "utf8mb4",
-      collationConnection: "utf8mb4_0900_ai_ci",
       collationServer: "utf8mb4_0900_ai_ci",
       edition: "community",
-      lowerCaseTableNames: 0,
       systemTimeZone: "UTC",
       timeZone: "SYSTEM",
     });
     strict.strictEqual(snapshot.types.mystery?.kind, "opaque");
     strict.strictEqual(snapshot.types["set('one','two')"]?.kind, "collection");
+    strict.deepStrictEqual(snapshot.types["set('one','two')"]?.extension?.attributes.members, ["one", "two"]);
     strict.strictEqual(snapshot.relations.generated_users?.kind, "view");
     strict.strictEqual(snapshot.relations.generated_users?.columns.stored_value?.generated, "stored");
     strict.strictEqual(snapshot.relations.generated_users?.columns.virtual_value?.generated, "virtual");
     strict.ok(snapshot.relations.users?.constraints.some(({ kind }) => kind === "unique"));
     strict.ok(snapshot.relations.users?.constraints.some(({ kind }) => kind === "foreign-key"));
     strict.ok(snapshot.relations.users?.indexes.some(({ columns }) => columns[0]?.expressionHash !== undefined));
+    const invisibleIndex = snapshot.relations.users?.indexes.find(({ name }) => name === "users_expression_idx");
+    strict.strictEqual(invisibleIndex?.valid, true);
+    strict.strictEqual(invisibleIndex?.extension?.attributes.visible, false);
     strict.strictEqual(snapshot.routines["app.refresh_users"]?.[0]?.result.kind, "command");
     strict.strictEqual(snapshot.routines["app.user_count"]?.length, 2);
   });
@@ -525,10 +630,48 @@ await describe("MySQL provider and runtime", async () => {
   await it("is canonical across shuffled catalog row order", async () => {
     const ordered = new CatalogClient();
     const shuffled = new CatalogClient();
+    ordered.richRows = true;
+    shuffled.richRows = true;
     shuffled.reverseRows = true;
     const first = await new MySqlSchemaProvider({ client: ordered, includeSchemas: ["app"] }).introspect({});
     const second = await new MySqlSchemaProvider({ client: shuffled, includeSchemas: ["app"] }).introspect({});
     strict.strictEqual(calculateSchemaHash(first), calculateSchemaHash(second));
+  });
+
+  await it("returns fail-closed incomplete-evidence diagnostics for restricted catalogs", async () => {
+    const client = new CatalogClient();
+    client.failCatalog = "information_schema.TABLE_CONSTRAINTS";
+    const result = await new MySqlSchemaProvider({ client, includeSchemas: ["app"] }).introspectWithDiagnostics({});
+    strict.deepStrictEqual(result.diagnostics, [
+      {
+        code: "TSQ406",
+        severity: "warning",
+        catalog: "constraints",
+        message: "MySQL introspection could not read constraints metadata; the snapshot contains incomplete evidence.",
+      },
+    ]);
+    strict.strictEqual(result.snapshot.extension?.attributes.incompleteEvidence, true);
+    strict.strictEqual(
+      (result.snapshot.extension?.attributes.catalogEvidence as Record<string, unknown> | undefined)?.constraints,
+      "incomplete",
+    );
+    strict.deepStrictEqual(result.snapshot.relations.users?.constraints, []);
+    strict.strictEqual(result.snapshot.relations.users?.capabilities?.constraintEvidence, false);
+  });
+
+  await it("rejects MariaDB and unidentified compatible servers", async () => {
+    const mariadb = new CatalogClient();
+    mariadb.versionComment = "MariaDB Server";
+    await strict.rejects(
+      () => new MySqlSchemaProvider({ client: mariadb, includeSchemas: ["app"] }).introspect({}),
+      /detected mariadb/u,
+    );
+    const proxy = new CatalogClient();
+    proxy.versionComment = "Example compatible proxy";
+    await strict.rejects(
+      () => new MySqlSchemaProvider({ client: proxy, includeSchemas: ["app"] }).introspect({}),
+      /detected mysql-compatible/u,
+    );
   });
 
   await it("decodes result fields according to policy and emits no rows for command headers", async () => {

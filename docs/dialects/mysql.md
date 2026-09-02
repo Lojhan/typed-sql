@@ -51,6 +51,29 @@ under the configured decimal policy, approximate operands produce `number`, and 
 preserves unsigned evidence. `NO_UNSIGNED_SUBTRACTION` changes subtraction to a signed result.
 Division of exact values is nullable because division by zero returns `NULL`.
 
+## Schema introspection
+
+MySQL introspection writes schema format 2 and records the `def` catalog, selected databases,
+tables and views, column order and write eligibility, generated and invisible columns,
+auto-increment identity, character sets and collations, numeric and temporal precision, unsigned
+and zerofill attributes, enum and set members, and spatial reference identifiers. Constraint
+evidence includes ordered primary, unique, foreign-key, and check definitions plus check
+enforcement. Index evidence distinguishes optimizer visibility from validity and records ordered or
+functional key parts, prefix lengths, direction, method, uniqueness, and column collation.
+
+Stored routine evidence includes ordered `IN`, `OUT`, and `INOUT` parameters, result types,
+determinism, data access, security mode, creation `sql_mode`, and creation/result charset and
+collation metadata. The snapshot records normalized server identity and settings, current-role
+catalog scope, the versioned built-in catalog revision, and that temporary tables are not captured.
+MariaDB and unidentified MySQL-compatible products are rejected instead of being interpreted as
+Oracle MySQL.
+
+`MySqlSchemaProvider.introspectWithDiagnostics()` returns the snapshot with any permission-limited
+catalog warnings. A failed optional catalog read produces `TSQ406`, marks that catalog as
+`incomplete` in the snapshot extension, and omits unsafe positive evidence. Essential server and
+database discovery still fail when no usable target can be established. `introspect()` preserves
+the ordinary `SchemaProvider` contract and returns the same fail-closed snapshot.
+
 Schema introspection records normalized `sql_mode` before scanning. `ANSI_QUOTES` selects quoted
 identifiers, `NO_BACKSLASH_ESCAPES` changes string-literal decoding, and `PIPES_AS_CONCAT` changes
 `||` from logical OR to concatenation. A snapshot without mode evidence remains conservative.

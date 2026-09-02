@@ -1884,7 +1884,13 @@
       "category": "schema",
       "scope": "application-query",
       "owner": "@typed-sql/schema",
-      "coverage": ["schema:mysql.introspection", "schema:postgres.introspection", "schema:sqlite.introspection"],
+      "coverage": [
+        "diagnostic:mysql.introspection-incomplete",
+        "schema:mysql.introspection",
+        "schema:mysql.snapshot-v2",
+        "schema:postgres.introspection",
+        "schema:sqlite.introspection"
+      ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
       "sources": [
         {

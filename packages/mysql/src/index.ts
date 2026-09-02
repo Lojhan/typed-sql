@@ -98,7 +98,13 @@ export type { SchemaSnapshot } from "@typed-sql/schema";
 export { parseSchemaSnapshot } from "@typed-sql/schema";
 export type { MySqlServerEdition, MySqlServerEvidenceOptions } from "./capabilities.js";
 export { mySqlServerEvidence, resolveMySqlCapabilities } from "./capabilities.js";
-export type { MySqlQueryable, MySqlSchemaProviderOptions } from "./provider.js";
+export type {
+  MySqlIntrospectionCatalog,
+  MySqlIntrospectionDiagnostic,
+  MySqlIntrospectionResult,
+  MySqlQueryable,
+  MySqlSchemaProviderOptions,
+} from "./provider.js";
 export { introspectMySql, MySqlSchemaProvider, mysqlCatalogQueries } from "./provider.js";
 export type { MySqlQuerySemanticResolverOptions, MySqlRoutedDatabaseOptions } from "./routing.js";
 export {

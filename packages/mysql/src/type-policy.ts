@@ -46,10 +46,11 @@ function baseType(value: string): string {
   return parameters === -1 ? type : type.slice(0, parameters);
 }
 
-export function mySqlEnumValues(databaseType: string): readonly string[] | undefined {
+function mySqlCollectionValues(databaseType: string, kind: "enum" | "set"): readonly string[] | undefined {
   const type = databaseType.trim();
-  if (type.slice(0, 5).toLowerCase() !== "enum(" || !type.endsWith(")")) return undefined;
-  const body = type.slice(5, -1);
+  const prefix = `${kind}(`;
+  if (type.slice(0, prefix.length).toLowerCase() !== prefix || !type.endsWith(")")) return undefined;
+  const body = type.slice(prefix.length, -1);
   const values: string[] = [];
   let index = 0;
   while (index < body.length) {
@@ -83,6 +84,14 @@ export function mySqlEnumValues(databaseType: string): readonly string[] | undef
     index += 1;
   }
   return values;
+}
+
+export function mySqlEnumValues(databaseType: string): readonly string[] | undefined {
+  return mySqlCollectionValues(databaseType, "enum");
+}
+
+export function mySqlSetValues(databaseType: string): readonly string[] | undefined {
+  return mySqlCollectionValues(databaseType, "set");
 }
 
 export function isKnownMySqlType(databaseType: string, schema?: SchemaSnapshot): boolean {
