@@ -83,4 +83,22 @@ await describe("TypeScript 7 compatibility matrix", async () => {
     strict.ok(!wrapper.includes("@typed-sql/typescript-preview/unstable/"));
     strict.ok(wrapper.includes("TypeScript71PreviewBackend"));
   });
+
+  await it("runs editor parity on every supported Node release line", async () => {
+    const workflow = await readFile(join(workspaceDirectory, ".github", "workflows", "ci.yml"), "utf8");
+    const workspacePackage = JSON.parse(await readFile(join(workspaceDirectory, "package.json"), "utf8")) as {
+      readonly scripts?: Readonly<Record<string, string>>;
+    };
+    const matrix = workflow.slice(workflow.indexOf("  typescript-editor-matrix:"), workflow.indexOf("  postgres-e2e:"));
+    strict.ok(matrix.startsWith("  typescript-editor-matrix:"));
+    strict.ok(matrix.includes("node: 22.11.0"));
+    strict.ok(matrix.includes("node: 22.x"));
+    strict.ok(matrix.includes("node: 24.x"));
+    strict.ok(matrix.includes("node: 26.x"));
+    strict.ok(matrix.includes("pnpm test:editor-matrix"));
+    const command = workspacePackage.scripts?.["test:editor-matrix"] ?? "";
+    strict.ok(command.includes("@typed-sql/ts-bridge test"));
+    strict.ok(command.includes("@typed-sql/language-server test"));
+    strict.ok(command.includes("typescript-compatibility.test.ts"));
+  });
 });
