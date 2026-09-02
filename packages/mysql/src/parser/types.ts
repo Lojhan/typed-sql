@@ -210,8 +210,21 @@ export interface OrderByItem {
 }
 
 export interface WindowSpecification {
+  readonly base?: Identifier;
   readonly partitionBy: readonly Expression[];
   readonly orderBy: readonly OrderByItem[];
+  readonly frame?: WindowFrame;
+  readonly range: SourceRange;
+}
+
+export type WindowFrameBoundary =
+  | { readonly kind: "unbounded-preceding" | "current-row" | "unbounded-following"; readonly range: SourceRange }
+  | { readonly kind: "preceding" | "following"; readonly expression: Expression; readonly range: SourceRange };
+
+export interface WindowFrame {
+  readonly unit: "rows" | "range";
+  readonly start: WindowFrameBoundary;
+  readonly end?: WindowFrameBoundary;
   readonly range: SourceRange;
 }
 
@@ -250,6 +263,8 @@ export interface CompoundSelect {
 
 export interface SelectStatement {
   readonly kind: "select";
+  readonly parenthesized?: true;
+  readonly queryValues?: ValuesClause;
   readonly with?: WithClause;
   readonly distinct: boolean;
   readonly distinctOn: readonly Expression[];
@@ -258,6 +273,7 @@ export interface SelectStatement {
   readonly joins: readonly JoinClause[];
   readonly where?: Expression;
   readonly groupBy: readonly Expression[];
+  readonly groupRollup?: true;
   readonly having?: Expression;
   readonly windows: readonly NamedWindow[];
   readonly orderBy: readonly OrderByItem[];

@@ -156,6 +156,7 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
           : "immutable";
   const exactOne =
     statement.kind === "select" &&
+    (statement.queryValues === undefined || statement.queryValues.rows.length === 1) &&
     statement.from === undefined &&
     statement.joins.length === 0 &&
     statement.where === undefined &&

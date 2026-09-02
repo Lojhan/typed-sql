@@ -29,6 +29,11 @@ function walkExpression(
       if (expression.over !== undefined && "partitionBy" in expression.over) {
         for (const item of expression.over.partitionBy) walkExpression(item, statement, visitor, context);
         for (const item of expression.over.orderBy) walkExpression(item.expression, statement, visitor, context);
+        for (const boundary of [expression.over.frame?.start, expression.over.frame?.end]) {
+          if (boundary?.kind === "preceding" || boundary?.kind === "following") {
+            walkExpression(boundary.expression, statement, visitor, context);
+          }
+        }
       }
       break;
     case "cast":
@@ -92,6 +97,9 @@ function walkStatementWithContext(
   }
   const context = Object.freeze({ ctes: Object.freeze(localCtes) });
   if (statement.kind === "select") {
+    for (const row of statement.queryValues?.rows ?? []) {
+      for (const expression of row) walkExpression(expression, statement, visitor, context);
+    }
     if (statement.from !== undefined) walkTable(statement.from, statement, visitor, context);
     for (const join of statement.joins) {
       walkTable(join.table, statement, visitor, context);
@@ -106,6 +114,11 @@ function walkStatementWithContext(
       for (const expression of window.specification.partitionBy)
         walkExpression(expression, statement, visitor, context);
       for (const item of window.specification.orderBy) walkExpression(item.expression, statement, visitor, context);
+      for (const boundary of [window.specification.frame?.start, window.specification.frame?.end]) {
+        if (boundary?.kind === "preceding" || boundary?.kind === "following") {
+          walkExpression(boundary.expression, statement, visitor, context);
+        }
+      }
     }
     for (const item of statement.orderBy) walkExpression(item.expression, statement, visitor, context);
     if (statement.limit !== undefined) walkExpression(statement.limit, statement, visitor, context);

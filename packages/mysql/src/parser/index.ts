@@ -45,6 +45,8 @@ export type {
   UpdateAssignment,
   UpdateStatement,
   ValuesClause,
+  WindowFrame,
+  WindowFrameBoundary,
   WindowSpecification,
   WithClause,
 } from "./types.js";

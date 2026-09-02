@@ -16,9 +16,9 @@ export const MYSQL_CAPABILITIES = Object.freeze({
   distinctOn: false,
   fullJoins: false,
   lockingReads: true,
-  recursiveCtes: false,
+  recursiveCtes: true,
   returning: false,
-  setOperations: false,
+  setOperations: true,
 });
 
 export type MySqlServerEdition = "commercial" | "community" | "enterprise" | "source" | "unknown";

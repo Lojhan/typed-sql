@@ -26,6 +26,7 @@ import {
   type UpdateAssignment,
   type UpdateStatement,
   type ValuesClause,
+  type WindowFrameBoundary,
   type WindowSpecification,
   type WithClause,
 } from "./types.js";
@@ -114,6 +115,12 @@ class Parser {
     return this.#nested(() => {
       const withClause = this.#current().value === "WITH" ? this.#parseWithClause() : undefined;
       if (this.#current().value === "SELECT") return this.#parseSelect(withClause);
+      if (this.#current().value === "TABLE") return this.#parseTableQuery(withClause);
+      if (this.#current().value === "VALUES") return this.#parseValuesQuery(withClause);
+      if (withClause === undefined && this.#current().value === "(") {
+        const statement = this.#parseParenthesizedSelect();
+        return this.#parseSelectTail(this.#parseCompoundExpression(statement, 0));
+      }
       if (this.#current().value === "INSERT") return this.#parseInsert(withClause);
       if (this.#current().value === "UPDATE") return this.#parseUpdate(withClause);
       if (this.#current().value === "DELETE") return this.#parseDelete(withClause);
@@ -147,7 +154,7 @@ class Parser {
     return { recursive, queries, range: mergeRanges(start, queries.at(-1)?.range ?? start) };
   }
 
-  #parseSelect(withClause?: WithClause): SelectStatement {
+  #parseSelect(withClause?: WithClause, minimumCompoundPrecedence = 0): SelectStatement {
     const start = withClause?.range ?? this.#current().range;
     this.#expectKeyword("SELECT");
     let distinct = false;
@@ -165,13 +172,9 @@ class Parser {
     const joins: JoinClause[] = [];
     let where: Expression | undefined;
     const groupBy: Expression[] = [];
+    let groupRollup = false;
     let having: Expression | undefined;
     const windows: NamedWindow[] = [];
-    let orderBy: OrderByItem[] = [];
-    let limit: Expression | undefined;
-    let offset: Expression | undefined;
-    const locking: SelectLockingClause[] = [];
-    const compounds: CompoundSelect[] = [];
 
     if (this.#matchKeyword("FROM")) {
       from = this.#parseTableReference();
@@ -186,7 +189,16 @@ class Parser {
     if (this.#matchKeyword("WHERE")) where = this.#parseExpression();
     if (this.#matchKeyword("GROUP")) {
       this.#expectKeyword("BY");
-      groupBy.push(...this.#parseExpressionList());
+      if (this.#matchKeyword("ROLLUP")) {
+        groupRollup = true;
+        this.#expectPunctuation("(");
+        groupBy.push(...this.#parseExpressionList());
+        this.#expectPunctuation(")");
+      } else groupBy.push(...this.#parseExpressionList());
+      if (!groupRollup && this.#matchKeyword("WITH")) {
+        this.#expectKeyword("ROLLUP");
+        groupRollup = true;
+      }
     }
     if (this.#matchKeyword("HAVING")) having = this.#parseExpression();
     if (this.#matchKeyword("WINDOW")) {
@@ -197,6 +209,133 @@ class Parser {
         windows.push({ name, specification, range: mergeRanges(name.range, specification.range) });
       } while (this.#matchPunctuation(","));
     }
+    const end = this.#previous().range;
+    const core: SelectStatement = {
+      kind: "select",
+      ...(withClause === undefined ? {} : { with: withClause }),
+      distinct,
+      distinctOn,
+      columns,
+      ...(from === undefined ? {} : { from }),
+      joins,
+      ...(where === undefined ? {} : { where }),
+      groupBy,
+      ...(groupRollup ? { groupRollup: true as const } : {}),
+      ...(having === undefined ? {} : { having }),
+      windows,
+      orderBy: [],
+      locking: [],
+      compounds: [],
+      range: mergeRanges(start, end),
+    };
+    const compound = this.#parseCompoundExpression(core, minimumCompoundPrecedence);
+    return minimumCompoundPrecedence === 0 ? this.#parseSelectTail(compound) : compound;
+  }
+
+  #parseParenthesizedSelect(): SelectStatement {
+    const open = this.#expectPunctuation("(");
+    const statement = this.#parseStatement();
+    if (statement.kind !== "select") throw this.#error("A compound query operand must be a SELECT", statement.range);
+    const close = this.#expectPunctuation(")");
+    return { ...statement, parenthesized: true, range: mergeRanges(open.range, close.range) };
+  }
+
+  #parseTableQuery(withClause?: WithClause, minimumCompoundPrecedence = 0): SelectStatement {
+    const start = withClause?.range ?? this.#expectKeyword("TABLE").range;
+    if (withClause !== undefined) this.#expectKeyword("TABLE");
+    const table = this.#parseNamedTableReference(false);
+    const star: Expression = { kind: "star", range: table.range };
+    const core: SelectStatement = {
+      kind: "select",
+      ...(withClause === undefined ? {} : { with: withClause }),
+      distinct: false,
+      distinctOn: [],
+      columns: [{ expression: star, range: star.range }],
+      from: table,
+      joins: [],
+      groupBy: [],
+      windows: [],
+      orderBy: [],
+      locking: [],
+      compounds: [],
+      range: mergeRanges(start, table.range),
+    };
+    const compound = this.#parseCompoundExpression(core, minimumCompoundPrecedence);
+    return minimumCompoundPrecedence === 0 ? this.#parseSelectTail(compound) : compound;
+  }
+
+  #parseValuesQuery(withClause?: WithClause, minimumCompoundPrecedence = 0): SelectStatement {
+    const start = withClause?.range ?? this.#expectKeyword("VALUES").range;
+    if (withClause !== undefined) this.#expectKeyword("VALUES");
+    const rows: Expression[][] = [];
+    do {
+      this.#expectKeyword("ROW");
+      this.#expectPunctuation("(");
+      const row = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
+      if (this.#previous().value !== ")") this.#expectPunctuation(")");
+      rows.push(row);
+    } while (this.#matchPunctuation(","));
+    const queryValues: ValuesClause = {
+      kind: "values",
+      rows,
+      range: mergeRanges(start, this.#previous().range),
+    };
+    const core: SelectStatement = {
+      kind: "select",
+      ...(withClause === undefined ? {} : { with: withClause }),
+      queryValues,
+      distinct: false,
+      distinctOn: [],
+      columns: [],
+      joins: [],
+      groupBy: [],
+      windows: [],
+      orderBy: [],
+      locking: [],
+      compounds: [],
+      range: queryValues.range,
+    };
+    const compound = this.#parseCompoundExpression(core, minimumCompoundPrecedence);
+    return minimumCompoundPrecedence === 0 ? this.#parseSelectTail(compound) : compound;
+  }
+
+  #parseCompoundExpression(initial: SelectStatement, minimumPrecedence: number): SelectStatement {
+    let statement = initial;
+    while (["UNION", "INTERSECT", "EXCEPT"].includes(this.#current().value)) {
+      const compoundPrecedence = this.#current().value === "INTERSECT" ? 2 : 1;
+      if (compoundPrecedence < minimumPrecedence) break;
+      const operatorToken = this.#current();
+      this.#advance();
+      const all = this.#matchKeyword("ALL");
+      if (!all) this.#matchKeyword("DISTINCT");
+      const right =
+        this.#current().value === "("
+          ? this.#parseParenthesizedSelect()
+          : this.#current().value === "TABLE"
+            ? this.#parseTableQuery(undefined, compoundPrecedence + 1)
+            : this.#current().value === "VALUES"
+              ? this.#parseValuesQuery(undefined, compoundPrecedence + 1)
+              : this.#parseSelect(undefined, compoundPrecedence + 1);
+      const compound: CompoundSelect = {
+        operator: operatorToken.value.toLowerCase() as CompoundSelect["operator"],
+        all,
+        statement: right,
+        range: mergeRanges(operatorToken.range, right.range),
+      };
+      statement = {
+        ...statement,
+        compounds: [...statement.compounds, compound],
+        range: mergeRanges(statement.range, right.range),
+      };
+    }
+    return statement;
+  }
+
+  #parseSelectTail(statement: SelectStatement): SelectStatement {
+    let orderBy: OrderByItem[] = [];
+    let limit: Expression | undefined;
+    let offset: Expression | undefined;
+    const locking: SelectLockingClause[] = [];
     if (this.#matchKeyword("ORDER")) {
       this.#expectKeyword("BY");
       orderBy = this.#parseOrderByList();
@@ -220,57 +359,13 @@ class Parser {
       const lockEnd = this.#expectKeyword("MODE").range;
       locking.push({ strength: "share", relations: [], range: mergeRanges(lockStart, lockEnd) });
     }
-
-    if (["UNION", "INTERSECT", "EXCEPT"].includes(this.#current().value)) {
-      if (orderBy.length > 0 || limit !== undefined || offset !== undefined || locking.length > 0) {
-        throw this.#error(
-          "ORDER BY, LIMIT, OFFSET, and locking clauses must follow the final compound SELECT",
-          this.#current().range,
-        );
-      }
-      const operatorToken = this.#current();
-      this.#advance();
-      const all = this.#matchKeyword("ALL");
-      const parsed = this.#parseSelect();
-      const {
-        orderBy: trailingOrderBy,
-        limit: trailingLimit,
-        offset: trailingOffset,
-        locking: trailingLocking,
-        ...arm
-      } = parsed;
-      const statement: SelectStatement = { ...arm, orderBy: [], locking: [] };
-      orderBy = [...trailingOrderBy];
-      limit = trailingLimit;
-      offset = trailingOffset;
-      locking.push(...trailingLocking);
-      compounds.push({
-        operator: operatorToken.value.toLowerCase() as CompoundSelect["operator"],
-        all,
-        statement,
-        range: mergeRanges(operatorToken.range, statement.range),
-      });
-    }
-
-    const end = this.#previous().range;
     return {
-      kind: "select",
-      ...(withClause === undefined ? {} : { with: withClause }),
-      distinct,
-      distinctOn,
-      columns,
-      ...(from === undefined ? {} : { from }),
-      joins,
-      ...(where === undefined ? {} : { where }),
-      groupBy,
-      ...(having === undefined ? {} : { having }),
-      windows,
+      ...statement,
       orderBy,
       ...(limit === undefined ? {} : { limit }),
       ...(offset === undefined ? {} : { offset }),
       locking,
-      compounds,
-      range: mergeRanges(start, end),
+      range: mergeRanges(statement.range, this.#previous().range),
     };
   }
 
@@ -334,7 +429,7 @@ class Parser {
         if (close.value !== ")") throw this.#error("Expected ) after VALUES row", close.range);
       } while (this.#matchPunctuation(","));
       source = { kind: "values", rows, range: mergeRanges(sourceStart, this.#previous().range) };
-    } else if (this.#current().value === "SELECT" || this.#current().value === "WITH") {
+    } else if (["SELECT", "TABLE", "WITH"].includes(this.#current().value)) {
       const statement = this.#parseStatement();
       if (statement.kind !== "select") throw this.#error("INSERT source must be SELECT or VALUES", statement.range);
       source = statement;
@@ -437,6 +532,9 @@ class Parser {
       this.#matchKeyword("AS");
       const alias = this.#parseIdentifier();
       return { kind: "subquery", query: statement, alias, lateral, range: mergeRanges(start, alias.range) };
+    }
+    if (lateral) {
+      throw this.#error("MySQL LATERAL applies only to derived-table subqueries", start, "TSQ401");
     }
     return this.#parseNamedTableReference(true, lateral, start);
   }
@@ -691,6 +789,18 @@ class Parser {
       close = this.#expectPunctuation(")");
     }
     const filter: Expression | undefined = undefined;
+    if (this.#current().value === "FROM" && ["FIRST", "LAST"].includes(this.#peekToken(1).value)) {
+      this.#advance();
+      if (this.#matchKeyword("LAST")) {
+        throw this.#error("MySQL does not support FROM LAST for window functions", this.#previous().range, "TSQ401");
+      }
+      this.#expectKeyword("FIRST");
+    }
+    if (this.#matchKeyword("IGNORE")) {
+      const nulls = this.#expectKeyword("NULLS");
+      throw this.#error("MySQL supports only RESPECT NULLS for window functions", nulls.range, "TSQ401");
+    }
+    if (this.#matchKeyword("RESPECT")) this.#expectKeyword("NULLS");
     let over: Identifier | WindowSpecification | undefined;
     if (this.#matchKeyword("OVER")) {
       if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
@@ -712,8 +822,14 @@ class Parser {
 
   #parseWindowSpecification(): WindowSpecification {
     const start = this.#expectPunctuation("(").range;
+    const base =
+      this.#isIdentifierLike(this.#current()) &&
+      !["PARTITION", "ORDER", "ROWS", "RANGE"].includes(this.#current().value)
+        ? this.#parseIdentifier()
+        : undefined;
     const partitionBy: Expression[] = [];
     let orderBy: OrderByItem[] = [];
+    let frame: WindowSpecification["frame"];
     if (this.#matchKeyword("PARTITION")) {
       this.#expectKeyword("BY");
       partitionBy.push(...this.#parseExpressionList());
@@ -722,8 +838,60 @@ class Parser {
       this.#expectKeyword("BY");
       orderBy = this.#parseOrderByList();
     }
+    if (this.#current().value === "ROWS" || this.#current().value === "RANGE") {
+      const frameStart = this.#current();
+      this.#advance();
+      const unit = frameStart.value.toLowerCase() as "rows" | "range";
+      let first: WindowFrameBoundary;
+      let end: WindowFrameBoundary | undefined;
+      if (this.#matchKeyword("BETWEEN")) {
+        first = this.#parseWindowFrameBoundary();
+        this.#expectKeyword("AND");
+        end = this.#parseWindowFrameBoundary();
+      } else first = this.#parseWindowFrameBoundary();
+      frame = {
+        unit,
+        start: first,
+        ...(end === undefined ? {} : { end }),
+        range: mergeRanges(frameStart.range, end?.range ?? first.range),
+      };
+    }
+    if (this.#current().value === "GROUPS" || this.#current().value === "EXCLUDE") {
+      throw this.#error(
+        `MySQL does not support ${this.#current().value} window frames`,
+        this.#current().range,
+        "TSQ401",
+      );
+    }
     const close = this.#expectPunctuation(")");
-    return { partitionBy, orderBy, range: mergeRanges(start, close.range) };
+    return {
+      ...(base === undefined ? {} : { base }),
+      partitionBy,
+      orderBy,
+      ...(frame === undefined ? {} : { frame }),
+      range: mergeRanges(start, close.range),
+    };
+  }
+
+  #parseWindowFrameBoundary(): WindowFrameBoundary {
+    const start = this.#current().range;
+    if (this.#matchKeyword("UNBOUNDED")) {
+      if (this.#matchKeyword("PRECEDING")) {
+        return { kind: "unbounded-preceding", range: mergeRanges(start, this.#previous().range) };
+      }
+      this.#expectKeyword("FOLLOWING");
+      return { kind: "unbounded-following", range: mergeRanges(start, this.#previous().range) };
+    }
+    if (this.#matchKeyword("CURRENT")) {
+      const end = this.#expectKeyword("ROW").range;
+      return { kind: "current-row", range: mergeRanges(start, end) };
+    }
+    const expression = this.#parseExpression(11);
+    if (this.#matchKeyword("PRECEDING")) {
+      return { kind: "preceding", expression, range: mergeRanges(start, this.#previous().range) };
+    }
+    this.#expectKeyword("FOLLOWING");
+    return { kind: "following", expression, range: mergeRanges(start, this.#previous().range) };
   }
 
   #parseCast(start: SourceRange): Expression {
@@ -816,7 +984,7 @@ class Parser {
   }
 
   #isStatementStart(): boolean {
-    return ["SELECT", "INSERT", "UPDATE", "DELETE", "WITH"].includes(this.#current().value);
+    return ["SELECT", "TABLE", "VALUES", "INSERT", "UPDATE", "DELETE", "WITH"].includes(this.#current().value);
   }
 
   #current(): Token {

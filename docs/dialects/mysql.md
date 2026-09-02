@@ -18,8 +18,9 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 The grammar targets MySQL 8.4 LTS and supports:
 
 - aliases, stars, and inner, outer, or cross joins;
-- CTEs and derived or correlated subqueries;
-- grouping, aggregates, windows, and `CASE`;
+- ordinary and recursive CTEs, derived tables, and correlated or `LATERAL` subqueries;
+- `UNION`, `INTERSECT`, and `EXCEPT` across `SELECT`, `TABLE`, and `VALUES` query forms, including MySQL precedence and parenthesized arms;
+- mode-aware grouping, both `ROLLUP` forms, aggregates, named/framed windows, and `CASE`;
 - scalar, `EXISTS`, `IN`, and `BETWEEN` expressions;
 - common JSON functions and operators;
 - `INSERT`, `UPDATE`, and `DELETE` command typing;
@@ -39,7 +40,11 @@ never satisfy stable LTS ranges.
 
 `createMySqlRoutedDatabase()` composes application-owned databases and parses runtime query shapes with the MySQL grammar. Stable, non-locking reads may use a supplied replica. `FOR UPDATE`, `FOR SHARE`, legacy `LOCK IN SHARE MODE`, writes, volatile functions, session state, and unknown statements use primary. `isMySqlRetryableTransactionError()` recognizes InnoDB deadlock identity and deliberately excludes lock-wait timeout `1205`. See [Route reads and retry transactions](../guides/routing-and-retries.md).
 
-Recursive CTE inference, `FULL JOIN`, array constructors, aggregate `FILTER`, and incompatible `RETURNING` clauses produce `TSQ401`. Commands without a result surface infer `Query<never, Parameters>`. Unknown functions warn and infer `unknown`; ambiguous or structurally unsafe queries are errors.
+Invalid recursive members, compound-query ordering, lateral scope, named or framed windows, and
+`ONLY_FULL_GROUP_BY` references fail closed with stable diagnostics. `FULL JOIN`, array constructors,
+aggregate `FILTER`, and incompatible `RETURNING` clauses remain unsupported. Commands without a
+result surface infer `Query<never, Parameters>`. Unknown functions warn and infer `unknown`;
+ambiguous or structurally unsafe queries are errors.
 
 PostgreSQL's recursive-CTE `SEARCH`/`CYCLE`, function-relation `ROWS FROM`/`WITH ORDINALITY`, and
 `TABLESAMPLE` clauses are rejected as unsupported syntax. MySQL's separately modeled `JSON_TABLE`

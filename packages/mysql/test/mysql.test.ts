@@ -462,12 +462,6 @@ await describe("MySQL dialect", async () => {
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
     );
-    strict.ok(
-      resolveMySqlStatement(
-        parseStatement("WITH RECURSIVE ids(id) AS (SELECT 1) SELECT id FROM ids", { syntax: "mysql" }),
-        schema,
-      ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
-    );
   });
 
   await it("uses v2 write eligibility and required-column evidence without changing v1 behavior", () => {

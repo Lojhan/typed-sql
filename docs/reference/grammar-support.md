@@ -66,9 +66,9 @@ The ranges below describe supported language lines. Exact server patches exercis
 | `query.relation.lateral` — LATERAL derived tables | clause | exact (from 8.0.14) | exact (from 9.3) | unsupported |
 | `query.relation.rows-from` — PostgreSQL ROWS FROM and WITH ORDINALITY | clause | unsupported | exact | unsupported |
 | `query.relation.table-sample` — PostgreSQL TABLESAMPLE and REPEATABLE | clause | unsupported | exact | unsupported |
-| `query.set-operation` — Set operations | clause | unsupported | exact | exact |
+| `query.set-operation` — Set operations | clause | exact (from 8.0.31) | exact | exact |
 | `query.window` — Named and inline window specifications | clause | exact (from 8.0) | exact (from 8.4) | exact (from 3.25.0) |
-| `query.with.recursive` — Recursive common table expressions | clause | unsupported (from 8.0.1) | exact (from 8.4) | exact (from 3.8.3) |
+| `query.with.recursive` — Recursive common table expressions | clause | exact (from 8.0.1) | exact (from 8.4) | exact (from 3.8.3) |
 | `query.with.search-cycle` — Recursive CTE SEARCH and CYCLE clauses | clause | unsupported | exact (from 14) | unsupported |
 | `resolver.catalog` — Catalog name, type, coercion, and nullability resolution | coercion | conservative | conservative | conservative (from 3.39.0) |
 | `runtime.bulk-transfer` — Native bulk import and export capabilities | runtime | exact | exact | unsupported |

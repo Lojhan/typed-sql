@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
+import { mySqlServerEvidence, mysql, sql as mysqlSql, typePolicy as mysqlTypePolicy } from "../../mysql/src/index.js";
 import { mysqlRenderer } from "../../mysql/src/runtime.js";
 import { postgres, sql as postgresSql, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
 import { postgresRenderer } from "../../postgres/src/runtime.js";
@@ -40,6 +40,19 @@ const postgresSnapshot = {
 } as const;
 
 const mysqlSnapshot = { ...postgresSnapshot, dialect: "mysql" } as const;
+
+const mysqlServerEvidence = (sqlMode: string) =>
+  mySqlServerEvidence("8.4.0", {
+    versionComment: "MySQL Community Server - GPL",
+    sqlMode,
+    characterSetServer: "utf8mb4",
+    collationServer: "utf8mb4_0900_ai_ci",
+    characterSetConnection: "utf8mb4",
+    collationConnection: "utf8mb4_0900_ai_ci",
+    timeZone: "SYSTEM",
+    systemTimeZone: "UTC",
+    lowerCaseTableNames: 0,
+  });
 
 const read = (
   capabilities: readonly string[] = [],
@@ -161,13 +174,7 @@ await describe("public grammar conformance package", async () => {
           name: "safe-sql-mode",
           snapshot: {
             ...mysqlSnapshot,
-            server: {
-              product: "mysql",
-              version: "8.4.0",
-              versionKey: "8.4.0",
-              features: [],
-              settings: { sqlMode: "STRICT_TRANS_TABLES" },
-            },
+            server: mysqlServerEvidence("STRICT_TRANS_TABLES"),
           },
           expected: [{ capability: "lockingReads", level: "exact" }],
         },
@@ -175,15 +182,9 @@ await describe("public grammar conformance package", async () => {
           name: "syntax-changing-sql-mode",
           snapshot: {
             ...mysqlSnapshot,
-            server: {
-              product: "mysql",
-              version: "8.4.0",
-              versionKey: "8.4.0",
-              features: [],
-              settings: { sqlMode: "ANSI_QUOTES" },
-            },
+            server: mysqlServerEvidence("ANSI_QUOTES"),
           },
-          expected: [{ capability: "lockingReads", level: "conservative", diagnostic: "TSQ407" }],
+          expected: [{ capability: "lockingReads", level: "exact" }],
         },
       ],
     });
@@ -413,11 +414,13 @@ await describe("public grammar conformance package", async () => {
         },
         {
           capability: "recursiveCtes",
-          supported: false,
-          unsupported: {
-            sql: "WITH RECURSIVE picked(value) AS (SELECT value FROM widgets) SELECT value FROM picked",
-            diagnosticCode: "TSQ401",
-          },
+          supported: true,
+          analysis: probe(
+            "WITH RECURSIVE picked(value) AS (SELECT value FROM widgets) SELECT value FROM picked",
+            '{ "value": bigint; }',
+            "readonly []",
+            read(["recursiveCtes"]),
+          ),
         },
         {
           capability: "returning",
@@ -429,11 +432,13 @@ await describe("public grammar conformance package", async () => {
         },
         {
           capability: "setOperations",
-          supported: false,
-          unsupported: {
-            sql: "SELECT value FROM widgets UNION SELECT value FROM widgets",
-            diagnosticCode: "TSQ401",
-          },
+          supported: true,
+          analysis: probe(
+            "SELECT value FROM widgets UNION SELECT value FROM widgets",
+            '{ "value": bigint; }',
+            "readonly []",
+            read(["setOperations"]),
+          ),
         },
       ],
       unsupported: { sql: "SELECT value FROM missing", diagnosticCode: "TSQ100" },

@@ -1138,7 +1138,12 @@
       "category": "clause",
       "scope": "application-query",
       "owner": "@typed-sql/conformance",
-      "coverage": ["ast:query.grouping", "resolver:postgres.grouping-semantics"],
+      "coverage": [
+        "ast:query.grouping",
+        "resolver:mysql.only-full-group-by",
+        "resolver:mysql.rollup",
+        "resolver:postgres.grouping-semantics"
+      ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
       "sources": [
         { "title": "MySQL SELECT", "url": "https://dev.mysql.com/doc/refman/9.7/en/select.html" },
@@ -1149,7 +1154,7 @@
         { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
       ],
       "dialects": {
-        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/query-structure.test.ts"] },
         "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
         "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
       }
@@ -1409,7 +1414,7 @@
       "category": "clause",
       "scope": "application-query",
       "owner": "@typed-sql/conformance",
-      "coverage": ["ast:query.lateral"],
+      "coverage": ["ast:query.lateral", "resolver:mysql.lateral-scope"],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
       "sources": [
         {
@@ -1423,7 +1428,11 @@
         { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
       ],
       "dialects": {
-        "mysql": { "level": "exact", "introduced": "8.0.14", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "mysql": {
+          "level": "exact",
+          "introduced": "8.0.14",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
+        },
         "postgres": { "level": "exact", "introduced": "9.3", "tests": ["packages/postgres/test/plugin.test.ts"] },
         "sqlite": {
           "level": "unsupported",
@@ -1492,7 +1501,7 @@
       "coverage": [
         "ast:node.compound-select",
         "ast:query.set-operations",
-        "diagnostic:mysql.set-operations",
+        "resolver:mysql.set-operations",
         "resolver:postgres.set-operations"
       ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
@@ -1512,9 +1521,9 @@
       ],
       "dialects": {
         "mysql": {
-          "level": "unsupported",
-          "diagnostic": "TSQ401",
-          "tests": ["packages/mysql/test/mysql.test.ts"]
+          "level": "exact",
+          "introduced": "8.0.31",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
         },
         "postgres": {
           "level": "exact",
@@ -1533,9 +1542,11 @@
       "scope": "application-query",
       "owner": "@typed-sql/conformance",
       "coverage": [
+        "ast:mysql.window-frame",
         "ast:node.named-window",
         "ast:node.window-specification",
         "ast:postgres.window-frame",
+        "resolver:mysql.window-semantics",
         "resolver:postgres.window-semantics"
       ],
       "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
@@ -1545,7 +1556,11 @@
         { "title": "SQLite window functions", "url": "https://www.sqlite.org/windowfunctions.html" }
       ],
       "dialects": {
-        "mysql": { "level": "exact", "introduced": "8.0", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "mysql": {
+          "level": "exact",
+          "introduced": "8.0",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
+        },
         "postgres": {
           "level": "exact",
           "introduced": "8.4",
@@ -1567,8 +1582,8 @@
       "capability": "recursiveCtes",
       "coverage": [
         "ast:query.with-recursive",
-        "diagnostic:mysql.recursive-cte",
         "diagnostic:sqlite.recursive-cte-shape",
+        "resolver:mysql.recursive-cte",
         "resolver:postgres.recursive-cte",
         "resolver:sqlite.recursive-cte"
       ],
@@ -1589,10 +1604,9 @@
       ],
       "dialects": {
         "mysql": {
-          "level": "unsupported",
-          "diagnostic": "TSQ401",
+          "level": "exact",
           "introduced": "8.0.1",
-          "tests": ["packages/mysql/test/mysql.test.ts"]
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
         },
         "postgres": {
           "level": "exact",
