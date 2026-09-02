@@ -188,6 +188,7 @@ import type {
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
+import * as languageServerApi from "../../packages/language-server/src/index.js";
 import type {
   MySqlBulkCapability,
   MySqlBulkProgress,
@@ -220,6 +221,12 @@ import type {
 } from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
+import * as sqliteApi from "../../packages/sqlite/src/index.js";
+import * as nodeSqliteApi from "../../packages/sqlite/src/node-sqlite.js";
+import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
+import * as tsBridgeApi from "../../packages/ts-bridge/src/index.js";
+import * as nativeLspApi from "../../packages/ts-bridge/src/native-lsp.js";
+import * as nativePreviewApi from "../../packages/ts-bridge/src/native-preview.js";
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
@@ -961,6 +968,65 @@ const expectedRuntimeExports = {
     "serializeSchemaSnapshot",
     "upgradeSchemaSnapshotV1",
   ],
+  sqlite: [
+    "NODE_SQLITE_RUNTIME_SUPPORT",
+    "SQLITE_DIALECT_VERSION",
+    "SQLITE_LANGUAGE_SUPPORT",
+    "SqliteSchemaProvider",
+    "compareSqliteVersions",
+    "defaultSqliteTypePolicy",
+    "introspectSqlite",
+    "isKnownSqliteType",
+    "isKnownStrictSqliteType",
+    "isNodeSqliteRuntimeSupported",
+    "mapSqliteCastType",
+    "mapSqliteType",
+    "parseSqliteSchemaSnapshot",
+    "parseSqliteVersion",
+    "resolveSqliteCapabilities",
+    "sql",
+    "sqlite",
+    "sqliteAffinity",
+    "sqliteFlexibleType",
+    "sqliteServerEvidence",
+    "sqliteVersionSupport",
+    "typePolicy",
+  ],
+  sqliteRuntime: ["createSqliteDatabase", "sqliteRenderer"],
+  nodeSqlite: [
+    "NodeSqliteCompatibilityError",
+    "adaptNodeSqliteDatabase",
+    "createNodeSqliteDatabase",
+    "loadNodeSqlite",
+    "nodeSqlite",
+    "readNodeSqliteServerEvidence",
+  ],
+  tsBridge: [
+    "TYPESCRIPT_BACKEND_ADAPTERS",
+    "TYPESCRIPT_PREVIEW_VERSION",
+    "TYPESCRIPT_SUPPORT_POLICY",
+    "TypeScriptPreviewCompatibilityError",
+    "analyzeSource",
+    "assertTypeScriptPreviewVersion",
+    "createTypeScriptBackend",
+    "installedTypeScriptPreviewVersion",
+    "isStaticQueryPosition",
+    "queryAtPosition",
+    "typeScriptVersionSupport",
+  ],
+  nativeLsp: ["typescriptPreviewCliPath"],
+  nativePreview: ["NativePreviewTypeScriptBridge", "TYPESCRIPT_PREVIEW_VERSION"],
+  languageServer: [
+    "TYPED_SQL_PROTOCOL_CAPABILITIES",
+    "TYPED_SQL_PROTOCOL_SUPPORT_POLICY",
+    "TYPED_SQL_PROTOCOL_VERSION",
+    "TYPED_SQL_STATUS_REQUEST",
+    "TypedSqlLanguageService",
+    "TypedSqlProtocolCompatibilityError",
+    "negotiateTypedSqlProtocol",
+    "settingsFrom",
+    "typedSqlProtocolVersionSupport",
+  ],
 } as const;
 
 await describe("stable public API", async () => {
@@ -981,6 +1047,13 @@ await describe("stable public API", async () => {
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),
       schema: Object.keys(schemaApi).sort(),
+      sqlite: Object.keys(sqliteApi).sort(),
+      sqliteRuntime: Object.keys(sqliteRuntimeApi).sort(),
+      nodeSqlite: Object.keys(nodeSqliteApi).sort(),
+      tsBridge: Object.keys(tsBridgeApi).sort(),
+      nativeLsp: Object.keys(nativeLspApi).sort(),
+      nativePreview: Object.keys(nativePreviewApi).sort(),
+      languageServer: Object.keys(languageServerApi).sort(),
     };
     for (const name of Object.keys(expectedRuntimeExports) as (keyof typeof expectedRuntimeExports)[]) {
       strict.deepStrictEqual(actual[name], expectedRuntimeExports[name].slice().sort(), `${name} exports changed`);

@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter ./packages/vscode build:bundle",
+    "api:check": "poku test/contracts/public-api.test.ts test/contracts/api-surface.test.ts --reporter=compact --enforce",
     "changeset": "changeset",
     "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm docs:build && pnpm performance:gate",
     "quality": "pnpm postgres:catalog:check && pnpm mysql:catalog:check && biome check .",
