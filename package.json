@@ -18,6 +18,7 @@
     "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm docs:build && pnpm performance:gate",
     "quality": "pnpm postgres:catalog:check && pnpm mysql:catalog:check && biome check .",
     "format": "biome check --write .",
+    "fuzz:replay": "poku packages/ast/test/fuzz.test.ts packages/postgres/test/parser-ownership.test.ts packages/mysql/test/parser-ownership.test.ts packages/sqlite/test/parser-ownership.test.ts test/contracts/property-corpus.test.ts --reporter=compact --enforce",
     "clean": "node scripts/clean-build.mjs",
     "conformance:v2": "node scripts/conformance-v2.mjs",
     "conformance:live": "pnpm conformance:live:postgres && pnpm conformance:live:mysql && pnpm conformance:live:sqlite",

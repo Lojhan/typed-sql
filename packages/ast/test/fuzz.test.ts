@@ -1,22 +1,6 @@
 import { describe, it, strict } from "poku";
+import { deterministicStrings, FUZZ_SEEDS, sqlFuzzRegressions } from "../../../test/fuzz/corpus.js";
 import { parseStatement, SqlParseError } from "../src/index.js";
-
-function randomSources(seed: number, count: number): readonly string[] {
-  let state = seed >>> 0;
-  const alphabet = "SELECT FROM WHERE WITH INSERT UPDATE DELETE RETURNING abc_123$(),.*+-/'\\\"[]\n\t";
-  const sources: string[] = [];
-  for (let index = 0; index < count; index += 1) {
-    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
-    const length = state % 160;
-    let source = "";
-    for (let offset = 0; offset < length; offset += 1) {
-      state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
-      source += alphabet[state % alphabet.length];
-    }
-    sources.push(source);
-  }
-  return sources;
-}
 
 function outcome(source: string): unknown {
   try {
@@ -36,7 +20,10 @@ function outcome(source: string): unknown {
 
 await describe("deterministic SQL parser fuzzing", async () => {
   await it("never crashes and returns stable diagnostics for seeded arbitrary inputs", () => {
-    for (const source of randomSources(0x51_7a_2026, 2_000)) {
+    for (const source of [
+      ...sqlFuzzRegressions.map((fixture) => fixture.source),
+      ...deterministicStrings(FUZZ_SEEDS.sql, 2_000),
+    ]) {
       strict.deepStrictEqual(outcome(source), outcome(source));
     }
   });

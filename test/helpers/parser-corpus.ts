@@ -6,6 +6,7 @@ import {
   type Statement,
   type Token,
 } from "../../packages/ast/src/index.js";
+import { deterministicStrings, FUZZ_SEEDS, sqlFuzzRegressions } from "../fuzz/corpus.js";
 
 interface ParserStatementEvidence {
   readonly kind: string;
@@ -136,23 +137,6 @@ function outcome<StatementType extends ParserStatementEvidence>(
   }
 }
 
-function randomSources(seed: number, count: number): readonly string[] {
-  let state = seed >>> 0;
-  const alphabet = "SELECT FROM WHERE WITH INSERT UPDATE DELETE RETURNING abc_123$?(),.*+-/'\\\"[]`\n\t";
-  const sources: string[] = [];
-  for (let index = 0; index < count; index += 1) {
-    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
-    const length = state % 120;
-    let source = "";
-    for (let offset = 0; offset < length; offset += 1) {
-      state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
-      source += alphabet[state % alphabet.length];
-    }
-    sources.push(source);
-  }
-  return sources;
-}
-
 export function assertOwnedParserCorpus<StatementType extends ParserStatementEvidence, VisitorType>(
   api: OwnedParserCorpusApi<StatementType, VisitorType>,
 ): void {
@@ -197,7 +181,10 @@ export function assertOwnedParserCorpus<StatementType extends ParserStatementEvi
     }
   }
 
-  for (const source of randomSources(0x51_7a_2026, 500)) {
+  for (const source of [
+    ...sqlFuzzRegressions.map((fixture) => fixture.source),
+    ...deterministicStrings(FUZZ_SEEDS.sql, 500, { maximumLength: 120 }),
+  ]) {
     const first = outcome(api.parseStatement, source, api.isParseError);
     const second = outcome(api.parseStatement, source, api.isParseError);
     if (JSON.stringify(first) !== JSON.stringify(second)) throw new Error(`${api.dialect} parser is nondeterministic`);
