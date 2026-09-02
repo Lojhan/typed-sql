@@ -282,11 +282,13 @@ await describe("public grammar conformance package", async () => {
         },
         {
           capability: "recursiveCtes",
-          supported: false,
-          unsupported: {
-            sql: "WITH RECURSIVE picked(value) AS (SELECT value FROM widgets) SELECT value FROM picked",
-            diagnosticCode: "TSQ210",
-          },
+          supported: true,
+          analysis: probe(
+            "WITH RECURSIVE picked(value) AS (SELECT value FROM widgets) SELECT value FROM picked",
+            '{ "value": bigint; }',
+            "readonly []",
+            read(["recursiveCtes"]),
+          ),
         },
         {
           capability: "returning",
@@ -300,11 +302,13 @@ await describe("public grammar conformance package", async () => {
         },
         {
           capability: "setOperations",
-          supported: false,
-          unsupported: {
-            sql: "SELECT value FROM widgets UNION SELECT value FROM widgets",
-            diagnosticCode: "TSQ401",
-          },
+          supported: true,
+          analysis: probe(
+            "SELECT value FROM widgets UNION SELECT value FROM widgets",
+            '{ "value": bigint; }',
+            "readonly []",
+            read(["setOperations"]),
+          ),
         },
       ],
       unsupported: { sql: "SELECT value FROM missing", diagnosticCode: "TSQ100" },

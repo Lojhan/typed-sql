@@ -19,12 +19,14 @@ The inferred row type describes values returned by the typed-sql adapter under t
 | text, character, `uuid` | `string` | JavaScript string |
 | `date`, `timestamp`, `timestamptz` | `Date` | JavaScript `Date` |
 | `json`, `jsonb` | `unknown` | Parsed JSON value |
-| `bytea` | `Uint8Array` | Node.js `Buffer` |
+| `bytea` | `Uint8Array` | `Uint8Array` |
 | enum | Literal string union | JavaScript string |
 | supported `T[]` | `readonly T[]` | Recursively decoded array |
 | nullable column | `T | null` | `null` bypasses scalar codecs |
 
-The PostgreSQL adapter installs parsers per query and does not mutate global `pg.types`. Policy-controlled OIDs use typed-sql codecs; other OIDs delegate to the installed driver parser table.
+The PostgreSQL adapter installs parsers per query and does not mutate global `pg.types`.
+Policy-controlled scalar and array OIDs use typed-sql codecs. Active extension manifests may add
+connection-local OID decoders; other OIDs delegate to the installed driver parser table.
 
 Policy alternatives:
 

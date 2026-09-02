@@ -1,11 +1,25 @@
 import { createHash } from "node:crypto";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import type { Readable, Writable } from "node:stream";
 import { finished } from "node:stream/promises";
-import type { DatabaseObserver, LiveQueryVerifier, QueryPlanEvidence, QueryPlanInspector } from "@typed-sql/core";
+import type {
+  DatabaseObserver,
+  DialectServerEvidence,
+  LiveQueryVerifier,
+  QueryPlanEvidence,
+  QueryPlanInspector,
+} from "@typed-sql/core";
 import type { Pool as PgPool, PoolClient, PoolConfig, QueryConfig } from "pg";
+import { postgresServerEvidence } from "./capabilities.js";
+import {
+  type PostgresExtensionCodec,
+  type PostgresExtensionManifest,
+  PostgresExtensionResolutionError,
+  resolvePostgresExtensionManifests,
+} from "./extensions.js";
 import type { PostgresSchemaSnapshot } from "./index.js";
-import { type PostgresQueryable, PostgresSchemaProvider } from "./provider.js";
+import { type PostgresQueryable, PostgresSchemaProvider, postgresCatalogQueries } from "./provider.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
@@ -16,7 +30,9 @@ import {
   type PostgresPoolLike,
   type PostgresQueryConfig,
   type PostgresQueryResult,
+  type PostgresRuntimeCodec,
 } from "./runtime.js";
+import { parsePostgresRuntimeSnapshot, validatePostgresRuntimeCompatibility } from "./runtime-compatibility.js";
 import {
   defaultPostgresTypePolicy,
   isKnownPostgresType,
@@ -47,6 +63,48 @@ const pgCursorPackage = "pg-cursor";
 const pgCopyStreamsPackage = "pg-copy-streams";
 const queryTimeoutError =
   "@typed-sql/postgres/pg does not accept pg query_timeout because pg can reject before the connection is ready for reuse; use PostgreSQL statement_timeout instead";
+
+export type PostgresAdapterErrorKind = "connection-loss" | "driver" | "server" | "timeout" | "transaction-abort";
+
+/** Stable adapter classification that retains the original driver failure as `cause`. */
+export class PostgresAdapterError extends Error {
+  readonly code = "POSTGRES_ADAPTER_ERROR";
+  readonly kind: PostgresAdapterErrorKind;
+  readonly sqlState: string | undefined;
+
+  constructor(kind: PostgresAdapterErrorKind, message: string, sqlState: string | undefined, cause: unknown) {
+    super(message, { cause });
+    this.name = "PostgresAdapterError";
+    this.kind = kind;
+    this.sqlState = sqlState;
+  }
+}
+
+function errorRecord(error: unknown): { readonly code?: unknown; readonly message?: unknown } {
+  return typeof error === "object" && error !== null ? error : {};
+}
+
+/** Converts driver-specific failures into a value-safe, SQL-free adapter outcome. */
+export function normalizePostgresAdapterError(error: unknown): PostgresAdapterError {
+  if (error instanceof PostgresAdapterError) return error;
+  const record = errorRecord(error);
+  const sqlState = typeof record.code === "string" && /^[A-Z\d]{5}$/u.test(record.code) ? record.code : undefined;
+  const message = typeof record.message === "string" ? record.message : "PostgreSQL driver operation failed";
+  const kind: PostgresAdapterErrorKind =
+    sqlState === "25P02"
+      ? "transaction-abort"
+      : sqlState === "57014" && /statement timeout/iu.test(message)
+        ? "timeout"
+        : sqlState?.startsWith("08") === true ||
+            sqlState === "57P01" ||
+            ["ECONNRESET", "EPIPE", "ETIMEDOUT"].includes(String(record.code)) ||
+            /connection (?:ended|terminated|lost)/iu.test(message)
+          ? "connection-loss"
+          : sqlState === undefined
+            ? "driver"
+            : "server";
+  return new PostgresAdapterError(kind, message, sqlState, error);
+}
 
 async function defaultPgCursorImporter(): Promise<unknown> {
   return import(pgCursorPackage);
@@ -112,6 +170,11 @@ export interface PgOptions {
   readonly connectionString: string | (() => string | Promise<string>);
   readonly poolConfig?: Omit<PoolConfig, "connectionString" | "query_timeout" | "types">;
   readonly typePolicy?: PostgresTypePolicy;
+  /** Generated snapshot file whose evidence must match before this adapter can execute. */
+  readonly compatibilitySnapshot?: string | URL;
+  readonly extensionManifests?: readonly PostgresExtensionManifest[];
+  /** Maximum named statements retained by each pooled connection. Defaults to 256. */
+  readonly statementCacheSize?: number;
   readonly decimal?: (value: string) => unknown;
   /** Host-injected loader for workspaces or runtimes with nonstandard package resolution. */
   readonly cursorImporter?: PgCursorImporter;
@@ -125,6 +188,7 @@ export interface PgSchemaProviderOptions {
   readonly client?: PostgresQueryable;
   readonly schemas?: readonly string[];
   readonly typePolicy?: PostgresTypePolicy;
+  readonly extensionManifests?: readonly PostgresExtensionManifest[];
 }
 
 export interface PgLiveVerifierClient {
@@ -196,6 +260,83 @@ async function connectionString(value: PgOptions["connectionString"]): Promise<s
   const resolved = typeof value === "function" ? await value() : value;
   if (resolved.length === 0) throw new TypeError("PostgreSQL connectionString must not be empty");
   return resolved;
+}
+
+export interface PgRuntimeEvidenceQueryable {
+  query<Row extends Record<string, unknown>>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<{ readonly rows: readonly Row[] }>;
+}
+
+interface PgRuntimeVersionRow extends Record<string, unknown> {
+  readonly server_version: string;
+  readonly standard_conforming_strings?: string;
+  readonly search_path?: string;
+  readonly extensions?: readonly string[];
+}
+
+/** Reads canonical, non-secret compatibility evidence from a PostgreSQL connection or pool. */
+export async function readPgRuntimeServerEvidence(
+  queryable: PgRuntimeEvidenceQueryable,
+): Promise<DialectServerEvidence> {
+  const result = await queryable.query<PgRuntimeVersionRow>(postgresCatalogQueries.version);
+  const row = result.rows[0];
+  if (row === undefined || typeof row.server_version !== "string") {
+    throw new TypeError("PostgreSQL runtime compatibility did not return server-version evidence");
+  }
+  return postgresServerEvidence(row.server_version, row.extensions ?? [], {
+    ...(row.standard_conforming_strings === undefined
+      ? {}
+      : { standardConformingStrings: row.standard_conforming_strings }),
+    ...(row.search_path === undefined ? {} : { searchPath: row.search_path }),
+    visibilityScope: "current-role",
+  });
+}
+
+interface PgRuntimeCodecRow extends Record<string, unknown> {
+  readonly database_type: string;
+  readonly oid: number | null;
+  readonly array_oid: number | null;
+}
+
+const runtimeCodecOidQuery = `
+  SELECT requested.database_type,
+         t.oid::int AS oid,
+         NULLIF(t.typarray, 0)::int AS array_oid
+  FROM unnest($1::text[]) AS requested(database_type)
+  LEFT JOIN pg_catalog.pg_type AS t ON t.oid = pg_catalog.to_regtype(requested.database_type)
+  ORDER BY requested.database_type
+`;
+
+/** Resolves manifest type names to connection-local OIDs for per-query parser installation. */
+export async function resolvePgRuntimeCodecs(
+  queryable: PgRuntimeEvidenceQueryable,
+  codecs: ReadonlyMap<string, PostgresExtensionCodec>,
+): Promise<readonly PostgresRuntimeCodec[]> {
+  const names = [...codecs.keys()].sort();
+  if (names.length === 0) return [];
+  const result = await queryable.query<PgRuntimeCodecRow>(runtimeCodecOidQuery, [names]);
+  const rows = new Map(result.rows.map((row) => [row.database_type.toLowerCase(), row]));
+  return names.map((databaseType) => {
+    const row = rows.get(databaseType);
+    const codec = codecs.get(databaseType)!;
+    if (row?.oid === null || row === undefined || !Number.isSafeInteger(row.oid) || row.oid < 1) {
+      throw new PostgresExtensionResolutionError([
+        { code: "TSQ407", message: `PostgreSQL extension codec type ${databaseType} is not visible at runtime` },
+      ]);
+    }
+    if (row.array_oid !== null && (!Number.isSafeInteger(row.array_oid) || row.array_oid < 1)) {
+      throw new PostgresExtensionResolutionError([
+        { code: "TSQ407", message: `PostgreSQL extension codec array type ${databaseType}[] has an invalid OID` },
+      ]);
+    }
+    return {
+      oid: row.oid,
+      ...(row.array_oid === null ? {} : { arrayOid: row.array_oid }),
+      decode: codec.decode,
+    };
+  });
 }
 
 const POSTGRES_LIVE_VERIFIER_VERSION = "postgres-prepare-v1";
@@ -457,6 +598,30 @@ function validatePoolConfig(poolConfig: PgOptions["poolConfig"]): void {
   }
 }
 
+function statementCacheSize(value: number | undefined): number {
+  const size = value ?? 256;
+  if (!Number.isSafeInteger(size) || size < 1) {
+    throw new TypeError("PostgreSQL statementCacheSize must be a positive safe integer");
+  }
+  return size;
+}
+
+function changesPreparedStatementIdentity(source: string): boolean {
+  const sql = source.replace(/^\s*(?:(?:--[^\n]*(?:\n|$))|(?:\/\*[\s\S]*?\*\/))*/u, "").trimStart();
+  return (
+    /^(?:ALTER|COMMENT|CREATE|DISCARD|DROP|GRANT|REINDEX|REVOKE|TRUNCATE)\b/iu.test(sql) ||
+    /^(?:RESET\s+search_path|SET(?:\s+(?:LOCAL|SESSION))?\s+search_path\b)/iu.test(sql)
+  );
+}
+
+function quotePreparedStatementName(name: string): string {
+  return `"${name.replaceAll('"', '""')}"`;
+}
+
+export interface AdaptPgPoolOptions {
+  readonly statementCacheSize?: number;
+}
+
 function validateConnectionStringQueryTimeout(value: string): void {
   try {
     const url = new URL(value);
@@ -482,6 +647,7 @@ export function adaptPgPool(
   pool: PgPool,
   cursorImporter: PgCursorImporter = defaultPgCursorImporter,
   copyStreamsImporter: PgCopyStreamsImporter = defaultPgCopyStreamsImporter,
+  adapterOptions: AdaptPgPoolOptions = {},
 ): PostgresPoolLike {
   const options = (
     pool as PgPool & {
@@ -490,6 +656,20 @@ export function adaptPgPool(
   ).options;
   if (options !== undefined && "query_timeout" in options) throw new TypeError(queryTimeoutError);
   if (typeof options?.connectionString === "string") validateConnectionStringQueryTimeout(options.connectionString);
+  const maximumPreparedStatements = statementCacheSize(adapterOptions.statementCacheSize);
+  let preparedGeneration = 0;
+  interface PreparedConnectionState {
+    generation: number;
+    readonly statements: Map<string, string>;
+  }
+  const preparedConnections = new WeakMap<PoolClient, PreparedConnectionState>();
+  const preparedState = (client: PoolClient): PreparedConnectionState => {
+    const existing = preparedConnections.get(client);
+    if (existing !== undefined) return existing;
+    const created = { generation: preparedGeneration, statements: new Map<string, string>() };
+    preparedConnections.set(client, created);
+    return created;
+  };
   let cursorConstructorPromise: Promise<PgCursorConstructor> | undefined;
   const loadCursor = (): Promise<PgCursorConstructor> => {
     cursorConstructorPromise ??= loadPgCursorDriver(cursorImporter);
@@ -501,6 +681,7 @@ export function adaptPgPool(
     return copyStreamsPromise;
   };
   const wrapClient = (client: PoolClient): PostgresClientLike => {
+    const statementState = preparedState(client);
     let fatalError: Error | undefined;
     let rejectFatal!: (error: Error) => void;
     const fatalSettlement = new Promise<never>((_resolve, reject) => {
@@ -510,8 +691,8 @@ export function adaptPgPool(
     void fatalSettlement.catch(() => undefined);
     const recordFatal = (error: Error): void => {
       if (fatalError !== undefined) return;
-      fatalError = error;
-      rejectFatal(error);
+      fatalError = normalizePostgresAdapterError(error);
+      rejectFatal(fatalError);
     };
     const onError = (error: Error): void => recordFatal(error);
     const onEnd = (): void => recordFatal(new Error("The PostgreSQL connection ended while it was leased"));
@@ -521,11 +702,36 @@ export function adaptPgPool(
     return {
       pipeline: client.pipeline,
       async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
-        const result =
-          typeof config === "string"
-            ? await client.query<Record<string, unknown>>(config)
-            : await client.query<Record<string, unknown>, unknown[]>(queryConfig(config));
-        return { rows: result.rows };
+        try {
+          if (statementState.generation !== preparedGeneration) {
+            await client.query("DEALLOCATE ALL");
+            statementState.statements.clear();
+            statementState.generation = preparedGeneration;
+          }
+          if (typeof config !== "string" && config.name !== undefined) {
+            const cachedText = statementState.statements.get(config.name);
+            if (cachedText !== undefined) {
+              statementState.statements.delete(config.name);
+              statementState.statements.set(config.name, cachedText);
+            } else if (statementState.statements.size >= maximumPreparedStatements) {
+              const oldest = statementState.statements.keys().next().value!;
+              await client.query(`DEALLOCATE ${quotePreparedStatementName(oldest)}`);
+              statementState.statements.delete(oldest);
+            }
+          }
+          const result =
+            typeof config === "string"
+              ? await client.query<Record<string, unknown>>(config)
+              : await client.query<Record<string, unknown>, unknown[]>(queryConfig(config));
+          if (typeof config !== "string" && config.name !== undefined) {
+            statementState.statements.set(config.name, config.text);
+          }
+          const text = typeof config === "string" ? config : config.text;
+          if (changesPreparedStatementIdentity(text)) preparedGeneration += 1;
+          return { rows: result.rows };
+        } catch (error) {
+          throw normalizePostgresAdapterError(error);
+        }
       },
       async openCursor(config: PostgresQueryConfig): Promise<PostgresCursorLike> {
         const Cursor = await loadCursor();
@@ -624,11 +830,34 @@ export function adaptPgPool(
   return {
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
     async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
-      const result =
-        typeof config === "string"
-          ? await pool.query<Record<string, unknown>>(config)
-          : await pool.query<Record<string, unknown>, unknown[]>(queryConfig(config));
-      return { rows: result.rows };
+      if (typeof config !== "string" && config.name !== undefined) {
+        let client: PostgresClientLike;
+        try {
+          client = wrapClient(await pool.connect());
+        } catch (error) {
+          throw normalizePostgresAdapterError(error);
+        }
+        let failure: unknown;
+        try {
+          return await client.query(config);
+        } catch (error) {
+          failure = error;
+          throw error;
+        } finally {
+          client.release(failure instanceof Error ? failure : failure === undefined ? undefined : true);
+        }
+      }
+      try {
+        const result =
+          typeof config === "string"
+            ? await pool.query<Record<string, unknown>>(config)
+            : await pool.query<Record<string, unknown>, unknown[]>(queryConfig(config));
+        const text = typeof config === "string" ? config : config.text;
+        if (changesPreparedStatementIdentity(text)) preparedGeneration += 1;
+        return { rows: result.rows };
+      } catch (error) {
+        throw normalizePostgresAdapterError(error);
+      }
     },
     async ensureCursor(): Promise<void> {
       await loadCursor();
@@ -637,7 +866,11 @@ export function adaptPgPool(
       await loadCopyStreams();
     },
     async connect(): Promise<PostgresClientLike> {
-      return wrapClient(await pool.connect());
+      try {
+        return wrapClient(await pool.connect());
+      } catch (error) {
+        throw normalizePostgresAdapterError(error);
+      }
     },
     async end(): Promise<void> {
       await pool.end();
@@ -647,19 +880,44 @@ export function adaptPgPool(
 
 export async function createPgDatabase(options: PgOptions): Promise<PostgresDatabase> {
   validatePoolConfig(options.poolConfig);
+  if ((options.extensionManifests?.length ?? 0) > 0 && options.compatibilitySnapshot === undefined) {
+    throw new TypeError("PostgreSQL runtime extension manifests require a compatibilitySnapshot file");
+  }
+  const snapshot =
+    options.compatibilitySnapshot === undefined
+      ? undefined
+      : parsePostgresRuntimeSnapshot(JSON.parse(await readFile(options.compatibilitySnapshot, "utf8")));
   const resolvedConnectionString = await connectionString(options.connectionString);
   validateConnectionStringQueryTimeout(resolvedConnectionString);
   const driver = await loadPgDriver();
   const { Pool } = driver;
   const pool = new Pool({ ...options.poolConfig, connectionString: resolvedConnectionString });
-  return createPostgresDatabase({
-    pool: adaptPgPool(pool, options.cursorImporter, options.copyStreamsImporter),
-    ownsPool: true,
-    fallbackTypeParsers: driver.types,
-    ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-    ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
-    ...(options.observer === undefined ? {} : { observer: options.observer }),
-  });
+  try {
+    let codecs: readonly PostgresRuntimeCodec[] = [];
+    if (snapshot !== undefined) {
+      const evidence = await readPgRuntimeServerEvidence(pool as unknown as PgRuntimeEvidenceQueryable);
+      validatePostgresRuntimeCompatibility(snapshot, evidence, options.typePolicy);
+      if ((options.extensionManifests?.length ?? 0) > 0) {
+        const extensions = resolvePostgresExtensionManifests(snapshot, options.extensionManifests ?? []);
+        if (extensions.issues.length > 0) throw new PostgresExtensionResolutionError(extensions.issues);
+        codecs = await resolvePgRuntimeCodecs(pool as unknown as PgRuntimeEvidenceQueryable, extensions.codecs);
+      }
+    }
+    return createPostgresDatabase({
+      pool: adaptPgPool(pool, options.cursorImporter, options.copyStreamsImporter, {
+        ...(options.statementCacheSize === undefined ? {} : { statementCacheSize: options.statementCacheSize }),
+      }),
+      ownsPool: true,
+      fallbackTypeParsers: driver.types,
+      ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+      ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
+      ...(codecs.length === 0 ? {} : { codecs }),
+      ...(options.observer === undefined ? {} : { observer: options.observer }),
+    });
+  } catch (error) {
+    await pool.end();
+    throw error;
+  }
 }
 
 export function pg(options: PgSchemaProviderOptions): { introspect(): Promise<PostgresSchemaSnapshot> } {
@@ -672,6 +930,7 @@ export function pg(options: PgSchemaProviderOptions): { introspect(): Promise<Po
         ...(options.client === undefined ? {} : { client: options.client }),
         ...(options.schemas === undefined ? {} : { includeSchemas: options.schemas }),
         ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+        ...(options.extensionManifests === undefined ? {} : { extensionManifests: options.extensionManifests }),
       });
       if (options.client !== undefined) return (await provider.introspect({})) as PostgresSchemaSnapshot;
       return (await provider.introspect({

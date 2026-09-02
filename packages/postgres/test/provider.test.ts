@@ -619,6 +619,7 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.relations.users?.indexes[0]?.includedColumns?.[0], "id");
     strict.strictEqual(snapshot.routines.user_count?.[0]?.dataAccess, "unknown");
     strict.strictEqual(snapshot.routines.user_count?.[0]?.extension?.attributes.parallelSafety, "safe");
+    strict.match(String(snapshot.extension?.attributes.catalogRevision), /^sha256:[a-f\d]{64}$/u);
     strict.strictEqual(snapshot.extension?.attributes.evidenceScope, "current-role");
     strict.ok(client.filters.every((filter) => JSON.stringify(filter) === '["public"]'));
   });

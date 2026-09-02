@@ -134,7 +134,7 @@ const rows = await database.execute(query);
 
 The factory exposes its readonly `statementName`. A name must be non-empty, contain no NUL character, and be unique within one database instance. The first factory call records the query's structural SQL skeleton. Later calls may provide different parameter values, but their text, identifiers, segment kinds, and segment count must remain the same or typed-sql fails before driver dispatch.
 
-Preparation is lazy: declaring the factory performs no I/O and checks out no connection. The first factory call compiles an immutable SQL skeleton; later calls verify the same structural segments and bind only their changing values. PostgreSQL uses the name for ordinary buffered execution. MySQL delegates execution to mysql2's per-connection prepared-statement cache.
+Preparation is lazy: declaring the factory performs no I/O and checks out no connection. The first factory call compiles an immutable SQL skeleton; later calls verify the same structural segments and bind only their changing values. PostgreSQL uses the name for ordinary buffered execution and bounds each connection's native statement cache with `statementCacheSize`; schema DDL and `search_path` changes invalidate cached names before reuse. MySQL delegates execution to mysql2's per-connection prepared-statement cache.
 
 ## Execute an ordered batch
 

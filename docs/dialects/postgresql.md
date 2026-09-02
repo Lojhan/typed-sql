@@ -82,6 +82,11 @@ operator, cast, or codec declarations produce `TSQ407` and make query semantics 
 introspection callbacks receive typed-sql's driver-neutral contracts, so importing the default
 PostgreSQL entrypoint does not load `pg` or another database driver.
 
+For execution, pass the generated snapshot path as `compatibilitySnapshot` and the same manifests as
+`extensionManifests` to `createPgDatabase()`. The adapter resolves each active codec's database type
+to connection-local scalar and array OIDs, then installs those decoders per query. The generated file
+remains a compiler artifact referenced by path; application modules do not import APIs from it.
+
 `createPgLiveVerifier()` uses session-local `PREPARE` and `pg_prepared_statements` without executing the statement or sending values. PostgreSQL 18 provides parameter and result types; older versions are explicitly incomplete. See [Live verification](../guides/live-verification.md).
 
 `createPgPlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. PostgreSQL 18 generic plans need no parameter values; optional transient samples request a custom plan. Normalized evidence excludes expressions and literals. See [Query plan governance](../guides/query-plan-governance.md).
@@ -90,7 +95,17 @@ PostgreSQL entrypoint does not load `pg` or another database driver.
 
 ## Runtime behavior
 
-The adapter installs parsers per query and does not mutate `pg.types`. Policy-controlled OIDs are decoded by typed-sql; other OIDs delegate to the installed driver's parser table. Driver settings that would contradict the selected type policy are rejected.
+The adapter installs parsers per query and does not mutate `pg.types`. Boolean, integer, floating,
+`bigint`, `numeric`, temporal, JSON, `bytea`, and their supported arrays use typed-sql's codec policy;
+enums remain strings, domains retain their base representation, and types without a typed-sql or
+manifest codec delegate to the installed driver's parser table. `bytea` is normalized to
+`Uint8Array`. Driver settings that would contradict the selected type policy are rejected.
+
+When `compatibilitySnapshot` is present, `createPgDatabase()` reads that generated artifact and
+negotiates the target before returning. It rejects mismatched grammar versions, server majors,
+extension versions, lexical settings, search paths, built-in catalog revisions, schema identities,
+or type-policy identities with `PostgresRuntimeCompatibilityError`. Without that option, database
+creation retains the lazy connection behavior and makes no artifact-compatibility claim.
 
 Use PostgreSQL's server-enforced `statement_timeout` when a pool-wide statement deadline is required. `createPgDatabase` rejects pg's client-side `query_timeout` in both `poolConfig` and the resolved connection URI, including URIs returned by an asynchronous provider. `adaptPgPool` applies the same check to an application-created pool's exposed options and raw connection URI. pg can report this client timeout before the server reaches `ReadyForQuery`, so returning the connection to the pool would be unsafe. As a conservative fallback for opaque pool implementations, root batches and streams discard their checked-out client after a query or cursor rejection. A transaction scope cannot continue after a driver operation rejects: a root scope rolls back, while a successfully rolled-back nested savepoint lets its parent continue. The checked-out client is still discarded when the outer transaction finishes. Callback-only failures that roll back successfully do not discard an otherwise healthy client.
 
@@ -98,7 +113,16 @@ Use PostgreSQL's server-enforced `statement_timeout` when a pool-wide statement 
 
 The runtime constructors and `pg` adapter accept a grammar-neutral `observer`. Query, prepared-query, batch, pipeline, stream, cancellation, and nested-transaction lifecycles carry PostgreSQL compiler-compatible fingerprints without exposing SQL or values. See [Observe database work](../guides/observability.md).
 
-`database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. Buffered execution passes the stable name to `pg`, whose prepared statements are cached per PostgreSQL connection. The factory caches its first structural SQL skeleton and rejects duplicate names or structural drift between calls.
+`database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. Buffered execution passes the stable name to `pg`. Each connection retains at most
+`statementCacheSize` named statements (256 by default) using LRU eviction. Successful schema DDL or
+`search_path` changes advance a pool-wide generation; every connection issues `DEALLOCATE ALL`
+before its next query. The factory caches its first structural SQL skeleton and rejects duplicate
+names or structural drift between calls.
+
+Driver failures are exposed as `PostgresAdapterError` with a stable `kind` of `timeout`,
+`transaction-abort`, `connection-loss`, `server`, or `driver`, the SQLSTATE when one exists, and the
+original failure as `cause`. These outcomes contain neither SQL text nor bound values. Explicit
+typed-sql cancellation remains `QueryCancelledError` with code `TSQL_CANCELLED`.
 
 `database.batch(queries)` checks out one `pg` client and dispatches the queries sequentially. It is not a pipeline and does not combine statements into one SQL string or network round trip. Root batches use PostgreSQL's ordinary autocommit behavior; transactional statements can use an explicit typed-sql transaction when atomicity is required.
 

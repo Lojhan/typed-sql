@@ -40,6 +40,12 @@ export {
   PostgresExtensionResolutionError,
   resolvePostgresExtensionManifests,
 } from "./extensions.js";
+export type { PostgresRuntimeCompatibilityReason } from "./runtime-compatibility.js";
+export {
+  PostgresRuntimeCompatibilityError,
+  parsePostgresRuntimeSnapshot,
+  validatePostgresRuntimeCompatibility,
+} from "./runtime-compatibility.js";
 export { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export type PostgresSchemaSnapshot = SchemaSnapshot & { readonly dialect: "postgres" };

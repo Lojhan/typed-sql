@@ -35,6 +35,7 @@ const query = sql`
 
 const database = await createPgDatabase({
   connectionString: process.env.DATABASE_URL!,
+  compatibilitySnapshot: new URL("./generated/db/schema.json", import.meta.url),
   poolConfig: { pipeline: true },
   typePolicy,
   copyStreamsImporter: () => import("pg-copy-streams"),

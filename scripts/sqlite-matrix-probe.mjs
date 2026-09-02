@@ -243,6 +243,8 @@ const liveFeatures = new Set(probes.flatMap(({ featureIds }) => featureIds));
 liveFeatures.add("runtime.introspection");
 const delegatedCoverage = {
   "expression.function.registry": "application-routine registry requires a host adapter",
+  "query.relation.function":
+    "grammar and routine-registry suites cover function relations independently of the linked SQLite library",
   "runtime.codec-policy": "the official Node adapter codec suite runs in every Node matrix job",
   "runtime.streaming": "the official Node adapter stream suite runs in every Node matrix job",
   "schema.sqlite.structural-evidence": "snapshot provider contracts own structural introspection evidence",

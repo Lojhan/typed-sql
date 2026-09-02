@@ -38,7 +38,7 @@ export const diagnosticRegistry = Object.freeze({
   TSQ227: { category: "syntax", summary: "A built-in function invocation has an invalid shape." },
   TSQ228: { category: "semantic", summary: "A grouped or clause-scoped expression is invalid." },
   TSQ229: { category: "type", summary: "A data-modification value cannot be assigned to its target column." },
-  TSQ230: { category: "type", summary: "An explicit PostgreSQL cast path is unavailable." },
+  TSQ230: { category: "type", summary: "An explicit cast path is unavailable." },
   TSQ301: { category: "drift", summary: "The live schema or type policy differs from the generated snapshot." },
   TSQ401: { category: "support", summary: "The dialect surface is intentionally unsupported." },
   TSQ402: { category: "support", summary: "Exact analysis requires normalized server evidence." },

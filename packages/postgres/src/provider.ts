@@ -13,6 +13,7 @@ import type {
 } from "@typed-sql/schema";
 import { defineSchemaSnapshotV2, fingerprintSchemaExpression } from "@typed-sql/schema";
 import { postgresServerEvidence } from "./capabilities.js";
+import { postgresCoreCatalog } from "./catalog/index.js";
 import { fingerprintPostgresExpressionSql } from "./expression-evidence.js";
 import { introspectPostgresExtensionManifests, type PostgresExtensionManifest } from "./extensions.js";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
@@ -986,6 +987,7 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
         extension: {
           version: "1",
           attributes: {
+            catalogRevision: postgresCoreCatalog(serverMajor)?.revision ?? "unknown",
             evidenceScope: "current-role",
             partitionRelationships: "captured",
             routineParallelSafety: "captured",

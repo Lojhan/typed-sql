@@ -51,6 +51,13 @@ export interface PostgresTypeParserSet {
   getTypeParser(oid: number, format?: string): (value: string) => unknown;
 }
 
+/** An OID-resolved codec installed without mutating a driver's global parser table. */
+export interface PostgresRuntimeCodec {
+  readonly oid: number;
+  readonly arrayOid?: number;
+  readonly decode: (value: unknown) => unknown;
+}
+
 export interface PostgresQueryConfig {
   readonly name?: string;
   readonly text: string;
@@ -118,6 +125,7 @@ export interface PostgresDatabaseOptions {
   readonly decimal?: (value: string) => unknown;
   /** Native driver parsers used for types that typed-sql does not override. */
   readonly fallbackTypeParsers?: PostgresTypeParserSet;
+  readonly codecs?: readonly PostgresRuntimeCodec[];
   readonly observer?: DatabaseObserver;
 }
 
@@ -149,7 +157,13 @@ function postgresQueryFingerprint<Row, Params extends readonly unknown[]>(
 }
 
 const oids = {
+  bool: 16,
+  bytea: 17,
   int8: 20,
+  int2: 21,
+  int4: 23,
+  float4: 700,
+  float8: 701,
   date: 1082,
   timestamp: 1114,
   timestamptz: 1184,
@@ -159,7 +173,13 @@ const oids = {
 } as const;
 
 const arrayElementOids = new Map<number, number>([
+  [1000, oids.bool],
+  [1001, oids.bytea],
+  [1005, oids.int2],
+  [1007, oids.int4],
   [1016, oids.int8],
+  [1021, oids.float4],
+  [1022, oids.float8],
   [1231, oids.numeric],
   [1182, oids.date],
   [1115, oids.timestamp],
@@ -167,6 +187,13 @@ const arrayElementOids = new Map<number, number>([
   [199, oids.json],
   [3807, oids.jsonb],
 ]);
+
+function byteaValue(input: string): Uint8Array {
+  if (!input.startsWith("\\x") || input.length % 2 !== 0 || !/^[a-f\d]*$/iu.test(input.slice(2))) {
+    throw new TypeError("Invalid PostgreSQL bytea hex value");
+  }
+  return Uint8Array.from(Buffer.from(input.slice(2), "hex"));
+}
 
 function numberValue(input: string, label: string): number {
   const parsed = Number(input);
@@ -224,9 +251,16 @@ export function createPostgresTypeParsers(
   policy: PostgresCodecPolicy = defaultPolicy,
   decimal?: (value: string) => unknown,
   fallback?: PostgresTypeParserSet,
+  codecs: readonly PostgresRuntimeCodec[] = [],
 ): PostgresTypeParserSet {
   const scalar = new Map<number, (value: string) => unknown>();
+  scalar.set(oids.bool, (input) => input === "t");
+  scalar.set(oids.bytea, byteaValue);
+  scalar.set(oids.int2, Number);
+  scalar.set(oids.int4, Number);
   scalar.set(oids.int8, policy.bigint === "bigint" ? BigInt : policy.bigint === "number" ? safeIntegerValue : String);
+  scalar.set(oids.float4, Number);
+  scalar.set(oids.float8, Number);
   if (policy.numeric === "Decimal") {
     if (decimal === undefined) throw new TypeError("numeric=Decimal requires a decimal(value) codec");
     scalar.set(oids.numeric, decimal);
@@ -235,11 +269,34 @@ export function createPostgresTypeParsers(
     scalar.set(oid, policy.date === "string" ? String : (input) => new Date(input));
   }
   for (const oid of [oids.json, oids.jsonb]) scalar.set(oid, policy.json === "string" ? String : JSON.parse);
+  const customArrays = new Map<number, (value: string) => unknown>();
+  const customOids = new Set<number>();
+  for (const codec of codecs) {
+    if (!Number.isSafeInteger(codec.oid) || codec.oid < 1) {
+      throw new TypeError("PostgreSQL runtime codec oid must be a positive safe integer");
+    }
+    if (scalar.has(codec.oid) || customOids.has(codec.oid)) {
+      throw new TypeError(`PostgreSQL runtime codec oid ${codec.oid} conflicts with an existing codec`);
+    }
+    customOids.add(codec.oid);
+    scalar.set(codec.oid, codec.decode);
+    if (codec.arrayOid !== undefined) {
+      if (!Number.isSafeInteger(codec.arrayOid) || codec.arrayOid < 1) {
+        throw new TypeError("PostgreSQL runtime codec arrayOid must be a positive safe integer");
+      }
+      if (arrayElementOids.has(codec.arrayOid) || customArrays.has(codec.arrayOid) || scalar.has(codec.arrayOid)) {
+        throw new TypeError(`PostgreSQL runtime codec arrayOid ${codec.arrayOid} conflicts with an existing codec`);
+      }
+      customArrays.set(codec.arrayOid, (input) => parsePostgresArray(input, codec.decode));
+    }
+  }
   return {
     getTypeParser(oid: number, format = "text") {
       if (format === "binary") return fallback?.getTypeParser(oid, format) ?? ((input: string): string => input);
       const parser = scalar.get(oid);
       if (parser !== undefined) return parser;
+      const customArray = customArrays.get(oid);
+      if (customArray !== undefined) return customArray;
       const elementParser = scalar.get(arrayElementOids.get(oid) ?? -1);
       if (elementParser !== undefined) return (input: string) => parsePostgresArray(input, elementParser);
       return fallback?.getTypeParser(oid, format) ?? String;
@@ -1328,7 +1385,12 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
   return new PostgresDatabaseImplementation(
     options.pool,
     undefined,
-    createPostgresTypeParsers(options.typePolicy ?? defaultPolicy, options.decimal, options.fallbackTypeParsers),
+    createPostgresTypeParsers(
+      options.typePolicy ?? defaultPolicy,
+      options.decimal,
+      options.fallbackTypeParsers,
+      options.codecs,
+    ),
     options.ownsPool ?? false,
     0,
     createPostgresPreparedQueryState(),
