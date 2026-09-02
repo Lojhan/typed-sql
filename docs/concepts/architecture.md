@@ -70,6 +70,16 @@ Query-plan governance reuses that direction. Core owns neutral inspector, enviro
 
 Migration compatibility remains on the artifact side of that boundary. The compiler compares public snapshots and manifests without knowing how a migration was authored or applied. It maps catalog changes through grammar-owned dependencies, analyzes both mixed-version deployment directions, and emits a deterministic report. Existing migration runners remain responsible for execution and can provide an after-snapshot through any configured `SchemaProvider`.
 
+Batch and editor analysis share the compiler's versioned source-analysis service. A serializable
+request identifies the source revision and optional project generation; the result identifies the
+source hash, grammar and capability fingerprint, schema hash, type-policy hash, compiler limits, and
+analysis revision. `typed-sql check`, the TypeScript bridge, and the language server therefore do not
+maintain separate query-discovery or inference rules.
+
+The shared service bounds source bytes, static query count, structural variants, and generated
+declaration bytes. A resource overrun returns `TSQ006`, leaves the overlay unchanged, and publishes
+no inferred query contract. Cancellation cannot turn incomplete work into a successful result.
+
 Runtime routing follows the same semantic ownership. Core turns proven operation, volatility, locking, and connection-affinity facts into a conservative role decision. Dialect packages reuse their parser and resolver for immutable query shapes. Applications supply and own primary and replica adapters, health policy, lag policy, and lifecycle. Unknown evidence always selects primary.
 
 ## Generated metadata

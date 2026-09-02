@@ -12,6 +12,7 @@ const sources = [
   "packages/ast/src/toolkit/tokenizer.ts",
   "packages/ast/src/toolkit/types.ts",
   "packages/compiler/src/compiler.ts",
+  "packages/compiler/src/analysis.ts",
   "packages/compiler/src/manifest.ts",
   "packages/compiler/src/verification.ts",
   "packages/core/src/dialect-capabilities.ts",

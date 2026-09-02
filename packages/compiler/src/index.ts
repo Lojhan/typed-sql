@@ -1,3 +1,17 @@
+export type {
+  SourceAnalysisBinding,
+  SourceAnalysisContext,
+  SourceAnalysisControl,
+  SourceAnalysisIdentity,
+  SourceAnalysisInsertion,
+  SourceAnalysisProjectIdentity,
+  SourceAnalysisQuery,
+  SourceAnalysisRange,
+  SourceAnalysisRequest,
+  SourceAnalysisResult,
+  SourceAnalysisService,
+} from "./analysis.js";
+export { analyzeSource, createSourceAnalysisService, SOURCE_ANALYSIS_FORMAT_VERSION } from "./analysis.js";
 export type { CheckFileOptions, CheckFileResult, TypeScriptCheckResult } from "./check.js";
 export { checkFile } from "./check.js";
 export type {
@@ -28,7 +42,13 @@ export type {
   CompileSourceOptions,
   CompileSourceResult,
 } from "./compiler.js";
-export { compileSource } from "./compiler.js";
+export {
+  compileSource,
+  DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+  DEFAULT_MAX_QUERIES,
+  DEFAULT_MAX_SOURCE_BYTES,
+  DEFAULT_MAX_STRUCTURAL_VARIANTS,
+} from "./compiler.js";
 export type {
   BuildQueryManifestOptions,
   BuildQueryManifestResult,

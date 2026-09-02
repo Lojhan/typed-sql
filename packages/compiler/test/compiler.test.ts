@@ -464,6 +464,8 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       project: resolve(fixtureDirectory, "tsconfig.json"),
     });
     strict.deepStrictEqual(result.sqlDiagnostics, []);
+    strict.strictEqual(result.analysis.identity.source.id.endsWith("query.ts"), true);
+    strict.match(result.analysis.revision, /^sha256:[a-f0-9]{64}$/u);
     strict.strictEqual(result.typeScript?.exitCode, 0, result.typeScript?.output);
     strict.strictEqual(result.ok, true);
   });

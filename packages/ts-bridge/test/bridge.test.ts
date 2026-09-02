@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
+import { analyzeSource as analyzeCompilerSource, SOURCE_ANALYSIS_FORMAT_VERSION } from "../../compiler/src/index.js";
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { analyzeSource, isStaticQueryPosition, queryAtPosition } from "../src/index.js";
@@ -31,6 +32,16 @@ await describe("TypeScript 7 editor bridge", async () => {
       analysis.transformedSource.includes('sql<{ "id": number; "name": string; "age": bigint | null; }, readonly []>`'),
     );
     strict.strictEqual(queryAtPosition(analysis, query?.binding?.range.start ?? -1), query);
+    strict.deepStrictEqual(
+      analysis,
+      analyzeCompilerSource(
+        {
+          formatVersion: SOURCE_ANALYSIS_FORMAT_VERSION,
+          source: { id: "inline", text: source },
+        },
+        { schema: schema as PostgresSchemaSnapshot, dialect: postgres() },
+      ),
+    );
   });
 
   await it("maps cumulative append fragment overlays without producing partial-query diagnostics", () => {

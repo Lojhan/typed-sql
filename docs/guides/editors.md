@@ -7,6 +7,10 @@ description: Configure the experimental typed-sql language server for Zed, VS Co
 
 The experimental language server applies typed-sql's inferred overlay before TypeScript checks the program. It provides exact query and downstream hovers, diagnostics, completion, definitions, quick fixes, schema reloads, stale-result suppression, and bounded project caches. PostgreSQL, MySQL, and SQLite use the same protocol and compiler evidence.
 
+Editor discovery and inference come from the same versioned, serializable source-analysis service as
+`typed-sql check`. Results carry source, grammar/capability, schema, type-policy, compiler-option, and
+revision identities; a resource limit or cancellation never publishes a partial inferred contract.
+
 Install it in the application:
 
 ```sh

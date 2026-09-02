@@ -488,7 +488,12 @@ export class TypedSqlLanguageService {
         loaded.config.dialect.validateSnapshot(schema.snapshot),
         loaded.config.dialect,
         loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
-        loaded.config.compiler,
+        {
+          ...loaded.config.compiler,
+          sourceId: document.uri,
+          sourceVersion: document.version,
+          ...(token === undefined ? {} : { cancellation: token }),
+        },
       ),
     };
     cancelled(token);

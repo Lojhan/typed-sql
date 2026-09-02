@@ -23,6 +23,12 @@ const result = compileSource({
 });
 ```
 
+For batch/editor parity and incremental consumers, `createSourceAnalysisService()` accepts a
+serializable `SourceAnalysisRequest` and returns a versioned `SourceAnalysisResult`. The result
+contains the same transform and diagnostics as `compileSource`, plus source/project, grammar and
+capability, schema, type-policy, compiler-option, and revision identities. `checkFile()` uses this
+service and exposes its result as `analysis`.
+
 `compileSource` consumes only `DialectPlugin`; it does not branch on a database, grammar package,
 or driver. Compiled queries expose path-independent SHA-256 fingerprints, variant fingerprints,
 variant descriptions, and source-mapped semantics merged conservatively across conditional
@@ -30,6 +36,10 @@ structure. `buildQueryManifest` turns the same evidence into canonical, secret-f
 generating an application API. Its public options include the structural-variant bound used for
 conditional fragments. Application projects normally use the compiler through `typed-sql check`
 or the language server.
+
+Source bytes, static query count, structural variants, and generated declaration bytes have finite
+defaults and explicit overrides. Exceeding a limit returns `TSQ006`, the unchanged source overlay,
+and no inferred query contract. Cancellation raises `AbortError` before a partial result is returned.
 
 Live verification APIs collect transient SQL only after sources still match the manifest, schedule
 grammar-owned adapters with bounded concurrency, compare native field evidence, and emit canonical

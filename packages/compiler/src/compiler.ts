@@ -21,6 +21,9 @@ import {
 import { expandStructuralQuery, structuralRowType } from "./structural.js";
 
 export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
+export const DEFAULT_MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+export const DEFAULT_MAX_QUERIES = 10_000;
+export const DEFAULT_MAX_GENERATED_DECLARATION_BYTES = 8 * 1024 * 1024;
 
 export interface CompiledQuery {
   readonly query: ExtractedQuery;
@@ -63,6 +66,32 @@ export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
   readonly schema: Snapshot;
   readonly typePolicy?: Policy;
   readonly maxStructuralVariants?: number;
+  readonly maxSourceBytes?: number;
+  readonly maxQueries?: number;
+  readonly maxGeneratedDeclarationBytes?: number;
+}
+
+function positiveLimit(value: number | undefined, fallback: number, name: string): number {
+  const limit = value ?? fallback;
+  if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError(`${name} must be a positive safe integer`);
+  return limit;
+}
+
+function resourceLimit(source: string, message: string): CompileSourceResult {
+  return {
+    transformedSource: source,
+    queries: [],
+    fragments: [],
+    diagnostics: [
+      {
+        code: "TSQ006",
+        message,
+        range: { start: 0, end: source.length, line: 1, column: 1 },
+        severity: "error",
+        suggestion: "Reduce the source unit or raise the corresponding compiler limit explicitly.",
+      },
+    ],
+  };
 }
 
 function mapDiagnostic(source: string, query: ExtractedQuery, diagnostic: SqlDiagnostic): SqlDiagnostic {
@@ -101,11 +130,29 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (schema.dialect !== dialect.id) {
     throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
   }
-  const maximumVariants = options.maxStructuralVariants ?? DEFAULT_MAX_STRUCTURAL_VARIANTS;
-  if (!Number.isSafeInteger(maximumVariants) || maximumVariants < 1) {
-    throw new TypeError("maxStructuralVariants must be a positive safe integer");
+  const maximumVariants = positiveLimit(
+    options.maxStructuralVariants,
+    DEFAULT_MAX_STRUCTURAL_VARIANTS,
+    "maxStructuralVariants",
+  );
+  const maximumSourceBytes = positiveLimit(options.maxSourceBytes, DEFAULT_MAX_SOURCE_BYTES, "maxSourceBytes");
+  const maximumQueries = positiveLimit(options.maxQueries, DEFAULT_MAX_QUERIES, "maxQueries");
+  const maximumGeneratedDeclarationBytes = positiveLimit(
+    options.maxGeneratedDeclarationBytes,
+    DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+    "maxGeneratedDeclarationBytes",
+  );
+  const sourceBytes = Buffer.byteLength(source);
+  if (sourceBytes > maximumSourceBytes) {
+    return resourceLimit(source, `Source uses ${sourceBytes} bytes; the configured limit is ${maximumSourceBytes}.`);
   }
   const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), [dialect.sqlModule]);
+  if (extracted.length > maximumQueries) {
+    return resourceLimit(
+      source,
+      `Source contains ${extracted.length} static queries; the configured limit is ${maximumQueries}.`,
+    );
+  }
   const compiled: CompiledQuery[] = [];
   const compiledFragments: CompiledFragment[] = [];
   const diagnostics: SqlDiagnostic[] = [];
@@ -342,6 +389,13 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   ];
   for (const insertion of insertions.sort((left, right) => right.position - left.position)) {
     transformedSource = `${transformedSource.slice(0, insertion.position)}${insertion.text}${transformedSource.slice(insertion.position)}`;
+  }
+  const generatedDeclarationBytes = Buffer.byteLength(transformedSource) - sourceBytes;
+  if (generatedDeclarationBytes > maximumGeneratedDeclarationBytes) {
+    return resourceLimit(
+      source,
+      `Generated declarations use ${generatedDeclarationBytes} bytes; the configured limit is ${maximumGeneratedDeclarationBytes}.`,
+    );
   }
   return {
     transformedSource,

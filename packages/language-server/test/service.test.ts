@@ -116,7 +116,10 @@ await describe("typed-sql language service", async () => {
   });
 
   await it("bounds caches and honors cancellation", async () => {
-    await service.analysis(document("cache-a.ts"));
+    const identified = await service.analysis(document("cache-a.ts", source, 7));
+    strict.strictEqual(identified?.identity.source.id, document("cache-a.ts").uri);
+    strict.strictEqual(identified?.identity.source.version, 7);
+    strict.strictEqual(identified?.identity.grammar.id, "postgres");
     await service.analysis(document("cache-b.ts"));
     await service.analysis(document("cache-c.ts"));
     strict.ok(service.cacheSizes().analyses <= 2);
