@@ -10,7 +10,18 @@ import {
   type SourceAnalysisResult,
 } from "@typed-sql/compiler";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
+import type { TypeScriptBackendIdentity, TypeScriptOverlayInput, TypeScriptTypeInspection } from "./backend.js";
 
+export type {
+  TypeScriptBackend,
+  TypeScriptBackendIdentity,
+  TypeScriptBackendSpawnOptions,
+  TypeScriptOverlayInput,
+  TypeScriptProjectHandle,
+  TypeScriptProjectRequest,
+  TypeScriptTypeInspection,
+} from "./backend.js";
+export { createTypeScriptBackend, TYPESCRIPT_BACKEND_ADAPTERS } from "./backends/index.js";
 export type { TypeScriptIntegrationSurface, TypeScriptVersionSupport } from "./support.js";
 export { TYPESCRIPT_PREVIEW_VERSION, TYPESCRIPT_SUPPORT_POLICY, typeScriptVersionSupport } from "./support.js";
 
@@ -24,18 +35,14 @@ export interface BridgeInsertion extends SourceAnalysisInsertion {}
 
 export interface BridgeAnalysis extends SourceAnalysisResult {}
 
-export interface NativeTypeInspection {
-  readonly queryIndex: number;
-  readonly typeText: string;
-}
+export interface NativeTypeInspection extends TypeScriptTypeInspection {}
 
-export interface TypeScriptInspectionInput {
-  readonly fileName: string;
-  readonly projectFile?: string;
+export interface TypeScriptInspectionInput extends TypeScriptOverlayInput {
   readonly analysis: BridgeAnalysis;
 }
 
 export interface TypeScriptBridge {
+  readonly identity: TypeScriptBackendIdentity;
   inspectFile(input: TypeScriptInspectionInput): Promise<readonly NativeTypeInspection[]>;
   inspectFiles(
     inputs: readonly TypeScriptInspectionInput[],

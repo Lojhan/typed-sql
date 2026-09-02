@@ -80,6 +80,11 @@ The shared service bounds source bytes, static query count, structural variants,
 declaration bytes. A resource overrun returns `TSQ006`, leaves the overlay unchanged, and publishes
 no inferred query contract. Cancellation cannot turn incomplete work into a successful result.
 
+The preview bridge places unstable TypeScript APIs behind a backend contract. Each supported
+TypeScript line has a version-specific adapter with an immutable identity; backend-owned project
+snapshots are represented externally by opaque serializable handles and must be disposed explicitly.
+No TypeScript node, symbol, checker, program, or snapshot crosses into a stable package contract.
+
 Runtime routing follows the same semantic ownership. Core turns proven operation, volatility, locking, and connection-affinity facts into a conservative role decision. Dialect packages reuse their parser and resolver for immutable query shapes. Applications supply and own primary and replica adapters, health policy, lag policy, and lifecycle. Unknown evidence always selects primary.
 
 ## Generated metadata

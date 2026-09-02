@@ -39,4 +39,19 @@ await describe("TypeScript 7 compatibility matrix", async () => {
     strict.deepStrictEqual(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.acceptedVersions, [1]);
     strict.strictEqual(TYPED_SQL_PROTOCOL_SUPPORT_POLICY.legacyUnversionedClients, "accepted-as-version-1");
   });
+
+  await it("contains unstable TypeScript imports in the exact version adapter", async () => {
+    const adapter = await readFile(
+      join(workspaceDirectory, "packages", "ts-bridge", "src", "backends", "typescript-7.1.ts"),
+      "utf8",
+    );
+    const wrapper = await readFile(
+      join(workspaceDirectory, "packages", "ts-bridge", "src", "native-preview.ts"),
+      "utf8",
+    );
+    strict.ok(adapter.includes("@typed-sql/typescript-preview/unstable/ast"));
+    strict.ok(adapter.includes("@typed-sql/typescript-preview/unstable/async"));
+    strict.ok(!wrapper.includes("@typed-sql/typescript-preview/unstable/"));
+    strict.ok(wrapper.includes("TypeScript71PreviewBackend"));
+  });
 });
