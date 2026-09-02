@@ -30,7 +30,7 @@ TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by 
 
 | Surface | Product contract | Tested environment |
 | --- | --- | --- |
-| PostgreSQL | PostgreSQL grammar and catalog provider | PostgreSQL 18.4 |
+| PostgreSQL | PostgreSQL 14–18 grammar and catalog provider; patch-compatible within each major | PostgreSQL 14.24, 15.19, 16.15, 17.11, and 18.6; PostgreSQL 19beta3 as a non-blocking canary |
 | `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.0 |
 | MySQL | Grammar targets MySQL 8.4 LTS | MySQL 8.4.11 |
 | `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.1 |

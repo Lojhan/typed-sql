@@ -25,6 +25,42 @@ await describe("PostgreSQL support matrix", async () => {
       strict.ok(support.includes(`"${target}"`));
   });
 
+  await it("publishes the support boundary and non-executing evidence model", async () => {
+    const dialect = await readFile(join(workspace, "docs", "dialects", "postgresql.md"), "utf8");
+    const compatibility = await readFile(join(workspace, "docs", "reference", "compatibility.md"), "utf8");
+    const verification = await readFile(join(workspace, "docs", "guides", "live-verification.md"), "utf8");
+    const plans = await readFile(join(workspace, "docs", "guides", "query-plan-governance.md"), "utf8");
+    const readme = await readFile(join(workspace, "packages", "postgres", "README.md"), "utf8");
+
+    for (const target of ["14.24", "15.19", "16.15", "17.11", "18.6", "19beta3"]) {
+      strict.ok(dialect.includes(target), `PostgreSQL guide is missing ${target}`);
+      strict.ok(compatibility.includes(target), `compatibility reference is missing ${target}`);
+      strict.ok(readme.includes(target), `package README is missing ${target}`);
+    }
+    for (const evidence of [
+      "standard_conforming_strings",
+      "search path",
+      "extension identities",
+      "catalog revision",
+      "type-policy identity",
+      "TSQ402",
+      "TSQ407",
+    ]) {
+      strict.ok(dialect.includes(evidence), `PostgreSQL guide is missing ${evidence}`);
+    }
+    for (const contract of ["Parse and Describe", "never Bind or", "PostgreSQL 14 through 18", "pg_type"]) {
+      strict.ok(verification.includes(contract), `live verification guide is missing ${contract}`);
+    }
+    for (const contract of [
+      "PostgreSQL 14 and 15",
+      "force_generic_plan",
+      "always rolled back",
+      "never request `ANALYZE`",
+    ]) {
+      strict.ok(plans.includes(contract), `plan governance guide is missing ${contract}`);
+    }
+  });
+
   await it("reviews the canary separately from the complete stable score", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-postgres-matrix-contract-"));
     try {

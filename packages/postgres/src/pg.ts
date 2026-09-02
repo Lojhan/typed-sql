@@ -415,7 +415,7 @@ function describePgStatement(
   });
 }
 
-/** Creates a lazy adapter over PostgreSQL PREPARE and pg_prepared_statements. */
+/** Creates a lazy, non-executing adapter over PostgreSQL Parse and Describe metadata. */
 export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryVerifier {
   const ownsPool = options.pool === undefined;
   let poolPromise: Promise<PgLiveVerifierPool> | undefined;

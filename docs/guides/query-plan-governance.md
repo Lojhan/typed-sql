@@ -66,7 +66,12 @@ If `--compare` and `--out` name the same file, the command reads the baseline be
 
 ## Parameter samples
 
-PostgreSQL 18 can request a generic JSON plan without parameter values. MySQL needs application-supplied transient values for parameterized statements. Configure a sample provider when a dialect requires them or when a custom PostgreSQL plan should reflect representative selectivity:
+PostgreSQL 14 through 18 can request a generic JSON plan without application parameter values.
+PostgreSQL 16 and newer use `GENERIC_PLAN`; PostgreSQL 14 and 15 prepare a statement under
+`plan_cache_mode = force_generic_plan` in a transaction that is always rolled back. MySQL needs
+application-supplied transient values for parameterized statements. Configure a sample provider
+when a dialect requires them or when a custom PostgreSQL plan should reflect representative
+selectivity:
 
 ```ts
 plans: {
@@ -89,7 +94,12 @@ Missing samples, an incorrect sample count, unresolved queries, unsupported oper
 
 ## Safety boundary
 
-The bundled adapters use structured `EXPLAIN` and never request `ANALYZE`. PostgreSQL uses `EXPLAIN (GENERIC_PLAN TRUE, FORMAT JSON)` when no sample is supplied and parameterized `EXPLAIN (FORMAT JSON)` when one is. MySQL uses `EXPLAIN FORMAT=JSON`. These forms plan statements without executing their effects, including write statements.
+The bundled adapters use structured `EXPLAIN` and never request `ANALYZE`. PostgreSQL 16 and newer
+use `EXPLAIN (GENERIC_PLAN TRUE, FORMAT JSON)` when no sample is supplied. PostgreSQL 14 and 15 use
+`PREPARE` plus `EXPLAIN (FORMAT JSON) EXECUTE` with SQL `NULL` placeholders while forcing a generic
+plan; the surrounding transaction is rolled back. Parameterized `EXPLAIN (FORMAT JSON)` is used
+when the application supplies a transient sample. MySQL uses `EXPLAIN FORMAT=JSON`. These forms
+plan statements without executing their effects, including write statements.
 
 Do not replace the inspector with an adapter that uses `EXPLAIN ANALYZE` unless execution is explicitly isolated and intended: `ANALYZE` executes the statement. Use a least-privilege account and a disposable, representative environment because planning still reads catalogs, optimizer settings, and statistics.
 

@@ -16,14 +16,24 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 ## Supported versions
 
 The stable grammar supports PostgreSQL majors 14 through 18. Patch releases are compatible within
-their major; the release matrix selects one current upstream minor for each major. PostgreSQL 19 is
-a non-blocking canary and requires `postgres({ versionPolicy: "canary" })`; prerelease evidence does
-not enter the stable range implicitly. Unlisted older or newer majors remain conservative.
+their major. The exact release-matrix targets are 14.24, 15.19, 16.15, 17.11, and 18.6. PostgreSQL
+19beta3 is a non-blocking canary and requires `postgres({ versionPolicy: "canary" })`; prerelease
+evidence does not enter the stable range or its pass score. Unlisted older or newer majors remain
+conservative.
 
 `POSTGRES_SUPPORT_POLICY` exposes the selected major lines, matrix minors, canary identity, and
 deprecation rule. typed-sql announces an upstream end-of-life removal at least 90 days ahead, keeps
 the major through its upstream final release, and removes it no earlier than the first typed-sql
 minor released afterward.
+
+Every query is resolved against normalized server evidence. A generated snapshot records the full
+server version, normalized major, `standard_conforming_strings`, effective search path, installed
+extension identities, catalog revision, visibility scope, schema identity, and type-policy identity.
+Missing or malformed evidence, an unsupported major, an unavailable versioned feature, or an
+incompatible lexical setting produces `TSQ402`–`TSQ407` or conservative `unknown`; it never inherits
+the newest grammar behavior. Unqualified names follow the captured search path and current-role
+visibility. Prefer schema-qualified names when compilation and execution can use different roles or
+search paths.
 
 ## Supported SQL
 
@@ -87,9 +97,15 @@ For execution, pass the generated snapshot path as `compatibilitySnapshot` and t
 to connection-local scalar and array OIDs, then installs those decoders per query. The generated file
 remains a compiler artifact referenced by path; application modules do not import APIs from it.
 
-`createPgLiveVerifier()` uses session-local `PREPARE` and `pg_prepared_statements` without executing the statement or sending values. PostgreSQL 18 provides parameter and result types; older versions are explicitly incomplete. See [Live verification](../guides/live-verification.md).
+`createPgLiveVerifier()` sends PostgreSQL Parse and Describe protocol messages without Bind or
+Execute, so every supported major supplies parameter OIDs and result-column OIDs without receiving
+application values. The verifier resolves those OIDs through `pg_type`, then deallocates the named
+statement. See [Live verification](../guides/live-verification.md).
 
-`createPgPlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. PostgreSQL 18 generic plans need no parameter values; optional transient samples request a custom plan. Normalized evidence excludes expressions and literals. See [Query plan governance](../guides/query-plan-governance.md).
+`createPgPlanInspector()` uses JSON `EXPLAIN` without `ANALYZE`. PostgreSQL 16 and newer use
+`GENERIC_PLAN`; PostgreSQL 14 and 15 force a generic prepared plan in a rolled-back transaction.
+Neither path needs parameter values. Optional transient samples request a custom plan. Normalized
+evidence excludes expressions and literals. See [Query plan governance](../guides/query-plan-governance.md).
 
 `createPostgresRoutedDatabase()` composes application-owned databases and parses runtime query shapes with the PostgreSQL grammar. Stable, non-locking reads may use a supplied replica. `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, writes, volatile functions, session state, and unknown statements use primary. `isPostgresRetryableTransactionError()` recognizes only transaction rollback SQLSTATE `40001` and deadlock SQLSTATE `40P01`. See [Route reads and retry transactions](../guides/routing-and-retries.md).
 

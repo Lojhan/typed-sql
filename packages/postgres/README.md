@@ -75,8 +75,9 @@ The root also exports `createPostgresRoutedDatabase`, the runtime semantic resol
 transaction retry classifier. These compose application-owned adapters without installing or
 creating `pg` pools.
 
-The stable grammar supports PostgreSQL majors 14 through 18. `POSTGRES_SUPPORT_POLICY` exposes the
-current per-major matrix targets, the PostgreSQL 19 canary, and the upstream end-of-life deprecation
+The stable grammar supports PostgreSQL majors 14 through 18 and is release-tested against exact
+14.24, 15.19, 16.15, 17.11, and 18.6 targets. `POSTGRES_SUPPORT_POLICY` exposes those per-major
+targets, the separately reported PostgreSQL 19beta3 canary, and the upstream end-of-life deprecation
 rule; future and prerelease majors remain conservative unless canary policy is selected explicitly.
 
 Operator and snapshot-routine overloads use PostgreSQL-owned canonical types, cast contexts,

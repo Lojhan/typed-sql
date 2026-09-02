@@ -62,7 +62,12 @@ Cached verification rejects a missing, malformed, or stale proof. Regenerate the
 
 The default verifier accepts only evidence-backed `read` and `write` operations. It invokes the database's prepare/describe mechanism but never executes the statement and never supplies parameter values:
 
-- PostgreSQL uses session-local `PREPARE`, reads `pg_prepared_statements`, then always `DEALLOCATE`s. PostgreSQL 18 exposes both parameter and result types. Older servers that do not expose result types are reported as incomplete instead of being treated as verified.
+- PostgreSQL sends Parse and Describe protocol messages for a named statement, but never Bind or
+  Execute. PostgreSQL 14 through 18 therefore return parameter OIDs and result-column OIDs without
+  receiving application values. The adapter resolves those OIDs through `pg_type`, then always
+  `DEALLOCATE`s the named statement. An injected pool that does not expose node-postgres's protocol
+  connection uses catalog metadata as a compatibility fallback and reports unavailable result
+  columns on PostgreSQL versions before 18 instead of treating them as verified.
 - MySQL uses binary `COM_STMT_PREPARE` metadata through the application-installed `mysql2` adapter,
   resolves origin columns against the live `information_schema.columns` catalog, then closes the
   prepared statement without `COM_STMT_EXECUTE`. Origin lookup preserves catalog types such as enum
@@ -97,4 +102,9 @@ Human output points to the source location and prints compiler evidence beside d
 
 ## CI containers
 
-Use the same schema initialization as the application and a disposable database account with only the permissions needed to resolve referenced objects. The repository's PostgreSQL 18 and MySQL 8.4 E2E packages build digest-pinned containers, generate snapshots and manifests, run live verification, verify the offline cache, and assert that no statement values or mutations are sent.
+Use the same schema initialization as the application and a disposable database account with only
+the permissions needed to resolve referenced objects. The repository runs the complete PostgreSQL
+flow against exact 14.24, 15.19, 16.15, 17.11, and 18.6 images and reports 19beta3 separately as a
+non-blocking canary. The MySQL flow targets 8.4. These jobs generate snapshots and manifests, run
+live verification, verify the offline cache, and assert that no statement values or mutations are
+sent.

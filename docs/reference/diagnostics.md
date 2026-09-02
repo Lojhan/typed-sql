@@ -48,7 +48,7 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ227` | An SQLite built-in function invocation has an invalid shape. |
 | `TSQ228` | A grouped query or clause contains an aggregate, window, or column reference in an invalid context. |
 | `TSQ229` | A data-modification value cannot be assigned to its target column. |
-| `TSQ230` | An explicit PostgreSQL cast has no recorded conversion path. |
+| `TSQ230` | An explicit cast has no recorded conversion path. |
 | `TSQ301` | The live schema or type policy differs from the generated snapshot. |
 | `TSQ401` | The dialect surface is intentionally unsupported. |
 | `TSQ402` | Exact analysis requires normalized server evidence. |
