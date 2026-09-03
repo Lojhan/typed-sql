@@ -1,5 +1,11 @@
 # @typed-sql/conformance
 
+## 2.1.0-rc.1
+
+### Patch Changes
+
+- Publish the coherent 2.1.0-rc.1 release-candidate train.
+
 ## 2.1.0-rc.0
 
 ### Minor Changes

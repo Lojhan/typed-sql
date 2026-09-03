@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/ast",
-  "version": "2.1.0-rc.0",
+  "version": "2.1.0-rc.1",
   "description": "Grammar-neutral SQL source ranges, tokenizer profiles, bounded cursors, and parser utilities for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
