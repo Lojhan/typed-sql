@@ -1,5 +1,120 @@
 # @typed-sql/core
 
+## 2.1.0-rc.0
+
+### Minor Changes
+
+- 58bd4d1: Add the versioned, serializable source-analysis service shared by batch checks and editor tooling.
+  Results carry deterministic source, project, schema, type-policy, grammar, and capability identities;
+  cancellation and source, query-count, structural-variant, and generated-declaration limits fail closed.
+- 58aa9ef: Add a grammar-neutral serialized artifact compatibility identity and deterministic compatibility outcomes, and use the shared identity contract for query-manifest cache reuse.
+- 65b662f: Add structured opt-in debug events and confirmed support-bundle generation with privacy-safe default redaction.
+- e433feb: Allow non-empty arrays of typed SQL fragments to be interpolated directly as homogeneous,
+  comma-separated structure. Add fail-closed compiler analysis for direct map callbacks and fragment
+  literals, cardinality-independent artifacts, bounded prepared-cardinality caches, shared grammar
+  conformance, and runtime limits while preserving ordinary arrays as single bound values.
+- 0efc90c: Add neutral column charset and collation evidence, generated versioned MySQL built-in catalogs,
+  catalog-backed type and function availability, MySQL collation coercibility, and signed/unsigned
+  numeric expression resolution.
+  Conformance v2 now compares grammar analysis against the neutral resolved-column contract while
+  allowing grammar-owned result evidence.
+- 6f5b977: Resolve PostgreSQL operators and snapshot v2 routines through a grammar-owned candidate selector
+  that uses canonical types, cast contexts, preferred categories, unknown-literal rules, domains,
+  arrays, ranges, enums, and the `anyelement` and `anycompatible` polymorphic families.
+  Named, defaulted, expanded-variadic, and explicit-variadic routine calls now select against snapshot
+  argument evidence, while known invalid explicit casts produce a stable diagnostic.
+  The versioned core catalog now recognizes PostgreSQL temporal, bit-string, network, geometric,
+  full-text, XML, range, multirange, object-identifier, and related scalar types. Unary numeric and
+  bitwise operators, plus binary integer and bit-string operators, now resolve through typed
+  candidates and reject invalid operands. Date, timestamp, time, and interval arithmetic now uses
+  asymmetric PostgreSQL signatures, with parameter inference deferred until candidate selection.
+  Built-in range/multirange containment and arithmetic, network containment and address arithmetic,
+  full-text search composition, JSON-path predicates and deletion, and their multi-character tokens
+  now use exact grammar-owned signatures.
+  Geometric transformation, position, intersection, distance, containment, and relationship operators
+  now resolve through their exact operand and result signatures, including prefix forms.
+  Numeric promotion, mathematical prefix, bit-string shift, binary/JSON/text concatenation, money,
+  `pg_lsn`, and tuple-identifier operators now use catalog-derived signatures and coercions.
+  Array subscripts infer nullable element types, slices preserve the array type, omitted bounds are
+  represented explicitly, index parameters infer `integer`, and nested array mappings retain every dimension.
+  `ANY`, `SOME`, and `ALL` comparisons now resolve array elements or single-column subqueries through
+  the operator catalog, while row comparisons validate arity and select an operator for each field pair.
+  Parenthesized composite field selection now uses snapshot v2 field evidence for its database type,
+  TypeScript type, nullability, parameter context, and unknown-field diagnostics.
+  `COLLATE` now preserves collatable expression types, and `AT TIME ZONE` resolves PostgreSQL's exact
+  timestamp, timestamp-with-time-zone, and time-with-time-zone conversions with text or interval zones.
+  PostgreSQL 17 and newer also resolve and version-gate the corresponding `AT LOCAL` forms.
+  Scalar and row-valued `IN` lists and subqueries now validate equality candidates, numeric literals,
+  row arity, composite field comparability, nullability, and per-position parameter contexts.
+  The versioned cast catalogs now include every direct `pg_cast` conversion among shipped core types
+  for PostgreSQL 14 through 18, including the PostgreSQL 15 geometric removal and PostgreSQL 18
+  integer/bytea additions. Automatic assignment-to-string and explicit string I/O casts follow the
+  server's fallback conversion rules.
+  PostgreSQL interval literals now parse prefix precision, every valid field and field-range qualifier,
+  suffix second precision, and qualified interval cast types while retaining typed-literal source spans.
+  All forms resolve through the canonical `interval` type, and invalid field ranges fail during parsing.
+  JSON, JSONB, and JSONPATH typed literals now preserve their grammar-owned cast form. The core catalog
+  and resolver cover `jsonb_path_exists`, `jsonb_path_match`, query-array, query-first, and set-returning
+  query variants, including timezone-aware forms, optional variables/silent arguments, and nullability.
+  Database parameter identities are now retained even when their configured TypeScript mapping is
+  `unknown`, so JSON and other deliberately opaque codecs still produce typed prepared parameters.
+  PostgreSQL 17 and newer now parse and resolve the grammar-owned `JSON_EXISTS` SQL/JSON expression,
+  including formatted inputs, `PASSING` variables, error behavior, parameter identities, nullability,
+  and server-version diagnostics.
+  The grammar-owned PostgreSQL 17 `JSON_QUERY` form also resolves returning types, JSON output formats,
+  wrapper and quote behavior, constant `ON EMPTY` and `ON ERROR` defaults, and exact output nullability.
+  PostgreSQL 17 `JSON_VALUE` now resolves scalar return types and behaviors while preserving its
+  always-possible SQL null result for JSON null and rejecting unsupported collection or format clauses.
+  PostgreSQL 16 and newer now parse and resolve the standard `JSON_OBJECT` and `JSON_ARRAY`
+  constructors, including key/value and query forms, null handling, unique-key declarations, formatted
+  inputs, encoded returns, parameter identities, non-null output types, and server-version diagnostics.
+  Legacy and quoted `json_object(...)` calls remain ordinary catalog-backed routine calls.
+  PostgreSQL 17 and newer also own `JSON`, `JSON_SCALAR`, and `JSON_SERIALIZE`, including JSON-compatible
+  inputs, uniqueness declarations, scalar and composite conversion, string or binary returns, UTF-8
+  encoding, parameter inference, null propagation, and version diagnostics. The overlapping pre-17
+  functional `json(...)` cast keeps its earlier cast semantics.
+  PostgreSQL 16 and newer now own `IS JSON` and `IS NOT JSON` predicates across value, scalar,
+  array, object, and unique-key constraints, with JSON-compatible input validation, text parameter
+  inference, SQL-null propagation, and server-version diagnostics.
+  PostgreSQL 16 and newer now also own the standard `JSON_OBJECTAGG` and `JSON_ARRAYAGG` grammar,
+  including null and uniqueness clauses, aggregate-local ordering, `FILTER`, `OVER`, formatted inputs,
+  encoded returns, grouping validation, parameter inference, nullable empty-input results, and
+  server-version diagnostics.
+  PostgreSQL 17 `JSON_TABLE` now owns its table-reference grammar and resolves root, ordinality,
+  scalar, formatted, `EXISTS`, and nested columns with implicit lateral scope, alias lists, declared
+  types, behavior validation, nested null-padding, and server-version diagnostics.
+
+  Expose optional routine argument names and default evidence through the neutral resolver bridge so
+  grammar packages can implement named, defaulted, and variadic call selection.
+- 1c64475: Complete PostgreSQL DML parsing and analysis for identity overriding, `ON CONFLICT` targets and the
+  `excluded` namespace, row assignments, source-aware update/delete returning, versioned `MERGE`, and
+  PostgreSQL 18 old/new `RETURNING` aliases. Version-dependent forms now use server-major evidence and
+  fail closed when that evidence is absent or outside the feature's supported range. Snapshot v2 index
+  evidence now verifies expression, operator-class, collation, and partial-predicate conflict targets,
+  while insert/select, update, and merge writes propagate parameter types and reject known-incompatible
+  source types.
+
+  The neutral resolver snapshot bridge now exposes optional index and constraint-deferrability evidence
+  so grammar packages can consume schema v2 conflict-target metadata without importing schema internals.
+- 1c64475: Add canonical schema snapshot format 2 with isolated v1/v2 codecs, conservative v1 upgrades,
+  neutral relation/constraint/index/type/routine evidence, and complete provider introspection.
+  Resolvers now consume structural write and routine evidence, while drift, compatibility, manifests,
+  verification proofs, and plan artifacts bind to the schema format and canonical hash.
+- 1c64475: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- ff0e3bb: Harden PostgreSQL execution with policy-owned scalar and array codecs, runtime extension codec OID
+  resolution, generated-snapshot compatibility checks, bounded per-connection prepared-statement
+  caches with schema and search-path invalidation, and structured driver failure classifications.
+  Keep the shared `TSQ230` diagnostic registry text grammar-neutral.
+- 1c64475: Resolve SQLite core built-ins, operators, coercions, arities, nullability, and in-band function
+  release boundaries from SQLite-owned catalog data. Add a stable diagnostic for invalid SQLite
+  built-in invocations and fail closed when version-gated functions lack usable server evidence.
+
 ## 2.0.0
 
 ### Major Changes

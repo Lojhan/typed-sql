@@ -1,5 +1,39 @@
 # @typed-sql/cli
 
+## 2.1.0-rc.0
+
+### Minor Changes
+
+- 65b662f: Add structured opt-in debug events and confirmed support-bundle generation with privacy-safe default redaction.
+- 4a12de5: Reject unsupported TypeScript compiler and preview patches before project work begins. Add
+  `typed-sql doctor` with human and JSON reports for Node.js, TypeScript, grammar, schema, redacted
+  server evidence, language-server/bridge metadata, and editor protocol compatibility.
+- 1c64475: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- Updated dependencies [58bd4d1]
+- Updated dependencies [58aa9ef]
+- Updated dependencies [f902a97]
+- Updated dependencies [65b662f]
+- Updated dependencies [e433feb]
+- Updated dependencies [0efc90c]
+- Updated dependencies [ff0e3bb]
+- Updated dependencies [6f5b977]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [5d5d849]
+- Updated dependencies [4a12de5]
+- Updated dependencies [1c64475]
+  - @typed-sql/core@2.1.0-rc.0
+  - @typed-sql/compiler@2.1.0-rc.0
+  - @typed-sql/config@2.1.0-rc.0
+  - @typed-sql/schema@2.1.0-rc.0
+
 ## 2.0.0
 
 ### Major Changes

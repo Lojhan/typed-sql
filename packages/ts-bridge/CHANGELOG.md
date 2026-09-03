@@ -1,5 +1,40 @@
 # @typed-sql/ts-bridge
 
+## 2.1.0-rc.0
+
+### Minor Changes
+
+- 58bd4d1: Add the versioned, serializable source-analysis service shared by batch checks and editor tooling.
+  Results carry deterministic source, project, schema, type-policy, grammar, and capability identities;
+  cancellation and source, query-count, structural-variant, and generated-declaration limits fail closed.
+- 946e195: Add an explicit TypeScript backend contract with immutable backend identities, opaque project
+  handles, overlay inspection, deterministic project disposal, and an exact TypeScript 7.1 adapter.
+  Contain all unstable TypeScript API imports inside the version-specific adapter while retaining the
+  native preview bridge as a compatibility wrapper.
+- 8cd54dd: Publish immutable support policies for the exact TypeScript compiler and preview-backend patches,
+  new-line canary admission, and the typed-sql-specific language-server protocol compatibility window.
+- 4a12de5: Reject unsupported TypeScript compiler and preview patches before project work begins. Add
+  `typed-sql doctor` with human and JSON reports for Node.js, TypeScript, grammar, schema, redacted
+  server evidence, language-server/bridge metadata, and editor protocol compatibility.
+
+### Patch Changes
+
+- Updated dependencies [58bd4d1]
+- Updated dependencies [58aa9ef]
+- Updated dependencies [65b662f]
+- Updated dependencies [e433feb]
+- Updated dependencies [0efc90c]
+- Updated dependencies [ff0e3bb]
+- Updated dependencies [6f5b977]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [4a12de5]
+- Updated dependencies [1c64475]
+  - @typed-sql/core@2.1.0-rc.0
+  - @typed-sql/compiler@2.1.0-rc.0
+  - @typed-sql/schema@2.1.0-rc.0
+
 ## 2.0.0-rc.2
 
 ### Patch Changes

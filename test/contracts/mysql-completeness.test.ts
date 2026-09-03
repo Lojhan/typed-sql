@@ -86,7 +86,13 @@ await describe("MySQL completeness review", async () => {
       "mysql-runtime-protocol-hardening.md",
     ];
     for (const name of changesets) {
-      const source = await readFile(join(workspace, ".changeset", name), "utf8");
+      let source: string;
+      try {
+        source = await readFile(join(workspace, ".changeset", name), "utf8");
+      } catch (error) {
+        if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+        source = await readFile(join(workspace, ".changeset", "pre", name), "utf8");
+      }
       strict.ok(source.includes('"@typed-sql/mysql"'), `${name} must release @typed-sql/mysql`);
       strict.ok(source.length >= 140, `${name} must describe the public change`);
     }

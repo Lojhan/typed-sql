@@ -1,5 +1,52 @@
 # @typed-sql/language-server
 
+## 2.1.0-rc.0
+
+### Minor Changes
+
+- 25e13cc: Negotiate typed-sql protocol capabilities during LSP initialization and attach complete analysis
+  identities to diagnostics. Invalidate results by source, project/config generation, grammar
+  capabilities, schema, and type-policy identity before publishing or applying fixes.
+- d1d674c: Cancel superseded incremental analysis without losing document state, serialize workspace refreshes,
+  publish redacted recoverable project failures, restart failed native inspection once, and expose
+  bounded-cache and bridge-restart metrics through the status request.
+- 5d5d849: Add deterministic conformance failure injection and expose the bounded config and language-server cache defaults used by reliability suites.
+- 8cd54dd: Publish immutable support policies for the exact TypeScript compiler and preview-backend patches,
+  new-line canary admission, and the typed-sql-specific language-server protocol compatibility window.
+
+### Patch Changes
+
+- 58bd4d1: Add the versioned, serializable source-analysis service shared by batch checks and editor tooling.
+  Results carry deterministic source, project, schema, type-policy, grammar, and capability identities;
+  cancellation and source, query-count, structural-variant, and generated-declaration limits fail closed.
+- 946e195: Add an explicit TypeScript backend contract with immutable backend identities, opaque project
+  handles, overlay inspection, deterministic project disposal, and an exact TypeScript 7.1 adapter.
+  Contain all unstable TypeScript API imports inside the version-specific adapter while retaining the
+  native preview bridge as a compatibility wrapper.
+- 4a12de5: Reject unsupported TypeScript compiler and preview patches before project work begins. Add
+  `typed-sql doctor` with human and JSON reports for Node.js, TypeScript, grammar, schema, redacted
+  server evidence, language-server/bridge metadata, and editor protocol compatibility.
+- Updated dependencies [58bd4d1]
+- Updated dependencies [58aa9ef]
+- Updated dependencies [f902a97]
+- Updated dependencies [65b662f]
+- Updated dependencies [e433feb]
+- Updated dependencies [0efc90c]
+- Updated dependencies [ff0e3bb]
+- Updated dependencies [6f5b977]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [5d5d849]
+- Updated dependencies [946e195]
+- Updated dependencies [8cd54dd]
+- Updated dependencies [4a12de5]
+- Updated dependencies [1c64475]
+  - @typed-sql/core@2.1.0-rc.0
+  - @typed-sql/ts-bridge@2.1.0-rc.0
+  - @typed-sql/config@2.1.0-rc.0
+  - @typed-sql/schema@2.1.0-rc.0
+
 ## 2.0.0-rc.2
 
 ### Patch Changes
