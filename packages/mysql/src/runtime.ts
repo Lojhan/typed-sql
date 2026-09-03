@@ -108,6 +108,8 @@ export interface MySqlDatabaseOptions {
   readonly compatibilitySnapshot?: SchemaSnapshotV2 & { readonly dialect: "mysql" };
   readonly decoderPlanCacheCapacity?: number;
   readonly preparedStatementLimit?: number;
+  /** Maximum rendered cardinalities cached by each logical prepared factory. Defaults to 32. */
+  readonly preparedCardinalityVariantLimit?: number;
   readonly onWarning?: (warning: MySqlExecutionWarning) => void;
   readonly rejectWarnings?: boolean;
 }
@@ -988,7 +990,7 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
     undefined,
     options.ownsPool ?? false,
     0,
-    createMySqlPreparedQueryState(options.preparedStatementLimit),
+    createMySqlPreparedQueryState(options.preparedStatementLimit, options.preparedCardinalityVariantLimit),
     new MySqlDecoderPlanCache(typePolicy, options.decimal, options.decoderPlanCacheCapacity),
     createMySqlObservationState(options.observer),
     safety,

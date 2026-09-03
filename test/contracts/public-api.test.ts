@@ -24,6 +24,7 @@ import type {
   ExtractedDynamicQuery,
   ExtractedInterpolation,
   ExtractedQuery,
+  FragmentArtifact,
   ListProjectSourceFilesOptions,
   QueryManifest,
   QueryManifestBuildStats,
@@ -33,6 +34,7 @@ import type {
   QueryManifestEntry,
   QueryManifestLocation,
   QueryManifestParameter,
+  QueryManifestRepeatedFragment,
   QueryManifestSemanticEvidence,
   QueryManifestSemanticFact,
   QueryManifestSemantics,
@@ -46,12 +48,14 @@ import type {
   QueryVerificationMismatchKind,
   QueryVerificationProof,
   QueryVerificationProofEntry,
+  RepeatedFragmentArtifact,
   ResolvedQueryManifestEntry,
   SchemaCompatibilityAssessment,
   SchemaCompatibilityChange,
   SchemaCompatibilityChangeKind,
   SchemaCompatibilityReport,
   SchemaCompatibilityTarget,
+  StaticFragmentArtifact,
   TypeScriptCheckResult,
   UnresolvedQueryManifestEntry,
   VerifyQueryManifestOptions,
@@ -136,6 +140,7 @@ import type {
   LiveQueryVerificationServer,
   LiveQueryVerifier,
   OptionalSqlFragment,
+  PreparedQueryRenderVariant,
   Query,
   QueryBatch,
   QueryCancellationReason,
@@ -485,6 +490,9 @@ type ReferencedStableTypes =
   | CompiledQueryVariant
   | CompileSourceOptions<SchemaSnapshot, unknown>
   | CompileSourceResult
+  | FragmentArtifact
+  | RepeatedFragmentArtifact
+  | StaticFragmentArtifact
   | ExtractedDynamicQuery
   | ExtractedInterpolation
   | ExtractedQuery
@@ -507,6 +515,7 @@ type ReferencedStableTypes =
   | QueryManifestEntry
   | QueryManifestLocation
   | QueryManifestParameter
+  | QueryManifestRepeatedFragment
   | QueryManifestSemanticEvidence
   | QueryManifestSemanticFact
   | QueryManifestSemantics
@@ -562,6 +571,7 @@ type ReferencedStableTypes =
   | VersionedCapabilityExpectation
   | VersionedCapabilityProbe<SchemaSnapshot, unknown>
   | ControlledQueryExecutor
+  | PreparedQueryRenderVariant
   | ActiveDatabaseObservation
   | AdapterCapability<CapabilityService>
   | AdapterCapabilityHost
@@ -835,6 +845,7 @@ const expectedRuntimeExports = {
     "compileQueryRenderSkeleton",
     "DIALECT_CONTRACT_VERSION",
     "ParameterCollector",
+    "PreparedQueryRenderCache",
     "ResolverSchemaIndex",
     "closestName",
     "createDatabase",
@@ -843,6 +854,7 @@ const expectedRuntimeExports = {
     "createRoutedDatabase",
     "createSupportBundle",
     "DEFAULT_MAX_FRAGMENT_LIST_ITEMS",
+    "DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS",
     "DEFAULT_MAX_QUERY_PARAMETERS",
     "DEFAULT_MAX_RENDERED_SQL_BYTES",
     "defineAdapterCapability",

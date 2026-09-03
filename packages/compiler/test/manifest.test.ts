@@ -114,6 +114,37 @@ await describe("deterministic query manifests", async () => {
     strict.strictEqual(generate("/first/checkout", false), generate("/different/checkout", true));
   });
 
+  await it("serializes cardinality-independent repeated-fragment artifacts", () => {
+    const root = "/checkout/repeated";
+    const mappedSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      "declare const rows: readonly { readonly id: bigint; readonly email: string }[];",
+      "sql`INSERT INTO users (id, email) VALUES ${rows.map((row) => sql.fragment`(${row.id}, ${row.email})`)}`;",
+    ].join("\n");
+    const result = buildQueryManifest({
+      rootDir: root,
+      sources: [{ file: join(root, "insert.ts"), source: mappedSource }],
+      dialect: postgres(),
+      schema: snapshot("postgres") as PostgresSchemaSnapshot,
+      typePolicy: postgresTypePolicy,
+      compilerVersion: "2.0.0-test",
+    });
+    const query = result.manifest.queries[0];
+    if (query?.status !== "resolved") throw new Error("Expected a resolved repeated-fragment query");
+    const artifact = query.repeatedFragments?.[0];
+    strict.strictEqual(artifact?.kind, "repeated-fragment");
+    strict.strictEqual(artifact?.minimumItems, 1);
+    strict.strictEqual(artifact?.separator.text, ", ");
+    strict.deepStrictEqual(
+      artifact?.parameterPattern.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "bigint" },
+        { index: 2, tsType: "string" },
+      ],
+    );
+    strict.deepStrictEqual(parseQueryManifest(JSON.parse(serializeQueryManifest(result.manifest))), result.manifest);
+  });
+
   await it("records canonical evidence only for capabilities a query depends on", () => {
     const root = "/checkout/capabilities";
     const result = buildQueryManifest({

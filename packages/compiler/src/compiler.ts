@@ -7,11 +7,14 @@ import {
   type QuerySemantics,
   type ResolvedColumn,
   type ResolvedParameter,
+  resolveDialectCapabilityStates,
   rowTypeLiteral,
   type SchemaSnapshot,
+  type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import { expandRepeatedFragments, type RepeatedFragmentSite } from "./repeated-fragments.js";
+import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { expandRepeatedFragments, type RepeatedFragmentExpansion } from "./repeated-fragments.js";
 import {
   type ExtractedQuery,
   extractAppendFragments,
@@ -31,11 +34,36 @@ export interface CompiledQuery {
   readonly rowType: string;
   readonly parameterType: string;
   readonly structural?: true;
-  readonly repeatedFragments?: readonly RepeatedFragmentSite[];
+  /** Present for direct mapped lists; fixed fragment tuples need no runtime-cardinality artifact. */
+  readonly repeatedFragments?: readonly RepeatedFragmentArtifact[];
+  /** @internal Selects the row-only compiler overlay for either fixed or repeated fragment lists. */
+  readonly fragmentList?: true;
   readonly fingerprint: string;
   readonly variantFingerprints: readonly string[];
   readonly variants: readonly CompiledQueryVariant[];
   readonly semantics: QuerySemantics;
+}
+
+export interface FragmentArtifact {
+  readonly kind: "fragment";
+  readonly sqlSkeleton: string;
+  readonly fingerprint: string;
+}
+
+export interface StaticFragmentArtifact {
+  readonly kind: "static-fragment";
+  readonly text: string;
+  readonly fingerprint: string;
+}
+
+export interface RepeatedFragmentArtifact {
+  readonly kind: "repeated-fragment";
+  readonly fingerprint: string;
+  readonly sourceSpan: SourceRange;
+  readonly element: FragmentArtifact;
+  readonly separator: StaticFragmentArtifact;
+  readonly minimumItems: 1;
+  readonly parameterPattern: readonly ResolvedParameter[];
 }
 
 export interface CompiledQueryVariant {
@@ -104,6 +132,74 @@ function fingerprint(dialect: Pick<DialectPlugin, "id" | "grammarVersion">, sql:
   return `sha256:${createHash("sha256").update(`${dialect.id}\0${dialect.grammarVersion}\0${sql}`).digest("hex")}`;
 }
 
+function extractedSkeleton(query: ExtractedQuery, parameterOffset = 0): string {
+  let cursor = 0;
+  const chunks: string[] = [];
+  for (const interpolation of query.interpolations) {
+    chunks.push(
+      query.sql.slice(cursor, interpolation.sqlStart),
+      `{{parameter:${interpolation.index - parameterOffset}}}`,
+    );
+    cursor = interpolation.sqlEnd;
+  }
+  chunks.push(query.sql.slice(cursor));
+  return chunks.join("");
+}
+
+function repeatedFragmentArtifacts(
+  source: string,
+  dialect: DialectPlugin,
+  context: () => Readonly<Record<string, unknown>>,
+  original: ExtractedQuery,
+  repeated: RepeatedFragmentExpansion | undefined,
+  parameters: readonly ResolvedParameter[],
+): readonly RepeatedFragmentArtifact[] | undefined {
+  const sites = repeated?.sites.filter(({ dynamic }) => dynamic) ?? [];
+  if (sites.length === 0) return undefined;
+  const artifactContext = context();
+  const surroundingStructure = extractedSkeleton(original);
+  const separatorText = ", ";
+  const separator: StaticFragmentArtifact = Object.freeze({
+    kind: "static-fragment",
+    text: separatorText,
+    fingerprint: fingerprint(dialect, JSON.stringify({ artifactContext, separatorText })),
+  });
+  return Object.freeze(
+    sites.map((site): RepeatedFragmentArtifact => {
+      const parameterPattern = Object.freeze(
+        parameters
+          .filter(
+            ({ index }) => index > site.parameterOffset && index <= site.parameterOffset + site.element.parameterCount,
+          )
+          .map((parameter) => Object.freeze({ ...parameter, index: parameter.index - site.parameterOffset })),
+      );
+      const sqlSkeleton = extractedSkeleton(site.element, site.parameterOffset);
+      const identity = JSON.stringify({
+        artifactContext,
+        surroundingStructure,
+        callbackSource: source.slice(site.sourceSpan.start, site.sourceSpan.end),
+        sqlSkeleton,
+        separatorText,
+        parameterPattern,
+      });
+      const element: FragmentArtifact = Object.freeze({
+        kind: "fragment",
+        sqlSkeleton,
+        fingerprint: fingerprint(dialect, JSON.stringify({ artifactContext, sqlSkeleton, parameterPattern })),
+      });
+      return Object.freeze({
+        kind: "repeated-fragment",
+        fingerprint: fingerprint(dialect, identity),
+        sourceSpan: Object.freeze({ ...site.sourceSpan }),
+        element,
+        separator,
+        minimumItems: 1,
+        parameterPattern,
+      });
+    }),
+  );
+}
+
 function sourceSemantics(source: string, query: ExtractedQuery, semantics: QuerySemantics): QuerySemantics {
   return mapQuerySemanticRanges(semantics, (range) => mapSqlRange(source, query, range));
 }
@@ -160,6 +256,22 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const diagnostics: SqlDiagnostic[] = [];
   const analyses = new Map<string, ReturnType<typeof dialect.analyze>>();
   const fingerprints = new Map<string, string>();
+  let repeatedArtifactContext: Readonly<Record<string, unknown>> | undefined;
+  const artifactContext = (): Readonly<Record<string, unknown>> => {
+    repeatedArtifactContext ??= Object.freeze({
+      grammar: Object.freeze({
+        id: dialect.id,
+        grammarVersion: dialect.grammarVersion,
+        capabilities: Object.fromEntries(
+          Object.entries(dialect.capabilities).sort(([left], [right]) => left.localeCompare(right)),
+        ),
+      }),
+      capabilityEvidence: resolveDialectCapabilityStates(dialect, schema, options.typePolicy),
+      schemaHash: calculateSchemaHash(schema),
+      typePolicyHash: calculateTypePolicyHash(options.typePolicy ?? {}),
+    });
+    return repeatedArtifactContext;
+  };
   const analyze = (sql: string): ReturnType<typeof dialect.analyze> => {
     const cached = analyses.get(sql);
     if (cached !== undefined) return cached;
@@ -320,7 +432,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           rowType: structuralRowType(source, query, rows),
           parameterType: parameterTypes.join(" | "),
           structural: true,
-          ...(repeated === undefined ? {} : { repeatedFragments: repeated.sites }),
+          ...(repeated === undefined ? {} : { fragmentList: true as const }),
           variantFingerprints: Object.freeze(
             [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
           ),
@@ -340,8 +452,25 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     const resolved = analyze(analyzedQuery.sql);
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, analyzedQuery, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-      const queryFingerprint = identify(analyzedQuery.sql);
+      const variantFingerprint = identify(analyzedQuery.sql);
       const semantics = sourceSemantics(source, analyzedQuery, resolved.semantics);
+      const artifacts = repeatedFragmentArtifacts(
+        source,
+        dialect,
+        artifactContext,
+        query,
+        repeated,
+        resolved.parameters,
+      );
+      const queryFingerprint =
+        artifacts === undefined
+          ? variantFingerprint
+          : identify(
+              JSON.stringify({
+                representative: variantFingerprint,
+                repeated: artifacts.map(({ fingerprint }) => fingerprint),
+              }),
+            );
       const repeatedFragments = new Map<number, CompiledFragment>();
       for (const item of repeated?.fragments ?? []) {
         const parameters = resolved.parameters
@@ -364,12 +493,13 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           repeated?.sites.some(({ dynamic }) => dynamic) === true
             ? "readonly unknown[]"
             : parameterTypeLiteral(analyzedQuery.parameterCount, resolved.parameters),
-        ...(repeated === undefined ? {} : { repeatedFragments: repeated.sites }),
+        ...(repeated === undefined ? {} : { fragmentList: true as const }),
+        ...(artifacts === undefined ? {} : { repeatedFragments: artifacts }),
         fingerprint: queryFingerprint,
-        variantFingerprints: Object.freeze([queryFingerprint]),
+        variantFingerprints: Object.freeze([variantFingerprint]),
         variants: Object.freeze([
           {
-            fingerprint: queryFingerprint,
+            fingerprint: variantFingerprint,
             sql: analyzedQuery.sql,
             rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
             parameterType: parameterTypeLiteral(analyzedQuery.parameterCount, resolved.parameters),
@@ -422,7 +552,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
       text:
-        item.repeatedFragments !== undefined
+        item.fragmentList === true
           ? `.__typedRow<${item.rowType}>()`
           : item.structural
             ? `.__typed<${item.rowType}, ${item.parameterType}>()`

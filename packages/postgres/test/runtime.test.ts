@@ -396,6 +396,27 @@ await describe("PostgreSQL runtime adapter", async () => {
     strict.throws(() => db.prepare("one", () => sql`SELECT 1`), /already registered/);
   });
 
+  await it("prepares a stable physical statement for each fragment-list cardinality", async () => {
+    const pool = new MockPool();
+    const db = createPostgresDatabase({ pool, preparedCardinalityVariantLimit: 2 });
+    const insert = db.prepare(
+      "insert-users",
+      (ids: readonly number[]) => sql`INSERT INTO users (id) VALUES ${ids.map((id) => sql.fragment`(${id})`)}`,
+    );
+
+    await db.execute(insert([1]));
+    await db.execute(insert([2, 3]));
+    await db.execute(insert([4]));
+    const calls = pool.calls as readonly PostgresQueryConfig[];
+    strict.strictEqual(calls[0]?.name, "insert-users");
+    strict.match(calls[1]?.name ?? "", /^tsqlv_[a-f\d]{56}$/u);
+    strict.notStrictEqual(calls[1]?.name, calls[0]?.name);
+    strict.strictEqual(calls[2]?.name, "insert-users");
+    strict.strictEqual(calls[0]?.text, "INSERT INTO users (id) VALUES ($1)");
+    strict.strictEqual(calls[1]?.text, "INSERT INTO users (id) VALUES ($1), ($2)");
+    strict.deepStrictEqual(calls[1]?.values, [2, 3]);
+  });
+
   await it("rejects structural shape changes before driver dispatch", async () => {
     const pool = new MockPool();
     const db = createPostgresDatabase({ pool });

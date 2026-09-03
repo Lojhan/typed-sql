@@ -14,6 +14,7 @@ import {
   diagnosticRegistry,
   isTypedSqlDiagnosticCode,
   ParameterCollector,
+  PreparedQueryRenderCache,
   parameterTypeLiteral,
   type Query,
   QueryCardinalityError,
@@ -126,6 +127,28 @@ await describe("runtime SQL tag", async () => {
       undefined,
     );
     strict.deepStrictEqual([placeholderCalls, identifierCalls], [1, 1]);
+  });
+
+  await it("caches fragment-list cardinalities with bounded LRU semantics", () => {
+    const cache = new PreparedQueryRenderCache(2);
+    const build = (ids: readonly number[]) => sql`VALUES ${ids.map((id) => sql.fragment`(${id})`)}`;
+    strict.deepStrictEqual(cache.bind(build([1]), renderer)?.rendered, { text: "VALUES ($1)", values: [1] });
+    strict.deepStrictEqual(cache.bind(build([2, 3]), renderer)?.rendered, {
+      text: "VALUES ($1), ($2)",
+      values: [2, 3],
+    });
+    strict.strictEqual(cache.size, 2);
+    strict.deepStrictEqual(cache.bind(build([4]), renderer), {
+      rendered: { text: "VALUES ($1)", values: [4] },
+      primary: true,
+    });
+    strict.deepStrictEqual(cache.bind(build([5, 6, 7]), renderer)?.rendered, {
+      text: "VALUES ($1), ($2), ($3)",
+      values: [5, 6, 7],
+    });
+    strict.strictEqual(cache.size, 2);
+    strict.strictEqual(cache.bind(sql`SELECT ${1}`, renderer), undefined);
+    strict.throws(() => new PreparedQueryRenderCache(0), /positive safe integer/u);
   });
 
   await it("keeps hostile strings parameterized inside trusted structural fragments", () => {

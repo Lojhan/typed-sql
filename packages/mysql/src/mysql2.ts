@@ -46,6 +46,7 @@ export interface MySql2Options {
   readonly compatibilitySnapshot?: MySqlSchemaSnapshot & { readonly formatVersion: 2 };
   readonly decoderPlanCacheCapacity?: number;
   readonly preparedStatementLimit?: number;
+  readonly preparedCardinalityVariantLimit?: number;
   readonly onWarning?: import("./runtime.js").MySqlDatabaseOptions["onWarning"];
   readonly rejectWarnings?: boolean;
 }
@@ -773,6 +774,7 @@ export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
 export async function createMySql2Database(options: MySql2Options): Promise<MySqlDatabase> {
   validatePoolConfig(options.poolConfig);
   validateCacheCapacity(options.preparedStatementLimit, "MySQL preparedStatementLimit");
+  validateCacheCapacity(options.preparedCardinalityVariantLimit, "MySQL preparedCardinalityVariantLimit");
   validateCacheCapacity(options.decoderPlanCacheCapacity, "MySQL decoderPlanCacheCapacity");
   const driver = await loadMySql2Driver(options.driverImporter);
   const pool = driver.createPool({
@@ -798,6 +800,9 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
       ? {}
       : { decoderPlanCacheCapacity: options.decoderPlanCacheCapacity }),
     ...(options.preparedStatementLimit === undefined ? {} : { preparedStatementLimit: options.preparedStatementLimit }),
+    ...(options.preparedCardinalityVariantLimit === undefined
+      ? {}
+      : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),
     ...(options.onWarning === undefined ? {} : { onWarning: options.onWarning }),
     ...(options.rejectWarnings === undefined ? {} : { rejectWarnings: options.rejectWarnings }),
   });

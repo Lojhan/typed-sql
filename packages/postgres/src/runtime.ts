@@ -127,6 +127,8 @@ export interface PostgresDatabaseOptions {
   readonly fallbackTypeParsers?: PostgresTypeParserSet;
   readonly codecs?: readonly PostgresRuntimeCodec[];
   readonly observer?: DatabaseObserver;
+  /** Maximum rendered cardinalities cached by each logical prepared factory. Defaults to 32. */
+  readonly preparedCardinalityVariantLimit?: number;
 }
 
 const defaultPolicy: PostgresCodecPolicy = defaultPostgresTypePolicy;
@@ -1393,7 +1395,7 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
     ),
     options.ownsPool ?? false,
     0,
-    createPostgresPreparedQueryState(),
+    createPostgresPreparedQueryState(options.preparedCardinalityVariantLimit),
     createPostgresObservationState(options.observer),
   );
 }

@@ -34,6 +34,7 @@ export interface NodeSqliteDatabaseOptions {
   /** Generated snapshot whose server and type-policy evidence must match this connection. */
   readonly snapshot?: SchemaSnapshotV2;
   readonly statementCacheSize?: number;
+  readonly preparedCardinalityVariantLimit?: number;
   /** Test or host-injected loader. Applications normally leave this unset. */
   readonly driverImporter?: () => Promise<NodeSqliteModuleLike>;
 }
@@ -278,6 +279,9 @@ export async function createNodeSqliteDatabase(options: NodeSqliteDatabaseOption
     return createSqliteDatabase({
       connection: adaptNodeSqliteDatabase(database, options),
       ownsConnection: true,
+      ...(options.preparedCardinalityVariantLimit === undefined
+        ? {}
+        : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),
     });
   } catch (error) {
     database.close();

@@ -83,6 +83,24 @@ export interface QueryManifestParameter {
   readonly databaseType?: string;
 }
 
+export interface QueryManifestRepeatedFragment {
+  readonly kind: "repeated-fragment";
+  readonly fingerprint: string;
+  readonly sourceSpan: SourceRange;
+  readonly element: {
+    readonly kind: "fragment";
+    readonly sqlSkeleton: string;
+    readonly fingerprint: string;
+  };
+  readonly separator: {
+    readonly kind: "static-fragment";
+    readonly text: string;
+    readonly fingerprint: string;
+  };
+  readonly minimumItems: 1;
+  readonly parameterPattern: readonly QueryManifestParameter[];
+}
+
 export interface QueryManifestVariant {
   readonly fingerprint: string;
   readonly choices: Readonly<Record<string, boolean>>;
@@ -111,6 +129,7 @@ export interface ResolvedQueryManifestEntry extends QueryManifestEntryBase {
   readonly rowType: string;
   readonly parameterType: string;
   readonly diagnostics: readonly QueryManifestDiagnostic[];
+  readonly repeatedFragments?: readonly QueryManifestRepeatedFragment[];
   readonly variants: readonly QueryManifestVariant[];
   readonly semantics: QueryManifestSemantics;
   /** Evidence for declared dialect capabilities this query actually uses. */
@@ -303,6 +322,19 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
       diagnostics: compilation.diagnostics
         .filter((diagnostic) => inRange(diagnostic, query.range))
         .map(manifestDiagnostic),
+      ...(compiled.repeatedFragments === undefined
+        ? {}
+        : {
+            repeatedFragments: compiled.repeatedFragments.map(
+              (artifact): QueryManifestRepeatedFragment => ({
+                ...artifact,
+                sourceSpan: { ...artifact.sourceSpan },
+                element: { ...artifact.element },
+                separator: { ...artifact.separator },
+                parameterPattern: artifact.parameterPattern.map(parameterDescription),
+              }),
+            ),
+          }),
       variants: compiled.variants.map((variant) => {
         const capabilityEvidence = manifestCapabilityEvidence(variant.semantics, capabilityStates);
         return {
@@ -657,6 +689,49 @@ function assertVariant(value: unknown, description: string): asserts value is Qu
   }
 }
 
+function assertRepeatedFragments(
+  value: unknown,
+  description: string,
+): asserts value is readonly QueryManifestRepeatedFragment[] {
+  if (!Array.isArray(value) || value.length === 0) throw new TypeError(`${description} must be a non-empty array`);
+  for (const artifact of value) {
+    if (!record(artifact) || artifact.kind !== "repeated-fragment" || artifact.minimumItems !== 1) {
+      throw new TypeError(`${description} entries must be repeated-fragment artifacts with minimumItems 1`);
+    }
+    assertString(artifact.fingerprint, `${description} fingerprint`);
+    if (!/^sha256:[a-f\d]{64}$/u.test(artifact.fingerprint))
+      throw new TypeError(`${description} fingerprint is invalid`);
+    assertRange(artifact.sourceSpan, `${description} sourceSpan`);
+    if (!record(artifact.element) || artifact.element.kind !== "fragment") {
+      throw new TypeError(`${description} element is invalid`);
+    }
+    assertString(artifact.element.sqlSkeleton, `${description} element sqlSkeleton`);
+    assertString(artifact.element.fingerprint, `${description} element fingerprint`);
+    if (!/^sha256:[a-f\d]{64}$/u.test(artifact.element.fingerprint)) {
+      throw new TypeError(`${description} element fingerprint is invalid`);
+    }
+    if (!record(artifact.separator) || artifact.separator.kind !== "static-fragment") {
+      throw new TypeError(`${description} separator is invalid`);
+    }
+    assertString(artifact.separator.text, `${description} separator text`);
+    assertString(artifact.separator.fingerprint, `${description} separator fingerprint`);
+    if (!/^sha256:[a-f\d]{64}$/u.test(artifact.separator.fingerprint)) {
+      throw new TypeError(`${description} separator fingerprint is invalid`);
+    }
+    if (!Array.isArray(artifact.parameterPattern))
+      throw new TypeError(`${description} parameterPattern must be an array`);
+    for (const [index, parameter] of artifact.parameterPattern.entries()) {
+      if (!record(parameter) || parameter.index !== index + 1 || typeof parameter.nullable !== "boolean") {
+        throw new TypeError(`${description} parameterPattern must use contiguous one-based parameters`);
+      }
+      assertString(parameter.tsType, `${description} parameter tsType`);
+      if (parameter.databaseType !== undefined) {
+        assertString(parameter.databaseType, `${description} parameter databaseType`);
+      }
+    }
+  }
+}
+
 export function parseQueryManifest(value: unknown): QueryManifest {
   if (!record(value)) throw new TypeError("Query manifest must be an object");
   if (value.formatVersion !== QUERY_MANIFEST_FORMAT_VERSION) {
@@ -741,6 +816,9 @@ export function parseQueryManifest(value: unknown): QueryManifest {
         throw new TypeError("Resolved query manifest entries are incomplete");
       }
       assertDiagnostics(query.diagnostics, "Resolved query diagnostics");
+      if (query.repeatedFragments !== undefined) {
+        assertRepeatedFragments(query.repeatedFragments, "Resolved query repeatedFragments");
+      }
       for (const [index, variant] of query.variants.entries()) {
         assertVariant(variant, `Query manifest variant ${index}`);
       }
@@ -890,6 +968,35 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         databaseType: { type: "string" },
       },
     },
+    repeatedFragment: {
+      type: "object",
+      required: ["kind", "fingerprint", "sourceSpan", "element", "separator", "minimumItems", "parameterPattern"],
+      properties: {
+        kind: { const: "repeated-fragment" },
+        fingerprint: { $ref: "#/$defs/fingerprint" },
+        sourceSpan: { $ref: "#/$defs/range" },
+        element: {
+          type: "object",
+          required: ["kind", "sqlSkeleton", "fingerprint"],
+          properties: {
+            kind: { const: "fragment" },
+            sqlSkeleton: { type: "string" },
+            fingerprint: { $ref: "#/$defs/fingerprint" },
+          },
+        },
+        separator: {
+          type: "object",
+          required: ["kind", "text", "fingerprint"],
+          properties: {
+            kind: { const: "static-fragment" },
+            text: { type: "string" },
+            fingerprint: { $ref: "#/$defs/fingerprint" },
+          },
+        },
+        minimumItems: { const: 1 },
+        parameterPattern: { type: "array", items: { $ref: "#/$defs/parameter" } },
+      },
+    },
     variant: {
       type: "object",
       required: ["fingerprint", "choices", "rowType", "parameterType", "columns", "parameters", "semantics"],
@@ -936,6 +1043,7 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         rowType: { type: "string" },
         parameterType: { type: "string" },
         diagnostics: { type: "array", items: { $ref: "#/$defs/diagnostic" } },
+        repeatedFragments: { type: "array", minItems: 1, items: { $ref: "#/$defs/repeatedFragment" } },
         variants: { type: "array", minItems: 1, items: { $ref: "#/$defs/variant" } },
         semantics: { $ref: "#/$defs/semantics" },
         capabilityEvidence: { type: "array", items: { $ref: "#/$defs/capabilityEvidence" } },

@@ -175,6 +175,8 @@ export interface PgOptions {
   readonly extensionManifests?: readonly PostgresExtensionManifest[];
   /** Maximum named statements retained by each pooled connection. Defaults to 256. */
   readonly statementCacheSize?: number;
+  /** Maximum rendered cardinalities cached by each logical prepared factory. Defaults to 32. */
+  readonly preparedCardinalityVariantLimit?: number;
   readonly decimal?: (value: string) => unknown;
   /** Host-injected loader for workspaces or runtimes with nonstandard package resolution. */
   readonly cursorImporter?: PgCursorImporter;
@@ -1050,6 +1052,9 @@ export async function createPgDatabase(options: PgOptions): Promise<PostgresData
       ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
       ...(codecs.length === 0 ? {} : { codecs }),
       ...(options.observer === undefined ? {} : { observer: options.observer }),
+      ...(options.preparedCardinalityVariantLimit === undefined
+        ? {}
+        : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),
     });
   } catch (error) {
     await pool.end();

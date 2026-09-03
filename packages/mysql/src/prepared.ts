@@ -1,8 +1,7 @@
 import {
-  bindQueryRenderSkeleton,
-  compileQueryRenderSkeleton,
+  DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+  PreparedQueryRenderCache,
   type Query,
-  type QueryRenderSkeleton,
   type RenderedQuery,
   type SqlRenderer,
 } from "@typed-sql/core";
@@ -22,23 +21,29 @@ export interface MySqlPreparedQueryMetadata {
 }
 
 interface PreparedStatement {
-  skeleton: QueryRenderSkeleton | undefined;
+  readonly variants: PreparedQueryRenderCache;
 }
 
 export interface MySqlPreparedQueryState {
   readonly capacity: number;
+  readonly variantCapacity: number;
   readonly statements: Map<string, PreparedStatement>;
   readonly queries: WeakMap<object, MySqlPreparedQueryMetadata>;
 }
 
 export const defaultMySqlPreparedStatementLimit = 16_000;
 
-export function createMySqlPreparedQueryState(capacity = defaultMySqlPreparedStatementLimit): MySqlPreparedQueryState {
+export function createMySqlPreparedQueryState(
+  capacity = defaultMySqlPreparedStatementLimit,
+  variantCapacity = DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+): MySqlPreparedQueryState {
   if (!Number.isSafeInteger(capacity) || capacity <= 0) {
     throw new RangeError("MySQL prepared statement limit must be a positive safe integer");
   }
+  new PreparedQueryRenderCache(variantCapacity);
   return {
     capacity,
+    variantCapacity,
     statements: new Map(),
     queries: new WeakMap(),
   };
@@ -66,7 +71,7 @@ export function prepareMySqlQuery<Arguments extends readonly unknown[], Row, Par
     );
   }
 
-  const statement: PreparedStatement = { skeleton: undefined };
+  const statement: PreparedStatement = { variants: new PreparedQueryRenderCache(state.variantCapacity) };
   state.statements.set(statementName, statement);
 
   const prepared = (...args: Arguments): Query<Row, Params> => {
@@ -79,16 +84,7 @@ export function prepareMySqlQuery<Arguments extends readonly unknown[], Row, Par
     }
 
     let rendered = existing?.rendered;
-    const skeleton = statement.skeleton;
-    if (rendered === undefined) {
-      if (skeleton === undefined) {
-        const compiled = compileQueryRenderSkeleton(query, renderer);
-        statement.skeleton = compiled.skeleton;
-        rendered = compiled.rendered;
-      } else {
-        rendered = bindQueryRenderSkeleton(query, skeleton);
-      }
-    }
+    if (rendered === undefined) rendered = statement.variants.bind(query, renderer)?.rendered;
     if (rendered === undefined) {
       throw new TypeError(
         `Prepared statement ${JSON.stringify(statementName)} must always render the same SQL text and structure`,

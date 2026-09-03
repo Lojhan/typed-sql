@@ -429,7 +429,19 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       "INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4) RETURNING id, name",
     );
     strict.strictEqual(result.queries[0]?.parameterType, "readonly unknown[]");
-    strict.strictEqual(result.queries[0]?.repeatedFragments?.[0]?.dynamic, true);
+    const artifact = result.queries[0]?.repeatedFragments?.[0];
+    strict.strictEqual(artifact?.kind, "repeated-fragment");
+    strict.strictEqual(artifact?.minimumItems, 1);
+    strict.strictEqual(artifact?.separator.text, ", ");
+    strict.strictEqual(artifact?.element.sqlSkeleton, "({{parameter:1}}, {{parameter:2}})");
+    strict.deepStrictEqual(
+      artifact?.parameterPattern.map(({ index, tsType, nullable }) => ({ index, tsType, nullable })),
+      [
+        { index: 1, tsType: "number", nullable: false },
+        { index: 2, tsType: "string", nullable: false },
+      ],
+    );
+    strict.match(artifact?.fingerprint ?? "", /^sha256:[a-f\d]{64}$/u);
     strict.ok(result.transformedSource.includes("sql.__typedRow<"));
     strict.ok(result.transformedSource.includes("sql.fragment<readonly [number, string]>"));
 

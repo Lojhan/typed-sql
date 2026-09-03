@@ -1,8 +1,8 @@
+import { createHash } from "node:crypto";
 import {
-  bindQueryRenderSkeleton,
-  compileQueryRenderSkeleton,
+  DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+  PreparedQueryRenderCache,
   type Query,
-  type QueryRenderSkeleton,
   type RenderedQuery,
   type SqlRenderer,
 } from "@typed-sql/core";
@@ -17,24 +17,37 @@ export interface PostgresPreparedQueryFactory<
 }
 
 export interface PostgresPreparedQueryMetadata {
+  readonly logicalStatementName: string;
   readonly statementName: string;
   readonly rendered: RenderedQuery;
 }
 
 interface PreparedStatement {
-  skeleton: QueryRenderSkeleton | undefined;
+  readonly variants: PreparedQueryRenderCache;
 }
 
 export interface PostgresPreparedQueryState {
+  readonly variantCapacity: number;
   readonly statements: Map<string, PreparedStatement>;
   readonly queries: WeakMap<object, PostgresPreparedQueryMetadata>;
 }
 
-export function createPostgresPreparedQueryState(): PostgresPreparedQueryState {
+export function createPostgresPreparedQueryState(
+  variantCapacity = DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+): PostgresPreparedQueryState {
+  // Validate eagerly even when no prepared factory is registered.
+  new PreparedQueryRenderCache(variantCapacity);
   return {
+    variantCapacity,
     statements: new Map(),
     queries: new WeakMap(),
   };
+}
+
+function physicalStatementName(statementName: string, text: string, primary: boolean): string {
+  if (primary) return statementName;
+  const fingerprint = createHash("sha256").update(`${statementName}\0${text}`).digest("hex").slice(0, 56);
+  return `tsqlv_${fingerprint}`;
 }
 
 function validateStatementName(statementName: string): void {
@@ -54,36 +67,36 @@ export function preparePostgresQuery<Arguments extends readonly unknown[], Row, 
     throw new TypeError(`Prepared statement name ${JSON.stringify(statementName)} is already registered`);
   }
 
-  const statement: PreparedStatement = { skeleton: undefined };
+  const statement: PreparedStatement = { variants: new PreparedQueryRenderCache(state.variantCapacity) };
   state.statements.set(statementName, statement);
 
   const prepared = (...args: Arguments): Query<Row, Params> => {
     const query = factory(...args);
     const existing = state.queries.get(query);
-    if (existing !== undefined && existing.statementName !== statementName) {
+    if (existing !== undefined && existing.logicalStatementName !== statementName) {
       throw new TypeError(
         `A query cannot use both prepared statement ${JSON.stringify(existing.statementName)} and ${JSON.stringify(statementName)}`,
       );
     }
 
     let rendered = existing?.rendered;
-    const skeleton = statement.skeleton;
+    let physicalName = existing?.statementName;
     if (rendered === undefined) {
-      if (skeleton === undefined) {
-        const compiled = compileQueryRenderSkeleton(query, renderer);
-        statement.skeleton = compiled.skeleton;
-        rendered = compiled.rendered;
-      } else {
-        rendered = bindQueryRenderSkeleton(query, skeleton);
+      const variant = statement.variants.bind(query, renderer);
+      rendered = variant?.rendered;
+      if (variant !== undefined) {
+        physicalName = physicalStatementName(statementName, variant.rendered.text, variant.primary);
       }
     }
-    if (rendered === undefined) {
+    if (rendered === undefined || physicalName === undefined) {
       throw new TypeError(
         `Prepared statement ${JSON.stringify(statementName)} must always render the same SQL text and structure`,
       );
     }
 
-    if (existing === undefined) state.queries.set(query, { statementName, rendered });
+    if (existing === undefined) {
+      state.queries.set(query, { logicalStatementName: statementName, statementName: physicalName, rendered });
+    }
     return query;
   };
 

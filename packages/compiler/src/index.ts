@@ -41,6 +41,9 @@ export type {
   CompiledQueryVariant,
   CompileSourceOptions,
   CompileSourceResult,
+  FragmentArtifact,
+  RepeatedFragmentArtifact,
+  StaticFragmentArtifact,
 } from "./compiler.js";
 export {
   compileSource,
@@ -60,6 +63,7 @@ export type {
   QueryManifestEntry,
   QueryManifestLocation,
   QueryManifestParameter,
+  QueryManifestRepeatedFragment,
   QueryManifestSemanticEvidence,
   QueryManifestSemanticFact,
   QueryManifestSemantics,

@@ -225,10 +225,10 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
   cancelled(control);
   const insertions = Object.freeze(
     [
-      ...compilation.queries.map(({ query, rowType, parameterType, structural, repeatedFragments }) => ({
+      ...compilation.queries.map(({ query, rowType, parameterType, structural, fragmentList }) => ({
         position: query.insertionPosition,
         length:
-          repeatedFragments !== undefined
+          fragmentList === true
             ? `.__typedRow<${rowType}>()`.length
             : structural
               ? rowType.length + parameterType.length + 14

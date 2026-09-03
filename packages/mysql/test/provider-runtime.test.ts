@@ -743,6 +743,24 @@ await describe("MySQL provider and runtime", async () => {
     strict.throws(() => database.prepare("one", () => sql`SELECT 1`), /already registered/);
   });
 
+  await it("reuses bounded prepared variants across fragment-list cardinalities", async () => {
+    const pool = new FakePool();
+    const database = createMySqlDatabase({ pool, preparedCardinalityVariantLimit: 1 });
+    const insert = database.prepare(
+      "insert-users",
+      (ids: readonly number[]) => sql`INSERT INTO users (id) VALUES ${ids.map((id) => sql.fragment`(${id})`)}`,
+    );
+
+    await database.execute(insert([1]));
+    await database.execute(insert([2, 3]));
+    await database.execute(insert([4]));
+    strict.deepStrictEqual(pool.calls.slice(-3), [
+      { sql: "INSERT INTO users (id) VALUES (?)", values: [1] },
+      { sql: "INSERT INTO users (id) VALUES (?), (?)", values: [2, 3] },
+      { sql: "INSERT INTO users (id) VALUES (?)", values: [4] },
+    ]);
+  });
+
   await it("rejects structural shape changes before driver dispatch", async () => {
     const pool = new FakePool();
     const database = createMySqlDatabase({ pool });

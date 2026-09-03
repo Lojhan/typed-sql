@@ -13,6 +13,11 @@
       "outcome": "TSQL_FRAGMENT_LIST_LIMIT",
       "owner": "@typed-sql/core"
     },
+    "core.preparedCardinalityVariants": {
+      "value": 32,
+      "outcome": "lru-eviction",
+      "owner": "@typed-sql/core"
+    },
     "core.queryParameters": {
       "value": 65535,
       "outcome": "TSQL_FRAGMENT_LIST_LIMIT",

@@ -135,6 +135,36 @@ await describe("SQLite runtime edge contracts", async () => {
     await database.one(parameterized(2));
   });
 
+  await it("prepares fragment-list cardinalities through a bounded variant cache", async () => {
+    const calls: { readonly sql: string; readonly values: readonly unknown[] }[] = [];
+    const database = createSqliteDatabase({
+      preparedCardinalityVariantLimit: 1,
+      connection: {
+        all(sqlText, values = []) {
+          calls.push({ sql: sqlText, values });
+          return [];
+        },
+        exec() {},
+        iterate() {
+          return [];
+        },
+      },
+    });
+    const insert = database.prepare(
+      "insert-users",
+      (ids: readonly number[]) => sql`INSERT INTO users (id) VALUES ${ids.map((id) => sql.fragment`(${id})`)}`,
+    );
+
+    await database.execute(insert([1]));
+    await database.execute(insert([2, 3]));
+    await database.execute(insert([4]));
+    strict.deepStrictEqual(calls, [
+      { sql: "INSERT INTO users (id) VALUES (?)", values: [1] },
+      { sql: "INSERT INTO users (id) VALUES (?), (?)", values: [2, 3] },
+      { sql: "INSERT INTO users (id) VALUES (?)", values: [4] },
+    ]);
+  });
+
   await it("uses savepoints and closes transaction scopes", async () => {
     const connection = memoryConnection();
     const database = createSqliteDatabase({ connection });

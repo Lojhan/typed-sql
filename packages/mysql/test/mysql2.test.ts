@@ -349,7 +349,11 @@ await describe("application-owned mysql2 integration", async () => {
         new RegExp(`owns poolConfig\\.${option}`),
       );
     }
-    for (const option of ["preparedStatementLimit", "decoderPlanCacheCapacity"] as const) {
+    for (const option of [
+      "preparedStatementLimit",
+      "preparedCardinalityVariantLimit",
+      "decoderPlanCacheCapacity",
+    ] as const) {
       await strict.rejects(
         () =>
           createMySql2Database({
