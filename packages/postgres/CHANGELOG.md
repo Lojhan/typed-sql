@@ -1,5 +1,11 @@
 # @typed-sql/postgres
 
+## 2.1.0-rc.1
+
+### Patch Changes
+
+- af8882c: Preserve domain evidence from legacy snapshots and schema-qualified v2 introspection during PostgreSQL operator resolution so parameters compared with domain-typed columns retain their inferred base type.
+
 ## 2.1.0-rc.0
 
 ### Minor Changes
