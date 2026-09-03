@@ -8,6 +8,21 @@
     "compiler.queries": { "value": 10000, "outcome": "TSQ006", "owner": "@typed-sql/compiler" },
     "compiler.structuralVariants": { "value": 64, "outcome": "TSQ006", "owner": "@typed-sql/compiler" },
     "compiler.generatedDeclarationBytes": { "value": 8388608, "outcome": "TSQ006", "owner": "@typed-sql/compiler" },
+    "core.fragmentListItems": {
+      "value": 10000,
+      "outcome": "TSQL_FRAGMENT_LIST_LIMIT",
+      "owner": "@typed-sql/core"
+    },
+    "core.queryParameters": {
+      "value": 65535,
+      "outcome": "TSQL_FRAGMENT_LIST_LIMIT",
+      "owner": "@typed-sql/core"
+    },
+    "core.renderedSqlBytes": {
+      "value": 4194304,
+      "outcome": "TSQL_FRAGMENT_LIST_LIMIT",
+      "owner": "@typed-sql/core"
+    },
     "config.cacheEntries": { "value": 32, "outcome": "lru-eviction", "owner": "@typed-sql/config" },
     "languageServer.analysisCacheEntries": {
       "value": 256,

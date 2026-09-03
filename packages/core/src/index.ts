@@ -107,6 +107,7 @@ export type {
   QueryRow,
   RenderedQuery,
   SqlFragment,
+  SqlFragmentListErrorCode,
   SqlRenderer,
   SqlSegment,
   SqlTag,
@@ -117,7 +118,11 @@ export {
   bindQueryRenderSkeleton,
   compileQueryRenderSkeleton,
   createDatabase,
+  DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  DEFAULT_MAX_QUERY_PARAMETERS,
+  DEFAULT_MAX_RENDERED_SQL_BYTES,
   renderQuery,
+  SqlFragmentListError,
   sql,
 } from "./query.js";
 export type { IndexedTable, ResolverType } from "./resolver.js";

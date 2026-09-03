@@ -10,7 +10,15 @@ import {
 } from "../../packages/compiler/src/index.js";
 import { CONFIG_CACHE_LIMIT } from "../../packages/config/src/index.js";
 import { createFailureInjector, INJECTED_FAILURE_CODE } from "../../packages/conformance/src/index.js";
-import { assessArtifactCompatibility, createDatabase, type SqlRenderer, sql } from "../../packages/core/src/index.js";
+import {
+  assessArtifactCompatibility,
+  createDatabase,
+  DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  DEFAULT_MAX_QUERY_PARAMETERS,
+  DEFAULT_MAX_RENDERED_SQL_BYTES,
+  type SqlRenderer,
+  sql,
+} from "../../packages/core/src/index.js";
 import {
   DEFAULT_MAX_CACHE_ENTRIES,
   DEFAULT_MAX_SCHEMA_CACHE_ENTRIES,
@@ -51,6 +59,9 @@ await describe("cross-component failures and resource bounds", async () => {
         "compiler.queries": DEFAULT_MAX_QUERIES,
         "compiler.structuralVariants": DEFAULT_MAX_STRUCTURAL_VARIANTS,
         "compiler.generatedDeclarationBytes": DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+        "core.fragmentListItems": DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+        "core.queryParameters": DEFAULT_MAX_QUERY_PARAMETERS,
+        "core.renderedSqlBytes": DEFAULT_MAX_RENDERED_SQL_BYTES,
         "config.cacheEntries": CONFIG_CACHE_LIMIT,
         "languageServer.analysisCacheEntries": DEFAULT_MAX_CACHE_ENTRIES,
         "languageServer.schemaCacheEntries": DEFAULT_MAX_SCHEMA_CACHE_ENTRIES,

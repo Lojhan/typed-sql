@@ -6,6 +6,8 @@ import {
   closestName,
   compileQueryRenderSkeleton,
   createDatabase,
+  DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  DEFAULT_MAX_RENDERED_SQL_BYTES,
   DIALECT_CONTRACT_VERSION,
   type DialectPlugin,
   defineConfig,
@@ -22,6 +24,7 @@ import {
   rowTypeLiteral,
   type SchemaSnapshot,
   type SqlFragment,
+  SqlFragmentListError,
   type SqlRenderer,
   sql,
   UnsupportedExecutionCapabilityError,
@@ -166,6 +169,64 @@ await describe("runtime SQL tag", async () => {
       /separator must be a trusted SQL fragment/,
     );
     strict.throws(() => sql.join(["unsafe" as never]), /accepts SQL fragments/);
+  });
+
+  await it("renders implicit fragment lists in row-major order without expanding ordinary arrays", () => {
+    const rows = [
+      { id: 1, email: "one@example.test", active: true },
+      { id: 2, email: "two@example.test", active: false },
+      { id: 3, email: "three@example.test", active: true },
+      { id: 4, email: "four@example.test", active: false },
+      { id: 5, email: "five@example.test", active: true },
+    ];
+    const query = sql`INSERT INTO users (id, email, active) VALUES ${rows.map(
+      (row) => sql.fragment`(${row.id}, ${row.email}, ${row.active})`,
+    )}`;
+    strict.strictEqual(query.segments[1]?.kind, "fragment-list");
+    if (query.segments[1]?.kind === "fragment-list") {
+      strict.strictEqual(query.segments[1].items.length, 5);
+      strict.ok(Object.isFrozen(query.segments[1].items));
+    }
+    strict.deepStrictEqual(renderQuery(query, renderer), {
+      text: "INSERT INTO users (id, email, active) VALUES ($1, $2, $3), ($4, $5, $6), ($7, $8, $9), ($10, $11, $12), ($13, $14, $15)",
+      values: rows.flatMap(({ id, email, active }) => [id, email, active]),
+    });
+
+    const ids = [1, 2, 3];
+    strict.deepStrictEqual(renderQuery(sql`SELECT * FROM users WHERE id = ANY(${ids})`, renderer), {
+      text: "SELECT * FROM users WHERE id = ANY($1)",
+      values: [ids],
+    });
+    strict.deepStrictEqual(renderQuery(sql`SELECT ${[sql.ident("id"), sql.ident("email")]} FROM users`, renderer), {
+      text: 'SELECT "id", "email" FROM users',
+      values: [],
+    });
+  });
+
+  await it("rejects ambiguous or unsafe array shapes before rendering", () => {
+    const assertCode = (build: () => unknown, code: string) =>
+      strict.throws(build, (error: unknown) => error instanceof SqlFragmentListError && error.code === code);
+    assertCode(() => sql`VALUES ${[]}`, "TSQL_FRAGMENT_LIST_EMPTY");
+    assertCode(() => sql`VALUES ${[sql.fragment`(1)`, 2]}`, "TSQL_FRAGMENT_LIST_MIXED");
+    assertCode(() => sql`VALUES ${[[1], [2]]}`, "TSQL_FRAGMENT_LIST_NESTED");
+    assertCode(() => sql`VALUES ${[Promise.resolve(sql.fragment`(1)`)]}`, "TSQL_FRAGMENT_LIST_ASYNC");
+    const sparse = Array<SqlFragment>(2);
+    sparse[1] = sql.fragment`(1)`;
+    assertCode(() => sql`VALUES ${sparse}`, "TSQL_FRAGMENT_LIST_SPARSE");
+    assertCode(
+      () => sql`VALUES ${Array.from({ length: DEFAULT_MAX_FRAGMENT_LIST_ITEMS + 1 }, () => sql.fragment`(1)`)}`,
+      "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+    strict.deepStrictEqual(renderQuery(sql`SELECT ${sql.value([])}`, renderer), { text: "SELECT $1", values: [[]] });
+    strict.deepStrictEqual(renderQuery(sql`SELECT 1${sql.join([])}`, renderer), { text: "SELECT 1", values: [] });
+  });
+
+  await it("bounds SQL after structural expansion", () => {
+    const oversized = sql`SELECT ${sql.raw("x".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES + 1))}`;
+    strict.throws(
+      () => renderQuery(oversized, renderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
   });
 
   await it("provides an immutable empty structural fragment", () => {

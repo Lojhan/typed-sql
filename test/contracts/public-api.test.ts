@@ -178,6 +178,7 @@ import type {
   SqlDiagnostic,
   SqlDiagnosticFix,
   SqlFragment,
+  SqlFragmentListErrorCode,
   SqlRenderer,
   SqlSegment,
   SqlTag,
@@ -630,6 +631,7 @@ type ReferencedStableTypes =
   | RoutedDatabaseOptions
   | RoutedTransactionOptions
   | SqlFragment
+  | SqlFragmentListErrorCode
   | SqlDiagnostic
   | SqlDiagnosticFix
   | SqlRenderer
@@ -840,6 +842,9 @@ const expectedRuntimeExports = {
     "createAdapterCapabilityResolver",
     "createRoutedDatabase",
     "createSupportBundle",
+    "DEFAULT_MAX_FRAGMENT_LIST_ITEMS",
+    "DEFAULT_MAX_QUERY_PARAMETERS",
+    "DEFAULT_MAX_RENDERED_SQL_BYTES",
     "defineAdapterCapability",
     "defineDialectCapabilityStates",
     "defineDialectServerEvidence",
@@ -870,6 +875,7 @@ const expectedRuntimeExports = {
     "runControlledExecution",
     "serializeArtifactCompatibilityIdentity",
     "sql",
+    "SqlFragmentListError",
     "startDatabaseObservation",
     "staticDialectCapabilityStates",
     "SUPPORT_BUNDLE_FORMAT_VERSION",
