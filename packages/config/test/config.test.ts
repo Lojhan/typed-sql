@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { discoverConfig, fromConfig, loadConfig } from "../src/index.js";
+import { CONFIG_CACHE_LIMIT, discoverConfig, fromConfig, loadConfig } from "../src/index.js";
 
 const fixture = new URL("../../../e2e/postgres/typed-sql.config.ts", import.meta.url);
 
@@ -56,7 +56,7 @@ await describe("typed-sql config", async () => {
     }
   });
 
-  await it("reuses unchanged modules and reloads changed config content", async () => {
+  await it("reuses unchanged modules, reloads changed content, and bounds the cache", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-config-cache-"));
     const file = join(directory, "typed-sql.config.mjs");
     const source = (id: string) => `
@@ -85,6 +85,10 @@ await describe("typed-sql config", async () => {
       const second = await loadConfig({ file });
       strict.notStrictEqual(second, first);
       strict.strictEqual(second.config.dialect.id, "second");
+      for (let index = 0; index <= CONFIG_CACHE_LIMIT; index += 1) {
+        await writeFile(file, source(`bounded-${index}`));
+        strict.strictEqual((await loadConfig({ file })).config.dialect.id, `bounded-${index}`);
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
@@ -102,6 +106,7 @@ await describe("typed-sql config", async () => {
       "{ dialect: { contractVersion: 4, id: 'x', analyze() {} } }",
       "{ dialect: { contractVersion: 4, id: 'x', analyze() {}, validateSnapshot() {} }, schema: {} }",
       "{ dialect: { contractVersion: 4, id: 'x', analyze() {}, validateSnapshot() {} }, schema: { file: 'x' } }",
+      "{ dialect: { contractVersion: 1 }, schema: { file: 'x' }, outDir: 'generated' }",
     ];
     try {
       for (const [index, candidate] of candidates.entries()) {
