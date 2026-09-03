@@ -54,7 +54,7 @@ Division of exact values is nullable because division by zero returns `NULL`.
 ## Version support and differential evidence
 
 The stable contract is patch-compatible within the MySQL 8.4 and 9.7 LTS series. Protected CI runs
-the exact 8.4.12 and 9.7.3 images. Each LTS patch runs a default profile, a lexical profile with
+the exact 8.4.11 and 9.7.2 images. Each LTS patch runs a default profile, a lexical profile with
 `ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES`, and `PIPES_AS_CONCAT`, and a numeric profile with
 `NO_UNSIGNED_SUBTRACTION`. All six LTS jobs are release-blocking.
 
@@ -64,7 +64,7 @@ normalized set before parsing. If a profile adds a mode whose lexical or semanti
 modeled, supported capabilities resolve conservatively and query analysis fails closed with
 `TSQ407`; typed-sql does not assume the extra mode is harmless.
 
-MySQL 26.7.1 runs separately with `versionPolicy: "canary"`. It reports innovation-line catalog,
+MySQL 26.7.0 runs separately with `versionPolicy: "canary"`. It reports innovation-line catalog,
 keyword, collation, syntax, protocol, decoding, and introspection differences against the 9.7
 default profile, but it does not contribute to the stable score. A canary failure therefore exposes
 future work without changing the published LTS support boundary.

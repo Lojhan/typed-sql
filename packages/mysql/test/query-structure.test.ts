@@ -29,7 +29,7 @@ const schema = {
 } as const satisfies SchemaSnapshot;
 
 function withMode(sqlMode: string): SchemaSnapshot {
-  return { ...schema, server: mySqlServerEvidence("8.4.12", sqlMode) };
+  return { ...schema, server: mySqlServerEvidence("8.4.11", sqlMode) };
 }
 
 await describe("MySQL query structure", async () => {
@@ -337,7 +337,7 @@ await describe("MySQL query structure", async () => {
     const users = upgraded.relations.users!;
     const structural = {
       ...upgraded,
-      server: mySqlServerEvidence("8.4.12", "ONLY_FULL_GROUP_BY"),
+      server: mySqlServerEvidence("8.4.11", "ONLY_FULL_GROUP_BY"),
       relations: {
         ...upgraded.relations,
         users: {

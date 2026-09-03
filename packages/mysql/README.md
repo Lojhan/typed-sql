@@ -13,8 +13,8 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 of the grammar.
 
 The stable grammar contract covers the MySQL 8.4 and 9.7 LTS series. Protected differential jobs
-exercise exact 8.4.12 and 9.7.3 images under default, lexical, and unsigned-arithmetic SQL-mode
-profiles. MySQL 26.7.1 is reported separately as a non-blocking innovation canary and requires
+exercise exact 8.4.11 and 9.7.2 images under default, lexical, and unsigned-arithmetic SQL-mode
+profiles. MySQL 26.7.0 is reported separately as a non-blocking innovation canary and requires
 `mysql({ versionPolicy: "canary" })`.
 These are the supported SQL-mode profiles; custom profiles containing an unmodeled mode fail closed.
 

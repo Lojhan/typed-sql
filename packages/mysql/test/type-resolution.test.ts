@@ -41,7 +41,7 @@ function evidence(version: string, sqlMode = "STRICT_TRANS_TABLES") {
   });
 }
 
-function schema(version = "8.4.12", sqlMode = "STRICT_TRANS_TABLES"): SchemaSnapshot {
+function schema(version = "8.4.11", sqlMode = "STRICT_TRANS_TABLES"): SchemaSnapshot {
   const upgraded = upgradeSchemaSnapshotV1(legacy);
   const relation = upgraded.relations.values_table!;
   return {
@@ -160,18 +160,18 @@ await describe("MySQL catalog-backed type resolution", async () => {
 
     const signedSubtraction = resolveMySqlStatement(
       parseStatement("SELECT unsigned_id - signed_id AS value FROM values_table"),
-      schema("8.4.12", "NO_UNSIGNED_SUBTRACTION,STRICT_TRANS_TABLES"),
+      schema("8.4.11", "NO_UNSIGNED_SUBTRACTION,STRICT_TRANS_TABLES"),
     );
     strict.strictEqual(signedSubtraction.columns[0]?.databaseType, "bigint");
     strict.strictEqual(signedSubtraction.columns[0]?.unsigned, false);
   });
 
   await it("fails closed on version-gated built-ins", () => {
-    const unsupported = resolveMySqlStatement(parseStatement("SELECT VECTOR_DIM(?) AS dimensions"), schema("8.4.12"));
+    const unsupported = resolveMySqlStatement(parseStatement("SELECT VECTOR_DIM(?) AS dimensions"), schema("8.4.11"));
     strict.ok(unsupported.diagnostics.some(({ code }) => code === "TSQ403"));
     strict.strictEqual(unsupported.columns[0]?.tsType, "unknown");
 
-    const supported = resolveMySqlStatement(parseStatement("SELECT VECTOR_DIM(?) AS dimensions"), schema("9.7.3"));
+    const supported = resolveMySqlStatement(parseStatement("SELECT VECTOR_DIM(?) AS dimensions"), schema("9.7.2"));
     strict.deepStrictEqual(supported.diagnostics, []);
     strict.strictEqual(supported.columns[0]?.tsType, "number");
     strict.strictEqual(supported.columns[0]?.databaseType, "bigint");
@@ -188,7 +188,7 @@ await describe("MySQL catalog-backed type resolution", async () => {
                STRING_TO_VECTOR('[1, 2]') AS vector_value
         FROM values_table
       `),
-      schema("9.7.3"),
+      schema("9.7.2"),
     );
     strict.deepStrictEqual(result.diagnostics, []);
     strict.deepStrictEqual(

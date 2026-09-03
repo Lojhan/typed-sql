@@ -45,4 +45,26 @@ await describe("CI evidence lanes", async () => {
     for (const sensitive of ["process.env.DATABASE", "process.env.PG", "process.env.MYSQL", "process.env.TOKEN"])
       strict.ok(!writer.includes(sensitive));
   });
+
+  await it("prepares clean-checkout runtime lanes before executing package entrypoints", async () => {
+    const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
+    const packed = workflow.slice(workflow.indexOf("  packed-real-databases:"), workflow.indexOf("  examples-e2e:"));
+    const sqlite = workflow.slice(
+      workflow.indexOf("  sqlite-node-matrix:"),
+      workflow.indexOf("  sqlite-language-matrix:"),
+    );
+    const editor = workflow.slice(
+      workflow.indexOf("  editor-artifacts:"),
+      workflow.indexOf("  pull-request-distribution:"),
+    );
+
+    strict.ok(packed.includes("node-version: 22.13"), "packed SQLite acceptance must use its minimum Node version");
+    strict.ok(sqlite.includes("pnpm typecheck\n      - run: pnpm --filter @typed-sql/sqlite test"));
+    strict.ok(
+      editor.includes(
+        "pnpm exec poku packages/language-server/test/language-server.test.ts --reporter=compact --enforce",
+      ),
+      "editor artifact tests must resolve the workspace-local Poku executable",
+    );
+  });
 });

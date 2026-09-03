@@ -15,10 +15,10 @@ export type MySqlVersionSupport =
  */
 export const MYSQL_SUPPORT_POLICY = Object.freeze({
   stable: Object.freeze([
-    Object.freeze({ series: "8.4", matrixVersion: "8.4.12" }),
-    Object.freeze({ series: "9.7", matrixVersion: "9.7.3" }),
+    Object.freeze({ series: "8.4", matrixVersion: "8.4.11" }),
+    Object.freeze({ series: "9.7", matrixVersion: "9.7.2" }),
   ] as const),
-  canary: Object.freeze({ series: "26.7", matrixVersion: "26.7.1", channel: "innovation" as const }),
+  canary: Object.freeze({ series: "26.7", matrixVersion: "26.7.0", channel: "innovation" as const }),
   patchCompatibility: "within-lts-series",
   upstreamPolicy: "supported-lts-series",
   innovationPolicy: "canary-only",
