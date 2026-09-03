@@ -59,13 +59,13 @@ await describe("MySQL versioned core catalogs", async () => {
   });
 
   await it("selects VECTOR type and routine evidence only for 9.7 and later", () => {
-    strict.strictEqual(mySqlCatalogType("vector", schema("8.4.12")), undefined);
-    strict.strictEqual(mySqlCatalogRoutine("vector_dim", schema("8.4.12")), undefined);
-    strict.strictEqual(mySqlCatalogType("vector(128)", schema("9.7.3"))?.category, "vector");
-    strict.strictEqual(mySqlCatalogRoutine("vector_dim", schema("9.7.3"))?.result, "integer");
-    strict.strictEqual(mySqlCatalogRoutine("vector_dim", schema("26.7.1"))?.result, "integer");
-    strict.strictEqual(mySqlCatalogHasRoutineInAnotherSeries("vector_dim", schema("8.4.12")), true);
-    strict.strictEqual(mySqlCatalogHasRoutineInAnotherSeries("made_up", schema("8.4.12")), false);
+    strict.strictEqual(mySqlCatalogType("vector", schema("8.4.11")), undefined);
+    strict.strictEqual(mySqlCatalogRoutine("vector_dim", schema("8.4.11")), undefined);
+    strict.strictEqual(mySqlCatalogType("vector(128)", schema("9.7.2"))?.category, "vector");
+    strict.strictEqual(mySqlCatalogRoutine("vector_dim", schema("9.7.2"))?.result, "integer");
+    strict.strictEqual(mySqlCatalogRoutine("vector_dim", schema("26.7.0"))?.result, "integer");
+    strict.strictEqual(mySqlCatalogHasRoutineInAnotherSeries("vector_dim", schema("8.4.11")), true);
+    strict.strictEqual(mySqlCatalogHasRoutineInAnotherSeries("made_up", schema("8.4.11")), false);
   });
 
   await it("fails closed when explicit server evidence has no supported catalog", () => {

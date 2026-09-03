@@ -105,7 +105,7 @@ Human output points to the source location and prints compiler evidence beside d
 Use the same schema initialization as the application and a disposable database account with only
 the permissions needed to resolve referenced objects. The repository runs the complete PostgreSQL
 flow against exact 14.24, 15.19, 16.15, 17.11, and 18.6 images and reports 19beta3 separately as a
-non-blocking canary. The MySQL flow runs exact 8.4.12 and 9.7.3 LTS patches under default, lexical,
-and unsigned-arithmetic mode profiles, then reports 26.7.1 separately as an innovation canary.
+non-blocking canary. The MySQL flow runs exact 8.4.11 and 9.7.2 LTS patches under default, lexical,
+and unsigned-arithmetic mode profiles, then reports 26.7.0 separately as an innovation canary.
 These jobs generate snapshots and manifests, run live verification, verify the offline cache, and
 assert that no statement values or mutations are sent.

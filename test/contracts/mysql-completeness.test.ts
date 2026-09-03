@@ -60,11 +60,11 @@ await describe("MySQL completeness review", async () => {
     const compatibility = await readFile(join(workspace, "docs", "reference", "compatibility.md"), "utf8");
     const readme = await readFile(join(workspace, "packages", "mysql", "README.md"), "utf8");
 
-    for (const value of ["8.4.12", "9.7.3", "26.7.1", "TSQ407", "MariaDB", "typed-sql compat", "onWarning"])
+    for (const value of ["8.4.11", "9.7.2", "26.7.0", "TSQ407", "MariaDB", "typed-sql compat", "onWarning"])
       strict.ok(guide.includes(value), `MySQL guide is missing ${value}`);
     for (const value of ["zero-date", "fractional precision", "spatial types", "compatibilitySnapshot"])
       strict.ok(mappings.includes(value), `MySQL type mapping is missing ${value}`);
-    for (const value of ["8.4 and 9.7 LTS", "26.7.1", "non-blocking innovation canary"])
+    for (const value of ["8.4 and 9.7 LTS", "26.7.0", "non-blocking innovation canary"])
       strict.ok(compatibility.includes(value), `compatibility reference is missing ${value}`);
     for (const value of ["8.4 and 9.7 LTS", "versionPolicy", "SQL-mode profiles"])
       strict.ok(readme.includes(value), `MySQL README is missing ${value}`);

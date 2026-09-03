@@ -43,7 +43,7 @@ The report excludes setting values, schema expressions, source text, credentials
 | --- | --- | --- |
 | PostgreSQL | PostgreSQL 14–18 grammar and catalog provider; patch-compatible within each major | PostgreSQL 14.24, 15.19, 16.15, 17.11, and 18.6; PostgreSQL 19beta3 as a non-blocking canary |
 | `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.0 |
-| MySQL | MySQL 8.4 and 9.7 LTS grammar and catalog provider; patch-compatible within each LTS series | MySQL 8.4.12 and 9.7.3 across default, lexical-mode, and unsigned-arithmetic profiles; MySQL 26.7.1 as a non-blocking innovation canary |
+| MySQL | MySQL 8.4 and 9.7 LTS grammar and catalog provider; patch-compatible within each LTS series | MySQL 8.4.11 and 9.7.2 across default, lexical-mode, and unsigned-arithmetic profiles; MySQL 26.7.0 as a non-blocking innovation canary |
 | `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.1 |
 | SQLite | SQLite 3.39.0–3.53.4 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.53.4, every supported Node line's bundled library, and a non-blocking 3.54.0 canary |
 | `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |

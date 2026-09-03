@@ -11,16 +11,16 @@ const workspace = process.cwd();
 await describe("MySQL support matrix", async () => {
   await it("runs every LTS mode profile and keeps the innovation line non-blocking", async () => {
     const workflow = await readFile(join(workspace, ".github", "workflows", "ci.yml"), "utf8");
-    for (const version of ["8.4.12", "9.7.3", "26.7.1"])
+    for (const version of ["8.4.11", "9.7.2", "26.7.0"])
       strict.ok(workflow.includes(`docker.io/library/mysql:${version}`), `workflow is missing MySQL ${version}`);
     for (const label of [
-      "mysql-8.4.12-default",
-      "mysql-8.4.12-lexical",
-      "mysql-8.4.12-numeric",
-      "mysql-9.7.3-default",
-      "mysql-9.7.3-lexical",
-      "mysql-9.7.3-numeric",
-      "mysql-26.7.1-canary",
+      "mysql-8.4.11-default",
+      "mysql-8.4.11-lexical",
+      "mysql-8.4.11-numeric",
+      "mysql-9.7.2-default",
+      "mysql-9.7.2-lexical",
+      "mysql-9.7.2-numeric",
+      "mysql-26.7.0-canary",
     ])
       strict.ok(workflow.includes(label), `workflow is missing ${label}`);
     for (const mode of [
@@ -40,7 +40,7 @@ await describe("MySQL support matrix", async () => {
     strict.ok(container.includes("FROM ${MYSQL_BASE_IMAGE}"));
 
     const support = await readFile(join(workspace, "packages", "mysql", "src", "support.ts"), "utf8");
-    for (const version of ["8.4.12", "9.7.3", "26.7.1"]) strict.ok(support.includes(`matrixVersion: "${version}"`));
+    for (const version of ["8.4.11", "9.7.2", "26.7.0"]) strict.ok(support.includes(`matrixVersion: "${version}"`));
   });
 
   await it("publishes the stable boundary, mode profiles, and separate canary score", async () => {
@@ -48,7 +48,7 @@ await describe("MySQL support matrix", async () => {
     const compatibility = await readFile(join(workspace, "docs", "reference", "compatibility.md"), "utf8");
     const verification = await readFile(join(workspace, "docs", "guides", "live-verification.md"), "utf8");
     const readme = await readFile(join(workspace, "packages", "mysql", "README.md"), "utf8");
-    for (const version of ["8.4.12", "9.7.3", "26.7.1"]) {
+    for (const version of ["8.4.11", "9.7.2", "26.7.0"]) {
       strict.ok(dialect.includes(version), `MySQL guide is missing ${version}`);
       strict.ok(compatibility.includes(version), `compatibility reference is missing ${version}`);
       strict.ok(verification.includes(version), `live verification guide is missing ${version}`);
@@ -96,15 +96,15 @@ await describe("MySQL support matrix", async () => {
         summary: { pass: 1, fail: 0 },
       });
       for (const [series, version] of [
-        ["8.4", "8.4.12"],
-        ["9.7", "9.7.3"],
+        ["8.4", "8.4.11"],
+        ["9.7", "9.7.2"],
       ] as const)
         for (const profile of ["default", "lexical", "numeric"])
           await writeFile(
             join(directory, `${series}-${profile}.json`),
             JSON.stringify(artifact(series, version, profile, "stable")),
           );
-      await writeFile(join(directory, "canary.json"), JSON.stringify(artifact("26.7", "26.7.1", "default", "canary")));
+      await writeFile(join(directory, "canary.json"), JSON.stringify(artifact("26.7", "26.7.0", "default", "canary")));
 
       const output = join(directory, "review.json");
       await execute(
