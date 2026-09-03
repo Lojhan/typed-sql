@@ -34,6 +34,11 @@ await describe("adapter capabilities", async () => {
   await it("fails closed for absent capabilities", () => {
     const missing = defineAdapterCapability<ExampleService>("example.missing");
     strict.strictEqual(getAdapterCapability(host, missing), undefined);
+    strict.strictEqual(getAdapterCapability(null, missing), undefined);
+    strict.strictEqual(
+      getAdapterCapability(() => undefined, missing),
+      undefined,
+    );
     strict.strictEqual(hasAdapterCapability({}, missing), false);
     strict.throws(
       () => requireAdapterCapability(host, missing),

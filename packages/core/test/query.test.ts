@@ -7,6 +7,7 @@ import {
   compileQueryRenderSkeleton,
   createDatabase,
   DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  DEFAULT_MAX_QUERY_PARAMETERS,
   DEFAULT_MAX_RENDERED_SQL_BYTES,
   DIALECT_CONTRACT_VERSION,
   type DialectPlugin,
@@ -148,6 +149,12 @@ await describe("runtime SQL tag", async () => {
     });
     strict.strictEqual(cache.size, 2);
     strict.strictEqual(cache.bind(sql`SELECT ${1}`, renderer), undefined);
+
+    const heterogeneous = new PreparedQueryRenderCache();
+    strict.deepStrictEqual(
+      heterogeneous.bind(sql`SELECT ${[sql.ident("id"), sql.fragment`${1}`]}`, renderer)?.rendered,
+      { text: 'SELECT "id", $1', values: [1] },
+    );
     strict.throws(() => new PreparedQueryRenderCache(0), /positive safe integer/u);
   });
 
@@ -319,6 +326,31 @@ await describe("runtime SQL tag", async () => {
       () => renderQuery(oversized, renderer),
       (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
     );
+
+    const expandingRenderer: SqlRenderer = {
+      placeholder: renderer.placeholder,
+      quoteIdentifier: () => "x".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES + 1),
+    };
+    const identifier = sql`SELECT ${sql.ident("id")}`;
+    strict.throws(
+      () => renderQuery(identifier, expandingRenderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+    strict.throws(
+      () => compileQueryRenderSkeleton(identifier, expandingRenderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+
+    const parameterHeavyFragment = Object.freeze({
+      [Symbol.for("@typed-sql/core.fragment")]: () => [] as const,
+      segments: Object.freeze(
+        Array.from({ length: DEFAULT_MAX_QUERY_PARAMETERS + 1 }, (_, value) => ({ kind: "value" as const, value })),
+      ),
+    }) as unknown as SqlFragment;
+    strict.throws(
+      () => renderQuery(sql`SELECT ${parameterHeavyFragment}`, renderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
   });
 
   await it("provides an immutable empty structural fragment", () => {
@@ -373,6 +405,10 @@ await describe("runtime SQL tag", async () => {
     strict.deepStrictEqual(renderQuery(accounts({ minimumId: 5n }, "any"), renderer), {
       text: "SELECT account.id, account.status FROM accounts AS account WHERE (account.id >= $1)",
       values: [5n],
+    });
+    strict.deepStrictEqual(renderQuery(accounts({ status: "active", minimumId: 5n }, "any"), renderer), {
+      text: "SELECT account.id, account.status FROM accounts AS account WHERE (account.status = $1) OR (account.id >= $2)",
+      values: ["active", 5n],
     });
     strict.deepStrictEqual(renderQuery(accounts({}, "all"), renderer), {
       text: "SELECT account.id, account.status FROM accounts AS account WHERE TRUE",
