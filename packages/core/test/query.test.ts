@@ -155,6 +155,55 @@ await describe("runtime SQL tag", async () => {
     sql.__typed<{ readonly id: number }, readonly [number]>()`SELECT id FROM users WHERE id = ${"wrong"}`;
   });
 
+  await it("concatenates fixed fragment tuples without inventing mapped-array cardinality", () => {
+    const id = 1;
+    const email = "one@example.test";
+    const active = true;
+    const fixed = [sql.fragment`(${id}, ${email})`, sql.fragment`(${active})`] as const;
+    const fixedQuery = sql`VALUES ${fixed}`;
+    const fixedParameters: Assert<Equal<QueryParameters<typeof fixedQuery>, readonly [number, string, boolean]>> = true;
+    void fixedParameters;
+
+    const rows: readonly { readonly id: number; readonly email: string }[] = [{ id, email }];
+    const mapped = rows.map((row) => sql.fragment`(${row.id}, ${row.email})`);
+    const mappedQuery = sql`VALUES ${mapped}`;
+    const mappedParameters: Assert<Equal<QueryParameters<typeof mappedQuery>, readonly (number | string)[]>> = true;
+    void mappedParameters;
+
+    const tenant = 7;
+    const returning = false;
+    const surrounded = sql`SELECT ${tenant} FROM data VALUES ${mapped} RETURNING ${returning}`;
+    const surroundedParameters: Assert<
+      Equal<QueryParameters<typeof surrounded>, readonly [number, ...(number | string)[], boolean]>
+    > = true;
+    void surroundedParameters;
+
+    const values: readonly number[] = [1, 2];
+    const valueQuery = sql`SELECT ${values}`;
+    const valueParameters: Assert<Equal<QueryParameters<typeof valueQuery>, readonly [readonly number[]]>> = true;
+    void valueParameters;
+  });
+
+  await it("rejects invalid array interpolation types at the tag boundary", () => {
+    const compileOnly = () => {
+      // @ts-expect-error an empty array needs an explicit policy
+      sql`VALUES ${[]}`;
+      // @ts-expect-error fragments and values cannot share one implicit list
+      sql`VALUES ${[sql.fragment`(1)`, 2]}`;
+      // @ts-expect-error nested arrays require sql.value(...)
+      sql`VALUES ${[[1], [2]]}`;
+      // @ts-expect-error async callbacks cannot create structural SQL
+      sql`VALUES ${[Promise.resolve(sql.fragment`(1)`)]}`;
+      const widened: readonly (SqlFragment | string)[] = [sql.fragment`(1)`];
+      // @ts-expect-error widened fragment/value unions fail closed
+      sql`VALUES ${widened}`;
+      const unsafe: ReturnType<typeof JSON.parse>[] = [sql.fragment`(1)`];
+      // @ts-expect-error any arrays cannot be classified safely
+      sql`VALUES ${unsafe}`;
+    };
+    void compileOnly;
+  });
+
   await it("quotes explicit identifiers and preserves nested parameter ordering", async () => {
     const columns = sql.join([sql.ident("id"), sql.ident('display"name')]);
     const query = sql`SELECT ${columns} FROM users WHERE id = ${sql.value(7)}`;
@@ -204,15 +253,19 @@ await describe("runtime SQL tag", async () => {
   });
 
   await it("rejects ambiguous or unsafe array shapes before rendering", () => {
+    const runtimeSql = sql as unknown as (
+      strings: TemplateStringsArray,
+      ...parts: readonly unknown[]
+    ) => Query<unknown, readonly unknown[]>;
     const assertCode = (build: () => unknown, code: string) =>
       strict.throws(build, (error: unknown) => error instanceof SqlFragmentListError && error.code === code);
-    assertCode(() => sql`VALUES ${[]}`, "TSQL_FRAGMENT_LIST_EMPTY");
-    assertCode(() => sql`VALUES ${[sql.fragment`(1)`, 2]}`, "TSQL_FRAGMENT_LIST_MIXED");
-    assertCode(() => sql`VALUES ${[[1], [2]]}`, "TSQL_FRAGMENT_LIST_NESTED");
-    assertCode(() => sql`VALUES ${[Promise.resolve(sql.fragment`(1)`)]}`, "TSQL_FRAGMENT_LIST_ASYNC");
+    assertCode(() => runtimeSql`VALUES ${[]}`, "TSQL_FRAGMENT_LIST_EMPTY");
+    assertCode(() => runtimeSql`VALUES ${[sql.fragment`(1)`, 2]}`, "TSQL_FRAGMENT_LIST_MIXED");
+    assertCode(() => runtimeSql`VALUES ${[[1], [2]]}`, "TSQL_FRAGMENT_LIST_NESTED");
+    assertCode(() => runtimeSql`VALUES ${[Promise.resolve(sql.fragment`(1)`)]}`, "TSQL_FRAGMENT_LIST_ASYNC");
     const sparse = Array<SqlFragment>(2);
     sparse[1] = sql.fragment`(1)`;
-    assertCode(() => sql`VALUES ${sparse}`, "TSQL_FRAGMENT_LIST_SPARSE");
+    assertCode(() => runtimeSql`VALUES ${sparse}`, "TSQL_FRAGMENT_LIST_SPARSE");
     assertCode(
       () => sql`VALUES ${Array.from({ length: DEFAULT_MAX_FRAGMENT_LIST_ITEMS + 1 }, () => sql.fragment`(1)`)}`,
       "TSQL_FRAGMENT_LIST_LIMIT",

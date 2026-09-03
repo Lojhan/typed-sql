@@ -957,7 +957,7 @@ await describe("PostgreSQL runtime adapter", async () => {
   await it("encodes nested bigint array parameters", async () => {
     const pool = new MockPool();
     const db = createPostgresDatabase({ pool });
-    await db.execute(sql`SELECT ${[1n, [2n]]}`);
+    await db.execute(sql`SELECT ${sql.value([1n, [2n]])}`);
     const call = pool.calls[0];
     if (call === undefined || typeof call === "string") strict.fail("Expected config");
     else strict.deepStrictEqual(call.values, [["1", ["2"]]]);

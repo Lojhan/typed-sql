@@ -59,7 +59,42 @@ export interface SqlFragment<Params extends readonly unknown[] = readonly unknow
 export type QueryRow<Value> = Value extends Query<infer Row, infer _Params> ? Row : never;
 export type QueryParameters<Value> = Value extends Query<infer _Row, infer Params> ? Params : never;
 
-type SqlPartParameters<Part> = [Part] extends [SqlFragment<infer Params>] ? Params : readonly [Part];
+type IsAny<Value> = 0 extends 1 & Value ? true : false;
+
+type FragmentTupleParameters<
+  Parts extends readonly unknown[],
+  Accumulator extends readonly unknown[] = readonly [],
+> = Parts extends readonly [infer Head, ...infer Tail]
+  ? [Head] extends [SqlFragment<infer Params>]
+    ? FragmentTupleParameters<Tail, readonly [...Accumulator, ...Params]>
+    : never
+  : Accumulator;
+
+type FragmentArrayParameters<Parts extends readonly unknown[]> = number extends Parts["length"]
+  ? [Parts[number]] extends [SqlFragment<infer Params>]
+    ? readonly Params[number][]
+    : never
+  : FragmentTupleParameters<Parts>;
+
+type SqlArrayPartParameters<Part extends readonly unknown[]> = Part extends readonly []
+  ? never
+  : [Part[number]] extends [never]
+    ? never
+    : IsAny<Part[number]> extends true
+      ? never
+      : [Part[number]] extends [SqlFragment]
+        ? FragmentArrayParameters<Part>
+        : [Extract<Part[number], SqlFragment>] extends [never]
+          ? [Extract<Part[number], readonly unknown[] | PromiseLike<unknown>>] extends [never]
+            ? readonly [Part]
+            : never
+          : never;
+
+type SqlPartParameters<Part> = [Part] extends [SqlFragment<infer Params>]
+  ? Params
+  : [Part] extends [readonly unknown[]]
+    ? SqlArrayPartParameters<Part>
+    : readonly [Part];
 
 export type SqlPartsParameters<
   Parts extends readonly unknown[],
@@ -70,8 +105,21 @@ export type SqlPartsParameters<
     ? SqlPartsParameters<Tail, readonly [...Accumulator, ...SqlPartParameters<Head>]>
     : Accumulator;
 
-type CheckedSqlParts<Parts extends readonly unknown[], Expected extends readonly unknown[]> = Parts &
-  ([SqlPartsParameters<Parts>] extends [Expected] ? unknown : never);
+type HasInvalidSqlPart<Parts extends readonly unknown[]> = number extends Parts["length"]
+  ? false
+  : Parts extends readonly [infer Head, ...infer Tail]
+    ? [SqlPartParameters<Head>] extends [never]
+      ? true
+      : HasInvalidSqlPart<Tail>
+    : false;
+
+type CheckedTemplateParts<Parts extends readonly unknown[]> = Parts &
+  (HasInvalidSqlPart<Parts> extends true ? never : unknown);
+
+type CheckedSqlParts<
+  Parts extends readonly unknown[],
+  Expected extends readonly unknown[],
+> = CheckedTemplateParts<Parts> & ([SqlPartsParameters<Parts>] extends [Expected] ? unknown : never);
 
 type PresentFragment<Part> = Exclude<Part, false | null | undefined>;
 type OptionalFragmentParameters<Part> = [PresentFragment<Part>] extends [never]
@@ -101,7 +149,7 @@ export interface Query<Row, Params extends readonly unknown[] = readonly unknown
 export interface SqlTag {
   <Row = unknown, Parts extends readonly unknown[] = readonly unknown[]>(
     strings: TemplateStringsArray,
-    ...parts: Parts
+    ...parts: CheckedTemplateParts<Parts>
   ): Query<Row, SqlPartsParameters<Parts>>;
   /**
    * @internal Reserved compiler-overlay protocol. Applications must use the `sql` tag directly;
@@ -113,7 +161,7 @@ export interface SqlTag {
   ) => Query<Row, Params>;
   readonly fragment: <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
-    ...parts: Parts
+    ...parts: CheckedTemplateParts<Parts>
   ) => SqlFragment<SqlPartsParameters<Parts>>;
   readonly empty: SqlFragment<readonly []>;
   readonly ident: (name: string) => SqlFragment<readonly []>;
@@ -320,14 +368,14 @@ function templateSegments(strings: TemplateStringsArray, parts: readonly unknown
 
 const tag = <Row = unknown, Parts extends readonly unknown[] = readonly unknown[]>(
   strings: TemplateStringsArray,
-  ...parts: Parts
+  ...parts: CheckedTemplateParts<Parts>
 ): Query<Row, SqlPartsParameters<Parts>> => {
   return query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
 };
 
 const fragmentTag = <Parts extends readonly unknown[]>(
   strings: TemplateStringsArray,
-  ...parts: Parts
+  ...parts: CheckedTemplateParts<Parts>
 ): SqlFragment<SqlPartsParameters<Parts>> => {
   if (parts.length === 0) {
     const cached = staticFragmentCache.get(strings);
@@ -368,7 +416,7 @@ export const sql: SqlTag = Object.assign(tag, {
     return <const Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedSqlParts<Parts, Params>
-    ) => tag<Row, Parts>(strings, ...(parts as unknown as Parts)) as unknown as Query<Row, Params>;
+    ) => query<Row, Params>(templateSegments(strings, parts));
   },
   fragment: fragmentTag,
   empty: fragment<readonly []>([]),
