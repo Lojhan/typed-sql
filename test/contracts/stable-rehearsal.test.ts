@@ -22,6 +22,7 @@ await describe("stable release rehearsal policy", async () => {
       '"release-manifest.json"',
       '"verify"',
       '"e2e:packed"',
+      "stableVersionDiff",
       '"stable-release.diff"',
       "dependencyRanges",
       "registryWrites: 0",
@@ -29,6 +30,10 @@ await describe("stable release rehearsal policy", async () => {
     ]) {
       strict.ok(source.includes(required), `rehearsal lost required contract: ${required}`);
     }
+    strict.ok(
+      source.indexOf("const stableVersionDiff") < source.indexOf('await run("pnpm", ["verify"]'),
+      "rehearsal must capture the release diff before verification can rewrite generated fixtures",
+    );
   });
 
   await it("requires protected main and npm OIDC before stable publication", async () => {
