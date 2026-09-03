@@ -13,14 +13,14 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | --- | --- | --- |
 | `@typed-sql/core` | SQL tag, query and fragment types, rendering, database and dialect contracts | No |
 | `@typed-sql/opentelemetry` | Optional bridge from the neutral observer contract to OpenTelemetry spans | No |
-| `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | No |
+| `@typed-sql/ast` | Grammar-neutral tokenizer profiles, bounded cursor mechanics, tree walking, and source ranges | No |
 | `@typed-sql/config` | Dialect-neutral project config discovery and loading | No |
 | `@typed-sql/schema` | Snapshot envelope, deterministic generation, hashes, and drift | No |
 | `@typed-sql/compiler` | Dialect-neutral extraction, transforms, diagnostics, manifests, verification, plan governance, and migration analysis | No |
 | `@typed-sql/conformance` | Public executable contract for first- and third-party SQL grammars | No |
 | `@typed-sql/postgres` | PostgreSQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
-| `@typed-sql/sqlite` | Preview SQLite grammar, dynamic-type model, introspection, and optional built-in Node adapter | No |
+| `@typed-sql/sqlite` | SQLite grammar, dynamic-type model, introspection, and optional built-in Node adapter | No |
 | `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, plan governance, compatibility, and provider discovery | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |
@@ -69,6 +69,21 @@ Live verification follows the same dependency direction. Core defines a native m
 Query-plan governance reuses that direction. Core owns neutral inspector, environment, sample-provider, and budget contracts. Driver subpaths translate native structured plans into a small grammar-normalized node inventory. The compiler captures fingerprint-keyed evidence and reviews it without importing a driver; the CLI alone coordinates explicit live access. Plan artifacts exclude SQL, values, conditions, sample labels, connection configuration, and raw driver failures.
 
 Migration compatibility remains on the artifact side of that boundary. The compiler compares public snapshots and manifests without knowing how a migration was authored or applied. It maps catalog changes through grammar-owned dependencies, analyzes both mixed-version deployment directions, and emits a deterministic report. Existing migration runners remain responsible for execution and can provide an after-snapshot through any configured `SchemaProvider`.
+
+Batch and editor analysis share the compiler's versioned source-analysis service. A serializable
+request identifies the source revision and optional project generation; the result identifies the
+source hash, grammar and capability fingerprint, schema hash, type-policy hash, compiler limits, and
+analysis revision. `typed-sql check`, the TypeScript bridge, and the language server therefore do not
+maintain separate query-discovery or inference rules.
+
+The shared service bounds source bytes, static query count, structural variants, and generated
+declaration bytes. A resource overrun returns `TSQ006`, leaves the overlay unchanged, and publishes
+no inferred query contract. Cancellation cannot turn incomplete work into a successful result.
+
+The preview bridge places unstable TypeScript APIs behind a backend contract. Each supported
+TypeScript line has a version-specific adapter with an immutable identity; backend-owned project
+snapshots are represented externally by opaque serializable handles and must be disposed explicitly.
+No TypeScript node, symbol, checker, program, or snapshot crosses into a stable package contract.
 
 Runtime routing follows the same semantic ownership. Core turns proven operation, volatility, locking, and connection-affinity facts into a conservative role decision. Dialect packages reuse their parser and resolver for immutable query shapes. Applications supply and own primary and replica adapters, health policy, lag policy, and lifecycle. Unknown evidence always selects primary.
 

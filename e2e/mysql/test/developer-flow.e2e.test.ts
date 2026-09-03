@@ -1,7 +1,22 @@
 import { spawn } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  CONFORMANCE_VERSION,
+  type ConformanceLiveAdapter,
+  type ConformanceServerErrorClass,
+  type ConformanceTypeNormalizer,
+  createConformanceReport,
+  createConformanceReproductionBundle,
+  defineConformanceProbe,
+  runLiveConformanceProbe,
+  runStaticConformanceProbe,
+  selectExpectedOutcome,
+  serializeConformanceReport,
+  serializeConformanceReproductionBundle,
+} from "@typed-sql/conformance/v2";
 import {
   type DatabaseObserver,
   type DatabaseOperationEnd,
@@ -9,15 +24,8 @@ import {
   type Query,
   requireAdapterCapability,
 } from "@typed-sql/core";
-import {
-  createMySqlRoutedDatabase,
-  type MySqlSchemaSnapshot,
-  mysql,
-  mysqlBulk,
-  sql,
-  typePolicy,
-} from "@typed-sql/mysql";
-import { createMySql2Database } from "@typed-sql/mysql/mysql2";
+import { createMySqlRoutedDatabase, mysql, mysqlBulk, sql, typePolicy } from "@typed-sql/mysql";
+import { createMySql2Database, createMySql2LiveVerifier } from "@typed-sql/mysql/mysql2";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { createPool } from "mysql2/promise";
@@ -31,9 +39,10 @@ interface CommandResult {
   readonly stderr: string;
 }
 interface GeneratedSnapshot {
+  readonly formatVersion: 2;
   readonly dialect: string;
-  readonly version?: string;
-  readonly tables: Record<
+  readonly server: { readonly version: string };
+  readonly relations: Record<
     string,
     {
       readonly columns: Record<
@@ -42,7 +51,7 @@ interface GeneratedSnapshot {
       >;
     }
   >;
-  readonly functions?: Record<string, { readonly returnType: string }>;
+  readonly routines: Record<string, readonly { readonly result: { readonly tsType?: string } }[]>;
   readonly metadata: { readonly schemaHash: string; readonly typePolicyHash: string };
 }
 
@@ -55,9 +64,23 @@ const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", 
 const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
 const port = Number(process.env.TYPED_SQL_MYSQL_E2E_PORT ?? "53306");
 const containerName = `typed-sql-e2e-mysql-${process.pid}`;
-const imageName = "localhost/typed-sql-e2e-mysql:8.4.11";
+const matrixLabel = process.env.TYPED_SQL_MYSQL_MATRIX_LABEL ?? "mysql-8.4.11-local";
+const expectedVersion = process.env.TYPED_SQL_MYSQL_VERSION ?? "8.4.11";
+const baseImage = process.env.TYPED_SQL_MYSQL_IMAGE;
+const channel = process.env.TYPED_SQL_MYSQL_CHANNEL ?? "stable";
+const modeProfile = process.env.TYPED_SQL_MYSQL_MODE_PROFILE ?? "default";
+const sqlMode = process.env.TYPED_SQL_MYSQL_SQL_MODE;
+const imageName = `localhost/typed-sql-e2e-${matrixLabel.replaceAll(/[^a-zA-Z0-9_.-]/gu, "-").toLowerCase()}`;
 const connectionUri = `mysql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
 let containerStarted = false;
+
+if (channel !== "stable" && channel !== "canary")
+  throw new TypeError("TYPED_SQL_MYSQL_CHANNEL must be stable or canary");
+if (!new Set(["default", "lexical", "numeric"]).has(modeProfile))
+  throw new TypeError("TYPED_SQL_MYSQL_MODE_PROFILE must be default, lexical, or numeric");
+
+const versionPolicy = channel;
+const dialect = () => mysql({ typePolicy, versionPolicy });
 
 if (!Number.isInteger(port) || port < 1024 || port > 65_535)
   throw new TypeError("TYPED_SQL_MYSQL_E2E_PORT must be an unprivileged TCP port");
@@ -91,8 +114,11 @@ const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(proc
 
 await rm(generatedDirectory, { recursive: true, force: true });
 await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
-log(`Building ${imageName} from the digest-pinned Containerfile`);
-await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "."]);
+log(`Building ${imageName} for ${matrixLabel}`);
+const buildArguments = ["build", "--tag", imageName, "--file", "Containerfile"];
+if (baseImage !== undefined) buildArguments.push("--build-arg", `MYSQL_BASE_IMAGE=${baseImage}`);
+buildArguments.push(".");
+await mustRun(engine, buildArguments);
 
 try {
   await mustRun(engine, [
@@ -112,6 +138,7 @@ try {
     "MYSQL_ROOT_PASSWORD=typed_sql_root",
     imageName,
     "--local-infile=ON",
+    ...(sqlMode === undefined ? [] : [`--sql-mode=${sqlMode}`]),
   ]);
   containerStarted = true;
   try {
@@ -163,21 +190,191 @@ try {
 
     await it("shows real catalog introspection in the generated snapshot", async () => {
       const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as GeneratedSnapshot;
+      strict.strictEqual(snapshot.formatVersion, 2);
       strict.strictEqual(snapshot.dialect, "mysql");
-      strict.ok(snapshot.version?.startsWith("8.4.11"));
-      strict.strictEqual(snapshot.tables.users?.columns.id?.databaseType, "bigint unsigned");
-      strict.strictEqual(snapshot.tables.users?.columns.id?.tsType, "bigint");
-      strict.strictEqual(snapshot.tables.users?.columns.status?.tsType, '"active" | "suspended"');
-      strict.strictEqual(snapshot.tables.users?.columns.active?.tsType, "boolean");
-      strict.strictEqual(snapshot.tables.projects?.columns.budget?.databaseType, "decimal(14,2)");
-      strict.strictEqual(snapshot.functions?.["typed_sql_e2e.user_count()"]?.returnType, "bigint");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.boolean_value?.tsType, "boolean");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.decimal_value?.tsType, "string");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bit_value?.tsType, "Uint8Array");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
+      strict.ok(snapshot.server.version.startsWith(expectedVersion));
+      strict.strictEqual(snapshot.relations.users?.columns.id?.databaseType, "bigint unsigned");
+      strict.strictEqual(snapshot.relations.users?.columns.id?.tsType, "bigint");
+      strict.strictEqual(snapshot.relations.users?.columns.status?.tsType, '"active" | "suspended"');
+      strict.strictEqual(snapshot.relations.users?.columns.active?.tsType, "boolean");
+      strict.strictEqual(snapshot.relations.projects?.columns.budget?.databaseType, "decimal(14,2)");
+      strict.strictEqual(snapshot.routines["typed_sql_e2e.user_count"]?.[0]?.result.tsType, "bigint");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.boolean_value?.tsType, "boolean");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.decimal_value?.tsType, "string");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bit_value?.tsType, "Uint8Array");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
+    });
+
+    await it("records a redacted conformance v2 differential report", async () => {
+      const snapshotValue = dialect().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      if (snapshotValue.formatVersion !== 2) throw new TypeError("MySQL conformance requires snapshot v2");
+      if (snapshotValue.metadata === undefined) throw new TypeError("The generated MySQL snapshot requires metadata");
+      const selectedDialect = dialect();
+      const query = sql`SELECT id FROM users WHERE id = ${1n}`;
+      const verifier = createMySql2LiveVerifier({ connectionUri, schema: snapshotValue, typePolicy });
+      const database = await createMySql2Database({ connectionUri, typePolicy });
+      const server = await verifier.server();
+      const target = {
+        grammar: "mysql",
+        grammarVersion: selectedDialect.grammarVersion,
+        databaseVersion: server.version,
+      } as const;
+      const probe = defineConformanceProbe({
+        version: CONFORMANCE_VERSION,
+        id: "mysql.statement.select.live-bigint",
+        featureId: "statement.select",
+        grammar: "mysql",
+        targets: [target],
+        source: "SELECT id FROM users WHERE id = ?",
+        schemaFixture: "e2e/mysql/schema/catalog.snapshot.json",
+        query,
+        compilerSource:
+          'import { sql } from "@typed-sql/mysql";\nexport const query = sql`SELECT id FROM users WHERE id = ${1n}`;',
+        live: { prepare: true, execute: true, maximumRows: 1 },
+        expected: [
+          {
+            target: { grammarVersion: selectedDialect.grammarVersion, databaseVersion: server.version },
+            support: "conservative",
+            rows: [
+              {
+                name: "id",
+                tsType: "bigint",
+                nullable: false,
+                databaseType: "bigint unsigned",
+                range: { start: 7, end: 9, line: 1, column: 8 },
+              },
+            ],
+            parameters: [{ index: 1, tsType: "bigint", nullable: false, databaseType: "bigint unsigned" }],
+            diagnostics: [],
+            rendered: { text: "SELECT id FROM users WHERE id = ?", values: [1n] },
+            compiled: { rowType: '{ "id": bigint; }', parameterType: "readonly [bigint]" },
+            decodedRows: [{ id: 1n }],
+            skips: { "lex-parse": "grammar-parser-private", plan: "plan-format-unstable" },
+          },
+        ],
+      });
+      const requestedProbe = process.env.TYPED_SQL_CONFORMANCE_PROBE;
+      if (requestedProbe !== undefined && requestedProbe !== probe.id) {
+        throw new TypeError(`MySQL live suite does not contain requested probe ${requestedProbe}`);
+      }
+      const requestedDatabaseVersion = process.env.TYPED_SQL_CONFORMANCE_DATABASE_VERSION;
+      if (requestedDatabaseVersion !== undefined && requestedDatabaseVersion !== server.version) {
+        throw new TypeError(`Requested MySQL ${requestedDatabaseVersion}, connected to ${server.version}`);
+      }
+      const requestedFixtureGroup = process.env.TYPED_SQL_CONFORMANCE_FIXTURE_GROUP;
+      if (requestedFixtureGroup !== undefined && requestedFixtureGroup !== "statement.select") {
+        throw new TypeError(`MySQL live suite does not contain fixture group ${requestedFixtureGroup}`);
+      }
+      const adapter: ConformanceLiveAdapter = {
+        grammar: "mysql",
+        driver: "mysql2",
+        driverVersion: "3.24.1",
+        async server() {
+          return {
+            version: server.version,
+            capabilities: Object.fromEntries((server.features ?? []).map((feature) => [feature, true])),
+          };
+        },
+        async prepare(request) {
+          const evidence = await verifier.verify({
+            fingerprint: `sha256:${createHash("sha256").update(request.probeId).digest("hex")}`,
+            sql: request.sql,
+            operation: "read",
+          });
+          const field = (value: (typeof evidence.columns)[number]) => ({
+            index: value.index,
+            ...(value.name === undefined ? {} : { name: value.name }),
+            ...(value.databaseType === undefined ? {} : { nativeType: value.databaseType }),
+            ...(value.nullable === undefined ? {} : { nullable: value.nullable }),
+          });
+          return {
+            columns: evidence.columns.map(field),
+            parameters: evidence.parameters.map(field),
+            ...(evidence.unavailable === undefined ? {} : { unavailable: evidence.unavailable }),
+          };
+        },
+        execute: async () => database.execute(query),
+        classify(error): ConformanceServerErrorClass {
+          const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+          if (code === "ER_PARSE_ERROR") return "syntax";
+          if (code === "ER_NO_SUCH_TABLE" || code === "ER_BAD_FIELD_ERROR") return "schema";
+          if (code === "ER_TABLEACCESS_DENIED_ERROR" || code === "ER_ACCESS_DENIED_ERROR") return "privilege";
+          if (code === "PROTOCOL_SEQUENCE_TIMEOUT") return "timeout";
+          if (code.startsWith("PROTOCOL_") || code === "ECONNRESET") return "environment";
+          return "semantic";
+        },
+        async cleanup() {},
+        async close() {
+          await verifier.close();
+          await database.close();
+        },
+      };
+      const normalizer: ConformanceTypeNormalizer = {
+        column: (field) => ({
+          name: field.name ?? "id",
+          tsType: "bigint",
+          nullable: field.nullable ?? false,
+          databaseType: "bigint unsigned",
+        }),
+        parameter: (field) => ({
+          index: field.index,
+          tsType: "bigint",
+          nullable: false,
+          databaseType: "bigint unsigned",
+        }),
+      };
+      try {
+        const staticResult = runStaticConformanceProbe(probe, target, {
+          dialect: selectedDialect,
+          snapshot: snapshotValue,
+          renderer: {
+            placeholder: (index) => selectedDialect.placeholder(index),
+            quoteIdentifier: (identifier) => selectedDialect.quoteIdentifier(identifier),
+          },
+        });
+        const result = await runLiveConformanceProbe(probe, target, adapter, normalizer, staticResult);
+        const report = createConformanceReport(
+          "mysql-live",
+          {
+            grammar: "mysql",
+            grammarVersion: selectedDialect.grammarVersion,
+            databaseVersion: server.version,
+            driver: "mysql2",
+            driverVersion: "3.24.1",
+            runtime: "node",
+            runtimeVersion: process.version,
+            typescriptVersion: "7.0.2",
+            schemaFingerprint: `sha256:${snapshotValue.metadata.schemaHash}`,
+            capabilities: Object.fromEntries((server.features ?? []).map((feature) => [feature, true])),
+          },
+          [result],
+        );
+        const artifactDirectory = join(workspaceDirectory, "artifacts", "conformance");
+        await mkdir(artifactDirectory, { recursive: true });
+        const serialized = serializeConformanceReport(report);
+        strict.ok(!serialized.includes(connectionUri));
+        strict.ok(!serialized.includes("1n"));
+        await writeFile(join(artifactDirectory, "mysql.json"), serialized);
+        if (result.status !== "pass") {
+          const reproduction = createConformanceReproductionBundle(
+            probe,
+            target,
+            report.environment,
+            selectExpectedOutcome(probe, target),
+            result,
+          );
+          await writeFile(
+            join(artifactDirectory, "mysql-reproduction.json"),
+            serializeConformanceReproductionBundle(reproduction),
+          );
+        }
+        strict.strictEqual(result.status, "pass", JSON.stringify(result, null, 2));
+      } finally {
+        await adapter.close();
+      }
     });
 
     await it("proves compiled metadata through COM_STMT_PREPARE without executing values", async () => {
@@ -234,8 +431,11 @@ try {
     await it("exposes inferred query types through the TypeScript preview bridge", async () => {
       const sourcePath = join(packageDirectory, "src/query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
-      const analysis = analyzeSource(source, snapshot as MySqlSchemaSnapshot, mysql());
+      const selectedDialect = dialect();
+      const snapshot = selectedDialect.validateSnapshot(
+        JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown,
+      );
+      const analysis = analyzeSource(source, snapshot, selectedDialect);
       const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
       try {
         const inspections = await bridge.inspectFile({
@@ -256,7 +456,7 @@ try {
 
         const streamSourcePath = join(packageDirectory, "src/stream-query.ts");
         const streamSource = await readFile(streamSourcePath, "utf8");
-        const streamAnalysis = analyzeSource(streamSource, snapshot as MySqlSchemaSnapshot, mysql());
+        const streamAnalysis = analyzeSource(streamSource, snapshot, selectedDialect);
         const streamInspections = await bridge.inspectFile({
           fileName: streamSourcePath,
           projectFile: join(packageDirectory, "tsconfig.json"),
@@ -274,8 +474,11 @@ try {
     await it("proves the default MySQL codec matrix at the inferred type boundary", async () => {
       const sourcePath = join(packageDirectory, "src/codec-query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
-      const analysis = analyzeSource(source, snapshot as MySqlSchemaSnapshot, mysql());
+      const selectedDialect = dialect();
+      const snapshot = selectedDialect.validateSnapshot(
+        JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown,
+      );
+      const analysis = analyzeSource(source, snapshot, selectedDialect);
       strict.deepStrictEqual(analysis.diagnostics, []);
       strict.strictEqual(analysis.queries.length, 1);
       const contract = analysis.queries[0]!;
@@ -376,6 +579,37 @@ try {
         });
         strict.strictEqual(total, 2n);
 
+        const insertAccounts = database.prepare(
+          "e2e-insert-account-list",
+          (accounts: readonly { readonly email: string; readonly status: "active" | "suspended" }[]) =>
+            sql`
+              INSERT INTO users (email, status, profile)
+              VALUES ${accounts.map((account) => sql.fragment`(${account.email}, ${account.status}, JSON_OBJECT())`)}
+            `,
+        );
+        const accounts = [
+          { email: `fragment-list-a-${process.pid}@example.com`, status: "active" as const },
+          { email: `fragment-list-b-${process.pid}@example.com`, status: "suspended" as const },
+          { email: `fragment-list-c-${process.pid}@example.com`, status: "active" as const },
+        ];
+        await database.execute(insertAccounts(accounts.slice(0, 2)));
+        await database.execute(insertAccounts(accounts.slice(2)));
+        const insertedAccounts = await database.execute(sql<{
+          readonly email: string;
+          readonly status: "active" | "suspended";
+        }>`
+          SELECT email, status FROM users
+          WHERE email IN (${accounts.map(({ email }) => sql.fragment`${email}`)})
+          ORDER BY email
+        `);
+        strict.deepStrictEqual(
+          insertedAccounts,
+          accounts.map(({ email, status }) => ({ email, status })),
+        );
+        await database.execute(sql`
+          DELETE FROM users WHERE email IN (${accounts.map(({ email }) => sql.fragment`${email}`)})
+        `);
+
         const codecRows = await database.execute(mysqlCodecFidelity);
         const codec = codecRows[0] as Record<string, unknown>;
         strict.strictEqual(codec.id, 1);
@@ -409,7 +643,7 @@ try {
     });
 
     await it("routes real MySQL reads conservatively and preserves transaction affinity", async () => {
-      const snapshot = mysql().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const snapshot = dialect().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
       const primary = await createMySql2Database({ connectionUri, typePolicy });
       const replica = await createMySql2Database({ connectionUri, typePolicy });
       const routes: string[] = [];
@@ -654,6 +888,39 @@ try {
       } finally {
         await database.close();
       }
+    });
+
+    await it("records version, mode, catalog, protocol, and runtime differential evidence", async () => {
+      const artifactPath = join(workspaceDirectory, "artifacts", "mysql-matrix", `${matrixLabel}.json`);
+      const result = await mustRun(
+        process.execPath,
+        [
+          join(workspaceDirectory, "scripts", "mysql-matrix-probe.mjs"),
+          "--connection-string",
+          connectionUri,
+          "--expected-version",
+          expectedVersion,
+          "--label",
+          matrixLabel,
+          "--channel",
+          versionPolicy,
+          "--mode-profile",
+          modeProfile,
+          "--snapshot",
+          generatedSnapshotPath,
+          "--output",
+          artifactPath,
+        ],
+        workspaceDirectory,
+      );
+      strict.ok(result.stdout.includes(expectedVersion));
+      const artifact = JSON.parse(await readFile(artifactPath, "utf8")) as {
+        readonly target: { readonly label: string; readonly modeProfile: string };
+        readonly summary: { readonly fail: number };
+      };
+      strict.strictEqual(artifact.target.label, matrixLabel);
+      strict.strictEqual(artifact.target.modeProfile, modeProfile);
+      strict.strictEqual(artifact.summary.fail, 0);
     });
 
     await it("reports clean drift and detects a real catalog change as TSQ301", async () => {

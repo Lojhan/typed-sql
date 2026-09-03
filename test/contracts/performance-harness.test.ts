@@ -28,6 +28,7 @@ await describe("performance harness", async () => {
     strict.strictEqual(percentile([9, 1, 5, 3], 0), 1);
     strict.strictEqual(percentile([9, 1, 5, 3], 0.5), 3);
     strict.strictEqual(percentile([9, 1, 5, 3], 0.95), 9);
+    strict.strictEqual(percentile([9, 1, 5, 3], 0.99), 9);
     strict.deepStrictEqual(statistics([1, 2, 3]), {
       samples: 3,
       minimum: 1,
@@ -36,6 +37,7 @@ await describe("performance harness", async () => {
       coefficientOfVariation: Math.sqrt(2 / 3) / 2,
       p50: 2,
       p95: 3,
+      p99: 3,
       maximum: 3,
     });
     strict.throws(() => percentile([], 0.5), /non-empty/u);
@@ -58,6 +60,7 @@ await describe("performance harness", async () => {
     strict.strictEqual(measured.iterationsPerSample, 2);
     strict.strictEqual(measured.p50, 10);
     strict.strictEqual(measured.p95, 20);
+    strict.strictEqual(measured.p99, 20);
   });
 
   await it("measures synchronous throughput without adding promise scheduling", () => {
@@ -74,6 +77,7 @@ await describe("performance harness", async () => {
     strict.deepStrictEqual(measured.rawSamples, [200, 100]);
     strict.strictEqual(measured.p50, 100);
     strict.strictEqual(measured.p95, 200);
+    strict.strictEqual(measured.p99, 200);
   });
 
   await it("captures reproducibility context from injectable system and git inputs", () => {

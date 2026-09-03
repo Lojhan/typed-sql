@@ -1,8 +1,16 @@
 import { performance } from "node:perf_hooks";
+import { resolveDialectCapabilityStates } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { parseStatement } from "../../ast/src/index.js";
-import type { SchemaSnapshot } from "../../schema/src/index.js";
-import { mysql, sql, typePolicy } from "../src/index.js";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
+import {
+  mySqlServerEvidence,
+  mysql,
+  parseMySqlVersion,
+  resolveMySqlCapabilities,
+  sql,
+  typePolicy,
+} from "../src/index.js";
+import { parseStatement } from "../src/parser/index.js";
 import { resolveMySqlStatement } from "../src/resolver.js";
 import { defaultMySqlTypePolicy, isKnownMySqlType, mapMySqlType } from "../src/type-policy.js";
 
@@ -50,7 +58,160 @@ const schema = {
   },
 } as const satisfies SchemaSnapshot;
 
+function serverEvidence(version: string, sqlMode = "") {
+  return mySqlServerEvidence(version, {
+    versionComment: "MySQL Community Server - GPL",
+    sqlMode,
+    characterSetServer: "utf8mb4",
+    collationServer: "utf8mb4_0900_ai_ci",
+    characterSetConnection: "utf8mb4",
+    collationConnection: "utf8mb4_0900_ai_ci",
+    timeZone: "SYSTEM",
+    systemTimeZone: "UTC",
+    lowerCaseTableNames: 0,
+  });
+}
+
+const v2Schema = (() => {
+  const upgraded = upgradeSchemaSnapshotV1(schema);
+  const users = upgraded.relations.users!;
+  return {
+    ...upgraded,
+    relations: {
+      ...upgraded.relations,
+      users: {
+        ...users,
+        columns: {
+          ...users.columns,
+          id: { ...users.columns.id!, default: "present", identity: "always", insertable: false, updatable: false },
+          email: { ...users.columns.email!, default: "none", identity: "none", insertable: true, updatable: true },
+          status: { ...users.columns.status!, default: "none", identity: "none", insertable: true, updatable: true },
+          profile: { ...users.columns.profile!, default: "none", identity: "none", insertable: true, updatable: false },
+        },
+      },
+    },
+  } as const satisfies SchemaSnapshot;
+})();
+
 await describe("MySQL dialect", async () => {
+  await it("resolves exact capabilities only for tested MySQL LTS lines", () => {
+    const dialect = mysql();
+    const exact = resolveDialectCapabilityStates(dialect, {
+      ...schema,
+      version: "8.4.6",
+      server: serverEvidence("8.4.6"),
+    });
+    strict.strictEqual(exact.lockingReads?.level, "exact");
+    strict.strictEqual(dialect.resolveCapabilities?.(schema).lockingReads?.level, "conservative");
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "8.3.0",
+          versionKey: "8.3.0",
+          features: [],
+          settings: { sqlMode: "" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ403",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: serverEvidence("9.7.0", "STRICT_TRANS_TABLES"),
+      }).lockingReads?.level,
+      "exact",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: serverEvidence("8.4.6-rc1"),
+      }).lockingReads?.diagnostic,
+      "TSQ403",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "8.4.6",
+          versionKey: "8.4.6",
+          features: [],
+          settings: {},
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ402",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: serverEvidence("8.4.6", "ANSI_QUOTES,NO_BACKSLASH_ESCAPES,PIPES_AS_CONCAT"),
+      }).lockingReads?.level,
+      "exact",
+    );
+    const unmodeled = dialect.resolveCapabilities?.({
+      ...schema,
+      server: serverEvidence("8.4.6", "HIGH_NOT_PRECEDENCE,STRICT_TRANS_TABLES"),
+    }).lockingReads;
+    strict.strictEqual(unmodeled?.level, "conservative");
+    strict.strictEqual(unmodeled?.diagnostic, "TSQ407");
+    strict.match(unmodeled?.reason ?? "", /HIGH_NOT_PRECEDENCE/u);
+    const unmodeledAnalysis = dialect.analyze(
+      "SELECT NOT 1 BETWEEN 0 AND 2 AS value",
+      { ...schema, server: serverEvidence("8.4.6", "HIGH_NOT_PRECEDENCE") },
+      dialect.defaultTypePolicy,
+    );
+    strict.deepStrictEqual(unmodeledAnalysis.columns, []);
+    strict.deepStrictEqual(unmodeledAnalysis.parameters, []);
+    strict.strictEqual(unmodeledAnalysis.diagnostics[0]?.code, "TSQ407");
+    strict.strictEqual(unmodeledAnalysis.semantics.operation.value, "unknown");
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({ ...schema, version: "26.7.0" }).lockingReads?.level,
+      "conservative",
+    );
+    strict.strictEqual(
+      mysql({ versionPolicy: "canary" }).resolveCapabilities?.({
+        ...schema,
+        server: serverEvidence("26.7.0", "STRICT_TRANS_TABLES"),
+      }).lockingReads?.level,
+      "exact",
+    );
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        server: {
+          ...serverEvidence("8.4.6"),
+          settings: { ...serverEvidence("8.4.6").settings, edition: "unknown" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ403",
+    );
+
+    strict.strictEqual(parseMySqlVersion("8.4"), undefined);
+    strict.throws(() => mySqlServerEvidence("not-a-version"), /Cannot normalize MySQL version/u);
+    strict.deepStrictEqual(mySqlServerEvidence("8.4.6-MariaDB", "strict_trans_tables,STRICT_TRANS_TABLES"), {
+      product: "mariadb",
+      version: "8.4.6-MariaDB",
+      versionKey: "8.4.6",
+      features: [],
+      settings: { sqlMode: "STRICT_TRANS_TABLES" },
+    });
+    strict.strictEqual(
+      resolveMySqlCapabilities({
+        ...schema,
+        server: {
+          product: "mysql",
+          version: "not-a-version",
+          versionKey: "not-a-version",
+          features: [],
+          settings: { sqlMode: "" },
+        },
+      }).lockingReads?.diagnostic,
+      "TSQ402",
+    );
+  });
+
   await it("implements the shared plugin contract with MySQL placeholders", () => {
     const dialect = mysql();
     strict.strictEqual(dialect.id, "mysql");
@@ -61,6 +222,20 @@ await describe("MySQL dialect", async () => {
     strict.throws(() => dialect.placeholder(0), /start at 1/);
     strict.throws(() => dialect.validateSnapshot({ ...schema, dialect: "postgres" }), /cannot use a postgres/);
     strict.throws(() => dialect.validateSnapshot({ ...schema, dialectVersion: "999" }), /dialectVersion 999/);
+    strict.throws(
+      () =>
+        dialect.validateSnapshot({
+          ...schema,
+          server: {
+            product: "mysql",
+            version: "8.4.6",
+            versionKey: "8.4.6",
+            features: [],
+            settings: { sqlMode: "STRICT_TRANS_TABLES,ANSI_QUOTES" },
+          },
+        }),
+      /normalized mode list/u,
+    );
     const result = dialect.analyze(
       "SELECT `id`, `status` FROM `users` WHERE `id` = ?",
       schema as typeof schema & { readonly dialect: "mysql" },
@@ -76,6 +251,15 @@ await describe("MySQL dialect", async () => {
     strict.deepStrictEqual(result.parameters, [
       { index: 1, tsType: "bigint", nullable: false, databaseType: "bigint unsigned" },
     ]);
+    const ansiQuoted = dialect.analyze('SELECT "email" FROM users', {
+      ...schema,
+      server: serverEvidence("8.4.6", "ANSI_QUOTES"),
+    } as typeof schema & { readonly dialect: "mysql" });
+    strict.deepStrictEqual(ansiQuoted.diagnostics, []);
+    strict.deepStrictEqual(
+      ansiQuoted.columns.map(({ name, tsType }) => ({ name, tsType })),
+      [{ name: "email", tsType: "string" }],
+    );
     strict.strictEqual(
       dialect.analyze("SELECT", schema as typeof schema & { readonly dialect: "mysql" }).diagnostics[0]?.code,
       "TSQ001",
@@ -140,11 +324,22 @@ await describe("MySQL dialect", async () => {
       strict.strictEqual(invalidLocking.semantics.operation.value, "unknown");
     }
 
-    for (const unsupported of ["CREATE TABLE audit (id bigint)", "SET @tenant_id = 1"]) {
+    for (const unsupported of [
+      "CREATE TABLE audit (id bigint)",
+      "SET @tenant_id = 1",
+      "WITH RECURSIVE tree(id) AS (SELECT 1 UNION ALL SELECT id + 1 FROM tree) SEARCH DEPTH FIRST BY id SET traversal SELECT id FROM tree",
+    ]) {
       const analysis = dialect.analyze(unsupported, typedSchema);
       strict.ok(analysis.diagnostics.some(({ severity }) => severity === "error"));
       strict.strictEqual(analysis.semantics.operation.value, "unknown");
       strict.strictEqual(analysis.semantics.locking.value, "unknown");
+    }
+    for (const postgresFromSyntax of [
+      "SELECT * FROM generate_series(1, 2)",
+      "SELECT * FROM ROWS FROM (generate_series(1, 2)) AS values(value)",
+      "SELECT id FROM users TABLESAMPLE SYSTEM(10)",
+    ]) {
+      strict.strictEqual(dialect.analyze(postgresFromSyntax, typedSchema).diagnostics[0]?.code, "TSQ001");
     }
   });
 
@@ -225,6 +420,33 @@ await describe("MySQL dialect", async () => {
     );
   });
 
+  await it("walks nested CASE, aggregate, range, and window expressions for clause validation", () => {
+    const result = resolveMySqlStatement(
+      parseStatement(
+        `
+      SELECT CASE status
+               WHEN 'active' THEN status
+               ELSE CASE WHEN COUNT(*) > 0 THEN status ELSE status END
+             END AS grouped_status
+      FROM users
+      WHERE CASE
+              WHEN status = 'active' THEN ROW_NUMBER() OVER (ORDER BY id) > 0
+              ELSE false
+            END
+      GROUP BY status
+      HAVING CASE
+               WHEN status IN ('active', 'suspended') THEN COUNT(*) > 0
+               ELSE status BETWEEN 'active' AND 'suspended'
+             END
+    `,
+        { syntax: "mysql" },
+      ),
+      { ...schema, server: serverEvidence("8.4.6", "ONLY_FULL_GROUP_BY") },
+    );
+    strict.ok(result.diagnostics.some(({ code }) => code === "TSQ223"));
+    strict.strictEqual(result.columns[0]?.name, "grouped_status");
+  });
+
   await it("infers command-only DML and rejects non-MySQL syntax safely", () => {
     const insert = resolveMySqlStatement(
       parseStatement("INSERT INTO users (email, status) VALUES (?, 'active')", { syntax: "mysql" }),
@@ -241,6 +463,17 @@ await describe("MySQL dialect", async () => {
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ214"),
     );
+    for (const source of ["INSERT INTO users DEFAULT VALUES"]) {
+      strict.ok(
+        resolveMySqlStatement(parseStatement(source, { syntax: "mysql" }), schema).diagnostics.some(
+          (diagnostic) => diagnostic.code === "TSQ401",
+        ),
+      );
+    }
+    strict.throws(
+      () => parseStatement("UPDATE users SET email = 'x' FROM projects WHERE users.id = projects.owner_id"),
+      (error: unknown) => error instanceof Error && "code" in error && error.code === "TSQ401",
+    );
     strict.ok(
       resolveMySqlStatement(
         parseStatement("UPDATE users SET missing = 1 WHERE id = ? RETURNING id", { syntax: "mysql" }),
@@ -249,9 +482,10 @@ await describe("MySQL dialect", async () => {
     );
     strict.ok(
       resolveMySqlStatement(
-        parseStatement("DELETE FROM users USING projects WHERE users.id = projects.owner_id RETURNING users.id", {
-          syntax: "mysql",
-        }),
+        parseStatement(
+          "DELETE FROM users USING users JOIN projects ON users.id = projects.owner_id RETURNING users.id",
+          { syntax: "mysql" },
+        ),
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
     );
@@ -273,11 +507,24 @@ await describe("MySQL dialect", async () => {
         schema,
       ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
     );
-    strict.ok(
-      resolveMySqlStatement(
-        parseStatement("WITH RECURSIVE ids(id) AS (SELECT 1) SELECT id FROM ids", { syntax: "mysql" }),
-        schema,
-      ).diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"),
+  });
+
+  await it("uses v2 write eligibility and required-column evidence without changing v1 behavior", () => {
+    const invalidInsert = resolveMySqlStatement(
+      parseStatement("INSERT INTO users (id) VALUES (1)", { syntax: "mysql" }),
+      v2Schema,
+    );
+    strict.ok(invalidInsert.diagnostics.some(({ code }) => code === "TSQ218"));
+    strict.ok(invalidInsert.diagnostics.some(({ code }) => code === "TSQ219"));
+    const invalidUpdate = resolveMySqlStatement(
+      parseStatement("UPDATE users SET profile = '{}'", { syntax: "mysql" }),
+      v2Schema,
+    );
+    strict.ok(invalidUpdate.diagnostics.some(({ code }) => code === "TSQ218"));
+    strict.deepStrictEqual(
+      resolveMySqlStatement(parseStatement("INSERT INTO users (id) VALUES (1)", { syntax: "mysql" }), schema)
+        .diagnostics,
+      [],
     );
   });
 
@@ -345,7 +592,7 @@ await describe("MySQL dialect", async () => {
     const budget = Number(process.env.TYPED_SQL_MYSQL_TYPE_SECURITY_BUDGET_MS ?? "1000");
     const start = performance.now();
     strict.strictEqual(mapMySqlType(malformedEnum, defaultMySqlTypePolicy), "unknown");
-    strict.strictEqual(mapMySqlType(spacedType, defaultMySqlTypePolicy), "unknown");
+    strict.strictEqual(mapMySqlType(spacedType, defaultMySqlTypePolicy), "bigint");
     const duration = performance.now() - start;
     strict.ok(duration <= budget, `MySQL type parsing took ${duration.toFixed(1)}ms; budget is ${budget}ms`);
   });

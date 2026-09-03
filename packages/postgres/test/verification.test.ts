@@ -80,6 +80,86 @@ await describe("PostgreSQL live verification", async () => {
     strict.strictEqual(evidence.parameters.length, 1);
   });
 
+  await it("describes result metadata through the value-free protocol on PostgreSQL 14-17", async () => {
+    const pool = new VerificationPool("14.24");
+    const protocol: string[] = [];
+    let parameterListener: ((message: { readonly dataTypeIDs: readonly number[] }) => void) | undefined;
+    const connection = {
+      parse({ name }: { readonly name: string }) {
+        protocol.push(`parse:${name}`);
+      },
+      describe({ name }: { readonly name: string }) {
+        protocol.push(`describe:${name}`);
+      },
+      sync() {
+        protocol.push("sync");
+      },
+      on(_event: string, listener: typeof parameterListener) {
+        parameterListener = listener;
+      },
+      off() {
+        parameterListener = undefined;
+      },
+    };
+    type MockConnection = typeof connection;
+    pool.connect = async () =>
+      ({
+        connection,
+        query: async (value: unknown, callback?: (error?: unknown) => void) => {
+          if (typeof value === "string") {
+            pool.clientQueries.push(value);
+            if (value.includes("FROM pg_type")) {
+              return {
+                rows: [
+                  { oid: 20, databaseType: "bigint" },
+                  { oid: 25, databaseType: "text" },
+                ],
+              };
+            }
+            return { rows: [] };
+          }
+          const query = value as {
+            callback: ((error?: unknown) => void) | undefined;
+            submit(connection: MockConnection): void;
+            handleRowDescription(message: { readonly fields: readonly { name: string; dataTypeID: number }[] }): void;
+            handleReadyForQuery(): void;
+          };
+          query.callback = callback;
+          query.submit(connection);
+          parameterListener?.({ dataTypeIDs: [20] });
+          query.handleRowDescription({
+            fields: [
+              { name: "id", dataTypeID: 20 },
+              { name: "email", dataTypeID: 25 },
+            ],
+          });
+          query.handleReadyForQuery();
+          return undefined;
+        },
+        release: (error: Error | boolean | undefined) => {
+          pool.released = error;
+        },
+      }) as unknown as PgLiveVerifierClient;
+    const verifier = createPgLiveVerifier({ pool });
+    const evidence = await verifier.verify({
+      fingerprint: `sha256:${"c".repeat(64)}`,
+      sql: "SELECT id, email FROM users WHERE id = $1",
+      operation: "read",
+    });
+    strict.deepStrictEqual(evidence, {
+      parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+      columns: [
+        { index: 1, name: "id", databaseType: "bigint", tsType: "bigint" },
+        { index: 2, name: "email", databaseType: "text", tsType: "string" },
+      ],
+    });
+    strict.deepStrictEqual(
+      protocol.map((entry) => entry.split(":")[0]),
+      ["parse", "describe", "sync"],
+    );
+    strict.ok(!pool.clientQueries.some((query) => query.startsWith("PREPARE") || query.startsWith("EXECUTE")));
+  });
+
   await it("rejects malformed fingerprints before acquiring a connection", async () => {
     const pool = new VerificationPool();
     const verifier = createPgLiveVerifier({ pool });
@@ -229,6 +309,49 @@ await describe("PostgreSQL plan inspection", async () => {
       random_page_cost: "4",
     });
     strict.strictEqual(released, undefined);
+  });
+
+  await it("forces a value-free generic plan on PostgreSQL 14 and 15", async () => {
+    const calls: string[] = [];
+    const pool: PgLiveVerifierPool = {
+      async query<Row extends Record<string, unknown>>(sql: string) {
+        if (sql.includes("current_setting")) return { rows: [{ version: "14.24" }] as unknown as readonly Row[] };
+        return { rows: [] as readonly Row[] };
+      },
+      async connect() {
+        return {
+          async query<Row extends Record<string, unknown>>(sql: string) {
+            calls.push(sql);
+            return {
+              rows: sql.startsWith("EXPLAIN")
+                ? ([{ "QUERY PLAN": [{ Plan: { "Node Type": "Result" } }] }] as unknown as readonly Row[])
+                : ([] as readonly Row[]),
+            };
+          },
+          release() {},
+        };
+      },
+      async end() {},
+    };
+    const inspector = createPgPlanInspector({ pool });
+    strict.deepStrictEqual(
+      await inspector.capture({
+        fingerprint: `sha256:${"e".repeat(64)}`,
+        sql: "SELECT $1::bigint AS id",
+        operation: "read",
+        parameterCount: 1,
+      }),
+      { nodes: [{ kind: "Result" }] },
+    );
+    strict.deepStrictEqual(calls, [
+      "BEGIN",
+      "SET LOCAL plan_cache_mode = force_generic_plan",
+      `PREPARE "typed_sql_plan_${"e".repeat(32)}" AS SELECT $1::bigint AS id`,
+      `EXPLAIN (FORMAT JSON) EXECUTE "typed_sql_plan_${"e".repeat(32)}"(NULL)`,
+      `DEALLOCATE "typed_sql_plan_${"e".repeat(32)}"`,
+      "ROLLBACK",
+    ]);
+    strict.ok(calls.every((sql) => !/ANALYZE/iu.test(sql)));
   });
 
   await it("binds transient samples but never requests ANALYZE", async () => {

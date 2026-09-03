@@ -1,4 +1,3 @@
-import { type CallExpression, type Statement, walkStatement } from "@typed-sql/ast";
 import {
   defineQuerySemantics,
   QUERY_SEMANTICS_VERSION,
@@ -9,6 +8,7 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
   ARRAY_AGG: "immutable",
@@ -53,6 +53,8 @@ function key(dependency: QueryDependency): string {
 function functionVolatility(expression: CallExpression, index: ResolverSchemaIndex): QueryVolatility {
   const builtin = builtinVolatility[expression.name.name.toUpperCase()];
   if (builtin !== undefined && expression.schema === undefined) return builtin;
+  const routines = index.routineOverloads(expression.name.name, expression.arguments.length, expression.schema?.name);
+  if (routines.length === 1) return routines[0]!.volatility;
   const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
   return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";
 }
@@ -66,12 +68,17 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
   let hasRelation = false;
   let hasCall = false;
   let hasLockingRead = false;
+  let hasPositionedDml = false;
 
   walkStatement(statement, {
     statement(current) {
       if (current.kind !== "select") write = true;
       if (current.with !== undefined) capabilities.add(current.with.recursive ? "recursiveCtes" : "ctes");
       if (current.kind !== "select" && current.returning.length > 0) capabilities.add("returning");
+      if ((current.kind === "update" || current.kind === "delete") && current.currentOf !== undefined) {
+        hasPositionedDml = true;
+        capabilities.add("positionedDml");
+      }
       if (current.kind === "select") {
         if (current.compounds.length > 0) capabilities.add("setOperations");
         if (current.locking.length > 0) {
@@ -120,8 +127,13 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
         hasCall = true;
         if (expression.filter !== undefined) capabilities.add("aggregateFilter");
         if (expression.over !== undefined) capabilities.add("windows");
+        const routines = index.routineOverloads(
+          expression.name.name,
+          expression.arguments.length,
+          expression.schema?.name,
+        );
         const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
-        const resolved = candidates.length === 1 ? candidates[0] : undefined;
+        const resolved = routines.length === 1 ? routines[0] : candidates.length === 1 ? candidates[0] : undefined;
         const schema = resolved?.schema ?? expression.schema?.name;
         const dependency: QueryDependency = {
           kind: "function",
@@ -170,7 +182,9 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
     statement.groupBy.length === 0 &&
     statement.having === undefined &&
     statement.limit === undefined &&
+    statement.limitAll !== true &&
     statement.offset === undefined &&
+    statement.fetch === undefined &&
     statement.compounds.length === 0 &&
     !hasCall;
   const command = statement.kind !== "select" && statement.returning.length === 0;
@@ -218,12 +232,14 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
       ],
     },
     connectionAffinity: {
-      value: hasLockingRead ? "transaction" : "none",
+      value: hasLockingRead || hasPositionedDml ? "transaction" : "none",
       evidence: [
         syntax(
-          hasLockingRead
-            ? "A locking read must remain on its primary transaction connection."
-            : "The supported statement contains no session or transaction control.",
+          hasPositionedDml
+            ? "A positioned update or delete must use the transaction connection that owns its cursor."
+            : hasLockingRead
+              ? "A locking read must remain on its primary transaction connection."
+              : "The supported statement contains no session or transaction control.",
           statement.range,
         ),
       ],

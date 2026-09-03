@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertDialectPlugin, type SchemaSnapshot, type TypedSqlConfig } from "@typed-sql/core";
-import { tsImport } from "tsx/esm/api";
+import { register } from "tsx/esm/api";
 
 const configNames = [
   "typed-sql.config.ts",
@@ -11,6 +12,9 @@ const configNames = [
   "typed-sql.config.mjs",
   "typed-sql.config.js",
 ] as const;
+export const CONFIG_CACHE_LIMIT = 32;
+const configLoader = register({ namespace: "typed-sql-config" });
+const configCache = new Map<string, Promise<LoadedConfig>>();
 
 export interface LoadedConfig {
   readonly file: string;
@@ -62,12 +66,34 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
     options.file === undefined
       ? await discoverConfig(options.cwd)
       : resolve(options.cwd ?? process.cwd(), options.file);
-  const module = (await tsImport(
-    pathToFileURL(file).href,
-    pathToFileURL(join(dirname(file), "package.json")).href,
-  )) as { readonly default?: unknown };
-  if (!isConfig(module.default)) throw new TypeError(`${file} must default-export defineConfig({...})`);
-  return { file, directory: dirname(file), config: module.default };
+  const source = await readFile(file);
+  const hash = createHash("sha256").update(source).digest("hex");
+  const key = `${file}\0${hash}`;
+  const cached = configCache.get(key);
+  if (cached !== undefined) {
+    configCache.delete(key);
+    configCache.set(key, cached);
+    return cached;
+  }
+  const specifier = new URL(pathToFileURL(file));
+  specifier.searchParams.set("typed-sql-config", hash);
+  const loading = configLoader
+    .import(specifier.href, pathToFileURL(join(dirname(file), "package.json")).href)
+    .then((module: { readonly default?: unknown }) => {
+      if (!isConfig(module.default)) throw new TypeError(`${file} must default-export defineConfig({...})`);
+      return { file, directory: dirname(file), config: module.default };
+    })
+    .catch((error: unknown) => {
+      configCache.delete(key);
+      throw error;
+    });
+  configCache.set(key, loading);
+  while (configCache.size > CONFIG_CACHE_LIMIT) {
+    const oldest = configCache.keys().next().value;
+    if (oldest === undefined) break;
+    configCache.delete(oldest);
+  }
+  return loading;
 }
 
 export function fromConfig(directory: string, path: string): string {

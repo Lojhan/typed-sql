@@ -13,8 +13,54 @@ export {
   requireAdapterCapability,
   UnsupportedAdapterCapabilityError,
 } from "./adapter-capabilities.js";
+export type {
+  ArtifactCompatibilityAssessment,
+  ArtifactCompatibilityIdentity,
+  ArtifactCompatibilityOutcome,
+} from "./artifact-compatibility.js";
+export {
+  ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION,
+  assessArtifactCompatibility,
+  CORE_ARTIFACT_COMPATIBILITY_VERSION,
+  parseArtifactCompatibilityIdentity,
+  serializeArtifactCompatibilityIdentity,
+} from "./artifact-compatibility.js";
+export type {
+  DebugEvent,
+  DebugEventInput,
+  DebugRedactionOptions,
+  SupportBundle,
+} from "./debug.js";
+export {
+  createDebugEvent,
+  createSupportBundle,
+  redactDebugContext,
+  SUPPORT_BUNDLE_FORMAT_VERSION,
+  serializeSupportBundle,
+} from "./debug.js";
 export type { TypedSqlDiagnosticCode } from "./diagnostics.js";
 export { diagnosticRegistry, isTypedSqlDiagnosticCode } from "./diagnostics.js";
+export type {
+  BooleanDialectCapabilities,
+  DialectCapabilityEvidence,
+  DialectCapabilityEvidenceKind,
+  DialectCapabilityHost,
+  DialectCapabilityIssue,
+  DialectCapabilityLevel,
+  DialectCapabilityState,
+  DialectCapabilityStates,
+  DialectServerEvidence,
+  DialectServerSetting,
+} from "./dialect-capabilities.js";
+export {
+  applyDialectCapabilityStates,
+  defineDialectCapabilityStates,
+  defineDialectServerEvidence,
+  dialectCapabilityIssues,
+  parseDialectServerEvidence,
+  resolveDialectCapabilityStates,
+  staticDialectCapabilityStates,
+} from "./dialect-capabilities.js";
 export type {
   ExecutionCapabilities,
   ExecutionCapability,
@@ -54,6 +100,7 @@ export type {
   ControlledQueryExecutor,
   Database,
   OptionalSqlFragment,
+  PreparedQueryRenderVariant,
   Query,
   QueryExecutor,
   QueryParameters,
@@ -61,6 +108,7 @@ export type {
   QueryRow,
   RenderedQuery,
   SqlFragment,
+  SqlFragmentListErrorCode,
   SqlRenderer,
   SqlSegment,
   SqlTag,
@@ -71,10 +119,16 @@ export {
   bindQueryRenderSkeleton,
   compileQueryRenderSkeleton,
   createDatabase,
+  DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+  DEFAULT_MAX_QUERY_PARAMETERS,
+  DEFAULT_MAX_RENDERED_SQL_BYTES,
+  PreparedQueryRenderCache,
   renderQuery,
+  SqlFragmentListError,
   sql,
 } from "./query.js";
-export type { ResolverType } from "./resolver.js";
+export type { IndexedTable, ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
   CompatibleResultSchema,
@@ -158,6 +212,11 @@ export type {
   SourceRange,
   SqlDiagnostic,
   SqlDiagnosticFix,
+  StructuralColumnSnapshot,
+  StructuralConstraintSnapshot,
+  StructuralRelationSnapshot,
+  StructuralRoutineArgumentSnapshot,
+  StructuralRoutineSnapshot,
   TableSnapshot,
   TypedSqlConfig,
 } from "./types.js";

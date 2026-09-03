@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/mysql",
-  "version": "2.0.0",
+  "version": "2.1.0-rc.0",
   "description": "MySQL grammar, schema introspection, type resolution, and application-owned mysql2 integration for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
@@ -35,7 +35,7 @@
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
-    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+    "coverage": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
   "exports": {
     ".": "./dist/packages/mysql/src/index.js",
@@ -46,5 +46,8 @@
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@typed-sql/conformance": "workspace:*"
   }
 }

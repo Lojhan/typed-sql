@@ -6,12 +6,16 @@ import {
   closestName,
   compileQueryRenderSkeleton,
   createDatabase,
+  DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  DEFAULT_MAX_QUERY_PARAMETERS,
+  DEFAULT_MAX_RENDERED_SQL_BYTES,
   DIALECT_CONTRACT_VERSION,
   type DialectPlugin,
   defineConfig,
   diagnosticRegistry,
   isTypedSqlDiagnosticCode,
   ParameterCollector,
+  PreparedQueryRenderCache,
   parameterTypeLiteral,
   type Query,
   QueryCardinalityError,
@@ -22,6 +26,7 @@ import {
   rowTypeLiteral,
   type SchemaSnapshot,
   type SqlFragment,
+  SqlFragmentListError,
   type SqlRenderer,
   sql,
   UnsupportedExecutionCapabilityError,
@@ -125,6 +130,34 @@ await describe("runtime SQL tag", async () => {
     strict.deepStrictEqual([placeholderCalls, identifierCalls], [1, 1]);
   });
 
+  await it("caches fragment-list cardinalities with bounded LRU semantics", () => {
+    const cache = new PreparedQueryRenderCache(2);
+    const build = (ids: readonly number[]) => sql`VALUES ${ids.map((id) => sql.fragment`(${id})`)}`;
+    strict.deepStrictEqual(cache.bind(build([1]), renderer)?.rendered, { text: "VALUES ($1)", values: [1] });
+    strict.deepStrictEqual(cache.bind(build([2, 3]), renderer)?.rendered, {
+      text: "VALUES ($1), ($2)",
+      values: [2, 3],
+    });
+    strict.strictEqual(cache.size, 2);
+    strict.deepStrictEqual(cache.bind(build([4]), renderer), {
+      rendered: { text: "VALUES ($1)", values: [4] },
+      primary: true,
+    });
+    strict.deepStrictEqual(cache.bind(build([5, 6, 7]), renderer)?.rendered, {
+      text: "VALUES ($1), ($2), ($3)",
+      values: [5, 6, 7],
+    });
+    strict.strictEqual(cache.size, 2);
+    strict.strictEqual(cache.bind(sql`SELECT ${1}`, renderer), undefined);
+
+    const heterogeneous = new PreparedQueryRenderCache();
+    strict.deepStrictEqual(
+      heterogeneous.bind(sql`SELECT ${[sql.ident("id"), sql.fragment`${1}`]}`, renderer)?.rendered,
+      { text: 'SELECT "id", $1', values: [1] },
+    );
+    strict.throws(() => new PreparedQueryRenderCache(0), /positive safe integer/u);
+  });
+
   await it("keeps hostile strings parameterized inside trusted structural fragments", () => {
     const hostile = "' OR TRUE; DROP TABLE users; --";
     const predicate = sql.fragment` AND users.name = ${hostile}`;
@@ -152,6 +185,55 @@ await describe("runtime SQL tag", async () => {
     sql.__typed<{ readonly id: number }, readonly [number]>()`SELECT id FROM users WHERE id = ${"wrong"}`;
   });
 
+  await it("concatenates fixed fragment tuples without inventing mapped-array cardinality", () => {
+    const id = 1;
+    const email = "one@example.test";
+    const active = true;
+    const fixed = [sql.fragment`(${id}, ${email})`, sql.fragment`(${active})`] as const;
+    const fixedQuery = sql`VALUES ${fixed}`;
+    const fixedParameters: Assert<Equal<QueryParameters<typeof fixedQuery>, readonly [number, string, boolean]>> = true;
+    void fixedParameters;
+
+    const rows: readonly { readonly id: number; readonly email: string }[] = [{ id, email }];
+    const mapped = rows.map((row) => sql.fragment`(${row.id}, ${row.email})`);
+    const mappedQuery = sql`VALUES ${mapped}`;
+    const mappedParameters: Assert<Equal<QueryParameters<typeof mappedQuery>, readonly (number | string)[]>> = true;
+    void mappedParameters;
+
+    const tenant = 7;
+    const returning = false;
+    const surrounded = sql`SELECT ${tenant} FROM data VALUES ${mapped} RETURNING ${returning}`;
+    const surroundedParameters: Assert<
+      Equal<QueryParameters<typeof surrounded>, readonly [number, ...(number | string)[], boolean]>
+    > = true;
+    void surroundedParameters;
+
+    const values: readonly number[] = [1, 2];
+    const valueQuery = sql`SELECT ${values}`;
+    const valueParameters: Assert<Equal<QueryParameters<typeof valueQuery>, readonly [readonly number[]]>> = true;
+    void valueParameters;
+  });
+
+  await it("rejects invalid array interpolation types at the tag boundary", () => {
+    const compileOnly = () => {
+      // @ts-expect-error an empty array needs an explicit policy
+      sql`VALUES ${[]}`;
+      // @ts-expect-error fragments and values cannot share one implicit list
+      sql`VALUES ${[sql.fragment`(1)`, 2]}`;
+      // @ts-expect-error nested arrays require sql.value(...)
+      sql`VALUES ${[[1], [2]]}`;
+      // @ts-expect-error async callbacks cannot create structural SQL
+      sql`VALUES ${[Promise.resolve(sql.fragment`(1)`)]}`;
+      const widened: readonly (SqlFragment | string)[] = [sql.fragment`(1)`];
+      // @ts-expect-error widened fragment/value unions fail closed
+      sql`VALUES ${widened}`;
+      const unsafe: ReturnType<typeof JSON.parse>[] = [sql.fragment`(1)`];
+      // @ts-expect-error any arrays cannot be classified safely
+      sql`VALUES ${unsafe}`;
+    };
+    void compileOnly;
+  });
+
   await it("quotes explicit identifiers and preserves nested parameter ordering", async () => {
     const columns = sql.join([sql.ident("id"), sql.ident('display"name')]);
     const query = sql`SELECT ${columns} FROM users WHERE id = ${sql.value(7)}`;
@@ -166,6 +248,109 @@ await describe("runtime SQL tag", async () => {
       /separator must be a trusted SQL fragment/,
     );
     strict.throws(() => sql.join(["unsafe" as never]), /accepts SQL fragments/);
+  });
+
+  await it("renders implicit fragment lists in row-major order without expanding ordinary arrays", () => {
+    const rows = [
+      { id: 1, email: "one@example.test", active: true },
+      { id: 2, email: "two@example.test", active: false },
+      { id: 3, email: "three@example.test", active: true },
+      { id: 4, email: "four@example.test", active: false },
+      { id: 5, email: "five@example.test", active: true },
+    ];
+    const query = sql`INSERT INTO users (id, email, active) VALUES ${rows.map(
+      (row) => sql.fragment`(${row.id}, ${row.email}, ${row.active})`,
+    )}`;
+    strict.strictEqual(query.segments[1]?.kind, "fragment-list");
+    if (query.segments[1]?.kind === "fragment-list") {
+      strict.strictEqual(query.segments[1].items.length, 5);
+      strict.ok(Object.isFrozen(query.segments[1].items));
+    }
+    strict.deepStrictEqual(renderQuery(query, renderer), {
+      text: "INSERT INTO users (id, email, active) VALUES ($1, $2, $3), ($4, $5, $6), ($7, $8, $9), ($10, $11, $12), ($13, $14, $15)",
+      values: rows.flatMap(({ id, email, active }) => [id, email, active]),
+    });
+
+    const ids = [1, 2, 3];
+    strict.deepStrictEqual(renderQuery(sql`SELECT * FROM users WHERE id = ANY(${ids})`, renderer), {
+      text: "SELECT * FROM users WHERE id = ANY($1)",
+      values: [ids],
+    });
+    strict.deepStrictEqual(renderQuery(sql`SELECT ${[sql.ident("id"), sql.ident("email")]} FROM users`, renderer), {
+      text: 'SELECT "id", "email" FROM users',
+      values: [],
+    });
+  });
+
+  await it("rejects ambiguous or unsafe array shapes before rendering", () => {
+    const runtimeSql = sql as unknown as (
+      strings: TemplateStringsArray,
+      ...parts: readonly unknown[]
+    ) => Query<unknown, readonly unknown[]>;
+    const assertCode = (build: () => unknown, code: string) =>
+      strict.throws(build, (error: unknown) => error instanceof SqlFragmentListError && error.code === code);
+    assertCode(() => runtimeSql`VALUES ${[]}`, "TSQL_FRAGMENT_LIST_EMPTY");
+    assertCode(() => runtimeSql`VALUES ${[sql.fragment`(1)`, 2]}`, "TSQL_FRAGMENT_LIST_MIXED");
+    assertCode(() => runtimeSql`VALUES ${[[1], [2]]}`, "TSQL_FRAGMENT_LIST_NESTED");
+    assertCode(() => runtimeSql`VALUES ${[Promise.resolve(sql.fragment`(1)`)]}`, "TSQL_FRAGMENT_LIST_ASYNC");
+    const sparse = Array<SqlFragment>(2);
+    sparse[1] = sql.fragment`(1)`;
+    assertCode(() => runtimeSql`VALUES ${sparse}`, "TSQL_FRAGMENT_LIST_SPARSE");
+    const fragmentLike = [{ segments: [{ kind: "text", text: "DROP TABLE users" }] }];
+    strict.deepStrictEqual(renderQuery(runtimeSql`SELECT ${fragmentLike}`, renderer), {
+      text: "SELECT $1",
+      values: [fragmentLike],
+    });
+    assertCode(
+      () => sql`VALUES ${Array.from({ length: DEFAULT_MAX_FRAGMENT_LIST_ITEMS + 1 }, () => sql.fragment`(1)`)}`,
+      "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+    strict.deepStrictEqual(renderQuery(sql`SELECT ${sql.value([])}`, renderer), { text: "SELECT $1", values: [[]] });
+    strict.deepStrictEqual(renderQuery(sql`SELECT 1${sql.join([])}`, renderer), { text: "SELECT 1", values: [] });
+  });
+
+  await it("snapshots fragment-list membership before later array mutation", () => {
+    const fragments = [sql.fragment`(${1})`, sql.fragment`(${2})`];
+    const query = sql`VALUES ${fragments}`;
+    fragments[0] = sql.fragment`(${99})`;
+    fragments.push(sql.fragment`(${3})`);
+    strict.deepStrictEqual(renderQuery(query, renderer), {
+      text: "VALUES ($1), ($2)",
+      values: [1, 2],
+    });
+  });
+
+  await it("bounds SQL after structural expansion", () => {
+    const oversized = sql`SELECT ${sql.raw("x".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES + 1))}`;
+    strict.throws(
+      () => renderQuery(oversized, renderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+
+    const expandingRenderer: SqlRenderer = {
+      placeholder: renderer.placeholder,
+      quoteIdentifier: () => "x".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES + 1),
+    };
+    const identifier = sql`SELECT ${sql.ident("id")}`;
+    strict.throws(
+      () => renderQuery(identifier, expandingRenderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+    strict.throws(
+      () => compileQueryRenderSkeleton(identifier, expandingRenderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+
+    const parameterHeavyFragment = Object.freeze({
+      [Symbol.for("@typed-sql/core.fragment")]: () => [] as const,
+      segments: Object.freeze(
+        Array.from({ length: DEFAULT_MAX_QUERY_PARAMETERS + 1 }, (_, value) => ({ kind: "value" as const, value })),
+      ),
+    }) as unknown as SqlFragment;
+    strict.throws(
+      () => renderQuery(sql`SELECT ${parameterHeavyFragment}`, renderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
   });
 
   await it("provides an immutable empty structural fragment", () => {
@@ -220,6 +405,10 @@ await describe("runtime SQL tag", async () => {
     strict.deepStrictEqual(renderQuery(accounts({ minimumId: 5n }, "any"), renderer), {
       text: "SELECT account.id, account.status FROM accounts AS account WHERE (account.id >= $1)",
       values: [5n],
+    });
+    strict.deepStrictEqual(renderQuery(accounts({ status: "active", minimumId: 5n }, "any"), renderer), {
+      text: "SELECT account.id, account.status FROM accounts AS account WHERE (account.status = $1) OR (account.id >= $2)",
+      values: ["active", 5n],
     });
     strict.deepStrictEqual(renderQuery(accounts({}, "all"), renderer), {
       text: "SELECT account.id, account.status FROM accounts AS account WHERE TRUE",
@@ -730,11 +919,146 @@ await describe("core contracts", async () => {
     parameters.record(2);
     parameters.record(2, { tsType: "string", nullable: false, databaseType: "text" });
     strict.deepStrictEqual(parameters.values()[1], { index: 2, tsType: "string", nullable: false });
+    parameters.record(3);
+    parameters.record(3, { tsType: "unknown", nullable: true, databaseType: "jsonb" });
+    strict.deepStrictEqual(parameters.values()[2], {
+      index: 3,
+      tsType: "unknown",
+      nullable: true,
+      databaseType: "jsonb",
+    });
     strict.strictEqual(unionTypeLiterals(["string", "number", "string"]), "string | number");
     strict.strictEqual(unionTypeLiterals(["string", "unknown"]), "unknown");
     strict.strictEqual(unionTypeLiterals([]), "unknown");
     strict.strictEqual(closestName("uesrs", ["accounts", "users"]), "users");
     strict.strictEqual(closestName("x", ["accounts"]), undefined);
     strict.strictEqual(closestName("users", []), undefined);
+  });
+
+  await it("indexes v2 relation, uniqueness, DML, and routine evidence without dialect semantics", () => {
+    const table = {
+      schema: "app",
+      name: "users",
+      columns: {
+        id: { name: "id", databaseType: "int", tsType: "number", nullable: false },
+        email: { name: "email", databaseType: "text", tsType: "string", nullable: false },
+      },
+    } as const;
+    const snapshot: SchemaSnapshot = {
+      formatVersion: 2,
+      dialect: "test",
+      tables: { users: table },
+      relations: {
+        users: {
+          schema: "app",
+          name: "users",
+          kind: "table",
+          columns: {
+            id: {
+              name: "id",
+              position: 0,
+              databaseType: "int",
+              typeIdentity: "test:int",
+              tsType: "number",
+              nullable: false,
+              default: "present",
+              generated: "none",
+              identity: "by-default",
+              insertable: true,
+              updatable: true,
+            },
+            email: {
+              name: "email",
+              position: 1,
+              databaseType: "text",
+              typeIdentity: "test:text",
+              tsType: "string",
+              nullable: false,
+              default: "none",
+              generated: "none",
+              identity: "none",
+              insertable: true,
+              updatable: false,
+            },
+          },
+          constraints: [
+            {
+              kind: "primary-key",
+              identity: "users-pkey",
+              columns: ["id"],
+              partial: false,
+              expressionBased: false,
+              nullsDistinct: false,
+            },
+            {
+              kind: "unique",
+              identity: "users-email-partial",
+              columns: ["email"],
+              partial: true,
+              expressionBased: false,
+              nullsDistinct: true,
+            },
+          ],
+        },
+      },
+      routines: {
+        "app.lookup": [
+          {
+            name: "lookup",
+            schema: "app",
+            identity: "lookup-int",
+            kind: "function",
+            arguments: [{ mode: "in", databaseType: "int", tsType: "number" }],
+            result: { kind: "scalar", databaseType: "text", tsType: "string", nullable: false },
+            volatility: "stable",
+          },
+        ],
+        "app.format": [
+          {
+            name: "format",
+            schema: "app",
+            identity: "format-default",
+            kind: "function",
+            arguments: [
+              { name: "value", mode: "in", databaseType: "text", tsType: "string", default: "none" },
+              { name: "style", mode: "in", databaseType: "text", tsType: "string", default: "present" },
+            ],
+            result: { kind: "scalar", databaseType: "text", tsType: "string", nullable: false },
+            volatility: "immutable",
+          },
+        ],
+        "app.collect": [
+          {
+            name: "collect",
+            schema: "app",
+            identity: "collect-variadic",
+            kind: "function",
+            arguments: [{ name: "values", mode: "variadic", databaseType: "text[]", tsType: "readonly string[]" }],
+            result: { kind: "scalar", databaseType: "text", tsType: "string", nullable: false },
+            volatility: "immutable",
+          },
+        ],
+      },
+    };
+    const index = new ResolverSchemaIndex(snapshot);
+    strict.deepStrictEqual(index.uniqueColumnSets(table), [["id"]]);
+    strict.strictEqual(index.isUnique(table, ["ID"]), true);
+    strict.strictEqual(index.isUnique(table, ["email"]), false);
+    strict.strictEqual(index.columnEligibility(table, table.columns.email, "update"), false);
+    const required = index.requiredInsertColumns(table);
+    if (required === "unknown") throw new Error("expected v2 insert evidence");
+    strict.deepStrictEqual(
+      required.map(({ name }) => name),
+      ["email"],
+    );
+    strict.strictEqual(index.functions("lookup", 1, "app")[0]?.returnType, "string");
+    strict.strictEqual(index.routineOverloads("lookup", 1, "APP")[0]?.identity, "lookup-int");
+    strict.strictEqual(index.routineOverloads("format", 1, "app")[0]?.identity, "format-default");
+    strict.strictEqual(index.routineOverloads("collect", 0, "app")[0]?.identity, "collect-variadic");
+    strict.strictEqual(index.routineOverloads("collect", 3, "app")[0]?.identity, "collect-variadic");
+
+    const legacy = new ResolverSchemaIndex({ formatVersion: 1, dialect: "test", tables: { users: table } });
+    strict.strictEqual(legacy.isUnique(table, ["id"]), "unknown");
+    strict.strictEqual(legacy.requiredInsertColumns(table), "unknown");
   });
 });

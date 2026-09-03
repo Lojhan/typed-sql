@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/postgres",
-  "version": "2.0.0",
+  "version": "2.1.0-rc.0",
   "description": "PostgreSQL grammar, schema introspection, type resolution, and driver-neutral runtime codecs for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
@@ -47,5 +47,8 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@types/pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@typed-sql/conformance": "workspace:*"
   }
 }

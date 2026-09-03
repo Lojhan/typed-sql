@@ -1,3 +1,4 @@
+import type { DialectCapabilityStates, DialectServerEvidence } from "./dialect-capabilities.js";
 import type { QuerySemantics } from "./semantics.js";
 
 export const DIALECT_CONTRACT_VERSION = 4 as const;
@@ -58,15 +59,105 @@ export interface FunctionSnapshot {
   readonly volatility?: "immutable" | "stable" | "volatile";
 }
 
+/** Grammar-neutral structural evidence exposed by schema format v2. */
+export interface StructuralColumnSnapshot {
+  readonly name: string;
+  readonly position: number;
+  readonly databaseType: string;
+  readonly typeIdentity: string;
+  readonly tsType: string;
+  readonly nullable: boolean;
+  readonly default: "none" | "present" | "unknown";
+  readonly generated: "none" | "virtual" | "stored";
+  readonly identity: "none" | "always" | "by-default" | "unknown";
+  readonly collation?: string;
+  readonly characterSet?: string;
+  readonly insertable: boolean | "unknown";
+  readonly updatable: boolean | "unknown";
+}
+
+export interface StructuralConstraintSnapshot {
+  readonly kind: "primary-key" | "unique" | "foreign-key" | "check" | "exclusion";
+  readonly identity: string;
+  readonly columns: readonly string[];
+  readonly partial: boolean | "unknown";
+  readonly expressionBased: boolean | "unknown";
+  readonly deferrable?: boolean | "unknown";
+  readonly initiallyDeferred?: boolean | "unknown";
+  readonly nullsDistinct?: boolean | "unknown";
+}
+
+export interface StructuralIndexColumnSnapshot {
+  readonly column?: string;
+  readonly expressionHash?: string;
+  readonly descending?: boolean;
+  readonly nulls?: "first" | "last";
+  readonly operatorClass?: string;
+  readonly collation?: string;
+}
+
+export interface StructuralIndexSnapshot {
+  readonly name: string;
+  readonly identity: string;
+  readonly unique: boolean;
+  readonly method?: string;
+  readonly columns: readonly StructuralIndexColumnSnapshot[];
+  readonly includedColumns?: readonly string[];
+  readonly predicate: "none" | "present" | "unknown";
+  readonly predicateHash?: string;
+  readonly valid: boolean | "unknown";
+}
+
+export interface StructuralRelationSnapshot {
+  readonly schema?: string;
+  readonly name: string;
+  readonly kind: "table" | "view" | "materialized-view" | "foreign-table" | "virtual-table";
+  readonly columns: Readonly<Record<string, StructuralColumnSnapshot>>;
+  readonly constraints: readonly StructuralConstraintSnapshot[];
+  readonly indexes?: readonly StructuralIndexSnapshot[];
+}
+
+export interface StructuralRoutineArgumentSnapshot {
+  readonly name?: string;
+  readonly mode: "in" | "out" | "inout" | "variadic";
+  readonly databaseType: string;
+  readonly tsType: string;
+  readonly default?: "none" | "present" | "unknown";
+}
+
+export interface StructuralRoutineSnapshot {
+  readonly name: string;
+  readonly schema?: string;
+  readonly identity: string;
+  readonly kind: "function" | "procedure" | "aggregate" | "window";
+  readonly arguments: readonly StructuralRoutineArgumentSnapshot[];
+  readonly result:
+    | {
+        readonly kind: "scalar" | "set";
+        readonly databaseType: string;
+        readonly tsType: string;
+        readonly nullable: boolean;
+      }
+    | { readonly kind: "record" | "table"; readonly columns: Readonly<Record<string, StructuralColumnSnapshot>> }
+    | { readonly kind: "void" | "command" };
+  readonly volatility: "immutable" | "stable" | "volatile" | "unknown";
+}
+
 export interface SchemaSnapshot {
-  readonly formatVersion: 1;
+  readonly formatVersion: 1 | 2;
   readonly dialect: string;
   readonly dialectVersion?: string;
   readonly version?: string;
+  /** Additive v1 bridge to the normalized server evidence required by schema format v2. */
+  readonly server?: DialectServerEvidence;
   readonly tables: Readonly<Record<string, TableSnapshot>>;
   readonly enums?: Readonly<Record<string, readonly string[]>>;
   readonly domains?: Readonly<Record<string, DomainSnapshot>>;
   readonly functions?: Readonly<Record<string, FunctionSnapshot>>;
+  /** Present on schema format v2; absent on the conservative v1 adapter. */
+  readonly relations?: Readonly<Record<string, StructuralRelationSnapshot>>;
+  /** Canonical routine name to ordered overloads. */
+  readonly routines?: Readonly<Record<string, readonly StructuralRoutineSnapshot[]>>;
 }
 
 export interface GeneratedSchemaMetadata {
@@ -119,6 +210,8 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   readonly sqlModule: string;
   /** Grammar-owned feature names and their support status. */
   readonly capabilities: DialectCapabilities;
+  /** Additive version-aware capability contract; required for exact completeness claims. */
+  resolveCapabilities?(snapshot: Snapshot, policy?: Policy): DialectCapabilityStates;
   readonly defaultTypePolicy: Policy;
   placeholder(index: number): string;
   quoteIdentifier(identifier: string): string;
@@ -330,6 +423,17 @@ export function assertDialectPlugin(value: unknown): asserts value is DialectPlu
     Object.values(value.capabilities).some((supported) => typeof supported !== "boolean")
   ) {
     throw new TypeError("typed-sql dialect.capabilities must contain only boolean feature declarations");
+  }
+  const capabilityNames = Object.keys(value.capabilities);
+  const sortedCapabilityNames = [...capabilityNames].sort();
+  if (
+    capabilityNames.some((name) => !/^[a-z][A-Za-z0-9]*$/u.test(name)) ||
+    capabilityNames.some((name, index) => name !== sortedCapabilityNames[index])
+  ) {
+    throw new TypeError("typed-sql dialect.capabilities must use sorted lower camel-case identifiers");
+  }
+  if (value.resolveCapabilities !== undefined && typeof value.resolveCapabilities !== "function") {
+    throw new TypeError("typed-sql dialect.resolveCapabilities must be a function");
   }
   for (const method of ["placeholder", "quoteIdentifier", "analyze", "validateSnapshot"] as const) {
     if (typeof value[method] !== "function") throw new TypeError(`typed-sql dialect.${method} must be a function`);

@@ -11,7 +11,7 @@ It is not an ORM or a query builder. SQL remains visible, database drivers remai
 
 ## Start here
 
-1. [Install typed-sql](./getting-started/installation.md) for PostgreSQL, MySQL, or the SQLite preview.
+1. [Install typed-sql](./getting-started/installation.md) for PostgreSQL, MySQL, or SQLite.
 2. [Configure schema introspection](./getting-started/configuration.md).
 3. [Write and check your first query](./getting-started/first-query.md).
 4. [Execute queries](./guides/execution.md) with your selected driver.

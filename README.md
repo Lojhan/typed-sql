@@ -91,7 +91,7 @@ pnpm add @typed-sql/core @typed-sql/mysql mysql2
 pnpm add -D @typed-sql/cli typescript@7.0.2
 ```
 
-SQLite preview:
+SQLite:
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/sqlite
@@ -154,7 +154,7 @@ the structural-variant bound.
 | `@typed-sql/conformance` | Executable compatibility kit for SQL grammar packages | Stable |
 | `@typed-sql/postgres` | PostgreSQL grammar, codecs, introspection, and optional `pg` adapter | Stable |
 | `@typed-sql/mysql` | MySQL grammar, codecs, introspection, and optional `mysql2` adapter | Stable |
-| `@typed-sql/sqlite` | SQLite grammar, sound dynamic typing, introspection, and optional `node:sqlite` adapter | Experimental |
+| `@typed-sql/sqlite` | SQLite grammar, sound dynamic typing, introspection, and optional `node:sqlite` adapter | Stable |
 | `@typed-sql/cli` | Snapshot, checking, drift, manifest, verification, plan, and compatibility commands | Stable |
 | `@typed-sql/ts-bridge` | Isolated TypeScript preview integration | Experimental |
 | `@typed-sql/language-server` | TypeScript semantic proxy and SQL editor features | Experimental |

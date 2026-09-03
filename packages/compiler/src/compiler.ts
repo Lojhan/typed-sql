@@ -7,10 +7,14 @@ import {
   type QuerySemantics,
   type ResolvedColumn,
   type ResolvedParameter,
+  resolveDialectCapabilityStates,
   rowTypeLiteral,
   type SchemaSnapshot,
+  type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
+import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { expandRepeatedFragments, type RepeatedFragmentExpansion } from "./repeated-fragments.js";
 import {
   type ExtractedQuery,
   extractAppendFragments,
@@ -21,16 +25,45 @@ import {
 import { expandStructuralQuery, structuralRowType } from "./structural.js";
 
 export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
+export const DEFAULT_MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+export const DEFAULT_MAX_QUERIES = 10_000;
+export const DEFAULT_MAX_GENERATED_DECLARATION_BYTES = 8 * 1024 * 1024;
 
 export interface CompiledQuery {
   readonly query: ExtractedQuery;
   readonly rowType: string;
   readonly parameterType: string;
   readonly structural?: true;
+  /** Present for direct mapped lists; fixed fragment tuples need no runtime-cardinality artifact. */
+  readonly repeatedFragments?: readonly RepeatedFragmentArtifact[];
+  /** @internal Selects the row-only compiler overlay for either fixed or repeated fragment lists. */
+  readonly fragmentList?: true;
   readonly fingerprint: string;
   readonly variantFingerprints: readonly string[];
   readonly variants: readonly CompiledQueryVariant[];
   readonly semantics: QuerySemantics;
+}
+
+export interface FragmentArtifact {
+  readonly kind: "fragment";
+  readonly sqlSkeleton: string;
+  readonly fingerprint: string;
+}
+
+export interface StaticFragmentArtifact {
+  readonly kind: "static-fragment";
+  readonly text: string;
+  readonly fingerprint: string;
+}
+
+export interface RepeatedFragmentArtifact {
+  readonly kind: "repeated-fragment";
+  readonly fingerprint: string;
+  readonly sourceSpan: SourceRange;
+  readonly element: FragmentArtifact;
+  readonly separator: StaticFragmentArtifact;
+  readonly minimumItems: 1;
+  readonly parameterPattern: readonly ResolvedParameter[];
 }
 
 export interface CompiledQueryVariant {
@@ -63,14 +96,108 @@ export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
   readonly schema: Snapshot;
   readonly typePolicy?: Policy;
   readonly maxStructuralVariants?: number;
+  readonly maxSourceBytes?: number;
+  readonly maxQueries?: number;
+  readonly maxGeneratedDeclarationBytes?: number;
+}
+
+function positiveLimit(value: number | undefined, fallback: number, name: string): number {
+  const limit = value ?? fallback;
+  if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError(`${name} must be a positive safe integer`);
+  return limit;
+}
+
+function resourceLimit(source: string, message: string): CompileSourceResult {
+  return {
+    transformedSource: source,
+    queries: [],
+    fragments: [],
+    diagnostics: [
+      {
+        code: "TSQ006",
+        message,
+        range: { start: 0, end: source.length, line: 1, column: 1 },
+        severity: "error",
+        suggestion: "Reduce the source unit or raise the corresponding compiler limit explicitly.",
+      },
+    ],
+  };
 }
 
 function mapDiagnostic(source: string, query: ExtractedQuery, diagnostic: SqlDiagnostic): SqlDiagnostic {
   return { ...diagnostic, range: mapSqlRange(source, query, diagnostic.range) };
 }
 
-function fingerprint(dialect: DialectPlugin, sql: string): string {
+function fingerprint(dialect: Pick<DialectPlugin, "id" | "grammarVersion">, sql: string): string {
   return `sha256:${createHash("sha256").update(`${dialect.id}\0${dialect.grammarVersion}\0${sql}`).digest("hex")}`;
+}
+
+function extractedSkeleton(query: ExtractedQuery, parameterOffset = 0): string {
+  let cursor = 0;
+  const chunks: string[] = [];
+  for (const interpolation of query.interpolations) {
+    chunks.push(
+      query.sql.slice(cursor, interpolation.sqlStart),
+      `{{parameter:${interpolation.index - parameterOffset}}}`,
+    );
+    cursor = interpolation.sqlEnd;
+  }
+  chunks.push(query.sql.slice(cursor));
+  return chunks.join("");
+}
+
+function repeatedFragmentArtifacts(
+  source: string,
+  dialect: DialectPlugin,
+  context: () => Readonly<Record<string, unknown>>,
+  original: ExtractedQuery,
+  repeated: RepeatedFragmentExpansion | undefined,
+  parameters: readonly ResolvedParameter[],
+): readonly RepeatedFragmentArtifact[] | undefined {
+  const sites = repeated?.sites.filter(({ dynamic }) => dynamic) ?? [];
+  if (sites.length === 0) return undefined;
+  const artifactContext = context();
+  const surroundingStructure = extractedSkeleton(original);
+  const separatorText = ", ";
+  const separator: StaticFragmentArtifact = Object.freeze({
+    kind: "static-fragment",
+    text: separatorText,
+    fingerprint: fingerprint(dialect, JSON.stringify({ artifactContext, separatorText })),
+  });
+  return Object.freeze(
+    sites.map((site): RepeatedFragmentArtifact => {
+      const parameterPattern = Object.freeze(
+        parameters
+          .filter(
+            ({ index }) => index > site.parameterOffset && index <= site.parameterOffset + site.element.parameterCount,
+          )
+          .map((parameter) => Object.freeze({ ...parameter, index: parameter.index - site.parameterOffset })),
+      );
+      const sqlSkeleton = extractedSkeleton(site.element, site.parameterOffset);
+      const identity = JSON.stringify({
+        artifactContext,
+        surroundingStructure,
+        callbackSource: source.slice(site.sourceSpan.start, site.sourceSpan.end),
+        sqlSkeleton,
+        separatorText,
+        parameterPattern,
+      });
+      const element: FragmentArtifact = Object.freeze({
+        kind: "fragment",
+        sqlSkeleton,
+        fingerprint: fingerprint(dialect, JSON.stringify({ artifactContext, sqlSkeleton, parameterPattern })),
+      });
+      return Object.freeze({
+        kind: "repeated-fragment",
+        fingerprint: fingerprint(dialect, identity),
+        sourceSpan: Object.freeze({ ...site.sourceSpan }),
+        element,
+        separator,
+        minimumItems: 1,
+        parameterPattern,
+      });
+    }),
+  );
 }
 
 function sourceSemantics(source: string, query: ExtractedQuery, semantics: QuerySemantics): QuerySemantics {
@@ -101,16 +228,50 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (schema.dialect !== dialect.id) {
     throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
   }
-  const maximumVariants = options.maxStructuralVariants ?? DEFAULT_MAX_STRUCTURAL_VARIANTS;
-  if (!Number.isSafeInteger(maximumVariants) || maximumVariants < 1) {
-    throw new TypeError("maxStructuralVariants must be a positive safe integer");
+  const maximumVariants = positiveLimit(
+    options.maxStructuralVariants,
+    DEFAULT_MAX_STRUCTURAL_VARIANTS,
+    "maxStructuralVariants",
+  );
+  const maximumSourceBytes = positiveLimit(options.maxSourceBytes, DEFAULT_MAX_SOURCE_BYTES, "maxSourceBytes");
+  const maximumQueries = positiveLimit(options.maxQueries, DEFAULT_MAX_QUERIES, "maxQueries");
+  const maximumGeneratedDeclarationBytes = positiveLimit(
+    options.maxGeneratedDeclarationBytes,
+    DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+    "maxGeneratedDeclarationBytes",
+  );
+  const sourceBytes = Buffer.byteLength(source);
+  if (sourceBytes > maximumSourceBytes) {
+    return resourceLimit(source, `Source uses ${sourceBytes} bytes; the configured limit is ${maximumSourceBytes}.`);
   }
   const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), [dialect.sqlModule]);
+  if (extracted.length > maximumQueries) {
+    return resourceLimit(
+      source,
+      `Source contains ${extracted.length} static queries; the configured limit is ${maximumQueries}.`,
+    );
+  }
   const compiled: CompiledQuery[] = [];
   const compiledFragments: CompiledFragment[] = [];
   const diagnostics: SqlDiagnostic[] = [];
   const analyses = new Map<string, ReturnType<typeof dialect.analyze>>();
   const fingerprints = new Map<string, string>();
+  let repeatedArtifactContext: Readonly<Record<string, unknown>> | undefined;
+  const artifactContext = (): Readonly<Record<string, unknown>> => {
+    repeatedArtifactContext ??= Object.freeze({
+      grammar: Object.freeze({
+        id: dialect.id,
+        grammarVersion: dialect.grammarVersion,
+        capabilities: Object.fromEntries(
+          Object.entries(dialect.capabilities).sort(([left], [right]) => left.localeCompare(right)),
+        ),
+      }),
+      capabilityEvidence: resolveDialectCapabilityStates(dialect, schema, options.typePolicy),
+      schemaHash: calculateSchemaHash(schema),
+      typePolicyHash: calculateTypePolicyHash(options.typePolicy ?? {}),
+    });
+    return repeatedArtifactContext;
+  };
   const analyze = (sql: string): ReturnType<typeof dialect.analyze> => {
     const cached = analyses.get(sql);
     if (cached !== undefined) return cached;
@@ -147,7 +308,28 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       );
       continue;
     }
-    const expansion = expandStructuralQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
+    const repeated = expandRepeatedFragments(source, query, (index) => dialect.placeholder(index));
+    if (repeated !== undefined && repeated.diagnostics.length > 0) {
+      diagnostics.push(...repeated.diagnostics);
+      continue;
+    }
+    const analyzedQuery = repeated?.query ?? query;
+    const expansion = expandStructuralQuery(
+      source,
+      analyzedQuery,
+      (index) => dialect.placeholder(index),
+      maximumVariants,
+    );
+    if (repeated !== undefined && expansion?.kind === "variants") {
+      diagnostics.push({
+        code: "TSQ013",
+        message: "Fragment lists combined with conditional structural interpolations are not analyzable yet.",
+        range: repeated.sites[0]?.sourceSpan ?? query.range,
+        severity: "error",
+        suggestion: "Move the conditional structure inside one stable fragment skeleton or compose it explicitly.",
+      });
+      continue;
+    }
     if (expansion?.kind === "limit") {
       diagnostics.push({
         code: "TSQ003",
@@ -250,6 +432,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           rowType: structuralRowType(source, query, rows),
           parameterType: parameterTypes.join(" | "),
           structural: true,
+          ...(repeated === undefined ? {} : { fragmentList: true as const }),
           variantFingerprints: Object.freeze(
             [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
           ),
@@ -266,23 +449,60 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       }
       continue;
     }
-    const resolved = analyze(query.sql);
-    diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
+    const resolved = analyze(analyzedQuery.sql);
+    diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, analyzedQuery, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-      const queryFingerprint = identify(query.sql);
-      const semantics = sourceSemantics(source, query, resolved.semantics);
+      const variantFingerprint = identify(analyzedQuery.sql);
+      const semantics = sourceSemantics(source, analyzedQuery, resolved.semantics);
+      const artifacts = repeatedFragmentArtifacts(
+        source,
+        dialect,
+        artifactContext,
+        query,
+        repeated,
+        resolved.parameters,
+      );
+      const queryFingerprint =
+        artifacts === undefined
+          ? variantFingerprint
+          : identify(
+              JSON.stringify({
+                representative: variantFingerprint,
+                repeated: artifacts.map(({ fingerprint }) => fingerprint),
+              }),
+            );
+      const repeatedFragments = new Map<number, CompiledFragment>();
+      for (const item of repeated?.fragments ?? []) {
+        const parameters = resolved.parameters
+          .filter(
+            (parameter) =>
+              parameter.index > item.parameterOffset &&
+              parameter.index <= item.parameterOffset + item.query.parameterCount,
+          )
+          .map((parameter): ResolvedParameter => ({ ...parameter, index: parameter.index - item.parameterOffset }));
+        repeatedFragments.set(item.query.insertionPosition, {
+          fragment: item.query,
+          parameterType: parameterTypeLiteral(item.query.parameterCount, parameters),
+        });
+      }
+      compiledFragments.push(...repeatedFragments.values());
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
-        parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
+        parameterType:
+          repeated?.sites.some(({ dynamic }) => dynamic) === true
+            ? "readonly unknown[]"
+            : parameterTypeLiteral(analyzedQuery.parameterCount, resolved.parameters),
+        ...(repeated === undefined ? {} : { fragmentList: true as const }),
+        ...(artifacts === undefined ? {} : { repeatedFragments: artifacts }),
         fingerprint: queryFingerprint,
-        variantFingerprints: Object.freeze([queryFingerprint]),
+        variantFingerprints: Object.freeze([variantFingerprint]),
         variants: Object.freeze([
           {
-            fingerprint: queryFingerprint,
-            sql: query.sql,
+            fingerprint: variantFingerprint,
+            sql: analyzedQuery.sql,
             rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
-            parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
+            parameterType: parameterTypeLiteral(analyzedQuery.parameterCount, resolved.parameters),
             choices: Object.freeze({}),
             columns: Object.freeze(
               resolved.columns.map((column) => ({
@@ -331,9 +551,12 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const insertions = [
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
-      text: item.structural
-        ? `.__typed<${item.rowType}, ${item.parameterType}>()`
-        : `<${item.rowType}, ${item.parameterType}>`,
+      text:
+        item.fragmentList === true
+          ? `.__typedRow<${item.rowType}>()`
+          : item.structural
+            ? `.__typed<${item.rowType}, ${item.parameterType}>()`
+            : `<${item.rowType}, ${item.parameterType}>`,
     })),
     ...compiledFragments.map((item) => ({
       position: item.fragment.insertionPosition,
@@ -342,6 +565,13 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   ];
   for (const insertion of insertions.sort((left, right) => right.position - left.position)) {
     transformedSource = `${transformedSource.slice(0, insertion.position)}${insertion.text}${transformedSource.slice(insertion.position)}`;
+  }
+  const generatedDeclarationBytes = Buffer.byteLength(transformedSource) - sourceBytes;
+  if (generatedDeclarationBytes > maximumGeneratedDeclarationBytes) {
+    return resourceLimit(
+      source,
+      `Generated declarations use ${generatedDeclarationBytes} bytes; the configured limit is ${maximumGeneratedDeclarationBytes}.`,
+    );
   }
   return {
     transformedSource,

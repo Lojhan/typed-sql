@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 4 * * 2"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,9 +41,83 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+        env:
+          TYPED_SQL_PERFORMANCE_ARTIFACT: artifacts/performance/ci.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-performance-${{ github.run_attempt }}
+          path: artifacts/performance/ci.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  typescript-editor-matrix:
+    if: github.event_name != 'pull_request'
+    name: typescript-editor (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: node-22-minimum
+            node: 22.11.0
+          - label: node-22-current
+            node: 22.x
+          - label: node-24-current
+            node: 24.x
+          - label: node-26-current
+            node: 26.x
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:editor-matrix
 
   postgres-e2e:
+    if: github.event_name != 'pull_request'
+    name: postgres (${{ matrix.label }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: postgres-14.24
+            version: "14.24"
+            image: docker.io/library/postgres:14.24-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-15.19
+            version: "15.19"
+            image: docker.io/library/postgres:15.19-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-16.15
+            version: "16.15"
+            image: docker.io/library/postgres:16.15-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-17.11
+            version: "17.11"
+            image: docker.io/library/postgres:17.11-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-18.6
+            version: "18.6"
+            image: docker.io/library/postgres:18.6-bookworm
+            channel: stable
+            experimental: false
+          - label: postgres-19beta3-canary
+            version: 19beta3
+            image: docker.io/library/postgres:19beta3-bookworm
+            channel: canary
+            experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -54,9 +131,115 @@ jobs:
       - run: pnpm e2e:postgres
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_POSTGRES_CHANNEL: ${{ matrix.channel }}
+          TYPED_SQL_POSTGRES_IMAGE: ${{ matrix.image }}
+          TYPED_SQL_POSTGRES_MATRIX_LABEL: ${{ matrix.label }}
+          TYPED_SQL_POSTGRES_VERSION: ${{ matrix.version }}
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-conformance-postgres-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/conformance/postgres*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-postgres-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/postgres-matrix/${{ matrix.label }}.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  postgres-matrix-review:
+    if: always() && github.event_name != 'pull_request'
+    needs: postgres-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: typed-sql-postgres-matrix-*-${{ github.run_attempt }}
+          path: artifacts/postgres-matrix
+          merge-multiple: true
+      - run: >-
+          node scripts/review-postgres-matrix.mjs
+          --input artifacts/postgres-matrix
+          --output artifacts/postgres-matrix/review.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-postgres-matrix-review-${{ github.run_attempt }}
+          path: artifacts/postgres-matrix/review.json
+          if-no-files-found: warn
+          retention-days: 14
 
   mysql-e2e:
+    if: github.event_name != 'pull_request'
+    name: mysql (${{ matrix.label }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: mysql-8.4.12-default
+            version: 8.4.12
+            image: docker.io/library/mysql:8.4.12
+            channel: stable
+            mode_profile: default
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE
+            experimental: false
+          - label: mysql-8.4.12-lexical
+            version: 8.4.12
+            image: docker.io/library/mysql:8.4.12
+            channel: stable
+            mode_profile: lexical
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE,ANSI_QUOTES,NO_BACKSLASH_ESCAPES,PIPES_AS_CONCAT
+            experimental: false
+          - label: mysql-8.4.12-numeric
+            version: 8.4.12
+            image: docker.io/library/mysql:8.4.12
+            channel: stable
+            mode_profile: numeric
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE,NO_UNSIGNED_SUBTRACTION
+            experimental: false
+          - label: mysql-9.7.3-default
+            version: 9.7.3
+            image: docker.io/library/mysql:9.7.3
+            channel: stable
+            mode_profile: default
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE
+            experimental: false
+          - label: mysql-9.7.3-lexical
+            version: 9.7.3
+            image: docker.io/library/mysql:9.7.3
+            channel: stable
+            mode_profile: lexical
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE,ANSI_QUOTES,NO_BACKSLASH_ESCAPES,PIPES_AS_CONCAT
+            experimental: false
+          - label: mysql-9.7.3-numeric
+            version: 9.7.3
+            image: docker.io/library/mysql:9.7.3
+            channel: stable
+            mode_profile: numeric
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE,NO_UNSIGNED_SUBTRACTION
+            experimental: false
+          - label: mysql-26.7.1-canary
+            version: 26.7.1
+            image: docker.io/library/mysql:26.7.1
+            channel: canary
+            mode_profile: default
+            sql_mode: ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,IGNORE_SPACE
+            experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -70,8 +253,61 @@ jobs:
       - run: pnpm e2e:mysql
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+          TYPED_SQL_MYSQL_CHANNEL: ${{ matrix.channel }}
+          TYPED_SQL_MYSQL_IMAGE: ${{ matrix.image }}
+          TYPED_SQL_MYSQL_MATRIX_LABEL: ${{ matrix.label }}
+          TYPED_SQL_MYSQL_MODE_PROFILE: ${{ matrix.mode_profile }}
+          TYPED_SQL_MYSQL_SQL_MODE: ${{ matrix.sql_mode }}
+          TYPED_SQL_MYSQL_VERSION: ${{ matrix.version }}
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-conformance-mysql-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/conformance/mysql*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-mysql-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/mysql-matrix/${{ matrix.label }}.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  mysql-matrix-review:
+    if: always() && github.event_name != 'pull_request'
+    needs: mysql-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.11
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: typed-sql-mysql-matrix-*-${{ github.run_attempt }}
+          path: artifacts/mysql-matrix
+          merge-multiple: true
+      - run: >-
+          node scripts/review-mysql-matrix.mjs
+          --input artifacts/mysql-matrix
+          --output artifacts/mysql-matrix/review.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-mysql-matrix-review-${{ github.run_attempt }}
+          path: artifacts/mysql-matrix/review.json
+          if-no-files-found: warn
+          retention-days: 14
 
   packed-real-databases:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,6 +324,7 @@ jobs:
           TYPED_SQL_CONTAINER_ENGINE: docker
 
   examples-e2e:
+    if: github.event_name != 'pull_request'
     name: examples-e2e (${{ matrix.example }})
     runs-on: ubuntu-latest
     strategy:
@@ -116,8 +353,105 @@ jobs:
       - run: node examples/e2e.mjs ${{ matrix.example }}
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
+      - if: always() && matrix.example == 'sqlite'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-conformance-sqlite-${{ github.run_attempt }}
+          path: artifacts/conformance/sqlite*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  sqlite-node-matrix:
+    if: github.event_name != 'pull_request'
+    name: sqlite-node (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: node-22-minimum
+            node: 22.13.0
+          - label: node-22-current
+            node: 22.x
+          - label: node-24-current
+            node: 24.x
+          - label: node-26-current
+            node: 26.x
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @typed-sql/sqlite test
+      - run: >-
+          node scripts/sqlite-matrix-probe.mjs
+          --adapter node
+          --label ${{ matrix.label }}
+          --output artifacts/sqlite-matrix/${{ matrix.label }}.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-sqlite-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/sqlite-matrix/${{ matrix.label }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+  sqlite-language-matrix:
+    if: github.event_name != 'pull_request'
+    name: sqlite-language (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: sqlite-3.39.0-minimum
+            version: 3.39.0
+            url: https://www.sqlite.org/2022/sqlite-autoconf-3390000.tar.gz
+            sha3: b8e5b3265992350d40c4ad31efc2e6dec6256813f1d5acc8f0ea805e9f33ca2a
+            experimental: false
+          - label: sqlite-3.53.4-latest
+            version: 3.53.4
+            url: https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz
+            sha3: 454e45f61c6bd75b7420e7190732dea03ce6639c63ada47bbc592f67fc340338
+            experimental: false
+          - label: sqlite-3.54.0-canary
+            version: 3.54.0
+            url: https://www.sqlite.org/snapshot/sqlite-snapshot-202607312245.tar.gz
+            sha3: f7487e5c39a4b89f87d3ddee618c25c65278987b98d30ebc2a8b6bb4e277065a
+            experimental: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+      - run: >-
+          node scripts/build-sqlite-matrix.mjs
+          --url ${{ matrix.url }}
+          --sha3 ${{ matrix.sha3 }}
+          --version ${{ matrix.version }}
+          --output artifacts/sqlite-matrix/bin/${{ matrix.label }}/sqlite3
+      - run: >-
+          node scripts/sqlite-matrix-probe.mjs
+          --adapter cli
+          --label ${{ matrix.label }}
+          --executable artifacts/sqlite-matrix/bin/${{ matrix.label }}/sqlite3
+          --output artifacts/sqlite-matrix/${{ matrix.label }}.json
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-sqlite-matrix-${{ matrix.label }}-${{ github.run_attempt }}
+          path: artifacts/sqlite-matrix/${{ matrix.label }}.json
+          if-no-files-found: warn
+          retention-days: 14
 
   editor-artifacts:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -130,13 +464,120 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm --filter @typed-sql/e2e-postgres generate:snapshot
+      - run: pnpm --filter @typed-sql/e2e-mysql generate:snapshot
+      - run: poku packages/language-server/test/language-server.test.ts --reporter=compact --enforce
       - run: pnpm --filter ./packages/vscode package:vsix
       - run: rustup target add wasm32-wasip2
       - run: cargo test --manifest-path editors/zed/Cargo.toml
-      - run: cargo build --release --target wasm32-wasip2 --manifest-path editors/zed/Cargo.toml
-      - run: cp editors/zed/target/wasm32-wasip2/release/typed_sql_zed.wasm artifacts/typed-sql-zed.wasm
+      - run: pnpm editor:zed:build
       - run: pnpm editor:artifacts:smoke
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: typed-sql-editor-artifacts
           path: artifacts/
+
+  pull-request-distribution:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.13
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm api:check
+      - run: pnpm test:pack
+      - run: pnpm docs:check
+      - run: node scripts/write-ci-evidence.mjs --lane pull-request --output artifacts/evidence/pull-request.json --gate api --gate packed-consumer --gate documentation
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-pull-request-evidence-${{ github.run_attempt }}
+          path: artifacts/evidence/pull-request.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  scheduled-reliability:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fuzz:replay
+      - run: pnpm mutation:pilot -- --report artifacts/evidence/mutation.json
+      - run: pnpm audit --prod --audit-level high
+      - run: node scripts/write-ci-evidence.mjs --lane scheduled --output artifacts/evidence/scheduled.json --gate fuzz --gate mutation --gate audit
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-scheduled-reliability-${{ github.run_attempt }}
+          path: artifacts/evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+  release-candidate-evidence:
+    if: always() && github.event_name == 'workflow_dispatch'
+    needs:
+      - quality
+      - typescript-editor-matrix
+      - postgres-matrix-review
+      - mysql-matrix-review
+      - packed-real-databases
+      - examples-e2e
+      - sqlite-node-matrix
+      - sqlite-language-matrix
+      - editor-artifacts
+      - scheduled-reliability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Assemble successful comprehensive-lane evidence
+        if: >-
+          needs.quality.result == 'success' &&
+          needs.typescript-editor-matrix.result == 'success' &&
+          needs.postgres-matrix-review.result == 'success' &&
+          needs.mysql-matrix-review.result == 'success' &&
+          needs.packed-real-databases.result == 'success' &&
+          needs.examples-e2e.result == 'success' &&
+          needs.sqlite-node-matrix.result == 'success' &&
+          needs.sqlite-language-matrix.result == 'success' &&
+          needs.editor-artifacts.result == 'success' &&
+          needs.scheduled-reliability.result == 'success'
+        run: >-
+          node scripts/write-ci-evidence.mjs
+          --lane release-candidate
+          --output artifacts/evidence/candidate.json
+          --gate quality
+          --gate typecheck
+          --gate unit
+          --gate soundness
+          --gate api
+          --gate packed-consumer
+          --gate conformance-smoke
+          --gate database-matrix
+          --gate typescript-editor-matrix
+          --gate fuzz
+          --gate mutation
+          --gate performance
+          --gate soak
+          --gate vulnerability-audit
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: typed-sql-release-candidate-evidence-${{ github.run_attempt }}
+          path: artifacts/evidence/candidate.json
+          if-no-files-found: warn
+          retention-days: 90

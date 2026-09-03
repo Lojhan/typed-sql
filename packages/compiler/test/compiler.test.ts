@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,9 @@ import {
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { checkFile, compileSource, extractStaticQueries, mapSqlRange } from "../src/index.js";
+import { expandRepeatedFragments } from "../src/repeated-fragments.js";
 import {
+  discoverRepeatedFragmentInterpolation,
   extractAppendFragments,
   extractStructuralOperand,
   findUntaggedStructuralTemplates,
@@ -412,6 +414,201 @@ await describe("TypeScript 7 compiler wrapper", async () => {
     strict.ok(result.transformedSource.includes("sql<never, readonly [number]>`DELETE"));
   });
 
+  await it("analyzes direct fragment map callbacks with a representative non-empty expansion", async () => {
+    const schema = (await loadSchemaSnapshot(schemaPath)) as PostgresSchemaSnapshot;
+    const source = [
+      'import { sql } from "@typed-sql/postgres";',
+      'const rows: readonly { readonly id: number; readonly name: string }[] = [{ id: 1, name: "Ada" }];',
+      "const inserted = sql`INSERT INTO users (id, name) VALUES ${rows.map(",
+      "  (row) => sql.fragment`(${row.id}, ${row.name})`,",
+      ")} RETURNING id, name`;",
+    ].join("\n");
+    const result = compileSource({ source, schema, dialect: postgres() });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.queries.length, 1);
+    strict.strictEqual(
+      result.queries[0]?.variants[0]?.sql,
+      "INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4) RETURNING id, name",
+    );
+    strict.strictEqual(result.queries[0]?.parameterType, "readonly unknown[]");
+    const artifact = result.queries[0]?.repeatedFragments?.[0];
+    strict.strictEqual(artifact?.kind, "repeated-fragment");
+    strict.strictEqual(artifact?.minimumItems, 1);
+    strict.strictEqual(artifact?.separator.text, ", ");
+    strict.strictEqual(artifact?.element.sqlSkeleton, "({{parameter:1}}, {{parameter:2}})");
+    strict.deepStrictEqual(
+      artifact?.parameterPattern.map(({ index, tsType, nullable }) => ({ index, tsType, nullable })),
+      [
+        { index: 1, tsType: "number", nullable: false },
+        { index: 2, tsType: "string", nullable: false },
+      ],
+    );
+    strict.match(artifact?.fingerprint ?? "", /^sha256:[a-f\d]{64}$/u);
+    strict.ok(result.transformedSource.includes("sql.__typedRow<"));
+    strict.ok(result.transformedSource.includes("sql.fragment<readonly [number, string]>"));
+
+    const directory = await mkdtemp(join(fixtureDirectory, ".typed-sql-fragment-list-"));
+    try {
+      const file = join(directory, "fragment-list.ts");
+      await writeFile(
+        file,
+        [
+          source,
+          'import type { QueryParameters, QueryRow } from "@typed-sql/core";',
+          "type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;",
+          "type Assert<T extends true> = T;",
+          "const inferredRow: Assert<Equal<QueryRow<typeof inserted>, { id: number; name: string }>> = true;",
+          "const inferredParameters: Assert<Equal<QueryParameters<typeof inserted>, readonly (number | string)[]>> = true;",
+          "void inferredRow; void inferredParameters;",
+        ].join("\n"),
+      );
+      const checked = await checkFile({
+        file,
+        schema: schemaPath,
+        dialect: postgres(),
+        project: resolve(fixtureDirectory, "tsconfig.json"),
+      });
+      strict.strictEqual(checked.ok, true, checked.typeScript?.output);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  await it("analyzes fixed fragment array literals without treating value arrays as structure", async () => {
+    const schema = (await loadSchemaSnapshot(schemaPath)) as PostgresSchemaSnapshot;
+    const structural = [
+      'import { sql } from "@typed-sql/postgres";',
+      'const first = 1; const firstName = "Ada"; const second = 2; const secondName = "Grace";',
+      "const inserted = sql`INSERT INTO users (id, name) VALUES ${[",
+      "  sql.fragment`(${first}, ${firstName})`,",
+      "  sql.fragment`(${second}, ${secondName})`,",
+      "]} RETURNING id`;",
+    ].join("\n");
+    const result = compileSource({ source: structural, schema, dialect: postgres() });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(
+      result.queries[0]?.variants[0]?.sql,
+      "INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4) RETURNING id",
+    );
+    strict.strictEqual(result.queries[0]?.parameterType, "readonly [number, string, number, string]");
+
+    const ordinary = [
+      'import { sql } from "@typed-sql/postgres";',
+      "const ids = [1, 2, 3];",
+      "const selected = sql`SELECT id FROM users WHERE id = ANY(${ids})`;",
+    ].join("\n");
+    const ordinaryResult = compileSource({ source: ordinary, schema, dialect: postgres() });
+    strict.deepStrictEqual(ordinaryResult.diagnostics, []);
+    strict.strictEqual(ordinaryResult.queries[0]?.variants[0]?.sql, "SELECT id FROM users WHERE id = ANY($1)");
+  });
+
+  await it("fails closed for unsupported fragment-list callback shapes", async () => {
+    const schema = (await loadSchemaSnapshot(schemaPath)) as PostgresSchemaSnapshot;
+    const expression = (body: string) =>
+      [
+        'import { sql } from "@typed-sql/postgres";',
+        "const rows = [{ id: 1 }];",
+        `const query = sql\`INSERT INTO users (id) VALUES \${${body}}\`;`,
+      ].join("\n");
+    for (const [body, code] of [
+      ["[]", "TSQ008"],
+      ["[sql.fragment`(1)`, 2]", "TSQ009"],
+      ["[[sql.fragment`(1)`]]", "TSQ010"],
+      ["rows.map(async (row) => sql.fragment`(${row.id})`)", "TSQ011"],
+      ["rows.map((row) => row.id > 0 ? sql.fragment`(${row.id})` : sql.fragment`(${row.id}, 2)`)", "TSQ012"],
+      ["rows.flatMap((row) => [sql.fragment`(${row.id})`])", "TSQ013"],
+    ] as const) {
+      const result = compileSource({ source: expression(body), schema, dialect: postgres() });
+      strict.strictEqual(result.diagnostics[0]?.code, code, body);
+      strict.strictEqual(result.queries.length, 0);
+      strict.ok((result.diagnostics[0]?.range.start ?? 0) > 0);
+    }
+  });
+
+  await it("covers bounded and conditional repeated-fragment expansion paths", () => {
+    const extract = (expression: string) => {
+      const source = [
+        'import { sql } from "@typed-sql/postgres";',
+        "const rows = [{ id: 1 }];",
+        `const query = sql\`VALUES \${${expression}}\`;`,
+      ].join("\n");
+      const query = extractStaticQueries(source, (index) => `$${index}`, ["@typed-sql/postgres"])[0]!;
+      return { source, query };
+    };
+
+    for (const [expression, code] of [
+      ["[sql.fragment`(1)`,, sql.fragment`(2)`]", "TSQ013"],
+      ["[other.fragment`(1)`]", "TSQ014"],
+      ["rows.map((row) => { sql.fragment`(${row.id})`; })", "TSQ013"],
+      ["rows.map((row) => other.fragment`(${row.id})`)", "TSQ014"],
+      ["rows.map((row) => row.id > 0 ? sql.fragment`(${row.id})` : row.id)", "TSQ009"],
+    ] as const) {
+      const { source, query } = extract(expression);
+      const discovery = discoverRepeatedFragmentInterpolation(source, query.interpolations[0]!, query.tagName);
+      strict.strictEqual(discovery.kind === "error" ? discovery.code : undefined, code, expression);
+    }
+
+    const commented = extract("rows.map(/* callback */ (row) => sql.fragment`(${row.id})`,)");
+    strict.strictEqual(
+      discoverRepeatedFragmentInterpolation(
+        commented.source,
+        commented.query.interpolations[0]!,
+        commented.query.tagName,
+      ).kind,
+      "fragments",
+    );
+
+    const arrayParameter = extract("rows.map(([row]) /* arrow comment */ => sql.fragment`(${row.id})`)");
+    strict.strictEqual(
+      discoverRepeatedFragmentInterpolation(
+        arrayParameter.source,
+        arrayParameter.query.interpolations[0]!,
+        arrayParameter.query.tagName,
+      ).kind,
+      "fragments",
+    );
+
+    for (const expression of [
+      "rows.map(function (row) { return sql.fragment`(${row.id})`; })",
+      "rows.map((row) => row.id)",
+      "rows.map + sql.fragment`(1)`",
+      "rows.map((row) => sql.fragment`(${row.id})`, extra)",
+    ]) {
+      const candidate = extract(expression);
+      strict.ok(
+        ["none", "error"].includes(
+          discoverRepeatedFragmentInterpolation(
+            candidate.source,
+            candidate.query.interpolations[0]!,
+            candidate.query.tagName,
+          ).kind,
+        ),
+        expression,
+      );
+    }
+
+    const mixed = extract("rows.map((row) => sql.fragment`(${row.id})`)");
+    const mixedSource = mixed.source.replace("VALUES ", "VALUES ${tenant}, ");
+    const mixedQuery = extractStaticQueries(mixedSource, (index) => `$${index}`, ["@typed-sql/postgres"])[0]!;
+    const mixedExpansion = expandRepeatedFragments(mixedSource, mixedQuery, (index) => `$${index}`);
+    strict.strictEqual(mixedExpansion?.query.sql, "VALUES $1, ($2), ($3)");
+
+    const fixed = extract("[sql.fragment`(1)`, sql.fragment`(2)`]");
+    strict.deepStrictEqual(
+      expandRepeatedFragments(fixed.source, fixed.query, (index) => `$${index}`, 1)?.diagnostics.map(
+        ({ code }) => code,
+      ),
+      ["TSQ015"],
+    );
+
+    const conditional = extract(
+      "rows.map(({ id } /* block */) => id > 0 ? sql.fragment`(${id})` : sql.fragment`(${id})`)",
+    );
+    const conditionalExpansion = expandRepeatedFragments(conditional.source, conditional.query, (index) => `$${index}`);
+    strict.strictEqual(conditionalExpansion?.sites[0]?.dynamic, true);
+    strict.strictEqual(conditionalExpansion?.fragments.length, 3);
+  });
+
   await it("maps SQL diagnostics back to TypeScript source", async () => {
     const schema = await loadSchemaSnapshot(schemaPath);
     const source = 'import { sql } from "@typed-sql/postgres";\nconst q = sql`SELECT missing FROM users`;';
@@ -464,6 +661,8 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       project: resolve(fixtureDirectory, "tsconfig.json"),
     });
     strict.deepStrictEqual(result.sqlDiagnostics, []);
+    strict.strictEqual(result.analysis.identity.source.id.endsWith("query.ts"), true);
+    strict.match(result.analysis.revision, /^sha256:[a-f0-9]{64}$/u);
     strict.strictEqual(result.typeScript?.exitCode, 0, result.typeScript?.output);
     strict.strictEqual(result.ok, true);
   });
@@ -725,6 +924,35 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       strict.strictEqual(invalid.ok, false);
       strict.ok((invalid.typeScript?.output.length ?? 0) > 0);
       await strict.rejects(() => checkFile({ file, schema, dialect: postgres() }), /Could not find tsconfig/);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  await it("rejects an untested TypeScript patch before writing native-check overlays", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-compiler-version-"));
+    try {
+      const binDirectory = join(directory, "node_modules", ".bin");
+      await mkdir(binDirectory, { recursive: true });
+      const binary = join(binDirectory, process.platform === "win32" ? "tsc.cmd" : "tsc");
+      await writeFile(
+        binary,
+        process.platform === "win32" ? "@echo Version 7.0.3\r\n" : "#!/bin/sh\nprintf 'Version 7.0.3\\n'\n",
+      );
+      if (process.platform !== "win32") await chmod(binary, 0o755);
+      const file = join(directory, "query.ts");
+      const project = join(directory, "tsconfig.json");
+      await writeFile(file, 'import { sql } from "@typed-sql/postgres"; const query = sql`SELECT id FROM users`;\n');
+      await writeFile(project, `${JSON.stringify({ compilerOptions: { strict: true }, files: ["query.ts"] })}\n`);
+      const schema = (await loadSchemaSnapshot(schemaPath)) as PostgresSchemaSnapshot;
+      await strict.rejects(
+        () => checkFile({ file, project, schema, dialect: postgres() }),
+        /requires TypeScript 7\.0\.2[\s\S]*found 7\.0\.3/u,
+      );
+      strict.deepStrictEqual(
+        (await readdir(directory)).filter((name) => name.startsWith(".typed-sql-")),
+        [],
+      );
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

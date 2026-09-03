@@ -1,5 +1,45 @@
 # @typed-sql/compiler
 
+## 2.1.0-rc.0
+
+### Minor Changes
+
+- 58bd4d1: Add the versioned, serializable source-analysis service shared by batch checks and editor tooling.
+  Results carry deterministic source, project, schema, type-policy, grammar, and capability identities;
+  cancellation and source, query-count, structural-variant, and generated-declaration limits fail closed.
+- e433feb: Allow non-empty arrays of typed SQL fragments to be interpolated directly as homogeneous,
+  comma-separated structure. Add fail-closed compiler analysis for direct map callbacks and fragment
+  literals, cardinality-independent artifacts, bounded prepared-cardinality caches, shared grammar
+  conformance, and runtime limits while preserving ordinary arrays as single bound values.
+- 1c64475: Add canonical schema snapshot format 2 with isolated v1/v2 codecs, conservative v1 upgrades,
+  neutral relation/constraint/index/type/routine evidence, and complete provider introspection.
+  Resolvers now consume structural write and routine evidence, while drift, compatibility, manifests,
+  verification proofs, and plan artifacts bind to the schema format and canonical hash.
+- 4a12de5: Reject unsupported TypeScript compiler and preview patches before project work begins. Add
+  `typed-sql doctor` with human and JSON reports for Node.js, TypeScript, grammar, schema, redacted
+  server evidence, language-server/bridge metadata, and editor protocol compatibility.
+- 1c64475: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- 58aa9ef: Add a grammar-neutral serialized artifact compatibility identity and deterministic compatibility outcomes, and use the shared identity contract for query-manifest cache reuse.
+- Updated dependencies [58bd4d1]
+- Updated dependencies [58aa9ef]
+- Updated dependencies [65b662f]
+- Updated dependencies [e433feb]
+- Updated dependencies [0efc90c]
+- Updated dependencies [ff0e3bb]
+- Updated dependencies [6f5b977]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+  - @typed-sql/core@2.1.0-rc.0
+  - @typed-sql/schema@2.1.0-rc.0
+
 ## 2.0.0
 
 ### Major Changes

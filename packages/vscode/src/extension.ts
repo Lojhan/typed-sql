@@ -15,6 +15,8 @@ interface TypedSqlServerStatus {
   readonly workspaceRoots: readonly string[];
   readonly openDocuments: number;
   readonly indexedDocuments: number;
+  readonly protocol: { readonly version: number; readonly capabilities: readonly string[] };
+  readonly workspaces: readonly { readonly metrics: { readonly bridgeRestarts: number } }[];
 }
 
 interface RunningClient {
@@ -42,6 +44,8 @@ const DEVELOPMENT_SERVER_RELATIVE_PATH = join(
   "src",
   "server.js",
 );
+const TYPED_SQL_PROTOCOL_VERSION = 1;
+const TYPED_SQL_PROTOCOL_CAPABILITIES = ["analysis-identity", "diagnostic-fixes", "status"] as const;
 const clients = new Map<string, RunningClient>();
 const failures = new Map<string, string>();
 const output = vscode.window.createOutputChannel("typed-sql", { log: true });
@@ -64,6 +68,9 @@ function initializationOptions(folder: vscode.WorkspaceFolder): Record<string, u
     nativePreview: settings.get<boolean>("nativePreview", true),
     maxCacheEntries: settings.get<number>("maxCacheEntries", 256),
     maxWorkspaceFiles: settings.get<number>("maxWorkspaceFiles", 2_000),
+    analysisDebounceMs: settings.get<number>("analysisDebounceMs", 20),
+    protocolVersion: TYPED_SQL_PROTOCOL_VERSION,
+    protocolCapabilities: [...TYPED_SQL_PROTOCOL_CAPABILITIES],
   };
 }
 
@@ -177,7 +184,7 @@ async function showStatus(): Promise<void> {
       try {
         const status = await running.client.sendRequest<TypedSqlServerStatus>("typedSql/status");
         const folderName = vscode.workspace.getWorkspaceFolder(vscode.Uri.parse(key))?.name ?? key;
-        return `${folderName}: ${status.mode}, TypeScript ${status.typescriptVersion}; ${status.openDocuments} open, ${status.indexedDocuments} indexed (${running.server})`;
+        return `${folderName}: ${status.mode}, TypeScript ${status.typescriptVersion}, protocol ${status.protocol.version}; ${status.openDocuments} open, ${status.indexedDocuments} indexed (${running.server})`;
       } catch (error) {
         return `${key}: ${error instanceof Error ? error.message : String(error)}`;
       }

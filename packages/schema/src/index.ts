@@ -1,5 +1,18 @@
-export type { GenerateSchemaOptions, SchemaDriftResult } from "./generator.js";
-export { calculateSchemaHash, calculateTypePolicyHash, checkSchemaDrift, generateSchemaPackage } from "./generator.js";
+export type {
+  GenerateSchemaOptions,
+  SchemaDriftChange,
+  SchemaDriftChangeKind,
+  SchemaDriftResult,
+} from "./generator.js";
+export {
+  calculateSchemaHash,
+  calculateTypePolicyHash,
+  canonicalizeSchemaValue,
+  checkSchemaDrift,
+  fingerprintSchemaExpression,
+  generateSchemaPackage,
+  serializeSchemaSnapshot,
+} from "./generator.js";
 export {
   loadGeneratedSchemaSnapshot,
   loadSchemaSnapshot,
@@ -7,18 +20,56 @@ export {
   migrateSchemaSnapshot,
   parseSchemaSnapshot,
   parseTypePolicy,
+  upgradeSchemaSnapshotV1,
 } from "./loader.js";
 export type {
+  CheckConstraintSnapshot,
+  CollectionTypeSnapshot,
   ColumnSnapshot,
+  ColumnSnapshotV2,
+  CompositeTypeFieldSnapshot,
+  CompositeTypeSnapshot,
+  ConstraintSnapshot,
+  DialectExtensionSnapshot,
+  DialectExtensionValue,
+  DialectServerEvidence,
   DomainSnapshot,
+  DomainTypeSnapshot,
+  Eligibility,
+  EnumTypeSnapshot,
+  ExclusionConstraintElementSnapshot,
+  ExclusionConstraintSnapshot,
+  ForeignKeyAction,
+  ForeignKeyConstraintSnapshot,
   FunctionSnapshot,
+  GeneratedColumnKind,
   GeneratedSchemaMetadata,
   GeneratedSchemaSnapshot,
+  IdentityColumnKind,
+  IndexColumnSnapshot,
+  IndexSnapshot,
+  NamespaceSnapshot,
+  NullabilitySource,
+  OpaqueTypeSnapshot,
+  PrimaryKeyConstraintSnapshot,
+  RangeTypeSnapshot,
+  RelationSnapshot,
+  RoutineArgumentMode,
+  RoutineArgumentSnapshot,
+  RoutineResultSnapshot,
+  RoutineSnapshot,
+  ScalarTypeSnapshot,
   SchemaInput,
   SchemaProvider,
   SchemaSnapshot,
+  SchemaSnapshotV1,
+  SchemaSnapshotV2,
+  SchemaSnapshotV2Envelope,
   SqlDialect,
   TableSnapshot,
   TypePolicy,
+  TypeSnapshot,
+  UniqueConstraintSnapshot,
 } from "./model.js";
-export { SCHEMA_FORMAT_VERSION } from "./model.js";
+export { LEGACY_SCHEMA_FORMAT_VERSION, SCHEMA_FORMAT_VERSION } from "./model.js";
+export { defineSchemaSnapshotV2 } from "./v2/codec.js";

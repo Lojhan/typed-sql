@@ -10,8 +10,12 @@ import {
   loadPgCopyStreams,
   loadPgCursorDriver,
   loadPgDriver,
+  normalizePostgresAdapterError,
   type PgOptions,
+  PostgresAdapterError,
   pg,
+  readPgRuntimeServerEvidence,
+  resolvePgRuntimeCodecs,
 } from "../src/pg.js";
 import type { PostgresQueryable, PostgresQueryResult } from "../src/provider.js";
 import { createPostgresDatabase, type PostgresQueryConfig } from "../src/runtime.js";
@@ -105,12 +109,16 @@ class FakePgPool {
   readonly client = new FakePgClient();
   readonly calls: unknown[] = [];
   connectCount = 0;
+  queryError: unknown;
+  connectError: unknown;
   async query(config: unknown): Promise<{ rows: readonly Record<string, unknown>[] }> {
     this.calls.push(config);
+    if (this.queryError !== undefined) throw this.queryError;
     return { rows: [{ value: 1 }] };
   }
   async connect(): Promise<FakePgClient> {
     this.connectCount += 1;
+    if (this.connectError !== undefined) throw this.connectError;
     return this.client;
   }
   async end(): Promise<void> {
@@ -156,6 +164,102 @@ class HangingPgPool {
 }
 
 await describe("application-owned pg integration", async () => {
+  await it("reads runtime evidence and resolves extension codecs to local OIDs", async () => {
+    const calls: { text: string; values?: readonly unknown[] }[] = [];
+    const queryable = {
+      async query<Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]) {
+        calls.push({ text, ...(values === undefined ? {} : { values }) });
+        const rows = text.includes("server_version")
+          ? [
+              {
+                server_version: "18.6",
+                standard_conforming_strings: "on",
+                search_path: '"$user", public',
+                extensions: ["vector:0.8.0"],
+              },
+            ]
+          : [{ database_type: "vector", oid: 16_384, array_oid: 16_385 }];
+        return { rows: rows as unknown as readonly Row[] };
+      },
+    };
+    strict.deepStrictEqual(await readPgRuntimeServerEvidence(queryable), {
+      product: "postgres",
+      version: "18.6",
+      versionKey: "18",
+      features: ["vector:0.8.0"],
+      settings: {
+        searchPath: '"$user", public',
+        standardConformingStrings: "on",
+        visibilityScope: "current-role",
+      },
+    });
+    const decode = (value: unknown) => String(value).slice(1, -1).split(",").map(Number);
+    strict.deepStrictEqual(
+      await resolvePgRuntimeCodecs(queryable, new Map([["vector", { databaseType: "vector", decode }]])),
+      [{ oid: 16_384, arrayOid: 16_385, decode }],
+    );
+    strict.deepStrictEqual(calls[1]?.values, [["vector"]]);
+
+    await strict.rejects(
+      () =>
+        resolvePgRuntimeCodecs(
+          {
+            async query<Row extends Record<string, unknown>>() {
+              return {
+                rows: [{ database_type: "vector", oid: null, array_oid: null }] as unknown as readonly Row[],
+              };
+            },
+          },
+          new Map([["vector", { databaseType: "vector", decode }]]),
+        ),
+      /TSQ407.*not visible at runtime/,
+    );
+    await strict.rejects(
+      () =>
+        readPgRuntimeServerEvidence({
+          async query() {
+            return { rows: [] };
+          },
+        }),
+      /did not return server-version evidence/,
+    );
+  });
+
+  await it("normalizes timeout, transaction-abort, connection-loss, and server failures", () => {
+    const timeout = Object.assign(new Error("canceling statement due to statement timeout"), { code: "57014" });
+    const aborted = Object.assign(new Error("current transaction is aborted"), { code: "25P02" });
+    const lost = Object.assign(new Error("socket closed"), { code: "08006" });
+    const server = Object.assign(new Error("unique violation"), { code: "23505" });
+    for (const [source, kind, sqlState] of [
+      [timeout, "timeout", "57014"],
+      [aborted, "transaction-abort", "25P02"],
+      [lost, "connection-loss", "08006"],
+      [server, "server", "23505"],
+    ] as const) {
+      const error = normalizePostgresAdapterError(source);
+      strict.ok(error instanceof PostgresAdapterError);
+      strict.strictEqual(error.code, "POSTGRES_ADAPTER_ERROR");
+      strict.strictEqual(error.kind, kind);
+      strict.strictEqual(error.sqlState, sqlState);
+      strict.strictEqual(error.cause, source);
+      strict.strictEqual(normalizePostgresAdapterError(error), error);
+    }
+    strict.strictEqual(normalizePostgresAdapterError(new Error("driver failed")).kind, "driver");
+    strict.strictEqual(normalizePostgresAdapterError("driver failed").message, "PostgreSQL driver operation failed");
+    strict.strictEqual(
+      normalizePostgresAdapterError(Object.assign(new Error("cancelled by user"), { code: "57014" })).kind,
+      "server",
+    );
+    strict.strictEqual(
+      normalizePostgresAdapterError(Object.assign(new Error("shutdown"), { code: "57P01" })).kind,
+      "connection-loss",
+    );
+    strict.strictEqual(
+      normalizePostgresAdapterError(Object.assign(new Error("socket"), { code: "ECONNRESET" })).kind,
+      "connection-loss",
+    );
+  });
+
   await it("cancels an in-flight query by discarding its checked-out pg lease", async () => {
     const raw = new HangingPgPool();
     let completion: DatabaseOperationEnd | undefined;
@@ -227,6 +331,7 @@ await describe("application-owned pg integration", async () => {
     const original = new FakePgPool();
     const pool = adaptPgPool(original as unknown as PgPool);
     strict.deepStrictEqual((await pool.query("SELECT 1")).rows, [{ value: 1 }]);
+    strict.deepStrictEqual((await pool.query({ text: "SELECT 0" })).rows, [{ value: 1 }]);
     const config: PostgresQueryConfig = {
       name: "selected-value",
       text: "SELECT $1",
@@ -241,14 +346,15 @@ await describe("application-owned pg integration", async () => {
     client.release();
     await pool.end();
     strict.strictEqual(original.calls.length, 2);
-    strict.strictEqual(original.client.calls.length, 2);
-    strict.deepStrictEqual(original.calls[1], {
+    strict.strictEqual(original.client.calls.length, 3);
+    strict.deepStrictEqual(original.client.calls[0], {
       name: "selected-value",
       text: "SELECT $1",
       values: [1],
       types: config.types,
     });
-    strict.deepStrictEqual(original.client.calls[1], {
+    strict.strictEqual(original.client.calls[1], "SELECT 2");
+    strict.deepStrictEqual(original.client.calls[2], {
       name: "selected-value",
       text: "SELECT $1",
       values: [1],
@@ -256,6 +362,71 @@ await describe("application-owned pg integration", async () => {
     });
     strict.strictEqual(original.client.released, true);
     strict.strictEqual(original.ended, true);
+  });
+
+  await it("normalizes pool, prepared-lease, and connection acquisition failures", async () => {
+    const direct = new FakePgPool();
+    const directError = Object.assign(new Error("server rejected"), { code: "22000" });
+    direct.queryError = directError;
+    await strict.rejects(
+      () => adaptPgPool(direct as unknown as PgPool).query("SELECT broken"),
+      (error: unknown) =>
+        error instanceof PostgresAdapterError && error.kind === "server" && error.cause === directError,
+    );
+
+    const prepared = new FakePgPool();
+    prepared.client.queryError = new Error("prepared failed");
+    await strict.rejects(
+      () => adaptPgPool(prepared as unknown as PgPool).query({ name: "broken", text: "SELECT broken" }),
+      (error: unknown) => error instanceof PostgresAdapterError && error.cause === prepared.client.queryError,
+    );
+    strict.ok(prepared.client.releaseError instanceof PostgresAdapterError);
+
+    const unavailable = new FakePgPool();
+    unavailable.connectError = Object.assign(new Error("connection lost"), { code: "ECONNRESET" });
+    const adapted = adaptPgPool(unavailable as unknown as PgPool);
+    await strict.rejects(
+      () => adapted.query({ name: "unavailable", text: "SELECT 1" }),
+      (error: unknown) => error instanceof PostgresAdapterError && error.kind === "connection-loss",
+    );
+    await strict.rejects(
+      () => adapted.connect(),
+      (error: unknown) => error instanceof PostgresAdapterError && error.kind === "connection-loss",
+    );
+  });
+
+  await it("bounds named statements per connection and invalidates them after session identity changes", async () => {
+    const original = new FakePgPool();
+    const pool = adaptPgPool(original as unknown as PgPool, undefined, undefined, { statementCacheSize: 1 });
+    const first = await pool.connect();
+    await first.query({ name: "first", text: "SELECT $1", values: [1] });
+    await first.query({ name: "first", text: "SELECT $1", values: [2] });
+    await first.query({ name: "second", text: "SELECT $1 + 1", values: [2] });
+    first.release();
+    strict.deepStrictEqual(original.client.calls.slice(0, 4), [
+      { name: "first", text: "SELECT $1", values: [1] },
+      { name: "first", text: "SELECT $1", values: [2] },
+      'DEALLOCATE "first"',
+      { name: "second", text: "SELECT $1 + 1", values: [2] },
+    ]);
+
+    await pool.query("/* migration */ CREATE TABLE cache_generation (id integer)");
+    const second = await pool.connect();
+    await second.query({ name: "third", text: "SELECT 3" });
+    await second.query("SET LOCAL search_path = public");
+    await second.query("SELECT 4");
+    second.release();
+    strict.deepStrictEqual(original.client.calls.slice(4), [
+      "DEALLOCATE ALL",
+      { name: "third", text: "SELECT 3" },
+      "SET LOCAL search_path = public",
+      "DEALLOCATE ALL",
+      "SELECT 4",
+    ]);
+    strict.throws(
+      () => adaptPgPool(new FakePgPool() as unknown as PgPool, undefined, undefined, { statementCacheSize: 0 }),
+      /positive safe integer/,
+    );
   });
 
   await it("discards a checked-out pg lease after a root batch query rejection", async () => {
@@ -267,12 +438,13 @@ await describe("application-owned pg integration", async () => {
     await strict.rejects(
       () => database.batch([sql`SELECT uncertain`]),
       (error) => {
-        strict.strictEqual(error, queryError);
-        return true;
+        return error instanceof PostgresAdapterError && error.kind === "driver" && error.cause === queryError;
       },
     );
     strict.strictEqual(original.client.released, true);
-    strict.strictEqual(original.client.releaseError, queryError);
+    const releaseError = original.client.releaseError;
+    if (!(releaseError instanceof PostgresAdapterError)) strict.fail("Expected a structured adapter error");
+    strict.strictEqual(releaseError.cause, queryError);
   });
 
   await it("loads pg-cursor lazily and bridges its real rows-array API", async () => {

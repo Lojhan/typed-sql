@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
-import type { QueryDependency, SchemaSnapshot, SourceRange } from "@typed-sql/core";
-import { calculateSchemaHash } from "@typed-sql/schema";
+import type { SchemaSnapshot as CoreSchemaSnapshot, QueryDependency, SourceRange } from "@typed-sql/core";
+import {
+  calculateSchemaHash,
+  parseSchemaSnapshot,
+  type RelationSnapshot,
+  type RoutineSnapshot,
+  type SchemaSnapshot,
+  serializeSchemaSnapshot,
+  type TypeSnapshot,
+} from "@typed-sql/schema";
 import type { QueryManifest, QueryManifestLocation, QueryManifestVariant } from "./manifest.js";
 import { parseQueryManifest, serializeQueryManifest } from "./manifest.js";
 
@@ -39,12 +47,44 @@ export type SchemaCompatibilityChangeKind =
   | "function-nullability"
   | "function-set-returning"
   | "function-volatility"
+  | "namespace-added"
+  | "namespace-removed"
+  | "namespace-definition"
+  | "relation-definition"
+  | "column-structure"
+  | "constraint-added"
+  | "constraint-removed"
+  | "constraint-definition"
+  | "index-added"
+  | "index-removed"
+  | "index-definition"
+  | "type-added"
+  | "type-removed"
+  | "type-definition"
+  | "routine-added"
+  | "routine-removed"
+  | "routine-definition"
+  | "server-evidence"
+  | "extension-definition"
   | "dialect-version"
   | "server-version"
   | "query-contract";
 
 export interface SchemaCompatibilityTarget {
-  readonly kind: "schema" | "relation" | "column" | "enum" | "domain" | "function" | "query";
+  readonly kind:
+    | "schema"
+    | "namespace"
+    | "relation"
+    | "column"
+    | "constraint"
+    | "index"
+    | "type"
+    | "enum"
+    | "domain"
+    | "routine"
+    | "function"
+    | "extension"
+    | "query";
   readonly key: string;
   readonly name: string;
   readonly schema?: string;
@@ -82,16 +122,26 @@ export interface SchemaCompatibilityReport {
   readonly formatVersion: typeof SCHEMA_COMPATIBILITY_FORMAT_VERSION;
   readonly analyzerVersion: typeof SCHEMA_COMPATIBILITY_ANALYZER_VERSION;
   readonly dialect: string;
-  readonly before: { readonly schemaHash: string; readonly manifestHash: string; readonly version?: string };
-  readonly after: { readonly schemaHash: string; readonly manifestHash: string; readonly version?: string };
+  readonly before: {
+    readonly schemaHash: string;
+    readonly manifestHash: string;
+    readonly schemaFormat?: 1 | 2;
+    readonly version?: string;
+  };
+  readonly after: {
+    readonly schemaHash: string;
+    readonly manifestHash: string;
+    readonly schemaFormat?: 1 | 2;
+    readonly version?: string;
+  };
   readonly changes: readonly SchemaCompatibilityChange[];
   readonly assessments: readonly SchemaCompatibilityAssessment[];
   readonly summary: Readonly<Record<CompatibilitySeverity, number>>;
 }
 
 export interface AnalyzeSchemaCompatibilityOptions {
-  readonly before: SchemaSnapshot;
-  readonly after: SchemaSnapshot;
+  readonly before: CoreSchemaSnapshot;
+  readonly after: CoreSchemaSnapshot;
   readonly beforeManifest: QueryManifest;
   readonly afterManifest: QueryManifest;
 }
@@ -118,6 +168,8 @@ const columnKey = (table: string, column: string) => `column:${table}.${column}`
 const functionKey = (key: string) => `function:${key}`;
 const functionNameKey = (schema: string | undefined, name: string) => `function-name:${schema ?? ""}.${name}`;
 const typeKey = (kind: "enum" | "domain", key: string) => `type:${kind}:${key}`;
+const structuralTypeKey = (key: string) => `type:${key}`;
+const routineKey = (schema: string | undefined, name: string) => `routine:${schema ?? ""}.${name}`;
 const changeKinds = new Set<SchemaCompatibilityChangeKind>([
   "relation-added",
   "relation-removed",
@@ -142,17 +194,42 @@ const changeKinds = new Set<SchemaCompatibilityChangeKind>([
   "function-nullability",
   "function-set-returning",
   "function-volatility",
+  "namespace-added",
+  "namespace-removed",
+  "namespace-definition",
+  "relation-definition",
+  "column-structure",
+  "constraint-added",
+  "constraint-removed",
+  "constraint-definition",
+  "index-added",
+  "index-removed",
+  "index-definition",
+  "type-added",
+  "type-removed",
+  "type-definition",
+  "routine-added",
+  "routine-removed",
+  "routine-definition",
+  "server-evidence",
+  "extension-definition",
   "dialect-version",
   "server-version",
   "query-contract",
 ]);
 const targetKinds = new Set<SchemaCompatibilityTarget["kind"]>([
   "schema",
+  "namespace",
   "relation",
   "column",
+  "constraint",
+  "index",
+  "type",
   "enum",
   "domain",
+  "routine",
   "function",
+  "extension",
   "query",
 ]);
 const directions = new Set<DeploymentDirection>(["before-app-after-database", "after-app-before-database"]);
@@ -431,7 +508,7 @@ function functionChanges(before: SchemaSnapshot, after: SchemaSnapshot): Interna
   return output;
 }
 
-function schemaChanges(before: SchemaSnapshot, after: SchemaSnapshot): InternalChange[] {
+function legacySchemaChanges(before: SchemaSnapshot, after: SchemaSnapshot): InternalChange[] {
   const output: InternalChange[] = [
     ...enumChanges(before, after),
     ...domainChanges(before, after),
@@ -560,6 +637,298 @@ function schemaChanges(before: SchemaSnapshot, after: SchemaSnapshot): InternalC
   );
 }
 
+function structuralEvidence(family: string, value: unknown): CompatibilityEvidence {
+  return { family, fingerprint: `sha256:${sha256(JSON.stringify(canonicalize(value)))}` };
+}
+
+function v2Target(
+  kind: SchemaCompatibilityTarget["kind"],
+  key: string,
+  value: { readonly name: string; readonly schema?: string },
+  parent?: string,
+): SchemaCompatibilityTarget {
+  return {
+    kind,
+    key,
+    name: value.name,
+    ...(value.schema === undefined ? {} : { schema: value.schema }),
+    ...(parent === undefined ? {} : { parent }),
+  };
+}
+
+function definitionChanges<Value extends { readonly name: string; readonly schema?: string }>(options: {
+  readonly before: Readonly<Record<string, Value>>;
+  readonly after: Readonly<Record<string, Value>>;
+  readonly targetKind: SchemaCompatibilityTarget["kind"];
+  readonly family: (value: Value) => string;
+  readonly added: SchemaCompatibilityChangeKind;
+  readonly removed: SchemaCompatibilityChangeKind;
+  readonly definition: SchemaCompatibilityChangeKind;
+  readonly keys: (key: string, value: Value) => readonly string[];
+  readonly parent?: string;
+}): InternalChange[] {
+  const output: InternalChange[] = [];
+  const keys = [...new Set([...Object.keys(options.before), ...Object.keys(options.after)])].sort(compareText);
+  for (const key of keys) {
+    const left = options.before[key];
+    const right = options.after[key];
+    const value = left ?? right;
+    if (value === undefined) continue;
+    const target = v2Target(options.targetKind, key, value, options.parent);
+    const impactKeys = options.keys(key, value);
+    if (left === undefined && right !== undefined) {
+      output.push({
+        change: change(options.added, target, undefined, structuralEvidence(options.family(right), right)),
+        keys: impactKeys,
+      });
+    } else if (left !== undefined && right === undefined) {
+      output.push({
+        change: change(options.removed, target, structuralEvidence(options.family(left), left), undefined),
+        keys: impactKeys,
+      });
+    } else if (
+      left !== undefined &&
+      right !== undefined &&
+      JSON.stringify(canonicalize(left)) !== JSON.stringify(canonicalize(right))
+    ) {
+      output.push({
+        change: change(
+          options.definition,
+          target,
+          structuralEvidence(options.family(left), left),
+          structuralEvidence(options.family(right), right),
+        ),
+        keys: impactKeys,
+      });
+    }
+  }
+  return output;
+}
+
+function relationMemberChanges(tableKey: string, before: RelationSnapshot, after: RelationSnapshot): InternalChange[] {
+  const output: InternalChange[] = [];
+  const columnNames = [...new Set([...Object.keys(before.columns), ...Object.keys(after.columns)])].sort(compareText);
+  for (const name of columnNames) {
+    const left = before.columns[name];
+    const right = after.columns[name];
+    const value = left ?? right;
+    if (value === undefined) continue;
+    const target = v2Target("column", `${tableKey}.${name}`, value, tableKey);
+    if (left === undefined && right !== undefined) {
+      output.push({
+        change: change("column-added", target, undefined, structuralEvidence("column", right)),
+        keys: [columnKey(tableKey, name)],
+        relationWriteKey: relationWriteKey(tableKey),
+        addedMandatoryColumn:
+          right.insertable === true &&
+          right.nullable === false &&
+          right.default === "none" &&
+          right.generated === "none" &&
+          right.identity === "none",
+      });
+    } else if (left !== undefined && right === undefined) {
+      output.push({
+        change: change("column-removed", target, structuralEvidence("column", left), undefined),
+        keys: [columnKey(tableKey, name)],
+        relationWriteKey: relationWriteKey(tableKey),
+        removedMandatoryColumn:
+          left.insertable === true &&
+          left.nullable === false &&
+          left.default === "none" &&
+          left.generated === "none" &&
+          left.identity === "none",
+      });
+    } else if (
+      left !== undefined &&
+      right !== undefined &&
+      JSON.stringify(canonicalize(left)) !== JSON.stringify(canonicalize(right))
+    ) {
+      output.push({
+        change: change(
+          "column-structure",
+          target,
+          structuralEvidence("column", left),
+          structuralEvidence("column", right),
+        ),
+        keys: [columnKey(tableKey, name)],
+        relationWriteKey: relationWriteKey(tableKey),
+      });
+    }
+  }
+  for (const [targetKind, family, leftValues, rightValues, added, removed, definition] of [
+    [
+      "constraint",
+      "constraint",
+      before.constraints,
+      after.constraints,
+      "constraint-added",
+      "constraint-removed",
+      "constraint-definition",
+    ],
+    ["index", "index", before.indexes, after.indexes, "index-added", "index-removed", "index-definition"],
+  ] as const) {
+    const left = Object.fromEntries(
+      leftValues.map((value) => [value.identity, { ...value, name: value.name ?? value.identity }]),
+    );
+    const right = Object.fromEntries(
+      rightValues.map((value) => [value.identity, { ...value, name: value.name ?? value.identity }]),
+    );
+    output.push(
+      ...definitionChanges({
+        before: left,
+        after: right,
+        targetKind,
+        family: () => family,
+        added,
+        removed,
+        definition,
+        keys: () => [relationKey(tableKey)],
+        parent: tableKey,
+      }),
+    );
+  }
+  return output;
+}
+
+function v2SchemaChanges(
+  before: Extract<SchemaSnapshot, { readonly formatVersion: 2 }>,
+  after: Extract<SchemaSnapshot, { readonly formatVersion: 2 }>,
+): InternalChange[] {
+  const output: InternalChange[] = [];
+  output.push(
+    ...definitionChanges({
+      before: before.namespaces,
+      after: after.namespaces,
+      targetKind: "namespace",
+      family: (value) => value.kind,
+      added: "namespace-added",
+      removed: "namespace-removed",
+      definition: "namespace-definition",
+      keys: () => ["all-queries"],
+    }),
+  );
+  const relationKeys = [...new Set([...Object.keys(before.relations), ...Object.keys(after.relations)])].sort(
+    compareText,
+  );
+  for (const key of relationKeys) {
+    const left = before.relations[key];
+    const right = after.relations[key];
+    const value = left ?? right;
+    if (value === undefined) continue;
+    const target = v2Target("relation", key, value);
+    if (left === undefined && right !== undefined) {
+      output.push({
+        change: change("relation-added", target, undefined, structuralEvidence(right.kind, right)),
+        keys: [relationKey(key)],
+      });
+      continue;
+    }
+    if (left !== undefined && right === undefined) {
+      output.push({
+        change: change("relation-removed", target, structuralEvidence(left.kind, left), undefined),
+        keys: [relationKey(key)],
+      });
+      continue;
+    }
+    if (left === undefined || right === undefined) continue;
+    const relationDefinition = (relation: RelationSnapshot) => ({
+      kind: relation.kind,
+      capabilities: relation.capabilities,
+      extension: relation.extension,
+    });
+    if (
+      JSON.stringify(canonicalize(relationDefinition(left))) !== JSON.stringify(canonicalize(relationDefinition(right)))
+    ) {
+      output.push({
+        change: change(
+          "relation-definition",
+          target,
+          structuralEvidence(left.kind, relationDefinition(left)),
+          structuralEvidence(right.kind, relationDefinition(right)),
+        ),
+        keys: [relationKey(key)],
+      });
+    }
+    output.push(...relationMemberChanges(key, left, right));
+  }
+  output.push(
+    ...definitionChanges<TypeSnapshot>({
+      before: before.types,
+      after: after.types,
+      targetKind: "type",
+      family: (value) => value.kind,
+      added: "type-added",
+      removed: "type-removed",
+      definition: "type-definition",
+      keys: (key) => [structuralTypeKey(key)],
+    }),
+  );
+  const flattenRoutines = (values: Readonly<Record<string, readonly RoutineSnapshot[]>>) =>
+    Object.fromEntries(
+      Object.values(values)
+        .flat()
+        .map((value) => [value.identity, value]),
+    );
+  output.push(
+    ...definitionChanges<RoutineSnapshot>({
+      before: flattenRoutines(before.routines),
+      after: flattenRoutines(after.routines),
+      targetKind: "routine",
+      family: (value) => value.kind,
+      added: "routine-added",
+      removed: "routine-removed",
+      definition: "routine-definition",
+      keys: (_key, value) => [routineKey(value.schema, value.name), functionNameKey(value.schema, value.name)],
+    }),
+  );
+  if (JSON.stringify(canonicalize(before.server)) !== JSON.stringify(canonicalize(after.server))) {
+    output.push({
+      change: change(
+        before.server.version === after.server.version ? "server-evidence" : "server-version",
+        { kind: "schema", key: before.dialect, name: before.dialect },
+        structuralEvidence("server", before.server),
+        structuralEvidence("server", after.server),
+      ),
+      keys: ["all-queries"],
+    });
+  }
+  if (JSON.stringify(canonicalize(before.extension)) !== JSON.stringify(canonicalize(after.extension))) {
+    output.push({
+      change: change(
+        "extension-definition",
+        { kind: "extension", key: before.dialect, name: before.dialect },
+        structuralEvidence("extension", before.extension ?? null),
+        structuralEvidence("extension", after.extension ?? null),
+      ),
+      keys: ["all-queries"],
+    });
+  }
+  if (before.dialectVersion !== after.dialectVersion) {
+    output.push({
+      change: change(
+        "dialect-version",
+        { kind: "schema", key: before.dialect, name: before.dialect },
+        { version: before.dialectVersion },
+        { version: after.dialectVersion },
+      ),
+      keys: ["all-queries"],
+    });
+  }
+  return output;
+}
+
+function schemaChanges(before: SchemaSnapshot, after: SchemaSnapshot): InternalChange[] {
+  const output =
+    before.formatVersion === 2 && after.formatVersion === 2
+      ? v2SchemaChanges(before, after)
+      : legacySchemaChanges(before, after);
+  return output.sort(
+    (left, right) =>
+      compareText(targetIdentity(left.change.target), targetIdentity(right.change.target)) ||
+      compareText(left.change.kind, right.change.kind),
+  );
+}
+
 function matchingTables(snapshot: SchemaSnapshot, name: string, schema?: string) {
   return Object.entries(snapshot.tables).filter(
     ([key, table]) =>
@@ -584,6 +953,17 @@ function matchingTypes(values: Readonly<Record<string, unknown>>, name: string, 
   if (schema === undefined) return matches;
   const qualified = matches.filter((key) => key === `${schema}.${name}`);
   return qualified.length === 0 ? matches.filter((key) => !key.includes(".")) : qualified;
+}
+
+function matchingStructuralTypes(snapshot: SchemaSnapshot, name: string, schema?: string): readonly string[] {
+  if (snapshot.formatVersion !== 2) return [];
+  return Object.entries(snapshot.types)
+    .filter(
+      ([key, value]) =>
+        (key === name || key.endsWith(`.${name}`) || value.name === name) &&
+        (schema === undefined || value.schema === schema),
+    )
+    .map(([key]) => key);
 }
 
 function addReference(
@@ -648,6 +1028,20 @@ function manifestReferences(manifest: QueryManifest, snapshot: SchemaSnapshot): 
             addReference(byKey, columnKey(columns[0]![0], columns[0]![1]), item);
           } else unknown.push(item);
         } else if (dependency.kind === "function") {
+          if (snapshot.formatVersion === 2) {
+            const matches = Object.values(snapshot.routines)
+              .flat()
+              .filter(
+                (routine) =>
+                  routine.name === dependency.name &&
+                  (dependency.schema === undefined || routine.schema === dependency.schema),
+              );
+            if (matches.length > 0) {
+              addReference(byKey, routineKey(dependency.schema ?? matches[0]?.schema, dependency.name), item);
+              addReference(byKey, functionNameKey(dependency.schema ?? matches[0]?.schema, dependency.name), item);
+            } else if (dependency.certainty === "resolved") unknown.push(item);
+            continue;
+          }
           const matches = Object.entries(snapshot.functions ?? {}).filter(
             ([, fn]) =>
               fn.name === dependency.name && (dependency.schema === undefined || fn.schema === dependency.schema),
@@ -657,6 +1051,15 @@ function manifestReferences(manifest: QueryManifest, snapshot: SchemaSnapshot): 
             addReference(byKey, functionNameKey(dependency.schema ?? matches[0]?.[1].schema, dependency.name), item);
           else if (dependency.certainty === "resolved") unknown.push(item);
         } else if (dependency.kind === "type") {
+          const structural = matchingStructuralTypes(snapshot, dependency.name, dependency.schema);
+          if (structural.length === 1) {
+            addReference(byKey, structuralTypeKey(structural[0]!), item);
+            continue;
+          }
+          if (structural.length > 1) {
+            unknown.push(item);
+            continue;
+          }
           const enums = matchingTypes(snapshot.enums ?? {}, dependency.name, dependency.schema);
           const domains = matchingTypes(snapshot.domains ?? {}, dependency.name, dependency.schema);
           if (enums.length + domains.length === 1) {
@@ -716,12 +1119,31 @@ function risk(
       severity: "info",
       reason: "No compiled query in this application version depends on the changed contract.",
     };
-  if (kind === "server-version" || kind === "dialect-version")
+  if (
+    kind === "server-version" ||
+    kind === "server-evidence" ||
+    kind === "dialect-version" ||
+    kind === "extension-definition"
+  )
     return {
       classification: "unknown",
       severity: "warning",
       reason: "Database-version compatibility requires live verification in a representative environment.",
     };
+  if (kind.startsWith("index-") || kind.startsWith("namespace-")) {
+    return {
+      classification: "compatible",
+      severity: "info",
+      reason: "This metadata does not change the compiled query type or runtime relation contract.",
+    };
+  }
+  if (kind.startsWith("constraint-")) {
+    return {
+      classification: "deployment-order-sensitive",
+      severity: "warning",
+      reason: "Constraint evidence can change cardinality, conflict-target, or write validation during deployment.",
+    };
+  }
   if (kind === "column-typescript-type" || kind === "domain-typescript-type" || kind === "query-contract") {
     return {
       classification: "source-breaking",
@@ -743,7 +1165,7 @@ function risk(
         severity: "error",
         reason: "The newer application references a contract that the older database does not provide.",
       };
-    if (kind === "function-added" || item.addedMandatoryColumn === true)
+    if (kind === "function-added" || kind === "routine-added" || item.addedMandatoryColumn === true)
       return {
         classification: "deployment-order-sensitive",
         severity: "error",
@@ -762,7 +1184,7 @@ function risk(
         severity: "error",
         reason: "The older application references a contract removed from the newer database.",
       };
-    if (kind === "function-removed")
+    if (kind === "function-removed" || kind === "routine-removed")
       return {
         classification: "deployment-order-sensitive",
         severity: "warning",
@@ -851,11 +1273,17 @@ function queryContractChanges(before: QueryManifest, after: QueryManifest): Inte
 }
 
 export function analyzeSchemaCompatibility(options: AnalyzeSchemaCompatibilityOptions): SchemaCompatibilityReport {
+  const normalize = (snapshot: CoreSchemaSnapshot): SchemaSnapshot =>
+    snapshot.formatVersion === 2
+      ? parseSchemaSnapshot(JSON.parse(serializeSchemaSnapshot(snapshot as SchemaSnapshot)) as unknown)
+      : parseSchemaSnapshot(snapshot);
+  const before = normalize(options.before);
+  const after = normalize(options.after);
   validateInputs(options);
-  const beforeReferences = manifestReferences(options.beforeManifest, options.before);
-  const afterReferences = manifestReferences(options.afterManifest, options.after);
+  const beforeReferences = manifestReferences(options.beforeManifest, before);
+  const afterReferences = manifestReferences(options.afterManifest, after);
   const changes = [
-    ...schemaChanges(options.before, options.after),
+    ...schemaChanges(before, after),
     ...queryContractChanges(options.beforeManifest, options.afterManifest),
   ].sort(
     (left, right) =>
@@ -895,16 +1323,18 @@ export function analyzeSchemaCompatibility(options: AnalyzeSchemaCompatibilityOp
   const report: SchemaCompatibilityReport = {
     formatVersion: SCHEMA_COMPATIBILITY_FORMAT_VERSION,
     analyzerVersion: SCHEMA_COMPATIBILITY_ANALYZER_VERSION,
-    dialect: options.before.dialect,
+    dialect: before.dialect,
     before: {
       schemaHash: options.beforeManifest.schemaHash,
       manifestHash: manifestHash(options.beforeManifest),
-      ...(options.before.version === undefined ? {} : { version: options.before.version }),
+      schemaFormat: before.formatVersion,
+      ...(before.version === undefined ? {} : { version: before.version }),
     },
     after: {
       schemaHash: options.afterManifest.schemaHash,
       manifestHash: manifestHash(options.afterManifest),
-      ...(options.after.version === undefined ? {} : { version: options.after.version }),
+      schemaFormat: after.formatVersion,
+      ...(after.version === undefined ? {} : { version: after.version }),
     },
     changes: changes.map((item) => item.change),
     assessments,
@@ -936,6 +1366,9 @@ export function parseSchemaCompatibilityReport(value: unknown): SchemaCompatibil
     if (!record(artifact)) throw new TypeError(`Compatibility report ${name} artifact is invalid`);
     assertDigest(artifact.schemaHash, `Compatibility report ${name}.schemaHash`);
     assertHash(artifact.manifestHash, `Compatibility report ${name}.manifestHash`);
+    if (artifact.schemaFormat !== undefined && artifact.schemaFormat !== 1 && artifact.schemaFormat !== 2) {
+      throw new TypeError(`Compatibility report ${name}.schemaFormat must be 1 or 2`);
+    }
     assertOptionalString(artifact.version, `Compatibility report ${name}.version`);
   }
   if (!Array.isArray(report.changes)) throw new TypeError("Compatibility report changes must be an array");

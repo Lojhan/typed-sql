@@ -1,4 +1,5 @@
 import type {
+  DialectCapabilityStates,
   DialectPlugin,
   Query,
   QueryCardinality,
@@ -10,8 +11,10 @@ import type {
   QueryVolatility,
   SchemaSnapshot,
   SqlRenderer,
+  SqlSegment,
 } from "@typed-sql/core";
 
+/** @deprecated Use `CONFORMANCE_VERSION` from `@typed-sql/conformance/v2`. Removed in typed-sql 3.0. */
 export const GRAMMAR_CONFORMANCE_VERSION = 1 as const;
 
 export const REQUIRED_GRAMMAR_PROBES = Object.freeze([
@@ -110,7 +113,27 @@ export interface GrammarConformanceReport {
   readonly grammarVersion: string;
   readonly requiredProbes: readonly RequiredGrammarProbe[];
   readonly capabilities: Readonly<Record<string, boolean>>;
+  readonly capabilityStates: DialectCapabilityStates;
   readonly structuralVariants: number;
+}
+
+export interface VersionedCapabilityExpectation {
+  readonly capability: string;
+  readonly level: "exact" | "conservative" | "unsupported";
+  readonly diagnostic?: string;
+  readonly evidenceKinds?: readonly ("server-version" | "feature" | "setting" | "policy" | "grammar")[];
+}
+
+export interface VersionedCapabilityProbe<Snapshot, Policy = unknown> {
+  readonly name: string;
+  readonly snapshot: Snapshot;
+  readonly policy?: Policy;
+  readonly expected: readonly VersionedCapabilityExpectation[];
+}
+
+export interface VersionedCapabilityConformanceFixture<Snapshot extends SchemaSnapshot, Policy = unknown> {
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+  readonly probes: readonly VersionedCapabilityProbe<Snapshot, Policy>[];
 }
 
 export interface CodecConformanceCase<Input, Output> {
@@ -132,6 +155,50 @@ export interface RuntimeAdapterConformanceFixture<Row, Parameters extends readon
   readonly expectedText: string;
   readonly expectedValues: readonly unknown[];
   readonly rows: readonly Row[];
+}
+
+export interface FragmentListParameterExpectation {
+  readonly index: number;
+  readonly tsType: string;
+  readonly nullable: boolean;
+  readonly databaseType?: string;
+}
+
+export interface FragmentListRenderCase {
+  readonly name: string;
+  readonly cardinality: 1 | 2 | 5;
+  readonly query: { readonly segments: readonly SqlSegment[] };
+  readonly expectedText: string;
+  readonly expectedValues: readonly unknown[];
+}
+
+export interface FragmentListDiagnosticCase {
+  readonly name: string;
+  readonly source: string;
+  readonly diagnosticCode: string;
+}
+
+/** Shared source-analysis and rendering contract for implicit homogeneous fragment lists. */
+export interface FragmentListConformanceFixture<Snapshot extends SchemaSnapshot, Policy = unknown> {
+  readonly name: string;
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+  readonly renderer: SqlRenderer;
+  readonly snapshot: Snapshot;
+  readonly compilerSource: string;
+  readonly expectedRepresentativeSql: string;
+  readonly expectedRowType: string;
+  readonly expectedResultKind: "rows" | "command";
+  readonly expectedElementParameters: readonly FragmentListParameterExpectation[];
+  readonly renderCases: readonly FragmentListRenderCase[];
+  readonly diagnostics?: readonly FragmentListDiagnosticCase[];
+  readonly policy?: Policy;
+}
+
+export interface FragmentListConformanceReport {
+  readonly grammar: string;
+  readonly artifactFingerprint: string;
+  readonly renderCardinalities: readonly [1, 2, 5];
+  readonly diagnosticCases: number;
 }
 
 export interface GrammarPerformanceOptions<Snapshot extends SchemaSnapshot, Policy> {

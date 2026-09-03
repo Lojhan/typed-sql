@@ -1,42 +1,60 @@
 {
-  "version": 8,
+  "version": 15,
   "methodology": {
     "warmups": 3,
     "samples": 20,
     "coldSamples": 10,
     "subMillisecondIterations": 100,
+    "soakIterations": 100,
+    "projectLifecycleIterations": 20,
+    "componentSoakIterations": 500,
     "warningRatio": 0.75
   },
   "latencyMs": {
-    "scanner.largeFile": { "p50": 10, "p95": 25 },
-    "compiler.manyQueries": { "p50": 20, "p95": 50 },
-    "compiler.queryManifest": { "p50": 25, "p95": 60 },
-    "compiler.queryManifestIncremental": { "p50": 0.5, "p95": 1 },
-    "compiler.queryPlans": { "p50": 40, "p95": 60 },
-    "compiler.queryVerification": { "p50": 40, "p95": 60 },
-    "compiler.schemaCompatibility": { "p50": 70, "p95": 120 },
-    "compiler.semanticMetadata": { "p50": 10, "p95": 25 },
-    "routing.semanticAnalysis": { "p50": 20, "p95": 40 },
-    "compiler.correlatedConditions": { "p50": 5, "p95": 10 },
-    "compiler.independentConditions": { "p50": 10, "p95": 25 },
-    "compiler.structuralLimit": { "p50": 5, "p95": 10 },
-    "editor.coldAnalysis": { "p50": 75, "p95": 150 },
-    "editor.incrementalAnalysis": { "p50": 30, "p95": 75 },
-    "editor.unchangedAnalysis": { "p50": 0.5, "p95": 1 },
-    "editor.schemaReload": { "p50": 30, "p95": 75 },
-    "editor.cancelledRequest": { "p50": 1, "p95": 2 }
+    "scanner.largeFile": { "p50": 10, "p95": 25, "p99": 40 },
+    "compiler.manyQueries": { "p50": 20, "p95": 50, "p99": 80 },
+    "compiler.queryManifest": { "p50": 25, "p95": 60, "p99": 100 },
+    "compiler.queryManifestIncremental": { "p50": 0.5, "p95": 1, "p99": 2 },
+    "compiler.queryPlans": { "p50": 40, "p95": 60, "p99": 100 },
+    "compiler.queryVerification": { "p50": 40, "p95": 60, "p99": 100 },
+    "compiler.schemaCompatibility": { "p50": 70, "p95": 120, "p99": 200 },
+    "compiler.semanticMetadata": { "p50": 10, "p95": 25, "p99": 40 },
+    "routing.semanticAnalysis": { "p50": 20, "p95": 40, "p99": 70 },
+    "compiler.correlatedConditions": { "p50": 5, "p95": 10, "p99": 20 },
+    "compiler.independentConditions": { "p50": 10, "p95": 25, "p99": 40 },
+    "compiler.structuralLimit": { "p50": 5, "p95": 10, "p99": 20 },
+    "conformance.v2StaticCorpus": { "p50": 15, "p95": 30, "p99": 50 },
+    "parser.ownedLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
+    "parser.pathologicalTokens": { "p50": 15, "p95": 35, "p99": 60 },
+    "schema.canonicalization": { "p50": 15, "p95": 35, "p99": 60 },
+    "editor.coldAnalysis": { "p50": 75, "p95": 150, "p99": 250 },
+    "editor.incrementalAnalysis": { "p50": 30, "p95": 75, "p99": 120 },
+    "editor.unchangedAnalysis": { "p50": 0.5, "p95": 1, "p99": 2 },
+    "editor.schemaReload": { "p50": 30, "p95": 75, "p99": 120 },
+    "editor.cancelledRequest": { "p50": 1, "p95": 2, "p99": 4 },
+    "editor.editStorm": { "p50": 10, "p95": 30, "p99": 60 },
+    "editor.schemaChurn": { "p50": 20, "p95": 60, "p99": 120 },
+    "editor.projectSwitch": { "p50": 15, "p95": 50, "p99": 100 },
+    "editor.projectLifecycle": { "p50": 15, "p95": 50, "p99": 100 }
   },
   "throughput": {
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
+    "core.fragmentListRender": { "minimumOperationsPerSecond": 10000, "minimumJoinRatio": 0.7 },
+    "parser.toolkitTokens": { "minimumTokensPerSecond": 500000 },
     "routing.semanticCacheHit": { "minimumOperationsPerSecond": 250000 }
   },
   "memory": {
-    "editor.retainedHeapMiB": { "maximum": 16 }
+    "editor.retainedHeapMiB": { "maximum": 16 },
+    "editor.lifecycleHeapGrowthMiB": { "maximum": 8 },
+    "parser.astBytesPerParse": { "maximum": 524288 },
+    "compiler.soakHeapGrowthMiB": { "maximum": 16 },
+    "core.renderSoakHeapGrowthMiB": { "maximum": 8 }
   },
   "overrides": {
     "githubActions": {
       "latencyMs": {
-        "compiler.semanticMetadata": { "p50": 12, "p95": 25 }
+        "compiler.semanticMetadata": { "p50": 20, "p95": 35, "p99": 60 },
+        "editor.editStorm": { "p50": 15, "p95": 40, "p99": 80 }
       }
     }
   }

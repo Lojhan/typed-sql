@@ -33,11 +33,13 @@ const expectedPublicDocs = [
   "docs/guides/result-validation.md",
   "docs/guides/routing-and-retries.md",
   "docs/guides/schema-snapshots.md",
+  "docs/guides/support-bundles.md",
   "docs/guides/upgrading-from-v1.md",
   "docs/index.md",
   "docs/reference/api.md",
   "docs/reference/compatibility.md",
   "docs/reference/diagnostics.md",
+  "docs/reference/grammar-support.md",
   "docs/reference/type-mappings.md",
 ] as const;
 

@@ -6,6 +6,7 @@ export interface BenchmarkStatistics {
   readonly coefficientOfVariation: number;
   readonly p50: number;
   readonly p95: number;
+  readonly p99: number;
   readonly maximum: number;
 }
 

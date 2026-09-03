@@ -43,6 +43,13 @@ Applications import `sql` from their selected dialect root.
 
 `sql.raw()` is not an escaping function. Do not pass untrusted values to it.
 
+A non-empty `readonly SqlFragment[]` interpolated directly into a query is structural and renders
+with the fixed separator `, `. This supports direct fragment array literals and analyzable
+``items.map(item => sql.fragment`...`)`` expressions. Ordinary arrays remain one bound parameter.
+Empty, sparse, nested, async, and mixed fragment/value arrays fail closed; use `sql.join()`,
+`sql.empty`, or `sql.value()` to state a different policy explicitly. See
+[Compose conditional SQL](../guides/composition.md#repeat-homogeneous-fragments).
+
 `sql.validateResult()` accepts the dependency-free Standard Schema V1 structural contract. The schema output must be assignable to the query's inferred row, and the returned query retains the original parameter tuple. `QueryResultValidationOptions` controls optional vendor messages and `libraryOptions`; `QueryResultValidationError` exposes a redacted, fingerprinted failure. See [Validate query results](../guides/result-validation.md).
 
 The declarations contain an internal `sql.__typed` member used by compiler overlays. Application code must use the ordinary `sql` tag.
@@ -52,6 +59,7 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 - `renderQuery(query, renderer)` produces SQL text and values.
 - `compileQueryRenderSkeleton(query, renderer)` produces the first rendering and an immutable, renderer-specific structural plan for adapter caches.
 - `bindQueryRenderSkeleton(query, skeleton)` binds values to that plan, or returns `undefined` when text, identifiers, segment kinds, or segment count drift.
+- `PreparedQueryRenderCache` retains bounded rendered variants for homogeneous prepared fragment lists whose cardinality changes.
 - `SqlRenderer` supplies grammar-specific placeholders and identifier quoting.
 - `createDatabase(executor, renderer, transactionRunner)` connects the neutral query contract to a runtime adapter.
 - `Database.execute()` preserves the query row type.
@@ -74,6 +82,24 @@ selected adapter supports them. Driver and protocol types remain outside `@typed
 
 Adapter authors install services with `adapterCapabilities` and
 `createAdapterCapabilityResolver()`. Capability IDs must be namespaced and globally unique.
+
+### Versioned dialect capabilities
+
+`DialectPlugin.capabilities` remains the boolean compatibility view for dialect-contract version 4.
+`resolveCapabilities(snapshot, policy?)` is the authoritative detailed view and returns one deeply
+frozen `DialectCapabilityState` per declared key. Levels are `exact`, `conservative`, or
+`unsupported`; evidence can identify the grammar version, server version, setting, feature, or
+policy that selected the state.
+
+`resolveDialectCapabilityStates()` validates first- and third-party results and supplies conservative
+migration states for legacy boolean-only plugins. `defineDialectServerEvidence()` and
+`defineDialectCapabilityStates()` canonicalize grammar-owned inputs. The core package treats
+`versionKey` as opaque and contains no vendor version table.
+
+Use `staticDialectCapabilityStates()` only for features that do not change inside a grammar's
+declared support range. It reports supported booleans conservatively until normalized server evidence
+is available. `dialectCapabilityIssues()` and `applyDialectCapabilityStates()` provide neutral,
+fail-closed lookup and analysis helpers.
 
 ### Semantic routing and transaction retry
 
@@ -223,6 +249,21 @@ See [Authoring a custom grammar](../extending/custom-grammars.md).
 
 `@typed-sql/conformance` is a stable, driver-free test package for grammar authors:
 
+- `@typed-sql/conformance/v2` exports permanent feature probes, version/capability target selection,
+  static and live layer runners, exact-claim enforcement, fixture discovery/minimization, redacted
+  reproduction bundles, and JSON/terminal reports.
+- `CONFORMANCE_VERSION` and `CONFORMANCE_REPORT_FORMAT_VERSION` independently version probe and report
+  contracts.
+- `defineConformanceProbe()` and `defineConformanceSuite()` validate and deeply freeze v2 fixtures.
+- `runStaticConformanceProbe()` and `runLiveConformanceProbe()` combine parser, resolver, compiler,
+  rendering, prepare, execution, and normalized plan evidence.
+- `assertExactConformance()` prevents skipped, quarantined, or failed layers from contributing to an
+  exact completeness claim.
+- `runAdaptedGrammarConformanceV1()` provides a non-inflating typed-sql 2.x migration bridge.
+
+The following package-root exports are the deprecated v1 compatibility contract and are removed in
+typed-sql 3.0:
+
 - `GRAMMAR_CONFORMANCE_VERSION` versions the public fixture contract.
 - `REQUIRED_GRAMMAR_PROBES` lists the inference families every grammar must exercise.
 - `assertGrammarConformance(fixture)` verifies plugin, renderer, snapshot, inference, semantic,
@@ -232,12 +273,18 @@ See [Authoring a custom grammar](../extending/custom-grammars.md).
 - `defineCodecConformanceFixture(fixture)` defines a typed codec corpus.
 - `assertRuntimeAdapterConformance(fixture)` verifies rendering, values, execution, and transaction
   dispatch through a driver-free recorder.
+- `parseGrammarFeatureLedger(value)` validates, canonicalizes, and freezes the repository feature
+  inventory, including dialect release lines, ownership, evidence, diagnostics, tests, and documentation.
+- `compareGrammarVersions()`, `grammarVersionInRange()`, `featureSupport()`, and
+  `featureSupportAtVersion()` apply the generic release-line comparison policy selected by each grammar
+  without treating every database version as interchangeable semantic versions.
 - `measureGrammarPerformance(options)` returns warmup-normalized p50, p95, and minimum throughput
   evidence without imposing a machine-independent budget.
 
 The package exports its fixture, expectation, report, codec, and performance types from its root. It
 does not install a SQL grammar, database driver, or test runner. See the
-[conformance guide](../extending/custom-grammars.md#conformance-kit).
+[conformance guide](../extending/custom-grammars.md#conformance-kit) and the generated
+[grammar support matrix](./grammar-support.md).
 
 ## Compatibility policy
 

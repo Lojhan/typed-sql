@@ -1,4 +1,13 @@
-import type { ColumnSnapshot, FunctionSnapshot, ResolvedParameter, SchemaSnapshot, TableSnapshot } from "./types.js";
+import type {
+  ColumnSnapshot,
+  FunctionSnapshot,
+  ResolvedParameter,
+  SchemaSnapshot,
+  StructuralColumnSnapshot,
+  StructuralRelationSnapshot,
+  StructuralRoutineSnapshot,
+  TableSnapshot,
+} from "./types.js";
 
 export interface ResolverType {
   readonly tsType: string;
@@ -17,7 +26,11 @@ export class ParameterCollector {
     const current = this.#parameters.get(index);
     const existingConflict = this.#conflicts.get(index);
     if (existingConflict !== undefined) return existingConflict;
-    if (current === undefined || (current.tsType === "unknown" && candidate.tsType !== "unknown")) {
+    if (
+      current === undefined ||
+      (current.tsType === "unknown" && candidate.tsType !== "unknown") ||
+      (current.databaseType === undefined && candidate.databaseType !== undefined)
+    ) {
       this.#parameters.set(index, candidate);
       return candidate;
     }
@@ -81,7 +94,7 @@ export function closestName(name: string, candidates: readonly string[]): string
   return closest !== undefined && closestDistance <= Math.max(2, Math.floor(name.length / 2)) ? closest : undefined;
 }
 
-interface IndexedTable {
+export interface IndexedTable {
   readonly key: string;
   readonly table: TableSnapshot;
 }
@@ -110,6 +123,9 @@ export class ResolverSchemaIndex {
   readonly #exactColumns = new WeakMap<TableSnapshot, ReadonlyMap<string, ColumnSnapshot>>();
   readonly #foldedColumns = new WeakMap<TableSnapshot, ReadonlyMap<string, ColumnSnapshot>>();
   readonly #functions = new Map<string, FunctionSnapshot[]>();
+  readonly #routines = new Map<string, StructuralRoutineSnapshot[]>();
+  readonly #routinesByName = new Map<string, StructuralRoutineSnapshot[]>();
+  readonly #relationEvidence = new WeakMap<TableSnapshot, StructuralRelationSnapshot>();
 
   constructor(snapshot: SchemaSnapshot) {
     for (const [key, table] of Object.entries(snapshot.tables)) {
@@ -120,9 +136,34 @@ export class ResolverSchemaIndex {
         addToIndex(this.#foldedTables, candidate.toLowerCase(), indexed);
       }
       this.#indexColumns(table);
+      const relation = snapshot.relations?.[key];
+      if (relation !== undefined) this.#relationEvidence.set(table, relation);
     }
-    for (const value of Object.values(snapshot.functions ?? {})) {
-      addToIndex(this.#functions, `${value.name.toLowerCase()}/${value.argumentTypes.length}`, value);
+    if (snapshot.routines !== undefined) {
+      for (const overloads of Object.values(snapshot.routines)) {
+        for (const routine of overloads) {
+          const inputs = routine.arguments.filter(({ mode }) => mode !== "out");
+          addToIndex(this.#routines, `${routine.name.toLowerCase()}/${inputs.length}`, routine);
+          addToIndex(this.#routinesByName, routine.name.toLowerCase(), routine);
+          if (routine.kind === "procedure") continue;
+          const result = routine.result;
+          const value: FunctionSnapshot = {
+            name: routine.name,
+            ...(routine.schema === undefined ? {} : { schema: routine.schema }),
+            argumentTypes: inputs.map(({ databaseType }) => databaseType),
+            ...(result.kind === "scalar" || result.kind === "set"
+              ? { databaseReturnType: result.databaseType, returnType: result.tsType, nullable: result.nullable }
+              : { databaseReturnType: result.kind, returnType: "unknown", nullable: true }),
+            ...(result.kind === "set" ? { setReturning: true } : {}),
+            ...(routine.volatility === "unknown" ? {} : { volatility: routine.volatility }),
+          };
+          addToIndex(this.#functions, `${value.name.toLowerCase()}/${value.argumentTypes.length}`, value);
+        }
+      }
+    } else {
+      for (const value of Object.values(snapshot.functions ?? {})) {
+        addToIndex(this.#functions, `${value.name.toLowerCase()}/${value.argumentTypes.length}`, value);
+      }
     }
   }
 
@@ -147,6 +188,80 @@ export class ResolverSchemaIndex {
     return schema === undefined
       ? matches
       : matches.filter((candidate) => candidate.schema?.toLowerCase() === schema.toLowerCase());
+  }
+
+  routineOverloads(name: string, arity: number, schema?: string): readonly StructuralRoutineSnapshot[] {
+    const exact = this.#routines.get(`${name.toLowerCase()}/${arity}`) ?? [];
+    const flexible = (this.#routinesByName.get(name.toLowerCase()) ?? []).filter((candidate) => {
+      const inputs = candidate.arguments.filter(({ mode }) => mode !== "out");
+      const variadic = inputs.at(-1)?.mode === "variadic";
+      const fixed = variadic ? inputs.slice(0, -1) : inputs;
+      const required = fixed.filter(({ default: defaultValue }) => defaultValue !== "present").length;
+      return arity >= required && (variadic || arity <= inputs.length);
+    });
+    const matches = [...new Set([...exact, ...flexible])];
+    return schema === undefined
+      ? matches
+      : matches.filter((candidate) => candidate.schema?.toLowerCase() === schema.toLowerCase());
+  }
+
+  /** Returns exact v2 structural evidence or undefined for v1/derived relations. */
+  relation(table: TableSnapshot): StructuralRelationSnapshot | undefined {
+    return this.#relationEvidence.get(table);
+  }
+
+  uniqueColumnSets(table: TableSnapshot): readonly (readonly string[])[] {
+    return (
+      this.#relationEvidence
+        .get(table)
+        ?.constraints.filter(
+          (constraint) =>
+            (constraint.kind === "primary-key" || constraint.kind === "unique") &&
+            constraint.partial === false &&
+            constraint.expressionBased === false,
+        )
+        .map(({ columns }) => columns) ?? []
+    );
+  }
+
+  isUnique(table: TableSnapshot, columns: readonly string[]): boolean | "unknown" {
+    const relation = this.#relationEvidence.get(table);
+    if (relation === undefined) return "unknown";
+    const requested = new Set(columns.map((column) => column.toLowerCase()));
+    return relation.constraints.some(
+      (constraint) =>
+        (constraint.kind === "primary-key" || constraint.kind === "unique") &&
+        constraint.partial === false &&
+        constraint.expressionBased === false &&
+        constraint.columns.length === requested.size &&
+        constraint.columns.every((column) => requested.has(column.toLowerCase())),
+    );
+  }
+
+  columnEvidence(table: TableSnapshot, column: ColumnSnapshot): StructuralColumnSnapshot | undefined {
+    const relation = this.#relationEvidence.get(table);
+    if (relation === undefined) return undefined;
+    return relation.columns[column.name] ?? Object.values(relation.columns).find(({ name }) => name === column.name);
+  }
+
+  columnEligibility(table: TableSnapshot, column: ColumnSnapshot, operation: "insert" | "update"): boolean | "unknown" {
+    const evidence = this.columnEvidence(table, column);
+    return evidence === undefined ? "unknown" : operation === "insert" ? evidence.insertable : evidence.updatable;
+  }
+
+  requiredInsertColumns(table: TableSnapshot): readonly StructuralColumnSnapshot[] | "unknown" {
+    const relation = this.#relationEvidence.get(table);
+    if (relation === undefined) return "unknown";
+    return Object.values(relation.columns)
+      .filter(
+        (column) =>
+          column.insertable === true &&
+          column.nullable === false &&
+          column.default === "none" &&
+          column.generated === "none" &&
+          column.identity === "none",
+      )
+      .sort((left, right) => left.position - right.position);
   }
 
   #indexColumns(table: TableSnapshot): void {

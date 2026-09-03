@@ -1,52 +1,53 @@
-import { compileSource } from "@typed-sql/compiler";
+import {
+  analyzeSource as analyzeCompilerSource,
+  SOURCE_ANALYSIS_FORMAT_VERSION,
+  type SourceAnalysisBinding,
+  type SourceAnalysisControl,
+  type SourceAnalysisInsertion,
+  type SourceAnalysisProjectIdentity,
+  type SourceAnalysisQuery,
+  type SourceAnalysisRange,
+  type SourceAnalysisResult,
+} from "@typed-sql/compiler";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
+import type { TypeScriptBackendIdentity, TypeScriptOverlayInput, TypeScriptTypeInspection } from "./backend.js";
 
-export interface OffsetRange {
-  readonly start: number;
-  readonly end: number;
-}
+export type {
+  TypeScriptBackend,
+  TypeScriptBackendIdentity,
+  TypeScriptBackendSpawnOptions,
+  TypeScriptOverlayInput,
+  TypeScriptProjectHandle,
+  TypeScriptProjectRequest,
+  TypeScriptTypeInspection,
+} from "./backend.js";
+export { createTypeScriptBackend, TYPESCRIPT_BACKEND_ADAPTERS } from "./backends/index.js";
+export {
+  assertTypeScriptPreviewVersion,
+  installedTypeScriptPreviewVersion,
+  TypeScriptPreviewCompatibilityError,
+} from "./compatibility.js";
+export type { TypeScriptIntegrationSurface, TypeScriptVersionSupport } from "./support.js";
+export { TYPESCRIPT_PREVIEW_VERSION, TYPESCRIPT_SUPPORT_POLICY, typeScriptVersionSupport } from "./support.js";
 
-export interface QueryBinding {
-  readonly name: string;
-  readonly range: OffsetRange;
-}
+export interface OffsetRange extends SourceAnalysisRange {}
 
-export interface BridgeQuery {
-  readonly index: number;
-  readonly rowType: string;
-  readonly parameterType: string;
-  readonly queryType: string;
-  readonly sourceRange: OffsetRange;
-  readonly transformedRange: OffsetRange;
-  readonly interpolationRanges: readonly OffsetRange[];
-  readonly binding?: QueryBinding;
-}
+export interface QueryBinding extends SourceAnalysisBinding {}
 
-export interface BridgeInsertion {
-  readonly position: number;
-  readonly length: number;
-}
+export interface BridgeQuery extends SourceAnalysisQuery {}
 
-export interface BridgeAnalysis {
-  readonly source: string;
-  readonly transformedSource: string;
-  readonly insertions: readonly BridgeInsertion[];
-  readonly queries: readonly BridgeQuery[];
-  readonly diagnostics: ReturnType<typeof compileSource>["diagnostics"];
-}
+export interface BridgeInsertion extends SourceAnalysisInsertion {}
 
-export interface NativeTypeInspection {
-  readonly queryIndex: number;
-  readonly typeText: string;
-}
+export interface BridgeAnalysis extends SourceAnalysisResult {}
 
-export interface TypeScriptInspectionInput {
-  readonly fileName: string;
-  readonly projectFile?: string;
+export interface NativeTypeInspection extends TypeScriptTypeInspection {}
+
+export interface TypeScriptInspectionInput extends TypeScriptOverlayInput {
   readonly analysis: BridgeAnalysis;
 }
 
 export interface TypeScriptBridge {
+  readonly identity: TypeScriptBackendIdentity;
   inspectFile(input: TypeScriptInspectionInput): Promise<readonly NativeTypeInspection[]>;
   inspectFiles(
     inputs: readonly TypeScriptInspectionInput[],
@@ -56,17 +57,13 @@ export interface TypeScriptBridge {
 
 export interface BridgeAnalyzeOptions {
   readonly maxStructuralVariants?: number;
-}
-
-function bindingBefore(source: string, tagStart: number): QueryBinding | undefined {
-  const prefix = source.slice(0, tagStart);
-  const match = /(?:^|[;{}]\s*|\n\s*)(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*$/u.exec(prefix);
-  if (match === null) return undefined;
-  const name = match[1];
-  if (name === undefined) return undefined;
-  const relativeStart = match[0].lastIndexOf(name);
-  const start = match.index + relativeStart;
-  return { name, range: { start, end: start + name.length } };
+  readonly maxSourceBytes?: number;
+  readonly maxQueries?: number;
+  readonly maxGeneratedDeclarationBytes?: number;
+  readonly sourceId?: string;
+  readonly sourceVersion?: number | string;
+  readonly project?: SourceAnalysisProjectIdentity;
+  readonly cancellation?: SourceAnalysisControl;
 }
 
 export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
@@ -76,55 +73,29 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
   typePolicy?: Policy,
   options: BridgeAnalyzeOptions = {},
 ): BridgeAnalysis {
-  const compilation = compileSource({
-    source,
-    schema,
-    ...(options.maxStructuralVariants === undefined ? {} : { maxStructuralVariants: options.maxStructuralVariants }),
-    dialect,
-    ...(typePolicy === undefined ? {} : { typePolicy }),
-  });
-  const insertions = [
-    ...compilation.queries.map(({ query, rowType, parameterType, structural }) => ({
-      position: query.insertionPosition,
-      length: structural ? rowType.length + parameterType.length + 14 : rowType.length + parameterType.length + 4,
-    })),
-    ...compilation.fragments.map(({ fragment, parameterType }) => ({
-      position: fragment.insertionPosition,
-      length: parameterType.length + 2,
-    })),
-  ].sort((left, right) => left.position - right.position);
-  const shiftBefore = (position: number): number =>
-    insertions.reduce((total, insertion) => total + (insertion.position < position ? insertion.length : 0), 0);
-
-  const queries = compilation.queries.map(
-    ({ query, rowType, parameterType }, index): BridgeQuery => ({
-      index,
-      rowType,
-      parameterType,
-      queryType: `Query<${rowType}, ${parameterType}>`,
-      sourceRange: { start: query.range.start, end: query.range.end },
-      transformedRange: {
-        start: query.range.start + shiftBefore(query.range.start),
-        end: query.range.end + shiftBefore(query.range.end),
+  return analyzeCompilerSource(
+    {
+      formatVersion: SOURCE_ANALYSIS_FORMAT_VERSION,
+      source: {
+        id: options.sourceId ?? "inline",
+        text: source,
+        ...(options.sourceVersion === undefined ? {} : { version: options.sourceVersion }),
       },
-      interpolationRanges: query.interpolations.map(({ sourceStart, sourceEnd }) => ({
-        start: sourceStart,
-        end: sourceEnd,
-      })),
-      ...(() => {
-        const binding = bindingBefore(source, query.range.start);
-        return binding === undefined ? {} : { binding };
-      })(),
-    }),
+      ...(options.project === undefined ? {} : { project: options.project }),
+      compiler: {
+        ...(options.maxStructuralVariants === undefined
+          ? {}
+          : { maxStructuralVariants: options.maxStructuralVariants }),
+        ...(options.maxSourceBytes === undefined ? {} : { maxSourceBytes: options.maxSourceBytes }),
+        ...(options.maxQueries === undefined ? {} : { maxQueries: options.maxQueries }),
+        ...(options.maxGeneratedDeclarationBytes === undefined
+          ? {}
+          : { maxGeneratedDeclarationBytes: options.maxGeneratedDeclarationBytes }),
+      },
+    },
+    { schema, dialect, ...(typePolicy === undefined ? {} : { typePolicy }) },
+    options.cancellation,
   );
-
-  return {
-    source,
-    transformedSource: compilation.transformedSource,
-    insertions,
-    queries,
-    diagnostics: compilation.diagnostics,
-  };
 }
 
 export function queryAtPosition(analysis: BridgeAnalysis, position: number): BridgeQuery | undefined {

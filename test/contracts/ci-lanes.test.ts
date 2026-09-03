@@ -1,0 +1,48 @@
+import { readFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { describe, it, strict } from "poku";
+
+const workspace = resolve(import.meta.dirname, "../..");
+
+await describe("CI evidence lanes", async () => {
+  await it("keeps pull-request work bounded and comprehensive matrices scheduled", async () => {
+    const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
+    strict.ok(workflow.includes('cron: "17 4 * * 2"'));
+    for (const job of [
+      "typescript-editor-matrix",
+      "postgres-e2e",
+      "mysql-e2e",
+      "packed-real-databases",
+      "examples-e2e",
+      "sqlite-node-matrix",
+      "sqlite-language-matrix",
+      "editor-artifacts",
+    ]) {
+      const section = workflow.slice(workflow.indexOf(`  ${job}:`));
+      strict.ok(
+        section.startsWith(`  ${job}:\n    if: github.event_name != 'pull_request'`),
+        `${job} is not scheduled-only`,
+      );
+    }
+    for (const evidence of [
+      "pull-request-distribution:",
+      "pnpm api:check",
+      "pnpm test:pack",
+      "pnpm docs:check",
+      "scheduled-reliability:",
+      "pnpm fuzz:replay",
+      "pnpm mutation:pilot",
+      "retention-days: 30",
+    ]) {
+      strict.ok(workflow.includes(evidence), `CI lane lost ${evidence}`);
+    }
+  });
+
+  await it("writes only structured identifiers and environment-owned run metadata", async () => {
+    const writer = await readFile(join(workspace, "scripts/write-ci-evidence.mjs"), "utf8");
+    strict.ok(writer.includes("TYPED_SQL_MATRIX_TARGET"));
+    strict.ok(writer.includes("GITHUB_SHA"));
+    for (const sensitive of ["process.env.DATABASE", "process.env.PG", "process.env.MYSQL", "process.env.TOKEN"])
+      strict.ok(!writer.includes(sensitive));
+  });
+});

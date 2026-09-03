@@ -1,6 +1,6 @@
 # @typed-sql/sqlite
 
-The preview SQLite grammar for typed-sql. It provides sound inference for SQLite's dynamic type
+The stable SQLite grammar for typed-sql. It provides sound inference for SQLite's dynamic type
 system, schema introspection, and an optional application-owned `node:sqlite` adapter.
 
 ```sh
@@ -28,7 +28,7 @@ only when the application selects that adapter. STRICT tables receive precise de
 ordinary SQLite tables use a storage-class union because their declared affinity does not constrain
 the values they may contain.
 
-SQLite support remains on the experimental release track while its grammar and adapter contracts
-are exercised by early adopters.
+The package is on the stable release track. The grammar follows typed-sql's general Node.js range;
+the optional adapter checks its narrower supported Node and bundled-SQLite matrix when loaded.
 
 MIT © typed-sql contributors

@@ -20,7 +20,37 @@ const queryRenderSkeletonBrand: unique symbol = Symbol("@typed-sql/core.query-re
 export type SqlSegment =
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "value"; readonly value: unknown }
-  | { readonly kind: "identifier"; readonly name: string };
+  | { readonly kind: "identifier"; readonly name: string }
+  | FragmentListSegment;
+
+interface FragmentListSegment {
+  readonly kind: "fragment-list";
+  readonly items: readonly SqlFragment[];
+  readonly separator: SqlFragment<readonly []>;
+}
+
+export const DEFAULT_MAX_FRAGMENT_LIST_ITEMS = 10_000;
+export const DEFAULT_MAX_QUERY_PARAMETERS = 65_535;
+export const DEFAULT_MAX_RENDERED_SQL_BYTES = 4 * 1024 * 1024;
+export const DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS = 32;
+
+export type SqlFragmentListErrorCode =
+  | "TSQL_FRAGMENT_LIST_ASYNC"
+  | "TSQL_FRAGMENT_LIST_EMPTY"
+  | "TSQL_FRAGMENT_LIST_LIMIT"
+  | "TSQL_FRAGMENT_LIST_MIXED"
+  | "TSQL_FRAGMENT_LIST_NESTED"
+  | "TSQL_FRAGMENT_LIST_SPARSE";
+
+export class SqlFragmentListError extends TypeError {
+  readonly code: SqlFragmentListErrorCode;
+
+  constructor(code: SqlFragmentListErrorCode, message: string) {
+    super(message);
+    this.name = "SqlFragmentListError";
+    this.code = code;
+  }
+}
 
 export interface SqlFragment<Params extends readonly unknown[] = readonly unknown[]> {
   readonly [fragmentBrand]: () => Params;
@@ -30,7 +60,42 @@ export interface SqlFragment<Params extends readonly unknown[] = readonly unknow
 export type QueryRow<Value> = Value extends Query<infer Row, infer _Params> ? Row : never;
 export type QueryParameters<Value> = Value extends Query<infer _Row, infer Params> ? Params : never;
 
-type SqlPartParameters<Part> = [Part] extends [SqlFragment<infer Params>] ? Params : readonly [Part];
+type IsAny<Value> = 0 extends 1 & Value ? true : false;
+
+type FragmentTupleParameters<
+  Parts extends readonly unknown[],
+  Accumulator extends readonly unknown[] = readonly [],
+> = Parts extends readonly [infer Head, ...infer Tail]
+  ? [Head] extends [SqlFragment<infer Params>]
+    ? FragmentTupleParameters<Tail, readonly [...Accumulator, ...Params]>
+    : never
+  : Accumulator;
+
+type FragmentArrayParameters<Parts extends readonly unknown[]> = number extends Parts["length"]
+  ? [Parts[number]] extends [SqlFragment<infer Params>]
+    ? readonly Params[number][]
+    : never
+  : FragmentTupleParameters<Parts>;
+
+type SqlArrayPartParameters<Part extends readonly unknown[]> = Part extends readonly []
+  ? never
+  : [Part[number]] extends [never]
+    ? never
+    : IsAny<Part[number]> extends true
+      ? never
+      : [Part[number]] extends [SqlFragment]
+        ? FragmentArrayParameters<Part>
+        : [Extract<Part[number], SqlFragment>] extends [never]
+          ? [Extract<Part[number], readonly unknown[] | PromiseLike<unknown>>] extends [never]
+            ? readonly [Part]
+            : never
+          : never;
+
+type SqlPartParameters<Part> = [Part] extends [SqlFragment<infer Params>]
+  ? Params
+  : [Part] extends [readonly unknown[]]
+    ? SqlArrayPartParameters<Part>
+    : readonly [Part];
 
 export type SqlPartsParameters<
   Parts extends readonly unknown[],
@@ -41,8 +106,21 @@ export type SqlPartsParameters<
     ? SqlPartsParameters<Tail, readonly [...Accumulator, ...SqlPartParameters<Head>]>
     : Accumulator;
 
-type CheckedSqlParts<Parts extends readonly unknown[], Expected extends readonly unknown[]> = Parts &
-  ([SqlPartsParameters<Parts>] extends [Expected] ? unknown : never);
+type HasInvalidSqlPart<Parts extends readonly unknown[]> = number extends Parts["length"]
+  ? false
+  : Parts extends readonly [infer Head, ...infer Tail]
+    ? [SqlPartParameters<Head>] extends [never]
+      ? true
+      : HasInvalidSqlPart<Tail>
+    : false;
+
+type CheckedTemplateParts<Parts extends readonly unknown[]> = Parts &
+  (HasInvalidSqlPart<Parts> extends true ? never : unknown);
+
+type CheckedSqlParts<
+  Parts extends readonly unknown[],
+  Expected extends readonly unknown[],
+> = CheckedTemplateParts<Parts> & ([SqlPartsParameters<Parts>] extends [Expected] ? unknown : never);
 
 type PresentFragment<Part> = Exclude<Part, false | null | undefined>;
 type OptionalFragmentParameters<Part> = [PresentFragment<Part>] extends [never]
@@ -72,7 +150,7 @@ export interface Query<Row, Params extends readonly unknown[] = readonly unknown
 export interface SqlTag {
   <Row = unknown, Parts extends readonly unknown[] = readonly unknown[]>(
     strings: TemplateStringsArray,
-    ...parts: Parts
+    ...parts: CheckedTemplateParts<Parts>
   ): Query<Row, SqlPartsParameters<Parts>>;
   /**
    * @internal Reserved compiler-overlay protocol. Applications must use the `sql` tag directly;
@@ -82,9 +160,14 @@ export interface SqlTag {
     strings: TemplateStringsArray,
     ...parts: CheckedSqlParts<Parts, Params>
   ) => Query<Row, Params>;
+  /** @internal Reserved compiler overlay that preserves interpolation-derived parameter types. */
+  readonly __typedRow: <Row>() => <Parts extends readonly unknown[]>(
+    strings: TemplateStringsArray,
+    ...parts: CheckedTemplateParts<Parts>
+  ) => Query<Row, SqlPartsParameters<Parts>>;
   readonly fragment: <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
-    ...parts: Parts
+    ...parts: CheckedTemplateParts<Parts>
   ) => SqlFragment<SqlPartsParameters<Parts>>;
   readonly empty: SqlFragment<readonly []>;
   readonly ident: (name: string) => SqlFragment<readonly []>;
@@ -138,6 +221,12 @@ type QueryRenderSkeletonSegment =
 export interface QueryRenderSkeleton {
   readonly text: string;
   readonly [queryRenderSkeletonBrand]: readonly QueryRenderSkeletonSegment[];
+}
+
+export interface PreparedQueryRenderVariant {
+  readonly rendered: RenderedQuery;
+  /** The first rendered SQL text in this structural family. */
+  readonly primary: boolean;
 }
 
 export interface QueryExecutor {
@@ -215,6 +304,67 @@ function appendSegments(target: SqlSegment[], source: readonly SqlSegment[]): vo
   for (let index = 0; index < source.length; index += 1) target.push(source[index]!);
 }
 
+const commaSeparator = fragment<readonly []>([text(", ")]);
+
+function isPromiseLike(valueItem: unknown): boolean {
+  return (
+    (typeof valueItem === "object" || typeof valueItem === "function") &&
+    valueItem !== null &&
+    typeof (valueItem as { readonly then?: unknown }).then === "function"
+  );
+}
+
+function classifyArrayPart(part: readonly unknown[]): SqlSegment {
+  if (part.length === 0) {
+    throw new SqlFragmentListError(
+      "TSQL_FRAGMENT_LIST_EMPTY",
+      "An empty interpolated array is ambiguous; use sql.value([]), sql.join(...), or sql.empty explicitly",
+    );
+  }
+  let fragmentCount = 0;
+  for (let index = 0; index < part.length; index += 1) {
+    if (!(index in part)) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_SPARSE",
+        "Sparse interpolated arrays are unsupported; build a dense value array or fragment list",
+      );
+    }
+    const item = part[index];
+    if (Array.isArray(item)) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_NESTED",
+        "Nested interpolated arrays are ambiguous; wrap the complete value with sql.value(...) or flatten fragments explicitly",
+      );
+    }
+    if (isPromiseLike(item)) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_ASYNC",
+        "Promise elements cannot form SQL; resolve values before interpolation and use a synchronous fragment callback",
+      );
+    }
+    if (isFragment(item)) fragmentCount += 1;
+  }
+  if (fragmentCount === 0) return value(part);
+  if (fragmentCount !== part.length) {
+    throw new SqlFragmentListError(
+      "TSQL_FRAGMENT_LIST_MIXED",
+      "An interpolated array cannot mix SQL fragments and values; use an all-fragment list or sql.value(...) explicitly",
+    );
+  }
+  if (part.length > DEFAULT_MAX_FRAGMENT_LIST_ITEMS) {
+    throw new SqlFragmentListError(
+      "TSQL_FRAGMENT_LIST_LIMIT",
+      `Fragment list contains ${part.length} items; the limit is ${DEFAULT_MAX_FRAGMENT_LIST_ITEMS}`,
+    );
+  }
+  const items = part as readonly SqlFragment[];
+  return Object.freeze({
+    kind: "fragment-list",
+    items: Object.freeze([...items]),
+    separator: commaSeparator,
+  });
+}
+
 function templateSegments(strings: TemplateStringsArray, parts: readonly unknown[]): SqlSegment[] {
   const template = templateTextSegments(strings);
   const segments: SqlSegment[] = [];
@@ -223,6 +373,7 @@ function templateSegments(strings: TemplateStringsArray, parts: readonly unknown
     if (index >= parts.length) continue;
     const part = parts[index];
     if (isFragment(part)) appendSegments(segments, part.segments);
+    else if (Array.isArray(part)) segments.push(classifyArrayPart(part));
     else segments.push(value(part));
   }
   return segments;
@@ -230,14 +381,14 @@ function templateSegments(strings: TemplateStringsArray, parts: readonly unknown
 
 const tag = <Row = unknown, Parts extends readonly unknown[] = readonly unknown[]>(
   strings: TemplateStringsArray,
-  ...parts: Parts
+  ...parts: CheckedTemplateParts<Parts>
 ): Query<Row, SqlPartsParameters<Parts>> => {
   return query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
 };
 
 const fragmentTag = <Parts extends readonly unknown[]>(
   strings: TemplateStringsArray,
-  ...parts: Parts
+  ...parts: CheckedTemplateParts<Parts>
 ): SqlFragment<SqlPartsParameters<Parts>> => {
   if (parts.length === 0) {
     const cached = staticFragmentCache.get(strings);
@@ -273,14 +424,18 @@ function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
   return fragment<FragmentListParameters<Parts>>(segments);
 }
 
-const commaSeparator = fragment<readonly []>([text(", ")]);
-
 export const sql: SqlTag = Object.assign(tag, {
   __typed<Row, Params extends readonly unknown[]>() {
     return <const Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedSqlParts<Parts, Params>
-    ) => tag<Row, Parts>(strings, ...(parts as unknown as Parts)) as unknown as Query<Row, Params>;
+    ) => query<Row, Params>(templateSegments(strings, parts));
+  },
+  __typedRow<Row>() {
+    return <Parts extends readonly unknown[]>(
+      strings: TemplateStringsArray,
+      ...parts: CheckedTemplateParts<Parts>
+    ): Query<Row, SqlPartsParameters<Parts>> => query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
   },
   fragment: fragmentTag,
   empty: fragment<readonly []>([]),
@@ -362,21 +517,100 @@ export const sql: SqlTag = Object.assign(tag, {
   },
 }) satisfies SqlTag;
 
+type SqlStructure =
+  | readonly ["text", string]
+  | readonly ["value"]
+  | readonly ["identifier", string]
+  | readonly ["fragment-list", readonly SqlStructure[], readonly SqlStructure[]]
+  | readonly ["fixed-fragment-list", readonly (readonly SqlStructure[])[], readonly SqlStructure[]];
+
+function segmentStructure(segments: readonly SqlSegment[]): readonly SqlStructure[] {
+  return segments.map((segment): SqlStructure => {
+    if (segment.kind === "text") return ["text", segment.text];
+    if (segment.kind === "value") return ["value"];
+    if (segment.kind === "identifier") return ["identifier", segment.name];
+    const items = segment.items.map((item) => segmentStructure(item.segments));
+    const first = JSON.stringify(items[0]);
+    return items.every((item) => JSON.stringify(item) === first)
+      ? ["fragment-list", items[0]!, segmentStructure(segment.separator.segments)]
+      : ["fixed-fragment-list", items, segmentStructure(segment.separator.segments)];
+  });
+}
+
 export function renderQuery<Row, Params extends readonly unknown[]>(
   queryValue: Query<Row, Params>,
   renderer: SqlRenderer,
 ): RenderedQuery {
+  const segments = queryValue.segments;
+  assertQueryResourceLimits(segments);
   const values: unknown[] = [];
   const chunks: string[] = [];
-  for (const segment of queryValue.segments) {
-    if (segment.kind === "text") chunks.push(segment.text);
-    else if (segment.kind === "identifier") chunks.push(renderer.quoteIdentifier(segment.name));
+  let sqlBytes = 0;
+  visitSegments(segments, (segment) => {
+    let chunk: string;
+    if (segment.kind === "text") chunk = segment.text;
+    else if (segment.kind === "identifier") chunk = renderer.quoteIdentifier(segment.name);
     else {
       values.push(segment.value);
-      chunks.push(renderer.placeholder(values.length));
+      chunk = renderer.placeholder(values.length);
+    }
+    sqlBytes += Buffer.byteLength(chunk);
+    if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_LIMIT",
+        `Rendered SQL exceeds the ${DEFAULT_MAX_RENDERED_SQL_BYTES}-byte limit after fragment-list expansion`,
+      );
+    }
+    chunks.push(chunk);
+  });
+  return { text: chunks.join(""), values: Object.freeze(values) };
+}
+
+function visitSegments(
+  segments: readonly SqlSegment[],
+  visit: (segment: Exclude<SqlSegment, FragmentListSegment>) => void,
+): void {
+  for (const segment of segments) {
+    if (segment.kind !== "fragment-list") {
+      visit(segment);
+      continue;
+    }
+    for (let index = 0; index < segment.items.length; index += 1) {
+      if (index > 0) visitSegments(segment.separator.segments, visit);
+      visitSegments(segment.items[index]!.segments, visit);
     }
   }
-  return { text: chunks.join(""), values: Object.freeze(values) };
+}
+
+function expandedSegments(segments: readonly SqlSegment[]): readonly Exclude<SqlSegment, FragmentListSegment>[] {
+  const result: Exclude<SqlSegment, FragmentListSegment>[] = [];
+  visitSegments(segments, (segment) => result.push(segment));
+  return result;
+}
+
+function assertQueryResourceLimits(segments: readonly SqlSegment[]): void {
+  let parameters = 0;
+  let sqlBytes = 0;
+  visitSegments(segments, (segment) => {
+    if (segment.kind === "value") {
+      parameters += 1;
+      sqlBytes += String(parameters).length + 1;
+    } else {
+      sqlBytes += segment.kind === "text" ? Buffer.byteLength(segment.text) : Buffer.byteLength(segment.name) + 2;
+    }
+    if (parameters > DEFAULT_MAX_QUERY_PARAMETERS) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_LIMIT",
+        `Query contains more than ${DEFAULT_MAX_QUERY_PARAMETERS} parameters after fragment-list expansion`,
+      );
+    }
+    if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_LIMIT",
+        `Rendered SQL exceeds the ${DEFAULT_MAX_RENDERED_SQL_BYTES}-byte limit after fragment-list expansion`,
+      );
+    }
+  });
 }
 
 /**
@@ -387,10 +621,19 @@ export function compileQueryRenderSkeleton<Row, Params extends readonly unknown[
   queryValue: Query<Row, Params>,
   renderer: SqlRenderer,
 ): { readonly skeleton: QueryRenderSkeleton; readonly rendered: RenderedQuery } {
+  return compileRenderSkeletonSegments(queryValue.segments, renderer);
+}
+
+function compileRenderSkeletonSegments(
+  segments: readonly SqlSegment[],
+  renderer: SqlRenderer,
+): { readonly skeleton: QueryRenderSkeleton; readonly rendered: RenderedQuery } {
+  assertQueryResourceLimits(segments);
   const values: unknown[] = [];
   const chunks: string[] = [];
+  let sqlBytes = 0;
   const skeletonSegments: QueryRenderSkeletonSegment[] = [];
-  for (const segment of queryValue.segments) {
+  for (const segment of expandedSegments(segments)) {
     if (segment.kind === "text") {
       chunks.push(segment.text);
       skeletonSegments.push(Object.freeze({ kind: "text", text: segment.text }));
@@ -401,6 +644,13 @@ export function compileQueryRenderSkeleton<Row, Params extends readonly unknown[
       values.push(segment.value);
       chunks.push(renderer.placeholder(values.length));
       skeletonSegments.push(Object.freeze({ kind: "value" }));
+    }
+    sqlBytes += Buffer.byteLength(chunks[chunks.length - 1]!);
+    if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
+      throw new SqlFragmentListError(
+        "TSQL_FRAGMENT_LIST_LIMIT",
+        `Rendered SQL exceeds the ${DEFAULT_MAX_RENDERED_SQL_BYTES}-byte limit after fragment-list expansion`,
+      );
     }
   }
   const textValue = chunks.join("");
@@ -421,7 +671,15 @@ export function bindQueryRenderSkeleton<Row, Params extends readonly unknown[]>(
   queryValue: Query<Row, Params>,
   skeleton: QueryRenderSkeleton,
 ): RenderedQuery | undefined {
-  const querySegments = queryValue.segments;
+  return bindRenderSkeletonSegments(queryValue.segments, skeleton);
+}
+
+function bindRenderSkeletonSegments(
+  segments: readonly SqlSegment[],
+  skeleton: QueryRenderSkeleton,
+): RenderedQuery | undefined {
+  assertQueryResourceLimits(segments);
+  const querySegments = expandedSegments(segments);
   const skeletonSegments = skeleton[queryRenderSkeletonBrand];
   if (querySegments.length !== skeletonSegments.length) return undefined;
 
@@ -439,6 +697,55 @@ export function bindQueryRenderSkeleton<Row, Params extends readonly unknown[]>(
     }
   }
   return { text: skeleton.text, values: Object.freeze(values) };
+}
+
+/**
+ * Bounded LRU of rendered cardinality variants for one prepared-query structural family.
+ * Fragment-list item counts may vary; all other SQL structure must remain identical.
+ */
+export class PreparedQueryRenderCache {
+  readonly capacity: number;
+  #family: string | undefined;
+  #primaryText: string | undefined;
+  readonly #skeletons: QueryRenderSkeleton[] = [];
+
+  constructor(capacity = DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS) {
+    if (!Number.isSafeInteger(capacity) || capacity <= 0) {
+      throw new RangeError("Prepared cardinality variant limit must be a positive safe integer");
+    }
+    this.capacity = capacity;
+  }
+
+  get size(): number {
+    return this.#skeletons.length;
+  }
+
+  bind<Row, Params extends readonly unknown[]>(
+    queryValue: Query<Row, Params>,
+    renderer: SqlRenderer,
+  ): PreparedQueryRenderVariant | undefined {
+    const segments = queryValue.segments;
+    const family = JSON.stringify(segmentStructure(segments));
+    if (this.#family !== undefined && this.#family !== family) return undefined;
+    this.#family ??= family;
+
+    for (let index = 0; index < this.#skeletons.length; index += 1) {
+      const skeleton = this.#skeletons[index]!;
+      const rendered = bindRenderSkeletonSegments(segments, skeleton);
+      if (rendered === undefined) continue;
+      if (index !== this.#skeletons.length - 1) {
+        this.#skeletons.splice(index, 1);
+        this.#skeletons.push(skeleton);
+      }
+      return Object.freeze({ rendered, primary: rendered.text === this.#primaryText });
+    }
+
+    const compiled = compileRenderSkeletonSegments(segments, renderer);
+    this.#primaryText ??= compiled.rendered.text;
+    if (this.#skeletons.length === this.capacity) this.#skeletons.shift();
+    this.#skeletons.push(compiled.skeleton);
+    return Object.freeze({ rendered: compiled.rendered, primary: compiled.rendered.text === this.#primaryText });
+  }
 }
 
 class DatabaseImplementation implements Database {

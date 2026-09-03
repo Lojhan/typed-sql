@@ -39,7 +39,9 @@ override the workspace-installed server for development.
 Use typed-sql as the workspace's sole TypeScript language server. Disable VS Code's built-in
 TypeScript language-features extension for that workspace so its conservative `Query<unknown>`
 hover does not compete with the transformed program. Run **typed-sql: Show TypeScript Bridge
-Status** to see the exact pinned TypeScript version and document counts reported by every server.
+Status** to see the exact pinned TypeScript version, negotiated protocol, and document counts
+reported by every server. The extension negotiates protocol v1 and its identity, fix, and status
+capabilities at startup.
 
 Read the [editor setup guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/editors.md).
 

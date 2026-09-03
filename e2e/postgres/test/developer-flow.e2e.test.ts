@@ -1,22 +1,30 @@
 import { spawn } from "node:child_process";
-import { readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  CONFORMANCE_VERSION,
+  type ConformanceLiveAdapter,
+  type ConformanceServerErrorClass,
+  type ConformanceTypeNormalizer,
+  createConformanceReport,
+  createConformanceReproductionBundle,
+  defineConformanceProbe,
+  runLiveConformanceProbe,
+  runStaticConformanceProbe,
+  selectExpectedOutcome,
+  serializeConformanceReport,
+  serializeConformanceReproductionBundle,
+} from "@typed-sql/conformance/v2";
 import {
   type DatabaseObserver,
   type DatabaseOperationEnd,
   type DatabaseOperationStart,
   requireAdapterCapability,
 } from "@typed-sql/core";
-import {
-  createPostgresRoutedDatabase,
-  type PostgresSchemaSnapshot,
-  postgres,
-  postgresCopy,
-  sql,
-  typePolicy,
-} from "@typed-sql/postgres";
-import { createPgDatabase } from "@typed-sql/postgres/pg";
+import { createPostgresRoutedDatabase, postgres, postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
+import { createPgDatabase, createPgLiveVerifier } from "@typed-sql/postgres/pg";
 import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { Pool } from "pg";
@@ -31,9 +39,10 @@ interface CommandResult {
 }
 
 interface GeneratedSnapshot {
+  readonly formatVersion: 2;
   readonly dialect: string;
-  readonly version?: string;
-  readonly tables: Record<
+  readonly server: { readonly version: string };
+  readonly relations: Record<
     string,
     {
       readonly columns: Record<
@@ -42,14 +51,13 @@ interface GeneratedSnapshot {
           readonly databaseType: string;
           readonly tsType: string;
           readonly nullable: boolean;
-          readonly array?: boolean;
+          readonly dimensions?: readonly number[];
         }
       >;
     }
   >;
-  readonly enums?: Record<string, readonly string[]>;
-  readonly domains?: Record<string, { readonly tsType: string }>;
-  readonly functions?: Record<string, { readonly returnType: string }>;
+  readonly types: Record<string, { readonly tsType: string; readonly labels?: readonly string[] }>;
+  readonly routines: Record<string, readonly { readonly result: { readonly tsType?: string } }[]>;
   readonly metadata: { readonly schemaHash: string; readonly typePolicyHash: string };
 }
 
@@ -63,8 +71,12 @@ const generatedSnapshotPath = join(generatedDatabaseDirectory, "schema.json");
 const cliFile = join(workspaceDirectory, "packages", "cli", "dist", "packages", "cli", "src", "cli.js");
 const engine = process.env.TYPED_SQL_CONTAINER_ENGINE ?? "podman";
 const port = Number(process.env.TYPED_SQL_E2E_PORT ?? "55432");
+const expectedVersion = process.env.TYPED_SQL_POSTGRES_VERSION ?? "18.6";
+const matrixLabel = process.env.TYPED_SQL_POSTGRES_MATRIX_LABEL ?? `postgres-${expectedVersion}`;
+const matrixChannel = process.env.TYPED_SQL_POSTGRES_CHANNEL ?? "stable";
+const baseImage = process.env.TYPED_SQL_POSTGRES_IMAGE ?? `docker.io/library/postgres:${expectedVersion}-bookworm`;
 const containerName = `typed-sql-e2e-postgres-${process.pid}`;
-const imageName = "localhost/typed-sql-e2e-postgres:18.4";
+const imageName = `localhost/typed-sql-e2e-${matrixLabel}`;
 const connectionString = `postgresql://typed_sql:typed_sql_e2e@127.0.0.1:${port}/typed_sql_e2e`;
 let containerStarted = false;
 
@@ -100,8 +112,17 @@ const cli = (...args: readonly string[]): Promise<CommandResult> => mustRun(proc
 
 await rm(generatedDirectory, { recursive: true, force: true });
 await rm(join(packageDirectory, ".typed-sql"), { recursive: true, force: true });
-log(`Building ${imageName} from the digest-pinned Containerfile`);
-await mustRun(engine, ["build", "--tag", imageName, "--file", "Containerfile", "."]);
+log(`Building ${imageName} from ${baseImage}`);
+await mustRun(engine, [
+  "build",
+  "--build-arg",
+  `POSTGRES_IMAGE=${baseImage}`,
+  "--tag",
+  imageName,
+  "--file",
+  "Containerfile",
+  ".",
+]);
 
 try {
   await mustRun(engine, [
@@ -177,24 +198,210 @@ try {
 
     await it("shows real catalog introspection in the generated snapshot", async () => {
       const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as GeneratedSnapshot;
+      strict.strictEqual(snapshot.formatVersion, 2);
       strict.strictEqual(snapshot.dialect, "postgres");
-      strict.ok(snapshot.version?.startsWith("18.4"));
-      strict.strictEqual(snapshot.tables.users?.columns.id?.databaseType, "bigint");
-      strict.strictEqual(snapshot.tables.users?.columns.id?.tsType, "bigint");
-      strict.strictEqual(snapshot.tables.users?.columns.email?.tsType, "string");
-      strict.strictEqual(snapshot.tables.projects?.columns.budget?.databaseType, "numeric(14,2)");
-      strict.strictEqual(snapshot.tables.projects?.columns.budget?.tsType, "string");
-      strict.strictEqual(snapshot.tables.projects?.columns.tags?.array, true);
-      strict.deepStrictEqual(snapshot.enums?.account_status, ["active", "suspended"]);
-      strict.strictEqual(snapshot.domains?.email_address?.tsType, "string");
-      strict.strictEqual(snapshot.functions?.["active_user_count()"]?.returnType, "bigint");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.id?.tsType, "number");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.numeric_value?.tsType, "string");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
-      strict.strictEqual(snapshot.tables.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
+      strict.ok(snapshot.server.version.startsWith(expectedVersion));
+      strict.strictEqual(snapshot.relations.users?.columns.id?.databaseType, "bigint");
+      strict.strictEqual(snapshot.relations.users?.columns.id?.tsType, "bigint");
+      strict.strictEqual(snapshot.relations.users?.columns.email?.tsType, "string");
+      strict.strictEqual(snapshot.relations.projects?.columns.budget?.databaseType, "numeric(14,2)");
+      strict.strictEqual(snapshot.relations.projects?.columns.budget?.tsType, "string");
+      strict.deepStrictEqual(snapshot.relations.projects?.columns.tags?.dimensions, []);
+      strict.deepStrictEqual(snapshot.types.account_status?.labels, ["active", "suspended"]);
+      strict.strictEqual(snapshot.types.email_address?.tsType, "string");
+      strict.strictEqual(snapshot.routines.active_user_count?.[0]?.result.tsType, "bigint");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.id?.tsType, "number");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.numeric_value?.tsType, "string");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
       strict.ok(snapshot.metadata.schemaHash.length === 64);
       strict.ok(snapshot.metadata.typePolicyHash.length === 64);
+      await mustRun(process.execPath, [
+        join(workspaceDirectory, "scripts", "postgres-matrix-probe.mjs"),
+        "--connection-string",
+        connectionString,
+        "--expected-version",
+        expectedVersion,
+        "--label",
+        matrixLabel,
+        "--channel",
+        matrixChannel,
+        "--snapshot",
+        generatedSnapshotPath,
+        "--output",
+        join(workspaceDirectory, "artifacts", "postgres-matrix", `${matrixLabel}.json`),
+      ]);
+    });
+
+    await it("records a redacted conformance v2 differential report", async () => {
+      const snapshotValue = postgres().validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      if (snapshotValue.formatVersion !== 2) throw new TypeError("PostgreSQL conformance requires snapshot v2");
+      if (snapshotValue.metadata === undefined)
+        throw new TypeError("The generated PostgreSQL snapshot requires metadata");
+      const dialect = postgres();
+      const query = sql`SELECT id FROM users WHERE id = ${1n}`;
+      const verifier = createPgLiveVerifier({ connectionString, schema: snapshotValue, typePolicy });
+      const database = await createPgDatabase({ connectionString, typePolicy });
+      const server = await verifier.server();
+      const target = {
+        grammar: "postgres",
+        grammarVersion: dialect.grammarVersion,
+        databaseVersion: server.version,
+      } as const;
+      const probe = defineConformanceProbe({
+        version: CONFORMANCE_VERSION,
+        id: "postgres.statement.select.live-bigint",
+        featureId: "statement.select",
+        grammar: "postgres",
+        targets: [target],
+        source: "SELECT id FROM users WHERE id = $1",
+        schemaFixture: "e2e/postgres/schema/catalog.snapshot.json",
+        query,
+        compilerSource:
+          'import { sql } from "@typed-sql/postgres";\nexport const query = sql`SELECT id FROM users WHERE id = ${1n}`;',
+        live: { prepare: true, execute: true, maximumRows: 1 },
+        expected: [
+          {
+            target: { grammarVersion: dialect.grammarVersion, databaseVersion: server.version },
+            support: "conservative",
+            rows: [
+              {
+                name: "id",
+                tsType: "bigint",
+                nullable: false,
+                databaseType: "bigint",
+                range: { start: 7, end: 9, line: 1, column: 8 },
+              },
+            ],
+            parameters: [{ index: 1, tsType: "bigint", nullable: false, databaseType: "bigint" }],
+            diagnostics: [],
+            rendered: { text: "SELECT id FROM users WHERE id = $1", values: [1n] },
+            compiled: { rowType: '{ "id": bigint; }', parameterType: "readonly [bigint]" },
+            decodedRows: [{ id: 1n }],
+            skips: { "lex-parse": "grammar-parser-private", plan: "plan-format-unstable" },
+          },
+        ],
+      });
+      const requestedProbe = process.env.TYPED_SQL_CONFORMANCE_PROBE;
+      if (requestedProbe !== undefined && requestedProbe !== probe.id) {
+        throw new TypeError(`PostgreSQL live suite does not contain requested probe ${requestedProbe}`);
+      }
+      const requestedDatabaseVersion = process.env.TYPED_SQL_CONFORMANCE_DATABASE_VERSION;
+      if (requestedDatabaseVersion !== undefined && requestedDatabaseVersion !== server.version) {
+        throw new TypeError(`Requested PostgreSQL ${requestedDatabaseVersion}, connected to ${server.version}`);
+      }
+      const requestedFixtureGroup = process.env.TYPED_SQL_CONFORMANCE_FIXTURE_GROUP;
+      if (requestedFixtureGroup !== undefined && requestedFixtureGroup !== "statement.select") {
+        throw new TypeError(`PostgreSQL live suite does not contain fixture group ${requestedFixtureGroup}`);
+      }
+      const adapter: ConformanceLiveAdapter = {
+        grammar: "postgres",
+        driver: "pg",
+        driverVersion: "8.23.0",
+        async server() {
+          return {
+            version: server.version,
+            capabilities: Object.fromEntries((server.features ?? []).map((feature) => [feature, true])),
+          };
+        },
+        async prepare(request) {
+          const evidence = await verifier.verify({
+            fingerprint: `sha256:${createHash("sha256").update(request.probeId).digest("hex")}`,
+            sql: request.sql,
+            operation: "read",
+          });
+          const field = (value: (typeof evidence.columns)[number]) => ({
+            index: value.index,
+            ...(value.name === undefined ? {} : { name: value.name }),
+            ...(value.databaseType === undefined ? {} : { nativeType: value.databaseType }),
+            ...(value.nullable === undefined ? {} : { nullable: value.nullable }),
+          });
+          return {
+            columns: evidence.columns.map(field),
+            parameters: evidence.parameters.map(field),
+            ...(evidence.unavailable === undefined ? {} : { unavailable: evidence.unavailable }),
+          };
+        },
+        execute: async () => database.execute(query),
+        classify(error): ConformanceServerErrorClass {
+          const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+          if (code === "42601") return "syntax";
+          if (code === "42P01" || code === "42703") return "schema";
+          if (code === "42501") return "privilege";
+          if (code === "57014") return "timeout";
+          if (code.startsWith("08")) return "environment";
+          return "semantic";
+        },
+        async cleanup() {},
+        async close() {
+          await verifier.close();
+          await database.close();
+        },
+      };
+      const normalizer: ConformanceTypeNormalizer = {
+        column: (field) => ({
+          name: field.name ?? "id",
+          tsType: "bigint",
+          nullable: field.nullable ?? false,
+          databaseType: field.nativeType ?? "bigint",
+        }),
+        parameter: (field) => ({
+          index: field.index,
+          tsType: "bigint",
+          nullable: field.nullable ?? false,
+          databaseType: field.nativeType ?? "bigint",
+        }),
+      };
+      try {
+        const staticResult = runStaticConformanceProbe(probe, target, {
+          dialect,
+          snapshot: snapshotValue,
+          renderer: {
+            placeholder: (index) => dialect.placeholder(index),
+            quoteIdentifier: (identifier) => dialect.quoteIdentifier(identifier),
+          },
+        });
+        const result = await runLiveConformanceProbe(probe, target, adapter, normalizer, staticResult);
+        const report = createConformanceReport(
+          "postgres-live",
+          {
+            grammar: "postgres",
+            grammarVersion: dialect.grammarVersion,
+            databaseVersion: server.version,
+            driver: "pg",
+            driverVersion: "8.23.0",
+            runtime: "node",
+            runtimeVersion: process.version,
+            typescriptVersion: "7.0.2",
+            schemaFingerprint: `sha256:${snapshotValue.metadata.schemaHash}`,
+            capabilities: Object.fromEntries((server.features ?? []).map((feature) => [feature, true])),
+          },
+          [result],
+        );
+        const artifactDirectory = join(workspaceDirectory, "artifacts", "conformance");
+        await mkdir(artifactDirectory, { recursive: true });
+        const serialized = serializeConformanceReport(report);
+        strict.ok(!serialized.includes(connectionString));
+        strict.ok(!serialized.includes("1n"));
+        await writeFile(join(artifactDirectory, "postgres.json"), serialized);
+        if (result.status !== "pass") {
+          const reproduction = createConformanceReproductionBundle(
+            probe,
+            target,
+            report.environment,
+            selectExpectedOutcome(probe, target),
+            result,
+          );
+          await writeFile(
+            join(artifactDirectory, "postgres-reproduction.json"),
+            serializeConformanceReproductionBundle(reproduction),
+          );
+        }
+        strict.strictEqual(result.status, "pass", JSON.stringify(result, null, 2));
+      } finally {
+        await adapter.close();
+      }
     });
 
     await it("proves compiled metadata through PostgreSQL PREPARE without executing values", async () => {
@@ -259,8 +466,9 @@ try {
     await it("exposes the inferred Query type through the TypeScript preview bridge", async () => {
       const sourcePath = join(packageDirectory, "src/query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
-      const analysis = analyzeSource(source, snapshot as PostgresSchemaSnapshot, postgres());
+      const dialect = postgres();
+      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown);
+      const analysis = analyzeSource(source, snapshot, dialect);
       const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
       try {
         const inspections = await bridge.inspectFile({
@@ -289,8 +497,9 @@ try {
     await it("infers the same queries used by the prepared and streaming runtime flow", async () => {
       const sourcePath = join(packageDirectory, "src/stream-query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
-      const analysis = analyzeSource(source, snapshot as PostgresSchemaSnapshot, postgres());
+      const dialect = postgres();
+      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown);
+      const analysis = analyzeSource(source, snapshot, dialect);
       strict.deepStrictEqual(analysis.diagnostics, []);
       strict.strictEqual(analysis.queries.length, 2);
       const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
@@ -317,8 +526,9 @@ try {
     await it("proves the default PostgreSQL codec matrix at the inferred type boundary", async () => {
       const sourcePath = join(packageDirectory, "src/codec-query.ts");
       const source = await readFile(sourcePath, "utf8");
-      const snapshot = JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as Parameters<typeof analyzeSource>[1];
-      const analysis = analyzeSource(source, snapshot as PostgresSchemaSnapshot, postgres());
+      const dialect = postgres();
+      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")) as unknown);
+      const analysis = analyzeSource(source, snapshot, dialect);
       strict.deepStrictEqual(analysis.diagnostics, []);
       strict.strictEqual(analysis.queries.length, 1);
       const contract = analysis.queries[0]!;
@@ -475,6 +685,36 @@ try {
           DELETE FROM users WHERE id = ${inserted.id} RETURNING id
         `);
         strict.deepStrictEqual(deleted, [{ id: inserted.id }]);
+
+        const insertAccounts = database.prepare(
+          "e2e-insert-account-list",
+          (accounts: readonly { readonly email: string; readonly status: "active" | "suspended" }[]) =>
+            sql<{ readonly id: bigint; readonly email: string; readonly status: "active" | "suspended" }>`
+              INSERT INTO users (email, status)
+              VALUES ${accounts.map((account) => sql.fragment`(${account.email}, ${account.status}::account_status)`)}
+              RETURNING id, email, status
+            `,
+        );
+        const firstAccounts = await database.execute(
+          insertAccounts([
+            { email: `fragment-list-a-${process.pid}@example.com`, status: "active" },
+            { email: `fragment-list-b-${process.pid}@example.com`, status: "suspended" },
+          ]),
+        );
+        const secondAccounts = await database.execute(
+          insertAccounts([{ email: `fragment-list-c-${process.pid}@example.com`, status: "active" }]),
+        );
+        strict.deepStrictEqual(
+          [...firstAccounts, ...secondAccounts].map(({ email, status }) => ({ email, status })),
+          [
+            { email: `fragment-list-a-${process.pid}@example.com`, status: "active" },
+            { email: `fragment-list-b-${process.pid}@example.com`, status: "suspended" },
+            { email: `fragment-list-c-${process.pid}@example.com`, status: "active" },
+          ],
+        );
+        await database.execute(sql`
+          DELETE FROM users WHERE id = ANY(${sql.value([...firstAccounts, ...secondAccounts].map(({ id }) => id))})
+        `);
 
         const codecRows = await database.execute(postgresCodecFidelity);
         const codec = codecRows[0] as Record<string, unknown>;

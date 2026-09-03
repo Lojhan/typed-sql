@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/schema",
-  "version": "2.0.0",
+  "version": "2.1.0-rc.0",
   "description": "Versioned typed-sql schema snapshots, deterministic generation, and drift checks.",
   "license": "MIT",
   "author": "Lojhan",
@@ -39,5 +39,7 @@
   "exports": {
     ".": "./dist/packages/schema/src/index.js"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@typed-sql/core": "workspace:*"
+  }
 }

@@ -14,6 +14,7 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ003` | Conditional SQL exceeded the structural variant limit. |
 | `TSQ004` | Structural SQL requires an explicitly trusted fragment. |
 | `TSQ005` | Runtime SQL cannot be analyzed statically. |
+| `TSQ006` | Source analysis exceeded a compiler resource limit. |
 | `TSQ007` | The schema snapshot and dialect do not match. |
 | `TSQ100` | A referenced table does not exist. |
 | `TSQ101` | A referenced column does not exist. |
@@ -36,8 +37,27 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ215` | A `JOIN USING` column is not unique on both sides. |
 | `TSQ216` | A scalar subquery does not return exactly one column. |
 | `TSQ217` | An `IN` subquery does not return exactly one column. |
+| `TSQ218` | A statement writes to a column that is not writable. |
+| `TSQ219` | An `INSERT` omits a required target column. |
+| `TSQ220` | A recursive CTE has an invalid member shape. |
+| `TSQ221` | A recursive CTE member uses a prohibited aggregate or window function. |
+| `TSQ222` | A named or framed window definition is invalid. |
+| `TSQ223` | A window-function invocation uses a prohibited modifier. |
+| `TSQ224` | An SQLite UPSERT clause is structurally ambiguous or invalid. |
+| `TSQ225` | An SQLite RETURNING expression uses an unavailable result source. |
+| `TSQ226` | An UPSERT conflict target does not match a unique constraint. |
+| `TSQ227` | An SQLite built-in function invocation has an invalid shape. |
+| `TSQ228` | A grouped query or clause contains an aggregate, window, or column reference in an invalid context. |
+| `TSQ229` | A data-modification value cannot be assigned to its target column. |
+| `TSQ230` | An explicit cast has no recorded conversion path. |
 | `TSQ301` | The live schema or type policy differs from the generated snapshot. |
 | `TSQ401` | The dialect surface is intentionally unsupported. |
+| `TSQ402` | Exact analysis requires normalized server evidence. |
+| `TSQ403` | The recorded server version is outside the supported range. |
+| `TSQ404` | The SQL feature is newer than the recorded server version. |
+| `TSQ405` | The SQL feature was removed before the recorded server version. |
+| `TSQ406` | A required server feature, setting, or capability declaration is absent. |
+| `TSQ407` | Recorded server settings make SQL behavior ambiguous. |
 | `TSQ500` | Live database metadata differs from compiler evidence. |
 | `TSQ501` | A query could not be verified safely or completely. |
 | `TSQ502` | Native verification failed; driver details are not persisted. |

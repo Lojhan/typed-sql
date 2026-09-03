@@ -1,9 +1,15 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { ProtocolClient, positionAt } from "../../../test/helpers/protocol-client.js";
-import { TYPED_SQL_STATUS_REQUEST, type TypedSqlLanguageServerStatus } from "../src/index.js";
+import {
+  TYPED_SQL_PROTOCOL_CAPABILITIES,
+  TYPED_SQL_PROTOCOL_VERSION,
+  TYPED_SQL_STATUS_REQUEST,
+  type TypedSqlLanguageServerStatus,
+} from "../src/index.js";
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const workspaceDirectory = resolve(testDirectory, "../../..");
@@ -32,6 +38,78 @@ await describe("typed-sql stdio language server", async () => {
       );
     } finally {
       await client.close().catch(() => undefined);
+    }
+  });
+
+  await it("rejects an unsupported typed-sql protocol before workspace setup", async () => {
+    const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
+    try {
+      await strict.rejects(
+        () =>
+          client.request("initialize", {
+            processId: process.pid,
+            rootUri: pathToFileURL(workspaceDirectory).href,
+            capabilities: {},
+            initializationOptions: { protocolVersion: 2 },
+          }),
+        /-32098:[\s\S]*protocol 2 is newer-than-supported[\s\S]*Update the editor extension/u,
+      );
+    } finally {
+      await client.close().catch(() => undefined);
+    }
+  });
+
+  await it("reports a redacted project diagnostic without terminating the server", async () => {
+    const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
+    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-lsp-recovery-"));
+    const missingSchema = join(temporary, "secret-missing-schema.json");
+    const uri = pathToFileURL(join(fixtureDirectory, "unavailable-project.ts")).href;
+    try {
+      await client.request("initialize", {
+        processId: process.pid,
+        rootUri: pathToFileURL(workspaceDirectory).href,
+        capabilities: {},
+        initializationOptions: {
+          configPath: configFile,
+          schemaPath: missingSchema,
+          projectFile,
+          nativePreview: false,
+        },
+      });
+      const failure = client.notification(
+        "textDocument/publishDiagnostics",
+        (params) =>
+          (params as { readonly uri?: string; readonly diagnostics?: readonly { readonly code?: string }[] }).uri ===
+            uri &&
+          (params as { readonly diagnostics?: readonly { readonly code?: string }[] }).diagnostics?.[0]?.code ===
+            "TYPED_SQL_PROJECT_UNAVAILABLE",
+      );
+      client.notify("initialized", {});
+      client.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId: "typescript", version: 1, text: await readFile(queryFile, "utf8") },
+      });
+      const report = (await failure) as { readonly diagnostics?: readonly { readonly message?: string }[] };
+      strict.ok(report.diagnostics?.[0]?.message?.includes("Run typed-sql doctor"));
+      strict.ok(!report.diagnostics?.[0]?.message?.includes("secret-missing-schema"));
+      await writeFile(missingSchema, await readFile(schemaFile, "utf8"));
+      const recovered = client.notification(
+        "textDocument/publishDiagnostics",
+        (params) =>
+          (params as { readonly uri?: string; readonly version?: number }).uri === uri &&
+          (params as { readonly version?: number }).version === 1 &&
+          (params as { readonly diagnostics?: readonly { readonly code?: string }[] }).diagnostics?.every(
+            ({ code }) => code !== "TYPED_SQL_PROJECT_UNAVAILABLE",
+          ) === true,
+      );
+      client.notify("workspace/didChangeWatchedFiles", {
+        changes: [{ uri: pathToFileURL(missingSchema).href, type: 2 }],
+      });
+      await recovered;
+      const status = (await client.request(TYPED_SQL_STATUS_REQUEST, null)) as TypedSqlLanguageServerStatus;
+      strict.strictEqual(status.openDocuments, 1);
+    } finally {
+      await client.close().catch(() => undefined);
+      await rm(temporary, { recursive: true, force: true });
     }
   });
 
@@ -81,7 +159,14 @@ await describe("typed-sql stdio language server", async () => {
         rootUri: pathToFileURL(workspaceDirectory).href,
         workspaceFolders: [{ uri: pathToFileURL(workspaceDirectory).href, name: "typed-sql" }],
         capabilities: {},
-        initializationOptions: { configPath: configFile, schemaPath: schemaFile, projectFile, nativePreview: false },
+        initializationOptions: {
+          configPath: configFile,
+          schemaPath: schemaFile,
+          projectFile,
+          nativePreview: false,
+          protocolVersion: 1,
+          protocolCapabilities: ["diagnostic-fixes"],
+        },
       });
       client.notify("initialized", {});
       const published = client.notification("textDocument/publishDiagnostics", (params) => {
@@ -96,6 +181,10 @@ await describe("typed-sql stdio language server", async () => {
       };
       const diagnostic = report.diagnostics?.find(({ code }) => code === "TSQ004");
       strict.ok(diagnostic !== undefined);
+      const data = diagnostic?.data as Readonly<Record<string, unknown>> | undefined;
+      strict.strictEqual(data?.analysisRevision, undefined);
+      strict.strictEqual(data?.identity, undefined);
+      strict.ok(data?.fix !== undefined);
       const actions = (await client.request("textDocument/codeAction", {
         textDocument: { uri },
         range: diagnostic?.range,
@@ -128,13 +217,20 @@ await describe("typed-sql stdio language server", async () => {
           schemaPath: schemaFile,
           projectFile,
           nativePreview: true,
+          protocolVersion: TYPED_SQL_PROTOCOL_VERSION,
+          protocolCapabilities: [...TYPED_SQL_PROTOCOL_CAPABILITIES],
         },
       })) as {
         readonly capabilities?: { readonly hoverProvider?: boolean };
         readonly serverInfo?: { readonly name?: string };
+        readonly typedSql?: {
+          readonly protocol?: { readonly version?: number; readonly capabilities?: readonly string[] };
+        };
       };
       strict.strictEqual(initialize.serverInfo?.name, "typed-sql + TypeScript preview");
       strict.strictEqual(initialize.capabilities?.hoverProvider, true);
+      strict.strictEqual(initialize.typedSql?.protocol?.version, TYPED_SQL_PROTOCOL_VERSION);
+      strict.deepStrictEqual(initialize.typedSql?.protocol?.capabilities, TYPED_SQL_PROTOCOL_CAPABILITIES);
       client.notify("initialized", {});
 
       const diagnosticsPromise = client.notification(
@@ -154,6 +250,11 @@ await describe("typed-sql stdio language server", async () => {
       strict.deepStrictEqual(status.workspaceRoots, [workspaceDirectory]);
       strict.strictEqual(status.openDocuments, 1);
       strict.ok(status.indexedDocuments >= 1);
+      strict.strictEqual(status.protocol.client, "versioned");
+      strict.deepStrictEqual(status.protocol.capabilities, TYPED_SQL_PROTOCOL_CAPABILITIES);
+      strict.strictEqual(status.workspaces.length, 1);
+      strict.strictEqual(status.workspaces[0]?.root, workspaceDirectory);
+      strict.ok((status.workspaces[0]?.metrics.cache.analyses.entries ?? 0) >= 1);
 
       const hoverAt = async (needle: string): Promise<string> => {
         const hover = (await client.request("textDocument/hover", {
@@ -214,12 +315,66 @@ await describe("typed-sql stdio language server", async () => {
         (diagnostic) => diagnostic.source === "typed-sql" && diagnostic.code === "TSQ101",
       );
       strict.ok(unknown !== undefined);
+      const diagnosticData = unknown?.data as
+        | {
+            readonly analysisRevision?: string;
+            readonly identity?: {
+              readonly source?: { readonly version?: number };
+              readonly project?: { readonly generation?: number; readonly configHash?: string };
+              readonly grammar?: { readonly capabilityFingerprint?: string };
+              readonly schema?: { readonly hash?: string };
+            };
+          }
+        | undefined;
+      strict.match(diagnosticData?.analysisRevision ?? "", /^sha256:[a-f\d]{64}$/u);
+      strict.strictEqual(diagnosticData?.identity?.source?.version, 2);
+      strict.ok(Number.isSafeInteger(diagnosticData?.identity?.project?.generation));
+      strict.match(diagnosticData?.identity?.project?.configHash ?? "", /^sha256:[a-f\d]{64}$/u);
+      strict.match(diagnosticData?.identity?.grammar?.capabilityFingerprint ?? "", /^sha256:[a-f\d]{64}$/u);
+      strict.match(diagnosticData?.identity?.schema?.hash ?? "", /^[a-f\d]{64}$/u);
       const actions = (await client.request("textDocument/codeAction", {
         textDocument: { uri },
         range: unknown?.range,
         context: { diagnostics: [unknown] },
       })) as readonly { readonly title?: string; readonly isPreferred?: boolean }[];
       strict.ok(actions.some((action) => action.title === "Replace with name" && action.isPreferred === true));
+
+      const latestDiagnosticsPromise = client.notification(
+        "textDocument/publishDiagnostics",
+        (params) =>
+          (params as { readonly uri?: string; readonly version?: number }).uri === uri &&
+          (params as { readonly version?: number }).version === 4,
+      );
+      const versionTwoSource = source.replace("user.name", "user.nam");
+      const versionThreeSource = source.replace("user.name", "user.stale");
+      client.notify("textDocument/didChange", {
+        textDocument: { uri, version: 3 },
+        contentChanges: [
+          {
+            range: {
+              start: positionAt(versionTwoSource, versionTwoSource.indexOf("user.nam")),
+              end: positionAt(versionTwoSource, versionTwoSource.indexOf("user.nam") + "user.nam".length),
+            },
+            text: "user.stale",
+          },
+        ],
+      });
+      client.notify("textDocument/didChange", {
+        textDocument: { uri, version: 4 },
+        contentChanges: [
+          {
+            range: {
+              start: positionAt(versionThreeSource, versionThreeSource.indexOf("user.stale")),
+              end: positionAt(versionThreeSource, versionThreeSource.indexOf("user.stale") + "user.stale".length),
+            },
+            text: "user.name",
+          },
+        ],
+      });
+      const latestDiagnostics = (await latestDiagnosticsPromise) as {
+        readonly diagnostics?: readonly { readonly code?: string }[];
+      };
+      strict.ok(latestDiagnostics.diagnostics?.every(({ code }) => code !== "TSQ101") ?? false);
     } finally {
       await client.close();
     }

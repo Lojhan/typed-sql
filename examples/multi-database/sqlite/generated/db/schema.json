@@ -1,42 +1,85 @@
 {
-  "formatVersion": 1,
   "dialect": "sqlite",
   "dialectVersion": "1.0.0",
-  "tables": {
-    "customer_preference": {
-      "name": "customer_preference",
-      "columns": {
-        "customer_id": {
-          "name": "customer_id",
-          "databaseType": "INTEGER",
-          "tsType": "bigint",
-          "nullable": false
-        },
-        "theme": {
-          "name": "theme",
-          "databaseType": "TEXT",
-          "tsType": "string",
-          "nullable": false
-        },
-        "email_notifications": {
-          "name": "email_notifications",
-          "databaseType": "INTEGER",
-          "tsType": "bigint",
-          "nullable": false
-        }
-      },
-      "schema": "main",
-      "kind": "table",
-      "strict": true,
-      "withoutRowid": false,
-      "indexes": [],
-      "foreignKeys": []
-    }
-  },
-  "version": "3.50.4",
+  "formatVersion": 2,
   "metadata": {
     "generatorVersion": "1.0.0",
-    "schemaHash": "943809e8c6b0dbd56a806b4a9cd324219415cb2239ac97b12ad63c889994dc77",
+    "schemaFormat": 2,
+    "schemaHash": "9088c2e9a959f516661a32dee09e4a65de216c79ea838bbe09b5a2dc8845e550",
     "typePolicyHash": "11dfa860af2ba2997d752a95bd8448538406a84ed23da56bf90903f2de2dd49b"
-  }
+  },
+  "namespaces": {
+    "main": {
+      "kind": "schema",
+      "name": "main"
+    }
+  },
+  "relations": {
+    "customer_preference": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "customer_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "customer_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "INTEGER",
+          "updatable": "unknown"
+        },
+        "email_notifications": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "email_notifications",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "bigint",
+          "typeIdentity": "INTEGER",
+          "updatable": "unknown"
+        },
+        "theme": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "theme",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "string",
+          "typeIdentity": "TEXT",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "customer_preference",
+      "schema": "main"
+    }
+  },
+  "routines": {},
+  "server": {
+    "features": [],
+    "product": "sqlite",
+    "settings": {},
+    "version": "3.50.4",
+    "versionKey": "3.50.4"
+  },
+  "types": {}
 }

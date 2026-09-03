@@ -87,6 +87,27 @@ await describe("compiler performance budget", async () => {
     strict.strictEqual(new Set(result.queries.map(({ fingerprint }) => fingerprint)).size, 1);
   });
 
+  await it("analyzes a mapped fragment element independently of runtime list cardinality", () => {
+    let analyses = 0;
+    const measured = {
+      ...dialect,
+      analyze: (...args: Parameters<typeof dialect.analyze>) => {
+        analyses += 1;
+        return dialect.analyze(...args);
+      },
+    };
+    const source = [
+      'import { sql } from "@example/typed-sql-performance";',
+      "const rows = Array.from({ length: 100_000 }, (_, id) => ({ id }));",
+      "export const query = sql`VALUES ${rows.map((row) => sql.fragment`(${row.id})`)}`;",
+    ].join("\n");
+    const result = compileSource({ source, schema, dialect: measured });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(analyses, 1);
+    strict.strictEqual(result.queries[0]?.repeatedFragments?.length, 1);
+    strict.strictEqual(result.queries[0]?.parameterType, "readonly unknown[]");
+  });
+
   await it("rejects a large malformed import in linear time", () => {
     const source = "import{{".repeat(100_000);
     const budget = Number(process.env.TYPED_SQL_SCANNER_SECURITY_BUDGET_MS ?? "1000");

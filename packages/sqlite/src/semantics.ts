@@ -1,4 +1,3 @@
-import { type CallExpression, type Statement, walkStatement } from "@typed-sql/ast";
 import {
   defineQuerySemantics,
   QUERY_SEMANTICS_VERSION,
@@ -9,6 +8,8 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { SQLITE_CURRENT_TIME_KEYWORDS, sqliteBuiltinVolatility } from "./catalog/index.js";
+import { type CallExpression, type Statement, type WithClause, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
   AVG: "immutable",
@@ -46,10 +47,31 @@ function key(dependency: QueryDependency): string {
 }
 
 function functionVolatility(expression: CallExpression, index: ResolverSchemaIndex): QueryVolatility {
-  const builtin = builtinVolatility[expression.name.name.toUpperCase()];
-  if (builtin !== undefined && expression.schema === undefined) return builtin;
   const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
-  return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";
+  if (candidates.length === 1) return candidates[0]!.volatility ?? "unknown";
+  const builtin =
+    builtinVolatility[expression.name.name.toUpperCase()] ?? sqliteBuiltinVolatility(expression.name.name);
+  return builtin !== undefined && expression.schema === undefined ? builtin : "unknown";
+}
+
+function hasRecursiveCte(withClause: WithClause): boolean {
+  return withClause.queries.some((query) => {
+    let recursive = false;
+    walkStatement(query.statement, {
+      table(table) {
+        if (
+          table.kind === "table" &&
+          table.schema === undefined &&
+          (query.name.quoted
+            ? table.name.name === query.name.name
+            : table.name.name.toLowerCase() === query.name.name.toLowerCase())
+        ) {
+          recursive = true;
+        }
+      },
+    });
+    return recursive;
+  });
 }
 
 export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
@@ -65,7 +87,7 @@ export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSna
   walkStatement(statement, {
     statement(current) {
       if (current.kind !== "select") write = true;
-      if (current.with !== undefined) capabilities.add(current.with.recursive ? "recursiveCtes" : "ctes");
+      if (current.with !== undefined) capabilities.add(hasRecursiveCte(current.with) ? "recursiveCtes" : "ctes");
       if (current.kind !== "select" && current.returning.length > 0) capabilities.add("returning");
       if (current.kind === "select") {
         if (current.compounds.length > 0) capabilities.add("setOperations");
@@ -78,6 +100,22 @@ export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSna
       }
     },
     table(table, owner, context) {
+      if (table.kind === "table-function") {
+        hasRelation = true;
+        hasCall = true;
+        capabilities.add("tableFunctions");
+        const dependency: QueryDependency = {
+          kind: "function",
+          access: "execute",
+          name: table.name.name,
+          ...(table.schema === undefined ? {} : { schema: table.schema.name }),
+          certainty: "syntactic",
+          range: table.range,
+        };
+        dependencies.set(key(dependency), dependency);
+        volatilities.push("immutable");
+        return;
+      }
       if (
         table.kind !== "table" ||
         (table.schema === undefined &&
@@ -102,6 +140,12 @@ export function analyzeSqliteSemantics(statement: Statement, snapshot: SchemaSna
     },
     expression(expression, owner) {
       if (expression.kind === "column") {
+        if (
+          expression.relation === undefined &&
+          !expression.column.quoted &&
+          SQLITE_CURRENT_TIME_KEYWORDS.has(expression.column.name.toUpperCase())
+        )
+          volatilities.push("stable");
         const dependency: QueryDependency = {
           kind: "column",
           access: owner.kind === "select" ? "read" : "unknown",

@@ -16,12 +16,34 @@ applies the query overlay in memory, and proxies its isolated TypeScript preview
 workspace `tsserver.js`, and source files are never rewritten.
 
 Initialization settings include `configPath`, `schemaPath`, `projectFile`, `nativePreview`,
-`maxCacheEntries`, and `maxWorkspaceFiles`. Relative paths resolve from the LSP workspace root;
-each workspace folder receives an independent config, grammar, schema, project, and bounded cache.
+`maxCacheEntries`, `maxWorkspaceFiles`, and `analysisDebounceMs` (20 ms by default). Relative paths
+resolve from the LSP workspace root; each workspace folder receives an independent config, grammar,
+schema, project, and bounded cache.
 
 Clients can request `typedSql/status` to inspect the exact pinned TypeScript preview version,
-workspace roots, and open/indexed document counts. The server suppresses diagnostics from document
-versions that have already been superseded.
+workspace roots, open/indexed document counts, and negotiated protocol. The server suppresses
+diagnostics unless the source version, source hash, project generation, config hash, grammar and
+capability identity, schema identity, and type-policy identity are still current. Status also
+includes bounded-cache hit, miss, and eviction counters plus native-bridge restart counts for each
+workspace.
+
+Rapid edits cancel superseded analysis while preserving an independent current document snapshot,
+so skipped incremental edits cannot corrupt a later version. Configuration and schema refreshes are
+serialized. A project, grammar, or snapshot failure clears positive results and publishes one
+redacted project diagnostic; a later file refresh retries analysis without restarting the editor.
+Native inspection gets one clean bridge restart before falling back to conservative resolver output.
+
+The typed-sql-specific request and initialization shape is protocol v1. A versioned client sends
+`protocol: { version: 1, capabilities: [...] }` inside its `typedSql` initialization options (the
+flat `protocolVersion` and `protocolCapabilities` keys are also accepted). The server returns the
+negotiated intersection in `initialize.typedSql.protocol`. Protocol capabilities are
+`analysis-identity`, `diagnostic-fixes`, and `status`. Unversioned clients are treated as v1 with all
+v1 capabilities, while invalid or unsupported versions fail initialization with an upgrade message.
+Removing an accepted protocol version requires a language-server major release.
+
+Startup validates the bundled TypeScript preview patch before spawning it. Run `typed-sql doctor`
+from the workspace for a redacted compatibility report when the server or an editor client cannot
+start.
 
 Use typed-sql as the sole TypeScript language server for a configured project. A second server sees
 the conservative package declaration and may display a competing `Query<unknown>` hover.

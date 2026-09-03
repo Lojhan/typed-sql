@@ -105,7 +105,7 @@ export default defineConfig({
 });
 ```
 
-## SQLite preview
+## SQLite
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
@@ -136,7 +136,7 @@ export default defineConfig({
 });
 ```
 
-The SQLite preview does not yet expose native live-verification or query-plan inspector adapters,
+The SQLite package does not expose native live-verification or query-plan inspector adapters,
 so omit those optional config blocks.
 
 ## Generate and check

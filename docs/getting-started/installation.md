@@ -31,15 +31,15 @@ pnpm add -D @typed-sql/cli typescript@7.0.2
 
 The grammar package owns SQL parsing, catalog introspection, type resolution, and runtime codecs. Your application owns the driver version, connection configuration, pool, and lifecycle.
 
-## SQLite preview
+## SQLite
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/sqlite
 pnpm add -D @typed-sql/cli typescript@7.0.2
 ```
 
-The optional Node adapter uses the built-in `node:sqlite` module, so it installs no npm driver. Use
-Node 22.13 or newer for `StatementSync.iterate()` support. Other SQLite adapters can implement the
+The optional Node adapter uses the built-in `node:sqlite` module, so it installs no npm driver. It
+supports Node 22 from 22.13 onward, Node 24, and Node 26. Other SQLite adapters can implement the
 driver-neutral runtime contract without changing the grammar.
 
 ## OpenTelemetry

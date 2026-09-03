@@ -1,4 +1,5 @@
 import { describe, it, strict } from "poku";
+import { upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import {
   isKnownSqliteType,
   isKnownStrictSqliteType,
@@ -65,9 +66,10 @@ await describe("SQLite snapshot and type policy", async () => {
     const cases: readonly [readonly (string | number)[], unknown, RegExp][] = [
       [["dialect"], "postgres", /cannot use a postgres/],
       [["tables", "account", "schema"], 1, /schema must be a string/],
-      [["tables", "account", "kind"], "shadow", /kind must be table, view, or virtual/],
+      [["tables", "account", "kind"], "other", /kind must be shadow, table, view, or virtual/],
       [["tables", "account", "strict"], "yes", /strict must be a boolean/],
       [["tables", "account", "withoutRowid"], 1, /withoutRowid must be a boolean/],
+      [["tables", "account", "rowidAlias"], 1, /rowidAlias must be a string/],
       [["tables", "account", "columns", "id"], "invalid", /must be an object/],
       [["tables", "account", "columns", "id", "generated"], "dynamic", /generated must be virtual or stored/],
       [["tables", "account", "columns", "id", "hidden"], 1, /hidden must be a boolean/],
@@ -83,6 +85,7 @@ await describe("SQLite snapshot and type policy", async () => {
       [["tables", "account", "indexes", 0, "columns", 0, "name"], 1, /name must be a string/],
       [["tables", "account", "indexes", 0, "columns", 0, "expression"], 1, /expression must be a boolean/],
       [["tables", "account", "indexes", 0, "columns", 0, "descending"], 1, /descending must be a boolean/],
+      [["tables", "account", "indexes", 0, "columns", 0, "collation"], 1, /collation must be a string/],
       [["tables", "account", "foreignKeys"], {}, /foreignKeys must be an array/],
       [["tables", "account", "foreignKeys", 0], "invalid", /must be an object/],
       [["tables", "account", "foreignKeys", 0, "columns"], [1], /must be a string array/],
@@ -94,6 +97,78 @@ await describe("SQLite snapshot and type policy", async () => {
     for (const [path, value, message] of cases) {
       strict.throws(() => parseSqliteSchemaSnapshot(changed(path, value)), message, path.join("."));
     }
+  });
+
+  await it("validates SQLite-specific v2 structural invariants", () => {
+    const legacy = parseSqliteSchemaSnapshot(valid);
+    if (legacy.formatVersion !== 1) throw new TypeError("expected v1 fixture");
+    const upgraded = upgradeSchemaSnapshotV1(legacy);
+    const account = upgraded.relations.account!;
+    const id = account.columns.id!;
+    const exact = {
+      ...upgraded,
+      relations: {
+        account: {
+          ...account,
+          capabilities: { strict: false, withoutRowid: false },
+          columns: {
+            id: {
+              ...id,
+              databaseType: "INTEGER",
+              nullable: false,
+              classification: "rowid",
+              identity: "by-default",
+              insertable: true,
+              updatable: true,
+            },
+          },
+        },
+      },
+    } as const;
+    strict.strictEqual(parseSqliteSchemaSnapshot(exact).tables.account?.rowidAlias, "id");
+    strict.throws(
+      () =>
+        parseSqliteSchemaSnapshot({
+          ...exact,
+          relations: {
+            account: { ...exact.relations.account, capabilities: { strict: false, withoutRowid: true } },
+          },
+        }),
+      /cannot combine WITHOUT ROWID and a rowid alias/u,
+    );
+    strict.throws(
+      () =>
+        parseSqliteSchemaSnapshot({
+          ...exact,
+          relations: {
+            account: {
+              ...exact.relations.account,
+              columns: { id: { ...exact.relations.account.columns.id, nullable: true } },
+            },
+          },
+        }),
+      /invalid SQLite rowid-alias evidence/u,
+    );
+    strict.throws(
+      () =>
+        parseSqliteSchemaSnapshot({
+          ...exact,
+          relations: {
+            account: {
+              ...exact.relations.account,
+              columns: {
+                id: {
+                  ...exact.relations.account.columns.id,
+                  classification: "normal",
+                  generated: "stored",
+                  insertable: true,
+                },
+              },
+            },
+          },
+        }),
+      /generated columns must not be writable/u,
+    );
   });
 
   await it("maps strict, flexible, cast, domain, and unknown types explicitly", () => {

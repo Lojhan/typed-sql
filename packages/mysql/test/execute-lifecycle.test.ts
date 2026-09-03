@@ -2,12 +2,15 @@ import { createHash } from "node:crypto";
 import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart, StandardSchemaV1 } from "@typed-sql/core";
 import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { mySqlServerEvidence } from "../src/capabilities.js";
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,
   type MySqlExecutionResult,
   type MySqlPoolLike,
+  MySqlRuntimeCompatibilityError,
   type MySqlTransaction,
+  MySqlWarningError,
 } from "../src/runtime.js";
 
 interface Deferred<Value> {
@@ -49,6 +52,12 @@ class ExecuteConnection implements MySqlConnectionLike {
   destroyCount = 0;
   blockedText: string | undefined;
   blocked: BlockedExecute | undefined;
+  serverEvidence = mySqlServerEvidence("8.4.11", {
+    versionComment: "MySQL Community Server - GPL",
+    sqlMode: "STRICT_TRANS_TABLES",
+  });
+  evidenceReads = 0;
+  warningCount = 0;
 
   block(sqlText: string): BlockedExecute {
     const blocked = blockedExecute();
@@ -63,7 +72,10 @@ class ExecuteConnection implements MySqlConnectionLike {
       this.blocked.markStarted();
       return this.blocked.result.promise;
     }
-    return Promise.resolve(accountResult());
+    return Promise.resolve({
+      ...accountResult(),
+      ...(this.warningCount === 0 ? {} : { warningCount: this.warningCount }),
+    });
   }
 
   query(sqlText: string): Promise<MySqlExecutionResult> {
@@ -86,6 +98,15 @@ class ExecuteConnection implements MySqlConnectionLike {
     return Promise.resolve();
   }
 
+  readServerEvidence() {
+    this.evidenceReads += 1;
+    return Promise.resolve(this.serverEvidence);
+  }
+
+  readWarningCount() {
+    return Promise.resolve(this.warningCount);
+  }
+
   release(): void {
     this.releaseCount += 1;
     this.events.push("RELEASE");
@@ -103,7 +124,10 @@ class ExecutePool implements MySqlPoolLike {
   readonly connection = new ExecuteConnection();
 
   execute(): Promise<MySqlExecutionResult> {
-    return Promise.resolve(accountResult());
+    return Promise.resolve({
+      ...accountResult(),
+      ...(this.connection.warningCount === 0 ? {} : { warningCount: this.connection.warningCount }),
+    });
   }
 
   getConnection(): Promise<MySqlConnectionLike> {
@@ -118,6 +142,158 @@ class ExecutePool implements MySqlPoolLike {
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 await describe("MySQL transaction execute ownership", async () => {
+  await it("rejects incompatible physical connections before application SQL dispatch", async () => {
+    const pool = new ExecutePool();
+    const expected = pool.connection.serverEvidence;
+    const database = createMySqlDatabase({
+      pool,
+      compatibilitySnapshot: {
+        formatVersion: 2,
+        dialect: "mysql",
+        dialectVersion: "1.0.0",
+        server: expected,
+      } as never,
+    });
+    strict.deepStrictEqual(await database.execute(accountQuery), [{ id: 1n }]);
+    strict.strictEqual(pool.connection.evidenceReads, 1);
+    strict.strictEqual(pool.connection.releaseCount, 1);
+
+    pool.connection.serverEvidence = mySqlServerEvidence("9.7.0", {
+      versionComment: "MySQL Community Server - GPL",
+      sqlMode: "STRICT_TRANS_TABLES",
+    });
+    await strict.rejects(
+      () => database.execute(accountQuery),
+      (error) => error instanceof MySqlRuntimeCompatibilityError && error.differences.includes("versionKey"),
+    );
+    strict.strictEqual(pool.connection.events.filter((event) => event.startsWith("EXECUTE")).length, 1);
+    strict.strictEqual(pool.connection.releaseCount, 2);
+    pool.connection.serverEvidence = mySqlServerEvidence("8.4.11", {
+      versionComment: "MySQL Community Server - GPL",
+      sqlMode: "",
+    });
+    await strict.rejects(
+      () => database.execute(accountQuery),
+      (error) => error instanceof MySqlRuntimeCompatibilityError && error.differences.includes("settings.sqlMode"),
+    );
+    pool.connection.serverEvidence = { ...expected, product: "mysql-compatible" };
+    await strict.rejects(
+      () => database.execute(accountQuery),
+      (error) => error instanceof MySqlRuntimeCompatibilityError && error.differences.includes("product"),
+    );
+    await strict.rejects(() => database.transaction(async () => undefined), MySqlRuntimeCompatibilityError);
+    strict.strictEqual(pool.connection.events.includes("BEGIN"), false);
+    strict.strictEqual(pool.connection.releaseCount, 5);
+  });
+
+  await it("fails closed when compatibility is requested from an adapter without session evidence", async () => {
+    const backing = new ExecuteConnection();
+    const connection = new Proxy(backing, {
+      get(target, property, receiver) {
+        if (property === "readServerEvidence") return undefined;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const pool: MySqlPoolLike = {
+      execute: () => Promise.resolve(accountResult()),
+      getConnection: () => Promise.resolve(connection),
+      end: () => Promise.resolve(),
+    };
+    const database = createMySqlDatabase({
+      pool,
+      compatibilitySnapshot: {
+        formatVersion: 2,
+        dialect: "mysql",
+        dialectVersion: "1.0.0",
+        server: mySqlServerEvidence("8.4.11", "STRICT_TRANS_TABLES"),
+      } as never,
+    });
+    await strict.rejects(
+      () => database.execute(accountQuery),
+      (error) =>
+        error instanceof MySqlRuntimeCompatibilityError && error.differences.includes("adapter.serverEvidence"),
+    );
+    strict.strictEqual(backing.events.includes("EXECUTE SELECT id FROM accounts"), false);
+  });
+
+  await it("reports warnings on a redacted channel and optionally rejects them", async () => {
+    const pool = new ExecutePool();
+    pool.connection.warningCount = 2;
+    const warnings: { readonly count: number; readonly fingerprint: string }[] = [];
+    const database = createMySqlDatabase({
+      pool,
+      onWarning: (warning) => warnings.push(warning),
+      rejectWarnings: true,
+    });
+    await strict.rejects(
+      () => database.execute(accountQuery),
+      (error) => error instanceof MySqlWarningError && error.warning.count === 2,
+    );
+    strict.strictEqual(warnings.length, 1);
+    strict.strictEqual(warnings[0]?.count, 2);
+    strict.match(warnings[0]?.fingerprint ?? "", /^sha256:[a-f0-9]{64}$/u);
+    strict.ok(!("sql" in warnings[0]!));
+
+    pool.connection.warningCount = 0;
+    strict.deepStrictEqual(
+      await createMySqlDatabase({ pool, onWarning: (warning) => warnings.push(warning) }).execute(accountQuery),
+      [{ id: 1n }],
+    );
+    strict.strictEqual(warnings.length, 1);
+  });
+
+  await it("bounds logical prepared registrations", () => {
+    const database = createMySqlDatabase({ pool: new ExecutePool(), preparedStatementLimit: 1 });
+    database.prepare("first", () => sql`SELECT 1`);
+    strict.throws(() => database.prepare("second", () => sql`SELECT 2`), /limit of 1 has been reached/u);
+    strict.throws(
+      () => createMySqlDatabase({ pool: new ExecutePool(), preparedStatementLimit: 0 }),
+      /positive safe integer/u,
+    );
+    strict.throws(
+      () => createMySqlDatabase({ pool: new ExecutePool(), decoderPlanCacheCapacity: 0 }),
+      /positive safe integer/u,
+    );
+    strict.throws(
+      () => createMySqlDatabase({ pool: new ExecutePool(), preparedStatementLimit: 1.5 }),
+      /positive safe integer/u,
+    );
+  });
+
+  await it("rejects malformed compatibility snapshots at construction", () => {
+    const server = mySqlServerEvidence("8.4.11", "STRICT_TRANS_TABLES");
+    const base = { formatVersion: 2, dialect: "mysql", dialectVersion: "1.0.0", server };
+    for (const snapshot of [
+      { ...base, formatVersion: 1 },
+      { ...base, dialect: "postgres" },
+      { ...base, server: { ...server, product: "mariadb" } },
+    ]) {
+      strict.throws(
+        () => createMySqlDatabase({ pool: new ExecutePool(), compatibilitySnapshot: snapshot as never }),
+        MySqlRuntimeCompatibilityError,
+      );
+    }
+    strict.throws(
+      () =>
+        createMySqlDatabase({
+          pool: new ExecutePool(),
+          compatibilitySnapshot: { ...base, dialectVersion: "2.0.0" } as never,
+        }),
+      MySqlRuntimeCompatibilityError,
+    );
+    strict.throws(
+      () =>
+        createMySqlDatabase({
+          pool: new ExecutePool(),
+          compatibilitySnapshot: {
+            ...base,
+            server: { ...server, settings: { ...server.settings, privateSetting: "not-allowlisted" } },
+          } as never,
+        }),
+      MySqlRuntimeCompatibilityError,
+    );
+  });
+
   await it("validates after MySQL codec decoding", async () => {
     const schema: StandardSchemaV1<unknown, { readonly id: bigint }> = {
       "~standard": {

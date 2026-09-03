@@ -55,10 +55,12 @@ The command asks the workspace TypeScript executable for the files selected by e
 
 Format version 1 contains:
 
-- the compiler version, dialect id, grammar version, fingerprint algorithm, schema hash, and type-policy hash;
+- the compiler version, dialect id, grammar version, fingerprint algorithm, schema format, canonical schema hash, and type-policy hash;
+- a capability fingerprint used to invalidate incremental analysis when normalized server evidence changes;
 - checkout-relative project and source paths plus content hashes for incremental reuse;
 - one source-located entry for each static query or explicit `sql.dynamic()` escape hatch;
 - a resolved query's aggregate fingerprint, structural variants, hashed branch choices, row and parameter literals, column and parameter descriptions, and semantic evidence;
+- exact, conservative, or unsupported capability evidence only for declared capabilities used by that query or structural variant;
 - an unresolved query's diagnostic codes, severities, source ranges, and either `diagnostic` or `dynamic` reason.
 
 Each structural query remains one manifest entry. Its bounded variants are nested under that entry instead of duplicating the source query. Variant fingerprints match the identities emitted by runtime observation, allowing telemetry to correlate with compiler evidence without recording SQL text.
@@ -106,7 +108,10 @@ Projects that commit the manifest can additionally run `git diff --exit-code -- 
 
 ## Incremental generation
 
-When the output file already contains a compatible manifest, generation reuses entries for source files whose content hash is unchanged. A compiler, format, fingerprint algorithm, dialect, grammar, schema, or type-policy change invalidates reuse conservatively.
+When the output file already contains a compatible manifest, generation reuses entries for source
+files whose content hash is unchanged. A compiler, format, fingerprint algorithm, dialect, grammar,
+schema format, schema content, type-policy, or resolved-capability change invalidates reuse conservatively. This includes
+relevant server versions, settings, extensions, and compile options recorded by the snapshot.
 
 The production performance gate measures both a full 250-query build and an unchanged incremental build. See [Performance](../concepts/performance.md) for the current regression budgets.
 

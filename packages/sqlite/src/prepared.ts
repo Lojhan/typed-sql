@@ -1,8 +1,7 @@
 import {
-  bindQueryRenderSkeleton,
-  compileQueryRenderSkeleton,
+  DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+  PreparedQueryRenderCache,
   type Query,
-  type QueryRenderSkeleton,
   type RenderedQuery,
   type SqlRenderer,
 } from "@typed-sql/core";
@@ -22,16 +21,21 @@ export interface SqlitePreparedQueryMetadata {
 }
 
 interface PreparedStatement {
-  skeleton: QueryRenderSkeleton | undefined;
+  readonly variants: PreparedQueryRenderCache;
 }
 
 export interface SqlitePreparedQueryState {
+  readonly variantCapacity: number;
   readonly statements: Map<string, PreparedStatement>;
   readonly queries: WeakMap<object, SqlitePreparedQueryMetadata>;
 }
 
-export function createSqlitePreparedQueryState(): SqlitePreparedQueryState {
+export function createSqlitePreparedQueryState(
+  variantCapacity = DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS,
+): SqlitePreparedQueryState {
+  new PreparedQueryRenderCache(variantCapacity);
   return {
+    variantCapacity,
     statements: new Map(),
     queries: new WeakMap(),
   };
@@ -54,7 +58,7 @@ export function prepareSqliteQuery<Arguments extends readonly unknown[], Row, Pa
     throw new TypeError(`Prepared statement name ${JSON.stringify(statementName)} is already registered`);
   }
 
-  const statement: PreparedStatement = { skeleton: undefined };
+  const statement: PreparedStatement = { variants: new PreparedQueryRenderCache(state.variantCapacity) };
   state.statements.set(statementName, statement);
 
   const prepared = (...args: Arguments): Query<Row, Params> => {
@@ -67,16 +71,7 @@ export function prepareSqliteQuery<Arguments extends readonly unknown[], Row, Pa
     }
 
     let rendered = existing?.rendered;
-    const skeleton = statement.skeleton;
-    if (rendered === undefined) {
-      if (skeleton === undefined) {
-        const compiled = compileQueryRenderSkeleton(query, renderer);
-        statement.skeleton = compiled.skeleton;
-        rendered = compiled.rendered;
-      } else {
-        rendered = bindQueryRenderSkeleton(query, skeleton);
-      }
-    }
+    if (rendered === undefined) rendered = statement.variants.bind(query, renderer)?.rendered;
     if (rendered === undefined) {
       throw new TypeError(
         `Prepared statement ${JSON.stringify(statementName)} must always render the same SQL text and structure`,

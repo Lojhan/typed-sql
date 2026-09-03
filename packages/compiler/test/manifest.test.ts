@@ -86,6 +86,7 @@ await describe("deterministic query manifests", async () => {
     strict.ok(!serialized.includes("recognizable-secret"));
     strict.ok(!serialized.includes(root));
     strict.ok(!serialized.includes("RUNTIME_SQL"));
+    strict.match(result.manifest.dialect.capabilityFingerprint ?? "", /^[a-f\d]{64}$/u);
     strict.deepStrictEqual(parseQueryManifest(JSON.parse(serialized)), JSON.parse(serialized));
     strict.strictEqual(QUERY_MANIFEST_JSON_SCHEMA.properties.formatVersion.const, 1);
   });
@@ -111,6 +112,77 @@ await describe("deterministic query manifests", async () => {
         }).manifest,
       );
     strict.strictEqual(generate("/first/checkout", false), generate("/different/checkout", true));
+  });
+
+  await it("serializes cardinality-independent repeated-fragment artifacts", () => {
+    const root = "/checkout/repeated";
+    const mappedSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      "declare const rows: readonly { readonly id: bigint; readonly email: string }[];",
+      "sql`INSERT INTO users (id, email) VALUES ${rows.map((row) => sql.fragment`(${row.id}, ${row.email})`)}`;",
+    ].join("\n");
+    const result = buildQueryManifest({
+      rootDir: root,
+      sources: [{ file: join(root, "insert.ts"), source: mappedSource }],
+      dialect: postgres(),
+      schema: snapshot("postgres") as PostgresSchemaSnapshot,
+      typePolicy: postgresTypePolicy,
+      compilerVersion: "2.0.0-test",
+    });
+    const query = result.manifest.queries[0];
+    if (query?.status !== "resolved") throw new Error("Expected a resolved repeated-fragment query");
+    const artifact = query.repeatedFragments?.[0];
+    strict.strictEqual(artifact?.kind, "repeated-fragment");
+    strict.strictEqual(artifact?.minimumItems, 1);
+    strict.strictEqual(artifact?.separator.text, ", ");
+    strict.deepStrictEqual(
+      artifact?.parameterPattern.map(({ index, tsType }) => ({ index, tsType })),
+      [
+        { index: 1, tsType: "bigint" },
+        { index: 2, tsType: "string" },
+      ],
+    );
+    strict.deepStrictEqual(parseQueryManifest(JSON.parse(serializeQueryManifest(result.manifest))), result.manifest);
+  });
+
+  await it("records canonical evidence only for capabilities a query depends on", () => {
+    const root = "/checkout/capabilities";
+    const result = buildQueryManifest({
+      rootDir: root,
+      sources: [
+        {
+          file: join(root, "delete.ts"),
+          source: 'import { sql } from "@typed-sql/postgres"; sql`DELETE FROM users RETURNING id`;',
+        },
+      ],
+      dialect: postgres(),
+      schema: {
+        ...(snapshot("postgres") as PostgresSchemaSnapshot),
+        version: "18.6",
+        server: {
+          product: "postgres",
+          version: "18.6",
+          versionKey: "18",
+          features: ["plpgsql:1.0"],
+          settings: { standardConformingStrings: "on" },
+        },
+      },
+      typePolicy: postgresTypePolicy,
+      compilerVersion: "2.0.0-test",
+    });
+    const query = result.manifest.queries[0];
+    if (query?.status !== "resolved") throw new Error("Expected a resolved capability query");
+    strict.deepStrictEqual(
+      query.capabilityEvidence?.map(({ capability }) => capability),
+      ["returning"],
+    );
+    strict.strictEqual(query.capabilityEvidence?.[0]?.level, "exact");
+    strict.ok(query.capabilityEvidence?.[0]?.evidence.some(({ kind }) => kind === "server-version"));
+    strict.deepStrictEqual(
+      query.variants[0]?.capabilityEvidence?.map(({ capability }) => capability),
+      ["returning"],
+    );
+    strict.deepStrictEqual(parseQueryManifest(result.manifest), result.manifest);
   });
 
   await it("reuses unchanged source analysis and invalidates changed sources", () => {
@@ -144,6 +216,26 @@ await describe("deterministic query manifests", async () => {
     });
     strict.strictEqual(changed.stats.analyzedFiles, 1);
     strict.strictEqual(changed.stats.reusedFiles, 0);
+    const changedCapabilities = buildQueryManifest({
+      ...options,
+      schema: {
+        ...options.schema,
+        version: "18.6",
+        server: {
+          product: "postgres",
+          version: "18.6",
+          versionKey: "18",
+          features: [],
+          settings: { standardConformingStrings: "on" },
+        },
+      },
+      previous: reused.manifest,
+    });
+    strict.strictEqual(changedCapabilities.stats.analyzedFiles, 1);
+    strict.notStrictEqual(
+      changedCapabilities.manifest.dialect.capabilityFingerprint,
+      reused.manifest.dialect.capabilityFingerprint,
+    );
   });
 
   await it("uses the same grammar-neutral manifest contract for MySQL", () => {
@@ -197,6 +289,12 @@ await describe("deterministic query manifests", async () => {
     const sourceRange = sourceLocation.range as Record<string, unknown>;
     const columns = variant.columns as Record<string, unknown>[];
     const parameters = variant.parameters as Record<string, unknown>[];
+    const capability = {
+      capability: "returning",
+      level: "exact",
+      reason: "supported",
+      evidence: [{ kind: "grammar", key: "grammarVersion", value: "1" }],
+    };
     for (const invalid of [
       null,
       { ...valid, compilerVersion: 1 },
@@ -204,6 +302,9 @@ await describe("deterministic query manifests", async () => {
       { ...valid, fingerprintAlgorithm: "future" },
       { ...valid, dialect: null },
       { ...valid, dialect: { id: "", grammarVersion: "1" } },
+      { ...valid, dialect: { id: "postgres", grammarVersion: "1", capabilityFingerprint: 1 } },
+      { ...valid, dialect: { id: "postgres", grammarVersion: "1", capabilityFingerprint: "invalid" } },
+      { ...valid, schemaFormat: 3 },
       { ...valid, schemaHash: 1 },
       { ...valid, typePolicyHash: "invalid" },
       { ...valid, queries: null },
@@ -238,6 +339,50 @@ await describe("deterministic query manifests", async () => {
         ...valid,
         queries: [{ ...resolved, semantics: { ...semantics, capabilities: [1] } }],
       },
+      {
+        ...valid,
+        queries: [{ ...resolved, capabilityEvidence: [{ capability: "returning", level: "exact" }] }],
+      },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: {} }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [null] }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [{ ...capability, capability: "Returning" }] }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [{ ...capability, reason: "" }] }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [{ ...capability, since: 1 }] }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [{ ...capability, level: "future" }] }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [{ ...capability, evidence: [] }] }] },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [{ ...capability, evidence: [null] }] }] },
+      {
+        ...valid,
+        queries: [
+          {
+            ...resolved,
+            capabilityEvidence: [{ ...capability, evidence: [{ kind: "future", key: "grammarVersion", value: "1" }] }],
+          },
+        ],
+      },
+      {
+        ...valid,
+        queries: [
+          {
+            ...resolved,
+            capabilityEvidence: [{ ...capability, evidence: [{ kind: "grammar", key: 1, value: "1" }] }],
+          },
+        ],
+      },
+      {
+        ...valid,
+        queries: [
+          {
+            ...resolved,
+            capabilityEvidence: [{ ...capability, evidence: [{ kind: "grammar", key: "grammarVersion", value: 1 }] }],
+          },
+        ],
+      },
+      {
+        ...valid,
+        queries: [{ ...resolved, variants: [{ ...variant, capabilityEvidence: {} }] }],
+      },
+      { ...valid, queries: [{ ...resolved, capabilityEvidence: [capability, capability] }] },
       {
         ...valid,
         queries: [

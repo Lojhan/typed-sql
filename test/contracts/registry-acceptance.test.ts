@@ -24,7 +24,7 @@ await describe("registry-only consumer acceptance", async () => {
     for (const contract of [
       'process.env.TYPED_SQL_REGISTRY_TAG ?? "next"',
       'process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next"',
-      'new Set(["@typed-sql/sqlite", "@typed-sql/ts-bridge", "@typed-sql/language-server"])',
+      'new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"])',
       "mustEventuallyRun",
       'typescript: "7.0.2"',
       '"@types/node": "24.13.3"',

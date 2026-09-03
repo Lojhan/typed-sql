@@ -98,7 +98,7 @@ await describe("PostgreSQL COPY capability", async () => {
     const { capability, chunks } = recorder();
     await capability.copyFrom(
       (row: { readonly values: readonly unknown[]; readonly optional: undefined }) =>
-        sql`INSERT INTO array_input (array_values, optional) VALUES (${row.values}, ${row.optional})`,
+        sql`INSERT INTO array_input (array_values, optional) VALUES (${sql.value(row.values)}, ${row.optional})`,
       [{ values: [null, undefined, ["nested"]], optional: undefined }],
     );
     const output = decode(chunks);

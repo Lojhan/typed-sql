@@ -17,11 +17,27 @@ The configured provider introspects the selected schemas and writes deterministi
 
 - the dialect and grammar version;
 - database server version;
-- tables, views, columns, defaults, enums, domains, and supported functions, including function volatility when the catalog exposes it;
+- normalized, grammar-owned server evidence: product, opaque `versionKey`, semantic settings, extensions, and compile options;
+- namespaces and relations, including table/view kind, ordered columns, defaults, generated and identity behavior, and write eligibility;
+- primary, unique, foreign-key, check, and exclusion constraints, plus indexes and their expression or predicate fingerprints;
+- scalar, enum, domain, composite, range, multirange, collection, and opaque type identities;
+- functions, procedures, aggregates, and window routines, including ordered arguments, result shape, volatility, determinism, and data-access evidence;
 - database-to-TypeScript mappings;
 - the schema hash and type-policy hash.
 
 Commit the snapshot. It gives application code, CI, and editors the same catalog contract and makes schema changes reviewable without database access.
+
+Inspect how that evidence changes grammar support without contacting the database:
+
+```sh
+pnpm exec typed-sql capabilities
+```
+
+Every declared capability is reported as `exact`, `conservative`, or `unsupported`, with the
+server-version, setting, feature, policy, and grammar evidence used for that decision. Missing or
+unparseable evidence never selects the newest server behavior. Regenerate the snapshot after a
+server upgrade, extension change, SQLite library rebuild, or semantic setting change such as MySQL
+`sql_mode`.
 
 ## Detect drift
 
@@ -29,7 +45,15 @@ Commit the snapshot. It gives application code, CI, and editors the same catalog
 pnpm exec typed-sql drift
 ```
 
-Drift compares the committed snapshot with the live catalog and configured type policy. A database migration or policy change requires regeneration even when application SQL has not changed.
+Drift compares the committed snapshot with the live catalog and configured type policy. Its result
+identifies changed servers, namespaces, types, relations, routines, extensions, and type policy
+without including catalog values or expressions. A database migration or policy change requires
+regeneration even when application SQL has not changed.
+
+Generated snapshots use schema format 2. Format 1 remains readable as a conservative migration
+input, but evidence it never recorded stays unknown and cannot enable v2-only analysis. Generation
+always writes format 2, so regenerate before relying on constraints, write eligibility, complete
+routine overloads, or object-level compatibility reports.
 
 ## Check source against the snapshot
 
@@ -41,6 +65,15 @@ pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
 
 ## Credentials
 
-Generated files never contain connection strings. Keep credentials in environment variables or the executable config callback. Use a least-privilege, read-only introspection account where possible.
+Generated files never contain connection strings. Server evidence is restricted to grammar-allowlisted
+scalar settings and sorted, non-secret feature identifiers; raw server errors and connection
+configuration are excluded. Keep credentials in environment variables or the executable config
+callback. Use a least-privilege, read-only introspection account where possible.
+
+MySQL snapshots label catalog evidence with the current database role. If that role cannot read an
+optional `information_schema` surface, introspection omits claims derived from that surface and
+records it as incomplete. Use `MySqlSchemaProvider.introspectWithDiagnostics()` when an integration
+needs the corresponding `TSQ406` warnings directly; never treat a permission-limited empty catalog
+as proof that routines, constraints, or indexes do not exist.
 
 Do not import application APIs from the generated folder. Application code imports `sql` and `typePolicy` from the dialect package; generated output is schema metadata for analysis and review.

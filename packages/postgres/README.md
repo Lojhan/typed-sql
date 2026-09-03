@@ -35,6 +35,7 @@ const query = sql`
 
 const database = await createPgDatabase({
   connectionString: process.env.DATABASE_URL!,
+  compatibilitySnapshot: new URL("./generated/db/schema.json", import.meta.url),
   poolConfig: { pipeline: true },
   typePolicy,
   copyStreamsImporter: () => import("pg-copy-streams"),
@@ -73,6 +74,22 @@ exports the schema provider, execution adapter, `createPgLiveVerifier`, and `cre
 The root also exports `createPostgresRoutedDatabase`, the runtime semantic resolver, and the native
 transaction retry classifier. These compose application-owned adapters without installing or
 creating `pg` pools.
+
+The stable grammar supports PostgreSQL majors 14 through 18 and is release-tested against exact
+14.24, 15.19, 16.15, 17.11, and 18.6 targets. `POSTGRES_SUPPORT_POLICY` exposes those per-major
+targets, the separately reported PostgreSQL 19beta3 canary, and the upstream end-of-life deprecation
+rule; future and prerelease majors remain conservative unless canary policy is selected explicitly.
+
+Operator and snapshot-routine overloads use PostgreSQL-owned canonical types, cast contexts,
+preferred categories, unknown-literal selection, and simple/common polymorphic families. Ambiguous
+or incompatible candidates produce diagnostics instead of optimistic result types.
+
+The grammar resolves PostgreSQL grouping sets and ordered aggregates, inherited and framed windows,
+lateral function relations and `ROWS FROM`, `WITH ORDINALITY`, `TABLESAMPLE`, and `FETCH` pagination.
+PostgreSQL DML includes identity overriding, snapshot-backed expression and partial-index
+`ON CONFLICT` inference, action-scoped `excluded`, typed row/subquery assignments, versioned
+`MERGE`, and PostgreSQL 18 old/new `RETURNING` namespaces.
+Unsupported or structurally invalid forms fail closed with source diagnostics.
 
 Read the [PostgreSQL grammar guide](https://github.com/Lojhan/typed-sql/blob/main/docs/dialects/postgresql.md),
 [execution guide](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/execution.md),

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { QueryCancelledError } from "@typed-sql/core";
-import { sql, typePolicy } from "@typed-sql/postgres";
+import { postgres, sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
 import { describe, it, strict } from "poku";
 import { loadAccountWorkspace } from "../src/batches.js";
@@ -129,7 +129,9 @@ try {
     });
 
     await it("routes proven reads with the grammar snapshot and emits redacted observations", async () => {
-      const snapshot = JSON.parse(await readFile(new URL("../generated/db/schema.json", import.meta.url), "utf8"));
+      const snapshot = postgres().validateSnapshot(
+        JSON.parse(await readFile(new URL("../generated/db/schema.json", import.meta.url), "utf8")),
+      );
       const replica = await createPgDatabase({ connectionString, typePolicy, observer: operationLog.observer });
       try {
         const routed = createAccountRouter(database, [replica], snapshot).context();

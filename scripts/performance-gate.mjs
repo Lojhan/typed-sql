@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { defineSqlLexicalProfile, tokenizeSql } from "../packages/ast/dist/packages/ast/src/toolkit/index.js";
 import {
   analyzeSchemaCompatibility,
   buildQueryManifest,
@@ -13,12 +14,21 @@ import {
   reviewQueryPlans,
   verifyQueryManifest,
 } from "../packages/compiler/dist/packages/compiler/src/index.js";
+import {
+  CONFORMANCE_VERSION,
+  defineConformanceProbe,
+  runStaticConformanceProbe,
+} from "../packages/conformance/dist/packages/conformance/src/v2/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
+import { parseStatement as parseMysqlStatement } from "../packages/mysql/dist/packages/mysql/src/parser/index.js";
 import {
   createPostgresQuerySemanticResolver,
   postgres,
 } from "../packages/postgres/dist/packages/postgres/src/index.js";
+import { parseStatement as parsePostgresStatement } from "../packages/postgres/dist/packages/postgres/src/parser/index.js";
+import { calculateSchemaHash, canonicalizeSchemaValue } from "../packages/schema/dist/packages/schema/src/index.js";
+import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
 import {
   capturePerformanceContext,
   createPerformanceArtifact,
@@ -60,8 +70,10 @@ async function latency(name, operation, options = {}) {
   results[name] = { unit: "ms", iterationsPerSample: iterations, ...measured, budget };
   warnNearBudget(name, measured.p50, budget.p50, "p50");
   warnNearBudget(name, measured.p95, budget.p95, "p95");
+  warnNearBudget(name, measured.p99, budget.p99, "p99");
   assert.ok(measured.p50 <= budget.p50, `${name} p50 ${measured.p50.toFixed(2)}ms exceeded ${budget.p50}ms`);
   assert.ok(measured.p95 <= budget.p95, `${name} p95 ${measured.p95.toFixed(2)}ms exceeded ${budget.p95}ms`);
+  assert.ok(measured.p99 <= budget.p99, `${name} p99 ${measured.p99.toFixed(2)}ms exceeded ${budget.p99}ms`);
 }
 
 function warnNearBudget(name, actual, maximum, statistic) {
@@ -117,6 +129,138 @@ const snapshot = {
 const dialect = postgres();
 const scannerSource = manyQuerySource(1_000);
 const compilerSource = manyQuerySource(250);
+const parserSource = `SELECT ${Array.from(
+  { length: 250 },
+  (_, index) => `account.id + ${index} AS value_${index}`,
+).join(", ")} FROM users AS account`;
+const pathologicalParserSource = `SELECT ${Array.from(
+  { length: 1_000 },
+  (_, index) => `'value''${index}' /* comment ${index} */`,
+).join(", ")}`;
+const parserLexicalProfile = defineSqlLexicalProfile({
+  keywords: new Set(["AS", "FROM", "SELECT"]),
+  operators: ["+"],
+  identifierQuotes: [{ open: '"', close: '"', escape: "double-close" }],
+  stringModes: [{ prefix: "", quote: "'" }],
+  parameterModes: [{ kind: "numbered-dollar" }],
+});
+
+const conformanceTarget = {
+  grammar: "postgres",
+  grammarVersion: dialect.grammarVersion,
+  databaseVersion: "18.0",
+};
+const conformanceCorpus = Array.from({ length: 7 }, (_, index) =>
+  defineConformanceProbe({
+    version: CONFORMANCE_VERSION,
+    id: `postgres.statement.select.performance.case${index}`,
+    featureId: "statement.select",
+    grammar: "postgres",
+    targets: [conformanceTarget],
+    source: "SELECT id FROM users WHERE id = $1",
+    schemaFixture: "packages/conformance/fixtures/postgres/statement.select/schema.json",
+    query: sql`SELECT id FROM users WHERE id = ${BigInt(index)}`,
+    compilerSource: `import { sql } from "@typed-sql/postgres";\nexport const query = sql\`SELECT id FROM users WHERE id = \${${index}n}\`;`,
+    expected: [
+      {
+        target: { grammarVersion: dialect.grammarVersion, databaseVersion: "18.0" },
+        support: "conservative",
+        rows: [
+          {
+            name: "id",
+            tsType: "bigint",
+            nullable: false,
+            databaseType: "bigint",
+            range: { start: 7, end: 9, line: 1, column: 8 },
+          },
+        ],
+        parameters: [{ index: 1, tsType: "bigint", nullable: false, databaseType: "bigint" }],
+        diagnostics: [],
+        rendered: { text: "SELECT id FROM users WHERE id = $1", values: [BigInt(index)] },
+        compiled: { rowType: '{ "id": bigint; }', parameterType: "readonly [bigint]" },
+        skips: {
+          "lex-parse": "grammar-parser-private",
+          prepare: "no-live-adapter",
+          execute: "no-live-adapter",
+          plan: "no-live-adapter",
+        },
+      },
+    ],
+  }),
+);
+
+await latency("parser.ownedLargeQuery", () => {
+  assert.equal(parsePostgresStatement(parserSource).kind, "select");
+  assert.equal(parseMysqlStatement(parserSource).kind, "select");
+  assert.equal(parseSqliteStatement(parserSource).kind, "select");
+});
+
+await latency("parser.pathologicalTokens", () => {
+  assert.equal(parsePostgresStatement(pathologicalParserSource).kind, "select");
+  assert.equal(parseMysqlStatement(pathologicalParserSource).kind, "select");
+  assert.equal(parseSqliteStatement(pathologicalParserSource).kind, "select");
+});
+
+const parserTokenCount = tokenizeSql(parserSource, parserLexicalProfile).length - 1;
+const parserTokenizerIterations = 100;
+const parserTokenizerThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: parserTokenizerIterations,
+  operation() {
+    assert.equal(tokenizeSql(parserSource, parserLexicalProfile).length - 1, parserTokenCount);
+  },
+});
+const parserTokensPerSecond = {
+  ...parserTokenizerThroughput,
+  rawSamples: Object.freeze(parserTokenizerThroughput.rawSamples.map((sample) => sample * parserTokenCount)),
+  minimum: parserTokenizerThroughput.minimum * parserTokenCount,
+  mean: parserTokenizerThroughput.mean * parserTokenCount,
+  standardDeviation: parserTokenizerThroughput.standardDeviation * parserTokenCount,
+  p50: parserTokenizerThroughput.p50 * parserTokenCount,
+  p95: parserTokenizerThroughput.p95 * parserTokenCount,
+  p99: parserTokenizerThroughput.p99 * parserTokenCount,
+  maximum: parserTokenizerThroughput.maximum * parserTokenCount,
+};
+const parserTokenBudget = budgets.throughput["parser.toolkitTokens"];
+results["parser.toolkitTokens"] = {
+  unit: "tokens/second",
+  tokenCount: parserTokenCount,
+  ...parserTokensPerSecond,
+  budget: parserTokenBudget,
+};
+assert.ok(
+  parserTokensPerSecond.p50 >= parserTokenBudget.minimumTokensPerSecond,
+  `parser.toolkitTokens p50 ${parserTokensPerSecond.p50.toFixed(0)} tokens/s fell below ${parserTokenBudget.minimumTokensPerSecond}`,
+);
+
+globalThis.gc?.();
+const parserHeapBefore = process.memoryUsage().heapUsed;
+const retainedParserAsts = Array.from({ length: 32 }, (_, index) =>
+  index % 3 === 0
+    ? parsePostgresStatement(parserSource)
+    : index % 3 === 1
+      ? parseMysqlStatement(parserSource)
+      : parseSqliteStatement(parserSource),
+);
+globalThis.gc?.();
+const parserAstBytesPerParse =
+  Math.max(0, process.memoryUsage().heapUsed - parserHeapBefore) / retainedParserAsts.length;
+assert.equal(
+  retainedParserAsts.every((statement) => statement.kind === "select"),
+  true,
+);
+const parserAllocationBudget = budgets.memory["parser.astBytesPerParse"];
+results["parser.astBytesPerParse"] = {
+  unit: "estimated retained bytes/parse",
+  value: parserAstBytesPerParse,
+  samples: retainedParserAsts.length,
+  budget: parserAllocationBudget,
+};
+assert.ok(
+  parserAstBytesPerParse <= parserAllocationBudget.maximum,
+  `parser.astBytesPerParse ${parserAstBytesPerParse.toFixed(0)} bytes exceeded ${parserAllocationBudget.maximum} bytes`,
+);
 
 await latency("scanner.largeFile", () => {
   const extracted = extractStaticQueries(scannerSource, (index) => `$${index}`, ["@typed-sql/postgres"]);
@@ -127,6 +271,27 @@ await latency("compiler.manyQueries", () => {
   const compiled = compileSource({ source: compilerSource, schema: snapshot, dialect });
   assert.equal(compiled.queries.length, 250);
   assert.deepEqual(compiled.diagnostics, []);
+});
+
+const canonicalizationSnapshot = {
+  ...snapshot,
+  tables: Object.fromEntries(
+    Array.from({ length: 1_000 }, (_, index) => [
+      `table_${index}`,
+      {
+        name: `table_${index}`,
+        columns: {
+          value: { name: "value", databaseType: "text", tsType: "string", nullable: index % 2 === 0 },
+          id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+        },
+      },
+    ]),
+  ),
+};
+await latency("schema.canonicalization", () => {
+  const canonical = canonicalizeSchemaValue(canonicalizationSnapshot);
+  assert.equal(typeof calculateSchemaHash(canonicalizationSnapshot), "string");
+  assert.equal(Object.keys(canonical.tables).length, 1_000);
 });
 
 const manifestOptions = {
@@ -358,6 +523,20 @@ await structuralMetric(
   "TSQ003",
 );
 
+await latency("conformance.v2StaticCorpus", () => {
+  for (const probe of conformanceCorpus) {
+    const result = runStaticConformanceProbe(probe, conformanceTarget, {
+      dialect,
+      snapshot,
+      renderer: {
+        placeholder: (index) => dialect.placeholder(index),
+        quoteIdentifier: (identifier) => dialect.quoteIdentifier(identifier),
+      },
+    });
+    assert.equal(result.status, "pass");
+  }
+});
+
 const coreIterations = 10_000;
 const coreThroughput = measureThroughput({
   warmups: methodology.warmups,
@@ -386,6 +565,79 @@ assert.ok(
   `core.composeAndRender p50 ${coreThroughput.p50.toFixed(0)} ops/s fell below ${coreBudget.minimumOperationsPerSecond}`,
 );
 
+const fragmentList = Array.from({ length: 100 }, (_, index) => sql.fragment`(${index}, ${`value-${index}`})`);
+const fragmentListQuery = sql`VALUES ${fragmentList}`;
+const joinedFragmentListQuery = sql`VALUES ${sql.join(fragmentList, sql.fragment`, `)}`;
+const fragmentListThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: 1_000,
+  operation() {
+    const rendered = renderQuery(fragmentListQuery, dialect);
+    assert.equal(rendered.values.length, 200);
+  },
+});
+const joinedFragmentListThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: 1_000,
+  operation() {
+    const rendered = renderQuery(joinedFragmentListQuery, dialect);
+    assert.equal(rendered.values.length, 200);
+  },
+});
+const fragmentListBudget = budgets.throughput["core.fragmentListRender"];
+results["core.fragmentListRender"] = {
+  unit: "operations/second",
+  ...fragmentListThroughput,
+  explicitJoinP50: joinedFragmentListThroughput.p50,
+  explicitJoinRatio: fragmentListThroughput.p50 / joinedFragmentListThroughput.p50,
+  budget: fragmentListBudget,
+};
+assert.ok(
+  fragmentListThroughput.p50 >= fragmentListBudget.minimumOperationsPerSecond,
+  `core.fragmentListRender p50 ${fragmentListThroughput.p50.toFixed(0)} ops/s fell below ${fragmentListBudget.minimumOperationsPerSecond}`,
+);
+assert.ok(
+  fragmentListThroughput.p50 / joinedFragmentListThroughput.p50 >= fragmentListBudget.minimumJoinRatio,
+  `core.fragmentListRender is materially slower than sql.join (${fragmentListThroughput.p50.toFixed(0)} vs ${joinedFragmentListThroughput.p50.toFixed(0)} ops/s)`,
+);
+
+globalThis.gc?.();
+const renderSoakHeapBefore = process.memoryUsage().heapUsed;
+for (let index = 0; index < methodology.componentSoakIterations; index += 1) {
+  const rendered = renderQuery(fragmentListQuery, dialect);
+  assert.equal(rendered.values[0], 0);
+}
+globalThis.gc?.();
+const renderSoakHeapGrowthMiB = Math.max(0, process.memoryUsage().heapUsed - renderSoakHeapBefore) / 1024 / 1024;
+const renderSoakBudget = budgets.memory["core.renderSoakHeapGrowthMiB"];
+results["core.renderSoakHeapGrowthMiB"] = {
+  unit: "MiB",
+  value: renderSoakHeapGrowthMiB,
+  cycles: methodology.componentSoakIterations,
+  budget: renderSoakBudget,
+};
+assert.ok(renderSoakHeapGrowthMiB <= renderSoakBudget.maximum);
+
+globalThis.gc?.();
+const compilerSoakHeapBefore = process.memoryUsage().heapUsed;
+const soakCompilerSource = manyQuerySource(12);
+for (let index = 0; index < methodology.componentSoakIterations; index += 1) {
+  const compiled = compileSource({ source: `${soakCompilerSource}\n// cycle ${index}`, schema: snapshot, dialect });
+  assert.equal(compiled.queries.length, 12);
+}
+globalThis.gc?.();
+const compilerSoakHeapGrowthMiB = Math.max(0, process.memoryUsage().heapUsed - compilerSoakHeapBefore) / 1024 / 1024;
+const compilerSoakBudget = budgets.memory["compiler.soakHeapGrowthMiB"];
+results["compiler.soakHeapGrowthMiB"] = {
+  unit: "MiB",
+  value: compilerSoakHeapGrowthMiB,
+  cycles: methodology.componentSoakIterations,
+  budget: compilerSoakBudget,
+};
+assert.ok(compilerSoakHeapGrowthMiB <= compilerSoakBudget.maximum);
+
 const routingResolver = createPostgresQuerySemanticResolver({ schema: snapshot });
 const routedQuery = (id) => sql`SELECT account.id FROM users AS account WHERE account.id = ${id}`;
 routingResolver.resolve(routedQuery(0));
@@ -412,12 +664,32 @@ Object.assign(results, await deterministicMicrobenchmarks(methodology));
 const temporary = await mkdtemp(join(tmpdir(), "typed-sql-performance-"));
 try {
   const schemaPath = join(temporary, "schema.json");
+  const alternateSchemaPath = join(temporary, "schema-alternate.json");
   const configPath = join(temporary, "typed-sql.config.mjs");
+  const alternateConfigPath = join(temporary, "typed-sql.alternate.config.mjs");
   const postgresModule = pathToFileURL(join(workspace, "packages/postgres/dist/packages/postgres/src/index.js")).href;
+  const alternateSnapshot = {
+    ...snapshot,
+    tables: {
+      ...snapshot.tables,
+      users: {
+        ...snapshot.tables.users,
+        columns: {
+          ...snapshot.tables.users.columns,
+          email: { ...snapshot.tables.users.columns.email, tsType: "number" },
+        },
+      },
+    },
+  };
   await writeFile(schemaPath, `${JSON.stringify(snapshot)}\n`);
+  await writeFile(alternateSchemaPath, `${JSON.stringify(alternateSnapshot)}\n`);
   await writeFile(
     configPath,
     `import { postgres } from ${JSON.stringify(postgresModule)};\nexport default { dialect: postgres(), schema: { file: "schema.json" }, outDir: "generated" };\n`,
+  );
+  await writeFile(
+    alternateConfigPath,
+    `import { postgres } from ${JSON.stringify(postgresModule)};\nexport default { dialect: postgres(), schema: { file: "schema-alternate.json" }, outDir: "generated" };\n`,
   );
   const editorSource = manyQuerySource(120);
   const editorDocument = (name, version, text = editorSource) => ({
@@ -518,9 +790,129 @@ try {
       retainedHeapMiB <= memoryBudget.maximum,
       `editor.retainedHeapMiB ${retainedHeapMiB.toFixed(2)}MiB exceeded ${memoryBudget.maximum}MiB`,
     );
+
+    const stormSource = manyQuerySource(12);
+    let stormVersion = 1;
+    await latency(
+      "editor.editStorm",
+      async (index) => {
+        stormVersion += 1;
+        const analysis = await service.analysis(
+          editorDocument("edit-storm.ts", stormVersion, `${stormSource}\n// edit ${index}`),
+        );
+        assert.equal(analysis?.queries.length, 12);
+        assert.equal(analysis?.identity.source.version, stormVersion);
+      },
+      { samples: methodology.soakIterations },
+    );
+    const afterEdits = service.metrics();
+    assert.ok(afterEdits.cache.analyses.entries <= settings.maxCacheEntries);
+    assert.ok(afterEdits.cache.analyses.evictions > 0);
+    results["editor.editStorm"].cache = afterEdits.cache;
+
+    let cancellations = 0;
+    const cancellationSource = editorDocument("cancellation-storm.ts", 1, manyQuerySource(2_000));
+    for (let index = 0; index < methodology.soakIterations; index += 1) {
+      await assert.rejects(
+        () => service.analysis(cancellationSource, { isCancellationRequested: true }),
+        (error) => error instanceof Error && error.name === "AbortError",
+      );
+      cancellations += 1;
+    }
+    assert.equal(cancellations, methodology.soakIterations);
+    results["editor.cancellationStorm"] = {
+      unit: "operations",
+      attempted: methodology.soakIterations,
+      cancelled: cancellations,
+      cache: service.metrics().cache,
+    };
+
+    let schemaWrite = 0;
+    await latency(
+      "editor.schemaChurn",
+      async (index) => {
+        schemaWrite += 1;
+        const nullable = index % 2 === 0;
+        const changed = {
+          ...snapshot,
+          tables: {
+            ...snapshot.tables,
+            users: {
+              ...snapshot.tables.users,
+              columns: {
+                ...snapshot.tables.users.columns,
+                email: { ...snapshot.tables.users.columns.email, nullable },
+              },
+            },
+          },
+        };
+        await writeFile(schemaPath, `${JSON.stringify(changed)}\n`);
+        const modified = new Date(Date.now() + schemaWrite * 1_000);
+        await utimes(schemaPath, modified, modified);
+        const analysis = await service.analysis(editorDocument("schema-churn.ts", schemaWrite, stormSource));
+        assert.equal(analysis?.queries.length, 12);
+        assert.equal(analysis?.queries[0]?.rowType.includes("string | null"), nullable);
+      },
+      { samples: methodology.soakIterations },
+    );
+    await writeFile(schemaPath, `${JSON.stringify(snapshot)}\n`);
+
+    await latency(
+      "editor.projectSwitch",
+      async (index) => {
+        const alternate = index % 2 === 1;
+        service.configure(temporary, {
+          configPath: alternate ? alternateConfigPath : configPath,
+          schemaPath: alternate ? alternateSchemaPath : schemaPath,
+          nativePreview: false,
+          maxCacheEntries: settings.maxCacheEntries,
+        });
+        const analysis = await service.analysis(editorDocument("project-switch.ts", index + 1, stormSource));
+        assert.equal(analysis?.queries.length, 12);
+        assert.equal(analysis?.queries[0]?.rowType.includes('"email": number'), alternate);
+      },
+      { samples: methodology.soakIterations },
+    );
+    const afterSwitches = service.metrics();
+    assert.ok(afterSwitches.cache.analyses.entries <= 1);
+    assert.equal(afterSwitches.bridgeRestarts, 0);
+    results["editor.projectSwitch"].resources = afterSwitches;
   } finally {
     await service.close();
   }
+
+  const openAndCloseProject = async (index) => {
+    const lifecycle = new TypedSqlLanguageService(temporary, settings);
+    try {
+      const analysis = await lifecycle.analysis(editorDocument(`lifecycle-${index}.ts`, 1, manyQuerySource(12)));
+      assert.equal(analysis?.queries.length, 12);
+      assert.ok(lifecycle.cacheSizes().analyses <= 1);
+    } finally {
+      await lifecycle.close();
+    }
+  };
+  for (let index = 0; index < methodology.projectLifecycleIterations; index += 1) {
+    await openAndCloseProject(`warm-${index}`);
+  }
+  globalThis.gc?.();
+  const lifecycleHeapBefore = process.memoryUsage().heapUsed;
+  await latency("editor.projectLifecycle", openAndCloseProject, {
+    warmups: 1,
+    samples: methodology.projectLifecycleIterations,
+  });
+  globalThis.gc?.();
+  const lifecycleHeapGrowthMiB = Math.max(0, process.memoryUsage().heapUsed - lifecycleHeapBefore) / 1024 / 1024;
+  const lifecycleMemoryBudget = budgets.memory["editor.lifecycleHeapGrowthMiB"];
+  results["editor.lifecycleHeapGrowthMiB"] = {
+    unit: "MiB",
+    value: lifecycleHeapGrowthMiB,
+    projects: methodology.projectLifecycleIterations,
+    budget: lifecycleMemoryBudget,
+  };
+  assert.ok(
+    lifecycleHeapGrowthMiB <= lifecycleMemoryBudget.maximum,
+    `editor.lifecycleHeapGrowthMiB ${lifecycleHeapGrowthMiB.toFixed(2)}MiB exceeded ${lifecycleMemoryBudget.maximum}MiB`,
+  );
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }

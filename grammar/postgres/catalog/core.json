@@ -1,0 +1,991 @@
+{
+  "formatVersion": 1,
+  "types": [
+    {
+      "name": "bigint",
+      "aliases": ["int8"],
+      "mapping": "bigint",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "boolean",
+      "aliases": ["bool"],
+      "mapping": "boolean",
+      "category": "boolean",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "bytea",
+      "aliases": [],
+      "mapping": "bytes",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "date",
+      "aliases": [],
+      "mapping": "date",
+      "category": "datetime",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "double precision",
+      "aliases": ["float8"],
+      "mapping": "number",
+      "category": "numeric",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "integer",
+      "aliases": ["int", "int4"],
+      "mapping": "number",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "json",
+      "aliases": [],
+      "mapping": "json",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "jsonb",
+      "aliases": [],
+      "mapping": "json",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "numeric",
+      "aliases": ["decimal"],
+      "mapping": "numeric",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "real",
+      "aliases": ["float4"],
+      "mapping": "number",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "smallint",
+      "aliases": ["int2"],
+      "mapping": "number",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "text",
+      "aliases": [],
+      "mapping": "string",
+      "category": "string",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "varchar",
+      "aliases": ["character varying"],
+      "mapping": "string",
+      "category": "string",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "bpchar",
+      "aliases": ["char", "character"],
+      "mapping": "string",
+      "category": "string",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "uuid",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "timestamp",
+      "aliases": ["timestamp without time zone"],
+      "mapping": "date",
+      "category": "datetime",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "timestamptz",
+      "aliases": ["timestamp with time zone"],
+      "mapping": "date",
+      "category": "datetime",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "time",
+      "aliases": ["time without time zone"],
+      "mapping": "string",
+      "category": "datetime",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "timetz",
+      "aliases": ["time with time zone"],
+      "mapping": "string",
+      "category": "datetime",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "interval",
+      "aliases": [],
+      "mapping": "string",
+      "category": "timespan",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "bit",
+      "aliases": [],
+      "mapping": "string",
+      "category": "bit-string",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "varbit",
+      "aliases": ["bit varying"],
+      "mapping": "string",
+      "category": "bit-string",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "cidr",
+      "aliases": [],
+      "mapping": "string",
+      "category": "network",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "inet",
+      "aliases": [],
+      "mapping": "string",
+      "category": "network",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "macaddr",
+      "aliases": [],
+      "mapping": "string",
+      "category": "network",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "macaddr8",
+      "aliases": [],
+      "mapping": "string",
+      "category": "network",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "point",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": true,
+      "introduced": 14
+    },
+    {
+      "name": "line",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "lseg",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "box",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "path",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "polygon",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "circle",
+      "aliases": [],
+      "mapping": "string",
+      "category": "geometric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tsvector",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tsquery",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "xml",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "jsonpath",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "int4range",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "int8range",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "numrange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tsrange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tstzrange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "daterange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "int4multirange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "int8multirange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "nummultirange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tsmultirange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tstzmultirange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "datemultirange",
+      "aliases": [],
+      "mapping": "string",
+      "category": "range",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "money",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "oid",
+      "aliases": [],
+      "mapping": "number",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regclass",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regcollation",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regconfig",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regdictionary",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regnamespace",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regoper",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regoperator",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regproc",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regprocedure",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regrole",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "regtype",
+      "aliases": [],
+      "mapping": "string",
+      "category": "numeric",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "pg_lsn",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    },
+    {
+      "name": "tid",
+      "aliases": [],
+      "mapping": "string",
+      "category": "user",
+      "preferred": false,
+      "introduced": 14
+    }
+  ],
+  "casts": [
+    { "source": "bigint", "target": "bit", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "bytea", "context": "explicit", "method": "function", "introduced": 18 },
+    { "source": "bigint", "target": "double precision", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "integer", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "money", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "numeric", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "oid", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "real", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regclass", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regcollation", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regconfig", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regdictionary", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regnamespace", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regoper", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regoperator", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regproc", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regprocedure", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regrole", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "regtype", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bigint", "target": "smallint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "bit", "target": "bigint", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "bit", "target": "integer", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "bit", "target": "varbit", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "boolean", "target": "bpchar", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "boolean", "target": "integer", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "boolean", "target": "text", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "boolean", "target": "varchar", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "box", "target": "circle", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "box", "target": "lseg", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "box", "target": "point", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "box", "target": "polygon", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "bpchar", "target": "text", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bpchar", "target": "varchar", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "bpchar", "target": "xml", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "bytea", "target": "bigint", "context": "explicit", "method": "function", "introduced": 18 },
+    { "source": "bytea", "target": "integer", "context": "explicit", "method": "function", "introduced": 18 },
+    { "source": "bytea", "target": "smallint", "context": "explicit", "method": "function", "introduced": 18 },
+    { "source": "cidr", "target": "bpchar", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "cidr", "target": "inet", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "cidr", "target": "text", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "cidr", "target": "varchar", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "circle", "target": "box", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "circle", "target": "point", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "circle", "target": "polygon", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "date", "target": "timestamp", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "date", "target": "timestamptz", "context": "implicit", "method": "function", "introduced": 14 },
+    {
+      "source": "daterange",
+      "target": "datemultirange",
+      "context": "explicit",
+      "method": "function",
+      "introduced": 14
+    },
+    {
+      "source": "double precision",
+      "target": "bigint",
+      "context": "assignment",
+      "method": "function",
+      "introduced": 14
+    },
+    {
+      "source": "double precision",
+      "target": "integer",
+      "context": "assignment",
+      "method": "function",
+      "introduced": 14
+    },
+    {
+      "source": "double precision",
+      "target": "numeric",
+      "context": "assignment",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "double precision", "target": "real", "context": "assignment", "method": "function", "introduced": 14 },
+    {
+      "source": "double precision",
+      "target": "smallint",
+      "context": "assignment",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "inet", "target": "bpchar", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "inet", "target": "cidr", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "inet", "target": "text", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "inet", "target": "varchar", "context": "assignment", "method": "function", "introduced": 14 },
+    {
+      "source": "int4range",
+      "target": "int4multirange",
+      "context": "explicit",
+      "method": "function",
+      "introduced": 14
+    },
+    {
+      "source": "int8range",
+      "target": "int8multirange",
+      "context": "explicit",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "integer", "target": "bigint", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "bit", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "boolean", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "bytea", "context": "explicit", "method": "function", "introduced": 18 },
+    {
+      "source": "integer",
+      "target": "double precision",
+      "context": "implicit",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "integer", "target": "money", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "numeric", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "real", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "integer", "target": "regclass", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regcollation", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regconfig", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regdictionary", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regnamespace", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regoper", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regoperator", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regproc", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regprocedure", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regrole", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "regtype", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "integer", "target": "smallint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "interval", "target": "time", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "json", "target": "jsonb", "context": "assignment", "method": "io", "introduced": 14 },
+    { "source": "jsonb", "target": "bigint", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "jsonb", "target": "boolean", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "jsonb", "target": "double precision", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "jsonb", "target": "integer", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "jsonb", "target": "json", "context": "assignment", "method": "io", "introduced": 14 },
+    { "source": "jsonb", "target": "numeric", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "jsonb", "target": "real", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "jsonb", "target": "smallint", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "lseg", "target": "point", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "macaddr8", "target": "macaddr", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "macaddr", "target": "macaddr8", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "money", "target": "numeric", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "numeric", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    {
+      "source": "numeric",
+      "target": "double precision",
+      "context": "implicit",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "numeric", "target": "integer", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "numeric", "target": "money", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "numeric", "target": "real", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "numeric", "target": "smallint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "numrange", "target": "nummultirange", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "oid", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "oid", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regclass", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regcollation", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regconfig", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regdictionary", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regnamespace", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regoper", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regoperator", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regproc", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regprocedure", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regrole", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "oid", "target": "regtype", "context": "implicit", "method": "binary", "introduced": 14 },
+    {
+      "source": "path",
+      "target": "point",
+      "context": "explicit",
+      "method": "function",
+      "introduced": 14,
+      "removed": 15
+    },
+    { "source": "path", "target": "polygon", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "point", "target": "box", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "polygon", "target": "box", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "polygon", "target": "circle", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "polygon", "target": "path", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "polygon", "target": "point", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "real", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "real", "target": "double precision", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "real", "target": "integer", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "real", "target": "numeric", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "real", "target": "smallint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regclass", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regclass", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regclass", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regcollation", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regcollation", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regcollation", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regconfig", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regconfig", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regconfig", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regdictionary", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regdictionary", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regdictionary", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regnamespace", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regnamespace", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regnamespace", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regoper", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regoper", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regoper", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regoper", "target": "regoperator", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regoperator", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regoperator", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regoperator", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regoperator", "target": "regoper", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regproc", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regproc", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regproc", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regproc", "target": "regprocedure", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regprocedure", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regprocedure", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regprocedure", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regprocedure", "target": "regproc", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regrole", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regrole", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regrole", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "regtype", "target": "bigint", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "regtype", "target": "integer", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "regtype", "target": "oid", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "smallint", "target": "bigint", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "bytea", "context": "explicit", "method": "function", "introduced": 18 },
+    {
+      "source": "smallint",
+      "target": "double precision",
+      "context": "implicit",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "smallint", "target": "integer", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "numeric", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "oid", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "real", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regclass", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regcollation", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regconfig", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regdictionary", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regnamespace", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regoper", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regoperator", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regproc", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regprocedure", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regrole", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "smallint", "target": "regtype", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "text", "target": "bpchar", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "text", "target": "regclass", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "text", "target": "varchar", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "text", "target": "xml", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "time", "target": "interval", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "time", "target": "timetz", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "timestamp", "target": "date", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "timestamp", "target": "time", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "timestamp", "target": "timestamptz", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "timestamptz", "target": "date", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "timestamptz", "target": "time", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "timestamptz", "target": "timestamp", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "timestamptz", "target": "timetz", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "timetz", "target": "time", "context": "assignment", "method": "function", "introduced": 14 },
+    { "source": "tsrange", "target": "tsmultirange", "context": "explicit", "method": "function", "introduced": 14 },
+    {
+      "source": "tstzrange",
+      "target": "tstzmultirange",
+      "context": "explicit",
+      "method": "function",
+      "introduced": 14
+    },
+    { "source": "varbit", "target": "bit", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "varchar", "target": "bpchar", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "varchar", "target": "regclass", "context": "implicit", "method": "function", "introduced": 14 },
+    { "source": "varchar", "target": "text", "context": "implicit", "method": "binary", "introduced": 14 },
+    { "source": "varchar", "target": "xml", "context": "explicit", "method": "function", "introduced": 14 },
+    { "source": "xml", "target": "bpchar", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "xml", "target": "text", "context": "assignment", "method": "binary", "introduced": 14 },
+    { "source": "xml", "target": "varchar", "context": "assignment", "method": "binary", "introduced": 14 }
+  ],
+  "operators": [
+    { "name": "bitwise", "operators": ["&", "|", "#"], "result": "bitwise", "introduced": 14 },
+    {
+      "name": "boolean",
+      "operators": [
+        "!~",
+        "!~*",
+        "!=",
+        "<",
+        "<@",
+        "<=",
+        "<>",
+        "=",
+        ">",
+        ">=",
+        "?",
+        "?&",
+        "?|",
+        "AND",
+        "ILIKE",
+        "IS",
+        "IS DISTINCT FROM",
+        "IS NOT",
+        "IS NOT DISTINCT FROM",
+        "LIKE",
+        "NOT ILIKE",
+        "NOT LIKE",
+        "NOT SIMILAR",
+        "OR",
+        "SIMILAR TO",
+        "@>",
+        "~",
+        "~*",
+        "&&"
+      ],
+      "result": "boolean",
+      "introduced": 14
+    },
+    { "name": "concatenation", "operators": ["||"], "result": "concatenation", "introduced": 14 },
+    { "name": "json", "operators": ["#>", "->"], "result": "json", "introduced": 14 },
+    { "name": "json-text", "operators": ["#>>", "->>"], "result": "json-text", "introduced": 14 },
+    { "name": "numeric", "operators": ["%", "*", "+", "-", "/", "^"], "result": "numeric", "introduced": 14 },
+    {
+      "name": "special",
+      "operators": [
+        "!!",
+        "@",
+        "#-",
+        "##",
+        "&<",
+        "&<|",
+        "&>",
+        "-|-",
+        "<->",
+        "<<",
+        "<<=",
+        "<<|",
+        "<^",
+        ">>",
+        ">>=",
+        ">^",
+        "?#",
+        "?-",
+        "?-|",
+        "?||",
+        "@-@",
+        "@?",
+        "@@",
+        "^@",
+        "|&>",
+        "|/",
+        "|>>",
+        "||/",
+        "~="
+      ],
+      "result": "special",
+      "introduced": 14
+    }
+  ],
+  "routines": [
+    { "name": "array-aggregate", "routines": ["ARRAY_AGG"], "result": "array-aggregate", "introduced": 14 },
+    {
+      "name": "bigint-window",
+      "routines": ["DENSE_RANK", "RANK", "ROW_NUMBER"],
+      "result": "bigint-window",
+      "introduced": 14
+    },
+    {
+      "name": "boolean-aggregate",
+      "routines": ["BOOL_AND", "BOOL_OR", "EVERY"],
+      "result": "boolean-aggregate",
+      "introduced": 14
+    },
+    { "name": "coalesce", "routines": ["COALESCE"], "result": "coalesce", "introduced": 14 },
+    { "name": "count", "routines": ["COUNT"], "result": "count", "introduced": 14 },
+    {
+      "name": "double-window",
+      "routines": ["CUME_DIST", "PERCENT_RANK"],
+      "result": "double-window",
+      "introduced": 14
+    },
+    { "name": "extrema", "routines": ["GREATEST", "LEAST", "MAX", "MIN"], "result": "extrema", "introduced": 14 },
+    { "name": "grouping", "routines": ["GROUPING"], "result": "grouping", "introduced": 14 },
+    { "name": "integer-window", "routines": ["NTILE"], "result": "integer-window", "introduced": 14 },
+    {
+      "name": "json-aggregate",
+      "routines": ["JSON_AGG", "JSON_OBJECT_AGG", "JSONB_AGG", "JSONB_OBJECT_AGG"],
+      "result": "json-aggregate",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-boolean",
+      "routines": ["JSONB_PATH_EXISTS", "JSONB_PATH_EXISTS_TZ", "JSONB_PATH_MATCH", "JSONB_PATH_MATCH_TZ"],
+      "result": "json-path-boolean",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-json",
+      "routines": [
+        "JSONB_PATH_QUERY_ARRAY",
+        "JSONB_PATH_QUERY_ARRAY_TZ",
+        "JSONB_PATH_QUERY_FIRST",
+        "JSONB_PATH_QUERY_FIRST_TZ"
+      ],
+      "result": "json-path-json",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-set",
+      "routines": ["JSONB_PATH_QUERY", "JSONB_PATH_QUERY_TZ"],
+      "result": "json-path-set",
+      "introduced": 14
+    },
+    { "name": "nullif", "routines": ["NULLIF"], "result": "nullif", "introduced": 14 },
+    { "name": "numeric-aggregate", "routines": ["AVG", "SUM"], "result": "numeric-aggregate", "introduced": 14 },
+    {
+      "name": "ordered-set-value",
+      "routines": ["MODE", "PERCENTILE_CONT", "PERCENTILE_DISC"],
+      "result": "ordered-set-value",
+      "introduced": 14
+    },
+    { "name": "string-aggregate", "routines": ["STRING_AGG"], "result": "string-aggregate", "introduced": 14 },
+    {
+      "name": "value-window",
+      "routines": ["FIRST_VALUE", "LAG", "LAST_VALUE", "LEAD", "NTH_VALUE"],
+      "result": "value-window",
+      "introduced": 14
+    }
+  ],
+  "tableRoutines": [
+    { "name": "array-elements", "routines": ["UNNEST"], "result": "array-elements", "introduced": 14 },
+    {
+      "name": "first-argument",
+      "routines": ["GENERATE_SERIES"],
+      "result": "first-argument",
+      "introduced": 14
+    },
+    { "name": "integer", "routines": ["GENERATE_SUBSCRIPTS"], "result": "integer", "introduced": 14 },
+    {
+      "name": "json-array-elements",
+      "routines": ["JSON_ARRAY_ELEMENTS", "JSONB_ARRAY_ELEMENTS"],
+      "result": "json-array-elements",
+      "introduced": 14
+    },
+    {
+      "name": "json-array-elements-text",
+      "routines": ["JSON_ARRAY_ELEMENTS_TEXT", "JSONB_ARRAY_ELEMENTS_TEXT"],
+      "result": "json-array-elements-text",
+      "introduced": 14
+    },
+    {
+      "name": "json-each",
+      "routines": ["JSON_EACH", "JSONB_EACH"],
+      "result": "json-each",
+      "introduced": 14
+    },
+    {
+      "name": "json-each-text",
+      "routines": ["JSON_EACH_TEXT", "JSONB_EACH_TEXT"],
+      "result": "json-each-text",
+      "introduced": 14
+    },
+    {
+      "name": "json-path-query",
+      "routines": ["JSONB_PATH_QUERY", "JSONB_PATH_QUERY_TZ"],
+      "result": "json-path-query",
+      "introduced": 14
+    },
+    {
+      "name": "record",
+      "routines": ["JSON_POPULATE_RECORDSET", "JSON_TO_RECORDSET", "JSONB_POPULATE_RECORDSET", "JSONB_TO_RECORDSET"],
+      "result": "record",
+      "introduced": 14
+    }
+  ]
+}

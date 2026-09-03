@@ -49,11 +49,12 @@ const stablePackages = [
   "conformance",
   "postgres",
   "mysql",
+  "sqlite",
   "cli",
 ] as const;
-const experimentalPackages = ["ts-bridge", "language-server", "sqlite"] as const;
+const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
-  ast: ["."],
+  ast: [".", "./toolkit"],
   core: ["."],
   opentelemetry: ["."],
   config: ["."],
@@ -61,7 +62,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   postgres: [".", "./runtime", "./pg"],
   mysql: [".", "./runtime", "./mysql2"],
   compiler: ["."],
-  conformance: ["."],
+  conformance: [".", "./v2"],
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview"],
   "language-server": ["."],
@@ -194,6 +195,7 @@ await describe("public package graph", async () => {
       await readFile(join(exampleDirectory, "package.json"), "utf8"),
     ) as PackageManifest;
     strict.deepStrictEqual(Object.keys(exampleManifest.dependencies ?? {}).sort(), [
+      "@typed-sql/ast",
       "@typed-sql/conformance",
       "@typed-sql/core",
       "@typed-sql/schema",
@@ -252,6 +254,7 @@ await describe("public package graph", async () => {
       experimentalPackages.map((name) => `@typed-sql/${name}`),
     );
     const releaseOrder = new Map(releaseManifest.packages.map((name, index) => [name, index]));
+    const experimentalNames = new Set(releaseManifest.packagePolicy.experimental);
     for (const packageName of publicPackages) {
       const packageManifest = await manifest(packageName);
       const releaseTrack = stablePackages.includes(packageName as (typeof stablePackages)[number])
@@ -265,6 +268,14 @@ await describe("public package graph", async () => {
       } else if (releaseTrack === "stable") strict.strictEqual(packageManifest.version, releaseManifest.series);
       else strict.ok(prereleasePattern.test(packageManifest.version ?? ""));
       strict.strictEqual(packageManifest.typedSql?.releaseTrack, releaseTrack);
+      if (releaseTrack === "stable") {
+        for (const dependency of Object.keys(packageManifest.dependencies ?? {})) {
+          strict.ok(
+            !experimentalNames.has(dependency),
+            `${packageManifest.name} stable package cannot depend on experimental ${dependency}`,
+          );
+        }
+      }
       strict.notStrictEqual(packageManifest.private, true);
       strict.strictEqual(packageManifest.license, "MIT");
       strict.strictEqual(packageManifest.author, "Lojhan");

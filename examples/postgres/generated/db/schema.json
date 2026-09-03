@@ -1,74 +1,170 @@
 {
-  "formatVersion": 1,
   "dialect": "postgres",
   "dialectVersion": "1.0.0",
-  "tables": {
-    "users": {
-      "name": "users",
-      "columns": {
-        "id": {
-          "name": "id",
-          "databaseType": "bigint",
-          "tsType": "bigint",
-          "nullable": false
-        },
-        "email": {
-          "name": "email",
-          "databaseType": "text",
-          "tsType": "string",
-          "nullable": false
-        },
-        "status": {
-          "name": "status",
-          "databaseType": "account_status",
-          "tsType": "\"active\" | \"suspended\"",
-          "nullable": false,
-          "defaultExpression": "'active'::account_status"
-        }
-      },
-      "schema": "public"
-    },
+  "formatVersion": 2,
+  "metadata": {
+    "generatorVersion": "1.0.0",
+    "schemaFormat": 2,
+    "schemaHash": "9d0e2f0a1d3db9d7ec0be39ee541261a28a7d6c178bbf8d82f4f688d8868523d",
+    "typePolicyHash": "fff28bed837f9e4a3ae6c99da77e301413c980a01d443522778c31079241a51c"
+  },
+  "namespaces": {
+    "public": {
+      "kind": "schema",
+      "name": "public"
+    }
+  },
+  "relations": {
     "projects": {
-      "name": "projects",
+      "capabilities": {
+        "evidenceComplete": false
+      },
       "columns": {
-        "id": {
-          "name": "id",
-          "databaseType": "bigint",
-          "tsType": "bigint",
-          "nullable": false
+        "budget": {
+          "classification": "normal",
+          "databaseType": "numeric(14,2)",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "budget",
+          "nullabilitySource": "unknown",
+          "nullable": true,
+          "position": 3,
+          "tsType": "string",
+          "typeIdentity": "numeric(14,2)",
+          "updatable": "unknown"
         },
-        "owner_id": {
-          "name": "owner_id",
+        "id": {
+          "classification": "normal",
           "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
           "tsType": "bigint",
-          "nullable": false
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
         },
         "name": {
-          "name": "name",
+          "classification": "normal",
           "databaseType": "text",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "name",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
           "tsType": "string",
-          "nullable": false
+          "typeIdentity": "text",
+          "updatable": "unknown"
         },
-        "budget": {
-          "name": "budget",
-          "databaseType": "numeric(14,2)",
-          "tsType": "string",
-          "nullable": true
+        "owner_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "owner_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
         }
       },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "projects",
+      "schema": "public"
+    },
+    "users": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "email": {
+          "classification": "normal",
+          "databaseType": "text",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "email",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "string",
+          "typeIdentity": "text",
+          "updatable": "unknown"
+        },
+        "id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "status": {
+          "classification": "normal",
+          "databaseType": "account_status",
+          "default": "present",
+          "defaultExpressionHash": "sha256:8acbc277dbb2b4c6cc692a23fb6d3b5ca396f9899f4525191056abcb17327674",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "status",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "\"active\" | \"suspended\"",
+          "typeIdentity": "account_status",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "users",
       "schema": "public"
     }
   },
-  "version": "18.4",
-  "enums": {
-    "account_status": [
-      "active",
-      "suspended"
-    ]
+  "routines": {},
+  "server": {
+    "features": [],
+    "product": "postgres",
+    "settings": {},
+    "version": "18.4",
+    "versionKey": "18.4"
   },
-  "metadata": {
-    "generatorVersion": "1.0.0",
-    "schemaHash": "654f9e33c1d58ea95c9287555e0e9a98e0e997a31164a48a6280bd433869b081",
-    "typePolicyHash": "fff28bed837f9e4a3ae6c99da77e301413c980a01d443522778c31079241a51c"
+  "types": {
+    "account_status": {
+      "databaseType": "account_status",
+      "identity": "account_status",
+      "kind": "enum",
+      "labels": [
+        "active",
+        "suspended"
+      ],
+      "name": "account_status",
+      "tsType": "\"active\" | \"suspended\""
+    }
   }
 }

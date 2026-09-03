@@ -53,6 +53,8 @@ export interface SqliteDatabase extends Database<SqliteTransaction> {
 export interface SqliteDatabaseOptions {
   readonly connection: SqliteConnectionLike;
   readonly ownsConnection?: boolean;
+  /** Maximum rendered cardinalities cached by each logical prepared factory. Defaults to 32. */
+  readonly preparedCardinalityVariantLimit?: number;
 }
 
 export const sqliteRenderer: SqlRenderer = Object.freeze({
@@ -382,7 +384,7 @@ export function createSqliteDatabase(options: SqliteDatabaseOptions): SqliteData
   return new SqliteDatabaseImplementation(
     options.connection,
     new ExclusiveQueue(),
-    createSqlitePreparedQueryState(),
+    createSqlitePreparedQueryState(options.preparedCardinalityVariantLimit),
     options.ownsConnection ?? false,
     0,
     true,

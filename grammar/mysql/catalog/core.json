@@ -1,0 +1,613 @@
+{
+  "formatVersion": 1,
+  "types": [
+    {
+      "name": "tinyint",
+      "aliases": [],
+      "mapping": "number",
+      "category": "numeric-integer",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "smallint",
+      "aliases": [],
+      "mapping": "number",
+      "category": "numeric-integer",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "mediumint",
+      "aliases": [],
+      "mapping": "number",
+      "category": "numeric-integer",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "int",
+      "aliases": ["integer"],
+      "mapping": "number",
+      "category": "numeric-integer",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "bigint",
+      "aliases": [],
+      "mapping": "bigint",
+      "category": "numeric-integer",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "decimal",
+      "aliases": ["dec", "fixed", "numeric"],
+      "mapping": "numeric",
+      "category": "numeric-decimal",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "float",
+      "aliases": [],
+      "mapping": "number",
+      "category": "numeric-approximate",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "double",
+      "aliases": ["real"],
+      "mapping": "number",
+      "category": "numeric-approximate",
+      "signedness": "both",
+      "introduced": "8.4"
+    },
+    {
+      "name": "bit",
+      "aliases": [],
+      "mapping": "bytes",
+      "category": "binary",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "boolean",
+      "aliases": ["bool"],
+      "mapping": "boolean",
+      "category": "boolean",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "char",
+      "aliases": ["character"],
+      "mapping": "string",
+      "category": "string",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "varchar",
+      "aliases": ["character varying"],
+      "mapping": "string",
+      "category": "string",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "text",
+      "aliases": ["tinytext", "mediumtext", "longtext"],
+      "mapping": "string",
+      "category": "string",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "binary",
+      "aliases": [],
+      "mapping": "bytes",
+      "category": "binary",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "varbinary",
+      "aliases": [],
+      "mapping": "bytes",
+      "category": "binary",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "blob",
+      "aliases": ["tinyblob", "mediumblob", "longblob"],
+      "mapping": "bytes",
+      "category": "binary",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "date",
+      "aliases": [],
+      "mapping": "date",
+      "category": "temporal",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "datetime",
+      "aliases": ["timestamp"],
+      "mapping": "date",
+      "category": "temporal",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "time",
+      "aliases": [],
+      "mapping": "string",
+      "category": "temporal",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "year",
+      "aliases": [],
+      "mapping": "number",
+      "category": "temporal",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    { "name": "json", "aliases": [], "mapping": "json", "category": "json", "signedness": "none", "introduced": "8.4" },
+    {
+      "name": "enum",
+      "aliases": [],
+      "mapping": "string",
+      "category": "collection",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "set",
+      "aliases": [],
+      "mapping": "string",
+      "category": "collection",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "geometry",
+      "aliases": [
+        "geometrycollection",
+        "linestring",
+        "multilinestring",
+        "multipoint",
+        "multipolygon",
+        "point",
+        "polygon"
+      ],
+      "mapping": "bytes",
+      "category": "spatial",
+      "signedness": "none",
+      "introduced": "8.4"
+    },
+    {
+      "name": "vector",
+      "aliases": [],
+      "mapping": "bytes",
+      "category": "vector",
+      "signedness": "none",
+      "introduced": "9.7"
+    }
+  ],
+  "coercions": [
+    {
+      "source": "tinyint",
+      "target": "bigint",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "smallint",
+      "target": "bigint",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "mediumint",
+      "target": "bigint",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "int",
+      "target": "bigint",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "bigint",
+      "target": "decimal",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "decimal",
+      "target": "double",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossy",
+      "introduced": "8.4"
+    },
+    {
+      "source": "float",
+      "target": "double",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "char",
+      "target": "varchar",
+      "contexts": ["assignment", "comparison", "explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "varchar",
+      "target": "text",
+      "contexts": ["assignment", "comparison", "explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "binary",
+      "target": "varbinary",
+      "contexts": ["assignment", "comparison", "explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "varbinary",
+      "target": "blob",
+      "contexts": ["assignment", "comparison", "explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "date",
+      "target": "datetime",
+      "contexts": ["assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "datetime",
+      "target": "date",
+      "contexts": ["assignment", "explicit"],
+      "safety": "lossy",
+      "introduced": "8.4"
+    },
+    {
+      "source": "boolean",
+      "target": "bigint",
+      "contexts": ["arithmetic", "assignment", "comparison", "explicit"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "json",
+      "target": "varchar",
+      "contexts": ["comparison", "explicit", "string"],
+      "safety": "warning",
+      "introduced": "8.4"
+    },
+    {
+      "source": "varchar",
+      "target": "double",
+      "contexts": ["arithmetic", "comparison", "explicit"],
+      "safety": "warning",
+      "introduced": "8.4"
+    },
+    {
+      "source": "text",
+      "target": "double",
+      "contexts": ["arithmetic", "comparison", "explicit"],
+      "safety": "warning",
+      "introduced": "8.4"
+    },
+    {
+      "source": "bigint",
+      "target": "varchar",
+      "contexts": ["explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "decimal",
+      "target": "varchar",
+      "contexts": ["explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "double",
+      "target": "varchar",
+      "contexts": ["explicit", "string"],
+      "safety": "lossy",
+      "introduced": "8.4"
+    },
+    {
+      "source": "date",
+      "target": "varchar",
+      "contexts": ["explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    },
+    {
+      "source": "datetime",
+      "target": "varchar",
+      "contexts": ["explicit", "string"],
+      "safety": "lossless",
+      "introduced": "8.4"
+    }
+  ],
+  "operators": [
+    {
+      "name": "comparison",
+      "operators": ["<", "<=", "<=>", "=", ">", ">=", "!=", "<>", "IS", "IS NOT", "LIKE", "NOT LIKE"],
+      "result": "boolean",
+      "introduced": "8.4"
+    },
+    { "name": "logical", "operators": ["AND", "OR", "XOR"], "result": "boolean", "introduced": "8.4" },
+    { "name": "numeric", "operators": ["%", "*", "+", "-", "/"], "result": "numeric", "introduced": "8.4" },
+    { "name": "bitwise", "operators": ["&", "^", "|", "<<", ">>"], "result": "bitwise", "introduced": "8.4" },
+    { "name": "json", "operators": ["->"], "result": "json", "introduced": "8.4" },
+    { "name": "json-text", "operators": ["->>"], "result": "json-text", "introduced": "8.4" }
+  ],
+  "routines": [
+    {
+      "name": "count",
+      "routines": ["COUNT"],
+      "result": "count",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "never",
+      "introduced": "8.4"
+    },
+    {
+      "name": "decimal-aggregate",
+      "routines": ["AVG", "SUM"],
+      "result": "decimal-aggregate",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "always",
+      "introduced": "8.4"
+    },
+    {
+      "name": "extrema",
+      "routines": ["MAX", "MIN"],
+      "result": "extrema",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "always",
+      "introduced": "8.4"
+    },
+    {
+      "name": "first-argument",
+      "routines": ["ANY_VALUE", "IFNULL", "NULLIF"],
+      "result": "first-argument",
+      "minimumArguments": 1,
+      "maximumArguments": 2,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "coalesce",
+      "routines": ["COALESCE"],
+      "result": "coalesce",
+      "minimumArguments": 1,
+      "maximumArguments": null,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "concat",
+      "routines": ["CONCAT"],
+      "result": "concat",
+      "minimumArguments": 1,
+      "maximumArguments": null,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "string",
+      "routines": [
+        "CHARSET",
+        "COLLATION",
+        "CONCAT_WS",
+        "DATABASE",
+        "GROUP_CONCAT",
+        "LOWER",
+        "LCASE",
+        "REPLACE",
+        "SUBSTRING",
+        "SUBSTR",
+        "TRIM",
+        "UPPER",
+        "UCASE",
+        "USER",
+        "CURRENT_USER",
+        "UUID",
+        "VERSION"
+      ],
+      "result": "string",
+      "minimumArguments": 0,
+      "maximumArguments": null,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "integer",
+      "routines": ["ASCII", "BIT_LENGTH", "CHAR_LENGTH", "CHARACTER_LENGTH", "JSON_LENGTH", "LENGTH", "LOCATE", "SIGN"],
+      "result": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 3,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "coercibility",
+      "routines": ["COERCIBILITY"],
+      "result": "coercibility",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "never",
+      "introduced": "8.4"
+    },
+    {
+      "name": "double",
+      "routines": [
+        "ABS",
+        "ACOS",
+        "ASIN",
+        "ATAN",
+        "ATAN2",
+        "CEIL",
+        "CEILING",
+        "COS",
+        "COT",
+        "EXP",
+        "FLOOR",
+        "LN",
+        "LOG",
+        "LOG10",
+        "LOG2",
+        "POW",
+        "POWER",
+        "RAND",
+        "ROUND",
+        "SIN",
+        "SQRT",
+        "TAN"
+      ],
+      "result": "double",
+      "minimumArguments": 0,
+      "maximumArguments": 2,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "json",
+      "routines": [
+        "JSON_ARRAY",
+        "JSON_ARRAYAGG",
+        "JSON_EXTRACT",
+        "JSON_OBJECT",
+        "JSON_OBJECTAGG",
+        "JSON_QUERY",
+        "JSON_VALUE"
+      ],
+      "result": "json",
+      "minimumArguments": 1,
+      "maximumArguments": null,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "bytes",
+      "routines": ["FROM_BASE64", "RANDOM_BYTES", "UNHEX"],
+      "result": "bytes",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "date",
+      "routines": ["CURDATE", "CURRENT_DATE", "CURRENT_TIMESTAMP", "NOW"],
+      "result": "date",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "nullability": "never",
+      "introduced": "8.4"
+    },
+    {
+      "name": "bigint-window",
+      "routines": ["DENSE_RANK", "NTILE", "RANK", "ROW_NUMBER"],
+      "result": "bigint",
+      "minimumArguments": 0,
+      "maximumArguments": 1,
+      "nullability": "never",
+      "introduced": "8.4"
+    },
+    {
+      "name": "double-window",
+      "routines": ["CUME_DIST", "PERCENT_RANK"],
+      "result": "double",
+      "minimumArguments": 0,
+      "maximumArguments": 0,
+      "nullability": "never",
+      "introduced": "8.4"
+    },
+    {
+      "name": "value-window",
+      "routines": ["FIRST_VALUE", "LAG", "LAST_VALUE", "LEAD", "NTH_VALUE"],
+      "result": "value-window",
+      "minimumArguments": 1,
+      "maximumArguments": 3,
+      "nullability": "arguments",
+      "introduced": "8.4"
+    },
+    {
+      "name": "vector-from-string",
+      "routines": ["STRING_TO_VECTOR", "TO_VECTOR"],
+      "result": "vector",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "arguments",
+      "introduced": "9.7"
+    },
+    {
+      "name": "vector-dimension",
+      "routines": ["VECTOR_DIM"],
+      "result": "integer",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "arguments",
+      "introduced": "9.7"
+    },
+    {
+      "name": "vector-to-string",
+      "routines": ["FROM_VECTOR", "VECTOR_TO_STRING"],
+      "result": "string",
+      "minimumArguments": 1,
+      "maximumArguments": 1,
+      "nullability": "arguments",
+      "introduced": "9.7"
+    }
+  ],
+  "collations": [
+    { "name": "binary", "characterSet": "binary", "unicode": false, "binary": true, "introduced": "8.4" },
+    { "name": "ascii_bin", "characterSet": "ascii", "unicode": false, "binary": true, "introduced": "8.4" },
+    { "name": "ascii_general_ci", "characterSet": "ascii", "unicode": false, "binary": false, "introduced": "8.4" },
+    { "name": "latin1_bin", "characterSet": "latin1", "unicode": false, "binary": true, "introduced": "8.4" },
+    { "name": "latin1_swedish_ci", "characterSet": "latin1", "unicode": false, "binary": false, "introduced": "8.4" },
+    { "name": "utf8mb3_bin", "characterSet": "utf8mb3", "unicode": true, "binary": true, "introduced": "8.4" },
+    { "name": "utf8mb3_general_ci", "characterSet": "utf8mb3", "unicode": true, "binary": false, "introduced": "8.4" },
+    { "name": "utf8mb4_bin", "characterSet": "utf8mb4", "unicode": true, "binary": true, "introduced": "8.4" },
+    { "name": "utf8mb4_0900_ai_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
+    { "name": "utf8mb4_0900_as_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
+    { "name": "utf8mb4_0900_as_cs", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
+    { "name": "utf8mb4_0900_bin", "characterSet": "utf8mb4", "unicode": true, "binary": true, "introduced": "8.4" },
+    { "name": "utf8mb4_general_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" },
+    { "name": "utf8mb4_unicode_ci", "characterSet": "utf8mb4", "unicode": true, "binary": false, "introduced": "8.4" }
+  ]
+}

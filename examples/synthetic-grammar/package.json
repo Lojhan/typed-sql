@@ -20,6 +20,7 @@
     "./conformance": "./dist/examples/synthetic-grammar/src/conformance.js"
   },
   "dependencies": {
+    "@typed-sql/ast": "workspace:*",
     "@typed-sql/conformance": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*"

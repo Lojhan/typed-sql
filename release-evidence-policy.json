@@ -1,0 +1,102 @@
+{
+  "formatVersion": 1,
+  "channels": {
+    "development": {
+      "required": ["quality", "typecheck", "unit"],
+      "stableClaimsAllowed": false
+    },
+    "beta": {
+      "required": ["quality", "typecheck", "unit", "soundness", "api", "packed-consumer", "conformance-smoke"],
+      "stableClaimsAllowed": false
+    },
+    "rc": {
+      "required": [
+        "quality",
+        "typecheck",
+        "unit",
+        "soundness",
+        "api",
+        "packed-consumer",
+        "conformance-smoke",
+        "database-matrix",
+        "typescript-editor-matrix",
+        "fuzz",
+        "mutation",
+        "performance",
+        "soak",
+        "artifact-integrity",
+        "vulnerability-audit"
+      ],
+      "stableClaimsAllowed": false
+    },
+    "stable": {
+      "required": [
+        "quality",
+        "typecheck",
+        "unit",
+        "soundness",
+        "api",
+        "packed-consumer",
+        "conformance-smoke",
+        "database-matrix",
+        "typescript-editor-matrix",
+        "fuzz",
+        "mutation",
+        "performance",
+        "soak",
+        "artifact-integrity",
+        "vulnerability-audit",
+        "source-candidate",
+        "security-review",
+        "provenance",
+        "partial-publication-retry",
+        "promotion-record"
+      ],
+      "stableClaimsAllowed": true,
+      "minimumSuccessfulCandidates": 1
+    }
+  },
+  "promotion": {
+    "package": [
+      "feature-ledger",
+      "conformance-reports",
+      "compatibility-matrix",
+      "performance-comparison",
+      "known-limitations",
+      "security-review",
+      "changesets",
+      "rollback-retry-procedure"
+    ],
+    "grammar": [
+      "feature-ledger",
+      "static-conformance",
+      "live-conformance",
+      "database-version-matrix",
+      "codec-parity",
+      "performance-comparison",
+      "known-limitations",
+      "security-review",
+      "changesets",
+      "rollback-retry-procedure"
+    ],
+    "editor": [
+      "batch-editor-parity",
+      "typescript-node-matrix",
+      "packaged-artifacts",
+      "latency-memory-soak",
+      "known-limitations",
+      "migration-guide",
+      "security-review",
+      "rollback-retry-procedure"
+    ]
+  },
+  "supportTargetChange": [
+    "support-policy",
+    "differential-matrix",
+    "conformance-reports",
+    "packed-consumer",
+    "performance-comparison",
+    "documentation",
+    "changeset"
+  ]
+}

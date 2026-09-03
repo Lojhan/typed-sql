@@ -60,6 +60,7 @@ export interface QueryPlanArtifact {
   readonly parameterMode: QueryPlanInspector["parameterMode"];
   readonly dialect: string;
   readonly manifestHash: string;
+  readonly schemaFormat?: 1 | 2;
   readonly schemaHash: string;
   readonly captureKey: string;
   readonly environment: QueryPlanEnvironment;
@@ -340,6 +341,7 @@ export async function captureQueryPlans(options: CaptureQueryPlansOptions): Prom
     parameterMode: options.inspector.parameterMode,
     dialect: options.inspector.dialect,
     manifestHash: manifestHash(options.manifest),
+    ...(options.manifest.schemaFormat === undefined ? {} : { schemaFormat: options.manifest.schemaFormat }),
     schemaHash: options.manifest.schemaHash,
     environment: normalizedEnvironment(await options.inspector.environment()),
     entries,
@@ -361,7 +363,9 @@ function compareEnvironment(current: QueryPlanArtifact, baseline: QueryPlanArtif
   const reasons: QueryPlanComparisonReason[] = [];
   if (current.dialect !== baseline.dialect) reasons.push("dialect-changed");
   if (current.environment.version !== baseline.environment.version) reasons.push("server-version-changed");
-  if (current.schemaHash !== baseline.schemaHash) reasons.push("schema-changed");
+  if (current.schemaFormat !== baseline.schemaFormat || current.schemaHash !== baseline.schemaHash) {
+    reasons.push("schema-changed");
+  }
   if (JSON.stringify(current.environment.settings) !== JSON.stringify(baseline.environment.settings)) {
     reasons.push("settings-changed");
   }
@@ -525,6 +529,9 @@ export function parseQueryPlanArtifact(value: unknown): QueryPlanArtifact {
     throw new TypeError("Query plan artifact parameterMode is unsupported");
   }
   fingerprint(artifact.manifestHash, "Query plan artifact manifestHash");
+  if (artifact.schemaFormat !== undefined && artifact.schemaFormat !== 1 && artifact.schemaFormat !== 2) {
+    throw new TypeError("Query plan artifact schemaFormat must be 1 or 2");
+  }
   fingerprint(artifact.schemaHash, "Query plan artifact schemaHash", false);
   fingerprint(artifact.captureKey, "Query plan artifact captureKey");
   if (!record(artifact.environment)) throw new TypeError("Query plan artifact environment must be an object");

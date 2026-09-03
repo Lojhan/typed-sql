@@ -1,13 +1,20 @@
 import { createHash } from "node:crypto";
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import type {
-  DialectPlugin,
-  QuerySemantics,
-  ResolvedColumn,
-  ResolvedParameter,
-  SchemaSnapshot,
-  SourceRange,
-  SqlDiagnostic,
+import {
+  ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION,
+  type ArtifactCompatibilityIdentity,
+  assessArtifactCompatibility,
+  CORE_ARTIFACT_COMPATIBILITY_VERSION,
+  type DialectCapabilityState,
+  type DialectCapabilityStates,
+  type DialectPlugin,
+  type QuerySemantics,
+  type ResolvedColumn,
+  type ResolvedParameter,
+  resolveDialectCapabilityStates,
+  type SchemaSnapshot,
+  type SourceRange,
+  type SqlDiagnostic,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { compileSource } from "./compiler.js";
@@ -76,6 +83,24 @@ export interface QueryManifestParameter {
   readonly databaseType?: string;
 }
 
+export interface QueryManifestRepeatedFragment {
+  readonly kind: "repeated-fragment";
+  readonly fingerprint: string;
+  readonly sourceSpan: SourceRange;
+  readonly element: {
+    readonly kind: "fragment";
+    readonly sqlSkeleton: string;
+    readonly fingerprint: string;
+  };
+  readonly separator: {
+    readonly kind: "static-fragment";
+    readonly text: string;
+    readonly fingerprint: string;
+  };
+  readonly minimumItems: 1;
+  readonly parameterPattern: readonly QueryManifestParameter[];
+}
+
 export interface QueryManifestVariant {
   readonly fingerprint: string;
   readonly choices: Readonly<Record<string, boolean>>;
@@ -84,6 +109,12 @@ export interface QueryManifestVariant {
   readonly columns: readonly QueryManifestColumn[];
   readonly parameters: readonly QueryManifestParameter[];
   readonly semantics: QueryManifestSemantics;
+  /** Evidence for declared dialect capabilities this variant actually uses. */
+  readonly capabilityEvidence?: readonly QueryManifestCapabilityEvidence[];
+}
+
+export interface QueryManifestCapabilityEvidence extends DialectCapabilityState {
+  readonly capability: string;
 }
 
 interface QueryManifestEntryBase {
@@ -98,8 +129,11 @@ export interface ResolvedQueryManifestEntry extends QueryManifestEntryBase {
   readonly rowType: string;
   readonly parameterType: string;
   readonly diagnostics: readonly QueryManifestDiagnostic[];
+  readonly repeatedFragments?: readonly QueryManifestRepeatedFragment[];
   readonly variants: readonly QueryManifestVariant[];
   readonly semantics: QueryManifestSemantics;
+  /** Evidence for declared dialect capabilities this query actually uses. */
+  readonly capabilityEvidence?: readonly QueryManifestCapabilityEvidence[];
 }
 
 export interface UnresolvedQueryManifestEntry extends QueryManifestEntryBase {
@@ -117,7 +151,11 @@ export interface QueryManifest {
   readonly dialect: {
     readonly id: string;
     readonly grammarVersion: string;
+    /** Hash of canonical grammar/server capability evidence used for this analysis. */
+    readonly capabilityFingerprint?: string;
   };
+  /** Schema contract used to produce this manifest; absent only on historical artifacts. */
+  readonly schemaFormat?: 1 | 2;
   readonly schemaHash: string;
   readonly typePolicyHash: string;
   readonly projects: readonly string[];
@@ -223,6 +261,18 @@ function manifestSemantics(semantics: QuerySemantics): QueryManifestSemantics {
   };
 }
 
+function manifestCapabilityEvidence(
+  semantics: QuerySemantics,
+  states: DialectCapabilityStates,
+): readonly QueryManifestCapabilityEvidence[] {
+  return [...new Set(semantics.capabilities)]
+    .sort(compareText)
+    .flatMap((capability): QueryManifestCapabilityEvidence[] => {
+      const state = states[capability];
+      return state === undefined ? [] : [{ capability, ...state }];
+    });
+}
+
 function entryId(dialect: string, location: QueryManifestLocation, identity: string): string {
   return `sha256:${sha256(`${dialect}\0${location.file}\0${location.range.start}\0${identity}`)}`;
 }
@@ -235,6 +285,7 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
   file: string,
   source: string,
   options: BuildQueryManifestOptions<Snapshot, Policy>,
+  capabilityStates: DialectCapabilityStates,
 ): readonly QueryManifestEntry[] {
   const compilation = compileSource({
     source,
@@ -271,16 +322,36 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
       diagnostics: compilation.diagnostics
         .filter((diagnostic) => inRange(diagnostic, query.range))
         .map(manifestDiagnostic),
-      variants: compiled.variants.map((variant) => ({
-        fingerprint: variant.fingerprint,
-        choices: choiceDescriptions(variant.choices),
-        rowType: variant.rowType,
-        parameterType: variant.parameterType,
-        columns: variant.columns.map(columnDescription),
-        parameters: variant.parameters.map(parameterDescription),
-        semantics: manifestSemantics(variant.semantics),
-      })),
+      ...(compiled.repeatedFragments === undefined
+        ? {}
+        : {
+            repeatedFragments: compiled.repeatedFragments.map(
+              (artifact): QueryManifestRepeatedFragment => ({
+                ...artifact,
+                sourceSpan: { ...artifact.sourceSpan },
+                element: { ...artifact.element },
+                separator: { ...artifact.separator },
+                parameterPattern: artifact.parameterPattern.map(parameterDescription),
+              }),
+            ),
+          }),
+      variants: compiled.variants.map((variant) => {
+        const capabilityEvidence = manifestCapabilityEvidence(variant.semantics, capabilityStates);
+        return {
+          fingerprint: variant.fingerprint,
+          choices: choiceDescriptions(variant.choices),
+          rowType: variant.rowType,
+          parameterType: variant.parameterType,
+          columns: variant.columns.map(columnDescription),
+          parameters: variant.parameters.map(parameterDescription),
+          semantics: manifestSemantics(variant.semantics),
+          ...(capabilityEvidence.length === 0 ? {} : { capabilityEvidence }),
+        };
+      }),
       semantics: manifestSemantics(compiled.semantics),
+      ...(manifestCapabilityEvidence(compiled.semantics, capabilityStates).length === 0
+        ? {}
+        : { capabilityEvidence: manifestCapabilityEvidence(compiled.semantics, capabilityStates) }),
     };
   });
   for (const dynamic of extractDynamicQueries(source, [options.dialect.sqlModule])) {
@@ -305,18 +376,58 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
 function compatiblePrevious(
   previous: QueryManifest | undefined,
   compilerVersion: string,
-  dialect: DialectPlugin,
+  dialect: Pick<DialectPlugin, "id" | "grammarVersion">,
+  capabilityFingerprint: string,
+  schemaFormat: 1 | 2,
   schemaHash: string,
   typePolicyHash: string,
 ): previous is QueryManifest {
+  if (previous?.schemaFormat === undefined || previous.dialect.capabilityFingerprint === undefined) return false;
+  const identity = (
+    manifest: Pick<
+      QueryManifest,
+      "formatVersion" | "compilerVersion" | "fingerprintAlgorithm" | "schemaHash" | "typePolicyHash"
+    > & {
+      readonly dialect: {
+        readonly id: string;
+        readonly grammarVersion: string;
+        readonly capabilityFingerprint: string;
+      };
+      readonly schemaFormat: 1 | 2;
+    },
+  ): ArtifactCompatibilityIdentity => ({
+    formatVersion: ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION,
+    artifact: {
+      kind: "query-manifest",
+      version: String(manifest.formatVersion),
+      algorithm: manifest.fingerprintAlgorithm,
+    },
+    producer: { core: CORE_ARTIFACT_COMPATIBILITY_VERSION, compiler: manifest.compilerVersion },
+    grammar: {
+      id: manifest.dialect.id,
+      version: manifest.dialect.grammarVersion,
+      capabilityFingerprint: manifest.dialect.capabilityFingerprint,
+    },
+    schema: { formatVersion: manifest.schemaFormat, hash: manifest.schemaHash },
+    typePolicyHash: manifest.typePolicyHash,
+  });
   return (
-    previous?.formatVersion === QUERY_MANIFEST_FORMAT_VERSION &&
-    previous.compilerVersion === compilerVersion &&
-    previous.fingerprintAlgorithm === QUERY_FINGERPRINT_ALGORITHM &&
-    previous.dialect.id === dialect.id &&
-    previous.dialect.grammarVersion === dialect.grammarVersion &&
-    previous.schemaHash === schemaHash &&
-    previous.typePolicyHash === typePolicyHash
+    assessArtifactCompatibility(
+      identity({
+        formatVersion: QUERY_MANIFEST_FORMAT_VERSION,
+        compilerVersion,
+        fingerprintAlgorithm: QUERY_FINGERPRINT_ALGORITHM,
+        dialect: { id: dialect.id, grammarVersion: dialect.grammarVersion, capabilityFingerprint },
+        schemaFormat,
+        schemaHash,
+        typePolicyHash,
+      }),
+      identity({
+        ...previous,
+        schemaFormat: previous.schemaFormat,
+        dialect: { ...previous.dialect, capabilityFingerprint: previous.dialect.capabilityFingerprint },
+      }),
+    ).outcome === "compatible"
   );
 }
 
@@ -329,6 +440,8 @@ export function buildQueryManifest<Snapshot extends SchemaSnapshot, Policy>(
   }
   const schemaHash = calculateSchemaHash(options.schema);
   const typePolicyHash = calculateTypePolicyHash(options.typePolicy ?? {});
+  const capabilityStates = resolveDialectCapabilityStates(options.dialect, options.schema, options.typePolicy);
+  const capabilityFingerprint = sha256(JSON.stringify(capabilityStates));
   const inputs = options.sources
     .map((input) => ({ input, file: portableRelative(options.rootDir, input.file), hash: sha256(input.source) }))
     .sort((left, right) => compareText(left.file, right.file));
@@ -339,6 +452,8 @@ export function buildQueryManifest<Snapshot extends SchemaSnapshot, Policy>(
     options.previous,
     options.compilerVersion,
     options.dialect,
+    capabilityFingerprint,
+    options.schema.formatVersion,
     schemaHash,
     typePolicyHash,
   );
@@ -357,7 +472,7 @@ export function buildQueryManifest<Snapshot extends SchemaSnapshot, Policy>(
       return previousEntries.get(file) ?? [];
     }
     analyzedFiles += 1;
-    return sourceEntries(file, input.source, options);
+    return sourceEntries(file, input.source, options, capabilityStates);
   });
   queries.sort(
     (left, right) =>
@@ -370,7 +485,12 @@ export function buildQueryManifest<Snapshot extends SchemaSnapshot, Policy>(
     formatVersion: QUERY_MANIFEST_FORMAT_VERSION,
     compilerVersion: options.compilerVersion,
     fingerprintAlgorithm: QUERY_FINGERPRINT_ALGORITHM,
-    dialect: { id: options.dialect.id, grammarVersion: options.dialect.grammarVersion },
+    dialect: {
+      id: options.dialect.id,
+      grammarVersion: options.dialect.grammarVersion,
+      capabilityFingerprint,
+    },
+    schemaFormat: options.schema.formatVersion,
     schemaHash,
     typePolicyHash,
     projects,
@@ -485,6 +605,43 @@ function assertSemantics(value: unknown, description: string): asserts value is 
   }
 }
 
+function assertCapabilityEvidence(
+  value: unknown,
+  description: string,
+): asserts value is readonly QueryManifestCapabilityEvidence[] {
+  if (!Array.isArray(value)) throw new TypeError(`${description} must be an array`);
+  const capabilities: string[] = [];
+  for (const item of value) {
+    if (!record(item)) throw new TypeError(`${description} entries must be objects`);
+    assertString(item.capability, `${description} capability`);
+    assertString(item.reason, `${description} reason`);
+    if (!/^[a-z][A-Za-z0-9]*$/u.test(item.capability) || item.reason.length === 0) {
+      throw new TypeError(`${description} contains an invalid capability or reason`);
+    }
+    if (!(item.level === "exact" || item.level === "conservative" || item.level === "unsupported")) {
+      throw new TypeError(`${description} contains an invalid capability level`);
+    }
+    for (const property of ["since", "until", "diagnostic"] as const) {
+      if (item[property] !== undefined) assertString(item[property], `${description} ${property}`);
+    }
+    if (!Array.isArray(item.evidence) || item.evidence.length === 0) {
+      throw new TypeError(`${description} entries require evidence`);
+    }
+    for (const evidence of item.evidence) {
+      if (!record(evidence)) throw new TypeError(`${description} evidence must contain objects`);
+      if (!(["server-version", "feature", "setting", "policy", "grammar"] as const).includes(evidence.kind as never)) {
+        throw new TypeError(`${description} contains an invalid evidence kind`);
+      }
+      assertString(evidence.key, `${description} evidence key`);
+      assertString(evidence.value, `${description} evidence value`);
+    }
+    capabilities.push(item.capability);
+  }
+  if (capabilities.some((capability, index) => capability !== [...new Set(capabilities)].sort(compareText)[index])) {
+    throw new TypeError(`${description} must be sorted and unique`);
+  }
+}
+
 function assertVariant(value: unknown, description: string): asserts value is QueryManifestVariant {
   if (!record(value)) throw new TypeError(`${description} must be an object`);
   assertString(value.fingerprint, `${description}.fingerprint`);
@@ -527,6 +684,52 @@ function assertVariant(value: unknown, description: string): asserts value is Qu
     }
   }
   assertSemantics(value.semantics, `${description} semantics`);
+  if (value.capabilityEvidence !== undefined) {
+    assertCapabilityEvidence(value.capabilityEvidence, `${description} capabilityEvidence`);
+  }
+}
+
+function assertRepeatedFragments(
+  value: unknown,
+  description: string,
+): asserts value is readonly QueryManifestRepeatedFragment[] {
+  if (!Array.isArray(value) || value.length === 0) throw new TypeError(`${description} must be a non-empty array`);
+  for (const artifact of value) {
+    if (!record(artifact) || artifact.kind !== "repeated-fragment" || artifact.minimumItems !== 1) {
+      throw new TypeError(`${description} entries must be repeated-fragment artifacts with minimumItems 1`);
+    }
+    assertString(artifact.fingerprint, `${description} fingerprint`);
+    if (!/^sha256:[a-f\d]{64}$/u.test(artifact.fingerprint))
+      throw new TypeError(`${description} fingerprint is invalid`);
+    assertRange(artifact.sourceSpan, `${description} sourceSpan`);
+    if (!record(artifact.element) || artifact.element.kind !== "fragment") {
+      throw new TypeError(`${description} element is invalid`);
+    }
+    assertString(artifact.element.sqlSkeleton, `${description} element sqlSkeleton`);
+    assertString(artifact.element.fingerprint, `${description} element fingerprint`);
+    if (!/^sha256:[a-f\d]{64}$/u.test(artifact.element.fingerprint)) {
+      throw new TypeError(`${description} element fingerprint is invalid`);
+    }
+    if (!record(artifact.separator) || artifact.separator.kind !== "static-fragment") {
+      throw new TypeError(`${description} separator is invalid`);
+    }
+    assertString(artifact.separator.text, `${description} separator text`);
+    assertString(artifact.separator.fingerprint, `${description} separator fingerprint`);
+    if (!/^sha256:[a-f\d]{64}$/u.test(artifact.separator.fingerprint)) {
+      throw new TypeError(`${description} separator fingerprint is invalid`);
+    }
+    if (!Array.isArray(artifact.parameterPattern))
+      throw new TypeError(`${description} parameterPattern must be an array`);
+    for (const [index, parameter] of artifact.parameterPattern.entries()) {
+      if (!record(parameter) || parameter.index !== index + 1 || typeof parameter.nullable !== "boolean") {
+        throw new TypeError(`${description} parameterPattern must use contiguous one-based parameters`);
+      }
+      assertString(parameter.tsType, `${description} parameter tsType`);
+      if (parameter.databaseType !== undefined) {
+        assertString(parameter.databaseType, `${description} parameter databaseType`);
+      }
+    }
+  }
 }
 
 export function parseQueryManifest(value: unknown): QueryManifest {
@@ -550,6 +753,16 @@ export function parseQueryManifest(value: unknown): QueryManifest {
     value.dialect.grammarVersion.length === 0
   ) {
     throw new TypeError("Query manifest dialect must contain id and grammarVersion");
+  }
+  if (
+    value.dialect.capabilityFingerprint !== undefined &&
+    (typeof value.dialect.capabilityFingerprint !== "string" ||
+      !/^[a-f\d]{64}$/u.test(value.dialect.capabilityFingerprint))
+  ) {
+    throw new TypeError("Query manifest dialect capabilityFingerprint must be a SHA-256 hash");
+  }
+  if (value.schemaFormat !== undefined && value.schemaFormat !== 1 && value.schemaFormat !== 2) {
+    throw new TypeError("Query manifest schemaFormat must be 1 or 2");
   }
   if (
     typeof value.schemaHash !== "string" ||
@@ -603,10 +816,16 @@ export function parseQueryManifest(value: unknown): QueryManifest {
         throw new TypeError("Resolved query manifest entries are incomplete");
       }
       assertDiagnostics(query.diagnostics, "Resolved query diagnostics");
+      if (query.repeatedFragments !== undefined) {
+        assertRepeatedFragments(query.repeatedFragments, "Resolved query repeatedFragments");
+      }
       for (const [index, variant] of query.variants.entries()) {
         assertVariant(variant, `Query manifest variant ${index}`);
       }
       assertSemantics(query.semantics, "Resolved query semantics");
+      if (query.capabilityEvidence !== undefined) {
+        assertCapabilityEvidence(query.capabilityEvidence, "Resolved query capabilityEvidence");
+      }
     } else if (query.status === "unresolved") {
       if (query.reason !== "diagnostic" && query.reason !== "dynamic") {
         throw new TypeError("Unresolved query manifest entries are incomplete");
@@ -653,6 +872,28 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
       properties: {
         kind: { enum: ["syntax", "schema", "conservative"] },
         range: { $ref: "#/$defs/range" },
+      },
+    },
+    capabilityStateEvidence: {
+      type: "object",
+      required: ["kind", "key", "value"],
+      properties: {
+        kind: { enum: ["server-version", "feature", "setting", "policy", "grammar"] },
+        key: { type: "string", minLength: 1 },
+        value: { type: "string", minLength: 1 },
+      },
+    },
+    capabilityEvidence: {
+      type: "object",
+      required: ["capability", "level", "reason", "evidence"],
+      properties: {
+        capability: { type: "string", pattern: "^[a-z][A-Za-z0-9]*$" },
+        level: { enum: ["exact", "conservative", "unsupported"] },
+        reason: { type: "string", minLength: 1 },
+        since: { type: "string", minLength: 1 },
+        until: { type: "string", minLength: 1 },
+        diagnostic: { type: "string", minLength: 1 },
+        evidence: { type: "array", minItems: 1, items: { $ref: "#/$defs/capabilityStateEvidence" } },
       },
     },
     fact: {
@@ -727,6 +968,35 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         databaseType: { type: "string" },
       },
     },
+    repeatedFragment: {
+      type: "object",
+      required: ["kind", "fingerprint", "sourceSpan", "element", "separator", "minimumItems", "parameterPattern"],
+      properties: {
+        kind: { const: "repeated-fragment" },
+        fingerprint: { $ref: "#/$defs/fingerprint" },
+        sourceSpan: { $ref: "#/$defs/range" },
+        element: {
+          type: "object",
+          required: ["kind", "sqlSkeleton", "fingerprint"],
+          properties: {
+            kind: { const: "fragment" },
+            sqlSkeleton: { type: "string" },
+            fingerprint: { $ref: "#/$defs/fingerprint" },
+          },
+        },
+        separator: {
+          type: "object",
+          required: ["kind", "text", "fingerprint"],
+          properties: {
+            kind: { const: "static-fragment" },
+            text: { type: "string" },
+            fingerprint: { $ref: "#/$defs/fingerprint" },
+          },
+        },
+        minimumItems: { const: 1 },
+        parameterPattern: { type: "array", items: { $ref: "#/$defs/parameter" } },
+      },
+    },
     variant: {
       type: "object",
       required: ["fingerprint", "choices", "rowType", "parameterType", "columns", "parameters", "semantics"],
@@ -742,6 +1012,7 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         columns: { type: "array", items: { $ref: "#/$defs/column" } },
         parameters: { type: "array", items: { $ref: "#/$defs/parameter" } },
         semantics: { $ref: "#/$defs/semantics" },
+        capabilityEvidence: { type: "array", items: { $ref: "#/$defs/capabilityEvidence" } },
       },
     },
     location: {
@@ -772,8 +1043,10 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
         rowType: { type: "string" },
         parameterType: { type: "string" },
         diagnostics: { type: "array", items: { $ref: "#/$defs/diagnostic" } },
+        repeatedFragments: { type: "array", minItems: 1, items: { $ref: "#/$defs/repeatedFragment" } },
         variants: { type: "array", minItems: 1, items: { $ref: "#/$defs/variant" } },
         semantics: { $ref: "#/$defs/semantics" },
+        capabilityEvidence: { type: "array", items: { $ref: "#/$defs/capabilityEvidence" } },
       },
     },
     unresolvedQuery: {
@@ -806,8 +1079,13 @@ export const QUERY_MANIFEST_JSON_SCHEMA = Object.freeze({
     dialect: {
       type: "object",
       required: ["id", "grammarVersion"],
-      properties: { id: { type: "string" }, grammarVersion: { type: "string" } },
+      properties: {
+        id: { type: "string" },
+        grammarVersion: { type: "string" },
+        capabilityFingerprint: { $ref: "#/$defs/hash" },
+      },
     },
+    schemaFormat: { enum: [1, 2] },
     schemaHash: { type: "string" },
     typePolicyHash: { type: "string" },
     projects: { type: "array", items: { $ref: "#/$defs/relativePath" } },

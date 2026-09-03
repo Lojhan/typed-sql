@@ -243,6 +243,10 @@ await describe("PostgreSQL runtime adapter", async () => {
 
   await it("uses policy-aware result codecs", () => {
     const defaults = createPostgresTypeParsers();
+    strict.strictEqual(defaults.getTypeParser(16)("t"), true);
+    strict.strictEqual(defaults.getTypeParser(23)("42"), 42);
+    strict.strictEqual(defaults.getTypeParser(701)("1.25"), 1.25);
+    strict.deepStrictEqual(defaults.getTypeParser(17)("\\x00ff"), new Uint8Array([0, 255]));
     strict.strictEqual(defaults.getTypeParser(20)("9007199254740993"), 9007199254740993n);
     strict.strictEqual(defaults.getTypeParser(1700)("12.50"), "12.50");
     strict.deepStrictEqual(defaults.getTypeParser(1016 as Parameters<typeof defaults.getTypeParser>[0])("{1,2,NULL}"), [
@@ -269,7 +273,7 @@ await describe("PostgreSQL runtime adapter", async () => {
       },
     };
     const delegated = createPostgresTypeParsers(undefined, undefined, native);
-    strict.deepStrictEqual(delegated.getTypeParser(23)("42"), { format: "text", input: "42", oid: 23 });
+    strict.strictEqual(delegated.getTypeParser(23)("42"), 42);
     strict.deepStrictEqual(delegated.getTypeParser(17, "binary")("raw"), { format: "binary", input: "raw", oid: 17 });
     strict.strictEqual(delegated.getTypeParser(20)("42"), 42n);
 
@@ -291,6 +295,29 @@ await describe("PostgreSQL runtime adapter", async () => {
     );
     strict.throws(() => defaults.getTypeParser(1016)("not-an-array"), /Invalid PostgreSQL array/);
     strict.throws(() => defaults.getTypeParser(1016)("{1,2"), /Unterminated PostgreSQL array/);
+    strict.throws(() => defaults.getTypeParser(17)("not-bytea"), /Invalid PostgreSQL bytea/);
+
+    const extensions = createPostgresTypeParsers(undefined, undefined, native, [
+      { oid: 16_384, arrayOid: 16_385, decode: (input) => String(input).slice(1, -1).split(",").map(Number) },
+    ]);
+    strict.deepStrictEqual(extensions.getTypeParser(16_384)("[1,2.5]"), [1, 2.5]);
+    strict.deepStrictEqual(extensions.getTypeParser(16_385)('{"[1,2]",NULL}'), [[1, 2], null]);
+    strict.throws(
+      () => createPostgresTypeParsers(undefined, undefined, native, [{ oid: 20, decode: String }]),
+      /conflicts with an existing codec/,
+    );
+    strict.throws(
+      () => createPostgresTypeParsers(undefined, undefined, native, [{ oid: 0, decode: String }]),
+      /positive safe integer/,
+    );
+    strict.throws(
+      () => createPostgresTypeParsers(undefined, undefined, native, [{ oid: 16_384, arrayOid: 0, decode: String }]),
+      /arrayOid must be a positive safe integer/,
+    );
+    strict.throws(
+      () => createPostgresTypeParsers(undefined, undefined, native, [{ oid: 16_384, arrayOid: 1000, decode: String }]),
+      /arrayOid 1000 conflicts/,
+    );
   });
 
   await it("executes parameterized queries and encodes bigint inputs", async () => {
@@ -367,6 +394,27 @@ await describe("PostgreSQL runtime adapter", async () => {
     strict.throws(() => db.prepare("bad\0name", () => sql`SELECT 1`), /non-empty.*NUL/);
     db.prepare("one", () => sql`SELECT 1`);
     strict.throws(() => db.prepare("one", () => sql`SELECT 1`), /already registered/);
+  });
+
+  await it("prepares a stable physical statement for each fragment-list cardinality", async () => {
+    const pool = new MockPool();
+    const db = createPostgresDatabase({ pool, preparedCardinalityVariantLimit: 2 });
+    const insert = db.prepare(
+      "insert-users",
+      (ids: readonly number[]) => sql`INSERT INTO users (id) VALUES ${ids.map((id) => sql.fragment`(${id})`)}`,
+    );
+
+    await db.execute(insert([1]));
+    await db.execute(insert([2, 3]));
+    await db.execute(insert([4]));
+    const calls = pool.calls as readonly PostgresQueryConfig[];
+    strict.strictEqual(calls[0]?.name, "insert-users");
+    strict.match(calls[1]?.name ?? "", /^tsqlv_[a-f\d]{56}$/u);
+    strict.notStrictEqual(calls[1]?.name, calls[0]?.name);
+    strict.strictEqual(calls[2]?.name, "insert-users");
+    strict.strictEqual(calls[0]?.text, "INSERT INTO users (id) VALUES ($1)");
+    strict.strictEqual(calls[1]?.text, "INSERT INTO users (id) VALUES ($1), ($2)");
+    strict.deepStrictEqual(calls[1]?.values, [2, 3]);
   });
 
   await it("rejects structural shape changes before driver dispatch", async () => {
@@ -930,7 +978,7 @@ await describe("PostgreSQL runtime adapter", async () => {
   await it("encodes nested bigint array parameters", async () => {
     const pool = new MockPool();
     const db = createPostgresDatabase({ pool });
-    await db.execute(sql`SELECT ${[1n, [2n]]}`);
+    await db.execute(sql`SELECT ${sql.value([1n, [2n]])}`);
     const call = pool.calls[0];
     if (call === undefined || typeof call === "string") strict.fail("Expected config");
     else strict.deepStrictEqual(call.values, [["1", ["2"]]]);

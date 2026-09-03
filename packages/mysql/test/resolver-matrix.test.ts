@@ -1,6 +1,6 @@
 import { describe, it, strict } from "poku";
-import { parseStatement } from "../../ast/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { parseStatement, SqlParseError } from "../src/parser/index.js";
 import { resolveMySqlStatement } from "../src/resolver.js";
 
 const schema = {
@@ -99,7 +99,7 @@ await describe("MySQL resolver safety matrix", async () => {
     strict.ok(codes("INSERT INTO missing (id) VALUES (1)").includes("TSQ100"));
     strict.ok(codes("UPDATE users SET budget = budget + 1 WHERE active = true").length === 0);
     strict.ok(codes("UPDATE users SET missing = 1").includes("TSQ101"));
-    strict.ok(codes("DELETE FROM users USING projects WHERE users.id = projects.owner_id").length === 0);
+    strict.ok(codes("DELETE FROM users USING users JOIN projects ON users.id = projects.owner_id").length === 0);
     strict.ok(codes("INSERT INTO users (id) VALUES (1) RETURNING id").includes("TSQ401"));
   });
 
@@ -131,11 +131,10 @@ await describe("MySQL resolver safety matrix", async () => {
     strict.strictEqual(result.columns.find((value) => value.name === "domain_value")?.tsType, "MoneyCode");
     strict.strictEqual(result.columns.find((value) => value.name === "owner")?.nullable, true);
 
-    const filter = resolveMySqlStatement(
-      parseStatement("SELECT COUNT(*) FILTER (WHERE active) AS filtered FROM users"),
-      schema,
+    strict.throws(
+      () => parseStatement("SELECT COUNT(*) FILTER (WHERE active) AS filtered FROM users"),
+      (error: unknown) => error instanceof SqlParseError && error.code === "TSQ001",
     );
-    strict.ok(filter.diagnostics.some((value) => value.code === "TSQ401"));
     strict.ok(codes("SELECT (SELECT id, owner_id FROM projects) AS bad FROM users").includes("TSQ216"));
     strict.ok(codes("SELECT missing FROM users").includes("TSQ101"));
     strict.ok(codes("SELECT nope.id FROM users").includes("TSQ103"));

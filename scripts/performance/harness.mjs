@@ -38,6 +38,7 @@ export function statistics(samples) {
     coefficientOfVariation: mean === 0 ? 0 : standardDeviation / Math.abs(mean),
     p50: percentile(values, 0.5),
     p95: percentile(values, 0.95),
+    p99: percentile(values, 0.99),
     maximum: Math.max(...values),
   };
 }

@@ -1,4 +1,3 @@
-import { parseStatement, SqlParseError } from "@typed-sql/ast";
 import {
   createRoutedDatabase,
   type Database,
@@ -11,6 +10,7 @@ import {
   unknownQuerySemantics,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { parseStatement, SqlParseError } from "./parser/index.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
@@ -44,7 +44,8 @@ export function createMySqlQuerySemanticResolver(options: MySqlQuerySemanticReso
       }
       let semantics: QuerySemantics;
       try {
-        const statement = parseStatement(source, { syntax: "mysql" });
+        const sqlMode = options.schema.server?.settings.sqlMode;
+        const statement = parseStatement(source, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
         const resolved = resolveMySqlStatement(statement, options.schema, { typePolicy: policy });
         semantics = resolved.diagnostics.some(({ severity }) => severity === "error")
           ? unknownQuerySemantics(statement.range, "MySQL runtime semantic analysis reported an error.")

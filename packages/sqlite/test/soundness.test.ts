@@ -6,6 +6,14 @@ const snapshot = parseSqliteSchemaSnapshot({
   formatVersion: 1,
   dialect: "sqlite",
   dialectVersion: "1.0.0",
+  version: "3.53.0",
+  server: {
+    product: "sqlite",
+    version: "3.53.0",
+    versionKey: "3.53.0",
+    features: [],
+    settings: {},
+  },
   tables: {
     account: {
       schema: "main",
@@ -141,7 +149,10 @@ await describe("SQLite soundness matrix", async () => {
       ["SELECT (SELECT id, email FROM account) AS invalid", "TSQ216"],
       ["SELECT id FROM account WHERE id IN (SELECT id, account_id FROM audit)", "TSQ217"],
       ["SELECT unknown_function(id) AS invalid FROM account", "TSQ202"],
-      ["WITH RECURSIVE selected AS (SELECT id FROM account) SELECT id FROM selected", "TSQ401"],
+      [
+        "WITH RECURSIVE selected(id) AS (SELECT selected.id FROM selected UNION ALL SELECT id FROM account) SELECT id FROM selected",
+        "TSQ220",
+      ],
       ["WITH selected(a, b) AS (SELECT id FROM account) SELECT a FROM selected", "TSQ213"],
       [
         "WITH selected AS (SELECT id FROM account), selected AS (SELECT id FROM audit) SELECT id FROM selected",
@@ -150,9 +161,9 @@ await describe("SQLite soundness matrix", async () => {
       ["SELECT id FROM missing", "TSQ100"],
       ["INSERT INTO account (id, email) VALUES (?)", "TSQ214"],
       ["INSERT INTO account (id) SELECT id, account_id FROM audit", "TSQ214"],
-      ["INSERT INTO account (generated) VALUES (?)", "TSQ401"],
+      ["INSERT INTO account (generated) VALUES (?)", "TSQ218"],
       ["UPDATE account SET missing = ?", "TSQ101"],
-      ["UPDATE account SET generated = ?", "TSQ401"],
+      ["UPDATE account SET generated = ?", "TSQ218"],
       ["DELETE FROM account USING audit", "TSQ401"],
     ];
     for (const [source, code] of matrix) strict.ok(errors(source).includes(code), `${source} should report ${code}`);

@@ -4,7 +4,8 @@ import { constants } from "node:fs";
 import { access, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import type { DialectPlugin, SchemaSnapshot, SqlDiagnostic } from "@typed-sql/core";
-import { compileSource } from "./compiler.js";
+import { analyzeSource, SOURCE_ANALYSIS_FORMAT_VERSION, type SourceAnalysisResult } from "./analysis.js";
+import { assertTypeScriptCompilerVersion } from "./typescript.js";
 
 export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly file: string;
@@ -14,6 +15,9 @@ export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapsh
   readonly project?: string;
   readonly runTypeScript?: boolean;
   readonly maxStructuralVariants?: number;
+  readonly maxSourceBytes?: number;
+  readonly maxQueries?: number;
+  readonly maxGeneratedDeclarationBytes?: number;
   readonly typeScriptTimeoutMs?: number;
 }
 
@@ -24,6 +28,7 @@ export interface TypeScriptCheckResult {
 }
 
 export interface CheckFileResult {
+  readonly analysis: SourceAnalysisResult;
   readonly transformedSource: string;
   readonly sqlDiagnostics: readonly SqlDiagnostic[];
   readonly typeScript?: TypeScriptCheckResult;
@@ -76,18 +81,33 @@ export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
     typeof options.schema === "string"
       ? options.dialect.validateSnapshot(JSON.parse(await readFile(resolve(options.schema), "utf8")) as unknown)
       : options.dialect.validateSnapshot(options.schema);
-  const compilation = compileSource({
-    source,
-    dialect: options.dialect,
-    schema,
-    ...(options.maxStructuralVariants === undefined ? {} : { maxStructuralVariants: options.maxStructuralVariants }),
-    ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-  });
-  const hasSqlErrors = compilation.diagnostics.some((diagnostic) => diagnostic.severity === "error");
+  const analysis = analyzeSource(
+    {
+      formatVersion: SOURCE_ANALYSIS_FORMAT_VERSION,
+      source: { id: file, text: source },
+      compiler: {
+        ...(options.maxStructuralVariants === undefined
+          ? {}
+          : { maxStructuralVariants: options.maxStructuralVariants }),
+        ...(options.maxSourceBytes === undefined ? {} : { maxSourceBytes: options.maxSourceBytes }),
+        ...(options.maxQueries === undefined ? {} : { maxQueries: options.maxQueries }),
+        ...(options.maxGeneratedDeclarationBytes === undefined
+          ? {}
+          : { maxGeneratedDeclarationBytes: options.maxGeneratedDeclarationBytes }),
+      },
+    },
+    {
+      dialect: options.dialect,
+      schema,
+      ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+    },
+  );
+  const hasSqlErrors = analysis.diagnostics.some((diagnostic) => diagnostic.severity === "error");
   if (hasSqlErrors || options.runTypeScript === false) {
     return {
-      transformedSource: compilation.transformedSource,
-      sqlDiagnostics: compilation.diagnostics,
+      analysis,
+      transformedSource: analysis.transformedSource,
+      sqlDiagnostics: analysis.diagnostics,
       ok: !hasSqlErrors,
     };
   }
@@ -108,13 +128,25 @@ export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
     files: [`./${overlay.slice(directory.length + 1)}`],
     include: [],
   };
-  await writeFile(overlay, compilation.transformedSource, "utf8");
+  const timeout = options.typeScriptTimeoutMs ?? 60_000;
+  if (!Number.isSafeInteger(timeout) || timeout < 1)
+    throw new TypeError("typeScriptTimeoutMs must be a positive safe integer");
+  const binary = await tscBinary(directory);
+  const versionResult = spawnSync(binary, ["--version"], {
+    cwd: directory,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+    timeout,
+  });
+  const versionMatch = /^Version\s+([^\s]+)\s*$/u.exec(String(versionResult.stdout ?? "").trim());
+  if (versionResult.status !== 0 || versionMatch?.[1] === undefined) {
+    const detail = `${versionResult.stderr ?? ""}${versionResult.error?.message ?? ""}`.trim();
+    throw new Error(`typed-sql could not determine the TypeScript compiler version${detail ? `: ${detail}` : ""}`);
+  }
+  assertTypeScriptCompilerVersion(versionMatch[1]);
+  await writeFile(overlay, analysis.transformedSource, "utf8");
   await writeFile(tempConfig, `${JSON.stringify(config, null, 2)}\n`, "utf8");
   try {
-    const binary = await tscBinary(directory);
-    const timeout = options.typeScriptTimeoutMs ?? 60_000;
-    if (!Number.isSafeInteger(timeout) || timeout < 1)
-      throw new TypeError("typeScriptTimeoutMs must be a positive safe integer");
     const result = spawnSync(binary, ["--project", tempConfig, "--pretty", "false"], {
       cwd: directory,
       encoding: "utf8",
@@ -126,8 +158,9 @@ export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
       .replaceAll(tempConfig.slice(directory.length + 1), configPath(directory, project));
     const typeScript = { exitCode: result.status ?? 1, output, command: `${binary} --project ${tempConfig}` };
     return {
-      transformedSource: compilation.transformedSource,
-      sqlDiagnostics: compilation.diagnostics,
+      analysis,
+      transformedSource: analysis.transformedSource,
+      sqlDiagnostics: analysis.diagnostics,
       typeScript,
       ok: typeScript.exitCode === 0,
     };

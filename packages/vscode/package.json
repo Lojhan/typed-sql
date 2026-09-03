@@ -79,6 +79,12 @@
           "default": 2000,
           "minimum": 1,
           "description": "Maximum TypeScript files preloaded by each workspace server."
+        },
+        "typedSql.analysisDebounceMs": {
+          "type": "number",
+          "default": 20,
+          "minimum": 0,
+          "description": "Delay before analyzing an edit so rapidly superseded document versions can be cancelled."
         }
       }
     }

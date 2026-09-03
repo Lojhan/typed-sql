@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/ts-bridge",
-  "version": "2.0.0-rc.2",
+  "version": "2.1.0-rc.0",
   "description": "Experimental TypeScript 7 preview semantic bridge for typed-sql query inference.",
   "license": "MIT",
   "author": "Lojhan",
@@ -28,7 +28,9 @@
     "access": "public"
   },
   "typedSql": {
-    "releaseTrack": "experimental"
+    "releaseTrack": "experimental",
+    "typescriptBackend": "typescript-7.1-native-preview",
+    "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
   },
   "sideEffects": false,
   "type": "module",

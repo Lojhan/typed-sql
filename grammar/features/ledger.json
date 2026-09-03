@@ -1,0 +1,2649 @@
+{
+  "formatVersion": 1,
+  "dialects": {
+    "mysql": {
+      "title": "MySQL",
+      "versionScheme": "major-minor",
+      "stable": [{ "minimum": "8.4", "maximum": "8.4" }, { "minimum": "9.7", "maximum": "9.7" }],
+      "canary": [{ "minimum": "26.7", "maximum": "26.7" }],
+      "sources": [
+        {
+          "title": "MySQL Innovation and LTS release model",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/mysql-releases.html"
+        }
+      ]
+    },
+    "postgres": {
+      "title": "PostgreSQL",
+      "versionScheme": "major",
+      "stable": [
+        { "minimum": "14", "maximum": "14" },
+        { "minimum": "15", "maximum": "15" },
+        { "minimum": "16", "maximum": "16" },
+        { "minimum": "17", "maximum": "17" },
+        { "minimum": "18", "maximum": "18" }
+      ],
+      "canary": [{ "minimum": "19", "maximum": "19" }],
+      "sources": [
+        {
+          "title": "PostgreSQL versioning policy",
+          "url": "https://www.postgresql.org/support/versioning/"
+        }
+      ]
+    },
+    "sqlite": {
+      "title": "SQLite",
+      "versionScheme": "numeric",
+      "stable": [{ "minimum": "3.39.0", "maximum": "3.53.4" }],
+      "canary": [{ "minimum": "3.54.0", "maximum": "3.54.0" }],
+      "sources": [
+        {
+          "title": "SQLite 3.39.0 release",
+          "url": "https://www.sqlite.org/releaselog/3_39_0.html",
+          "vendorVersion": "3.39.0"
+        },
+        {
+          "title": "SQLite release history",
+          "url": "https://www.sqlite.org/changes.html",
+          "vendorVersion": "3.53.4"
+        },
+        {
+          "title": "SQLite 3.54.0 prerelease snapshot",
+          "url": "https://www.sqlite.org/download.html",
+          "vendorVersion": "3.54.0"
+        }
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "expression.aggregate.filter",
+      "title": "Aggregate FILTER clause",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "aggregateFilter",
+      "coverage": ["ast:query.aggregate-filter", "diagnostic:mysql.aggregate-filter"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL aggregate expressions",
+          "url": "https://www.postgresql.org/docs/18/sql-expressions.html"
+        },
+        {
+          "title": "SQLite aggregate function syntax",
+          "url": "https://www.sqlite.org/lang_aggfunc.html"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.30.0",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.aggregate.within-group",
+      "title": "Ordered-set aggregate WITHIN GROUP syntax",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:postgres.aggregate-within-group",
+        "diagnostic:mysql.within-group",
+        "diagnostic:sqlite.within-group",
+        "resolver:postgres.ordered-set-aggregate"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL aggregate functions",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/aggregate-functions.html"
+        },
+        {
+          "title": "PostgreSQL aggregate expressions",
+          "url": "https://www.postgresql.org/docs/18/sql-expressions.html#SYNTAX-AGGREGATES"
+        },
+        { "title": "SQLite aggregate functions", "url": "https://www.sqlite.org/lang_aggfunc.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/ast/test/parser.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/ast/test/parser.test.ts"] }
+      }
+    },
+    {
+      "id": "expression.array.constructor",
+      "title": "Array constructor and expressions",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "arrays",
+      "coverage": [
+        "ast:expression.array",
+        "ast:node.array-expression",
+        "diagnostic:mysql.array-constructor",
+        "diagnostic:sqlite.array-constructor"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL array constructors",
+          "url": "https://www.postgresql.org/docs/18/sql-expressions.html#SQL-SYNTAX-ARRAY-CONSTRUCTORS"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.array.subscript",
+      "title": "PostgreSQL array subscripts and slices",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.subscript-expression",
+        "resolver:postgres.array-element-type",
+        "resolver:postgres.array-slice-type"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL array access",
+          "url": "https://www.postgresql.org/docs/18/arrays.html#ARRAYS-ACCESSING"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.at-local",
+      "title": "PostgreSQL AT LOCAL conversion",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.at-local-expression", "resolver:postgres.at-local-versioned-signatures"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL date/time local-zone conversion",
+          "url": "https://www.postgresql.org/docs/17/functions-datetime.html#FUNCTIONS-DATETIME-ZONECONVERT"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.at-time-zone",
+      "title": "PostgreSQL AT TIME ZONE conversion",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.at-time-zone-expression", "resolver:postgres.at-time-zone-signatures"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL date/time zone conversion",
+          "url": "https://www.postgresql.org/docs/18/functions-datetime.html#FUNCTIONS-DATETIME-ZONECONVERT"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.cast",
+      "title": "CAST expressions and type names",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.cast-expression", "ast:node.type-name", "resolver:postgres.cast-context-catalog"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL cast functions and operators",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/cast-functions.html"
+        },
+        {
+          "title": "PostgreSQL value expressions",
+          "url": "https://www.postgresql.org/docs/18/sql-expressions.html"
+        },
+        {
+          "title": "SQLite CAST expressions",
+          "url": "https://www.sqlite.org/lang_expr.html#castexpr"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "expression.collate",
+      "title": "Explicit expression collation",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:mysql.collate-expression",
+        "ast:postgres.collate-expression",
+        "resolver:mysql.collation-coercibility",
+        "resolver:postgres.collatable-type-validation"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "MySQL collation coercibility",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/charset-collation-coercibility.html"
+        },
+        {
+          "title": "PostgreSQL collation expressions",
+          "url": "https://www.postgresql.org/docs/18/sql-expressions.html#SQL-SYNTAX-COLLATE-EXPRS"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/type-resolution.test.ts"] },
+        "postgres": {
+          "level": "conservative",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.composite-field",
+      "title": "PostgreSQL composite field selection",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.field-access-expression", "resolver:postgres.snapshot-composite-field"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL composite type field access",
+          "url": "https://www.postgresql.org/docs/18/rowtypes.html#ROWTYPES-ACCESSING"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.function.call",
+      "title": "Catalog and application function calls",
+      "category": "function-family",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:node.call-expression",
+        "resolver:mysql.function-catalog",
+        "resolver:postgres.function-catalog",
+        "resolver:postgres.named-default-variadic-calls",
+        "resolver:postgres.polymorphic-candidate-selection",
+        "resolver:sqlite.function-catalog"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL built-in function reference",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/functions.html"
+        },
+        {
+          "title": "PostgreSQL functions and operators",
+          "url": "https://www.postgresql.org/docs/18/functions.html"
+        },
+        {
+          "title": "SQLite core functions",
+          "url": "https://www.sqlite.org/lang_corefunc.html"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "conservative",
+          "tests": ["packages/mysql/test/catalog.test.ts", "packages/mysql/test/type-resolution.test.ts"]
+        },
+        "postgres": { "level": "conservative", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "conservative",
+          "introduced": "3.39.0",
+          "tests": ["packages/sqlite/test/catalog.test.ts", "packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.function.date-time",
+      "title": "SQLite date and time functions and modifiers",
+      "category": "function-family",
+      "scope": "application-query",
+      "owner": "@typed-sql/sqlite",
+      "coverage": [
+        "resolver:sqlite.date-time-catalog",
+        "resolver:sqlite.date-time-modifiers",
+        "resolver:sqlite.date-time-nullability"
+      ],
+      "documentation": ["docs/dialects/sqlite.md", "docs/reference/type-mappings.md"],
+      "sources": [
+        {
+          "title": "SQLite date and time functions",
+          "url": "https://www.sqlite.org/lang_datefunc.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "out-of-scope", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "tests": ["packages/sqlite/test/catalog.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.function.json",
+      "title": "SQLite JSON and JSONB scalar, aggregate, operator, and table functions",
+      "category": "function-family",
+      "scope": "application-query",
+      "owner": "@typed-sql/sqlite",
+      "coverage": [
+        "ast:sqlite.table-function",
+        "resolver:sqlite.json-catalog",
+        "resolver:sqlite.json-operators",
+        "resolver:sqlite.json-table-functions"
+      ],
+      "documentation": ["docs/dialects/sqlite.md", "docs/reference/type-mappings.md"],
+      "sources": [
+        {
+          "title": "SQLite JSON functions and operators",
+          "url": "https://www.sqlite.org/json1.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "out-of-scope", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "conditions": ["compile options recorded", "omit_json absent"],
+          "tests": ["packages/sqlite/test/catalog.test.ts", "packages/sqlite/test/soundness.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.function.math-extensions",
+      "title": "SQLite compile-option math and extension functions",
+      "category": "function-family",
+      "scope": "application-query",
+      "owner": "@typed-sql/sqlite",
+      "coverage": [
+        "diagnostic:sqlite.compile-option-unavailable",
+        "resolver:sqlite.extension-catalog",
+        "resolver:sqlite.extension-table-functions",
+        "resolver:sqlite.math-catalog"
+      ],
+      "documentation": ["docs/dialects/sqlite.md", "docs/reference/type-mappings.md"],
+      "sources": [
+        {
+          "title": "SQLite carray table-valued function",
+          "url": "https://www.sqlite.org/carray.html"
+        },
+        {
+          "title": "SQLite built-in mathematical SQL functions",
+          "url": "https://www.sqlite.org/lang_mathfunc.html"
+        },
+        {
+          "title": "SQLite percentile extension",
+          "url": "https://www.sqlite.org/percentile.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "out-of-scope", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "conditions": ["compile options recorded", "routine-specific compile option present"],
+          "tests": ["packages/sqlite/test/catalog.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.function.registry",
+      "title": "SQLite application-defined scalar, aggregate, and window routine registry",
+      "category": "function-family",
+      "scope": "application-query",
+      "owner": "@typed-sql/sqlite",
+      "coverage": ["resolver:sqlite.application-routines", "schema:sqlite.application-routines"],
+      "documentation": ["docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "SQLite application-defined SQL functions",
+          "url": "https://www.sqlite.org/appfunc.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "out-of-scope", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "conditions": ["routine contract declared by the application"],
+          "tests": ["packages/sqlite/test/provider.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.interval-literal",
+      "title": "PostgreSQL interval literals and field qualifiers",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.interval-typed-literal",
+        "resolver:postgres.interval-field-and-precision-canonicalization"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL date/time and interval types",
+          "url": "https://www.postgresql.org/docs/18/datatype-datetime.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.json-path",
+      "title": "PostgreSQL JSON-path literals, operators, and core routines",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.jsonpath-typed-literal",
+        "resolver:postgres.jsonpath-operator-signatures",
+        "resolver:postgres.jsonpath-routine-signatures"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL JSON functions, operators, and SQL/JSON path language",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": [
+            "packages/postgres/test/parser-ownership.test.ts",
+            "packages/postgres/test/resolver.test.ts",
+            "packages/postgres/test/type-resolution.test.ts"
+          ]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.operator",
+      "title": "Unary and binary operators",
+      "category": "operator",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:node.binary-expression",
+        "ast:node.unary-expression",
+        "diagnostic:sqlite.vendor-operator",
+        "resolver:mysql.operator-catalog",
+        "resolver:postgres.core-type-families",
+        "resolver:postgres.geometric-operator-signatures",
+        "resolver:postgres.operator-candidate-selection",
+        "resolver:postgres.operator-catalog",
+        "resolver:postgres.scalar-operator-signatures",
+        "resolver:postgres.special-operator-signatures",
+        "resolver:postgres.unary-bitwise-operators",
+        "resolver:sqlite.operator-catalog"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL operator precedence",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/operator-precedence.html"
+        },
+        {
+          "title": "PostgreSQL operator precedence",
+          "url": "https://www.postgresql.org/docs/18/sql-syntax-lexical.html#SQL-PRECEDENCE"
+        },
+        {
+          "title": "PostgreSQL range and multirange operators",
+          "url": "https://www.postgresql.org/docs/18/functions-range.html"
+        },
+        {
+          "title": "PostgreSQL network address operators",
+          "url": "https://www.postgresql.org/docs/18/functions-net.html"
+        },
+        {
+          "title": "PostgreSQL text search operators",
+          "url": "https://www.postgresql.org/docs/18/functions-textsearch.html"
+        },
+        {
+          "title": "PostgreSQL JSON operators",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html"
+        },
+        {
+          "title": "PostgreSQL geometric operators",
+          "url": "https://www.postgresql.org/docs/18/functions-geometry.html"
+        },
+        {
+          "title": "PostgreSQL mathematical operators",
+          "url": "https://www.postgresql.org/docs/18/functions-math.html"
+        },
+        {
+          "title": "PostgreSQL bit string operators",
+          "url": "https://www.postgresql.org/docs/18/functions-bitstring.html"
+        },
+        {
+          "title": "PostgreSQL binary string operators",
+          "url": "https://www.postgresql.org/docs/18/functions-binarystring.html"
+        },
+        {
+          "title": "PostgreSQL monetary type",
+          "url": "https://www.postgresql.org/docs/18/datatype-money.html"
+        },
+        {
+          "title": "PostgreSQL pg_lsn type",
+          "url": "https://www.postgresql.org/docs/18/datatype-pg-lsn.html"
+        },
+        {
+          "title": "SQLite operators and parse-affecting attributes",
+          "url": "https://www.sqlite.org/lang_expr.html#operators_and_parse_affecting_attributes"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "conservative",
+          "tests": ["packages/mysql/test/catalog.test.ts", "packages/mysql/test/type-resolution.test.ts"]
+        },
+        "postgres": { "level": "conservative", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "conservative",
+          "introduced": "3.39.0",
+          "tests": ["packages/sqlite/test/catalog.test.ts", "packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.quantified-comparison",
+      "title": "ANY, SOME, and ALL comparisons",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.quantified-comparison-expression",
+        "resolver:postgres.quantified-array-comparison",
+        "resolver:postgres.quantified-subquery-comparison"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL array and subquery comparisons",
+          "url": "https://www.postgresql.org/docs/18/functions-comparisons.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.row-comparison",
+      "title": "Row constructor comparisons",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "resolver:postgres.row-comparison-arity",
+        "resolver:postgres.row-comparison-operators",
+        "resolver:postgres.row-in-list-and-subquery",
+        "resolver:postgres.snapshot-composite-comparison"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL row constructor comparison",
+          "url": "https://www.postgresql.org/docs/18/functions-comparisons.html#ROW-WISE-COMPARISON"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": { "level": "conservative", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "expression.scalar",
+      "title": "Columns, stars, literals, and parameters",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:node.column-expression",
+        "ast:node.literal-expression",
+        "ast:node.parameter-expression",
+        "ast:node.star-expression"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL expressions",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/expressions.html"
+        },
+        {
+          "title": "PostgreSQL value expressions",
+          "url": "https://www.postgresql.org/docs/18/sql-expressions.html"
+        },
+        {
+          "title": "SQLite expressions",
+          "url": "https://www.sqlite.org/lang_expr.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "expression.sql-json-aggregates",
+      "title": "PostgreSQL SQL/JSON object and array aggregates",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-aggregates",
+        "resolver:postgres.sql-json-aggregate-grouping",
+        "resolver:postgres.sql-json-aggregate-inputs",
+        "resolver:postgres.sql-json-aggregate-returns",
+        "resolver:postgres.sql-json-aggregate-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON aggregate functions",
+          "url": "https://www.postgresql.org/docs/18/functions-aggregate.html"
+        },
+        {
+          "title": "PostgreSQL 16 SQL/JSON aggregate additions",
+          "url": "https://www.postgresql.org/docs/16/release-16.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "16",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.sql-json-constructors",
+      "title": "PostgreSQL SQL/JSON object and array constructors",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-constructors",
+        "resolver:postgres.sql-json-constructor-inputs",
+        "resolver:postgres.sql-json-constructor-returns",
+        "resolver:postgres.sql-json-constructor-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON constructors",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-JSON-CREATION-TABLE"
+        },
+        {
+          "title": "PostgreSQL 16 SQL/JSON constructors",
+          "url": "https://www.postgresql.org/docs/16/release-16.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "16",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.sql-json-conversion",
+      "title": "PostgreSQL SQL/JSON parsing, scalar conversion, and serialization",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-conversion",
+        "resolver:postgres.sql-json-conversion-inputs",
+        "resolver:postgres.sql-json-conversion-returns",
+        "resolver:postgres.sql-json-conversion-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL JSON creation and conversion functions",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-JSON-CREATION-TABLE"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.sql-json-exists",
+      "title": "PostgreSQL SQL/JSON JSON_EXISTS expression",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-exists",
+        "resolver:postgres.sql-json-exists-inputs",
+        "resolver:postgres.sql-json-exists-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON query functions",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-QUERYING"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.sql-json-predicate",
+      "title": "PostgreSQL SQL/JSON IS JSON predicate",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-predicate",
+        "resolver:postgres.sql-json-predicate-inputs",
+        "resolver:postgres.sql-json-predicate-nullability",
+        "resolver:postgres.sql-json-predicate-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON testing functions",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-TESTING"
+        },
+        {
+          "title": "PostgreSQL 16 IS JSON checks",
+          "url": "https://www.postgresql.org/docs/16/release-16.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "16",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.sql-json-query",
+      "title": "PostgreSQL SQL/JSON JSON_QUERY expression",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-query",
+        "resolver:postgres.sql-json-query-behaviors",
+        "resolver:postgres.sql-json-query-returns",
+        "resolver:postgres.sql-json-query-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON query functions",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-QUERYING"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.sql-json-value",
+      "title": "PostgreSQL SQL/JSON JSON_VALUE expression",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-value",
+        "resolver:postgres.sql-json-value-behaviors",
+        "resolver:postgres.sql-json-value-returns",
+        "resolver:postgres.sql-json-value-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SQL/JSON query functions",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-QUERYING"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "expression.structured",
+      "title": "Row, CASE, predicate, and subquery expressions",
+      "category": "expression",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:node.between-expression",
+        "ast:node.case-branch",
+        "ast:node.case-expression",
+        "ast:node.exists-expression",
+        "ast:node.in-expression",
+        "ast:node.row-expression",
+        "ast:node.subquery-expression",
+        "resolver:postgres.in-equality-selection"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL expression syntax",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/expressions.html"
+        },
+        {
+          "title": "PostgreSQL subquery expressions",
+          "url": "https://www.postgresql.org/docs/18/functions-subquery.html"
+        },
+        {
+          "title": "SQLite expressions",
+          "url": "https://www.sqlite.org/lang_expr.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "lexical.structure",
+      "title": "Identifiers, literals, comments, parameters, tokens, and source ranges",
+      "category": "lexical",
+      "scope": "application-query",
+      "owner": "@typed-sql/ast",
+      "coverage": [
+        "ast:lexical.comments",
+        "ast:lexical.identifiers",
+        "ast:lexical.numbers",
+        "ast:lexical.parameters",
+        "ast:lexical.strings",
+        "ast:mysql.sql-mode-lexing",
+        "ast:node.identifier",
+        "ast:node.source-range",
+        "ast:node.sql-diagnostic",
+        "ast:node.token"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL lexical structure",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/language-structure.html"
+        },
+        {
+          "title": "MySQL server SQL modes",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/sql-mode.html"
+        },
+        {
+          "title": "PostgreSQL lexical structure",
+          "url": "https://www.postgresql.org/docs/18/sql-syntax-lexical.html"
+        },
+        {
+          "title": "SQLite SQL language keywords",
+          "url": "https://www.sqlite.org/lang_keywords.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/parser-ownership.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/ast/test/matrix.test.ts"] },
+        "sqlite": { "level": "conservative", "tests": ["packages/ast/test/parser.test.ts"] }
+      }
+    },
+    {
+      "id": "query.cte",
+      "title": "Ordinary common table expressions",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.common-table-expression", "ast:node.with-clause"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL WITH clause", "url": "https://dev.mysql.com/doc/refman/9.7/en/with.html" },
+        { "title": "PostgreSQL WITH queries", "url": "https://www.postgresql.org/docs/18/queries-with.html" },
+        { "title": "SQLite WITH clause", "url": "https://www.sqlite.org/lang_with.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "introduced": "8.0.1", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "introduced": "8.4", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "introduced": "3.8.3", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.distinct",
+      "title": "DISTINCT and ALL projection modifiers",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:query.distinct"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL SELECT", "url": "https://dev.mysql.com/doc/refman/9.7/en/select.html" },
+        { "title": "PostgreSQL SELECT", "url": "https://www.postgresql.org/docs/18/sql-select.html" },
+        { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.distinct-on",
+      "title": "DISTINCT ON",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "distinctOn",
+      "coverage": ["ast:query.distinct-on", "diagnostic:mysql.distinct-on", "diagnostic:sqlite.distinct-on"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SELECT",
+          "url": "https://www.postgresql.org/docs/18/sql-select.html"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.grouping",
+      "title": "GROUP BY, HAVING, and grammar-specific grouping forms",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:query.grouping",
+        "resolver:mysql.only-full-group-by",
+        "resolver:mysql.rollup",
+        "resolver:postgres.grouping-semantics"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL SELECT", "url": "https://dev.mysql.com/doc/refman/9.7/en/select.html" },
+        {
+          "title": "PostgreSQL table expressions",
+          "url": "https://www.postgresql.org/docs/18/queries-table-expressions.html#QUERIES-GROUP"
+        },
+        { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/query-structure.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.join",
+      "title": "Named, cross, inner, and outer joins",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.join-clause"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL joined tables", "url": "https://dev.mysql.com/doc/refman/9.7/en/join.html" },
+        {
+          "title": "PostgreSQL joined tables",
+          "url": "https://www.postgresql.org/docs/18/queries-table-expressions.html#QUERIES-JOIN"
+        },
+        { "title": "SQLite SELECT joins", "url": "https://www.sqlite.org/lang_select.html#rjoin" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.join.full",
+      "title": "FULL OUTER JOIN",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "fullJoins",
+      "coverage": ["ast:query.join-full", "diagnostic:mysql.full-join"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL joined tables",
+          "url": "https://www.postgresql.org/docs/18/queries-table-expressions.html#QUERIES-JOIN"
+        },
+        {
+          "title": "SQLite SELECT",
+          "url": "https://www.sqlite.org/lang_select.html"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.locking.read",
+      "title": "Locking read clauses",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "lockingReads",
+      "coverage": [
+        "ast:node.select-locking-clause",
+        "ast:query.locking",
+        "diagnostic:mysql.locking-target",
+        "diagnostic:sqlite.locking"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL locking reads",
+          "url": "https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html"
+        },
+        {
+          "title": "PostgreSQL SELECT locking clause",
+          "url": "https://www.postgresql.org/docs/18/sql-select.html#SQL-FOR-UPDATE-SHARE"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "exact",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.ordering-pagination",
+      "title": "Ordering, limiting, and offsetting rows",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:node.order-by-item",
+        "ast:postgres.fetch",
+        "ast:query.limit-offset",
+        "resolver:postgres.distinct-on-ordering"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL SELECT", "url": "https://dev.mysql.com/doc/refman/9.7/en/select.html" },
+        { "title": "PostgreSQL SELECT", "url": "https://www.postgresql.org/docs/18/sql-select.html" },
+        { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.projection",
+      "title": "Projection items, aliases, and output naming",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.select-item"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL SELECT", "url": "https://dev.mysql.com/doc/refman/9.7/en/select.html" },
+        { "title": "PostgreSQL select lists", "url": "https://www.postgresql.org/docs/18/queries-select-lists.html" },
+        { "title": "SQLite result columns", "url": "https://www.sqlite.org/lang_select.html#resultset" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.relation",
+      "title": "Named tables and derived table references",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.named-table-reference", "ast:node.subquery-table-reference"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL table references", "url": "https://dev.mysql.com/doc/refman/9.7/en/join.html" },
+        {
+          "title": "PostgreSQL table expressions",
+          "url": "https://www.postgresql.org/docs/18/queries-table-expressions.html"
+        },
+        { "title": "SQLite table or subquery syntax", "url": "https://www.sqlite.org/syntax/table-or-subquery.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "query.relation.derived-alias-optional",
+      "title": "PostgreSQL unaliased derived tables",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.unaliased-derived-table", "resolver:postgres.derived-table-version"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        { "title": "PostgreSQL 16 release notes", "url": "https://www.postgresql.org/docs/16/release-16.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "16",
+          "tests": ["packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "query.relation.function",
+      "title": "Function calls as table relations",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:postgres.function-table-reference",
+        "diagnostic:mysql.function-table-reference",
+        "resolver:postgres.function-table-reference"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL table references",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/join.html"
+        },
+        {
+          "title": "PostgreSQL SELECT function items",
+          "url": "https://www.postgresql.org/docs/18/sql-select.html#SQL-FROM"
+        },
+        { "title": "SQLite table-valued functions", "url": "https://www.sqlite.org/vtab.html#tabfunc2" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/catalog.test.ts"] }
+      }
+    },
+    {
+      "id": "query.relation.json-table",
+      "title": "PostgreSQL SQL/JSON JSON_TABLE row source",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "ast:postgres.sql-json-table",
+        "resolver:postgres.sql-json-table-columns",
+        "resolver:postgres.sql-json-table-version"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL JSON_TABLE",
+          "url": "https://www.postgresql.org/docs/18/functions-json.html#FUNCTIONS-SQLJSON-TABLE"
+        },
+        {
+          "title": "PostgreSQL 17 SQL/JSON additions",
+          "url": "https://www.postgresql.org/docs/17/release-17.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "17",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.relation.lateral",
+      "title": "LATERAL derived tables",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:query.lateral", "resolver:mysql.lateral-scope"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL lateral derived tables",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/lateral-derived-tables.html"
+        },
+        {
+          "title": "PostgreSQL LATERAL subqueries",
+          "url": "https://www.postgresql.org/docs/18/queries-table-expressions.html#QUERIES-LATERAL"
+        },
+        { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "exact",
+          "introduced": "8.0.14",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
+        },
+        "postgres": { "level": "exact", "introduced": "9.3", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.relation.rows-from",
+      "title": "PostgreSQL ROWS FROM and WITH ORDINALITY",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:postgres.rows-from",
+        "diagnostic:mysql.rows-from",
+        "diagnostic:sqlite.rows-from",
+        "resolver:postgres.rows-from"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL SELECT function items",
+          "url": "https://www.postgresql.org/docs/18/sql-select.html#SQL-FROM"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "query.relation.table-sample",
+      "title": "PostgreSQL TABLESAMPLE and REPEATABLE",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:postgres.table-sample",
+        "diagnostic:mysql.table-sample",
+        "diagnostic:sqlite.table-sample",
+        "resolver:postgres.table-sample"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL TABLESAMPLE",
+          "url": "https://www.postgresql.org/docs/18/sql-select.html#SQL-FROM"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "query.set-operation",
+      "title": "Set operations",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "setOperations",
+      "coverage": [
+        "ast:node.compound-select",
+        "ast:query.set-operations",
+        "resolver:mysql.set-operations",
+        "resolver:postgres.set-operations"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL set operations",
+          "url": "https://dev.mysql.com/doc/refman/8.4/en/set-operations.html"
+        },
+        {
+          "title": "PostgreSQL combining queries",
+          "url": "https://www.postgresql.org/docs/18/queries-union.html"
+        },
+        {
+          "title": "SQLite compound SELECT statements",
+          "url": "https://www.sqlite.org/lang_select.html#compound"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "exact",
+          "introduced": "8.0.31",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.window",
+      "title": "Named and inline window specifications",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:mysql.window-frame",
+        "ast:node.named-window",
+        "ast:node.window-specification",
+        "ast:postgres.window-frame",
+        "resolver:mysql.window-semantics",
+        "resolver:postgres.window-semantics"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL window functions", "url": "https://dev.mysql.com/doc/refman/9.7/en/window-functions.html" },
+        { "title": "PostgreSQL window functions", "url": "https://www.postgresql.org/docs/18/tutorial-window.html" },
+        { "title": "SQLite window functions", "url": "https://www.sqlite.org/windowfunctions.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "exact",
+          "introduced": "8.0",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "introduced": "8.4",
+          "tests": ["packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.25.0",
+          "tests": ["packages/sqlite/test/conformance.test.ts", "packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.with.recursive",
+      "title": "Recursive common table expressions",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "recursiveCtes",
+      "coverage": [
+        "ast:query.with-recursive",
+        "diagnostic:sqlite.recursive-cte-shape",
+        "resolver:mysql.recursive-cte",
+        "resolver:postgres.recursive-cte",
+        "resolver:sqlite.recursive-cte"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL recursive common table expressions",
+          "url": "https://dev.mysql.com/doc/refman/8.4/en/with.html"
+        },
+        {
+          "title": "PostgreSQL WITH queries",
+          "url": "https://www.postgresql.org/docs/18/queries-with.html"
+        },
+        {
+          "title": "SQLite WITH clause",
+          "url": "https://www.sqlite.org/lang_with.html"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "exact",
+          "introduced": "8.0.1",
+          "tests": ["packages/mysql/test/query-structure.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "introduced": "8.4",
+          "tests": ["packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.8.3",
+          "tests": ["packages/sqlite/test/conformance.test.ts", "packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "query.with.search-cycle",
+      "title": "Recursive CTE SEARCH and CYCLE clauses",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:query.with-search-cycle",
+        "diagnostic:mysql.with-search-cycle",
+        "diagnostic:sqlite.with-search-cycle",
+        "resolver:postgres.with-search-cycle"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL WITH queries",
+          "url": "https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-SEARCH"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "introduced": "14",
+          "tests": ["packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "resolver.catalog",
+      "title": "Catalog name, type, coercion, and nullability resolution",
+      "category": "coercion",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "resolver:mysql.catalog",
+        "resolver:mysql.coercion",
+        "resolver:mysql.nullability",
+        "resolver:postgres.catalog",
+        "resolver:postgres.coercion",
+        "resolver:postgres.nullability",
+        "resolver:sqlite.catalog",
+        "resolver:sqlite.coercion",
+        "resolver:sqlite.nullability"
+      ],
+      "documentation": ["docs/reference/type-mappings.md"],
+      "sources": [
+        { "title": "MySQL data types", "url": "https://dev.mysql.com/doc/refman/9.7/en/data-types.html" },
+        { "title": "PostgreSQL type conversion", "url": "https://www.postgresql.org/docs/18/typeconv.html" },
+        { "title": "SQLite type affinities", "url": "https://www.sqlite.org/datatype3.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "conservative",
+          "tests": [
+            "packages/mysql/test/catalog.test.ts",
+            "packages/mysql/test/resolver-matrix.test.ts",
+            "packages/mysql/test/type-resolution.test.ts"
+          ]
+        },
+        "postgres": { "level": "conservative", "tests": ["packages/postgres/test/resolver-matrix.test.ts"] },
+        "sqlite": {
+          "level": "conservative",
+          "introduced": "3.39.0",
+          "tests": ["packages/sqlite/test/catalog.test.ts", "packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "runtime.bulk-transfer",
+      "title": "Native bulk import and export capabilities",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": [
+        "diagnostic:sqlite.bulk-unsupported",
+        "runtime:mysql.bulk-load",
+        "runtime:postgres.copy",
+        "runtime:sqlite.bulk-unsupported"
+      ],
+      "documentation": ["docs/guides/bulk-data.md"],
+      "sources": [
+        {
+          "title": "MySQL LOAD DATA",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/load-data.html"
+        },
+        {
+          "title": "PostgreSQL COPY",
+          "url": "https://www.postgresql.org/docs/18/sql-copy.html"
+        },
+        {
+          "title": "SQLite C API backup interface",
+          "url": "https://www.sqlite.org/backup.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/bulk.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/bulk.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQL_UNSUPPORTED_ADAPTER_CAPABILITY",
+          "tests": ["packages/sqlite/test/runtime.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "runtime.codec-policy",
+      "title": "Compile-time and runtime type codec policy",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": ["runtime:mysql.decoding", "runtime:postgres.decoding", "runtime:sqlite.decoding"],
+      "documentation": ["docs/reference/type-mappings.md"],
+      "sources": [
+        {
+          "title": "MySQL binary protocol resultset row",
+          "url": "https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_binary_resultset.html"
+        },
+        {
+          "title": "PostgreSQL frontend/backend protocol data formats",
+          "url": "https://www.postgresql.org/docs/18/protocol-overview.html#PROTOCOL-FORMAT-CODES"
+        },
+        {
+          "title": "SQLite storage classes",
+          "url": "https://www.sqlite.org/datatype3.html#storage_classes_and_datatypes"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/runtime-decoding.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/runtime.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/runtime.test.ts"] }
+      }
+    },
+    {
+      "id": "runtime.execution",
+      "title": "Buffered, prepared, batched, and transactional execution",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": [
+        "runtime:mysql.batch",
+        "runtime:mysql.buffered",
+        "runtime:mysql.compatibility",
+        "runtime:mysql.prepared",
+        "runtime:mysql.prepared-cache",
+        "runtime:mysql.transaction",
+        "runtime:mysql.warnings",
+        "runtime:postgres.batch",
+        "runtime:postgres.buffered",
+        "runtime:postgres.prepared",
+        "runtime:postgres.transaction",
+        "runtime:sqlite.batch",
+        "runtime:sqlite.buffered",
+        "runtime:sqlite.prepared",
+        "runtime:sqlite.transaction"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/guides/execution.md"],
+      "sources": [
+        {
+          "title": "mysql2 prepared statements",
+          "url": "https://sidorares.github.io/node-mysql2/docs/documentation/prepared-statements"
+        },
+        {
+          "title": "MySQL SHOW WARNINGS statement",
+          "url": "https://dev.mysql.com/doc/refman/8.4/en/show-warnings.html"
+        },
+        { "title": "node-postgres queries", "url": "https://node-postgres.com/features/queries" },
+        { "title": "Node.js SQLite API", "url": "https://nodejs.org/api/sqlite.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "exact",
+          "tests": [
+            "packages/mysql/test/batch.test.ts",
+            "packages/mysql/test/execute-lifecycle.test.ts",
+            "packages/mysql/test/mysql2.test.ts"
+          ]
+        },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/runtime.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/runtime.test.ts"] }
+      }
+    },
+    {
+      "id": "runtime.execution-control",
+      "title": "Cancellation signals and absolute deadlines",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": [
+        "diagnostic:sqlite.execution-control",
+        "runtime:mysql.cancellation",
+        "runtime:postgres.cancellation",
+        "runtime:sqlite.cancellation"
+      ],
+      "documentation": ["docs/guides/execution.md"],
+      "sources": [
+        { "title": "mysql2 documentation", "url": "https://sidorares.github.io/node-mysql2/docs" },
+        { "title": "node-postgres documentation", "url": "https://node-postgres.com/" },
+        { "title": "Node.js SQLite API", "url": "https://nodejs.org/api/sqlite.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql2.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/pg.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQL_UNSUPPORTED_EXECUTION_CAPABILITY",
+          "tests": ["packages/sqlite/test/runtime-edge.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "runtime.extension-manifest.postgres",
+      "title": "Versioned PostgreSQL extension manifests",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": [
+        "resolver:postgres.extension-casts",
+        "resolver:postgres.extension-operators",
+        "resolver:postgres.extension-routines",
+        "runtime:postgres.extension-codecs",
+        "schema:postgres.extension-introspection",
+        "schema:postgres.extension-types"
+      ],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL extension packaging",
+          "url": "https://www.postgresql.org/docs/18/extend-extensions.html"
+        },
+        {
+          "title": "PostgreSQL extension catalog",
+          "url": "https://www.postgresql.org/docs/18/catalog-pg-extension.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ401", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/extension.test.ts", "packages/postgres/test/provider.test.ts"]
+        },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "runtime.introspection",
+      "title": "Schema and server-evidence introspection",
+      "category": "schema",
+      "scope": "application-query",
+      "owner": "@typed-sql/schema",
+      "coverage": [
+        "diagnostic:mysql.introspection-incomplete",
+        "schema:mysql.introspection",
+        "schema:mysql.snapshot-v2",
+        "schema:postgres.introspection",
+        "schema:sqlite.introspection"
+      ],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL INFORMATION_SCHEMA",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/information-schema.html"
+        },
+        { "title": "PostgreSQL system catalogs", "url": "https://www.postgresql.org/docs/18/catalogs.html" },
+        { "title": "SQLite pragma statements", "url": "https://www.sqlite.org/pragma.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/provider-runtime.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/provider.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "tests": [
+            "packages/sqlite/test/provider.test.ts",
+            "packages/sqlite/test/schema-sql.test.ts",
+            "packages/sqlite/test/snapshot.test.ts"
+          ]
+        }
+      }
+    },
+    {
+      "id": "runtime.pipeline.postgres",
+      "title": "PostgreSQL protocol pipeline execution",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["runtime:postgres.pipeline"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        {
+          "title": "node-postgres pipeline mode",
+          "url": "https://node-postgres.com/apis/client"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "out-of-scope",
+          "tests": ["packages/mysql/test/batch.test.ts"]
+        },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/pipeline.test.ts"] },
+        "sqlite": {
+          "level": "out-of-scope",
+          "tests": ["packages/sqlite/test/runtime.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "runtime.streaming",
+      "title": "Bounded asynchronous row streaming",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": ["runtime:mysql.streaming", "runtime:postgres.streaming", "runtime:sqlite.streaming"],
+      "documentation": ["docs/guides/execution.md"],
+      "sources": [
+        { "title": "mysql2 documentation", "url": "https://sidorares.github.io/node-mysql2/docs" },
+        {
+          "title": "pg-cursor package",
+          "url": "https://github.com/brianc/node-postgres/tree/master/packages/pg-cursor"
+        },
+        { "title": "Node.js SQLite StatementSync", "url": "https://nodejs.org/api/sqlite.html#class-statementsync" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/streaming.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/stream.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/runtime.test.ts"] }
+      }
+    },
+    {
+      "id": "runtime.verification-and-plans",
+      "title": "Live metadata verification and query-plan inspection",
+      "category": "runtime",
+      "scope": "application-query",
+      "owner": "@typed-sql/compiler",
+      "coverage": [
+        "diagnostic:sqlite.live-verification",
+        "runtime:mysql.live-verification",
+        "runtime:mysql.plan-inspection",
+        "runtime:postgres.live-verification",
+        "runtime:postgres.plan-inspection",
+        "runtime:sqlite.live-verification",
+        "runtime:sqlite.plan-inspection"
+      ],
+      "documentation": ["docs/guides/live-verification.md", "docs/guides/query-plan-governance.md"],
+      "sources": [
+        { "title": "MySQL EXPLAIN output", "url": "https://dev.mysql.com/doc/refman/9.7/en/explain-output.html" },
+        { "title": "PostgreSQL EXPLAIN", "url": "https://www.postgresql.org/docs/18/sql-explain.html" },
+        { "title": "SQLite EXPLAIN QUERY PLAN", "url": "https://www.sqlite.org/eqp.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/verification.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/verification.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQL_UNSUPPORTED_ADAPTER_CAPABILITY",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "schema.column.generated-assignment",
+      "title": "Generated-column insert and update restrictions",
+      "category": "schema",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["diagnostic:sqlite.generated-column-assignment"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "MySQL generated columns",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/create-table-generated-columns.html"
+        },
+        {
+          "title": "PostgreSQL generated columns",
+          "url": "https://www.postgresql.org/docs/18/ddl-generated-columns.html"
+        },
+        { "title": "SQLite generated columns", "url": "https://www.sqlite.org/gencol.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "conservative", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "schema.sqlite.structural-evidence",
+      "title": "SQLite rowid, generated, virtual, index, constraint, and attached-database evidence",
+      "category": "schema",
+      "scope": "application-query",
+      "owner": "@typed-sql/sqlite",
+      "coverage": ["schema:sqlite.rowid", "schema:sqlite.structural-evidence"],
+      "documentation": ["docs/dialects/sqlite.md", "docs/guides/schema-snapshots.md"],
+      "sources": [
+        { "title": "SQLite CREATE TABLE", "url": "https://www.sqlite.org/lang_createtable.html" },
+        { "title": "SQLite generated columns", "url": "https://www.sqlite.org/gencol.html" },
+        { "title": "SQLite pragma statements", "url": "https://www.sqlite.org/pragma.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "out-of-scope", "tests": ["packages/mysql/test/provider-runtime.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/provider.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.39.0",
+          "tests": [
+            "packages/sqlite/test/provider.test.ts",
+            "packages/sqlite/test/schema-sql.test.ts",
+            "packages/sqlite/test/snapshot.test.ts"
+          ]
+        }
+      }
+    },
+    {
+      "id": "schema.table.strict",
+      "title": "STRICT tables",
+      "category": "type-family",
+      "scope": "application-query",
+      "owner": "@typed-sql/sqlite",
+      "capability": "strictTables",
+      "coverage": ["schema:sqlite.strict-tables"],
+      "documentation": ["docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "SQLite STRICT tables",
+          "url": "https://www.sqlite.org/stricttables.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "out-of-scope", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.37.0",
+          "tests": ["packages/sqlite/test/snapshot.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "semantic.query-evidence",
+      "title": "Operation, dependency, cardinality, volatility, locking, and affinity evidence",
+      "category": "semantic",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": ["resolver:mysql.semantics", "resolver:postgres.semantics", "resolver:sqlite.semantics"],
+      "documentation": ["docs/concepts/architecture.md", "docs/guides/routing-and-retries.md"],
+      "sources": [
+        { "title": "MySQL optimization", "url": "https://dev.mysql.com/doc/refman/9.7/en/optimization.html" },
+        { "title": "PostgreSQL query planning", "url": "https://www.postgresql.org/docs/18/planner-optimizer.html" },
+        { "title": "SQLite query planner", "url": "https://www.sqlite.org/queryplanner.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/mysql/test/routing.test.ts"] },
+        "postgres": { "level": "conservative", "tests": ["packages/postgres/test/routing.test.ts"] },
+        "sqlite": { "level": "conservative", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.cte.data-modifying",
+      "title": "Data-modifying statements in common table expressions",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["diagnostic:sqlite.data-changing-cte"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL WITH clause", "url": "https://dev.mysql.com/doc/refman/9.7/en/with.html" },
+        {
+          "title": "PostgreSQL data-modifying statements in WITH",
+          "url": "https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-MODIFYING"
+        },
+        { "title": "SQLite WITH limitations", "url": "https://www.sqlite.org/lang_with.html#limitations_and_caveats" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "conservative",
+          "tests": ["packages/mysql/test/mysql.test.ts"],
+          "notes": "Compatibility parsing does not yet distinguish every MySQL CTE body restriction."
+        },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "statement.delete",
+      "title": "DELETE statements",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.delete-statement"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL DELETE", "url": "https://dev.mysql.com/doc/refman/9.7/en/delete.html" },
+        { "title": "PostgreSQL DELETE", "url": "https://www.postgresql.org/docs/18/sql-delete.html" },
+        { "title": "SQLite DELETE", "url": "https://www.sqlite.org/lang_delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.dml.delete-using",
+      "title": "DELETE USING source relations",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:dml.delete-using", "diagnostic:sqlite.delete-using"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL multiple-table DELETE", "url": "https://dev.mysql.com/doc/refman/9.7/en/delete.html" },
+        { "title": "PostgreSQL DELETE", "url": "https://www.postgresql.org/docs/18/sql-delete.html" },
+        { "title": "SQLite DELETE", "url": "https://www.sqlite.org/lang_delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "statement.dml.modifiers",
+      "title": "DML priority, IGNORE, QUICK, partition, ordering, and limit modifiers",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:mysql.dml-modifiers", "resolver:mysql.dml-tail-restrictions"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [
+        { "title": "MySQL INSERT", "url": "https://dev.mysql.com/doc/refman/9.7/en/insert.html" },
+        { "title": "MySQL UPDATE", "url": "https://dev.mysql.com/doc/refman/9.7/en/update.html" },
+        { "title": "MySQL DELETE", "url": "https://dev.mysql.com/doc/refman/9.7/en/delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.dml.multi-table",
+      "title": "MySQL multi-table UPDATE and DELETE",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/mysql",
+      "coverage": ["ast:mysql.multi-table-dml", "resolver:mysql.multi-table-write-targets"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [
+        { "title": "MySQL UPDATE", "url": "https://dev.mysql.com/doc/refman/9.7/en/update.html" },
+        { "title": "MySQL DELETE", "url": "https://dev.mysql.com/doc/refman/9.7/en/delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.dml.positioned-update-delete",
+      "title": "PostgreSQL positioned UPDATE and DELETE",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.current-of", "resolver:postgres.positioned-dml-affinity"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        { "title": "PostgreSQL UPDATE", "url": "https://www.postgresql.org/docs/18/sql-update.html" },
+        { "title": "PostgreSQL DELETE", "url": "https://www.postgresql.org/docs/18/sql-delete.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts", "packages/postgres/test/resolver-matrix.test.ts"]
+        },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.dml.returning",
+      "title": "DML RETURNING clause",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "capability": "returning",
+      "coverage": ["ast:dml.returning", "diagnostic:mysql.returning"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL returning data from modified rows",
+          "url": "https://www.postgresql.org/docs/18/dml-returning.html"
+        },
+        {
+          "title": "SQLite RETURNING clause",
+          "url": "https://www.sqlite.org/lang_returning.html"
+        }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "tests": ["packages/postgres/test/plugin.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.35.0",
+          "tests": ["packages/sqlite/test/conformance.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "statement.dml.returning-old-new",
+      "title": "PostgreSQL OLD and NEW RETURNING namespaces",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.returning-aliases", "resolver:postgres.returning-old-new"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        { "title": "PostgreSQL 18 DML RETURNING", "url": "https://www.postgresql.org/docs/18/dml-returning.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "introduced": "18", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.dml.update-from",
+      "title": "UPDATE FROM source relations",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:dml.update-from", "diagnostic:mysql.update-from"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL multiple-table UPDATE", "url": "https://dev.mysql.com/doc/refman/9.7/en/update.html" },
+        { "title": "PostgreSQL UPDATE", "url": "https://www.postgresql.org/docs/18/sql-update.html" },
+        { "title": "SQLite UPDATE FROM", "url": "https://www.sqlite.org/lang_update.html#update_from" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.33.0",
+          "tests": ["packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "statement.insert",
+      "title": "INSERT statements and multi-row VALUES sources",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.insert-statement", "ast:node.values-clause"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL INSERT", "url": "https://dev.mysql.com/doc/refman/9.7/en/insert.html" },
+        { "title": "PostgreSQL INSERT", "url": "https://www.postgresql.org/docs/18/sql-insert.html" },
+        { "title": "SQLite INSERT", "url": "https://www.sqlite.org/lang_insert.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.insert.conflict",
+      "title": "INSERT conflict handling and UPSERT clauses",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": [
+        "ast:postgres.on-conflict",
+        "ast:sqlite.conflict-algorithm",
+        "ast:sqlite.upsert-clause",
+        "diagnostic:sqlite.upsert-target",
+        "resolver:postgres.conflict-target",
+        "resolver:postgres.excluded-relation",
+        "resolver:sqlite.excluded-relation"
+      ],
+      "documentation": ["docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        {
+          "title": "PostgreSQL INSERT ON CONFLICT",
+          "url": "https://www.postgresql.org/docs/18/sql-insert.html#SQL-ON-CONFLICT"
+        },
+        { "title": "SQLite ON CONFLICT clause", "url": "https://www.sqlite.org/lang_conflict.html" },
+        { "title": "SQLite UPSERT clause", "url": "https://www.sqlite.org/lang_upsert.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": {
+          "level": "exact",
+          "introduced": "9.5",
+          "tests": ["packages/postgres/test/parser-ownership.test.ts", "packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": {
+          "level": "exact",
+          "introduced": "3.24.0",
+          "tests": ["packages/sqlite/test/parser-ownership.test.ts", "packages/sqlite/test/sqlite.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "statement.insert.default-values",
+      "title": "INSERT DEFAULT VALUES",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.default-values-clause", "diagnostic:mysql.default-values"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL INSERT", "url": "https://dev.mysql.com/doc/refman/9.7/en/insert.html" },
+        { "title": "PostgreSQL INSERT", "url": "https://www.postgresql.org/docs/18/sql-insert.html" },
+        { "title": "SQLite INSERT", "url": "https://www.sqlite.org/lang_insert.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "unsupported",
+          "diagnostic": "TSQ401",
+          "tests": ["packages/mysql/test/mysql.test.ts"]
+        },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.insert.duplicate-key",
+      "title": "MySQL ON DUPLICATE KEY UPDATE and inserted-row aliases",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/mysql",
+      "coverage": ["ast:mysql.on-duplicate-key", "resolver:mysql.inserted-row-alias"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [
+        {
+          "title": "MySQL INSERT ON DUPLICATE KEY UPDATE",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/insert-on-duplicate.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.insert.identity-overriding",
+      "title": "INSERT identity OVERRIDING clauses",
+      "category": "clause",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.insert-overriding", "resolver:postgres.identity-overriding"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [{ "title": "PostgreSQL INSERT", "url": "https://www.postgresql.org/docs/18/sql-insert.html" }],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/resolver.test.ts"] },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.merge",
+      "title": "Versioned PostgreSQL MERGE statements",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/postgres",
+      "coverage": ["ast:postgres.merge", "resolver:postgres.merge", "resolver:postgres.merge-version"],
+      "documentation": ["docs/dialects/postgresql.md"],
+      "sources": [
+        { "title": "PostgreSQL MERGE", "url": "https://www.postgresql.org/docs/18/sql-merge.html" },
+        { "title": "PostgreSQL 17 MERGE changes", "url": "https://www.postgresql.org/docs/17/release-17.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": {
+          "level": "exact",
+          "introduced": "15",
+          "tests": ["packages/postgres/test/resolver.test.ts"]
+        },
+        "sqlite": { "level": "unsupported", "diagnostic": "TSQ001", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.out-of-scope.commands",
+      "title": "Administrative, replication, maintenance, and procedural commands",
+      "category": "statement",
+      "scope": "out-of-scope",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["diagnostic:command.out-of-scope"],
+      "documentation": ["docs/reference/grammar-support.md"],
+      "sources": [
+        {
+          "title": "MySQL SQL statement reference",
+          "url": "https://dev.mysql.com/doc/refman/9.7/en/sql-statements.html"
+        },
+        { "title": "PostgreSQL SQL command reference", "url": "https://www.postgresql.org/docs/18/sql-commands.html" },
+        { "title": "SQLite SQL syntax", "url": "https://www.sqlite.org/lang.html" }
+      ],
+      "dialects": {
+        "mysql": {
+          "level": "out-of-scope",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/ast/test/parser.test.ts"]
+        },
+        "postgres": {
+          "level": "out-of-scope",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/ast/test/parser.test.ts"]
+        },
+        "sqlite": {
+          "level": "out-of-scope",
+          "diagnostic": "TSQ001",
+          "tests": ["packages/ast/test/parser.test.ts"]
+        }
+      }
+    },
+    {
+      "id": "statement.replace",
+      "title": "MySQL REPLACE statements",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/mysql",
+      "coverage": ["ast:mysql.replace", "resolver:mysql.replace-values"],
+      "documentation": ["docs/dialects/mysql.md"],
+      "sources": [{ "title": "MySQL REPLACE", "url": "https://dev.mysql.com/doc/refman/9.7/en/replace.html" }],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/dml.test.ts"] },
+        "postgres": { "level": "out-of-scope", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "out-of-scope", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.select",
+      "title": "SELECT statements",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.select-statement"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL SELECT", "url": "https://dev.mysql.com/doc/refman/9.7/en/select.html" },
+        { "title": "PostgreSQL SELECT", "url": "https://www.postgresql.org/docs/18/sql-select.html" },
+        { "title": "SQLite SELECT", "url": "https://www.sqlite.org/lang_select.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "statement.update",
+      "title": "UPDATE statements and assignments",
+      "category": "statement",
+      "scope": "application-query",
+      "owner": "@typed-sql/conformance",
+      "coverage": ["ast:node.update-assignment", "ast:node.update-statement"],
+      "documentation": ["docs/dialects/mysql.md", "docs/dialects/postgresql.md", "docs/dialects/sqlite.md"],
+      "sources": [
+        { "title": "MySQL UPDATE", "url": "https://dev.mysql.com/doc/refman/9.7/en/update.html" },
+        { "title": "PostgreSQL UPDATE", "url": "https://www.postgresql.org/docs/18/sql-update.html" },
+        { "title": "SQLite UPDATE", "url": "https://www.sqlite.org/lang_update.html" }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/conformance.test.ts"] }
+      }
+    },
+    {
+      "id": "tooling.compiler.artifacts",
+      "title": "Static extraction, generated declarations, and query manifests",
+      "category": "tooling",
+      "scope": "application-query",
+      "owner": "@typed-sql/compiler",
+      "coverage": ["tooling:compiler.extraction", "tooling:compiler.manifest", "tooling:compiler.types"],
+      "documentation": ["docs/guides/query-manifests.md"],
+      "sources": [
+        {
+          "title": "TypeScript compiler API",
+          "url": "https://github.com/microsoft/TypeScript/wiki/Using-the-Compiler-API"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/compiler/test/compiler.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/compiler/test/compiler.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/compiler/test/compiler.test.ts"] }
+      }
+    },
+    {
+      "id": "tooling.diagnostics",
+      "title": "Stable diagnostics, suggestions, and source spans",
+      "category": "tooling",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": ["diagnostic:core.registry", "tooling:diagnostics.ranges"],
+      "documentation": ["docs/reference/diagnostics.md"],
+      "sources": [
+        {
+          "title": "Language Server Protocol diagnostics",
+          "url": "https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#diagnostic"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/mysql/test/mysql.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/postgres/test/plugin.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/sqlite/test/sqlite.test.ts"] }
+      }
+    },
+    {
+      "id": "tooling.editor.integration",
+      "title": "TypeScript preview bridge and language-server analysis",
+      "category": "tooling",
+      "scope": "application-query",
+      "owner": "@typed-sql/language-server",
+      "coverage": ["tooling:editor.language-server", "tooling:typescript.preview-bridge"],
+      "documentation": ["docs/guides/editors.md"],
+      "sources": [
+        {
+          "title": "Language Server Protocol specification",
+          "url": "https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/"
+        },
+        {
+          "title": "TypeScript language service API",
+          "url": "https://github.com/microsoft/TypeScript/wiki/Using-the-Language-Service-API"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "conservative", "tests": ["packages/language-server/test/service.test.ts"] },
+        "postgres": { "level": "conservative", "tests": ["packages/language-server/test/service.test.ts"] },
+        "sqlite": { "level": "conservative", "tests": ["packages/language-server/test/service.test.ts"] }
+      }
+    },
+    {
+      "id": "tooling.parser.resource-limits",
+      "title": "Bounded SQL length, token count, and parse depth",
+      "category": "tooling",
+      "scope": "application-query",
+      "owner": "@typed-sql/ast",
+      "coverage": ["diagnostic:parser.resource-limit", "tooling:parser.bounded-work"],
+      "documentation": ["docs/reference/diagnostics.md"],
+      "sources": [
+        {
+          "title": "CWE-400 uncontrolled resource consumption",
+          "url": "https://cwe.mitre.org/data/definitions/400.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/ast/test/parser.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/ast/test/parser.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/ast/test/parser.test.ts"] }
+      }
+    },
+    {
+      "id": "tooling.structural-sql",
+      "title": "Explicit structural SQL and parameter-safe composition",
+      "category": "tooling",
+      "scope": "application-query",
+      "owner": "@typed-sql/core",
+      "coverage": ["tooling:sql.fragment", "tooling:sql.ident", "tooling:sql.raw"],
+      "documentation": ["docs/guides/composition.md"],
+      "sources": [
+        {
+          "title": "OWASP SQL injection prevention cheat sheet",
+          "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
+        }
+      ],
+      "dialects": {
+        "mysql": { "level": "exact", "tests": ["packages/core/test/query.test.ts"] },
+        "postgres": { "level": "exact", "tests": ["packages/core/test/query.test.ts"] },
+        "sqlite": { "level": "exact", "tests": ["packages/core/test/query.test.ts"] }
+      }
+    }
+  ]
+}

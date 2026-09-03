@@ -1,4 +1,3 @@
-import { type CallExpression, type Statement, walkStatement } from "@typed-sql/ast";
 import {
   defineQuerySemantics,
   QUERY_SEMANTICS_VERSION,
@@ -9,6 +8,7 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
 
 const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
   AVG: "immutable",
@@ -72,6 +72,11 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
         }
         if (current.distinctOn.length > 0) capabilities.add("distinctOn");
         if (current.joins.some(({ kind }) => kind === "full")) capabilities.add("fullJoins");
+      } else if (current.kind === "insert") {
+        if (current.operation === "replace") capabilities.add("replace");
+        if (current.duplicateKey.length > 0) capabilities.add("insertOnDuplicateKey");
+      } else if (current.joins.length > 0) {
+        capabilities.add("multiTableDml");
       }
     },
     table(table, owner, context) {
@@ -87,9 +92,21 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
       const matches = index.tables(table.name.name, table.schema?.name, table.name.quoted || table.schema?.quoted);
       const resolved = matches.length === 1 ? matches[0] : undefined;
       const schema = resolved?.table.schema ?? table.schema?.name;
+      const alias = table.alias?.name ?? table.name.name;
+      const writeTarget =
+        owner.kind === "insert"
+          ? owner.table === table
+          : owner.kind === "update"
+            ? owner.assignments.some(
+                ({ column }) =>
+                  column.relation === undefined || column.relation.name.toLowerCase() === alias.toLowerCase(),
+              )
+            : owner.kind === "delete"
+              ? owner.targets.some(({ name }) => name.toLowerCase() === alias.toLowerCase())
+              : false;
       const dependency: QueryDependency = {
         kind: "relation",
-        access: owner.kind !== "select" && owner.table === table ? "write" : "read",
+        access: writeTarget ? "write" : "read",
         name: resolved?.table.name ?? table.name.name,
         ...(schema === undefined ? {} : { schema }),
         certainty: resolved === undefined ? "syntactic" : "resolved",
@@ -99,9 +116,16 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
     },
     expression(expression, owner) {
       if (expression.kind === "column") {
+        const assignmentTarget =
+          owner.kind === "insert"
+            ? (owner.source.kind === "set" && owner.source.assignments.some(({ column }) => column === expression)) ||
+              owner.duplicateKey.some(({ column }) => column === expression)
+            : owner.kind === "update"
+              ? owner.assignments.some(({ column }) => column === expression)
+              : false;
         const dependency: QueryDependency = {
           kind: "column",
-          access: owner.kind === "select" ? "read" : "unknown",
+          access: assignmentTarget ? "write" : owner.kind === "select" ? "read" : "unknown",
           name: expression.column.name,
           ...(expression.relation === undefined ? {} : { parent: expression.relation.name }),
           certainty: "syntactic",
@@ -156,6 +180,7 @@ export function analyzeMySqlSemantics(statement: Statement, snapshot: SchemaSnap
           : "immutable";
   const exactOne =
     statement.kind === "select" &&
+    (statement.queryValues === undefined || statement.queryValues.rows.length === 1) &&
     statement.from === undefined &&
     statement.joins.length === 0 &&
     statement.where === undefined &&

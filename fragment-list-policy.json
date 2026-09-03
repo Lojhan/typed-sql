@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "separator": ", ",
+  "classification": {
+    "fragmentArray": "structural",
+    "nonEmptyValueArray": "parameter",
+    "emptyArray": "error",
+    "mixedArray": "error",
+    "nestedArray": "error",
+    "promiseArray": "error",
+    "iterable": "error"
+  },
+  "explicitEmptyChoices": ["sql.value", "sql.join", "sql.empty"],
+  "compilerSourceForms": ["direct-map", "fragment-array-literal"],
+  "limits": {
+    "items": 10000,
+    "parameters": 65535,
+    "renderedSqlBytes": 4194304,
+    "preparedCardinalityVariants": 32
+  },
+  "preparedCardinalityCache": "bounded-lru"
+}

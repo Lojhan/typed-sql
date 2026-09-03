@@ -1,5 +1,27 @@
 # @typed-sql/config
 
+## 2.1.0-rc.0
+
+### Minor Changes
+
+- 5d5d849: Add deterministic conformance failure injection and expose the bounded config and language-server cache defaults used by reliability suites.
+
+### Patch Changes
+
+- f902a97: Reuse a bounded content-addressed config module cache so repeated project and editor lifecycles do not retain a new TypeScript loader for unchanged configuration.
+- Updated dependencies [58bd4d1]
+- Updated dependencies [58aa9ef]
+- Updated dependencies [65b662f]
+- Updated dependencies [e433feb]
+- Updated dependencies [0efc90c]
+- Updated dependencies [ff0e3bb]
+- Updated dependencies [6f5b977]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+- Updated dependencies [1c64475]
+  - @typed-sql/core@2.1.0-rc.0
+
 ## 2.0.0
 
 ### Patch Changes

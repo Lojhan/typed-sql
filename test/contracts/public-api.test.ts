@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import type { SelectLockingClause, SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
+import * as astToolkitApi from "../../packages/ast/src/toolkit/index.js";
 import type {
   AnalyzeSchemaCompatibilityOptions,
   BuildQueryManifestOptions,
@@ -23,14 +24,17 @@ import type {
   ExtractedDynamicQuery,
   ExtractedInterpolation,
   ExtractedQuery,
+  FragmentArtifact,
   ListProjectSourceFilesOptions,
   QueryManifest,
   QueryManifestBuildStats,
+  QueryManifestCapabilityEvidence,
   QueryManifestColumn,
   QueryManifestDiagnostic,
   QueryManifestEntry,
   QueryManifestLocation,
   QueryManifestParameter,
+  QueryManifestRepeatedFragment,
   QueryManifestSemanticEvidence,
   QueryManifestSemanticFact,
   QueryManifestSemantics,
@@ -44,12 +48,14 @@ import type {
   QueryVerificationMismatchKind,
   QueryVerificationProof,
   QueryVerificationProofEntry,
+  RepeatedFragmentArtifact,
   ResolvedQueryManifestEntry,
   SchemaCompatibilityAssessment,
   SchemaCompatibilityChange,
   SchemaCompatibilityChangeKind,
   SchemaCompatibilityReport,
   SchemaCompatibilityTarget,
+  StaticFragmentArtifact,
   TypeScriptCheckResult,
   UnresolvedQueryManifestEntry,
   VerifyQueryManifestOptions,
@@ -60,28 +66,54 @@ import * as configApi from "../../packages/config/src/index.js";
 import type {
   CodecConformanceCase,
   CodecConformanceFixture,
+  FailureInjection,
+  FailureInjectionSnapshot,
+  FailureInjector,
+  FragmentListConformanceFixture,
+  FragmentListConformanceReport,
+  FragmentListDiagnosticCase,
+  FragmentListParameterExpectation,
+  FragmentListRenderCase,
   GrammarAnalysisProbe,
   GrammarCapabilityProbe,
   GrammarConformanceFixture,
   GrammarConformanceReport,
   GrammarDependencyExpectation,
+  GrammarDialectPolicy,
+  GrammarFeatureCategory,
+  GrammarFeatureEntry,
+  GrammarFeatureLedger,
+  GrammarFeatureScope,
+  GrammarFeatureSource,
+  GrammarFeatureSupport,
+  GrammarFeatureSupportLevel,
   GrammarPerformanceOptions,
   GrammarPerformanceResult,
   GrammarPolicyProbe,
   GrammarSemanticExpectation,
   GrammarStructuralProbe,
   GrammarUnsupportedProbe,
+  GrammarVersionRange,
+  GrammarVersionScheme,
   RequiredGrammarProbe,
   RuntimeAdapterConformanceFixture,
+  VersionedCapabilityConformanceFixture,
+  VersionedCapabilityExpectation,
+  VersionedCapabilityProbe,
 } from "../../packages/conformance/src/index.js";
 import * as conformanceApi from "../../packages/conformance/src/index.js";
+import * as conformanceV2Api from "../../packages/conformance/src/v2/index.js";
 import type {
   ActiveDatabaseObservation,
   AdapterCapability,
   AdapterCapabilityHost,
   AdapterCapabilityResolver,
   AdapterCapabilityService,
+  ArtifactCompatibilityAssessment,
+  ArtifactCompatibilityIdentity,
+  ArtifactCompatibilityOutcome,
   BatchOperationStart,
+  BooleanDialectCapabilities,
   ControlledQueryExecutor,
   Database,
   DatabaseObservation,
@@ -90,8 +122,20 @@ import type {
   DatabaseOperationCompletion,
   DatabaseOperationEnd,
   DatabaseOperationStart,
+  DebugEvent,
+  DebugEventInput,
+  DebugRedactionOptions,
   DialectCapabilities,
+  DialectCapabilityEvidence,
+  DialectCapabilityEvidenceKind,
+  DialectCapabilityHost,
+  DialectCapabilityIssue,
+  DialectCapabilityLevel,
+  DialectCapabilityState,
+  DialectCapabilityStates,
   DialectPlugin,
+  DialectServerEvidence,
+  DialectServerSetting,
   ExecutionCapabilities,
   ExecutionCapability,
   ExecutionOptions,
@@ -101,6 +145,7 @@ import type {
   LiveQueryVerificationServer,
   LiveQueryVerifier,
   OptionalSqlFragment,
+  PreparedQueryRenderVariant,
   Query,
   QueryBatch,
   QueryCancellationReason,
@@ -143,6 +188,7 @@ import type {
   SqlDiagnostic,
   SqlDiagnosticFix,
   SqlFragment,
+  SqlFragmentListErrorCode,
   SqlRenderer,
   SqlSegment,
   SqlTag,
@@ -150,6 +196,7 @@ import type {
   StandardTypedV1,
   StreamOperationStart,
   StreamOptions,
+  SupportBundle,
   TransactionDatabase,
   TransactionOperationStart,
   TransactionRetryContext,
@@ -159,6 +206,7 @@ import type {
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
+import * as languageServerApi from "../../packages/language-server/src/index.js";
 import type {
   MySqlBulkCapability,
   MySqlBulkProgress,
@@ -191,6 +239,12 @@ import type {
 } from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
+import * as sqliteApi from "../../packages/sqlite/src/index.js";
+import * as nodeSqliteApi from "../../packages/sqlite/src/node-sqlite.js";
+import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
+import * as tsBridgeApi from "../../packages/ts-bridge/src/index.js";
+import * as nativeLspApi from "../../packages/ts-bridge/src/native-lsp.js";
+import * as nativePreviewApi from "../../packages/ts-bridge/src/native-preview.js";
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
@@ -441,6 +495,9 @@ type ReferencedStableTypes =
   | CompiledQueryVariant
   | CompileSourceOptions<SchemaSnapshot, unknown>
   | CompileSourceResult
+  | FragmentArtifact
+  | RepeatedFragmentArtifact
+  | StaticFragmentArtifact
   | ExtractedDynamicQuery
   | ExtractedInterpolation
   | ExtractedQuery
@@ -451,14 +508,19 @@ type ReferencedStableTypes =
   | CompatibilityEvidenceValue
   | CompatibilityQueryReference
   | CompatibilitySeverity
+  | ArtifactCompatibilityAssessment
+  | ArtifactCompatibilityIdentity
+  | ArtifactCompatibilityOutcome
   | DeploymentDirection
   | QueryManifest
   | QueryManifestBuildStats
+  | QueryManifestCapabilityEvidence
   | QueryManifestColumn
   | QueryManifestDiagnostic
   | QueryManifestEntry
   | QueryManifestLocation
   | QueryManifestParameter
+  | QueryManifestRepeatedFragment
   | QueryManifestSemanticEvidence
   | QueryManifestSemanticFact
   | QueryManifestSemantics
@@ -484,6 +546,24 @@ type ReferencedStableTypes =
   | TypeScriptCheckResult
   | CodecConformanceCase<unknown, unknown>
   | CodecConformanceFixture<unknown, unknown>
+  | FailureInjection
+  | FailureInjectionSnapshot
+  | FailureInjector
+  | FragmentListConformanceFixture<SchemaSnapshot, unknown>
+  | FragmentListConformanceReport
+  | FragmentListDiagnosticCase
+  | FragmentListParameterExpectation
+  | FragmentListRenderCase
+  | GrammarDialectPolicy
+  | GrammarFeatureCategory
+  | GrammarFeatureEntry
+  | GrammarFeatureLedger
+  | GrammarFeatureScope
+  | GrammarFeatureSource
+  | GrammarFeatureSupport
+  | GrammarFeatureSupportLevel
+  | GrammarVersionRange
+  | GrammarVersionScheme
   | GrammarAnalysisProbe
   | GrammarCapabilityProbe
   | GrammarConformanceFixture<SchemaSnapshot, unknown>
@@ -497,7 +577,11 @@ type ReferencedStableTypes =
   | GrammarUnsupportedProbe
   | RequiredGrammarProbe
   | RuntimeAdapterConformanceFixture<Account, readonly [bigint]>
+  | VersionedCapabilityConformanceFixture<SchemaSnapshot, unknown>
+  | VersionedCapabilityExpectation
+  | VersionedCapabilityProbe<SchemaSnapshot, unknown>
   | ControlledQueryExecutor
+  | PreparedQueryRenderVariant
   | ActiveDatabaseObservation
   | AdapterCapability<CapabilityService>
   | AdapterCapabilityHost
@@ -510,8 +594,21 @@ type ReferencedStableTypes =
   | DatabaseOperationCompletion
   | DatabaseOperationEnd
   | DatabaseOperationStart
+  | DebugEvent
+  | DebugEventInput
+  | DebugRedactionOptions
+  | BooleanDialectCapabilities
+  | DialectCapabilityEvidence
+  | DialectCapabilityEvidenceKind
+  | DialectCapabilityHost<SchemaSnapshot>
+  | DialectCapabilityIssue
+  | DialectCapabilityLevel
+  | DialectCapabilityState
+  | DialectCapabilityStates
   | DialectCapabilities
   | DialectPlugin
+  | DialectServerEvidence
+  | DialectServerSetting
   | ExecutionCapabilities
   | ExecutionCapability
   | ExecutionOptions
@@ -554,11 +651,13 @@ type ReferencedStableTypes =
   | RoutedDatabaseOptions
   | RoutedTransactionOptions
   | SqlFragment
+  | SqlFragmentListErrorCode
   | SqlDiagnostic
   | SqlDiagnosticFix
   | SqlRenderer
   | SqlSegment
   | SqlTag
+  | SupportBundle
   | SqlAstVisitor
   | SqlAstContext
   | SelectLockingClause
@@ -637,7 +736,24 @@ const expectedRuntimeExports = {
     "tokenize",
     "walkStatement",
   ],
+  astToolkit: [
+    "DEFAULT_MAX_PARSE_DEPTH",
+    "DEFAULT_MAX_SQL_LENGTH",
+    "DEFAULT_MAX_TOKENS",
+    "SQL_PARSER_TOOLKIT_VERSION",
+    "SqlToolkitError",
+    "TokenCursor",
+    "definePrecedenceTable",
+    "defineSqlLexicalProfile",
+    "mergeSourceRanges",
+    "tokenizeSql",
+    "walkTree",
+  ],
   compiler: [
+    "DEFAULT_MAX_GENERATED_DECLARATION_BYTES",
+    "DEFAULT_MAX_QUERIES",
+    "DEFAULT_MAX_SOURCE_BYTES",
+    "DEFAULT_MAX_STRUCTURAL_VARIANTS",
     "QUERY_FINGERPRINT_ALGORITHM",
     "QUERY_MANIFEST_FORMAT_VERSION",
     "QUERY_MANIFEST_JSON_SCHEMA",
@@ -648,12 +764,18 @@ const expectedRuntimeExports = {
     "QUERY_VERIFIER_VERSION",
     "SCHEMA_COMPATIBILITY_ANALYZER_VERSION",
     "SCHEMA_COMPATIBILITY_FORMAT_VERSION",
+    "SOURCE_ANALYSIS_FORMAT_VERSION",
+    "TYPESCRIPT_COMPILER_SUPPORT_POLICY",
+    "TypeScriptCompilerCompatibilityError",
     "analyzeSchemaCompatibility",
+    "analyzeSource",
+    "assertTypeScriptCompilerVersion",
     "assertQueryVerificationProofCurrent",
     "buildQueryManifest",
     "captureQueryPlans",
     "checkFile",
     "compileSource",
+    "createSourceAnalysisService",
     "collectQueryVerificationCandidates",
     "extractDynamicQueries",
     "extractStaticQueries",
@@ -670,20 +792,56 @@ const expectedRuntimeExports = {
     "serializeQueryPlanReviewReport",
     "serializeQueryVerificationProof",
     "serializeSchemaCompatibilityReport",
+    "typeScriptCompilerVersionSupport",
     "verifyQueryManifest",
   ],
   conformance: [
+    "ConformanceInjectedFailure",
+    "FEATURE_LEDGER_FORMAT_VERSION",
     "GRAMMAR_CONFORMANCE_VERSION",
+    "INJECTED_FAILURE_CODE",
     "REQUIRED_GRAMMAR_PROBES",
     "assertCodecConformance",
+    "assertFragmentListConformance",
     "assertGrammarConformance",
     "assertRuntimeAdapterConformance",
+    "assertVersionedCapabilityConformance",
+    "compareGrammarVersions",
+    "createFailureInjector",
     "defineCodecConformanceFixture",
     "defineGrammarConformanceFixture",
+    "defineGrammarFeatureLedger",
+    "featureSupport",
+    "featureSupportAtVersion",
+    "grammarVersionInRange",
     "measureGrammarPerformance",
+    "parseGrammarFeatureLedger",
   ],
-  config: ["discoverConfig", "fromConfig", "loadConfig"],
+  conformanceV2: [
+    "CONFORMANCE_LAYERS",
+    "CONFORMANCE_REPORT_FORMAT_VERSION",
+    "CONFORMANCE_VERSION",
+    "adaptGrammarConformanceV1",
+    "assertExactConformance",
+    "createConformanceReport",
+    "createConformanceReproductionBundle",
+    "defineConformanceProbe",
+    "defineConformanceSuite",
+    "discoverConformanceFixtures",
+    "formatConformanceReport",
+    "minimizeConformanceSource",
+    "runAdaptedGrammarConformanceV1",
+    "runLiveConformanceProbe",
+    "runStaticConformanceProbe",
+    "selectExpectedOutcome",
+    "serializeConformanceReport",
+    "serializeConformanceReproductionBundle",
+    "targetMatches",
+  ],
+  config: ["CONFIG_CACHE_LIMIT", "discoverConfig", "fromConfig", "loadConfig"],
   core: [
+    "ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION",
+    "CORE_ARTIFACT_COMPATIBILITY_VERSION",
     "UnsupportedAdapterCapabilityError",
     "QueryCancelledError",
     "QueryCardinalityError",
@@ -691,20 +849,32 @@ const expectedRuntimeExports = {
     "UnsupportedExecutionCapabilityError",
     "assertDialectPlugin",
     "assertExecutionCapabilities",
+    "assessArtifactCompatibility",
+    "applyDialectCapabilityStates",
     "adapterCapabilities",
     "bindQueryRenderSkeleton",
     "compileQueryRenderSkeleton",
     "DIALECT_CONTRACT_VERSION",
     "ParameterCollector",
+    "PreparedQueryRenderCache",
     "ResolverSchemaIndex",
     "closestName",
     "createDatabase",
+    "createDebugEvent",
     "createAdapterCapabilityResolver",
     "createRoutedDatabase",
+    "createSupportBundle",
+    "DEFAULT_MAX_FRAGMENT_LIST_ITEMS",
+    "DEFAULT_MAX_PREPARED_CARDINALITY_VARIANTS",
+    "DEFAULT_MAX_QUERY_PARAMETERS",
+    "DEFAULT_MAX_RENDERED_SQL_BYTES",
     "defineAdapterCapability",
+    "defineDialectCapabilityStates",
+    "defineDialectServerEvidence",
     "defineConfig",
     "defineQuerySemantics",
     "databaseErrorCompletion",
+    "dialectCapabilityIssues",
     "diagnosticRegistry",
     "executionDeadline",
     "getAdapterCapability",
@@ -715,24 +885,38 @@ const expectedRuntimeExports = {
     "mergeQuerySemantics",
     "observeQueryStream",
     "parameterTypeLiteral",
+    "parseArtifactCompatibilityIdentity",
+    "parseDialectServerEvidence",
     "queryRoute",
     "queryResultValidationSource",
+    "redactDebugContext",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
+    "resolveDialectCapabilityStates",
     "requireAdapterCapability",
     "rowTypeLiteral",
     "runControlledExecution",
+    "serializeArtifactCompatibilityIdentity",
     "sql",
+    "SqlFragmentListError",
     "startDatabaseObservation",
+    "staticDialectCapabilityStates",
+    "SUPPORT_BUNDLE_FORMAT_VERSION",
     "unionTypeLiterals",
+    "serializeSupportBundle",
     "unknownQuerySemantics",
     "UnsafeReplicaRoutingError",
     "validateQueryResultRows",
     "validateQueryResultStream",
   ],
   mysql: [
+    "MYSQL_CORE_CATALOG_FORMAT_VERSION",
     "MYSQL_DIALECT_VERSION",
+    "MYSQL_SUPPORT_POLICY",
+    "MySqlRuntimeCompatibilityError",
     "MySqlSchemaProvider",
+    "MySqlWarningError",
+    "MySqlWarningInspectionError",
     "createMySqlQuerySemanticResolver",
     "createMySqlRoutedDatabase",
     "defaultMySqlTypePolicy",
@@ -740,10 +924,15 @@ const expectedRuntimeExports = {
     "isKnownMySqlType",
     "isMySqlRetryableTransactionError",
     "mapMySqlType",
+    "mySqlCoreCatalog",
     "mysql",
     "mysqlBulk",
     "mysqlCatalogQueries",
+    "mySqlServerEvidence",
+    "mySqlVersionSupport",
+    "parseMySqlVersion",
     "parseSchemaSnapshot",
+    "resolveMySqlCapabilities",
     "sql",
     "typePolicy",
   ],
@@ -755,25 +944,46 @@ const expectedRuntimeExports = {
     "loadMySql2Driver",
     "mysql2",
   ],
-  mysqlRuntime: ["createMySqlDatabase", "mysqlRenderer"],
+  mysqlRuntime: [
+    "createMySqlDatabase",
+    "mysqlRenderer",
+    "MySqlRuntimeCompatibilityError",
+    "MySqlWarningError",
+    "MySqlWarningInspectionError",
+  ],
   opentelemetry: ["createOpenTelemetryObserver"],
   postgres: [
     "POSTGRES_DIALECT_VERSION",
+    "POSTGRES_EXTENSION_MANIFEST_FORMAT_VERSION",
+    "POSTGRES_CORE_CATALOG_FORMAT_VERSION",
+    "POSTGRES_SUPPORT_POLICY",
+    "PostgresExtensionResolutionError",
+    "PostgresRuntimeCompatibilityError",
     "PostgresSchemaProvider",
     "createPostgresQuerySemanticResolver",
     "createPostgresRoutedDatabase",
     "defaultPostgresTypePolicy",
+    "definePostgresExtensionManifest",
     "introspectPostgres",
+    "introspectPostgresExtensionManifests",
     "isKnownPostgresType",
     "isPostgresRetryableTransactionError",
     "loadPostgresDriver",
     "mapPostgresType",
     "parseSchemaSnapshot",
+    "parsePostgresMajor",
+    "parsePostgresRuntimeSnapshot",
     "postgres",
+    "postgresServerEvidence",
+    "postgresVersionSupport",
     "postgresCopy",
+    "postgresCoreCatalog",
     "postgresCatalogQueries",
+    "resolvePostgresCapabilities",
+    "resolvePostgresExtensionManifests",
     "sql",
     "typePolicy",
+    "validatePostgresRuntimeCompatibility",
   ],
   pg: [
     "adaptPgPool",
@@ -783,14 +993,22 @@ const expectedRuntimeExports = {
     "loadPgCursorDriver",
     "loadPgCopyStreams",
     "loadPgDriver",
+    "normalizePostgresAdapterError",
     "pg",
+    "PostgresAdapterError",
+    "readPgRuntimeServerEvidence",
+    "resolvePgRuntimeCodecs",
   ],
   postgresRuntime: ["createPostgresDatabase", "createPostgresTypeParsers", "postgresRenderer"],
   schema: [
+    "LEGACY_SCHEMA_FORMAT_VERSION",
     "SCHEMA_FORMAT_VERSION",
     "calculateSchemaHash",
     "calculateTypePolicyHash",
+    "canonicalizeSchemaValue",
     "checkSchemaDrift",
+    "defineSchemaSnapshotV2",
+    "fingerprintSchemaExpression",
     "generateSchemaPackage",
     "loadGeneratedSchemaSnapshot",
     "loadSchemaSnapshot",
@@ -798,6 +1016,70 @@ const expectedRuntimeExports = {
     "migrateSchemaSnapshot",
     "parseSchemaSnapshot",
     "parseTypePolicy",
+    "serializeSchemaSnapshot",
+    "upgradeSchemaSnapshotV1",
+  ],
+  sqlite: [
+    "NODE_SQLITE_RUNTIME_SUPPORT",
+    "SQLITE_DIALECT_VERSION",
+    "SQLITE_LANGUAGE_SUPPORT",
+    "SqliteSchemaProvider",
+    "compareSqliteVersions",
+    "defaultSqliteTypePolicy",
+    "introspectSqlite",
+    "isKnownSqliteType",
+    "isKnownStrictSqliteType",
+    "isNodeSqliteRuntimeSupported",
+    "mapSqliteCastType",
+    "mapSqliteType",
+    "parseSqliteSchemaSnapshot",
+    "parseSqliteVersion",
+    "resolveSqliteCapabilities",
+    "sql",
+    "sqlite",
+    "sqliteAffinity",
+    "sqliteFlexibleType",
+    "sqliteServerEvidence",
+    "sqliteVersionSupport",
+    "typePolicy",
+  ],
+  sqliteRuntime: ["createSqliteDatabase", "sqliteRenderer"],
+  nodeSqlite: [
+    "NodeSqliteCompatibilityError",
+    "adaptNodeSqliteDatabase",
+    "createNodeSqliteDatabase",
+    "loadNodeSqlite",
+    "nodeSqlite",
+    "readNodeSqliteServerEvidence",
+  ],
+  tsBridge: [
+    "TYPESCRIPT_BACKEND_ADAPTERS",
+    "TYPESCRIPT_PREVIEW_VERSION",
+    "TYPESCRIPT_SUPPORT_POLICY",
+    "TypeScriptPreviewCompatibilityError",
+    "analyzeSource",
+    "assertTypeScriptPreviewVersion",
+    "createTypeScriptBackend",
+    "installedTypeScriptPreviewVersion",
+    "isStaticQueryPosition",
+    "queryAtPosition",
+    "typeScriptVersionSupport",
+  ],
+  nativeLsp: ["typescriptPreviewCliPath"],
+  nativePreview: ["NativePreviewTypeScriptBridge", "TYPESCRIPT_PREVIEW_VERSION"],
+  languageServer: [
+    "DEFAULT_MAX_CACHE_ENTRIES",
+    "DEFAULT_MAX_SCHEMA_CACHE_ENTRIES",
+    "DEFAULT_MAX_WORKSPACE_FILES",
+    "TYPED_SQL_PROTOCOL_CAPABILITIES",
+    "TYPED_SQL_PROTOCOL_SUPPORT_POLICY",
+    "TYPED_SQL_PROTOCOL_VERSION",
+    "TYPED_SQL_STATUS_REQUEST",
+    "TypedSqlLanguageService",
+    "TypedSqlProtocolCompatibilityError",
+    "negotiateTypedSqlProtocol",
+    "settingsFrom",
+    "typedSqlProtocolVersionSupport",
   ],
 } as const;
 
@@ -805,8 +1087,10 @@ await describe("stable public API", async () => {
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
       ast: Object.keys(astApi).sort(),
+      astToolkit: Object.keys(astToolkitApi).sort(),
       compiler: Object.keys(compilerApi).sort(),
       conformance: Object.keys(conformanceApi).sort(),
+      conformanceV2: Object.keys(conformanceV2Api).sort(),
       config: Object.keys(configApi).sort(),
       core: Object.keys(coreApi).sort(),
       mysql: Object.keys(mysqlApi).sort(),
@@ -817,6 +1101,13 @@ await describe("stable public API", async () => {
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),
       schema: Object.keys(schemaApi).sort(),
+      sqlite: Object.keys(sqliteApi).sort(),
+      sqliteRuntime: Object.keys(sqliteRuntimeApi).sort(),
+      nodeSqlite: Object.keys(nodeSqliteApi).sort(),
+      tsBridge: Object.keys(tsBridgeApi).sort(),
+      nativeLsp: Object.keys(nativeLspApi).sort(),
+      nativePreview: Object.keys(nativePreviewApi).sort(),
+      languageServer: Object.keys(languageServerApi).sort(),
     };
     for (const name of Object.keys(expectedRuntimeExports) as (keyof typeof expectedRuntimeExports)[]) {
       strict.deepStrictEqual(actual[name], expectedRuntimeExports[name].slice().sort(), `${name} exports changed`);

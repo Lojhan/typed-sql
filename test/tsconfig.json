@@ -7,6 +7,7 @@
   "include": [
     "../packages/*/test/**/*.test.ts",
     "contracts/**/*.test.ts",
+    "fuzz/**/*.ts",
     "grammar/**/*.ts",
     "helpers/**/*.ts",
     "soundness/**/*.ts"
@@ -25,6 +26,7 @@
     { "path": "../packages/opentelemetry" },
     { "path": "../packages/cli" },
     { "path": "../packages/ts-bridge" },
-    { "path": "../packages/language-server" }
+    { "path": "../packages/language-server" },
+    { "path": "../examples/synthetic-grammar" }
   ]
 }

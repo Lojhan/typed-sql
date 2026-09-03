@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { access, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
@@ -11,6 +13,7 @@ import {
   isStaticQueryPosition,
   type NativeTypeInspection,
   queryAtPosition,
+  type TypeScriptBridge,
 } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import {
@@ -27,6 +30,20 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
+export type {
+  TypedSqlProtocolCapability,
+  TypedSqlProtocolNegotiation,
+  TypedSqlProtocolVersionSupport,
+} from "./protocol.js";
+export {
+  negotiateTypedSqlProtocol,
+  TYPED_SQL_PROTOCOL_CAPABILITIES,
+  TYPED_SQL_PROTOCOL_SUPPORT_POLICY,
+  TYPED_SQL_PROTOCOL_VERSION,
+  TypedSqlProtocolCompatibilityError,
+  typedSqlProtocolVersionSupport,
+} from "./protocol.js";
+
 export interface TypedSqlLanguageServerSettings {
   readonly configPath?: string;
   readonly schemaPath?: string;
@@ -34,6 +51,11 @@ export interface TypedSqlLanguageServerSettings {
   readonly nativePreview?: boolean;
   readonly maxCacheEntries?: number;
   readonly maxWorkspaceFiles?: number;
+  readonly analysisDebounceMs?: number;
+}
+
+export interface TypedSqlLanguageServiceOptions {
+  readonly nativeBridge?: () => TypeScriptBridge;
 }
 
 export const TYPED_SQL_STATUS_REQUEST = "typedSql/status";
@@ -45,6 +67,11 @@ export interface TypedSqlLanguageServerStatus {
   readonly workspaceRoots: readonly string[];
   readonly openDocuments: number;
   readonly indexedDocuments: number;
+  readonly protocol: import("./protocol.js").TypedSqlProtocolNegotiation;
+  readonly workspaces: readonly {
+    readonly root: string;
+    readonly metrics: TypedSqlLanguageServiceMetrics;
+  }[];
 }
 
 interface CachedSchema {
@@ -54,6 +81,8 @@ interface CachedSchema {
 
 interface DocumentAnalysis {
   readonly version: number;
+  readonly generation: number;
+  readonly configHash: string;
   readonly schemaPath: string;
   readonly schemaModified: number;
   readonly snapshot: SchemaSnapshot;
@@ -61,13 +90,49 @@ interface DocumentAnalysis {
   readonly analysis: BridgeAnalysis;
 }
 
+export interface TypedSqlCacheMetrics {
+  readonly entries: number;
+  readonly hits: number;
+  readonly misses: number;
+  readonly evictions: number;
+}
+
+export interface TypedSqlLanguageServiceMetrics {
+  readonly generation: number;
+  readonly cache: {
+    readonly schemas: TypedSqlCacheMetrics;
+    readonly analyses: TypedSqlCacheMetrics;
+    readonly inspections: TypedSqlCacheMetrics;
+  };
+  readonly bridgeRestarts: number;
+}
+
+interface CacheCounters {
+  hits: number;
+  misses: number;
+  evictions: number;
+}
+
 const defaultSettings: Required<Pick<TypedSqlLanguageServerSettings, "schemaPath" | "nativePreview">> = {
   schemaPath: "src/generated/db/schema.json",
   nativePreview: true,
 };
-const DEFAULT_MAX_CACHE_ENTRIES = 256;
-const DEFAULT_MAX_SCHEMA_CACHE_ENTRIES = 16;
-const DEFAULT_MAX_WORKSPACE_FILES = 2_000;
+export const DEFAULT_MAX_CACHE_ENTRIES = 256;
+export const DEFAULT_MAX_SCHEMA_CACHE_ENTRIES = 16;
+export const DEFAULT_MAX_WORKSPACE_FILES = 2_000;
+const DEFAULT_ANALYSIS_DEBOUNCE_MS = 20;
+const sha256 = (value: string): string => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined && typeof item !== "function")
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, canonical(item)]),
+  );
+}
 
 export interface CancellationLike {
   readonly isCancellationRequested: boolean;
@@ -81,10 +146,20 @@ function cancelled(token?: CancellationLike): void {
   }
 }
 
-function cacheSet<K, V>(cache: Map<K, V>, key: K, value: V, maximum: number): void {
+function cacheGet<K, V>(cache: Map<K, V>, key: K, counters: CacheCounters): V | undefined {
+  const value = cache.get(key);
+  if (value === undefined) counters.misses += 1;
+  else counters.hits += 1;
+  return value;
+}
+
+function cacheSet<K, V>(cache: Map<K, V>, key: K, value: V, maximum: number, counters: CacheCounters): void {
   cache.delete(key);
   cache.set(key, value);
-  while (cache.size > maximum) cache.delete(cache.keys().next().value!);
+  while (cache.size > maximum) {
+    cache.delete(cache.keys().next().value!);
+    counters.evictions += 1;
+  }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -149,6 +224,7 @@ export function settingsFrom(value: unknown): TypedSqlLanguageServerSettings {
     ...(typeof candidate.nativePreview === "boolean" ? { nativePreview: candidate.nativePreview } : {}),
     ...(typeof candidate.maxCacheEntries === "number" ? { maxCacheEntries: candidate.maxCacheEntries } : {}),
     ...(typeof candidate.maxWorkspaceFiles === "number" ? { maxWorkspaceFiles: candidate.maxWorkspaceFiles } : {}),
+    ...(typeof candidate.analysisDebounceMs === "number" ? { analysisDebounceMs: candidate.analysisDebounceMs } : {}),
   };
 }
 
@@ -158,17 +234,32 @@ export class TypedSqlLanguageService {
   readonly #schemaCache = new Map<string, CachedSchema>();
   readonly #analysisCache = new Map<string, DocumentAnalysis>();
   readonly #inspectionCache = new Map<string, Promise<readonly NativeTypeInspection[] | undefined>>();
-  #nativeBridgePromise: Promise<NativePreviewTypeScriptBridge> | undefined;
+  #nativeBridgePromise: Promise<TypeScriptBridge> | undefined;
+  readonly #nativeBridgeFactory: () => TypeScriptBridge;
   #configPromise: ReturnType<typeof loadConfig> | undefined;
+  #generation = 0;
+  #bridgeRestarts = 0;
+  readonly #cacheCounters = {
+    schemas: { hits: 0, misses: 0, evictions: 0 },
+    analyses: { hits: 0, misses: 0, evictions: 0 },
+    inspections: { hits: 0, misses: 0, evictions: 0 },
+  } satisfies Record<string, CacheCounters>;
 
-  constructor(rootDirectory: string, settings: TypedSqlLanguageServerSettings = {}) {
+  constructor(
+    rootDirectory: string,
+    settings: TypedSqlLanguageServerSettings = {},
+    options: TypedSqlLanguageServiceOptions = {},
+  ) {
     this.#rootDirectory = resolve(rootDirectory);
     this.#settings = this.#validatedSettings(settings);
+    this.#nativeBridgeFactory =
+      options.nativeBridge ?? (() => NativePreviewTypeScriptBridge.spawn({ cwd: this.#rootDirectory }));
   }
 
   configure(rootDirectory: string, settings: TypedSqlLanguageServerSettings): void {
     this.#rootDirectory = resolve(rootDirectory);
     this.#settings = this.#validatedSettings(settings);
+    this.#generation += 1;
     this.#schemaCache.clear();
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
@@ -177,6 +268,7 @@ export class TypedSqlLanguageService {
   }
 
   invalidate(): void {
+    this.#generation += 1;
     this.#schemaCache.clear();
     this.#analysisCache.clear();
     this.#inspectionCache.clear();
@@ -203,10 +295,12 @@ export class TypedSqlLanguageService {
         severity: severity(item.severity),
         source: "typed-sql",
         code: item.code,
-        data:
-          item.suggestion === undefined && item.fix === undefined
-            ? undefined
-            : { suggestion: item.suggestion, fix: item.fix },
+        data: {
+          analysisRevision: result.analysis.revision,
+          identity: result.analysis.identity,
+          ...(item.suggestion === undefined ? {} : { suggestion: item.suggestion }),
+          ...(item.fix === undefined ? {} : { fix: item.fix }),
+        },
       }),
     );
   }
@@ -225,6 +319,7 @@ export class TypedSqlLanguageService {
     const query = queryAtPosition(result.analysis, offset);
     if (query === undefined) return undefined;
     const inspections = await this.#nativeInspections(document, result);
+    if (!this.isAnalysisCurrent(document, result.analysis)) return undefined;
     const nativeType = inspections?.find((inspection) => inspection.queryIndex === query.index)?.typeText;
     const range =
       query.binding !== undefined && offset >= query.binding.range.start && offset <= query.binding.range.end
@@ -326,6 +421,7 @@ export class TypedSqlLanguageService {
     if (word === undefined) return undefined;
     cancelled(token);
     const schemaSource = await readFile(result.schemaPath, "utf8");
+    if (!this.isAnalysisCurrent(document, result.analysis)) return undefined;
     const needle = JSON.stringify(word.text);
     const match = schemaSource.indexOf(needle);
     if (match < 0) return undefined;
@@ -345,11 +441,16 @@ export class TypedSqlLanguageService {
     token?: CancellationLike,
   ): Promise<readonly CodeAction[]> {
     cancelled(token);
+    const current = await this.#documentAnalysis(document, token);
+    if (current === undefined) return [];
     const actions: CodeAction[] = [];
     const documentLength = document.getText().length;
     for (const diagnostic of diagnostics) {
       if (diagnostic.source !== "typed-sql") continue;
-      const data = diagnostic.data as { readonly suggestion?: unknown; readonly fix?: unknown } | undefined;
+      const data = diagnostic.data as
+        | { readonly analysisRevision?: unknown; readonly suggestion?: unknown; readonly fix?: unknown }
+        | undefined;
+      if (data?.analysisRevision !== undefined && data.analysisRevision !== current.analysis.revision) continue;
       const suggestion = typeof data?.suggestion === "string" ? data.suggestion : undefined;
       const fix = diagnosticFix(data?.fix, documentLength);
       if (fix !== undefined) {
@@ -394,6 +495,36 @@ export class TypedSqlLanguageService {
       analyses: this.#analysisCache.size,
       inspections: this.#inspectionCache.size,
     };
+  }
+
+  metrics(): TypedSqlLanguageServiceMetrics {
+    const metric = (cache: Map<unknown, unknown>, counters: CacheCounters): TypedSqlCacheMetrics =>
+      Object.freeze({ entries: cache.size, ...counters });
+    return Object.freeze({
+      generation: this.#generation,
+      cache: Object.freeze({
+        schemas: metric(this.#schemaCache, this.#cacheCounters.schemas),
+        analyses: metric(this.#analysisCache, this.#cacheCounters.analyses),
+        inspections: metric(this.#inspectionCache, this.#cacheCounters.inspections),
+      }),
+      bridgeRestarts: this.#bridgeRestarts,
+    });
+  }
+
+  isAnalysisCurrent(document: TextDocument, analysis: BridgeAnalysis): boolean {
+    return (
+      analysis.identity.project?.generation === this.#generation &&
+      analysis.identity.source.id === document.uri &&
+      analysis.identity.source.version === document.version &&
+      analysis.identity.source.hash === sha256(document.getText())
+    );
+  }
+
+  async debounce(token?: CancellationLike): Promise<void> {
+    cancelled(token);
+    const milliseconds = this.#settings.analysisDebounceMs ?? DEFAULT_ANALYSIS_DEBOUNCE_MS;
+    if (milliseconds > 0) await wait(milliseconds);
+    cancelled(token);
   }
 
   async workspaceFiles(token?: CancellationLike): Promise<readonly string[]> {
@@ -442,62 +573,105 @@ export class TypedSqlLanguageService {
   }
 
   async #documentAnalysis(document: TextDocument, token?: CancellationLike): Promise<DocumentAnalysis | undefined> {
-    cancelled(token);
-    if (document.uri.startsWith("file:") === false) return undefined;
-    const loaded = await this.#config();
-    const schemaPath =
-      this.#settings.schemaPath === undefined
-        ? fromConfig(loaded.directory, loaded.config.schema.file)
-        : this.#configuredPath(this.#settings.schemaPath);
-    const schema = await this.#schemaAt(schemaPath);
-    cancelled(token);
-    const cached = this.#analysisCache.get(document.uri);
-    if (
-      cached !== undefined &&
-      cached.version === document.version &&
-      cached.schemaPath === schemaPath &&
-      cached.schemaModified === schema.modified
-    ) {
-      cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries());
-      return cached;
-    }
-    const fileName = fileURLToPath(document.uri);
-    const configuredProjects =
-      this.#settings.projectFile === undefined
-        ? (loaded.config.projects ?? []).map((project) => fromConfig(loaded.directory, project))
-        : [this.#configuredPath(this.#settings.projectFile)];
-    const projectFile =
-      configuredProjects
-        .filter((project) => fileName.startsWith(`${dirname(project)}/`) || fileName === project)
-        .sort((left, right) => right.length - left.length)[0] ?? configuredProjects[0];
-    const result: DocumentAnalysis = {
-      version: document.version,
-      schemaPath,
-      schemaModified: schema.modified,
-      snapshot: schema.snapshot,
-      ...(projectFile === undefined ? {} : { projectFile }),
-      analysis: analyzeSource(
+    while (true) {
+      cancelled(token);
+      if (document.uri.startsWith("file:") === false) return undefined;
+      const generation = this.#generation;
+      const loaded = await this.#config();
+      if (generation !== this.#generation) continue;
+      const schemaPath =
+        this.#settings.schemaPath === undefined
+          ? fromConfig(loaded.directory, loaded.config.schema.file)
+          : this.#configuredPath(this.#settings.schemaPath);
+      const schema = await this.#schemaAt(schemaPath);
+      if (generation !== this.#generation) {
+        this.#schemaCache.clear();
+        continue;
+      }
+      cancelled(token);
+      const fileName = fileURLToPath(document.uri);
+      const configuredProjects =
+        this.#settings.projectFile === undefined
+          ? (loaded.config.projects ?? []).map((project) => fromConfig(loaded.directory, project))
+          : [this.#configuredPath(this.#settings.projectFile)];
+      const projectFile =
+        configuredProjects
+          .filter((project) => fileName.startsWith(`${dirname(project)}/`) || fileName === project)
+          .sort((left, right) => right.length - left.length)[0] ?? configuredProjects[0];
+      const [configSource, projectSource] = await Promise.all([
+        readFile(loaded.file, "utf8"),
+        projectFile === undefined ? undefined : readFile(projectFile, "utf8").catch(() => undefined),
+      ]);
+      if (generation !== this.#generation) continue;
+      const configHash = sha256(
+        JSON.stringify(
+          canonical({
+            configFile: loaded.file,
+            configSource,
+            projectFile,
+            projectSource,
+            settings: this.#settings,
+            compiler: loaded.config.compiler,
+          }),
+        ),
+      );
+      const sourceHash = sha256(document.getText());
+      const cached = cacheGet(this.#analysisCache, document.uri, this.#cacheCounters.analyses);
+      if (
+        cached !== undefined &&
+        cached.version === document.version &&
+        cached.generation === generation &&
+        cached.configHash === configHash &&
+        cached.schemaPath === schemaPath &&
+        cached.schemaModified === schema.modified &&
+        cached.analysis.identity.source.hash === sourceHash
+      ) {
+        cacheSet(this.#analysisCache, document.uri, cached, this.#maxCacheEntries(), this.#cacheCounters.analyses);
+        return cached;
+      }
+      const analysis = analyzeSource(
         document.getText(),
         loaded.config.dialect.validateSnapshot(schema.snapshot),
         loaded.config.dialect,
         loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
-        loaded.config.compiler,
-      ),
-    };
-    cancelled(token);
-    cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries());
-    return result;
+        {
+          ...loaded.config.compiler,
+          sourceId: document.uri,
+          sourceVersion: document.version,
+          project: {
+            id: projectFile ?? loaded.file,
+            generation,
+            configHash,
+          },
+          ...(token === undefined ? {} : { cancellation: token }),
+        },
+      );
+      if (generation !== this.#generation) continue;
+      const result: DocumentAnalysis = {
+        version: document.version,
+        generation,
+        configHash,
+        schemaPath,
+        schemaModified: schema.modified,
+        snapshot: schema.snapshot,
+        ...(projectFile === undefined ? {} : { projectFile }),
+        analysis,
+      };
+      cancelled(token);
+      cacheSet(this.#analysisCache, document.uri, result, this.#maxCacheEntries(), this.#cacheCounters.analyses);
+      return result;
+    }
   }
 
   async #schemaAt(path: string): Promise<CachedSchema> {
     const file = await stat(path);
-    const cached = this.#schemaCache.get(path);
+    const cached = cacheGet(this.#schemaCache, path, this.#cacheCounters.schemas);
     if (cached !== undefined && cached.modified === file.mtimeMs) {
-      cacheSet(this.#schemaCache, path, cached, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES);
+      cacheSet(this.#schemaCache, path, cached, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES, this.#cacheCounters.schemas);
       return cached;
     }
     const result = { modified: file.mtimeMs, snapshot: await loadSchemaSnapshot(path) };
-    cacheSet(this.#schemaCache, path, result, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES);
+    cacheSet(this.#schemaCache, path, result, DEFAULT_MAX_SCHEMA_CACHE_ENTRIES, this.#cacheCounters.schemas);
     return result;
   }
 
@@ -505,8 +679,8 @@ export class TypedSqlLanguageService {
     return isAbsolute(path) ? path : resolve(this.#rootDirectory, path);
   }
 
-  #nativeBridge(): Promise<NativePreviewTypeScriptBridge> {
-    this.#nativeBridgePromise ??= Promise.resolve(NativePreviewTypeScriptBridge.spawn({ cwd: this.#rootDirectory }));
+  #nativeBridge(): Promise<TypeScriptBridge> {
+    this.#nativeBridgePromise ??= Promise.resolve(this.#nativeBridgeFactory());
     return this.#nativeBridgePromise;
   }
 
@@ -529,15 +703,17 @@ export class TypedSqlLanguageService {
     result: DocumentAnalysis,
   ): Promise<readonly NativeTypeInspection[] | undefined> {
     if ((this.#settings.nativePreview ?? defaultSettings.nativePreview) === false) return undefined;
-    const key = `${document.uri}@${document.version}:${result.schemaPath}@${result.schemaModified}`;
-    const cached = this.#inspectionCache.get(key);
+    const key = `${document.uri}@${result.analysis.revision}`;
+    const cached = cacheGet(this.#inspectionCache, key, this.#cacheCounters.inspections);
     if (cached !== undefined) {
-      cacheSet(this.#inspectionCache, key, cached, this.#maxCacheEntries());
-      return cached;
+      cacheSet(this.#inspectionCache, key, cached, this.#maxCacheEntries(), this.#cacheCounters.inspections);
+      const inspections = await cached;
+      return this.isAnalysisCurrent(document, result.analysis) ? inspections : undefined;
     }
-    const inspection = this.#inspect(document, result).catch(() => undefined);
-    cacheSet(this.#inspectionCache, key, inspection, this.#maxCacheEntries());
-    return inspection;
+    const inspection = this.#inspectWithRecovery(document, result).catch(() => undefined);
+    cacheSet(this.#inspectionCache, key, inspection, this.#maxCacheEntries(), this.#cacheCounters.inspections);
+    const inspections = await inspection;
+    return this.isAnalysisCurrent(document, result.analysis) ? inspections : undefined;
   }
 
   async #inspect(document: TextDocument, result: DocumentAnalysis): Promise<readonly NativeTypeInspection[]> {
@@ -549,6 +725,21 @@ export class TypedSqlLanguageService {
       ...(projectFile === undefined ? {} : { projectFile }),
       analysis: result.analysis,
     });
+  }
+
+  async #inspectWithRecovery(
+    document: TextDocument,
+    result: DocumentAnalysis,
+  ): Promise<readonly NativeTypeInspection[]> {
+    try {
+      return await this.#inspect(document, result);
+    } catch {
+      const failed = this.#nativeBridgePromise;
+      this.#nativeBridgePromise = undefined;
+      this.#bridgeRestarts += 1;
+      await failed?.then(async (bridge) => bridge.close()).catch(() => undefined);
+      return this.#inspect(document, result);
+    }
   }
 
   #maxCacheEntries(): number {
@@ -563,7 +754,12 @@ export class TypedSqlLanguageService {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1))
         throw new TypeError(`${name} must be a positive safe integer`);
     }
-    return settings;
+    if (
+      settings.analysisDebounceMs !== undefined &&
+      (!Number.isSafeInteger(settings.analysisDebounceMs) || settings.analysisDebounceMs < 0)
+    )
+      throw new TypeError("analysisDebounceMs must be a non-negative safe integer");
+    return Object.freeze({ ...settings });
   }
 
   #wordAt(source: string, offset: number): { readonly text: string } | undefined {

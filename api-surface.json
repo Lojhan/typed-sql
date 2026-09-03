@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "classifications": ["stable", "experimental", "adapter-specific", "testing", "internal"],
+  "packages": {
+    "@typed-sql/ast": { ".": "stable", "./toolkit": "stable" },
+    "@typed-sql/cli": { "bin:typed-sql": "stable" },
+    "@typed-sql/compiler": { ".": "stable" },
+    "@typed-sql/config": { ".": "stable" },
+    "@typed-sql/conformance": { ".": "stable", "./v2": "stable" },
+    "@typed-sql/core": { ".": "stable" },
+    "@typed-sql/language-server": {
+      ".": "experimental",
+      "bin:typed-sql-language-server": "experimental"
+    },
+    "@typed-sql/mysql": {
+      ".": "stable",
+      "./runtime": "adapter-specific",
+      "./mysql2": "adapter-specific"
+    },
+    "@typed-sql/opentelemetry": { ".": "stable" },
+    "@typed-sql/postgres": {
+      ".": "stable",
+      "./runtime": "adapter-specific",
+      "./pg": "adapter-specific"
+    },
+    "@typed-sql/schema": { ".": "stable" },
+    "@typed-sql/sqlite": {
+      ".": "stable",
+      "./runtime": "adapter-specific",
+      "./node-sqlite": "adapter-specific"
+    },
+    "@typed-sql/ts-bridge": {
+      ".": "experimental",
+      "./native-lsp": "experimental",
+      "./native-preview": "experimental"
+    }
+  },
+  "editors": {
+    "vscode:typed-sql": "experimental",
+    "zed:typed-sql": "experimental"
+  }
+}

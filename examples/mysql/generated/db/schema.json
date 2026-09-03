@@ -1,68 +1,158 @@
 {
-  "formatVersion": 1,
   "dialect": "mysql",
   "dialectVersion": "1.0.0",
-  "tables": {
-    "users": {
-      "name": "users",
-      "columns": {
-        "id": {
-          "name": "id",
-          "databaseType": "bigint unsigned",
-          "tsType": "bigint",
-          "nullable": false
-        },
-        "email": {
-          "name": "email",
-          "databaseType": "varchar(255)",
-          "tsType": "string",
-          "nullable": false
-        },
-        "status": {
-          "name": "status",
-          "databaseType": "enum('active','suspended')",
-          "tsType": "\"active\" | \"suspended\"",
-          "nullable": false,
-          "defaultExpression": "active"
-        }
-      },
-      "schema": "typed_sql_examples"
-    },
+  "formatVersion": 2,
+  "metadata": {
+    "generatorVersion": "1.0.0",
+    "schemaFormat": 2,
+    "schemaHash": "bc8ed076328374839d9022217593704f42effe7d2b02ff6f8dfa5067819e9c9b",
+    "typePolicyHash": "7f3e449f7c363169d4855e338d52273380217dc71366afc4712bee853e741c79"
+  },
+  "namespaces": {
+    "typed_sql_examples": {
+      "kind": "schema",
+      "name": "typed_sql_examples"
+    }
+  },
+  "relations": {
     "projects": {
-      "name": "projects",
+      "capabilities": {
+        "evidenceComplete": false
+      },
       "columns": {
-        "id": {
-          "name": "id",
-          "databaseType": "bigint unsigned",
-          "tsType": "bigint",
-          "nullable": false
+        "budget": {
+          "classification": "normal",
+          "databaseType": "decimal(14,2)",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "budget",
+          "nullabilitySource": "unknown",
+          "nullable": true,
+          "position": 3,
+          "tsType": "string",
+          "typeIdentity": "decimal(14,2)",
+          "updatable": "unknown"
         },
-        "owner_id": {
-          "name": "owner_id",
+        "id": {
+          "classification": "normal",
           "databaseType": "bigint unsigned",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
           "tsType": "bigint",
-          "nullable": false
+          "typeIdentity": "bigint unsigned",
+          "updatable": "unknown"
         },
         "name": {
-          "name": "name",
+          "classification": "normal",
           "databaseType": "varchar(120)",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "name",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
           "tsType": "string",
-          "nullable": false
+          "typeIdentity": "varchar(120)",
+          "updatable": "unknown"
         },
-        "budget": {
-          "name": "budget",
-          "databaseType": "decimal(14,2)",
-          "tsType": "string",
-          "nullable": true
+        "owner_id": {
+          "classification": "normal",
+          "databaseType": "bigint unsigned",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "owner_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "bigint unsigned",
+          "updatable": "unknown"
         }
       },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "projects",
+      "schema": "typed_sql_examples"
+    },
+    "users": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "email": {
+          "classification": "normal",
+          "databaseType": "varchar(255)",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "email",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "string",
+          "typeIdentity": "varchar(255)",
+          "updatable": "unknown"
+        },
+        "id": {
+          "classification": "normal",
+          "databaseType": "bigint unsigned",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint unsigned",
+          "updatable": "unknown"
+        },
+        "status": {
+          "classification": "normal",
+          "databaseType": "enum('active','suspended')",
+          "default": "present",
+          "defaultExpressionHash": "sha256:96879611650f80a81392a52e0db9b0237669087c4518e1c130e541a505e0eeef",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "status",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "\"active\" | \"suspended\"",
+          "typeIdentity": "enum('active','suspended')",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "users",
       "schema": "typed_sql_examples"
     }
   },
-  "version": "8.4.11",
-  "metadata": {
-    "generatorVersion": "1.0.0",
-    "schemaHash": "91f817bfabb75df1f30b74c9b60bad46fb67d28fc6335da25959c6ff440daa9a",
-    "typePolicyHash": "7f3e449f7c363169d4855e338d52273380217dc71366afc4712bee853e741c79"
-  }
+  "routines": {},
+  "server": {
+    "features": [],
+    "product": "mysql",
+    "settings": {},
+    "version": "8.4.11",
+    "versionKey": "8.4.11"
+  },
+  "types": {}
 }

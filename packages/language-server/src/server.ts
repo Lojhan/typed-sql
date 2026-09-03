@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { cwd, stderr, stdin, stdout } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { BridgeAnalysis } from "@typed-sql/ts-bridge";
+import { assertTypeScriptPreviewVersion, type BridgeAnalysis } from "@typed-sql/ts-bridge";
 import { typescriptPreviewCliPath } from "@typed-sql/ts-bridge/native-lsp";
 import { TYPESCRIPT_PREVIEW_VERSION } from "@typed-sql/ts-bridge/native-preview";
 import {
@@ -16,10 +16,14 @@ import {
 } from "vscode-jsonrpc/node";
 import { TextDocument, type TextDocumentContentChangeEvent } from "vscode-languageserver-textdocument";
 import {
+  negotiateTypedSqlProtocol,
   settingsFrom,
+  type TYPED_SQL_PROTOCOL_CAPABILITIES,
   TYPED_SQL_STATUS_REQUEST,
   type TypedSqlLanguageServerStatus,
   TypedSqlLanguageService,
+  TypedSqlProtocolCompatibilityError,
+  type TypedSqlProtocolNegotiation,
 } from "./index.js";
 
 interface Position {
@@ -56,6 +60,7 @@ interface DocumentState {
   readonly original: TextDocument;
   readonly transformed: TextDocument;
   readonly analysis?: BridgeAnalysis;
+  readonly service: TypedSqlLanguageService;
   readonly virtualVersion: number;
 }
 
@@ -67,6 +72,19 @@ interface WatchedFileChange {
   readonly type: number;
 }
 
+class AnalysisCancellation {
+  #cancelled = false;
+
+  get isCancellationRequested(): boolean {
+    return this.#cancelled;
+  }
+
+  cancel(): void {
+    this.#cancelled = true;
+  }
+}
+
+assertTypeScriptPreviewVersion();
 const previewCli = process.env.TYPED_SQL_TYPESCRIPT_PREVIEW_CLI ?? typescriptPreviewCliPath();
 const preview = spawn(process.execPath, [previewCli, "--lsp", "--stdio"], {
   cwd: cwd(),
@@ -84,7 +102,7 @@ function previewError(cause: string): Error {
       `Preview: TypeScript ${TYPESCRIPT_PREVIEW_VERSION}`,
       `CLI: ${previewCli}`,
       `Cause: ${cause}`,
-      previewStderr.length === 0 ? "" : `Preview stderr: ${previewStderr.trim()}`,
+      previewStderr.length === 0 ? "" : "The preview process reported stderr output.",
       "Reinstall @typed-sql/language-server in the workspace and restart the editor.",
     ]
       .filter((part) => part.length > 0)
@@ -109,20 +127,25 @@ const previewReady = new Promise<void>((resolvePreview, rejectPreview) => {
 });
 const client = createMessageConnection(stdin, stdout, NullLogger);
 const typescript: MessageConnection = createMessageConnection(preview.stdout, preview.stdin, NullLogger);
+const sourceDocuments = new Map<string, TextDocument>();
 const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
 const pendingDocuments = new Map<string, Promise<void>>();
 const latestDocumentVersions = new Map<string, number>();
+const documentAnalysisTokens = new Map<string, AnalysisCancellation>();
 const LSP_REQUEST_CANCELLED = -32800;
+const LSP_CONTENT_MODIFIED = -32801;
+const LSP_PROTOCOL_UNSUPPORTED = -32098;
 let workspaceReady: Promise<void> = Promise.resolve();
 let workspaceRoots: readonly string[] = [resolve(cwd())];
 let services = new Map([[workspaceRoots[0]!, new TypedSqlLanguageService(workspaceRoots[0]!)]]);
+let negotiatedProtocol: TypedSqlProtocolNegotiation = negotiateTypedSqlProtocol(undefined);
 
 preview.stderr.on("data", (chunk: Buffer | string) => {
-  const message = chunk.toString();
-  previewStderr = `${previewStderr}${message}`.slice(-8_000);
-  stderr.write(`[typed-sql/typescript-${TYPESCRIPT_PREVIEW_VERSION}] ${message}`);
+  void chunk;
+  previewStderr = "reported";
+  stderr.write(`[typed-sql/typescript-${TYPESCRIPT_PREVIEW_VERSION}] preview process reported stderr output\n`);
 });
 
 async function nativeRequest<T = unknown>(method: string, params?: unknown, token?: CancellationToken): Promise<T> {
@@ -241,11 +264,57 @@ function watchedFileChanges(value: unknown): readonly WatchedFileChange[] | unde
 
 function queueDocument(uri: string, operation: () => Promise<void>): Promise<void> {
   const previous = pendingDocuments.get(uri) ?? Promise.resolve();
-  const pending = previous.then(operation);
+  const pending = previous
+    .catch(() => undefined)
+    .then(operation)
+    .catch(async (error: unknown) => {
+      if (error instanceof Error && error.name === "AbortError") return;
+      nativeDiagnostics.delete(uri);
+      await client.sendNotification("textDocument/publishDiagnostics", {
+        uri,
+        ...(latestDocumentVersions.get(uri) === undefined ? {} : { version: latestDocumentVersions.get(uri) }),
+        diagnostics: [projectFailureDiagnostic(error)],
+      });
+    });
   pendingDocuments.set(uri, pending);
   return pending.finally(() => {
     if (pendingDocuments.get(uri) === pending) pendingDocuments.delete(uri);
   });
+}
+
+function beginDocumentAnalysis(uri: string, cancelPrevious = true): AnalysisCancellation {
+  if (cancelPrevious) documentAnalysisTokens.get(uri)?.cancel();
+  const token = new AnalysisCancellation();
+  documentAnalysisTokens.set(uri, token);
+  return token;
+}
+
+function queueWorkspace(operation: () => Promise<void>): Promise<void> {
+  workspaceReady = workspaceReady
+    .catch(() => undefined)
+    .then(operation)
+    .catch(async (error: unknown) => {
+      for (const [uri, state] of documents) {
+        nativeDiagnostics.delete(uri);
+        await client.sendNotification("textDocument/publishDiagnostics", {
+          uri,
+          version: state.original.version,
+          diagnostics: [projectFailureDiagnostic(error)],
+        });
+      }
+    });
+  return workspaceReady;
+}
+
+function projectFailureDiagnostic(error: unknown): JsonObject {
+  const kind = error instanceof Error && error.name.length > 0 ? error.name : "Error";
+  return {
+    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+    severity: 1,
+    source: "typed-sql",
+    code: "TYPED_SQL_PROJECT_UNAVAILABLE",
+    message: `typed-sql analysis is unavailable (${kind}). Run typed-sql doctor and retry after correcting the project, config, grammar, or schema.`,
+  };
 }
 
 async function waitForDocument(uri: string, token: CancellationToken): Promise<void> {
@@ -279,8 +348,18 @@ function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?
   );
 }
 
-async function createState(original: TextDocument, previous?: DocumentState): Promise<DocumentState> {
-  const analysis = await serviceForUri(original.uri).analysis(original);
+async function createState(
+  original: TextDocument,
+  previous?: DocumentState,
+  cancellation?: AnalysisCancellation,
+): Promise<DocumentState> {
+  const service = serviceForUri(original.uri);
+  const analysis = await service.analysis(original, cancellation);
+  if (cancellation?.isCancellationRequested === true) {
+    const error = new Error("typed-sql document analysis superseded");
+    error.name = "AbortError";
+    throw error;
+  }
   const virtualVersion = previous === undefined ? original.version : previous.virtualVersion + 1;
   const transformed = TextDocument.create(
     original.uri,
@@ -292,35 +371,92 @@ async function createState(original: TextDocument, previous?: DocumentState): Pr
     original,
     transformed,
     ...(analysis === undefined ? {} : { analysis }),
+    service,
     virtualVersion,
   };
 }
 
+function negotiated(capability: (typeof TYPED_SQL_PROTOCOL_CAPABILITIES)[number]): boolean {
+  return negotiatedProtocol.capabilities.includes(capability);
+}
+
+function ensureStateCurrent(state: DocumentState | undefined): void {
+  if (state === undefined) return;
+  const current = documents.get(state.original.uri) ?? virtualDocuments.get(state.original.uri);
+  const sourceVersion = latestDocumentVersions.get(state.original.uri);
+  if (
+    current !== state ||
+    (sourceVersion !== undefined && sourceDocuments.get(state.original.uri) !== state.original) ||
+    (sourceVersion !== undefined && sourceVersion !== state.original.version) ||
+    (state.analysis !== undefined && !state.service.isAnalysisCurrent(state.original, state.analysis))
+  ) {
+    throw new ResponseError(LSP_CONTENT_MODIFIED, "Document or typed-sql analysis identity changed during request");
+  }
+}
+
+function protocolDiagnostics(diagnostics: readonly unknown[]): readonly unknown[] {
+  const includeIdentity = negotiated("analysis-identity");
+  const includeFixes = negotiated("diagnostic-fixes");
+  if (includeIdentity && includeFixes) return diagnostics;
+  return diagnostics.map((diagnostic) => {
+    if (!isObject(diagnostic) || diagnostic.source !== "typed-sql" || !isObject(diagnostic.data)) return diagnostic;
+    const filtered = Object.fromEntries(
+      Object.entries(diagnostic.data).filter(([key]) =>
+        key === "analysisRevision" || key === "identity" ? includeIdentity : includeFixes,
+      ),
+    );
+    return { ...diagnostic, ...(Object.keys(filtered).length === 0 ? { data: undefined } : { data: filtered }) };
+  });
+}
+
 async function combinedDiagnostics(state: DocumentState): Promise<readonly unknown[]> {
-  return [
+  return protocolDiagnostics([
     ...(nativeDiagnostics.get(state.original.uri) ?? []),
-    ...(await serviceForUri(state.original.uri).diagnostics(state.original)),
-  ];
+    ...(await state.service.diagnostics(state.original)),
+  ]);
 }
 
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   if (latestDocumentVersions.get(state.original.uri) !== state.original.version) return;
+  const diagnostics = await combinedDiagnostics(state);
+  if (
+    latestDocumentVersions.get(state.original.uri) !== state.original.version ||
+    documents.get(state.original.uri) !== state ||
+    sourceDocuments.get(state.original.uri) !== state.original ||
+    (state.analysis !== undefined && !state.service.isAnalysisCurrent(state.original, state.analysis))
+  )
+    return;
   await client.sendNotification("textDocument/publishDiagnostics", {
     uri: state.original.uri,
     version: state.original.version,
-    diagnostics: await combinedDiagnostics(state),
+    diagnostics,
   });
 }
 
 async function refreshOpenDocuments(): Promise<void> {
-  for (const [uri, previous] of documents) {
+  for (const [uri, original] of sourceDocuments) {
+    const previous = documents.get(uri);
+    const cancellation = beginDocumentAnalysis(uri);
     serviceForUri(uri).forget(uri);
-    const state = await createState(previous.original, previous);
+    const state = await createState(original, previous, cancellation);
     documents.set(uri, state);
-    await typescript.sendNotification("textDocument/didChange", {
-      textDocument: { uri, version: state.virtualVersion },
-      contentChanges: [{ text: state.transformed.getText() }],
-    });
+    nativeDiagnostics.delete(uri);
+    await typescript.sendNotification(
+      previous === undefined ? "textDocument/didOpen" : "textDocument/didChange",
+      previous === undefined
+        ? {
+            textDocument: {
+              uri,
+              languageId: original.languageId,
+              version: state.virtualVersion,
+              text: state.transformed.getText(),
+            },
+          }
+        : {
+            textDocument: { uri, version: state.virtualVersion },
+            contentChanges: [{ text: state.transformed.getText() }],
+          },
+    );
     await publishCombinedDiagnostics(state);
   }
 }
@@ -363,6 +499,17 @@ async function resetVirtualDocuments(): Promise<void> {
 
 client.onRequest("initialize", async (rawParams) => {
   const params = rawParams as InitializeParams;
+  try {
+    negotiatedProtocol = negotiateTypedSqlProtocol(params.initializationOptions);
+  } catch (error) {
+    if (error instanceof TypedSqlProtocolCompatibilityError) {
+      throw new ResponseError(LSP_PROTOCOL_UNSUPPORTED, error.message, {
+        code: error.code,
+        requestedVersion: error.requestedVersion,
+      });
+    }
+    throw error;
+  }
   await previewReady;
   const roots = workspaceDirectories(params);
   await configureServices(roots, settingsFrom(params.initializationOptions));
@@ -379,6 +526,7 @@ client.onRequest("initialize", async (rawParams) => {
       name: "typed-sql + TypeScript preview",
       version: TYPESCRIPT_PREVIEW_VERSION,
     },
+    typedSql: { protocol: negotiatedProtocol },
   };
 });
 
@@ -403,15 +551,14 @@ client.onRequest("textDocument/completion", async (rawParams, token) => {
   if (uri !== undefined) await waitForDocument(uri, token);
   const state = stateFor(params);
   if (state !== undefined && isObject(params.position)) {
-    const items = await serviceForUri(state.original.uri).completions(
-      state.original,
-      params.position as unknown as Position,
-      token,
-    );
+    const items = await state.service.completions(state.original, params.position as unknown as Position, token);
+    ensureStateCurrent(state);
     if (items.length > 0) return { isIncomplete: false, items };
   }
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  return mapProtocolValue(await nativeRequest("textDocument/completion", mapped, token), "virtual-to-source", state);
+  const result = await nativeRequest("textDocument/completion", mapped, token);
+  ensureStateCurrent(state);
+  return mapProtocolValue(result, "virtual-to-source", state);
 });
 
 client.onRequest("textDocument/definition", async (rawParams, token) => {
@@ -421,15 +568,14 @@ client.onRequest("textDocument/definition", async (rawParams, token) => {
   if (uri !== undefined) await waitForDocument(uri, token);
   const state = stateFor(params);
   if (state !== undefined && isObject(params.position)) {
-    const definition = await serviceForUri(state.original.uri).definition(
-      state.original,
-      params.position as unknown as Position,
-      token,
-    );
+    const definition = await state.service.definition(state.original, params.position as unknown as Position, token);
+    ensureStateCurrent(state);
     if (definition !== undefined) return definition;
   }
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  return mapProtocolValue(await nativeRequest("textDocument/definition", mapped, token), "virtual-to-source", state);
+  const result = await nativeRequest("textDocument/definition", mapped, token);
+  ensureStateCurrent(state);
+  return mapProtocolValue(result, "virtual-to-source", state);
 });
 
 client.onRequest("textDocument/codeAction", async (rawParams, token) => {
@@ -441,9 +587,12 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
   const context = isObject(params.context) ? params.context : undefined;
   const diagnostics = Array.isArray(context?.diagnostics) ? context.diagnostics : [];
   const typedActions =
-    state === undefined ? [] : await serviceForUri(state.original.uri).codeActions(state.original, diagnostics, token);
+    state === undefined || !negotiated("diagnostic-fixes")
+      ? []
+      : await state.service.codeActions(state.original, diagnostics, token);
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const native = await nativeRequest("textDocument/codeAction", mapped, token);
+  ensureStateCurrent(state);
   const nativeActions = Array.isArray(native)
     ? (mapProtocolValue(native, "virtual-to-source", state) as readonly unknown[])
     : [];
@@ -451,6 +600,7 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
 });
 
 client.onRequest(TYPED_SQL_STATUS_REQUEST, async (): Promise<TypedSqlLanguageServerStatus> => {
+  if (!negotiated("status")) throw new ResponseError(-32601, "typedSql/status was not negotiated by this client");
   await workspaceReady;
   await previewReady;
   return {
@@ -458,8 +608,10 @@ client.onRequest(TYPED_SQL_STATUS_REQUEST, async (): Promise<TypedSqlLanguageSer
     mode: "pinned-preview-proxy",
     typescriptVersion: TYPESCRIPT_PREVIEW_VERSION,
     workspaceRoots,
-    openDocuments: documents.size,
+    openDocuments: sourceDocuments.size,
     indexedDocuments: virtualDocuments.size,
+    protocol: negotiatedProtocol,
+    workspaces: workspaceRoots.map((root) => ({ root, metrics: services.get(root)!.metrics() })),
   };
 });
 
@@ -470,26 +622,31 @@ client.onRequest(async (method, params, token) => {
   const state = isObject(params) ? stateFor(params) : undefined;
   const mappedParams = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest(method, mappedParams, token);
+  ensureStateCurrent(state);
   const mappedResult = mapProtocolValue(result, "virtual-to-source", state);
   if (method !== "textDocument/diagnostic" || state === undefined || !isObject(mappedResult)) {
     return mappedResult;
   }
   const items = Array.isArray(mappedResult.items) ? mappedResult.items : [];
+  const typedDiagnostics = await state.service.diagnostics(state.original);
+  ensureStateCurrent(state);
   return {
     ...mappedResult,
-    items: [...items, ...(await serviceForUri(state.original.uri).diagnostics(state.original))],
+    items: protocolDiagnostics([...items, ...typedDiagnostics]),
   };
 });
 
 client.onNotification("textDocument/didOpen", (rawParams) => {
   const params = rawParams as DidOpenParams;
   const item = params.textDocument;
+  const original = TextDocument.create(item.uri, item.languageId, item.version, item.text);
+  sourceDocuments.set(item.uri, original);
   latestDocumentVersions.set(item.uri, item.version);
+  const cancellation = beginDocumentAnalysis(item.uri, false);
   return queueDocument(item.uri, async () => {
     await workspaceReady;
-    const original = TextDocument.create(item.uri, item.languageId, item.version, item.text);
     const virtual = virtualDocuments.get(item.uri);
-    const state = await createState(original, virtual);
+    const state = await createState(original, virtual, cancellation);
     virtualDocuments.delete(item.uri);
     documents.set(item.uri, state);
     await typescript.sendNotification(
@@ -507,17 +664,24 @@ client.onNotification("textDocument/didOpen", (rawParams) => {
 
 client.onNotification("textDocument/didChange", (rawParams) => {
   const params = rawParams as DidChangeParams;
+  const source = sourceDocuments.get(params.textDocument.uri);
+  const original =
+    source === undefined
+      ? undefined
+      : TextDocument.update(source, [...params.contentChanges], params.textDocument.version);
+  if (original !== undefined) sourceDocuments.set(original.uri, original);
   latestDocumentVersions.set(params.textDocument.uri, params.textDocument.version);
+  const cancellation = beginDocumentAnalysis(params.textDocument.uri, source !== undefined);
   return queueDocument(params.textDocument.uri, async () => {
     await workspaceReady;
+    await serviceForUri(params.textDocument.uri).debounce(cancellation);
     const previous = documents.get(params.textDocument.uri);
-    if (previous === undefined) {
+    if (original === undefined) {
       await typescript.sendNotification("textDocument/didChange", params);
       return;
     }
-    const original = TextDocument.update(previous.original, [...params.contentChanges], params.textDocument.version);
     serviceForUri(original.uri).forget(original.uri);
-    const state = await createState(original, previous);
+    const state = await createState(original, previous, cancellation);
     documents.set(original.uri, state);
     await typescript.sendNotification("textDocument/didChange", {
       textDocument: { uri: original.uri, version: state.virtualVersion },
@@ -529,7 +693,10 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
+  sourceDocuments.delete(params.textDocument.uri);
   latestDocumentVersions.delete(params.textDocument.uri);
+  documentAnalysisTokens.get(params.textDocument.uri)?.cancel();
+  documentAnalysisTokens.delete(params.textDocument.uri);
   return queueDocument(params.textDocument.uri, async () => {
     await workspaceReady;
     const previous = documents.get(params.textDocument.uri);
@@ -565,19 +732,18 @@ client.onNotification("textDocument/didClose", (rawParams) => {
 });
 
 client.onNotification("workspace/didChangeConfiguration", (params) => {
-  workspaceReady = (async () => {
+  return queueWorkspace(async () => {
     const value = isObject(params) ? params.settings : undefined;
     const settings = settingsFrom(value);
     for (const [root, service] of services) service.configure(root, settings);
     await typescript.sendNotification("workspace/didChangeConfiguration", params);
     await refreshOpenDocuments();
     await resetVirtualDocuments();
-  })();
-  return workspaceReady;
+  });
 });
 
 client.onNotification("workspace/didChangeWatchedFiles", (params) => {
-  workspaceReady = (async () => {
+  return queueWorkspace(async () => {
     const changes = watchedFileChanges(params);
     const nativeChanges =
       changes === undefined
@@ -598,8 +764,7 @@ client.onNotification("workspace/didChangeWatchedFiles", (params) => {
     }
     await refreshOpenDocuments();
     await resetVirtualDocuments();
-  })();
-  return workspaceReady;
+  });
 });
 
 client.onNotification("exit", async () => {
@@ -633,6 +798,8 @@ typescript.onNotification("textDocument/publishDiagnostics", async (params) => {
     return;
   }
   if (latestDocumentVersions.get(params.uri) !== state.original.version) return;
+  if (typeof params.version === "number" && params.version !== state.virtualVersion) return;
+  if (state.analysis !== undefined && !state.service.isAnalysisCurrent(state.original, state.analysis)) return;
   const mapped = mapProtocolValue(params, "virtual-to-source", state);
   const diagnostics = isObject(mapped) && Array.isArray(mapped.diagnostics) ? mapped.diagnostics : [];
   nativeDiagnostics.set(params.uri, diagnostics);

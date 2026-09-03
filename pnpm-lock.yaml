@@ -59,6 +59,9 @@ importers:
       '@typed-sql/cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../../packages/conformance
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -105,6 +108,9 @@ importers:
       '@typed-sql/cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../../packages/conformance
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -248,6 +254,9 @@ importers:
       '@typed-sql/cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../../packages/conformance
       '@typed-sql/language-server':
         specifier: workspace:*
         version: link:../../packages/language-server
@@ -263,6 +272,9 @@ importers:
 
   examples/synthetic-grammar:
     dependencies:
+      '@typed-sql/ast':
+        specifier: workspace:*
+        version: link:../../packages/ast
       '@typed-sql/conformance':
         specifier: workspace:*
         version: link:../../packages/conformance
@@ -354,6 +366,10 @@ importers:
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
+    devDependencies:
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../conformance
 
   packages/opentelemetry:
     dependencies:
@@ -378,8 +394,16 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+    devDependencies:
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../conformance
 
-  packages/schema: {}
+  packages/schema:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/sqlite:
     dependencies:

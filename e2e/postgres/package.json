@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@typed-sql/cli": "workspace:*",
+    "@typed-sql/conformance": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/postgres": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",

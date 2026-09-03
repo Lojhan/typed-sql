@@ -101,7 +101,7 @@ await describe("prerelease publisher", async () => {
       },
       {
         command: "npm",
-        args: ["publish", "/tmp/core.tgz", "--access", "public", "--tag", "next"],
+        args: ["publish", "/tmp/core.tgz", "--access", "public", "--tag", "next", "--provenance"],
         cwd: "/packages/core",
       },
     ]);

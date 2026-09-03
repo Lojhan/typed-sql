@@ -8,14 +8,18 @@ import {
   defineConfig,
   parameterTypeLiteral,
   QUERY_SEMANTICS_VERSION,
+  type Query,
   type QuerySemantics,
   renderQuery,
+  resolveDialectCapabilityStates,
   rowTypeLiteral,
   type SchemaSnapshot,
   type SourceRange,
 } from "@typed-sql/core";
 import {
   type CodecConformanceFixture,
+  type FragmentListConformanceFixture,
+  type FragmentListConformanceReport,
   GRAMMAR_CONFORMANCE_VERSION,
   type GrammarAnalysisProbe,
   type GrammarConformanceFixture,
@@ -25,8 +29,10 @@ import {
   type GrammarUnsupportedProbe,
   REQUIRED_GRAMMAR_PROBES,
   type RuntimeAdapterConformanceFixture,
+  type VersionedCapabilityConformanceFixture,
 } from "./types.js";
 
+/** @deprecated Use `defineConformanceSuite` from `@typed-sql/conformance/v2`. Removed in typed-sql 3.0. */
 export function defineGrammarConformanceFixture<Snapshot extends SchemaSnapshot, Policy>(
   fixture: GrammarConformanceFixture<Snapshot, Policy>,
 ): GrammarConformanceFixture<Snapshot, Policy> {
@@ -167,6 +173,7 @@ function assertUnsupported<Snapshot extends SchemaSnapshot, Policy>(
   );
 }
 
+/** @deprecated Use the layer runners from `@typed-sql/conformance/v2`. Removed in typed-sql 3.0. */
 export function assertGrammarConformance<Snapshot extends SchemaSnapshot, Policy>(
   fixture: GrammarConformanceFixture<Snapshot, Policy>,
 ): GrammarConformanceReport {
@@ -203,6 +210,7 @@ export function assertGrammarConformance<Snapshot extends SchemaSnapshot, Policy
   }
 
   const capabilityNames = Object.keys(fixture.dialect.capabilities).sort();
+  const capabilityStates = resolveDialectCapabilityStates(fixture.dialect, fixture.snapshot);
   assert.deepStrictEqual(
     fixture.capabilities.map(({ capability }) => capability).sort(),
     capabilityNames,
@@ -264,8 +272,42 @@ export function assertGrammarConformance<Snapshot extends SchemaSnapshot, Policy
     grammarVersion: fixture.dialect.grammarVersion,
     requiredProbes: REQUIRED_GRAMMAR_PROBES,
     capabilities: Object.freeze({ ...fixture.dialect.capabilities }),
+    capabilityStates,
     structuralVariants: compiled.variantFingerprints.length,
   });
+}
+
+/** Verifies deterministic, frozen version and condition boundaries without knowing vendor rules. */
+export function assertVersionedCapabilityConformance<Snapshot extends SchemaSnapshot, Policy>(
+  fixture: VersionedCapabilityConformanceFixture<Snapshot, Policy>,
+): void {
+  assert.ok(fixture.probes.length > 0, "Versioned capability conformance requires at least one probe");
+  assert.strictEqual(
+    new Set(fixture.probes.map(({ name }) => name)).size,
+    fixture.probes.length,
+    "Probe names must be unique",
+  );
+  for (const probe of fixture.probes) {
+    const first = resolveDialectCapabilityStates(fixture.dialect, probe.snapshot, probe.policy);
+    const second = resolveDialectCapabilityStates(fixture.dialect, probe.snapshot, probe.policy);
+    assert.deepStrictEqual(second, first, `${probe.name} capability resolution must be deterministic`);
+    assertDeepFrozen(first);
+    for (const expected of probe.expected) {
+      const state = first[expected.capability];
+      assert.ok(state !== undefined, `${probe.name}.${expected.capability} was not declared`);
+      assert.strictEqual(state.level, expected.level, `${probe.name}.${expected.capability} level`);
+      if (expected.diagnostic !== undefined) {
+        assert.strictEqual(state.diagnostic, expected.diagnostic, `${probe.name}.${expected.capability} diagnostic`);
+      }
+      if (expected.evidenceKinds !== undefined) {
+        assert.deepStrictEqual(
+          [...new Set(state.evidence.map(({ kind }) => kind))].sort(),
+          [...expected.evidenceKinds].sort(),
+          `${probe.name}.${expected.capability} evidence kinds`,
+        );
+      }
+    }
+  }
 }
 
 export function assertCodecConformance<Input, Output>(fixture: CodecConformanceFixture<Input, Output>): void {
@@ -297,4 +339,99 @@ export async function assertRuntimeAdapterConformance<Row, Parameters extends re
     `${fixture.name} transaction rows`,
   );
   assert.deepStrictEqual(calls, [rendered, rendered], `${fixture.name} adapter dispatch`);
+}
+
+function fragmentParameter(parameter: {
+  readonly index: number;
+  readonly tsType: string;
+  readonly nullable: boolean;
+  readonly databaseType?: string;
+}): Readonly<Record<string, unknown>> {
+  return {
+    index: parameter.index,
+    tsType: parameter.tsType,
+    nullable: parameter.nullable,
+    ...(parameter.databaseType === undefined ? {} : { databaseType: parameter.databaseType }),
+  };
+}
+
+/** Verifies the shared compiler artifact, grammar analysis, diagnostics, and 1/2/5-row rendering contract. */
+export function assertFragmentListConformance<Snapshot extends SchemaSnapshot, Policy>(
+  fixture: FragmentListConformanceFixture<Snapshot, Policy>,
+): FragmentListConformanceReport {
+  assertDialectPlugin(fixture.dialect);
+  assert.strictEqual(fixture.snapshot.dialect, fixture.dialect.id, `${fixture.name} snapshot dialect`);
+  assert.deepStrictEqual(
+    fixture.renderCases.map(({ cardinality }) => cardinality).sort((left, right) => left - right),
+    [1, 2, 5],
+    `${fixture.name} must cover 1, 2, and 5 rendered items`,
+  );
+  assert.strictEqual(
+    new Set(fixture.renderCases.map(({ name }) => name)).size,
+    fixture.renderCases.length,
+    `${fixture.name} render case names must be unique`,
+  );
+
+  const compilation = compileSource({
+    source: fixture.compilerSource,
+    dialect: fixture.dialect,
+    schema: fixture.snapshot,
+    ...(fixture.policy === undefined ? {} : { typePolicy: fixture.policy }),
+  });
+  assert.deepStrictEqual(compilation.diagnostics, [], `${fixture.name} compiler diagnostics`);
+  assert.strictEqual(compilation.queries.length, 1, `${fixture.name} compiled query count`);
+  const compiled = compilation.queries[0]!;
+  assert.strictEqual(compiled.fragmentList, true, `${fixture.name} fragment-list marker`);
+  assert.strictEqual(compiled.parameterType, "readonly unknown[]", `${fixture.name} dynamic parameter type`);
+  assert.strictEqual(compiled.rowType, fixture.expectedRowType, `${fixture.name} row type`);
+  assert.strictEqual(compiled.variants.length, 1, `${fixture.name} representative variant count`);
+  assert.strictEqual(
+    compiled.variants[0]?.sql,
+    fixture.expectedRepresentativeSql,
+    `${fixture.name} representative SQL`,
+  );
+  const artifact = compiled.repeatedFragments?.[0];
+  assert.ok(artifact !== undefined, `${fixture.name} repeated-fragment artifact`);
+  assert.strictEqual(compiled.repeatedFragments?.length, 1, `${fixture.name} repeated-fragment artifact count`);
+  assert.strictEqual(artifact.kind, "repeated-fragment");
+  assert.strictEqual(artifact.minimumItems, 1);
+  assert.strictEqual(artifact.separator.text, ", ");
+  assert.match(artifact.fingerprint, /^sha256:[a-f\d]{64}$/u);
+  assert.ok(Object.isFrozen(artifact) && Object.isFrozen(artifact.parameterPattern));
+  assert.deepStrictEqual(
+    artifact.parameterPattern.map(fragmentParameter),
+    fixture.expectedElementParameters.map(fragmentParameter),
+    `${fixture.name} element parameter pattern`,
+  );
+
+  const representative = fixture.dialect.analyze(fixture.expectedRepresentativeSql, fixture.snapshot, fixture.policy);
+  assert.deepStrictEqual(representative.diagnostics, [], `${fixture.name} representative grammar diagnostics`);
+  assert.strictEqual(representative.resultKind ?? "rows", fixture.expectedResultKind, `${fixture.name} result kind`);
+
+  for (const renderCase of fixture.renderCases) {
+    const rendered = renderQuery(renderCase.query as Query<unknown, readonly unknown[]>, fixture.renderer);
+    assert.strictEqual(rendered.text, renderCase.expectedText, `${fixture.name}.${renderCase.name} SQL`);
+    assert.deepStrictEqual(rendered.values, renderCase.expectedValues, `${fixture.name}.${renderCase.name} values`);
+  }
+
+  for (const diagnosticCase of fixture.diagnostics ?? []) {
+    const rejected = compileSource({
+      source: diagnosticCase.source,
+      dialect: fixture.dialect,
+      schema: fixture.snapshot,
+      ...(fixture.policy === undefined ? {} : { typePolicy: fixture.policy }),
+    });
+    assert.strictEqual(rejected.queries.length, 0, `${fixture.name}.${diagnosticCase.name} compiled unexpectedly`);
+    assert.ok(
+      rejected.diagnostics.some(({ code, severity }) => code === diagnosticCase.diagnosticCode && severity === "error"),
+      `${fixture.name}.${diagnosticCase.name} did not report ${diagnosticCase.diagnosticCode}`,
+    );
+  }
+
+  return Object.freeze({
+    grammar: fixture.dialect.id,
+    artifactFingerprint: artifact.fingerprint,
+    renderCardinalities: Object.freeze([1, 2, 5] as const),
+    diagnosticCases: fixture.diagnostics?.length ?? 0,
+  });
 }
