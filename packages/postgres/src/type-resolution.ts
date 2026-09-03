@@ -1,4 +1,9 @@
-import type { SchemaSnapshot, TypeSnapshot } from "@typed-sql/schema";
+import {
+  type SchemaSnapshot,
+  type SchemaSnapshotV2,
+  type TypeSnapshot,
+  upgradeSchemaSnapshotV1,
+} from "@typed-sql/schema";
 import {
   type PostgresCastContext,
   type PostgresTypeCategory,
@@ -55,6 +60,7 @@ const numericOperatorTypes = new Set(["smallint", "integer", "bigint", "numeric"
 // the other snapshot-indexed resolver caches instead of rebuilding it for every expression.
 const operatorCandidatesBySchema = new WeakMap<SchemaSnapshot, Map<string, readonly PostgresCandidate<string>[]>>();
 const defaultOperatorCandidates = new Map<string, readonly PostgresCandidate<string>[]>();
+const upgradedSchemas = new WeakMap<SchemaSnapshot, SchemaSnapshotV2>();
 
 export interface PostgresCandidate<Value> {
   readonly value: Value;
@@ -104,17 +110,27 @@ function normalize(value: string): string {
 }
 
 function schemaTypes(schema?: SchemaSnapshot): readonly TypeSnapshot[] {
-  return schema?.formatVersion === 2 ? Object.values(schema.types) : [];
+  if (schema === undefined) return [];
+  if (schema.formatVersion === 2) return Object.values(schema.types);
+  const cached = upgradedSchemas.get(schema);
+  if (cached !== undefined) return Object.values(cached.types);
+  const upgraded = upgradeSchemaSnapshotV1(schema);
+  upgradedSchemas.set(schema, upgraded);
+  return Object.values(upgraded.types);
 }
 
 function typeEvidence(databaseType: string, schema?: SchemaSnapshot): TypeSnapshot | undefined {
   const normalized = normalize(databaseType);
-  return schemaTypes(schema).find(
+  const types = schemaTypes(schema);
+  const exact = types.find(
     (type) =>
       normalize(type.databaseType) === normalized ||
       normalize(type.identity) === normalized ||
       normalize(`${type.schema === undefined ? "" : `${type.schema}.`}${type.name}`) === normalized,
   );
+  if (exact !== undefined) return exact;
+  const unqualified = types.filter((type) => normalize(type.name) === normalized);
+  return unqualified.length === 1 ? unqualified[0] : undefined;
 }
 
 /** Canonical PostgreSQL type identity for overload and coercion decisions. */
