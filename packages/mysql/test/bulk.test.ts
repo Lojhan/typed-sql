@@ -93,7 +93,7 @@ await describe("MySQL LOAD DATA capability", async () => {
       { id: 2n, email: "two\texample.com", note: "line\nbreak\\tail" },
     ]);
     strict.deepStrictEqual(statements, [
-      "LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE `app`.`account` CHARACTER SET utf8mb4 FIELDS TERMINATED BY '\\t' ESCAPED BY '\\\\' LINES TERMINATED BY '\\n' (`id`, `email`, `note`)",
+      "LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE `app`.`account` CHARACTER SET utf8mb4 FIELDS TERMINATED BY X'09' ESCAPED BY X'5C' LINES TERMINATED BY X'0A' (`id`, `email`, `note`)",
     ]);
     const encoded = new TextDecoder().decode(Buffer.concat(chunks));
     strict.strictEqual(encoded, "1\tone@example.com\t\\N\n2\ttwo\\texample.com\tline\\nbreak\\\\tail\n");

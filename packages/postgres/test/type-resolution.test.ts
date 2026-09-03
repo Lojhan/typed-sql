@@ -68,6 +68,32 @@ const structuralSchema = (() => {
   } as const satisfies SchemaSnapshot;
 })();
 
+const legacyDomainSchema = {
+  formatVersion: 1,
+  dialect: "postgres",
+  tables: {},
+  domains: {
+    email_address: { name: "email_address", databaseType: "text", tsType: "string", nullable: false },
+  },
+} as const satisfies SchemaSnapshot;
+
+const qualifiedDomainSchema = {
+  ...upgradeSchemaSnapshotV1({ formatVersion: 1, dialect: "postgres", tables: {} }),
+  types: {
+    email_address: {
+      kind: "domain",
+      schema: "public",
+      name: "email_address",
+      identity: "pg:16385",
+      databaseType: "text",
+      tsType: "string",
+      baseTypeIdentity: "text",
+      nullable: true,
+      checks: [],
+    },
+  },
+} as const satisfies SchemaSnapshot;
+
 await describe("PostgreSQL type resolution", async () => {
   await it("uses canonical type identities and cast contexts", () => {
     strict.strictEqual(postgresCanonicalType("INT4"), "integer");
@@ -85,6 +111,24 @@ await describe("PostgreSQL type resolution", async () => {
     strict.strictEqual(postgresCanCoerce("text", "uuid", "assignment"), false);
     strict.strictEqual(postgresCanCoerce("uuid", "text", "implicit"), false);
     strict.strictEqual(postgresCanCoerce("boolean", "date", "explicit"), false);
+  });
+
+  await it("uses v1 domain evidence when resolving an unknown operator operand", () => {
+    strict.strictEqual(postgresCanonicalType("email_address", legacyDomainSchema), "text");
+    const operator = resolvePostgresOperator("<>", "email_address", undefined, legacyDomainSchema);
+    strict.strictEqual(operator.kind, "selected");
+    if (operator.kind === "selected") {
+      strict.strictEqual(operator.candidate, "<>");
+      strict.deepStrictEqual(operator.argumentTypes, ["text", "text"]);
+      strict.strictEqual(operator.resultType, "boolean");
+    }
+  });
+
+  await it("uses an unambiguous schema-qualified domain name from v2 introspection", () => {
+    strict.strictEqual(postgresCanonicalType("email_address", qualifiedDomainSchema), "text");
+    const operator = resolvePostgresOperator("<>", "email_address", undefined, qualifiedDomainSchema);
+    strict.strictEqual(operator.kind, "selected");
+    if (operator.kind === "selected") strict.deepStrictEqual(operator.argumentTypes, ["text", "text"]);
   });
 
   await it("selects common types without allowing reverse narrowing", () => {

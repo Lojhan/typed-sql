@@ -60,11 +60,38 @@ const schema = {
   },
 } as const satisfies SchemaSnapshot;
 
+const legacyDomainSchema = {
+  formatVersion: 1,
+  dialect: "postgres",
+  tables: {
+    users: {
+      name: "users",
+      columns: {
+        email: { name: "email", databaseType: "email_address", tsType: "string", nullable: false },
+      },
+    },
+  },
+  domains: {
+    email_address: { name: "email_address", databaseType: "text", tsType: "string", nullable: false },
+  },
+} as const satisfies SchemaSnapshot;
+
 function codes(sql: string): readonly string[] {
   return resolveStatement(parseStatement(sql), schema).diagnostics.map((diagnostic) => diagnostic.code);
 }
 
 await describe("PostgreSQL resolver branch matrix", async () => {
+  await it("infers unknown parameters compared with v1 domain columns", () => {
+    const result = resolveSelect(parseSelect("SELECT email <> $1 AS differs FROM users"), legacyDomainSchema);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.parameters, [{ index: 1, databaseType: "text", tsType: "string", nullable: false }]);
+    strict.strictEqual(result.columns.length, 1);
+    strict.strictEqual(result.columns[0]?.name, "differs");
+    strict.strictEqual(result.columns[0]?.tsType, "boolean");
+    strict.strictEqual(result.columns[0]?.nullable, false);
+    strict.strictEqual(result.columns[0]?.databaseType, "boolean");
+  });
+
   await it("infers set-operation rows and diagnoses incompatible arity", () => {
     const compound = resolveSelect(
       parseSelect("SELECT 1 AS value UNION ALL SELECT 'two' AS ignored INTERSECT SELECT 3 AS final_name"),

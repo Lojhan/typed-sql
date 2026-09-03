@@ -123,7 +123,7 @@ function loadDataStatement(text: string, parameterCount: number): string {
   const quote = mysqlRenderer.quoteIdentifier;
   const table = `${statement.table.schema === undefined ? "" : `${quote(statement.table.schema.name)}.`}${quote(statement.table.name.name)}`;
   const columns = statement.columns.map(({ name }) => quote(name)).join(", ");
-  return `LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE ${table} CHARACTER SET utf8mb4 FIELDS TERMINATED BY '\\t' ESCAPED BY '\\\\' LINES TERMINATED BY '\\n' (${columns})`;
+  return `LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE ${table} CHARACTER SET utf8mb4 FIELDS TERMINATED BY X'09' ESCAPED BY X'5C' LINES TERMINATED BY X'0A' (${columns})`;
 }
 
 function cancelled(signal: AbortSignal | undefined): void {
