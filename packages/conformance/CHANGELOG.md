@@ -1,5 +1,43 @@
 # @typed-sql/conformance
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add the canonical, version-aware grammar feature ledger API and fail closed for PostgreSQL-style `UPDATE FROM` and `INSERT DEFAULT VALUES` when analyzed by the MySQL grammar.
+- 1041bfa: Add the published `@typed-sql/conformance/v2` feature-addressable static and live differential harness, target selection, exact-claim enforcement, reporters, fixture discovery, reduction, reproduction bundles, and a non-inflating v1 migration adapter.
+- 1041bfa: Allow non-empty arrays of typed SQL fragments to be interpolated directly as homogeneous,
+  comma-separated structure. Add fail-closed compiler analysis for direct map callbacks and fragment
+  literals, cardinality-independent artifacts, bounded prepared-cardinality caches, shared grammar
+  conformance, and runtime limits while preserving ordinary arrays as single bound values.
+- 1041bfa: Add deterministic conformance failure injection and expose the bounded config and language-server cache defaults used by reliability suites.
+- 1041bfa: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- 1041bfa: Add neutral column charset and collation evidence, generated versioned MySQL built-in catalogs,
+  catalog-backed type and function availability, MySQL collation coercibility, and signed/unsigned
+  numeric expression resolution.
+  Conformance v2 now compares grammar analysis against the neutral resolved-column contract while
+  allowing grammar-owned result evidence.
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+  - @typed-sql/core@2.1.0
+  - @typed-sql/compiler@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

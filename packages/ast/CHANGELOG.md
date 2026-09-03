@@ -1,5 +1,11 @@
 # @typed-sql/ast
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add the grammar-neutral parser toolkit and move first-party parsing, ASTs, tokenization, and walking into each grammar package. The historical multi-dialect AST parser is isolated as a deprecated typed-sql 2.x compatibility surface for removal in 3.0.
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

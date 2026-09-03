@@ -68,9 +68,13 @@ await describe("stable release rehearsal policy", async () => {
   });
 
   await it("publishes durable release notes with the supported and experimental boundaries", async () => {
-    const notes = await readFile(resolve(workspace, ".github/release-notes/2.0.0.md"), "utf8");
+    const release = JSON.parse(await readFile(resolve(workspace, "release-manifest.json"), "utf8")) as {
+      readonly series: string;
+    };
+    const notes = await readFile(resolve(workspace, `.github/release-notes/${release.series}.md`), "utf8");
     const normalizedNotes = notes.replaceAll(/\s+/gu, " ");
     for (const required of [
+      `# typed-sql ${release.series}`,
       "https://lojhan.github.io/typed-sql/guides/upgrading-from-v1",
       "https://lojhan.github.io/typed-sql/reference/compatibility",
       "Node.js 22.11 or newer",

@@ -1,5 +1,39 @@
 # @typed-sql/cli
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add structured opt-in debug events and confirmed support-bundle generation with privacy-safe default redaction.
+- 1041bfa: Reject unsupported TypeScript compiler and preview patches before project work begins. Add
+  `typed-sql doctor` with human and JSON reports for Node.js, TypeScript, grammar, schema, redacted
+  server evidence, language-server/bridge metadata, and editor protocol compatibility.
+- 1041bfa: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+  - @typed-sql/core@2.1.0
+  - @typed-sql/compiler@2.1.0
+  - @typed-sql/config@2.1.0
+  - @typed-sql/schema@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

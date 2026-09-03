@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/core",
-  "version": "2.1.0-rc.1",
+  "version": "2.1.0",
   "description": "Driver- and dialect-neutral typed SQL query contracts.",
   "license": "MIT",
   "author": "Lojhan",

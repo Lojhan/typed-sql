@@ -1,5 +1,67 @@
 # @typed-sql/mysql
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add the grammar-neutral parser toolkit and move first-party parsing, ASTs, tokenization, and walking into each grammar package. The historical multi-dialect AST parser is isolated as a deprecated typed-sql 2.x compatibility surface for removal in 3.0.
+- 1041bfa: Allow non-empty arrays of typed SQL fragments to be interpolated directly as homogeneous,
+  comma-separated structure. Add fail-closed compiler analysis for direct map callbacks and fragment
+  literals, cardinality-independent artifacts, bounded prepared-cardinality caches, shared grammar
+  conformance, and runtime limits while preserving ordinary arrays as single bound values.
+- 1041bfa: Complete MySQL data-modification parsing and analysis for insert modifiers, inserted-row aliases,
+  duplicate-key updates, `REPLACE`, joined multi-table updates and deletes, partitions, and
+  single-table ordering and limits.
+- 1041bfa: Apply normalized MySQL SQL modes before scanning. `ANSI_QUOTES`, `NO_BACKSLASH_ESCAPES`, and
+  `PIPES_AS_CONCAT` now select exact lexical behavior, and executable server comments fail closed.
+- 1041bfa: Complete MySQL query-structure analysis for recursive CTEs, set operations, lateral derived tables,
+  locking placement, window frames and inheritance, `ROLLUP`, and `ONLY_FULL_GROUP_BY`.
+- 1041bfa: Harden MySQL execution with per-connection snapshot compatibility checks, redacted warning reporting and strict warning rejection, bounded logical/native prepared-statement and decoder caches, and adapter-owned multi-statement disablement.
+- 1041bfa: Capture normalized MySQL distribution, SQL mode, server and connection charset/collation, session
+  and system time zone, and identifier-case evidence. Exact capability selection now fails closed when
+  any required semantic setting is absent.
+- 1041bfa: Complete MySQL schema format 2 introspection for namespace defaults, invisible and spatial columns,
+  type attributes, constraint enforcement, index prefixes and visibility, routine metadata, and
+  permission-limited fail-closed diagnostics. Reject MariaDB and unidentified compatible servers
+  instead of emitting MySQL snapshots for unverified products.
+- 1041bfa: Publish the grammar-owned MySQL LTS, innovation-canary, patch-compatibility, and deprecation policy,
+  publish the default, lexical, and numeric SQL-mode profiles, and expose fail-closed server-version
+  classification through `mySqlVersionSupport()`. Custom profiles containing an unmodeled mode now
+  remain conservative instead of receiving exact capability evidence.
+- 1041bfa: Add neutral column charset and collation evidence, generated versioned MySQL built-in catalogs,
+  catalog-backed type and function availability, MySQL collation coercibility, and signed/unsigned
+  numeric expression resolution.
+  Conformance v2 now compares grammar analysis against the neutral resolved-column contract while
+  allowing grammar-owned result evidence.
+- 1041bfa: Add canonical schema snapshot format 2 with isolated v1/v2 codecs, conservative v1 upgrades,
+  neutral relation/constraint/index/type/routine evidence, and complete provider introspection.
+  Resolvers now consume structural write and routine evidence, while drift, compatibility, manifests,
+  verification proofs, and plan artifacts bind to the schema format and canonical hash.
+
+### Patch Changes
+
+- 1041bfa: Add the canonical, version-aware grammar feature ledger API and fail closed for PostgreSQL-style `UPDATE FROM` and `INSERT DEFAULT VALUES` when analyzed by the MySQL grammar.
+- f3b9e6c: Align the published MySQL support evidence with the exact currently available Docker Official Image patches for the 8.4 and 9.7 LTS lines and the 26.7 innovation canary. Keep typed bulk loading portable across modeled SQL modes by expressing field, escape, and line delimiters as hexadecimal SQL literals instead of mode-sensitive escaped strings.
+- 1041bfa: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+  - @typed-sql/core@2.1.0
+  - @typed-sql/ast@2.1.0
+  - @typed-sql/schema@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

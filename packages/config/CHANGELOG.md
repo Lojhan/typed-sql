@@ -1,5 +1,27 @@
 # @typed-sql/config
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add deterministic conformance failure injection and expose the bounded config and language-server cache defaults used by reliability suites.
+
+### Patch Changes
+
+- 1041bfa: Reuse a bounded content-addressed config module cache so repeated project and editor lifecycles do not retain a new TypeScript loader for unchanged configuration.
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+  - @typed-sql/core@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

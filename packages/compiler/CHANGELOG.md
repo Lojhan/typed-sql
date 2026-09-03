@@ -1,5 +1,45 @@
 # @typed-sql/compiler
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add the versioned, serializable source-analysis service shared by batch checks and editor tooling.
+  Results carry deterministic source, project, schema, type-policy, grammar, and capability identities;
+  cancellation and source, query-count, structural-variant, and generated-declaration limits fail closed.
+- 1041bfa: Allow non-empty arrays of typed SQL fragments to be interpolated directly as homogeneous,
+  comma-separated structure. Add fail-closed compiler analysis for direct map callbacks and fragment
+  literals, cardinality-independent artifacts, bounded prepared-cardinality caches, shared grammar
+  conformance, and runtime limits while preserving ordinary arrays as single bound values.
+- 1041bfa: Add canonical schema snapshot format 2 with isolated v1/v2 codecs, conservative v1 upgrades,
+  neutral relation/constraint/index/type/routine evidence, and complete provider introspection.
+  Resolvers now consume structural write and routine evidence, while drift, compatibility, manifests,
+  verification proofs, and plan artifacts bind to the schema format and canonical hash.
+- 1041bfa: Reject unsupported TypeScript compiler and preview patches before project work begins. Add
+  `typed-sql doctor` with human and JSON reports for Node.js, TypeScript, grammar, schema, redacted
+  server evidence, language-server/bridge metadata, and editor protocol compatibility.
+- 1041bfa: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- 1041bfa: Add a grammar-neutral serialized artifact compatibility identity and deterministic compatibility outcomes, and use the shared identity contract for query-manifest cache reuse.
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+  - @typed-sql/core@2.1.0
+  - @typed-sql/schema@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes
