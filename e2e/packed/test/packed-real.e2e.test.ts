@@ -1,5 +1,5 @@
 import { execFile as execFileCallback, spawn } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -121,6 +121,48 @@ async function packLocalDependency(directory: string, tarballs: string): Promise
   return `file:${join(tarballs, archive)}`;
 }
 
+async function readPackageVersion(directory: string): Promise<string> {
+  const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8")) as {
+    readonly version: string;
+  };
+  return manifest.version;
+}
+
+async function packTypescriptPlatformDependency(directory: string, tarballs: string): Promise<string> {
+  const manifestPath = join(directory, "package.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+    readonly name: string;
+    readonly version: string;
+  };
+  const staging = join(tarballs, `typescript-platform-${manifest.version}`);
+  await cp(directory, staging, { recursive: true });
+  await writeFile(
+    join(staging, "package.json"),
+    `${JSON.stringify(
+      {
+        ...manifest,
+        // TypeScript's published platform archive marks this native executable directly. Repacking
+        // its installed directory does not, so declare a fixture-only bin to preserve executable mode.
+        bin: { [`typed-sql-typescript-platform-${manifest.version}`]: "./lib/tsc" },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return packLocalDependency(staging, tarballs);
+}
+
+async function typescriptFixture(directory: string, tarballs: string) {
+  const installedDirectory = await realpath(directory);
+  const platformPackageName = `@typescript/typescript-${process.platform}-${process.arch}`;
+  const platformDirectory = join(dirname(installedDirectory), ...platformPackageName.split("/"));
+  return {
+    package: await packLocalDependency(installedDirectory, tarballs),
+    platformPackage: await packTypescriptPlatformDependency(platformDirectory, tarballs),
+    version: await readPackageVersion(installedDirectory),
+  };
+}
+
 async function assertPortableArtifact(path: string, checkout: string): Promise<string> {
   const source = await readFile(path, "utf8");
   JSON.parse(source);
@@ -173,12 +215,13 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       const localTypescript = registryOnly
         ? undefined
         : {
-            stable: await packLocalDependency(join(workspace, "node_modules", "typescript"), tarballs),
-            preview: await packLocalDependency(
+            stable: await typescriptFixture(join(workspace, "node_modules", "typescript"), tarballs),
+            preview: await typescriptFixture(
               join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview"),
               tarballs,
             ),
           };
+      const typescriptPlatformPackage = `@typescript/typescript-${process.platform}-${process.arch}`;
       const driverLinks = registryOnly
         ? {
             pg: "8.23.0",
@@ -195,7 +238,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
             valibot: `link:${join(packageDirectory, "node_modules", "valibot")}`,
             zod: `link:${join(packageDirectory, "node_modules", "zod")}`,
             tsx: `link:${join(workspace, "node_modules", "tsx")}`,
-            typescript: localTypescript!.stable,
+            typescript: localTypescript!.stable.package,
             "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
             "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
             "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
@@ -216,7 +259,11 @@ await describe(`${consumerSource} real-database consumers`, async () => {
                     overrides: {
                       ...dependencies,
                       ...driverLinks,
-                      "@typed-sql/typescript-preview": localTypescript!.preview,
+                      "@typed-sql/typescript-preview": localTypescript!.preview.package,
+                      [`${typescriptPlatformPackage}@${localTypescript!.stable.version}`]:
+                        localTypescript!.stable.platformPackage,
+                      [`${typescriptPlatformPackage}@${localTypescript!.preview.version}`]:
+                        localTypescript!.preview.platformPackage,
                     },
                   },
                 }),
