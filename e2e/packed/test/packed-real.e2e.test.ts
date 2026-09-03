@@ -113,6 +113,14 @@ async function write(path: string, value: string): Promise<void> {
   await writeFile(path, value.trimStart());
 }
 
+async function packLocalDependency(directory: string, tarballs: string): Promise<string> {
+  const before = new Set(await readdir(tarballs));
+  await execFile("pnpm", ["--silent", "pack", "--pack-destination", tarballs], { cwd: directory });
+  const archive = (await readdir(tarballs)).find((entry) => !before.has(entry));
+  if (archive === undefined) throw new Error(`No tarball produced for local dependency ${directory}`);
+  return `file:${join(tarballs, archive)}`;
+}
+
 async function assertPortableArtifact(path: string, checkout: string): Promise<string> {
   const source = await readFile(path, "utf8");
   JSON.parse(source);
@@ -162,6 +170,15 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           dependencies[manifest.name] = `file:${join(tarballs, archive)}`;
         }
       }
+      const localTypescript = registryOnly
+        ? undefined
+        : {
+            stable: await packLocalDependency(join(workspace, "node_modules", "typescript"), tarballs),
+            preview: await packLocalDependency(
+              join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview"),
+              tarballs,
+            ),
+          };
       const driverLinks = registryOnly
         ? {
             pg: "8.23.0",
@@ -178,7 +195,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
             valibot: `link:${join(packageDirectory, "node_modules", "valibot")}`,
             zod: `link:${join(packageDirectory, "node_modules", "zod")}`,
             tsx: `link:${join(workspace, "node_modules", "tsx")}`,
-            typescript: `link:${join(workspace, "node_modules", "typescript")}`,
+            typescript: localTypescript!.stable,
             "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
             "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
             "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
@@ -192,7 +209,17 @@ await describe(`${consumerSource} real-database consumers`, async () => {
             private: true,
             type: "module",
             dependencies: { ...dependencies, ...driverLinks },
-            ...(registryOnly ? {} : { pnpm: { overrides: { ...dependencies, ...driverLinks } } }),
+            ...(registryOnly
+              ? {}
+              : {
+                  pnpm: {
+                    overrides: {
+                      ...dependencies,
+                      ...driverLinks,
+                      "@typed-sql/typescript-preview": localTypescript!.preview,
+                    },
+                  },
+                }),
           },
           null,
           2,
