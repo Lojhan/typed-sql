@@ -225,9 +225,14 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
   cancelled(control);
   const insertions = Object.freeze(
     [
-      ...compilation.queries.map(({ query, rowType, parameterType, structural }) => ({
+      ...compilation.queries.map(({ query, rowType, parameterType, structural, repeatedFragments }) => ({
         position: query.insertionPosition,
-        length: structural ? rowType.length + parameterType.length + 14 : rowType.length + parameterType.length + 4,
+        length:
+          repeatedFragments !== undefined
+            ? `.__typedRow<${rowType}>()`.length
+            : structural
+              ? rowType.length + parameterType.length + 14
+              : rowType.length + parameterType.length + 4,
       })),
       ...compilation.fragments.map(({ fragment, parameterType }) => ({
         position: fragment.insertionPosition,

@@ -159,6 +159,11 @@ export interface SqlTag {
     strings: TemplateStringsArray,
     ...parts: CheckedSqlParts<Parts, Params>
   ) => Query<Row, Params>;
+  /** @internal Reserved compiler overlay that preserves interpolation-derived parameter types. */
+  readonly __typedRow: <Row>() => <Parts extends readonly unknown[]>(
+    strings: TemplateStringsArray,
+    ...parts: CheckedTemplateParts<Parts>
+  ) => Query<Row, SqlPartsParameters<Parts>>;
   readonly fragment: <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedTemplateParts<Parts>
@@ -417,6 +422,12 @@ export const sql: SqlTag = Object.assign(tag, {
       strings: TemplateStringsArray,
       ...parts: CheckedSqlParts<Parts, Params>
     ) => query<Row, Params>(templateSegments(strings, parts));
+  },
+  __typedRow<Row>() {
+    return <Parts extends readonly unknown[]>(
+      strings: TemplateStringsArray,
+      ...parts: CheckedTemplateParts<Parts>
+    ): Query<Row, SqlPartsParameters<Parts>> => query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
   },
   fragment: fragmentTag,
   empty: fragment<readonly []>([]),

@@ -11,6 +11,7 @@ import {
   type SchemaSnapshot,
   type SqlDiagnostic,
 } from "@typed-sql/core";
+import { expandRepeatedFragments, type RepeatedFragmentSite } from "./repeated-fragments.js";
 import {
   type ExtractedQuery,
   extractAppendFragments,
@@ -30,6 +31,7 @@ export interface CompiledQuery {
   readonly rowType: string;
   readonly parameterType: string;
   readonly structural?: true;
+  readonly repeatedFragments?: readonly RepeatedFragmentSite[];
   readonly fingerprint: string;
   readonly variantFingerprints: readonly string[];
   readonly variants: readonly CompiledQueryVariant[];
@@ -194,7 +196,28 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       );
       continue;
     }
-    const expansion = expandStructuralQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
+    const repeated = expandRepeatedFragments(source, query, (index) => dialect.placeholder(index));
+    if (repeated !== undefined && repeated.diagnostics.length > 0) {
+      diagnostics.push(...repeated.diagnostics);
+      continue;
+    }
+    const analyzedQuery = repeated?.query ?? query;
+    const expansion = expandStructuralQuery(
+      source,
+      analyzedQuery,
+      (index) => dialect.placeholder(index),
+      maximumVariants,
+    );
+    if (repeated !== undefined && expansion?.kind === "variants") {
+      diagnostics.push({
+        code: "TSQ013",
+        message: "Fragment lists combined with conditional structural interpolations are not analyzable yet.",
+        range: repeated.sites[0]?.sourceSpan ?? query.range,
+        severity: "error",
+        suggestion: "Move the conditional structure inside one stable fragment skeleton or compose it explicitly.",
+      });
+      continue;
+    }
     if (expansion?.kind === "limit") {
       diagnostics.push({
         code: "TSQ003",
@@ -297,6 +320,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           rowType: structuralRowType(source, query, rows),
           parameterType: parameterTypes.join(" | "),
           structural: true,
+          ...(repeated === undefined ? {} : { repeatedFragments: repeated.sites }),
           variantFingerprints: Object.freeze(
             [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
           ),
@@ -313,23 +337,42 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       }
       continue;
     }
-    const resolved = analyze(query.sql);
-    diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, query, diagnostic)));
+    const resolved = analyze(analyzedQuery.sql);
+    diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, analyzedQuery, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-      const queryFingerprint = identify(query.sql);
-      const semantics = sourceSemantics(source, query, resolved.semantics);
+      const queryFingerprint = identify(analyzedQuery.sql);
+      const semantics = sourceSemantics(source, analyzedQuery, resolved.semantics);
+      const repeatedFragments = new Map<number, CompiledFragment>();
+      for (const item of repeated?.fragments ?? []) {
+        const parameters = resolved.parameters
+          .filter(
+            (parameter) =>
+              parameter.index > item.parameterOffset &&
+              parameter.index <= item.parameterOffset + item.query.parameterCount,
+          )
+          .map((parameter): ResolvedParameter => ({ ...parameter, index: parameter.index - item.parameterOffset }));
+        repeatedFragments.set(item.query.insertionPosition, {
+          fragment: item.query,
+          parameterType: parameterTypeLiteral(item.query.parameterCount, parameters),
+        });
+      }
+      compiledFragments.push(...repeatedFragments.values());
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
-        parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
+        parameterType:
+          repeated?.sites.some(({ dynamic }) => dynamic) === true
+            ? "readonly unknown[]"
+            : parameterTypeLiteral(analyzedQuery.parameterCount, resolved.parameters),
+        ...(repeated === undefined ? {} : { repeatedFragments: repeated.sites }),
         fingerprint: queryFingerprint,
         variantFingerprints: Object.freeze([queryFingerprint]),
         variants: Object.freeze([
           {
             fingerprint: queryFingerprint,
-            sql: query.sql,
+            sql: analyzedQuery.sql,
             rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
-            parameterType: parameterTypeLiteral(query.parameterCount, resolved.parameters),
+            parameterType: parameterTypeLiteral(analyzedQuery.parameterCount, resolved.parameters),
             choices: Object.freeze({}),
             columns: Object.freeze(
               resolved.columns.map((column) => ({
@@ -378,9 +421,12 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const insertions = [
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
-      text: item.structural
-        ? `.__typed<${item.rowType}, ${item.parameterType}>()`
-        : `<${item.rowType}, ${item.parameterType}>`,
+      text:
+        item.repeatedFragments !== undefined
+          ? `.__typedRow<${item.rowType}>()`
+          : item.structural
+            ? `.__typed<${item.rowType}, ${item.parameterType}>()`
+            : `<${item.rowType}, ${item.parameterType}>`,
     })),
     ...compiledFragments.map((item) => ({
       position: item.fragment.insertionPosition,

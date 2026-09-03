@@ -50,6 +50,23 @@ export interface UntaggedStructuralTemplate {
   readonly range: SourceRange;
 }
 
+export type RepeatedFragmentDiscovery =
+  | { readonly kind: "none" }
+  | {
+      readonly kind: "error";
+      readonly code: "TSQ008" | "TSQ009" | "TSQ010" | "TSQ011" | "TSQ012" | "TSQ013" | "TSQ014";
+      readonly message: string;
+      readonly suggestion: string;
+      readonly range: SourceRange;
+    }
+  | {
+      readonly kind: "fragments";
+      readonly dynamic: boolean;
+      readonly representativeItems: 1 | 2;
+      readonly elements: readonly StructuralOperand[];
+      readonly range: SourceRange;
+    };
+
 function isIdentifierStart(char: string | undefined): boolean {
   if (char === undefined) return false;
   const code = char.charCodeAt(0);
@@ -308,7 +325,7 @@ function cookedEscape(source: string, start: number): { readonly text: string; r
   return { text: escaped, end: start + 2 };
 }
 
-function extractTemplate(
+export function extractTemplate(
   source: string,
   tagName: string,
   tagStart: number,
@@ -484,6 +501,292 @@ function conditionalRanges(source: string, start: number, end: number): Conditio
     condition: unwrappedRange(source, start, question),
     truthy: unwrappedRange(source, question + 1, colon),
     falsy: unwrappedRange(source, colon + 1, end),
+  };
+}
+
+function fragmentListError(
+  source: string,
+  start: number,
+  end: number,
+  code: Extract<RepeatedFragmentDiscovery, { readonly kind: "error" }>["code"],
+  message: string,
+  suggestion: string,
+): RepeatedFragmentDiscovery {
+  return { kind: "error", code, message, suggestion, range: positionRange(source, start, end) };
+}
+
+function splitTopLevel(source: string, start: number, end: number): readonly { start: number; end: number }[] {
+  const ranges: { start: number; end: number }[] = [];
+  let itemStart = start;
+  let round = 0;
+  let square = 0;
+  let curly = 0;
+  let index = start;
+  while (index < end) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") index = skipQuoted(source, index, char);
+    else if (char === "/" && source[index + 1] === "/") index = skipLineComment(source, index);
+    else if (char === "/" && source[index + 1] === "*") index = skipBlockComment(source, index);
+    else {
+      if (char === "(") round += 1;
+      else if (char === ")") round -= 1;
+      else if (char === "[") square += 1;
+      else if (char === "]") square -= 1;
+      else if (char === "{") curly += 1;
+      else if (char === "}") curly -= 1;
+      else if (char === "," && round === 0 && square === 0 && curly === 0) {
+        ranges.push(trimmedRange(source, itemStart, index));
+        itemStart = index + 1;
+      }
+      index += 1;
+    }
+  }
+  ranges.push(trimmedRange(source, itemStart, end));
+  return ranges;
+}
+
+function topLevelArrow(source: string, start: number, end: number): number | undefined {
+  let round = 0;
+  let square = 0;
+  let curly = 0;
+  let index = start;
+  while (index < end - 1) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") index = skipQuoted(source, index, char);
+    else if (char === "/" && source[index + 1] === "/") index = skipLineComment(source, index);
+    else if (char === "/" && source[index + 1] === "*") index = skipBlockComment(source, index);
+    else {
+      if (char === "(") round += 1;
+      else if (char === ")") round -= 1;
+      else if (char === "[") square += 1;
+      else if (char === "]") square -= 1;
+      else if (char === "{") curly += 1;
+      else if (char === "}") curly -= 1;
+      else if (char === "=" && source[index + 1] === ">" && round === 0 && square === 0 && curly === 0) return index;
+      index += 1;
+    }
+  }
+  return undefined;
+}
+
+function directMapCallbackRange(
+  source: string,
+  start: number,
+  end: number,
+): { readonly start: number; readonly end: number } | undefined {
+  let round = 0;
+  let square = 0;
+  let curly = 0;
+  let index = start;
+  while (index < end) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") index = skipQuoted(source, index, char);
+    else if (char === "/" && source[index + 1] === "/") index = skipLineComment(source, index);
+    else if (char === "/" && source[index + 1] === "*") index = skipBlockComment(source, index);
+    else {
+      if (char === "(") round += 1;
+      else if (char === ")") round -= 1;
+      else if (char === "[") square += 1;
+      else if (char === "]") square -= 1;
+      else if (char === "{") curly += 1;
+      else if (char === "." && round === 0 && square === 0 && curly === 0 && source.startsWith(".map", index)) {
+        const open = skipTrivia(source, index + 4);
+        if (source[open] !== "(") return undefined;
+        const close = closingParenthesis(source, open);
+        if (close === undefined || skipTrivia(source, close + 1) !== end || index === start) return undefined;
+        const arguments_ = [...splitTopLevel(source, open + 1, close)];
+        if (arguments_.at(-1)?.start === arguments_.at(-1)?.end) arguments_.pop();
+        return arguments_.length === 1 ? arguments_[0] : undefined;
+      }
+      index += 1;
+    }
+  }
+  return undefined;
+}
+
+function callbackBodyRange(
+  source: string,
+  callback: { readonly start: number; readonly end: number },
+): { readonly body?: { readonly start: number; readonly end: number }; readonly async: boolean } {
+  const text = source.slice(callback.start, callback.end);
+  if (/^async\b/u.test(text)) return { async: true };
+  const arrow = topLevelArrow(source, callback.start, callback.end);
+  if (arrow === undefined) return { async: false };
+  let body = unwrappedRange(source, arrow + 2, callback.end);
+  if (source[body.start] === "{" && source[body.end - 1] === "}") {
+    const block = source.slice(body.start + 1, body.end - 1).trim();
+    const match = /^return\s+([\s\S]*?);?$/u.exec(block);
+    if (match === null) return { async: false };
+    const returnStart = source.indexOf(match[1]!, body.start + 1);
+    body = unwrappedRange(source, returnStart, returnStart + match[1]!.length);
+  }
+  return { async: false, body };
+}
+
+function sameFragmentSkeleton(
+  source: string,
+  left: StructuralOperand,
+  right: StructuralOperand,
+  tagName: string,
+): boolean {
+  const placeholder = (index: number) => `?${index}`;
+  const leftQuery = extractStructuralOperand(source, left, tagName, placeholder, 0);
+  const rightQuery = extractStructuralOperand(source, right, tagName, placeholder, 0);
+  return leftQuery !== undefined && rightQuery !== undefined && leftQuery.sql === rightQuery.sql;
+}
+
+export function discoverRepeatedFragmentInterpolation(
+  source: string,
+  interpolation: ExtractedInterpolation,
+  tagName: string,
+): RepeatedFragmentDiscovery {
+  const expression = unwrappedRange(source, interpolation.expressionStart, interpolation.expressionEnd);
+  if (source[expression.start] === "[" && source[expression.end - 1] === "]") {
+    const elements = [...splitTopLevel(source, expression.start + 1, expression.end - 1)];
+    if (elements.length > 1 && elements.at(-1)?.start === elements.at(-1)?.end) elements.pop();
+    if (elements.length === 1 && elements[0]!.start === elements[0]!.end) {
+      return fragmentListError(
+        source,
+        expression.start,
+        expression.end,
+        "TSQ008",
+        "An implicit SQL fragment list cannot be empty.",
+        "Use sql.value([]), sql.join(...), or sql.empty to choose the empty behavior explicitly.",
+      );
+    }
+    if (elements.some((element) => element.start === element.end)) {
+      return fragmentListError(
+        source,
+        expression.start,
+        expression.end,
+        "TSQ013",
+        "Sparse fragment lists are unsupported.",
+        "Build a dense fragment array.",
+      );
+    }
+    if (elements.some((element) => source[element.start] === "[")) {
+      return fragmentListError(
+        source,
+        expression.start,
+        expression.end,
+        "TSQ010",
+        "Nested fragment lists are unsupported.",
+        "Flatten fragments explicitly or bind the complete value with sql.value(...).",
+      );
+    }
+    const fragments = elements.map((element) => structuralOperand(source, element.start, element.end, tagName));
+    const fragmentCount = fragments.filter((element) => element?.kind === "fragment").length;
+    if (fragmentCount === 0) {
+      return elements.some((element) => source.slice(element.start, element.end).includes(".fragment`"))
+        ? fragmentListError(
+            source,
+            expression.start,
+            expression.end,
+            "TSQ014",
+            "The fragment list uses a different SQL tag.",
+            "Create every fragment with the selected grammar's sql.fragment tag.",
+          )
+        : { kind: "none" };
+    }
+    if (fragmentCount !== elements.length) {
+      return fragmentListError(
+        source,
+        expression.start,
+        expression.end,
+        "TSQ009",
+        "A fragment list cannot mix SQL fragments and values.",
+        "Use only sql.fragment elements or bind the complete array with sql.value(...).",
+      );
+    }
+    return {
+      kind: "fragments",
+      dynamic: false,
+      representativeItems: 1,
+      elements: fragments as readonly StructuralOperand[],
+      range: positionRange(source, expression.start, expression.end),
+    };
+  }
+
+  const callback = directMapCallbackRange(source, expression.start, expression.end);
+  if (callback === undefined) {
+    const text = source.slice(expression.start, expression.end);
+    if (text.includes(".fragment`") && (text.includes(".flatMap") || text.includes(".map"))) {
+      return fragmentListError(
+        source,
+        expression.start,
+        expression.end,
+        "TSQ013",
+        "This dynamic fragment-list expression is not analyzable.",
+        "Use a direct .map(...) call with a synchronous sql.fragment callback, or use sql.join explicitly.",
+      );
+    }
+    return { kind: "none" };
+  }
+  const callbackBody = callbackBodyRange(source, callback);
+  if (callbackBody.async) {
+    return fragmentListError(
+      source,
+      callback.start,
+      callback.end,
+      "TSQ011",
+      "A fragment-list callback cannot be async.",
+      "Resolve inputs first and return sql.fragment synchronously.",
+    );
+  }
+  if (callbackBody.body === undefined) {
+    return source.slice(callback.start, callback.end).includes(".fragment`")
+      ? fragmentListError(
+          source,
+          callback.start,
+          callback.end,
+          "TSQ013",
+          "The fragment-list callback control flow is not analyzable.",
+          "Return one stable sql.fragment expression directly from the callback.",
+        )
+      : { kind: "none" };
+  }
+  const conditional = conditionalRanges(source, callbackBody.body.start, callbackBody.body.end);
+  const ranges = conditional === undefined ? [callbackBody.body] : [conditional.truthy, conditional.falsy];
+  const fragments = ranges.map((range) => structuralOperand(source, range.start, range.end, tagName));
+  const fragmentCount = fragments.filter((operand) => operand?.kind === "fragment").length;
+  if (fragmentCount === 0) {
+    return source.slice(callbackBody.body.start, callbackBody.body.end).includes(".fragment`")
+      ? fragmentListError(
+          source,
+          callbackBody.body.start,
+          callbackBody.body.end,
+          "TSQ014",
+          "The callback returns a fragment from a different SQL tag.",
+          "Use the selected grammar's sql.fragment tag.",
+        )
+      : { kind: "none" };
+  }
+  if (fragmentCount !== ranges.length) {
+    return fragmentListError(
+      source,
+      callbackBody.body.start,
+      callbackBody.body.end,
+      "TSQ009",
+      "Every callback path must return a SQL fragment.",
+      "Return one stable sql.fragment skeleton from every callback path.",
+    );
+  }
+  if (fragments.length === 2 && !sameFragmentSkeleton(source, fragments[0]!, fragments[1]!, tagName)) {
+    return fragmentListError(
+      source,
+      callbackBody.body.start,
+      callbackBody.body.end,
+      "TSQ012",
+      "Fragment callback paths render different SQL skeletons.",
+      "Use one stable fragment skeleton or an explicit sql.join composition.",
+    );
+  }
+  return {
+    kind: "fragments",
+    dynamic: true,
+    representativeItems: 2,
+    elements: fragments as readonly StructuralOperand[],
+    range: positionRange(source, expression.start, expression.end),
   };
 }
 
