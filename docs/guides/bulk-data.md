@@ -10,6 +10,18 @@ builder and it does not add database protocols to the grammar-neutral `Database`
 Applications discover the capability they need, while each dialect owns its native protocol and
 failure semantics.
 
+## Choose the execution form
+
+| Form | Database work | Use it for |
+| --- | --- | --- |
+| Direct fragment list | One parameterized statement | A bounded, known non-empty set that should use one statement's result and failure semantics |
+| `database.batch()` | Multiple sequential statements on one connection | Heterogeneous commands or per-command results; wrap it in a transaction when the statements must be atomic |
+| Native bulk capability | PostgreSQL COPY or MySQL LOAD DATA | Large or streaming ingestion where bounded memory and protocol throughput matter |
+
+For a direct multi-row statement, map every row to `sql.fragment` and interpolate the resulting
+array without `sql.join()`. This does not silently become a batch or native bulk transfer. See
+[Repeat homogeneous fragments](./composition.md#repeat-homogeneous-fragments).
+
 The input contract is an ordinary typed, single-row `INSERT` factory. The compiler therefore checks
 the target columns, their order, nullability, scalar types, and every interpolated value using the
 same schema evidence as normal execution.

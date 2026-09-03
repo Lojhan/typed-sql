@@ -136,6 +136,14 @@ The factory exposes its readonly `statementName`. A name must be non-empty, cont
 
 Preparation is lazy: declaring the factory performs no I/O and checks out no connection. The first factory call compiles an immutable SQL skeleton; later calls verify the same structural segments and bind only their changing values. PostgreSQL uses the name for ordinary buffered execution and bounds each connection's native statement cache with `statementCacheSize`; schema DDL and `search_path` changes invalidate cached names before reuse. MySQL uses mysql2's binary execute protocol and applies `preparedStatementLimit` to both logical factory registrations and each connection's native LRU. The default is 16,000.
 
+A prepared factory may contain an implicit fragment list whose item count changes between calls.
+The element skeleton and all surrounding structure must stay identical, but each cardinality renders
+different SQL and a different placeholder count. typed-sql therefore keeps a bounded LRU of
+rendered cardinality variants per logical factory. `preparedCardinalityVariantLimit` configures the
+bound on the PostgreSQL, MySQL, and SQLite runtime constructors and adapters; it defaults to 32.
+Eviction causes that cardinality to be rendered again when next used and does not invalidate the
+factory. Driver-native prepared-statement limits remain separate.
+
 The MySQL adapter keeps multi-statement strings disabled. Applications that require exact runtime evidence can pass their generated schema format 2 value as `compatibilitySnapshot`; typed-sql then checks the leased session before dispatch. `onWarning` exposes redacted warning counts separately from errors, while `rejectWarnings` turns a warning-producing execution into `MySqlWarningError`. See the [MySQL runtime behavior](../dialects/mysql.md#runtime-behavior) for the evidence and cache contracts.
 
 ## Execute an ordered batch

@@ -134,6 +134,8 @@ The runtime constructors and `pg` adapter accept a grammar-neutral `observer`. Q
 `search_path` changes advance a pool-wide generation; every connection issues `DEALLOCATE ALL`
 before its next query. The factory caches its first structural SQL skeleton and rejects duplicate
 names or structural drift between calls.
+Homogeneous fragment lists may vary only in cardinality; `preparedCardinalityVariantLimit` bounds
+their rendered per-factory LRU at 32 variants by default.
 
 Driver failures are exposed as `PostgresAdapterError` with a stable `kind` of `timeout`,
 `transaction-abort`, `connection-loss`, `server`, or `driver`, the SQLSTATE when one exists, and the

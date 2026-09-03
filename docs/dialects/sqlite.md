@@ -216,6 +216,8 @@ native connection directly, create a fresh adapter after that mutation. `databas
 freezes the typed-sql structural shape, so later factory calls may change values but not SQL
 structure. `batch()` executes queries sequentially on the same connection. Use an explicit
 transaction when the batch must be atomic.
+Homogeneous fragment lists may vary only in cardinality; `preparedCardinalityVariantLimit` bounds
+their rendered per-factory LRU at 32 variants by default, separately from the native statement LRU.
 
 Runtime values follow the same SQLite storage policy used during inference. Integers decode as
 `bigint` by default or as `number` under the number policy; boolean parameters encode as `1` or `0`

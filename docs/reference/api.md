@@ -43,6 +43,13 @@ Applications import `sql` from their selected dialect root.
 
 `sql.raw()` is not an escaping function. Do not pass untrusted values to it.
 
+A non-empty `readonly SqlFragment[]` interpolated directly into a query is structural and renders
+with the fixed separator `, `. This supports direct fragment array literals and analyzable
+``items.map(item => sql.fragment`...`)`` expressions. Ordinary arrays remain one bound parameter.
+Empty, sparse, nested, async, and mixed fragment/value arrays fail closed; use `sql.join()`,
+`sql.empty`, or `sql.value()` to state a different policy explicitly. See
+[Compose conditional SQL](../guides/composition.md#repeat-homogeneous-fragments).
+
 `sql.validateResult()` accepts the dependency-free Standard Schema V1 structural contract. The schema output must be assignable to the query's inferred row, and the returned query retains the original parameter tuple. `QueryResultValidationOptions` controls optional vendor messages and `libraryOptions`; `QueryResultValidationError` exposes a redacted, fingerprinted failure. See [Validate query results](../guides/result-validation.md).
 
 The declarations contain an internal `sql.__typed` member used by compiler overlays. Application code must use the ordinary `sql` tag.
@@ -52,6 +59,7 @@ The declarations contain an internal `sql.__typed` member used by compiler overl
 - `renderQuery(query, renderer)` produces SQL text and values.
 - `compileQueryRenderSkeleton(query, renderer)` produces the first rendering and an immutable, renderer-specific structural plan for adapter caches.
 - `bindQueryRenderSkeleton(query, skeleton)` binds values to that plan, or returns `undefined` when text, identifiers, segment kinds, or segment count drift.
+- `PreparedQueryRenderCache` retains bounded rendered variants for homogeneous prepared fragment lists whose cardinality changes.
 - `SqlRenderer` supplies grammar-specific placeholders and identifier quoting.
 - `createDatabase(executor, renderer, transactionRunner)` connects the neutral query contract to a runtime adapter.
 - `Database.execute()` preserves the query row type.
