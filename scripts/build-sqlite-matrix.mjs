@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -50,12 +50,11 @@ try {
   const response = await fetch(options.url, { redirect: "follow", signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`SQLite source download failed with HTTP ${response.status}`);
   const archive = join(temporary, basename(new URL(options.url).pathname) || "sqlite-source.tar.gz");
-  await writeFile(archive, new Uint8Array(await response.arrayBuffer()));
-  const digest = createHash("sha3-256")
-    .update(await readFile(archive))
-    .digest("hex");
+  const archiveBytes = new Uint8Array(await response.arrayBuffer());
+  const digest = createHash("sha3-256").update(archiveBytes).digest("hex");
   if (digest !== options.sha3)
     throw new Error(`SQLite source digest mismatch: expected ${options.sha3}, received ${digest}`);
+  await writeFile(archive, archiveBytes);
 
   const sourceDirectory = join(temporary, "source");
   await mkdir(sourceDirectory);

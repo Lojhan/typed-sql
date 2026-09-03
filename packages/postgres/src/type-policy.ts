@@ -22,6 +22,12 @@ export const defaultPostgresTypePolicy: PostgresTypePolicy = Object.freeze({
 const normalized = (databaseType: string): string => databaseType.trim().toLowerCase().replace(/\s+/g, " ");
 const withoutModifiers = (databaseType: string): string => databaseType.replace(/\(\d+(?:,\s*\d+)?\)/g, "");
 
+function arrayType(databaseType: string): { readonly base: string; readonly dimensions: number } {
+  let end = databaseType.length;
+  while (end >= 2 && databaseType[end - 2] === "[" && databaseType[end - 1] === "]") end -= 2;
+  return { base: databaseType.slice(0, end), dimensions: (databaseType.length - end) / 2 };
+}
+
 function snapshotType(databaseType: string, schema?: SchemaSnapshot) {
   if (schema?.formatVersion !== 2) return undefined;
   const target = withoutModifiers(normalized(databaseType));
@@ -34,19 +40,14 @@ function snapshotType(databaseType: string, schema?: SchemaSnapshot) {
 }
 
 export function isKnownPostgresType(databaseType: string, schema?: SchemaSnapshot): boolean {
-  const type = withoutModifiers(normalized(databaseType).replace(/(?:\[\])+$/, ""));
+  const type = withoutModifiers(arrayType(normalized(databaseType)).base);
   if (postgresCatalogTypeMapping(type, schema) !== undefined) return true;
   if (snapshotType(type, schema) !== undefined) return true;
   return schema?.enums?.[type] !== undefined || schema?.domains?.[type] !== undefined;
 }
 
 export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy, schema?: SchemaSnapshot): string {
-  let unmodifiedType = normalized(databaseType);
-  let dimensions = 0;
-  while (unmodifiedType.endsWith("[]")) {
-    dimensions += 1;
-    unmodifiedType = unmodifiedType.slice(0, -2);
-  }
+  const { base: unmodifiedType, dimensions } = arrayType(normalized(databaseType));
   const type = withoutModifiers(unmodifiedType);
   const catalogMapping = postgresCatalogTypeMapping(type, schema);
   const snapshotMapping = snapshotType(unmodifiedType, schema);
@@ -66,6 +67,5 @@ export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy
     const values = schema.enums[unmodifiedType] ?? schema.enums[type]!;
     mapped = policy.enums === "string" ? "string" : values.map((value) => JSON.stringify(value)).join(" | ");
   } else mapped = policy.unknown;
-  for (let dimension = 0; dimension < dimensions; dimension += 1) mapped = `readonly (${mapped})[]`;
-  return mapped;
+  return dimensions === 0 ? mapped : `${"readonly (".repeat(dimensions)}${mapped}${")[]".repeat(dimensions)}`;
 }

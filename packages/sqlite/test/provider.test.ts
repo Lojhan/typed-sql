@@ -38,8 +38,12 @@ await describe("SQLite schema provider", async () => {
         CREATE TRIGGER account_email_audit AFTER UPDATE OF email ON account BEGIN SELECT NEW.email; END;
         CREATE TABLE legacy_key (code TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE descending_key (id INTEGER PRIMARY KEY DESC, value TEXT);
-        CREATE VIRTUAL TABLE docs USING fts5(body);
       `);
+      const [{ enabled: fts5Enabled }] = database
+        .prepare("SELECT sqlite_compileoption_used('ENABLE_FTS5') AS enabled")
+        .all() as [{ readonly enabled: number }];
+      const fts5Available = fts5Enabled === 1;
+      if (fts5Available) database.exec("CREATE VIRTUAL TABLE docs USING fts5(body)");
       const snapshot = await nodeSqlite({ database }).introspect();
       strict.strictEqual(snapshot.formatVersion, 2);
       strict.strictEqual(snapshot.server?.product, "sqlite");
@@ -65,11 +69,13 @@ await describe("SQLite schema provider", async () => {
       strict.strictEqual(snapshot.tables.legacy_key?.columns.code?.nullable, true);
       strict.strictEqual(snapshot.tables.descending_key?.rowidAlias, undefined);
       strict.strictEqual(snapshot.tables.descending_key?.columns.id?.nullable, true);
-      strict.strictEqual(snapshot.tables.docs?.kind, "virtual");
-      strict.strictEqual(snapshot.relations.docs?.kind, "virtual-table");
-      strict.strictEqual(snapshot.relations.docs?.extension?.attributes.module, "fts5");
-      strict.ok(Object.values(snapshot.tables).some(({ kind }) => kind === "shadow"));
-      strict.ok(Object.values(snapshot.tables.docs?.columns ?? {}).some(({ hidden }) => hidden === true));
+      if (fts5Available) {
+        strict.strictEqual(snapshot.tables.docs?.kind, "virtual");
+        strict.strictEqual(snapshot.relations.docs?.kind, "virtual-table");
+        strict.strictEqual(snapshot.relations.docs?.extension?.attributes.module, "fts5");
+        strict.ok(Object.values(snapshot.tables).some(({ kind }) => kind === "shadow"));
+        strict.ok(Object.values(snapshot.tables.docs?.columns ?? {}).some(({ hidden }) => hidden === true));
+      }
       const triggers = snapshot.relations.account?.extension?.attributes.triggers;
       strict.ok(Array.isArray(triggers) && triggers.length === 1);
       strict.strictEqual(snapshot.tables.event?.strict, false);
@@ -95,10 +101,12 @@ await describe("SQLite schema provider", async () => {
         [],
       );
       strict.strictEqual(rowid.columns[0]?.tsType, "bigint");
-      const visibleFtsColumns = sqlite()
-        .analyze("SELECT * FROM docs", roundTrip)
-        .columns.map(({ name }) => name);
-      strict.deepStrictEqual(visibleFtsColumns, ["body"]);
+      if (fts5Available) {
+        const visibleFtsColumns = sqlite()
+          .analyze("SELECT * FROM docs", roundTrip)
+          .columns.map(({ name }) => name);
+        strict.deepStrictEqual(visibleFtsColumns, ["body"]);
+      }
       strict.deepStrictEqual(
         sqlite()
           .analyze(

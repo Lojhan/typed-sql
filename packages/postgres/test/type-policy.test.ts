@@ -67,6 +67,7 @@ await describe("PostgreSQL type policy", async () => {
   await it("recognizes built-ins and snapshot-defined types", () => {
     strict.strictEqual(isKnownPostgresType("numeric(10,2)[]"), true);
     strict.strictEqual(isKnownPostgresType("integer[][]"), true);
+    strict.strictEqual(isKnownPostgresType(`integer${"[]".repeat(10_000)}`), true);
     strict.strictEqual(isKnownPostgresType("macaddr8"), true);
     strict.strictEqual(isKnownPostgresType("datemultirange"), true);
     strict.strictEqual(isKnownPostgresType("mood", schema), true);

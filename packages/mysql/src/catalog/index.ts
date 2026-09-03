@@ -51,6 +51,26 @@ interface CatalogIndex {
 
 const indexes = new WeakMap<MySqlCoreCatalog, CatalogIndex>();
 
+function withoutTypeParameters(value: string): string {
+  const parts: string[] = [];
+  let offset = 0;
+  while (offset < value.length) {
+    const opening = value.indexOf("(", offset);
+    if (opening < 0) {
+      parts.push(value.slice(offset));
+      break;
+    }
+    const closing = value.indexOf(")", opening + 1);
+    if (closing < 0) {
+      parts.push(value.slice(offset));
+      break;
+    }
+    parts.push(value.slice(offset, opening));
+    offset = closing + 1;
+  }
+  return parts.join("");
+}
+
 function index(catalog: MySqlCoreCatalog): CatalogIndex {
   const cached = indexes.get(catalog);
   if (cached !== undefined) return cached;
@@ -72,10 +92,7 @@ function index(catalog: MySqlCoreCatalog): CatalogIndex {
 }
 
 export function normalizeMySqlType(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/\([^)]*\)/gu, "")
+  const normalized = withoutTypeParameters(value.trim().toLowerCase())
     .replace(/\s+/gu, " ")
     .replace(/\s+(?:signed|unsigned|zerofill)$/gu, "")
     .trim();

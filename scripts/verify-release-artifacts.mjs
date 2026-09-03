@@ -1,6 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,16 +34,31 @@ async function files(directory) {
   return found.sort();
 }
 
+async function readRegularFile(path, name) {
+  let file;
+  try {
+    file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const metadata = await file.stat();
+    if (!metadata.isFile()) throw new Error(`Tarball contains unsupported non-file entry ${name}`);
+    return { content: await file.readFile(), metadata };
+  } catch (error) {
+    if (error?.code === "ELOOP") throw new Error(`Tarball contains unsupported non-file entry ${name}`);
+    throw error;
+  } finally {
+    await file?.close();
+  }
+}
+
 export async function inspectReleaseTarball(tarball) {
   const temporary = await mkdtemp(join(tmpdir(), "typed-sql-artifact-inspection-"));
   try {
     await execFile("tar", ["-xf", tarball, "-C", temporary]);
     const packageRoot = join(temporary, "package");
     const entries = [];
+    const contents = new Map();
     for (const path of await files(packageRoot)) {
       const name = relative(packageRoot, path).replaceAll("\\", "/");
-      const metadata = await lstat(path);
-      if (!metadata.isFile()) throw new Error(`Tarball contains unsupported non-file entry ${name}`);
+      const { content, metadata } = await readRegularFile(path, name);
       if (
         /(^|\/)(?:test|tests|fixtures|coverage|node_modules)(\/|$)/u.test(name) ||
         /(^|\/)\.env(?:\.|$)/u.test(name) ||
@@ -51,7 +67,6 @@ export async function inspectReleaseTarball(tarball) {
       ) {
         throw new Error(`Tarball contains forbidden development or sensitive file ${name}`);
       }
-      const content = await readFile(path);
       if (content.includes(Buffer.from("/Users/")) || content.includes(Buffer.from("/home/runner/")))
         throw new Error(`Tarball contains a local absolute path in ${name}`);
       const reproducibleContent =
@@ -64,8 +79,11 @@ export async function inspectReleaseTarball(tarball) {
         size: reproducibleContent.length,
         sha256: hash("sha256", reproducibleContent),
       });
+      contents.set(name, content);
     }
-    const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8"));
+    const manifestSource = contents.get("package.json");
+    if (manifestSource === undefined) throw new Error("Tarball has no package.json");
+    const manifest = JSON.parse(manifestSource.toString("utf8"));
     for (const target of Object.values(typeof manifest.exports === "object" ? manifest.exports : {})) {
       const normalized = String(target).replace(/^\.\//u, "");
       if (!entries.some(({ name }) => name === normalized))
@@ -83,7 +101,7 @@ export async function inspectReleaseTarball(tarball) {
     }
     if (!entries.some(({ name }) => name === "LICENSE")) throw new Error(`${manifest.name} has no LICENSE`);
     for (const entry of entries.filter(({ name }) => name.endsWith(".map"))) {
-      const sourceMap = JSON.parse(await readFile(join(packageRoot, entry.name), "utf8"));
+      const sourceMap = JSON.parse(contents.get(entry.name).toString("utf8"));
       if ((sourceMap.sources ?? []).some((source) => isAbsolute(source)))
         throw new Error(`${manifest.name} source map ${entry.name} contains an absolute source`);
     }

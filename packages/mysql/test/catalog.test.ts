@@ -36,6 +36,7 @@ await describe("MySQL versioned core catalogs", async () => {
 
   await it("indexes types, coercions, operators, routines, and collations", () => {
     strict.strictEqual(normalizeMySqlType(" DOUBLE   PRECISION UNSIGNED "), "double");
+    strict.strictEqual(normalizeMySqlType(`varchar${"(".repeat(10_000)}`), `varchar${"(".repeat(10_000)}`);
     strict.strictEqual(mySqlCatalogType("INTEGER")?.name, "int");
     strict.strictEqual(mySqlCatalogType("decimal(20, 4) unsigned")?.category, "numeric-decimal");
     strict.strictEqual(mySqlCatalogType("geometrycollection")?.name, "geometry");
