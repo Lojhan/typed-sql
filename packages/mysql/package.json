@@ -35,7 +35,7 @@
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
-    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+    "coverage": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
   },
   "exports": {
     ".": "./dist/packages/mysql/src/index.js",
