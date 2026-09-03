@@ -517,6 +517,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: pnpm fuzz:replay
       - run: pnpm mutation:pilot -- --report artifacts/evidence/mutation.json
       - run: pnpm audit --prod --audit-level high
