@@ -12,7 +12,9 @@ import {
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../schema/src/index.js";
 import { checkFile, compileSource, extractStaticQueries, mapSqlRange } from "../src/index.js";
+import { expandRepeatedFragments } from "../src/repeated-fragments.js";
 import {
+  discoverRepeatedFragmentInterpolation,
   extractAppendFragments,
   extractStructuralOperand,
   findUntaggedStructuralTemplates,
@@ -521,6 +523,90 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       strict.strictEqual(result.queries.length, 0);
       strict.ok((result.diagnostics[0]?.range.start ?? 0) > 0);
     }
+  });
+
+  await it("covers bounded and conditional repeated-fragment expansion paths", () => {
+    const extract = (expression: string) => {
+      const source = [
+        'import { sql } from "@typed-sql/postgres";',
+        "const rows = [{ id: 1 }];",
+        `const query = sql\`VALUES \${${expression}}\`;`,
+      ].join("\n");
+      const query = extractStaticQueries(source, (index) => `$${index}`, ["@typed-sql/postgres"])[0]!;
+      return { source, query };
+    };
+
+    for (const [expression, code] of [
+      ["[sql.fragment`(1)`,, sql.fragment`(2)`]", "TSQ013"],
+      ["[other.fragment`(1)`]", "TSQ014"],
+      ["rows.map((row) => { sql.fragment`(${row.id})`; })", "TSQ013"],
+      ["rows.map((row) => other.fragment`(${row.id})`)", "TSQ014"],
+      ["rows.map((row) => row.id > 0 ? sql.fragment`(${row.id})` : row.id)", "TSQ009"],
+    ] as const) {
+      const { source, query } = extract(expression);
+      const discovery = discoverRepeatedFragmentInterpolation(source, query.interpolations[0]!, query.tagName);
+      strict.strictEqual(discovery.kind === "error" ? discovery.code : undefined, code, expression);
+    }
+
+    const commented = extract("rows.map(/* callback */ (row) => sql.fragment`(${row.id})`,)");
+    strict.strictEqual(
+      discoverRepeatedFragmentInterpolation(
+        commented.source,
+        commented.query.interpolations[0]!,
+        commented.query.tagName,
+      ).kind,
+      "fragments",
+    );
+
+    const arrayParameter = extract("rows.map(([row]) /* arrow comment */ => sql.fragment`(${row.id})`)");
+    strict.strictEqual(
+      discoverRepeatedFragmentInterpolation(
+        arrayParameter.source,
+        arrayParameter.query.interpolations[0]!,
+        arrayParameter.query.tagName,
+      ).kind,
+      "fragments",
+    );
+
+    for (const expression of [
+      "rows.map(function (row) { return sql.fragment`(${row.id})`; })",
+      "rows.map((row) => row.id)",
+      "rows.map + sql.fragment`(1)`",
+      "rows.map((row) => sql.fragment`(${row.id})`, extra)",
+    ]) {
+      const candidate = extract(expression);
+      strict.ok(
+        ["none", "error"].includes(
+          discoverRepeatedFragmentInterpolation(
+            candidate.source,
+            candidate.query.interpolations[0]!,
+            candidate.query.tagName,
+          ).kind,
+        ),
+        expression,
+      );
+    }
+
+    const mixed = extract("rows.map((row) => sql.fragment`(${row.id})`)");
+    const mixedSource = mixed.source.replace("VALUES ", "VALUES ${tenant}, ");
+    const mixedQuery = extractStaticQueries(mixedSource, (index) => `$${index}`, ["@typed-sql/postgres"])[0]!;
+    const mixedExpansion = expandRepeatedFragments(mixedSource, mixedQuery, (index) => `$${index}`);
+    strict.strictEqual(mixedExpansion?.query.sql, "VALUES $1, ($2), ($3)");
+
+    const fixed = extract("[sql.fragment`(1)`, sql.fragment`(2)`]");
+    strict.deepStrictEqual(
+      expandRepeatedFragments(fixed.source, fixed.query, (index) => `$${index}`, 1)?.diagnostics.map(
+        ({ code }) => code,
+      ),
+      ["TSQ015"],
+    );
+
+    const conditional = extract(
+      "rows.map(({ id } /* block */) => id > 0 ? sql.fragment`(${id})` : sql.fragment`(${id})`)",
+    );
+    const conditionalExpansion = expandRepeatedFragments(conditional.source, conditional.query, (index) => `$${index}`);
+    strict.strictEqual(conditionalExpansion?.sites[0]?.dynamic, true);
+    strict.strictEqual(conditionalExpansion?.fragments.length, 3);
   });
 
   await it("maps SQL diagnostics back to TypeScript source", async () => {
