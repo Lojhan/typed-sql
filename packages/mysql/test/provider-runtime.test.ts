@@ -289,6 +289,21 @@ class CatalogClient implements MySqlQueryable {
           view_updatable: "YES",
           character_maximum_length: 7,
         },
+        {
+          schema_name: "app",
+          table_name: "generated_users",
+          column_name: "fallback_position",
+          database_type: "int",
+          is_nullable: "YES",
+          default_expression: null,
+          ordinal_position: null,
+          character_set_name: null,
+          collation_name: null,
+          extra: "",
+          generation_expression: "",
+          table_type: "VIEW",
+          view_updatable: "NO",
+        },
       ];
     } else if (this.richRows && sqlText.includes("information_schema.ROUTINES")) {
       rows = [
@@ -312,6 +327,16 @@ class CatalogClient implements MySqlQueryable {
           routine_type: "FUNCTION",
           security_type: "DEFINER",
           creation_sql_mode: "NO_ZERO_DATE",
+        },
+        {
+          schema_name: "app",
+          function_name: "refresh_users",
+          database_return_type: "void",
+          is_deterministic: "YES",
+          sql_data_access: "MODIFIES SQL DATA",
+          routine_type: "PROCEDURE",
+          security_type: undefined,
+          creation_sql_mode: undefined,
         },
       ];
     } else if (this.richRows && sqlText.includes("information_schema.PARAMETERS")) {
@@ -401,6 +426,50 @@ class CatalogClient implements MySqlQueryable {
           columns: [],
           referenced_columns: null,
         },
+        {
+          schema_name: "app",
+          table_name: "users",
+          constraint_name: "users_compound_key",
+          constraint_type: "UNIQUE",
+          column_name: "id",
+          referenced_schema: null,
+          referenced_table: null,
+          referenced_column_name: null,
+          update_rule: null,
+          delete_rule: null,
+          check_clause: null,
+          ordinal_position: 1,
+          enforced: "YES",
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          constraint_name: "users_compound_key",
+          constraint_type: "UNIQUE",
+          column_name: "status",
+          referenced_schema: null,
+          referenced_table: null,
+          referenced_column_name: null,
+          update_rule: null,
+          delete_rule: null,
+          check_clause: null,
+          ordinal_position: 2,
+          enforced: "YES",
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          constraint_name: "users_unknown_parent_fk",
+          constraint_type: "FOREIGN KEY",
+          columns: ["id"],
+          referenced_schema: null,
+          referenced_table: null,
+          referenced_columns: null,
+          update_rule: null,
+          delete_rule: null,
+          check_clause: null,
+          enforced: "YES",
+        },
       ];
     } else if (this.richRows && sqlText.includes("information_schema.STATISTICS")) {
       rows = [
@@ -413,7 +482,7 @@ class CatalogClient implements MySqlQueryable {
           index_type: "HASH",
           columns: [null],
           expressions: [null],
-          descending: ["1"],
+          descending: '["1"]',
           column_collations: [null],
           prefix_lengths: [null],
           visible: "0",
@@ -430,6 +499,32 @@ class CatalogClient implements MySqlQueryable {
           column_collations: [],
           prefix_lengths: [],
           visible: true,
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          index_name: "users_compound_idx",
+          is_unique: 0,
+          index_type: "BTREE",
+          column_name: "id",
+          expression: null,
+          column_collation: null,
+          prefix_length: null,
+          visible: 1,
+          ordinal_position: 1,
+        },
+        {
+          schema_name: "app",
+          table_name: "users",
+          index_name: "users_compound_idx",
+          is_unique: 0,
+          index_type: "BTREE",
+          column_name: "status",
+          expression: null,
+          column_collation: null,
+          prefix_length: null,
+          visible: 1,
+          ordinal_position: 2,
         },
       ];
     }
@@ -623,7 +718,24 @@ await describe("MySQL provider and runtime", async () => {
     const invisibleIndex = snapshot.relations.users?.indexes.find(({ name }) => name === "users_expression_idx");
     strict.strictEqual(invisibleIndex?.valid, true);
     strict.strictEqual(invisibleIndex?.extension?.attributes.visible, false);
-    strict.strictEqual(snapshot.routines["app.refresh_users"]?.[0]?.result.kind, "command");
+    strict.deepStrictEqual(
+      snapshot.relations.users?.constraints.find(({ name }) => name === "users_compound_key")?.columns,
+      ["id", "status"],
+    );
+    const unknownForeignKey = snapshot.relations.users?.constraints.find(
+      ({ name }) => name === "users_unknown_parent_fk",
+    );
+    strict.strictEqual(unknownForeignKey?.kind, "foreign-key");
+    strict.strictEqual(
+      unknownForeignKey?.kind === "foreign-key" ? unknownForeignKey.referencedRelation : undefined,
+      "unknown",
+    );
+    strict.deepStrictEqual(
+      snapshot.relations.users?.indexes.find(({ name }) => name === "users_compound_idx")?.columns,
+      [{ column: "id" }, { column: "status" }],
+    );
+    strict.ok(snapshot.routines["app.refresh_users"]?.every(({ result }) => result.kind === "command"));
+    strict.strictEqual(snapshot.routines["app.refresh_users"]?.length, 2);
     strict.strictEqual(snapshot.routines["app.user_count"]?.length, 2);
   });
 
