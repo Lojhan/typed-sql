@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -17,9 +17,9 @@ for (const name of ["url", "sha3", "output", "version"]) {
 }
 if (!/^[a-f\d]{64}$/u.test(options.sha3)) throw new TypeError("--sha3 must be a SHA3-256 digest");
 
-function run(command, args) {
+function run(command, args, input) {
   return new Promise((fulfill, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "inherit"] });
+    const child = spawn(command, args, { stdio: ["pipe", "pipe", "inherit"] });
     let stdout = "";
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
@@ -30,6 +30,7 @@ function run(command, args) {
       if (code === 0) fulfill(stdout);
       else reject(new Error(`${basename(command)} failed (${signal ?? code ?? "unknown"})`));
     });
+    child.stdin.end(input);
   });
 }
 
@@ -49,16 +50,14 @@ const temporary = await mkdtemp(join(tmpdir(), "typed-sql-sqlite-matrix-"));
 try {
   const response = await fetch(options.url, { redirect: "follow", signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`SQLite source download failed with HTTP ${response.status}`);
-  const archive = join(temporary, basename(new URL(options.url).pathname) || "sqlite-source.tar.gz");
   const archiveBytes = new Uint8Array(await response.arrayBuffer());
   const digest = createHash("sha3-256").update(archiveBytes).digest("hex");
   if (digest !== options.sha3)
     throw new Error(`SQLite source digest mismatch: expected ${options.sha3}, received ${digest}`);
-  await writeFile(archive, archiveBytes);
 
   const sourceDirectory = join(temporary, "source");
   await mkdir(sourceDirectory);
-  await run("tar", ["-xzf", archive, "-C", sourceDirectory]);
+  await run("tar", ["-xzf", "-", "-C", sourceDirectory], archiveBytes);
   const sqliteSource = await findSource(sourceDirectory, "sqlite3.c");
   const shellSource = await findSource(sourceDirectory, "shell.c");
   if (sqliteSource === undefined || shellSource === undefined) {

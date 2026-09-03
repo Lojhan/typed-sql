@@ -71,6 +71,21 @@ function withoutTypeParameters(value: string): string {
   return parts.join("");
 }
 
+function collapseWhitespace(value: string): string {
+  const characters: string[] = [];
+  let pendingSpace = false;
+  for (const character of value) {
+    if (character.trim().length === 0) {
+      pendingSpace = characters.length > 0;
+      continue;
+    }
+    if (pendingSpace) characters.push(" ");
+    characters.push(character);
+    pendingSpace = false;
+  }
+  return characters.join("");
+}
+
 function index(catalog: MySqlCoreCatalog): CatalogIndex {
   const cached = indexes.get(catalog);
   if (cached !== undefined) return cached;
@@ -92,10 +107,13 @@ function index(catalog: MySqlCoreCatalog): CatalogIndex {
 }
 
 export function normalizeMySqlType(value: string): string {
-  const normalized = withoutTypeParameters(value.trim().toLowerCase())
-    .replace(/\s+/gu, " ")
-    .replace(/\s+(?:signed|unsigned|zerofill)$/gu, "")
-    .trim();
+  let normalized = collapseWhitespace(withoutTypeParameters(value.toLowerCase()));
+  for (const modifier of ["signed", "unsigned", "zerofill"]) {
+    if (normalized.endsWith(` ${modifier}`)) {
+      normalized = normalized.slice(0, -(modifier.length + 1));
+      break;
+    }
+  }
   return normalized === "double precision" ? "double" : normalized;
 }
 
