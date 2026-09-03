@@ -420,6 +420,33 @@ await describe("MySQL dialect", async () => {
     );
   });
 
+  await it("walks nested CASE, aggregate, range, and window expressions for clause validation", () => {
+    const result = resolveMySqlStatement(
+      parseStatement(
+        `
+      SELECT CASE status
+               WHEN 'active' THEN status
+               ELSE CASE WHEN COUNT(*) > 0 THEN status ELSE status END
+             END AS grouped_status
+      FROM users
+      WHERE CASE
+              WHEN status = 'active' THEN ROW_NUMBER() OVER (ORDER BY id) > 0
+              ELSE false
+            END
+      GROUP BY status
+      HAVING CASE
+               WHEN status IN ('active', 'suspended') THEN COUNT(*) > 0
+               ELSE status BETWEEN 'active' AND 'suspended'
+             END
+    `,
+        { syntax: "mysql" },
+      ),
+      { ...schema, server: serverEvidence("8.4.6", "ONLY_FULL_GROUP_BY") },
+    );
+    strict.ok(result.diagnostics.some(({ code }) => code === "TSQ223"));
+    strict.strictEqual(result.columns[0]?.name, "grouped_status");
+  });
+
   await it("infers command-only DML and rejects non-MySQL syntax safely", () => {
     const insert = resolveMySqlStatement(
       parseStatement("INSERT INTO users (email, status) VALUES (?, 'active')", { syntax: "mysql" }),

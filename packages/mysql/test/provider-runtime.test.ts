@@ -50,6 +50,7 @@ class CatalogClient implements MySqlQueryable {
   reverseRows = false;
   richRows = false;
   failCatalog: string | undefined;
+  invalidEvidence: "array" | "integer" | undefined;
   versionComment = "MySQL Community Server - GPL";
 
   async query<Row extends Record<string, unknown>>(
@@ -528,6 +529,11 @@ class CatalogClient implements MySqlQueryable {
         },
       ];
     }
+    if (this.invalidEvidence === "array" && sqlText.includes("information_schema.TABLE_CONSTRAINTS")) {
+      rows = rows.map((row, index) => (index === 0 ? { ...row, columns: "not-json" } : row));
+    } else if (this.invalidEvidence === "integer" && sqlText.includes("FROM information_schema.COLUMNS")) {
+      rows = rows.map((row, index) => (index === 0 ? { ...row, numeric_precision: -1 } : row));
+    }
     return { rows: (this.reverseRows ? [...rows].reverse() : rows) as readonly Row[] };
   }
 }
@@ -681,6 +687,10 @@ await describe("MySQL provider and runtime", async () => {
     const noDatabase = new CatalogClient();
     noDatabase.database = null;
     await strict.rejects(() => new MySqlSchemaProvider({ client: noDatabase }).introspect({}), /at least one database/);
+    await strict.rejects(
+      () => new MySqlSchemaProvider({ client: new CatalogClient(), includeSchemas: [" "] }).introspect({}),
+      /non-empty strings/u,
+    );
     strict.strictEqual(mysqlCatalogQueries.columns(2).match(/\?/gu)?.length, 2);
     strict.strictEqual(mysqlCatalogQueries.schemas(2).match(/\?/gu)?.length, 2);
     strict.strictEqual(mysqlCatalogQueries.routines(2).match(/\?/gu)?.length, 2);
@@ -693,6 +703,22 @@ await describe("MySQL provider and runtime", async () => {
     strict.match(mysqlCatalogQueries.indexes(1), /SEQ_IN_INDEX/iu);
     strict.match(mysqlCatalogQueries.indexes(1), /SUB_PART/iu);
     strict.match(mysqlCatalogQueries.constraints(1), /ENFORCED/iu);
+  });
+
+  await it("rejects malformed structural catalog evidence", async () => {
+    const invalidArray = new CatalogClient();
+    invalidArray.invalidEvidence = "array";
+    await strict.rejects(
+      () => new MySqlSchemaProvider({ client: invalidArray, includeSchemas: ["app"] }).introspect({}),
+      /constraint columns must be a JSON array/u,
+    );
+
+    const invalidInteger = new CatalogClient();
+    invalidInteger.invalidEvidence = "integer";
+    await strict.rejects(
+      () => new MySqlSchemaProvider({ client: invalidInteger, includeSchemas: ["app"] }).introspect({}),
+      /numeric precision must be non-negative integer evidence/u,
+    );
   });
 
   await it("maps complete MySQL structural catalog evidence", async () => {
