@@ -686,6 +686,36 @@ try {
         `);
         strict.deepStrictEqual(deleted, [{ id: inserted.id }]);
 
+        const insertAccounts = database.prepare(
+          "e2e-insert-account-list",
+          (accounts: readonly { readonly email: string; readonly status: "active" | "suspended" }[]) =>
+            sql<{ readonly id: bigint; readonly email: string; readonly status: "active" | "suspended" }>`
+              INSERT INTO users (email, status)
+              VALUES ${accounts.map((account) => sql.fragment`(${account.email}, ${account.status}::account_status)`)}
+              RETURNING id, email, status
+            `,
+        );
+        const firstAccounts = await database.execute(
+          insertAccounts([
+            { email: `fragment-list-a-${process.pid}@example.com`, status: "active" },
+            { email: `fragment-list-b-${process.pid}@example.com`, status: "suspended" },
+          ]),
+        );
+        const secondAccounts = await database.execute(
+          insertAccounts([{ email: `fragment-list-c-${process.pid}@example.com`, status: "active" }]),
+        );
+        strict.deepStrictEqual(
+          [...firstAccounts, ...secondAccounts].map(({ email, status }) => ({ email, status })),
+          [
+            { email: `fragment-list-a-${process.pid}@example.com`, status: "active" },
+            { email: `fragment-list-b-${process.pid}@example.com`, status: "suspended" },
+            { email: `fragment-list-c-${process.pid}@example.com`, status: "active" },
+          ],
+        );
+        await database.execute(sql`
+          DELETE FROM users WHERE id = ANY(${sql.value([...firstAccounts, ...secondAccounts].map(({ id }) => id))})
+        `);
+
         const codecRows = await database.execute(postgresCodecFidelity);
         const codec = codecRows[0] as Record<string, unknown>;
         strict.strictEqual(codec.id, 1);

@@ -17,16 +17,21 @@ await describe("shared deterministic property corpus", async () => {
     }
   });
 
-  await it("preserves flattening and parameter order for generated fragment lists", () => {
+  await it("keeps implicit fragment lists equivalent to explicit joins across generated cardinalities", () => {
     const values = deterministicStrings(FUZZ_SEEDS.rendering, 256, { alphabet: "abc123", maximumLength: 24 });
-    const fragments = values.map((value, index) => sql.fragment`(${index}, ${value})`);
-    const rendered = renderQuery(sql`VALUES ${sql.join(fragments, sql.fragment`, `)}`, renderer);
-    strict.deepStrictEqual(
-      rendered.values,
-      fragments.flatMap((_fragment, index) => [index, values[index]]),
-    );
-    strict.strictEqual((rendered.text.match(/\$\d+/gu) ?? []).length, values.length * 2);
-    strict.ok(Object.isFrozen(rendered.values));
+    for (const cardinality of [1, 2, 5, 31, 256]) {
+      const selected = values.slice(0, cardinality);
+      const fragments = selected.map((value, index) => sql.fragment`(${index}, ${value})`);
+      const implicit = renderQuery(sql`VALUES ${fragments}`, renderer);
+      const explicit = renderQuery(sql`VALUES ${sql.join(fragments, sql.fragment`, `)}`, renderer);
+      strict.deepStrictEqual(implicit, explicit);
+      strict.deepStrictEqual(
+        implicit.values,
+        fragments.flatMap((_fragment, index) => [index, selected[index]]),
+      );
+      strict.strictEqual((implicit.text.match(/\$\d+/gu) ?? []).length, cardinality * 2);
+      strict.ok(Object.isFrozen(implicit.values));
+    }
   });
 
   await it("canonicalizes generated schema-shaped values idempotently", () => {

@@ -579,6 +579,37 @@ try {
         });
         strict.strictEqual(total, 2n);
 
+        const insertAccounts = database.prepare(
+          "e2e-insert-account-list",
+          (accounts: readonly { readonly email: string; readonly status: "active" | "suspended" }[]) =>
+            sql`
+              INSERT INTO users (email, status, profile)
+              VALUES ${accounts.map((account) => sql.fragment`(${account.email}, ${account.status}, JSON_OBJECT())`)}
+            `,
+        );
+        const accounts = [
+          { email: `fragment-list-a-${process.pid}@example.com`, status: "active" as const },
+          { email: `fragment-list-b-${process.pid}@example.com`, status: "suspended" as const },
+          { email: `fragment-list-c-${process.pid}@example.com`, status: "active" as const },
+        ];
+        await database.execute(insertAccounts(accounts.slice(0, 2)));
+        await database.execute(insertAccounts(accounts.slice(2)));
+        const insertedAccounts = await database.execute(sql<{
+          readonly email: string;
+          readonly status: "active" | "suspended";
+        }>`
+          SELECT email, status FROM users
+          WHERE email IN (${accounts.map(({ email }) => sql.fragment`${email}`)})
+          ORDER BY email
+        `);
+        strict.deepStrictEqual(
+          insertedAccounts,
+          accounts.map(({ email, status }) => ({ email, status })),
+        );
+        await database.execute(sql`
+          DELETE FROM users WHERE email IN (${accounts.map(({ email }) => sql.fragment`${email}`)})
+        `);
+
         const codecRows = await database.execute(mysqlCodecFidelity);
         const codec = codecRows[0] as Record<string, unknown>;
         strict.strictEqual(codec.id, 1);

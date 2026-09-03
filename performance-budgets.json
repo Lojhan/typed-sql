@@ -1,5 +1,5 @@
 {
-  "version": 12,
+  "version": 13,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -39,7 +39,7 @@
   },
   "throughput": {
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
-    "core.fragmentListRender": { "minimumOperationsPerSecond": 10000 },
+    "core.fragmentListRender": { "minimumOperationsPerSecond": 10000, "minimumJoinRatio": 0.7 },
     "parser.toolkitTokens": { "minimumTokensPerSecond": 500000 },
     "routing.semanticCacheHit": { "minimumOperationsPerSecond": 250000 }
   },

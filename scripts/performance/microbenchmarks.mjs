@@ -130,7 +130,7 @@ export async function deterministicMicrobenchmarks(methodology) {
   };
   const postgresDatabase = createPostgresDatabase({ pool: postgresPool });
   const nestedValues = [1n, [2n, [3n, 4n]], "done"];
-  const postgresEncodingQuery = sql`SELECT ${nestedValues}`;
+  const postgresEncodingQuery = sql`SELECT ${sql.value(nestedValues)}`;
   results["micro.postgres.renderEncodeDispatch"] = await latency(
     () => postgresDatabase.execute(postgresEncodingQuery),
     methodology,
@@ -412,7 +412,7 @@ export async function deterministicMicrobenchmarks(methodology) {
     async end() {},
   };
   const mysqlDatabase = createMySqlDatabase({ pool: mysqlEncodingPool });
-  const mysqlEncodingQuery = sql`SELECT ${nestedValues}`;
+  const mysqlEncodingQuery = sql`SELECT ${sql.value(nestedValues)}`;
   results["micro.mysql.renderEncodeDispatch"] = await latency(
     () => mysqlDatabase.execute(mysqlEncodingQuery),
     methodology,

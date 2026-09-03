@@ -19,7 +19,14 @@ interface PerformanceBudgets {
   };
   readonly latencyMs: Readonly<Record<string, { readonly p50: number; readonly p95: number; readonly p99: number }>>;
   readonly throughput: Readonly<
-    Record<string, { readonly minimumOperationsPerSecond?: number; readonly minimumTokensPerSecond?: number }>
+    Record<
+      string,
+      {
+        readonly minimumOperationsPerSecond?: number;
+        readonly minimumTokensPerSecond?: number;
+        readonly minimumJoinRatio?: number;
+      }
+    >
   >;
   readonly memory: Readonly<Record<string, { readonly maximum: number }>>;
   readonly overrides: Readonly<{
@@ -78,6 +85,7 @@ await describe("performance regression policy", async () => {
     }
     strict.ok((budgets.throughput["core.composeAndRender"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.throughput["core.fragmentListRender"]?.minimumOperationsPerSecond ?? 0) > 0);
+    strict.ok((budgets.throughput["core.fragmentListRender"]?.minimumJoinRatio ?? 0) > 0);
     strict.ok((budgets.throughput["parser.toolkitTokens"]?.minimumTokensPerSecond ?? 0) > 0);
     strict.ok((budgets.throughput["routing.semanticCacheHit"]?.minimumOperationsPerSecond ?? 0) > 0);
     strict.ok((budgets.memory["editor.retainedHeapMiB"]?.maximum ?? 0) > 0);

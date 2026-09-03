@@ -23,7 +23,9 @@ export interface SourceSoundnessCase {
 }
 
 export function sourceForDialect(testCase: SourceSoundnessCase, dialect: "postgres" | "mysql" | "sqlite"): string {
-  return testCase.source.replace("@typed-sql/postgres", `@typed-sql/${dialect}`);
+  return testCase.source
+    .replace("@typed-sql/postgres", `@typed-sql/${dialect}`)
+    .replace("@typed-sql/__other__", dialect === "postgres" ? "@typed-sql/mysql" : "@typed-sql/postgres");
 }
 
 const moduleImport = 'import { sql } from "@typed-sql/postgres";';
@@ -81,6 +83,29 @@ export const sourceSoundnessCorpus: readonly SourceSoundnessCase[] = [
       )}\`;`,
     ].join("\n"),
     expectation: { kind: "diagnostic", codes: ["TSQ101"], sourceTarget: "deleted_at" },
+  },
+  {
+    id: "homogeneous-fragment-list-keeps-dynamic-cardinality-honest",
+    source: [
+      moduleImport,
+      "declare const rows: readonly { readonly id: bigint }[];",
+      `export const query = sql\`SELECT users.id FROM users WHERE users.id IN (${interpolation(
+        `rows.map((row) => sql.fragment\`${interpolation("row.id")}\`)`,
+      )})\`;`,
+    ].join("\n"),
+    expectation: { kind: "exact", rowType: '{ "id": bigint; }', parameterType: "readonly unknown[]" },
+  },
+  {
+    id: "wrong-grammar-fragment-list-diagnostic",
+    source: [
+      moduleImport,
+      'import { sql as otherSql } from "@typed-sql/__other__";',
+      "declare const rows: readonly { readonly id: bigint }[];",
+      `export const query = sql\`SELECT ${interpolation(
+        `rows.map((row) => otherSql.fragment\`${interpolation("row.id")}\`)`,
+      )}\`;`,
+    ].join("\n"),
+    expectation: { kind: "diagnostic", codes: ["TSQ014"], sourceTarget: "otherSql.fragment" },
   },
   {
     id: "untagged-structural-template-diagnostic",

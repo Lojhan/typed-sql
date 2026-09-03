@@ -132,6 +132,20 @@ await describe("node:sqlite runtime adapter", async () => {
     });
 
     await database.execute(sql`INSERT INTO account (id, email) VALUES (${1n}, ${"one@example.com"})`);
+    const insertAccounts = database.prepare(
+      "insert-account-list",
+      (accounts: readonly Account[]) =>
+        sql`INSERT INTO account (id, email) VALUES ${accounts.map(
+          (account) => sql.fragment`(${account.id}, ${account.email})`,
+        )}`,
+    );
+    await database.execute(
+      insertAccounts([
+        { id: 4n, email: "four@example.com" },
+        { id: 5n, email: "five@example.com" },
+      ]),
+    );
+    await database.execute(insertAccounts([{ id: 6n, email: "six@example.com" }]));
     const byId = database.prepare(
       "account-by-id",
       (id: bigint) => sql<Account>`
@@ -144,7 +158,7 @@ await describe("node:sqlite runtime adapter", async () => {
 
     const [first, all] = await database.batch([byId(1n), sql<Account>`SELECT id, email FROM account ORDER BY id`]);
     strict.strictEqual(first[0]?.id, 1n);
-    strict.strictEqual(all.length, 1);
+    strict.strictEqual(all.length, 4);
 
     await database.transaction(async (transaction) => {
       await transaction.execute(sql`INSERT INTO account (id, email) VALUES (${2n}, ${"two@example.com"})`);
@@ -165,7 +179,7 @@ await describe("node:sqlite runtime adapter", async () => {
     }
     strict.deepStrictEqual(
       streamed.map(({ id }) => id),
-      [1n, 2n],
+      [1n, 2n, 4n, 5n, 6n],
     );
     strict.throws(() => database.stream(sql<Account>`SELECT id, email FROM account`, { batchSize: 0 }), /positive/);
     await database.close();

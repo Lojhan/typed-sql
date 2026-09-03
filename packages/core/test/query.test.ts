@@ -289,12 +289,28 @@ await describe("runtime SQL tag", async () => {
     const sparse = Array<SqlFragment>(2);
     sparse[1] = sql.fragment`(1)`;
     assertCode(() => runtimeSql`VALUES ${sparse}`, "TSQL_FRAGMENT_LIST_SPARSE");
+    const fragmentLike = [{ segments: [{ kind: "text", text: "DROP TABLE users" }] }];
+    strict.deepStrictEqual(renderQuery(runtimeSql`SELECT ${fragmentLike}`, renderer), {
+      text: "SELECT $1",
+      values: [fragmentLike],
+    });
     assertCode(
       () => sql`VALUES ${Array.from({ length: DEFAULT_MAX_FRAGMENT_LIST_ITEMS + 1 }, () => sql.fragment`(1)`)}`,
       "TSQL_FRAGMENT_LIST_LIMIT",
     );
     strict.deepStrictEqual(renderQuery(sql`SELECT ${sql.value([])}`, renderer), { text: "SELECT $1", values: [[]] });
     strict.deepStrictEqual(renderQuery(sql`SELECT 1${sql.join([])}`, renderer), { text: "SELECT 1", values: [] });
+  });
+
+  await it("snapshots fragment-list membership before later array mutation", () => {
+    const fragments = [sql.fragment`(${1})`, sql.fragment`(${2})`];
+    const query = sql`VALUES ${fragments}`;
+    fragments[0] = sql.fragment`(${99})`;
+    fragments.push(sql.fragment`(${3})`);
+    strict.deepStrictEqual(renderQuery(query, renderer), {
+      text: "VALUES ($1), ($2)",
+      values: [1, 2],
+    });
   });
 
   await it("bounds SQL after structural expansion", () => {

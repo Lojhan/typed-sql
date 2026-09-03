@@ -566,7 +566,8 @@ assert.ok(
 );
 
 const fragmentList = Array.from({ length: 100 }, (_, index) => sql.fragment`(${index}, ${`value-${index}`})`);
-const fragmentListQuery = sql`VALUES ${sql.join(fragmentList, sql.fragment`, `)}`;
+const fragmentListQuery = sql`VALUES ${fragmentList}`;
+const joinedFragmentListQuery = sql`VALUES ${sql.join(fragmentList, sql.fragment`, `)}`;
 const fragmentListThroughput = measureThroughput({
   warmups: methodology.warmups,
   samples: methodology.samples,
@@ -576,15 +577,30 @@ const fragmentListThroughput = measureThroughput({
     assert.equal(rendered.values.length, 200);
   },
 });
+const joinedFragmentListThroughput = measureThroughput({
+  warmups: methodology.warmups,
+  samples: methodology.samples,
+  iterations: 1_000,
+  operation() {
+    const rendered = renderQuery(joinedFragmentListQuery, dialect);
+    assert.equal(rendered.values.length, 200);
+  },
+});
 const fragmentListBudget = budgets.throughput["core.fragmentListRender"];
 results["core.fragmentListRender"] = {
   unit: "operations/second",
   ...fragmentListThroughput,
+  explicitJoinP50: joinedFragmentListThroughput.p50,
+  explicitJoinRatio: fragmentListThroughput.p50 / joinedFragmentListThroughput.p50,
   budget: fragmentListBudget,
 };
 assert.ok(
   fragmentListThroughput.p50 >= fragmentListBudget.minimumOperationsPerSecond,
   `core.fragmentListRender p50 ${fragmentListThroughput.p50.toFixed(0)} ops/s fell below ${fragmentListBudget.minimumOperationsPerSecond}`,
+);
+assert.ok(
+  fragmentListThroughput.p50 / joinedFragmentListThroughput.p50 >= fragmentListBudget.minimumJoinRatio,
+  `core.fragmentListRender is materially slower than sql.join (${fragmentListThroughput.p50.toFixed(0)} vs ${joinedFragmentListThroughput.p50.toFixed(0)} ops/s)`,
 );
 
 globalThis.gc?.();
