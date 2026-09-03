@@ -128,7 +128,7 @@ async function writeEditorProject(
           null,
           2,
         )}\n`
-      : await readFile(join(workspace, "e2e", dialect, "generated", "db", "schema.json"), "utf8"),
+      : await readFile(join(workspace, "e2e", dialect, "schema", "catalog.snapshot.json"), "utf8"),
   );
   await writeFile(queryFile, source);
   return { directory, queryFile, source };
@@ -586,9 +586,9 @@ await describe("packed public packages", async () => {
           if (dialect === "postgres") {
             const schemaFile = join(project.directory, "schema.json");
             const schema = JSON.parse(await readFile(schemaFile, "utf8")) as {
-              relations: { users: { columns: { email: { nullable: boolean } } } };
+              tables: { users: { columns: { email: { nullable: boolean } } } };
             };
-            schema.relations.users.columns.email.nullable = true;
+            schema.tables.users.columns.email.nullable = true;
             await writeFile(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);
             const reloaded = client.notification(
               "textDocument/publishDiagnostics",
