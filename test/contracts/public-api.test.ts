@@ -69,6 +69,11 @@ import type {
   FailureInjection,
   FailureInjectionSnapshot,
   FailureInjector,
+  FragmentListConformanceFixture,
+  FragmentListConformanceReport,
+  FragmentListDiagnosticCase,
+  FragmentListParameterExpectation,
+  FragmentListRenderCase,
   GrammarAnalysisProbe,
   GrammarCapabilityProbe,
   GrammarConformanceFixture,
@@ -544,6 +549,11 @@ type ReferencedStableTypes =
   | FailureInjection
   | FailureInjectionSnapshot
   | FailureInjector
+  | FragmentListConformanceFixture<SchemaSnapshot, unknown>
+  | FragmentListConformanceReport
+  | FragmentListDiagnosticCase
+  | FragmentListParameterExpectation
+  | FragmentListRenderCase
   | GrammarDialectPolicy
   | GrammarFeatureCategory
   | GrammarFeatureEntry
@@ -792,6 +802,7 @@ const expectedRuntimeExports = {
     "INJECTED_FAILURE_CODE",
     "REQUIRED_GRAMMAR_PROBES",
     "assertCodecConformance",
+    "assertFragmentListConformance",
     "assertGrammarConformance",
     "assertRuntimeAdapterConformance",
     "assertVersionedCapabilityConformance",

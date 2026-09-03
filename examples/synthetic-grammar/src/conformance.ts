@@ -5,7 +5,7 @@ import {
 } from "@typed-sql/conformance";
 import { type SyntheticSnapshot, type SyntheticTypePolicy, synthetic } from "./index.js";
 
-const snapshot = {
+export const syntheticSnapshot = {
   formatVersion: 1,
   dialect: "synthetic",
   dialectVersion: "1.0.0",
@@ -46,7 +46,7 @@ export const syntheticConformanceFixture = defineGrammarConformanceFixture<Synth
   name: "synthetic-example",
   dialect,
   renderer: dialect,
-  snapshot,
+  snapshot: syntheticSnapshot,
   placeholderTwo: "?2",
   identifier: "account]status",
   quotedIdentifier: "[account]]status]",

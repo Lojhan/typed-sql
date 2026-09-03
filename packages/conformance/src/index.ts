@@ -1,5 +1,6 @@
 export {
   assertCodecConformance,
+  assertFragmentListConformance,
   assertGrammarConformance,
   assertRuntimeAdapterConformance,
   assertVersionedCapabilityConformance,
@@ -37,6 +38,11 @@ export { measureGrammarPerformance } from "./performance.js";
 export type {
   CodecConformanceCase,
   CodecConformanceFixture,
+  FragmentListConformanceFixture,
+  FragmentListConformanceReport,
+  FragmentListDiagnosticCase,
+  FragmentListParameterExpectation,
+  FragmentListRenderCase,
   GrammarAnalysisProbe,
   GrammarCapabilityProbe,
   GrammarConformanceFixture,

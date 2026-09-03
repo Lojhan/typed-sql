@@ -366,6 +366,10 @@ importers:
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
+    devDependencies:
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../conformance
 
   packages/opentelemetry:
     dependencies:
@@ -390,6 +394,10 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+    devDependencies:
+      '@typed-sql/conformance':
+        specifier: workspace:*
+        version: link:../conformance
 
   packages/schema:
     dependencies:

@@ -47,5 +47,8 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@types/pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@typed-sql/conformance": "workspace:*"
   }
 }
