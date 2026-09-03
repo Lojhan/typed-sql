@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/opentelemetry",
-  "version": "2.1.0-rc.1",
+  "version": "2.1.0",
   "description": "Optional OpenTelemetry tracing integration for typed-sql database observers.",
   "license": "MIT",
   "author": "Lojhan",

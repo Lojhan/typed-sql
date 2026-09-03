@@ -1,5 +1,33 @@
 # @typed-sql/schema
 
+## 2.1.0
+
+### Minor Changes
+
+- 1041bfa: Add canonical schema snapshot format 2 with isolated v1/v2 codecs, conservative v1 upgrades,
+  neutral relation/constraint/index/type/routine evidence, and complete provider introspection.
+  Resolvers now consume structural write and routine evidence, while drift, compatibility, manifests,
+  verification proofs, and plan artifacts bind to the schema format and canonical hash.
+- 1041bfa: Add deterministic versioned dialect capability states backed by normalized server versions,
+  settings, extensions, and compile options. Query manifests now invalidate on capability changes and
+  record evidence for capabilities each query uses, while the CLI exposes a human-readable capability
+  report. The boolean capability map remains available as an additive migration bridge.
+
+### Patch Changes
+
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+- Updated dependencies [1041bfa]
+  - @typed-sql/core@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

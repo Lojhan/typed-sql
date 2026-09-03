@@ -75,23 +75,30 @@ await describe("MySQL completeness review", async () => {
   });
 
   await it("records every user-visible MySQL workstream in release notes", async () => {
-    const changesets = [
-      "mysql-support-policy.md",
-      "mysql-server-evidence.md",
-      "mysql-mode-aware-parser.md",
-      "mysql-query-structure.md",
-      "mysql-dml-completeness.md",
-      "mysql-versioned-catalogs.md",
-      "mysql-snapshot-v2-introspection.md",
-      "mysql-runtime-protocol-hardening.md",
-    ];
-    for (const name of changesets) {
+    const workstreams = [
+      ["mysql-support-policy.md", "grammar-owned MySQL LTS"],
+      ["mysql-server-evidence.md", "normalized MySQL distribution"],
+      ["mysql-mode-aware-parser.md", "ANSI_QUOTES"],
+      ["mysql-query-structure.md", "recursive CTEs"],
+      ["mysql-dml-completeness.md", "insert modifiers"],
+      ["mysql-versioned-catalogs.md", "versioned MySQL built-in catalogs"],
+      ["mysql-snapshot-v2-introspection.md", "schema format 2 introspection"],
+      ["mysql-runtime-protocol-hardening.md", "per-connection snapshot compatibility"],
+    ] as const;
+    const changelog = await readFile(join(workspace, "packages", "mysql", "CHANGELOG.md"), "utf8");
+    for (const [name, changelogEvidence] of workstreams) {
       let source: string;
       try {
         source = await readFile(join(workspace, ".changeset", name), "utf8");
       } catch (error) {
         if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
-        source = await readFile(join(workspace, ".changeset", "pre", name), "utf8");
+        try {
+          source = await readFile(join(workspace, ".changeset", "pre", name), "utf8");
+        } catch (preError) {
+          if (!(preError instanceof Error && "code" in preError && preError.code === "ENOENT")) throw preError;
+          strict.ok(changelog.includes(changelogEvidence), `${name} must remain represented in the changelog`);
+          continue;
+        }
       }
       strict.ok(source.includes('"@typed-sql/mysql"'), `${name} must release @typed-sql/mysql`);
       strict.ok(source.length >= 140, `${name} must describe the public change`);

@@ -299,6 +299,11 @@ export async function rehearseStableRelease(options = {}) {
       cwd: worktree,
       label: "Asserting the stable channel",
     });
+    const stableVersionDiff = await run("git", ["diff", "--binary", "--no-ext-diff"], {
+      cwd: worktree,
+      capture: true,
+    });
+    if (stableVersionDiff.stdout.trim() === "") throw new Error("Stable rehearsal produced no version diff");
     await run("pnpm", ["verify"], { cwd: worktree, label: "Running the stable verification suite" });
     await run("pnpm", ["e2e:packed"], {
       cwd: worktree,
@@ -312,9 +317,7 @@ export async function rehearseStableRelease(options = {}) {
       versions,
     );
     await installPackedGraph(join(temporary, "consumer"), tarballs);
-    const diff = await run("git", ["diff", "--binary", "--no-ext-diff"], { cwd: worktree, capture: true });
-    if (diff.stdout.trim() === "") throw new Error("Stable rehearsal produced no version diff");
-    await writeFile(join(artifactDirectory, "stable-release.diff"), diff.stdout);
+    await writeFile(join(artifactDirectory, "stable-release.diff"), stableVersionDiff.stdout);
     await writeFile(
       join(artifactDirectory, "report.json"),
       `${JSON.stringify(
