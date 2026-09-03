@@ -93,12 +93,20 @@ await describe("performance regression policy", async () => {
     strict.ok((budgets.memory["parser.astBytesPerParse"]?.maximum ?? 0) > 0);
     strict.ok((budgets.memory["compiler.soakHeapGrowthMiB"]?.maximum ?? 0) > 0);
     strict.ok((budgets.memory["core.renderSoakHeapGrowthMiB"]?.maximum ?? 0) > 0);
-    strict.deepStrictEqual(Object.keys(budgets.overrides.githubActions.latencyMs), ["compiler.semanticMetadata"]);
+    strict.deepStrictEqual(Object.keys(budgets.overrides.githubActions.latencyMs).sort(), [
+      "compiler.semanticMetadata",
+      "editor.editStorm",
+    ]);
     const defaultSemanticBudget = budgets.latencyMs["compiler.semanticMetadata"];
     const githubSemanticBudget = budgets.overrides.githubActions.latencyMs["compiler.semanticMetadata"];
     if (defaultSemanticBudget === undefined || githubSemanticBudget === undefined)
       throw new Error("Semantic metadata budgets are incomplete");
     strict.ok(githubSemanticBudget.p50 >= defaultSemanticBudget.p50);
+    const defaultEditStormBudget = budgets.latencyMs["editor.editStorm"];
+    const githubEditStormBudget = budgets.overrides.githubActions.latencyMs["editor.editStorm"];
+    if (defaultEditStormBudget === undefined || githubEditStormBudget === undefined)
+      throw new Error("Editor edit-storm budgets are incomplete");
+    strict.ok(githubEditStormBudget.p50 >= defaultEditStormBudget.p50);
   });
 
   await it("runs the gate after production build and records reproducibility context", async () => {
