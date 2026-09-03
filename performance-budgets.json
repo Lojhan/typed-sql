@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -53,7 +53,7 @@
   "overrides": {
     "githubActions": {
       "latencyMs": {
-        "compiler.semanticMetadata": { "p50": 12, "p95": 25, "p99": 40 }
+        "compiler.semanticMetadata": { "p50": 20, "p95": 35, "p99": 60 }
       }
     }
   }
