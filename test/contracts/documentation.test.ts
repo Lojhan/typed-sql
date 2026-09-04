@@ -9,6 +9,11 @@ import { mysql } from "../../packages/mysql/src/index.js";
 import { postgres } from "../../packages/postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
 import { sqlite } from "../../packages/sqlite/src/index.js";
+import {
+  analyzePostgresPlayground,
+  DEFAULT_PLAYGROUND_SCHEMA,
+  DEFAULT_PLAYGROUND_SOURCE,
+} from "../../website/.vitepress/theme/playground/postgres-playground.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -132,6 +137,7 @@ async function assertSourceBackedQuery<Snapshot extends SchemaSnapshot, Policy>(
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly displayedParameterType?: string;
   readonly contractTypeName?: string;
+  readonly contractBindingName?: string;
 }): Promise<CompiledQuery> {
   const source = await text(options.sourcePath);
   const documentation = await text(options.documentationPath);
@@ -149,7 +155,9 @@ async function assertSourceBackedQuery<Snapshot extends SchemaSnapshot, Policy>(
   strict.strictEqual(
     markdownSnippet(documentation, options.contractSnippetName),
     [
-      `type ${options.contractTypeName ?? "AccountByIdQuery"} = Query<`,
+      options.contractBindingName === undefined
+        ? `type ${options.contractTypeName ?? "AccountByIdQuery"} = Query<`
+        : `const ${options.contractBindingName}: Query<`,
       `  ${query.rowType},`,
       `  ${options.displayedParameterType ?? query.parameterType}`,
       ">;",
@@ -298,6 +306,7 @@ await describe("public documentation", async () => {
       await assertSourceBackedQuery({
         documentationPath,
         ...postgresEvidence,
+        ...(documentationPath === "docs/index.md" ? { contractBindingName: "accountById" } : {}),
       });
     }
 
@@ -478,18 +487,36 @@ await describe("public documentation", async () => {
       readonly name: string;
       readonly private: boolean;
       readonly type?: string;
+      readonly dependencies: Readonly<Record<string, string>>;
       readonly devDependencies: Readonly<Record<string, string>>;
     };
     const workspaceConfig = await text("pnpm-workspace.yaml");
     const siteConfig = await text("website/.vitepress/config.mts");
     const siteTheme = await text("website/.vitepress/theme/index.ts");
     const siteStyles = await text("website/.vitepress/theme/custom.css");
+    const codeEditor = await text("website/.vitepress/theme/components/CodeEditor.vue");
     const queryTypeDemo = await text("website/.vitepress/theme/components/QueryTypeDemo.vue");
+    const sqlPlayground = await text("website/.vitepress/theme/components/SqlPlayground.vue");
     const pagesWorkflow = await text(".github/workflows/pages.yml");
 
     strict.strictEqual(websitePackage.name, "typed-sql-docs");
     strict.strictEqual(websitePackage.private, true);
     strict.strictEqual(websitePackage.type, "module");
+    for (const packageName of ["@typed-sql/compiler", "@typed-sql/core", "@typed-sql/postgres"]) {
+      strict.strictEqual(websitePackage.dependencies[packageName], "workspace:*");
+    }
+    for (const packageName of [
+      "@codemirror/commands",
+      "@codemirror/lang-javascript",
+      "@codemirror/lang-sql",
+      "@codemirror/language",
+      "@codemirror/lint",
+      "@codemirror/state",
+      "@codemirror/theme-one-dark",
+      "@codemirror/view",
+    ]) {
+      strict.ok(websitePackage.dependencies[packageName], `website is missing ${packageName}`);
+    }
     strict.strictEqual(websitePackage.devDependencies.vitepress, "1.6.4");
     strict.match(workspaceConfig, /^\s*- website$/mu);
     strict.match(workspaceConfig, /^\s+vitepress>vite:\s+6\.4\.3$/mu);
@@ -512,14 +539,25 @@ await describe("public documentation", async () => {
     strict.ok(siteConfig.includes('publicDir: fileURLToPath(new URL("../public", import.meta.url))'));
     strict.ok(siteConfig.includes('logo: "/brand-mark.svg"'));
     strict.ok(siteConfig.includes('href: "/typed-sql/brand-mark.svg"'));
+    strict.ok(siteConfig.includes('name: "typed-sql-playground-runtime"'));
     strict.ok(await exists("website/public/brand-mark.svg"));
 
-    for (const component of ["CodeResult", "HomeHero", "NextSteps", "QueryTypeDemo", "StatusBadge", "StepFlow"]) {
+    for (const component of ["CodeResult", "HomeHero", "NextSteps", "StatusBadge", "StepFlow"]) {
       strict.ok(siteTheme.includes(`app.component("${component}"`), `website theme is missing ${component}`);
     }
-    for (const interaction of ['@pointerenter="hovered = true"', '@focusin="focused = true"', 'role="tooltip"']) {
+    strict.ok(siteTheme.includes('"QueryTypeDemo"'));
+    strict.ok(siteTheme.includes('"SqlPlayground"'));
+    strict.ok(siteTheme.includes("defineAsyncComponent"));
+    for (const interaction of ["CodeEditor", "inspectTarget", ':hovers="hovers"']) {
       strict.ok(queryTypeDemo.includes(interaction), `query type demo is missing ${interaction}`);
     }
+    for (const interaction of ["hoverTooltip", "lintGutter", "setDiagnostics", "EditorView"]) {
+      strict.ok(codeEditor.includes(interaction), `code editor is missing ${interaction}`);
+    }
+    for (const interaction of [':diagnostics="editorDiagnostics', ':hovers="mainHovers"', "<kbd>F8</kbd>"]) {
+      strict.ok(sqlPlayground.includes(interaction), `SQL playground is missing ${interaction}`);
+    }
+    strict.ok(!sqlPlayground.includes("ts-playground__results"), "SQL playground must not duplicate editor analysis");
     strict.ok(siteTheme.includes('from "./SiteLayout.vue"'));
     for (const stylesheet of ["tokens.css", "base.css", "components.css"]) {
       strict.ok(siteStyles.includes(stylesheet), `website theme is missing ${stylesheet}`);
@@ -546,5 +584,31 @@ await describe("public documentation", async () => {
     ]) {
       strict.ok(pagesWorkflow.includes(contract), `.github/workflows/pages.yml is missing ${contract}`);
     }
+  });
+
+  await it("runs the homepage playground through the PostgreSQL grammar", () => {
+    const valid = analyzePostgresPlayground(DEFAULT_PLAYGROUND_SCHEMA, DEFAULT_PLAYGROUND_SOURCE);
+    strict.deepStrictEqual(valid.diagnostics, []);
+    strict.strictEqual(valid.queries.length, 1);
+    strict.strictEqual(valid.queries[0]?.binding, "accountById");
+    strict.strictEqual(
+      valid.queries[0]?.rowType,
+      '{ "id": bigint; "email": string; "status": "active" | "suspended"; }',
+    );
+    strict.strictEqual(valid.queries[0]?.parameterType, "readonly [bigint]");
+
+    const invalidQuery = analyzePostgresPlayground(
+      DEFAULT_PLAYGROUND_SCHEMA,
+      DEFAULT_PLAYGROUND_SOURCE.replace("email, status", "emali, status"),
+    );
+    strict.strictEqual(invalidQuery.queries.length, 0);
+    strict.strictEqual(invalidQuery.diagnostics[0]?.file, "main.ts");
+    strict.strictEqual(invalidQuery.diagnostics[0]?.code, "TSQ101");
+    strict.match(invalidQuery.diagnostics[0]?.suggestion ?? "", /email/u);
+
+    const invalidSchema = analyzePostgresPlayground("CREATE TABLE users (id);", DEFAULT_PLAYGROUND_SOURCE);
+    strict.strictEqual(invalidSchema.queries.length, 0);
+    strict.strictEqual(invalidSchema.diagnostics[0]?.file, "schema.sql");
+    strict.strictEqual(invalidSchema.diagnostics[0]?.code, "PLAY005");
   });
 });

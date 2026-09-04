@@ -10,7 +10,7 @@ outline: false
 <HomeHero>
 <template #copy>
 
-# Write SQL. Get the exact row type. {#typed-sql-home-title}
+# Write SQL. Read TypeScript. {#typed-sql-home-title}
 
 typed-sql analyzes static SQL against your schema. Keep your application-owned driver and SQL architecture—without adopting an ORM or model layer.
 
@@ -25,7 +25,7 @@ typed-sql analyzes static SQL against your schema. Keep your application-owned d
 </template>
 <template #demo>
 
-<QueryTypeDemo source-label="Checked query" result-label="TypeScript · inferred query contract">
+<QueryTypeDemo source-label="Checked query" inspect-target="accountById">
 <template #source>
 
 <!-- docs:start homepage-postgres-query -->
@@ -45,7 +45,7 @@ export const accountById = (accountId: bigint) => sql`
 
 <!-- docs:start homepage-postgres-contract -->
 ```ts
-type AccountByIdQuery = Query<
+const accountById: Query<
   { "id": bigint; "email": string; "status": "active" | "suspended"; },
   readonly [bigint]
 >;
@@ -62,6 +62,14 @@ Checked against the maintained PostgreSQL example schema. The compiler proves a 
 
 </template>
 </HomeHero>
+
+## Try it in your browser
+
+Edit the schema or query and typed-sql will re-run the same PostgreSQL analysis used by the compiler. In `main.ts`,
+hover `accountById` to inspect its inferred query type. Try renaming `email`, changing its nullability, or selecting a
+column that does not exist to see diagnostics directly in the editor.
+
+<SqlPlayground />
 
 ## SQL in, exact contract out {#how-it-works}
 

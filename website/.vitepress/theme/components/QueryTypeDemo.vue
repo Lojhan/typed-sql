@@ -1,70 +1,60 @@
 <script lang="ts">
-import { computed, defineComponent, ref, useId } from "vue";
+import { computed, defineComponent, nextTick, onMounted, ref } from "vue";
+import CodeEditor, { type CodeEditorHover } from "./CodeEditor.vue";
 
 export default defineComponent({
   name: "QueryTypeDemo",
+  components: { CodeEditor },
   props: {
     sourceLabel: { type: String, default: "SQL template" },
-    resultLabel: { type: String, default: "Compiler contract" },
+    inspectTarget: { type: String, required: true },
   },
-  setup() {
-    const hovered = ref(false);
-    const focused = ref(false);
-    const pinned = ref(false);
-    const isInspecting = computed(() => hovered.value || focused.value || pinned.value);
-    const tooltipId = useId();
+  setup(props) {
+    const sourceRoot = ref<HTMLElement>();
+    const resultRoot = ref<HTMLElement>();
+    const source = ref("");
+    const contract = ref("");
+    const ready = ref(false);
+    const hovers = computed<readonly CodeEditorHover[]>(() => {
+      const start = source.value.indexOf(props.inspectTarget);
+      if (start < 0 || contract.value.length === 0) return [];
+      return [{ from: start, to: start + props.inspectTarget.length, content: contract.value }];
+    });
 
-    function leaveFocus(event: FocusEvent) {
-      const nextTarget = event.relatedTarget;
-      focused.value =
-        nextTarget instanceof Node && event.currentTarget instanceof Node
-          ? event.currentTarget.contains(nextTarget)
-          : false;
-    }
+    onMounted(async () => {
+      await nextTick();
+      source.value = sourceRoot.value?.querySelector("code")?.textContent?.trimEnd() ?? "";
+      contract.value = resultRoot.value?.querySelector("code")?.textContent?.trim() ?? "";
+      ready.value = source.value.length > 0;
+    });
 
-    return { focused, hovered, isInspecting, leaveFocus, pinned, tooltipId };
+    return { hovers, ready, resultRoot, source, sourceRoot };
   },
 });
 </script>
 
 <template>
   <figure class="ts-query-type-demo">
-    <div
-      class="ts-query-type-demo__editor"
-      :class="{ 'is-inspecting': isInspecting }"
-      @pointerenter="hovered = true"
-      @pointerleave="hovered = false"
-      @focusin="focused = true"
-      @focusout="leaveFocus"
-      @keydown.esc="pinned = false"
-    >
+    <div class="ts-query-type-demo__editor">
       <div class="ts-query-type-demo__bar">
         <span class="ts-query-type-demo__file">account-by-id.ts</span>
-        <button
-          class="ts-query-type-demo__inspect"
-          type="button"
-          :aria-controls="tooltipId"
-          :aria-expanded="isInspecting"
-          @click="pinned = !pinned"
-        >
-          <span class="ts-query-type-demo__inspect-dot" aria-hidden="true" />
-          Hover to inspect
-        </button>
+        <span>Hover <code>{{ inspectTarget }}</code></span>
       </div>
 
-      <div class="ts-query-type-demo__source" tabindex="0" :aria-describedby="tooltipId">
+      <CodeEditor
+        v-if="ready"
+        v-model="source"
+        language="typescript"
+        aria-label="Read-only typed-sql query example"
+        readonly
+        :hovers="hovers"
+      />
+      <div v-show="!ready" ref="sourceRoot" class="ts-query-type-demo__source">
         <slot name="source" />
       </div>
-
-      <aside
-        :id="tooltipId"
-        class="ts-query-type-demo__hover"
-        role="tooltip"
-        :aria-hidden="!isInspecting"
-      >
-        <div class="ts-query-type-demo__hover-label">{{ resultLabel }}</div>
-        <div class="ts-query-type-demo__result"><slot name="result" /></div>
-      </aside>
+      <div ref="resultRoot" class="ts-query-type-demo__contract-source" aria-hidden="true">
+        <slot name="result" />
+      </div>
 
       <div class="ts-query-type-demo__status" aria-hidden="true">
         <span>{{ sourceLabel }}</span>

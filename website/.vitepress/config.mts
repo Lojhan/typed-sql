@@ -3,11 +3,15 @@ import { defineConfig } from "vitepress";
 import { documentationSidebar, topNavigation } from "./navigation.mts";
 
 const vuePackage = fileURLToPath(new URL("../node_modules/vue", import.meta.url));
+const schemaBrowserRuntime = fileURLToPath(new URL("./theme/playground/schema-browser-runtime.ts", import.meta.url));
+const extensionsBrowserRuntime = fileURLToPath(
+  new URL("./theme/playground/extensions-browser-runtime.ts", import.meta.url),
+);
 
 export default defineConfig({
   lang: "en-US",
   title: "typed-sql",
-  description: "Write SQL. Hover the query. Get the exact row type.",
+  description: "Write SQL. Read TypeScript.",
   base: "/typed-sql/",
   srcDir: "../docs",
   cleanUrls: true,
@@ -22,10 +26,26 @@ export default defineConfig({
   },
   vite: {
     publicDir: fileURLToPath(new URL("../public", import.meta.url)),
+    plugins: [
+      {
+        name: "typed-sql-playground-runtime",
+        enforce: "pre",
+        resolveId(source, importer) {
+          if (
+            source === "./extensions.js" &&
+            importer?.replaceAll("\\", "/").endsWith("/packages/postgres/src/type-resolution.ts")
+          ) {
+            return extensionsBrowserRuntime;
+          }
+          return null;
+        },
+      },
+    ],
     resolve: {
       alias: [
         { find: /^vue$/, replacement: `${vuePackage}/dist/vue.runtime.esm-bundler.js` },
         { find: /^vue\/server-renderer$/, replacement: `${vuePackage}/server-renderer/index.mjs` },
+        { find: /^@typed-sql\/schema$/, replacement: schemaBrowserRuntime },
       ],
     },
   },

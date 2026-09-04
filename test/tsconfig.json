@@ -10,7 +10,8 @@
     "fuzz/**/*.ts",
     "grammar/**/*.ts",
     "helpers/**/*.ts",
-    "soundness/**/*.ts"
+    "soundness/**/*.ts",
+    "../website/.vitepress/theme/playground/**/*.ts"
   ],
   "exclude": ["fixtures"],
   "references": [
