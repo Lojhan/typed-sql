@@ -28,6 +28,14 @@ The configured provider introspects the selected schemas and writes deterministi
 
 Commit the snapshot. It gives application code, CI, and editors the same catalog contract and makes schema changes reviewable without database access.
 
+Generation stages complete files beside their destinations before replacing them, and publishes the
+self-contained `schema.json` compiler input last. Readers see complete old or new files, not truncated
+JSON. A group of files is not a filesystem transaction: do not run concurrent generators against the
+same output directory, and retry generation after a publication error. The companion `index.ts` is
+metadata only; use `schema.json` as the authoritative input. When combining saved manifests, proofs,
+or snapshots, keep their generation together and validate their recorded identities; atomic writes
+do not make stale evidence current.
+
 Inspect how that evidence changes grammar support without contacting the database:
 
 ```sh
