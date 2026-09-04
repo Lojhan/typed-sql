@@ -73,7 +73,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-control);
   padding: 8px 15px;
   font-size: 14px;
   font-weight: 700;
@@ -133,7 +133,7 @@
 
 .ts-query-type-demo .ts-live-query {
   border-color: color-mix(in srgb, var(--vp-c-brand-1) 22%, var(--vp-c-divider));
-  border-radius: var(--ts-radius-lg);
+  border-radius: var(--ts-radius-feature);
   box-shadow: var(--ts-shadow-soft);
 }
 
@@ -198,7 +198,7 @@
   overflow: hidden;
   margin: 32px 0 12px;
   border: 1px solid var(--ts-playground-border);
-  border-radius: var(--ts-radius-lg);
+  border-radius: var(--ts-radius-feature);
   background: var(--ts-playground-bg);
   box-shadow: var(--ts-shadow-soft);
   color: var(--ts-playground-text);
@@ -271,6 +271,7 @@
 .ts-playground__reset {
   margin: 8px 10px;
   border: 1px solid var(--ts-playground-border);
+  border-radius: var(--ts-radius-control);
   padding: 0 11px;
 }
 
@@ -309,7 +310,7 @@
   align-content: start;
   gap: 8px;
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-surface);
   background: var(--vp-c-bg-elv);
   padding: 20px;
   color: var(--vp-c-text-1);
@@ -351,7 +352,9 @@
 
 .ts-dialect-card {
   min-width: 0;
+  border: 1px solid var(--vp-c-divider);
   border-top: 2px solid var(--ts-c-sql);
+  border-radius: var(--ts-radius-surface);
   background: var(--vp-c-bg-soft);
   padding: 20px;
 }
@@ -375,16 +378,19 @@
 
 .ts-control-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--vp-c-divider);
-  border-left: 1px solid var(--vp-c-divider);
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: var(--ts-radius-surface);
+  background: var(--vp-c-divider);
+  gap: 1px;
 }
 
 .vp-doc .ts-control-grid a {
   display: grid;
   min-width: 0;
   gap: 7px;
-  border-right: 1px solid var(--vp-c-divider);
-  border-bottom: 1px solid var(--vp-c-divider);
+  border: 0;
+  background: var(--vp-c-bg-elv);
   padding: 18px;
   color: var(--vp-c-text-1);
   text-decoration: none;
@@ -401,7 +407,7 @@
 .ts-product-status > section {
   min-width: 0;
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-surface);
   padding: 22px;
 }
 
@@ -429,7 +435,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--vp-c-divider);
-  border-radius: 999px;
+  border-radius: var(--ts-radius-pill);
   background: var(--vp-c-bg-soft);
   margin: 0;
   padding: 3px 8px;

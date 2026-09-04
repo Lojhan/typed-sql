@@ -114,7 +114,7 @@ body {
 
 .vp-doc :not(pre) > code {
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-sm);
+  border-radius: var(--ts-radius-control);
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
   font-size: 0.86em;
@@ -122,7 +122,7 @@ body {
 
 .vp-doc div[class*="language-"] {
   border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 18%, var(--vp-c-divider));
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-surface);
   background: var(--vp-code-block-bg);
   box-shadow: 0 1px 0 rgb(255 255 255 / 4%) inset;
 }
@@ -150,7 +150,7 @@ body {
 
 .vp-doc blockquote {
   border-left-color: var(--vp-c-brand-1);
-  border-radius: 0 var(--ts-radius-sm) var(--ts-radius-sm) 0;
+  border-radius: 0 var(--ts-radius-control) var(--ts-radius-control) 0;
   background: var(--vp-c-brand-soft);
   padding: 12px 16px;
 }
@@ -160,7 +160,7 @@ body {
 }
 
 .custom-block {
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-surface);
 }
 
 .VPDocFooter {

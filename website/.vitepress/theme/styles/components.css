@@ -4,7 +4,7 @@
   gap: 7px;
   min-height: 24px;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--ts-radius-pill);
   padding: 2px 9px;
   font-family: var(--vp-font-family-mono);
   font-size: 11px;
@@ -47,7 +47,7 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   overflow: hidden;
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-lg);
+  border-radius: var(--ts-radius-feature);
   background: var(--vp-c-bg-elv);
   box-shadow: var(--ts-shadow-soft);
 }
@@ -150,7 +150,7 @@
 .ts-next-steps {
   margin-top: 48px;
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-surface);
   background: var(--vp-c-bg-soft);
   padding: 18px 20px;
 }
@@ -277,7 +277,7 @@
 .ts-code-editor__type-hover {
   max-width: min(620px, calc(100vw - 36px));
   border: 1px solid var(--ts-editor-tooltip-border);
-  border-radius: var(--ts-radius-sm);
+  border-radius: var(--ts-radius-control);
   background: var(--ts-editor-tooltip-bg);
   box-shadow: var(--ts-shadow-soft);
   color: var(--ts-editor-tooltip-text);
@@ -295,7 +295,7 @@
 .cm-tooltip.cm-tooltip-lint {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--ts-c-red) 44%, var(--vp-c-divider));
-  border-radius: var(--ts-radius-sm);
+  border-radius: var(--ts-radius-control);
   background: var(--ts-editor-tooltip-bg);
   box-shadow: var(--ts-shadow-soft);
   color: var(--ts-editor-tooltip-text);
@@ -319,7 +319,7 @@
   align-items: center;
   gap: 8px;
   border: 1px solid color-mix(in srgb, var(--ts-c-sql) 46%, var(--vp-c-divider));
-  border-radius: 999px;
+  border-radius: var(--ts-radius-pill);
   background: color-mix(in srgb, var(--vp-c-bg-elv) 94%, transparent);
   box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
   padding: 0 14px;
@@ -350,7 +350,7 @@
   max-height: none;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--ts-c-sql) 28%, var(--vp-c-divider));
-  border-radius: var(--ts-radius-lg);
+  border-radius: var(--ts-radius-feature);
   background: var(--vp-c-bg);
   box-shadow: 0 30px 100px rgb(0 0 0 / 42%);
   padding: 0;
@@ -505,7 +505,7 @@
 .ts-schema-workspace__actions button {
   min-height: 36px;
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-sm);
+  border-radius: var(--ts-radius-control);
   background: transparent;
   padding: 0 12px;
   color: var(--vp-c-text-2);
@@ -538,7 +538,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--ts-playground-border);
-  border-radius: var(--ts-radius-md);
+  border-radius: var(--ts-radius-surface);
   background: var(--ts-playground-bg);
 }
 
@@ -624,7 +624,7 @@
   right: 11px;
   bottom: 37px;
   border: 1px solid var(--vp-c-divider);
-  border-radius: var(--ts-radius-sm);
+  border-radius: var(--ts-radius-control);
   background: var(--vp-c-bg-elv);
   padding: 5px 8px;
   color: var(--vp-c-text-2);
@@ -650,7 +650,7 @@
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--ts-radius-feature) var(--ts-radius-feature) 0 0;
   }
 
   .ts-schema-workspace__header {

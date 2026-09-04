@@ -48,9 +48,10 @@
   --ts-editor-tooltip-bg: #ffffff;
   --ts-editor-tooltip-text: #1a2b33;
   --ts-editor-tooltip-border: #b7cbd3;
-  --ts-radius-sm: 5px;
-  --ts-radius-md: 9px;
-  --ts-radius-lg: 14px;
+  --ts-radius-control: 6px;
+  --ts-radius-surface: 10px;
+  --ts-radius-feature: 14px;
+  --ts-radius-pill: 999px;
   --ts-shadow-soft: 0 12px 36px rgb(15 32 40 / 8%);
   --ts-reading-width: 720px;
 }
