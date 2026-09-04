@@ -586,7 +586,7 @@ await describe("public documentation", async () => {
       strict.ok(liveQueryEditor.includes(interaction), `live query editor is missing ${interaction}`);
     }
     strict.ok(!liveQueryEditor.includes("<button"), "live query editors must use the global schema launcher");
-    for (const interaction of ["<dialog", "Restore default", "Apply changes"]) {
+    for (const interaction of ["<dialog", "Restore default", "Apply changes", 'aria-label="Close schema workspace"']) {
       strict.ok(schemaWorkspace.includes(interaction), `schema workspace is missing ${interaction}`);
     }
     strict.ok(schemaLauncher.includes('class="ts-schema-trigger"'));

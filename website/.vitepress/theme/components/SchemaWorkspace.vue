@@ -111,7 +111,11 @@ export default defineComponent({
           <h2 id="schema-workspace-title">Workspace schemas</h2>
           <p>Every live example reads these browser-local definitions. Your SQL never leaves this device.</p>
         </div>
-        <button class="ts-schema-workspace__close" type="button" aria-label="Close schema workspace" @click="close">×</button>
+        <button class="ts-schema-workspace__close" type="button" aria-label="Close schema workspace" @click="close">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 4l8 8M12 4l-8 8" />
+          </svg>
+        </button>
       </header>
 
       <nav class="ts-schema-workspace__tabs" role="tablist" aria-label="Database grammar">

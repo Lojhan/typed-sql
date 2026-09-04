@@ -418,8 +418,16 @@
   border-radius: 50%;
   background: transparent;
   color: var(--vp-c-text-2);
-  font-size: 22px;
-  line-height: 1;
+}
+
+.ts-schema-workspace__close svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.6;
 }
 
 .ts-schema-workspace__close:hover {
