@@ -1,7 +1,7 @@
 import type { PathLike } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { DialectServerEvidence } from "@typed-sql/core";
-import { calculateTypePolicyHash, type SchemaSnapshotV2 } from "@typed-sql/schema";
+import { matchesTypePolicyHash, type SchemaSnapshotV2 } from "@typed-sql/schema";
 import { sqliteServerEvidence } from "./capabilities.js";
 import { type SqliteQueryable, SqliteSchemaProvider } from "./provider.js";
 import { createSqliteDatabase, type SqliteConnectionLike, type SqliteDatabase } from "./runtime.js";
@@ -199,7 +199,7 @@ function validateSnapshotCompatibility(
       "SQLite snapshot compile options do not match the opened connection",
     );
   }
-  if (snapshot.metadata !== undefined && snapshot.metadata.typePolicyHash !== calculateTypePolicyHash(policy ?? {})) {
+  if (snapshot.metadata !== undefined && !matchesTypePolicyHash(policy ?? {}, snapshot.metadata.typePolicyHash)) {
     throw new NodeSqliteCompatibilityError(
       "type-policy",
       "SQLite snapshot type-policy evidence does not match the Node adapter policy",
