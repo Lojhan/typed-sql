@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { DatabaseObserver, DatabaseOperationEnd, DatabaseOperationStart, StandardSchemaV1 } from "@typed-sql/core";
 import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { type Deferred, deferred } from "../../../test/helpers/deferred.js";
 import { mySqlServerEvidence } from "../src/capabilities.js";
 import {
   createMySqlDatabase,
@@ -12,22 +13,6 @@ import {
   type MySqlTransaction,
   MySqlWarningError,
 } from "../src/runtime.js";
-
-interface Deferred<Value> {
-  readonly promise: Promise<Value>;
-  reject(reason: unknown): void;
-  resolve(value: Value): void;
-}
-
-function deferred<Value>(): Deferred<Value> {
-  let resolve!: (value: Value) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, reject, resolve };
-}
 
 interface BlockedExecute {
   readonly result: Deferred<MySqlExecutionResult>;

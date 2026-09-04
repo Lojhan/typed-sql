@@ -8,6 +8,7 @@ import {
   sql,
 } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { type Deferred, deferred } from "../../../test/helpers/deferred.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,
@@ -20,29 +21,13 @@ type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
 type Assert<Value extends true> = Value;
 
-interface DeferredResult {
-  readonly promise: Promise<PostgresQueryResult>;
-  readonly reject: (error: Error) => void;
-  readonly resolve: (result: PostgresQueryResult) => void;
-}
-
-function deferredResult(): DeferredResult {
-  let reject!: (error: Error) => void;
-  let resolve!: (result: PostgresQueryResult) => void;
-  const promise = new Promise<PostgresQueryResult>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, reject, resolve };
-}
-
 class PipelineClient implements PostgresClientLike {
   pipeline = true;
   readonly calls: (PostgresQueryConfig | string)[] = [];
   readonly releaseArguments: (Error | boolean | undefined)[] = [];
   readonly rows = new Map<string, readonly Record<string, unknown>[]>();
   readonly errors = new Map<string, Error>();
-  readonly #blocked = new Map<string, DeferredResult>();
+  readonly #blocked = new Map<string, Deferred<PostgresQueryResult>>();
   readonly #callWaiters: { readonly count: number; readonly resolve: () => void }[] = [];
 
   async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
@@ -57,7 +42,7 @@ class PipelineClient implements PostgresClientLike {
   }
 
   block(text: string): void {
-    this.#blocked.set(text, deferredResult());
+    this.#blocked.set(text, deferred<PostgresQueryResult>());
   }
 
   resolve(text: string, rows: readonly Record<string, unknown>[] = []): void {
