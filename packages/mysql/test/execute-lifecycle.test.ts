@@ -142,6 +142,57 @@ class ExecutePool implements MySqlPoolLike {
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 await describe("MySQL transaction execute ownership", async () => {
+  await it("discards failed rollback leases and preserves the callback failure even if destruction fails", async () => {
+    for (const destroyFails of [false, true]) {
+      const pool = new ExecutePool();
+      const failure = new Error("callback failure");
+      pool.connection.rollback = async () => {
+        pool.connection.events.push("ROLLBACK FAILED");
+        throw new Error("rollback failed");
+      };
+      pool.connection.destroy = () => {
+        pool.connection.destroyCount += 1;
+        if (destroyFails) throw new Error("destroy failed");
+      };
+      const database = createMySqlDatabase({ pool });
+      await strict.rejects(
+        database.transaction(async () => {
+          throw failure;
+        }),
+        (error) => error === failure,
+      );
+      strict.strictEqual(pool.connection.releaseCount, 0);
+      strict.strictEqual(pool.connection.destroyCount, 1);
+    }
+  });
+
+  await it("invalidates the parent after failed savepoint recovery even if the callback catches it", async () => {
+    const pool = new ExecutePool();
+    const failure = new Error("nested failure");
+    pool.connection.query = async (text) => {
+      pool.connection.events.push(text);
+      if (text.startsWith("ROLLBACK TO")) throw new Error("savepoint recovery failed");
+      return { rows: [] };
+    };
+    const database = createMySqlDatabase({ pool });
+    await strict.rejects(
+      database.transaction(async (outer) => {
+        await strict.rejects(
+          outer.transaction(async () => {
+            throw failure;
+          }),
+          (error) => error === failure,
+        );
+        await strict.rejects(outer.execute(accountQuery), /no longer active/);
+      }),
+      /no longer active/,
+    );
+    strict.strictEqual(pool.connection.destroyCount, 1);
+    strict.strictEqual(pool.connection.releaseCount, 0);
+    strict.ok(!pool.connection.events.includes("COMMIT"));
+    strict.ok(!pool.connection.events.includes("ROLLBACK"));
+  });
+
   await it("rejects incompatible physical connections before application SQL dispatch", async () => {
     const pool = new ExecutePool();
     const expected = pool.connection.serverEvidence;

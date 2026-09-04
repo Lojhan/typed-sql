@@ -165,9 +165,12 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
   readonly #ownsConnection: boolean;
   readonly #transactionDepth: number;
   readonly #root: boolean;
+  readonly #parent: SqliteDatabaseImplementation | undefined;
+  readonly #children = new Set<SqliteDatabaseImplementation>();
   readonly #streams = new Set<QueryStream<unknown>>();
   #scopeOpen = true;
   #closed = false;
+  #closing: Promise<void> | undefined;
   readonly executionCapabilities = executionCapabilities;
 
   constructor(
@@ -177,6 +180,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     ownsConnection: boolean,
     transactionDepth: number,
     root: boolean,
+    parent?: SqliteDatabaseImplementation,
   ) {
     this.#connection = connection;
     this.#queue = queue;
@@ -184,6 +188,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#ownsConnection = ownsConnection;
     this.#transactionDepth = transactionDepth;
     this.#root = root;
+    this.#parent = parent;
   }
 
   async execute<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): Promise<readonly Row[]> {
@@ -199,8 +204,10 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#assertNoStream("execute a query");
     const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
-    const operation = async (): Promise<readonly Row[]> =>
-      (await this.#connection.all(rendered.text, rendered.values)) as readonly Row[];
+    const operation = async (): Promise<readonly Row[]> => {
+      this.#assertOpen();
+      return this.#connection.all(rendered.text, rendered.values) as readonly Row[];
+    };
     const rows = await (this.#root ? this.#queue.run(operation) : operation());
     return this.#validateRows(query, rows);
   }
@@ -229,6 +236,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
     const snapshot = [...queries] as QueryBatch<Queries>;
     const operation = async (): Promise<QueryResults<Queries>> => {
+      this.#assertOpen();
       const results: (readonly unknown[])[] = [];
       for (const query of snapshot) {
         const prepared = this.#prepared.queries.get(
@@ -257,6 +265,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
       this.#assertNoStream("start a query stream");
       const release = this.#root ? await this.#queue.acquire() : () => undefined;
       try {
+        this.#assertOpen();
         const iterator = this.#connection.iterate(rendered.text, rendered.values)[Symbol.iterator]() as Iterator<Row>;
         this.#streams.add(source as QueryStream<unknown>);
         return {
@@ -313,9 +322,9 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#assertNoStream("start a transaction");
     if (typeof fn !== "function") throw new TypeError("SQLite transaction callback must be a function");
     const operation = async (): Promise<Value> => {
+      this.#assertOpen();
       const depth = this.#transactionDepth + 1;
       const savepoint = `typed_sql_${depth}`;
-      await this.#connection.exec(this.#transactionDepth === 0 ? "BEGIN" : `SAVEPOINT ${savepoint}`);
       const scope = new SqliteDatabaseImplementation(
         this.#connection,
         this.#queue,
@@ -323,26 +332,41 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
         false,
         depth,
         false,
+        this,
       );
+      this.#children.add(scope);
+      let began = false;
       try {
+        this.#connection.exec(this.#transactionDepth === 0 ? "BEGIN" : `SAVEPOINT ${savepoint}`);
+        began = true;
         const result = await fn(scope);
-        await scope.#closeStreams();
         scope.#scopeOpen = false;
-        await this.#connection.exec(this.#transactionDepth === 0 ? "COMMIT" : `RELEASE SAVEPOINT ${savepoint}`);
+        if (scope.#children.size > 0) {
+          throw new Error(
+            "SQLite transaction callback returned with an active child transaction; await nested work before returning",
+          );
+        }
+        await scope.#closeStreams();
+        if (!this.#scopeIsOpen()) throw new Error("SQLite transaction scope is closed");
+        this.#connection.exec(this.#transactionDepth === 0 ? "COMMIT" : `RELEASE SAVEPOINT ${savepoint}`);
         return result;
       } catch (error) {
-        await scope.#closeStreams().catch(() => undefined);
         scope.#scopeOpen = false;
+        await scope.#closeStreams().catch(() => undefined);
         try {
-          if (this.#transactionDepth === 0) await this.#connection.exec("ROLLBACK");
-          else {
-            await this.#connection.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`);
-            await this.#connection.exec(`RELEASE SAVEPOINT ${savepoint}`);
+          if (began && this.#scopeIsOpen()) {
+            if (this.#transactionDepth === 0) this.#connection.exec("ROLLBACK");
+            else {
+              this.#connection.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+              this.#connection.exec(`RELEASE SAVEPOINT ${savepoint}`);
+            }
           }
         } catch {
           // Preserve the callback or query failure.
         }
         throw error;
+      } finally {
+        this.#children.delete(scope);
       }
     };
     return this.#root ? this.#queue.run(operation) : operation();
@@ -350,27 +374,35 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
 
   async close(): Promise<void> {
     if (!this.#root) throw new Error("Transaction-scoped SQLite databases do not own connection lifecycle");
-    if (this.#closed) return;
-    await this.#closeStreams();
-    await this.#queue.run(async () => {
-      if (this.#closed) return;
-      this.#closed = true;
-      if (this.#ownsConnection) await this.#connection.close?.();
-    });
+    this.#closing ??= (async () => {
+      await this.#closeStreams();
+      await this.#queue.run(() => {
+        this.#closed = true;
+        if (this.#ownsConnection) this.#connection.close?.();
+      });
+    })();
+    return this.#closing;
   }
 
   async #closeStreams(): Promise<void> {
+    await Promise.all([...this.#children].map((child) => child.#closeStreams()));
     const streams = [...this.#streams];
     await Promise.all(streams.map((stream) => stream.close()));
   }
 
   #assertNoStream(operation: string): void {
+    if (!this.#root && this.#children.size > 0)
+      throw new Error(`Cannot ${operation} while a SQLite child transaction is active`);
     if (this.#streams.size > 0) throw new Error(`Cannot ${operation} while a SQLite query stream is active`);
   }
 
   #assertOpen(): void {
-    if (this.#closed) throw new Error("SQLite database is closed");
-    if (!this.#scopeOpen) throw new Error("SQLite transaction scope is closed");
+    if (this.#closed || this.#closing !== undefined) throw new Error("SQLite database is closed");
+    if (!this.#scopeIsOpen()) throw new Error("SQLite transaction scope is closed");
+  }
+
+  #scopeIsOpen(): boolean {
+    return this.#scopeOpen && !this.#closed && (this.#parent === undefined || this.#parent.#scopeIsOpen());
   }
 }
 

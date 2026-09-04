@@ -215,6 +215,20 @@ interface MySqlConnectionOperation {
   finish(): void;
 }
 
+function discardFailedRecovery(connection: MySqlConnectionLike, state?: MySqlTransactionConnectionState): void {
+  if (state?.discarded === true) return;
+  if (state !== undefined) {
+    state.usable = false;
+    state.discarded = true;
+  }
+  try {
+    connection.destroy?.();
+  } catch {
+    // Preserve the initiating failure. Never release a lease whose recovery failed,
+    // including host adapters that cannot destroy it or whose destroy hook throws.
+  }
+}
+
 function createMySqlConnectionOperation(): MySqlConnectionOperation {
   let finish!: () => void;
   const completion = new Promise<void>((resolve) => {
@@ -788,17 +802,21 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         await transaction.#invalidateScope();
       }
       if (transaction === undefined || transaction.#transactionState?.discarded !== true) {
+        let recovered = true;
         if (began) {
           try {
             await connection.rollback();
           } catch {
-            /* Preserve the original failure. */
+            recovered = false;
+            discardFailedRecovery(connection, transaction === undefined ? undefined : transaction.#transactionState);
           }
         }
-        try {
-          connection.release();
-        } catch {
-          /* Preserve the original failure. */
+        if (recovered) {
+          try {
+            connection.release();
+          } catch {
+            /* Preserve the original failure. */
+          }
         }
       }
       throw error;
@@ -839,7 +857,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         try {
           await connection.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
         } catch {
-          /* Preserve the original failure. */
+          discardFailedRecovery(connection, this.#transactionState);
         }
       }
       throw error;
@@ -871,6 +889,8 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   }
 
   async #assertTransactionReadyForFinalize(connectionFinalizing = false): Promise<void> {
+    if (this.#transactionState?.discarded === true)
+      throw new Error("This MySQL transaction connection is no longer active");
     const leakedExecutes = new Set(this.#executes);
     if (this.#transactionState?.execute !== undefined) leakedExecutes.add(this.#transactionState.execute);
     const leakedBatch = this.#transactionState?.batch;

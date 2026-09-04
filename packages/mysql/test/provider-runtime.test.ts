@@ -1046,10 +1046,9 @@ await describe("MySQL provider and runtime", async () => {
       "BEGIN",
       "SAVEPOINT typed_sql_2",
       "ROLLBACK TO SAVEPOINT typed_sql_2",
-      "ROLLBACK",
     ]);
-    strict.strictEqual(pool.connection.rollbackCount, 1);
-    strict.strictEqual(pool.connection.releaseCount, 1);
+    strict.strictEqual(pool.connection.rollbackCount, 0);
+    strict.strictEqual(pool.connection.releaseCount, 0);
   });
 
   await it("preserves decoder failures across outer and nested transaction cleanup", async () => {
@@ -1068,7 +1067,7 @@ await describe("MySQL provider and runtime", async () => {
     );
     strict.deepStrictEqual(outerPool.connection.commands, ["BEGIN", "SELECT 1", "ROLLBACK"]);
     strict.strictEqual(outerPool.connection.rollbackCount, 1);
-    strict.strictEqual(outerPool.connection.releaseCount, 1);
+    strict.strictEqual(outerPool.connection.releaseCount, 0);
 
     const nestedPool = new FakePool();
     nestedPool.connection.failRelease = true;
@@ -1086,10 +1085,9 @@ await describe("MySQL provider and runtime", async () => {
       "SAVEPOINT typed_sql_2",
       "SELECT 1",
       "ROLLBACK TO SAVEPOINT typed_sql_2",
-      "ROLLBACK",
     ]);
-    strict.strictEqual(nestedPool.connection.rollbackCount, 1);
-    strict.strictEqual(nestedPool.connection.releaseCount, 1);
+    strict.strictEqual(nestedPool.connection.rollbackCount, 0);
+    strict.strictEqual(nestedPool.connection.releaseCount, 0);
   });
 
   await it("enforces lossless numeric policies and explicit decimal codecs", async () => {
