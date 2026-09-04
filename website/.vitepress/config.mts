@@ -18,7 +18,7 @@ export default defineConfig({
   lastUpdated: true,
   appearance: "dark",
   head: [
-    ["meta", { name: "theme-color", content: "#0a1110" }],
+    ["meta", { name: "theme-color", content: "#081318" }],
     ["link", { rel: "icon", href: "/typed-sql/brand-mark.svg", type: "image/svg+xml" }],
   ],
   markdown: {

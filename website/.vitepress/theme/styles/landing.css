@@ -191,7 +191,7 @@
 .ts-playground {
   --ts-playground-bg: var(--ts-editor-bg);
   --ts-playground-panel: var(--ts-editor-panel);
-  --ts-playground-panel-strong: color-mix(in srgb, var(--vp-c-brand-soft) 42%, var(--vp-c-bg-elv));
+  --ts-playground-panel-strong: color-mix(in srgb, var(--ts-c-sql-soft) 42%, var(--vp-c-bg-elv));
   --ts-playground-border: var(--vp-c-divider);
   --ts-playground-text: var(--vp-c-text-1);
   --ts-playground-muted: var(--vp-c-text-3);
@@ -259,11 +259,11 @@
 }
 
 .ts-playground__tab.is-active::after {
-  background: var(--vp-c-brand-1);
+  background: var(--ts-c-sql);
 }
 
 .ts-playground__tab span {
-  color: var(--vp-c-brand-1);
+  color: var(--ts-c-sql);
   font-size: 10px;
   font-weight: 750;
 }
@@ -351,7 +351,7 @@
 
 .ts-dialect-card {
   min-width: 0;
-  border-top: 2px solid var(--vp-c-brand-1);
+  border-top: 2px solid var(--ts-c-sql);
   background: var(--vp-c-bg-soft);
   padding: 20px;
 }
