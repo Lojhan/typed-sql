@@ -11,6 +11,7 @@ import type {
   ResolvedParameter,
   SchemaSnapshot,
 } from "@typed-sql/core";
+import { canonicalize, compareText } from "./artifact-serialization.js";
 import { compileSource } from "./compiler.js";
 import {
   buildQueryManifest,
@@ -142,7 +143,6 @@ export interface VerifyQueryManifestResult {
 }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
-const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 function portableRelative(rootDir: string, file: string): string {
   const root = resolve(rootDir);
@@ -385,16 +385,6 @@ async function boundedMap<Input, Output>(
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, worker));
   return output;
-}
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (typeof value !== "object" || value === null) return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([key, item]) => [key, canonicalize(item)]),
-  );
 }
 
 function normalizedServer(server: LiveQueryVerificationServer): LiveQueryVerificationServer {
