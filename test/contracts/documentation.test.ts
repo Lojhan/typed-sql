@@ -484,6 +484,7 @@ await describe("public documentation", async () => {
     const siteConfig = await text("website/.vitepress/config.mts");
     const siteTheme = await text("website/.vitepress/theme/index.ts");
     const siteStyles = await text("website/.vitepress/theme/custom.css");
+    const queryTypeDemo = await text("website/.vitepress/theme/components/QueryTypeDemo.vue");
     const pagesWorkflow = await text(".github/workflows/pages.yml");
 
     strict.strictEqual(websitePackage.name, "typed-sql-docs");
@@ -508,12 +509,16 @@ await describe("public documentation", async () => {
 
     strict.ok(siteConfig.includes("documentationSidebar"));
     strict.ok(siteConfig.includes("topNavigation"));
+    strict.ok(siteConfig.includes('publicDir: fileURLToPath(new URL("../public", import.meta.url))'));
     strict.ok(siteConfig.includes('logo: "/brand-mark.svg"'));
     strict.ok(siteConfig.includes('href: "/typed-sql/brand-mark.svg"'));
     strict.ok(await exists("website/public/brand-mark.svg"));
 
-    for (const component of ["CodeResult", "NextSteps", "StatusBadge", "StepFlow"]) {
+    for (const component of ["CodeResult", "HomeHero", "NextSteps", "QueryTypeDemo", "StatusBadge", "StepFlow"]) {
       strict.ok(siteTheme.includes(`app.component("${component}"`), `website theme is missing ${component}`);
+    }
+    for (const interaction of ['@pointerenter="hovered = true"', '@focusin="focused = true"', 'role="tooltip"']) {
+      strict.ok(queryTypeDemo.includes(interaction), `query type demo is missing ${interaction}`);
     }
     strict.ok(siteTheme.includes('from "./SiteLayout.vue"'));
     for (const stylesheet of ["tokens.css", "base.css", "components.css"]) {

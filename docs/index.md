@@ -10,8 +10,6 @@ outline: false
 <HomeHero>
 <template #copy>
 
-<p class="ts-home-eyebrow">SQL-native type safety for TypeScript</p>
-
 # Write SQL. Get the exact row type. {#typed-sql-home-title}
 
 typed-sql analyzes static SQL against your schema. Keep your application-owned driver and SQL architecture—without adopting an ORM or model layer.
@@ -27,7 +25,7 @@ typed-sql analyzes static SQL against your schema. Keep your application-owned d
 </template>
 <template #demo>
 
-<QueryTypeDemo source-label="PostgreSQL query" result-label="Compiler contract">
+<QueryTypeDemo source-label="Checked query" result-label="TypeScript · inferred query contract">
 <template #source>
 
 <!-- docs:start homepage-postgres-query -->

@@ -21,6 +21,7 @@ export default defineConfig({
     lineNumbers: true,
   },
   vite: {
+    publicDir: fileURLToPath(new URL("../public", import.meta.url)),
     resolve: {
       alias: [
         { find: /^vue$/, replacement: `${vuePackage}/dist/vue.runtime.esm-bundler.js` },
