@@ -106,7 +106,12 @@ body {
 .vp-doc div[class*="language-"] {
   border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 18%, var(--vp-c-divider));
   border-radius: var(--ts-radius-md);
+  background: var(--vp-code-block-bg);
   box-shadow: 0 1px 0 rgb(255 255 255 / 4%) inset;
+}
+
+.vp-doc div[class*="language-"] code {
+  color: var(--vp-code-block-color);
 }
 
 .vp-doc table {

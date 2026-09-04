@@ -17,6 +17,7 @@ import {
   keymap,
   lineNumbers,
 } from "@codemirror/view";
+import { useData } from "vitepress";
 import { defineComponent, onBeforeUnmount, onMounted, type PropType, ref, watch } from "vue";
 
 export interface CodeEditorDiagnostic {
@@ -54,10 +55,12 @@ export default defineComponent({
     "update:modelValue": (value: string) => typeof value === "string",
   },
   setup(props, { emit, expose }) {
+    const { isDark } = useData();
     const root = ref<HTMLElement>();
     const language = new Compartment();
     const editable = new Compartment();
     const attributes = new Compartment();
+    const appearance = new Compartment();
     let editor: EditorView | undefined;
     let synchronizing = false;
 
@@ -75,6 +78,7 @@ export default defineComponent({
         autocapitalize: "off",
         autocomplete: "off",
       });
+    const appearanceExtension = () => (isDark.value ? oneDark : []);
 
     const typeHover = hoverTooltip(
       (_view, position, side) => {
@@ -131,7 +135,7 @@ export default defineComponent({
             highlightActiveLine(),
             keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap, ...lintKeymap]),
             lintGutter(),
-            oneDark,
+            appearance.of(appearanceExtension()),
             language.of(languageExtension()),
             editable.of(editableExtension()),
             attributes.of(attributeExtension()),
@@ -170,6 +174,7 @@ export default defineComponent({
       () => [props.ariaLabel, props.invalid] as const,
       () => editor?.dispatch({ effects: attributes.reconfigure(attributeExtension()) }),
     );
+    watch(isDark, () => editor?.dispatch({ effects: appearance.reconfigure(appearanceExtension()) }));
     watch(() => props.diagnostics, synchronizeDiagnostics, { deep: true });
 
     const handle: CodeEditorHandle = {

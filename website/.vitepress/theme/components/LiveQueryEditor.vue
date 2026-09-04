@@ -12,7 +12,6 @@ export default defineComponent({
     modelValue: { type: String, required: true },
     dialect: { type: String as PropType<PlaygroundDialect>, required: true },
     filename: { type: String, default: "main.ts" },
-    sourceLabel: { type: String, default: "Checked query" },
     size: { type: String as PropType<"hero" | "large" | "inline">, default: "inline" },
   },
   emits: {
@@ -47,9 +46,8 @@ export default defineComponent({
   <section class="ts-live-query" :class="`ts-live-query--${size}`" :aria-label="`${labels[dialect]} live query editor`">
     <header class="ts-live-query__toolbar">
       <span class="ts-live-query__file">{{ filename }}</span>
-      <span class="ts-live-query__source">{{ sourceLabel }}</span>
       <button type="button" @click="workspace.open(dialect)">
-        {{ labels[dialect] }} schema
+        Edit {{ labels[dialect] }} schema
       </button>
     </header>
     <CodeEditor
@@ -62,7 +60,6 @@ export default defineComponent({
       @update:model-value="$emit('update:modelValue', $event)"
     />
     <footer class="ts-live-query__status" :class="{ 'has-errors': diagnostics.length > 0 || schemaProblems > 0 }" aria-live="polite">
-      <span>{{ labels[dialect] }}</span>
       <span>{{ status }}</span>
     </footer>
   </section>

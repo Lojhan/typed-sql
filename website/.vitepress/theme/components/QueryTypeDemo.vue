@@ -7,8 +7,6 @@ export default defineComponent({
   name: "QueryTypeDemo",
   components: { LiveQueryEditor },
   props: {
-    sourceLabel: { type: String, default: "Checked query" },
-    inspectTarget: { type: String, required: true },
     dialect: { type: String as PropType<PlaygroundDialect>, default: "postgres" },
   },
   setup() {
@@ -34,7 +32,6 @@ export default defineComponent({
       v-model="source"
       :dialect="dialect"
       filename="account-by-id.ts"
-      :source-label="`${sourceLabel} · Hover ${inspectTarget}`"
       size="hero"
     />
     <div v-show="!ready" ref="sourceRoot" class="ts-query-type-demo__source">

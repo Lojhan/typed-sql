@@ -9,7 +9,6 @@ export default defineComponent({
   props: {
     dialect: { type: String as PropType<PlaygroundDialect>, required: true },
     filename: { type: String, default: "main.ts" },
-    sourceLabel: { type: String, default: "Live example" },
   },
   setup() {
     const sourceRoot = ref<HTMLElement>();
@@ -41,7 +40,6 @@ export default defineComponent({
       v-model="source"
       :dialect="dialect"
       :filename="filename"
-      :source-label="sourceLabel"
       size="inline"
     />
     <div v-show="!ready" ref="sourceRoot" class="ts-live-example__source"><slot name="source" /></div>

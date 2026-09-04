@@ -127,42 +127,10 @@
   margin: 0;
 }
 
-.ts-query-type-demo__editor {
-  position: relative;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 22%, var(--vp-c-divider));
+.ts-query-type-demo .ts-live-query {
+  border-color: color-mix(in srgb, var(--vp-c-brand-1) 22%, var(--vp-c-divider));
   border-radius: var(--ts-radius-lg);
-  background: var(--vp-code-block-bg);
   box-shadow: var(--ts-shadow-soft);
-}
-
-.ts-query-type-demo__bar,
-.ts-query-type-demo__status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--vp-c-text-3);
-  font-family: var(--vp-font-family-mono);
-  font-size: 11px;
-}
-
-.ts-query-type-demo__bar {
-  min-height: 46px;
-  border-bottom: 1px solid var(--vp-c-divider);
-  background: color-mix(in srgb, var(--vp-c-bg-elv) 80%, var(--vp-code-block-bg));
-  padding: 0 12px 0 17px;
-}
-
-.ts-query-type-demo__file {
-  color: var(--vp-c-text-2);
-}
-
-.ts-query-type-demo__bar code {
-  border: 0;
-  background: transparent;
-  color: var(--vp-c-text-2);
-  font-size: inherit;
 }
 
 .ts-query-type-demo__source {
@@ -200,122 +168,6 @@
   display: none;
 }
 
-.ts-query-type-demo .ts-code-editor,
-.ts-query-type-demo .cm-editor {
-  min-height: 370px;
-}
-
-/* biome-ignore lint/style/noDescendingSpecificity: shared editor foundation follows the hero-only fallback selectors. */
-.ts-code-editor {
-  min-width: 0;
-  overflow: hidden;
-  background: var(--ts-playground-bg, var(--vp-code-block-bg));
-  font-family: var(--vp-font-family-mono);
-}
-
-.ts-code-editor .cm-editor {
-  height: 100%;
-  background: transparent;
-  color: var(--ts-playground-text, var(--vp-c-text-1));
-  font-size: 13px;
-}
-
-.ts-code-editor .cm-scroller {
-  overflow: auto;
-  font-family: inherit;
-  line-height: 1.75;
-}
-
-.ts-code-editor .cm-content {
-  padding: 20px 0;
-  caret-color: var(--vp-c-brand-1);
-}
-
-.ts-code-editor .cm-line {
-  padding: 0 18px 0 8px;
-}
-
-.ts-code-editor .cm-gutters {
-  border-right: 1px solid color-mix(in srgb, var(--ts-playground-border, var(--vp-c-divider)) 70%, transparent);
-  background: color-mix(in srgb, var(--ts-playground-panel, var(--vp-code-block-bg)) 78%, transparent);
-  color: var(--ts-playground-muted, var(--vp-c-text-3));
-}
-
-.ts-code-editor .cm-activeLine,
-.ts-code-editor .cm-activeLineGutter {
-  background: rgb(255 255 255 / 2.5%);
-}
-
-.ts-code-editor .cm-editor.cm-focused {
-  outline: 1px solid var(--vp-c-brand-1);
-  outline-offset: -1px;
-}
-
-.ts-code-editor .cm-lintRange-error {
-  background-image: none;
-  text-decoration: underline wavy var(--ts-c-red);
-  text-decoration-skip-ink: none;
-  text-underline-offset: 3px;
-}
-
-.ts-code-editor .cm-lintRange-warning {
-  background-image: none;
-  text-decoration: underline wavy #e4b84f;
-  text-decoration-skip-ink: none;
-  text-underline-offset: 3px;
-}
-
-.ts-code-editor__type-hover {
-  max-width: min(620px, calc(100vw - 36px));
-  border: 1px solid color-mix(in srgb, var(--vp-c-brand-1) 42%, #4a5552);
-  border-radius: 3px;
-  background: #1f2423;
-  box-shadow: 0 20px 50px rgb(0 0 0 / 34%);
-  color: #dce8e5;
-}
-
-/* biome-ignore lint/style/noDescendingSpecificity: CodeMirror mounts this tooltip outside the highlighted source tree. */
-.ts-code-editor__type-hover pre {
-  overflow: auto;
-  margin: 0;
-  padding: 12px 14px;
-  font-family: var(--vp-font-family-mono);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.cm-tooltip.cm-tooltip-lint {
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--ts-c-red) 44%, var(--vp-c-divider));
-  border-radius: 4px;
-  background: var(--vp-c-bg-elv);
-  box-shadow: var(--ts-shadow-soft);
-  color: var(--vp-c-text-1);
-}
-
-.cm-tooltip-lint .cm-diagnostic {
-  border-left-width: 3px;
-  padding: 9px 12px;
-  font-family: var(--vp-font-family-mono);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.ts-query-type-demo__status {
-  min-height: 30px;
-  border-top: 1px solid var(--vp-c-divider);
-  padding: 0 14px;
-}
-
-.ts-query-type-demo__status span:first-child {
-  color: var(--vp-c-brand-1);
-}
-
-.ts-query-type-demo__status span:nth-child(2) {
-  margin-left: auto;
-  padding-right: 16px;
-}
-
 .ts-query-type-demo__caption {
   margin-top: 14px;
   padding: 0 8px;
@@ -333,8 +185,8 @@
 }
 
 .ts-playground {
-  --ts-playground-bg: color-mix(in srgb, var(--vp-c-bg) 88%, var(--vp-code-block-bg));
-  --ts-playground-panel: var(--vp-c-bg-elv);
+  --ts-playground-bg: var(--ts-editor-bg);
+  --ts-playground-panel: var(--ts-editor-panel);
   --ts-playground-panel-strong: color-mix(in srgb, var(--vp-c-brand-soft) 42%, var(--vp-c-bg-elv));
   --ts-playground-border: var(--vp-c-divider);
   --ts-playground-text: var(--vp-c-text-1);
@@ -344,13 +196,11 @@
   border: 1px solid var(--ts-playground-border);
   border-radius: var(--ts-radius-lg);
   background: var(--ts-playground-bg);
-  box-shadow: 0 18px 54px rgb(0 0 0 / 14%);
+  box-shadow: var(--ts-shadow-soft);
   color: var(--ts-playground-text);
 }
 
-.ts-playground__toolbar,
-.ts-playground__editor-status,
-.ts-playground__note {
+.ts-playground__toolbar {
   font-family: var(--vp-font-family-mono);
   font-size: 11px;
 }
@@ -426,77 +276,14 @@
   color: var(--ts-playground-text);
 }
 
-.ts-playground__workspace {
-  min-height: 500px;
+.ts-playground__reset:disabled {
+  cursor: default;
+  opacity: 0.42;
 }
 
 .ts-playground > [role="tabpanel"] .ts-live-query {
   border: 0;
   border-radius: 0;
-}
-
-.ts-playground__editors {
-  display: grid;
-  min-width: 0;
-  grid-template-rows: 1fr auto;
-}
-
-.ts-playground__editors > [role="tabpanel"] {
-  min-height: 0;
-}
-
-.ts-playground__editors .ts-code-editor,
-.ts-playground__editors .cm-editor {
-  min-height: 470px;
-}
-
-.ts-playground__editor-status {
-  display: flex;
-  min-height: 30px;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid var(--ts-playground-border);
-  padding: 0 14px;
-  color: var(--ts-playground-muted);
-}
-
-.ts-playground__editor-status span:first-child {
-  color: var(--vp-c-brand-1);
-}
-
-.ts-playground__editor-status span:last-child {
-  color: var(--vp-c-brand-1);
-}
-
-.ts-playground__editor-status.has-errors span:last-child {
-  color: var(--ts-c-red);
-}
-
-.ts-playground__note {
-  border-top: 1px solid var(--ts-playground-border);
-  background: var(--ts-playground-panel);
-  padding: 12px 15px;
-  color: var(--ts-playground-muted);
-  line-height: 1.55;
-}
-
-.vp-doc .ts-playground__note code,
-.vp-doc .ts-playground__note kbd {
-  border: 0;
-  background: transparent;
-  color: var(--ts-playground-text);
-  font-size: inherit;
-}
-
-.ts-playground__note button {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  color: var(--vp-c-brand-1);
-  font: inherit;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 .ts-path-cards,
@@ -667,15 +454,6 @@
   .ts-control-grid {
     grid-template-columns: 1fr;
   }
-
-  .ts-playground__workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .ts-playground__editors {
-    border-right: 0;
-    border-bottom: 1px solid var(--ts-playground-border);
-  }
 }
 
 @media (max-width: 767px) {
@@ -711,12 +489,6 @@
   .ts-playground__tab {
     min-width: auto;
     padding: 0 12px;
-  }
-
-  .ts-playground__editors .ts-code-editor,
-  .ts-playground__editors .cm-editor {
-    min-height: 390px;
-    font-size: 12px;
   }
 }
 

@@ -1,21 +1,20 @@
 <script lang="ts">
-import { defineComponent, reactive, ref } from "vue";
+import { computed, defineComponent, reactive, ref } from "vue";
 import {
   DEFAULT_SOURCES,
   PLAYGROUND_DIALECT_LABELS,
   PLAYGROUND_DIALECTS,
   type PlaygroundDialect,
 } from "../playground/playground.js";
-import { useSchemaWorkspace } from "../playground/schema-store.js";
 import LiveQueryEditor from "./LiveQueryEditor.vue";
 
 export default defineComponent({
   name: "SqlPlayground",
   components: { LiveQueryEditor },
   setup() {
-    const workspace = useSchemaWorkspace();
     const activeDialect = ref<PlaygroundDialect>("postgres");
     const sources = reactive<Record<PlaygroundDialect, string>>({ ...DEFAULT_SOURCES });
+    const canReset = computed(() => sources[activeDialect.value] !== DEFAULT_SOURCES[activeDialect.value]);
 
     function reset() {
       sources[activeDialect.value] = DEFAULT_SOURCES[activeDialect.value];
@@ -23,11 +22,11 @@ export default defineComponent({
 
     return {
       activeDialect,
+      canReset,
       dialects: PLAYGROUND_DIALECTS,
       labels: PLAYGROUND_DIALECT_LABELS,
       reset,
       sources,
-      workspace,
     };
   },
 });
@@ -52,7 +51,7 @@ export default defineComponent({
           {{ labels[dialect] }}
         </button>
       </div>
-      <button class="ts-playground__reset" type="button" @click="reset">Reset query</button>
+      <button class="ts-playground__reset" type="button" :disabled="!canReset" @click="reset">Reset query</button>
     </header>
 
     <div
@@ -67,16 +66,8 @@ export default defineComponent({
         v-model="sources[dialect]"
         :dialect="dialect"
         filename="main.ts"
-        source-label="Browser analysis"
         size="large"
       />
     </div>
-
-    <footer class="ts-playground__note">
-      Hover a query binding, an adapter result, or an indexed row for its inferred type. Problems use editor squiggles
-      and the lint gutter; press <kbd>F8</kbd> to move between them. Each grammar runs locally against the matching
-      schema saved in this browser. Open
-      <button type="button" @click="workspace.open(activeDialect)">Schemas</button> to change the shared evidence.
-    </footer>
   </section>
 </template>

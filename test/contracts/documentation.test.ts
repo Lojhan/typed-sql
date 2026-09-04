@@ -566,15 +566,22 @@ await describe("public documentation", async () => {
     strict.ok(siteTheme.includes('"SqlPlayground"'));
     strict.ok(siteTheme.includes('"LiveQueryExample"'));
     strict.ok(siteTheme.includes("defineAsyncComponent"));
-    for (const interaction of ["LiveQueryEditor", "inspectTarget", 'size="hero"']) {
+    for (const interaction of ["LiveQueryEditor", 'size="hero"']) {
       strict.ok(queryTypeDemo.includes(interaction), `query type demo is missing ${interaction}`);
     }
-    for (const interaction of ["hoverTooltip", "lintGutter", "setDiagnostics", "EditorView"]) {
+    for (const interaction of [
+      "hoverTooltip",
+      "lintGutter",
+      "setDiagnostics",
+      "EditorView",
+      "appearance.reconfigure",
+    ]) {
       strict.ok(codeEditor.includes(interaction), `code editor is missing ${interaction}`);
     }
-    for (const interaction of ["LiveQueryEditor", "PLAYGROUND_DIALECTS", "<kbd>F8</kbd>"]) {
+    for (const interaction of ["LiveQueryEditor", "PLAYGROUND_DIALECTS", 'size="large"']) {
       strict.ok(sqlPlayground.includes(interaction), `SQL playground is missing ${interaction}`);
     }
+    strict.ok(!sqlPlayground.includes("source-label="), "SQL playground must not render inert analysis chrome");
     for (const interaction of [':diagnostics="diagnostics"', ':hovers="hovers"', "analyzePlayground"]) {
       strict.ok(liveQueryEditor.includes(interaction), `live query editor is missing ${interaction}`);
     }
