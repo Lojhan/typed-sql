@@ -1010,6 +1010,8 @@ const expectedRuntimeExports = {
     "defineSchemaSnapshotV2",
     "fingerprintSchemaExpression",
     "generateSchemaPackage",
+    "matchesSchemaHash",
+    "matchesTypePolicyHash",
     "loadGeneratedSchemaSnapshot",
     "loadSchemaSnapshot",
     "loadTypePolicy",
