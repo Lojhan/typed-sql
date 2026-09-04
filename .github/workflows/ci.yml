@@ -26,8 +26,19 @@ jobs:
           fail-on-severity: high
 
   quality:
-    # The protected quality check cannot pass without representative runtime/artifact evidence.
-    needs: [packed-real-databases, editor-artifacts]
+    # A skipped required job can be accepted by branch protection. Always emit an explicit result.
+    if: always()
+    needs: [source-quality, packed-real-databases, editor-artifacts]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: node scripts/assert-ci-prerequisites.mjs
+        env:
+          TYPED_SQL_SOURCE_RESULT: ${{ needs.source-quality.result }}
+          TYPED_SQL_DATABASE_RESULT: ${{ needs.packed-real-databases.result }}
+          TYPED_SQL_EDITOR_RESULT: ${{ needs.editor-artifacts.result }}
+
+  source-quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -46,9 +46,40 @@ await describe("CI evidence lanes", async () => {
       const section = workflow.slice(start).split(/\n(?= {2}\S)/u)[0]!;
       strict.ok(!/^ {4}if:/mu.test(section), `${job} must not exclude pull requests`);
     }
-    strict.ok(workflow.includes("needs: [packed-real-databases, editor-artifacts]"));
+    const quality = workflow.slice(workflow.indexOf("  quality:\n")).split(/\n(?= {2}\S)/u)[0]!;
+    strict.ok(quality.includes("if: always()"));
+    strict.ok(quality.includes("needs: [source-quality, packed-real-databases, editor-artifacts]"));
+    strict.ok(quality.includes("node scripts/assert-ci-prerequisites.mjs"));
+    for (const [variable, job] of [
+      ["TYPED_SQL_SOURCE_RESULT", "source-quality"],
+      ["TYPED_SQL_DATABASE_RESULT", "packed-real-databases"],
+      ["TYPED_SQL_EDITOR_RESULT", "editor-artifacts"],
+    ])
+      strict.ok(quality.includes(`${variable}: \${{ needs.${job}.result }}`));
     strict.ok(workflow.includes("pnpm e2e:packed"));
     strict.ok(workflow.includes("pnpm editor:artifacts:smoke"));
+  });
+
+  await it("fails the protected summary for failed, cancelled, skipped, missing or unknown prerequisites", () => {
+    const script = join(workspace, "scripts/assert-ci-prerequisites.mjs");
+    const successful = {
+      TYPED_SQL_SOURCE_RESULT: "success",
+      TYPED_SQL_DATABASE_RESULT: "success",
+      TYPED_SQL_EDITOR_RESULT: "success",
+    };
+    strict.doesNotThrow(() => execFileSync(process.execPath, [script], { env: successful, stdio: "pipe" }));
+    for (const variable of Object.keys(successful)) {
+      for (const result of ["failure", "cancelled", "skipped", "", "unknown", undefined]) {
+        strict.throws(
+          () =>
+            execFileSync(process.execPath, [script], {
+              env: { ...successful, [variable]: result },
+              stdio: "pipe",
+            }),
+          `${variable}=${String(result)} must fail closed`,
+        );
+      }
+    }
   });
 
   await it("writes only structured identifiers and environment-owned run metadata", async () => {
