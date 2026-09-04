@@ -41,8 +41,8 @@ await describe("CI evidence lanes", async () => {
     for (const job of ["packed-real-databases", "editor-artifacts"]) {
       const start = workflow.indexOf(`  ${job}:\n`);
       strict.ok(start >= 0);
-      const end = workflow.indexOf("\n  ", start + `  ${job}:\n`.length);
-      strict.ok(!workflow.slice(start, end).includes("if:"), `${job} must not exclude pull requests`);
+      const section = workflow.slice(start).split(/\n(?=  \S)/u)[0]!;
+      strict.ok(!/^    if:/mu.test(section), `${job} must not exclude pull requests`);
     }
     strict.ok(workflow.includes("needs: [packed-real-databases, editor-artifacts]"));
     strict.ok(workflow.includes("pnpm e2e:packed"));
