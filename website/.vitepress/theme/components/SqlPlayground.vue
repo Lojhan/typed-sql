@@ -73,9 +73,10 @@ export default defineComponent({
     </div>
 
     <footer class="ts-playground__note">
-      Hover a query binding for its inferred contract. Problems use editor squiggles and the lint gutter; press
-      <kbd>F8</kbd> to move between them. Each grammar runs locally against the matching schema saved in this browser.
-      Open <button type="button" @click="workspace.open(activeDialect)">Schemas</button> to change the shared evidence.
+      Hover a query binding, an adapter result, or an indexed row for its inferred type. Problems use editor squiggles
+      and the lint gutter; press <kbd>F8</kbd> to move between them. Each grammar runs locally against the matching
+      schema saved in this browser. Open
+      <button type="button" @click="workspace.open(activeDialect)">Schemas</button> to change the shared evidence.
     </footer>
   </section>
 </template>

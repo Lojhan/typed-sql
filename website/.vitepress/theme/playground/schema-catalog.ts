@@ -78,14 +78,6 @@ CREATE TABLE projects (
   budget REAL
 ) STRICT;
 
-CREATE TABLE accounts (
-  id INTEGER PRIMARY KEY,
-  email TEXT NOT NULL,
-  status TEXT NOT NULL,
-  name TEXT NOT NULL,
-  budget REAL
-) STRICT;
-
 CREATE TABLE users (
   id INTEGER PRIMARY KEY,
   email TEXT NOT NULL,

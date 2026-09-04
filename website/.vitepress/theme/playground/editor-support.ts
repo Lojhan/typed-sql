@@ -39,8 +39,56 @@ export function editorDiagnostics(
 }
 
 export function queryHovers(source: string, queries: readonly PlaygroundQuery[]): readonly EditorHover[] {
-  return queries.flatMap((query) => {
-    const from = source.indexOf(query.binding);
-    return from < 0 ? [] : [{ from, to: from + query.binding.length, content: query.contract }];
-  });
+  const hovers: EditorHover[] = [];
+  const resultBindings: { readonly name: string; readonly rowType: string; readonly type: string }[] = [];
+  const calls =
+    /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*await\s+[A-Za-z_$][\w$.]*\.(execute|all|one|maybeOne)\s*\(/gu;
+
+  for (const match of source.matchAll(calls)) {
+    const name = match[1]!;
+    const method = match[2]!;
+    const callStart = (match.index ?? 0) + match[0].length;
+    const callEnd = source.indexOf(";", callStart);
+    const argument = source.slice(callStart, callEnd < 0 ? source.length : callEnd);
+    const query = queries.find(
+      (candidate) =>
+        (candidate.sourceStart >= callStart && (callEnd < 0 || candidate.sourceStart < callEnd)) ||
+        new RegExp(`\\b${candidate.binding.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\b`, "u").test(argument),
+    );
+    if (query === undefined) continue;
+    const type =
+      method === "one"
+        ? query.rowType
+        : method === "maybeOne"
+          ? `${query.rowType} | undefined`
+          : `readonly ${query.rowType}[]`;
+    resultBindings.push({ name, rowType: query.rowType, type });
+  }
+
+  for (const result of resultBindings) {
+    const escaped = result.name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    for (const match of source.matchAll(new RegExp(`\\b${escaped}\\s*\\[\\s*\\d+\\s*\\]`, "gu"))) {
+      const expression = match[0];
+      hovers.push({
+        from: match.index ?? 0,
+        to: (match.index ?? 0) + expression.length,
+        content: `(element) ${expression}: ${result.rowType}`,
+      });
+    }
+    for (const match of source.matchAll(new RegExp(`\\b${escaped}\\b`, "gu"))) {
+      hovers.push({
+        from: match.index ?? 0,
+        to: (match.index ?? 0) + result.name.length,
+        content: `const ${result.name}: ${result.type}`,
+      });
+    }
+  }
+
+  for (const query of queries) {
+    const escaped = query.binding.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    for (const match of source.matchAll(new RegExp(`\\b${escaped}\\b`, "gu"))) {
+      hovers.push({ from: match.index ?? 0, to: (match.index ?? 0) + query.binding.length, content: query.contract });
+    }
+  }
+  return hovers;
 }

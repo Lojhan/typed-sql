@@ -66,7 +66,8 @@ Checked against the maintained PostgreSQL example schema. The compiler proves a 
 ## Try it in your browser
 
 Choose PostgreSQL, MySQL, or SQLite and edit the query. typed-sql runs that grammar's analysis locally; hover
-`accountById` to inspect its inferred query type, or select a missing column to see an editor diagnostic. The
+`accountById` to inspect its inferred query type, or hover an adapter result such as `rows` or `rows[0]` to follow
+the inferred row into application code. Select a missing column to see an editor diagnostic. The
 **Schemas** control opens the shared browser workspace. Changes made there apply to every live example on the site
 and remain in this browser until you restore the defaults.
 

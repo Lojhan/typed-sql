@@ -32,6 +32,8 @@ export interface PlaygroundQuery {
   readonly contract: string;
   readonly parameterType: string;
   readonly rowType: string;
+  readonly sourceStart: number;
+  readonly sourceEnd: number;
   readonly sql: string;
 }
 
@@ -498,6 +500,8 @@ export function analyzePlayground(
       binding,
       rowType,
       parameterType,
+      sourceStart: query.range.start,
+      sourceEnd: query.range.end,
       sql: analyzedQuery.sql,
       contract: [`const ${binding}: Query<`, `  ${rowType},`, `  ${parameterType}`, ">;"].join("\n"),
     });

@@ -9,6 +9,7 @@ import { mysql } from "../../packages/mysql/src/index.js";
 import { postgres } from "../../packages/postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
 import { sqlite } from "../../packages/sqlite/src/index.js";
+import { queryHovers } from "../../website/.vitepress/theme/playground/editor-support.js";
 import {
   analyzePlayground,
   DEFAULT_SCHEMAS,
@@ -645,6 +646,19 @@ await describe("public documentation", async () => {
       strict.strictEqual(result.queries[0]?.binding, "accountById");
       strict.strictEqual(result.queries[0]?.parameterType, "readonly [bigint]");
     }
+    strict.ok(!DEFAULT_SCHEMAS.sqlite.includes("CREATE TABLE accounts"));
+
+    const executionSource = `${DEFAULT_PLAYGROUND_SOURCE}\n\nconst rows = await database.execute(accountById);\nrows[0];`;
+    const execution = analyzePostgresPlayground(DEFAULT_PLAYGROUND_SCHEMA, executionSource);
+    const hovers = queryHovers(executionSource, execution.queries);
+    strict.ok(
+      hovers.some(
+        ({ from, to, content }) =>
+          executionSource.slice(from, to) === "rows[0]" &&
+          content === '(element) rows[0]: { "id": bigint; "email": string; "status": "active" | "suspended"; }',
+      ),
+      "adapter result indexing must expose the inferred row type",
+    );
   });
 
   await it("keeps every live documentation example valid against its shared default schema", async () => {
