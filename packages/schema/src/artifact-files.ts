@@ -1,6 +1,21 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, open, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, open, readlink, realpath, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
+
+async function destination(path: string): Promise<string> {
+  const absolute = resolve(path);
+  try {
+    return await realpath(absolute);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  // Preserve writeFile's behavior for dangling symlinks: create the target, not replace the link.
+  const link = await readlink(absolute).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== "ENOENT" && error.code !== "EINVAL") throw error;
+    return undefined;
+  });
+  return link === undefined ? absolute : destination(resolve(dirname(absolute), link));
+}
 
 /**
  * Stage every file before replacing any destination. Each replacement is atomic on the
@@ -9,7 +24,7 @@ import { basename, dirname, join, resolve } from "node:path";
 export async function writeArtifactFiles(
   files: readonly { readonly path: string; readonly content: string }[],
 ): Promise<void> {
-  const destinations = files.map(({ path }) => resolve(path));
+  const destinations = await Promise.all(files.map(({ path }) => destination(path)));
   if (new Set(destinations).size !== destinations.length) throw new TypeError("Artifact destinations must be distinct");
   const staged: { path: string; temporary: string }[] = [];
   try {

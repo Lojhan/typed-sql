@@ -1,10 +1,34 @@
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, readlink, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import { writeArtifactFiles } from "../src/index.js";
 
 await describe("atomic artifact publication", async () => {
+  await it("preserves existing and dangling output symlinks", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-atomic-links-"));
+    try {
+      const path = join(directory, "schema.json");
+      const target = join(directory, "target.json");
+      await symlink("target.json", path);
+      await writeArtifactFiles([{ path, content: "first" }]);
+      strict.strictEqual(await readlink(path), "target.json");
+      strict.strictEqual(await readFile(target, "utf8"), "first");
+      await writeArtifactFiles([{ path, content: "second" }]);
+      strict.strictEqual(await readlink(path), "target.json");
+      strict.strictEqual(await readFile(target, "utf8"), "second");
+      await strict.rejects(
+        writeArtifactFiles([
+          { path, content: "third" },
+          { path: target, content: "fourth" },
+        ]),
+        /distinct/,
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   await it("exposes complete old or new JSON and preserves file permissions", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-atomic-"));
     try {
