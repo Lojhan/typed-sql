@@ -9,6 +9,7 @@ import {
   serializeSchemaSnapshot,
   type TypeSnapshot,
 } from "@typed-sql/schema";
+import { canonicalize, compareText } from "./artifact-serialization.js";
 import type { QueryManifest, QueryManifestLocation, QueryManifestVariant } from "./manifest.js";
 import { parseQueryManifest, serializeQueryManifest } from "./manifest.js";
 
@@ -161,7 +162,6 @@ interface ManifestReferences {
 }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
-const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 const relationKey = (key: string) => `relation:${key}`;
 const relationWriteKey = (key: string) => `relation-write:${key}`;
 const columnKey = (table: string, column: string) => `column:${table}.${column}`;
@@ -311,16 +311,6 @@ function assertQueryReference(value: unknown, description: string): asserts valu
   assertHash(value.variantFingerprint, `${description}.variantFingerprint`);
   assertLocation(value.source, `${description}.source`);
   if (value.dependencyRange !== undefined) assertRange(value.dependencyRange, `${description}.dependencyRange`);
-}
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (typeof value !== "object" || value === null) return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([key, item]) => [key, canonicalize(item)]),
-  );
 }
 
 function targetIdentity(target: SchemaCompatibilityTarget): string {

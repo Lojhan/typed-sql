@@ -8,6 +8,7 @@ import type {
   QueryPlanNode,
   QueryPlanSampleProvider,
 } from "@typed-sql/core";
+import { canonicalize, compareText } from "./artifact-serialization.js";
 import {
   parseQueryManifest,
   type QueryManifest,
@@ -151,17 +152,6 @@ export interface ReviewQueryPlansOptions {
 }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
-const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (typeof value !== "object" || value === null) return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([key, item]) => [key, canonicalize(item)]),
-  );
-}
 
 function manifestHash(manifest: QueryManifest): string {
   return `sha256:${sha256(serializeQueryManifest(manifest))}`;
