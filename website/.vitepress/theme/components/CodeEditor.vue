@@ -1,7 +1,7 @@
 <script lang="ts">
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
-import { PostgreSQL, sql } from "@codemirror/lang-sql";
+import { MySQL, PostgreSQL, SQLite, sql } from "@codemirror/lang-sql";
 import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { type Diagnostic, lintGutter, lintKeymap, setDiagnostics } from "@codemirror/lint";
 import { Compartment, EditorState } from "@codemirror/state";
@@ -43,6 +43,7 @@ export default defineComponent({
   props: {
     modelValue: { type: String, required: true },
     language: { type: String as PropType<"sql" | "typescript">, required: true },
+    sqlDialect: { type: String as PropType<"postgres" | "mysql" | "sqlite">, default: "postgres" },
     readonly: { type: Boolean, default: false },
     ariaLabel: { type: String, required: true },
     invalid: { type: Boolean, default: false },
@@ -60,8 +61,11 @@ export default defineComponent({
     let editor: EditorView | undefined;
     let synchronizing = false;
 
-    const languageExtension = () =>
-      props.language === "sql" ? sql({ dialect: PostgreSQL }) : javascript({ typescript: true });
+    const languageExtension = () => {
+      if (props.language !== "sql") return javascript({ typescript: true });
+      const dialect = props.sqlDialect === "mysql" ? MySQL : props.sqlDialect === "sqlite" ? SQLite : PostgreSQL;
+      return sql({ dialect });
+    };
     const editableExtension = () => [EditorState.readOnly.of(props.readonly), EditorView.editable.of(!props.readonly)];
     const attributeExtension = () =>
       EditorView.contentAttributes.of({
@@ -155,7 +159,7 @@ export default defineComponent({
       },
     );
     watch(
-      () => props.language,
+      () => [props.language, props.sqlDialect] as const,
       () => editor?.dispatch({ effects: language.reconfigure(languageExtension()) }),
     );
     watch(

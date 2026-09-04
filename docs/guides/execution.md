@@ -12,6 +12,9 @@ The dialect root supplies the query type and renderer. A driver-specific adapter
 
 ### PostgreSQL
 
+<LiveQueryExample dialect="postgres" filename="src/run.ts">
+<template #source>
+
 ```ts
 import { sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
@@ -34,7 +37,13 @@ try {
 }
 ```
 
+</template>
+</LiveQueryExample>
+
 ### MySQL
+
+<LiveQueryExample dialect="mysql" filename="src/run.ts">
+<template #source>
 
 ```ts
 import { sql, typePolicy } from "@typed-sql/mysql";
@@ -58,7 +67,13 @@ try {
 }
 ```
 
+</template>
+</LiveQueryExample>
+
 ### SQLite
+
+<LiveQueryExample dialect="sqlite" filename="src/run.ts">
+<template #source>
 
 ```ts
 import { sql, typePolicy } from "@typed-sql/sqlite";
@@ -79,6 +94,9 @@ try {
   await database.close();
 }
 ```
+
+</template>
+</LiveQueryExample>
 
 The built-in Node adapter is synchronous underneath its promise-shaped API. It advertises neither
 cancellation nor deadlines. See the [SQLite dialect guide](../dialects/sqlite.md) for threading,

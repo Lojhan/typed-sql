@@ -484,9 +484,15 @@ importers:
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@typed-sql/mysql':
+        specifier: workspace:*
+        version: link:../packages/mysql
       '@typed-sql/postgres':
         specifier: workspace:*
         version: link:../packages/postgres
+      '@typed-sql/sqlite':
+        specifier: workspace:*
+        version: link:../packages/sqlite
     devDependencies:
       vitepress:
         specifier: 1.6.4

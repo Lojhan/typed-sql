@@ -9,6 +9,7 @@ import PathCards from "./components/PathCards.vue";
 import ProductStatus from "./components/ProductStatus.vue";
 import StatusBadge from "./components/StatusBadge.vue";
 import StepFlow from "./components/StepFlow.vue";
+import { createSchemaWorkspace, schemaWorkspaceKey } from "./playground/schema-store.js";
 import "./custom.css";
 import Layout from "./SiteLayout.vue";
 
@@ -16,6 +17,7 @@ export default {
   extends: DefaultTheme,
   Layout,
   enhanceApp({ app }) {
+    app.provide(schemaWorkspaceKey, createSchemaWorkspace());
     app.component("CodeResult", CodeResult);
     app.component("DialectCards", DialectCards);
     app.component("HomeHero", HomeHero);
@@ -29,6 +31,10 @@ export default {
     app.component(
       "SqlPlayground",
       defineAsyncComponent(() => import("./components/SqlPlayground.vue")),
+    );
+    app.component(
+      "LiveQueryExample",
+      defineAsyncComponent(() => import("./components/LiveQueryExample.vue")),
     );
     app.component("StatusBadge", StatusBadge);
     app.component("StepFlow", StepFlow);

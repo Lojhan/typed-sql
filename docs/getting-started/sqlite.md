@@ -120,6 +120,9 @@ snapshot so schema changes are reviewable; application code does not import it.
 
 Create `src/account.ts`:
 
+<LiveQueryExample dialect="sqlite" filename="src/account.ts">
+<template #source>
+
 <!-- docs:start quickstart-sqlite-query -->
 ```ts
 import { sql } from "@typed-sql/sqlite";
@@ -131,6 +134,9 @@ export const accountById = (accountId: bigint) => sql`
 `;
 ```
 <!-- docs:end quickstart-sqlite-query -->
+
+</template>
+</LiveQueryExample>
 
 `accountId` remains a value segment and renders as `?`.
 

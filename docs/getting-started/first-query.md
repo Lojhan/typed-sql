@@ -25,6 +25,9 @@ built-ins, coercions, nullability, and diagnostics.
 
 This checked PostgreSQL fixture selects a database enum and one `bigint` parameter:
 
+<LiveQueryExample dialect="postgres" filename="src/account.ts">
+<template #source>
+
 <!-- docs:start homepage-postgres-query -->
 ```ts
 import { sql } from "@typed-sql/postgres";
@@ -36,6 +39,9 @@ export const accountById = (accountId: bigint) => sql`
 `;
 ```
 <!-- docs:end homepage-postgres-query -->
+
+</template>
+</LiveQueryExample>
 
 The interpolation is always a value. It renders as `$1` for PostgreSQL or `?` for MySQL and SQLite;
 typed-sql never concatenates it into the SQL text.

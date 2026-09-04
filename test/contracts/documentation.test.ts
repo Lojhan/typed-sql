@@ -10,6 +10,12 @@ import { postgres } from "../../packages/postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
 import { sqlite } from "../../packages/sqlite/src/index.js";
 import {
+  analyzePlayground,
+  DEFAULT_SCHEMAS,
+  DEFAULT_SOURCES,
+  PLAYGROUND_DIALECTS,
+} from "../../website/.vitepress/theme/playground/playground.js";
+import {
   analyzePostgresPlayground,
   DEFAULT_PLAYGROUND_SCHEMA,
   DEFAULT_PLAYGROUND_SOURCE,
@@ -496,13 +502,23 @@ await describe("public documentation", async () => {
     const siteStyles = await text("website/.vitepress/theme/custom.css");
     const codeEditor = await text("website/.vitepress/theme/components/CodeEditor.vue");
     const queryTypeDemo = await text("website/.vitepress/theme/components/QueryTypeDemo.vue");
+    const liveQueryEditor = await text("website/.vitepress/theme/components/LiveQueryEditor.vue");
+    const schemaWorkspace = await text("website/.vitepress/theme/components/SchemaWorkspace.vue");
+    const schemaLauncher = await text("website/.vitepress/theme/components/SchemaWorkspaceLauncher.vue");
+    const schemaStore = await text("website/.vitepress/theme/playground/schema-store.ts");
     const sqlPlayground = await text("website/.vitepress/theme/components/SqlPlayground.vue");
     const pagesWorkflow = await text(".github/workflows/pages.yml");
 
     strict.strictEqual(websitePackage.name, "typed-sql-docs");
     strict.strictEqual(websitePackage.private, true);
     strict.strictEqual(websitePackage.type, "module");
-    for (const packageName of ["@typed-sql/compiler", "@typed-sql/core", "@typed-sql/postgres"]) {
+    for (const packageName of [
+      "@typed-sql/compiler",
+      "@typed-sql/core",
+      "@typed-sql/mysql",
+      "@typed-sql/postgres",
+      "@typed-sql/sqlite",
+    ]) {
       strict.strictEqual(websitePackage.dependencies[packageName], "workspace:*");
     }
     for (const packageName of [
@@ -547,16 +563,27 @@ await describe("public documentation", async () => {
     }
     strict.ok(siteTheme.includes('"QueryTypeDemo"'));
     strict.ok(siteTheme.includes('"SqlPlayground"'));
+    strict.ok(siteTheme.includes('"LiveQueryExample"'));
     strict.ok(siteTheme.includes("defineAsyncComponent"));
-    for (const interaction of ["CodeEditor", "inspectTarget", ':hovers="hovers"']) {
+    for (const interaction of ["LiveQueryEditor", "inspectTarget", 'size="hero"']) {
       strict.ok(queryTypeDemo.includes(interaction), `query type demo is missing ${interaction}`);
     }
     for (const interaction of ["hoverTooltip", "lintGutter", "setDiagnostics", "EditorView"]) {
       strict.ok(codeEditor.includes(interaction), `code editor is missing ${interaction}`);
     }
-    for (const interaction of [':diagnostics="editorDiagnostics', ':hovers="mainHovers"', "<kbd>F8</kbd>"]) {
+    for (const interaction of ["LiveQueryEditor", "PLAYGROUND_DIALECTS", "<kbd>F8</kbd>"]) {
       strict.ok(sqlPlayground.includes(interaction), `SQL playground is missing ${interaction}`);
     }
+    for (const interaction of [':diagnostics="diagnostics"', ':hovers="hovers"', "analyzePlayground"]) {
+      strict.ok(liveQueryEditor.includes(interaction), `live query editor is missing ${interaction}`);
+    }
+    for (const interaction of ["<dialog", "Restore default", "Apply changes"]) {
+      strict.ok(schemaWorkspace.includes(interaction), `schema workspace is missing ${interaction}`);
+    }
+    strict.ok(schemaLauncher.includes('class="ts-schema-trigger"'));
+    strict.ok(schemaLauncher.includes("defineAsyncComponent"));
+    strict.ok(schemaStore.includes("window.localStorage"));
+    strict.ok(schemaStore.includes("typed-sql.docs.schemas.v1"));
     strict.ok(!sqlPlayground.includes("ts-playground__results"), "SQL playground must not duplicate editor analysis");
     strict.ok(siteTheme.includes('from "./SiteLayout.vue"'));
     for (const stylesheet of ["tokens.css", "base.css", "components.css"]) {
@@ -599,7 +626,7 @@ await describe("public documentation", async () => {
 
     const invalidQuery = analyzePostgresPlayground(
       DEFAULT_PLAYGROUND_SCHEMA,
-      DEFAULT_PLAYGROUND_SOURCE.replace("email, status", "emali, status"),
+      DEFAULT_PLAYGROUND_SOURCE.replace("account.email", "account.emali"),
     );
     strict.strictEqual(invalidQuery.queries.length, 0);
     strict.strictEqual(invalidQuery.diagnostics[0]?.file, "main.ts");
@@ -609,6 +636,32 @@ await describe("public documentation", async () => {
     const invalidSchema = analyzePostgresPlayground("CREATE TABLE users (id);", DEFAULT_PLAYGROUND_SOURCE);
     strict.strictEqual(invalidSchema.queries.length, 0);
     strict.strictEqual(invalidSchema.diagnostics[0]?.file, "schema.sql");
-    strict.strictEqual(invalidSchema.diagnostics[0]?.code, "PLAY005");
+    strict.strictEqual(invalidSchema.diagnostics[0]?.code, "PLAY006");
+
+    for (const dialect of PLAYGROUND_DIALECTS) {
+      const result = analyzePlayground(dialect, DEFAULT_SCHEMAS[dialect], DEFAULT_SOURCES[dialect]);
+      strict.deepStrictEqual(result.diagnostics, []);
+      strict.strictEqual(result.queries.length, 1);
+      strict.strictEqual(result.queries[0]?.binding, "accountById");
+      strict.strictEqual(result.queries[0]?.parameterType, "readonly [bigint]");
+    }
+  });
+
+  await it("keeps every live documentation example valid against its shared default schema", async () => {
+    let count = 0;
+    const pattern =
+      /<LiveQueryExample dialect="(postgres|mysql|sqlite)"[^>]*>[\s\S]*?```ts\n([\s\S]*?)\n```[\s\S]*?<\/LiveQueryExample>/gu;
+    for (const path of expectedPublicDocs) {
+      const markdown = await text(path);
+      for (const match of markdown.matchAll(pattern)) {
+        const dialect = match[1] as (typeof PLAYGROUND_DIALECTS)[number];
+        const source = match[2] ?? "";
+        const result = analyzePlayground(dialect, DEFAULT_SCHEMAS[dialect], source);
+        strict.deepStrictEqual(result.diagnostics, [], `${path} has an invalid ${dialect} live example`);
+        strict.ok(result.queries.length > 0, `${path} has a live example without a query`);
+        count += 1;
+      }
+    }
+    strict.strictEqual(count, 7, "the documented live-example inventory changed without updating its contract");
   });
 });

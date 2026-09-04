@@ -430,6 +430,11 @@
   min-height: 500px;
 }
 
+.ts-playground > [role="tabpanel"] .ts-live-query {
+  border: 0;
+  border-radius: 0;
+}
+
 .ts-playground__editors {
   display: grid;
   min-width: 0;
@@ -481,6 +486,17 @@
   background: transparent;
   color: var(--ts-playground-text);
   font-size: inherit;
+}
+
+.ts-playground__note button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--vp-c-brand-1);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .ts-path-cards,

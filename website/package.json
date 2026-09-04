@@ -19,7 +19,9 @@
     "@codemirror/view": "^6.43.11",
     "@typed-sql/compiler": "workspace:*",
     "@typed-sql/core": "workspace:*",
-    "@typed-sql/postgres": "workspace:*"
+    "@typed-sql/mysql": "workspace:*",
+    "@typed-sql/postgres": "workspace:*",
+    "@typed-sql/sqlite": "workspace:*"
   },
   "devDependencies": {
     "vitepress": "1.6.4",

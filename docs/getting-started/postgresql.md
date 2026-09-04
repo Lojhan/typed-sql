@@ -125,6 +125,9 @@ snapshot so schema changes are reviewable; application code does not import it.
 
 Create `src/account.ts`:
 
+<LiveQueryExample dialect="postgres" filename="src/account.ts">
+<template #source>
+
 <!-- docs:start homepage-postgres-query -->
 ```ts
 import { sql } from "@typed-sql/postgres";
@@ -136,6 +139,9 @@ export const accountById = (accountId: bigint) => sql`
 `;
 ```
 <!-- docs:end homepage-postgres-query -->
+
+</template>
+</LiveQueryExample>
 
 `accountId` remains a value segment and renders as `$1`.
 

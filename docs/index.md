@@ -65,9 +65,10 @@ Checked against the maintained PostgreSQL example schema. The compiler proves a 
 
 ## Try it in your browser
 
-Edit the schema or query and typed-sql will re-run the same PostgreSQL analysis used by the compiler. In `main.ts`,
-hover `accountById` to inspect its inferred query type. Try renaming `email`, changing its nullability, or selecting a
-column that does not exist to see diagnostics directly in the editor.
+Choose PostgreSQL, MySQL, or SQLite and edit the query. typed-sql runs that grammar's analysis locally; hover
+`accountById` to inspect its inferred query type, or select a missing column to see an editor diagnostic. The
+**Schemas** control opens the shared browser workspace. Changes made there apply to every live example on the site
+and remain in this browser until you restore the defaults.
 
 <SqlPlayground />
 

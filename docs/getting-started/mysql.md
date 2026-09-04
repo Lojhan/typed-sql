@@ -124,6 +124,9 @@ snapshot so schema changes are reviewable; application code does not import it.
 
 Create `src/account.ts`:
 
+<LiveQueryExample dialect="mysql" filename="src/account.ts">
+<template #source>
+
 <!-- docs:start quickstart-mysql-query -->
 ```ts
 import { sql } from "@typed-sql/mysql";
@@ -135,6 +138,9 @@ export const accountById = (accountId: bigint) => sql`
 `;
 ```
 <!-- docs:end quickstart-mysql-query -->
+
+</template>
+</LiveQueryExample>
 
 `accountId` remains a value segment and renders as `?`.
 
