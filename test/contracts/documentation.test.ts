@@ -585,6 +585,7 @@ await describe("public documentation", async () => {
     for (const interaction of [':diagnostics="diagnostics"', ':hovers="hovers"', "analyzePlayground"]) {
       strict.ok(liveQueryEditor.includes(interaction), `live query editor is missing ${interaction}`);
     }
+    strict.ok(!liveQueryEditor.includes("<button"), "live query editors must use the global schema launcher");
     for (const interaction of ["<dialog", "Restore default", "Apply changes"]) {
       strict.ok(schemaWorkspace.includes(interaction), `schema workspace is missing ${interaction}`);
     }

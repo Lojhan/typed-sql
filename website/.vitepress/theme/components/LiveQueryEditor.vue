@@ -46,9 +46,6 @@ export default defineComponent({
   <section class="ts-live-query" :class="`ts-live-query--${size}`" :aria-label="`${labels[dialect]} live query editor`">
     <header class="ts-live-query__toolbar">
       <span class="ts-live-query__file">{{ filename }}</span>
-      <button type="button" @click="workspace.open(dialect)">
-        Edit {{ labels[dialect] }} schema
-      </button>
     </header>
     <CodeEditor
       :model-value="modelValue"

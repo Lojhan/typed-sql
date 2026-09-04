@@ -12,6 +12,7 @@
   letter-spacing: 0.035em;
   line-height: 1;
   text-transform: uppercase;
+  vertical-align: middle;
 }
 
 .ts-status__marker {
@@ -537,29 +538,12 @@
 
 .ts-live-query__toolbar {
   min-height: 44px;
-  justify-content: space-between;
   border-bottom: 1px solid var(--ts-playground-border);
   background: var(--ts-playground-panel);
-  padding-left: 15px;
+  padding: 0 15px;
 }
 
 .ts-live-query__file {
-  color: var(--ts-playground-text);
-}
-
-.ts-live-query__toolbar button {
-  align-self: stretch;
-  border: 0;
-  border-left: 1px solid var(--ts-playground-border);
-  background: transparent;
-  padding: 0 14px;
-  color: var(--vp-c-brand-1);
-  font: inherit;
-  font-weight: 700;
-}
-
-.ts-live-query__toolbar button:hover {
-  background: var(--vp-c-brand-soft);
   color: var(--ts-playground-text);
 }
 

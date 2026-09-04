@@ -66,19 +66,38 @@ body {
   max-width: var(--ts-reading-width);
 }
 
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-family: var(--ts-font-family-display);
+  font-weight: 750;
+  text-wrap: balance;
+}
+
 .vp-doc h1 {
   max-width: 19ch;
   font-size: clamp(2rem, 4vw, 2.75rem);
-  letter-spacing: -0.045em;
-  line-height: 1.08;
+  font-weight: 780;
+  letter-spacing: -0.052em;
+  line-height: 1.04;
 }
 
 .vp-doc h2 {
-  letter-spacing: -0.025em;
+  letter-spacing: -0.036em;
+  line-height: 1.16;
 }
 
 .vp-doc h3 {
-  letter-spacing: -0.015em;
+  font-weight: 720;
+  letter-spacing: -0.027em;
+  line-height: 1.24;
+}
+
+.vp-doc h4 {
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.3;
 }
 
 .vp-doc p,
