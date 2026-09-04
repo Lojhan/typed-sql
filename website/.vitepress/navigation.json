@@ -13,13 +13,31 @@
       "items": [
         { "text": "Product overview", "link": "/", "file": "docs/index.md", "pageType": "landing" },
         {
-          "text": "Get started",
+          "text": "Choose a dialect",
           "link": "/getting-started/",
           "file": "docs/getting-started/index.md",
           "pageType": "landing"
         },
         {
-          "text": "Installation",
+          "text": "PostgreSQL quickstart",
+          "link": "/getting-started/postgresql",
+          "file": "docs/getting-started/postgresql.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "MySQL quickstart",
+          "link": "/getting-started/mysql",
+          "file": "docs/getting-started/mysql.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "SQLite quickstart",
+          "link": "/getting-started/sqlite",
+          "file": "docs/getting-started/sqlite.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Choose packages",
           "link": "/getting-started/installation",
           "file": "docs/getting-started/installation.md",
           "pageType": "how-to"
@@ -31,7 +49,7 @@
           "pageType": "reference"
         },
         {
-          "text": "Your first query",
+          "text": "Query and check loop",
           "link": "/getting-started/first-query",
           "file": "docs/getting-started/first-query.md",
           "pageType": "tutorial"

@@ -1,41 +1,92 @@
 ---
 title: Configuration
 pageType: reference
-description: Connect a typed-sql dialect, schema provider, generated snapshot, and TypeScript project.
+description: Configure the minimal schema and compiler path, then add optional production evidence controls independently.
 ---
 
 # Configuration
 
-Create `typed-sql.config.ts` in the application root. The config selects the dialect, schema provider, generated output, TypeScript projects, and type policy used by both inference and runtime decoding.
+Create `typed-sql.config.ts` in the application root. A minimal config selects one dialect, a schema
+provider, a deterministic output location, TypeScript projects, and one shared type policy. Production
+controls extend this profile; they are not required for a first query.
 
-## PostgreSQL
+## Minimal local profile
+
+This complete PostgreSQL profile is the smallest configuration for live introspection and checking:
 
 ```ts
 import { defineConfig } from "@typed-sql/core";
 import { postgres, typePolicy } from "@typed-sql/postgres";
-import { createPgLiveVerifier, createPgPlanInspector, pg } from "@typed-sql/postgres/pg";
+import { pg } from "@typed-sql/postgres/pg";
 
 const connectionString = () => process.env.DATABASE_URL!;
 
 export default defineConfig({
   dialect: postgres({ typePolicy }),
   schema: {
-    file: "src/generated/db/schema.json",
-    provider: pg({
-      connectionString,
-      schemas: ["public"],
-      typePolicy,
-    }),
+    file: "generated/db/schema.json",
+    provider: pg({ connectionString, schemas: ["public"], typePolicy }),
   },
-  outDir: "src/generated/db",
+  outDir: "generated/db",
   projects: ["tsconfig.json"],
   typePolicy,
-  compiler: {
-    maxStructuralVariants: 64,
+});
+```
+
+Use the corresponding complete profile in the [PostgreSQL](./postgresql.md#4-create-a-minimal-config),
+[MySQL](./mysql.md#4-create-a-minimal-config), or [SQLite](./sqlite.md#4-create-a-minimal-config)
+quickstart. Keep connection values in environment-backed callbacks; generated artifacts do not store
+them.
+
+Generate and check with:
+
+```sh
+pnpm exec typed-sql generate
+pnpm exec typed-sql check --project tsconfig.json
+```
+
+## Minimal fields
+
+| Field | Responsibility |
+| --- | --- |
+| `dialect` | Selects grammar semantics, capability policy, placeholders, and diagnostics |
+| `schema.file` | Identifies the canonical snapshot used when no live connection is present |
+| `schema.provider` | Introspects the selected database when generation or drift needs live evidence |
+| `outDir` | Receives deterministic generated compiler metadata |
+| `projects` | Selects TypeScript projects analyzed by compiler commands |
+| `typePolicy` | Keeps database-to-TypeScript inference and adapter decoding aligned |
+| `compiler` | Optionally changes bounded source, query, declaration, or structural-variant limits |
+
+The generated files are compiler inputs, not application imports. Commit the snapshot when review and
+CI need a stable schema identity.
+
+## Production profile
+
+The following complete PostgreSQL profile starts from the same minimum and enables each artifact
+family explicitly:
+
+```ts
+import { defineConfig } from "@typed-sql/core";
+import { postgres, typePolicy } from "@typed-sql/postgres";
+import {
+  createPgLiveVerifier,
+  createPgPlanInspector,
+  pg,
+} from "@typed-sql/postgres/pg";
+
+const connectionString = () => process.env.DATABASE_URL!;
+
+export default defineConfig({
+  dialect: postgres({ typePolicy }),
+  schema: {
+    file: "generated/db/schema.json",
+    provider: pg({ connectionString, schemas: ["public"], typePolicy }),
   },
-  manifest: {
-    outFile: ".typed-sql/queries.json",
-  },
+  outDir: "generated/db",
+  projects: ["tsconfig.json"],
+  typePolicy,
+  compiler: { maxStructuralVariants: 64 },
+  manifest: { outFile: ".typed-sql/queries.json" },
   verification: {
     live: createPgLiveVerifier({ connectionString, typePolicy }),
     proofFile: ".typed-sql/verification.json",
@@ -55,106 +106,23 @@ export default defineConfig({
 });
 ```
 
-## MySQL
+Do not copy this profile as a maturity checklist. Select controls by failure mode:
 
-```ts
-import { defineConfig } from "@typed-sql/core";
-import { mysql, typePolicy } from "@typed-sql/mysql";
-import { createMySql2LiveVerifier, createMySql2PlanInspector, mysql2 } from "@typed-sql/mysql/mysql2";
+| Optional block | Command and purpose | Guide |
+| --- | --- | --- |
+| `compiler` | Bound structural expansion and resource use | [Performance](../concepts/performance.md) |
+| `manifest` | `typed-sql manifest` emits a redacted query inventory | [Query manifests](../guides/query-manifests.md) |
+| `verification` | `typed-sql verify --live` compares native database evidence | [Live verification](../guides/live-verification.md) |
+| `plans` | `typed-sql explain` captures and reviews structured plans | [Query plan governance](../guides/query-plan-governance.md) |
+| `compatibility` | `typed-sql compat` checks mixed-version schema/query contracts | [Migration compatibility](../guides/migration-compatibility.md) |
 
-const connectionUri = () => process.env.DATABASE_URL!;
+SQLite does not expose native live-verification or plan-inspector adapters. MySQL uses its own
+`mysql2` provider, verifier, and inspector. Dialect-specific availability belongs to the
+[dialect pages](../dialects/index.md), while the [operations overview](../operations/index.md) helps
+choose and sequence these controls.
 
-export default defineConfig({
-  dialect: mysql({ typePolicy }),
-  schema: {
-    file: "src/generated/db/schema.json",
-    provider: mysql2({
-      connectionUri,
-      schemas: ["app"],
-      typePolicy,
-    }),
-  },
-  outDir: "src/generated/db",
-  projects: ["tsconfig.json"],
-  typePolicy,
-  compiler: {
-    maxStructuralVariants: 64,
-  },
-  manifest: {
-    outFile: ".typed-sql/queries.json",
-  },
-  verification: {
-    live: createMySql2LiveVerifier({ connectionUri, typePolicy }),
-    proofFile: ".typed-sql/verification.json",
-    concurrency: 4,
-  },
-  plans: {
-    live: createMySql2PlanInspector({ connectionUri }),
-    sampleValues(request) {
-      if (request.parameters.length === 0) return undefined;
-      return { identity: "representative-v1", values: request.parameters.map(() => 1) };
-    },
-    artifactFile: ".typed-sql/plans.json",
-    reportFile: ".typed-sql/plan-review.json",
-    concurrency: 4,
-    failOn: "violation",
-  },
-  compatibility: {
-    reportFile: ".typed-sql/compatibility.json",
-    failOn: "error",
-  },
-});
-```
+## Type-policy consistency
 
-## SQLite
-
-```ts
-import { defineConfig } from "@typed-sql/core";
-import { sqlite, typePolicy } from "@typed-sql/sqlite";
-import { nodeSqlite } from "@typed-sql/sqlite/node-sqlite";
-
-const path = process.env.DATABASE_PATH ?? "app.db";
-
-export default defineConfig({
-  dialect: sqlite({ typePolicy }),
-  schema: {
-    file: "src/generated/db/schema.json",
-    provider: nodeSqlite({ path, typePolicy }),
-  },
-  outDir: "src/generated/db",
-  projects: ["tsconfig.json"],
-  typePolicy,
-  compiler: {
-    maxStructuralVariants: 64,
-  },
-  manifest: {
-    outFile: ".typed-sql/queries.json",
-  },
-  compatibility: {
-    reportFile: ".typed-sql/compatibility.json",
-    failOn: "error",
-  },
-});
-```
-
-The SQLite package does not expose native live-verification or query-plan inspector adapters,
-so omit those optional config blocks.
-
-## Generate and check
-
-```sh
-pnpm exec typed-sql generate
-pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
-pnpm exec typed-sql drift
-pnpm exec typed-sql manifest
-pnpm exec typed-sql verify --live
-pnpm exec typed-sql verify
-pnpm exec typed-sql explain --compare artifacts/plans.json
-pnpm exec typed-sql compat --before before.schema.json --after after.schema.json --before-manifest before.queries.json --after-manifest after.queries.json
-```
-
-`generate` introspects the configured database and writes deterministic schema metadata. `check` analyzes SQL and asks TypeScript to validate the inferred overlay. `drift` compares the committed snapshot and type-policy hash with the live database. `manifest` emits deterministic, source-relative compiler evidence for every configured project; see [Query manifests](../guides/query-manifests.md). `verify --live` compares that evidence with native prepare metadata, while `verify` validates the cached proof offline; see [Live verification](../guides/live-verification.md). `explain` captures redacted structured optimizer evidence and reviews explicit budgets; see [Query plan governance](../guides/query-plan-governance.md). `compat` compares before/after snapshots and manifests without contacting the database; see [Migration compatibility](../guides/migration-compatibility.md).
-
-Connection strings stay in the config callback or environment. They are not written to generated files. Commit the generated snapshot so schema and type-policy changes are reviewable.
-
-The same `typePolicy` must be passed to the dialect, schema provider, and runtime adapter. This keeps the inferred TypeScript type aligned with the value returned by the driver.
+Pass the same policy to the dialect, live schema provider, and runtime adapter. A driver parser or
+codec that returns a different JavaScript shape can invalidate a static contract; configure the
+matching policy instead of asserting a narrower type. See [Database type mappings](../reference/type-mappings.md).

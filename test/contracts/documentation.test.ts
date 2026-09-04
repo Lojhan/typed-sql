@@ -4,8 +4,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { compileSource } from "../../packages/compiler/src/index.js";
-import { type PostgresSchemaSnapshot, postgres } from "../../packages/postgres/src/index.js";
+import type { DialectPlugin, SchemaSnapshot } from "../../packages/core/src/index.js";
+import { mysql } from "../../packages/mysql/src/index.js";
+import { postgres } from "../../packages/postgres/src/index.js";
 import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
+import { sqlite } from "../../packages/sqlite/src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -118,6 +121,33 @@ function markdownSnippet(markdown: string, name: string): string {
   const snippet = match?.[1];
   strict.ok(snippet, `Markdown snippet ${name} is missing or empty`);
   return snippet?.trim() ?? "";
+}
+
+async function assertSourceBackedQuery<Snapshot extends SchemaSnapshot, Policy>(options: {
+  readonly documentationPath: string;
+  readonly sourcePath: string;
+  readonly schemaPath: string;
+  readonly sourceSnippetName: string;
+  readonly contractSnippetName: string;
+  readonly dialect: DialectPlugin<Snapshot, Policy>;
+}): Promise<void> {
+  const source = await text(options.sourcePath);
+  const documentation = await text(options.documentationPath);
+  strict.strictEqual(
+    markdownSnippet(documentation, options.sourceSnippetName),
+    sourceSnippet(source, options.sourceSnippetName),
+  );
+
+  const schema = (await loadSchemaSnapshot(join(workspace, options.schemaPath))) as Snapshot;
+  const compilation = compileSource({ source, schema, dialect: options.dialect });
+  strict.deepStrictEqual(compilation.diagnostics, []);
+  strict.strictEqual(compilation.queries.length, 1);
+  const query = compilation.queries[0];
+  if (!query) strict.fail(`${options.sourcePath} did not compile a query`);
+  strict.strictEqual(
+    markdownSnippet(documentation, options.contractSnippetName),
+    ["type AccountByIdQuery = Query<", `  ${query.rowType},`, `  ${query.parameterType}`, ">;"].join("\n"),
+  );
 }
 
 function headingSlugs(markdown: string): Set<string> {
@@ -245,23 +275,62 @@ await describe("public documentation", async () => {
   });
 
   await it("keeps published code snippets aligned with executable source", async () => {
-    const sourceName = "homepage-postgres-query";
-    const source = await text("examples/postgres/src/documentation.ts");
-    const homepage = await text("docs/index.md");
-    strict.strictEqual(markdownSnippet(homepage, sourceName), sourceSnippet(source, sourceName));
+    const postgresEvidence = {
+      sourcePath: "examples/postgres/src/documentation.ts",
+      schemaPath: "examples/postgres/generated/db/schema.json",
+      sourceSnippetName: "homepage-postgres-query",
+      contractSnippetName: "homepage-postgres-contract",
+      dialect: postgres(),
+    } as const;
+    for (const documentationPath of [
+      "docs/index.md",
+      "docs/getting-started/postgresql.md",
+      "docs/getting-started/first-query.md",
+    ]) {
+      await assertSourceBackedQuery({
+        documentationPath,
+        ...postgresEvidence,
+      });
+    }
 
-    const schema = (await loadSchemaSnapshot(
-      join(workspace, "examples/postgres/generated/db/schema.json"),
-    )) as PostgresSchemaSnapshot;
-    const compilation = compileSource({ source, schema, dialect: postgres() });
-    strict.deepStrictEqual(compilation.diagnostics, []);
-    strict.strictEqual(compilation.queries.length, 1);
-    const query = compilation.queries[0];
-    if (!query) strict.fail("The homepage PostgreSQL fixture did not compile a query");
-    strict.strictEqual(
-      markdownSnippet(homepage, "homepage-postgres-contract"),
-      ["type AccountByIdQuery = Query<", `  ${query.rowType},`, `  ${query.parameterType}`, ">;"].join("\n"),
-    );
+    await assertSourceBackedQuery({
+      documentationPath: "docs/getting-started/mysql.md",
+      sourcePath: "examples/mysql/src/documentation.ts",
+      schemaPath: "examples/mysql/generated/db/schema.json",
+      sourceSnippetName: "quickstart-mysql-query",
+      contractSnippetName: "quickstart-mysql-contract",
+      dialect: mysql(),
+    });
+    await assertSourceBackedQuery({
+      documentationPath: "docs/getting-started/sqlite.md",
+      sourcePath: "examples/sqlite/src/documentation.ts",
+      schemaPath: "examples/sqlite/generated/db/schema.json",
+      sourceSnippetName: "quickstart-sqlite-query",
+      contractSnippetName: "quickstart-sqlite-contract",
+      dialect: sqlite(),
+    });
+  });
+
+  await it("keeps every dialect quickstart on the shared first-success path", async () => {
+    const expectedHeadings = [
+      "1. Check the prerequisites",
+      "2. Install the packages",
+      "3. Create a minimal table",
+      "4. Create a minimal config",
+      "5. Generate the snapshot",
+      "6. Write one parameterized query",
+      "7. Check the inferred contract",
+      "8. Execute the query",
+      "9. Confirm a type error",
+      "10. Choose the next step",
+      "What just happened?",
+    ];
+
+    for (const dialect of ["postgresql", "mysql", "sqlite"]) {
+      const markdown = withoutFencedCode(await text(`docs/getting-started/${dialect}.md`));
+      const headings = [...markdown.matchAll(/^##\s+(.+?)\s*#*\s*$/gmu)].map((match) => match[1]);
+      strict.deepStrictEqual(headings, expectedHeadings, `${dialect} quickstart differs from the shared path`);
+    }
   });
 
   await it("rejects transient release narratives and retired documentation paths", async () => {
