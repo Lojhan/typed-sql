@@ -12,6 +12,8 @@ export {
   checkSchemaDrift,
   fingerprintSchemaExpression,
   generateSchemaPackage,
+  matchesSchemaHash,
+  matchesTypePolicyHash,
   serializeSchemaSnapshot,
 } from "./generator.js";
 export {

@@ -9,6 +9,7 @@ import type {
   SchemaSnapshotV2,
 } from "./model.js";
 import { LEGACY_SCHEMA_FORMAT_VERSION, SCHEMA_FORMAT_VERSION } from "./model.js";
+import { compareLegacySchemaKeys, compareSchemaKeys } from "./ordering.js";
 import { upgradeSchemaSnapshotV1 } from "./v1/upgrade.js";
 import { parseSchemaSnapshotV2, schemaSnapshotV2Envelope } from "./v2/codec.js";
 
@@ -38,18 +39,22 @@ export interface SchemaHashInput {
 }
 
 export function canonicalizeSchemaValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalizeSchemaValue);
+  return canonicalize(value, compareSchemaKeys);
+}
+
+function canonicalize(value: unknown, compare: (left: string, right: string) => number): unknown {
+  if (Array.isArray(value)) return value.map((item) => canonicalize(item, compare));
   if (typeof value !== "object" || value === null) return value;
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, item]) => [key, canonicalizeSchemaValue(item)]),
+      .sort(([a], [b]) => compare(a, b))
+      .map(([key, item]) => [key, canonicalize(item, compare)]),
   );
 }
 
-const hash = (value: unknown): string =>
+const hash = (value: unknown, compare = compareSchemaKeys): string =>
   createHash("sha256")
-    .update(JSON.stringify(canonicalizeSchemaValue(value)))
+    .update(JSON.stringify(canonicalize(value, compare)))
     .digest("hex");
 
 /** One-way identity for semantically relevant expressions that must not be stored verbatim. */
@@ -57,7 +62,7 @@ export function fingerprintSchemaExpression(expression: string): string {
   return `sha256:${createHash("sha256").update(expression).digest("hex")}`;
 }
 
-function hashableSchema(schema: SchemaHashInput): unknown {
+function hashableSchema(schema: SchemaHashInput, compare = compareSchemaKeys): unknown {
   if (schema.formatVersion === SCHEMA_FORMAT_VERSION) {
     if (
       schema.dialectVersion === undefined ||
@@ -69,7 +74,7 @@ function hashableSchema(schema: SchemaHashInput): unknown {
     ) {
       throw new TypeError("Schema format 2 hashing requires the complete v2 envelope");
     }
-    const normalized = parseSchemaSnapshotV2(schemaSnapshotV2Envelope(schema as SchemaSnapshotV2));
+    const normalized = parseSchemaSnapshotV2(schemaSnapshotV2Envelope(schema as SchemaSnapshotV2), compare);
     const { metadata: _metadata, ...envelope } = schemaSnapshotV2Envelope(normalized);
     return envelope;
   }
@@ -86,6 +91,19 @@ export function calculateSchemaHash(schema: SchemaHashInput): string {
 
 export function calculateTypePolicyHash(policy: unknown): string {
   return hash(policy);
+}
+
+/** Accept new portable hashes and legacy hashes valid under this process's locale. */
+export function matchesSchemaHash(schema: SchemaHashInput, expected: string): boolean {
+  return (
+    calculateSchemaHash(schema) === expected ||
+    hash(hashableSchema(schema, compareLegacySchemaKeys), compareLegacySchemaKeys) === expected
+  );
+}
+
+/** Legacy fallback validates the same policy; it never bypasses content checking. */
+export function matchesTypePolicyHash(policy: unknown, expected: string): boolean {
+  return calculateTypePolicyHash(policy) === expected || hash(policy, compareLegacySchemaKeys) === expected;
 }
 
 export interface SchemaDriftResult {
@@ -188,8 +206,8 @@ export function checkSchemaDrift(
           } satisfies SchemaSnapshotV1);
   const actualSchemaHash = calculateSchemaHash(comparableCurrent);
   const actualTypePolicyHash = calculateTypePolicyHash(policy);
-  const schemaChanged = generated.metadata.schemaHash !== actualSchemaHash;
-  const typePolicyChanged = generated.metadata.typePolicyHash !== actualTypePolicyHash;
+  const schemaChanged = !matchesSchemaHash(comparableCurrent, generated.metadata.schemaHash);
+  const typePolicyChanged = !matchesTypePolicyHash(policy, generated.metadata.typePolicyHash);
   return {
     drifted: schemaChanged || typePolicyChanged,
     schemaChanged,
