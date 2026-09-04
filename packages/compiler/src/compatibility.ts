@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { SchemaSnapshot as CoreSchemaSnapshot, QueryDependency, SourceRange } from "@typed-sql/core";
 import {
-  calculateSchemaHash,
+  matchesSchemaHash,
   parseSchemaSnapshot,
   type RelationSnapshot,
   type RoutineSnapshot,
@@ -1215,11 +1215,9 @@ function validateInputs(options: AnalyzeSchemaCompatibilityOptions): void {
   ) {
     throw new TypeError("Compatibility snapshots and manifests must use the same dialect");
   }
-  const beforeHash = calculateSchemaHash(options.before);
-  const afterHash = calculateSchemaHash(options.after);
-  if (options.beforeManifest.schemaHash !== beforeHash)
+  if (!matchesSchemaHash(options.before, options.beforeManifest.schemaHash))
     throw new TypeError("Before manifest is stale for the before snapshot");
-  if (options.afterManifest.schemaHash !== afterHash)
+  if (!matchesSchemaHash(options.after, options.afterManifest.schemaHash))
     throw new TypeError("After manifest is stale for the after snapshot");
 }
 
