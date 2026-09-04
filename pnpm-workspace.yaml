@@ -6,3 +6,4 @@ packages:
 
 overrides:
   vitepress>vite: 6.4.3
+  qs@>=6 <6.16.0: 6.16.0

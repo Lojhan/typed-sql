@@ -16,7 +16,7 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
-    "mysql2": "3.24.1"
+    "mysql2": "3.24.3"
   },
   "devDependencies": {
     "poku": "4.5.0",
