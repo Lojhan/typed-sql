@@ -93,6 +93,23 @@ await describe("authoritative source analysis service", async () => {
 
   await it("rejects malformed requests and cancellation without publishing partial success", () => {
     strict.throws(
+      () => analyzeSource({ ...request, formatVersion: 2 as never }, context),
+      /Unsupported source analysis request/,
+    );
+    for (const version of [-1, 0.5, "", "bad\0version"])
+      strict.throws(
+        () => analyzeSource({ ...request, source: { ...request.source, version } }, context),
+        /Source analysis version/,
+      );
+    for (const project of [
+      { ...request.project, id: "" },
+      { ...request.project, id: "bad\0project" },
+      { ...request.project, generation: -1 },
+      { ...request.project, configHash: "" },
+      { ...request.project, configHash: "bad\0hash" },
+    ])
+      strict.throws(() => analyzeSource({ ...request, project }, context), /project identity is invalid/);
+    strict.throws(
       () => analyzeSource({ ...request, source: { ...request.source, id: "" } }, context),
       /non-empty string/u,
     );
