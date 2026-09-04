@@ -1,6 +1,7 @@
 import { hasQueryResultValidator, renderQuery } from "@typed-sql/core";
 import { mysqlRenderer } from "@typed-sql/mysql/runtime";
 import { describe, it, strict } from "poku";
+import { accountById as documentedAccountById } from "../src/documentation.js";
 import { insertAccount } from "../src/mutations.js";
 import { accountProjectSummary, accounts } from "../src/queries.js";
 import { validatedAccountById } from "../src/validation.js";
@@ -37,6 +38,13 @@ await describe("MySQL example", async () => {
     const cte = renderQuery(accountProjectSummary, mysqlRenderer);
     strict.match(cte.text, /WITH project_totals AS/u);
     strict.deepStrictEqual(cte.values, []);
+  });
+
+  await it("keeps the documented quickstart query executable", () => {
+    const query = renderQuery(documentedAccountById(7n), mysqlRenderer);
+    strict.match(query.text, /SELECT account\.id, account\.email, account\.status/u);
+    strict.match(query.text, /account\.id = \?/u);
+    strict.deepStrictEqual(query.values, [7n]);
   });
 
   await it("attaches an application-owned Standard Schema validator immutably", () => {

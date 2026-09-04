@@ -1,6 +1,7 @@
 ---
 title: Query API
 description: Reference the public query, fragment, database, compiler, schema, and grammar contracts.
+pageType: reference
 ---
 
 # Query API

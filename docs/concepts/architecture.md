@@ -1,6 +1,7 @@
 ---
 title: Architecture
 description: Understand typed-sql's separation between query contracts, SQL grammars, schema metadata, drivers, and editor tooling.
+pageType: explanation
 ---
 
 # Architecture

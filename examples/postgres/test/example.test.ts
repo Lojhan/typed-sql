@@ -1,6 +1,8 @@
 import { hasQueryResultValidator, renderQuery } from "@typed-sql/core";
 import { postgresRenderer } from "@typed-sql/postgres/runtime";
 import { describe, it, strict } from "poku";
+import { accountById as documentedAccountById } from "../src/documentation.js";
+import { insertUsers as documentedInsertUsers } from "../src/multi-row-documentation.js";
 import { insertAccount } from "../src/mutations.js";
 import { accountProjectSummary, accounts } from "../src/queries.js";
 import { validatedAccountById } from "../src/validation.js";
@@ -38,6 +40,47 @@ await describe("PostgreSQL example", async () => {
     const cte = renderQuery(accountProjectSummary, postgresRenderer);
     strict.match(cte.text, /WITH project_totals AS/u);
     strict.deepStrictEqual(cte.values, []);
+  });
+
+  await it("keeps the documented homepage query executable", () => {
+    const query = renderQuery(documentedAccountById(7n), postgresRenderer);
+    strict.match(query.text, /SELECT account\.id, account\.email, account\.status/u);
+    strict.match(query.text, /account\.id = \$1/u);
+    strict.deepStrictEqual(query.values, [7n]);
+  });
+
+  await it("keeps the documented five-row insert ordered without sql.join", () => {
+    const query = renderQuery(
+      documentedInsertUsers(
+        Array.from({ length: 5 }, (_, index) => ({
+          id: BigInt(index + 10),
+          email: `user-${index}@example.com`,
+          status: index % 2 === 0 ? "active" : "suspended",
+        })),
+      ),
+      postgresRenderer,
+    );
+    strict.match(
+      query.text,
+      /VALUES\s+\(\$1, \$2, \$3\),\s+\(\$4, \$5, \$6\),\s+\(\$7, \$8, \$9\),\s+\(\$10, \$11, \$12\),\s+\(\$13, \$14, \$15\)/u,
+    );
+    strict.deepStrictEqual(query.values, [
+      10n,
+      "user-0@example.com",
+      "active",
+      11n,
+      "user-1@example.com",
+      "suspended",
+      12n,
+      "user-2@example.com",
+      "active",
+      13n,
+      "user-3@example.com",
+      "suspended",
+      14n,
+      "user-4@example.com",
+      "active",
+    ]);
   });
 
   await it("attaches an application-owned Standard Schema validator immutably", () => {

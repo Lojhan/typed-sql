@@ -1,5 +1,6 @@
 ---
 title: Editor setup
+pageType: how-to
 description: Configure the experimental typed-sql language server for Zed, VS Code, or another LSP client.
 ---
 

@@ -1,13 +1,26 @@
 ---
 title: Examples
+pageType: landing
 description: Run maintained typed-sql applications for PostgreSQL, MySQL, SQLite, or a third-party grammar.
 ---
 
 # Examples
 
-The repository includes complete application packages that use typed-sql through its public entrypoints. Their
-workspace dependencies resolve to the current source tree, while each database driver remains an explicit
-application dependency.
+Choose the smallest example that answers the question. Inline proofs teach one contract, recipes pair
+one task with compiler and renderer evidence, and runnable applications include database setup,
+generated evidence, driver lifecycle, and real-database tests.
+
+## Inline proofs and recipes
+
+- Start with the [query and check loop](../getting-started/first-query.md) for a minimal static query.
+- Browse the [recipe index](./recipes.md) by composition, execution, or operations task.
+- Use the flagship [multi-row insert from `Array.map`](./multi-row-insert.md) for a complete recipe
+  with schema, exact inferred contract, rendered SQL, ordered values, dialect notes, and tested source.
+
+## Runnable applications
+
+The repository applications use only public entrypoints. Workspace dependencies resolve to the
+current source tree, while each database driver remains an explicit application dependency.
 
 | Example | Driver capabilities exercised | Database setup |
 | --- | --- | --- |

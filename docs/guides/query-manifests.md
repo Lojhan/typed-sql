@@ -1,5 +1,6 @@
 ---
 title: Query manifests
+pageType: how-to
 description: Emit deterministic, secret-free query metadata for CI, deployment checks, and production correlation.
 ---
 
@@ -11,6 +12,9 @@ The same artifact is the offline input to [live verification](./live-verificatio
 
 Application code does not import the manifest or generated query wrappers. It continues importing `sql` from the selected grammar package:
 
+<LiveQueryExample dialect="postgres" filename="src/queries.ts">
+<template #source>
+
 ```ts
 import { sql } from "@typed-sql/postgres";
 
@@ -20,6 +24,9 @@ export const account = sql`
   WHERE users.id = ${42n}
 `;
 ```
+
+</template>
+</LiveQueryExample>
 
 ## Configure the output
 

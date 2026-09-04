@@ -1,5 +1,6 @@
 ---
 title: Compose conditional SQL
+pageType: how-to
 description: Build optional predicates and projections with typed SQL fragments instead of concatenating strings.
 ---
 

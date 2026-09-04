@@ -1,5 +1,6 @@
 ---
 title: Migration compatibility
+pageType: how-to
 description: Compare schema and query artifacts to find source, runtime, and rolling-deployment breaks before a migration ships.
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: MySQL example
+pageType: tutorial
 description: Run a complete typed-sql MySQL application with conditional SQL and the application-owned mysql2 driver.
 ---
 

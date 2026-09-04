@@ -1,5 +1,6 @@
 ---
 title: PostgreSQL
+pageType: reference
 description: PostgreSQL grammar coverage, catalog introspection, application-owned pg integration, and deliberate limitations.
 ---
 

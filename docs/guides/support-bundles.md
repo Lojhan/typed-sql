@@ -1,5 +1,6 @@
 ---
 title: Create a redacted support bundle
+pageType: how-to
 description: Preview and write structured typed-sql debugging evidence without exposing SQL, values, identifiers, credentials, or paths by default.
 ---
 
