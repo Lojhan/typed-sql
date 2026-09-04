@@ -287,6 +287,27 @@ await describe("typed-sql doctor command", async () => {
       strict.ok(!result.stdout.includes("recognizable-doctor-secret"));
       strict.ok(!result.stdout.includes(temporary));
 
+      const bundlePath = join(temporary, "support", "bundle.json");
+      const preview = await execute(["doctor", "--support-bundle-preview"], temporary);
+      strict.match(preview.stderr, /Support bundle inventory:/u);
+      await strict.rejects(readFile(bundlePath), { code: "ENOENT" });
+      await strict.rejects(execute(["doctor", "--support-bundle", bundlePath], temporary));
+      await strict.rejects(readFile(bundlePath), { code: "ENOENT" });
+      const confirmed = await execute(
+        ["doctor", "--support-bundle", bundlePath, "--confirm-support-bundle"],
+        temporary,
+      );
+      strict.ok(
+        confirmed.stderr.indexOf("Support bundle inventory:") <
+          confirmed.stderr.indexOf("Wrote redacted support bundle"),
+      );
+      const bundle = await readFile(bundlePath, "utf8");
+      strict.ok(typeof JSON.parse(bundle) === "object");
+      strict.ok(!bundle.includes("recognizable-doctor-secret"));
+      strict.ok(!bundle.includes(temporary));
+      await strict.rejects(execute(["doctor", "--support-bundle", bundlePath], temporary));
+      strict.strictEqual(await readFile(bundlePath, "utf8"), bundle, "unconfirmed output cannot overwrite a bundle");
+
       const human = await execute(["doctor"], temporary);
       strict.match(human.stdout, /typed-sql doctor: ok[\s\S]*TypeScript: 7\.0\.2 \(supported/u);
       await strict.rejects(execute(["doctor", "--protocol", "2", "--json"], temporary), (error: unknown) => {

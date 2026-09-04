@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, parse, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,6 +40,7 @@ import {
   generateSchemaPackage,
   loadGeneratedSchemaSnapshot,
   parseSchemaSnapshot,
+  writeArtifactFiles,
 } from "@typed-sql/schema";
 
 interface ParsedArguments {
@@ -469,8 +470,7 @@ async function main(): Promise<void> {
       process.stderr.write(`Support bundle inventory:\n${JSON.stringify(bundle.inventory, null, 2)}\n`);
       if (supportBundlePath !== undefined) {
         const path = resolve(supportBundlePath);
-        await mkdir(dirname(path), { recursive: true });
-        await writeFile(path, serializeSupportBundle(bundle));
+        await writeArtifactFiles([{ path, content: serializeSupportBundle(bundle) }]);
         process.stderr.write(`Wrote redacted support bundle to ${path}\n`);
       }
     }
@@ -535,8 +535,7 @@ async function main(): Promise<void> {
       throw new TypeError(`Compatibility snapshots must use configured dialect ${dialect.id}`);
     }
     const report = analyzeSchemaCompatibility({ before, after, beforeManifest, afterManifest });
-    await mkdir(dirname(outFile), { recursive: true });
-    await writeFile(outFile, serializeSchemaCompatibilityReport(report), "utf8");
+    await writeArtifactFiles([{ path: outFile, content: serializeSchemaCompatibilityReport(report) }]);
     reportCompatibility(report.assessments);
     process.stdout.write(
       `Compatibility: ${report.summary.error} errors, ${report.summary.warning} warnings, ${report.summary.info} informational assessments at ${outFile}\n`,
@@ -610,8 +609,7 @@ async function main(): Promise<void> {
         ? {}
         : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
     });
-    await mkdir(dirname(outFile), { recursive: true });
-    await writeFile(outFile, serializeQueryManifest(result.manifest), "utf8");
+    await writeArtifactFiles([{ path: outFile, content: serializeQueryManifest(result.manifest) }]);
     process.stdout.write(
       `Generated ${result.manifest.queries.length} queries (${result.stats.unresolvedQueries} unresolved, ${result.stats.reusedFiles} files reused) at ${outFile}\n`,
     );
@@ -657,8 +655,7 @@ async function main(): Promise<void> {
           verifier,
           ...(config.verification?.concurrency === undefined ? {} : { concurrency: config.verification.concurrency }),
         });
-        await mkdir(dirname(proofFile), { recursive: true });
-        await writeFile(proofFile, serializeQueryVerificationProof(result.proof), "utf8");
+        await writeArtifactFiles([{ path: proofFile, content: serializeQueryVerificationProof(result.proof) }]);
         reportVerification(result.proof.entries);
         process.stdout.write(
           `Verified ${result.verified} variants (${result.mismatched} mismatched, ${result.skipped} skipped, ${result.failed} failed) at ${proofFile}\n`,
@@ -738,13 +735,9 @@ async function main(): Promise<void> {
         ...(baseline === undefined ? {} : { baseline }),
         ...(config.plans?.budgets === undefined ? {} : { budgets: config.plans.budgets }),
       });
-      await Promise.all([
-        mkdir(dirname(artifactFile), { recursive: true }).then(() =>
-          writeFile(artifactFile, serializeQueryPlanArtifact(result.artifact), "utf8"),
-        ),
-        mkdir(dirname(reportFile), { recursive: true }).then(() =>
-          writeFile(reportFile, serializeQueryPlanReviewReport(report), "utf8"),
-        ),
+      await writeArtifactFiles([
+        { path: reportFile, content: serializeQueryPlanReviewReport(report) },
+        { path: artifactFile, content: serializeQueryPlanArtifact(result.artifact) },
       ]);
       reportPlans(report.entries);
       process.stdout.write(

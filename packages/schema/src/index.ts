@@ -1,3 +1,4 @@
+export { writeArtifactFiles } from "./artifact-files.js";
 export type {
   GenerateSchemaOptions,
   SchemaDriftChange,

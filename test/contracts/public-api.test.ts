@@ -1011,6 +1011,7 @@ const expectedRuntimeExports = {
     "defineSchemaSnapshotV2",
     "fingerprintSchemaExpression",
     "generateSchemaPackage",
+    "writeArtifactFiles",
     "matchesSchemaHash",
     "matchesTypePolicyHash",
     "loadGeneratedSchemaSnapshot",
