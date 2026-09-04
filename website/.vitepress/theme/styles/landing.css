@@ -19,7 +19,7 @@
   border-top: 1px solid var(--vp-c-divider);
   padding-top: 60px;
   font-size: clamp(1.65rem, 3vw, 2.25rem);
-  font-weight: 760;
+  font-weight: 600;
   letter-spacing: -0.042em;
   line-height: 1.12;
 }
@@ -47,7 +47,7 @@
   max-width: 10.5ch;
   margin: 0 0 24px;
   font-size: clamp(3.5rem, 5.5vw, 5.5rem);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.07em;
   line-height: 0.96;
 }

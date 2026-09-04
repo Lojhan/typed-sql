@@ -71,14 +71,14 @@ body {
 .vp-doc h3,
 .vp-doc h4 {
   font-family: var(--ts-font-family-display);
-  font-weight: 750;
+  font-weight: 600;
   text-wrap: balance;
 }
 
 .vp-doc h1 {
   max-width: 19ch;
   font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 780;
+  font-weight: 700;
   letter-spacing: -0.052em;
   line-height: 1.04;
 }
@@ -89,13 +89,11 @@ body {
 }
 
 .vp-doc h3 {
-  font-weight: 720;
   letter-spacing: -0.027em;
   line-height: 1.24;
 }
 
 .vp-doc h4 {
-  font-weight: 700;
   letter-spacing: -0.018em;
   line-height: 1.3;
 }
