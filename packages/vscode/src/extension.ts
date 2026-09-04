@@ -138,7 +138,7 @@ async function startClient(folder: vscode.WorkspaceFolder): Promise<void> {
     return;
   }
   const watcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(folder, "**/{typed-sql.config.*,schema.json}"),
+    new vscode.RelativePattern(folder, "**/{typed-sql.config.*,schema.json,*.ts,*.mts,*.cts,*.js,*.mjs,*.cjs,*.json}"),
   );
   const client = new LanguageClient(
     `typed-sql-${folder.index}`,

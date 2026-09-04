@@ -563,7 +563,11 @@ export class TypedSqlLanguageService {
       this.#settings.schemaPath === undefined
         ? fromConfig(loaded.directory, loaded.config.schema.file)
         : this.#configuredPath(this.#settings.schemaPath);
-    return fileName === resolve(loaded.file) || fileName === resolve(schemaPath);
+    return (
+      fileName === resolve(loaded.file) ||
+      fileName === resolve(schemaPath) ||
+      loaded.dependencies?.includes(fileName) === true
+    );
   }
 
   async close(): Promise<void> {

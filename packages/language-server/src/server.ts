@@ -763,15 +763,21 @@ client.onNotification("workspace/didChangeWatchedFiles", (params) => {
               ),
             )
           ).filter((change): change is WatchedFileChange => change !== undefined);
-    for (const service of services.values()) service.invalidate();
+    const refresh =
+      changes === undefined ||
+      nativeChanges!.length !== changes.length ||
+      changes.some(({ uri }) => /\/tsconfig[^/]*\.json$/u.test(uri));
+    if (refresh) for (const service of services.values()) service.invalidate();
     if (nativeChanges === undefined || nativeChanges.length > 0) {
       await typescript.sendNotification(
         "workspace/didChangeWatchedFiles",
         nativeChanges === undefined ? params : { ...(isObject(params) ? params : {}), changes: nativeChanges },
       );
     }
-    await refreshOpenDocuments();
-    await resetVirtualDocuments();
+    if (refresh) {
+      await refreshOpenDocuments();
+      await resetVirtualDocuments();
+    }
   });
 });
 
