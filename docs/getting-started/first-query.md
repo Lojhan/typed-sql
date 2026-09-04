@@ -1,6 +1,7 @@
 ---
 title: Your first query
 description: Write a static SQL template and use its inferred row and ordered parameter types.
+pageType: tutorial
 ---
 
 # Your first query

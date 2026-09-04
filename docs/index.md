@@ -1,6 +1,7 @@
 ---
 title: typed-sql documentation
 description: Write ordinary SQL and receive exact TypeScript row and parameter types from your database schema.
+pageType: landing
 ---
 
 # typed-sql documentation
@@ -8,6 +9,26 @@ description: Write ordinary SQL and receive exact TypeScript row and parameter t
 typed-sql is a TypeScript SQL compiler. It analyzes static SQL templates against a generated snapshot of your database and carries the inferred row and parameter types through application code.
 
 It is not an ORM or a query builder. SQL remains visible, database drivers remain application-owned, and generated files contain schema metadata rather than an application API.
+
+## The core loop
+
+Import `sql` from the grammar selected by your application and write an ordinary parameterized query:
+
+<!-- docs:start homepage-postgres-query -->
+```ts
+import { sql } from "@typed-sql/postgres";
+
+export const accountById = (accountId: bigint) => sql`
+  SELECT account.id, account.email, account.status
+  FROM users AS account
+  WHERE account.id = ${accountId}
+`;
+```
+<!-- docs:end homepage-postgres-query -->
+
+Against the maintained PostgreSQL example schema, the compiler carries the selected `id`, `email`,
+and `status` row fields together with the ordered `bigint` parameter contract. The value remains a
+driver parameter; typed-sql does not concatenate it into the SQL text.
 
 ## Start here
 

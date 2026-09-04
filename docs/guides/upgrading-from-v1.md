@@ -1,6 +1,7 @@
 ---
 title: Upgrade from typed-sql v1
 description: Move applications, custom grammars, runtime adapters, and CI artifacts to the v2 contracts.
+pageType: migration
 ---
 
 # Upgrade from typed-sql v1

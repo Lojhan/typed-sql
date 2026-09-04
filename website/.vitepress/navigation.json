@@ -1,0 +1,236 @@
+{
+  "topNavigation": [
+    { "text": "Documentation", "link": "/" },
+    { "text": "Examples", "link": "/examples/" },
+    { "text": "GitHub", "link": "https://github.com/Lojhan/typed-sql" }
+  ],
+  "sections": [
+    {
+      "text": "Getting started",
+      "collapsed": false,
+      "items": [
+        { "text": "Overview", "link": "/", "file": "docs/index.md", "pageType": "landing" },
+        {
+          "text": "Installation",
+          "link": "/getting-started/installation",
+          "file": "docs/getting-started/installation.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Configuration",
+          "link": "/getting-started/configuration",
+          "file": "docs/getting-started/configuration.md",
+          "pageType": "reference"
+        },
+        {
+          "text": "Your first query",
+          "link": "/getting-started/first-query",
+          "file": "docs/getting-started/first-query.md",
+          "pageType": "tutorial"
+        }
+      ]
+    },
+    {
+      "text": "Examples",
+      "items": [
+        { "text": "Overview", "link": "/examples/", "file": "docs/examples/index.md", "pageType": "landing" },
+        {
+          "text": "PostgreSQL",
+          "link": "/examples/postgresql",
+          "file": "docs/examples/postgresql.md",
+          "pageType": "tutorial"
+        },
+        { "text": "MySQL", "link": "/examples/mysql", "file": "docs/examples/mysql.md", "pageType": "tutorial" },
+        { "text": "SQLite", "link": "/examples/sqlite", "file": "docs/examples/sqlite.md", "pageType": "tutorial" },
+        {
+          "text": "PostgreSQL + SQLite",
+          "link": "/examples/multi-database",
+          "file": "docs/examples/multi-database.md",
+          "pageType": "tutorial"
+        }
+      ]
+    },
+    {
+      "text": "Guides",
+      "items": [
+        {
+          "text": "Execute queries",
+          "link": "/guides/execution",
+          "file": "docs/guides/execution.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Validate query results",
+          "link": "/guides/result-validation",
+          "file": "docs/guides/result-validation.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Transfer bulk data",
+          "link": "/guides/bulk-data",
+          "file": "docs/guides/bulk-data.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Observe database work",
+          "link": "/guides/observability",
+          "file": "docs/guides/observability.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Route reads and retry transactions",
+          "link": "/guides/routing-and-retries",
+          "file": "docs/guides/routing-and-retries.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Emit query manifests",
+          "link": "/guides/query-manifests",
+          "file": "docs/guides/query-manifests.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Verify against a database",
+          "link": "/guides/live-verification",
+          "file": "docs/guides/live-verification.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Govern query plans",
+          "link": "/guides/query-plan-governance",
+          "file": "docs/guides/query-plan-governance.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Check migration compatibility",
+          "link": "/guides/migration-compatibility",
+          "file": "docs/guides/migration-compatibility.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Upgrade from v1",
+          "link": "/guides/upgrading-from-v1",
+          "file": "docs/guides/upgrading-from-v1.md",
+          "pageType": "migration"
+        },
+        {
+          "text": "Compose conditional SQL",
+          "link": "/guides/composition",
+          "file": "docs/guides/composition.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Manage schema snapshots",
+          "link": "/guides/schema-snapshots",
+          "file": "docs/guides/schema-snapshots.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Configure editors",
+          "link": "/guides/editors",
+          "file": "docs/guides/editors.md",
+          "pageType": "how-to"
+        },
+        {
+          "text": "Create a support bundle",
+          "link": "/guides/support-bundles",
+          "file": "docs/guides/support-bundles.md",
+          "pageType": "how-to"
+        }
+      ]
+    },
+    {
+      "text": "Dialects",
+      "items": [
+        {
+          "text": "PostgreSQL",
+          "link": "/dialects/postgresql",
+          "file": "docs/dialects/postgresql.md",
+          "pageType": "reference",
+          "packageName": "@typed-sql/postgres",
+          "status": "stable"
+        },
+        {
+          "text": "MySQL",
+          "link": "/dialects/mysql",
+          "file": "docs/dialects/mysql.md",
+          "pageType": "reference",
+          "packageName": "@typed-sql/mysql",
+          "status": "stable"
+        },
+        {
+          "text": "SQLite",
+          "link": "/dialects/sqlite",
+          "file": "docs/dialects/sqlite.md",
+          "pageType": "reference",
+          "packageName": "@typed-sql/sqlite",
+          "status": "stable"
+        }
+      ]
+    },
+    {
+      "text": "Concepts",
+      "items": [
+        {
+          "text": "Architecture",
+          "link": "/concepts/architecture",
+          "file": "docs/concepts/architecture.md",
+          "pageType": "explanation"
+        },
+        {
+          "text": "Inference and type safety",
+          "link": "/concepts/type-safety",
+          "file": "docs/concepts/type-safety.md",
+          "pageType": "explanation"
+        },
+        {
+          "text": "Performance",
+          "link": "/concepts/performance",
+          "file": "docs/concepts/performance.md",
+          "pageType": "explanation"
+        }
+      ]
+    },
+    {
+      "text": "Reference",
+      "items": [
+        { "text": "Query API", "link": "/reference/api", "file": "docs/reference/api.md", "pageType": "reference" },
+        {
+          "text": "Grammar support",
+          "link": "/reference/grammar-support",
+          "file": "docs/reference/grammar-support.md",
+          "pageType": "reference"
+        },
+        {
+          "text": "Compatibility",
+          "link": "/reference/compatibility",
+          "file": "docs/reference/compatibility.md",
+          "pageType": "reference"
+        },
+        {
+          "text": "Type mappings",
+          "link": "/reference/type-mappings",
+          "file": "docs/reference/type-mappings.md",
+          "pageType": "reference"
+        },
+        {
+          "text": "Diagnostics",
+          "link": "/reference/diagnostics",
+          "file": "docs/reference/diagnostics.md",
+          "pageType": "reference"
+        }
+      ]
+    },
+    {
+      "text": "Extending",
+      "items": [
+        {
+          "text": "Author a custom grammar",
+          "link": "/extending/custom-grammars",
+          "file": "docs/extending/custom-grammars.md",
+          "pageType": "how-to"
+        }
+      ]
+    }
+  ]
+}

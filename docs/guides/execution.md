@@ -1,6 +1,7 @@
 ---
 title: Execute queries
 description: Execute, prepare, and stream typed queries with application-owned PostgreSQL, MySQL, or SQLite adapters.
+pageType: how-to
 ---
 
 # Execute queries

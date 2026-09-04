@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,43 +6,58 @@ import { describe, it, strict } from "poku";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-const expectedPublicDocs = [
+const pageTypes = ["landing", "tutorial", "how-to", "explanation", "reference", "migration"] as const;
+type PageType = (typeof pageTypes)[number];
+
+interface NavigationPage {
+  readonly text: string;
+  readonly link: string;
+  readonly file: string;
+  readonly pageType: PageType;
+  readonly packageName?: string;
+  readonly status?: "stable" | "experimental";
+}
+
+interface NavigationManifest {
+  readonly topNavigation: readonly { readonly text: string; readonly link: string }[];
+  readonly sections: readonly {
+    readonly text: string;
+    readonly collapsed?: boolean;
+    readonly items: readonly NavigationPage[];
+  }[];
+}
+
+interface DocumentationRedirect {
+  readonly from: `/${string}`;
+  readonly to: `/${string}`;
+}
+
+const navigationManifest = JSON.parse(
+  readFileSync(join(workspace, "website/.vitepress/navigation.json"), "utf8"),
+) as NavigationManifest;
+const documentationSections = navigationManifest.sections;
+const publicDocumentationPages = documentationSections.flatMap(({ items }) => items);
+const dialectNavigation = (documentationSections.find(({ text }) => text === "Dialects")?.items ?? []).map((page) => {
+  if (page.packageName === undefined || page.status === undefined) {
+    throw new Error(`${page.file} needs packageName and status dialect metadata`);
+  }
+  return { ...page, packageName: page.packageName, status: page.status };
+});
+const documentationRedirects = JSON.parse(
+  readFileSync(join(workspace, "website/.vitepress/redirects.json"), "utf8"),
+) as readonly DocumentationRedirect[];
+
+const expectedPublicDocs = publicDocumentationPages.map(({ file }) => file).sort();
+
+const frontmatterPageTypes = new Set([
   "docs/concepts/architecture.md",
-  "docs/concepts/performance.md",
-  "docs/concepts/type-safety.md",
-  "docs/dialects/mysql.md",
-  "docs/dialects/postgresql.md",
-  "docs/dialects/sqlite.md",
-  "docs/examples/index.md",
-  "docs/examples/multi-database.md",
-  "docs/examples/mysql.md",
-  "docs/examples/postgresql.md",
-  "docs/examples/sqlite.md",
-  "docs/extending/custom-grammars.md",
-  "docs/getting-started/configuration.md",
   "docs/getting-started/first-query.md",
   "docs/getting-started/installation.md",
-  "docs/guides/bulk-data.md",
-  "docs/guides/composition.md",
-  "docs/guides/editors.md",
   "docs/guides/execution.md",
-  "docs/guides/live-verification.md",
-  "docs/guides/migration-compatibility.md",
-  "docs/guides/observability.md",
-  "docs/guides/query-manifests.md",
-  "docs/guides/query-plan-governance.md",
-  "docs/guides/result-validation.md",
-  "docs/guides/routing-and-retries.md",
-  "docs/guides/schema-snapshots.md",
-  "docs/guides/support-bundles.md",
   "docs/guides/upgrading-from-v1.md",
   "docs/index.md",
   "docs/reference/api.md",
-  "docs/reference/compatibility.md",
-  "docs/reference/diagnostics.md",
-  "docs/reference/grammar-support.md",
-  "docs/reference/type-mappings.md",
-] as const;
+]);
 
 const deletedPublicDocs = [
   "ARCHITECTURE.md",
@@ -79,6 +95,34 @@ async function markdownFiles(directory: string): Promise<string[]> {
 
 function withoutFencedCode(markdown: string): string {
   return markdown.replace(/```[\s\S]*?```/gu, "");
+}
+
+function escapedRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function sourceSnippet(source: string, name: string): string {
+  const escapedName = escapedRegExp(name);
+  const match = source.match(
+    new RegExp(`// docs:start ${escapedName}\\n([\\s\\S]*?)\\n// docs:end ${escapedName}`, "u"),
+  );
+  const snippet = match?.[1];
+  strict.ok(snippet, `source snippet ${name} is missing or empty`);
+  return snippet?.trim() ?? "";
+}
+
+function markdownSnippet(markdown: string, name: string): string {
+  const escapedName = escapedRegExp(name);
+  const fence = "```";
+  const match = markdown.match(
+    new RegExp(
+      `<!-- docs:start ${escapedName} -->\\n${fence}ts\\n([\\s\\S]*?)\\n${fence}\\n<!-- docs:end ${escapedName} -->`,
+      "u",
+    ),
+  );
+  const snippet = match?.[1];
+  strict.ok(snippet, `Markdown snippet ${name} is missing or empty`);
+  return snippet?.trim() ?? "";
 }
 
 function headingSlugs(markdown: string): Set<string> {
@@ -132,17 +176,67 @@ await describe("public documentation", async () => {
   await it("keeps one intentional, durable information architecture", async () => {
     strict.deepStrictEqual(await markdownFiles("docs"), [...expectedPublicDocs]);
 
+    const files = publicDocumentationPages.map(({ file }) => file);
+    const links = publicDocumentationPages.map(({ link }) => link);
+    strict.strictEqual(new Set(files).size, files.length, "each public document must appear in navigation once");
+    strict.strictEqual(new Set(links).size, links.length, "each public route must appear in navigation once");
+
     for (const path of expectedPublicDocs) {
       const markdown = await text(path);
       const frontmatter = markdown.match(/^---\n([\s\S]*?)\n---\n/u)?.[1] ?? "";
       strict.match(frontmatter, /^title:\s+\S.+$/mu, `${path} needs a title`);
       strict.match(frontmatter, /^description:\s+\S.+$/mu, `${path} needs a description`);
+      const declaredPageType = frontmatter.match(/^pageType:\s+(\S+)\s*$/mu)?.[1];
+      const navigationPage = publicDocumentationPages.find(({ file }) => file === path);
+      if (!navigationPage) throw new Error(`${path} is missing navigation metadata`);
+      strict.ok(pageTypes.includes(navigationPage.pageType), `${path} has invalid navigation pageType`);
+      if (frontmatterPageTypes.has(path)) {
+        strict.ok(declaredPageType, `${path} needs a pageType`);
+      }
+      if (declaredPageType) {
+        strict.ok(pageTypes.includes(declaredPageType as (typeof pageTypes)[number]), `${path} has invalid pageType`);
+        strict.strictEqual(declaredPageType, navigationPage.pageType, `${path} pageType differs from navigation`);
+      }
       strict.strictEqual(
         [...withoutFencedCode(markdown).matchAll(/^#\s+.+$/gmu)].length,
         1,
         `${path} must contain exactly one H1`,
       );
     }
+  });
+
+  await it("keeps navigation status and future route moves explicit", async () => {
+    const manifest = JSON.parse(await text("release-manifest.json")) as {
+      readonly packagePolicy: {
+        readonly stable: readonly string[];
+        readonly experimental: readonly string[];
+      };
+    };
+
+    for (const dialect of dialectNavigation) {
+      const expectedStatus = manifest.packagePolicy.stable.includes(dialect.packageName)
+        ? "stable"
+        : manifest.packagePolicy.experimental.includes(dialect.packageName)
+          ? "experimental"
+          : undefined;
+      strict.ok(expectedStatus, `${dialect.packageName} is missing from release package policy`);
+      strict.strictEqual(dialect.status, expectedStatus, `${dialect.packageName} navigation status is stale`);
+      if (expectedStatus === "stable") {
+        strict.doesNotMatch(dialect.text, /preview|experimental/iu, `${dialect.text} incorrectly appears provisional`);
+      }
+      strict.match(await text(dialect.file), new RegExp(`\\b${expectedStatus}\\b`, "iu"));
+    }
+
+    const redirectSources = new Set<string>();
+    const publicRoutes = new Set(publicDocumentationPages.map(({ link }) => link));
+    for (const redirect of documentationRedirects) {
+      strict.notStrictEqual(redirect.from, redirect.to, `${redirect.from} redirects to itself`);
+      strict.ok(!redirectSources.has(redirect.from), `${redirect.from} has more than one redirect`);
+      strict.ok(publicRoutes.has(redirect.to), `${redirect.from} redirects to unknown route ${redirect.to}`);
+      redirectSources.add(redirect.from);
+    }
+
+    strict.ok(documentationSections.length > 0, "documentation needs at least one navigation section");
   });
 
   await it("keeps every local documentation link valid", async () => {
@@ -157,6 +251,14 @@ await describe("public documentation", async () => {
     ];
 
     for (const path of linkedMarkdown) await assertLocalLinks(path);
+  });
+
+  await it("keeps published code snippets aligned with executable source", async () => {
+    const name = "homepage-postgres-query";
+    strict.strictEqual(
+      markdownSnippet(await text("docs/index.md"), name),
+      sourceSnippet(await text("examples/postgres/src/documentation.ts"), name),
+    );
   });
 
   await it("rejects transient release narratives and retired documentation paths", async () => {
@@ -304,12 +406,8 @@ await describe("public documentation", async () => {
       strict.ok(siteConfig.includes(contract), `website config is missing ${contract}`);
     }
 
-    for (const path of expectedPublicDocs) {
-      const relative = path.slice("docs/".length, -".md".length);
-      const id =
-        relative === "index" ? "/" : relative.endsWith("/index") ? `/${relative.slice(0, -5)}` : `/${relative}`;
-      strict.ok(siteConfig.includes(`link: "${id}"`), `${path} is missing from the sidebar`);
-    }
+    strict.ok(siteConfig.includes("documentationSidebar"));
+    strict.ok(siteConfig.includes("topNavigation"));
 
     for (const action of [
       "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",

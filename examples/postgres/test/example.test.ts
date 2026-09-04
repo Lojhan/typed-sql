@@ -1,6 +1,7 @@
 import { hasQueryResultValidator, renderQuery } from "@typed-sql/core";
 import { postgresRenderer } from "@typed-sql/postgres/runtime";
 import { describe, it, strict } from "poku";
+import { accountById as documentedAccountById } from "../src/documentation.js";
 import { insertAccount } from "../src/mutations.js";
 import { accountProjectSummary, accounts } from "../src/queries.js";
 import { validatedAccountById } from "../src/validation.js";
@@ -38,6 +39,13 @@ await describe("PostgreSQL example", async () => {
     const cte = renderQuery(accountProjectSummary, postgresRenderer);
     strict.match(cte.text, /WITH project_totals AS/u);
     strict.deepStrictEqual(cte.values, []);
+  });
+
+  await it("keeps the documented homepage query executable", () => {
+    const query = renderQuery(documentedAccountById(7n), postgresRenderer);
+    strict.match(query.text, /SELECT account\.id, account\.email, account\.status/u);
+    strict.match(query.text, /account\.id = \$1/u);
+    strict.deepStrictEqual(query.values, [7n]);
   });
 
   await it("attaches an application-owned Standard Schema validator immutably", () => {

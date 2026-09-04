@@ -1,6 +1,7 @@
 ---
 title: Installation
 description: Install typed-sql with a PostgreSQL, MySQL, or SQLite grammar and an application-owned database driver.
+pageType: how-to
 ---
 
 # Installation
