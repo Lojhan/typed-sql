@@ -7,6 +7,35 @@ import { CONFIG_CACHE_LIMIT, discoverConfig, fromConfig, loadConfig } from "../s
 const fixture = new URL("../../../e2e/postgres/typed-sql.config.ts", import.meta.url);
 
 await describe("typed-sql config", async () => {
+  await it("reloads a transitive helper without an entry edit and coalesces unchanged loads", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-config-dependencies-"));
+    const file = join(directory, "typed-sql.config.mts");
+    const helper = join(directory, "policy.mts");
+    try {
+      await writeFile(helper, 'export const policy = { bigint: "string" };');
+      await writeFile(join(directory, "shared.mts"), 'export { policy } from "./policy.mts";');
+      await writeFile(
+        file,
+        `import original from ${JSON.stringify(fixture.href)};\nimport { policy } from "./shared.mts";\nexport default { ...original, typePolicy: policy };`,
+      );
+      const first = await loadConfig({ file });
+      strict.deepStrictEqual(first.config.typePolicy, { bigint: "string" });
+      strict.ok(first.dependencies?.includes(helper));
+      await writeFile(helper, 'export const policy = { bigint: "number" };');
+      const second = await loadConfig({ file });
+      strict.notStrictEqual(second, first);
+      strict.deepStrictEqual(second.config.typePolicy, { bigint: "number" });
+      const repeated = await Promise.all([loadConfig({ file }), loadConfig({ file })]);
+      strict.ok(repeated.every((loaded) => loaded === second));
+      await rm(helper);
+      await strict.rejects(loadConfig({ file }));
+      await writeFile(helper, 'export const policy = { bigint: "bigint" };');
+      strict.deepStrictEqual((await loadConfig({ file })).config.typePolicy, { bigint: "bigint" });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   await it("loads a TypeScript config and preserves its installed dialect", async () => {
     const loaded = await loadConfig({ file: fixture.pathname });
     strict.strictEqual(loaded.config.dialect.id, "postgres");

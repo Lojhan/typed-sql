@@ -26,6 +26,35 @@ function positionAt(text: string, offset: number): { readonly line: number; read
 }
 
 await describe("typed-sql language service", async () => {
+  await it("watches imported policy helpers and refreshes analysis after dependency-only edits", async () => {
+    const directory = await mkdtemp(join(workspaceDirectory, ".typed-sql-config-watch-"));
+    const config = join(directory, "typed-sql.config.mts");
+    const helper = join(directory, "policy.mts");
+    const watched = new TypedSqlLanguageService(workspaceDirectory, {
+      configPath: config,
+      schemaPath: schemaFile,
+      projectFile,
+      nativePreview: false,
+    });
+    try {
+      await writeFile(helper, 'export const policy = { bigint: "string" };');
+      await writeFile(
+        config,
+        `import original from ${JSON.stringify(pathToFileURL(configFile).href)};\nimport { policy } from "./policy.mts";\nexport default { ...original, typePolicy: policy };`,
+      );
+      const current = document("config-policy.ts");
+      const before = await watched.analysis(current);
+      strict.strictEqual(await watched.handlesWatchedFile(pathToFileURL(helper).href), true);
+      await writeFile(helper, 'export const policy = { bigint: "number" };');
+      watched.invalidate();
+      const after = await watched.analysis(current);
+      strict.notStrictEqual(after?.identity.typePolicyHash, before?.identity.typePolicyHash);
+    } finally {
+      await watched.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   const service = new TypedSqlLanguageService(workspaceDirectory, {
     configPath: configFile,
     schemaPath: schemaFile,
