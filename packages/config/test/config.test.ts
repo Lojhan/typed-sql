@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
@@ -13,6 +13,8 @@ await describe("typed-sql config", async () => {
     const helper = join(directory, "policy.mts");
     try {
       await writeFile(helper, 'export const policy = { bigint: "string" };');
+      const preservedTime = new Date("2020-01-01T00:00:00Z");
+      await utimes(helper, preservedTime, preservedTime);
       await writeFile(join(directory, "shared.mts"), 'export { policy } from "./policy.mts";');
       await writeFile(
         file,
@@ -22,7 +24,9 @@ await describe("typed-sql config", async () => {
       strict.deepStrictEqual(first.config.typePolicy, { bigint: "string" });
       strict.ok(first.dependencies?.includes(helper));
       await writeFile(helper, 'export const policy = { bigint: "number" };');
-      const second = await loadConfig({ file });
+      await utimes(helper, preservedTime, preservedTime);
+      const [second, concurrent] = await Promise.all([loadConfig({ file }), loadConfig({ file })]);
+      strict.strictEqual(second, concurrent);
       strict.notStrictEqual(second, first);
       strict.deepStrictEqual(second.config.typePolicy, { bigint: "number" });
       const repeated = await Promise.all([loadConfig({ file }), loadConfig({ file })]);
