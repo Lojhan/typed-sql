@@ -17,7 +17,7 @@
   "dependencies": {
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
-    "mysql2": "3.24.1",
+    "mysql2": "3.24.3",
     "valibot": "1.4.2"
   },
   "devDependencies": {

@@ -6,6 +6,7 @@ settings:
 
 overrides:
   vitepress>vite: 6.4.3
+  qs@>=6 <6.16.0: 6.16.0
 
 importers:
 
@@ -39,8 +40,8 @@ importers:
         specifier: 8.23.1
         version: 8.23.1
       mysql2:
-        specifier: 3.24.1
-        version: 3.24.1(@types/node@24.13.3)
+        specifier: 3.24.3
+        version: 3.24.3(@types/node@24.13.3)
       pg:
         specifier: 8.23.0
         version: 8.23.0
@@ -72,8 +73,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ts-bridge
       mysql2:
-        specifier: 3.24.1
-        version: 3.24.1(@types/node@24.13.3)
+        specifier: 3.24.3
+        version: 3.24.3(@types/node@24.13.3)
     devDependencies:
       poku:
         specifier: 4.5.0
@@ -180,8 +181,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/mysql
       mysql2:
-        specifier: 3.24.1
-        version: 3.24.1(@types/node@24.13.3)
+        specifier: 3.24.3
+        version: 3.24.3(@types/node@24.13.3)
       valibot:
         specifier: 1.4.2
         version: 1.4.2(typescript@7.0.2)
@@ -2577,8 +2578,8 @@ packages:
   mute-stream@0.0.8:
     resolution: {integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==}
 
-  mysql2@3.24.1:
-    resolution: {integrity: sha512-zhab6WaWL9mCp74DegK/IS9PW9ydKav6BBY7JZU8SqjQGBBmz2FlsY62mNKTofY1a0pWA2N/9IZAbb6lQpUDEg==}
+  mysql2@3.24.3:
+    resolution: {integrity: sha512-OKfWHkMAg9v06neq8FmSyhbxPQKABN9PAW5G9/bDTXzJBO5xXtkKL0V27vju7HQWk9UD4Od5BZsvCtBTB1CPEw==}
     engines: {node: '>= 8.0'}
     peerDependencies:
       '@types/node': '>= 8'
@@ -2792,8 +2793,8 @@ packages:
     resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
     engines: {node: '>=6'}
 
-  qs@6.15.3:
-    resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
+  qs@6.16.0:
+    resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
     engines: {node: '>=0.6'}
 
   queue-microtask@1.2.3:
@@ -5401,7 +5402,7 @@ snapshots:
 
   mute-stream@0.0.8: {}
 
-  mysql2@3.24.1(@types/node@24.13.3):
+  mysql2@3.24.3(@types/node@24.13.3):
     dependencies:
       '@types/node': 24.13.3
       aws-ssl-profiles: 1.1.2
@@ -5614,7 +5615,7 @@ snapshots:
 
   punycode.js@2.3.1: {}
 
-  qs@6.15.3:
+  qs@6.16.0:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
@@ -5973,7 +5974,7 @@ snapshots:
 
   typed-rest-client@1.8.11:
     dependencies:
-      qs: 6.15.3
+      qs: 6.16.0
       tunnel: 0.0.6
       underscore: 1.13.8
 

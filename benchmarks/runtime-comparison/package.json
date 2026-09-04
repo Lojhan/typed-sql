@@ -22,7 +22,7 @@
     "@typed-sql/postgres": "link:../../packages/postgres",
     "drizzle-orm": "0.45.2",
     "kysely": "0.29.5",
-    "mysql2": "3.24.1",
+    "mysql2": "3.24.3",
     "pg": "8.23.0",
     "pg-copy-streams": "7.0.0",
     "typeorm": "1.1.0"
@@ -37,7 +37,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@prisma/config@7.10.0>deepmerge-ts": "8.0.2"
+      "@prisma/config@7.10.0>deepmerge-ts": "8.0.2",
+      "mysql2@>=3 <3.24.3": "3.24.3"
     }
   }
 }

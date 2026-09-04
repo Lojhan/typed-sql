@@ -271,7 +271,7 @@ try {
       const adapter: ConformanceLiveAdapter = {
         grammar: "mysql",
         driver: "mysql2",
-        driverVersion: "3.24.1",
+        driverVersion: "3.24.3",
         async server() {
           return {
             version: server.version,
@@ -343,7 +343,7 @@ try {
             grammarVersion: selectedDialect.grammarVersion,
             databaseVersion: server.version,
             driver: "mysql2",
-            driverVersion: "3.24.1",
+            driverVersion: "3.24.3",
             runtime: "node",
             runtimeVersion: process.version,
             typescriptVersion: "7.0.2",
