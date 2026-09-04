@@ -168,6 +168,11 @@ body {
 }
 
 @media (max-width: 767px) {
+  .vp-doc div[class*="language-"] {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
   .vp-doc h1 {
     font-size: 2rem;
   }
