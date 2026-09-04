@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, it, strict } from "poku";
 
@@ -41,8 +43,8 @@ await describe("CI evidence lanes", async () => {
     for (const job of ["packed-real-databases", "editor-artifacts"]) {
       const start = workflow.indexOf(`  ${job}:\n`);
       strict.ok(start >= 0);
-      const section = workflow.slice(start).split(/\n(?=  \S)/u)[0]!;
-      strict.ok(!/^    if:/mu.test(section), `${job} must not exclude pull requests`);
+      const section = workflow.slice(start).split(/\n(?= {2}\S)/u)[0]!;
+      strict.ok(!/^ {4}if:/mu.test(section), `${job} must not exclude pull requests`);
     }
     strict.ok(workflow.includes("needs: [packed-real-databases, editor-artifacts]"));
     strict.ok(workflow.includes("pnpm e2e:packed"));
@@ -50,11 +52,60 @@ await describe("CI evidence lanes", async () => {
   });
 
   await it("writes only structured identifiers and environment-owned run metadata", async () => {
-    const writer = await readFile(join(workspace, "scripts/write-ci-evidence.mjs"), "utf8");
-    strict.ok(writer.includes("TYPED_SQL_MATRIX_TARGET"));
-    strict.ok(writer.includes("GITHUB_SHA"));
-    for (const sensitive of ["process.env.DATABASE", "process.env.PG", "process.env.MYSQL", "process.env.TOKEN"])
-      strict.ok(!writer.includes(sensitive));
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-ci-evidence-"));
+    try {
+      const path = join(directory, "nested", "evidence.json");
+      const script = join(workspace, "scripts/write-ci-evidence.mjs");
+      const environment = {
+        ...process.env,
+        TYPED_SQL_MATRIX_TARGET: "test-target",
+        GITHUB_SHA: "test-revision",
+        GITHUB_RUN_ID: "123",
+        GITHUB_RUN_ATTEMPT: "2",
+        DATABASE_URL: "secret-database-url",
+        PGPASSWORD: "secret-postgres-password",
+        MYSQL_PWD: "secret-mysql-password",
+        TOKEN: "secret-token",
+      };
+      execFileSync(
+        process.execPath,
+        [
+          script,
+          "--lane",
+          "pull-request",
+          "--output",
+          path,
+          "--gate",
+          "packed-consumer",
+          "--gate",
+          "api",
+          "--gate",
+          "api",
+        ],
+        { env: environment },
+      );
+      const content = await readFile(path, "utf8");
+      strict.deepStrictEqual(JSON.parse(content), {
+        formatVersion: 1,
+        lane: "pull-request",
+        target: "test-target",
+        revision: "test-revision",
+        run: "123",
+        attempt: "2",
+        gates: ["api", "packed-consumer"],
+      });
+      strict.ok(!content.includes("secret-"));
+      for (const args of [
+        [],
+        ["--lane", "INVALID", "--output", path, "--gate", "api"],
+        ["--lane", "pull-request", "--output", path, "--gate", "INVALID"],
+      ]) {
+        strict.throws(() => execFileSync(process.execPath, [script, ...args], { env: environment, stdio: "pipe" }));
+        strict.strictEqual(await readFile(path, "utf8"), content, "invalid requests cannot overwrite valid evidence");
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   await it("prepares clean-checkout runtime lanes before executing package entrypoints", async () => {
