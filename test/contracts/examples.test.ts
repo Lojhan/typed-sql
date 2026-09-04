@@ -31,7 +31,7 @@ const examples = [
   {
     directory: "mysql",
     dialect: "mysql",
-    driver: ["mysql2", "3.24.1"],
+    driver: ["mysql2", "3.24.3"],
     documentation: "mysql",
     databaseFiles: ["Containerfile", ".containerignore", ".dockerignore", "compose.yaml"],
     capabilityFiles: [

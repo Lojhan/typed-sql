@@ -225,7 +225,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       const driverLinks = registryOnly
         ? {
             pg: "8.23.0",
-            mysql2: "3.24.1",
+            mysql2: "3.24.3",
             valibot: "1.4.2",
             zod: "4.5.2",
             tsx: "4.23.12",

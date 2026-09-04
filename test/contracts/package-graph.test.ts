@@ -361,7 +361,7 @@ await describe("public package graph", async () => {
     const mysqlConsumer = JSON.parse(
       await readFile(join(workspace, "e2e", "mysql", "package.json"), "utf8"),
     ) as PackageManifest;
-    strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.1");
+    strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.3");
     strict.strictEqual(mysqlConsumer.dependencies?.["@typed-sql/mysql"], "workspace:*");
   });
 });
