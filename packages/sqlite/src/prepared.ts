@@ -3,6 +3,7 @@ import {
   PreparedQueryRenderCache,
   type Query,
   type RenderedQuery,
+  registerPreparedQuery,
   type SqlRenderer,
 } from "@typed-sql/core";
 
@@ -41,46 +42,17 @@ export function createSqlitePreparedQueryState(
   };
 }
 
-function validateStatementName(statementName: string): void {
-  if (typeof statementName !== "string" || statementName.length === 0 || statementName.includes("\0")) {
-    throw new TypeError("Prepared statement names must be non-empty and cannot contain NUL");
-  }
-}
-
 export function prepareSqliteQuery<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
   state: SqlitePreparedQueryState,
   renderer: SqlRenderer,
   statementName: string,
   factory: (...args: Arguments) => Query<Row, Params>,
 ): SqlitePreparedQueryFactory<Arguments, Row, Params> {
-  validateStatementName(statementName);
-  if (state.statements.has(statementName)) {
-    throw new TypeError(`Prepared statement name ${JSON.stringify(statementName)} is already registered`);
-  }
-
-  const statement: PreparedStatement = { variants: new PreparedQueryRenderCache(state.variantCapacity) };
-  state.statements.set(statementName, statement);
-
-  const prepared = (...args: Arguments): Query<Row, Params> => {
-    const query = factory(...args);
-    const existing = state.queries.get(query);
-    if (existing !== undefined && existing.statementName !== statementName) {
-      throw new TypeError(
-        `A query cannot use both prepared statement ${JSON.stringify(existing.statementName)} and ${JSON.stringify(statementName)}`,
-      );
-    }
-
-    let rendered = existing?.rendered;
-    if (rendered === undefined) rendered = statement.variants.bind(query, renderer)?.rendered;
-    if (rendered === undefined) {
-      throw new TypeError(
-        `Prepared statement ${JSON.stringify(statementName)} must always render the same SQL text and structure`,
-      );
-    }
-
-    if (existing === undefined) state.queries.set(query, { statementName, rendered });
-    return query;
-  };
-
-  return Object.freeze(Object.assign(prepared, { statementName }));
+  return registerPreparedQuery({
+    state,
+    renderer,
+    statementName,
+    factory,
+    metadata: (variant) => ({ statementName, rendered: variant.rendered }),
+  });
 }
