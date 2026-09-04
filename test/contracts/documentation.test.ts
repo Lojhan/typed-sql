@@ -662,6 +662,6 @@ await describe("public documentation", async () => {
         count += 1;
       }
     }
-    strict.strictEqual(count, 7, "the documented live-example inventory changed without updating its contract");
+    strict.strictEqual(count, 14, "the documented live-example inventory changed without updating its contract");
   });
 });

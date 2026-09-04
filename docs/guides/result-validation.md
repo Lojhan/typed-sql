@@ -14,6 +14,9 @@ typed-sql accepts [Standard Schema V1](https://standardschema.dev/schema). The i
 
 Create an ordinary inferred query, then use `sql.validateResult(query, schema)`:
 
+<LiveQueryExample dialect="postgres" filename="src/account.ts">
+<template #source>
+
 ```ts
 import { sql } from "@typed-sql/postgres";
 import { z } from "zod";
@@ -33,6 +36,9 @@ const accountQuery = sql`
 const validatedAccountQuery = sql.validateResult(accountQuery, accountSchema);
 const account = await database.maybeOne(validatedAccountQuery);
 ```
+
+</template>
+</LiveQueryExample>
 
 The returned query keeps the original ordered parameter tuple and uses the validator output as its row type. TypeScript rejects a schema whose output is not assignable to the compiler-inferred row. A schema with `any` output is also rejected because it cannot establish a sound boundary.
 

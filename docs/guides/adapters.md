@@ -25,6 +25,9 @@ All approaches keep the database driver as an explicit application dependency.
 Use the dialect renderer with `renderQuery` when existing data-access infrastructure should continue
 to own dispatch:
 
+<LiveQueryExample dialect="postgres" filename="src/query.ts">
+<template #source>
+
 ```ts
 import { renderQuery } from "@typed-sql/core";
 import { sql } from "@typed-sql/postgres";
@@ -35,6 +38,9 @@ const rendered = renderQuery(query, postgresRenderer);
 
 const result = await pool.query(rendered.text, [...rendered.values]);
 ```
+
+</template>
+</LiveQueryExample>
 
 The query retains its compile-time contract, but the raw driver call determines the runtime result
 surface. Driver parsing must still agree with the configured typed-sql type policy.

@@ -34,6 +34,9 @@ CREATE TABLE users (
 The mapped callback returns a trusted fragment with one fixed row shape. Interpolated fields inside
 that fragment remain ordinary parameter values.
 
+<LiveQueryExample dialect="postgres" filename="src/insert-users.ts">
+<template #source>
+
 <!-- docs:start postgres-multi-row-insert -->
 ```ts
 import { sql } from "@typed-sql/postgres";
@@ -55,6 +58,9 @@ export function insertUsers(items: readonly NewUser[]) {
 }
 ```
 <!-- docs:end postgres-multi-row-insert -->
+
+</template>
+</LiveQueryExample>
 
 The direct `.map()` is part of the analyzable query expression. typed-sql does not execute arbitrary
 JavaScript during compilation; it proves one synchronous callback skeleton and expands a representative

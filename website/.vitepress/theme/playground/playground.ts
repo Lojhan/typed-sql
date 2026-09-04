@@ -1,4 +1,5 @@
 import { parameterTypeLiteral, rowTypeLiteral, type SourceRange } from "@typed-sql/core";
+import { expandRepeatedFragments } from "../../../../packages/compiler/src/repeated-fragments.js";
 import { extractDynamicQueries, extractStaticQueries, mapSqlRange } from "../../../../packages/compiler/src/scanner.js";
 import type {
   RelationSnapshot,
@@ -198,7 +199,9 @@ function parseColumn(part: SourcePart, position: number): PendingColumn | undefi
 function queryBinding(source: string, range: SourceRange, index: number): string {
   const prefix = source.slice(0, range.start);
   const match = /(?:export\s+)?const\s+([A-Za-z_$][\w$]*)[^=\n]*=\s*(?:\([^\n)]*\)\s*=>\s*)?$/u.exec(prefix);
-  return match?.[1] ?? `query${index + 1}`;
+  if (match?.[1] !== undefined) return match[1];
+  const functionMatch = /(?:export\s+)?function\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{[\s\S]*\breturn\s*$/u.exec(prefix);
+  return functionMatch?.[1] ?? `query${index + 1}`;
 }
 
 export function parsePlaygroundSchema(
@@ -445,10 +448,31 @@ export function analyzePlayground(
 
   const queries: PlaygroundQuery[] = [];
   extracted.forEach((query, index) => {
-    const analysis = runtime.analyze(query.sql, snapshot);
+    const repeated = expandRepeatedFragments(mainSource, query, runtime.placeholder);
+    if (repeated !== undefined && repeated.diagnostics.length > 0) {
+      diagnostics.push(
+        ...repeated.diagnostics.map((item): PlaygroundDiagnostic => {
+          const end = positionAt(mainSource, item.range.end);
+          return {
+            file: "main.ts",
+            code: item.code,
+            message: item.message,
+            severity: item.severity === "warning" ? "warning" : "error",
+            line: item.range.line,
+            column: item.range.column,
+            endLine: end.line,
+            endColumn: end.column,
+            ...(item.suggestion === undefined ? {} : { suggestion: item.suggestion }),
+          };
+        }),
+      );
+      return;
+    }
+    const analyzedQuery = repeated?.query ?? query;
+    const analysis = runtime.analyze(analyzedQuery.sql, snapshot);
     diagnostics.push(
       ...analysis.diagnostics.map((item): PlaygroundDiagnostic => {
-        const range = mapSqlRange(mainSource, query, item.range);
+        const range = mapSqlRange(mainSource, analyzedQuery, item.range);
         const end = positionAt(mainSource, range.end);
         return {
           file: "main.ts",
@@ -466,12 +490,15 @@ export function analyzePlayground(
     if (analysis.diagnostics.some(({ severity }) => severity === "error")) return;
     const binding = queryBinding(mainSource, query.range, index);
     const rowType = analysis.resultKind === "command" ? "never" : rowTypeLiteral(analysis.columns);
-    const parameterType = parameterTypeLiteral(query.parameterCount, analysis.parameters);
+    const parameterType =
+      repeated?.sites.some(({ dynamic }) => dynamic) === true
+        ? "readonly unknown[]"
+        : parameterTypeLiteral(analyzedQuery.parameterCount, analysis.parameters);
     queries.push({
       binding,
       rowType,
       parameterType,
-      sql: query.sql,
+      sql: analyzedQuery.sql,
       contract: [`const ${binding}: Query<`, `  ${rowType},`, `  ${parameterType}`, ">;"].join("\n"),
     });
   });

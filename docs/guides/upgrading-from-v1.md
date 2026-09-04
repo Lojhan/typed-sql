@@ -19,6 +19,9 @@ stable compiler path and can be upgraded independently.
 
 The query import does not change:
 
+<LiveQueryExample dialect="postgres" filename="src/account.ts">
+<template #source>
+
 ```ts
 import { sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase } from "@typed-sql/postgres/pg";
@@ -32,6 +35,9 @@ const account = sql`
 const database = await createPgDatabase({ connectionString: process.env.DATABASE_URL!, typePolicy });
 const row = await database.one(account);
 ```
+
+</template>
+</LiveQueryExample>
 
 `pg`, `mysql2`, validation libraries, and OpenTelemetry remain application-owned dependencies. The
 grammar package does not install them. SQLite is a stable package surface; its optional built-in

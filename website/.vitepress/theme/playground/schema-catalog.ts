@@ -27,6 +27,13 @@ CREATE TABLE accounts (
   budget numeric(14, 2)
 );
 
+CREATE TABLE account (
+  id bigint PRIMARY KEY,
+  email text NOT NULL,
+  status account_status NOT NULL DEFAULT 'active',
+  note text
+);
+
 CREATE TABLE projects (
   id bigint PRIMARY KEY,
   owner_id bigint NOT NULL REFERENCES users(id),
@@ -48,6 +55,13 @@ CREATE TABLE accounts (
   status ENUM('active', 'suspended') NOT NULL,
   name VARCHAR(120) NOT NULL,
   budget DECIMAL(14, 2)
+);
+
+CREATE TABLE account (
+  id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  status ENUM('active', 'suspended') NOT NULL DEFAULT 'active',
+  note TEXT
 );
 
 CREATE TABLE projects (

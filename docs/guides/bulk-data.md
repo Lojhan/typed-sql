@@ -35,6 +35,9 @@ Install the protocol stream beside the `pg` driver in the application:
 pnpm add pg pg-copy-streams
 ```
 
+<LiveQueryExample dialect="postgres" filename="src/import-accounts.ts">
+<template #source>
+
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
 import { postgresCopy, sql } from "@typed-sql/postgres";
@@ -66,6 +69,9 @@ const result = await copy.copyFrom(accountInsert, accountSource(), {
   },
 });
 ```
+
+</template>
+</LiveQueryExample>
 
 `copyFrom()` accepts an `Iterable` or `AsyncIterable`, pulls it under native stream backpressure,
 and keeps only a bounded encoded chunk in memory. The first query compiles the target table,
@@ -109,6 +115,9 @@ application already owns its `mysql2` dependency; no additional protocol package
 MySQL must explicitly allow local infile requests, for example through the server's
 `local_infile=ON` setting.
 
+<LiveQueryExample dialect="mysql" filename="src/import-accounts.ts">
+<template #source>
+
 ```ts
 import { requireAdapterCapability } from "@typed-sql/core";
 import { mysqlBulk, sql } from "@typed-sql/mysql";
@@ -134,6 +143,9 @@ const result = await bulk.loadData(accountInsert, accountSource(), {
   chunkBytes: 64 * 1024,
 });
 ```
+
+</template>
+</LiveQueryExample>
 
 The adapter supplies mysql2's `infileStreamFactory` itself and accepts only typed-sql's internal
 sentinel path. It never opens a path requested by the server. Rows use an escaped UTF-8 tab format;
