@@ -612,6 +612,7 @@ await describe("public documentation", async () => {
     for (const contract of [
       "branches: [main]",
       "pnpm install --frozen-lockfile",
+      "pnpm build",
       "pnpm docs:build",
       "path: website/.vitepress/dist",
       "name: github-pages",
@@ -620,6 +621,10 @@ await describe("public documentation", async () => {
     ]) {
       strict.ok(pagesWorkflow.includes(contract), `.github/workflows/pages.yml is missing ${contract}`);
     }
+    strict.ok(
+      pagesWorkflow.indexOf("pnpm build") < pagesWorkflow.indexOf("pnpm docs:build"),
+      ".github/workflows/pages.yml must build workspace dependencies before the documentation site",
+    );
   });
 
   await it("runs the homepage playground through the PostgreSQL grammar", () => {
