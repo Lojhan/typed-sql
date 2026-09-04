@@ -63,36 +63,7 @@ export function unionTypeLiterals(types: readonly string[]): string {
   return distinct.includes("unknown") ? "unknown" : distinct.join(" | ") || "unknown";
 }
 
-function editDistance(left: string, right: string): number {
-  const rows = Array.from({ length: left.length + 1 }, (_, index) => index);
-  for (let column = 1; column <= right.length; column += 1) {
-    let diagonal = rows[0]!;
-    rows[0] = column;
-    for (let row = 1; row <= left.length; row += 1) {
-      const above = rows[row]!;
-      rows[row] = Math.min(
-        rows[row]! + 1,
-        rows[row - 1]! + 1,
-        diagonal + (left[row - 1] === right[column - 1] ? 0 : 1),
-      );
-      diagonal = above;
-    }
-  }
-  return rows[left.length]!;
-}
-
-export function closestName(name: string, candidates: readonly string[]): string | undefined {
-  let closest: string | undefined;
-  let closestDistance = Number.POSITIVE_INFINITY;
-  for (const candidate of candidates) {
-    const distance = editDistance(name, candidate);
-    if (distance < closestDistance) {
-      closest = candidate;
-      closestDistance = distance;
-    }
-  }
-  return closest !== undefined && closestDistance <= Math.max(2, Math.floor(name.length / 2)) ? closest : undefined;
-}
+export { closestName } from "./name-suggestions.js";
 
 export interface IndexedTable {
   readonly key: string;
