@@ -24,6 +24,7 @@ import type {
   TableSnapshot,
   TypeSnapshot,
 } from "../model.js";
+import { compareSchemaKeys } from "../ordering.js";
 import { SCHEMA_FORMAT_VERSION } from "./model.js";
 
 type RecordValue = Readonly<Record<string, unknown>>;
@@ -391,7 +392,11 @@ function parseIndex(value: unknown, path: string): IndexSnapshot {
   };
 }
 
-function parseRelation(value: unknown, path: string): RelationSnapshot {
+function parseRelation(
+  value: unknown,
+  path: string,
+  compare: (left: string, right: string) => number,
+): RelationSnapshot {
   const source = record(value, path);
   allowed(source, ["schema", "name", "kind", "columns", "constraints", "indexes", "capabilities", "extension"], path);
   const columns = objectMap(source.columns, `${path}.columns`, parseColumn);
@@ -401,16 +406,16 @@ function parseRelation(value: unknown, path: string): RelationSnapshot {
   if (!Array.isArray(source.indexes)) throw new TypeError(`${path}.indexes must be an array`);
   const constraints = source.constraints
     .map((item, index) => parseConstraint(item, `${path}.constraints[${index}]`))
-    .sort((left, right) => left.identity.localeCompare(right.identity));
+    .sort((left, right) => compare(left.identity, right.identity));
   const indexes = source.indexes
     .map((item, index) => parseIndex(item, `${path}.indexes[${index}]`))
-    .sort((left, right) => left.identity.localeCompare(right.identity));
+    .sort((left, right) => compare(left.identity, right.identity));
   const capabilities =
     source.capabilities === undefined
       ? undefined
       : Object.fromEntries(
           Object.entries(record(source.capabilities, `${path}.capabilities`))
-            .sort(([left], [right]) => left.localeCompare(right))
+            .sort(([left], [right]) => compare(left, right))
             .map(([key, item]) => {
               if (
                 typeof item !== "string" &&
@@ -691,7 +696,7 @@ function legacyViews(
 }
 
 /** Parses a strict canonical v2 envelope and adds transitional v1 resolver views in memory. */
-export function parseSchemaSnapshotV2(value: unknown): SchemaSnapshotV2 {
+export function parseSchemaSnapshotV2(value: unknown, compare = compareSchemaKeys): SchemaSnapshotV2 {
   const source = record(value, "schema");
   allowed(
     source,
@@ -714,7 +719,7 @@ export function parseSchemaSnapshotV2(value: unknown): SchemaSnapshotV2 {
   }
   const namespaces = objectMap(source.namespaces, "schema.namespaces", parseNamespace);
   const types = objectMap(source.types, "schema.types", parseType);
-  const relations = objectMap(source.relations, "schema.relations", parseRelation);
+  const relations = objectMap(source.relations, "schema.relations", (item, path) => parseRelation(item, path, compare));
   const routineSource = record(source.routines, "schema.routines");
   const routines = Object.fromEntries(
     Object.keys(routineSource)
@@ -726,7 +731,7 @@ export function parseSchemaSnapshotV2(value: unknown): SchemaSnapshotV2 {
           key,
           overloads
             .map((item, index) => parseRoutine(item, `schema.routines.${key}[${index}]`))
-            .sort((left, right) => left.identity.localeCompare(right.identity)),
+            .sort((left, right) => compare(left.identity, right.identity)),
         ];
       }),
   );

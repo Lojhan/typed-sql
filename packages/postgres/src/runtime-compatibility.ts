@@ -1,7 +1,7 @@
 import type { DialectServerEvidence } from "@typed-sql/core";
 import {
-  calculateSchemaHash,
-  calculateTypePolicyHash,
+  matchesSchemaHash,
+  matchesTypePolicyHash,
   parseSchemaSnapshot,
   type SchemaSnapshotV2,
 } from "@typed-sql/schema";
@@ -95,10 +95,10 @@ export function validatePostgresRuntimeCompatibility(
     );
   }
   if (snapshot.metadata !== undefined) {
-    if (snapshot.metadata.schemaHash !== calculateSchemaHash(snapshot)) {
+    if (!matchesSchemaHash(snapshot, snapshot.metadata.schemaHash)) {
       throw new PostgresRuntimeCompatibilityError("artifact", "PostgreSQL snapshot schema identity is corrupt");
     }
-    if (snapshot.metadata.typePolicyHash !== calculateTypePolicyHash(policy ?? {})) {
+    if (!matchesTypePolicyHash(policy ?? {}, snapshot.metadata.typePolicyHash)) {
       throw new PostgresRuntimeCompatibilityError(
         "type-policy",
         "PostgreSQL snapshot type-policy evidence does not match the runtime codec policy",

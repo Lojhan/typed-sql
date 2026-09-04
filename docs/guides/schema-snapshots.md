@@ -28,6 +28,15 @@ The configured provider introspects the selected schemas and writes deterministi
 
 Commit the snapshot. It gives application code, CI, and editors the same catalog contract and makes schema changes reviewable without database access.
 
+Schema and type-policy hashing uses explicit English collation, with code-unit ordering to break
+Unicode collation ties, rather than the operating system's default locale. Unordered constraint,
+index, and routine collections follow the same policy. Existing English-locale hashes are preserved
+except for previously ambiguous collation ties. Legacy hashes remain accepted when verified in their
+originating locale; regenerate legacy snapshots and their related manifest/proof artifacts there
+before moving them between locales. Compatibility checking always hashes the content and rejects
+changes; a legacy hash is not a validation bypass. Adapter authors can use `matchesSchemaHash` and
+`matchesTypePolicyHash` from `@typed-sql/schema` for this compatibility check.
+
 Inspect how that evidence changes grammar support without contacting the database:
 
 ```sh
