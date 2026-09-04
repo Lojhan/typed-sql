@@ -14,11 +14,9 @@ await describe("CI evidence lanes", async () => {
       "typescript-editor-matrix",
       "postgres-e2e",
       "mysql-e2e",
-      "packed-real-databases",
       "examples-e2e",
       "sqlite-node-matrix",
       "sqlite-language-matrix",
-      "editor-artifacts",
     ]) {
       const section = workflow.slice(workflow.indexOf(`  ${job}:`));
       strict.ok(
@@ -38,6 +36,19 @@ await describe("CI evidence lanes", async () => {
     ]) {
       strict.ok(workflow.includes(evidence), `CI lane lost ${evidence}`);
     }
+  });
+
+  await it("requires representative live database and packaged editor checks before protected quality", async () => {
+    const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
+    for (const job of ["packed-real-databases", "editor-artifacts"]) {
+      const start = workflow.indexOf(`  ${job}:\n`);
+      strict.ok(start >= 0);
+      const section = workflow.slice(start).split(/\n(?=  \S)/u)[0]!;
+      strict.ok(!/^    if:/mu.test(section), `${job} must not exclude pull requests`);
+    }
+    strict.ok(workflow.includes("needs: [packed-real-databases, editor-artifacts]"));
+    strict.ok(workflow.includes("pnpm e2e:packed"));
+    strict.ok(workflow.includes("pnpm editor:artifacts:smoke"));
   });
 
   await it("writes only structured identifiers and environment-owned run metadata", async () => {
