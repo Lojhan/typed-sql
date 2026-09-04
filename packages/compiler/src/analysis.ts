@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_SOURCE_BYTES,
   DEFAULT_MAX_STRUCTURAL_VARIANTS,
 } from "./compiler.js";
+import { insertionOffsets, sourceBindings } from "./source-mapping.js";
 
 export const SOURCE_ANALYSIS_FORMAT_VERSION = 1 as const;
 
@@ -117,17 +118,6 @@ function cancelled(control?: SourceAnalysisControl): void {
   const error = new Error("typed-sql source analysis cancelled");
   error.name = "AbortError";
   throw error;
-}
-
-function bindingBefore(source: string, tagStart: number): SourceAnalysisBinding | undefined {
-  const prefix = source.slice(0, tagStart);
-  const match = /(?:^|[;{}]\s*|\n\s*)(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*$/u.exec(prefix);
-  if (match === null) return undefined;
-  const name = match[1];
-  if (name === undefined) return undefined;
-  const relativeStart = match[0].lastIndexOf(name);
-  const start = match.index + relativeStart;
-  return { name, range: { start, end: start + name.length } };
 }
 
 function positiveLimit(value: number | undefined, fallback: number, name: string): number {
@@ -240,8 +230,8 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
       })),
     ].sort((left, right) => left.position - right.position),
   );
-  const shiftBefore = (position: number): number =>
-    insertions.reduce((total, insertion) => total + (insertion.position < position ? insertion.length : 0), 0);
+  const shiftBefore = insertionOffsets(insertions);
+  const bindings = sourceBindings(request.source.text);
   const queries = Object.freeze(
     compilation.queries.map(
       ({ query, rowType, parameterType }, index): SourceAnalysisQuery => ({
@@ -259,7 +249,7 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
           end: sourceEnd,
         })),
         ...(() => {
-          const binding = bindingBefore(request.source.text, query.range.start);
+          const binding = bindings.get(query.range.start);
           return binding === undefined ? {} : { binding };
         })(),
       }),
