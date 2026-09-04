@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { cwd, stderr, stdin, stdout } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -117,7 +117,7 @@ function failPreview(error: Error): void {
   stderr.write(`${previewFailure.message}\n`);
 }
 
-const previewReady = new Promise<void>((resolvePreview, rejectPreview) => {
+const previewStarted = new Promise<void>((resolvePreview, rejectPreview) => {
   preview.once("spawn", resolvePreview);
   preview.once("error", (error) => {
     const failure = previewError(error.message);
@@ -125,6 +125,14 @@ const previewReady = new Promise<void>((resolvePreview, rejectPreview) => {
     rejectPreview(failure);
   });
 });
+const previewReady = Promise.all([
+  previewStarted,
+  access(previewCli).catch((error: unknown) => {
+    const failure = previewError(error instanceof Error ? error.message : String(error));
+    failPreview(failure);
+    throw failure;
+  }),
+]).then(() => undefined);
 const client = createMessageConnection(stdin, stdout, NullLogger);
 const typescript: MessageConnection = createMessageConnection(preview.stdout, preview.stdin, NullLogger);
 const sourceDocuments = new Map<string, TextDocument>();
