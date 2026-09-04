@@ -890,6 +890,7 @@ const expectedRuntimeExports = {
     "queryRoute",
     "queryResultValidationSource",
     "redactDebugContext",
+    "registerPreparedQuery",
     "QUERY_SEMANTICS_VERSION",
     "renderQuery",
     "resolveDialectCapabilityStates",
