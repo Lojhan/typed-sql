@@ -3,6 +3,9 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
+import { compileSource } from "../../packages/compiler/src/index.js";
+import { type PostgresSchemaSnapshot, postgres } from "../../packages/postgres/src/index.js";
+import { loadSchemaSnapshot } from "../../packages/schema/src/index.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -242,10 +245,22 @@ await describe("public documentation", async () => {
   });
 
   await it("keeps published code snippets aligned with executable source", async () => {
-    const name = "homepage-postgres-query";
+    const sourceName = "homepage-postgres-query";
+    const source = await text("examples/postgres/src/documentation.ts");
+    const homepage = await text("docs/index.md");
+    strict.strictEqual(markdownSnippet(homepage, sourceName), sourceSnippet(source, sourceName));
+
+    const schema = (await loadSchemaSnapshot(
+      join(workspace, "examples/postgres/generated/db/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const compilation = compileSource({ source, schema, dialect: postgres() });
+    strict.deepStrictEqual(compilation.diagnostics, []);
+    strict.strictEqual(compilation.queries.length, 1);
+    const query = compilation.queries[0];
+    if (!query) strict.fail("The homepage PostgreSQL fixture did not compile a query");
     strict.strictEqual(
-      markdownSnippet(await text("docs/index.md"), name),
-      sourceSnippet(await text("examples/postgres/src/documentation.ts"), name),
+      markdownSnippet(homepage, "homepage-postgres-contract"),
+      ["type AccountByIdQuery = Query<", `  ${query.rowType},`, `  ${query.parameterType}`, ">;"].join("\n"),
     );
   });
 

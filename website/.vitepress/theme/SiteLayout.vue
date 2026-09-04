@@ -6,9 +6,12 @@ import { computed, defineComponent, h } from "vue";
 export default defineComponent({
   name: "SiteLayout",
   setup() {
-    const { frontmatter } = useData();
-    const pageTypeClass = computed(() => `typed-sql-page--${frontmatter.value.pageType ?? "unclassified"}`);
-    return () => h(DefaultTheme.Layout, { class: pageTypeClass.value });
+    const { frontmatter, page } = useData();
+    const pageClasses = computed(() => [
+      `typed-sql-page--${frontmatter.value.pageType ?? "unclassified"}`,
+      ...(page.value.relativePath === "index.md" ? ["typed-sql-page--home"] : []),
+    ]);
+    return () => h(DefaultTheme.Layout, { class: pageClasses.value });
   },
 });
 </script>
