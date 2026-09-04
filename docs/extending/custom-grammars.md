@@ -23,6 +23,8 @@ A grammar package should:
 
 Installing the grammar must not install a driver. Driver adapters load the application dependency lazily and return an actionable installation error when it is absent.
 
+Execution adapters can reuse `registerPreparedQuery` from `@typed-sql/core` for prepared-factory registration, query ownership, and render-variant checks. The adapter supplies its statement metadata, optional capacity policy, and logical owner-name mapping. Physical statement names and database-specific limits remain adapter responsibilities.
+
 ## Minimal implementation
 
 ```ts
