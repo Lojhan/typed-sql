@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
@@ -21,7 +21,9 @@ await describe("typed-sql config", async () => {
       const first = await loadConfig({ file });
       strict.deepStrictEqual(first.config.typePolicy, { bigint: "string" });
       strict.ok(first.dependencies?.includes(helper));
+      const beforeEdit = await stat(helper);
       await writeFile(helper, 'export const policy = { bigint: "number" };');
+      await utimes(helper, beforeEdit.atime, beforeEdit.mtime);
       const second = await loadConfig({ file });
       strict.notStrictEqual(second, first);
       strict.deepStrictEqual(second.config.typePolicy, { bigint: "number" });
