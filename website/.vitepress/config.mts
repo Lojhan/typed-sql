@@ -13,7 +13,10 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   appearance: "dark",
-  head: [["meta", { name: "theme-color", content: "#0b1117" }]],
+  head: [
+    ["meta", { name: "theme-color", content: "#0a1110" }],
+    ["link", { rel: "icon", href: "/typed-sql/brand-mark.svg", type: "image/svg+xml" }],
+  ],
   markdown: {
     lineNumbers: true,
   },
@@ -27,6 +30,7 @@ export default defineConfig({
   },
   themeConfig: {
     siteTitle: "typed-sql",
+    logo: "/brand-mark.svg",
     nav: topNavigation,
     sidebar: documentationSidebar,
     editLink: {

@@ -372,6 +372,8 @@ await describe("public documentation", async () => {
     };
     const workspaceConfig = await text("pnpm-workspace.yaml");
     const siteConfig = await text("website/.vitepress/config.mts");
+    const siteTheme = await text("website/.vitepress/theme/index.ts");
+    const siteStyles = await text("website/.vitepress/theme/custom.css");
     const pagesWorkflow = await text(".github/workflows/pages.yml");
 
     strict.strictEqual(websitePackage.name, "typed-sql-docs");
@@ -396,6 +398,17 @@ await describe("public documentation", async () => {
 
     strict.ok(siteConfig.includes("documentationSidebar"));
     strict.ok(siteConfig.includes("topNavigation"));
+    strict.ok(siteConfig.includes('logo: "/brand-mark.svg"'));
+    strict.ok(siteConfig.includes('href: "/typed-sql/brand-mark.svg"'));
+    strict.ok(await exists("website/public/brand-mark.svg"));
+
+    for (const component of ["CodeResult", "NextSteps", "StatusBadge", "StepFlow"]) {
+      strict.ok(siteTheme.includes(`app.component("${component}"`), `website theme is missing ${component}`);
+    }
+    strict.ok(siteTheme.includes('from "./SiteLayout.vue"'));
+    for (const stylesheet of ["tokens.css", "base.css", "components.css"]) {
+      strict.ok(siteStyles.includes(stylesheet), `website theme is missing ${stylesheet}`);
+    }
 
     for (const action of [
       "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
