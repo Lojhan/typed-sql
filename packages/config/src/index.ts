@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertDialectPlugin, type SchemaSnapshot, type TypedSqlConfig } from "@typed-sql/core";
@@ -14,11 +14,23 @@ const configNames = [
 ] as const;
 export const CONFIG_CACHE_LIMIT = 32;
 const configCache = new Map<string, Promise<LoadedConfig>>();
-const dependencyHashes = new WeakMap<LoadedConfig, ReadonlyMap<string, string>>();
+interface FileFingerprint {
+  readonly identity: string;
+  readonly hash: string;
+}
+const dependencyHashes = new WeakMap<LoadedConfig, Map<string, FileFingerprint>>();
 const hashFile = async (file: string): Promise<string> =>
   createHash("sha256")
     .update(await readFile(file))
     .digest("hex");
+
+async function fingerprint(file: string, previous?: FileFingerprint): Promise<FileFingerprint> {
+  const info = await stat(file, { bigint: true });
+  // ctime detects same-size edits even when tools restore mtime; inode detects replacement.
+  const identity = `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+  if (previous?.identity === identity) return previous;
+  return { identity, hash: await hashFile(file) };
+}
 
 export interface LoadedConfig {
   readonly file: string;
@@ -77,10 +89,14 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
   const cached = configCache.get(key);
   if (cached !== undefined) {
     const loaded = await cached;
+    const fingerprints = dependencyHashes.get(loaded)!;
     const unchanged = await Promise.all(
-      [...dependencyHashes.get(loaded)!].map(async ([path, previous]) => {
+      [...fingerprints].map(async ([path, previous]) => {
         try {
-          return (await hashFile(path)) === previous;
+          const current = await fingerprint(path, previous);
+          if (current.hash !== previous.hash) return false;
+          fingerprints.set(path, current);
+          return true;
         } catch {
           return false;
         }
@@ -110,7 +126,12 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
       const loaded = { file, directory: dirname(file), config: module.default, dependencies: paths };
       dependencyHashes.set(
         loaded,
-        new Map(await Promise.all(paths.map(async (path) => [path, await hashFile(path)] as const))),
+        // The entry file was already content-hashed above; avoid a duplicate read on cache hits.
+        new Map(
+          await Promise.all(
+            paths.filter((path) => path !== file).map(async (path) => [path, await fingerprint(path)] as const),
+          ),
+        ),
       );
       return loaded;
     })
