@@ -1,5 +1,6 @@
 ---
 title: SQLite example
+pageType: tutorial
 description: Run a complete typed-sql SQLite application with conditional SQL and Node's built-in SQLite driver.
 ---
 

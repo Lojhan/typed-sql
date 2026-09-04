@@ -1,5 +1,6 @@
 ---
 title: PostgreSQL and SQLite example
+pageType: tutorial
 description: Use two typed-sql grammars, configs, generated schemas, and drivers in one TypeScript application.
 ---
 

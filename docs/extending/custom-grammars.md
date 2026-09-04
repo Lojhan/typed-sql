@@ -1,5 +1,6 @@
 ---
 title: Author a custom SQL grammar
+pageType: how-to
 description: Implement a third-party typed-sql dialect through public grammar, schema, resolver, and adapter contracts.
 ---
 

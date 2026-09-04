@@ -1,5 +1,6 @@
 ---
 title: Inference and safety
+pageType: explanation
 description: Learn when typed-sql returns exact types, conservative unknowns, or diagnostics and where runtime validation still belongs.
 ---
 

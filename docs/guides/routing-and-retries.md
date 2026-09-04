@@ -1,5 +1,6 @@
 ---
 title: Route reads and retry transactions
+pageType: how-to
 description: Route proven-safe reads to application-owned replicas and retry explicit transactions conservatively.
 ---
 

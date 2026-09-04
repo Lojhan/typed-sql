@@ -1,5 +1,6 @@
 ---
 title: SQLite
+pageType: reference
 description: SQLite dynamic typing, STRICT tables, catalog introspection, and the optional node:sqlite adapter.
 ---
 

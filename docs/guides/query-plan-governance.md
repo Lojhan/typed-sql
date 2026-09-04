@@ -1,5 +1,6 @@
 ---
 title: Query plan governance
+pageType: how-to
 description: Capture redacted optimizer evidence and review explicit query-plan budgets without executing application statements.
 ---
 

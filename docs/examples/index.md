@@ -1,5 +1,6 @@
 ---
 title: Examples
+pageType: landing
 description: Run maintained typed-sql applications for PostgreSQL, MySQL, SQLite, or a third-party grammar.
 ---
 
@@ -8,6 +9,10 @@ description: Run maintained typed-sql applications for PostgreSQL, MySQL, SQLite
 The repository includes complete application packages that use typed-sql through its public entrypoints. Their
 workspace dependencies resolve to the current source tree, while each database driver remains an explicit
 application dependency.
+
+For smaller task-oriented paths, start with [Query recipes](./recipes.md). Use the complete
+applications below when you want schema setup, generated evidence, runtime behavior, and database
+tests together.
 
 | Example | Driver capabilities exercised | Database setup |
 | --- | --- | --- |

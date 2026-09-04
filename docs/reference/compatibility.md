@@ -1,5 +1,6 @@
 ---
 title: Compatibility
+pageType: reference
 description: Supported runtimes, TypeScript compiler paths, database dialects, drivers, and experimental editor surfaces.
 ---
 

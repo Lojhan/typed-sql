@@ -1,5 +1,6 @@
 ---
 title: Observe database work
+pageType: how-to
 description: Trace typed-sql queries, batches, pipelines, streams, and transactions without logging SQL values.
 ---
 

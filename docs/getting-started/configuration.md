@@ -1,5 +1,6 @@
 ---
 title: Configuration
+pageType: reference
 description: Connect a typed-sql dialect, schema provider, generated snapshot, and TypeScript project.
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: Query manifests
+pageType: how-to
 description: Emit deterministic, secret-free query metadata for CI, deployment checks, and production correlation.
 ---
 

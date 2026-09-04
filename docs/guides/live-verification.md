@@ -1,5 +1,6 @@
 ---
 title: Live verification
+pageType: how-to
 description: Compare offline compiler evidence with native database prepare metadata and cache a reproducible proof.
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: MySQL
+pageType: reference
 description: MySQL grammar coverage, catalog introspection, application-owned mysql2 integration, and deliberate limitations.
 ---
 

@@ -1,5 +1,6 @@
 ---
 title: Schema snapshots and drift
+pageType: how-to
 description: Generate deterministic database metadata, review schema changes, and detect catalog or type-policy drift.
 ---
 

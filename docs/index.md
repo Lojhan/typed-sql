@@ -32,16 +32,18 @@ driver parameter; typed-sql does not concatenate it into the SQL text.
 
 ## Start here
 
-1. [Install typed-sql](./getting-started/installation.md) for PostgreSQL, MySQL, or SQLite.
-2. [Configure schema introspection](./getting-started/configuration.md).
-3. [Write and check your first query](./getting-started/first-query.md).
-4. [Execute queries](./guides/execution.md) with your selected driver.
+1. [Choose PostgreSQL, MySQL, or SQLite](./getting-started/index.md).
+2. [Install typed-sql](./getting-started/installation.md) with an application-owned driver.
+3. [Configure schema introspection](./getting-started/configuration.md).
+4. [Write and check your first query](./getting-started/first-query.md).
+5. [Choose direct driver use or an adapter](./guides/adapters.md) to execute it.
 
 Prefer to begin from running code? Open the maintained [PostgreSQL, MySQL, and SQLite examples](./examples/index.md).
 
 ## Guides
 
 - [Compose conditional SQL](./guides/composition.md) without creating a parallel query-builder API.
+- [Adopt an existing pool or connection](./guides/existing-pools.md) without transferring lifecycle ownership.
 - [Validate decoded query results](./guides/result-validation.md) with any Standard Schema implementation.
 - [Generate snapshots and detect drift](./guides/schema-snapshots.md).
 - [Trace database work safely](./guides/observability.md) through the neutral observer contract.
@@ -51,6 +53,7 @@ Prefer to begin from running code? Open the maintained [PostgreSQL, MySQL, and S
 - [Verify compiler evidence against a live database](./guides/live-verification.md) and cache the proof.
 - [Check migrations against compiled queries](./guides/migration-compatibility.md) in both rolling-deployment directions.
 - [Configure Zed, VS Code, or another LSP client](./guides/editors.md).
+- [Choose production controls](./operations/index.md) independently as deployment needs grow.
 - Review the [PostgreSQL](./dialects/postgresql.md), [MySQL](./dialects/mysql.md), and [SQLite](./dialects/sqlite.md) grammar boundaries.
 
 ## Concepts and reference

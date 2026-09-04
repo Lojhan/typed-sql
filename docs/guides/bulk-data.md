@@ -1,5 +1,6 @@
 ---
 title: Transfer bulk data
+pageType: how-to
 description: Stream typed rows through optional PostgreSQL COPY and MySQL LOAD DATA adapter capabilities.
 ---
 

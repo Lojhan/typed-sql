@@ -1,5 +1,6 @@
 ---
 title: Database type mappings
+pageType: reference
 description: PostgreSQL, MySQL, and SQLite mappings from catalog types through inferred TypeScript types to runtime driver values.
 ---
 

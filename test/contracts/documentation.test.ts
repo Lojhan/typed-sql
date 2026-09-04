@@ -37,27 +37,19 @@ const navigationManifest = JSON.parse(
 ) as NavigationManifest;
 const documentationSections = navigationManifest.sections;
 const publicDocumentationPages = documentationSections.flatMap(({ items }) => items);
-const dialectNavigation = (documentationSections.find(({ text }) => text === "Dialects")?.items ?? []).map((page) => {
-  if (page.packageName === undefined || page.status === undefined) {
-    throw new Error(`${page.file} needs packageName and status dialect metadata`);
-  }
-  return { ...page, packageName: page.packageName, status: page.status };
-});
+const dialectNavigation = (documentationSections.find(({ text }) => text === "Dialects")?.items ?? [])
+  .filter(({ packageName, status }) => packageName !== undefined || status !== undefined)
+  .map((page) => {
+    if (page.packageName === undefined || page.status === undefined) {
+      throw new Error(`${page.file} needs packageName and status dialect metadata`);
+    }
+    return { ...page, packageName: page.packageName, status: page.status };
+  });
 const documentationRedirects = JSON.parse(
   readFileSync(join(workspace, "website/.vitepress/redirects.json"), "utf8"),
 ) as readonly DocumentationRedirect[];
 
 const expectedPublicDocs = publicDocumentationPages.map(({ file }) => file).sort();
-
-const frontmatterPageTypes = new Set([
-  "docs/concepts/architecture.md",
-  "docs/getting-started/first-query.md",
-  "docs/getting-started/installation.md",
-  "docs/guides/execution.md",
-  "docs/guides/upgrading-from-v1.md",
-  "docs/index.md",
-  "docs/reference/api.md",
-]);
 
 const deletedPublicDocs = [
   "ARCHITECTURE.md",
@@ -190,13 +182,9 @@ await describe("public documentation", async () => {
       const navigationPage = publicDocumentationPages.find(({ file }) => file === path);
       if (!navigationPage) throw new Error(`${path} is missing navigation metadata`);
       strict.ok(pageTypes.includes(navigationPage.pageType), `${path} has invalid navigation pageType`);
-      if (frontmatterPageTypes.has(path)) {
-        strict.ok(declaredPageType, `${path} needs a pageType`);
-      }
-      if (declaredPageType) {
-        strict.ok(pageTypes.includes(declaredPageType as (typeof pageTypes)[number]), `${path} has invalid pageType`);
-        strict.strictEqual(declaredPageType, navigationPage.pageType, `${path} pageType differs from navigation`);
-      }
+      strict.ok(declaredPageType, `${path} needs a pageType`);
+      strict.ok(pageTypes.includes(declaredPageType as (typeof pageTypes)[number]), `${path} has invalid pageType`);
+      strict.strictEqual(declaredPageType, navigationPage.pageType, `${path} pageType differs from navigation`);
       strict.strictEqual(
         [...withoutFencedCode(markdown).matchAll(/^#\s+.+$/gmu)].length,
         1,

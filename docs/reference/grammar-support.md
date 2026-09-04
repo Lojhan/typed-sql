@@ -1,6 +1,7 @@
 ---
 title: Grammar support
 description: Version policy and exact, conservative, unsupported, or out-of-scope status for typed-sql grammar features.
+pageType: reference
 ---
 
 # Grammar support

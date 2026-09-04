@@ -1,5 +1,6 @@
 ---
 title: Performance
+pageType: explanation
 description: Review typed-sql's measured compiler, composition, and editor regression limits.
 ---
 

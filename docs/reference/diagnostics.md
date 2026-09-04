@@ -1,5 +1,6 @@
 ---
 title: Diagnostics
+pageType: reference
 description: Reference typed-sql diagnostic codes, categories, stability, and common resolution paths.
 ---
 

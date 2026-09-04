@@ -1,5 +1,6 @@
 ---
 title: Validate query results
+pageType: how-to
 description: Add opt-in Standard Schema validation to inferred query results without coupling typed-sql to a validator library.
 ---
 
