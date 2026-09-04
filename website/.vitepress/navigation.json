@@ -173,6 +173,12 @@
           "pageType": "landing"
         },
         {
+          "text": "Multi-row insert",
+          "link": "/examples/multi-row-insert",
+          "file": "docs/examples/multi-row-insert.md",
+          "pageType": "how-to"
+        },
+        {
           "text": "PostgreSQL",
           "link": "/examples/postgresql",
           "file": "docs/examples/postgresql.md",

@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { compileSource } from "../../packages/compiler/src/index.js";
+import { type CompiledQuery, compileSource } from "../../packages/compiler/src/index.js";
 import type { DialectPlugin, SchemaSnapshot } from "../../packages/core/src/index.js";
 import { mysql } from "../../packages/mysql/src/index.js";
 import { postgres } from "../../packages/postgres/src/index.js";
@@ -130,7 +130,9 @@ async function assertSourceBackedQuery<Snapshot extends SchemaSnapshot, Policy>(
   readonly sourceSnippetName: string;
   readonly contractSnippetName: string;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
-}): Promise<void> {
+  readonly displayedParameterType?: string;
+  readonly contractTypeName?: string;
+}): Promise<CompiledQuery> {
   const source = await text(options.sourcePath);
   const documentation = await text(options.documentationPath);
   strict.strictEqual(
@@ -146,8 +148,14 @@ async function assertSourceBackedQuery<Snapshot extends SchemaSnapshot, Policy>(
   if (!query) strict.fail(`${options.sourcePath} did not compile a query`);
   strict.strictEqual(
     markdownSnippet(documentation, options.contractSnippetName),
-    ["type AccountByIdQuery = Query<", `  ${query.rowType},`, `  ${query.parameterType}`, ">;"].join("\n"),
+    [
+      `type ${options.contractTypeName ?? "AccountByIdQuery"} = Query<`,
+      `  ${query.rowType},`,
+      `  ${options.displayedParameterType ?? query.parameterType}`,
+      ">;",
+    ].join("\n"),
   );
+  return query;
 }
 
 function headingSlugs(markdown: string): Set<string> {
@@ -309,6 +317,24 @@ await describe("public documentation", async () => {
       contractSnippetName: "quickstart-sqlite-contract",
       dialect: sqlite(),
     });
+
+    const repeatedInsert = await assertSourceBackedQuery({
+      documentationPath: "docs/examples/multi-row-insert.md",
+      sourcePath: "examples/postgres/src/multi-row-documentation.ts",
+      schemaPath: "examples/postgres/generated/db/schema.json",
+      sourceSnippetName: "postgres-multi-row-insert",
+      contractSnippetName: "postgres-multi-row-contract",
+      dialect: postgres(),
+      displayedParameterType: "readonly (string | bigint)[]",
+      contractTypeName: "InsertUsersQuery",
+    });
+    strict.strictEqual(repeatedInsert.fragmentList, true);
+    strict.strictEqual(repeatedInsert.parameterType, "readonly unknown[]");
+    strict.strictEqual(repeatedInsert.repeatedFragments?.[0]?.separator.text, ", ");
+    strict.deepStrictEqual(
+      repeatedInsert.repeatedFragments?.[0]?.parameterPattern.map(({ tsType }) => tsType),
+      ["bigint", "string", '"active" | "suspended"'],
+    );
   });
 
   await it("keeps every dialect quickstart on the shared first-success path", async () => {

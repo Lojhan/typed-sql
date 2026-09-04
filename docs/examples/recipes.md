@@ -6,8 +6,14 @@ pageType: landing
 
 # Query recipes
 
-Use these focused paths when you already understand installation and snapshot generation. Every linked
-example uses the public grammar API and keeps driver ownership explicit.
+Use these focused paths when you already understand installation and snapshot generation. Examples
+are labeled by scope so an inline proof is not mistaken for a runnable application.
+
+| Level | Scope | Verification |
+| --- | --- | --- |
+| Inline proof | A small query or API boundary inside a focused guide | Backed by a package or documentation contract when it claims exact output |
+| Recipe | One task with schema assumptions, compiler contract, rendered driver input, dialect notes, and source | Compiled fixture plus focused runtime assertions |
+| Runnable application | Schema, config, generated evidence, adapter lifecycle, and broader capabilities | Service-free tests and a real-database suite |
 
 ## Construct queries
 
@@ -15,7 +21,7 @@ example uses the public grammar API and keeps driver ownership explicit.
 | --- | --- | --- |
 | Select with typed parameters | [Your first query](../getting-started/first-query.md) | Selected row fields and ordered parameters |
 | Add optional filters or columns | [Conditional composition](../guides/composition.md#conditional-projections) | Explicit structural branches and result shape |
-| Insert several rows from `Array.map` | [Mapped fragment arrays](../guides/composition.md#repeat-homogeneous-fragments) | Automatic comma separation and flattened parameter order |
+| Insert several rows from `Array.map` | [Multi-row insert recipe](./multi-row-insert.md) | Automatic comma separation, compiler evidence, and five rows of ordered parameters |
 | Choose mapped arrays or `sql.join()` | [Explicit list controls](../guides/composition.md#handle-empty-input-before-building-sql) | Empty, dynamic, or custom-separator behavior |
 | Escape static analysis deliberately | [Dynamic SQL](../guides/composition.md#structural-limits) | Explicit `Query<unknown>` boundary |
 
