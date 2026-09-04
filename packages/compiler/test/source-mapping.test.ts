@@ -2,6 +2,14 @@ import { describe, it, strict } from "poku";
 import { insertionOffsets, sourceBindings } from "../src/source-mapping.js";
 
 await describe("indexed source mapping", async () => {
+  await it("handles large whitespace runs without regex backtracking", () => {
+    const whitespace = "\n".repeat(100_000);
+    strict.strictEqual(sourceBindings(whitespace).size, 0);
+    const source = `${whitespace}export const query =${whitespace}sql`;
+    strict.strictEqual(sourceBindings(source).get(source.length - 3)?.name, "query");
+    for (const source of ["  const q = sql", "object.const q = sql", "const = sql", "const q: number = sql"])
+      strict.strictEqual(sourceBindings(source).size, 0);
+  });
   await it("preserves strict insertion boundaries, duplicate positions, and arbitrary lookup order", () => {
     const insertions = [
       { position: 0, length: 2 },
