@@ -30,6 +30,87 @@ function memoryConnection(rows: readonly Record<string, unknown>[] = []): Sqlite
 }
 
 await describe("SQLite runtime edge contracts", async () => {
+  await it("rolls back an escaped child and blocks its later dispatch", async () => {
+    const connection = memoryConnection();
+    const database = createSqliteDatabase({ connection });
+    let resume!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    let child!: Promise<void>;
+    await strict.rejects(
+      database.transaction(async (outer) => {
+        child = outer.transaction(async (inner) => {
+          await gate;
+          await inner.all(sql`SELECT escaped`);
+        });
+      }),
+      /active child transaction/,
+    );
+    strict.deepStrictEqual(connection.commands, ["BEGIN", "SAVEPOINT typed_sql_2", "ROLLBACK"]);
+    resume();
+    await strict.rejects(child, /scope is closed/);
+    strict.deepStrictEqual(connection.commands, ["BEGIN", "SAVEPOINT typed_sql_2", "ROLLBACK"]);
+    await database.transaction(async () => undefined);
+  });
+
+  await it("rejects sibling and parent work while a child owns the scope", async () => {
+    const database = createSqliteDatabase({ connection: memoryConnection() });
+    await database.transaction(async (outer) => {
+      let resume!: () => void;
+      const child = outer.transaction(
+        async () =>
+          new Promise<void>((resolve) => {
+            resume = resolve;
+          }),
+      );
+      await strict.rejects(
+        outer.transaction(async () => undefined),
+        /child transaction is active/,
+      );
+      await strict.rejects(outer.all(sql`SELECT 1`), /child transaction is active/);
+      resume();
+      await child;
+      await outer.all(sql`SELECT 1`);
+    });
+  });
+
+  await it("rejects queued query and stream startup during shutdown without leaking the queue", async () => {
+    const connection = memoryConnection();
+    let closed = 0;
+    const database = createSqliteDatabase({
+      connection: {
+        ...connection,
+        close() {
+          closed += 1;
+        },
+      },
+      ownsConnection: true,
+    });
+    let resume!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const transaction = database.transaction(async () => {
+      started();
+      await new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+    });
+    await ready;
+    const queued = database.all(sql`SELECT queued`);
+    const stream = database.stream(sql`SELECT streamed`);
+    const next = stream.next();
+    const closing = database.close();
+    const queryRejected = strict.rejects(queued, /closed/);
+    const streamRejected = strict.rejects(next, /closed/);
+    await strict.rejects(database.all(sql`SELECT late`), /closed/);
+    resume();
+    await Promise.all([transaction, queryRejected, streamRejected, closing, database.close()]);
+    strict.strictEqual(closed, 1);
+  });
+
   await it("enforces cardinality, capabilities, lifecycle, and connection shape", async () => {
     const empty = createSqliteDatabase({ connection: memoryConnection() });
     strict.deepStrictEqual(await empty.batch([]), []);
