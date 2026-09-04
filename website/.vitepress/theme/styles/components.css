@@ -638,6 +638,16 @@
 }
 
 @media (max-width: 767px) {
+  .ts-code-editor .cm-content {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .ts-code-editor .cm-line {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
   .ts-schema-trigger {
     right: 14px;
     bottom: 14px;
