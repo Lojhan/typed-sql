@@ -96,6 +96,7 @@ export type {
   TransactionOperationStart,
 } from "./observation.js";
 export { databaseErrorCompletion, observeQueryStream, startDatabaseObservation } from "./observation.js";
+export { registerPreparedQuery } from "./prepared.js";
 export type {
   ControlledQueryExecutor,
   Database,
