@@ -17,6 +17,7 @@ import {
   type SqlDiagnostic,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { canonicalize, compareText } from "./artifact-serialization.js";
 import { compileSource } from "./compiler.js";
 import { extractDynamicQueries, extractStaticQueries } from "./scanner.js";
 
@@ -188,7 +189,6 @@ export interface BuildQueryManifestResult {
 }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
-const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 function portableRelative(rootDir: string, file: string): string {
   const root = resolve(rootDir);
@@ -506,16 +506,6 @@ export function buildQueryManifest<Snapshot extends SchemaSnapshot, Policy>(
       unresolvedQueries: queries.filter((query) => query.status === "unresolved").length,
     },
   };
-}
-
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (typeof value !== "object" || value === null) return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([key, item]) => [key, canonicalize(item)]),
-  );
 }
 
 export function serializeQueryManifest(manifest: QueryManifest): string {
