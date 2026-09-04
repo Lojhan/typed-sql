@@ -26,6 +26,8 @@ jobs:
           fail-on-severity: high
 
   quality:
+    # The protected quality check cannot pass without representative runtime/artifact evidence.
+    needs: [packed-real-databases, editor-artifacts]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -307,7 +309,6 @@ jobs:
           retention-days: 14
 
   packed-real-databases:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -452,7 +453,6 @@ jobs:
           retention-days: 14
 
   editor-artifacts:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
