@@ -68,6 +68,8 @@ Cyclomatic complexity above 20, cognitive complexity and regex placement are rev
 proof of defects or speedups. Knip maps package exports and executable entrypoints to source and
 keeps public entry exports out of unused-export deletion candidates. Its remaining findings still
 need manual review, particularly signature types, compatibility facades and generated consumers.
+Known compiled-output performance consumers have explicit source boundaries in
+`tools/static-review/inputs.mjs`; check scripts and generated consumers before removing any export.
 Do not automatically remove APIs or merge grammar policy because of a metric.
 
 The command returns failure on tool/configuration errors, empty ESLint/Biome scans or selected

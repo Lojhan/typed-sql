@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import parser from "@typescript-eslint/parser";
 import { ESLint } from "eslint";
-import { parseToolReport, sourceEntries } from "./inputs.mjs";
+import { compiledConsumerEntries, parseToolReport, sourceEntries } from "./inputs.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, "../..");
@@ -24,7 +24,7 @@ async function main() {
     const workspace = `packages/${entry.name}`;
     const manifest = JSON.parse(await readFile(join(root, workspace, "package.json"), "utf8"));
     workspaces[workspace] = {
-      entry: [...sourceEntries(manifest), "test/**/*.test.ts"],
+      entry: [...sourceEntries(manifest), ...(compiledConsumerEntries[workspace] ?? []), "test/**/*.test.ts"],
       project: ["src/**/*.ts", "test/**/*.ts"],
     };
     sourceRoots.push(`${workspace}/src`);

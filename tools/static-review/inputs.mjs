@@ -17,6 +17,15 @@ export function sourceEntries(manifest) {
   return [...entries].sort();
 }
 
+// Runtime probes import compiled internals rather than package entrypoints. Keep
+// their source modules as explicit boundaries; inspect script consumers before
+// acting on any other unused-export suggestion.
+export const compiledConsumerEntries = {
+  "packages/mysql": ["src/decoding.ts", "src/parser/index.ts"],
+  "packages/postgres": ["src/parser/index.ts"],
+  "packages/sqlite": ["src/parser/index.ts"],
+};
+
 export function parseToolReport(tool, result) {
   if (result.error) throw result.error;
   if (result.status !== 0 && result.status !== 1)

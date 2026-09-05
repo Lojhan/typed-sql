@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseToolReport, sourceEntries } from "./inputs.mjs";
+import { compiledConsumerEntries, parseToolReport, sourceEntries } from "./inputs.mjs";
 
 test("entry mapping retains public subpaths, conditions and executable entrypoints", () => {
+  assert.ok(compiledConsumerEntries["packages/mysql"].includes("src/decoding.ts"));
+  for (const grammar of ["mysql", "postgres", "sqlite"])
+    assert.ok(compiledConsumerEntries[`packages/${grammar}`].includes("src/parser/index.ts"));
   assert.deepEqual(
     sourceEntries({
       name: "example",
