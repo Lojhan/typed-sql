@@ -1,8 +1,13 @@
+import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { grammarCases, interfaces, sourceFor } from "../editor-hub/cases.mjs";
 import { buildMatrix, pendingInterfaces } from "../editor-hub/matrix.mjs";
 
 await describe("editor grammar evidence hub", async () => {
+  await it("retains host failure evidence even when an editor job fails", async () => {
+    const workflow = await readFile(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+    strict.match(workflow, /run: pnpm editor:artifacts:smoke\s+- if: always\(\)\s+uses: actions\/upload-artifact/u);
+  });
   await it("covers owned grammars and the external grammar without homogenizing semantics", () => {
     strict.deepStrictEqual(
       grammarCases.map((item) => item.id),
