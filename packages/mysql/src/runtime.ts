@@ -25,6 +25,7 @@ import {
   type StreamOptions,
   startDatabaseObservation,
   UnsupportedExecutionCapabilityError,
+  validateQueryResultBatch,
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
@@ -688,20 +689,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     queries: QueryBatch<Queries>,
     results: QueryResults<Queries>,
   ): Promise<QueryResults<Queries>> {
-    let validated: unknown[] | undefined;
-    const queryList = queries as unknown as readonly Query<unknown, readonly unknown[]>[];
-    const resultList = results as readonly (readonly unknown[])[];
-    for (let index = 0; index < queryList.length; index += 1) {
-      const query = queryList[index]!;
-      if (!hasQueryResultValidator(query)) continue;
-      validated ??= [...resultList];
-      validated[index] = await validateQueryResultRows(
-        query,
-        resultList[index]!,
-        mysqlQueryFingerprint(this.#observation, query),
-      );
-    }
-    return (validated ?? results) as QueryResults<Queries>;
+    return validateQueryResultBatch(queries, results, (query) => mysqlQueryFingerprint(this.#observation, query));
   }
 
   async #loadData(statement: string, chunks: AsyncIterable<Uint8Array>, options: ExecutionOptions): Promise<void> {

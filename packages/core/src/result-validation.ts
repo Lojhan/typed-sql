@@ -1,4 +1,4 @@
-import type { QueryStream } from "./execution.js";
+import type { QueryBatch, QueryResults, QueryStream } from "./execution.js";
 import type { Query } from "./query.js";
 
 /** Structural Standard Typed V1 contract, copied from the dependency-free specification. */
@@ -251,6 +251,24 @@ export async function validateQueryResultRows<Row, Params extends readonly unkno
     validated.push(await validateValue<Row>(binding, rows[index], fingerprint, index));
   }
   return Object.freeze(validated);
+}
+
+/** Validate in query order, preserving the original result tuple on the fast path. */
+export async function validateQueryResultBatch<const Queries extends readonly unknown[]>(
+  queries: QueryBatch<Queries>,
+  results: QueryResults<Queries>,
+  fingerprint: (query: Query<unknown, readonly unknown[]>) => string,
+): Promise<QueryResults<Queries>> {
+  let validated: unknown[] | undefined;
+  const queryList = queries as unknown as readonly Query<unknown, readonly unknown[]>[];
+  const resultList = results as readonly (readonly unknown[])[];
+  for (let index = 0; index < queryList.length; index += 1) {
+    const query = queryList[index]!;
+    if (!hasQueryResultValidator(query)) continue;
+    validated ??= [...resultList];
+    validated[index] = await validateQueryResultRows(query, resultList[index]!, fingerprint(query));
+  }
+  return (validated ?? results) as QueryResults<Queries>;
 }
 
 export function validateQueryResultStream<Row, Params extends readonly unknown[]>(
