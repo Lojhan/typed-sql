@@ -15,6 +15,7 @@ import {
   parseQueryManifest,
   parseQueryPlanArtifact,
   parseQueryVerificationProof,
+  type QueryManifest,
   reviewQueryPlans,
   serializeQueryManifest,
   serializeQueryPlanArtifact,
@@ -25,7 +26,7 @@ import {
   typeScriptCompilerVersionSupport,
   verifyQueryManifest,
 } from "@typed-sql/compiler";
-import { fromConfig, loadConfig } from "@typed-sql/config";
+import { fromConfig, type LoadedConfig, loadConfig } from "@typed-sql/config";
 import {
   createDebugEvent,
   createSupportBundle,
@@ -313,6 +314,30 @@ function reportPlans(
       process.stderr.write(`  ${violation.kind}: expected ${violation.expected}, actual ${violation.actual}\n`);
     }
   }
+}
+
+async function loadVerificationCandidates(
+  loaded: LoadedConfig,
+  schemaFile: string,
+  manifest: QueryManifest,
+  project: string | undefined,
+) {
+  const { config, directory } = loaded;
+  const dialect = config.dialect;
+  const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
+  const { projects, sources } = await projectSources(directory, config.projects, project);
+  return collectQueryVerificationCandidates({
+    manifest,
+    rootDir: directory,
+    sources,
+    projects,
+    dialect,
+    schema,
+    typePolicy: config.typePolicy ?? dialect.defaultTypePolicy,
+    ...(config.compiler?.maxStructuralVariants === undefined
+      ? {}
+      : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
+  });
 }
 
 async function main(): Promise<void> {
@@ -634,20 +659,7 @@ async function main(): Promise<void> {
       const verifier = config.verification?.live;
       if (verifier === undefined)
         throw new Error("typed-sql verify --live requires verification.live in typed-sql.config.ts");
-      const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
-      const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
-      const candidates = collectQueryVerificationCandidates({
-        manifest,
-        rootDir: loaded.directory,
-        sources,
-        projects,
-        dialect,
-        schema,
-        typePolicy: policy,
-        ...(config.compiler?.maxStructuralVariants === undefined
-          ? {}
-          : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
-      });
+      const candidates = await loadVerificationCandidates(loaded, schemaFile, manifest, parsed.options.project);
       try {
         const result = await verifyQueryManifest({
           manifest,
@@ -708,20 +720,7 @@ async function main(): Promise<void> {
             JSON.parse(await readFile(fromConfig(loaded.directory, compareOption), "utf8")) as unknown,
           );
     const manifest = parseQueryManifest(JSON.parse(await readFile(manifestFile, "utf8")) as unknown);
-    const schema = await readSnapshot(schemaFile, (value) => dialect.validateSnapshot(value));
-    const { projects, sources } = await projectSources(loaded.directory, config.projects, parsed.options.project);
-    const candidates = collectQueryVerificationCandidates({
-      manifest,
-      rootDir: loaded.directory,
-      sources,
-      projects,
-      dialect,
-      schema,
-      typePolicy: policy,
-      ...(config.compiler?.maxStructuralVariants === undefined
-        ? {}
-        : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
-    });
+    const candidates = await loadVerificationCandidates(loaded, schemaFile, manifest, parsed.options.project);
     try {
       const result = await captureQueryPlans({
         manifest,
