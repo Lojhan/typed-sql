@@ -1,5 +1,32 @@
 # @typed-sql/language-server
 
+## 2.1.0
+
+### Patch Changes
+
+- 9e74474: Validate the bundled TypeScript preview entrypoint before proxy initialization so a missing or corrupted installation reports the actionable recovery diagnostic instead of an `EPIPE` process failure.
+- 01d03f0: Return project-unavailable diagnostics through pull requests while schema analysis is unavailable, and clear the previously pushed failure after recovery. Preserve current TypeScript and SQL diagnostics by refreshing the combined pull report.
+- 5387b5e: Refresh changed local configuration dependencies and recognize their editor file-watch events, while reusing unchanged evaluated configurations.
+- 9213ae6: Map cross-document TypeScript locations and workspace edits using their target document, and preserve opaque LSP resolution data.
+- 7f1b753: Translate versioned workspace edits between generated and original documents, rejecting stale source snapshots instead of forwarding mismatched version numbers.
+- 14b7e12: Preserve upstream TypeScript LSP completion resolution, trigger characters and code-action options while adding SQL capabilities.
+- fbdf473: Retain source snapshot identity through upstream completion, code action, inlay hint and code lens resolution. Preserve upstream opaque data and reject expired or stale resolve requests instead of mapping edits without an owning document.
+- 8ff93f6: Project TypeScript semantic highlighting onto original source and produce bounded source-coordinate delta responses without exposing generated annotation tokens.
+- 90e4ace: Keep combined TypeScript and SQL diagnostics visible in pull-diagnostic clients such as VS Code. Overlay refresh requests a fresh pull instead of overwriting the report with a SQL-only push; push-only clients retain their existing delivery path.
+- 6c736a6: Keep diagnostic pulls recoverable when schema analysis fails during a request, and request a retry for stale diagnostic snapshots instead of allowing an empty report to replace current errors.
+- Updated dependencies [b752fde]
+- Updated dependencies [456fa7f]
+- Updated dependencies [8e6b443]
+- Updated dependencies [5387b5e]
+- Updated dependencies [7e94958]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+  - @typed-sql/schema@2.2.0
+  - @typed-sql/config@2.1.1
+  - @typed-sql/ts-bridge@2.1.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes

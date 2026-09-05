@@ -1,5 +1,22 @@
 # @typed-sql/postgres
 
+## 2.1.1
+
+### Patch Changes
+
+- 7e94958: Make schema and policy hash ordering independent of the host locale, including unordered v2 semantic arrays. Add content-checking compatibility helpers so legacy hashes remain accepted in their originating locale.
+- 2f5f6be: Share ordered batch result validation while preserving adapter fingerprints and the unvalidated fast path.
+- 71a169f: Share backpressured bulk producer mechanics while preserving grammar-specific SQL, encoding and transport behavior.
+- d176673: Share grammar-neutral prepared-query registration and ownership checks while retaining each adapter's statement naming, capacity, and public factory types.
+- Updated dependencies [b752fde]
+- Updated dependencies [456fa7f]
+- Updated dependencies [7e94958]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+  - @typed-sql/schema@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes

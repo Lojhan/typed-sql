@@ -1,5 +1,17 @@
 # @typed-sql/core
 
+## 2.2.0
+
+### Minor Changes
+
+- 2f5f6be: Share ordered batch result validation while preserving adapter fingerprints and the unvalidated fast path.
+- 71a169f: Share backpressured bulk producer mechanics while preserving grammar-specific SQL, encoding and transport behavior.
+- d176673: Share grammar-neutral prepared-query registration and ownership checks while retaining each adapter's statement naming, capacity, and public factory types.
+
+### Patch Changes
+
+- b752fde: Index source-analysis offsets and bindings once and bound name-suggestion edit-distance work while preserving query ranges and suggestion tie ordering.
+
 ## 2.1.0
 
 ### Minor Changes

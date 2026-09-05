@@ -1,5 +1,21 @@
 # @typed-sql/compiler
 
+## 2.1.1
+
+### Patch Changes
+
+- b752fde: Index source-analysis offsets and bindings once and bound name-suggestion edit-distance work while preserving query ranges and suggestion tie ordering.
+- 7e94958: Make schema and policy hash ordering independent of the host locale, including unordered v2 semantic arrays. Add content-checking compatibility helpers so legacy hashes remain accepted in their originating locale.
+- a4c4e73: Reuse stateless character predicates during source binding scans without changing whitespace or range behavior.
+- Updated dependencies [b752fde]
+- Updated dependencies [456fa7f]
+- Updated dependencies [7e94958]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+  - @typed-sql/schema@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes
