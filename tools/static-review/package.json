@@ -1,0 +1,18 @@
+{
+  "name": "typed-sql-static-review",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "review": "node review.mjs",
+    "test": "node --test review.test.mjs"
+  },
+  "dependencies": {
+    "@typescript-eslint/parser": "8.69.0",
+    "eslint": "10.10.0",
+    "knip": "6.34.0",
+    "typescript": "6.0.3"
+  }
+}
