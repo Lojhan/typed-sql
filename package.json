@@ -47,6 +47,7 @@
     "mysql:catalog:check": "node scripts/generate-mysql-catalog.mjs --check",
     "docs:serve": "pnpm --filter typed-sql-docs serve",
     "editor:artifacts:smoke": "node scripts/assert-editor-artifacts.mjs",
+    "editor:zed:fixtures": "node test/editor-hub/prepare-zed.mjs",
     "editor:promotion:review": "node scripts/review-editor-promotion.mjs",
     "editor:zed:build": "node scripts/build-zed-artifact.mjs",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
