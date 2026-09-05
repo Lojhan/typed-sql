@@ -2,6 +2,23 @@ import { describe, it, strict } from "poku";
 import { insertionOffsets, sourceBindings } from "../src/source-mapping.js";
 
 await describe("indexed source mapping", async () => {
+  await it("keeps Unicode whitespace and repeated predicate calls independent", () => {
+    const source = "export\u00a0const\u2003$query_1\uFEFF=\u2028sql;let\tother=sql";
+    const expected = [
+      [
+        source.indexOf("sql"),
+        { name: "$query_1", range: { start: source.indexOf("$query_1"), end: source.indexOf("$query_1") + 8 } },
+      ],
+      [
+        source.lastIndexOf("sql"),
+        { name: "other", range: { start: source.indexOf("other"), end: source.indexOf("other") + 5 } },
+      ],
+    ];
+    for (let iteration = 0; iteration < 20; iteration++) {
+      strict.deepStrictEqual([...sourceBindings(source)], expected);
+      strict.strictEqual(sourceBindings("const 123 = sql").size, 0);
+    }
+  });
   await it("handles large whitespace runs without regex backtracking", () => {
     const whitespace = "\n".repeat(100_000);
     strict.strictEqual(sourceBindings(whitespace).size, 0);
