@@ -26,6 +26,7 @@ import {
   TypedSqlProtocolCompatibilityError,
   type TypedSqlProtocolNegotiation,
 } from "./index.js";
+import { mapProtocolCoordinates } from "./protocol-mapping.js";
 
 interface Position {
   readonly line: number;
@@ -252,7 +253,7 @@ function stateFor(value: JsonObject, fallback?: DocumentState): DocumentState | 
       : isObject(value.textDocument) && typeof value.textDocument.uri === "string"
         ? value.textDocument.uri
         : undefined;
-  return uri === undefined ? fallback : (documents.get(uri) ?? virtualDocuments.get(uri) ?? fallback);
+  return uri === undefined ? fallback : (documents.get(uri) ?? virtualDocuments.get(uri));
 }
 
 function documentUri(value: unknown): string | undefined {
@@ -346,14 +347,13 @@ async function waitForDocument(uri: string, token: CancellationToken): Promise<v
 }
 
 function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?: DocumentState): unknown {
-  if (Array.isArray(value)) return value.map((item) => mapProtocolValue(item, direction, fallback));
-  if (!isObject(value)) return value;
-  const state = stateFor(value, fallback);
-  if (state !== undefined && typeof value.line === "number" && typeof value.character === "number") {
-    return mapPosition(state, value as unknown as Position, direction);
-  }
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, mapProtocolValue(item, direction, state)]),
+  return mapProtocolCoordinates(
+    value,
+    {
+      lookup: (uri) => documents.get(uri) ?? virtualDocuments.get(uri),
+      position: (state, position) => mapPosition(state, position, direction),
+    },
+    fallback,
   );
 }
 

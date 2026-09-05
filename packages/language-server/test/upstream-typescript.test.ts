@@ -64,6 +64,37 @@ await describe("upstream TypeScript LSP integration", async () => {
         if (method.endsWith("rename")) strict.ok(JSON.stringify(expected).includes("verifyAccount"));
         strict.deepStrictEqual(await proxy.request(method, request), expected, method);
       }
+      const exported = `${source}\nexport const shared = 1;\n`;
+      const databaseUri = pathToFileURL(join(fixture, "database.ts")).href;
+      const databaseSource = [
+        await readFile(join(fixture, "database.ts"), "utf8"),
+        'import { sql } from "@typed-sql/postgres";',
+        'import { shared } from "./query.js";',
+        "const secondQuery = sql`SELECT id FROM users`; void shared;",
+      ].join("\n");
+      for (const client of [upstream, proxy]) {
+        client.notify("textDocument/didChange", {
+          textDocument: { uri, version: 2 },
+          contentChanges: [{ text: exported }],
+        });
+        client.notify("textDocument/didOpen", {
+          textDocument: { uri: databaseUri, languageId: "typescript", version: 1, text: databaseSource },
+        });
+        await client.request("textDocument/hover", {
+          textDocument: { uri: databaseUri },
+          position: positionAt(databaseSource, databaseSource.lastIndexOf("shared")),
+        });
+      }
+      for (const method of ["textDocument/references", "textDocument/rename"]) {
+        const request = {
+          textDocument: { uri },
+          position: positionAt(exported, exported.lastIndexOf("shared")),
+          ...(method.endsWith("references") ? { context: { includeDeclaration: true } } : { newName: "renamedShared" }),
+        };
+        const expected = await upstream.request(method, request);
+        strict.ok(JSON.stringify(expected).includes(databaseUri), `${method} must include the other document`);
+        strict.deepStrictEqual(await proxy.request(method, request), expected, `cross-file ${method}`);
+      }
     } finally {
       await Promise.all([upstream.close(), proxy.close()]);
     }
