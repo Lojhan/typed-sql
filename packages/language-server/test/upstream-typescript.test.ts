@@ -110,7 +110,7 @@ await describe("upstream TypeScript LSP integration", async () => {
         await readFile(join(fixture, "database.ts"), "utf8"),
         'import { sql } from "@typed-sql/postgres";',
         'import { shared } from "./query.js";',
-        "const secondQuery = sql`SELECT id FROM users`; void shared;",
+        "const secondQuery = sql`SELECT id FROM users`; void shared; const local={x:1}; void local.x;",
       ].join("\n");
       for (const client of [upstream, proxy]) {
         client.notify("textDocument/didChange", {
@@ -146,6 +146,27 @@ await describe("upstream TypeScript LSP integration", async () => {
         }),
         /-32801: Document version does not match/u,
       );
+      const completionRequest = {
+        textDocument: { uri: databaseUri },
+        position: positionAt(databaseSource, databaseSource.lastIndexOf("local.x") + "local.".length),
+      };
+      const nativeCompletions = (await upstream.request("textDocument/completion", completionRequest)) as {
+        items: { label: string }[];
+      };
+      const proxyCompletions = (await proxy.request("textDocument/completion", completionRequest)) as {
+        items: { label: string }[];
+      };
+      const nativeItem = nativeCompletions.items.find((item) => item.label === "x");
+      const proxyItem = proxyCompletions.items.find((item) => item.label === "x");
+      strict.ok(nativeItem && proxyItem, "ordinary TypeScript member completion must remain available");
+      const nativeResolved = (await upstream.request("completionItem/resolve", nativeItem)) as { detail: string };
+      const proxyResolved = (await proxy.request("completionItem/resolve", proxyItem)) as { detail: string };
+      strict.ok(nativeResolved.detail.includes("number"));
+      strict.strictEqual(proxyResolved.detail, nativeResolved.detail, "upstream completion resolve details");
+      const formattingRequest = { textDocument: { uri: databaseUri }, options: { tabSize: 2, insertSpaces: true } };
+      const nativeFormatting = (await upstream.request("textDocument/formatting", formattingRequest)) as unknown[];
+      strict.ok(nativeFormatting.length > 0, "formatting comparison must produce actual edits");
+      strict.deepStrictEqual(await proxy.request("textDocument/formatting", formattingRequest), nativeFormatting);
       const tokenRequest = { textDocument: { uri: databaseUri } };
       const nativeTokens = (await upstream.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
       const projected = (await proxy.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
@@ -196,6 +217,9 @@ await describe("upstream TypeScript LSP integration", async () => {
         tokensAt(reconstructed, positionAt(changedSource, changedSource.lastIndexOf("shared"))),
         expectedTokens,
       );
+      await strict.rejects(proxy.request("completionItem/resolve", proxyItem), /-32801:/u);
+      proxy.notify("textDocument/didClose", { textDocument: { uri: databaseUri } });
+      await strict.rejects(proxy.request("completionItem/resolve", proxyItem), /Resolve context expired/u);
     } finally {
       await Promise.all([upstream.close(), proxy.close()]);
     }
