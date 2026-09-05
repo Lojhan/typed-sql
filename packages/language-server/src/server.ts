@@ -27,6 +27,7 @@ import {
   type TypedSqlProtocolNegotiation,
 } from "./index.js";
 import { mapProtocolCoordinates } from "./protocol-mapping.js";
+import { ResolveContexts, resolveMethodFor } from "./resolve-context.js";
 import { projectSemanticTokens, SemanticTokenResults } from "./semantic-tokens.js";
 
 interface Position {
@@ -143,6 +144,7 @@ const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
 const semanticTokenResults = new SemanticTokenResults();
+const resolveContexts = new ResolveContexts<DocumentState>();
 const pendingDocuments = new Map<string, Promise<void>>();
 const latestDocumentVersions = new Map<string, number>();
 const documentAnalysisTokens = new Map<string, AnalysisCancellation>();
@@ -162,6 +164,12 @@ preview.stderr.on("data", (chunk: Buffer | string) => {
 
 async function nativeRequest<T = unknown>(method: string, params?: unknown, token?: CancellationToken): Promise<T> {
   if (previewFailure !== undefined) throw previewFailure;
+  if (resolveMethodFor(method) !== undefined && isObject(params)) {
+    // Keep resolvable items in the final result so every item receives a source
+    // identity. Otherwise partial-result progress could bypass context wrapping.
+    const { partialResultToken: _partial, ...completeParams } = params;
+    params = completeParams;
+  }
   let rejectFailure!: (error: Error) => void;
   const failure = new Promise<never>((_resolveFailure, reject) => {
     rejectFailure = reject;
@@ -367,6 +375,10 @@ function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?
   );
 }
 
+function wrapResolveResults(method: string, result: unknown, state: DocumentState | undefined): unknown {
+  return state === undefined ? result : resolveContexts.response(method, result, state.original.uri, state);
+}
+
 async function createState(
   original: TextDocument,
   previous?: DocumentState,
@@ -379,6 +391,7 @@ async function createState(
     error.name = "AbortError";
     throw error;
   }
+  resolveContexts.delete(original.uri);
   const virtualVersion = previous === undefined ? original.version : previous.virtualVersion + 1;
   const transformed = TextDocument.create(
     original.uri,
@@ -572,7 +585,7 @@ client.onRequest("textDocument/completion", async (rawParams, token) => {
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest("textDocument/completion", mapped, token);
   ensureStateCurrent(state);
-  return mapProtocolValue(result, "virtual-to-source", state);
+  return wrapResolveResults("textDocument/completion", mapProtocolValue(result, "virtual-to-source", state), state);
 });
 
 client.onRequest("textDocument/definition", async (rawParams, token) => {
@@ -608,7 +621,11 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
   const native = await nativeRequest("textDocument/codeAction", mapped, token);
   ensureStateCurrent(state);
   const nativeActions = Array.isArray(native)
-    ? (mapProtocolValue(native, "virtual-to-source", state) as readonly unknown[])
+    ? (wrapResolveResults(
+        "textDocument/codeAction",
+        mapProtocolValue(native, "virtual-to-source", state),
+        state,
+      ) as readonly unknown[])
     : [];
   return [...typedActions, ...nativeActions];
 });
@@ -629,11 +646,16 @@ client.onRequest(TYPED_SQL_STATUS_REQUEST, async (): Promise<TypedSqlLanguageSer
   };
 });
 
-client.onRequest(async (method, params, token) => {
+client.onRequest(async (method, rawParams, token) => {
   await workspaceReady;
-  const uri = documentUri(params);
+  const restored = method.endsWith("/resolve") ? resolveContexts.restore(rawParams, method) : { item: rawParams };
+  if (restored.expired === true)
+    throw new ResponseError(LSP_CONTENT_MODIFIED, "Resolve context expired; request fresh items");
+  const params = restored.item;
+  const uri = restored.context?.uri ?? documentUri(params);
   if (uri !== undefined) await waitForDocument(uri, token);
-  const state = isObject(params) ? stateFor(params) : undefined;
+  const state = restored.context?.state ?? (isObject(params) ? stateFor(params) : undefined);
+  ensureStateCurrent(state);
   if (
     method === "textDocument/semanticTokens/full" ||
     method === "textDocument/semanticTokens/full/delta" ||
@@ -644,7 +666,10 @@ client.onRequest(async (method, params, token) => {
   const mappedParams = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest(method, mappedParams, token);
   ensureStateCurrent(state);
-  const mappedResult = mapProtocolValue(result, "virtual-to-source", state);
+  let mappedResult = mapProtocolValue(result, "virtual-to-source", state);
+  if (restored.context !== undefined && isObject(mappedResult)) {
+    mappedResult = resolveContexts.wrap([mappedResult], method, restored.context.uri, state!)[0];
+  } else mappedResult = wrapResolveResults(method, mappedResult, state);
   if (method !== "textDocument/diagnostic" || state === undefined || !isObject(mappedResult)) {
     return mappedResult;
   }
@@ -756,6 +781,7 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
   semanticTokenResults.delete(params.textDocument.uri);
+  resolveContexts.delete(params.textDocument.uri);
   sourceDocuments.delete(params.textDocument.uri);
   latestDocumentVersions.delete(params.textDocument.uri);
   documentAnalysisTokens.get(params.textDocument.uri)?.cancel();
