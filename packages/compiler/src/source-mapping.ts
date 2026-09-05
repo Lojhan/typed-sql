@@ -1,9 +1,16 @@
 import type { SourceAnalysisBinding, SourceAnalysisInsertion } from "./analysis.js";
 
+// These predicates are stateless: no global/sticky lastIndex can leak between calls.
+const whitespaceCharacter = /\s/u;
+const statementBoundary = /[;{}]/u;
+const identifierStart = /[A-Za-z_$]/u;
+const identifierPart = /[\w$]/u;
+
 /** Index declaration suffixes once rather than searching every source prefix. */
 export function sourceBindings(source: string): ReadonlyMap<number, SourceAnalysisBinding> {
   const bindings = new Map<number, SourceAnalysisBinding>();
-  const whitespace = (index: number): boolean => index >= 0 && index < source.length && /\s/u.test(source[index]!);
+  const whitespace = (index: number): boolean =>
+    index >= 0 && index < source.length && whitespaceCharacter.test(source[index]!);
   const skipWhitespace = (index: number): number => {
     while (whitespace(index)) index += 1;
     return index;
@@ -15,7 +22,7 @@ export function sourceBindings(source: string): ReadonlyMap<number, SourceAnalys
       newline ||= source[previous] === "\n";
       previous -= 1;
     }
-    if (newline || position === 0 || (previous >= 0 && /[;{}]/u.test(source[previous]!))) return true;
+    if (newline || position === 0 || (previous >= 0 && statementBoundary.test(source[previous]!))) return true;
     return (
       allowExport &&
       previous < position - 1 &&
@@ -29,9 +36,9 @@ export function sourceBindings(source: string): ReadonlyMap<number, SourceAnalys
     if (!boundary(match.index)) continue;
     const keywordEnd = match.index + match[0].length;
     const start = skipWhitespace(keywordEnd);
-    if (start === keywordEnd || start === source.length || !/[A-Za-z_$]/u.test(source[start]!)) continue;
+    if (start === keywordEnd || start === source.length || !identifierStart.test(source[start]!)) continue;
     let end = start + 1;
-    while (end < source.length && /[\w$]/u.test(source[end]!)) end += 1;
+    while (end < source.length && identifierPart.test(source[end]!)) end += 1;
     const equals = skipWhitespace(end);
     if (source[equals] !== "=") continue;
     bindings.set(skipWhitespace(equals + 1), { name: source.slice(start, end), range: { start, end } });
