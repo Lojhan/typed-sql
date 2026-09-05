@@ -6,6 +6,7 @@
   },
   "include": [
     "../packages/*/test/**/*.test.ts",
+    "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",
     "contracts/**/*.test.ts",
     "fuzz/**/*.ts",
@@ -16,6 +17,7 @@
   ],
   "exclude": ["fixtures"],
   "references": [
+    { "path": "../editors/vscode" },
     { "path": "../packages/core" },
     { "path": "../packages/config" },
     { "path": "../packages/ast" },

@@ -97,6 +97,7 @@
     }
   },
   "scripts": {
+    "test": "poku test/lifecycle.test.ts --reporter=compact --enforce",
     "test:host": "node test/run-host.mjs",
     "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --external:tsx/* --sourcemap",
     "package:vsix": "node -e \"require('node:fs').mkdirSync('../../artifacts',{recursive:true})\" && pnpm build:bundle && vsce package --no-dependencies --out ../../artifacts/typed-sql-vscode.vsix"

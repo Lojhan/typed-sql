@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Serialize client startup, configuration restarts and shutdown to avoid overlapping workspace servers.
+
 - Verify real SQL overlays, inferred completions, TypeScript diagnostics and unsaved edits through an isolated packaged VS Code host.
 
 - Declare the workspace trust requirement and unsupported virtual-workspace boundary explicitly.

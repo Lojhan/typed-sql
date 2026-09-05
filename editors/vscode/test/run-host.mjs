@@ -24,6 +24,7 @@ const executable = await downloadAndUnzipVSCode({
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
 const scenarios = [
   ...["trusted", "untrusted", "virtual"].map((mode) => ({ mode, id: mode })),
+  { mode: "lifecycle", id: "lifecycle" },
   ...grammarCases.map((spec) => ({ mode: "overlays", id: spec.id, spec })),
 ];
 const reports = [];
@@ -54,7 +55,9 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     );
   await writeFile(
     join(workspace, ".vscode/settings.json"),
-    JSON.stringify({ "typedSql.serverPath": join(directory, "probe-server.cjs") }),
+    JSON.stringify({
+      "typedSql.serverPath": mode === "lifecycle" ? "missing-server.cjs" : join(directory, "probe-server.cjs"),
+    }),
   );
   if (mode === "overlays") await prepareOverlayWorkspace(workspace, root, spec);
   await mkdir(join(profile, "User"), { recursive: true });
@@ -82,7 +85,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
         "--disable-extension",
         "vscode.typescript-language-features",
         `--extensionDevelopmentPath=${join(directory, "harness")}`,
-        `--extensionTestsPath=${join(directory, mode === "overlays" ? "overlay-suite.cjs" : "host-suite.cjs")}`,
+        `--extensionTestsPath=${join(directory, mode === "overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
         ...(mode !== "untrusted" ? ["--disable-workspace-trust"] : []),
       ],
       {
@@ -93,6 +96,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
           TYPED_SQL_HOST_MODE: mode,
           TYPED_SQL_HOST_GRAMMAR: spec?.id ?? "",
           TYPED_SQL_HOST_MARKER: join(base, "server-started"),
+          TYPED_SQL_HOST_PROBE: join(directory, "lifecycle-server.cjs"),
           TYPED_SQL_HOST_REPORT: join(base, "result.json"),
         },
       },
