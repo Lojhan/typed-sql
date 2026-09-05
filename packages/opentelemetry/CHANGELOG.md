@@ -1,5 +1,15 @@
 # @typed-sql/opentelemetry
 
+## 2.1.1
+
+### Patch Changes
+
+- Updated dependencies [b752fde]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+
 ## 2.1.0
 
 ### Patch Changes

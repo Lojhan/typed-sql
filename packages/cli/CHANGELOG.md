@@ -1,5 +1,24 @@
 # @typed-sql/cli
 
+## 2.1.1
+
+### Patch Changes
+
+- 456fa7f: Stage serialized artifacts in sibling files before atomic replacement, preserving existing file permissions and cleaning staging files on failure. Schema generation publishes its self-contained JSON input last. Individual files are atomic; publication across files is not a filesystem transaction.
+- Updated dependencies [b752fde]
+- Updated dependencies [456fa7f]
+- Updated dependencies [8e6b443]
+- Updated dependencies [5387b5e]
+- Updated dependencies [7e94958]
+- Updated dependencies [a4c4e73]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/compiler@2.1.1
+  - @typed-sql/core@2.2.0
+  - @typed-sql/schema@2.2.0
+  - @typed-sql/config@2.1.1
+
 ## 2.1.0
 
 ### Minor Changes

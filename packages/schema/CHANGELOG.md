@@ -1,5 +1,20 @@
 # @typed-sql/schema
 
+## 2.2.0
+
+### Minor Changes
+
+- 456fa7f: Stage serialized artifacts in sibling files before atomic replacement, preserving existing file permissions and cleaning staging files on failure. Schema generation publishes its self-contained JSON input last. Individual files are atomic; publication across files is not a filesystem transaction.
+- 7e94958: Make schema and policy hash ordering independent of the host locale, including unordered v2 semantic arrays. Add content-checking compatibility helpers so legacy hashes remain accepted in their originating locale.
+
+### Patch Changes
+
+- Updated dependencies [b752fde]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes
