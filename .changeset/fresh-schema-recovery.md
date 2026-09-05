@@ -2,4 +2,4 @@
 "@typed-sql/language-server": patch
 ---
 
-Clear a previously published project-unavailable diagnostic after schema analysis recovers in pull-diagnostic clients. Preserve current TypeScript and SQL diagnostics by refreshing the combined pull report.
+Return project-unavailable diagnostics through pull requests while schema analysis is unavailable, and clear the previously pushed failure after recovery. Preserve current TypeScript and SQL diagnostics by refreshing the combined pull report.

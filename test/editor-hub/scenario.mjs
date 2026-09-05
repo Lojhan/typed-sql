@@ -90,10 +90,10 @@ export async function runScenario(spec, host, record) {
       // do not use column metadata (the synthetic third-party fixture).
       await host.writeSchema({ ...spec.schema, dialectVersion: "0.0.0-incompatible" });
       await eventually("incompatible schema fails closed", async () => {
+        const diagnostics = await host.diagnostics();
         assert.ok(
-          (await host.diagnostics()).some(
-            (item) => item.source === "typed-sql" && /analysis is unavailable/.test(item.message),
-          ),
+          diagnostics.some((item) => item.source === "typed-sql" && /analysis is unavailable/.test(item.message)),
+          JSON.stringify(diagnostics),
         );
         const value = await host.hover(marker(spec.initial), memberOffset).catch(() => "");
         assert.ok(value.length === 0 || /\bunknown\b/.test(value), `must not retain stale inference: ${value}`);

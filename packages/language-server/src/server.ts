@@ -143,7 +143,7 @@ const sourceDocuments = new Map<string, TextDocument>();
 const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
-const projectFailureReports = new Set<string>();
+const projectFailureReports = new Map<string, JsonObject>();
 let pullDiagnostics = false;
 let diagnosticRefreshSupported = false;
 const semanticTokenResults = new SemanticTokenResults();
@@ -293,12 +293,14 @@ function queueDocument(uri: string, operation: () => Promise<void>): Promise<voi
     .catch(async (error: unknown) => {
       if (error instanceof Error && error.name === "AbortError") return;
       nativeDiagnostics.delete(uri);
-      if (sourceDocuments.has(uri)) projectFailureReports.add(uri);
+      const diagnostic = projectFailureDiagnostic(error);
+      if (sourceDocuments.has(uri)) projectFailureReports.set(uri, diagnostic);
       await client.sendNotification("textDocument/publishDiagnostics", {
         uri,
         ...(latestDocumentVersions.get(uri) === undefined ? {} : { version: latestDocumentVersions.get(uri) }),
-        diagnostics: [projectFailureDiagnostic(error)],
+        diagnostics: [diagnostic],
       });
+      requestDiagnosticRefresh();
     });
   pendingDocuments.set(uri, pending);
   return pending.finally(() => {
@@ -320,13 +322,15 @@ function queueWorkspace(operation: () => Promise<void>): Promise<void> {
     .catch(async (error: unknown) => {
       for (const [uri, state] of documents) {
         nativeDiagnostics.delete(uri);
-        if (sourceDocuments.has(uri)) projectFailureReports.add(uri);
+        const diagnostic = projectFailureDiagnostic(error);
+        if (sourceDocuments.has(uri)) projectFailureReports.set(uri, diagnostic);
         await client.sendNotification("textDocument/publishDiagnostics", {
           uri,
           version: state.original.version,
-          diagnostics: [projectFailureDiagnostic(error)],
+          diagnostics: [diagnostic],
         });
       }
+      requestDiagnosticRefresh();
     });
   return workspaceReady;
 }
@@ -453,6 +457,13 @@ async function combinedDiagnostics(state: DocumentState): Promise<readonly unkno
   ]);
 }
 
+function requestDiagnosticRefresh(): void {
+  // Never await a refresh from a document/workspace queue: the new pull waits
+  // for that queue to finish, including when schema analysis failed.
+  if (pullDiagnostics && diagnosticRefreshSupported)
+    void client.sendRequest("workspace/diagnostic/refresh").catch(() => undefined);
+}
+
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   if (latestDocumentVersions.get(state.original.uri) !== state.original.version) return;
   if (pullDiagnostics) {
@@ -467,7 +478,7 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
     // A typed-sql-only push would replace the client's combined pull report and
     // erase TypeScript errors. Ask it to pull again after overlay invalidation.
     // Do not await: the new pull must be able to wait for this document queue.
-    if (diagnosticRefreshSupported) void client.sendRequest("workspace/diagnostic/refresh").catch(() => undefined);
+    requestDiagnosticRefresh();
     return;
   }
   const diagnostics = await combinedDiagnostics(state);
@@ -684,6 +695,11 @@ client.onRequest(async (method, rawParams, token) => {
   const params = restored.item;
   const uri = restored.context?.uri ?? documentUri(params);
   if (uri !== undefined) await waitForDocument(uri, token);
+  // Failed schema analysis must remain visible to pull clients as a diagnostic,
+  // not disappear when their pull report supersedes a pushed failure report.
+  const projectFailure = uri === undefined ? undefined : projectFailureReports.get(uri);
+  if (method === "textDocument/diagnostic" && projectFailure !== undefined)
+    return { kind: "full", items: [projectFailure] };
   const state = restored.context?.state ?? (isObject(params) ? stateFor(params) : undefined);
   ensureStateCurrent(state);
   if (
