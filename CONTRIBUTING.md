@@ -49,6 +49,39 @@ Neutral packages must not branch on a dialect id, package name, server, or drive
 [Author a custom SQL grammar](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md)
 for the public contract and `AGENTS.md` for repository invariants.
 
+## Investigate static-analysis findings
+
+The optional review toolchain runs ESLint cyclomatic complexity and selected correctness rules,
+Biome cognitive complexity and performance-pattern rules, and Knip unused-code analysis:
+
+```sh
+pnpm --dir tools/static-review --ignore-workspace install --frozen-lockfile
+pnpm review:static
+```
+
+This command requires Node.js 22.13 or newer. Its private, separately locked dependencies keep the
+analysis parser's TypeScript 6 dependency separate from the repository's TypeScript 7 compiler.
+Install the root workspace first for Biome. Reports go to `artifacts/static-review/`; rerunning the
+command replaces these diagnostic reports, not source files.
+
+Cyclomatic complexity above 20, cognitive complexity and regex placement are review signals, not
+proof of defects or speedups. Knip maps package exports and executable entrypoints to source and
+keeps public entry exports out of unused-export deletion candidates. Its remaining findings still
+need manual review, particularly signature types, compatibility facades and generated consumers.
+Known compiled-output performance consumers have explicit source boundaries in
+`tools/static-review/inputs.mjs`; check scripts and generated consumers before removing any export.
+Do not automatically remove APIs or merge grammar policy because of a metric.
+
+The command returns failure on tool/configuration errors, empty ESLint/Biome scans or selected
+correctness errors; complexity/performance warnings and unused-code candidates are advisory.
+It does not replace `pnpm verify`, measured performance budgets, CodeQL or packed-consumer checks.
+The report parser and entrypoint mapping have dependency-free tests in the contract suite.
+
+Reference the [ESLint complexity rule](https://eslint.org/docs/latest/rules/complexity),
+[Biome cognitive complexity](https://biomejs.dev/linter/rules/no-excessive-cognitive-complexity/),
+[Biome accumulating-spread rule](https://biomejs.dev/linter/rules/no-accumulating-spread/) and
+[Knip entrypoint guidance](https://knip.dev/guides/configuring-project-files) when interpreting results.
+
 ## Write durable documentation
 
 Public documentation lives under [`docs/`](docs/index.md). Write for application developers first,

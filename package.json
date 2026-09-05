@@ -17,6 +17,7 @@
     "changeset": "changeset",
     "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm docs:build && pnpm performance:gate",
     "quality": "pnpm postgres:catalog:check && pnpm mysql:catalog:check && biome check .",
+    "review:static": "pnpm --dir tools/static-review review",
     "format": "biome check --write .",
     "fuzz:replay": "poku packages/ast/test/fuzz.test.ts packages/postgres/test/parser-ownership.test.ts packages/mysql/test/parser-ownership.test.ts packages/sqlite/test/parser-ownership.test.ts test/contracts/property-corpus.test.ts --reporter=compact --enforce",
     "mutation:pilot": "node scripts/mutation-pilot.mjs",
