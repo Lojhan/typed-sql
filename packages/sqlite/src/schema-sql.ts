@@ -72,7 +72,7 @@ function tableBody(definition: string): string | undefined {
   return span === undefined ? undefined : definition.slice(span.start, span.end);
 }
 
-export function sqliteColumnDefinition(definition: string | undefined, column: string): string | undefined {
+function sqliteColumnDefinition(definition: string | undefined, column: string): string | undefined {
   if (definition === undefined) return undefined;
   const body = tableBody(definition);
   if (body === undefined) return undefined;
