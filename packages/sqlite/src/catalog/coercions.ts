@@ -35,7 +35,7 @@ export function normalizeSqliteDatabaseType(databaseType: string): string {
     .replace(/\(.*/u, "");
 }
 
-export function isSqliteNumericDatabaseType(databaseType: string | undefined): boolean {
+function isSqliteNumericDatabaseType(databaseType: string | undefined): boolean {
   return databaseType !== undefined && SQLITE_NUMERIC_DATABASE_TYPES.has(normalizeSqliteDatabaseType(databaseType));
 }
 

@@ -32,7 +32,7 @@ export interface MySqlPreparedQueryState {
   readonly queries: WeakMap<object, MySqlPreparedQueryMetadata>;
 }
 
-export const defaultMySqlPreparedStatementLimit = 16_000;
+const defaultMySqlPreparedStatementLimit = 16_000;
 
 export function createMySqlPreparedQueryState(
   capacity = defaultMySqlPreparedStatementLimit,

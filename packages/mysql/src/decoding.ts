@@ -74,7 +74,7 @@ function compileValueDecoder(
 }
 
 /** Compiles immutable field metadata into a decoder plan shared by buffered and streamed rows. */
-export function compileMySqlRowDecoders(
+function compileMySqlRowDecoders(
   fields: readonly MySqlFieldLike[],
   typePolicy: MySqlRuntimeTypePolicy,
   decimal?: (value: string) => unknown,

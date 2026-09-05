@@ -325,7 +325,7 @@ function cookedEscape(source: string, start: number): { readonly text: string; r
   return { text: escaped, end: start + 2 };
 }
 
-export function extractTemplate(
+function extractTemplate(
   source: string,
   tagName: string,
   tagStart: number,
