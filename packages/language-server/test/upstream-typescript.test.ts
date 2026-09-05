@@ -34,6 +34,7 @@ await describe("upstream TypeScript LSP integration", async () => {
       processId: process.pid,
       rootUri: pathToFileURL(workspace).href,
       capabilities: {
+        workspace: { workspaceEdit: { documentChanges: true } },
         textDocument: {
           semanticTokens: {
             requests: { range: true, full: { delta: true } },
@@ -113,11 +114,11 @@ await describe("upstream TypeScript LSP integration", async () => {
       ].join("\n");
       for (const client of [upstream, proxy]) {
         client.notify("textDocument/didChange", {
-          textDocument: { uri, version: 2 },
+          textDocument: { uri, version: 42 },
           contentChanges: [{ text: exported }],
         });
         client.notify("textDocument/didOpen", {
-          textDocument: { uri: databaseUri, languageId: "typescript", version: 1, text: databaseSource },
+          textDocument: { uri: databaseUri, languageId: "typescript", version: 17, text: databaseSource },
         });
         await client.request("textDocument/hover", {
           textDocument: { uri: databaseUri },
@@ -134,6 +135,17 @@ await describe("upstream TypeScript LSP integration", async () => {
         strict.ok(JSON.stringify(expected).includes(databaseUri), `${method} must include the other document`);
         strict.deepStrictEqual(await proxy.request(method, request), expected, `cross-file ${method}`);
       }
+      // The pinned upstream returns URI-keyed changes for rename even when the
+      // client supports documentChanges. Exercise the version guard explicitly;
+      // versioned response round trips are covered by the pure mapper fixtures.
+      await strict.rejects(
+        proxy.request("textDocument/rename", {
+          textDocument: { uri, version: 41 },
+          position: positionAt(exported, exported.lastIndexOf("shared")),
+          newName: "staleRename",
+        }),
+        /-32801: Document version does not match/u,
+      );
       const tokenRequest = { textDocument: { uri: databaseUri } };
       const nativeTokens = (await upstream.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
       const projected = (await proxy.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
@@ -165,7 +177,7 @@ await describe("upstream TypeScript LSP integration", async () => {
       strict.deepStrictEqual(unchanged.edits, []);
       const changedSource = `\n${databaseSource}`;
       proxy.notify("textDocument/didChange", {
-        textDocument: { uri: databaseUri, version: 2 },
+        textDocument: { uri: databaseUri, version: 88 },
         contentChanges: [{ text: changedSource }],
       });
       const delta = (await proxy.request("textDocument/semanticTokens/full/delta", {

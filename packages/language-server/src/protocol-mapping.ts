@@ -6,6 +6,7 @@ interface Position {
 interface CoordinateMapper<State> {
   readonly lookup: (uri: string) => State | undefined;
   readonly position: (state: State, position: Position) => Position;
+  readonly version?: (state: State, version: number) => number;
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -36,6 +37,12 @@ export function mapProtocolCoordinates<State>(
       // Completion, code-action, hierarchy and diagnostic resolution data belongs
       // to its producer. It must survive the client/server round trip unchanged.
       if (key === "data") return [key, item];
+      if (key === "textDocument" && object(item) && typeof item.uri === "string" && typeof item.version === "number") {
+        const owner = mapper.lookup(item.uri);
+        if (owner !== undefined && mapper.version !== undefined) {
+          return [key, { ...item, version: mapper.version(owner, item.version) }];
+        }
+      }
       if (key === "changes" && object(item)) {
         return [
           key,
