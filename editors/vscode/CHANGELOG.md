@@ -1,5 +1,10 @@
 # typed-sql
 
+## Unreleased
+
+- Declare the workspace trust requirement and unsupported virtual-workspace boundary explicitly.
+- Verify the packaged VSIX in isolated trusted, Restricted Mode and virtual-workspace hosts.
+
 ## 1.0.0
 
 ### Major Changes

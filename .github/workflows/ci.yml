@@ -480,6 +480,8 @@ jobs:
       - run: pnpm --filter @typed-sql/e2e-mysql generate:snapshot
       - run: pnpm exec poku packages/language-server/test/language-server.test.ts --reporter=compact --enforce
       - run: pnpm --filter ./editors/vscode package:vsix
+      - run: xvfb-run -a pnpm --filter ./editors/vscode test:host
+        timeout-minutes: 10
       - run: rustup target add wasm32-wasip2
       - run: cargo test --manifest-path editors/zed/Cargo.toml
       - run: pnpm editor:zed:build
@@ -487,7 +489,10 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: typed-sql-editor-artifacts
-          path: artifacts/
+          path: |
+            artifacts/
+            !artifacts/editor-host/downloads/**
+            !artifacts/editor-host/v-*/**
 
   pull-request-distribution:
     if: github.event_name == 'pull_request'

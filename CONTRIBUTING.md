@@ -49,6 +49,26 @@ Neutral packages must not branch on a dialect id, package name, server, or drive
 [Author a custom SQL grammar](https://github.com/Lojhan/typed-sql/blob/main/docs/extending/custom-grammars.md)
 for the public contract and `AGENTS.md` for repository invariants.
 
+## Verify the packaged VS Code client
+
+Build the VSIX before running the isolated editor host suite:
+
+```sh
+pnpm --filter ./editors/vscode package:vsix
+pnpm --filter ./editors/vscode test:host
+```
+
+The suite downloads VS Code 1.134.0 and installs the VSIX into separate extension/profile
+directories for trusted, Restricted Mode and virtual-workspace scenarios. It uses a controlled
+server probe to assert whether the client executes workspace code; it does not prove SQL inference
+or complete editor-feature parity. No personal editor profile is used. Linux CI runs the suite
+under `xvfb-run -a`; its isolated Electron process uses `--no-sandbox` for hosted-runner compatibility.
+
+Downloads, profiles and result JSON normally live under `artifacts/editor-host/`. If the checkout
+path exceeds Unix socket limits, set `TYPED_SQL_HOST_DATA_ROOT` to a shorter user-owned directory.
+Result JSON is also copied into `artifacts/editor-host/results/`; CI excludes downloads and full
+profiles from artifact uploads. Runs preserve their unique directories for diagnosis.
+
 ## Investigate static-analysis findings
 
 The optional review toolchain runs ESLint cyclomatic complexity and selected correctness rules,
