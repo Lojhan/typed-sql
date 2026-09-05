@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Verify real SQL overlays, inferred completions, TypeScript diagnostics and unsaved edits through an isolated packaged VS Code host.
+
 - Declare the workspace trust requirement and unsupported virtual-workspace boundary explicitly.
 - Verify the packaged VSIX in isolated trusted, Restricted Mode and virtual-workspace hosts.
 

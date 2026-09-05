@@ -143,6 +143,8 @@ const sourceDocuments = new Map<string, TextDocument>();
 const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
+let pullDiagnostics = false;
+let diagnosticRefreshSupported = false;
 const semanticTokenResults = new SemanticTokenResults();
 const resolveContexts = new ResolveContexts<DocumentState>();
 const pendingDocuments = new Map<string, Promise<void>>();
@@ -450,6 +452,13 @@ async function combinedDiagnostics(state: DocumentState): Promise<readonly unkno
 
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   if (latestDocumentVersions.get(state.original.uri) !== state.original.version) return;
+  if (pullDiagnostics) {
+    // A typed-sql-only push would replace the client's combined pull report and
+    // erase TypeScript errors. Ask it to pull again after overlay invalidation.
+    // Do not await: the new pull must be able to wait for this document queue.
+    if (diagnosticRefreshSupported) void client.sendRequest("workspace/diagnostic/refresh").catch(() => undefined);
+    return;
+  }
   const diagnostics = await combinedDiagnostics(state);
   if (
     latestDocumentVersions.get(state.original.uri) !== state.original.version ||
@@ -546,6 +555,15 @@ client.onRequest("initialize", async (rawParams) => {
   const roots = workspaceDirectories(params);
   await configureServices(roots, settingsFrom(params.initializationOptions));
   const result = await nativeRequest<JsonObject>("initialize", params);
+  const capabilities = isObject(params.capabilities) ? params.capabilities : {};
+  const textCapabilities = isObject(capabilities.textDocument) ? capabilities.textDocument : {};
+  const workspaceCapabilities = isObject(capabilities.workspace) ? capabilities.workspace : {};
+  pullDiagnostics =
+    isObject(textCapabilities.diagnostic) &&
+    isObject(result.capabilities) &&
+    isObject(result.capabilities.diagnosticProvider);
+  diagnosticRefreshSupported =
+    isObject(workspaceCapabilities.diagnostics) && workspaceCapabilities.diagnostics.refreshSupport === true;
   return {
     ...result,
     capabilities: extendTypeScriptCapabilities(result.capabilities),

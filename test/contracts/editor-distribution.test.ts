@@ -56,6 +56,14 @@ await describe("external editor distribution", async () => {
     );
   });
 
+  await it("runs real overlay host verification alongside probe-only trust checks", async () => {
+    const runner = await text("editors/vscode/test/run-host.mjs");
+    strict.ok(runner.includes('"trusted", "untrusted", "virtual", "overlays"'));
+    strict.ok(runner.includes("prepareOverlayWorkspace(workspace, root)"));
+    strict.ok(runner.includes('"overlay-suite.cjs"'));
+    strict.ok((await text("CONTRIBUTING.md")).includes("not proof of"));
+  });
+
   await it("resolves Zed's application-local package before development fallbacks", async () => {
     const source = await text("editors/zed/src/lib.rs");
     const installed = source.indexOf("node_modules/@typed-sql/language-server");
