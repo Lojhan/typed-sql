@@ -93,8 +93,8 @@ export class ProtocolClient {
   async close(): Promise<void> {
     if (this.#process.exitCode !== null) return;
     try {
-      await this.request("shutdown", null);
-      this.notify("exit", null);
+      await this.request("shutdown", undefined);
+      this.notify("exit", undefined);
       await new Promise<void>((resolveClose) => {
         const timeout = setTimeout(() => {
           this.#process.kill();

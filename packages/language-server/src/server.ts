@@ -15,6 +15,7 @@ import {
   ResponseError,
 } from "vscode-jsonrpc/node";
 import { TextDocument, type TextDocumentContentChangeEvent } from "vscode-languageserver-textdocument";
+import { extendTypeScriptCapabilities } from "./capabilities.js";
 import {
   negotiateTypedSqlProtocol,
   settingsFrom,
@@ -524,12 +525,7 @@ client.onRequest("initialize", async (rawParams) => {
   const result = await nativeRequest<JsonObject>("initialize", params);
   return {
     ...result,
-    capabilities: {
-      ...(isObject(result.capabilities) ? result.capabilities : {}),
-      completionProvider: { triggerCharacters: ["."] },
-      definitionProvider: true,
-      codeActionProvider: true,
-    },
+    capabilities: extendTypeScriptCapabilities(result.capabilities),
     serverInfo: {
       name: "typed-sql + TypeScript preview",
       version: TYPESCRIPT_PREVIEW_VERSION,

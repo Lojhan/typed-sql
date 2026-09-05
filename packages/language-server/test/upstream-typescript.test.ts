@@ -1,0 +1,71 @@
+import { readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { describe, it, strict } from "poku";
+import { ProtocolClient, positionAt } from "../../../test/helpers/protocol-client.js";
+import { typescriptPreviewCliPath } from "../../ts-bridge/src/native-lsp.js";
+
+const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const fixture = join(workspace, "test/fixtures/success");
+const server = join(workspace, "packages/language-server/dist/packages/language-server/src/server.js");
+
+await describe("upstream TypeScript LSP integration", async () => {
+  await it("retains upstream advertised options through the actual initialization proxy", async () => {
+    const upstream = new ProtocolClient(process.execPath, [typescriptPreviewCliPath(), "--lsp", "--stdio"], workspace);
+    const proxy = new ProtocolClient(process.execPath, [server, "--stdio"], workspace);
+    const params = {
+      processId: process.pid,
+      rootUri: pathToFileURL(workspace).href,
+      capabilities: {},
+      initializationOptions: {
+        configPath: join(workspace, "e2e/postgres/typed-sql.config.ts"),
+        schemaPath: join(fixture, "schema.json"),
+        projectFile: join(fixture, "tsconfig.json"),
+        nativePreview: true,
+      },
+    };
+    try {
+      const native = (await upstream.request("initialize", params)) as { capabilities: Record<string, unknown> };
+      const extended = (await proxy.request("initialize", params)) as { capabilities: Record<string, unknown> };
+      for (const [key, value] of Object.entries(native.capabilities)) {
+        if (key === "completionProvider" || key === "codeActionProvider") {
+          if (value !== null && typeof value === "object") {
+            for (const [option, expected] of Object.entries(value)) {
+              const actual = (extended.capabilities[key] as Record<string, unknown>)[option];
+              if (Array.isArray(expected)) {
+                strict.ok(Array.isArray(actual), `${key}.${option}`);
+                for (const item of expected)
+                  strict.ok(Array.isArray(actual) && actual.includes(item), `${key}.${option}: ${String(item)}`);
+              } else strict.deepStrictEqual(actual, expected, `${key}.${option}`);
+            }
+          }
+        } else strict.deepStrictEqual(extended.capabilities[key], value, key);
+      }
+      const source = await readFile(join(fixture, "query.ts"), "utf8");
+      const uri = pathToFileURL(join(fixture, "query.ts")).href;
+      upstream.notify("initialized", {});
+      proxy.notify("initialized", {});
+      const document = { uri, languageId: "typescript", version: 1, text: source };
+      upstream.notify("textDocument/didOpen", { textDocument: document });
+      proxy.notify("textDocument/didOpen", { textDocument: document });
+      // This symbol follows the injected SQL type overlay. Exact parity therefore
+      // checks source mapping as well as preserving ordinary TypeScript behavior.
+      const position = positionAt(source, source.indexOf("verify():"));
+      for (const method of ["textDocument/definition", "textDocument/references", "textDocument/rename"]) {
+        const request = {
+          textDocument: { uri },
+          position,
+          ...(method.endsWith("references") ? { context: { includeDeclaration: true } } : {}),
+          ...(method.endsWith("rename") ? { newName: "verifyAccount" } : {}),
+        };
+        const expected = await upstream.request(method, request);
+        strict.ok(expected !== null, `${method} must produce actual upstream evidence`);
+        strict.ok(JSON.stringify(expected).includes(uri), `${method} must locate the source document`);
+        if (method.endsWith("rename")) strict.ok(JSON.stringify(expected).includes("verifyAccount"));
+        strict.deepStrictEqual(await proxy.request(method, request), expected, method);
+      }
+    } finally {
+      await Promise.all([upstream.close(), proxy.close()]);
+    }
+  });
+});
