@@ -27,6 +27,7 @@ import {
   type TypedSqlProtocolNegotiation,
 } from "./index.js";
 import { mapProtocolCoordinates } from "./protocol-mapping.js";
+import { projectSemanticTokens, SemanticTokenResults } from "./semantic-tokens.js";
 
 interface Position {
   readonly line: number;
@@ -141,6 +142,7 @@ const sourceDocuments = new Map<string, TextDocument>();
 const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
+const semanticTokenResults = new SemanticTokenResults();
 const pendingDocuments = new Map<string, Promise<void>>();
 const latestDocumentVersions = new Map<string, number>();
 const documentAnalysisTokens = new Map<string, AnalysisCancellation>();
@@ -624,6 +626,13 @@ client.onRequest(async (method, params, token) => {
   const uri = documentUri(params);
   if (uri !== undefined) await waitForDocument(uri, token);
   const state = isObject(params) ? stateFor(params) : undefined;
+  if (
+    method === "textDocument/semanticTokens/full" ||
+    method === "textDocument/semanticTokens/full/delta" ||
+    method === "textDocument/semanticTokens/range"
+  ) {
+    return semanticTokens(method, params, state, token);
+  }
   const mappedParams = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest(method, mappedParams, token);
   ensureStateCurrent(state);
@@ -639,6 +648,47 @@ client.onRequest(async (method, params, token) => {
     items: protocolDiagnostics([...items, ...typedDiagnostics]),
   };
 });
+
+async function semanticTokens(
+  method: string,
+  params: unknown,
+  state: DocumentState | undefined,
+  token: CancellationToken,
+): Promise<unknown> {
+  const mapped = mapProtocolValue(params, "source-to-virtual", state);
+  if (!isObject(mapped)) throw new ResponseError(-32602, "Expected semantic token parameters");
+  // Request complete upstream data: delta indices refer to virtual arrays and
+  // cannot be applied to the independently projected client array. Buffer partial
+  // results by omitting the optional token, avoiding unprojected progress chunks.
+  const { previousResultId: _previous, partialResultToken: _partial, ...request } = mapped;
+  const result = await nativeRequest(
+    method.endsWith("/delta") ? "textDocument/semanticTokens/full" : method,
+    request,
+    token,
+  );
+  ensureStateCurrent(state);
+  const uri = documentUri(params);
+  if (result === null) {
+    if (uri !== undefined) semanticTokenResults.delete(uri);
+    return null;
+  }
+  if (!isObject(result)) throw new TypeError("Invalid upstream semantic token response");
+  const data = projectSemanticTokens(result.data, (item) => {
+    if (state?.analysis === undefined) return item;
+    const start = state.transformed.offsetAt(item);
+    const sourceStart = virtualOffsetToSource(state, start);
+    const sourceEnd = virtualOffsetToSource(state, start + item.length);
+    return { ...state.original.positionAt(sourceStart), length: sourceEnd - sourceStart };
+  });
+  if (method.endsWith("/range") || uri === undefined) return { data };
+  return semanticTokenResults.response(
+    uri,
+    data,
+    method.endsWith("/delta") && isObject(params) && typeof params.previousResultId === "string"
+      ? params.previousResultId
+      : undefined,
+  );
+}
 
 client.onNotification("textDocument/didOpen", (rawParams) => {
   const params = rawParams as DidOpenParams;
@@ -697,6 +747,7 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
+  semanticTokenResults.delete(params.textDocument.uri);
   sourceDocuments.delete(params.textDocument.uri);
   latestDocumentVersions.delete(params.textDocument.uri);
   documentAnalysisTokens.get(params.textDocument.uri)?.cancel();
