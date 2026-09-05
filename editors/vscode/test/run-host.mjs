@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -118,6 +118,15 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
       passed: false,
       hostError: String(failure ?? "Host did not write a passing report").slice(0, 4000),
     };
+    // Preserve only this extension's bounded log from the isolated fixture,
+    // never the complete editor profile or unrelated extension logs.
+    const logs = join(profile, "logs");
+    const entries = await readdir(logs, { recursive: true }).catch(() => []);
+    report.clientLogs = await Promise.all(
+      entries
+        .filter((entry) => entry.replaceAll("\\", "/").endsWith("/lojhan.typed-sql/typed-sql.log"))
+        .map(async (entry) => (await readFile(join(logs, entry), "utf8")).slice(-32_768)),
+    );
   }
   await writeFile(join(results, `${id}.json`), JSON.stringify(report, null, 2));
   if (report.passed !== true) console.error(`Host failure ${id}: ${JSON.stringify(report)}`);

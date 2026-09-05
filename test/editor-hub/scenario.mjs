@@ -121,11 +121,13 @@ export async function runScenario(spec, host, record) {
     await eventually("unsaved inference", async () =>
       assertType(await host.hover(marker(spec.changed), memberOffset), spec.changed.member, spec.changed.type),
     );
-    await eventually("refreshed diagnostic", async () =>
+    await eventually("refreshed diagnostic", async () => {
+      const diagnostics = await host.diagnostics();
       assert.ok(
-        (await host.diagnostics()).some((item) => item.error && item.line === 6 && /not assignable/.test(item.message)),
-      ),
-    );
+        diagnostics.some((item) => item.error && item.line === 6 && /not assignable/.test(item.message)),
+        JSON.stringify(diagnostics),
+      );
+    });
   });
   await check("sql-diagnostic", async () => {
     await host.replace(sourceFor(spec, { ...spec.changed, query: spec.invalidQuery }));
