@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
+import { prepareOverlayWorkspace } from "./setup-overlays.mjs";
 
 const execFile = promisify(execFileCallback);
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -19,7 +20,7 @@ const executable = await downloadAndUnzipVSCode({
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
-for (const mode of ["trusted", "untrusted", "virtual"]) {
+for (const mode of ["trusted", "untrusted", "virtual", "overlays"]) {
   const base = join(run, mode[0]);
   const workspace = join(base, "workspace");
   const profile = join(base, "p");
@@ -44,6 +45,7 @@ for (const mode of ["trusted", "untrusted", "virtual"]) {
     join(workspace, ".vscode/settings.json"),
     JSON.stringify({ "typedSql.serverPath": join(directory, "probe-server.cjs") }),
   );
+  if (mode === "overlays") await prepareOverlayWorkspace(workspace, root);
   await mkdir(join(profile, "User"), { recursive: true });
   await writeFile(
     join(profile, "User/settings.json"),
@@ -67,7 +69,7 @@ for (const mode of ["trusted", "untrusted", "virtual"]) {
       "--disable-extension",
       "vscode.typescript-language-features",
       `--extensionDevelopmentPath=${join(directory, "harness")}`,
-      `--extensionTestsPath=${join(directory, "host-suite.cjs")}`,
+      `--extensionTestsPath=${join(directory, mode === "overlays" ? "overlay-suite.cjs" : "host-suite.cjs")}`,
       ...(mode !== "untrusted" ? ["--disable-workspace-trust"] : []),
     ],
     {

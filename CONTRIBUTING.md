@@ -54,14 +54,20 @@ for the public contract and `AGENTS.md` for repository invariants.
 Build the VSIX before running the isolated editor host suite:
 
 ```sh
+pnpm build
 pnpm --filter ./editors/vscode package:vsix
 pnpm --filter ./editors/vscode test:host
 ```
 
 The suite downloads VS Code 1.134.0 and installs the VSIX into separate extension/profile
-directories for trusted, Restricted Mode and virtual-workspace scenarios. It uses a controlled
-server probe to assert whether the client executes workspace code; it does not prove SQL inference
-or complete editor-feature parity. No personal editor profile is used. Linux CI runs the suite
+directories for trusted, Restricted Mode, virtual-workspace and real-overlay scenarios. The first
+three use a controlled server probe to assert whether the client executes workspace code. The
+overlay scenario uses built workspace packages and the real language server with the pinned
+upstream TypeScript LSP: it checks inferred row hover/completion, TypeScript errors, source-mapped
+navigation and unsaved query refresh through VS Code APIs. The built-in TypeScript extension is
+disabled in these isolated profiles so it cannot mask missing providers. This is not proof of
+all editor features or a packed language-server installation; packed consumers have separate
+verification. No personal editor profile is used. Linux CI runs the suite
 under `xvfb-run -a`; its isolated Electron process uses `--no-sandbox` for hosted-runner compatibility.
 
 Downloads, profiles and result JSON normally live under `artifacts/editor-host/`. If the checkout
