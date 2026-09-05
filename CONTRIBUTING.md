@@ -87,6 +87,10 @@ Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, f
 the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
 The current VS Code host executes eight checks per grammar plus three independent trust scenarios.
+An additional controlled-server host scenario tests missing-path recovery, configuration changes
+during startup, automatic process-crash recovery and configuration teardown. It asserts one active
+server process and one hover provider after configuration settles. This probes client ownership,
+not SQL inference after restart; the per-grammar restart-recovery cells remain `not-run`.
 Schema lifecycle checks write the actual snapshot file while leaving the source buffer unchanged.
 PostgreSQL/MySQL/SQLite verify nullability refresh; every grammar verifies incompatible-envelope
 rejection, fail-closed inference and recovery after restoring the snapshot. The synthetic fixture

@@ -16,6 +16,7 @@ import {
 } from "vscode-jsonrpc/node";
 import { TextDocument, type TextDocumentContentChangeEvent } from "vscode-languageserver-textdocument";
 import { extendTypeScriptCapabilities } from "./capabilities.js";
+import { recoverDiagnosticPull } from "./diagnostic-response.js";
 import {
   negotiateTypedSqlProtocol,
   settingsFrom,
@@ -688,6 +689,13 @@ client.onRequest(TYPED_SQL_STATUS_REQUEST, async (): Promise<TypedSqlLanguageSer
 });
 
 client.onRequest(async (method, rawParams, token) => {
+  const operation = () => forwardRequest(method, rawParams, token);
+  return method === "textDocument/diagnostic"
+    ? recoverDiagnosticPull(operation, token, projectFailureDiagnostic)
+    : operation();
+});
+
+async function forwardRequest(method: string, rawParams: unknown, token: CancellationToken): Promise<unknown> {
   try {
     await workspaceReady;
   } catch (error) {
@@ -731,7 +739,7 @@ client.onRequest(async (method, rawParams, token) => {
     ...mappedResult,
     items: protocolDiagnostics([...items, ...typedDiagnostics]),
   };
-});
+}
 
 async function semanticTokens(
   method: string,

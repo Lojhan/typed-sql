@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -24,6 +24,7 @@ const executable = await downloadAndUnzipVSCode({
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
 const scenarios = [
   ...["trusted", "untrusted", "virtual"].map((mode) => ({ mode, id: mode })),
+  { mode: "lifecycle", id: "lifecycle" },
   ...grammarCases.map((spec) => ({ mode: "overlays", id: spec.id, spec })),
 ];
 const reports = [];
@@ -54,7 +55,9 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     );
   await writeFile(
     join(workspace, ".vscode/settings.json"),
-    JSON.stringify({ "typedSql.serverPath": join(directory, "probe-server.cjs") }),
+    JSON.stringify({
+      "typedSql.serverPath": mode === "lifecycle" ? "missing-server.cjs" : join(directory, "probe-server.cjs"),
+    }),
   );
   if (mode === "overlays") await prepareOverlayWorkspace(workspace, root, spec);
   await mkdir(join(profile, "User"), { recursive: true });
@@ -82,7 +85,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
         "--disable-extension",
         "vscode.typescript-language-features",
         `--extensionDevelopmentPath=${join(directory, "harness")}`,
-        `--extensionTestsPath=${join(directory, mode === "overlays" ? "overlay-suite.cjs" : "host-suite.cjs")}`,
+        `--extensionTestsPath=${join(directory, mode === "overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
         ...(mode !== "untrusted" ? ["--disable-workspace-trust"] : []),
       ],
       {
@@ -93,6 +96,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
           TYPED_SQL_HOST_MODE: mode,
           TYPED_SQL_HOST_GRAMMAR: spec?.id ?? "",
           TYPED_SQL_HOST_MARKER: join(base, "server-started"),
+          TYPED_SQL_HOST_PROBE: join(directory, "lifecycle-server.cjs"),
           TYPED_SQL_HOST_REPORT: join(base, "result.json"),
         },
       },
@@ -114,6 +118,15 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
       passed: false,
       hostError: String(failure ?? "Host did not write a passing report").slice(0, 4000),
     };
+    // Preserve only this extension's bounded log from the isolated fixture,
+    // never the complete editor profile or unrelated extension logs.
+    const logs = join(profile, "logs");
+    const entries = await readdir(logs, { recursive: true }).catch(() => []);
+    report.clientLogs = await Promise.all(
+      entries
+        .filter((entry) => entry.replaceAll("\\", "/").endsWith("/lojhan.typed-sql/typed-sql.log"))
+        .map(async (entry) => (await readFile(join(logs, entry), "utf8")).slice(-32_768)),
+    );
   }
   await writeFile(join(results, `${id}.json`), JSON.stringify(report, null, 2));
   if (report.passed !== true) console.error(`Host failure ${id}: ${JSON.stringify(report)}`);

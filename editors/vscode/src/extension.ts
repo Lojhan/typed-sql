@@ -7,6 +7,7 @@ import {
   type ServerOptions,
   TransportKind,
 } from "vscode-languageclient/node";
+import { LifecycleQueue } from "./lifecycle.js";
 
 interface TypedSqlServerStatus {
   readonly name: string;
@@ -47,6 +48,7 @@ const DEVELOPMENT_SERVER_RELATIVE_PATH = join(
 const TYPED_SQL_PROTOCOL_VERSION = 1;
 const TYPED_SQL_PROTOCOL_CAPABILITIES = ["analysis-identity", "diagnostic-fixes", "status"] as const;
 const clients = new Map<string, RunningClient>();
+const lifecycle = new LifecycleQueue();
 const failures = new Map<string, string>();
 const output = vscode.window.createOutputChannel("typed-sql", { log: true });
 let statusBar: vscode.StatusBarItem;
@@ -160,8 +162,7 @@ async function startClient(folder: vscode.WorkspaceFolder): Promise<void> {
   refreshStatusBar();
 }
 
-async function stopClient(folder: vscode.WorkspaceFolder): Promise<void> {
-  const key = folder.uri.toString();
+async function stopClient(key: string): Promise<void> {
   failures.delete(key);
   const running = clients.get(key);
   clients.delete(key);
@@ -173,9 +174,23 @@ async function stopClient(folder: vscode.WorkspaceFolder): Promise<void> {
 }
 
 async function restartClients(): Promise<void> {
+  await Promise.all([...clients.keys()].map(stopClient));
+  await synchronizeClients();
+}
+
+async function synchronizeClients(): Promise<void> {
   const folders = vscode.workspace.workspaceFolders ?? [];
-  await Promise.all(folders.map(stopClient));
+  const current = new Set(folders.map((folder) => folder.uri.toString()));
+  await Promise.all([...clients.keys()].filter((key) => !current.has(key)).map(stopClient));
+  for (const key of failures.keys()) if (!current.has(key)) failures.delete(key);
   await Promise.all(folders.map(startClient));
+  refreshStatusBar();
+}
+
+function scheduleLifecycle(operation: () => Promise<void>): Promise<void> {
+  return lifecycle.run(operation).catch((error: unknown) => {
+    output.appendLine(`typed-sql lifecycle failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
 }
 
 async function showStatus(): Promise<void> {
@@ -204,24 +219,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     output,
     statusBar,
     vscode.commands.registerCommand("typedSql.showBridgeStatus", showStatus),
-    vscode.workspace.onDidChangeWorkspaceFolders(async ({ added, removed }) => {
-      await Promise.all(removed.map(stopClient));
-      await Promise.all(added.map(startClient));
-    }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => scheduleLifecycle(synchronizeClients)),
     vscode.workspace.onDidChangeConfiguration(async (event) => {
-      if (event.affectsConfiguration("typedSql")) await restartClients();
+      if (event.affectsConfiguration("typedSql")) await scheduleLifecycle(restartClients);
     }),
   );
-  await Promise.all((vscode.workspace.workspaceFolders ?? []).map(startClient));
+  await scheduleLifecycle(synchronizeClients);
   refreshStatusBar();
 }
 
 export async function deactivate(): Promise<void> {
-  await Promise.all(
-    [...clients.values()].map(async ({ client, watcher }) => {
-      watcher.dispose();
-      await client.stop();
-    }),
-  );
-  clients.clear();
+  await lifecycle.close(async () => {
+    await Promise.all([...clients.keys()].map(stopClient));
+  });
 }
