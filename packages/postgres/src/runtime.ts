@@ -23,6 +23,7 @@ import {
   type SqlRenderer,
   type StreamOptions,
   startDatabaseObservation,
+  validateQueryResultBatch,
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
@@ -806,20 +807,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     queries: QueryBatch<Queries>,
     results: QueryResults<Queries>,
   ): Promise<QueryResults<Queries>> {
-    let validated: unknown[] | undefined;
-    const queryList = queries as unknown as readonly Query<unknown, readonly unknown[]>[];
-    const resultList = results as readonly (readonly unknown[])[];
-    for (let index = 0; index < queryList.length; index += 1) {
-      const query = queryList[index]!;
-      if (!hasQueryResultValidator(query)) continue;
-      validated ??= [...resultList];
-      validated[index] = await validateQueryResultRows(
-        query,
-        resultList[index]!,
-        postgresQueryFingerprint(this.#observation, query),
-      );
-    }
-    return (validated ?? results) as QueryResults<Queries>;
+    return validateQueryResultBatch(queries, results, (query) => postgresQueryFingerprint(this.#observation, query));
   }
 
   async #copyFrom(statement: string, chunks: AsyncIterable<Uint8Array>, options: ExecutionOptions): Promise<void> {

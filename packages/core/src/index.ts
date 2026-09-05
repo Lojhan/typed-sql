@@ -145,6 +145,7 @@ export {
   hasQueryResultValidator,
   QueryResultValidationError,
   queryResultValidationSource,
+  validateQueryResultBatch,
   validateQueryResultRows,
   validateQueryResultStream,
 } from "./result-validation.js";

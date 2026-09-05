@@ -13,6 +13,7 @@ import {
   renderQuery,
   type SqlRenderer,
   type StreamOptions,
+  validateQueryResultBatch,
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
@@ -297,16 +298,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     queries: QueryBatch<Queries>,
     results: QueryResults<Queries>,
   ): Promise<QueryResults<Queries>> {
-    let validated: unknown[] | undefined;
-    const queryList = queries as unknown as readonly Query<unknown, readonly unknown[]>[];
-    const resultList = results as readonly (readonly unknown[])[];
-    for (let index = 0; index < queryList.length; index += 1) {
-      const query = queryList[index]!;
-      if (!hasQueryResultValidator(query)) continue;
-      validated ??= [...resultList];
-      validated[index] = await validateQueryResultRows(query, resultList[index]!, sqliteQueryFingerprint(query));
-    }
-    return (validated ?? results) as QueryResults<Queries>;
+    return validateQueryResultBatch(queries, results, (query) => sqliteQueryFingerprint(query));
   }
 
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
