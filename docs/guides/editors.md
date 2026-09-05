@@ -18,14 +18,17 @@ Install it in the application:
 pnpm add -D @typed-sql/language-server
 ```
 
-The package contains its own pinned TypeScript preview process. It does not load the workspace's `tsserver.js`.
+The package starts Microsoft's pinned TypeScript preview language server and forwards ordinary
+TypeScript requests to it. typed-sql adds inferred SQL types and projects results back onto your
+original source. It does not reimplement TypeScript's language service or load the workspace's
+`tsserver.js`.
 
 If startup reports a TypeScript compatibility error, run `pnpm exec typed-sql doctor` in the
 workspace. The bridge refuses an overridden or mismatched preview patch before project loading.
 
 ## Zed
 
-Install the native extension from the repository's [`editors/zed`](https://github.com/Lojhan/typed-sql/tree/main/editors/zed) directory as a development extension, then configure typed-sql as the sole TypeScript server:
+Install the native extension from the repository's [`editors/zed`](https://github.com/Lojhan/typed-sql/tree/main/editors/zed) directory as a development extension. The following opt-in configuration selects the proxy as the active TypeScript server; its upstream process supplies ordinary TypeScript language features:
 
 ```json
 {
@@ -57,9 +60,13 @@ Do not run `vtsls` or `typescript-language-server` beside this proxy. An ordinar
 
 The repository includes an experimental VS Code extension that runs one thin language client per workspace folder. It resolves that folder's installed `@typed-sql/language-server`, so the VS Code integration does not carry a second analyzer or TypeScript bridge. Build and install the VSIX using the instructions in the [`packages/vscode`](https://github.com/Lojhan/typed-sql/tree/main/packages/vscode) package.
 
-Disable VS Code's built-in TypeScript language-features extension for the workspace while using the
-typed-sql proxy. Otherwise both servers can answer hover and diagnostic requests, and the built-in
-server sees the conservative `Query<unknown>` declaration.
+To try the proxy as the workspace's active TypeScript provider, disable VS Code's built-in
+TypeScript language-features extension for that workspace only. Otherwise both servers can answer
+hover and diagnostic requests, and the built-in server sees the conservative `Query<unknown>`
+declaration. This is an experimental opt-in: disabling the built-in extension also affects its
+JavaScript support and editor-specific commands. Forwarding upstream LSP capabilities does not
+establish parity with every feature of that extension. Check the editing commands you depend on,
+and re-enable the built-in extension if you return to the ordinary TypeScript setup.
 
 Run **typed-sql: Show TypeScript Bridge Status** to inspect the pinned TypeScript version and the
 open/indexed document counts reported by each workspace server.
@@ -109,12 +116,21 @@ native-bridge restart counts for troubleshooting.
 
 ## Supported editor features
 
-The server provides query and downstream TypeScript hovers, SQL diagnostics, schema-aware table and
+typed-sql adds query and downstream TypeScript hovers, SQL diagnostics, schema-aware table and
 column completion, definition links into the generated schema, and quick fixes attached to
-typed-sql diagnostics. Definition support is limited to schema objects; references, rename,
-formatting, and general TypeScript refactors are not typed-sql features. The VS Code extension
-surfaces `typedSql/status` through its status command. The Zed extension is a launcher and settings
-adapter; use another LSP-capable client or protocol tooling when direct custom-request UI is needed.
+typed-sql diagnostics. Ordinary TypeScript features are delegated to the upstream language server,
+not limited to schema objects. Protocol tests compare ordinary definitions, same- and cross-file
+references and rename, member completion resolution, and formatting edits with the upstream server.
+Semantic highlighting is projected onto original source positions, including full, range and delta
+responses. Versioned edits and resolve requests reject stale source snapshots.
+
+These checks are narrower than full editor compatibility. General refactors, generated-text edits,
+and editor-specific JavaScript/TypeScript commands do not have a blanket parity guarantee. Keep the
+integration opt-in and use `typed-sql check` as the authoritative inference check.
+
+The VS Code extension surfaces `typedSql/status` through its status command. The Zed extension is a
+launcher and settings adapter; use another LSP-capable client or protocol tooling when direct
+custom-request UI is needed.
 
 The compiler/editor matrix runs on Node 22 from 22.11, current Node 22, Node 24, and Node 26. It uses
 the exact compiler and preview patches listed in [Compatibility](../reference/compatibility.md).
