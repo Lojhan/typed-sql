@@ -6,6 +6,7 @@
   },
   "include": [
     "../packages/*/test/**/*.test.ts",
+    "../packages/*/test/helpers/**/*.ts",
     "contracts/**/*.test.ts",
     "fuzz/**/*.ts",
     "grammar/**/*.ts",

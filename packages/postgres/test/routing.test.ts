@@ -1,5 +1,6 @@
-import { createDatabase, sql } from "@typed-sql/core";
+import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { recordingDatabase } from "../../../test/helpers/recording-database.js";
 import {
   createPostgresQuerySemanticResolver,
   createPostgresRoutedDatabase,
@@ -23,13 +24,10 @@ const schema = {
 } as const;
 
 function database(name: string, calls: string[]) {
-  const executor = {
-    execute: async () => {
-      calls.push(name);
-      return [{ name }];
-    },
-  };
-  return createDatabase(executor, { placeholder: (index) => `$${index}`, quoteIdentifier: (value) => `"${value}"` });
+  return recordingDatabase(name, calls, {
+    placeholder: (index) => `$${index}`,
+    quoteIdentifier: (value) => `"${value}"`,
+  });
 }
 
 await describe("PostgreSQL semantic routing adapter", async () => {

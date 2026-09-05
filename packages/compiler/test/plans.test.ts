@@ -11,22 +11,11 @@ import {
   serializeQueryPlanArtifact,
   serializeQueryPlanReviewReport,
 } from "../src/index.js";
+import { usersSchema } from "./helpers/schema.js";
 
 const rootDir = "/portable/project";
 const file = `${rootDir}/src/queries.ts`;
-const snapshot: PostgresSchemaSnapshot = {
-  formatVersion: 1,
-  dialect: "postgres",
-  tables: {
-    users: {
-      name: "users",
-      columns: {
-        id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
-        email: { name: "email", databaseType: "text", tsType: "string", nullable: false },
-      },
-    },
-  },
-};
+const snapshot: PostgresSchemaSnapshot = usersSchema();
 const source = [
   'import { sql } from "@typed-sql/postgres";',
   "declare const id: bigint; declare const email: string;",
