@@ -440,10 +440,7 @@ export function assertDialectPlugin(value: unknown): asserts value is DialectPlu
   }
 }
 
-export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
-  config: TypedSqlConfig<Snapshot, Policy>,
-): TypedSqlConfig<Snapshot, Policy> {
-  assertDialectPlugin(config.dialect);
+function assertCompilerConfig(config: Pick<TypedSqlConfig, "compiler" | "manifest">): void {
   const maximum = config.compiler?.maxStructuralVariants;
   if (maximum !== undefined && (!Number.isSafeInteger(maximum) || maximum < 1)) {
     throw new TypeError("compiler.maxStructuralVariants must be a positive safe integer");
@@ -451,6 +448,11 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   if (config.manifest?.outFile !== undefined && config.manifest.outFile.length === 0) {
     throw new TypeError("manifest.outFile must be a non-empty string");
   }
+}
+
+function assertVerificationConfig(
+  config: Pick<TypedSqlConfig, "verification"> & { readonly dialect: { readonly id: string } },
+): void {
   if (
     config.verification?.proofFile !== undefined &&
     (typeof config.verification.proofFile !== "string" || config.verification.proofFile.length === 0)
@@ -475,6 +477,9 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
       if (typeof live[method] !== "function") throw new TypeError(`verification.live.${method} must be a function`);
     }
   }
+}
+
+function assertCompatibilityConfig(config: Pick<TypedSqlConfig, "compatibility">): void {
   if (
     config.compatibility?.reportFile !== undefined &&
     (typeof config.compatibility.reportFile !== "string" || config.compatibility.reportFile.length === 0)
@@ -487,6 +492,9 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   ) {
     throw new TypeError("compatibility.failOn must be none, warning, or error");
   }
+}
+
+function assertPlanOptions(config: Pick<TypedSqlConfig, "plans">): void {
   for (const property of ["artifactFile", "reportFile", "baselineFile"] as const) {
     const path = config.plans?.[property];
     if (path !== undefined && (typeof path !== "string" || path.length === 0)) {
@@ -506,6 +514,11 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
   if (config.plans?.sampleValues !== undefined && typeof config.plans.sampleValues !== "function") {
     throw new TypeError("plans.sampleValues must be a function");
   }
+}
+
+function assertPlanInspector(
+  config: Pick<TypedSqlConfig, "plans"> & { readonly dialect: { readonly id: string } },
+): void {
   const inspector = config.plans?.live;
   if (inspector !== undefined) {
     if (inspector.dialect !== config.dialect.id) {
@@ -521,6 +534,9 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
       if (typeof inspector[method] !== "function") throw new TypeError(`plans.live.${method} must be a function`);
     }
   }
+}
+
+function assertPlanBudgets(config: Pick<TypedSqlConfig, "plans">): void {
   if (config.plans?.budgets?.defaults !== undefined) {
     assertQueryPlanBudget(config.plans.budgets.defaults, "plans.budgets.defaults");
   }
@@ -530,6 +546,18 @@ export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
     }
     assertQueryPlanBudget(budget, `plans.budgets.queries.${fingerprint}`);
   }
+}
+
+export function defineConfig<Snapshot extends SchemaSnapshot, Policy>(
+  config: TypedSqlConfig<Snapshot, Policy>,
+): TypedSqlConfig<Snapshot, Policy> {
+  assertDialectPlugin(config.dialect);
+  assertCompilerConfig(config);
+  assertVerificationConfig(config);
+  assertCompatibilityConfig(config);
+  assertPlanOptions(config);
+  assertPlanInspector(config);
+  assertPlanBudgets(config);
   return Object.freeze(config);
 }
 
