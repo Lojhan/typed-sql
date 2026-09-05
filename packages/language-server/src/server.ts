@@ -688,7 +688,12 @@ client.onRequest(TYPED_SQL_STATUS_REQUEST, async (): Promise<TypedSqlLanguageSer
 });
 
 client.onRequest(async (method, rawParams, token) => {
-  await workspaceReady;
+  try {
+    await workspaceReady;
+  } catch (error) {
+    if (method === "textDocument/diagnostic") return { kind: "full", items: [projectFailureDiagnostic(error)] };
+    throw error;
+  }
   const restored = method.endsWith("/resolve") ? resolveContexts.restore(rawParams, method) : { item: rawParams };
   if (restored.expired === true)
     throw new ResponseError(LSP_CONTENT_MODIFIED, "Resolve context expired; request fresh items");
