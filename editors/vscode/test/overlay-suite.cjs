@@ -81,6 +81,14 @@ exports.run = async () => {
         assert.equal(await vscode.workspace.applyEdit(edit), true);
         assert.equal(document.isDirty, true, "refresh must exercise an unsaved editor change");
       },
+      async writeSchema(schema) {
+        const version = document.version;
+        await vscode.workspace.fs.writeFile(
+          vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, "schema.json"),
+          Buffer.from(JSON.stringify(schema)),
+        );
+        assert.equal(document.version, version, "schema refresh must not edit the source buffer");
+      },
     },
     (id, status, error) => {
       report.checks[id] = { status, ...(error === undefined ? {} : { error }) };

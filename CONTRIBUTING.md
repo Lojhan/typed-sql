@@ -86,7 +86,11 @@ adapters. These are representative integration fixtures, not all syntax or serve
 Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, four grammars and
 the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
-The current VS Code host executes seven checks per grammar plus three independent trust scenarios.
+The current VS Code host executes eight checks per grammar plus three independent trust scenarios.
+Schema lifecycle checks write the actual snapshot file while leaving the source buffer unchanged.
+PostgreSQL/MySQL/SQLite verify nullability refresh; every grammar verifies incompatible-envelope
+rejection, fail-closed inference and recovery after restoring the snapshot. The synthetic fixture
+does not derive row types from column metadata, so it tests envelope/recovery behavior only.
 
 Run `pnpm editor:zed:fixtures` after building to prepare the same four projects and workspace-local
 Zed settings under a unique `artifacts/editor-hub/zed-*` directory. This only prepares fixtures:

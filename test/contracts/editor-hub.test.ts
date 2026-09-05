@@ -23,6 +23,14 @@ await describe("editor grammar evidence hub", async () => {
     strict.strictEqual(matrix.cells.length, 2 * 4 * (interfaces.length + pendingInterfaces.length));
     strict.ok(matrix.cells.every((cell) => cell.status === "not-run"));
   });
+  await it("records schema lifecycle coverage without inventing synthetic column semantics", () => {
+    strict.ok(interfaces.includes("schema-file-refresh"));
+    strict.ok(!pendingInterfaces.includes("schema-file-refresh"));
+    for (const spec of grammarCases.filter((item) => item.id !== "synthetic")) {
+      strict.deepStrictEqual(spec.schemaRefresh, { table: "users", column: "name", type: "string | null" });
+    }
+    strict.strictEqual(grammarCases.find((item) => item.id === "synthetic")!.schemaRefresh, undefined);
+  });
   await it("does not promote partial, protocol or duplicate evidence into full host coverage", () => {
     const report = {
       editor: "vscode",

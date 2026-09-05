@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { grammarCases, interfaces } from "./cases.mjs";
 
 export const pendingInterfaces = [
-  "schema-file-refresh",
   "restart-recovery",
   "multi-root",
   "tsx",

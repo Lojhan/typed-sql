@@ -143,6 +143,7 @@ const sourceDocuments = new Map<string, TextDocument>();
 const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
+const projectFailureReports = new Set<string>();
 let pullDiagnostics = false;
 let diagnosticRefreshSupported = false;
 const semanticTokenResults = new SemanticTokenResults();
@@ -292,6 +293,7 @@ function queueDocument(uri: string, operation: () => Promise<void>): Promise<voi
     .catch(async (error: unknown) => {
       if (error instanceof Error && error.name === "AbortError") return;
       nativeDiagnostics.delete(uri);
+      projectFailureReports.add(uri);
       await client.sendNotification("textDocument/publishDiagnostics", {
         uri,
         ...(latestDocumentVersions.get(uri) === undefined ? {} : { version: latestDocumentVersions.get(uri) }),
@@ -318,6 +320,7 @@ function queueWorkspace(operation: () => Promise<void>): Promise<void> {
     .catch(async (error: unknown) => {
       for (const [uri, state] of documents) {
         nativeDiagnostics.delete(uri);
+        projectFailureReports.add(uri);
         await client.sendNotification("textDocument/publishDiagnostics", {
           uri,
           version: state.original.version,
@@ -453,6 +456,14 @@ async function combinedDiagnostics(state: DocumentState): Promise<readonly unkno
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   if (latestDocumentVersions.get(state.original.uri) !== state.original.version) return;
   if (pullDiagnostics) {
+    // Failure reports use push delivery even for pull clients. Clear that owned
+    // report once analysis recovers; requesting a pull alone does not remove it.
+    if (projectFailureReports.delete(state.original.uri))
+      await client.sendNotification("textDocument/publishDiagnostics", {
+        uri: state.original.uri,
+        version: state.original.version,
+        diagnostics: [],
+      });
     // A typed-sql-only push would replace the client's combined pull report and
     // erase TypeScript errors. Ask it to pull again after overlay invalidation.
     // Do not await: the new pull must be able to wait for this document queue.
@@ -467,6 +478,7 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
     (state.analysis !== undefined && !state.service.isAnalysisCurrent(state.original, state.analysis))
   )
     return;
+  projectFailureReports.delete(state.original.uri);
   await client.sendNotification("textDocument/publishDiagnostics", {
     uri: state.original.uri,
     version: state.original.version,
@@ -798,6 +810,7 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
+  projectFailureReports.delete(params.textDocument.uri);
   semanticTokenResults.delete(params.textDocument.uri);
   resolveContexts.delete(params.textDocument.uri);
   sourceDocuments.delete(params.textDocument.uri);

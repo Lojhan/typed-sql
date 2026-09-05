@@ -29,6 +29,7 @@ const sqlCase = (id, version, types) => ({
   wrongType: "number",
   invalidQuery: "SELECT not_a_column FROM users",
   diagnosticPattern: "not_a_column",
+  schemaRefresh: { table: "users", column: "name", type: "string | null" },
 });
 
 export const grammarCases = [
@@ -71,6 +72,7 @@ export const interfaces = [
   "ordinary-hover",
   "unsaved-query-refresh",
   "sql-diagnostic",
+  "schema-file-refresh",
 ];
 
 export function sourceFor(spec, variant = spec.initial) {
