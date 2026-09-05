@@ -1,26 +1,14 @@
 import { measureGrammarPerformance } from "@typed-sql/conformance";
 import { describe, it, strict } from "poku";
 import { type SqliteSchemaSnapshot, sqlite } from "../src/index.js";
+import { accountTable } from "./helpers/schema.js";
 
 const snapshot = {
   formatVersion: 1,
   dialect: "sqlite",
   dialectVersion: "1.0.0",
   tables: {
-    account: {
-      schema: "main",
-      name: "account",
-      kind: "table",
-      strict: true,
-      withoutRowid: false,
-      indexes: [],
-      foreignKeys: [],
-      columns: {
-        id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
-        email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
-        score: { name: "score", databaseType: "REAL", tsType: "number", nullable: true },
-      },
-    },
+    account: accountTable(),
   },
 } as const satisfies SqliteSchemaSnapshot;
 

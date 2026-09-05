@@ -1,32 +1,18 @@
 import { parameterTypeLiteral, rowTypeLiteral } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
 import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot, sqlite } from "../src/index.js";
+import { accountTable, serverEvidence } from "./helpers/schema.js";
 
 const snapshot = parseSqliteSchemaSnapshot({
   formatVersion: 1,
   dialect: "sqlite",
   dialectVersion: "1.0.0",
-  version: "3.53.0",
-  server: {
-    product: "sqlite",
-    version: "3.53.0",
-    versionKey: "3.53.0",
-    features: [],
-    settings: {},
-  },
+  ...serverEvidence(),
   tables: {
     account: {
-      schema: "main",
-      name: "account",
-      kind: "table",
-      strict: true,
-      withoutRowid: false,
-      indexes: [],
-      foreignKeys: [],
+      ...accountTable(),
       columns: {
-        id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
-        email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
-        score: { name: "score", databaseType: "REAL", tsType: "number", nullable: true },
+        ...accountTable().columns,
         generated: {
           name: "generated",
           databaseType: "TEXT",

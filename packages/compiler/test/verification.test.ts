@@ -9,20 +9,9 @@ import {
   serializeQueryVerificationProof,
   verifyQueryManifest,
 } from "../src/index.js";
+import { usersSchema } from "./helpers/schema.js";
 
-const schema: PostgresSchemaSnapshot = {
-  formatVersion: 1,
-  dialect: "postgres",
-  tables: {
-    users: {
-      name: "users",
-      columns: {
-        id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
-        email: { name: "email", databaseType: "text", tsType: "string", nullable: false },
-      },
-    },
-  },
-};
+const schema: PostgresSchemaSnapshot = usersSchema();
 
 const source = [
   'import { sql } from "@typed-sql/postgres";',
