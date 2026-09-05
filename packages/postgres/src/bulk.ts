@@ -1,8 +1,8 @@
 import {
-  bindQueryRenderSkeleton,
   compileQueryRenderSkeleton,
   defineAdapterCapability,
   type ExecutionOptions,
+  executeBulkRows,
   type Query,
   QueryCancelledError,
   type QueryStream,
@@ -147,26 +147,6 @@ function cancelled(signal: AbortSignal | undefined): void {
   if (signal?.aborted === true) throw new QueryCancelledError("signal", { cause: signal.reason });
 }
 
-function asyncIterator<Value>(values: Iterable<Value> | AsyncIterable<Value>): AsyncIterator<Value> {
-  if (Symbol.asyncIterator in Object(values)) return (values as AsyncIterable<Value>)[Symbol.asyncIterator]();
-  const iterator = (values as Iterable<Value>)[Symbol.iterator]();
-  return {
-    next: async () => iterator.next(),
-    ...(iterator.return === undefined ? {} : { return: async () => iterator.return!() }),
-  };
-}
-
-function concatenate(chunks: readonly Uint8Array[], length: number): Uint8Array {
-  if (chunks.length === 1) return chunks[0]!;
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return result;
-}
-
 export function createPostgresCopyCapability(transport: PostgresCopyTransport): PostgresCopyCapability {
   return Object.freeze({
     async copyFrom<Input, Row, Params extends readonly unknown[]>(
@@ -174,99 +154,14 @@ export function createPostgresCopyCapability(transport: PostgresCopyTransport): 
       rows: Iterable<Input> | AsyncIterable<Input>,
       options: PostgresCopyFromOptions = {},
     ): Promise<PostgresCopyResult> {
-      const preferredChunkBytes = chunkSize(options.chunkBytes);
-      cancelled(options.signal);
-      const iterator = asyncIterator(rows);
-      let iteratorClosed = false;
-      const closeIterator = async (): Promise<void> => {
-        if (iteratorClosed || iterator.return === undefined) return;
-        iteratorClosed = true;
-        await iterator.return();
-      };
-      let first: IteratorResult<Input>;
-      try {
-        first = await iterator.next();
-      } catch (error) {
-        try {
-          await closeIterator();
-        } catch {
-          /* Preserve the producer failure. */
-        }
-        throw error;
-      }
-      if (first.done === true) return Object.freeze({ rows: 0, bytes: 0 });
-
-      let firstQuery: Query<Row, Params>;
-      let compiled: ReturnType<typeof compileQueryRenderSkeleton<Row, Params>>;
-      let statement: string;
-      try {
-        firstQuery = rowQuery(first.value);
-        compiled = compileQueryRenderSkeleton(firstQuery, postgresRenderer);
-        statement = copyFromStatement(compiled.rendered.text, compiled.rendered.values.length);
-      } catch (error) {
-        try {
-          await closeIterator();
-        } catch {
-          /* Preserve the query compilation failure. */
-        }
-        throw error;
-      }
-      let rowCount = 0;
-      let byteCount = 0;
-      let inputComplete = false;
-
-      const chunks = (async function* (): AsyncGenerator<Uint8Array> {
-        let pending: Uint8Array[] = [];
-        let pendingBytes = 0;
-        let current: IteratorResult<Input> = first;
-        try {
-          while (current.done !== true) {
-            cancelled(options.signal);
-            const query = rowCount === 0 ? firstQuery : rowQuery(current.value);
-            const rendered = rowCount === 0 ? compiled.rendered : bindQueryRenderSkeleton(query, compiled.skeleton);
-            if (rendered === undefined) {
-              throw new TypeError("PostgreSQL COPY row query changed its structural SQL shape");
-            }
-            const encoded = csvRow(rendered.values);
-            if (pendingBytes > 0 && pendingBytes + encoded.byteLength > preferredChunkBytes) {
-              const chunk = concatenate(pending, pendingBytes);
-              byteCount += chunk.byteLength;
-              options.onProgress?.(Object.freeze({ rows: rowCount, bytes: byteCount }));
-              yield chunk;
-              pending = [];
-              pendingBytes = 0;
-            }
-            pending.push(encoded);
-            pendingBytes += encoded.byteLength;
-            rowCount += 1;
-            current = await iterator.next();
-          }
-          inputComplete = true;
-          if (pendingBytes > 0) {
-            const chunk = concatenate(pending, pendingBytes);
-            byteCount += chunk.byteLength;
-            options.onProgress?.(Object.freeze({ rows: rowCount, bytes: byteCount }));
-            yield chunk;
-          }
-        } finally {
-          if (current.done !== true) await closeIterator();
-        }
-      })();
-
-      try {
-        await transport.copyFrom(statement, chunks, options);
-      } catch (error) {
-        if (!inputComplete) {
-          try {
-            await closeIterator();
-          } catch {
-            /* Preserve the transport, producer, or database failure. */
-          }
-        }
-        throw error;
-      }
-      if (!inputComplete) await closeIterator();
-      return Object.freeze({ rows: rowCount, bytes: byteCount });
+      return executeBulkRows(rowQuery, rows, options, {
+        renderer: postgresRenderer,
+        chunkBytes: chunkSize(options.chunkBytes),
+        shapeError: "PostgreSQL COPY row query changed its structural SQL shape",
+        statement: copyFromStatement,
+        encodeRow: csvRow,
+        transfer: (statement, chunks, options) => transport.copyFrom(statement, chunks, options),
+      });
     },
 
     copyTo<Row>(query: Query<Row, readonly []>, options: PostgresCopyToOptions = {}): QueryStream<Uint8Array> {

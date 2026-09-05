@@ -879,6 +879,7 @@ const expectedRuntimeExports = {
     "executionDeadline",
     "getAdapterCapability",
     "hasAdapterCapability",
+    "executeBulkRows",
     "hasQueryResultValidator",
     "isTypedSqlDiagnosticCode",
     "mapQuerySemanticRanges",
