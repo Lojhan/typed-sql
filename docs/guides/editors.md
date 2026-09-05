@@ -71,6 +71,11 @@ and re-enable the built-in extension if you return to the ordinary TypeScript se
 Run **typed-sql: Show TypeScript Bridge Status** to inspect the pinned TypeScript version and the
 open/indexed document counts reported by each workspace server.
 
+The extension requires a trusted workspace because it executes the workspace-installed server and
+project configuration. It stays disabled in Restricted Mode and does not support virtual workspaces
+whose files are exposed through non-filesystem providers. This is distinct from running in a remote
+workspace extension host with filesystem access.
+
 ## Other LSP clients
 
 Start the installed server over standard input/output:

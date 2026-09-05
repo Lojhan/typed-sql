@@ -39,6 +39,13 @@ assert.ok(
 const manifest = JSON.parse(await unzip("extension/package.json"));
 assert.equal(manifest.main, "./bundle/extension.cjs");
 assert.deepEqual(manifest.extensionKind, ["workspace"]);
+assert.equal(manifest.capabilities?.untrustedWorkspaces?.supported, false);
+assert.ok(manifest.capabilities.untrustedWorkspaces.description.length > 0);
+assert.equal(manifest.capabilities.virtualWorkspaces, false);
+assert.ok(
+  listing.every((path) => !path.startsWith("extension/test/")),
+  "VSIX must not ship host-test fixtures",
+);
 assert.deepEqual(manifest.activationEvents, [
   "onLanguage:typescript",
   "onLanguage:typescriptreact",

@@ -43,6 +43,19 @@ await describe("external editor distribution", async () => {
     strict.ok((await text("editors/zed/Cargo.toml")).includes('version = "0.1.0"'));
   });
 
+  await it("requires trust and a filesystem workspace for project executable loading", async () => {
+    const manifest = JSON.parse(await text("editors/vscode/package.json")) as {
+      capabilities: { untrustedWorkspaces: { supported: boolean; description: string }; virtualWorkspaces: boolean };
+    };
+    strict.strictEqual(manifest.capabilities.untrustedWorkspaces.supported, false);
+    strict.ok(manifest.capabilities.untrustedWorkspaces.description.includes("workspace-installed"));
+    strict.strictEqual(manifest.capabilities.virtualWorkspaces, false);
+    strict.ok((await text("editors/vscode/.vscodeignore")).includes("test/**"));
+    strict.ok(
+      (await text(".github/workflows/ci.yml")).includes("xvfb-run -a pnpm --filter ./editors/vscode test:host"),
+    );
+  });
+
   await it("resolves Zed's application-local package before development fallbacks", async () => {
     const source = await text("editors/zed/src/lib.rs");
     const installed = source.indexOf("node_modules/@typed-sql/language-server");
