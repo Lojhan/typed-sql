@@ -58,8 +58,9 @@ await describe("external editor distribution", async () => {
 
   await it("runs real overlay host verification alongside probe-only trust checks", async () => {
     const runner = await text("editors/vscode/test/run-host.mjs");
-    strict.ok(runner.includes('"trusted", "untrusted", "virtual", "overlays"'));
-    strict.ok(runner.includes("prepareOverlayWorkspace(workspace, root)"));
+    strict.ok(runner.includes('"trusted", "untrusted", "virtual"'));
+    strict.ok(runner.includes("grammarCases.map"));
+    strict.ok(runner.includes("prepareOverlayWorkspace(workspace, root, spec)"));
     strict.ok(runner.includes('"overlay-suite.cjs"'));
     strict.ok((await text("CONTRIBUTING.md")).includes("not proof of"));
   });

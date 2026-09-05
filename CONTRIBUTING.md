@@ -62,7 +62,8 @@ pnpm --filter ./editors/vscode test:host
 The suite downloads VS Code 1.134.0 and installs the VSIX into separate extension/profile
 directories for trusted, Restricted Mode, virtual-workspace and real-overlay scenarios. The first
 three use a controlled server probe to assert whether the client executes workspace code. The
-overlay scenario uses built workspace packages and the real language server with the pinned
+overlay matrix uses PostgreSQL, MySQL, SQLite and the synthetic third-party grammar, built workspace
+packages and the real language server with the pinned
 upstream TypeScript LSP: it checks inferred row hover/completion, TypeScript errors, source-mapped
 navigation and unsaved query refresh through VS Code APIs. The built-in TypeScript extension is
 disabled in these isolated profiles so it cannot mask missing providers. This is not proof of
@@ -74,6 +75,26 @@ Downloads, profiles and result JSON normally live under `artifacts/editor-host/`
 path exceeds Unix socket limits, set `TYPED_SQL_HOST_DATA_ROOT` to a shorter user-owned directory.
 Result JSON is also copied into `artifacts/editor-host/results/`; CI excludes downloads and full
 profiles from artifact uploads. Runs preserve their unique directories for diagnosis.
+
+### Shared editor/grammar hub
+
+`test/editor-hub/` owns grammar-specific snapshots, source programs, expected types and shared
+interface assertions. Host adapters supply observed hover, completion, diagnostic, definition
+and unsaved-edit behavior. Add cases here rather than copying grammar expectations into editor
+adapters. These are representative integration fixtures, not all syntax or server-version coverage.
+
+Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, four grammars and
+the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
+rejected as host evidence. Failures remain failures and prevent the host command from passing.
+The current VS Code host executes seven checks per grammar plus three independent trust scenarios.
+
+Run `pnpm editor:zed:fixtures` after building to prepare the same four projects and workspace-local
+Zed settings under a unique `artifacts/editor-hub/zed-*` directory. This only prepares fixtures:
+it does not install extensions, launch Zed or assert host behavior. Its matrix remains not run.
+Actual Zed execution needs an isolated profile, the built dev extension, a host adapter and exact
+version/platform evidence before any Zed cell can pass. See the official
+[CLI reference](https://zed.dev/docs/reference/cli) and
+[extension development guide](https://zed.dev/docs/extensions/developing-extensions).
 
 ## Investigate static-analysis findings
 
