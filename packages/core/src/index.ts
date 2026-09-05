@@ -25,6 +25,8 @@ export {
   parseArtifactCompatibilityIdentity,
   serializeArtifactCompatibilityIdentity,
 } from "./artifact-compatibility.js";
+export type { BulkRowOptions, BulkRowPolicy, BulkRowProgress } from "./bulk.js";
+export { executeBulkRows } from "./bulk.js";
 export type {
   DebugEvent,
   DebugEventInput,

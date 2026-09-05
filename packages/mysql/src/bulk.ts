@@ -1,10 +1,8 @@
 import {
-  bindQueryRenderSkeleton,
-  compileQueryRenderSkeleton,
   defineAdapterCapability,
   type ExecutionOptions,
+  executeBulkRows,
   type Query,
-  QueryCancelledError,
   type SqlRenderer,
 } from "@typed-sql/core";
 import { parseStatement } from "./parser/index.js";
@@ -126,30 +124,6 @@ function loadDataStatement(text: string, parameterCount: number): string {
   return `LOAD DATA LOCAL INFILE 'typed-sql-stream' INTO TABLE ${table} CHARACTER SET utf8mb4 FIELDS TERMINATED BY X'09' ESCAPED BY X'5C' LINES TERMINATED BY X'0A' (${columns})`;
 }
 
-function cancelled(signal: AbortSignal | undefined): void {
-  if (signal?.aborted === true) throw new QueryCancelledError("signal", { cause: signal.reason });
-}
-
-function asyncIterator<Value>(values: Iterable<Value> | AsyncIterable<Value>): AsyncIterator<Value> {
-  if (Symbol.asyncIterator in Object(values)) return (values as AsyncIterable<Value>)[Symbol.asyncIterator]();
-  const iterator = (values as Iterable<Value>)[Symbol.iterator]();
-  return {
-    next: async () => iterator.next(),
-    ...(iterator.return === undefined ? {} : { return: async () => iterator.return!() }),
-  };
-}
-
-function concatenate(chunks: readonly Uint8Array[], length: number): Uint8Array {
-  if (chunks.length === 1) return chunks[0]!;
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return result;
-}
-
 export function createMySqlBulkCapability(transport: MySqlBulkTransport): MySqlBulkCapability {
   return Object.freeze({
     async loadData<Input, Row, Params extends readonly unknown[]>(
@@ -157,98 +131,14 @@ export function createMySqlBulkCapability(transport: MySqlBulkTransport): MySqlB
       rows: Iterable<Input> | AsyncIterable<Input>,
       options: MySqlLoadDataOptions = {},
     ): Promise<MySqlBulkResult> {
-      const preferredChunkBytes = chunkSize(options.chunkBytes);
-      cancelled(options.signal);
-      const iterator = asyncIterator(rows);
-      let iteratorClosed = false;
-      const closeIterator = async (): Promise<void> => {
-        if (iteratorClosed || iterator.return === undefined) return;
-        iteratorClosed = true;
-        await iterator.return();
-      };
-      let first: IteratorResult<Input>;
-      try {
-        first = await iterator.next();
-      } catch (error) {
-        try {
-          await closeIterator();
-        } catch {
-          /* Preserve the producer failure. */
-        }
-        throw error;
-      }
-      if (first.done === true) return Object.freeze({ rows: 0, bytes: 0 });
-
-      let firstQuery: Query<Row, Params>;
-      let compiled: ReturnType<typeof compileQueryRenderSkeleton<Row, Params>>;
-      let statement: string;
-      try {
-        firstQuery = rowQuery(first.value);
-        compiled = compileQueryRenderSkeleton(firstQuery, mysqlRenderer);
-        statement = loadDataStatement(compiled.rendered.text, compiled.rendered.values.length);
-      } catch (error) {
-        try {
-          await closeIterator();
-        } catch {
-          /* Preserve the query compilation failure. */
-        }
-        throw error;
-      }
-      let rowCount = 0;
-      let byteCount = 0;
-      let inputComplete = false;
-
-      const chunks = (async function* (): AsyncGenerator<Uint8Array> {
-        let pending: Uint8Array[] = [];
-        let pendingBytes = 0;
-        let current: IteratorResult<Input> = first;
-        try {
-          while (current.done !== true) {
-            cancelled(options.signal);
-            const query = rowCount === 0 ? firstQuery : rowQuery(current.value);
-            const rendered = rowCount === 0 ? compiled.rendered : bindQueryRenderSkeleton(query, compiled.skeleton);
-            if (rendered === undefined)
-              throw new TypeError("MySQL LOAD DATA row query changed its structural SQL shape");
-            const encoded = encodedRow(rendered.values);
-            if (pendingBytes > 0 && pendingBytes + encoded.byteLength > preferredChunkBytes) {
-              const chunk = concatenate(pending, pendingBytes);
-              byteCount += chunk.byteLength;
-              options.onProgress?.(Object.freeze({ rows: rowCount, bytes: byteCount }));
-              yield chunk;
-              pending = [];
-              pendingBytes = 0;
-            }
-            pending.push(encoded);
-            pendingBytes += encoded.byteLength;
-            rowCount += 1;
-            current = await iterator.next();
-          }
-          inputComplete = true;
-          if (pendingBytes > 0) {
-            const chunk = concatenate(pending, pendingBytes);
-            byteCount += chunk.byteLength;
-            options.onProgress?.(Object.freeze({ rows: rowCount, bytes: byteCount }));
-            yield chunk;
-          }
-        } finally {
-          if (current.done !== true) await closeIterator();
-        }
-      })();
-
-      try {
-        await transport.loadData(statement, chunks, options);
-      } catch (error) {
-        if (!inputComplete) {
-          try {
-            await closeIterator();
-          } catch {
-            /* Preserve the transport, producer, or database failure. */
-          }
-        }
-        throw error;
-      }
-      if (!inputComplete) await closeIterator();
-      return Object.freeze({ rows: rowCount, bytes: byteCount });
+      return executeBulkRows(rowQuery, rows, options, {
+        renderer: mysqlRenderer,
+        chunkBytes: chunkSize(options.chunkBytes),
+        shapeError: "MySQL LOAD DATA row query changed its structural SQL shape",
+        statement: loadDataStatement,
+        encodeRow: encodedRow,
+        transfer: (statement, chunks, options) => transport.loadData(statement, chunks, options),
+      });
     },
   });
 }
