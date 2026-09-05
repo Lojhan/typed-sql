@@ -908,6 +908,7 @@ const expectedRuntimeExports = {
     "serializeSupportBundle",
     "unknownQuerySemantics",
     "UnsafeReplicaRoutingError",
+    "validateQueryResultBatch",
     "validateQueryResultRows",
     "validateQueryResultStream",
   ],
