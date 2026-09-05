@@ -26,7 +26,7 @@ await describe("reviewed API surface classifications", async () => {
     strict.strictEqual(surface.formatVersion, 1);
     strict.deepStrictEqual(new Set(surface.classifications), allowed);
     const directories = (await readdir(join(workspace, "packages"), { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory() && entry.name !== "vscode")
+      .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort();
     const actualPackages: string[] = [];

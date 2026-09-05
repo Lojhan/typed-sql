@@ -19,9 +19,11 @@ async function binary(base, name, command) {
 async function main() {
   const workspaces = {};
   const sourceRoots = [];
-  for (const entry of await readdir(join(root, "packages"), { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const workspace = `packages/${entry.name}`;
+  const workspacePaths = (await readdir(join(root, "packages"), { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `packages/${entry.name}`);
+  workspacePaths.push("editors/vscode");
+  for (const workspace of workspacePaths) {
     const manifest = JSON.parse(await readFile(join(root, workspace, "package.json"), "utf8"));
     workspaces[workspace] = {
       entry: [...sourceEntries(manifest), ...(compiledConsumerEntries[workspace] ?? []), "test/**/*.test.ts"],
@@ -38,7 +40,7 @@ async function main() {
         ignores: ["**/generated/**", "**/dist/**", "**/node_modules/**"],
       },
       {
-        files: ["packages/*/src/**/*.ts"],
+        files: sourceRoots.map((path) => `${path}/**/*.ts`),
         languageOptions: { parser, parserOptions: { ecmaVersion: "latest", sourceType: "module" } },
         rules: {
           complexity: ["warn", { max: 20, variant: "classic" }],
@@ -92,8 +94,7 @@ async function main() {
         await binary(directory, "knip", "knip"),
         "--config",
         configPath,
-        "--workspace",
-        "./packages/*",
+        ...workspacePaths.flatMap((workspace) => ["--workspace", `./${workspace}`]),
         "--include",
         "exports,types,files",
         "--reporter",

@@ -14,7 +14,7 @@
     { "path": "./packages/ts-bridge" },
     { "path": "./packages/language-server" },
     { "path": "./packages/cli" },
-    { "path": "./packages/vscode" },
+    { "path": "./editors/vscode" },
     { "path": "./examples/mysql" },
     { "path": "./examples/postgres" },
     { "path": "./examples/sqlite" },

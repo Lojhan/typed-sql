@@ -5,8 +5,8 @@
       "name": "typed-sql extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}/packages/vscode", "${workspaceFolder}/e2e/postgres"],
-      "outFiles": ["${workspaceFolder}/packages/vscode/bundle/**/*.js"],
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/editors/vscode", "${workspaceFolder}/e2e/postgres"],
+      "outFiles": ["${workspaceFolder}/editors/vscode/bundle/**/*.js"],
       "preLaunchTask": "typed-sql: build"
     }
   ]

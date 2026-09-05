@@ -10,13 +10,27 @@ async function text(path: string): Promise<string> {
 }
 
 await describe("external editor distribution", async () => {
+  await it("keeps the npm editor client in the editor tree and workspace workflows", async () => {
+    const manifest = JSON.parse(await text("editors/vscode/package.json")) as {
+      repository: { directory: string };
+      publisher: string;
+      name: string;
+    };
+    strict.strictEqual(manifest.repository.directory, "editors/vscode");
+    strict.strictEqual(`${manifest.publisher}.${manifest.name}`, "lojhan.typed-sql");
+    strict.ok((await text("pnpm-workspace.yaml")).includes("  - editors/vscode"));
+    strict.ok((await text("package.json")).includes("--filter ./editors/vscode build:bundle"));
+    strict.ok((await text("package.json")).includes("--filter './editors/**' --if-present test"));
+    strict.ok((await text(".github/workflows/ci.yml")).includes("--filter ./editors/vscode package:vsix"));
+  });
+
   await it("keeps preview-backed editor surfaces explicitly experimental", async () => {
     const release = JSON.parse(await text("release-manifest.json")) as { readonly series: string };
     const languageServer = JSON.parse(await text("packages/language-server/package.json")) as {
       readonly version: string;
       readonly typedSql?: { readonly releaseTrack?: string };
     };
-    const vscode = JSON.parse(await text("packages/vscode/package.json")) as {
+    const vscode = JSON.parse(await text("editors/vscode/package.json")) as {
       readonly private?: boolean;
       readonly version: string;
     };
@@ -49,7 +63,7 @@ await describe("external editor distribution", async () => {
     const documentation = [
       await text("editors/zed/README.md"),
       await text("packages/language-server/README.md"),
-      await text("packages/vscode/README.md"),
+      await text("editors/vscode/README.md"),
       await text("docs/reference/compatibility.md"),
     ].join("\n");
     strict.ok(documentation.includes("pnpm add -D @typed-sql/language-server"));
@@ -72,8 +86,8 @@ await describe("external editor distribution", async () => {
   });
 
   await it("keeps VS Code a thin client of the shared language server", async () => {
-    const source = await text("packages/vscode/src/extension.ts");
-    const manifest = JSON.parse(await text("packages/vscode/package.json")) as {
+    const source = await text("editors/vscode/src/extension.ts");
+    const manifest = JSON.parse(await text("editors/vscode/package.json")) as {
       readonly dependencies?: Readonly<Record<string, string>>;
     };
     strict.ok(source.includes('from "vscode-languageclient/node"'));

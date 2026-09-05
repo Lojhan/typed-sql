@@ -10,5 +10,6 @@ const packages = (await readdir(packagesDirectory, { withFileTypes: true }))
 
 await Promise.all([
   ...packages.map((packageName) => rm(join(packagesDirectory, packageName, "dist"), { recursive: true, force: true })),
-  rm(join(packagesDirectory, "vscode", "bundle"), { recursive: true, force: true }),
+  rm(join(workspace, "editors", "vscode", "dist"), { recursive: true, force: true }),
+  rm(join(workspace, "editors", "vscode", "bundle"), { recursive: true, force: true }),
 ]);

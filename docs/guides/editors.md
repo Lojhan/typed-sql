@@ -58,7 +58,7 @@ Do not run `vtsls` or `typescript-language-server` beside this proxy. An ordinar
 
 ## VS Code
 
-The repository includes an experimental VS Code extension that runs one thin language client per workspace folder. It resolves that folder's installed `@typed-sql/language-server`, so the VS Code integration does not carry a second analyzer or TypeScript bridge. Build and install the VSIX using the instructions in the [`packages/vscode`](https://github.com/Lojhan/typed-sql/tree/main/packages/vscode) package.
+The repository includes an experimental VS Code extension that runs one thin language client per workspace folder. It resolves that folder's installed `@typed-sql/language-server`, so the VS Code integration does not carry a second analyzer or TypeScript bridge. Build and install the VSIX using the instructions in the [`editors/vscode`](https://github.com/Lojhan/typed-sql/tree/main/editors/vscode) directory.
 
 To try the proxy as the workspace's active TypeScript provider, disable VS Code's built-in
 TypeScript language-features extension for that workspace only. Otherwise both servers can answer
