@@ -9,6 +9,23 @@ const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const fixture = join(workspace, "test/fixtures/success");
 const server = join(workspace, "packages/language-server/dist/packages/language-server/src/server.js");
 
+interface SemanticTokens {
+  resultId?: string;
+  data: number[];
+}
+
+function tokensAt(data: number[], position: { line: number; character: number }): number[][] {
+  let line = 0;
+  let character = 0;
+  const matches: number[][] = [];
+  for (let index = 0; index < data.length; index += 5) {
+    line += data[index]!;
+    character = data[index] === 0 ? character + data[index + 1]! : data[index + 1]!;
+    if (line === position.line && character === position.character) matches.push(data.slice(index + 2, index + 5));
+  }
+  return matches;
+}
+
 await describe("upstream TypeScript LSP integration", async () => {
   await it("retains upstream advertised options through the actual initialization proxy", async () => {
     const upstream = new ProtocolClient(process.execPath, [typescriptPreviewCliPath(), "--lsp", "--stdio"], workspace);
@@ -16,7 +33,29 @@ await describe("upstream TypeScript LSP integration", async () => {
     const params = {
       processId: process.pid,
       rootUri: pathToFileURL(workspace).href,
-      capabilities: {},
+      capabilities: {
+        textDocument: {
+          semanticTokens: {
+            requests: { range: true, full: { delta: true } },
+            tokenTypes: [
+              "namespace",
+              "type",
+              "class",
+              "enum",
+              "interface",
+              "typeParameter",
+              "parameter",
+              "variable",
+              "property",
+              "enumMember",
+              "function",
+              "method",
+            ],
+            tokenModifiers: ["declaration", "static", "async", "readonly", "defaultLibrary", "local"],
+            formats: ["relative"],
+          },
+        },
+      },
       initializationOptions: {
         configPath: join(workspace, "e2e/postgres/typed-sql.config.ts"),
         schemaPath: join(fixture, "schema.json"),
@@ -95,6 +134,56 @@ await describe("upstream TypeScript LSP integration", async () => {
         strict.ok(JSON.stringify(expected).includes(databaseUri), `${method} must include the other document`);
         strict.deepStrictEqual(await proxy.request(method, request), expected, `cross-file ${method}`);
       }
+      const tokenRequest = { textDocument: { uri: databaseUri } };
+      const nativeTokens = (await upstream.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
+      const projected = (await proxy.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
+      const sharedPosition = positionAt(databaseSource, databaseSource.lastIndexOf("shared"));
+      const expectedTokens = tokensAt(nativeTokens.data, sharedPosition);
+      strict.ok(expectedTokens.length > 0, "upstream must highlight the symbol after the same-line SQL overlay");
+      strict.deepStrictEqual(
+        tokensAt(projected.data, sharedPosition),
+        expectedTokens,
+        "full semantic token source positions",
+      );
+      const ranged = (await proxy.request("textDocument/semanticTokens/range", {
+        ...tokenRequest,
+        range: {
+          start: { line: sharedPosition.line, character: 0 },
+          end: positionAt(databaseSource, databaseSource.length),
+        },
+      })) as SemanticTokens;
+      strict.deepStrictEqual(
+        tokensAt(ranged.data, sharedPosition),
+        expectedTokens,
+        "range semantic token source positions",
+      );
+      strict.ok(projected.resultId);
+      const unchanged = (await proxy.request("textDocument/semanticTokens/full/delta", {
+        ...tokenRequest,
+        previousResultId: projected.resultId,
+      })) as { resultId: string; edits: unknown[] };
+      strict.deepStrictEqual(unchanged.edits, []);
+      const changedSource = `\n${databaseSource}`;
+      proxy.notify("textDocument/didChange", {
+        textDocument: { uri: databaseUri, version: 2 },
+        contentChanges: [{ text: changedSource }],
+      });
+      const delta = (await proxy.request("textDocument/semanticTokens/full/delta", {
+        ...tokenRequest,
+        previousResultId: unchanged.resultId,
+      })) as { edits: { start: number; deleteCount: number; data: number[] }[] };
+      const reconstructed = [...projected.data];
+      for (const edit of delta.edits) reconstructed.splice(edit.start, edit.deleteCount, ...edit.data);
+      const changedFull = (await proxy.request("textDocument/semanticTokens/full", tokenRequest)) as SemanticTokens;
+      strict.deepStrictEqual(
+        reconstructed,
+        changedFull.data,
+        "source delta reconstructs the full result after an edit",
+      );
+      strict.deepStrictEqual(
+        tokensAt(reconstructed, positionAt(changedSource, changedSource.lastIndexOf("shared"))),
+        expectedTokens,
+      );
     } finally {
       await Promise.all([upstream.close(), proxy.close()]);
     }
