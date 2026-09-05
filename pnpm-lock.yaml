@@ -141,6 +141,22 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  editors/vscode:
+    dependencies:
+      vscode-languageclient:
+        specifier: 10.1.0
+        version: 10.1.0
+    devDependencies:
+      '@types/vscode':
+        specifier: 1.134.0
+        version: 1.134.0
+      '@vscode/vsce':
+        specifier: 3.9.2
+        version: 3.9.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+
   examples/multi-database:
     dependencies:
       '@typed-sql/core':
@@ -436,22 +452,6 @@ importers:
       '@typed-sql/typescript-preview':
         specifier: npm:typescript@7.1.0-dev.20260824.1
         version: typescript@7.1.0-dev.20260824.1
-
-  packages/vscode:
-    dependencies:
-      vscode-languageclient:
-        specifier: 10.1.0
-        version: 10.1.0
-    devDependencies:
-      '@types/vscode':
-        specifier: 1.134.0
-        version: 1.134.0
-      '@vscode/vsce':
-        specifier: 3.9.2
-        version: 3.9.2
-      esbuild:
-        specifier: 0.28.2
-        version: 0.28.2
 
   website:
     dependencies:

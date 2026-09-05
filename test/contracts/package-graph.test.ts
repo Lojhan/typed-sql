@@ -69,14 +69,12 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   sqlite: [".", "./runtime", "./node-sqlite"],
 };
 
-async function manifest(packageName: string): Promise<PackageManifest> {
-  return JSON.parse(
-    await readFile(join(workspace, "packages", packageName, "package.json"), "utf8"),
-  ) as PackageManifest;
+async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {
+  return JSON.parse(await readFile(join(workspace, parent, packageName, "package.json"), "utf8")) as PackageManifest;
 }
 
-async function source(packageName: string): Promise<string> {
-  const directoryPath = join(workspace, "packages", packageName, "src");
+async function source(packageName: string, parent = "packages"): Promise<string> {
+  const directoryPath = join(workspace, parent, packageName, "src");
   const files: string[] = [];
   const visit = async (path: string): Promise<void> => {
     for (const entry of await readdir(path, { withFileTypes: true })) {
@@ -230,10 +228,13 @@ await describe("public package graph", async () => {
   });
 
   await it("loads editor grammars through config instead of a PostgreSQL dependency", async () => {
-    for (const packageName of ["language-server", "vscode"]) {
-      const packageManifest = await manifest(packageName);
+    for (const [parent, packageName] of [
+      ["packages", "language-server"],
+      ["editors", "vscode"],
+    ] as const) {
+      const packageManifest = await manifest(packageName, parent);
       strict.strictEqual(packageManifest.dependencies?.["@typed-sql/postgres"], undefined);
-      strict.ok(!(await source(packageName)).includes("@typed-sql/postgres"));
+      strict.ok(!(await source(packageName, parent)).includes("@typed-sql/postgres"));
     }
   });
 

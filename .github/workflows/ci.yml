@@ -479,7 +479,7 @@ jobs:
       - run: pnpm --filter @typed-sql/e2e-postgres generate:snapshot
       - run: pnpm --filter @typed-sql/e2e-mysql generate:snapshot
       - run: pnpm exec poku packages/language-server/test/language-server.test.ts --reporter=compact --enforce
-      - run: pnpm --filter ./packages/vscode package:vsix
+      - run: pnpm --filter ./editors/vscode package:vsix
       - run: rustup target add wasm32-wasip2
       - run: cargo test --manifest-path editors/zed/Cargo.toml
       - run: pnpm editor:zed:build

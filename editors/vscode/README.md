@@ -17,7 +17,7 @@ Build the current VSIX from a clean checkout:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm --filter ./packages/vscode package:vsix
+pnpm --filter ./editors/vscode package:vsix
 code --install-extension artifacts/typed-sql-vscode.vsix
 ```
 
