@@ -84,4 +84,40 @@ await describe("cross-document LSP coordinates", async () => {
     strict.deepStrictEqual(mapped.range, shifted(3));
     strict.strictEqual(mapped.data, data);
   });
+
+  await it("translates owned numeric document versions without touching null or opaque versions", () => {
+    const versions = { ...mapper, version: (shift: number, version: number) => version + shift };
+    const input = {
+      documentChanges: [
+        { textDocument: { uri: first, version: 10 }, edits: [{ range, newText: "a" }] },
+        { textDocument: { uri: second, version: 20 }, edits: [{ range, newText: "b" }] },
+        { textDocument: { uri: external, version: 30 }, edits: [] },
+        { textDocument: { uri: first, version: null }, edits: [] },
+      ],
+      data: { textDocument: { uri: first, version: 10 } },
+    };
+    const result = mapProtocolCoordinates(input, versions) as typeof input;
+    strict.deepStrictEqual(
+      result.documentChanges.map((edit) => edit.textDocument.version),
+      [13, 27, 30, null],
+    );
+    strict.strictEqual(result.data, input.data);
+    strict.deepStrictEqual(result.documentChanges[0]?.edits[0]?.range, shifted(3));
+    const reversed = mapProtocolCoordinates(result, {
+      ...versions,
+      position: (shift, position) => ({ ...position, line: position.line + shift }),
+      version: (shift, version) => version - shift,
+    });
+    strict.deepStrictEqual(reversed, input);
+    strict.throws(
+      () =>
+        mapProtocolCoordinates(input, {
+          ...versions,
+          version: () => {
+            throw new Error("stale version");
+          },
+        }),
+      /stale version/u,
+    );
+  });
 });

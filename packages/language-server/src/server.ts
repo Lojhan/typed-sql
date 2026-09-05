@@ -354,6 +354,14 @@ function mapProtocolValue(value: unknown, direction: MappingDirection, fallback?
     {
       lookup: (uri) => documents.get(uri) ?? virtualDocuments.get(uri),
       position: (state, position) => mapPosition(state, position, direction),
+      version: (state, version) => {
+        ensureStateCurrent(state);
+        const expected = direction === "source-to-virtual" ? state.original.version : state.virtualVersion;
+        if (version !== expected) {
+          throw new ResponseError(LSP_CONTENT_MODIFIED, "Document version does not match the mapped source snapshot");
+        }
+        return direction === "source-to-virtual" ? state.virtualVersion : state.original.version;
+      },
     },
     fallback,
   );
