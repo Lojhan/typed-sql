@@ -802,6 +802,33 @@ await describe("core contracts", async () => {
     }
   });
 
+  await it("preserves validation order and only freezes configurations after success", () => {
+    const config = {
+      dialect,
+      schema: { file: "schema.json" },
+      outDir: "generated",
+      compiler: { maxStructuralVariants: 0 },
+      manifest: { outFile: "" },
+      verification: { concurrency: 0 },
+      compatibility: { reportFile: "" },
+      plans: { concurrency: 0 },
+    };
+    strict.throws(() => defineConfig(config), /compiler.maxStructuralVariants/);
+    strict.strictEqual(Object.isFrozen(config), false);
+    config.compiler.maxStructuralVariants = 1;
+    strict.throws(() => defineConfig(config), /manifest.outFile/);
+    config.manifest.outFile = "manifest.json";
+    strict.throws(() => defineConfig(config), /verification.concurrency/);
+    config.verification.concurrency = 1;
+    strict.throws(() => defineConfig(config), /compatibility.reportFile/);
+    config.compatibility.reportFile = "compat.json";
+    strict.throws(() => defineConfig(config), /plans.concurrency/);
+    config.plans.concurrency = 1;
+    strict.strictEqual(defineConfig(config), config);
+    strict.strictEqual(Object.isFrozen(config), true);
+    strict.strictEqual(Object.isFrozen(config.plans), false);
+  });
+
   await it("validates every public dialect contract boundary", () => {
     strict.doesNotThrow(() => assertDialectPlugin(dialect));
     const withoutPolicy = Object.fromEntries(Object.entries(dialect).filter(([key]) => key !== "defaultTypePolicy"));
