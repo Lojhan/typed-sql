@@ -293,7 +293,7 @@ function queueDocument(uri: string, operation: () => Promise<void>): Promise<voi
     .catch(async (error: unknown) => {
       if (error instanceof Error && error.name === "AbortError") return;
       nativeDiagnostics.delete(uri);
-      projectFailureReports.add(uri);
+      if (sourceDocuments.has(uri)) projectFailureReports.add(uri);
       await client.sendNotification("textDocument/publishDiagnostics", {
         uri,
         ...(latestDocumentVersions.get(uri) === undefined ? {} : { version: latestDocumentVersions.get(uri) }),
@@ -320,7 +320,7 @@ function queueWorkspace(operation: () => Promise<void>): Promise<void> {
     .catch(async (error: unknown) => {
       for (const [uri, state] of documents) {
         nativeDiagnostics.delete(uri);
-        projectFailureReports.add(uri);
+        if (sourceDocuments.has(uri)) projectFailureReports.add(uri);
         await client.sendNotification("textDocument/publishDiagnostics", {
           uri,
           version: state.original.version,
