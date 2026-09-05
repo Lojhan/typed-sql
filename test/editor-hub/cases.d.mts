@@ -14,6 +14,7 @@ export interface GrammarCase {
   wrongType: string;
   invalidQuery: string;
   diagnosticPattern: string;
+  schemaRefresh?: { table: string; column: string; type: string };
 }
 export const grammarCases: GrammarCase[];
 export const interfaces: string[];

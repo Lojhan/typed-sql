@@ -91,6 +91,11 @@ await describe("typed-sql stdio language server", async () => {
       const report = (await failure) as { readonly diagnostics?: readonly { readonly message?: string }[] };
       strict.ok(report.diagnostics?.[0]?.message?.includes("Run typed-sql doctor"));
       strict.ok(!report.diagnostics?.[0]?.message?.includes("secret-missing-schema"));
+      strict.deepStrictEqual(
+        await client.request("textDocument/diagnostic", { textDocument: { uri } }),
+        { kind: "full", items: report.diagnostics },
+        "pull reports retain the same redacted failure instead of throwing or clearing it",
+      );
       await writeFile(missingSchema, await readFile(schemaFile, "utf8"));
       const recovered = client.notification(
         "textDocument/publishDiagnostics",

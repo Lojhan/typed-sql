@@ -67,6 +67,55 @@ export async function runScenario(spec, host, record) {
   await check("ordinary-hover", async () =>
     assert.match(await host.hover("ordinary.count", "ordinary.".length), /number/),
   );
+  await check("schema-file-refresh", async () => {
+    try {
+      if (spec.schemaRefresh !== undefined) {
+        const changed = structuredClone(spec.schema);
+        changed.tables[spec.schemaRefresh.table].columns[spec.schemaRefresh.column].nullable = true;
+        await host.writeSchema(changed);
+        await eventually("schema nullability reaches hover", async () =>
+          assertType(
+            await host.hover(marker(spec.initial), memberOffset),
+            spec.initial.member,
+            spec.schemaRefresh.type,
+          ),
+        );
+        await eventually("schema nullability reaches diagnostics", async () =>
+          assert.ok(
+            (await host.diagnostics()).some((item) => item.error && item.line === 6 && /null/.test(item.message)),
+          ),
+        );
+      }
+      // Every grammar validates its envelope, even if its semantics intentionally
+      // do not use column metadata (the synthetic third-party fixture).
+      await host.writeSchema({ ...spec.schema, dialectVersion: "0.0.0-incompatible" });
+      await eventually("incompatible schema fails closed", async () => {
+        const diagnostics = await host.diagnostics();
+        assert.ok(
+          diagnostics.some((item) => item.source === "typed-sql" && /analysis is unavailable/.test(item.message)),
+          JSON.stringify(diagnostics),
+        );
+        const value = await host.hover(marker(spec.initial), memberOffset).catch(() => "");
+        assert.ok(value.length === 0 || /\bunknown\b/.test(value), `must not retain stale inference: ${value}`);
+      });
+    } finally {
+      await host.writeSchema(spec.schema);
+    }
+    await eventually("restored schema restores inference and clears stale errors", async () => {
+      const value = await host.hover(marker(spec.initial), memberOffset);
+      assertType(value, spec.initial.member, spec.initial.type);
+      assert.doesNotMatch(value, /\bnull\b/);
+      const errors = (await host.diagnostics()).filter((item) => item.error);
+      assert.ok(
+        !errors.some((item) => item.line === 6 || /analysis is unavailable/.test(item.message)),
+        JSON.stringify(errors),
+      );
+      assert.ok(
+        errors.some((item) => item.line === 7 && /not assignable/.test(item.message)),
+        JSON.stringify(errors),
+      );
+    });
+  });
   await check("unsaved-query-refresh", async () => {
     await host.replace(sourceFor(spec, spec.changed));
     await eventually("unsaved inference", async () =>

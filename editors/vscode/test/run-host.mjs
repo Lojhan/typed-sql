@@ -116,6 +116,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     };
   }
   await writeFile(join(results, `${id}.json`), JSON.stringify(report, null, 2));
+  if (report.passed !== true) console.error(`Host failure ${id}: ${JSON.stringify(report)}`);
   if (report?.grammar !== undefined) reports.push(report);
   await writeFile(join(results, "matrix.json"), JSON.stringify(buildMatrix(reports), null, 2));
 }

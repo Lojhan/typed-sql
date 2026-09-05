@@ -143,6 +143,7 @@ const sourceDocuments = new Map<string, TextDocument>();
 const documents = new Map<string, DocumentState>();
 const virtualDocuments = new Map<string, DocumentState>();
 const nativeDiagnostics = new Map<string, readonly unknown[]>();
+const projectFailureReports = new Map<string, JsonObject>();
 let pullDiagnostics = false;
 let diagnosticRefreshSupported = false;
 const semanticTokenResults = new SemanticTokenResults();
@@ -292,11 +293,14 @@ function queueDocument(uri: string, operation: () => Promise<void>): Promise<voi
     .catch(async (error: unknown) => {
       if (error instanceof Error && error.name === "AbortError") return;
       nativeDiagnostics.delete(uri);
+      const diagnostic = projectFailureDiagnostic(error);
+      if (sourceDocuments.has(uri)) projectFailureReports.set(uri, diagnostic);
       await client.sendNotification("textDocument/publishDiagnostics", {
         uri,
         ...(latestDocumentVersions.get(uri) === undefined ? {} : { version: latestDocumentVersions.get(uri) }),
-        diagnostics: [projectFailureDiagnostic(error)],
+        diagnostics: [diagnostic],
       });
+      requestDiagnosticRefresh();
     });
   pendingDocuments.set(uri, pending);
   return pending.finally(() => {
@@ -318,12 +322,15 @@ function queueWorkspace(operation: () => Promise<void>): Promise<void> {
     .catch(async (error: unknown) => {
       for (const [uri, state] of documents) {
         nativeDiagnostics.delete(uri);
+        const diagnostic = projectFailureDiagnostic(error);
+        if (sourceDocuments.has(uri)) projectFailureReports.set(uri, diagnostic);
         await client.sendNotification("textDocument/publishDiagnostics", {
           uri,
           version: state.original.version,
-          diagnostics: [projectFailureDiagnostic(error)],
+          diagnostics: [diagnostic],
         });
       }
+      requestDiagnosticRefresh();
     });
   return workspaceReady;
 }
@@ -450,13 +457,28 @@ async function combinedDiagnostics(state: DocumentState): Promise<readonly unkno
   ]);
 }
 
+function requestDiagnosticRefresh(): void {
+  // Never await a refresh from a document/workspace queue: the new pull waits
+  // for that queue to finish, including when schema analysis failed.
+  if (pullDiagnostics && diagnosticRefreshSupported)
+    void client.sendRequest("workspace/diagnostic/refresh").catch(() => undefined);
+}
+
 async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
   if (latestDocumentVersions.get(state.original.uri) !== state.original.version) return;
   if (pullDiagnostics) {
+    // Failure reports use push delivery even for pull clients. Clear that owned
+    // report once analysis recovers; requesting a pull alone does not remove it.
+    if (projectFailureReports.delete(state.original.uri))
+      await client.sendNotification("textDocument/publishDiagnostics", {
+        uri: state.original.uri,
+        version: state.original.version,
+        diagnostics: [],
+      });
     // A typed-sql-only push would replace the client's combined pull report and
     // erase TypeScript errors. Ask it to pull again after overlay invalidation.
     // Do not await: the new pull must be able to wait for this document queue.
-    if (diagnosticRefreshSupported) void client.sendRequest("workspace/diagnostic/refresh").catch(() => undefined);
+    requestDiagnosticRefresh();
     return;
   }
   const diagnostics = await combinedDiagnostics(state);
@@ -467,6 +489,7 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
     (state.analysis !== undefined && !state.service.isAnalysisCurrent(state.original, state.analysis))
   )
     return;
+  projectFailureReports.delete(state.original.uri);
   await client.sendNotification("textDocument/publishDiagnostics", {
     uri: state.original.uri,
     version: state.original.version,
@@ -665,13 +688,23 @@ client.onRequest(TYPED_SQL_STATUS_REQUEST, async (): Promise<TypedSqlLanguageSer
 });
 
 client.onRequest(async (method, rawParams, token) => {
-  await workspaceReady;
+  try {
+    await workspaceReady;
+  } catch (error) {
+    if (method === "textDocument/diagnostic") return { kind: "full", items: [projectFailureDiagnostic(error)] };
+    throw error;
+  }
   const restored = method.endsWith("/resolve") ? resolveContexts.restore(rawParams, method) : { item: rawParams };
   if (restored.expired === true)
     throw new ResponseError(LSP_CONTENT_MODIFIED, "Resolve context expired; request fresh items");
   const params = restored.item;
   const uri = restored.context?.uri ?? documentUri(params);
   if (uri !== undefined) await waitForDocument(uri, token);
+  // Failed schema analysis must remain visible to pull clients as a diagnostic,
+  // not disappear when their pull report supersedes a pushed failure report.
+  const projectFailure = uri === undefined ? undefined : projectFailureReports.get(uri);
+  if (method === "textDocument/diagnostic" && projectFailure !== undefined)
+    return { kind: "full", items: [projectFailure] };
   const state = restored.context?.state ?? (isObject(params) ? stateFor(params) : undefined);
   ensureStateCurrent(state);
   if (
@@ -798,6 +831,7 @@ client.onNotification("textDocument/didChange", (rawParams) => {
 
 client.onNotification("textDocument/didClose", (rawParams) => {
   const params = rawParams as DidCloseParams;
+  projectFailureReports.delete(params.textDocument.uri);
   semanticTokenResults.delete(params.textDocument.uri);
   resolveContexts.delete(params.textDocument.uri);
   sourceDocuments.delete(params.textDocument.uri);
