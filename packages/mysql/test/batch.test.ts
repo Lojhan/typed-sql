@@ -1,5 +1,6 @@
 import { type Query, type QueryResults, sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { deferred } from "../../../test/helpers/deferred.js";
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,
@@ -246,14 +247,8 @@ await describe("MySQL ordered batches", async () => {
 
   await it("exclusively owns a transaction connection while executing", async () => {
     const pool = new BatchPool();
-    let queryStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
-      queryStarted = resolve;
-    });
-    let resumeQuery!: () => void;
-    const resume = new Promise<void>((resolve) => {
-      resumeQuery = resolve;
-    });
+    const { promise: started, resolve: queryStarted } = deferred<void>();
+    const { promise: resume, resolve: resumeQuery } = deferred<void>();
     pool.connection.executeHook = async (index) => {
       if (index !== 0) return;
       queryStarted();
@@ -281,14 +276,8 @@ await describe("MySQL ordered batches", async () => {
 
   await it("snapshots the ordered query list before asynchronous work", async () => {
     const pool = new BatchPool();
-    let queryStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
-      queryStarted = resolve;
-    });
-    let resumeQuery!: () => void;
-    const resume = new Promise<void>((resolve) => {
-      resumeQuery = resolve;
-    });
+    const { promise: started, resolve: queryStarted } = deferred<void>();
+    const { promise: resume, resolve: resumeQuery } = deferred<void>();
     pool.connection.executeHook = async (index) => {
       if (index !== 0) return;
       queryStarted();
@@ -305,14 +294,8 @@ await describe("MySQL ordered batches", async () => {
 
   await it("stops an unawaited outer transaction batch before its second query and rolls back", async () => {
     const pool = new BatchPool();
-    let queryStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
-      queryStarted = resolve;
-    });
-    let resumeQuery!: () => void;
-    const resume = new Promise<void>((resolve) => {
-      resumeQuery = resolve;
-    });
+    const { promise: started, resolve: queryStarted } = deferred<void>();
+    const { promise: resume, resolve: resumeQuery } = deferred<void>();
     pool.connection.executeHook = async (index) => {
       if (index !== 0) return;
       queryStarted();
@@ -340,14 +323,8 @@ await describe("MySQL ordered batches", async () => {
 
   await it("stops an unawaited nested batch before outer finalization releases the connection", async () => {
     const pool = new BatchPool();
-    let queryStarted!: () => void;
-    const started = new Promise<void>((resolve) => {
-      queryStarted = resolve;
-    });
-    let resumeQuery!: () => void;
-    const resume = new Promise<void>((resolve) => {
-      resumeQuery = resolve;
-    });
+    const { promise: started, resolve: queryStarted } = deferred<void>();
+    const { promise: resume, resolve: resumeQuery } = deferred<void>();
     pool.connection.executeHook = async (index) => {
       if (index !== 0) return;
       queryStarted();

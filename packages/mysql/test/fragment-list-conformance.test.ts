@@ -1,5 +1,6 @@
 import { assertFragmentListConformance } from "@typed-sql/conformance";
 import { describe, it, strict } from "poku";
+import { fragmentListCases, fragmentRows as rows } from "../../../test/helpers/fragment-list.js";
 import { type MySqlSchemaSnapshot, mysql, sql } from "../src/index.js";
 import { mysqlRenderer } from "../src/runtime.js";
 
@@ -18,13 +19,6 @@ const snapshot = {
   },
 } as const satisfies MySqlSchemaSnapshot;
 
-const rows = [
-  { id: 1n, email: "one@example.test" },
-  { id: 2n, email: "two@example.test" },
-  { id: 3n, email: "three@example.test" },
-  { id: 4n, email: "four@example.test" },
-  { id: 5n, email: "five@example.test" },
-] as const;
 const query = (cardinality: 1 | 2 | 5) =>
   sql`INSERT INTO users (id, email) VALUES ${rows
     .slice(0, cardinality)
@@ -52,13 +46,7 @@ await describe("MySQL fragment-list conformance", async () => {
         { index: 1, tsType: "bigint", nullable: false, databaseType: "bigint" },
         { index: 2, tsType: "string", nullable: false, databaseType: "text" },
       ],
-      renderCases: ([1, 2, 5] as const).map((cardinality) => ({
-        name: `${cardinality}-rows`,
-        cardinality,
-        query: query(cardinality),
-        expectedText: text(cardinality),
-        expectedValues: rows.slice(0, cardinality).flatMap(({ id, email }) => [id, email]),
-      })),
+      renderCases: fragmentListCases(query, text),
       diagnostics: [
         {
           name: "row-arity",

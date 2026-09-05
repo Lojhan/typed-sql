@@ -8,34 +8,15 @@ import {
 import { runAdaptedGrammarConformanceV1 } from "@typed-sql/conformance/v2";
 import { describe, it, strict } from "poku";
 import { type SqliteSchemaSnapshot, sqlite } from "../src/index.js";
+import { accountTable, serverEvidence } from "./helpers/schema.js";
 
 const snapshot = {
   formatVersion: 1,
   dialect: "sqlite",
   dialectVersion: "1.0.0",
-  version: "3.53.0",
-  server: {
-    product: "sqlite",
-    version: "3.53.0",
-    versionKey: "3.53.0",
-    features: [],
-    settings: {},
-  },
+  ...serverEvidence(),
   tables: {
-    account: {
-      schema: "main",
-      name: "account",
-      kind: "table",
-      strict: true,
-      withoutRowid: false,
-      indexes: [],
-      foreignKeys: [],
-      columns: {
-        id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
-        email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
-        score: { name: "score", databaseType: "REAL", tsType: "number", nullable: true },
-      },
-    },
+    account: accountTable(),
   },
   functions: {
     "slug/1": {

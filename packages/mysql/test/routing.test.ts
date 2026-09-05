@@ -1,5 +1,6 @@
-import { createDatabase, sql } from "@typed-sql/core";
+import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
+import { recordingDatabase } from "../../../test/helpers/recording-database.js";
 import {
   createMySqlQuerySemanticResolver,
   createMySqlRoutedDatabase,
@@ -22,13 +23,7 @@ const schema = {
 } as const;
 
 function database(name: string, calls: string[]) {
-  const executor = {
-    execute: async () => {
-      calls.push(name);
-      return [{ name }];
-    },
-  };
-  return createDatabase(executor, { placeholder: () => "?", quoteIdentifier: (value) => `\`${value}\`` });
+  return recordingDatabase(name, calls, { placeholder: () => "?", quoteIdentifier: (value) => `\`${value}\`` });
 }
 
 await describe("MySQL semantic routing adapter", async () => {
