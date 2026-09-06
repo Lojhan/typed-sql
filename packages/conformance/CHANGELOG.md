@@ -1,5 +1,18 @@
 # @typed-sql/conformance
 
+## 2.1.1
+
+### Patch Changes
+
+- Updated dependencies [b752fde]
+- Updated dependencies [7e94958]
+- Updated dependencies [a4c4e73]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/compiler@2.1.1
+  - @typed-sql/core@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes

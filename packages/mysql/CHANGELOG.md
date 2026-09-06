@@ -1,5 +1,22 @@
 # @typed-sql/mysql
 
+## 2.1.1
+
+### Patch Changes
+
+- fc2bf3f: Discard transaction connections after failed rollback or savepoint recovery, preserve the original error, and prevent an invalidated parent from committing or dispatching further work.
+- 2f5f6be: Share ordered batch result validation while preserving adapter fingerprints and the unvalidated fast path.
+- 71a169f: Share backpressured bulk producer mechanics while preserving grammar-specific SQL, encoding and transport behavior.
+- d176673: Share grammar-neutral prepared-query registration and ownership checks while retaining each adapter's statement naming, capacity, and public factory types.
+- Updated dependencies [b752fde]
+- Updated dependencies [456fa7f]
+- Updated dependencies [7e94958]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+  - @typed-sql/schema@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes
