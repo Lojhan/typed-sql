@@ -96,7 +96,11 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
       "typedSql.serverPath": mode === "lifecycle" ? "missing-server.cjs" : join(directory, "probe-server.cjs"),
     }),
   );
-  if (mode === "overlays") await prepareOverlayWorkspace(workspace, root, spec);
+  if (mode === "overlays") {
+    await prepareOverlayWorkspace(workspace, root, spec);
+    // A workspace file must still honor the folder-owned server/schema paths.
+    await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }] }));
+  }
   if (extended) {
     const server = join(packed, "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js");
     const configure = async (target, grammar) => {
@@ -131,12 +135,10 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     }),
   );
   const isolated = ["--user-data-dir", profile, "--extensions-dir", extensions];
-  const version = (await execFile(cli, [...cliArgs, ...isolated, "--version"], { timeout: 30_000 })).stdout
-    .trim()
-    .split(/\r?\n/)[0];
-  if (version !== "1.134.0")
+  const version = await execFile(cli, [...cliArgs, ...isolated, "--version"], { timeout: 30_000 });
+  if (version.stdout.trim().split(/\r?\n/)[0] !== "1.134.0")
     throw new Error(
-      `VS Code cache version mismatch: expected 1.134.0, got ${version}. Preserve and replace the stale cache before retrying.`,
+      "Pinned VS Code cache version mismatch; preserve the cache for diagnosis and use a fresh pinned cache.",
     );
   await execFile(cli, [...cliArgs, ...isolated, "--install-extension", join(root, "artifacts/typed-sql-vscode.vsix")], {
     timeout: 60_000,
@@ -149,7 +151,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     await execFile(
       executable,
       [
-        mode === "virtual" || extended ? workspaceFile : workspace,
+        mode === "virtual" || mode === "overlays" || extended ? workspaceFile : workspace,
         ...isolated,
         "--skip-welcome",
         "--skip-release-notes",
