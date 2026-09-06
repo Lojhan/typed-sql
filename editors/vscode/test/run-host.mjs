@@ -19,6 +19,7 @@ await mkdir(artifacts, { recursive: true });
 const dataRoot = resolve(process.env.TYPED_SQL_HOST_DATA_ROOT ?? artifacts);
 await mkdir(dataRoot, { recursive: true });
 const run = await mkdtemp(join(dataRoot, "v-"));
+await mkdir(join(artifacts, "downloads", "pinned"), { recursive: true });
 const executable = await downloadAndUnzipVSCode({
   version: "1.134.0",
   cachePath: join(artifacts, "downloads", "pinned"),
