@@ -364,6 +364,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify(await planInit(parsed.options, version), null, 2)}\n`);
     return;
   }
+  if (parsed.options["dry-run"] !== undefined) throw new Error("--dry-run is only supported by init");
   const loaded = await loadConfig({ ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }) });
   const config = loaded.config;
   const dialect = config.dialect;

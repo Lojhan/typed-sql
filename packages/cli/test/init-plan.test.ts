@@ -55,6 +55,14 @@ await describe("nonexecuting init planner", async () => {
       );
       strict.equal(JSON.parse(result.stdout).mode, "plan");
       strict.equal(result.stderr, "");
+      await strict.rejects(
+        promisify(execFile)(
+          process.execPath,
+          ["--import", fileURLToPath(import.meta.resolve("tsx")), cli, "generate", "--dry-run"],
+          { cwd: root },
+        ),
+        /--dry-run is only supported by init/u,
+      );
     });
   });
 
