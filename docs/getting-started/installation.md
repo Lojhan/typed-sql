@@ -9,6 +9,25 @@ pageType: how-to
 Install one grammar for the database used by the application. Add the stable CLI as a development
 dependency, then select a database driver explicitly—grammar packages never install or own one.
 
+## Inspect a setup plan
+
+`typed-sql init` prints a JSON setup plan without writing project files, importing configuration,
+installing dependencies, or connecting to a database:
+
+```sh
+pnpm exec typed-sql init --grammar postgres --dry-run
+pnpm exec typed-sql init --cwd . --package apps/api --grammar mysql --editor vscode --json
+```
+
+Choose `postgres`, `mysql`, or `sqlite` explicitly. Workspace roots require `--package` to select
+an application. The planner detects package-manager declarations and lockfiles and refuses
+conflicting choices. Existing configuration and dependency ranges are preserved, not certified
+compatible. Proposed files, missing dependencies, scripts, and pending actions are separate fields.
+
+An editor selection records prerequisites; it does not install an extension or claim the editor
+is ready. Supply a real schema snapshot before generation. `init` does not fabricate database
+metadata, execute lifecycle scripts, or grant workspace trust.
+
 ## Prerequisites
 
 typed-sql requires Node.js 22.11 or newer. The compiler uses an exact supported TypeScript version;
