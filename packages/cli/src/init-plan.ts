@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { TYPESCRIPT_COMPILER_SUPPORT_POLICY } from "@typed-sql/compiler";
 
 const grammars = {
   postgres: { package: "@typed-sql/postgres", factory: "postgres" },
@@ -136,7 +137,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
     ["@typed-sql/cli", `^${version}`],
     ["@typed-sql/core", "^2.1.0"],
     [grammars[grammar].package, "^2.1.0"],
-    ["typescript", "~7.0.2"],
+    ["typescript", TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion],
   ] as const) {
     const value = existing[name];
     if (value !== undefined && typeof value !== "string") throw new Error(`Invalid dependency ${name}`);
