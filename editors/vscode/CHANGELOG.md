@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Honor per-folder project and server settings in multi-root workspaces.
+
 - Serialize client startup, configuration restarts and shutdown to avoid overlapping workspace servers.
 
 - Verify real SQL overlays, inferred completions, TypeScript diagnostics and unsaved edits through an isolated packaged VS Code host.

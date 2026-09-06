@@ -51,43 +51,51 @@
       "title": "typed-sql",
       "properties": {
         "typedSql.configPath": {
+          "scope": "resource",
           "type": "string",
           "default": "",
           "description": "typed-sql config path. Empty discovers typed-sql.config.ts from the workspace folder."
         },
         "typedSql.schemaPath": {
+          "scope": "resource",
           "type": "string",
           "default": "",
           "description": "Optional generated schema override. Empty uses schema.file from typed-sql.config.ts."
         },
         "typedSql.projectFile": {
+          "scope": "resource",
           "type": "string",
           "default": "",
           "description": "Optional tsconfig override. Empty uses the projects declared by typed-sql.config.ts."
         },
         "typedSql.serverPath": {
+          "scope": "resource",
           "type": "string",
           "default": "",
           "description": "Optional language-server module override. Empty uses the workspace-installed @typed-sql/language-server."
         },
         "typedSql.nativePreview": {
+          "scope": "resource",
           "type": "boolean",
           "default": true,
           "description": "Use the language server's pinned TypeScript 7.1 preview for authoritative transformed-source semantics."
         },
         "typedSql.maxCacheEntries": {
+          "scope": "resource",
           "type": "number",
           "default": 256,
           "minimum": 1,
           "description": "Maximum document analyses and native inspections retained by each workspace server."
         },
         "typedSql.maxWorkspaceFiles": {
+          "scope": "resource",
           "type": "number",
           "default": 2000,
           "minimum": 1,
           "description": "Maximum TypeScript files preloaded by each workspace server."
         },
         "typedSql.analysisDebounceMs": {
+          "scope": "resource",
           "type": "number",
           "default": 20,
           "minimum": 0,
