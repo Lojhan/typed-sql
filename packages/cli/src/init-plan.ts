@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { lstat, readFile, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 const grammars = {
@@ -40,9 +41,14 @@ function object(value: unknown, label: string): JsonObject {
 
 async function read(path: string): Promise<string | undefined> {
   try {
-    const stat = await lstat(path);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`Expected a regular non-symlink file: ${path}`);
-    return await readFile(path, "utf8");
+    const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const stat = await file.stat();
+      if (!stat.isFile()) throw new Error(`Expected a regular non-symlink file: ${path}`);
+      return await file.readFile("utf8");
+    } finally {
+      await file.close();
+    }
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
     throw error;
