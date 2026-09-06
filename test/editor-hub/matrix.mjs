@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { grammarCases, interfaces } from "./cases.mjs";
 
+// Additional executable interfaces live in extended-scenario and the isolated
+// coexistence host. Keep the historical export for existing matrix consumers.
 export const pendingInterfaces = [
   "restart-recovery",
   "multi-root",
@@ -16,6 +18,27 @@ export const pendingInterfaces = [
   "packed-server-install",
   "builtin-coexistence",
 ];
+
+export function combineHostReports(reports) {
+  const combined = new Map();
+  for (const report of reports) {
+    // Validate evidence before aggregation, so protocol results cannot inherit
+    // another report's actual-host identity.
+    buildMatrix([report]);
+    const key = `${report.editor}/${report.grammar}`;
+    const previous = combined.get(key);
+    if (previous === undefined) {
+      combined.set(key, { ...report, checks: { ...report.checks } });
+      continue;
+    }
+    assert.equal(previous.vscode ?? previous.hostVersion, report.vscode ?? report.hostVersion, "mixed host versions");
+    for (const [id, result] of Object.entries(report.checks)) {
+      assert.ok(!Object.hasOwn(previous.checks, id), `duplicate interface evidence: ${key}/${id}`);
+      previous.checks[id] = result;
+    }
+  }
+  return [...combined.values()];
+}
 
 export function buildMatrix(reports) {
   const inventory = [...interfaces, ...pendingInterfaces];

@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 import { grammarCases } from "../../../test/editor-hub/cases.mjs";
-import { buildMatrix } from "../../../test/editor-hub/matrix.mjs";
+import { editCases } from "../../../test/editor-hub/edit-matrix.mjs";
+import { buildMatrix, combineHostReports } from "../../../test/editor-hub/matrix.mjs";
+import { prepareWorkspace } from "../../../test/editor-hub/workspace.mjs";
+import { installPackedServer } from "./packed-install.mjs";
 import { prepareOverlayWorkspace } from "./setup-overlays.mjs";
 
 const execFile = promisify(execFileCallback);
@@ -23,16 +26,48 @@ const executable = await downloadAndUnzipVSCode({
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
-const scenarios = [
+const allScenarios = [
   ...["trusted", "untrusted", "virtual"].map((mode) => ({ mode, id: mode })),
   { mode: "lifecycle", id: "lifecycle" },
   ...grammarCases.map((spec) => ({ mode: "overlays", id: spec.id, spec })),
+  ...grammarCases.map((spec) => ({ mode: "extended", id: `${spec.id}-extended`, spec })),
+  ...grammarCases.map((spec) => ({ mode: "coexist", id: `${spec.id}-coexist`, spec })),
 ];
 const reports = [];
+const selected = process.env.TYPED_SQL_HOST_SCENARIOS?.split(",");
+if (selected?.some((id) => !allScenarios.some((scenario) => scenario.id === id)))
+  throw new Error("Unknown TYPED_SQL_HOST_SCENARIOS entry");
+const scenarios =
+  selected === undefined ? allScenarios : allScenarios.filter((scenario) => selected.includes(scenario.id));
 const failures = [];
 const results = join(artifacts, "results", basename(run));
 await mkdir(results, { recursive: true });
-await writeFile(join(results, "matrix.json"), JSON.stringify(buildMatrix(reports), null, 2));
+const saveMatrices = async () => {
+  await writeFile(join(results, "matrix.json"), JSON.stringify(buildMatrix(combineHostReports(reports)), null, 2));
+  await writeFile(
+    join(results, "edit-matrix.json"),
+    JSON.stringify(
+      {
+        evidence: "actual-host",
+        cells: grammarCases.flatMap((spec) =>
+          editCases.map((id) => ({
+            editor: "vscode",
+            grammar: spec.id,
+            interface: id,
+            ...(reports.find((report) => report.grammar === spec.id && report.editMatrix)?.editMatrix[id] ?? {
+              status: "not-run",
+            }),
+          })),
+        ),
+      },
+      null,
+      2,
+    ),
+  );
+};
+await saveMatrices();
+const packed = await installPackedServer(root, run);
+await writeFile(join(results, "packed-install.json"), await readFile(join(run, "packed-install.json")));
 for (const [index, { mode, id, spec }] of scenarios.entries()) {
   const base = join(run, String(index));
   const workspace = join(base, "workspace");
@@ -46,6 +81,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
   await mkdir(join(workspace, ".vscode"), { recursive: true });
   await writeFile(join(workspace, "query.ts"), "export const example = 1;\n");
   const workspaceFile = join(base, "virtual.code-workspace");
+  const extended = mode === "extended" || mode === "coexist";
   if (mode === "virtual")
     await writeFile(
       workspaceFile,
@@ -64,6 +100,29 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     await prepareOverlayWorkspace(workspace, root, spec);
     // A workspace file must still honor the folder-owned server/schema paths.
     await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }] }));
+  }
+  if (extended) {
+    const server = join(packed, "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js");
+    const configure = async (target, grammar) => {
+      const settings = await prepareWorkspace(target, root, grammar, packed);
+      await mkdir(join(target, ".vscode"), { recursive: true });
+      await writeFile(
+        join(target, ".vscode/settings.json"),
+        JSON.stringify({
+          "typedSql.serverPath": server,
+          ...Object.fromEntries(Object.entries(settings).map(([key, value]) => [`typedSql.${key}`, value])),
+        }),
+      );
+    };
+    await configure(workspace, spec);
+    await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }] }));
+    const other = grammarCases[(grammarCases.indexOf(spec) + 1) % grammarCases.length];
+    const secondary = join(base, "secondary");
+    await configure(secondary, other);
+    await writeFile(
+      join(base, "secondary.json"),
+      JSON.stringify({ workspace: secondary, member: other.initial.member, type: other.initial.type }),
+    );
   }
   await mkdir(join(profile, "User"), { recursive: true });
   await writeFile(
@@ -92,19 +151,20 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     await execFile(
       executable,
       [
-        mode === "virtual" || mode === "overlays" ? workspaceFile : workspace,
+        mode === "virtual" || mode === "overlays" || extended ? workspaceFile : workspace,
         ...isolated,
         "--skip-welcome",
         "--skip-release-notes",
         ...(process.platform === "linux" ? ["--no-sandbox"] : []),
-        "--disable-extension",
-        "vscode.typescript-language-features",
+        ...(mode === "coexist" ? [] : ["--disable-extension", "vscode.typescript-language-features"]),
         `--extensionDevelopmentPath=${join(directory, "harness")}`,
-        `--extensionTestsPath=${join(directory, mode === "overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
+        `--extensionTestsPath=${join(directory, extended ? "extended-suite.cjs" : mode === "overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
         ...(mode !== "untrusted" ? ["--disable-workspace-trust"] : []),
       ],
       {
-        timeout: 90_000,
+        // Each independent added interface retains its 25-second eventual
+        // bound. Allow the complete matrix to report all failures in one host.
+        timeout: mode === "extended" ? 420_000 : 90_000,
         maxBuffer: 4 * 1024 * 1024,
         env: {
           ...process.env,
@@ -113,6 +173,14 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
           TYPED_SQL_HOST_MARKER: join(base, "server-started"),
           TYPED_SQL_HOST_PROBE: join(directory, "lifecycle-server.cjs"),
           TYPED_SQL_HOST_REPORT: join(base, "result.json"),
+          TYPED_SQL_PACKED_ROOT: packed,
+          TYPED_SQL_SECONDARY: join(base, "secondary.json"),
+          ...(extended && process.env.TYPED_SQL_HOST_CAPTURE_PREVIEW === "true"
+            ? {
+                TYPED_SQL_TYPESCRIPT_PREVIEW_CLI: join(directory, "preview-trace.cjs"),
+                TYPED_SQL_PREVIEW_TRACE: join(results, `${id}-preview.log`),
+              }
+            : {}),
         },
       },
     );
@@ -146,7 +214,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
   await writeFile(join(results, `${id}.json`), JSON.stringify(report, null, 2));
   if (report.passed !== true) console.error(`Host failure ${id}: ${JSON.stringify(report)}`);
   if (report?.grammar !== undefined) reports.push(report);
-  await writeFile(join(results, "matrix.json"), JSON.stringify(buildMatrix(reports), null, 2));
+  await saveMatrices();
 }
 console.log(`VS Code host evidence: ${run}`);
 if (failures.length > 0) throw new Error(`Host scenarios failed: ${failures.join(", ")}. Evidence: ${results}`);
