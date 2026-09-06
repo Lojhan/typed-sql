@@ -1,5 +1,17 @@
 # @typed-sql/config
 
+## 2.1.1
+
+### Patch Changes
+
+- 8e6b443: Avoid rereading unchanged imported configuration files on every project reopen. Cache content hashes behind file identity, size and nanosecond modification/change timestamps; changed or deleted imports still invalidate the configuration.
+- 5387b5e: Refresh changed local configuration dependencies and recognize their editor file-watch events, while reusing unchanged evaluated configurations.
+- Updated dependencies [b752fde]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/core@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes
