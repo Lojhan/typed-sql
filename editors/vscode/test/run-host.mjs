@@ -16,9 +16,10 @@ await mkdir(artifacts, { recursive: true });
 const dataRoot = resolve(process.env.TYPED_SQL_HOST_DATA_ROOT ?? artifacts);
 await mkdir(dataRoot, { recursive: true });
 const run = await mkdtemp(join(dataRoot, "v-"));
+await mkdir(join(artifacts, "downloads", "pinned"), { recursive: true });
 const executable = await downloadAndUnzipVSCode({
   version: "1.134.0",
-  cachePath: join(artifacts, "downloads"),
+  cachePath: join(artifacts, "downloads", "pinned"),
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
@@ -59,13 +60,27 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
       "typedSql.serverPath": mode === "lifecycle" ? "missing-server.cjs" : join(directory, "probe-server.cjs"),
     }),
   );
-  if (mode === "overlays") await prepareOverlayWorkspace(workspace, root, spec);
+  if (mode === "overlays") {
+    await prepareOverlayWorkspace(workspace, root, spec);
+    // A workspace file must still honor the folder-owned server/schema paths.
+    await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }] }));
+  }
   await mkdir(join(profile, "User"), { recursive: true });
   await writeFile(
     join(profile, "User/settings.json"),
-    JSON.stringify({ "security.workspace.trust.startupPrompt": "never", "extensions.autoUpdate": false }),
+    JSON.stringify({
+      "security.workspace.trust.startupPrompt": "never",
+      "extensions.autoUpdate": false,
+      "update.mode": "none",
+      "update.enableWindowsBackgroundUpdates": false,
+    }),
   );
   const isolated = ["--user-data-dir", profile, "--extensions-dir", extensions];
+  const version = await execFile(cli, [...cliArgs, ...isolated, "--version"], { timeout: 30_000 });
+  if (version.stdout.trim().split(/\r?\n/)[0] !== "1.134.0")
+    throw new Error(
+      "Pinned VS Code cache version mismatch; preserve the cache for diagnosis and use a fresh pinned cache.",
+    );
   await execFile(cli, [...cliArgs, ...isolated, "--install-extension", join(root, "artifacts/typed-sql-vscode.vsix")], {
     timeout: 60_000,
   });
@@ -77,7 +92,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     await execFile(
       executable,
       [
-        mode === "virtual" ? workspaceFile : workspace,
+        mode === "virtual" || mode === "overlays" ? workspaceFile : workspace,
         ...isolated,
         "--skip-welcome",
         "--skip-release-notes",
