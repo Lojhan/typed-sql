@@ -613,6 +613,22 @@ client.onNotification("initialized", async (params) => {
   await workspaceReady;
 });
 
+client.onRequest("textDocument/hover", async (rawParams, token) => {
+  await workspaceReady;
+  const params = rawParams as JsonObject;
+  const uri = documentUri(params);
+  if (uri !== undefined) await waitForDocument(uri, token);
+  const state = stateFor(params);
+  if (state !== undefined && isObject(params.position)) {
+    const hover = await state.service.hover(state.original, params.position as unknown as Position);
+    ensureStateCurrent(state);
+    if (hover !== undefined) return hover;
+  }
+  const result = await nativeRequest("textDocument/hover", mapProtocolValue(params, "source-to-virtual", state), token);
+  ensureStateCurrent(state);
+  return mapProtocolValue(result, "virtual-to-source", state);
+});
+
 client.onRequest("textDocument/completion", async (rawParams, token) => {
   await workspaceReady;
   const params = rawParams as JsonObject;
@@ -814,25 +830,43 @@ client.onNotification("textDocument/didChange", (rawParams) => {
   const original =
     source === undefined
       ? undefined
-      : TextDocument.update(source, [...params.contentChanges], params.textDocument.version);
+      : TextDocument.update(
+          TextDocument.create(source.uri, source.languageId, source.version, source.getText()),
+          [...params.contentChanges],
+          params.textDocument.version,
+        );
   if (original !== undefined) sourceDocuments.set(original.uri, original);
   latestDocumentVersions.set(params.textDocument.uri, params.textDocument.version);
   const cancellation = beginDocumentAnalysis(params.textDocument.uri, source !== undefined);
   return queueDocument(params.textDocument.uri, async () => {
     await workspaceReady;
     await serviceForUri(params.textDocument.uri).debounce(cancellation);
-    const previous = documents.get(params.textDocument.uri);
+    const previous = documents.get(params.textDocument.uri) ?? virtualDocuments.get(params.textDocument.uri);
     if (original === undefined) {
-      await typescript.sendNotification("textDocument/didChange", params);
+      // An unopened document has no upstream overlay to change.
       return;
     }
     serviceForUri(original.uri).forget(original.uri);
     const state = await createState(original, previous, cancellation);
+    virtualDocuments.delete(original.uri);
     documents.set(original.uri, state);
-    await typescript.sendNotification("textDocument/didChange", {
-      textDocument: { uri: original.uri, version: state.virtualVersion },
-      contentChanges: [{ text: state.transformed.getText() }],
-    });
+    // A rapid change can cancel didOpen analysis before it reaches upstream.
+    await typescript.sendNotification(
+      previous === undefined ? "textDocument/didOpen" : "textDocument/didChange",
+      previous === undefined
+        ? {
+            textDocument: {
+              uri: original.uri,
+              languageId: original.languageId,
+              version: state.virtualVersion,
+              text: state.transformed.getText(),
+            },
+          }
+        : {
+            textDocument: { uri: original.uri, version: state.virtualVersion },
+            contentChanges: [{ text: state.transformed.getText() }],
+          },
+    );
     await publishCombinedDiagnostics(state);
   });
 });

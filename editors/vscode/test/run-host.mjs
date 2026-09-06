@@ -21,11 +21,11 @@ await mkdir(dataRoot, { recursive: true });
 const run = await mkdtemp(join(dataRoot, "v-"));
 const executable = await downloadAndUnzipVSCode({
   version: "1.134.0",
-  cachePath: join(artifacts, "downloads"),
+  cachePath: join(artifacts, "downloads", "pinned"),
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
-const scenarios = [
+const allScenarios = [
   ...["trusted", "untrusted", "virtual"].map((mode) => ({ mode, id: mode })),
   { mode: "lifecycle", id: "lifecycle" },
   ...grammarCases.map((spec) => ({ mode: "overlays", id: spec.id, spec })),
@@ -33,6 +33,11 @@ const scenarios = [
   ...grammarCases.map((spec) => ({ mode: "coexist", id: `${spec.id}-coexist`, spec })),
 ];
 const reports = [];
+const selected = process.env.TYPED_SQL_HOST_SCENARIOS?.split(",");
+if (selected?.some((id) => !allScenarios.some((scenario) => scenario.id === id)))
+  throw new Error("Unknown TYPED_SQL_HOST_SCENARIOS entry");
+const scenarios =
+  selected === undefined ? allScenarios : allScenarios.filter((scenario) => selected.includes(scenario.id));
 const failures = [];
 const results = join(artifacts, "results", basename(run));
 await mkdir(results, { recursive: true });
@@ -117,9 +122,21 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
   await mkdir(join(profile, "User"), { recursive: true });
   await writeFile(
     join(profile, "User/settings.json"),
-    JSON.stringify({ "security.workspace.trust.startupPrompt": "never", "extensions.autoUpdate": false }),
+    JSON.stringify({
+      "security.workspace.trust.startupPrompt": "never",
+      "extensions.autoUpdate": false,
+      "update.mode": "none",
+      "update.enableWindowsBackgroundUpdates": false,
+    }),
   );
   const isolated = ["--user-data-dir", profile, "--extensions-dir", extensions];
+  const version = (await execFile(cli, [...cliArgs, ...isolated, "--version"], { timeout: 30_000 })).stdout
+    .trim()
+    .split(/\r?\n/)[0];
+  if (version !== "1.134.0")
+    throw new Error(
+      `VS Code cache version mismatch: expected 1.134.0, got ${version}. Preserve and replace the stale cache before retrying.`,
+    );
   await execFile(cli, [...cliArgs, ...isolated, "--install-extension", join(root, "artifacts/typed-sql-vscode.vsix")], {
     timeout: 60_000,
   });
@@ -155,6 +172,12 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
           TYPED_SQL_HOST_REPORT: join(base, "result.json"),
           TYPED_SQL_PACKED_ROOT: packed,
           TYPED_SQL_SECONDARY: join(base, "secondary.json"),
+          ...(extended && process.env.TYPED_SQL_HOST_CAPTURE_PREVIEW === "true"
+            ? {
+                TYPED_SQL_TYPESCRIPT_PREVIEW_CLI: join(directory, "preview-trace.cjs"),
+                TYPED_SQL_PREVIEW_TRACE: join(results, `${id}-preview.log`),
+              }
+            : {}),
         },
       },
     );

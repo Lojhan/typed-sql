@@ -183,9 +183,14 @@ exports.run = async () => {
           : []),
         options,
       );
-      assert.ok(Array.isArray(edits), "formatter must be registered");
+      // VS Code returns undefined when an already formatted document needs no
+      // edits. The shared scenario separately requires meaningful first-pass edits.
+      assert.ok(edits === undefined || Array.isArray(edits), "unexpected formatter response");
       return {
-        [document.uri.toString()]: edits.map((item) => ({ range: serialRange(item.range), newText: item.newText })),
+        [document.uri.toString()]: (edits ?? []).map((item) => ({
+          range: serialRange(item.range),
+          newText: item.newText,
+        })),
       };
     },
     async codeActions() {

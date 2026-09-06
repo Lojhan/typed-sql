@@ -104,6 +104,31 @@ await describe("upstream TypeScript LSP integration", async () => {
         if (method.endsWith("rename")) strict.ok(JSON.stringify(expected).includes("verifyAccount"));
         strict.deepStrictEqual(await proxy.request(method, request), expected, method);
       }
+      const sqlHover = await proxy.request("textDocument/hover", {
+        textDocument: { uri },
+        position: positionAt(source, source.indexOf("SELECT") + 7),
+      });
+      strict.match(JSON.stringify(sqlHover), /typed-sql inferred query type/u);
+      // Do not wait between open and change: analysis of the initial open may
+      // be superseded before an overlay has ever reached the native server.
+      const rapidUri = pathToFileURL(join(fixture, "rapid-edit.ts")).href;
+      proxy.notify("textDocument/didOpen", {
+        textDocument: { uri: rapidUri, languageId: "typescript", version: 1, text: source },
+      });
+      let rapidSource = source;
+      for (let version = 2; version <= 4; version++) {
+        rapidSource = `${source}\nconst latestValue = ${version}; void latestValue;\n`;
+        proxy.notify("textDocument/didChange", {
+          textDocument: { uri: rapidUri, version },
+          contentChanges: [{ text: rapidSource }],
+        });
+      }
+      const rapidHover = await proxy.request("textDocument/hover", {
+        textDocument: { uri: rapidUri },
+        position: positionAt(rapidSource, rapidSource.lastIndexOf("latestValue")),
+      });
+      strict.match(JSON.stringify(rapidHover), /latestValue: 4/u);
+      proxy.notify("textDocument/didClose", { textDocument: { uri: rapidUri } });
       const exported = `${source}\nexport const shared = 1;\n`;
       const databaseUri = pathToFileURL(join(fixture, "database.ts")).href;
       const databaseSource = [

@@ -10,6 +10,15 @@ async function text(path: string): Promise<string> {
 }
 
 await describe("external editor distribution", async () => {
+  await it("honors per-folder settings and pins isolated editor updates", async () => {
+    const manifest = JSON.parse(await text("editors/vscode/package.json"));
+    for (const setting of Object.values(manifest.contributes.configuration.properties))
+      strict.strictEqual((setting as { scope: string }).scope, "resource");
+    const runner = await text("editors/vscode/test/run-host.mjs");
+    strict.ok(runner.includes('"update.mode": "none"'));
+    strict.ok(runner.includes('"update.enableWindowsBackgroundUpdates": false'));
+    strict.ok(runner.includes("VS Code cache version mismatch"));
+  });
   await it("keeps the npm editor client in the editor tree and workspace workflows", async () => {
     const manifest = JSON.parse(await text("editors/vscode/package.json")) as {
       repository: { directory: string };

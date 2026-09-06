@@ -75,6 +75,12 @@ Downloads, profiles and result JSON normally live under `artifacts/editor-host/`
 path exceeds Unix socket limits, set `TYPED_SQL_HOST_DATA_ROOT` to a shorter user-owned directory.
 Result JSON is also copied into `artifacts/editor-host/results/`; CI excludes downloads and full
 profiles from artifact uploads. Runs preserve their unique directories for diagnosis.
+Application and extension updates are disabled in these profiles; a pre-launch CLI version
+check rejects a mutated cache rather than mixing editor versions. For focused diagnosis,
+`TYPED_SQL_HOST_SCENARIOS=postgres-extended` selects named scenarios (comma-separated); omitted
+cells remain `not-run`. `TYPED_SQL_HOST_CAPTURE_PREVIEW=true` captures bounded upstream stderr
+only for the generated extended fixtures, without changing production log redaction. Do not
+point this diagnostic harness at private application projects.
 
 ### Shared editor/grammar hub
 
