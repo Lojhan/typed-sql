@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { TYPESCRIPT_COMPILER_SUPPORT_POLICY } from "@typed-sql/compiler";
 import { describe, it, strict } from "poku";
 import { planInit } from "../src/init-plan.js";
 
@@ -30,6 +31,7 @@ await describe("nonexecuting init planner", async () => {
         strict.ok(plan.files.every((file) => file.beforeHash === null && file.path.startsWith(`${root}/`)));
         strict.ok(!plan.files.some((file) => file.path.endsWith("schema.json")));
         strict.equal(plan.dependencies[`@typed-sql/${grammar}`], "^2.1.0");
+        strict.equal(plan.dependencies.typescript, TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion);
         strict.ok(plan.pending.some((item) => item.includes("separate approval")));
         strict.deepEqual(await readdir(root), []);
       }
