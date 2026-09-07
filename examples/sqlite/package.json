@@ -23,7 +23,7 @@
     "@typed-sql/conformance": "workspace:*",
     "@typed-sql/language-server": "workspace:*",
     "poku": "4.5.0",
-    "tsx": "4.23.12",
+    "tsx": "4.23.13",
     "typescript": "7.0.2"
   }
 }
