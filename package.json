@@ -72,7 +72,7 @@
     "version-packages": "node scripts/version-packages.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.10",
+    "@biomejs/biome": "2.5.12",
     "@changesets/cli": "3.0.1",
     "@opentelemetry/api": "1.9.1",
     "@pokujs/c8": "^2.0.0",
