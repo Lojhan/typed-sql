@@ -41,6 +41,6 @@
   },
   "dependencies": {
     "@typed-sql/core": "workspace:*",
-    "tsx": "4.23.12"
+    "tsx": "4.23.13"
   }
 }
