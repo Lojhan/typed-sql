@@ -111,7 +111,7 @@
     "package:vsix": "node -e \"require('node:fs').mkdirSync('../../artifacts',{recursive:true})\" && pnpm build:bundle && vsce package --no-dependencies --out ../../artifacts/typed-sql-vscode.vsix"
   },
   "dependencies": {
-    "vscode-languageclient": "10.1.0"
+    "vscode-languageclient": "10.1.1"
   },
   "devDependencies": {
     "@types/vscode": "1.134.0",
