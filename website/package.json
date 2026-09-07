@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "vitepress": "1.6.4",
-    "vue": "3.5.41"
+    "vue": "3.5.42"
   },
   "engines": {
     "node": ">=22.11"
