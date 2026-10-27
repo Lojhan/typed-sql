@@ -191,7 +191,10 @@ versions in manifest order, and creates release tags only after publication and 
 It refuses a stale unpublished version and never moves a newer tag backwards. Experimental
 companions keep prerelease versions and experimental metadata while both `next` and `latest`
 select the current companion, so versionless installation does not select an obsolete backend.
-If publication or tag creation fails,
+npm can acknowledge publication while a version is still being processed and cannot yet be
+installed. Registry acceptance waits up to ten minutes with fresh metadata requests. If that
+bound is exceeded, confirm the exact versions and tags are visible before retrying; do not
+change a version merely because registry processing is delayed. If publication or tag creation fails,
 rerun the protected Release workflow with the same channel and commit. Do not create another
 Changeset or version commit for a partial publication.
 

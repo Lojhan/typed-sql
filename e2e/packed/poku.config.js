@@ -5,5 +5,5 @@ export default defineConfig({
   filter: /\.e2e\.test\.ts$/,
   isolation: "process",
   sequential: true,
-  timeout: 300_000,
+  timeout: process.env.TYPED_SQL_CONSUMER_SOURCE === "registry" ? 900_000 : 300_000,
 });

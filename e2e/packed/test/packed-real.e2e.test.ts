@@ -92,7 +92,9 @@ async function mustEventuallyRun(
   command: string,
   args: readonly string[],
   cwd: string,
-  timeout = 180_000,
+  // npm can acknowledge a publish before its processing/indexing makes the
+  // immutable version installable. Keep this registry-only wait bounded.
+  timeout = 600_000,
 ): Promise<CommandResult> {
   const deadline = Date.now() + timeout;
   let result = await run(command, args, cwd);
@@ -276,7 +278,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       );
       const installArgs = [
         "install",
-        ...(registryOnly ? [] : ["--offline", "--ignore-scripts"]),
+        ...(registryOnly ? ["--prefer-online"] : ["--offline", "--ignore-scripts"]),
         "--no-frozen-lockfile",
       ];
       if (registryOnly) await mustEventuallyRun("pnpm", installArgs, consumer);
