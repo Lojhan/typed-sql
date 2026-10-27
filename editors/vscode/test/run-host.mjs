@@ -16,7 +16,10 @@ const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, "../../..");
 const artifacts = join(root, "artifacts/editor-host");
 await mkdir(artifacts, { recursive: true });
-const dataRoot = resolve(process.env.TYPED_SQL_HOST_DATA_ROOT ?? artifacts);
+const dataRoot = resolve(
+  process.env.TYPED_SQL_HOST_DATA_ROOT ??
+    (process.env.RUNNER_TEMP === undefined ? artifacts : join(process.env.RUNNER_TEMP, "ts-hosts")),
+);
 await mkdir(dataRoot, { recursive: true });
 const run = await mkdtemp(join(dataRoot, "v-"));
 await mkdir(join(artifacts, "downloads", "pinned"), { recursive: true });
