@@ -1,11 +1,6 @@
-use std::path::PathBuf;
-
 use zed_extension_api::{self as zed, LanguageServerId, Result, Worktree, settings::LspSettings};
 
-const DEVELOPMENT_SERVER: &str =
-    "packages/language-server/dist/packages/language-server/src/server.js";
-const INSTALLED_SERVER: &str =
-    "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js";
+const LAUNCH_SERVER: &str = include_str!("launch-server.cjs");
 const TYPED_SQL_PROTOCOL_VERSION: u64 = 1;
 const TYPED_SQL_PROTOCOL_CAPABILITIES: [&str; 3] =
     ["analysis-identity", "diagnostic-fixes", "status"];
@@ -44,40 +39,20 @@ impl zed::Extension for TypedSqlExtension {
             });
         }
 
-        if worktree
-            .read_text_file("node_modules/@typed-sql/language-server/package.json")
-            .is_ok()
-        {
-            let server = PathBuf::from(worktree.root_path()).join(INSTALLED_SERVER);
-            return Ok(zed::Command {
-                command: zed::node_binary_path()?,
-                args: vec![server.to_string_lossy().into_owned(), "--stdio".to_string()],
-                env,
-            });
-        }
-
-        if let Some(command) = worktree.which("typed-sql-language-server") {
-            return Ok(zed::Command {
-                command,
-                args: vec!["--stdio".to_string()],
-                env,
-            });
-        }
-
-        if worktree
-            .read_text_file("packages/language-server/package.json")
-            .is_err()
-        {
-            return Err(
-                "typed-sql language server was not found; run `pnpm add -D @typed-sql/language-server`, or configure lsp.typed-sql.binary.path"
-                    .to_string(),
-            );
-        }
-
-        let server = PathBuf::from(worktree.root_path()).join(DEVELOPMENT_SERVER);
+        // Node's package resolver handles pnpm symlinks and hoisted workspace
+        // installations that the worktree file API cannot necessarily read.
         Ok(zed::Command {
             command: zed::node_binary_path()?,
-            args: vec![server.to_string_lossy().into_owned(), "--stdio".to_string()],
+            args: vec![
+                "--input-type=commonjs".to_string(),
+                "--eval".to_string(),
+                LAUNCH_SERVER.to_string(),
+                worktree.root_path(),
+                worktree
+                    .which("typed-sql-language-server")
+                    .unwrap_or_default(),
+                "--stdio".to_string(),
+            ],
             env,
         })
     }

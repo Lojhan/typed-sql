@@ -76,14 +76,15 @@ await describe("external editor distribution", async () => {
 
   await it("resolves Zed's application-local package before development fallbacks", async () => {
     const source = await text("editors/zed/src/lib.rs");
-    const installed = source.indexOf("node_modules/@typed-sql/language-server");
-    const path = source.indexOf('worktree.which("typed-sql-language-server")');
-    const development = source.indexOf("packages/language-server/dist");
+    const launcher = await text("editors/zed/src/launch-server.cjs");
+    const installed = launcher.indexOf('.resolve("@typed-sql/language-server")');
+    const path = launcher.indexOf("if (fallback)");
+    const development = launcher.indexOf("packages/language-server/dist");
     strict.ok(installed >= 0);
     strict.ok(path > installed);
     strict.ok(development >= 0);
-    strict.ok(source.indexOf("join(DEVELOPMENT_SERVER)") > path);
-    strict.ok(source.includes("pnpm add -D @typed-sql/language-server"));
+    strict.ok(source.includes('include_str!("launch-server.cjs")'));
+    strict.ok(launcher.includes("pnpm add -D @typed-sql/language-server"));
     strict.ok(source.includes("TYPED_SQL_PROTOCOL_VERSION"));
     strict.ok(source.includes("protocolCapabilities"));
     strict.ok(!source.includes("@next"));

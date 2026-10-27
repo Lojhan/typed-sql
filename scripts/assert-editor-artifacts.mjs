@@ -96,7 +96,6 @@ assert.ok((await stat(wasm)).size > 1_024, "Zed artifact is unexpectedly small")
 const wasmText = wasmBytes.toString("latin1");
 for (const expected of [
   "node_modules/@typed-sql/language-server/package.json",
-  "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js",
   "typed-sql-language-server",
   "packages/language-server/dist/packages/language-server/src/server.js",
   "analysis-identity",
@@ -105,6 +104,8 @@ for (const expected of [
 ]) {
   assert.ok(wasmText.includes(expected), `Zed WASM is missing ${expected}`);
 }
+const zedLauncher = await readFile(resolve(workspace, "editors/zed/src/launch-server.cjs"));
+assert.ok(wasmBytes.includes(zedLauncher), "Zed WASM must embed the current complete package resolver");
 assert.ok(!wasmText.includes("/Users/"), "Zed WASM contains a local absolute path");
 
 const extensionToml = await readFile(resolve(workspace, "editors/zed/extension.toml"), "utf8");

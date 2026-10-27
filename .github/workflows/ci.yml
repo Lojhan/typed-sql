@@ -525,6 +525,7 @@ jobs:
           cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm exec poku test/contracts/zed-launcher.test.ts --reporter=compact --enforce
       - run: pnpm --filter ./editors/vscode package:vsix
       - if: runner.os == 'Linux'
         run: xvfb-run -a pnpm --filter ./editors/vscode test:host

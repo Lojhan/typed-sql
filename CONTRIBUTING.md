@@ -94,7 +94,9 @@ the interface inventory. Missing and unimplemented cells stay `not-run`; protoco
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
 The VS Code host implements all 21 inventoried interfaces per grammar, plus three independent
 trust scenarios and a controlled lifecycle scenario. Baseline, extended and built-in-coexistence
-hosts have disjoint evidence; aggregation rejects duplicate interfaces or mixed host versions.
+hosts have disjoint feature evidence. Standalone and native baseline clients are recorded in
+separate matrices; the combined feature matrix selects native baseline evidence when present.
+Aggregation rejects duplicate interfaces within that selection or mixed host versions.
 The extended hosts use a fresh tarball installation, not workspace-linked production packages.
 Their five edit cases per grammar also produce `edit-matrix.json`: local/cross-file rename,
 document/range formatting and a structural quick fix. Edits are validated against original
@@ -121,6 +123,13 @@ Actual Zed execution needs an isolated profile, the built dev extension, a host 
 version/platform evidence before any Zed cell can pass. See the official
 [CLI reference](https://zed.dev/docs/reference/cli) and
 [extension development guide](https://zed.dev/docs/extensions/developing-extensions).
+
+Zed 1.25.3 has manual PostgreSQL baseline evidence on macOS arm64 from an isolated profile,
+including SQL/native row hover, row completion, diagnostics, same-line definition mapping,
+unsaved query changes, and external schema changes. The exact release WASM is also checked in
+a fresh host. Default package lookup is verified against an external pnpm symlink, without
+an `lsp.typed-sql.binary` override. Node must resolve to a supported version in the editor's
+environment. These checks do not establish the broader Zed dialect or extended-feature matrix.
 
 ## Investigate static-analysis findings
 
@@ -177,10 +186,28 @@ release tag, rewrite release history, or force-push a recovery. Diagnose the fai
 the exact commit and package version before changing registry state.
 
 The publisher is safe to retry on the same commit. It queries npm for every exact package version,
-skips versions that already exist, publishes only the missing suffix of the manifest-ordered train,
-and creates release tags only after every package exists. If publication or tag creation fails,
+skips versions that already exist, reconciles missing registry tags, publishes only missing
+versions in manifest order, and creates release tags only after publication and tag repair succeed.
+It refuses a stale unpublished version and never moves a newer tag backwards. Experimental
+companions keep prerelease versions and experimental metadata while both `next` and `latest`
+select the current companion, so versionless installation does not select an obsolete backend.
+If publication or tag creation fails,
 rerun the protected Release workflow with the same channel and commit. Do not create another
 Changeset or version commit for a partial publication.
+
+The protected publishing job uses npm 12.2.1 for OIDC dist-tag operations. For every package's
+existing `release.yml` trusted publisher, enable **Allow npm dist-tag** in npm's package settings
+while retaining the `npm` environment restriction. See npm's
+[trusted-publishing documentation](https://docs.npmjs.com/trusted-publishers/). Registry tag repair
+fails closed if that permission is absent; no long-lived token fallback is used.
+
+After a stable release, `pnpm version-packages` consumes pending Changesets and prepares a new
+coherent RC train rather than a mixture of independently bumped stable versions. Its series is
+the highest proposed stable version (at least the next patch), and it includes every stable and
+experimental package. Subsequent candidates share the series and increment the RC number.
+Promotion still uses the protected candidate evidence and preserves experimental companions.
+Prepare aggregate release notes under `.github/release-notes/<series>.md` before accepting the
+version PR; historical release notes are not rewritten.
 
 If post-publication verification finds a defect:
 
