@@ -7,15 +7,24 @@ import {
   loadExperimentalCompanionPlan,
   loadPrereleasePlan,
   loadReleasePlan,
+  npmDistTags,
   type PrereleasePlan,
   publicationCommands,
-  publishExperimentalCompanions,
-  publishPrerelease,
-  publishRelease,
+  publishExperimentalCompanions as publishCompanionsWithNpm,
+  publishPrerelease as publishPrereleaseWithNpm,
+  publishRelease as publishReleaseWithNpm,
 } from "../../scripts/publish-prerelease.mjs";
 import { splitChangeset } from "../../scripts/rehearse-stable-release.mjs";
 import { validateReleaseManifest } from "../../scripts/release-policy.mjs";
 import { resolveStableRegistrySource } from "../../scripts/resolve-stable-registry-source.mjs";
+
+const fakeTags = { getTags: async () => ({}), setTag: async () => undefined };
+const publishRelease = (options: Parameters<typeof publishReleaseWithNpm>[0]) =>
+  publishReleaseWithNpm({ ...fakeTags, ...options });
+const publishPrerelease = (options: Parameters<typeof publishPrereleaseWithNpm>[0]) =>
+  publishPrereleaseWithNpm({ ...fakeTags, ...options });
+const publishExperimentalCompanions = (options: Parameters<typeof publishCompanionsWithNpm>[0]) =>
+  publishCompanionsWithNpm({ ...fakeTags, ...options });
 
 const plan: PrereleasePlan = {
   npmTag: "next",
@@ -27,6 +36,98 @@ const plan: PrereleasePlan = {
 };
 
 await describe("prerelease publisher", async () => {
+  await it("retries missing dist-tags without republishing or losing accepted writes", async () => {
+    for (const acceptedBeforeFailure of [false, true]) {
+      const pkg = { name: "@typed-sql/language-server", version: "2.2.0-rc.0", directory: "/packages/language-server" };
+      const current: Record<string, string> = { latest: "1.0.0-beta.0" };
+      let published = false;
+      let publishes = 0;
+      let gitTags = 0;
+      let fail = true;
+      const options = {
+        channel: "stable" as const,
+        plan: { npmTag: "next" as const, additionalTags: ["latest" as const], packages: [pkg] },
+        isPublished: async () => published,
+        getTags: async () => ({ ...current }),
+        publishPackage: async () => {
+          published = true;
+          publishes += 1;
+          current.next = pkg.version;
+        },
+        setTag: async (_pkg: typeof pkg, tag: string) => {
+          if (fail) {
+            if (acceptedBeforeFailure) current[tag] = pkg.version;
+            fail = false;
+            throw new Error("lost tag response");
+          }
+          current[tag] = pkg.version;
+        },
+        createTags: async () => {
+          gitTags += 1;
+        },
+        log: () => undefined,
+      };
+      await strict.rejects(publishRelease(options), /lost tag response/u);
+      strict.equal(gitTags, 0);
+      await publishRelease(options);
+      strict.equal(publishes, 1);
+      strict.equal(gitTags, 1);
+      strict.deepEqual(current, { latest: pkg.version, next: pkg.version });
+    }
+  });
+
+  await it("never moves a newer tag backwards or publishes a stale missing version", async () => {
+    let mutations = 0;
+    const options = {
+      plan: { npmTag: "next" as const, packages: [plan.packages[0]!] },
+      getTags: async () => ({ next: "3.0.0" }),
+      setTag: async () => {
+        mutations += 1;
+      },
+      publishPackage: async () => {
+        mutations += 1;
+      },
+      createTags: async () => undefined,
+      log: () => undefined,
+    };
+    await publishRelease({ ...options, isPublished: async () => true });
+    strict.equal(mutations, 0);
+    await strict.rejects(publishRelease({ ...options, isPublished: async () => false }), /stale/u);
+    strict.equal(mutations, 0);
+    await strict.rejects(
+      publishRelease({
+        ...options,
+        getTags: async () => {
+          throw new Error("unavailable tags");
+        },
+      }),
+      /unavailable tags/u,
+    );
+  });
+
+  await it("reads tag state with bounded retries and refuses malformed or unauthorized responses", async () => {
+    const statuses = [503, 200];
+    strict.deepEqual(
+      await npmDistTags("@typed-sql/core", {
+        fetch: async () => new Response(JSON.stringify({ latest: "2.1.0" }), { status: statuses.shift()! }),
+        wait: async () => undefined,
+      }),
+      { latest: "2.1.0" },
+    );
+    strict.deepEqual(
+      await npmDistTags("@typed-sql/core", { fetch: async () => new Response(null, { status: 404 }) }),
+      {},
+    );
+    await strict.rejects(
+      npmDistTags("@typed-sql/core", { fetch: async () => new Response(null, { status: 403 }) }),
+      /HTTP 403/u,
+    );
+    await strict.rejects(
+      npmDistTags("@typed-sql/core", { fetch: async () => new Response('{"latest":"not-a-version"}') }),
+      /Invalid npm dist-tags/u,
+    );
+  });
+
   await it("enforces disjoint stable and experimental release tracks", () => {
     const stable = validateReleaseManifest({
       channel: "stable",
@@ -418,6 +519,7 @@ await describe("prerelease publisher", async () => {
       });
       strict.deepStrictEqual(await loadExperimentalCompanionPlan(temporary), {
         npmTag: "next",
+        additionalTags: ["latest"],
         packages: [
           {
             name: "@typed-sql/ts-bridge",

@@ -16,6 +16,15 @@ export interface RehearsalOptions {
 }
 
 export function splitChangeset(text: string, experimentalPackages: ReadonlySet<string>): SplitChangeset;
-export function prepareStableVersion(workspace: string): Promise<ReleaseManifest>;
+export function prepareStableVersion(
+  workspace: string,
+  options?: {
+    readonly runCommand?: (
+      command: string,
+      args: readonly string[],
+      options: { readonly cwd: string; readonly label?: string },
+    ) => Promise<void>;
+  },
+): Promise<ReleaseManifest>;
 export function assertStableVersionState(workspace: string): Promise<StableVersionState>;
 export function rehearseStableRelease(options?: RehearsalOptions): Promise<string>;

@@ -6,6 +6,7 @@ export interface ReleasePackage {
 
 export interface ReleasePlan {
   readonly npmTag: "next" | "latest";
+  readonly additionalTags?: readonly ("next" | "latest")[];
   readonly packages: readonly ReleasePackage[];
 }
 
@@ -18,6 +19,8 @@ export interface PublishPrereleaseOptions {
   readonly plan?: PrereleasePlan;
   readonly isPublished?: (name: string, version: string) => Promise<boolean>;
   readonly publishPackage?: (pkg: ReleasePackage, npmTag: string) => Promise<void>;
+  readonly getTags?: (name: string) => Promise<Readonly<Record<string, string>>>;
+  readonly setTag?: (pkg: ReleasePackage, tag: string) => Promise<void>;
   readonly createTags?: (workspace: string) => Promise<void>;
   readonly log?: (message: string) => void;
 }
@@ -29,6 +32,8 @@ export interface PublishReleaseOptions {
   readonly companionPlan?: ReleasePlan;
   readonly isPublished?: (name: string, version: string) => Promise<boolean>;
   readonly publishPackage?: (pkg: ReleasePackage, npmTag: string) => Promise<void>;
+  readonly getTags?: (name: string) => Promise<Readonly<Record<string, string>>>;
+  readonly setTag?: (pkg: ReleasePackage, tag: string) => Promise<void>;
   readonly createTags?: (workspace: string) => Promise<void>;
   readonly log?: (message: string) => void;
 }
@@ -43,6 +48,7 @@ export function loadPrereleasePlan(workspace?: string): Promise<PrereleasePlan>;
 export function loadReleasePlan(channel: "beta" | "rc" | "stable", workspace?: string): Promise<ReleasePlan>;
 export function loadExperimentalCompanionPlan(workspace?: string): Promise<PrereleasePlan>;
 export function isPublishedOnNpm(name: string, version: string, options?: RegistryLookupOptions): Promise<boolean>;
+export function npmDistTags(name: string, options?: RegistryLookupOptions): Promise<Readonly<Record<string, string>>>;
 export function publicationCommands(
   pkg: ReleasePackage,
   npmTag: string,

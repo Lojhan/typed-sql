@@ -1,8 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFile as callback } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { detectPendingChangesets } from "../../scripts/detect-pending-changesets.mjs";
+import { prepareStableVersion } from "../../scripts/rehearse-stable-release.mjs";
 import { type ReleaseManifest, validateReleaseManifest } from "../../scripts/release-policy.mjs";
 import {
   nextReleaseCandidateNumber,
@@ -11,6 +14,7 @@ import {
 } from "../../scripts/version-packages.mjs";
 
 const workspace = resolve(import.meta.dirname, "../..");
+const execFile = promisify(callback);
 
 const rcRelease: ReleaseManifest = {
   channel: "rc",
@@ -24,6 +28,95 @@ const rcRelease: ReleaseManifest = {
 };
 
 await describe("release-candidate policy", async () => {
+  await it("runs a real stable-to-RC-to-stable cycle without promoting experimental packages", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-release-cycle-"));
+    const put = async (path: string, value: unknown) => {
+      await mkdir(resolve(temporary, path, ".."), { recursive: true });
+      await writeFile(join(temporary, path), typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`);
+    };
+    try {
+      await put("package.json", { name: "release-cycle", private: true, packageManager: "pnpm@10.32.1" });
+      await put("pnpm-workspace.yaml", "packages:\n - packages/*\n");
+      await put(".changeset/config.json", {
+        changelog: "@changesets/cli/changelog",
+        commit: false,
+        fixed: [],
+        linked: [],
+        access: "public",
+        baseBranch: "main",
+        updateInternalDependencies: "patch",
+        ignore: [],
+      });
+      await put(
+        ".changeset/change.md",
+        '---\n"@typed-sql/compiler": minor\n"@typed-sql/ts-bridge": patch\n---\n\nInitial feature notes.\n',
+      );
+      await put("release-manifest.json", {
+        ...rcRelease,
+        channel: "stable",
+        npmTag: "latest",
+        sourceCandidate: "1.0.0-rc.0",
+        packagePolicy: { ...rcRelease.packagePolicy, experimental: ["@typed-sql/ts-bridge"] },
+      });
+      for (const name of ["core", "compiler", "ts-bridge"]) {
+        await put(`packages/${name}/package.json`, {
+          name: `@typed-sql/${name}`,
+          version: name === "ts-bridge" ? "1.0.0-rc.0" : "1.0.0",
+          dependencies: name === "core" ? {} : { "@typed-sql/core": "workspace:*" },
+        });
+        await put(`packages/${name}/CHANGELOG.md`, `# @typed-sql/${name}\n\n## 1.0.0\n\nHistorical notes.\n`);
+      }
+      await mkdir(join(temporary, "node_modules/@changesets"), { recursive: true });
+      await symlink(
+        join(workspace, "node_modules/@changesets/cli"),
+        join(temporary, "node_modules/@changesets/cli"),
+        "junction",
+      );
+      for (const args of [
+        ["init", "-b", "main"],
+        ["config", "user.email", "fixture@example.invalid"],
+        ["config", "user.name", "Release fixture"],
+        ["add", "."],
+        ["commit", "-m", "Fixture"],
+      ])
+        await execFile("git", args, { cwd: temporary });
+      const runCommand = async (command: string, args: readonly string[], cwd: string) => {
+        if (command === "pnpm" && args[0] === "exec" && args[1] === "biome") {
+          command = join(workspace, "node_modules/.bin/biome");
+          args = args.slice(2);
+        }
+        await execFile(command, [...args], { cwd, maxBuffer: 1024 * 1024 });
+      };
+      strict.equal(await versionPackages({ workspace: temporary, runCommand }), "1.1.0-rc.0");
+      let release = JSON.parse(await readFile(join(temporary, "release-manifest.json"), "utf8"));
+      strict.equal(release.channel, "rc");
+      strict.equal(release.sourceCandidate, undefined);
+      strict.equal(release.packages.length, 3);
+      for (const name of ["core", "compiler", "ts-bridge"])
+        strict.equal(
+          JSON.parse(await readFile(join(temporary, `packages/${name}/package.json`), "utf8")).version,
+          "1.1.0-rc.0",
+        );
+      await put(".changeset/followup.md", '---\n"@typed-sql/core": patch\n---\n\nFollow-up notes.\n');
+      strict.equal(await versionPackages({ workspace: temporary, runCommand }), "1.1.0-rc.1");
+      release = await prepareStableVersion(temporary, {
+        runCommand: (command, args, options) => runCommand(command, args, options.cwd),
+      });
+      strict.equal(release.channel, "stable");
+      strict.equal(release.sourceCandidate, "1.1.0-rc.1");
+      for (const name of ["core", "compiler", "ts-bridge"]) {
+        strict.equal(
+          JSON.parse(await readFile(join(temporary, `packages/${name}/package.json`), "utf8")).version,
+          name === "ts-bridge" ? "1.1.0-rc.1" : "1.1.0",
+        );
+        strict.match(await readFile(join(temporary, `packages/${name}/CHANGELOG.md`), "utf8"), /Historical notes/u);
+      }
+      strict.match(await readFile(join(temporary, "packages/compiler/CHANGELOG.md"), "utf8"), /Initial feature notes/u);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   await it("accepts only a complete RC train on npm next", () => {
     strict.strictEqual(validateReleaseManifest(rcRelease).channel, "rc");
     strict.throws(() => validateReleaseManifest({ ...rcRelease, npmTag: "latest" }), /must use the next npm tag/u);
@@ -51,7 +144,7 @@ await describe("release-candidate policy", async () => {
           directory: "core",
           version: "1.0.0-rc.3",
           changelog:
-            "# @typed-sql/core\n\n## 1.0.0-rc.3\n\n### Patch Changes\n\n- Updated @typed-sql/compiler@1.0.0-rc.2.\n\n## 1.0.0-beta.2\n\n- Historical reference to 1.0.0-rc.3.\n",
+            "# @typed-sql/core\n\n## 1.0.0-rc.3\n\n### Patch Changes\n\n- Updated @typed-sql/compiler@1.0.0-rc.2.\n- Supports older clients on 1.0.0-rc.3.\n\n## 1.0.0-beta.2\n\n- Historical reference to 1.0.0-rc.3.\n",
         },
         {
           directory: "compiler",
@@ -90,6 +183,7 @@ await describe("release-candidate policy", async () => {
           strict.ok(changelog.includes("## 1.0.0-beta.2\n"), "historical beta notes must remain unchanged");
           strict.ok(changelog.includes("Updated @typed-sql/compiler@1.0.0-rc.0."));
           strict.ok(changelog.includes("Historical reference to 1.0.0-rc.3."));
+          strict.ok(changelog.includes("Supports older clients on 1.0.0-rc.3."));
         }
       }
     } finally {
