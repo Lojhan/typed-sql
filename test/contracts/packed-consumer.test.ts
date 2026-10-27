@@ -162,6 +162,12 @@ await describe("packed public packages", async () => {
     await mkdir(grammar);
     await mkdir(consumer);
     try {
+      // Contracts also run before the release build on a clean checkout.
+      // Pack the same six SDK executables that publication will ship.
+      await execFile(process.execPath, [join(workspace, "scripts/build-editor-sdk.mjs"), "--all"], {
+        cwd: workspace,
+        timeout: 180_000,
+      });
       const dependencies: Record<string, string> = {};
       for (const directory of publicPackages) {
         const packageManifest = JSON.parse(
@@ -358,6 +364,8 @@ await describe("packed public packages", async () => {
                 tsx: `link:${join(workspace, "node_modules", "tsx")}`,
                 "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
                 "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
+                "jsonc-parser": `link:${join(workspace, "packages", "cli", "node_modules", "jsonc-parser")}`,
+                "proper-lockfile": `link:${join(workspace, "packages", "cli", "node_modules", "proper-lockfile")}`,
                 "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
                 "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
                 "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,
@@ -524,6 +532,17 @@ await describe("packed public packages", async () => {
 
       const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
       const typedSql = join(consumer, "node_modules", ".bin", "typed-sql");
+      const sdk = join(
+        consumer,
+        "node_modules",
+        "@typed-sql/language-server",
+        "sdk",
+        `${process.platform}-${process.arch}`,
+        process.platform === "win32" ? "tsc.exe" : "tsc",
+      );
+      const sdkVersion = await execFile(sdk, ["--version"], { cwd: consumer, env: isolatedEnvironment });
+      strict.strictEqual(sdkVersion.stdout.trim(), "Version 7.1.0-beta");
+      await strict.rejects(execFile(sdk, ["--noEmit"], { cwd: consumer, env: isolatedEnvironment }), /requires --lsp/u);
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {

@@ -280,7 +280,7 @@ await describe("typed-sql doctor command", async () => {
       strict.strictEqual(report.editor.languageServer.installed, true);
       strict.strictEqual(report.editor.languageServer.releaseTrack, "experimental");
       strict.strictEqual(report.editor.bridge.backend, "typescript-7.1-native-preview");
-      strict.strictEqual(report.editor.bridge.typescriptPreviewVersion, "7.1.0-dev.20260824.1");
+      strict.strictEqual(report.editor.bridge.typescriptPreviewVersion, "7.1.0-beta");
       strict.strictEqual(report.editor.protocol.normalizedClientVersion, 1);
       strict.strictEqual(report.editor.protocol.compatibility, "compatible");
       strict.deepStrictEqual(report.errors, []);

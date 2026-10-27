@@ -2,7 +2,9 @@ import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadReleaseManifest } from "./release-policy.mjs";
+import { gt, inc, rcompare, valid } from "semver";
+import { detectPendingChangesets } from "./detect-pending-changesets.mjs";
+import { loadReleaseManifest, validateReleaseManifest } from "./release-policy.mjs";
 
 const defaultWorkspace = fileURLToPath(new URL("..", import.meta.url));
 const changesetsCli = fileURLToPath(new URL("../node_modules/@changesets/cli/bin.js", import.meta.url));
@@ -49,9 +51,17 @@ function rewriteLatestRelease(changelog, provisionalVersion, provisionalVersions
   const nextRelease = changelog.indexOf("\n## ", start + heading.length);
   const end = nextRelease < 0 ? changelog.length : nextRelease;
   const prereleaseVersion = new RegExp(`${escapeRegularExpression(series)}-(?:beta|rc)\\.\\d+`, "gu");
-  let normalized = changelog.slice(start, end).replaceAll(provisionalVersion, targetVersion);
-  for (const version of provisionalVersions) normalized = normalized.replaceAll(version, targetVersion);
-  normalized = normalized.replace(prereleaseVersion, targetVersion);
+  const versions = [...new Set([provisionalVersion, ...provisionalVersions])].sort((a, b) => b.length - a.length);
+  const references = new RegExp(
+    `(@typed-sql/[a-z][a-z0-9-]*@)(?:${versions.map(escapeRegularExpression).join("|")}|${prereleaseVersion.source})(?![\\w-])`,
+    "gu",
+  );
+  // Normalize dependency references and this heading, leaving bare historical
+  // version numbers in the author's release prose untouched.
+  const normalized = `## ${targetVersion}\n${changelog.slice(start + heading.length, end)}`.replace(
+    references,
+    (_match, name) => `${name}${targetVersion}`,
+  );
   return `${changelog.slice(0, start)}${normalized}${changelog.slice(end)}`;
 }
 
@@ -64,9 +74,7 @@ export async function normalizeReleaseCandidateVersions(workspace, release, orig
     const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
     packages.push({ name, directory, manifestPath, manifest, provisionalVersion: manifest.version });
   }
-  const provisionalVersions = new Set(
-    packages.map(({ provisionalVersion }) => provisionalVersion).filter((version) => version.includes("-")),
-  );
+  const provisionalVersions = new Set(packages.map(({ provisionalVersion }) => provisionalVersion));
   for (const { name, directory, manifestPath, manifest, provisionalVersion } of packages) {
     const changelogPath = join(directory, "CHANGELOG.md");
     const changedByChangesets = provisionalVersion !== originalVersions.get(name);
@@ -94,6 +102,34 @@ export async function versionPackages(options = {}) {
   const workspace = resolve(options.workspace ?? defaultWorkspace);
   const release = await loadReleaseManifest(workspace);
   const runCommand = options.runCommand ?? run;
+  if (release.channel === "stable") {
+    if ((await detectPendingChangesets(workspace)).length === 0) return undefined;
+    const names = [...release.packagePolicy.stable, ...release.packagePolicy.experimental];
+    const original = new Map();
+    for (const name of names) {
+      const manifest = JSON.parse(await readFile(join(packageDirectory(workspace, name), "package.json"), "utf8"));
+      original.set(name, manifest.version);
+    }
+    await runCommand(process.execPath, [changesetsCli, "version"], workspace);
+    const versions = [];
+    for (const name of release.packagePolicy.stable) {
+      const manifest = JSON.parse(await readFile(join(packageDirectory(workspace, name), "package.json"), "utf8"));
+      if (valid(manifest.version) === null || manifest.version.includes("-"))
+        throw new Error(`Invalid stable version proposal for ${name}`);
+      versions.push(manifest.version);
+    }
+    const highest = versions.sort(rcompare)[0];
+    const series = gt(highest, release.series) ? highest : inc(release.series, "patch");
+    const { sourceCandidate: _previousCandidate, ...previous } = release;
+    const candidate = validateReleaseManifest({ ...previous, channel: "rc", npmTag: "next", series, packages: names });
+    const target = await normalizeReleaseCandidateVersions(workspace, candidate, original, 0);
+    await writeFile(join(workspace, "release-manifest.json"), `${JSON.stringify(candidate, null, 2)}\n`);
+    await runCommand("pnpm", ["exec", "biome", "format", "--write", "release-manifest.json"], workspace);
+    await runCommand(process.execPath, [changesetsCli, "pre", "enter", "rc"], workspace);
+    await runCommand("pnpm", ["install", "--lockfile-only", "--offline", "--ignore-scripts"], workspace);
+    process.stdout.write(`Prepared coherent release candidate ${target}\n`);
+    return target;
+  }
   if (release.channel !== "rc") {
     await runCommand(process.execPath, [changesetsCli, "version"], workspace);
     return undefined;

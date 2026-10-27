@@ -18,13 +18,13 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/postgres": "workspace:*",
     "@typed-sql/sqlite": "workspace:*",
-    "pg": "8.23.0"
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@typed-sql/cli": "workspace:*",
     "@typed-sql/language-server": "workspace:*",
     "poku": "4.5.0",
-    "tsx": "4.23.12",
+    "tsx": "4.23.15",
     "typescript": "7.0.2"
   }
 }

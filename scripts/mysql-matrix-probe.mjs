@@ -267,7 +267,7 @@ try {
       actualSeries,
       support,
       driver: "mysql2",
-      driverVersion: "3.24.3",
+      driverVersion: "3.24.6",
       runtime: "node",
       runtimeVersion: process.version,
     },

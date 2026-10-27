@@ -100,6 +100,17 @@
           "default": 20,
           "minimum": 0,
           "description": "Delay before analyzing an edit so rapidly superseded document versions can be cancelled."
+        },
+        "typedSql.providerMode": {
+          "scope": "resource",
+          "type": "string",
+          "enum": [
+            "auto",
+            "native-sdk",
+            "proxy"
+          ],
+          "default": "auto",
+          "description": "Use Microsoft's TypeScript client with the typed-sql SDK, or the explicitly selected standalone proxy. Auto refuses competing TypeScript providers."
         }
       }
     }
@@ -108,15 +119,15 @@
     "test": "poku test/lifecycle.test.ts --reporter=compact --enforce",
     "test:host": "node test/run-host.mjs",
     "build:bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --outfile=bundle/extension.cjs --external:vscode --external:tsx/* --sourcemap",
-    "package:vsix": "node -e \"require('node:fs').mkdirSync('../../artifacts',{recursive:true})\" && pnpm build:bundle && vsce package --no-dependencies --out ../../artifacts/typed-sql-vscode.vsix"
+    "package:vsix": "node -e \"require('node:fs').mkdirSync('../../artifacts',{recursive:true})\" && pnpm build:bundle && vsce package --pre-release --no-dependencies --out ../../artifacts/typed-sql-vscode.vsix"
   },
   "dependencies": {
-    "vscode-languageclient": "10.1.0"
+    "vscode-languageclient": "11.0.0"
   },
   "devDependencies": {
     "@types/vscode": "1.134.0",
     "@vscode/test-electron": "3.1.0",
-    "@vscode/vsce": "3.9.2",
+    "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2"
   }
 }

@@ -9,7 +9,7 @@ const examples = [
   {
     directory: "postgres",
     dialect: "postgres",
-    driver: ["pg", "8.23.0"],
+    driver: ["pg", "8.23.1"],
     documentation: "postgresql",
     databaseFiles: ["Containerfile", ".containerignore", ".dockerignore", "compose.yaml"],
     capabilityFiles: [
@@ -31,7 +31,7 @@ const examples = [
   {
     directory: "mysql",
     dialect: "mysql",
-    driver: ["mysql2", "3.24.3"],
+    driver: ["mysql2", "3.24.6"],
     documentation: "mysql",
     databaseFiles: ["Containerfile", ".containerignore", ".dockerignore", "compose.yaml"],
     capabilityFiles: [
@@ -210,7 +210,7 @@ await describe("maintained application examples", async () => {
     for (const dependency of ["@typed-sql/core", "@typed-sql/postgres", "@typed-sql/sqlite"]) {
       strict.strictEqual(packageJson.dependencies[dependency], "workspace:*");
     }
-    strict.strictEqual(packageJson.dependencies.pg, "8.23.0");
+    strict.strictEqual(packageJson.dependencies.pg, "8.23.1");
     for (const script of ["generate", "generate:snapshot", "check", "start", "test", "test:database"]) {
       strict.ok(packageJson.scripts[script], `${directory} is missing its ${script} script`);
     }

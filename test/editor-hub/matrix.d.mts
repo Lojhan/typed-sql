@@ -7,6 +7,7 @@ export interface HostReport {
   checks: Record<string, { status: string; error?: string }>;
 }
 export const pendingInterfaces: string[];
+export function combineHostReports(reports: HostReport[]): HostReport[];
 export function buildMatrix(reports: HostReport[]): {
   formatVersion: number;
   scope: string;

@@ -28,7 +28,7 @@ jobs:
   quality:
     # A skipped required job can be accepted by branch protection. Always emit an explicit result.
     if: always()
-    needs: [source-quality, packed-real-databases, editor-artifacts]
+    needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,27 +37,33 @@ jobs:
           TYPED_SQL_SOURCE_RESULT: ${{ needs.source-quality.result }}
           TYPED_SQL_DATABASE_RESULT: ${{ needs.packed-real-databases.result }}
           TYPED_SQL_EDITOR_RESULT: ${{ needs.editor-artifacts.result }}
+          TYPED_SQL_EDITOR_SDK_RESULT: ${{ needs.editor-sdk-platforms.result }}
 
   source-quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           # The full suite includes @typed-sql/sqlite/node-sqlite, whose documented
           # minimum is Node 22.13. Dialect E2E jobs below retain the workspace's
           # Node 22.11 compatibility floor.
           node-version: 22.13
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high
       - run: pnpm verify
         env:
           TYPED_SQL_PERFORMANCE_ARTIFACT: artifacts/performance/ci.json
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-performance-${{ github.run_attempt }}
           path: artifacts/performance/ci.json
@@ -82,13 +88,17 @@ jobs:
             node: 26.x
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:editor-matrix
 
@@ -133,13 +143,17 @@ jobs:
             experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.11
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm e2e:postgres
         env:
@@ -149,14 +163,14 @@ jobs:
           TYPED_SQL_POSTGRES_MATRIX_LABEL: ${{ matrix.label }}
           TYPED_SQL_POSTGRES_VERSION: ${{ matrix.version }}
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-conformance-postgres-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/conformance/postgres*.json
           if-no-files-found: warn
           retention-days: 14
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-postgres-matrix-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/postgres-matrix/${{ matrix.label }}.json
@@ -169,16 +183,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.11
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: typed-sql-postgres-matrix-*-${{ github.run_attempt }}
           path: artifacts/postgres-matrix
@@ -188,7 +206,7 @@ jobs:
           --input artifacts/postgres-matrix
           --output artifacts/postgres-matrix/review.json
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-postgres-matrix-review-${{ github.run_attempt }}
           path: artifacts/postgres-matrix/review.json
@@ -255,13 +273,17 @@ jobs:
             experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.11
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm e2e:mysql
         env:
@@ -273,14 +295,14 @@ jobs:
           TYPED_SQL_MYSQL_SQL_MODE: ${{ matrix.sql_mode }}
           TYPED_SQL_MYSQL_VERSION: ${{ matrix.version }}
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-conformance-mysql-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/conformance/mysql*.json
           if-no-files-found: warn
           retention-days: 14
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-mysql-matrix-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/mysql-matrix/${{ matrix.label }}.json
@@ -293,16 +315,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.11
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: typed-sql-mysql-matrix-*-${{ github.run_attempt }}
           path: artifacts/mysql-matrix
@@ -312,7 +338,7 @@ jobs:
           --input artifacts/mysql-matrix
           --output artifacts/mysql-matrix/review.json
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-mysql-matrix-review-${{ github.run_attempt }}
           path: artifacts/mysql-matrix/review.json
@@ -323,13 +349,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.13
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm e2e:packed
         env:
@@ -353,20 +383,24 @@ jobs:
             node: 22.13
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node examples/e2e.mjs ${{ matrix.example }}
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
       - if: always() && matrix.example == 'sqlite'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-conformance-sqlite-${{ github.run_attempt }}
           path: artifacts/conformance/sqlite*.json
@@ -391,13 +425,17 @@ jobs:
             node: 26.x
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm --filter @typed-sql/sqlite test
@@ -407,7 +445,7 @@ jobs:
           --label ${{ matrix.label }}
           --output artifacts/sqlite-matrix/${{ matrix.label }}.json
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-sqlite-matrix-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/sqlite-matrix/${{ matrix.label }}.json
@@ -440,7 +478,7 @@ jobs:
             experimental: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.x
       - run: >-
@@ -456,24 +494,65 @@ jobs:
           --executable artifacts/sqlite-matrix/bin/${{ matrix.label }}/sqlite3
           --output artifacts/sqlite-matrix/${{ matrix.label }}.json
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-sqlite-matrix-${{ matrix.label }}-${{ github.run_attempt }}
           path: artifacts/sqlite-matrix/${{ matrix.label }}.json
           if-no-files-found: warn
           retention-days: 14
 
+  editor-sdk-platforms:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      TYPED_SQL_HOST_SCENARIOS: postgres-native,mysql-native,sqlite-native,synthetic-native,postgres-extended,mysql-extended,sqlite-extended,synthetic-extended,postgres-coexist,mysql-coexist,sqlite-coexist,synthetic-coexist
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec poku test/contracts/zed-launcher.test.ts --reporter=compact --enforce
+      - run: pnpm --filter ./editors/vscode package:vsix
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm --filter ./editors/vscode test:host
+      - if: runner.os != 'Linux'
+        run: pnpm --filter ./editors/vscode test:host
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: typed-sql-native-sdk-${{ matrix.os }}
+          path: artifacts/editor-host/results/
+          if-no-files-found: error
+
   editor-artifacts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.13
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm --filter @typed-sql/e2e-postgres generate:snapshot
@@ -487,7 +566,7 @@ jobs:
       - run: pnpm editor:zed:build
       - run: pnpm editor:artifacts:smoke
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-editor-artifacts
           path: |
@@ -500,13 +579,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.13
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm api:check
@@ -514,7 +597,7 @@ jobs:
       - run: pnpm docs:check
       - run: node scripts/write-ci-evidence.mjs --lane pull-request --output artifacts/evidence/pull-request.json --gate api --gate packed-consumer --gate documentation
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-pull-request-evidence-${{ github.run_attempt }}
           path: artifacts/evidence/pull-request.json
@@ -526,21 +609,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 10.32.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.3
+          cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm fuzz:replay
       - run: pnpm mutation:pilot -- --report artifacts/evidence/mutation.json
-      - run: pnpm audit --prod --audit-level high
+      - run: pnpm audit --audit-level high
       - run: node scripts/write-ci-evidence.mjs --lane scheduled --output artifacts/evidence/scheduled.json --gate fuzz --gate mutation --gate audit
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-scheduled-reliability-${{ github.run_attempt }}
           path: artifacts/evidence/
@@ -594,7 +681,7 @@ jobs:
           --gate soak
           --gate vulnerability-audit
       - if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: typed-sql-release-candidate-evidence-${{ github.run_attempt }}
           path: artifacts/evidence/candidate.json

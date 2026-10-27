@@ -5,6 +5,14 @@ export function extendTypeScriptCapabilities(value: unknown): Record<string, unk
   const actions = options(upstream.codeActionProvider);
   return {
     ...upstream,
+    workspace: {
+      ...options(upstream.workspace),
+      workspaceFolders: {
+        ...options(options(upstream.workspace).workspaceFolders),
+        supported: true,
+        changeNotifications: true,
+      },
+    },
     completionProvider: {
       ...completion,
       triggerCharacters: [...new Set([...strings(completion.triggerCharacters), "."])],

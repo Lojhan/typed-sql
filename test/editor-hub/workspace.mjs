@@ -2,19 +2,30 @@ import { copyFile, mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { sourceFor } from "./cases.mjs";
 
-export async function prepareWorkspace(workspace, root, spec) {
+export async function prepareWorkspace(workspace, root, spec, dependencyRoot) {
   await mkdir(join(workspace, "node_modules/@typed-sql"), { recursive: true });
   for (const [name, directory] of [
     ["@typed-sql/core", "packages/core"],
     [spec.packageName, spec.packageDirectory],
   ])
-    await symlink(join(root, directory), join(workspace, "node_modules", name), "junction");
+    await symlink(
+      dependencyRoot === undefined ? join(root, directory) : join(dependencyRoot, "node_modules", name),
+      join(workspace, "node_modules", name),
+      "junction",
+    );
   await writeFile(join(workspace, "package.json"), JSON.stringify({ type: "module", private: true }));
   await writeFile(
     join(workspace, "tsconfig.json"),
     JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true, target: "ES2024", module: "NodeNext", skipLibCheck: true },
-      include: ["query.ts", "database.ts"],
+      compilerOptions: {
+        strict: true,
+        noEmit: true,
+        target: "ES2024",
+        module: "NodeNext",
+        skipLibCheck: true,
+        jsx: "preserve",
+      },
+      include: ["*.ts", "*.tsx"],
     }),
   );
   await copyFile(join(root, "test/fixtures/success/database.ts"), join(workspace, "database.ts"));

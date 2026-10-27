@@ -19,3 +19,5 @@ editors/zed/extension.wasm
 /artifacts/
 /website/.vitepress/cache/
 /website/.vitepress/dist/
+
+/packages/language-server/sdk/

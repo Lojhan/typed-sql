@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -21,6 +22,58 @@ const configFile = join(workspaceDirectory, "e2e", "postgres", "typed-sql.config
 const serverFile = join(workspaceDirectory, "packages/language-server/dist/packages/language-server/src/server.js");
 
 await describe("typed-sql stdio language server", async () => {
+  await it("replays unsaved content over a preloaded file with an equivalent URI spelling", async () => {
+    const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
+    const uri = pathToFileURL(queryFile).href.replace("query.ts", "query%2Ets");
+    const source =
+      'import { sql } from "@typed-sql/postgres";\nimport { db } from "./database.js";\nconst query = sql`SELECT user.name FROM users AS user`;\nasync function read() { const rows = await db.execute(query); return rows; }';
+    try {
+      await client.request("initialize", {
+        processId: process.pid,
+        rootUri: pathToFileURL(fixtureDirectory).href,
+        capabilities: {},
+        initializationOptions: { configPath: configFile, schemaPath: schemaFile, projectFile },
+      });
+      client.notify("initialized", {});
+      client.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId: "typescript", version: 1, text: source },
+      });
+      const result = JSON.stringify(
+        await client.request("textDocument/hover", {
+          textDocument: { uri },
+          position: positionAt(source, source.indexOf("rows")),
+        }),
+      );
+      strict.match(result, /name: string/u);
+      strict.doesNotMatch(result, /age:|id:|unknown/u);
+    } finally {
+      await client.close();
+    }
+  });
+
+  await it("exits when an editor closes its pipe without shutdown", async () => {
+    const child = spawn(process.execPath, [serverFile, "--stdio"], { cwd: workspaceDirectory, stdio: "pipe" });
+    child.stdout.resume();
+    child.stderr.resume();
+    try {
+      const closed = new Promise<void>((resolveClose, rejectClose) => {
+        const timeout = setTimeout(() => rejectClose(new Error("Disconnected editor left the server running")), 5_000);
+        child.once("error", (error) => {
+          clearTimeout(timeout);
+          rejectClose(error);
+        });
+        child.once("exit", () => {
+          clearTimeout(timeout);
+          resolveClose();
+        });
+      });
+      child.stdin.end();
+      await closed;
+    } finally {
+      if (child.exitCode === null) child.kill();
+    }
+  });
+
   await it("reports a pinned preview crash instead of hanging initialization", async () => {
     const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory, {
       ...process.env,
@@ -251,7 +304,7 @@ await describe("typed-sql stdio language server", async () => {
       const status = (await client.request(TYPED_SQL_STATUS_REQUEST, null)) as TypedSqlLanguageServerStatus;
       strict.strictEqual(status.name, "@typed-sql/language-server");
       strict.strictEqual(status.mode, "pinned-preview-proxy");
-      strict.match(status.typescriptVersion, /^7\.1\.0-dev\./u);
+      strict.strictEqual(status.typescriptVersion, "7.1.0-beta");
       strict.deepStrictEqual(status.workspaceRoots, [workspaceDirectory]);
       strict.strictEqual(status.openDocuments, 1);
       strict.ok(status.indexedDocuments >= 1);
@@ -444,7 +497,7 @@ await describe("typed-sql stdio language server", async () => {
     }
   });
 
-  await it("routes each folder in a multi-root workspace through its installed grammar", async () => {
+  await it("routes added and removed workspace folders through their own installed grammar", async () => {
     const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
     const postgresRoot = join(workspaceDirectory, "e2e", "postgres");
     const mysqlRoot = join(workspaceDirectory, "e2e", "mysql");
@@ -462,10 +515,7 @@ await describe("typed-sql stdio language server", async () => {
       await client.request("initialize", {
         processId: process.pid,
         rootUri: pathToFileURL(postgresRoot).href,
-        workspaceFolders: [
-          { uri: pathToFileURL(postgresRoot).href, name: "postgres-app" },
-          { uri: pathToFileURL(mysqlRoot).href, name: "mysql-app" },
-        ],
+        workspaceFolders: [{ uri: pathToFileURL(postgresRoot).href, name: "postgres-app" }],
         capabilities: {},
       });
       client.notify("initialized", {});
@@ -476,6 +526,9 @@ await describe("typed-sql stdio language server", async () => {
           version: 1,
           text: postgresSource,
         },
+      });
+      client.notify("workspace/didChangeWorkspaceFolders", {
+        event: { added: [{ uri: pathToFileURL(mysqlRoot).href, name: "mysql-app" }], removed: [] },
       });
       client.notify("textDocument/didOpen", {
         textDocument: { uri: mysqlUri, languageId: "typescript", version: 1, text: mysqlSource },
@@ -489,8 +542,28 @@ await describe("typed-sql stdio language server", async () => {
         textDocument: { uri: mysqlUri },
         position: positionAt(mysqlSource, mysqlSource.indexOf("mysqlQuery")),
       });
-      strict.ok(JSON.stringify(postgresHover).includes('status: \\"active\\" | \\"suspended\\"'));
+      strict.ok(
+        JSON.stringify(postgresHover).includes('status: \\"active\\" | \\"suspended\\"'),
+        JSON.stringify(postgresHover),
+      );
       strict.ok(JSON.stringify(mysqlHover).includes("active: boolean"));
+      client.notify("workspace/didChangeWorkspaceFolders", {
+        event: { added: [], removed: [{ uri: pathToFileURL(mysqlRoot).href, name: "mysql-app" }] },
+      });
+      const detached = await client.request("textDocument/hover", {
+        textDocument: { uri: mysqlUri },
+        position: positionAt(mysqlSource, mysqlSource.indexOf("mysqlQuery")),
+      });
+      strict.match(JSON.stringify(detached), /Query<unknown/u);
+      strict.doesNotMatch(JSON.stringify(detached), /active: boolean/u);
+      client.notify("workspace/didChangeWorkspaceFolders", {
+        event: { added: [{ uri: pathToFileURL(mysqlRoot).href, name: "mysql-app" }], removed: [] },
+      });
+      const reattached = await client.request("textDocument/hover", {
+        textDocument: { uri: mysqlUri },
+        position: positionAt(mysqlSource, mysqlSource.indexOf("mysqlQuery")),
+      });
+      strict.match(JSON.stringify(reattached), /active: boolean/u);
     } finally {
       await client.close();
     }

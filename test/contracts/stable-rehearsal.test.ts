@@ -44,7 +44,7 @@ await describe("stable release rehearsal policy", async () => {
     strict.ok(publish.includes("environment: npm"));
     strict.ok(publish.includes("id-token: write"));
     strict.ok(publish.includes("package-manager-cache: false"));
-    strict.ok(publish.includes("npm install --global npm@12.0.2"));
+    strict.ok(publish.includes("npm install --global npm@12.2.1"));
     strict.ok(publish.includes("script: pnpm release:stable"));
   });
 
@@ -64,7 +64,6 @@ await describe("stable release rehearsal policy", async () => {
     strict.ok(!manifest.scripts["release:stable"]?.includes("changeset publish"));
     const publisher = await readFile(resolve(workspace, "scripts/publish-prerelease.mjs"), "utf8");
     strict.ok(publisher.includes("loadExperimentalCompanionPlan"));
-    strict.ok(publisher.includes('return { npmTag: "next", packages }'));
   });
 
   await it("publishes durable release notes with the supported and experimental boundaries", async () => {

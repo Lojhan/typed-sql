@@ -259,6 +259,8 @@ await describe(`${consumerSource} real-database consumers`, async () => {
                     overrides: {
                       ...dependencies,
                       ...driverLinks,
+                      "jsonc-parser": `link:${join(workspace, "packages", "cli", "node_modules", "jsonc-parser")}`,
+                      "proper-lockfile": `link:${join(workspace, "packages", "cli", "node_modules", "proper-lockfile")}`,
                       "@typed-sql/typescript-preview": localTypescript!.preview.package,
                       [`${typescriptPlatformPackage}@${localTypescript!.stable.version}`]:
                         localTypescript!.stable.platformPackage,

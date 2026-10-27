@@ -16,13 +16,13 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/postgres": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
-    "pg": "8.23.0",
+    "pg": "8.23.1",
     "pg-copy-streams": "7.0.0",
-    "pg-cursor": "2.22.0"
+    "pg-cursor": "2.22.1"
   },
   "devDependencies": {
     "poku": "4.5.0",
-    "tsx": "4.23.12",
+    "tsx": "4.23.15",
     "typescript": "7.0.2"
   }
 }

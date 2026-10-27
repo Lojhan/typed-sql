@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gt, valid } from "semver";
 import { loadReleaseManifest } from "./release-policy.mjs";
 
 const defaultWorkspace = fileURLToPath(new URL("..", import.meta.url));
@@ -84,7 +85,9 @@ export async function loadExperimentalCompanionPlan(workspace = defaultWorkspace
     packages.push({ name: manifest.name, version: manifest.version, directory });
   }
 
-  return { npmTag: "next", packages };
+  // Experimental is a contract classification, independent of npm's default
+  // install tag. Keep versionless installs on the current experimental backend.
+  return { npmTag: "next", additionalTags: ["latest"], packages };
 }
 
 export async function loadPrereleasePlan(workspace = defaultWorkspace) {
@@ -135,6 +138,48 @@ export function publicationCommands(pkg, npmTag, tarballPath) {
   ];
 }
 
+export async function npmDistTags(name, options = {}) {
+  const encodedName = encodeURIComponent(name).replace(/^%40/u, "@");
+  const lookup = options.fetch ?? fetch;
+  const wait = options.wait ?? ((milliseconds) => new Promise((done) => setTimeout(done, milliseconds)));
+  let failure;
+  for (let attempt = 1; attempt <= (options.attempts ?? 3); attempt += 1) {
+    let response;
+    try {
+      response = await lookup(`${registry}/-/package/${encodedName}/dist-tags`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (error) {
+      failure = error;
+    }
+    if (response?.status === 404) return {};
+    if (response?.status === 200) {
+      const tags = await response.json();
+      if (
+        tags === null ||
+        typeof tags !== "object" ||
+        Array.isArray(tags) ||
+        Object.values(tags).some((version) => typeof version !== "string" || valid(version) === null)
+      )
+        throw new Error(`Invalid npm dist-tags for ${name}`);
+      return tags;
+    }
+    if (response !== undefined) {
+      failure = new Error(`npm dist-tag lookup failed for ${name}: HTTP ${response.status}`);
+      if (response.status !== 429 && response.status < 500) throw failure;
+    }
+    if (attempt < (options.attempts ?? 3)) await wait(250 * 2 ** (attempt - 1));
+  }
+  throw new Error(`Unable to read npm dist-tags for ${name}`, { cause: failure });
+}
+
+async function setNpmDistTag(pkg, tag) {
+  await run("npm", ["dist-tag", "add", `${pkg.name}@${pkg.version}`, tag, "--registry", registry], {
+    cwd: pkg.directory,
+    label: `Repairing ${pkg.name} ${tag}`,
+  });
+}
+
 async function publishWithNpm(pkg, npmTag) {
   const temporary = await mkdtemp(join(tmpdir(), "typed-sql-publish-"));
   const tarballPath = join(temporary, `${pkg.name.slice("@typed-sql/".length)}-${pkg.version}.tgz`);
@@ -169,17 +214,42 @@ export async function publishRelease(options = {}) {
       : undefined;
   const isPublished = options.isPublished ?? isPublishedOnNpm;
   const publishPackage = options.publishPackage ?? publishWithNpm;
+  const getTags = options.getTags ?? npmDistTags;
+  const setTag = options.setTag ?? setNpmDistTag;
   const createTags = options.createTags ?? createChangesetsTags;
   const log = options.log ?? console.log;
 
   for (const currentPlan of companionPlan === undefined ? [plan] : [plan, companionPlan]) {
     for (const pkg of currentPlan.packages) {
+      if (valid(pkg.version) === null) throw new Error(`Invalid package release version: ${pkg.version}`);
+      const tags = [currentPlan.npmTag, ...(currentPlan.additionalTags ?? [])];
+      if (tags.some((tag) => !["next", "latest"].includes(tag))) throw new Error("Unsupported npm release tag");
+      const current = { ...(await getTags(pkg.name)) };
+      for (const version of Object.values(current))
+        if (typeof version !== "string" || valid(version) === null)
+          throw new Error(`Invalid npm dist-tag version for ${pkg.name}`);
       if (await isPublished(pkg.name, pkg.version)) {
         log(`Skipping ${pkg.name}@${pkg.version}: already published.`);
-        continue;
+      } else {
+        if (current[currentPlan.npmTag] !== undefined && gt(current[currentPlan.npmTag], pkg.version))
+          throw new Error(
+            `Refusing to publish stale ${pkg.name}@${pkg.version}: ${currentPlan.npmTag} is ${current[currentPlan.npmTag]}`,
+          );
+        log(`Publishing ${pkg.name}@${pkg.version} to npm tag ${currentPlan.npmTag}.`);
+        await publishPackage(pkg, currentPlan.npmTag);
+        current[currentPlan.npmTag] = pkg.version;
       }
-      log(`Publishing ${pkg.name}@${pkg.version} to npm tag ${currentPlan.npmTag}.`);
-      await publishPackage(pkg, currentPlan.npmTag);
+      // A registry may accept a version before a workflow loses its response.
+      // On retry reconcile tags even when the immutable version already exists.
+      for (const tag of new Set(tags)) {
+        if (current[tag] === pkg.version) continue;
+        if (current[tag] !== undefined && gt(current[tag], pkg.version)) {
+          log(`Keeping newer ${pkg.name} ${tag}@${current[tag]}.`);
+          continue;
+        }
+        await setTag(pkg, tag);
+        current[tag] = pkg.version;
+      }
     }
   }
 

@@ -319,9 +319,17 @@ await describe("public package graph", async () => {
     strict.deepStrictEqual((await manifest("cli")).bin, {
       "typed-sql": "./dist/packages/cli/src/cli.js",
     });
-    strict.deepStrictEqual((await manifest("language-server")).bin, {
+    const editorBins: Record<string, string> = {
       "typed-sql-language-server": "./dist/packages/language-server/src/server.js",
-    });
+    };
+    for (const platform of ["darwin", "linux", "win32"]) {
+      for (const arch of ["arm64", "x64"]) {
+        const target = `${platform}-${arch}`;
+        editorBins[`typed-sql-sdk-${target}`] = `./sdk/${target}/tsc${platform === "win32" ? ".exe" : ""}`;
+      }
+    }
+    strict.deepStrictEqual((await manifest("language-server")).bin, editorBins);
+    strict.ok(!Object.hasOwn(editorBins, "tsc"), "the editor SDK must never replace the application's compiler");
   });
 
   await it("never packs stale JavaScript for deleted source modules", async () => {
@@ -357,12 +365,12 @@ await describe("public package graph", async () => {
     const consumer = JSON.parse(
       await readFile(join(workspace, "e2e", "postgres", "package.json"), "utf8"),
     ) as PackageManifest;
-    strict.strictEqual(consumer.dependencies?.pg, "8.23.0");
+    strict.strictEqual(consumer.dependencies?.pg, "8.23.1");
     strict.strictEqual(consumer.dependencies?.["@typed-sql/postgres"], "workspace:*");
     const mysqlConsumer = JSON.parse(
       await readFile(join(workspace, "e2e", "mysql", "package.json"), "utf8"),
     ) as PackageManifest;
-    strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.3");
+    strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.6");
     strict.strictEqual(mysqlConsumer.dependencies?.["@typed-sql/mysql"], "workspace:*");
   });
 });

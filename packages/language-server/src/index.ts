@@ -218,9 +218,15 @@ export function settingsFrom(value: unknown): TypedSqlLanguageServerSettings {
   const nested = object.typedSql ?? object["typed-sql"];
   const candidate = typeof nested === "object" && nested !== null ? (nested as Record<string, unknown>) : object;
   return {
-    ...(typeof candidate.schemaPath === "string" ? { schemaPath: candidate.schemaPath } : {}),
-    ...(typeof candidate.configPath === "string" ? { configPath: candidate.configPath } : {}),
-    ...(typeof candidate.projectFile === "string" ? { projectFile: candidate.projectFile } : {}),
+    ...(typeof candidate.schemaPath === "string" && candidate.schemaPath.trim().length > 0
+      ? { schemaPath: candidate.schemaPath }
+      : {}),
+    ...(typeof candidate.configPath === "string" && candidate.configPath.trim().length > 0
+      ? { configPath: candidate.configPath }
+      : {}),
+    ...(typeof candidate.projectFile === "string" && candidate.projectFile.trim().length > 0
+      ? { projectFile: candidate.projectFile }
+      : {}),
     ...(typeof candidate.nativePreview === "boolean" ? { nativePreview: candidate.nativePreview } : {}),
     ...(typeof candidate.maxCacheEntries === "number" ? { maxCacheEntries: candidate.maxCacheEntries } : {}),
     ...(typeof candidate.maxWorkspaceFiles === "number" ? { maxWorkspaceFiles: candidate.maxWorkspaceFiles } : {}),
@@ -555,19 +561,20 @@ export class TypedSqlLanguageService {
     return files;
   }
 
-  async handlesWatchedFile(uri: string): Promise<boolean> {
-    if (!uri.startsWith("file:")) return false;
-    const fileName = resolve(fileURLToPath(uri));
+  async watchedFiles(): Promise<readonly string[]> {
     const loaded = await this.#config();
     const schemaPath =
       this.#settings.schemaPath === undefined
         ? fromConfig(loaded.directory, loaded.config.schema.file)
         : this.#configuredPath(this.#settings.schemaPath);
-    return (
-      fileName === resolve(loaded.file) ||
-      fileName === resolve(schemaPath) ||
-      loaded.dependencies?.includes(fileName) === true
-    );
+    return [...new Set([resolve(loaded.file), resolve(schemaPath), ...(loaded.dependencies ?? [])])];
+  }
+
+  async handlesWatchedFile(uri: string): Promise<boolean> {
+    if (!uri.startsWith("file:")) return false;
+    const fileName = resolve(fileURLToPath(uri));
+    const canonical = (path: string) => (process.platform === "win32" ? path.toLowerCase() : path);
+    return (await this.watchedFiles()).some((path) => canonical(path) === canonical(fileName));
   }
 
   async close(): Promise<void> {

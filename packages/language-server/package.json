@@ -22,7 +22,9 @@
     "dist/**/*.map",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "sdk/**/tsc*",
+    "sdk/GO-LICENSE.txt"
   ],
   "publishConfig": {
     "access": "public"
@@ -39,11 +41,17 @@
       "status"
     ],
     "legacyUnversionedProtocolVersion": 1,
-    "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
+    "typescriptPreviewVersion": "7.1.0-beta"
   },
   "type": "module",
   "bin": {
-    "typed-sql-language-server": "./dist/packages/language-server/src/server.js"
+    "typed-sql-language-server": "./dist/packages/language-server/src/server.js",
+    "typed-sql-sdk-darwin-arm64": "./sdk/darwin-arm64/tsc",
+    "typed-sql-sdk-darwin-x64": "./sdk/darwin-x64/tsc",
+    "typed-sql-sdk-linux-arm64": "./sdk/linux-arm64/tsc",
+    "typed-sql-sdk-linux-x64": "./sdk/linux-x64/tsc",
+    "typed-sql-sdk-win32-arm64": "./sdk/win32-arm64/tsc.exe",
+    "typed-sql-sdk-win32-x64": "./sdk/win32-x64/tsc.exe"
   },
   "exports": {
     ".": "./dist/packages/language-server/src/index.js"
@@ -58,8 +66,8 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
-    "vscode-jsonrpc": "9.0.1",
-    "vscode-languageserver": "10.1.0",
-    "vscode-languageserver-textdocument": "1.0.12"
+    "vscode-jsonrpc": "10.0.0",
+    "vscode-languageserver": "11.0.0",
+    "vscode-languageserver-textdocument": "1.0.16"
   }
 }

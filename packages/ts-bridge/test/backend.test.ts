@@ -47,6 +47,25 @@ await describe("version-specific TypeScript backend", async () => {
     }
   });
 
+  await it("inspects an unsaved file using its initial in-memory contents", async () => {
+    const fileName = join(fixtureDirectory, "never-saved-query.ts");
+    const unsaved = analyzeSource(source, schema, postgres(), undefined, { sourceId: fileName });
+    const backend = createTypeScriptBackend({ cwd: workspaceDirectory });
+    try {
+      const project = await backend.loadProject({
+        openFiles: [fileName],
+        projectFiles: [projectFile],
+        fileContents: { [fileName]: unsaved.transformedSource },
+      });
+      const result = await backend.inspectFiles(project, [{ fileName, projectFile, analysis: unsaved }]);
+      strict.ok(result.get(fileName)?.[0]?.typeText.includes("id: number"));
+      strict.ok(!result.get(fileName)?.[0]?.typeText.includes("unknown"));
+      await backend.disposeProject(project);
+    } finally {
+      await backend.close();
+    }
+  });
+
   await it("validates project membership and releases outstanding projects on close", async () => {
     const backend = createTypeScriptBackend({ cwd: workspaceDirectory });
     const project = await backend.loadProject({ openFiles: [queryFile], projectFiles: [projectFile] });

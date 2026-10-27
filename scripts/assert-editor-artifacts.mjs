@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
+import { assertMarketplaceManifest } from "./editor-marketplace.mjs";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(import.meta.dirname, "..");
@@ -37,6 +38,7 @@ assert.ok(
 );
 
 const manifest = JSON.parse(await unzip("extension/package.json"));
+assertMarketplaceManifest(manifest, await unzip("extension.vsixmanifest"));
 assert.equal(manifest.main, "./bundle/extension.cjs");
 assert.deepEqual(manifest.extensionKind, ["workspace"]);
 assert.equal(manifest.capabilities?.untrustedWorkspaces?.supported, false);
@@ -66,12 +68,15 @@ assert.deepEqual(
     "typedSql.maxWorkspaceFiles",
     "typedSql.nativePreview",
     "typedSql.projectFile",
+    "typedSql.providerMode",
     "typedSql.schemaPath",
     "typedSql.serverPath",
   ].sort(),
 );
 assert.equal(settings["typedSql.nativePreview"]?.default, true);
 assert.equal(settings["typedSql.analysisDebounceMs"]?.default, 20);
+assert.equal(settings["typedSql.providerMode"]?.default, "auto");
+assert.deepEqual(settings["typedSql.providerMode"]?.enum, ["auto", "native-sdk", "proxy"]);
 
 const bundle = await unzip("extension/bundle/extension.cjs");
 assert.match(bundle, /typedSql\/status/u);
@@ -91,7 +96,6 @@ assert.ok((await stat(wasm)).size > 1_024, "Zed artifact is unexpectedly small")
 const wasmText = wasmBytes.toString("latin1");
 for (const expected of [
   "node_modules/@typed-sql/language-server/package.json",
-  "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js",
   "typed-sql-language-server",
   "packages/language-server/dist/packages/language-server/src/server.js",
   "analysis-identity",
@@ -100,6 +104,8 @@ for (const expected of [
 ]) {
   assert.ok(wasmText.includes(expected), `Zed WASM is missing ${expected}`);
 }
+const zedLauncher = await readFile(resolve(workspace, "editors/zed/src/launch-server.cjs"));
+assert.ok(wasmBytes.includes(zedLauncher), "Zed WASM must embed the current complete package resolver");
 assert.ok(!wasmText.includes("/Users/"), "Zed WASM contains a local absolute path");
 
 const extensionToml = await readFile(resolve(workspace, "editors/zed/extension.toml"), "utf8");
@@ -108,6 +114,36 @@ const extensionVersion = /^version = "([^"]+)"$/mu.exec(extensionToml)?.[1];
 const cargoVersion = /^version = "([^"]+)"$/mu.exec(cargoToml)?.[1];
 assert.equal(extensionVersion, cargoVersion, "Zed manifest and crate versions must match");
 assert.match(extensionToml, /languages = \["TypeScript", "TSX"\]/u);
+
+const sdkArtifacts = [];
+const serverManifest = JSON.parse(await readFile(resolve(workspace, "packages/language-server/package.json"), "utf8"));
+for (const platform of ["darwin", "linux", "win32"]) {
+  for (const architecture of ["arm64", "x64"]) {
+    const target = `${platform}-${architecture}`;
+    const file = resolve(workspace, "packages/language-server/sdk", target, platform === "win32" ? "tsc.exe" : "tsc");
+    const bytes = await readFile(file);
+    assert.ok(bytes.length > 1024, `SDK ${target} is unexpectedly small`);
+    if (platform === "darwin") {
+      assert.equal(bytes.readUInt32LE(0), 0xfeedfacf);
+      assert.equal(bytes.readUInt32LE(4), architecture === "arm64" ? 0x100000c : 0x1000007);
+    } else if (platform === "linux") {
+      assert.equal(bytes.subarray(0, 4).toString("hex"), "7f454c46");
+      assert.equal(bytes.readUInt16LE(18), architecture === "arm64" ? 183 : 62);
+    } else {
+      assert.equal(bytes.subarray(0, 2).toString(), "MZ");
+      const pe = bytes.readUInt32LE(60);
+      assert.equal(bytes.subarray(pe, pe + 4).toString("hex"), "50450000");
+      assert.equal(bytes.readUInt16LE(pe + 4), architecture === "arm64" ? 0xaa64 : 0x8664);
+    }
+    if (target === `${process.platform}-${process.arch}`) {
+      const result = await execFile(file, ["--version"]);
+      assert.equal(result.stdout.trim(), `Version ${serverManifest.typedSql.typescriptPreviewVersion}`);
+    }
+    sdkArtifacts.push({ target, sha256: sha256(bytes), size: bytes.length });
+  }
+}
+const goLicense = await readFile(resolve(workspace, "packages/language-server/sdk/GO-LICENSE.txt"), "utf8");
+assert.match(goLicense, /Go Authors/u);
 
 const vsixBytes = await readFile(vsix);
 await writeFile(
@@ -122,6 +158,7 @@ await writeFile(
         size: vsixBytes.length,
         files: listing.filter(Boolean).length,
       },
+      sdk: { typescriptVersion: serverManifest.typedSql.typescriptPreviewVersion, artifacts: sdkArtifacts },
       zed: {
         version: extensionVersion,
         api: /^zed_extension_api = "([^"]+)"$/mu.exec(cargoToml)?.[1],

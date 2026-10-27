@@ -17,14 +17,14 @@
   "dependencies": {
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
-    "mysql2": "3.24.3",
-    "valibot": "1.4.2"
+    "mysql2": "3.24.6",
+    "valibot": "1.5.0"
   },
   "devDependencies": {
     "@typed-sql/cli": "workspace:*",
     "@typed-sql/language-server": "workspace:*",
     "poku": "4.5.0",
-    "tsx": "4.23.12",
+    "tsx": "4.23.15",
     "typescript": "7.0.2"
   }
 }

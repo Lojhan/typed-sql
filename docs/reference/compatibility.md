@@ -22,7 +22,7 @@ version boundaries, see [Upgrade from typed-sql v1](../guides/upgrading-from-v1.
 | --- | --- | --- |
 | Node.js | 22.11 or newer | 22.11.0, current Node 22, 24, and 26 lines for compiler/editor integration |
 | TypeScript correctness path | Exactly 7.0.2 | 7.0.2 on every tested Node line |
-| TypeScript editor backend | Exactly `7.1.0-dev.20260824.1`, installed inside the bridge | The pinned preview on every tested Node line |
+| TypeScript editor backend | Exactly `7.1.0-beta`, installed inside the bridge | The pinned preview on every tested Node line |
 | typed-sql editor protocol | Version 1; the existing unversioned client shape is treated as version 1 | Versioned and unversioned v1 clients |
 | Module format | ESM packages with exported JavaScript and declarations | NodeNext ESM consumers and packed package exports |
 | Package manager | Any package manager that honors package exports | Repository checks use pnpm |
@@ -43,9 +43,9 @@ The report excludes setting values, schema expressions, source text, credentials
 | Surface | Product contract | Tested environment |
 | --- | --- | --- |
 | PostgreSQL | PostgreSQL 14–18 grammar and catalog provider; patch-compatible within each major | PostgreSQL 14.24, 15.19, 16.15, 17.11, and 18.6; PostgreSQL 19beta3 as a non-blocking canary |
-| `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.0 |
+| `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.1 |
 | MySQL | MySQL 8.4 and 9.7 LTS grammar and catalog provider; patch-compatible within each LTS series | MySQL 8.4.11 and 9.7.2 across default, lexical-mode, and unsigned-arithmetic profiles; MySQL 26.7.0 as a non-blocking innovation canary |
-| `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.3 |
+| `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.6 |
 | SQLite | SQLite 3.39.0–3.53.4 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.53.4, every supported Node line's bundled library, and a non-blocking 3.54.0 canary |
 | `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |
 
@@ -65,12 +65,12 @@ Every public package records its classification in `typedSql.releaseTrack`.
 
 The language server installs an exact TypeScript preview as an internal dependency and runs it behind a process boundary. Applications do not install or configure that preview directly. The bridge can change with TypeScript preview APIs without changing the grammar, generated snapshot, or query contract.
 
-The language server replaces the normal TypeScript server for a configured project. Running a second TypeScript server can show the safe baseline `Query<unknown>` beside typed-sql's transformed hover.
+In VS Code, Microsoft's native TypeScript client can launch the proxy through the packaged editor SDK, preserving a single language provider. The standalone proxy requires explicit provider selection. Running an independent second TypeScript server can show the safe baseline `Query<unknown>` beside typed-sql's transformed hover.
 
-The TypeScript 7.1 package currently publishes the native program APIs used by the bridge through
-explicit `unstable/*` entrypoints. For that reason `ts-bridge`, `language-server`, and both editor
-integrations remain experimental even though the CLI/compiler path is stable. The preview dependency
-and its API-specific code remain isolated from grammar and stable packages.
+The bridge uses the public `async`, `ast`, and `fs` entrypoints in the exact TypeScript 7.1 beta.
+`ts-bridge`, `language-server`, and both editor integrations remain experimental while beta API
+compatibility and editor-host behavior are verified. The beta dependency and its API-specific code
+remain isolated from grammar and stable packages.
 
 The typed-sql-specific editor protocol is independently versioned from LSP and the package version.
 Protocol v1 is the current accepted window; clients that predate the version field use the same v1

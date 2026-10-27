@@ -24,6 +24,7 @@ await describe("additive TypeScript LSP capabilities", async () => {
     const extended = extendTypeScriptCapabilities(upstream);
     strict.deepStrictEqual(extended, {
       ...upstream,
+      workspace: { workspaceFolders: { supported: true, changeNotifications: true } },
       codeActionProvider: {
         ...upstream.codeActionProvider,
         codeActionKinds: ["refactor", "source.organizeImports", "quickfix"],
@@ -35,6 +36,7 @@ await describe("additive TypeScript LSP capabilities", async () => {
 
   await it("adds SQL providers when upstream does not provide them", () => {
     const expected = {
+      workspace: { workspaceFolders: { supported: true, changeNotifications: true } },
       completionProvider: { triggerCharacters: ["."] },
       definitionProvider: true,
       codeActionProvider: true,

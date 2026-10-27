@@ -75,6 +75,12 @@ Downloads, profiles and result JSON normally live under `artifacts/editor-host/`
 path exceeds Unix socket limits, set `TYPED_SQL_HOST_DATA_ROOT` to a shorter user-owned directory.
 Result JSON is also copied into `artifacts/editor-host/results/`; CI excludes downloads and full
 profiles from artifact uploads. Runs preserve their unique directories for diagnosis.
+Application and extension updates are disabled in these profiles; a pre-launch CLI version
+check rejects a mutated cache rather than mixing editor versions. For focused diagnosis,
+`TYPED_SQL_HOST_SCENARIOS=postgres-extended` selects named scenarios (comma-separated); omitted
+cells remain `not-run`. `TYPED_SQL_HOST_CAPTURE_PREVIEW=true` captures bounded upstream stderr
+only for the generated extended fixtures, without changing production log redaction. Do not
+point this diagnostic harness at private application projects.
 
 ### Shared editor/grammar hub
 
@@ -86,11 +92,25 @@ adapters. These are representative integration fixtures, not all syntax or serve
 Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, four grammars and
 the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
-The current VS Code host executes eight checks per grammar plus three independent trust scenarios.
+The VS Code host implements all 21 inventoried interfaces per grammar, plus three independent
+trust scenarios and a controlled lifecycle scenario. Baseline, extended and built-in-coexistence
+hosts have disjoint feature evidence. Standalone and native baseline clients are recorded in
+separate matrices; the combined feature matrix selects native baseline evidence when present.
+Aggregation rejects duplicate interfaces within that selection or mixed host versions.
+The extended hosts use a fresh tarball installation, not workspace-linked production packages.
+Their five edit cases per grammar also produce `edit-matrix.json`: local/cross-file rename,
+document/range formatting and a structural quick fix. Edits are validated against original
+buffers, simulated, applied through VS Code and compared with the simulated result. Formatting
+must preserve SQL and be idempotent; renames and quick fixes require exact intended changes.
+Implemented scenarios are not automatically passing evidence: inspect each run's result JSON.
+Each added interface keeps a 25-second eventual-observation bound; the extended process budget
+allows every independent check to finish even after an earlier failure. No failed host is retried.
 An additional controlled-server host scenario tests missing-path recovery, configuration changes
 during startup, automatic process-crash recovery and configuration teardown. It asserts one active
 server process and one hover provider after configuration settles. This probes client ownership,
-not SQL inference after restart; the per-grammar restart-recovery cells remain `not-run`.
+not SQL inference after restart. Separate extended hosts verify real-server configuration restart
+with unsaved SQL replay. Real abrupt-crash inference, remote hosts, stale edit rejection by the
+editor, every upstream refactor and exhaustive grammar syntax remain outside this inventory.
 Schema lifecycle checks write the actual snapshot file while leaving the source buffer unchanged.
 PostgreSQL/MySQL/SQLite verify nullability refresh; every grammar verifies incompatible-envelope
 rejection, fail-closed inference and recovery after restoring the snapshot. The synthetic fixture
@@ -103,6 +123,13 @@ Actual Zed execution needs an isolated profile, the built dev extension, a host 
 version/platform evidence before any Zed cell can pass. See the official
 [CLI reference](https://zed.dev/docs/reference/cli) and
 [extension development guide](https://zed.dev/docs/extensions/developing-extensions).
+
+Zed 1.25.3 has manual PostgreSQL baseline evidence on macOS arm64 from an isolated profile,
+including SQL/native row hover, row completion, diagnostics, same-line definition mapping,
+unsaved query changes, and external schema changes. The exact release WASM is also checked in
+a fresh host. Default package lookup is verified against an external pnpm symlink, without
+an `lsp.typed-sql.binary` override. Node must resolve to a supported version in the editor's
+environment. These checks do not establish the broader Zed dialect or extended-feature matrix.
 
 ## Investigate static-analysis findings
 
@@ -159,10 +186,28 @@ release tag, rewrite release history, or force-push a recovery. Diagnose the fai
 the exact commit and package version before changing registry state.
 
 The publisher is safe to retry on the same commit. It queries npm for every exact package version,
-skips versions that already exist, publishes only the missing suffix of the manifest-ordered train,
-and creates release tags only after every package exists. If publication or tag creation fails,
+skips versions that already exist, reconciles missing registry tags, publishes only missing
+versions in manifest order, and creates release tags only after publication and tag repair succeed.
+It refuses a stale unpublished version and never moves a newer tag backwards. Experimental
+companions keep prerelease versions and experimental metadata while both `next` and `latest`
+select the current companion, so versionless installation does not select an obsolete backend.
+If publication or tag creation fails,
 rerun the protected Release workflow with the same channel and commit. Do not create another
 Changeset or version commit for a partial publication.
+
+The protected publishing job uses npm 12.2.1 for OIDC dist-tag operations. For every package's
+existing `release.yml` trusted publisher, enable **Allow npm dist-tag** in npm's package settings
+while retaining the `npm` environment restriction. See npm's
+[trusted-publishing documentation](https://docs.npmjs.com/trusted-publishers/). Registry tag repair
+fails closed if that permission is absent; no long-lived token fallback is used.
+
+After a stable release, `pnpm version-packages` consumes pending Changesets and prepares a new
+coherent RC train rather than a mixture of independently bumped stable versions. Its series is
+the highest proposed stable version (at least the next patch), and it includes every stable and
+experimental package. Subsequent candidates share the series and increment the RC number.
+Promotion still uses the protected candidate evidence and preserves experimental companions.
+Prepare aggregate release notes under `.github/release-notes/<series>.md` before accepting the
+version PR; historical release notes are not rewritten.
 
 If post-publication verification finds a defect:
 
@@ -195,3 +240,47 @@ Keep commits reviewable and free of database credentials, packet captures, gener
 and unrelated formatting changes.
 
 By contributing, you agree that your contribution is licensed under the MIT License.
+
+The editor SDK launchers are built with Go 1.27.3 (the pinned toolchain in
+`tools/editor-sdk/go.mod`). Applications consume prebuilt launchers and do not need Go.
+`pnpm editor:sdk:build` builds the host launcher; `pnpm build` and
+`pnpm editor:sdk:build:all` build macOS,
+Linux, and Windows launchers for x64 and arm64 before release artifact inspection.
+
+The root package test command runs package suites one at a time. The SQLite throughput floor is
+unchanged; it must run without competing compiler and native-server suites consuming the same CI
+worker's CPUs. Dedicated performance budgets remain a separate required gate.
+
+## Publish experimental editor extensions
+
+The `Editor marketplaces` workflow publishes the same experimental prerelease VSIX to Visual
+Studio Marketplace and Open VSX under `lojhan`. It runs only from `main`, requires a successful
+comprehensive `CI` workflow-dispatch run for that exact commit, records the artifact hash, and
+verifies the downloaded artifact before either registry upload. Duplicate versions are skipped
+on retry; bump the editor version for new contents. Never delete a published extension version.
+
+Both publishing jobs use OIDC and protected GitHub environments. Configure trusted publishers
+in the registry accounts with these exact fields:
+
+| Field | Visual Studio Marketplace | Open VSX |
+| --- | --- | --- |
+| Publisher / namespace | `lojhan` | `lojhan` |
+| Repository owner | `Lojhan` | `Lojhan` |
+| Repository | `typed-sql` | `typed-sql` |
+| Workflow | `editor-marketplaces.yml` | `editor-marketplaces.yml` |
+| Environment | `visual-studio-marketplace` | `open-vsx` |
+
+Namespace ownership, publisher registration, and any registry publisher agreement must be
+completed by the account owner. The workflow deliberately has no PAT fallback. See the official
+[VSCE trusted publishing guide](https://github.com/microsoft/vscode-vsce#trusted-publishing) and
+[Open VSX trusted publishing guide](https://github.com/eclipse-openvsx/openvsx/blob/main/cli/README.md#trusted-publishing).
+
+After reviewing comprehensive CI evidence, dispatch:
+
+```sh
+gh workflow run editor-marketplaces.yml --ref main -f registry=both -f evidence_run_id=<successful-ci-run>
+```
+
+Approve the two protected environments after reviewing the built VSIX report. Each registry
+job can be retried independently after partial publication. These prerelease uploads do not
+promote the editor to stable; the existing editor-promotion evidence policy still applies.

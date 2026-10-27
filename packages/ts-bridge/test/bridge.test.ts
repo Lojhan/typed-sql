@@ -97,7 +97,7 @@ await describe("TypeScript 7 editor bridge", async () => {
     const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
     try {
       const inspections = await bridge.inspectFile({ fileName: queryFile, projectFile, analysis });
-      strict.strictEqual(TYPESCRIPT_PREVIEW_VERSION, "7.1.0-dev.20260824.1");
+      strict.strictEqual(TYPESCRIPT_PREVIEW_VERSION, "7.1.0-beta");
       strict.strictEqual(bridge.identity.id, "typescript-7.1-native-preview");
       strict.strictEqual(bridge.identity.version, TYPESCRIPT_PREVIEW_VERSION);
       strict.strictEqual(inspections.length, 1);

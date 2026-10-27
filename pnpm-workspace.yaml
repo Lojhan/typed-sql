@@ -6,5 +6,12 @@ packages:
   - website
 
 overrides:
-  vitepress>vite: 6.4.3
+  vitepress>vite: 6.4.5
   qs@>=6 <6.16.0: 6.16.0
+  brace-expansion@>=5 <5.0.12: 5.0.12
+  source-map-js@<1.2.2: 1.2.2
+  launch-editor@<2.14.2: 2.14.2
+  shell-quote@<1.11.0: 1.11.0
+  # Azure Identity has no compatible backport for GHSA-xcx6-jx8p-x3h5.
+  # This override is restricted to the VSIX publisher's credential dependency.
+  "@azure/identity>@azure/msal-node": 7.1.1

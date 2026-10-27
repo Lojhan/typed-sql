@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, open, realpath } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { TYPESCRIPT_COMPILER_SUPPORT_POLICY } from "@typed-sql/compiler";
+import { checkInitPath, readInitFile } from "./init-files.js";
+import { editInitJson, initJson } from "./init-json.js";
 
 const grammars = {
   postgres: { package: "@typed-sql/postgres", factory: "postgres" },
@@ -41,19 +42,7 @@ function object(value: unknown, label: string): JsonObject {
 }
 
 async function read(path: string): Promise<string | undefined> {
-  try {
-    const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-    try {
-      const stat = await file.stat();
-      if (!stat.isFile()) throw new Error(`Expected a regular non-symlink file: ${path}`);
-      return await file.readFile("utf8");
-    } finally {
-      await file.close();
-    }
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
-    throw error;
-  }
+  return (await readInitFile(path))?.text;
 }
 
 function manager(value: string): Manager {
@@ -89,7 +78,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
   }
   const manifestText = await read(join(root, "package.json"));
   const manifest =
-    manifestText === undefined ? { private: true, type: "module" } : object(JSON.parse(manifestText), "package.json");
+    manifestText === undefined ? { private: true, type: "module" } : initJson(manifestText, "package.json", false);
   if (
     (manifest.workspaces !== undefined || (await read(join(root, "pnpm-workspace.yaml"))) !== undefined) &&
     options.package === undefined
@@ -99,7 +88,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
   const candidates = new Set<Manager>();
   for (let directory = root; ; directory = dirname(directory)) {
     const parentText = directory === root ? manifestText : await read(join(directory, "package.json"));
-    const parent = parentText === undefined ? {} : object(JSON.parse(parentText), "package.json");
+    const parent = parentText === undefined ? {} : initJson(parentText, "package.json", false);
     if (parent.packageManager !== undefined) {
       if (typeof parent.packageManager !== "string" || !/^(npm|pnpm|yarn|bun)@[^\s]+$/u.test(parent.packageManager))
         throw new Error(`Invalid packageManager in ${directory}`);
@@ -135,14 +124,16 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
   };
   for (const [name, range] of [
     ["@typed-sql/cli", `^${version}`],
-    ["@typed-sql/core", "^2.1.0"],
-    [grammars[grammar].package, "^2.1.0"],
+    ["@typed-sql/core", `^${version}`],
+    [grammars[grammar].package, `^${version}`],
     ["typescript", TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion],
   ] as const) {
     const value = existing[name];
     if (value !== undefined && typeof value !== "string") throw new Error(`Invalid dependency ${name}`);
     if (value === undefined) dependencies[name] = range;
   }
+  if (editor !== "none" && existing["@typed-sql/language-server"] === undefined)
+    dependencies["@typed-sql/language-server"] = "next";
   const files: InitFile[] = [];
   const add = (path: string, content: string, before?: string) =>
     files.push({
@@ -172,8 +163,17 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
     pending.push(
       `Install the listed dependencies with ${packageManager}; installation and lifecycle scripts require separate approval.`,
     );
-  if (manifestText === undefined) add("package.json", `${JSON.stringify(manifest, null, 2)}\n`);
-  else detected.push(join(root, "package.json"));
+  let updatedManifest = manifestText ?? `${JSON.stringify(manifest, null, 2)}\n`;
+  for (const [name, range] of Object.entries(dependencies))
+    updatedManifest = editInitJson(
+      updatedManifest,
+      [name === "@typed-sql/core" || name === grammars[grammar].package ? "dependencies" : "devDependencies", name],
+      range,
+    );
+  for (const [name, command] of Object.entries(scripts))
+    updatedManifest = editInitJson(updatedManifest, ["scripts", name], command);
+  if (updatedManifest !== manifestText) add("package.json", updatedManifest, manifestText);
+  if (manifestText !== undefined) detected.push(join(root, "package.json"));
   const configs = [
     "typed-sql.config.ts",
     "typed-sql.config.mts",
@@ -204,10 +204,72 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
         `${JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: "ES2024", module: "NodeNext", jsx: "preserve", skipLibCheck: true }, include: ["src/**/*.ts", "src/**/*.tsx"] }, null, 2)}\n`,
       );
   }
-  if (editor !== "none")
-    pending.push(
-      `${editor}: choose a verified TypeScript provider mode and explicitly approve experimental language-server installation. No editor settings or extensions are changed.`,
+  const ignorePath = join(root, ".gitignore");
+  await checkInitPath(root, ignorePath);
+  const ignore = await read(ignorePath);
+  if (!ignore?.split(/\r?\n/u).includes("/.typed-sql/"))
+    add(
+      ".gitignore",
+      `${ignore ?? ""}${ignore === undefined || ignore.endsWith("\n") ? "" : "\n"}/.typed-sql/\n`,
+      ignore,
     );
+  if (editor !== "none") {
+    const editorFile = editor === "vscode" ? ".vscode/settings.json" : ".zed/settings.json";
+    const path = join(root, editorFile);
+    await checkInitPath(root, path);
+    const before = await read(path);
+    const settings = initJson(before ?? "{}\n", editorFile);
+    let content = before ?? "{}\n";
+    if (editor === "vscode") {
+      const values = {
+        "typedSql.providerMode": "native-sdk",
+        "js/ts.experimental.useTsgo": true,
+        "js/ts.tsdk.path": `./node_modules/@typed-sql/language-server/sdk/${process.platform}-${process.arch}`,
+      };
+      for (const [key, value] of Object.entries(values)) {
+        if (settings[key] === undefined) content = editInitJson(content, [key], value);
+        else if (settings[key] !== value)
+          warnings.push(`Preserve existing editor setting ${key}; requested value is ${JSON.stringify(value)}.`);
+      }
+      const extensionPath = join(root, ".vscode/extensions.json");
+      await checkInitPath(root, extensionPath);
+      const extensionBefore = await read(extensionPath);
+      const extensions = initJson(extensionBefore ?? "{}\n", ".vscode/extensions.json");
+      if (
+        extensions.recommendations !== undefined &&
+        (!Array.isArray(extensions.recommendations) ||
+          !extensions.recommendations.every((value) => typeof value === "string"))
+      )
+        throw new Error(".vscode/extensions.json recommendations must be an array of strings");
+      let extensionContent = extensionBefore ?? "{}\n";
+      const recommended = (extensions.recommendations ?? []) as string[];
+      if (extensions.recommendations === undefined)
+        extensionContent = editInitJson(extensionContent, ["recommendations"], []);
+      for (const id of ["TypeScriptTeam.native-preview", "lojhan.typed-sql"])
+        if (!recommended.some((value) => value.toLowerCase() === id.toLowerCase()))
+          extensionContent = editInitJson(extensionContent, ["recommendations", -1], id);
+      if (extensionContent !== extensionBefore) add(".vscode/extensions.json", extensionContent, extensionBefore);
+    } else {
+      const languages = object(settings.languages ?? {}, "Zed languages");
+      for (const name of ["TypeScript", "TSX"]) {
+        const language = object(languages[name] ?? {}, `Zed ${name}`);
+        if (language.language_servers === undefined)
+          content = editInitJson(
+            content,
+            ["languages", name, "language_servers"],
+            ["typed-sql", "!vtsls", "!tsgo", "!typescript-language-server", "..."],
+          );
+        else
+          warnings.push(
+            `Preserve existing Zed ${name} language_servers; ensure typed-sql is the sole TypeScript provider.`,
+          );
+      }
+    }
+    if (content !== before) add(editorFile, content, before);
+    pending.push(
+      `${editor}: install the editor extensions separately and trust the application workspace. For VS Code, select Use Workspace Version for the native SDK. Configuration alone does not prove server readiness or host verification.`,
+    );
+  }
   return {
     formatVersion: 1,
     mode: "plan",

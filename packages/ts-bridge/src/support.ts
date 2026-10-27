@@ -11,7 +11,7 @@ export const TYPESCRIPT_SUPPORT_POLICY = Object.freeze({
   compiler: TYPESCRIPT_COMPILER_SUPPORT_POLICY,
   previewBackend: Object.freeze({
     line: "7.1",
-    exactVersion: "7.1.0-dev.20260824.1",
+    exactVersion: "7.1.0-beta",
     compatibility: "exact-tested-patch",
     apiStability: "unstable",
   }),

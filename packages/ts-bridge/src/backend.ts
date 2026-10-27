@@ -15,6 +15,8 @@ export interface TypeScriptBackendSpawnOptions {
 export interface TypeScriptProjectRequest {
   readonly openFiles: readonly string[];
   readonly projectFiles?: readonly string[];
+  /** In-memory source for open documents, including files not yet saved to disk. */
+  readonly fileContents?: Readonly<Record<string, string>>;
 }
 
 /** Serializable identity for an opaque backend-owned project snapshot. */

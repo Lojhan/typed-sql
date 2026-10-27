@@ -211,7 +211,7 @@ try {
       actualMajor,
       support,
       driver: "pg",
-      driverVersion: "8.23.0",
+      driverVersion: "8.23.1",
       runtime: "node",
       runtimeVersion: process.version,
     },
