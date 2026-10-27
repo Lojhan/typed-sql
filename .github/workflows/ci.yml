@@ -509,7 +509,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TYPED_SQL_HOST_SCENARIOS: postgres-extended,mysql-extended,sqlite-extended,synthetic-extended,postgres-coexist,mysql-coexist,sqlite-coexist,synthetic-coexist
+      TYPED_SQL_HOST_SCENARIOS: postgres-native,mysql-native,sqlite-native,synthetic-native,postgres-extended,mysql-extended,sqlite-extended,synthetic-extended,postgres-coexist,mysql-coexist,sqlite-coexist,synthetic-coexist
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0

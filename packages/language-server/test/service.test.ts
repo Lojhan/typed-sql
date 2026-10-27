@@ -45,6 +45,8 @@ await describe("typed-sql language service", async () => {
       const current = document("config-policy.ts");
       const before = await watched.analysis(current);
       strict.strictEqual(await watched.handlesWatchedFile(pathToFileURL(helper).href), true);
+      const watchedFiles = await watched.watchedFiles();
+      for (const file of [config, helper, schemaFile]) strict.ok(watchedFiles.includes(file));
       await writeFile(helper, 'export const policy = { bigint: "number" };');
       watched.invalidate();
       const after = await watched.analysis(current);

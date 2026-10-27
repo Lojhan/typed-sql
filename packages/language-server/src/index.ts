@@ -561,19 +561,19 @@ export class TypedSqlLanguageService {
     return files;
   }
 
-  async handlesWatchedFile(uri: string): Promise<boolean> {
-    if (!uri.startsWith("file:")) return false;
-    const fileName = resolve(fileURLToPath(uri));
+  async watchedFiles(): Promise<readonly string[]> {
     const loaded = await this.#config();
     const schemaPath =
       this.#settings.schemaPath === undefined
         ? fromConfig(loaded.directory, loaded.config.schema.file)
         : this.#configuredPath(this.#settings.schemaPath);
-    return (
-      fileName === resolve(loaded.file) ||
-      fileName === resolve(schemaPath) ||
-      loaded.dependencies?.includes(fileName) === true
-    );
+    return [...new Set([resolve(loaded.file), resolve(schemaPath), ...(loaded.dependencies ?? [])])];
+  }
+
+  async handlesWatchedFile(uri: string): Promise<boolean> {
+    if (!uri.startsWith("file:")) return false;
+    const fileName = resolve(fileURLToPath(uri));
+    return (await this.watchedFiles()).includes(fileName);
   }
 
   async close(): Promise<void> {

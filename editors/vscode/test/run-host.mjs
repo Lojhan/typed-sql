@@ -42,6 +42,7 @@ const allScenarios = [
   ...["trusted", "untrusted", "virtual"].map((mode) => ({ mode, id: mode })),
   { mode: "lifecycle", id: "lifecycle" },
   ...grammarCases.map((spec) => ({ mode: "overlays", id: spec.id, spec })),
+  ...grammarCases.map((spec) => ({ mode: "native-overlays", id: `${spec.id}-native`, spec })),
   ...grammarCases.map((spec) => ({ mode: "extended", id: `${spec.id}-extended`, spec })),
   ...grammarCases.map((spec) => ({ mode: "coexist", id: `${spec.id}-coexist`, spec })),
 ];
@@ -94,6 +95,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
   await writeFile(join(workspace, "query.ts"), "export const example = 1;\n");
   const workspaceFile = join(base, "virtual.code-workspace");
   const extended = mode === "extended" || mode === "coexist";
+  const native = extended || mode === "native-overlays";
   const sdk = join(packed, "node_modules/@typed-sql/language-server/sdk", `${process.platform}-${process.arch}`);
   if (mode === "virtual")
     await writeFile(
@@ -114,7 +116,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     // A workspace file must still honor the folder-owned server/schema paths.
     await writeFile(workspaceFile, JSON.stringify({ folders: [{ path: workspace }] }));
   }
-  if (extended) {
+  if (native) {
     const server = join(packed, "node_modules/@typed-sql/language-server/dist/packages/language-server/src/server.js");
     const configure = async (target, grammar) => {
       const settings = await prepareWorkspace(target, root, grammar, packed);
@@ -143,7 +145,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     join(profile, "User/settings.json"),
     JSON.stringify({
       "security.workspace.trust.startupPrompt": "never",
-      ...(extended
+      ...(native
         ? {
             "js/ts.experimental.useTsgo": true,
             "js/ts.tsdk.path": sdk,
@@ -155,7 +157,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     }),
   );
   const isolated = ["--user-data-dir", profile, "--extensions-dir", extensions];
-  if (extended)
+  if (native)
     await runCli([...isolated, "--install-extension", "TypeScriptTeam.native-preview@1.0.1"], {
       timeout: 120_000,
     });
@@ -175,14 +177,14 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     await execFile(
       executable,
       [
-        mode === "virtual" || mode === "overlays" || extended ? workspaceFile : workspace,
+        mode === "virtual" || mode === "overlays" || native ? workspaceFile : workspace,
         ...isolated,
         "--skip-welcome",
         "--skip-release-notes",
         ...(process.platform === "linux" ? ["--no-sandbox"] : []),
-        ...(extended ? [] : ["--disable-extension", "vscode.typescript-language-features"]),
+        ...(native ? [] : ["--disable-extension", "vscode.typescript-language-features"]),
         `--extensionDevelopmentPath=${join(directory, "harness")}`,
-        `--extensionTestsPath=${join(directory, extended ? "extended-suite.cjs" : mode === "overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
+        `--extensionTestsPath=${join(directory, extended ? "extended-suite.cjs" : mode === "overlays" || mode === "native-overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
         ...(mode !== "untrusted" ? ["--disable-workspace-trust"] : []),
       ],
       {

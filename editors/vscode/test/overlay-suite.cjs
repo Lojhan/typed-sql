@@ -8,7 +8,7 @@ exports.run = async () => {
   const spec = grammarCases.find((item) => item.id === process.env.TYPED_SQL_HOST_GRAMMAR);
   assert.ok(spec, "the host must select an explicit grammar case");
   const report = {
-    mode: "overlays",
+    mode: process.env.TYPED_SQL_HOST_MODE,
     editor: "vscode",
     grammar: spec.id,
     vscode: vscode.version,
@@ -19,7 +19,10 @@ exports.run = async () => {
   const save = () => writeFileSync(process.env.TYPED_SQL_HOST_REPORT, JSON.stringify(report));
   save();
   assert.equal(vscode.workspace.isTrusted, true);
-  assert.equal(vscode.extensions.getExtension("vscode.typescript-language-features"), undefined);
+  if (process.env.TYPED_SQL_HOST_MODE === "native-overlays") {
+    assert.ok(vscode.extensions.getExtension("vscode.typescript-language-features"));
+    assert.ok(vscode.extensions.getExtension("TypeScriptTeam.native-preview"));
+  } else assert.equal(vscode.extensions.getExtension("vscode.typescript-language-features"), undefined);
   const uri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, "query.ts");
   const document = await vscode.workspace.openTextDocument(uri);
   await vscode.window.showTextDocument(document);

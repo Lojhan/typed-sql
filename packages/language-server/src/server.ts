@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { cwd, stderr, stdin, stdout } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertTypeScriptPreviewVersion, type BridgeAnalysis } from "@typed-sql/ts-bridge";
@@ -158,6 +158,8 @@ const LSP_PROTOCOL_UNSUPPORTED = -32098;
 let workspaceReady: Promise<void> = Promise.resolve();
 let workspaceSettings: ReturnType<typeof settingsFrom> = {};
 let scopedConfiguration = false;
+let dynamicWatching = false;
+let registeredWatchers: string | undefined;
 let workspaceRoots: readonly string[] = [resolve(cwd())];
 let services = new Map([[workspaceRoots[0]!, new TypedSqlLanguageService(workspaceRoots[0]!)]]);
 let negotiatedProtocol: TypedSqlProtocolNegotiation = negotiateTypedSqlProtocol(undefined);
@@ -249,6 +251,41 @@ async function refreshWorkspaceSettings(): Promise<void> {
   for (const [index, root] of workspaceRoots.entries()) {
     services.get(root)!.configure(root, { ...workspaceSettings, ...settingsFrom(values[index]) });
   }
+}
+
+async function refreshWorkspaceWatchers(): Promise<void> {
+  if (!dynamicWatching) return;
+  const directories = new Set(workspaceRoots);
+  for (const service of services.values()) {
+    try {
+      for (const file of await service.watchedFiles()) directories.add(dirname(file));
+    } catch {
+      // The normal analysis path reports unavailable configuration. Keep watching
+      // root configuration files so repairing the project can recover the server.
+    }
+  }
+  const watchers = [
+    ...[...directories].sort().map((directory) => ({
+      globPattern: { baseUri: pathToFileURL(directory).href, pattern: "*" },
+      kind: 7,
+    })),
+    ...workspaceRoots.map((root) => ({
+      globPattern: { baseUri: pathToFileURL(root).href, pattern: "**/tsconfig*.json" },
+      kind: 7,
+    })),
+  ];
+  const key = JSON.stringify(watchers);
+  if (key === registeredWatchers) return;
+  if (registeredWatchers !== undefined)
+    await client.sendRequest("client/unregisterCapability", {
+      unregisterations: [{ id: "typed-sql-project-files", method: "workspace/didChangeWatchedFiles" }],
+    });
+  await client.sendRequest("client/registerCapability", {
+    registrations: [
+      { id: "typed-sql-project-files", method: "workspace/didChangeWatchedFiles", registerOptions: { watchers } },
+    ],
+  });
+  registeredWatchers = key;
 }
 
 function sourceOffsetToVirtual(state: DocumentState, offset: number): number {
@@ -616,6 +653,10 @@ client.onRequest("initialize", async (rawParams) => {
   const textCapabilities = isObject(capabilities.textDocument) ? capabilities.textDocument : {};
   const workspaceCapabilities = isObject(capabilities.workspace) ? capabilities.workspace : {};
   scopedConfiguration = process.env.TYPED_SQL_EDITOR_SDK === "1" && workspaceCapabilities.configuration === true;
+  dynamicWatching =
+    process.env.TYPED_SQL_EDITOR_SDK === "1" &&
+    isObject(workspaceCapabilities.didChangeWatchedFiles) &&
+    workspaceCapabilities.didChangeWatchedFiles.dynamicRegistration === true;
   pullDiagnostics =
     isObject(textCapabilities.diagnostic) &&
     isObject(result.capabilities) &&
@@ -643,6 +684,7 @@ client.onNotification("initialized", async (params) => {
   workspaceReady = (async () => {
     await typescript.sendNotification("initialized", params);
     await refreshWorkspaceSettings();
+    await refreshWorkspaceWatchers();
     await preloadWorkspaceDocuments();
   })();
   await workspaceReady;
@@ -976,6 +1018,7 @@ client.onNotification("workspace/didChangeWorkspaceFolders", (params) => {
     const roots = [...new Set([...workspaceRoots.filter((root) => !removed.has(root)), ...rootsFrom(event.added)])];
     await configureServices(roots, workspaceSettings);
     await refreshWorkspaceSettings();
+    await refreshWorkspaceWatchers();
     await typescript.sendNotification("workspace/didChangeWorkspaceFolders", params);
     await refreshOpenDocuments();
     await resetVirtualDocuments();
@@ -989,6 +1032,7 @@ client.onNotification("workspace/didChangeConfiguration", (params) => {
     workspaceSettings = settings;
     for (const [root, service] of services) service.configure(root, settings);
     await refreshWorkspaceSettings();
+    await refreshWorkspaceWatchers();
     await typescript.sendNotification("workspace/didChangeConfiguration", params);
     await refreshOpenDocuments();
     await resetVirtualDocuments();
@@ -1003,15 +1047,20 @@ client.onNotification("workspace/didChangeWatchedFiles", (params) => {
         ? undefined
         : (
             await Promise.all(
-              changes.map(async (change) =>
-                (await serviceForUri(change.uri).handlesWatchedFile(change.uri)) ? undefined : change,
-              ),
+              changes.map(async (change) => {
+                // Shared schemas and configuration helpers may live outside
+                // every workspace root, or belong to a different folder.
+                const owned = await Promise.all(
+                  [...services.values()].map((service) => service.handlesWatchedFile(change.uri).catch(() => false)),
+                );
+                return owned.some(Boolean) ? undefined : change;
+              }),
             )
           ).filter((change): change is WatchedFileChange => change !== undefined);
     const refresh =
       changes === undefined ||
       nativeChanges!.length !== changes.length ||
-      changes.some(({ uri }) => /\/tsconfig[^/]*\.json$/u.test(uri));
+      changes.some(({ uri }) => /\/(?:tsconfig[^/]*\.json|typed-sql\.config\.[cm]?[jt]s)$/u.test(uri));
     if (refresh) for (const service of services.values()) service.invalidate();
     if (nativeChanges === undefined || nativeChanges.length > 0) {
       await typescript.sendNotification(
@@ -1022,6 +1071,7 @@ client.onNotification("workspace/didChangeWatchedFiles", (params) => {
     if (refresh) {
       await refreshOpenDocuments();
       await resetVirtualDocuments();
+      await refreshWorkspaceWatchers();
     }
   });
 });
