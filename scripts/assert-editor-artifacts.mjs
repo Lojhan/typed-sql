@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
+import { assertMarketplaceManifest } from "./editor-marketplace.mjs";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(import.meta.dirname, "..");
@@ -37,6 +38,7 @@ assert.ok(
 );
 
 const manifest = JSON.parse(await unzip("extension/package.json"));
+assertMarketplaceManifest(manifest, await unzip("extension.vsixmanifest"));
 assert.equal(manifest.main, "./bundle/extension.cjs");
 assert.deepEqual(manifest.extensionKind, ["workspace"]);
 assert.equal(manifest.capabilities?.untrustedWorkspaces?.supported, false);

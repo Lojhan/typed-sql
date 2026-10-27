@@ -364,6 +364,8 @@ await describe("packed public packages", async () => {
                 tsx: `link:${join(workspace, "node_modules", "tsx")}`,
                 "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
                 "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
+                "jsonc-parser": `link:${join(workspace, "packages", "cli", "node_modules", "jsonc-parser")}`,
+                "proper-lockfile": `link:${join(workspace, "packages", "cli", "node_modules", "proper-lockfile")}`,
                 "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
                 "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
                 "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,

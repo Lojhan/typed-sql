@@ -219,3 +219,41 @@ The editor SDK launchers are built with Go 1.27.3 (the pinned toolchain in
 `pnpm editor:sdk:build` builds the host launcher; `pnpm build` and
 `pnpm editor:sdk:build:all` build macOS,
 Linux, and Windows launchers for x64 and arm64 before release artifact inspection.
+
+The root package test command runs package suites one at a time. The SQLite throughput floor is
+unchanged; it must run without competing compiler and native-server suites consuming the same CI
+worker's CPUs. Dedicated performance budgets remain a separate required gate.
+
+## Publish experimental editor extensions
+
+The `Editor marketplaces` workflow publishes the same experimental prerelease VSIX to Visual
+Studio Marketplace and Open VSX under `lojhan`. It runs only from `main`, requires a successful
+comprehensive `CI` workflow-dispatch run for that exact commit, records the artifact hash, and
+verifies the downloaded artifact before either registry upload. Duplicate versions are skipped
+on retry; bump the editor version for new contents. Never delete a published extension version.
+
+Both publishing jobs use OIDC and protected GitHub environments. Configure trusted publishers
+in the registry accounts with these exact fields:
+
+| Field | Visual Studio Marketplace | Open VSX |
+| --- | --- | --- |
+| Publisher / namespace | `lojhan` | `lojhan` |
+| Repository owner | `Lojhan` | `Lojhan` |
+| Repository | `typed-sql` | `typed-sql` |
+| Workflow | `editor-marketplaces.yml` | `editor-marketplaces.yml` |
+| Environment | `visual-studio-marketplace` | `open-vsx` |
+
+Namespace ownership, publisher registration, and any registry publisher agreement must be
+completed by the account owner. The workflow deliberately has no PAT fallback. See the official
+[VSCE trusted publishing guide](https://github.com/microsoft/vscode-vsce#trusted-publishing) and
+[Open VSX trusted publishing guide](https://github.com/eclipse-openvsx/openvsx/blob/main/cli/README.md#trusted-publishing).
+
+After reviewing comprehensive CI evidence, dispatch:
+
+```sh
+gh workflow run editor-marketplaces.yml --ref main -f registry=both -f evidence_run_id=<successful-ci-run>
+```
+
+Approve the two protected environments after reviewing the built VSIX report. Each registry
+job can be retried independently after partial publication. These prerelease uploads do not
+promote the editor to stable; the existing editor-promotion evidence policy still applies.
