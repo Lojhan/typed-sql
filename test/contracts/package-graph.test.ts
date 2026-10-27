@@ -357,12 +357,12 @@ await describe("public package graph", async () => {
     const consumer = JSON.parse(
       await readFile(join(workspace, "e2e", "postgres", "package.json"), "utf8"),
     ) as PackageManifest;
-    strict.strictEqual(consumer.dependencies?.pg, "8.23.0");
+    strict.strictEqual(consumer.dependencies?.pg, "8.23.1");
     strict.strictEqual(consumer.dependencies?.["@typed-sql/postgres"], "workspace:*");
     const mysqlConsumer = JSON.parse(
       await readFile(join(workspace, "e2e", "mysql", "package.json"), "utf8"),
     ) as PackageManifest;
-    strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.3");
+    strict.strictEqual(mysqlConsumer.dependencies?.mysql2, "3.24.6");
     strict.strictEqual(mysqlConsumer.dependencies?.["@typed-sql/mysql"], "workspace:*");
   });
 });

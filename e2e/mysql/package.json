@@ -16,11 +16,11 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
-    "mysql2": "3.24.3"
+    "mysql2": "3.24.6"
   },
   "devDependencies": {
     "poku": "4.5.0",
-    "tsx": "4.23.12",
+    "tsx": "4.23.15",
     "typescript": "7.0.2"
   }
 }

@@ -536,7 +536,7 @@ await describe("public documentation", async () => {
     }
     strict.strictEqual(websitePackage.devDependencies.vitepress, "1.6.4");
     strict.match(workspaceConfig, /^\s*- website$/mu);
-    strict.match(workspaceConfig, /^\s+vitepress>vite:\s+6\.4\.3$/mu);
+    strict.match(workspaceConfig, /^\s+vitepress>vite:\s+6\.4\.5$/mu);
     strict.strictEqual(rootPackage.scripts["docs:start"], "pnpm --filter typed-sql-docs start");
     strict.strictEqual(rootPackage.scripts["docs:build"], "pnpm --filter typed-sql-docs build");
     strict.ok(rootPackage.scripts.verify?.includes("pnpm docs:build"));

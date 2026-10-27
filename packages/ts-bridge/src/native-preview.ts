@@ -41,6 +41,9 @@ export class NativePreviewTypeScriptBridge implements TypeScriptBridge {
     try {
       project = await this.#backend.loadProject({
         openFiles: inputs.map(({ fileName }) => fileName),
+        fileContents: Object.fromEntries(
+          inputs.map(({ fileName, analysis }) => [fileName, analysis.transformedSource]),
+        ),
         projectFiles: inputs.flatMap(({ projectFile }) => (projectFile === undefined ? [] : [projectFile])),
       });
       return await this.#backend.inspectFiles(project, inputs);

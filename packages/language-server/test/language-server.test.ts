@@ -251,7 +251,7 @@ await describe("typed-sql stdio language server", async () => {
       const status = (await client.request(TYPED_SQL_STATUS_REQUEST, null)) as TypedSqlLanguageServerStatus;
       strict.strictEqual(status.name, "@typed-sql/language-server");
       strict.strictEqual(status.mode, "pinned-preview-proxy");
-      strict.match(status.typescriptVersion, /^7\.1\.0-dev\./u);
+      strict.strictEqual(status.typescriptVersion, "7.1.0-beta");
       strict.deepStrictEqual(status.workspaceRoots, [workspaceDirectory]);
       strict.strictEqual(status.openDocuments, 1);
       strict.ok(status.indexedDocuments >= 1);
@@ -489,7 +489,10 @@ await describe("typed-sql stdio language server", async () => {
         textDocument: { uri: mysqlUri },
         position: positionAt(mysqlSource, mysqlSource.indexOf("mysqlQuery")),
       });
-      strict.ok(JSON.stringify(postgresHover).includes('status: \\"active\\" | \\"suspended\\"'));
+      strict.ok(
+        JSON.stringify(postgresHover).includes('status: \\"active\\" | \\"suspended\\"'),
+        JSON.stringify(postgresHover),
+      );
       strict.ok(JSON.stringify(mysqlHover).includes("active: boolean"));
     } finally {
       await client.close();

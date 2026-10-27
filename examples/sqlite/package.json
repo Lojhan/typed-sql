@@ -16,14 +16,14 @@
   "dependencies": {
     "@typed-sql/core": "workspace:*",
     "@typed-sql/sqlite": "workspace:*",
-    "valibot": "1.4.2"
+    "valibot": "1.5.0"
   },
   "devDependencies": {
     "@typed-sql/cli": "workspace:*",
     "@typed-sql/conformance": "workspace:*",
     "@typed-sql/language-server": "workspace:*",
     "poku": "4.5.0",
-    "tsx": "4.23.12",
+    "tsx": "4.23.15",
     "typescript": "7.0.2"
   }
 }

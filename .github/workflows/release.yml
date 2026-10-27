@@ -85,7 +85,7 @@ jobs:
       - run: pnpm e2e:packed
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
-      - run: pnpm audit --prod --audit-level high
+      - run: pnpm audit --audit-level high
       - name: Assert CodeQL release policy
         run: pnpm release:security
         env:

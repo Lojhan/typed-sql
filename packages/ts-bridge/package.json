@@ -30,7 +30,7 @@
   "typedSql": {
     "releaseTrack": "experimental",
     "typescriptBackend": "typescript-7.1-native-preview",
-    "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
+    "typescriptPreviewVersion": "7.1.0-beta"
   },
   "sideEffects": false,
   "type": "module",
@@ -47,6 +47,6 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/compiler": "workspace:*",
     "@typed-sql/schema": "workspace:*",
-    "@typed-sql/typescript-preview": "npm:typescript@7.1.0-dev.20260824.1"
+    "@typed-sql/typescript-preview": "npm:typescript@7.1.0-beta"
   }
 }

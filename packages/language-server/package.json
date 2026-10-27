@@ -39,7 +39,7 @@
       "status"
     ],
     "legacyUnversionedProtocolVersion": 1,
-    "typescriptPreviewVersion": "7.1.0-dev.20260824.1"
+    "typescriptPreviewVersion": "7.1.0-beta"
   },
   "type": "module",
   "bin": {
@@ -58,8 +58,8 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "@typed-sql/ts-bridge": "workspace:*",
-    "vscode-jsonrpc": "9.0.1",
-    "vscode-languageserver": "10.1.0",
-    "vscode-languageserver-textdocument": "1.0.12"
+    "vscode-jsonrpc": "10.0.0",
+    "vscode-languageserver": "11.0.0",
+    "vscode-languageserver-textdocument": "1.0.16"
   }
 }

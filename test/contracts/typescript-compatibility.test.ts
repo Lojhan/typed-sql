@@ -69,7 +69,7 @@ await describe("TypeScript 7 compatibility matrix", async () => {
     );
   });
 
-  await it("contains unstable TypeScript imports in the exact version adapter", async () => {
+  await it("contains beta TypeScript imports in the exact version adapter", async () => {
     const adapter = await readFile(
       join(workspaceDirectory, "packages", "ts-bridge", "src", "backends", "typescript-7.1.ts"),
       "utf8",
@@ -78,8 +78,8 @@ await describe("TypeScript 7 compatibility matrix", async () => {
       join(workspaceDirectory, "packages", "ts-bridge", "src", "native-preview.ts"),
       "utf8",
     );
-    strict.ok(adapter.includes("@typed-sql/typescript-preview/unstable/ast"));
-    strict.ok(adapter.includes("@typed-sql/typescript-preview/unstable/async"));
+    strict.ok(adapter.includes("@typed-sql/typescript-preview/ast"));
+    strict.ok(adapter.includes("@typed-sql/typescript-preview/async"));
     strict.ok(!wrapper.includes("@typed-sql/typescript-preview/unstable/"));
     strict.ok(wrapper.includes("TypeScript71PreviewBackend"));
   });

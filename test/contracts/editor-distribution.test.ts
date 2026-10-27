@@ -128,7 +128,7 @@ await describe("external editor distribution", async () => {
     strict.ok(source.includes("protocolCapabilities: [...TYPED_SQL_PROTOCOL_CAPABILITIES]"));
     strict.ok(!source.includes("analyzeSource"));
     strict.ok(!source.includes("NativePreviewTypeScriptBridge"));
-    strict.deepStrictEqual(manifest.dependencies, { "vscode-languageclient": "10.1.0" });
+    strict.deepStrictEqual(manifest.dependencies, { "vscode-languageclient": "11.0.0" });
   });
 
   await it("smokes the packaged VS Code and Zed artifacts in CI", async () => {

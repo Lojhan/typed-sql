@@ -33,7 +33,7 @@ assert.equal(
 
 const evidence = {
   supportPolicy:
-    support.includes('exactVersion: "7.1.0-dev.20260824.1"') &&
+    support.includes('exactVersion: "7.1.0-beta"') &&
     support.includes('unsupportedVersion: "reject-before-project-load"'),
   compatibilityMatrix:
     workflow.includes("typescript-editor-matrix:") &&
@@ -53,7 +53,7 @@ const evidence = {
     performance.latencyMs?.["editor.projectSwitch"]?.p99 > 0 &&
     performance.memory?.["editor.lifecycleHeapGrowthMiB"]?.maximum > 0,
   publicCompatibility:
-    compatibility.includes("7.1.0-dev.20260824.1") &&
+    compatibility.includes("7.1.0-beta") &&
     editors.includes("Supported editor features") &&
     upgrade.includes("Upgrade editor integration"),
 };

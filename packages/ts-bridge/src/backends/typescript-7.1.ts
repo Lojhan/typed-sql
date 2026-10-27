@@ -1,5 +1,6 @@
-import { type Node, type SourceFile, SyntaxKind } from "@typed-sql/typescript-preview/unstable/ast";
-import { API, type Checker, type Snapshot } from "@typed-sql/typescript-preview/unstable/async";
+import { type Node, type SourceFile, SyntaxKind } from "@typed-sql/typescript-preview/ast";
+import { API, type Checker, type Snapshot } from "@typed-sql/typescript-preview/async";
+import { createFileSystemLayer } from "@typed-sql/typescript-preview/fs";
 import type {
   TypeScriptBackend,
   TypeScriptBackendIdentity,
@@ -33,24 +34,35 @@ function taggedTemplateAt(node: Node, sourceFile: SourceFile, start: number): No
 export class TypeScript71PreviewBackend implements TypeScriptBackend {
   readonly identity = TYPESCRIPT_71_BACKEND_IDENTITY;
   readonly #api: API<boolean>;
-  readonly #fromLanguageServer: boolean;
+  readonly #loadSnapshot: (request: TypeScriptProjectRequest) => Promise<Snapshot>;
   readonly #projects = new Map<string, Snapshot>();
   #nextProject = 1;
   #closed = false;
 
-  private constructor(api: API<boolean>, fromLanguageServer: boolean) {
+  private constructor(api: API<boolean>, loadSnapshot: (request: TypeScriptProjectRequest) => Promise<Snapshot>) {
     this.#api = api;
-    this.#fromLanguageServer = fromLanguageServer;
+    this.#loadSnapshot = loadSnapshot;
   }
 
   static connect(pipe: string): Promise<TypeScript71PreviewBackend> {
     assertTypeScriptPreviewVersion();
-    return API.fromLSPConnection({ pipe }).then((api) => new TypeScript71PreviewBackend(api, true));
+    return API.fromLSPConnection({ pipe }).then(
+      (api) => new TypeScript71PreviewBackend(api, () => api.getCurrentLanguageServerSnapshot()),
+    );
   }
 
   static spawn(options: TypeScriptBackendSpawnOptions = {}): TypeScript71PreviewBackend {
     assertTypeScriptPreviewVersion();
-    return new TypeScript71PreviewBackend(new API(options), false);
+    const api = new API(options);
+    return new TypeScript71PreviewBackend(api, (request) =>
+      api.createSnapshot({
+        openFiles: request.openFiles,
+        openProjects: request.projectFiles ?? [],
+        ...(request.fileContents === undefined
+          ? {}
+          : { fileSystem: createFileSystemLayer(Object.entries(request.fileContents)) }),
+      }),
+    );
   }
 
   async loadProject(request: TypeScriptProjectRequest): Promise<TypeScriptProjectHandle> {
@@ -61,14 +73,7 @@ export class TypeScript71PreviewBackend implements TypeScriptBackend {
     if ([...openFiles, ...projectFiles].some((file) => file.length === 0 || file.includes("\0"))) {
       throw new TypeError("TypeScript backend project paths must be non-empty strings without null bytes");
     }
-    const snapshot = await this.#api.updateSnapshot(
-      this.#fromLanguageServer
-        ? undefined
-        : {
-            openFiles,
-            ...(projectFiles.length === 0 ? {} : { openProjects: projectFiles }),
-          },
-    );
+    const snapshot = await this.#loadSnapshot({ ...request, openFiles, projectFiles });
     const id = `${this.identity.id}:${this.#nextProject++}`;
     this.#projects.set(id, snapshot);
     return Object.freeze({ id, backend: this.identity, openFiles, projectFiles });
@@ -92,17 +97,24 @@ export class TypeScript71PreviewBackend implements TypeScriptBackend {
       if (input === undefined) {
         for (const candidate of inputs) {
           const inspections: TypeScriptTypeInspection[] = [];
-          const selectedProject =
+          let selectedProject =
             (candidate.projectFile === undefined
               ? undefined
-              : (current.getProject(candidate.projectFile) ??
+              : (current.getConfiguredProject(candidate.projectFile) ??
                 current.getProjects().find((item) => item.configFileName === candidate.projectFile))) ??
             (await current.getDefaultProjectForFile(candidate.fileName)) ??
             current.getProjects()[0];
           if (selectedProject === undefined) {
             throw new Error(`TypeScript preview did not load a project for ${candidate.fileName}`);
           }
-          const sourceFile = await selectedProject.program.getSourceFile(candidate.fileName);
+          let sourceFile = await selectedProject.program.getSourceFile(candidate.fileName);
+          if (sourceFile === undefined) {
+            const defaultProject = await current.getDefaultProjectForFile(candidate.fileName);
+            if (defaultProject !== undefined) {
+              selectedProject = defaultProject;
+              sourceFile = await defaultProject.program.getSourceFile(candidate.fileName);
+            }
+          }
           if (sourceFile === undefined) throw new Error(`TypeScript preview did not load ${candidate.fileName}`);
           for (const query of candidate.analysis.queries) {
             inspections.push(await this.#inspectQuery(selectedProject.checker, sourceFile, query));

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,7 @@ import { describe, it, strict } from "poku";
 import { planInit } from "../src/init-plan.js";
 
 async function fixture(run: (root: string, boundary: string) => Promise<void>) {
-  const boundary = await mkdtemp(join(tmpdir(), "typed-sql-init-"));
+  const boundary = await realpath(await mkdtemp(join(tmpdir(), "typed-sql-init-")));
   const root = join(boundary, "app");
   try {
     await mkdir(root);
