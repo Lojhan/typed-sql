@@ -1,5 +1,22 @@
 # @typed-sql/ts-bridge
 
+## 2.2.0-rc.0
+
+### Patch Changes
+
+- dc36c81: Keep complete row and parameter types in TypeScript 7.1 preview inspections without display truncation. Reject native pg cursor streaming and COPY on pipeline-enabled connections before submitting a custom query, and use separate pools for streaming and pipeline queries.
+- 5c491f2: Use the exact TypeScript 7.1 beta public APIs for editor inference, including initial in-memory snapshots for unsaved documents. Update the language server protocol dependencies and configuration loader dependencies. The compiler remains on its independently verified TypeScript 7.0.2 path.
+- Updated dependencies [b752fde]
+- Updated dependencies [456fa7f]
+- Updated dependencies [7e94958]
+- Updated dependencies [a4c4e73]
+- Updated dependencies [2f5f6be]
+- Updated dependencies [71a169f]
+- Updated dependencies [d176673]
+  - @typed-sql/compiler@2.2.0-rc.0
+  - @typed-sql/core@2.2.0-rc.0
+  - @typed-sql/schema@2.2.0-rc.0
+
 ## 2.1.0-rc.1
 
 ### Patch Changes
