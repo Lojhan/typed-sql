@@ -46,6 +46,16 @@
   },
   "overrides": [
     {
+      "includes": ["website/.vitepress/theme/styles/**/*.css"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDescendingSpecificity": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/*.test.ts", "test/fixtures/**/*.ts"],
       "linter": {
         "rules": {

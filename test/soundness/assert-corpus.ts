@@ -44,5 +44,5 @@ export function assertSoundnessCase<Snapshot extends SchemaSnapshot, Policy>(
   }
 
   const inferred = expectation.target === "row" ? rowType : parameterType;
-  strict.ok(inferred.includes("unknown"), `${dialectName}/${sql} must remain conservative: ${inferred}`);
+  strict.strictEqual(inferred, expectation.type, `${dialectName}/${sql} must remain conservative`);
 }

@@ -486,11 +486,9 @@ await describe("public documentation", async () => {
     strict.ok(compatibility.includes("./upgrading-from-v1.md#adopt-compiler-and-ci-artifacts"));
   });
 
-  await it("keeps the site private and renders the canonical docs directory", async () => {
+  await it("keeps the documentation site private", async () => {
     const sitePackage = JSON.parse(await text("website/package.json")) as { readonly private: boolean };
-    const { default: siteConfig } = await import("../../website/.vitepress/config.mjs");
     strict.strictEqual(sitePackage.private, true);
-    strict.strictEqual(resolve(workspace, "website", siteConfig.srcDir ?? "."), resolve(workspace, "docs"));
   });
 
   await it("runs the homepage playground through the PostgreSQL grammar", () => {

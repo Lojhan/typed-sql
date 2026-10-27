@@ -266,9 +266,10 @@ The editor SDK launchers are built with Go 1.27.3 (the pinned toolchain in
 `pnpm editor:sdk:build:all` build macOS,
 Linux, and Windows launchers for x64 and arm64 before release artifact inspection.
 
-The root package test command runs package suites one at a time. The SQLite throughput floor is
-unchanged; it must run without competing compiler and native-server suites consuming the same CI
-worker's CPUs. Dedicated performance budgets remain a separate required gate.
+The root package test command runs package suites one at a time. SQLite parser/resolver timing
+runs once in the dedicated performance gate, outside unit and coverage suites. Its 500 queries/s
+median floor and 40 ms batch p95 limit are unchanged; measurements retain samples and runner
+context alongside the other performance budgets.
 
 ## Publish experimental editor extensions
 

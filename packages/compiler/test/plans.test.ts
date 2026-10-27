@@ -88,7 +88,7 @@ await describe("query plan governance", async () => {
       schema: snapshot,
     });
     let captures = 0;
-    let samples = 0;
+    const sampled: string[] = [];
     const result = await captureQueryPlans({
       manifest: repeatedManifest,
       candidates: repeatedCandidates,
@@ -99,7 +99,7 @@ await describe("query plan governance", async () => {
         },
       }),
       sampleValues: (request) => {
-        samples += 1;
+        sampled.push(request.queryId);
         return {
           identity: "representative",
           values: request.parameters.map((parameter) => (parameter.tsType === "bigint" ? 1n : "Ada")),
@@ -107,7 +107,6 @@ await describe("query plan governance", async () => {
       },
     });
     strict.strictEqual(captures, 2, "ordinary queries and fixed literals still reach EXPLAIN");
-    strict.strictEqual(samples, 2, "representative fragment-list values are not requested");
     strict.strictEqual(result.captured, 2);
     strict.strictEqual(result.skipped, 1);
     const skipped = result.artifact.entries.filter((entry) => entry.status === "skipped");
@@ -116,6 +115,10 @@ await describe("query plan governance", async () => {
       ["repeated-fragment-cardinality"],
     );
     strict.ok(skipped.every((entry) => !("evidence" in entry)));
+    strict.ok(
+      skipped.every((entry) => !sampled.includes(entry.queryId)),
+      "skipped queries never request samples",
+    );
     const parsed = parseQueryPlanArtifact(JSON.parse(serializeQueryPlanArtifact(result.artifact)));
     const review = reviewQueryPlans({ current: parsed, budgets: { defaults: { maximumTotalCost: 20 } } });
     strict.strictEqual(review.summary.pass, 2);
