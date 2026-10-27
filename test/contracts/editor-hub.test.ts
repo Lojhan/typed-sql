@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import { grammarCases, interfaces, sourceFor } from "../editor-hub/cases.mjs";
-import { buildMatrix, pendingInterfaces } from "../editor-hub/matrix.mjs";
+import { buildMatrix, combineHostReports, pendingInterfaces } from "../editor-hub/matrix.mjs";
 
 await describe("editor grammar evidence hub", async () => {
   await it("retains host failure evidence even when an editor job fails", async () => {
@@ -28,6 +28,17 @@ await describe("editor grammar evidence hub", async () => {
     strict.strictEqual(matrix.cells.length, 2 * 4 * (interfaces.length + pendingInterfaces.length));
     strict.ok(matrix.cells.every((cell) => cell.status === "not-run"));
   });
+  await it("assigns every additional interface to executable scenarios without counting implementation as success", async () => {
+    const scenario = await readFile(new URL("../editor-hub/extended-scenario.mjs", import.meta.url), "utf8");
+    const adapter = await readFile(new URL("../../editors/vscode/test/extended-suite.cjs", import.meta.url), "utf8");
+    for (const id of pendingInterfaces) {
+      strict.ok((id === "builtin-coexistence" ? adapter : scenario).includes(`"${id}"`), id);
+    }
+    strict.strictEqual(new Set([...interfaces, ...pendingInterfaces]).size, 21);
+    const installer = await readFile(new URL("../../editors/vscode/test/packed-install.mjs", import.meta.url), "utf8");
+    strict.ok(installer.includes('"--ignore-workspace"'));
+    strict.ok(!installer.includes("link:"));
+  });
   await it("records schema lifecycle coverage without inventing synthetic column semantics", () => {
     strict.ok(interfaces.includes("schema-file-refresh"));
     strict.ok(!pendingInterfaces.includes("schema-file-refresh"));
@@ -53,6 +64,14 @@ await describe("editor grammar evidence hub", async () => {
     strict.ok(matrix.cells.filter((cell) => cell.editor === "zed").every((cell) => cell.status === "not-run"));
     strict.throws(() => buildMatrix([{ ...report, evidence: "protocol" }]), /protocol evidence/);
     strict.throws(() => buildMatrix([report, report]), /duplicate/);
+    const extra = { ...report, checks: { "restart-recovery": { status: "passed" } } };
+    strict.strictEqual(
+      buildMatrix(combineHostReports([report, extra])).cells.filter((cell) => cell.status === "passed").length,
+      2,
+    );
+    strict.throws(() => combineHostReports([report, report]), /duplicate interface/);
+    strict.throws(() => combineHostReports([report, { ...extra, evidence: "protocol" }]), /protocol evidence/);
+    strict.throws(() => combineHostReports([report, { ...extra, vscode: "other" }]), /mixed host/);
     strict.throws(() => buildMatrix([{ ...report, grammar: "unknown" }]), /unknown grammar/);
     strict.throws(() => buildMatrix([{ ...report, checks: { invented: { status: "passed" } } }]), /unknown interface/);
     strict.throws(() => buildMatrix([{ ...report, checks: { "row-hover": { status: "skipped" } } }]), /unknown status/);

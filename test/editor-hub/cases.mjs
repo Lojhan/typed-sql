@@ -30,6 +30,13 @@ const sqlCase = (id, version, types) => ({
   invalidQuery: "SELECT not_a_column FROM users",
   diagnosticPattern: "not_a_column",
   schemaRefresh: { table: "users", column: "name", type: "string | null" },
+  parameters: {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture contains source-level interpolation
+    query: 'SELECT id FROM users WHERE age = ${1} AND name = ${"Ada"}',
+    tuple: ["number | null", "string"],
+  },
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture contains source-level interpolation
+  structural: "SELECT id ${selected ? `, name` : sql.empty} FROM users",
 });
 
 export const grammarCases = [
@@ -61,6 +68,13 @@ export const grammarCases = [
     wrongType: "string",
     invalidQuery: "UNSUPPORTED",
     diagnosticPattern: "does not support",
+    parameters: {
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture contains source-level interpolation
+      query: 'INSERT INTO widgets (value, label) VALUES (${1}, ${"Ada"}), (${2}, ${null})',
+      tuple: ["number", "string | null", "number", "string | null"],
+    },
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture contains source-level interpolation
+    structural: "SELECT value ${selected ? `, label` : sql.empty} FROM widgets",
   },
 ];
 

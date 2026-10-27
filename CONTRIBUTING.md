@@ -75,6 +75,12 @@ Downloads, profiles and result JSON normally live under `artifacts/editor-host/`
 path exceeds Unix socket limits, set `TYPED_SQL_HOST_DATA_ROOT` to a shorter user-owned directory.
 Result JSON is also copied into `artifacts/editor-host/results/`; CI excludes downloads and full
 profiles from artifact uploads. Runs preserve their unique directories for diagnosis.
+Application and extension updates are disabled in these profiles; a pre-launch CLI version
+check rejects a mutated cache rather than mixing editor versions. For focused diagnosis,
+`TYPED_SQL_HOST_SCENARIOS=postgres-extended` selects named scenarios (comma-separated); omitted
+cells remain `not-run`. `TYPED_SQL_HOST_CAPTURE_PREVIEW=true` captures bounded upstream stderr
+only for the generated extended fixtures, without changing production log redaction. Do not
+point this diagnostic harness at private application projects.
 
 ### Shared editor/grammar hub
 
@@ -86,11 +92,23 @@ adapters. These are representative integration fixtures, not all syntax or serve
 Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, four grammars and
 the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
-The current VS Code host executes eight checks per grammar plus three independent trust scenarios.
+The VS Code host implements all 21 inventoried interfaces per grammar, plus three independent
+trust scenarios and a controlled lifecycle scenario. Baseline, extended and built-in-coexistence
+hosts have disjoint evidence; aggregation rejects duplicate interfaces or mixed host versions.
+The extended hosts use a fresh tarball installation, not workspace-linked production packages.
+Their five edit cases per grammar also produce `edit-matrix.json`: local/cross-file rename,
+document/range formatting and a structural quick fix. Edits are validated against original
+buffers, simulated, applied through VS Code and compared with the simulated result. Formatting
+must preserve SQL and be idempotent; renames and quick fixes require exact intended changes.
+Implemented scenarios are not automatically passing evidence: inspect each run's result JSON.
+Each added interface keeps a 25-second eventual-observation bound; the extended process budget
+allows every independent check to finish even after an earlier failure. No failed host is retried.
 An additional controlled-server host scenario tests missing-path recovery, configuration changes
 during startup, automatic process-crash recovery and configuration teardown. It asserts one active
 server process and one hover provider after configuration settles. This probes client ownership,
-not SQL inference after restart; the per-grammar restart-recovery cells remain `not-run`.
+not SQL inference after restart. Separate extended hosts verify real-server configuration restart
+with unsaved SQL replay. Real abrupt-crash inference, remote hosts, stale edit rejection by the
+editor, every upstream refactor and exhaustive grammar syntax remain outside this inventory.
 Schema lifecycle checks write the actual snapshot file while leaving the source buffer unchanged.
 PostgreSQL/MySQL/SQLite verify nullability refresh; every grammar verifies incompatible-envelope
 rejection, fail-closed inference and recovery after restoring the snapshot. The synthetic fixture
