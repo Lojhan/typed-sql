@@ -896,6 +896,7 @@ try {
         const pipelineDatabase = await createPgDatabase({
           connectionString,
           typePolicy,
+          observer,
           poolConfig: { max: 1, pipeline: true },
           cursorImporter: () => import(pgCursorPackage),
         });
