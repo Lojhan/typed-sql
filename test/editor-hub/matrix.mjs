@@ -61,22 +61,15 @@ export function buildMatrix(reports) {
   return {
     formatVersion: 1,
     scope: "actual-host baseline; not full grammar or editor-feature conformance",
-    cells: ["vscode", "zed"].flatMap((editor) =>
-      grammarCases.flatMap((spec) => {
-        const report = reports.find((item) => item.editor === editor && item.grammar === spec.id);
-        return inventory.map((id) => ({
-          editor,
-          grammar: spec.id,
-          interface: id,
-          status: report?.checks[id]?.status ?? "not-run",
-          ...(report === undefined
-            ? { reason: "No actual-host evidence supplied" }
-            : {
-                hostVersion: report.vscode ?? report.hostVersion,
-                ...(report.checks[id] === undefined ? { reason: "Scenario not implemented" } : report.checks[id]),
-              }),
-        }));
-      }),
+    cells: reports.flatMap((report) =>
+      inventory.map((id) => ({
+        editor: report.editor,
+        grammar: report.grammar,
+        interface: id,
+        status: report.checks[id]?.status ?? "not-run",
+        hostVersion: report.vscode ?? report.hostVersion,
+        ...(report.checks[id] === undefined ? { reason: "No observation supplied" } : report.checks[id]),
+      })),
     ),
   };
 }

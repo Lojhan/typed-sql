@@ -102,8 +102,8 @@ interface assertions. Host adapters supply observed hover, completion, diagnosti
 and unsaved-edit behavior. Add cases here rather than copying grammar expectations into editor
 adapters. These are representative integration fixtures, not all syntax or server-version coverage.
 
-Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, four grammars and
-the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
+Each host run writes `matrix.json` beside individual results for the editor and grammar pairs actually
+observed. Unobserved interfaces for those pairs stay `not-run`; protocol evidence is
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
 The VS Code host implements all 21 inventoried interfaces per grammar, plus three independent
 trust scenarios and a controlled lifecycle scenario. Baseline, extended and built-in-coexistence
@@ -131,9 +131,9 @@ does not derive row types from column metadata, so it tests envelope/recovery be
 
 Run `pnpm editor:zed:fixtures` after building to prepare the same four projects and workspace-local
 Zed settings under a unique `artifacts/editor-hub/zed-*` directory. This only prepares fixtures:
-it does not install extensions, launch Zed or assert host behavior. Its matrix remains not run.
-Actual Zed execution needs an isolated profile, the built dev extension, a host adapter and exact
-version/platform evidence before any Zed cell can pass. See the official
+it does not install extensions, launch Zed or produce host evidence. For a Zed smoke check, use
+an isolated profile and the built extension, record the editor version and platform, and check
+SQL hover, diagnostics, an unsaved edit and a schema change in one project. See the official
 [CLI reference](https://zed.dev/docs/reference/cli) and
 [extension development guide](https://zed.dev/docs/extensions/developing-extensions).
 

@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { grammarCases } from "./cases.mjs";
-import { buildMatrix } from "./matrix.mjs";
 import { prepareWorkspace } from "./workspace.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -52,5 +51,4 @@ await writeFile(
     2,
   ),
 );
-await writeFile(join(run, "matrix.json"), JSON.stringify(buildMatrix([]), null, 2));
 console.log(`Prepared shared Zed fixtures (not host evidence): ${run}`);
