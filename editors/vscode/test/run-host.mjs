@@ -1,6 +1,6 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
@@ -29,11 +29,22 @@ const executable = await downloadAndUnzipVSCode({
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
+let windowsCli;
+if (process.platform === "win32") {
+  // Current Windows archives put resources in a versioned subdirectory. The
+  // shipped launcher declares the entrypoint; do not assume resources is beside Code.exe.
+  const launcher = await readFile(cli, "utf8");
+  const entry = /"%~dp0([^"\r\n]+\\resources\\app\\out\\cli\.js)"/u.exec(launcher)?.[1];
+  if (entry === undefined) throw new Error("Cannot resolve the pinned Windows Code CLI entrypoint");
+  windowsCli = resolve(dirname(cli), entry);
+  const path = relative(dirname(executable), windowsCli);
+  if (path.startsWith("..") || isAbsolute(path)) throw new Error("Windows Code CLI escapes its installation");
+}
 // Windows cannot execFile a .cmd launcher. Run Code's CLI entrypoint through
 // its own Electron executable, just as bin/code.cmd does, without a shell.
 const runCli = (args, options) =>
   process.platform === "win32"
-    ? execFile(executable, [join(dirname(executable), "resources/app/out/cli.js"), ...args], {
+    ? execFile(executable, [windowsCli, ...args], {
         ...options,
         env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
       })
