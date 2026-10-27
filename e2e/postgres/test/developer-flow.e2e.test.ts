@@ -967,7 +967,10 @@ try {
           strict.ok(kinds.has(kind), `Missing real PostgreSQL ${kind} observation`);
         }
         strict.strictEqual(observationEnds.length, observationStarts.length);
-        strict.ok(observationEnds.every(({ status }) => status === "success"));
+        // The pipeline pool's rejected cursor is the single intentional failure.
+        const failures = observationEnds.filter(({ status }) => status !== "success");
+        strict.strictEqual(failures.length, 1);
+        strict.strictEqual(failures[0]?.status, "error");
         for (const operation of observationStarts) {
           strict.ok(!("text" in operation));
           strict.ok(!("values" in operation));
