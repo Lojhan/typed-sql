@@ -191,6 +191,9 @@ versions in manifest order, and creates release tags only after publication and 
 It refuses a stale unpublished version and never moves a newer tag backwards. Experimental
 companions keep prerelease versions and experimental metadata while both `next` and `latest`
 select the current companion, so versionless installation does not select an obsolete backend.
+The companion preparation step changes npm state only. Git tags are created by the complete
+publisher after the whole train succeeds, inside the Changesets action, so its output report
+contains the new tags for remote push and GitHub release creation.
 npm can acknowledge publication while a version is still being processed and cannot yet be
 installed. Registry acceptance waits up to ten minutes with fresh metadata requests. If that
 bound is exceeded, confirm the exact versions and tags are visible before retrying; do not

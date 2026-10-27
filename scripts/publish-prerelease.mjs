@@ -263,7 +263,17 @@ export async function publishPrerelease(options = {}) {
 export async function publishExperimentalCompanions(options = {}) {
   const workspace = options.workspace ?? defaultWorkspace;
   const plan = options.plan ?? (await loadExperimentalCompanionPlan(workspace));
-  return publishRelease({ ...options, channel: "stable", workspace, plan, companionPlan: undefined });
+  // This preparation step runs before stable publication and outside the
+  // Changesets action. Defer Git tags to the complete publisher so its output
+  // report includes the newly created tags and the action can push them.
+  return publishRelease({
+    ...options,
+    channel: "stable",
+    workspace,
+    plan,
+    companionPlan: undefined,
+    createTags: async () => undefined,
+  });
 }
 
 export async function main() {

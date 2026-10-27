@@ -1,6 +1,8 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile as callback } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import {
   isPublishedOnNpm,
@@ -368,23 +370,92 @@ await describe("prerelease publisher", async () => {
     strict.deepStrictEqual(retry, ["tags"]);
   });
 
-  await it("publishes the companion plan independently before registry acceptance", async () => {
+  await it("prepares companions without creating the unpublished stable train's Git tags", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-companion-tags-"));
+    const execFile = promisify(callback);
     const events: string[] = [];
-    await publishExperimentalCompanions({
-      plan: {
-        npmTag: "next",
-        packages: [{ name: "@typed-sql/sqlite", version: "2.0.0-rc.2", directory: "/packages/sqlite" }],
-      },
-      isPublished: async () => false,
-      publishPackage: async ({ name }, npmTag) => {
-        events.push(`publish:${name}:${npmTag}`);
-      },
-      createTags: async () => {
-        events.push("tags");
-      },
-      log: () => undefined,
-    });
-    strict.deepStrictEqual(events, ["publish:@typed-sql/sqlite:next", "tags"]);
+    const previousOutput = process.env.CHANGESETS_OUTPUT;
+    try {
+      await mkdir(join(temporary, ".changeset"));
+      await writeFile(
+        join(temporary, ".changeset/config.json"),
+        JSON.stringify({
+          changelog: false,
+          commit: false,
+          fixed: [],
+          linked: [],
+          access: "public",
+          baseBranch: "main",
+          updateInternalDependencies: "patch",
+          ignore: [],
+        }),
+      );
+      await writeFile(
+        join(temporary, "package.json"),
+        JSON.stringify({ name: "release-tag-fixture", private: true, packageManager: "pnpm@10.32.1" }),
+      );
+      await writeFile(join(temporary, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
+      for (const [name, version] of [
+        ["core", "2.0.0"],
+        ["ts-bridge", "2.0.0-rc.2"],
+      ]) {
+        await mkdir(join(temporary, "packages", name!), { recursive: true });
+        await writeFile(
+          join(temporary, "packages", name!, "package.json"),
+          JSON.stringify({ name: `@typed-sql/${name}`, version }),
+        );
+      }
+      for (const args of [
+        ["init", "-b", "main"],
+        ["config", "user.name", "Release fixture"],
+        ["config", "user.email", "fixture@example.invalid"],
+        ["add", "."],
+        ["commit", "-m", "Fixture"],
+      ])
+        await execFile("git", args, { cwd: temporary });
+      await publishExperimentalCompanions({
+        workspace: temporary,
+        plan: {
+          npmTag: "next",
+          packages: [
+            { name: "@typed-sql/ts-bridge", version: "2.0.0-rc.2", directory: join(temporary, "packages/ts-bridge") },
+          ],
+        },
+        isPublished: async () => false,
+        publishPackage: async ({ name }, npmTag) => {
+          events.push(`publish:${name}:${npmTag}`);
+        },
+        log: () => undefined,
+      });
+      strict.deepStrictEqual(events, ["publish:@typed-sql/ts-bridge:next"]);
+      strict.equal((await execFile("git", ["tag", "--list"], { cwd: temporary })).stdout, "");
+      // The complete publisher still creates tags and emits the events that the
+      // pinned Changesets action needs to push tags and create GitHub releases.
+      const output = join(temporary, "changesets-output.ndjson");
+      process.env.CHANGESETS_OUTPUT = output;
+      await publishRelease({
+        workspace: temporary,
+        channel: "stable",
+        plan: {
+          npmTag: "latest",
+          packages: [{ name: "@typed-sql/core", version: "2.0.0", directory: join(temporary, "packages/core") }],
+        },
+        isPublished: async () => false,
+        publishPackage: async () => undefined,
+        log: () => undefined,
+      });
+      const tags = (await execFile("git", ["tag", "--list"], { cwd: temporary })).stdout;
+      strict.ok(tags.includes("@typed-sql/core@2.0.0"));
+      const reported = (await readFile(output, "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      strict.ok(reported.some((event) => event.type === "git-tag" && event.tag === "@typed-sql/core@2.0.0"));
+    } finally {
+      if (previousOutput === undefined) delete process.env.CHANGESETS_OUTPUT;
+      else process.env.CHANGESETS_OUTPUT = previousOutput;
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 
   await it("selects one coherent stable registry graph for fresh and resumed releases", async () => {
