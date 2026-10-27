@@ -17,18 +17,23 @@ export async function runPostgresExample() {
     connectionString,
     typePolicy,
     observer: operationLog.observer,
-    poolConfig: { pipeline: true },
     cursorImporter: () => import(pgCursorPackage),
     copyStreamsImporter: () => import(pgCopyStreamsPackage),
   });
 
+  const pipelineDatabase = await createPgDatabase({
+    connectionString,
+    typePolicy,
+    observer: operationLog.observer,
+    poolConfig: { pipeline: true },
+  });
   try {
     const prepared = prepareAccountQueries(database);
     const [account, preparedAccount, workspace, reports, streamedAccounts] = await Promise.all([
       findAccount(database, 1n),
       database.maybeOne(prepared.accountById(2n)),
       loadAccountWorkspace(database, 1n),
-      loadIndependentReports(database, 1n),
+      loadIndependentReports(pipelineDatabase, 1n),
       collectActiveAccounts(database),
     ]);
     return {
@@ -40,6 +45,6 @@ export async function runPostgresExample() {
       observedOperations: operationLog.ends.length,
     };
   } finally {
-    await database.close();
+    await Promise.all([database.close(), pipelineDatabase.close()]);
   }
 }

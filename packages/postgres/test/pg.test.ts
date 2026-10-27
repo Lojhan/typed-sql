@@ -59,7 +59,7 @@ interface FakeNativeCursor {
 }
 
 class FakePgClient extends EventEmitter {
-  pipeline = true;
+  pipeline = false;
   released = false;
   releaseError: Error | boolean | undefined;
   queryError: Error | undefined;
@@ -327,6 +327,27 @@ await describe("application-owned pg integration", async () => {
     }
   });
 
+  await it("rejects cursor streaming on pipeline-enabled native connections before creating a cursor", async () => {
+    const original = new FakePgPool();
+    original.client.pipeline = true;
+    let imported = false;
+    const pool = adaptPgPool(original as unknown as PgPool, async () => {
+      imported = true;
+      return { default: FakePgCursor };
+    });
+    const client = await pool.connect();
+    try {
+      await strict.rejects(async () => client.openCursor!({ text: "SELECT 1" }), /pipeline disabled/u);
+      await strict.rejects(async () => client.openCopyFrom!("COPY accounts FROM STDIN"), /pipeline disabled/u);
+      await strict.rejects(async () => client.openCopyTo!("COPY accounts TO STDOUT"), /pipeline disabled/u);
+      strict.equal(imported, false);
+      strict.deepEqual(original.client.calls, []);
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  });
+
   await it("adapts pool and checked-out client query shapes", async () => {
     const original = new FakePgPool();
     const pool = adaptPgPool(original as unknown as PgPool);
@@ -340,7 +361,7 @@ await describe("application-owned pg integration", async () => {
     };
     await pool.query(config);
     const client = await pool.connect();
-    strict.strictEqual(client.pipeline, true);
+    strict.strictEqual(client.pipeline, false);
     await client.query("SELECT 2");
     await client.query(config);
     client.release();

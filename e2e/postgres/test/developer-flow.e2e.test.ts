@@ -862,7 +862,7 @@ try {
         connectionString,
         typePolicy,
         observer,
-        poolConfig: { max: 1, connectionTimeoutMillis: 2_000, pipeline: true },
+        poolConfig: { max: 1, connectionTimeoutMillis: 2_000 },
         // The workspace package is symlinked outside this fixture's node_modules tree. Supplying
         // the application-owned loader preserves pnpm's strict dependency boundary in this E2E.
         cursorImporter: () => import(pgCursorPackage),
@@ -893,12 +893,22 @@ try {
           { id: 2n, email: "bob@example.com", status: "suspended", budget: null },
         ]);
 
-        const [pipelinePreparedRows, pipelineInferredRows] = await database.pipeline([
-          accountAtOrAbove(2n),
-          postgresAccountStream,
-        ]);
-        strict.deepStrictEqual(pipelinePreparedRows, [{ id: 2n, email: "bob@example.com", status: "suspended" }]);
-        strict.deepStrictEqual(pipelineInferredRows, batchInferredRows);
+        const pipelineDatabase = await createPgDatabase({
+          connectionString,
+          typePolicy,
+          poolConfig: { max: 1, pipeline: true },
+        });
+        try {
+          const [pipelinePreparedRows, pipelineInferredRows] = await pipelineDatabase.pipeline([
+            accountAtOrAbove(2n),
+            postgresAccountStream,
+          ]);
+          strict.deepStrictEqual(pipelinePreparedRows, [{ id: 2n, email: "bob@example.com", status: "suspended" }]);
+          strict.deepStrictEqual(pipelineInferredRows, batchInferredRows);
+          await strict.rejects(pipelineDatabase.stream(postgresAccountStream).next(), /pipeline disabled/u);
+        } finally {
+          await pipelineDatabase.close();
+        }
 
         const inferredRows: unknown[] = [];
         for await (const row of database.stream(postgresAccountStream, { batchSize: 1 })) inferredRows.push(row);
