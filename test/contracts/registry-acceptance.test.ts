@@ -1,11 +1,32 @@
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { execFile as callback } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { consumerInstallArgs } from "../helpers/consumer-install.js";
 
+const execFile = promisify(callback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 await describe("registry-only consumer acceptance", async () => {
+  await it("uses install arguments accepted by the actual pnpm CLI", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "typed-sql-consumer-install-options-"));
+    try {
+      for (const registryOnly of [true, false]) {
+        await writeFile(join(temporary, "package.json"), JSON.stringify({ private: true }));
+        await execFile("pnpm", [...consumerInstallArgs(registryOnly), "--lockfile-only", "--ignore-scripts"], {
+          cwd: temporary,
+        });
+        strict.ok((await readFile(join(temporary, "pnpm-lock.yaml"), "utf8")).includes("lockfileVersion"));
+        await rm(join(temporary, "pnpm-lock.yaml"));
+      }
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   await it("exposes one command that selects registry mode", async () => {
     const rootManifest = JSON.parse(await readFile(resolve(workspace, "package.json"), "utf8")) as {
       readonly scripts: Readonly<Record<string, string>>;

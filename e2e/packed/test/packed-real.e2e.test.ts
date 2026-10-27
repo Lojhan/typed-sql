@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { consumerInstallArgs } from "../../../test/helpers/consumer-install.js";
 import { ProtocolClient, positionAt } from "../../../test/helpers/protocol-client.js";
 
 interface CommandResult {
@@ -276,11 +277,7 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           2,
         )}\n`,
       );
-      const installArgs = [
-        "install",
-        ...(registryOnly ? ["--prefer-online"] : ["--offline", "--ignore-scripts"]),
-        "--no-frozen-lockfile",
-      ];
+      const installArgs = consumerInstallArgs(registryOnly);
       if (registryOnly) await mustEventuallyRun("pnpm", installArgs, consumer);
       else
         await execFile("pnpm", installArgs, {
