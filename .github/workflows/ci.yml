@@ -59,6 +59,8 @@ jobs:
           cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --audit-level high
+      - run: pnpm --dir tools/static-review audit --ignore-workspace --audit-level high
+      - run: pnpm --dir benchmarks/runtime-comparison audit --ignore-workspace --audit-level high
       - run: pnpm verify
         env:
           TYPED_SQL_PERFORMANCE_ARTIFACT: artifacts/performance/ci.json

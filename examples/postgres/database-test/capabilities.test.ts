@@ -25,9 +25,15 @@ const database = await createPgDatabase({
   connectionString,
   typePolicy,
   observer: operationLog.observer,
-  poolConfig: { pipeline: true },
   cursorImporter: () => import(pgCursorPackage),
   copyStreamsImporter: () => import(pgCopyStreamsPackage),
+});
+
+const pipelineDatabase = await createPgDatabase({
+  connectionString,
+  typePolicy,
+  observer: operationLog.observer,
+  poolConfig: { pipeline: true },
 });
 
 async function removeAccounts(ids: readonly bigint[]): Promise<void> {
@@ -59,7 +65,7 @@ try {
 
       const workspace = await loadAccountWorkspace(database, 1n);
       strict.strictEqual(workspace.projects.length, 1);
-      const reports = await loadIndependentReports(database, 1n);
+      const reports = await loadIndependentReports(pipelineDatabase, 1n);
       strict.strictEqual(reports.summary.length, 2);
       strict.strictEqual((await collectActiveAccounts(database)).length, 1);
       strict.deepStrictEqual(await firstActiveAccount(database), {
@@ -150,5 +156,5 @@ try {
   });
 } finally {
   await removeAccounts([9_001n, 9_101n, 9_102n]).catch(() => undefined);
-  await database.close();
+  await Promise.all([database.close(), pipelineDatabase.close()]);
 }

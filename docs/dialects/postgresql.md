@@ -169,6 +169,8 @@ pnpm add pg-cursor
 
 The adapter imports it when iteration starts, leases one `pg` pool client, and reads cursor pages according to `batchSize`. Completing or closing the stream closes the portal before the client is returned to the pool. Missing `pg-cursor` produces an actionable error at first iteration; ordinary execution and prepared factories never load it.
 
+Cursor streaming and COPY require a pool with `pipeline` disabled. The pg driver rejects custom cursor and COPY queries on pipeline connections. Use a separate pipeline-enabled database for `pipeline()` queries when an application also streams rows.
+
 `pg-cursor` always parses its cursor statement unnamed. A query produced by `database.prepare()` remains valid for streaming and retains its inferred row and parameter types, but the cursor path cannot reuse the prepared statement name used by buffered `pg` execution.
 
 Inside a transaction, the stream reuses the transaction client and never releases it directly. The stream must complete or close before the transaction callback returns. Transaction `execute()`, `batch()`, and `pipeline()` calls must likewise be awaited before return; the adapter settles outstanding work before rollback and never selects commit first.

@@ -110,6 +110,22 @@ await describe("TypeScript 7 editor bridge", async () => {
     }
   });
 
+  await it("retains wide row types and ordered parameters without display truncation", async () => {
+    const columns = Array.from({ length: 40 }, (_, index) => `users.name AS field_${index}`);
+    const wideSource = `import { sql } from "@typed-sql/postgres"; const query = sql\`SELECT ${columns.join(", ")} FROM users WHERE users.id = \${1}\`;`;
+    const wide = analyzeSource(wideSource, schema as PostgresSchemaSnapshot, postgres());
+    strict.deepStrictEqual(wide.diagnostics, []);
+    const bridge = NativePreviewTypeScriptBridge.spawn({ cwd: workspaceDirectory });
+    try {
+      const inspections = await bridge.inspectFile({ fileName: queryFile, projectFile, analysis: wide });
+      const type = inspections[0]?.typeText ?? "";
+      for (let index = 0; index < 40; index++) strict.ok(type.includes(`field_${index}: string`), type);
+      strict.ok(type.endsWith("readonly [number]>"), type);
+    } finally {
+      await bridge.close();
+    }
+  });
+
   await it("applies unopened multi-file overlays in one project snapshot", async () => {
     const secondSource = await readFile(secondQueryFile, "utf8");
     const secondAnalysis = analyzeSource(secondSource, schema as PostgresSchemaSnapshot, postgres());

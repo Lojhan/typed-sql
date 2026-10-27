@@ -837,6 +837,12 @@ export function adaptPgPool(
     const onEnd = (): void => recordFatal(new Error("The PostgreSQL connection ended while it was leased"));
     client.on("error", onError);
     client.on("end", onEnd);
+    const assertUnpipelined = (): void => {
+      if (client.pipeline === true)
+        throw new Error(
+          "PostgreSQL cursor streaming and COPY require a pool with pipeline disabled; use a separate pool for pipeline queries",
+        );
+    };
 
     return {
       pipeline: client.pipeline,
@@ -873,6 +879,7 @@ export function adaptPgPool(
         }
       },
       async openCursor(config: PostgresQueryConfig): Promise<PostgresCursorLike> {
+        assertUnpipelined();
         const Cursor = await loadCursor();
         // pg-cursor always parses an unnamed statement. Keep the prepared name in typed-sql's
         // driver-neutral config, but do not pretend the native cursor can honor it.
@@ -893,6 +900,7 @@ export function adaptPgPool(
         };
       },
       async openCopyFrom(statement: string): Promise<PostgresCopyFromSink> {
+        assertUnpipelined();
         const copy = await loadCopyStreams();
         const nativeQuery = client.query.bind(client) as unknown as (query: unknown) => Writable;
         const writable = nativeQuery(copy.from(statement));
@@ -913,6 +921,7 @@ export function adaptPgPool(
         };
       },
       async openCopyTo(statement: string): Promise<PostgresCopyToSource> {
+        assertUnpipelined();
         const copy = await loadCopyStreams();
         const nativeQuery = client.query.bind(client) as unknown as (query: unknown) => Readable;
         const readable = nativeQuery(copy.to(statement));

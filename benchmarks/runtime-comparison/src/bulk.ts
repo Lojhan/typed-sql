@@ -137,8 +137,12 @@ async function measure(candidate: BulkCandidate, rows: readonly AccountInput[]):
 const rawPgPool = new pg.Pool({ connectionString: postgresUrl, max: 1 });
 const typedPostgres = await createPgDatabase({
   connectionString: postgresUrl,
-  poolConfig: { max: 1, pipeline: true },
+  poolConfig: { max: 1 },
   copyStreamsImporter: async () => pgCopyStreams,
+});
+const typedPostgresPipeline = await createPgDatabase({
+  connectionString: postgresUrl,
+  poolConfig: { max: 1, pipeline: true },
 });
 const postgresBulk = requireAdapterCapability(typedPostgres, postgresCopy);
 
@@ -189,7 +193,7 @@ const candidates: readonly BulkCandidate[] = [
     name: "typed-sql native pipeline",
     reset: resetPostgres,
     execute: async (rows) => {
-      await typedPostgres.pipeline(rows.map(postgresRowQuery));
+      await typedPostgresPipeline.pipeline(rows.map(postgresRowQuery));
     },
     count: countPostgres,
   },
@@ -313,6 +317,7 @@ try {
   await Promise.allSettled([
     rawPgPool.end(),
     typedPostgres.close(),
+    typedPostgresPipeline.close(),
     rawMysqlPool.end(),
     typedMysql.close(),
     new Promise<void>((resolve, reject) => {

@@ -1,5 +1,5 @@
 import { type Node, type SourceFile, SyntaxKind } from "@typed-sql/typescript-preview/ast";
-import { API, type Checker, type Snapshot } from "@typed-sql/typescript-preview/async";
+import { API, type Checker, type Snapshot, TypeFormatFlags } from "@typed-sql/typescript-preview/async";
 import { createFileSystemLayer } from "@typed-sql/typescript-preview/fs";
 import type {
   TypeScriptBackend,
@@ -162,7 +162,11 @@ export class TypeScript71PreviewBackend implements TypeScriptBackend {
       throw new Error(`TypeScript preview could not locate typed-sql query ${query.index}`);
     }
     const type = await checker.getTypeAtLocation(taggedTemplate);
-    const typeText = await checker.typeToString(type, taggedTemplate);
+    const typeText = await checker.typeToString(
+      type,
+      taggedTemplate,
+      TypeFormatFlags.NoTruncation | TypeFormatFlags.UseAliasDefinedOutsideCurrentScope,
+    );
     return { queryIndex: query.index, typeText };
   }
 }
