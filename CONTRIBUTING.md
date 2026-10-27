@@ -35,6 +35,14 @@ TYPED_SQL_CONTAINER_ENGINE=podman pnpm e2e:packed
 
 Replace `podman` with `docker` when appropriate.
 
+## Maintain dependencies
+
+The development baseline uses Node.js 24 type declarations while runtime compatibility is
+verified separately at the documented Node.js minimum and current supported versions. Review
+major `@types/node` upgrades explicitly against that runtime matrix; Dependabot continues to
+propose compatible updates within the current major. Do not treat a newer type declaration
+package as evidence that newer Node.js APIs are available at the runtime minimum.
+
 ## Add tests where behavior lives
 
 Tests use [Poku](https://poku.io/) and are ordinary TypeScript programs. Put a test in the package
@@ -59,7 +67,7 @@ pnpm --filter ./editors/vscode package:vsix
 pnpm --filter ./editors/vscode test:host
 ```
 
-The suite downloads VS Code 1.134.0 and installs the VSIX into separate extension/profile
+The suite downloads VS Code 1.140.0 and installs the VSIX into separate extension/profile
 directories for trusted, Restricted Mode, virtual-workspace and real-overlay scenarios. The first
 three use a controlled server probe to assert whether the client executes workspace code. The
 overlay matrix uses PostgreSQL, MySQL, SQLite and the synthetic third-party grammar, built workspace
