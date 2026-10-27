@@ -1,5 +1,13 @@
 # @typed-sql/schema
 
+## 2.2.0
+
+This release promotes the changes documented in 2.2.0-rc.0 to stable.
+
+### Patch Changes
+
+- @typed-sql/core@2.2.0
+
 ## 2.2.0-rc.0
 
 ### Minor Changes
