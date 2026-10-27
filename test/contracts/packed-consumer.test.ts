@@ -162,6 +162,12 @@ await describe("packed public packages", async () => {
     await mkdir(grammar);
     await mkdir(consumer);
     try {
+      // Contracts also run before the release build on a clean checkout.
+      // Pack the same six SDK executables that publication will ship.
+      await execFile(process.execPath, [join(workspace, "scripts/build-editor-sdk.mjs"), "--all"], {
+        cwd: workspace,
+        timeout: 180_000,
+      });
       const dependencies: Record<string, string> = {};
       for (const directory of publicPackages) {
         const packageManifest = JSON.parse(

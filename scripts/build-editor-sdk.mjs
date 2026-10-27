@@ -1,5 +1,5 @@
 import { execFile as callback } from "node:child_process";
-import { copyFile, mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -42,4 +42,8 @@ for (const target of targets) {
 }
 
 const toolchain = await execFile("go", ["env", "GOROOT"], { cwd: join(root, "tools/editor-sdk") });
-await copyFile(join(toolchain.stdout.trim(), "LICENSE"), join(root, "packages/language-server/sdk/GO-LICENSE.txt"));
+const license = join(root, "packages/language-server/sdk/GO-LICENSE.txt");
+// Downloaded Go toolchains are read-only. Do not copy that mode into build
+// output: a second build must be able to replace the generated license.
+await rm(license, { force: true });
+await writeFile(license, await readFile(join(toolchain.stdout.trim(), "LICENSE")), { mode: 0o644 });

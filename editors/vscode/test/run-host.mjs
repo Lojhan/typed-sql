@@ -29,6 +29,15 @@ const executable = await downloadAndUnzipVSCode({
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
+// Windows cannot execFile a .cmd launcher. Run Code's CLI entrypoint through
+// its own Electron executable, just as bin/code.cmd does, without a shell.
+const runCli = (args, options) =>
+  process.platform === "win32"
+    ? execFile(executable, [join(dirname(executable), "resources/app/out/cli.js"), ...args], {
+        ...options,
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      })
+    : execFile(cli, [...cliArgs, ...args], options);
 const allScenarios = [
   ...["trusted", "untrusted", "virtual"].map((mode) => ({ mode, id: mode })),
   { mode: "lifecycle", id: "lifecycle" },
@@ -147,15 +156,15 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
   );
   const isolated = ["--user-data-dir", profile, "--extensions-dir", extensions];
   if (extended)
-    await execFile(cli, [...cliArgs, ...isolated, "--install-extension", "TypeScriptTeam.native-preview@1.0.1"], {
+    await runCli([...isolated, "--install-extension", "TypeScriptTeam.native-preview@1.0.1"], {
       timeout: 120_000,
     });
-  const version = await execFile(cli, [...cliArgs, ...isolated, "--version"], { timeout: 30_000 });
+  const version = await runCli([...isolated, "--version"], { timeout: 30_000 });
   if (version.stdout.trim().split(/\r?\n/)[0] !== "1.140.0")
     throw new Error(
       "Pinned VS Code cache version mismatch; preserve the cache for diagnosis and use a fresh pinned cache.",
     );
-  await execFile(cli, [...cliArgs, ...isolated, "--install-extension", join(root, "artifacts/typed-sql-vscode.vsix")], {
+  await runCli([...isolated, "--install-extension", join(root, "artifacts/typed-sql-vscode.vsix")], {
     timeout: 60_000,
   });
   // test-electron's runTests adds --disable-workspace-trust unconditionally.
