@@ -49,6 +49,11 @@ Tests use [Poku](https://poku.io/) and are ordinary TypeScript programs. Put a t
 that owns the behavior. Compiler and grammar changes should assert the inferred row, ordered
 parameter tuple, diagnostics, and source spans where relevant.
 
+Coverage-enforced package test commands run their suites with the existing thresholds. The package
+`coverage` command is an alias for that same run; `pnpm verify` does not execute those suites a
+second time. CLI, preview packages, editor clients and examples retain their normal test commands.
+For a focused test while developing, invoke `pnpm exec poku <test-file>` from its package directory.
+
 Unsupported, ambiguous, or dynamic SQL must resolve conservatively to `Query<unknown>` or a
 documented diagnostic. Do not introduce `any` or optimistic inference.
 
@@ -300,7 +305,9 @@ gh workflow run editor-marketplaces.yml --ref main -f registry=both -f evidence_
 
 Approve the two protected environments after reviewing the built VSIX report. Each registry
 job can be retried independently after partial publication. These prerelease uploads do not
-promote the editor to stable; the existing editor-promotion evidence policy still applies.
+promote the editor to stable. The bridge and language server remain on the experimental track
+while they depend on preview TypeScript APIs; changing that support policy requires an explicit
+maintainer review of actual compatibility and host evidence.
 
 When direct Marketplace OIDC is unavailable, the account owner can upload the exact reviewed
 VSIX through the signed-in Marketplace UI. Use `typed-sql-editor-artifacts` from a successful

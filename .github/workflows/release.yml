@@ -82,7 +82,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:exceptions:check
       - run: pnpm verify
-      - run: pnpm release:artifacts
+      # verify has already produced a clean build in this immutable job.
+      - run: node scripts/verify-release-artifacts.mjs --output artifacts/release/artifacts.json
+      - run: pnpm test:pack
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -90,7 +92,7 @@ jobs:
           path: artifacts/release/artifacts.json
           if-no-files-found: error
           retention-days: 90
-      - run: pnpm e2e:packed
+      - run: pnpm --filter @typed-sql/e2e-packed e2e
         env:
           TYPED_SQL_CONTAINER_ENGINE: docker
       - run: pnpm audit --audit-level high

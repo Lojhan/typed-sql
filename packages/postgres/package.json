@@ -33,9 +33,9 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "test": "poku test --reporter=compact --enforce",
+    "test": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
-    "coverage": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce"
+    "coverage": "pnpm test"
   },
   "exports": {
     ".": "./dist/packages/postgres/src/index.js",
