@@ -897,6 +897,7 @@ try {
           connectionString,
           typePolicy,
           poolConfig: { max: 1, pipeline: true },
+          cursorImporter: () => import(pgCursorPackage),
         });
         try {
           const [pipelinePreparedRows, pipelineInferredRows] = await pipelineDatabase.pipeline([
