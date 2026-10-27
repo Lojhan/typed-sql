@@ -134,6 +134,13 @@ Review entries have five distinct outcomes: `pass`, `violation`, `incomparable`,
 
 ## Interpret evidence conservatively
 
+Runtime-sized mapped fragment-list queries are skipped with reason
+`repeated-fragment-cardinality`. The compiler expands representative members for SQL analysis,
+but plan costs depend on the actual list size. That representative SQL does not establish a plan
+budget for every runtime size. Plan review reports mapped-list queries as `unavailable`;
+`--fail-on uncertainty` rejects that missing evidence. Fixed fragment array literals retain their
+concrete statement shape and follow normal plan capture.
+
 Costs are optimizer-specific estimates, not milliseconds, and cannot be compared across PostgreSQL and MySQL. Statistics refreshes, server upgrades, settings, extensions, data shape, and optimizer choices can change a plan without a source change. The artifact records the server version, relevant settings, schema hash, and a statistics fingerprint so the report can say “incomparable” instead of inventing certainty.
 
 Node inventories intentionally exclude filter expressions and literal-bearing fields. They are useful review evidence, not authoritative index advice. Confirm important findings with database-native investigation and workload measurements.

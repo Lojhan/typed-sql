@@ -42,6 +42,7 @@ export interface SkippedQueryPlanEntry extends QueryPlanEntryBase {
     | "manifest-unresolved"
     | "candidate-missing"
     | "unsafe-operation"
+    | "repeated-fragment-cardinality"
     | "parameters-required"
     | "sample-count-mismatch";
 }
@@ -268,6 +269,9 @@ export async function captureQueryPlans(options: CaptureQueryPlansOptions): Prom
       if (variant === undefined) throw new TypeError("Resolved manifest entry is missing a plan variant");
       const variantFingerprint = variant.fingerprint;
       const base = { queryId: item.entry.id, variantFingerprint, source: item.entry.source };
+      if (item.entry.repeatedFragments !== undefined) {
+        return { ...base, status: "skipped", reason: "repeated-fragment-cardinality" };
+      }
       const candidate = candidates.get(`${item.entry.id}\0${variantFingerprint}`);
       if (candidate === undefined) return { ...base, status: "skipped", reason: "candidate-missing" };
       if (!(candidate.operation === "read" || candidate.operation === "write")) {
@@ -531,6 +535,7 @@ export function parseQueryPlanArtifact(value: unknown): QueryPlanArtifact {
     "manifest-unresolved",
     "candidate-missing",
     "unsafe-operation",
+    "repeated-fragment-cardinality",
     "parameters-required",
     "sample-count-mismatch",
   ]);
