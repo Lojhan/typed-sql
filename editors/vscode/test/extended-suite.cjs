@@ -230,25 +230,26 @@ exports.run = async () => {
       await vscode.window.showTextDocument(document);
     },
     async restart() {
-      const settings = vscode.workspace.getConfiguration("typedSql", root);
-      const server = settings.get("serverPath");
-      try {
-        await settings.update("serverPath", "missing-restart-server.cjs", vscode.ConfigurationTarget.WorkspaceFolder);
-        const deadline = Date.now() + 25_000;
-        let stopped = false;
-        do {
-          const value = await hover(document, "return row.", "return row.".length).catch(() => "");
-          if (value === "") {
-            stopped = true;
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        } while (Date.now() < deadline);
-        assert.ok(stopped, "old server providers must stop before restart");
-        assert.equal(document.isDirty, true, "restart must replay unsaved SQL");
-      } finally {
-        await settings.update("serverPath", server, vscode.ConfigurationTarget.WorkspaceFolder);
-      }
+      const native = vscode.extensions.getExtension("TypeScriptTeam.native-preview");
+      assert.ok(native?.isActive);
+      const api = await native.activate();
+      assert.equal(document.isDirty, true, "restart must replay unsaved SQL");
+      const restarted = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          subscription.dispose();
+          reject(new Error("Native SDK restart timed out"));
+        }, 25_000);
+        let armed = false;
+        const subscription = api.onLanguageServerInitialized(() => {
+          if (!armed) return;
+          clearTimeout(timer);
+          subscription.dispose();
+          resolve();
+        });
+        armed = true;
+      });
+      await vscode.commands.executeCommand("typescript.native-preview.restart");
+      await restarted;
     },
     async multiRoot(verify) {
       const prepared = JSON.parse(readFileSync(process.env.TYPED_SQL_SECONDARY, "utf8"));
@@ -278,8 +279,12 @@ exports.run = async () => {
           `package must resolve inside isolated install: ${resolved}`,
         );
       }
+      const sdk = vscode.workspace.getConfiguration("js/ts").get("tsdk.path");
+      const ownedSdk = relative(consumer, realpathSync(sdk));
+      assert.ok(!ownedSdk.startsWith("..") && !isAbsolute(ownedSdk), "native client must launch the installed SDK");
       const configured = vscode.workspace.getConfiguration("typedSql", root).get("serverPath");
-      assert.ok(realpathSync(configured).startsWith(`${consumer}/`), "host must run installed server artifact");
+      const ownedServer = relative(consumer, realpathSync(configured));
+      assert.ok(!ownedServer.startsWith("..") && !isAbsolute(ownedServer), "host must run installed server artifact");
     },
   };
   await vscode.window.showTextDocument(primary);
@@ -310,7 +315,8 @@ exports.run = async () => {
     }
     save();
   } else {
-    assert.equal(vscode.extensions.getExtension("vscode.typescript-language-features"), undefined);
+    assert.ok(vscode.extensions.getExtension("vscode.typescript-language-features"));
+    assert.ok(vscode.extensions.getExtension("TypeScriptTeam.native-preview")?.isActive);
     await runExtendedScenario(
       spec,
       host,

@@ -601,11 +601,11 @@ await describe("public documentation", async () => {
 
     for (const action of [
       "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-      "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86",
-      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-      "actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b",
-      "actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b",
-      "actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e",
+      "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413",
+      "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+      "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d",
+      "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9",
+      "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346",
     ]) {
       strict.ok(pagesWorkflow.includes(action), `.github/workflows/pages.yml must pin ${action}`);
     }

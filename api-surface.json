@@ -2,28 +2,52 @@
   "formatVersion": 1,
   "classifications": ["stable", "experimental", "adapter-specific", "testing", "internal"],
   "packages": {
-    "@typed-sql/ast": { ".": "stable", "./toolkit": "stable" },
-    "@typed-sql/cli": { "bin:typed-sql": "stable" },
-    "@typed-sql/compiler": { ".": "stable" },
-    "@typed-sql/config": { ".": "stable" },
-    "@typed-sql/conformance": { ".": "stable", "./v2": "stable" },
-    "@typed-sql/core": { ".": "stable" },
+    "@typed-sql/ast": {
+      ".": "stable",
+      "./toolkit": "stable"
+    },
+    "@typed-sql/cli": {
+      "bin:typed-sql": "stable"
+    },
+    "@typed-sql/compiler": {
+      ".": "stable"
+    },
+    "@typed-sql/config": {
+      ".": "stable"
+    },
+    "@typed-sql/conformance": {
+      ".": "stable",
+      "./v2": "stable"
+    },
+    "@typed-sql/core": {
+      ".": "stable"
+    },
     "@typed-sql/language-server": {
       ".": "experimental",
-      "bin:typed-sql-language-server": "experimental"
+      "bin:typed-sql-language-server": "experimental",
+      "bin:typed-sql-sdk-darwin-arm64": "experimental",
+      "bin:typed-sql-sdk-darwin-x64": "experimental",
+      "bin:typed-sql-sdk-linux-arm64": "experimental",
+      "bin:typed-sql-sdk-linux-x64": "experimental",
+      "bin:typed-sql-sdk-win32-arm64": "experimental",
+      "bin:typed-sql-sdk-win32-x64": "experimental"
     },
     "@typed-sql/mysql": {
       ".": "stable",
       "./runtime": "adapter-specific",
       "./mysql2": "adapter-specific"
     },
-    "@typed-sql/opentelemetry": { ".": "stable" },
+    "@typed-sql/opentelemetry": {
+      ".": "stable"
+    },
     "@typed-sql/postgres": {
       ".": "stable",
       "./runtime": "adapter-specific",
       "./pg": "adapter-specific"
     },
-    "@typed-sql/schema": { ".": "stable" },
+    "@typed-sql/schema": {
+      ".": "stable"
+    },
     "@typed-sql/sqlite": {
       ".": "stable",
       "./runtime": "adapter-specific",

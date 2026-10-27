@@ -65,7 +65,7 @@ Every public package records its classification in `typedSql.releaseTrack`.
 
 The language server installs an exact TypeScript preview as an internal dependency and runs it behind a process boundary. Applications do not install or configure that preview directly. The bridge can change with TypeScript preview APIs without changing the grammar, generated snapshot, or query contract.
 
-The language server replaces the normal TypeScript server for a configured project. Running a second TypeScript server can show the safe baseline `Query<unknown>` beside typed-sql's transformed hover.
+In VS Code, Microsoft's native TypeScript client can launch the proxy through the packaged editor SDK, preserving a single language provider. The standalone proxy requires explicit provider selection. Running an independent second TypeScript server can show the safe baseline `Query<unknown>` beside typed-sql's transformed hover.
 
 The bridge uses the public `async`, `ast`, and `fs` entrypoints in the exact TypeScript 7.1 beta.
 `ts-bridge`, `language-server`, and both editor integrations remain experimental while beta API

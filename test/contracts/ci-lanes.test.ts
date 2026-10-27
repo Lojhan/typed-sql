@@ -48,12 +48,15 @@ await describe("CI evidence lanes", async () => {
     }
     const quality = workflow.slice(workflow.indexOf("  quality:\n")).split(/\n(?= {2}\S)/u)[0]!;
     strict.ok(quality.includes("if: always()"));
-    strict.ok(quality.includes("needs: [source-quality, packed-real-databases, editor-artifacts]"));
+    strict.ok(
+      quality.includes("needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms]"),
+    );
     strict.ok(quality.includes("node scripts/assert-ci-prerequisites.mjs"));
     for (const [variable, job] of [
       ["TYPED_SQL_SOURCE_RESULT", "source-quality"],
       ["TYPED_SQL_DATABASE_RESULT", "packed-real-databases"],
       ["TYPED_SQL_EDITOR_RESULT", "editor-artifacts"],
+      ["TYPED_SQL_EDITOR_SDK_RESULT", "editor-sdk-platforms"],
     ])
       strict.ok(quality.includes(`${variable}: \${{ needs.${job}.result }}`));
     strict.ok(workflow.includes("pnpm e2e:packed"));
@@ -66,6 +69,7 @@ await describe("CI evidence lanes", async () => {
       TYPED_SQL_SOURCE_RESULT: "success",
       TYPED_SQL_DATABASE_RESULT: "success",
       TYPED_SQL_EDITOR_RESULT: "success",
+      TYPED_SQL_EDITOR_SDK_RESULT: "success",
     };
     strict.doesNotThrow(() => execFileSync(process.execPath, [script], { env: successful, stdio: "pipe" }));
     for (const variable of Object.keys(successful)) {

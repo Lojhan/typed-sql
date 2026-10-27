@@ -12,7 +12,7 @@
     "node": ">=22.11"
   },
   "scripts": {
-    "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm --filter ./editors/vscode build:bundle",
+    "build": "node scripts/clean-build.mjs && node scripts/require-typescript-7.mjs && tsc -b && pnpm editor:sdk:build:all && pnpm --filter ./editors/vscode build:bundle",
     "api:check": "poku test/contracts/public-api.test.ts test/contracts/api-surface.test.ts --reporter=compact --enforce",
     "changeset": "changeset",
     "verify": "pnpm quality && pnpm test && pnpm coverage && pnpm build && pnpm docs:build && pnpm performance:gate",
@@ -69,7 +69,9 @@
     "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/opentelemetry coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage && pnpm --filter @typed-sql/sqlite coverage",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
-    "version-packages": "node scripts/version-packages.mjs"
+    "version-packages": "node scripts/version-packages.mjs",
+    "editor:sdk:build": "node scripts/build-editor-sdk.mjs",
+    "editor:sdk:build:all": "node scripts/build-editor-sdk.mjs --all"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

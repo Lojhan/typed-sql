@@ -60,16 +60,33 @@ Do not run `vtsls` or `typescript-language-server` beside this proxy. An ordinar
 
 The repository includes an experimental VS Code extension that runs one thin language client per workspace folder. It resolves that folder's installed `@typed-sql/language-server`, so the VS Code integration does not carry a second analyzer or TypeScript bridge. Build and install the VSIX using the instructions in the [`editors/vscode`](https://github.com/Lojhan/typed-sql/tree/main/editors/vscode) directory.
 
-To try the proxy as the workspace's active TypeScript provider, disable VS Code's built-in
-TypeScript language-features extension for that workspace only. Otherwise both servers can answer
-hover and diagnostic requests, and the built-in server sees the conservative `Query<unknown>`
-declaration. This is an experimental opt-in: disabling the built-in extension also affects its
-JavaScript support and editor-specific commands. Forwarding upstream LSP capabilities does not
-establish parity with every feature of that extension. Check the editing commands you depend on,
-and re-enable the built-in extension if you return to the ordinary TypeScript setup.
+The preferred VS Code mode uses Microsoft's [TypeScript 7 extension](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview) as the language client. Its custom SDK launches the installed typed-sql proxy. Microsoft's built-in TypeScript extension stays enabled and coordinates provider ownership with the native client.
 
-Run **typed-sql: Show TypeScript Bridge Status** to inspect the pinned TypeScript version and the
-open/indexed document counts reported by each workspace server.
+Select the SDK directory for the machine running the workspace extension host:
+
+| Host | SDK directory inside `@typed-sql/language-server` |
+| --- | --- |
+| macOS arm64 / x64 | `sdk/darwin-arm64` / `sdk/darwin-x64` |
+| Linux arm64 / x64 | `sdk/linux-arm64` / `sdk/linux-x64` |
+| Windows arm64 / x64 | `sdk/win32-arm64` / `sdk/win32-x64` |
+
+For example, a macOS arm64 workspace uses:
+
+```json
+{
+  "js/ts.experimental.useTsgo": true,
+  "js/ts.tsdk.path": "./node_modules/@typed-sql/language-server/sdk/darwin-arm64",
+  "typedSql.providerMode": "native-sdk"
+}
+```
+
+Use **TypeScript: Select TypeScript Version** to approve the workspace SDK when prompted. The extension host needs Node.js 22.11 or newer on `PATH`; `TYPED_SQL_NODE` can select a specific Node executable. The SDK is an editor launcher; application compiler checks continue to use `typed-sql check` and the supported stable compiler.
+
+The standalone `proxy` mode remains available when the built-in TypeScript provider is explicitly disabled for the workspace. In `auto` mode, typed-sql refuses to start competing providers and reports the required setup in its output channel. It does not disable other extensions or change TypeScript preferences during activation.
+
+Run **typed-sql: Show TypeScript Bridge Status** to inspect provider ownership and the selected SDK.
+Standalone clients also report their pinned TypeScript version and open/indexed document counts.
+In native SDK mode, use Microsoft's **TypeScript 7** output channel for live server logs.
 
 The extension requires a trusted workspace because it executes the workspace-installed server and
 project configuration. It stays disabled in Restricted Mode and does not support virtual workspaces

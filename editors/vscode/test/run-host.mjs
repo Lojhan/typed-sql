@@ -21,8 +21,8 @@ await mkdir(dataRoot, { recursive: true });
 const run = await mkdtemp(join(dataRoot, "v-"));
 await mkdir(join(artifacts, "downloads", "pinned"), { recursive: true });
 const executable = await downloadAndUnzipVSCode({
-  version: "1.134.0",
-  cachePath: join(artifacts, "downloads", "pinned"),
+  version: "1.140.0",
+  cachePath: process.env.TYPED_SQL_VSCODE_CACHE ?? join(artifacts, "downloads", "pinned"),
   timeout: 30_000,
 });
 const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(executable);
@@ -82,6 +82,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
   await writeFile(join(workspace, "query.ts"), "export const example = 1;\n");
   const workspaceFile = join(base, "virtual.code-workspace");
   const extended = mode === "extended" || mode === "coexist";
+  const sdk = join(packed, "node_modules/@typed-sql/language-server/sdk", `${process.platform}-${process.arch}`);
   if (mode === "virtual")
     await writeFile(
       workspaceFile,
@@ -110,6 +111,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
         join(target, ".vscode/settings.json"),
         JSON.stringify({
           "typedSql.serverPath": server,
+          "typedSql.providerMode": "native-sdk",
           ...Object.fromEntries(Object.entries(settings).map(([key, value]) => [`typedSql.${key}`, value])),
         }),
       );
@@ -129,14 +131,24 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
     join(profile, "User/settings.json"),
     JSON.stringify({
       "security.workspace.trust.startupPrompt": "never",
+      ...(extended
+        ? {
+            "js/ts.experimental.useTsgo": true,
+            "js/ts.tsdk.path": sdk,
+          }
+        : {}),
       "extensions.autoUpdate": false,
       "update.mode": "none",
       "update.enableWindowsBackgroundUpdates": false,
     }),
   );
   const isolated = ["--user-data-dir", profile, "--extensions-dir", extensions];
+  if (extended)
+    await execFile(cli, [...cliArgs, ...isolated, "--install-extension", "TypeScriptTeam.native-preview@1.0.1"], {
+      timeout: 120_000,
+    });
   const version = await execFile(cli, [...cliArgs, ...isolated, "--version"], { timeout: 30_000 });
-  if (version.stdout.trim().split(/\r?\n/)[0] !== "1.134.0")
+  if (version.stdout.trim().split(/\r?\n/)[0] !== "1.140.0")
     throw new Error(
       "Pinned VS Code cache version mismatch; preserve the cache for diagnosis and use a fresh pinned cache.",
     );
@@ -156,7 +168,7 @@ for (const [index, { mode, id, spec }] of scenarios.entries()) {
         "--skip-welcome",
         "--skip-release-notes",
         ...(process.platform === "linux" ? ["--no-sandbox"] : []),
-        ...(mode === "coexist" ? [] : ["--disable-extension", "vscode.typescript-language-features"]),
+        ...(extended ? [] : ["--disable-extension", "vscode.typescript-language-features"]),
         `--extensionDevelopmentPath=${join(directory, "harness")}`,
         `--extensionTestsPath=${join(directory, extended ? "extended-suite.cjs" : mode === "overlays" ? "overlay-suite.cjs" : mode === "lifecycle" ? "lifecycle-suite.cjs" : "host-suite.cjs")}`,
         ...(mode !== "untrusted" ? ["--disable-workspace-trust"] : []),

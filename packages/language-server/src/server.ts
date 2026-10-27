@@ -156,6 +156,8 @@ const LSP_REQUEST_CANCELLED = -32800;
 const LSP_CONTENT_MODIFIED = -32801;
 const LSP_PROTOCOL_UNSUPPORTED = -32098;
 let workspaceReady: Promise<void> = Promise.resolve();
+let workspaceSettings: ReturnType<typeof settingsFrom> = {};
+let scopedConfiguration = false;
 let workspaceRoots: readonly string[] = [resolve(cwd())];
 let services = new Map([[workspaceRoots[0]!, new TypedSqlLanguageService(workspaceRoots[0]!)]]);
 let negotiatedProtocol: TypedSqlProtocolNegotiation = negotiateTypedSqlProtocol(undefined);
@@ -220,14 +222,33 @@ function serviceForUri(uri?: string): TypedSqlLanguageService {
       : workspaceRoots
           .filter((candidate) => contains(candidate, fileName))
           .sort((left, right) => right.length - left.length)[0];
-  return services.get(root ?? workspaceRoots[0]!)!;
+  const service = services.get(root ?? workspaceRoots[0]!);
+  if (service === undefined) throw new Error("No active typed-sql workspace");
+  return service;
 }
 
 async function configureServices(roots: readonly string[], settings: ReturnType<typeof settingsFrom>): Promise<void> {
   const previous = services;
+  workspaceSettings = settings;
   workspaceRoots = roots;
   services = new Map(roots.map((root) => [root, new TypedSqlLanguageService(root, settings)]));
   await Promise.all([...previous.values()].map(async (service) => service.close()));
+}
+
+function isWorkspaceDocument(uri: string): boolean {
+  return uri.startsWith("file:") && workspaceRoots.some((root) => contains(root, fileURLToPath(uri)));
+}
+
+async function refreshWorkspaceSettings(): Promise<void> {
+  if (!scopedConfiguration) return;
+  const values = await client.sendRequest<unknown[]>("workspace/configuration", {
+    items: workspaceRoots.map((root) => ({ scopeUri: pathToFileURL(root).href, section: "typedSql" })),
+  });
+  if (!Array.isArray(values) || values.length !== workspaceRoots.length)
+    throw new Error("Editor returned invalid workspace configuration");
+  for (const [index, root] of workspaceRoots.entries()) {
+    services.get(root)!.configure(root, { ...workspaceSettings, ...settingsFrom(values[index]) });
+  }
 }
 
 function sourceOffsetToVirtual(state: DocumentState, offset: number): number {
@@ -501,6 +522,18 @@ async function publishCombinedDiagnostics(state: DocumentState): Promise<void> {
 async function refreshOpenDocuments(): Promise<void> {
   for (const [uri, original] of sourceDocuments) {
     const previous = documents.get(uri);
+    if (!isWorkspaceDocument(uri)) {
+      documents.delete(uri);
+      nativeDiagnostics.delete(uri);
+      resolveContexts.delete(uri);
+      if (previous !== undefined) {
+        await typescript.sendNotification("textDocument/didClose", { textDocument: { uri } });
+        await typescript.sendNotification("textDocument/didOpen", {
+          textDocument: { uri, languageId: original.languageId, version: original.version, text: original.getText() },
+        });
+      }
+      continue;
+    }
     const cancellation = beginDocumentAnalysis(uri);
     serviceForUri(uri).forget(uri);
     const state = await createState(original, previous, cancellation);
@@ -556,7 +589,7 @@ async function resetVirtualDocuments(): Promise<void> {
       continue;
     }
     await typescript.sendNotification("textDocument/didClose", { textDocument: { uri } });
-    serviceForUri(uri).forget(uri);
+    for (const service of services.values()) service.forget(uri);
   }
   virtualDocuments.clear();
   await preloadWorkspaceDocuments();
@@ -582,6 +615,7 @@ client.onRequest("initialize", async (rawParams) => {
   const capabilities = isObject(params.capabilities) ? params.capabilities : {};
   const textCapabilities = isObject(capabilities.textDocument) ? capabilities.textDocument : {};
   const workspaceCapabilities = isObject(capabilities.workspace) ? capabilities.workspace : {};
+  scopedConfiguration = process.env.TYPED_SQL_EDITOR_SDK === "1" && workspaceCapabilities.configuration === true;
   pullDiagnostics =
     isObject(textCapabilities.diagnostic) &&
     isObject(result.capabilities) &&
@@ -608,6 +642,7 @@ client.onRequest("shutdown", async () => {
 client.onNotification("initialized", async (params) => {
   workspaceReady = (async () => {
     await typescript.sendNotification("initialized", params);
+    await refreshWorkspaceSettings();
     await preloadWorkspaceDocuments();
   })();
   await workspaceReady;
@@ -807,6 +842,10 @@ client.onNotification("textDocument/didOpen", (rawParams) => {
   const cancellation = beginDocumentAnalysis(item.uri, false);
   return queueDocument(item.uri, async () => {
     await workspaceReady;
+    if (!isWorkspaceDocument(item.uri)) {
+      await typescript.sendNotification("textDocument/didOpen", rawParams);
+      return;
+    }
     const virtual = virtualDocuments.get(item.uri);
     const state = await createState(original, virtual, cancellation);
     virtualDocuments.delete(item.uri);
@@ -840,6 +879,10 @@ client.onNotification("textDocument/didChange", (rawParams) => {
   const cancellation = beginDocumentAnalysis(params.textDocument.uri, source !== undefined);
   return queueDocument(params.textDocument.uri, async () => {
     await workspaceReady;
+    if (!isWorkspaceDocument(params.textDocument.uri)) {
+      await typescript.sendNotification("textDocument/didChange", rawParams);
+      return;
+    }
     await serviceForUri(params.textDocument.uri).debounce(cancellation);
     const previous = documents.get(params.textDocument.uri) ?? virtualDocuments.get(params.textDocument.uri);
     if (original === undefined) {
@@ -882,6 +925,10 @@ client.onNotification("textDocument/didClose", (rawParams) => {
   documentAnalysisTokens.delete(params.textDocument.uri);
   return queueDocument(params.textDocument.uri, async () => {
     await workspaceReady;
+    if (!isWorkspaceDocument(params.textDocument.uri)) {
+      await typescript.sendNotification("textDocument/didClose", rawParams);
+      return;
+    }
     const previous = documents.get(params.textDocument.uri);
     documents.delete(params.textDocument.uri);
     nativeDiagnostics.delete(params.textDocument.uri);
@@ -914,11 +961,34 @@ client.onNotification("textDocument/didClose", (rawParams) => {
   });
 });
 
+client.onNotification("workspace/didChangeWorkspaceFolders", (params) => {
+  return queueWorkspace(async () => {
+    const event = isObject(params) && isObject(params.event) ? params.event : {};
+    const rootsFrom = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value.flatMap((item) =>
+            isObject(item) && typeof item.uri === "string" && item.uri.startsWith("file:")
+              ? [resolve(fileURLToPath(item.uri))]
+              : [],
+          )
+        : [];
+    const removed = new Set(rootsFrom(event.removed));
+    const roots = [...new Set([...workspaceRoots.filter((root) => !removed.has(root)), ...rootsFrom(event.added)])];
+    await configureServices(roots, workspaceSettings);
+    await refreshWorkspaceSettings();
+    await typescript.sendNotification("workspace/didChangeWorkspaceFolders", params);
+    await refreshOpenDocuments();
+    await resetVirtualDocuments();
+  });
+});
+
 client.onNotification("workspace/didChangeConfiguration", (params) => {
   return queueWorkspace(async () => {
     const value = isObject(params) ? params.settings : undefined;
     const settings = settingsFrom(value);
+    workspaceSettings = settings;
     for (const [root, service] of services) service.configure(root, settings);
+    await refreshWorkspaceSettings();
     await typescript.sendNotification("workspace/didChangeConfiguration", params);
     await refreshOpenDocuments();
     await resetVirtualDocuments();
@@ -1003,6 +1073,17 @@ typescript.onNotification(async (method, params) => {
 preview.on("exit", (code, signal) => {
   if (stopping && (code === 0 || code === null)) return;
   failPreview(previewError(`process exited with code ${code ?? "null"}${signal === null ? "" : ` (${signal})`}`));
+});
+
+// The editor can disappear without sending shutdown/exit (including a killed
+// SDK launcher). Closing its pipe must also release the native compiler and APIs.
+client.onClose(() => {
+  stopping = true;
+  for (const cancellation of documentAnalysisTokens.values()) cancellation.cancel();
+  void Promise.allSettled([...services.values()].map((service) => service.close())).finally(() => {
+    typescript.dispose();
+    if (preview.exitCode === null) preview.kill();
+  });
 });
 
 typescript.listen();

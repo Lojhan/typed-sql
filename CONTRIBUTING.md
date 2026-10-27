@@ -213,3 +213,9 @@ Keep commits reviewable and free of database credentials, packet captures, gener
 and unrelated formatting changes.
 
 By contributing, you agree that your contribution is licensed under the MIT License.
+
+The editor SDK launchers are built with Go 1.27.3 (the pinned toolchain in
+`tools/editor-sdk/go.mod`). Applications consume prebuilt launchers and do not need Go.
+`pnpm editor:sdk:build` builds the host launcher; `pnpm build` and
+`pnpm editor:sdk:build:all` build macOS,
+Linux, and Windows launchers for x64 and arm64 before release artifact inspection.

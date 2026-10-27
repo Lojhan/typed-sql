@@ -524,6 +524,17 @@ await describe("packed public packages", async () => {
 
       const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
       const typedSql = join(consumer, "node_modules", ".bin", "typed-sql");
+      const sdk = join(
+        consumer,
+        "node_modules",
+        "@typed-sql/language-server",
+        "sdk",
+        `${process.platform}-${process.arch}`,
+        process.platform === "win32" ? "tsc.exe" : "tsc",
+      );
+      const sdkVersion = await execFile(sdk, ["--version"], { cwd: consumer, env: isolatedEnvironment });
+      strict.strictEqual(sdkVersion.stdout.trim(), "Version 7.1.0-beta");
+      await strict.rejects(execFile(sdk, ["--noEmit"], { cwd: consumer, env: isolatedEnvironment }), /requires --lsp/u);
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {

@@ -218,9 +218,15 @@ export function settingsFrom(value: unknown): TypedSqlLanguageServerSettings {
   const nested = object.typedSql ?? object["typed-sql"];
   const candidate = typeof nested === "object" && nested !== null ? (nested as Record<string, unknown>) : object;
   return {
-    ...(typeof candidate.schemaPath === "string" ? { schemaPath: candidate.schemaPath } : {}),
-    ...(typeof candidate.configPath === "string" ? { configPath: candidate.configPath } : {}),
-    ...(typeof candidate.projectFile === "string" ? { projectFile: candidate.projectFile } : {}),
+    ...(typeof candidate.schemaPath === "string" && candidate.schemaPath.trim().length > 0
+      ? { schemaPath: candidate.schemaPath }
+      : {}),
+    ...(typeof candidate.configPath === "string" && candidate.configPath.trim().length > 0
+      ? { configPath: candidate.configPath }
+      : {}),
+    ...(typeof candidate.projectFile === "string" && candidate.projectFile.trim().length > 0
+      ? { projectFile: candidate.projectFile }
+      : {}),
     ...(typeof candidate.nativePreview === "boolean" ? { nativePreview: candidate.nativePreview } : {}),
     ...(typeof candidate.maxCacheEntries === "number" ? { maxCacheEntries: candidate.maxCacheEntries } : {}),
     ...(typeof candidate.maxWorkspaceFiles === "number" ? { maxWorkspaceFiles: candidate.maxWorkspaceFiles } : {}),

@@ -100,6 +100,17 @@
           "default": 20,
           "minimum": 0,
           "description": "Delay before analyzing an edit so rapidly superseded document versions can be cancelled."
+        },
+        "typedSql.providerMode": {
+          "scope": "resource",
+          "type": "string",
+          "enum": [
+            "auto",
+            "native-sdk",
+            "proxy"
+          ],
+          "default": "auto",
+          "description": "Use Microsoft's TypeScript client with the typed-sql SDK, or the explicitly selected standalone proxy. Auto refuses competing TypeScript providers."
         }
       }
     }

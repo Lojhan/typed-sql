@@ -6,6 +6,11 @@ import { promisify } from "node:util";
 
 const execFile = promisify(callback);
 export async function installPackedServer(root, run) {
+  const pnpm = process.env.npm_execpath;
+  assert.ok(pnpm, "Run the host suite through pnpm so package-manager invocation is portable");
+  const script = /\.(?:c|m)?js$/u.test(pnpm);
+  const runPnpm = (args, options) =>
+    execFile(script ? process.execPath : pnpm, script ? [pnpm, ...args] : args, options);
   const tarballs = join(run, "tarballs");
   const consumer = join(run, "installed");
   await mkdir(tarballs);
@@ -30,7 +35,7 @@ export async function installPackedServer(root, run) {
   for (const directory of directories) {
     const manifest = JSON.parse(await readFile(join(root, directory, "package.json"), "utf8"));
     const before = new Set(await readdir(tarballs));
-    await execFile("pnpm", ["pack", "--pack-destination", tarballs], { cwd: join(root, directory), timeout: 60_000 });
+    await runPnpm(["pack", "--pack-destination", tarballs], { cwd: join(root, directory), timeout: 60_000 });
     const added = (await readdir(tarballs)).filter((name) => !before.has(name));
     assert.equal(added.length, 1, `one archive for ${manifest.name}`);
     dependencies[manifest.name] = `file:${join(tarballs, added[0])}`;
@@ -40,7 +45,7 @@ export async function installPackedServer(root, run) {
     JSON.stringify({ private: true, type: "module", dependencies, pnpm: { overrides: dependencies } }),
   );
   const { NODE_PATH: _nodePath, ...env } = process.env;
-  await execFile("pnpm", ["install", "--ignore-workspace", "--ignore-scripts", "--no-frozen-lockfile"], {
+  await runPnpm(["install", "--ignore-workspace", "--ignore-scripts", "--no-frozen-lockfile"], {
     cwd: consumer,
     env: { ...env, CI: "true" },
     timeout: 180_000,

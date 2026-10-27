@@ -79,6 +79,12 @@ await describe("upstream TypeScript LSP integration", async () => {
               } else strict.deepStrictEqual(actual, expected, `${key}.${option}`);
             }
           }
+        } else if (key === "workspace" && value !== null && typeof value === "object") {
+          const actual = extended.capabilities.workspace as Record<string, unknown>;
+          for (const [option, expected] of Object.entries(value)) {
+            if (option !== "workspaceFolders") strict.deepStrictEqual(actual[option], expected, option);
+          }
+          strict.deepStrictEqual(actual.workspaceFolders, { supported: true, changeNotifications: true });
         } else strict.deepStrictEqual(extended.capabilities[key], value, key);
       }
       const source = await readFile(join(fixture, "query.ts"), "utf8");
