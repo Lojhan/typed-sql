@@ -44,6 +44,9 @@ importers:
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
+      '@types/proper-lockfile':
+        specifier: 4.1.4
+        version: 4.1.4
       mysql2:
         specifier: 3.24.6
         version: 3.24.6(@types/node@24.19.2)
@@ -326,6 +329,12 @@ importers:
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
+      jsonc-parser:
+        specifier: 3.3.1
+        version: 3.3.1
+      proper-lockfile:
+        specifier: 4.1.2
+        version: 4.1.2
 
   packages/compiler:
     dependencies:
@@ -1538,6 +1547,12 @@ packages:
 
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
+
+  '@types/proper-lockfile@4.1.4':
+    resolution: {integrity: sha512-uo2ABllncSqg9F1D4nugVl9v93RmjxF6LJzQLMLDdPaXCUIDPeOJ21Gbqi43xNKzBi/WQ0Q0dICqufzQbMjipQ==}
+
+  '@types/retry@0.12.5':
+    resolution: {integrity: sha512-3xSjTp3v03X/lSQLkczaN9UIEwJMoMCA1+Nb5HfbJEQWogdeQIyVtTvxPXDQjZ5zws8rFQfVfRdz03ARihPJgw==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -4036,6 +4051,12 @@ snapshots:
       '@types/node': 24.19.2
       pg-protocol: 1.16.0
       pg-types: 2.2.0
+
+  '@types/proper-lockfile@4.1.4':
+    dependencies:
+      '@types/retry': 0.12.5
+
+  '@types/retry@0.12.5': {}
 
   '@types/unist@3.0.3': {}
 

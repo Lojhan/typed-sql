@@ -30,6 +30,7 @@ import {
 import { mapProtocolCoordinates } from "./protocol-mapping.js";
 import { ResolveContexts, resolveMethodFor } from "./resolve-context.js";
 import { projectSemanticTokens, SemanticTokenResults } from "./semantic-tokens.js";
+import { UriMap } from "./uri-map.js";
 
 interface Position {
   readonly line: number;
@@ -140,18 +141,18 @@ const previewReady = Promise.all([
 ]).then(() => undefined);
 const client = createMessageConnection(stdin, stdout, NullLogger);
 const typescript: MessageConnection = createMessageConnection(preview.stdout, preview.stdin, NullLogger);
-const sourceDocuments = new Map<string, TextDocument>();
-const documents = new Map<string, DocumentState>();
-const virtualDocuments = new Map<string, DocumentState>();
-const nativeDiagnostics = new Map<string, readonly unknown[]>();
-const projectFailureReports = new Map<string, JsonObject>();
+const sourceDocuments = new UriMap<TextDocument>();
+const documents = new UriMap<DocumentState>();
+const virtualDocuments = new UriMap<DocumentState>();
+const nativeDiagnostics = new UriMap<readonly unknown[]>();
+const projectFailureReports = new UriMap<JsonObject>();
 let pullDiagnostics = false;
 let diagnosticRefreshSupported = false;
 const semanticTokenResults = new SemanticTokenResults();
 const resolveContexts = new ResolveContexts<DocumentState>();
-const pendingDocuments = new Map<string, Promise<void>>();
-const latestDocumentVersions = new Map<string, number>();
-const documentAnalysisTokens = new Map<string, AnalysisCancellation>();
+const pendingDocuments = new UriMap<Promise<void>>();
+const latestDocumentVersions = new UriMap<number>();
+const documentAnalysisTokens = new UriMap<AnalysisCancellation>();
 const LSP_REQUEST_CANCELLED = -32800;
 const LSP_CONTENT_MODIFIED = -32801;
 const LSP_PROTOCOL_UNSUPPORTED = -32098;

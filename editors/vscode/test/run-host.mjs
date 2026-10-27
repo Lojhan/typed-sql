@@ -67,7 +67,18 @@ const failures = [];
 const results = join(artifacts, "results", basename(run));
 await mkdir(results, { recursive: true });
 const saveMatrices = async () => {
-  await writeFile(join(results, "matrix.json"), JSON.stringify(buildMatrix(combineHostReports(reports)), null, 2));
+  // Native and standalone clients exercise the same baseline interfaces. Keep
+  // their evidence separate, and prefer native results in the combined matrix.
+  const primary = reports.filter(
+    (report) =>
+      report.mode !== "overlays" ||
+      !reports.some((other) => other.mode === "native-overlays" && other.grammar === report.grammar),
+  );
+  await writeFile(join(results, "matrix.json"), JSON.stringify(buildMatrix(combineHostReports(primary)), null, 2));
+  await writeFile(
+    join(results, "standalone-matrix.json"),
+    JSON.stringify(buildMatrix(combineHostReports(reports.filter((report) => report.mode === "overlays"))), null, 2),
+  );
   await writeFile(
     join(results, "edit-matrix.json"),
     JSON.stringify(

@@ -27,7 +27,17 @@ await describe("nonexecuting init planner", async () => {
         const plan = await planInit({ cwd: root, grammar, editor: "vscode", "dry-run": "true" }, "2.1.0");
         strict.deepEqual(await planInit({ cwd: root, grammar, editor: "vscode", "dry-run": "true" }, "2.1.0"), plan);
         strict.equal(plan.packageManager, "npm");
-        strict.equal(plan.files.length, 3);
+        strict.deepEqual(
+          plan.files.map((file) => file.path.slice(root.length + 1)).sort(),
+          [
+            ".gitignore",
+            ".vscode/extensions.json",
+            ".vscode/settings.json",
+            "package.json",
+            "tsconfig.json",
+            "typed-sql.config.ts",
+          ].sort(),
+        );
         strict.ok(plan.files.every((file) => file.beforeHash === null && file.path.startsWith(`${root}/`)));
         strict.ok(!plan.files.some((file) => file.path.endsWith("schema.json")));
         strict.equal(plan.dependencies[`@typed-sql/${grammar}`], "^2.1.0");
@@ -45,7 +55,13 @@ await describe("nonexecuting init planner", async () => {
       await writeFile(join(root, "typed-sql.config.ts"), 'throw new Error("must not execute");');
       await writeFile(join(root, "tsconfig.json"), '{ // preserved JSONC\n "extends":"./base.json" }');
       const plan = await planInit({ cwd: root, grammar: "postgres" }, "2.1.0");
-      strict.equal(plan.files.length, 0);
+      strict.ok(
+        plan.files.every((file) => file.path === join(root, "package.json") || file.path === join(root, ".gitignore")),
+      );
+      const proposed = JSON.parse(plan.files.find((file) => file.path === join(root, "package.json"))!.content);
+      strict.equal(proposed.dependencies["@typed-sql/postgres"], "workspace:*");
+      strict.equal(proposed.scripts.check, "custom");
+      strict.equal(proposed.scripts["typed-sql:check"], "typed-sql check");
       strict.equal(plan.dependencies["@typed-sql/postgres"], undefined);
       strict.equal(await readFile(join(root, "package.json"), "utf8"), manifest);
       strict.match(plan.warnings.join(" "), /not executed/u);

@@ -573,7 +573,8 @@ export class TypedSqlLanguageService {
   async handlesWatchedFile(uri: string): Promise<boolean> {
     if (!uri.startsWith("file:")) return false;
     const fileName = resolve(fileURLToPath(uri));
-    return (await this.watchedFiles()).includes(fileName);
+    const canonical = (path: string) => (process.platform === "win32" ? path.toLowerCase() : path);
+    return (await this.watchedFiles()).some((path) => canonical(path) === canonical(fileName));
   }
 
   async close(): Promise<void> {

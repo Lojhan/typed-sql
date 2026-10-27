@@ -43,7 +43,7 @@ import {
   parseSchemaSnapshot,
   writeArtifactFiles,
 } from "@typed-sql/schema";
-import { planInit } from "./init-plan.js";
+import { runInit } from "./init.js";
 
 interface ParsedArguments {
   readonly command?: string;
@@ -88,7 +88,7 @@ Usage:
   typed-sql <command> [options]
 
 Commands:
-  init       Inspect a project and print a nonexecuting setup plan
+  init       Plan setup; use --apply, --install, and --verify explicitly
   capabilities  Report versioned grammar support from the generated snapshot
   check      Infer SQL result types and verify them with TypeScript 7
   compat     Analyze rolling-deployment compatibility from two snapshots and manifests
@@ -129,6 +129,11 @@ function parseArguments(args: readonly string[]): ParsedArguments {
       argument === "--live" ||
       argument === "--json" ||
       argument === "--dry-run" ||
+      argument === "--apply" ||
+      argument === "--install" ||
+      argument === "--verify" ||
+      argument === "--recover" ||
+      argument === "--allow-scripts" ||
       argument === "--support-bundle-preview" ||
       argument === "--confirm-support-bundle"
     ) {
@@ -361,10 +366,12 @@ async function main(): Promise<void> {
     throw new Error(`Unknown command ${parsed.command ?? "<none>"}. Run typed-sql --help for usage.`);
   }
   if (parsed.command === "init") {
-    process.stdout.write(`${JSON.stringify(await planInit(parsed.options, version), null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify(await runInit(parsed.options, version), null, 2)}\n`);
     return;
   }
   if (parsed.options["dry-run"] !== undefined) throw new Error("--dry-run is only supported by init");
+  for (const flag of ["apply", "install", "verify", "recover", "allow-scripts"])
+    if (parsed.options[flag] !== undefined) throw new Error(`--${flag} is only supported by init`);
   const loaded = await loadConfig({ ...(parsed.options.config === undefined ? {} : { file: parsed.options.config }) });
   const config = loaded.config;
   const dialect = config.dialect;

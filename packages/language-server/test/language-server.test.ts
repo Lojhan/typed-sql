@@ -22,6 +22,35 @@ const configFile = join(workspaceDirectory, "e2e", "postgres", "typed-sql.config
 const serverFile = join(workspaceDirectory, "packages/language-server/dist/packages/language-server/src/server.js");
 
 await describe("typed-sql stdio language server", async () => {
+  await it("replays unsaved content over a preloaded file with an equivalent URI spelling", async () => {
+    const client = new ProtocolClient(process.execPath, [serverFile, "--stdio"], workspaceDirectory);
+    const uri = pathToFileURL(queryFile).href.replace("query.ts", "query%2Ets");
+    const source =
+      'import { sql } from "@typed-sql/postgres";\nimport { db } from "./database.js";\nconst query = sql`SELECT user.name FROM users AS user`;\nasync function read() { const rows = await db.execute(query); return rows; }';
+    try {
+      await client.request("initialize", {
+        processId: process.pid,
+        rootUri: pathToFileURL(fixtureDirectory).href,
+        capabilities: {},
+        initializationOptions: { configPath: configFile, schemaPath: schemaFile, projectFile },
+      });
+      client.notify("initialized", {});
+      client.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId: "typescript", version: 1, text: source },
+      });
+      const result = JSON.stringify(
+        await client.request("textDocument/hover", {
+          textDocument: { uri },
+          position: positionAt(source, source.indexOf("rows")),
+        }),
+      );
+      strict.match(result, /name: string/u);
+      strict.doesNotMatch(result, /age:|id:|unknown/u);
+    } finally {
+      await client.close();
+    }
+  });
+
   await it("exits when an editor closes its pipe without shutdown", async () => {
     const child = spawn(process.execPath, [serverFile, "--stdio"], { cwd: workspaceDirectory, stdio: "pipe" });
     child.stdout.resume();

@@ -83,6 +83,7 @@
     "@typed-sql/postgres": "workspace:*",
     "@types/node": "^24.19.2",
     "@types/pg": "8.23.1",
+    "@types/proper-lockfile": "4.1.4",
     "mysql2": "3.24.6",
     "pg": "8.23.1",
     "poku": "4.5.0",
