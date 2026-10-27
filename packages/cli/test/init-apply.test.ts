@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { lock } from "proper-lockfile";
@@ -24,6 +24,53 @@ async function fixture(run: (root: string, boundary: string) => Promise<void>) {
 }
 
 await describe("explicit setup application and recovery", async () => {
+  await it("retains applied files after install failure and preserves user edits on retry", async () => {
+    await fixture(async (root, boundary) => {
+      const bin = join(boundary, "bin");
+      await mkdir(bin);
+      await writeFile(
+        join(bin, process.platform === "win32" ? "npm.cmd" : "npm"),
+        process.platform === "win32"
+          ? "@if not exist .allow-install exit /b 17\r\n@exit /b 0\r\n"
+          : "#!/bin/sh\n[ -f .allow-install ] || exit 17\n",
+        { mode: 0o700 },
+      );
+      const previousPath = process.env.PATH;
+      process.env.PATH = `${bin}${delimiter}${previousPath ?? ""}`;
+      try {
+        const options = { cwd: root, grammar: "sqlite", "package-manager": "npm", apply: "true", install: "true" };
+        await strict.rejects(runInit(options, "2.2.0"), (error: unknown) => {
+          if (!(error instanceof Error)) return false;
+          strict.match(error.message, /Setup reached config-written/u);
+          strict.equal((error.cause as { code?: number }).code, 17);
+          return true;
+        });
+        const journalPath = join(root, ".typed-sql/init-journal.json");
+        const journal = await readFile(journalPath, "utf8");
+        strict.equal(JSON.parse(journal).status, "completed");
+        const configPath = join(root, "typed-sql.config.ts");
+        const config = await readFile(configPath, "utf8");
+        const manifestPath = join(root, "package.json");
+        const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+        manifest.scripts = { ...manifest.scripts, custom: "keep-my-edit" };
+        const edited = `${JSON.stringify(manifest)}\n`;
+        await writeFile(manifestPath, edited);
+        strict.deepEqual((await recoverInit(root)).files, []);
+        strict.equal(await readFile(manifestPath, "utf8"), edited);
+        await writeFile(join(root, ".allow-install"), "");
+        const retried = (await runInit(options, "2.2.0")) as { state: string; hostVerified: boolean };
+        strict.equal(retried.state, "installed");
+        strict.equal(retried.hostVerified, false);
+        strict.equal(await readFile(manifestPath, "utf8"), edited);
+        strict.equal(await readFile(configPath, "utf8"), config);
+        strict.equal(await readFile(journalPath, "utf8"), journal);
+      } finally {
+        if (previousPath === undefined) delete process.env.PATH;
+        else process.env.PATH = previousPath;
+      }
+    });
+  });
+
   await it("ignores executable overrides in package-manager environment variables", async () => {
     await fixture(async (root) => {
       const override = join(root, "npm-cli.js");

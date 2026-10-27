@@ -1,5 +1,5 @@
 {
-  "version": 15,
+  "version": 16,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -38,6 +38,7 @@
     "editor.projectLifecycle": { "p50": 15, "p95": 50, "p99": 100 }
   },
   "throughput": {
+    "grammar.sqliteAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
     "core.fragmentListRender": { "minimumOperationsPerSecond": 10000, "minimumJoinRatio": 0.7 },
     "parser.toolkitTokens": { "minimumTokensPerSecond": 500000 },

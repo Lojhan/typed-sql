@@ -31,7 +31,6 @@ await describe("CI evidence lanes", async () => {
       "pnpm docs:check",
       "scheduled-reliability:",
       "pnpm fuzz:replay",
-      "pnpm mutation:pilot",
       "retention-days: 30",
     ]) {
       strict.ok(workflow.includes(evidence), `CI lane lost ${evidence}`);

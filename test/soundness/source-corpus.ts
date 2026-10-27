@@ -151,7 +151,12 @@ export const sourceSoundnessCorpus: readonly SourceSoundnessCase[] = [
   },
   {
     id: "dynamic-query-remains-unknown",
-    source: [moduleImport, "declare const text: string;", "export const query = sql.dynamic(text);"].join("\n"),
+    source: [
+      moduleImport,
+      "// Existing annotation: any",
+      "declare const text: string;",
+      "export const query = sql.dynamic(text);",
+    ].join("\n"),
     expectation: { kind: "dynamic" },
   },
 ] as const;

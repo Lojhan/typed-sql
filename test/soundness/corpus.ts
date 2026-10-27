@@ -73,12 +73,12 @@ export const soundnessCorpus: readonly SoundnessCase[] = [
     id: "alias-and-enum",
     family: "alias",
     postgres: {
-      sql: () => "SELECT account.id AS account_id, account.status FROM users AS account",
-      expectation: exact('{ "account_id": bigint; "status": "active" | "suspended"; }'),
+      sql: () => "SELECT account.id AS company, account.status FROM users AS account",
+      expectation: exact('{ "company": bigint; "status": "active" | "suspended"; }'),
     },
     mysql: {
-      sql: () => "SELECT account.id AS account_id, account.status FROM users AS account",
-      expectation: exact('{ "account_id": bigint; "status": "active" | "suspended"; }'),
+      sql: () => "SELECT account.id AS company, account.status FROM users AS account",
+      expectation: exact('{ "company": bigint; "status": "active" | "suspended"; }'),
     },
   },
   {

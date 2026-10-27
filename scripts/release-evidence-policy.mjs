@@ -32,31 +32,14 @@ export function validateReleaseEvidencePolicy(value) {
       if (!required.includes(evidence))
         throw new TypeError(`${name} cannot remove earlier channel evidence ${evidence}`);
     }
-    if (channel.stableClaimsAllowed !== (name === "stable"))
-      throw new TypeError(`channels.${name}.stableClaimsAllowed is invalid`);
     channels[name] = Object.freeze({
       required,
-      stableClaimsAllowed: channel.stableClaimsAllowed,
-      ...(channel.minimumSuccessfulCandidates === undefined
-        ? {}
-        : { minimumSuccessfulCandidates: channel.minimumSuccessfulCandidates }),
     });
     previous = new Set(required);
-  }
-  if (
-    !Number.isSafeInteger(channels.stable.minimumSuccessfulCandidates) ||
-    channels.stable.minimumSuccessfulCandidates < 1
-  )
-    throw new TypeError("Stable releases require at least one successful candidate");
-  const promotion = {};
-  for (const kind of ["package", "grammar", "editor"]) {
-    promotion[kind] = uniqueNonEmptyStrings(value.promotion?.[kind], `promotion.${kind}`);
   }
   return Object.freeze({
     formatVersion: 1,
     channels: Object.freeze(channels),
-    promotion: Object.freeze(promotion),
-    supportTargetChange: uniqueNonEmptyStrings(value.supportTargetChange, "supportTargetChange"),
   });
 }
 

@@ -54,9 +54,7 @@ export function validateReleaseEvidenceInput(value: unknown, path?: string): Rel
 
 export function assembleReleaseEvidence(options: {
   readonly policy: {
-    readonly channels: Readonly<
-      Record<string, { readonly required: readonly string[]; readonly stableClaimsAllowed: boolean }>
-    >;
+    readonly channels: Readonly<Record<string, { readonly required: readonly string[] }>>;
   };
   readonly manifest: { readonly channel: string; readonly series: string };
   readonly exceptions: ReleaseExceptions;

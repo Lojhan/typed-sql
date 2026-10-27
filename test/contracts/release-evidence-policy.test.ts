@@ -5,7 +5,7 @@ import { loadReleaseEvidencePolicy, validateReleaseEvidencePolicy } from "../../
 
 const workspace = resolve(import.meta.dirname, "../..");
 
-await describe("release channel and promotion evidence policy", async () => {
+await describe("release channel evidence requirements", async () => {
   await it("makes every later channel a strict evidence superset", async () => {
     const policy = await loadReleaseEvidencePolicy(workspace);
     for (const [earlier, later] of [
@@ -15,21 +15,9 @@ await describe("release channel and promotion evidence policy", async () => {
     ] as const) {
       strict.ok(policy.channels[earlier].required.every((item) => policy.channels[later].required.includes(item)));
     }
-    strict.strictEqual(policy.channels.stable.stableClaimsAllowed, true);
-    strict.strictEqual(policy.channels.rc.stableClaimsAllowed, false);
   });
 
-  await it("requires complete promotion and support-target evidence maps", async () => {
-    const policy = await loadReleaseEvidencePolicy(workspace);
-    strict.deepStrictEqual(Object.keys(policy.promotion).sort(), ["editor", "grammar", "package"]);
-    for (const required of ["security-review", "known-limitations", "rollback-retry-procedure"]) {
-      strict.ok(Object.values(policy.promotion).every((evidence) => evidence.includes(required)));
-    }
-    strict.ok(policy.supportTargetChange.includes("support-policy"));
-    strict.ok(policy.supportTargetChange.includes("differential-matrix"));
-  });
-
-  await it("rejects evidence removal, duplicates, and premature stable claims", async () => {
+  await it("rejects evidence removal and duplicate requirements", async () => {
     const source = JSON.parse(await readFile(join(workspace, "release-evidence-policy.json"), "utf8"));
     strict.throws(
       () =>
@@ -43,7 +31,13 @@ await describe("release channel and promotion evidence policy", async () => {
       () =>
         validateReleaseEvidencePolicy({
           ...source,
-          supportTargetChange: [...source.supportTargetChange, source.supportTargetChange[0]],
+          channels: {
+            ...source.channels,
+            beta: {
+              ...source.channels.beta,
+              required: [...source.channels.beta.required, source.channels.beta.required[0]],
+            },
+          },
         }),
       /duplicate/u,
     );

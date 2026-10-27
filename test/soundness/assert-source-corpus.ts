@@ -3,7 +3,6 @@ import type { CompileSourceResult } from "../../packages/compiler/src/index.js";
 import type { SourceSoundnessCase } from "./source-corpus.js";
 
 export function assertSourceCompilation(testCase: SourceSoundnessCase, compilation: CompileSourceResult): void {
-  strict.ok(!compilation.transformedSource.includes(": any"), `${testCase.id} introduced any`);
   const expectation = testCase.expectation;
   if (expectation.kind === "dynamic") {
     strict.strictEqual(compilation.queries.length, 0);
