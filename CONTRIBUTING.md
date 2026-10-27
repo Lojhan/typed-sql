@@ -259,8 +259,11 @@ comprehensive `CI` workflow-dispatch run for that exact commit, records the arti
 verifies the downloaded artifact before either registry upload. Duplicate versions are skipped
 on retry; bump the editor version for new contents. Never delete a published extension version.
 
-Both publishing jobs use OIDC and protected GitHub environments. Configure trusted publishers
-in the registry accounts with these exact fields:
+Both publishing jobs use OIDC and protected GitHub environments. Direct Marketplace OIDC
+requires registry-side support as well as the `vsce --oidc` flag; CLI support alone does not prove
+that publisher policies can be configured. Check the live publisher settings and the
+[Marketplace backend status](https://github.com/microsoft/vscode-vsce/issues/1275) before dispatching
+that registry job. Configure available trusted publishers with these exact fields:
 
 | Field | Visual Studio Marketplace | Open VSX |
 | --- | --- | --- |
@@ -284,3 +287,12 @@ gh workflow run editor-marketplaces.yml --ref main -f registry=both -f evidence_
 Approve the two protected environments after reviewing the built VSIX report. Each registry
 job can be retried independently after partial publication. These prerelease uploads do not
 promote the editor to stable; the existing editor-promotion evidence policy still applies.
+
+When direct Marketplace OIDC is unavailable, the account owner can upload the exact reviewed
+VSIX through the signed-in Marketplace UI. Use `typed-sql-editor-artifacts` from a successful
+comprehensive `CI` workflow-dispatch run for the exact `main` commit. Compare the VSIX SHA-256
+with `vscode.sha256` in that artifact's `editor-artifacts.json`, and validate the publisher,
+extension ID, version, and prerelease manifest with `assertMarketplaceManifest` in
+`scripts/editor-marketplace.mjs`. After uploading, verify the public `lojhan.typed-sql` listing
+and its prerelease version before reporting publication. This manual route does not configure
+automated trusted publishing, and does not use a stored PAT.
