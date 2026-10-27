@@ -49,6 +49,11 @@ Tests use [Poku](https://poku.io/) and are ordinary TypeScript programs. Put a t
 that owns the behavior. Compiler and grammar changes should assert the inferred row, ordered
 parameter tuple, diagnostics, and source spans where relevant.
 
+Coverage-enforced package test commands run their suites with the existing thresholds. The package
+`coverage` command is an alias for that same run; `pnpm verify` does not execute those suites a
+second time. CLI, preview packages, editor clients and examples retain their normal test commands.
+For a focused test while developing, invoke `pnpm exec poku <test-file>` from its package directory.
+
 Unsupported, ambiguous, or dynamic SQL must resolve conservatively to `Query<unknown>` or a
 documented diagnostic. Do not introduce `any` or optimistic inference.
 
@@ -97,8 +102,8 @@ interface assertions. Host adapters supply observed hover, completion, diagnosti
 and unsaved-edit behavior. Add cases here rather than copying grammar expectations into editor
 adapters. These are representative integration fixtures, not all syntax or server-version coverage.
 
-Each run writes `matrix.json` beside individual results, crossing VS Code/Zed, four grammars and
-the interface inventory. Missing and unimplemented cells stay `not-run`; protocol evidence is
+Each host run writes `matrix.json` beside individual results for the editor and grammar pairs actually
+observed. Unobserved interfaces for those pairs stay `not-run`; protocol evidence is
 rejected as host evidence. Failures remain failures and prevent the host command from passing.
 The VS Code host implements all 21 inventoried interfaces per grammar, plus three independent
 trust scenarios and a controlled lifecycle scenario. Baseline, extended and built-in-coexistence
@@ -126,9 +131,9 @@ does not derive row types from column metadata, so it tests envelope/recovery be
 
 Run `pnpm editor:zed:fixtures` after building to prepare the same four projects and workspace-local
 Zed settings under a unique `artifacts/editor-hub/zed-*` directory. This only prepares fixtures:
-it does not install extensions, launch Zed or assert host behavior. Its matrix remains not run.
-Actual Zed execution needs an isolated profile, the built dev extension, a host adapter and exact
-version/platform evidence before any Zed cell can pass. See the official
+it does not install extensions, launch Zed or produce host evidence. For a Zed smoke check, use
+an isolated profile and the built extension, record the editor version and platform, and check
+SQL hover, diagnostics, an unsaved edit and a schema change in one project. See the official
 [CLI reference](https://zed.dev/docs/reference/cli) and
 [extension development guide](https://zed.dev/docs/extensions/developing-extensions).
 
@@ -261,9 +266,10 @@ The editor SDK launchers are built with Go 1.27.3 (the pinned toolchain in
 `pnpm editor:sdk:build:all` build macOS,
 Linux, and Windows launchers for x64 and arm64 before release artifact inspection.
 
-The root package test command runs package suites one at a time. The SQLite throughput floor is
-unchanged; it must run without competing compiler and native-server suites consuming the same CI
-worker's CPUs. Dedicated performance budgets remain a separate required gate.
+The root package test command runs package suites one at a time. SQLite parser/resolver timing
+runs once in the dedicated performance gate, outside unit and coverage suites. Its 500 queries/s
+median floor and 40 ms batch p95 limit are unchanged; measurements retain samples and runner
+context alongside the other performance budgets.
 
 ## Publish experimental editor extensions
 
@@ -300,7 +306,9 @@ gh workflow run editor-marketplaces.yml --ref main -f registry=both -f evidence_
 
 Approve the two protected environments after reviewing the built VSIX report. Each registry
 job can be retried independently after partial publication. These prerelease uploads do not
-promote the editor to stable; the existing editor-promotion evidence policy still applies.
+promote the editor to stable. The bridge and language server remain on the experimental track
+while they depend on preview TypeScript APIs; changing that support policy requires an explicit
+maintainer review of actual compatibility and host evidence.
 
 When direct Marketplace OIDC is unavailable, the account owner can upload the exact reviewed
 VSIX through the signed-in Marketplace UI. Use `typed-sql-editor-artifacts` from a successful

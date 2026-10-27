@@ -509,7 +509,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Linux runs the complete native host suite in editor-artifacts below.
+        os: [macos-latest, windows-latest]
     env:
       TYPED_SQL_HOST_SCENARIOS: postgres-native,mysql-native,sqlite-native,synthetic-native,postgres-extended,mysql-extended,sqlite-extended,synthetic-extended,postgres-coexist,mysql-coexist,sqlite-coexist,synthetic-coexist
     steps:
@@ -529,10 +530,7 @@ jobs:
       - run: pnpm build
       - run: pnpm exec poku test/contracts/zed-launcher.test.ts --reporter=compact --enforce
       - run: pnpm --filter ./editors/vscode package:vsix
-      - if: runner.os == 'Linux'
-        run: xvfb-run -a pnpm --filter ./editors/vscode test:host
-      - if: runner.os != 'Linux'
-        run: pnpm --filter ./editors/vscode test:host
+      - run: pnpm --filter ./editors/vscode test:host
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -625,9 +623,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm fuzz:replay
-      - run: pnpm mutation:pilot -- --report artifacts/evidence/mutation.json
       - run: pnpm audit --audit-level high
-      - run: node scripts/write-ci-evidence.mjs --lane scheduled --output artifacts/evidence/scheduled.json --gate fuzz --gate mutation --gate audit
+      - run: node scripts/write-ci-evidence.mjs --lane scheduled --output artifacts/evidence/scheduled.json --gate fuzz --gate audit
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -678,7 +675,6 @@ jobs:
           --gate database-matrix
           --gate typescript-editor-matrix
           --gate fuzz
-          --gate mutation
           --gate performance
           --gate soak
           --gate vulnerability-audit

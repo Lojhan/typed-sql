@@ -11,5 +11,13 @@ export function combineHostReports(reports: HostReport[]): HostReport[];
 export function buildMatrix(reports: HostReport[]): {
   formatVersion: number;
   scope: string;
-  cells: { editor: string; grammar: string; interface: string; status: string; reason?: string }[];
+  cells: {
+    editor: string;
+    grammar: string;
+    interface: string;
+    status: string;
+    hostVersion?: string;
+    error?: string;
+    reason?: string;
+  }[];
 };

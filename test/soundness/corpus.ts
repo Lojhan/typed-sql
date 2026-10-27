@@ -10,6 +10,7 @@ export type SoundnessExpectation =
   | {
       readonly kind: "unknown";
       readonly target: "row" | "parameters";
+      readonly type: string;
       readonly diagnosticCodes?: readonly string[];
     }
   | {
@@ -38,9 +39,14 @@ const exact = (
 
 const diagnostic = (...codes: readonly string[]): SoundnessExpectation => ({ kind: "diagnostic", codes });
 
-const unknown = (target: "row" | "parameters", diagnosticCodes: readonly string[] = []): SoundnessExpectation => ({
+const unknown = (
+  target: "row" | "parameters",
+  type: string,
+  diagnosticCodes: readonly string[] = [],
+): SoundnessExpectation => ({
   kind: "unknown",
   target,
+  type,
   diagnosticCodes,
 });
 
@@ -73,12 +79,12 @@ export const soundnessCorpus: readonly SoundnessCase[] = [
     id: "alias-and-enum",
     family: "alias",
     postgres: {
-      sql: () => "SELECT account.id AS account_id, account.status FROM users AS account",
-      expectation: exact('{ "account_id": bigint; "status": "active" | "suspended"; }'),
+      sql: () => "SELECT account.id AS company, account.status FROM users AS account",
+      expectation: exact('{ "company": bigint; "status": "active" | "suspended"; }'),
     },
     mysql: {
-      sql: () => "SELECT account.id AS account_id, account.status FROM users AS account",
-      expectation: exact('{ "account_id": bigint; "status": "active" | "suspended"; }'),
+      sql: () => "SELECT account.id AS company, account.status FROM users AS account",
+      expectation: exact('{ "company": bigint; "status": "active" | "suspended"; }'),
     },
   },
   {
@@ -200,12 +206,12 @@ export const soundnessCorpus: readonly SoundnessCase[] = [
     postgres: {
       sql: (placeholder) => `SELECT ${placeholder(1)} AS value`,
       parameterCount: 1,
-      expectation: unknown("parameters"),
+      expectation: unknown("parameters", "readonly [unknown]"),
     },
     mysql: {
       sql: (placeholder) => `SELECT ${placeholder(1)} AS value`,
       parameterCount: 1,
-      expectation: unknown("parameters"),
+      expectation: unknown("parameters", "readonly [unknown]"),
     },
   },
   {
@@ -213,11 +219,11 @@ export const soundnessCorpus: readonly SoundnessCase[] = [
     family: "unknown",
     postgres: {
       sql: () => "SELECT unregistered_function(users.id) AS value FROM users",
-      expectation: unknown("row", ["TSQ202"]),
+      expectation: unknown("row", '{ "value": unknown | null; }', ["TSQ202"]),
     },
     mysql: {
       sql: () => "SELECT unregistered_function(users.id) AS value FROM users",
-      expectation: unknown("row", ["TSQ202"]),
+      expectation: unknown("row", '{ "value": unknown | null; }', ["TSQ202"]),
     },
   },
   {

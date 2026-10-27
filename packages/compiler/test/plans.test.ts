@@ -64,6 +64,67 @@ function inspector(overrides: Partial<QueryPlanInspector> = {}): QueryPlanInspec
 }
 
 await describe("query plan governance", async () => {
+  await it("keeps runtime-sized fragment plans unavailable while capturing concrete statements", async () => {
+    const repeatedSource = [
+      'import { sql } from "@typed-sql/postgres";',
+      "declare const rows: readonly { readonly id: bigint; readonly email: string }[];",
+      "export const read = sql`SELECT id FROM users`;",
+      "export const mapped = sql`INSERT INTO users (id, email) VALUES ${rows.map(row => sql.fragment`(${row.id}, ${row.email})`)} RETURNING id`;",
+      "export const literal = sql`INSERT INTO users (id, email) VALUES ${[sql.fragment`(${1n}, ${'Ada'})`]} RETURNING id`;",
+    ].join("\n");
+    const sources = [{ file, source: repeatedSource }];
+    const repeatedManifest = buildQueryManifest({
+      rootDir,
+      sources,
+      dialect,
+      schema: snapshot,
+      compilerVersion: "test",
+    }).manifest;
+    const repeatedCandidates = collectQueryVerificationCandidates({
+      manifest: repeatedManifest,
+      rootDir,
+      sources,
+      dialect,
+      schema: snapshot,
+    });
+    let captures = 0;
+    const sampled: string[] = [];
+    const result = await captureQueryPlans({
+      manifest: repeatedManifest,
+      candidates: repeatedCandidates,
+      inspector: inspector({
+        async capture() {
+          captures += 1;
+          return { totalCost: 10, estimatedRows: 1, nodes: [] };
+        },
+      }),
+      sampleValues: (request) => {
+        sampled.push(request.queryId);
+        return {
+          identity: "representative",
+          values: request.parameters.map((parameter) => (parameter.tsType === "bigint" ? 1n : "Ada")),
+        };
+      },
+    });
+    strict.strictEqual(captures, 2, "ordinary queries and fixed literals still reach EXPLAIN");
+    strict.strictEqual(result.captured, 2);
+    strict.strictEqual(result.skipped, 1);
+    const skipped = result.artifact.entries.filter((entry) => entry.status === "skipped");
+    strict.deepStrictEqual(
+      skipped.map((entry) => entry.reason),
+      ["repeated-fragment-cardinality"],
+    );
+    strict.ok(skipped.every((entry) => !("evidence" in entry)));
+    strict.ok(
+      skipped.every((entry) => !sampled.includes(entry.queryId)),
+      "skipped queries never request samples",
+    );
+    const parsed = parseQueryPlanArtifact(JSON.parse(serializeQueryPlanArtifact(result.artifact)));
+    const review = reviewQueryPlans({ current: parsed, budgets: { defaults: { maximumTotalCost: 20 } } });
+    strict.strictEqual(review.summary.pass, 2);
+    strict.strictEqual(review.summary.unavailable, 1);
+  });
+
   await it("captures canonical redacted plans without persisting SQL or samples", async () => {
     const seen: unknown[][] = [];
     const result = await captureQueryPlans({

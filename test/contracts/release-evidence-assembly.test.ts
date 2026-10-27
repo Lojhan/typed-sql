@@ -9,7 +9,7 @@ import {
 } from "../../scripts/release-evidence.mjs";
 
 const policy = {
-  channels: { stable: { required: ["quality", "matrix"], stableClaimsAllowed: true } },
+  channels: { stable: { required: ["quality", "matrix"] } },
 };
 const manifest = { channel: "stable", series: "3.0.0" };
 const workspace = resolve(import.meta.dirname, "../..");
@@ -81,6 +81,15 @@ await describe("release evidence assembly", async () => {
     });
     strict.strictEqual(complete.complete, true);
     strict.strictEqual(complete.stableClaimsAllowed, true);
+    const beta = assembleReleaseEvidence({
+      policy: { channels: { beta: { required: ["quality"] } } },
+      manifest: { ...manifest, channel: "beta" },
+      exceptions,
+      inputs: [evidence(["quality"])],
+      revision: "revision-1",
+    });
+    strict.strictEqual(beta.complete, true);
+    strict.strictEqual(beta.stableClaimsAllowed, false);
   });
 
   await it("rejects evidence from another revision", () => {

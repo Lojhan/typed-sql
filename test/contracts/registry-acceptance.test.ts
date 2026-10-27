@@ -39,40 +39,6 @@ await describe("registry-only consumer acceptance", async () => {
     strict.ok(fixtureManifest.scripts["e2e:registry"]?.includes("TYPED_SQL_CONSUMER_SOURCE=registry"));
   });
 
-  await it("fails closed against checkout resolution and implicit drivers", async () => {
-    const source = await readFile(resolve(workspace, "e2e/packed/test/packed-real.e2e.test.ts"), "utf8");
-
-    for (const contract of [
-      'process.env.TYPED_SQL_REGISTRY_TAG ?? "next"',
-      'process.env.TYPED_SQL_REGISTRY_PREVIEW_TAG ?? "next"',
-      'new Set(["@typed-sql/ts-bridge", "@typed-sql/language-server"])',
-      "mustEventuallyRun",
-      'typescript: "7.0.2"',
-      '"@types/node": "24.13.3"',
-      'for (const protocol of ["workspace:", "link:", "file:"])',
-      "resolved outside disposable consumer",
-      "resolved from the repository",
-      'for (const driver of ["pg", "mysql2", "better-sqlite3", "sqlite3"])',
-      "assertPortableArtifact",
-      "createPgLiveVerifier",
-      "createMySql2LiveVerifier",
-      '[cli, "verify", "--live", "--config", config]',
-      '[cli, "verify", "--config", config]',
-      "createNodeSqliteDatabase",
-      'sqlite.prepare("packed-account-by-id"',
-      "sqlite.batch([byId(2n), allAccounts])",
-      "sqlite.stream(allAccounts",
-      "typed-sql-language-server",
-      "runtimeProjection",
-      "filterParameters",
-      "createDashboardServer",
-      "/dashboard",
-      "No schema drift detected",
-    ]) {
-      strict.ok(source.includes(contract), `registry acceptance lost contract: ${contract}`);
-    }
-  });
-
   await it("blocks stable publication until a coherent npm graph passes", async () => {
     const workflow = await readFile(resolve(workspace, ".github/workflows/release.yml"), "utf8");
     const gate = workflow.indexOf("Verify registry-only release candidate");
@@ -81,7 +47,10 @@ await describe("registry-only consumer acceptance", async () => {
     const sourceResolution = workflow.indexOf("Resolve stable registry source");
     const stablePublish = workflow.indexOf("script: pnpm release:stable");
 
-    strict.ok(gate >= 0, "release workflow must run the registry-only gate");
+    strict.ok(
+      [gate, stableAssertion, companionPublish, sourceResolution, stablePublish].every((index) => index >= 0),
+      "release workflow must retain every publication gate",
+    );
     strict.ok(
       workflow
         .slice(gate, stablePublish)

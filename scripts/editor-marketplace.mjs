@@ -6,8 +6,11 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFile = promisify(callback);
-export function assertMarketplaceEvidence(run, sha) {
+function assertComprehensiveCiRun(run, id, sha) {
   if (
+    typeof run !== "object" ||
+    run === null ||
+    String(run.id) !== id ||
     run.repository?.full_name !== "Lojhan/typed-sql" ||
     run.path !== ".github/workflows/ci.yml" ||
     run.head_branch !== "main" ||
@@ -16,7 +19,18 @@ export function assertMarketplaceEvidence(run, sha) {
     run.status !== "completed" ||
     run.conclusion !== "success"
   )
-    throw new Error("Editor publication requires successful comprehensive CI for the exact main commit");
+    throw new Error("Publication requires successful comprehensive CI for the exact main commit");
+}
+
+export async function verifyComprehensiveCiRun({ id, sha, token, fetchRun = fetch }) {
+  if (typeof id !== "string" || !/^[1-9]\d*$/u.test(id) || typeof sha !== "string" || !/^[a-f0-9]{40}$/u.test(sha))
+    throw new Error("Invalid CI evidence run or source commit");
+  const response = await fetchRun(`https://api.github.com/repos/Lojhan/typed-sql/actions/runs/${id}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) throw new Error(`Could not read CI evidence (${response.status})`);
+  assertComprehensiveCiRun(await response.json(), id, sha);
 }
 
 export function assertMarketplaceManifest(manifest, xml) {
@@ -32,13 +46,11 @@ export function assertMarketplaceManifest(manifest, xml) {
 async function main() {
   if (process.argv[2] === "evidence") {
     const id = process.env.TYPED_SQL_EVIDENCE_RUN_ID;
-    if (!/^\d+$/u.test(id ?? "") || !/^[a-f0-9]{40}$/u.test(process.env.GITHUB_SHA ?? ""))
-      throw new Error("Invalid CI evidence run or source commit");
-    const response = await fetch(`https://api.github.com/repos/Lojhan/typed-sql/actions/runs/${id}`, {
-      headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
+    await verifyComprehensiveCiRun({
+      id,
+      sha: process.env.GITHUB_SHA,
+      token: process.env.GITHUB_TOKEN,
     });
-    if (!response.ok) throw new Error(`Could not read CI evidence (${response.status})`);
-    assertMarketplaceEvidence(await response.json(), process.env.GITHUB_SHA);
     console.log(`Verified comprehensive CI run ${id} for ${process.env.GITHUB_SHA}`);
     return;
   }

@@ -613,7 +613,6 @@
   margin: 20px 0;
 }
 
-/* biome-ignore lint/style/noDescendingSpecificity: fallback Markdown is replaced before the interactive editor mounts. */
 .ts-live-example__source div[class*="language-"] {
   margin: 0;
 }

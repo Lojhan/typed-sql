@@ -28,6 +28,7 @@ import {
 } from "../packages/postgres/dist/packages/postgres/src/index.js";
 import { parseStatement as parsePostgresStatement } from "../packages/postgres/dist/packages/postgres/src/parser/index.js";
 import { calculateSchemaHash, canonicalizeSchemaValue } from "../packages/schema/dist/packages/schema/src/index.js";
+import { sqlite } from "../packages/sqlite/dist/packages/sqlite/src/index.js";
 import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
 import {
   capturePerformanceContext,
@@ -200,6 +201,63 @@ await latency("parser.pathologicalTokens", () => {
   assert.equal(parseMysqlStatement(pathologicalParserSource).kind, "select");
   assert.equal(parseSqliteStatement(pathologicalParserSource).kind, "select");
 });
+
+const sqliteDialect = sqlite();
+const sqliteSnapshot = sqliteDialect.validateSnapshot({
+  formatVersion: 1,
+  dialect: "sqlite",
+  dialectVersion: "1.0.0",
+  tables: {
+    account: {
+      schema: "main",
+      name: "account",
+      kind: "table",
+      strict: true,
+      withoutRowid: false,
+      indexes: [],
+      foreignKeys: [],
+      columns: {
+        id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
+        email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
+        score: { name: "score", databaseType: "REAL", tsType: "number", nullable: true },
+      },
+    },
+  },
+});
+const sqliteQueries = [
+  "SELECT id, email FROM account WHERE id = ?",
+  "SELECT left_account.id, right_account.score FROM account left_account LEFT JOIN account right_account ON left_account.id = right_account.id",
+  "WITH selected AS (SELECT id, email FROM account) SELECT id, email FROM selected",
+  "INSERT INTO account (id, email) VALUES (?, ?) RETURNING id, email",
+  "SELECT id FROM account UNION ALL SELECT id FROM account",
+];
+const sqliteAnalysis = await measureLatency({
+  warmups: 5,
+  samples: 30,
+  operation() {
+    for (const query of sqliteQueries) {
+      const analysis = sqliteDialect.analyze(query, sqliteSnapshot);
+      assert.equal(analysis.diagnostics.length, 0);
+    }
+  },
+});
+const medianSqliteQueriesPerSecond = (sqliteQueries.length * 1_000) / sqliteAnalysis.p50;
+const sqliteBudget = budgets.throughput["grammar.sqliteAnalysis"];
+results["grammar.sqliteAnalysis"] = {
+  unit: "ms",
+  queryCount: sqliteQueries.length,
+  medianQueriesPerSecond: medianSqliteQueriesPerSecond,
+  ...sqliteAnalysis,
+  budget: sqliteBudget,
+};
+assert.ok(
+  medianSqliteQueriesPerSecond >= sqliteBudget.minimumOperationsPerSecond,
+  `SQLite analysis median ${medianSqliteQueriesPerSecond.toFixed(0)} queries/s fell below ${sqliteBudget.minimumOperationsPerSecond}`,
+);
+assert.ok(
+  sqliteAnalysis.p95 < sqliteBudget.maximumBatchP95Milliseconds,
+  `SQLite analysis p95 ${sqliteAnalysis.p95.toFixed(2)}ms exceeded ${sqliteBudget.maximumBatchP95Milliseconds}ms`,
+);
 
 const parserTokenCount = tokenizeSql(parserSource, parserLexicalProfile).length - 1;
 const parserTokenizerIterations = 100;

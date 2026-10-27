@@ -45,6 +45,23 @@ async function writeEditorProject(
   const directory = join(consumer, `editor-${dialect}`);
   const queryFile = join(directory, "query.ts");
   const sqlModule = `@typed-sql/${dialect}`;
+  const mappedList =
+    dialect === "postgres"
+      ? `
+    import type { QueryParameters } from "@typed-sql/core";
+    type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+    declare const accounts: readonly { id: bigint; email: string }[];
+    const mappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
+      (account) => sql.fragment\`(\${account.id}, \${account.email})\`,
+    )} RETURNING id, email\`;
+    const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: bigint; email: string }> = true;
+    const mappedParameters: Equal<QueryParameters<typeof mappedQuery>, readonly (bigint | string)[]> = true;
+    const invalidMappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
+      (account) => sql.fragment\`(\${account.email}, \${account.id})\`,
+    )} RETURNING id\`;
+    void [mappedQuery, mappedRow, mappedParameters, invalidMappedQuery];
+  `
+      : "";
   const source = `
     import { sql } from "${sqlModule}";
     import type { QueryRow } from "@typed-sql/core";
@@ -67,6 +84,7 @@ async function writeEditorProject(
     \`;
     const invalidParameter = sql\`SELECT account.id FROM users AS account WHERE account.id = \${"wrong"}\`;
     void [simpleQuery, rows, cteQuery, conditionalQuery, invalidParameter];
+    ${mappedList}
   `;
   await mkdir(directory);
   await writeFile(
@@ -549,10 +567,16 @@ await describe("packed public packages", async () => {
           cwd: project.directory,
           env: isolatedEnvironment,
         });
-        strict.match(manifestRun.stdout, /Generated 4 queries \(0 unresolved/u);
+        strict.ok(
+          manifestRun.stdout.includes(`Generated ${dialect === "postgres" ? 6 : 4} queries (0 unresolved`),
+          manifestRun.stdout,
+        );
         const manifestSource = await readFile(join(project.directory, ".typed-sql", "queries.json"), "utf8");
         strict.ok(!manifestSource.includes(project.directory));
-        strict.strictEqual((JSON.parse(manifestSource) as { readonly queries: readonly unknown[] }).queries.length, 4);
+        strict.strictEqual(
+          (JSON.parse(manifestSource) as { readonly queries: readonly unknown[] }).queries.length,
+          dialect === "postgres" ? 6 : 4,
+        );
         const uri = pathToFileURL(project.queryFile).href;
         const client = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);
         try {
@@ -568,7 +592,12 @@ await describe("packed public packages", async () => {
           const diagnostics = (await client.request("textDocument/diagnostic", {
             textDocument: { uri },
           })) as {
-            readonly items?: readonly { readonly code?: number | string; readonly message?: string }[];
+            readonly items?: readonly {
+              readonly code?: number | string;
+              readonly severity?: number;
+              readonly message?: string;
+              readonly range: { readonly start: { readonly line: number } };
+            }[];
           };
           strict.ok(
             diagnostics.items?.some((diagnostic) =>
@@ -603,6 +632,22 @@ await describe("packed public packages", async () => {
           strict.ok(conditional.includes("status"), conditional);
 
           if (dialect === "postgres") {
+            const callbackLine = positionAt(project.source, project.source.lastIndexOf("${account.email}")).line;
+            strict.ok(
+              diagnostics.items?.some(
+                (diagnostic) =>
+                  diagnostic.range.start.line === callbackLine && /not assignable/u.test(diagnostic.message ?? ""),
+              ),
+              `swapped mapped-list callback must fail through packed declarations: ${JSON.stringify(diagnostics.items)}`,
+            );
+            strict.deepStrictEqual(
+              diagnostics.items
+                ?.filter((diagnostic) => diagnostic.severity === 1)
+                .map((diagnostic) => diagnostic.range.start.line)
+                .sort((a, b) => a - b),
+              [positionAt(project.source, project.source.indexOf("const invalidParameter")).line, callbackLine],
+              "Only the two intentional parameter errors may fail; mapped row and parameter types must match exactly",
+            );
             const schemaFile = join(project.directory, "schema.json");
             const schema = JSON.parse(await readFile(schemaFile, "utf8")) as {
               tables: { users: { columns: { email: { nullable: boolean } } } };

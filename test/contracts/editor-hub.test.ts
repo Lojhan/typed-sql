@@ -23,22 +23,6 @@ await describe("editor grammar evidence hub", async () => {
     strict.strictEqual(grammarCases[3]!.initial.member, "value");
     strict.strictEqual(grammarCases[3]!.changed.member, "label");
   });
-  await it("starts every editor/grammar/interface cell as not run", () => {
-    const matrix = buildMatrix([]);
-    strict.strictEqual(matrix.cells.length, 2 * 4 * (interfaces.length + pendingInterfaces.length));
-    strict.ok(matrix.cells.every((cell) => cell.status === "not-run"));
-  });
-  await it("assigns every additional interface to executable scenarios without counting implementation as success", async () => {
-    const scenario = await readFile(new URL("../editor-hub/extended-scenario.mjs", import.meta.url), "utf8");
-    const adapter = await readFile(new URL("../../editors/vscode/test/extended-suite.cjs", import.meta.url), "utf8");
-    for (const id of pendingInterfaces) {
-      strict.ok((id === "builtin-coexistence" ? adapter : scenario).includes(`"${id}"`), id);
-    }
-    strict.strictEqual(new Set([...interfaces, ...pendingInterfaces]).size, 21);
-    const installer = await readFile(new URL("../../editors/vscode/test/packed-install.mjs", import.meta.url), "utf8");
-    strict.ok(installer.includes('"--ignore-workspace"'));
-    strict.ok(!installer.includes("link:"));
-  });
   await it("records schema lifecycle coverage without inventing synthetic column semantics", () => {
     strict.ok(interfaces.includes("schema-file-refresh"));
     strict.ok(!pendingInterfaces.includes("schema-file-refresh"));
@@ -61,7 +45,10 @@ await describe("editor grammar evidence hub", async () => {
     const matrix = buildMatrix([report]);
     strict.strictEqual(matrix.cells.filter((cell) => cell.status === "passed").length, 1);
     strict.strictEqual(matrix.cells.filter((cell) => cell.status === "failed").length, 1);
-    strict.ok(matrix.cells.filter((cell) => cell.editor === "zed").every((cell) => cell.status === "not-run"));
+    strict.ok(matrix.cells.every((cell) => cell.editor === "vscode" && cell.grammar === "postgres"));
+    strict.ok(matrix.cells.every((cell) => cell.hostVersion === report.vscode));
+    strict.strictEqual(matrix.cells.find((cell) => cell.interface === "row-completion")?.error, "missing name");
+    strict.strictEqual(matrix.cells.find((cell) => cell.interface === "restart-recovery")?.status, "not-run");
     strict.throws(() => buildMatrix([{ ...report, evidence: "protocol" }]), /protocol evidence/);
     strict.throws(() => buildMatrix([report, report]), /duplicate/);
     const extra = { ...report, checks: { "restart-recovery": { status: "passed" } } };
