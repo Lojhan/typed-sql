@@ -54,7 +54,12 @@ await describe("Zed's application-installed server resolver", async () => {
       await writeFile(join(root, "package.json"), '{"type":"module"}');
       await writeFile(join(root, "packages/language-server/package.json"), "{}");
       await writeFile(join(server, "server.js"), 'console.log(JSON.stringify({source: "development"}));');
-      const shim = join(temporary, process.platform === "win32" ? "path & server.cmd" : "path-server");
+      const bin = join(temporary, "path & server");
+      await mkdir(bin);
+      const shim = join(
+        bin,
+        process.platform === "win32" ? "typed-sql-language-server.cmd" : "typed-sql-language-server",
+      );
       await writeFile(
         shim,
         process.platform === "win32"

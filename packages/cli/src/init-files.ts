@@ -34,12 +34,14 @@ export async function syncInitDirectory(directory: string): Promise<void> {
 
 export async function readInitFile(file: string): Promise<InitFileState | undefined> {
   try {
-    const existing = await lstat(file);
-    if (!existing.isFile() || existing.isSymbolicLink())
-      throw new Error(`Setup requires a regular non-symlink file: ${file}`);
     const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     try {
       const info = await handle.stat();
+      // Validate the opened descriptor, not a path checked before open. On Windows,
+      // where O_NOFOLLOW is unavailable, also reject a link or replaced pathname.
+      const existing = await lstat(file);
+      if (existing.isSymbolicLink() || existing.dev !== info.dev || existing.ino !== info.ino)
+        throw new Error(`Setup requires a regular non-symlink file: ${file}`);
       if (!info.isFile() || info.size > 16 * 1024 * 1024)
         throw new Error(`Setup requires a regular file of at most 16 MiB: ${file}`);
       return { text: await handle.readFile("utf8"), mode: info.mode & 0o777 };

@@ -1,7 +1,7 @@
 const { spawn } = require("node:child_process");
 const { existsSync } = require("node:fs");
 const { createRequire } = require("node:module");
-const { dirname, join, resolve } = require("node:path");
+const { basename, delimiter, dirname, join, resolve } = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 async function main() {
@@ -25,13 +25,21 @@ async function main() {
     if (!existsSync(server)) throw new Error("Installed language server is incomplete");
   } else {
     if (fallback) {
-      const shim = process.platform === "win32" && /\.(?:cmd|bat)$/iu.test(fallback);
-      if (shim && /[%"\r\n]/u.test(fallback))
-        throw new Error("Install the server in the application instead of using a command shim with an unsafe path");
+      const name = basename(fallback).toLowerCase();
+      if (
+        !["typed-sql-language-server", "typed-sql-language-server.cmd", "typed-sql-language-server.exe"].includes(name)
+      )
+        throw new Error("Unexpected PATH language-server executable");
+      // Resolve only the fixed public command. The discovered directory is passed
+      // as PATH data, never interpolated into shell syntax (including on Windows).
       const child = spawn(
-        shim ? (process.env.ComSpec ?? "cmd.exe") : fallback,
-        shim ? ["/d", "/v:off", "/s", "/c", `""${fallback}" --stdio"`] : ["--stdio"],
-        { cwd: root, stdio: "inherit", ...(shim ? { windowsVerbatimArguments: true } : {}) },
+        process.platform === "win32" ? "cmd.exe" : "typed-sql-language-server",
+        process.platform === "win32" ? ["/d", "/v:off", "/s", "/c", "typed-sql-language-server --stdio"] : ["--stdio"],
+        {
+          cwd: root,
+          stdio: "inherit",
+          env: { ...process.env, PATH: `${dirname(fallback)}${delimiter}${process.env.PATH ?? ""}` },
+        },
       );
       child.once("error", () => process.exit(1));
       child.once("exit", (code) => process.exit(code ?? 1));

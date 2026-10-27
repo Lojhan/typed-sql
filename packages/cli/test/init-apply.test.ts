@@ -24,6 +24,26 @@ async function fixture(run: (root: string, boundary: string) => Promise<void>) {
 }
 
 await describe("explicit setup application and recovery", async () => {
+  await it("ignores executable overrides in package-manager environment variables", async () => {
+    await fixture(async (root) => {
+      const override = join(root, "npm-cli.js");
+      await writeFile(override, 'throw new Error("Untrusted executable override ran");');
+      const previousScript = process.env.npm_execpath;
+      const previousShell = process.env.ComSpec;
+      try {
+        process.env.npm_execpath = override;
+        process.env.ComSpec = override;
+        const plan = await planInit({ cwd: root, grammar: "sqlite", "package-manager": "npm" }, "2.1.0");
+        await installInitDependencies(plan, false);
+      } finally {
+        if (previousScript === undefined) delete process.env.npm_execpath;
+        else process.env.npm_execpath = previousScript;
+        if (previousShell === undefined) delete process.env.ComSpec;
+        else process.env.ComSpec = previousShell;
+      }
+    });
+  });
+
   await it("installs with lifecycle scripts disabled unless explicitly authorized", async () => {
     await fixture(async (root) => {
       await writeFile(

@@ -10,28 +10,20 @@ export async function installInitDependencies(plan: InitPlan, allowScripts: bool
     ...process.env,
     ...(allowScripts ? {} : { YARN_ENABLE_SCRIPTS: "false", YARN_IGNORE_SCRIPTS: "true" }),
   };
-  const npmScript = process.env.npm_execpath;
-  const matchingScript =
-    npmScript !== undefined &&
-    /\.(?:c|m)?js$/u.test(npmScript) &&
-    (plan.packageManager === "pnpm"
-      ? /pnpm/iu.test(npmScript)
+  // Never execute npm_execpath or ComSpec supplied by the caller's environment.
+  const manager =
+    plan.packageManager === "pnpm"
+      ? "pnpm"
       : plan.packageManager === "npm"
-        ? /npm-cli/iu.test(npmScript)
+        ? "npm"
         : plan.packageManager === "yarn"
-          ? /yarn/iu.test(npmScript)
-          : false);
-  const command = matchingScript
-    ? process.execPath
-    : process.platform === "win32"
-      ? (process.env.ComSpec ?? "cmd.exe")
-      : plan.packageManager;
-  // The Windows command is made entirely from fixed, validated manager names
-  // and flags. No project paths, package names, or user text enter cmd syntax.
-  const commandArgs = matchingScript
-    ? [npmScript!, ...args]
-    : process.platform === "win32"
-      ? ["/d", "/s", "/c", [plan.packageManager, ...args].join(" ")]
-      : args;
+          ? "yarn"
+          : plan.packageManager === "bun"
+            ? "bun"
+            : undefined;
+  if (manager === undefined) throw new Error("Unsupported package manager");
+  const command = process.platform === "win32" ? "cmd.exe" : manager;
+  // Only fixed manager names and flags enter Windows command syntax.
+  const commandArgs = process.platform === "win32" ? ["/d", "/v:off", "/s", "/c", [manager, ...args].join(" ")] : args;
   await execFile(command, commandArgs, { cwd: plan.root, env, timeout: 600_000, maxBuffer: 8 * 1024 * 1024 });
 }

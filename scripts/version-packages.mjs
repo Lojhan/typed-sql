@@ -124,6 +124,7 @@ export async function versionPackages(options = {}) {
     const candidate = validateReleaseManifest({ ...previous, channel: "rc", npmTag: "next", series, packages: names });
     const target = await normalizeReleaseCandidateVersions(workspace, candidate, original, 0);
     await writeFile(join(workspace, "release-manifest.json"), `${JSON.stringify(candidate, null, 2)}\n`);
+    await runCommand("pnpm", ["exec", "biome", "format", "--write", "release-manifest.json"], workspace);
     await runCommand(process.execPath, [changesetsCli, "pre", "enter", "rc"], workspace);
     await runCommand("pnpm", ["install", "--lockfile-only", "--offline", "--ignore-scripts"], workspace);
     process.stdout.write(`Prepared coherent release candidate ${target}\n`);
