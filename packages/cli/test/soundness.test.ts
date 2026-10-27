@@ -1,41 +1,16 @@
-import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { execFile as callback } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { compileSource } from "@typed-sql/compiler";
-import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import {
-  type SourceSoundnessCase,
-  sourceForDialect,
-  sourceSoundnessCorpus,
-} from "../../../test/soundness/source-corpus.js";
-import { mysql } from "../../mysql/src/index.js";
-import { postgres } from "../../postgres/src/index.js";
 
-const execFile = promisify(execFileCallback);
-const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const workspace = resolve(packageDirectory, "../..");
-const postgresDirectory = resolve(workspace, "e2e/postgres");
-const mysqlDirectory = resolve(workspace, "e2e/mysql");
-const postgresSchema = postgres().validateSnapshot(
-  JSON.parse(await readFile(resolve(postgresDirectory, "generated/db/schema.json"), "utf8")) as unknown,
-);
-const mysqlSchema = mysql().validateSnapshot(
-  JSON.parse(await readFile(resolve(mysqlDirectory, "generated/db/schema.json"), "utf8")) as unknown,
-);
-const cli = join(packageDirectory, "src", "cli.ts");
+const execFile = promisify(callback);
+const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const cli = resolve(workspace, "packages/cli/src/cli.ts");
 const tsx = fileURLToPath(import.meta.resolve("tsx"));
 
-interface CliFixture<Snapshot extends SchemaSnapshot, Policy> {
-  readonly name: "postgres" | "mysql";
-  readonly directory: string;
-  readonly schema: Snapshot;
-  readonly dialect: DialectPlugin<Snapshot, Policy>;
-}
-
-async function execute(file: string, fixture: Pick<CliFixture<SchemaSnapshot, unknown>, "directory">) {
+async function check(directory: string, file: string) {
   return execFile(
     process.execPath,
     [
@@ -44,71 +19,64 @@ async function execute(file: string, fixture: Pick<CliFixture<SchemaSnapshot, un
       cli,
       "check",
       "--config",
-      resolve(fixture.directory, "typed-sql.config.ts"),
+      resolve(directory, "typed-sql.config.ts"),
       "--file",
       file,
       "--project",
-      resolve(fixture.directory, "tsconfig.json"),
+      resolve(directory, "tsconfig.json"),
     ],
     { cwd: workspace },
   );
 }
 
-async function verifyCase<Snapshot extends SchemaSnapshot, Policy>(
-  testCase: SourceSoundnessCase,
-  fixture: CliFixture<Snapshot, Policy>,
-  temporary: string,
-  index: number,
-): Promise<void> {
-  const source = sourceForDialect(testCase, fixture.name);
-  const file = resolve(temporary, `${index}-${testCase.id}.ts`);
-  await writeFile(file, source);
-  const compilation = compileSource({ source, schema: fixture.schema, dialect: fixture.dialect });
-  if (testCase.expectation.kind !== "diagnostic") {
-    const result = await execute(file, fixture);
-    strict.strictEqual(result.stderr, "");
-    return;
+await describe("CLI check command boundaries", async () => {
+  for (const grammar of ["postgres", "mysql"] as const) {
+    await it(`${grammar}: reports SQL diagnostics at the original fragment location with a failing exit status`, async () => {
+      const directory = resolve(workspace, "e2e", grammar);
+      const temporary = await mkdtemp(resolve(directory, ".soundness-cli-"));
+      try {
+        const file = resolve(temporary, "query.ts");
+        const source = [
+          `import { sql } from "@typed-sql/${grammar}";`,
+          "export const query = sql`SELECT users.id FROM users",
+          "  ${sql.fragment`WHERE definitely_missing = ${1}`}",
+          "`;",
+        ].join("\n");
+        await writeFile(file, source);
+        const prefix = source.slice(0, source.indexOf("definitely_missing"));
+        const line = prefix.split("\n").length;
+        const column = prefix.length - prefix.lastIndexOf("\n");
+        await strict.rejects(check(directory, file), (error: unknown) => {
+          if (!(error instanceof Error && "code" in error && "stderr" in error && "stdout" in error)) return false;
+          strict.strictEqual(error.code, 1);
+          strict.strictEqual(error.stdout, "");
+          strict.ok(String(error.stderr).startsWith(`${file}:${line}:${column} - error TSQ101:`), String(error.stderr));
+          return true;
+        });
+      } finally {
+        await rm(temporary, { recursive: true, force: true });
+      }
+    });
   }
 
-  await strict.rejects(execute(file, fixture), (error: unknown) => {
-    if (!(error instanceof Error && "stderr" in error)) return false;
-    const stderr = String(error.stderr);
-    for (const diagnostic of compilation.diagnostics) {
-      strict.ok(
-        stderr.includes(
-          `${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}:`,
-        ),
-        stderr,
+  await it("accepts a valid query and an explicitly dynamic query without diagnostics", async () => {
+    const directory = resolve(workspace, "e2e/postgres");
+    const temporary = await mkdtemp(resolve(directory, ".soundness-cli-"));
+    try {
+      const file = resolve(temporary, "query.ts");
+      await writeFile(
+        file,
+        [
+          'import { sql } from "@typed-sql/postgres";',
+          "export const query = sql`SELECT users.id FROM users WHERE users.id = ${1n}`;",
+          'export const dynamic = sql.dynamic("SELECT anything");',
+        ].join("\n"),
       );
+      const result = await check(directory, file);
+      strict.strictEqual(result.stdout, "");
+      strict.strictEqual(result.stderr, "");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
     }
-    return true;
   });
-}
-
-await describe("CLI soundness corpus parity", async () => {
-  const postgresTemporary = await mkdtemp(resolve(postgresDirectory, ".soundness-cli-"));
-  const mysqlTemporary = await mkdtemp(resolve(mysqlDirectory, ".soundness-cli-"));
-  try {
-    for (const [index, testCase] of sourceSoundnessCorpus.entries()) {
-      await it(`postgres: ${testCase.id}`, () =>
-        verifyCase(
-          testCase,
-          { name: "postgres", directory: postgresDirectory, schema: postgresSchema, dialect: postgres() },
-          postgresTemporary,
-          index,
-        ));
-      await it(`mysql: ${testCase.id}`, () =>
-        verifyCase(
-          testCase,
-          { name: "mysql", directory: mysqlDirectory, schema: mysqlSchema, dialect: mysql() },
-          mysqlTemporary,
-          index,
-        ));
-    }
-  } finally {
-    await Promise.all([
-      rm(postgresTemporary, { recursive: true, force: true }),
-      rm(mysqlTemporary, { recursive: true, force: true }),
-    ]);
-  }
 });

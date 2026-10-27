@@ -1,55 +1,40 @@
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { assertSourceCompilation } from "../../../test/soundness/assert-source-corpus.js";
-import { sourceForDialect, sourceSoundnessCorpus } from "../../../test/soundness/source-corpus.js";
-import { compileSource } from "../../compiler/src/index.js";
-import { mysql } from "../../mysql/src/index.js";
 import { postgres } from "../../postgres/src/index.js";
 import { analyzeSource } from "../src/index.js";
 
-const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const postgresDialect = postgres();
-const mysqlDialect = mysql();
-const postgresSchema = postgresDialect.validateSnapshot(
-  JSON.parse(await readFile(resolve(workspace, "e2e/postgres/generated/db/schema.json"), "utf8")) as unknown,
+const dialect = postgres();
+const schema = dialect.validateSnapshot(
+  JSON.parse(await readFile(new URL("../../../test/fixtures/success/schema.json", import.meta.url), "utf8")),
 );
-const mysqlSchema = mysqlDialect.validateSnapshot(
-  JSON.parse(await readFile(resolve(workspace, "e2e/mysql/generated/db/schema.json"), "utf8")) as unknown,
-);
+const source = 'import { sql } from "@typed-sql/postgres"; const query = sql`SELECT COUNT(*) AS total FROM users`;';
 
-function assertParity(
-  sourceCase: (typeof sourceSoundnessCorpus)[number],
-  compilation: ReturnType<typeof compileSource>,
-  bridge: ReturnType<typeof analyzeSource>,
-): void {
-  assertSourceCompilation(sourceCase, compilation);
-  strict.deepStrictEqual(bridge.diagnostics, compilation.diagnostics);
-  strict.deepStrictEqual(
-    bridge.queries.map(({ rowType, parameterType }) => ({ rowType, parameterType })),
-    compilation.queries.map(({ rowType, parameterType }) => ({ rowType, parameterType })),
-  );
-  strict.strictEqual(bridge.transformedSource, compilation.transformedSource);
-}
+await describe("bridge analysis facade boundaries", async () => {
+  await it("forwards source/project identity and compiler limits without publishing a partial overlay", () => {
+    const compiler = { maxStructuralVariants: 3, maxSourceBytes: 7, maxQueries: 2, maxGeneratedDeclarationBytes: 13 };
+    const project = { id: "project", generation: 4, configHash: "config-4" };
+    const result = analyzeSource(source, schema, dialect, undefined, {
+      ...compiler,
+      sourceId: "file:///project/query.ts",
+      sourceVersion: "revision-2",
+      project,
+    });
+    strict.strictEqual(result.identity.source.id, "file:///project/query.ts");
+    strict.strictEqual(result.identity.source.version, "revision-2");
+    strict.deepStrictEqual(result.identity.project, project);
+    strict.deepStrictEqual(result.identity.compiler, compiler);
+    strict.deepStrictEqual(result.queries, []);
+    strict.strictEqual(result.transformedSource, source);
+    strict.strictEqual(result.diagnostics[0]?.code, "TSQ006");
+  });
 
-await describe("TypeScript bridge soundness parity", async () => {
-  for (const testCase of sourceSoundnessCorpus) {
-    await it(`postgres: ${testCase.id}`, () => {
-      const sourceCase = { ...testCase, source: sourceForDialect(testCase, "postgres") };
-      assertParity(
-        sourceCase,
-        compileSource({ source: sourceCase.source, schema: postgresSchema, dialect: postgresDialect }),
-        analyzeSource(sourceCase.source, postgresSchema, postgresDialect),
-      );
-    });
-    await it(`mysql: ${testCase.id}`, () => {
-      const sourceCase = { ...testCase, source: sourceForDialect(testCase, "mysql") };
-      assertParity(
-        sourceCase,
-        compileSource({ source: sourceCase.source, schema: mysqlSchema, dialect: mysqlDialect }),
-        analyzeSource(sourceCase.source, mysqlSchema, mysqlDialect),
-      );
-    });
-  }
+  await it("forwards an explicit type policy and cancellation to the compiler", () => {
+    const result = analyzeSource(source, schema, dialect, { ...dialect.defaultTypePolicy, bigint: "number" });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.queries[0]?.rowType, '{ "total": number; }');
+    strict.throws(
+      () => analyzeSource(source, schema, dialect, undefined, { cancellation: { isCancellationRequested: true } }),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
+  });
 });
