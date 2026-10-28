@@ -512,22 +512,20 @@ await describe("MySQL protocol streaming", async () => {
     strict.deepStrictEqual(pool.connection.commands, ["BEGIN", "SAVEPOINT typed_sql_2", "COMMIT", "RELEASE"]);
   });
 
-  await it("reuses prepared rendering metadata for stream execution", async () => {
+  await it("executes the prepared query identity through stream decoding", async () => {
     const pool = new FakeStreamingPool();
     const database = createMySqlDatabase({ pool });
     const source = sql<AccountRow>`SELECT id, active FROM accounts WHERE id >= ${1n}`;
-    let segmentReads = 0;
-    const observed = new Proxy(source, {
-      get(target, property, receiver) {
-        if (property === "segments") segmentReads += 1;
-        return Reflect.get(target, property, receiver);
-      },
+    const prepared = database.prepare("stream-accounts", () => source);
+    const query = prepared();
+    strict.strictEqual(query, source);
+    const stream = database.stream(query);
+    strict.deepStrictEqual(await stream.next(), { done: false, value: { id: 9007199254740993n, active: true } });
+    strict.deepStrictEqual(pool.connection.streamCalls[0], {
+      sql: "SELECT id, active FROM accounts WHERE id >= ?",
+      values: ["1"],
+      batchSize: 100,
     });
-    const prepared = database.prepare("stream-accounts", () => observed);
-    const stream = database.stream(prepared());
-    strict.strictEqual(segmentReads, 1);
-    await stream.next();
-    strict.strictEqual(segmentReads, 1);
     await stream.close();
   });
 });

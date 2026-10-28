@@ -576,6 +576,146 @@ class CatalogPool implements PostgresIntrospectionPool {
 }
 
 await describe("PostgreSQL schema provider", async () => {
+  await it("requires validated enforcement and exact pg_jsonschema extension dependency before declaring JSON", async () => {
+    const document = JSON.stringify({
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+      additionalProperties: false,
+    });
+    const call = `extensions.jsonb_matches_schema('${document}'::json, id)`;
+    const cases = [
+      { predicate: call, validated: true, enforced: true, routines: ["extensions.jsonb_matches_schema"], valid: true },
+      {
+        predicate: `jsonb_matches_schema('${document}'::json,id)`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: true,
+      },
+      {
+        predicate: `"extensions"."jsonb_matches_schema"('${document}'::json,"id")`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: true,
+      },
+      {
+        predicate: `extensions.jsonb_matches_schema('{"allOf":[]}'::json,id)`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+      {
+        predicate: `extensions.jsonb_matches_schema('${document}'::json,missing)`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+      {
+        predicate: `extensions.jsonb_matches_schema('${document}'::json,users.id)`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+
+      {
+        predicate: call,
+        validated: false,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+      {
+        predicate: call,
+        validated: true,
+        enforced: false,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+      { predicate: call, validated: true, enforced: true, routines: [], valid: false },
+      { predicate: call, validated: true, enforced: true, routines: ["shadow.jsonb_matches_schema"], valid: false },
+      {
+        predicate: `${call} OR TRUE`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+      {
+        predicate: `extensions.jsonb_matches_schema(role, id)`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+      {
+        predicate: `extensions.jsonb_matches_schema('invalid'::json, id)`,
+        validated: true,
+        enforced: true,
+        routines: ["extensions.jsonb_matches_schema"],
+        valid: false,
+      },
+    ];
+    for (const item of cases) {
+      const base = new CatalogClient();
+      const client: PostgresIntrospectionClient = {
+        release() {
+          base.release();
+        },
+        query: async <Row extends Record<string, unknown>>(
+          text: string,
+          values?: readonly unknown[],
+        ): Promise<PostgresQueryResult<Row>> => {
+          if (text.includes("AS json_schema_routines"))
+            return {
+              rows: [
+                {
+                  schema_name: "public",
+                  table_name: "users",
+                  constraint_name: "document_shape",
+                  constraint_type: "c",
+                  columns: ["id"],
+                  deferrable: false,
+                  initially_deferred: false,
+                  predicate_expression: item.predicate,
+                  validated: item.validated,
+                  enforced: item.enforced,
+                  json_schema_routines: item.routines,
+                },
+              ] as unknown as Row[],
+            };
+          const result = await base.query<Row>(text, values);
+          if (text.includes("pg_catalog.pg_attribute"))
+            return {
+              rows: result.rows.map((row) =>
+                row.column_name === "id"
+                  ? { ...row, database_type: "jsonb", type_identity: "pg:3802", is_array: false }
+                  : row,
+              ) as Row[],
+            };
+          return result;
+        },
+      };
+      const snapshot = await new PostgresSchemaProvider({ client }).introspect({});
+      strict.strictEqual(base.released, false);
+      const declaration = snapshot.relations.users?.columns.id?.jsonDeclaration;
+      strict.strictEqual(declaration !== undefined, item.valid, item.predicate);
+      strict.deepStrictEqual(snapshot.tables.users?.columns.id?.jsonDeclaration, declaration);
+      if (item.valid)
+        strict.deepStrictEqual(declaration, {
+          source: "database",
+          shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+        });
+    }
+    strict.ok(postgresCatalogQueries.constraints(14).includes("true AS enforced"));
+    strict.ok(postgresCatalogQueries.constraints(18).includes("con.conenforced AS enforced"));
+    strict.ok(postgresCatalogQueries.constraints(18).includes("e.extname = 'pg_jsonschema'"));
+  });
+
   await it("canonicalizes server-deparsed expression evidence before hashing", () => {
     strict.strictEqual(fingerprintPostgresExpressionSql("((age > 0))"), fingerprintPostgresExpressionSql("age>0"));
     strict.notStrictEqual(fingerprintPostgresExpressionSql("age > 0"), fingerprintPostgresExpressionSql("age > 1"));
@@ -602,7 +742,7 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.relations.users?.columns.id?.identity, "by-default");
     strict.strictEqual(snapshot.relations.users?.kind, "table");
     strict.strictEqual(snapshot.tables.users?.columns.role?.tsType, '"user" | "admin"');
-    strict.strictEqual(snapshot.tables.users?.columns.tags?.tsType, "readonly (string)[]");
+    strict.strictEqual(snapshot.tables.users?.columns.tags?.tsType, "readonly (string | null)[]");
     strict.strictEqual(snapshot.tables.users?.columns.tags?.array, true);
     strict.strictEqual(snapshot.tables.users?.columns.budget?.tsType, "string");
     strict.strictEqual(snapshot.tables.users?.columns.display_name?.tsType, "string");

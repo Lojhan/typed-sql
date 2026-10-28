@@ -1,0 +1,86 @@
+{
+  "context": {
+    "commit": "c997a06443f073392fe7cdfbdb4733866ea65829",
+    "diffHash": "69641fcbe95ec1169808b02ea6dd17d63de4ea468f4802fe2fccb6d5731cfe59",
+    "node": "v24.10.0",
+    "platform": "darwin",
+    "release": "27.0.0",
+    "architecture": "arm64",
+    "cpu": "Apple M3 Pro",
+    "versions": {
+      "typedSql": "2.2.0",
+      "reylo": "0.6.0",
+      "reyloSqlite": "0.6.0"
+    },
+    "trials": 1,
+    "initialSeed": 29,
+    "profiles": "/private/tmp/typed-sql-runtime-performance/benchmarks/runtime-comparison/results/sqlite-BxVAbO/profiles",
+    "profileMode": "alloc"
+  },
+  "methodology": "Separate fresh processes/projects avoid competing .sql loaders; deterministic shuffled candidate order per trial. Cold startup is process spawn to first validated query report, including loader imports/analysis but excluding fixture creation; first-call latency separately excludes loader/import/setup. Warm samples exclude imports/setup/warmup/assertions. p50/p95 must be computed from batch-average raw samples, not individual request-tail latency. One SQLite connection, so concurrency means queued logical calls, not parallel SQLite I/O. All candidates return equivalent rows; JSON text is parsed within timed operations where the driver/frontend does not decode it. Reylo freshness behavior is unchanged. Heap-used delta is retained-heap noise, not allocated bytes; allocation/CPU attribution comes from separate V8 profiles, whose timings are not comparable to ordinary runs.",
+  "results": [
+    {
+      "trial": 0,
+      "phase": "warm",
+      "candidate": "typed-prepared",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 5,
+      "iterations": 1000,
+      "millisecondsPerOperation": [
+        0.009547542000000008, 0.008959749999999992, 0.009121375000000001, 0.008839124999999996, 0.008916374999999989
+      ],
+      "cpuMicroseconds": {
+        "user": 38700,
+        "system": 16024
+      },
+      "heapUsedDeltaBytes": 608368,
+      "sqliteVersion": "3.50.4",
+      "startupMilliseconds": 53.118291000000006,
+      "firstCallMilliseconds": 0.7643330000000006
+    },
+    {
+      "trial": 0,
+      "phase": "warm",
+      "candidate": "typed-prepared",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 5,
+      "iterations": 1000,
+      "millisecondsPerOperation": [
+        0.024155291999999995, 0.023653041000000003, 0.022584208000000005, 0.023763541000000016, 0.022441417
+      ],
+      "cpuMicroseconds": {
+        "user": 111514,
+        "system": 17764
+      },
+      "heapUsedDeltaBytes": 6617904,
+      "sqliteVersion": "3.50.4",
+      "startupMilliseconds": 46.25875000000002,
+      "firstCallMilliseconds": 0.757832999999998
+    },
+    {
+      "trial": 0,
+      "phase": "warm",
+      "candidate": "typed-prepared",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 5,
+      "iterations": 1000,
+      "millisecondsPerOperation": [
+        0.019499250000000003, 0.019139416000000003, 0.018285333000000008, 0.017442750000000003, 0.016706416000000005
+      ],
+      "cpuMicroseconds": {
+        "user": 83606,
+        "system": 15927
+      },
+      "heapUsedDeltaBytes": 952168,
+      "sqliteVersion": "3.50.4",
+      "startupMilliseconds": 42.97525000000002,
+      "firstCallMilliseconds": 0.8082080000000005
+    }
+  ]
+}

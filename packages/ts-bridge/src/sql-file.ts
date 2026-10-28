@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { DEFAULT_MAX_GENERATED_DECLARATION_BYTES, DEFAULT_MAX_SOURCE_BYTES } from "@typed-sql/compiler";
+import {
+  buildQueryValuePlan,
+  DEFAULT_MAX_GENERATED_DECLARATION_BYTES,
+  DEFAULT_MAX_SOURCE_BYTES,
+} from "@typed-sql/compiler";
 import { type LoadedConfig, loadConfig } from "@typed-sql/config";
 import { parameterTypeLiteral, rowTypeLiteral, type SchemaSnapshot, type SqlDiagnostic } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
@@ -59,7 +63,12 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
   });
   if (Buffer.byteLength(content) > DEFAULT_MAX_SOURCE_BYTES)
     diagnostics.push(unavailable("SQL file exceeds the source size limit."));
-  const analysis = diagnostics.length === 0 ? dialect.analyze(content, project.snapshot, policy) : undefined;
+  if (dialect.runtimeSqlModule === undefined)
+    diagnostics.push(unavailable("SQL files require a grammar portable runtime entrypoint."));
+  const analysis =
+    diagnostics.length === 0
+      ? dialect.analyze(content, project.snapshot, policy, { runtimeValidation: true })
+      : undefined;
   diagnostics.push(...(analysis?.diagnostics ?? []));
   const parts: string[] = [];
   let count = 0;
@@ -109,9 +118,11 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
   }
   const failed = diagnostics.some((item) => item.severity === "error");
   const row = analysis?.resultKind === "command" ? "never" : rowTypeLiteral(analysis?.columns ?? []);
-  const parameters = parameterTypeLiteral(count, analysis?.parameters ?? []);
+  const parameters = parameterTypeLiteral(count, analysis?.parameters ?? [], dialect.runtimeSqlModule);
   const type = failed ? "never" : `(...values: ${parameters}) => Query<${row}, ${parameters}>`;
-  const text = `import type { Query } from "@typed-sql/core";\ndeclare const query: ${type};\nexport default query;\n`;
+  const text = failed
+    ? "declare const query: never; export default query;"
+    : `import type { Query, QueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
   const runtime = failed
     ? `export default undefined;\nthrow new SyntaxError(${JSON.stringify(
         diagnostics
@@ -119,12 +130,14 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
           .map((item) => `${item.code} (${item.range.line}:${item.range.column}): ${item.message}`)
           .join("\n"),
       )});\n`
-    : `import { sql } from ${JSON.stringify(dialect.sqlModule)};
-const parts = ${JSON.stringify(parts)};
+    : `import { sql } from ${JSON.stringify(dialect.runtimeSqlModule ?? dialect.sqlModule)};
+import { defineQueryValuePlan, withQueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};
+export const valuePlan = defineQueryValuePlan(${JSON.stringify(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy, count))});
+const parts = ${JSON.stringify(parts)}.map((text) => sql.raw(text));
 export default function query(...values) {
   if (values.length !== ${count}) throw new TypeError("SQL file expects ${count} positional parameters");
-  const fragments = parts.flatMap((text, index) => index === 0 ? [sql.raw(text)] : [sql.value(values[index - 1]), sql.raw(text)]);
-  return sql\`\${sql.join(fragments, sql.empty)}\`;
+  const fragments = parts.flatMap((part, index) => index === 0 ? [part] : [sql.value(values[index - 1]), part]);
+  return withQueryValuePlan(sql\`\${sql.join(fragments, sql.empty)}\`, valuePlan);
 }
 `;
   if (

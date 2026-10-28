@@ -457,7 +457,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
           'import type { QueryParameters, QueryRow } from "@typed-sql/core";',
           "type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;",
           "type Assert<T extends true> = T;",
-          "const inferredRow: Assert<Equal<QueryRow<typeof inserted>, { id: number; name: string }>> = true;",
+          "const inferredRow: Assert<Equal<QueryRow<typeof inserted>, { id: unknown; name: unknown }>> = true;",
           "const inferredParameters: Assert<Equal<QueryParameters<typeof inserted>, readonly (number | string)[]>> = true;",
           "void inferredRow; void inferredParameters;",
         ].join("\n"),

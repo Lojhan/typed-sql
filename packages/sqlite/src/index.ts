@@ -1,11 +1,13 @@
 import {
   applyDialectCapabilityStates,
   DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
 import { assertSqliteServerEvidence, resolveSqliteCapabilities, SQLITE_CAPABILITIES } from "./capabilities.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { sqliteRuntimeValueType } from "./query.js";
 import { resolveSqliteStatement } from "./resolver.js";
 import { analyzeSqliteSemantics } from "./semantics.js";
 import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot } from "./snapshot.js";
@@ -23,9 +25,11 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
     id: "sqlite",
     grammarVersion: SQLITE_DIALECT_VERSION,
     sqlModule: "@typed-sql/sqlite",
+    runtimeSqlModule: "@typed-sql/sqlite/query",
     capabilities: SQLITE_CAPABILITIES,
     resolveCapabilities: resolveSqliteCapabilities,
     defaultTypePolicy,
+    runtimeValueType: sqliteRuntimeValueType,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("SQLite parameter indexes start at 1");
       return "?";
@@ -38,10 +42,18 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
         .filter((token) => token.kind === "parameter")
         .map((token) => ({ index: Number(token.value), range: token.range }));
     },
-    analyze(sql: string, snapshot: SqliteSchemaSnapshot, policy = defaultTypePolicy) {
+    analyze(
+      sql: string,
+      snapshot: SqliteSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
       try {
         const statement = parseStatement(sql);
-        const resolved = resolveSqliteStatement(statement, snapshot, { typePolicy: policy });
+        const resolved = resolveSqliteStatement(statement, snapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
         const analysis = {
           ...resolved,
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")

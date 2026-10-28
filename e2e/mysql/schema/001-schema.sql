@@ -44,3 +44,13 @@ CREATE TABLE codec_fidelity (
 
 CREATE FUNCTION user_count() RETURNS BIGINT DETERMINISTIC
 RETURN (SELECT COUNT(*) FROM users);
+
+CREATE TABLE checked_json (
+  document JSON NOT NULL,
+  CONSTRAINT document_shape CHECK (JSON_SCHEMA_VALID('{"type":"object","required":["id"],"properties":{"id":{"type":"number"}},"additionalProperties":false}', document))
+);
+
+CREATE TABLE unchecked_json (
+  document JSON NOT NULL,
+  CONSTRAINT unchecked_document_shape CHECK (JSON_SCHEMA_VALID('{"type":"object","required":["id"],"properties":{"id":{"type":"number"}},"additionalProperties":false}', document)) NOT ENFORCED
+);

@@ -1,6 +1,7 @@
 import {
   applyDialectCapabilityStates,
   DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
@@ -8,6 +9,7 @@ import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
 import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { postgresRuntimeValueType } from "./query.js";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
@@ -91,9 +93,11 @@ export function postgres(
     id: "postgres",
     grammarVersion: POSTGRES_DIALECT_VERSION,
     sqlModule: "@typed-sql/postgres",
+    runtimeSqlModule: "@typed-sql/postgres/query",
     capabilities: POSTGRES_CAPABILITIES,
     resolveCapabilities: capabilitiesFor,
     defaultTypePolicy,
+    runtimeValueType: postgresRuntimeValueType,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("PostgreSQL parameter indexes start at 1");
       return `$${index}`;
@@ -106,7 +110,12 @@ export function postgres(
         .filter((token) => token.kind === "parameter")
         .map((token) => ({ index: Number(token.value), range: token.range }));
     },
-    analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
+    analyze(
+      sql: string,
+      snapshot: PostgresSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
       try {
         const statement = parseStatement(sql);
         let extensions: ReturnType<typeof resolvePostgresExtensionManifests> | undefined;
@@ -119,7 +128,10 @@ export function postgres(
         }
         const analysisSnapshot = extensions?.snapshot ?? snapshot;
         const extensionIssues = extensions?.issues ?? [];
-        const resolved = resolveStatement(statement, analysisSnapshot, { typePolicy: policy });
+        const resolved = resolveStatement(statement, analysisSnapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
         const analysis = {
           ...resolved,
           diagnostics: [

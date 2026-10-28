@@ -12,7 +12,7 @@ The factory returns the same `Query<Row, Parameters>` accepted by `database.all`
 `maybeOne`. Inline `sql` templates continue to work through the existing compiler/editor workflow.
 
 This frontend is tested with TypeScript **7.1.0-beta**. Its optional runtime loader requires **Node.js
-24 or newer** and an ESM application. TypeScript 7.0 and older do not support this content mapper.
+24.11.1 or newer** and an ESM application. Node.js 25 requires 25.1.0 or newer. TypeScript 7.0 and older do not support this content mapper.
 
 ## Configure checking
 
@@ -113,7 +113,45 @@ Restart the process after runtime configuration or snapshot changes. The compile
 Deploy the original `.sql` assets at the paths imported by your JavaScript, together with the
 typed-sql configuration, its local dependencies, and the snapshot. For example, an emitted
 `dist/main.js` importing `./find-user.sql` needs `dist/find-user.sql`. Your application build must
-copy these assets; the mapper does not copy them. A bundler integration is not included.
+copy these assets; the mapper does not copy them. A Vite build can instead compile SQL into the application bundle.
+
+## Build for Workers and other bundled runtimes
+
+Use the build-only Vite integration when the deployed runtime cannot load configuration or SQL
+files. Install Vite and the bridge as development dependencies, and the selected grammar plus
+`@typed-sql/adapters` as application dependencies.
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { typedSql } from "@typed-sql/ts-bridge/vite";
+
+export default defineConfig({
+  plugins: [typedSql()],
+  ssr: { target: "webworker", noExternal: true },
+  build: { ssr: "src/worker.ts" },
+});
+```
+
+The plugin compiles `.sql` modules and inline TypeScript templates during the build. Generated
+queries contain static SQL and checked value plans. Import inline `sql` and the renderer from the
+grammar's portable entrypoint, such as `@typed-sql/sqlite/query`. Configuration and snapshots remain
+build inputs: the Worker bundle does not need the compiler, filesystem, or configuration loader.
+Keep the bridge/plugin out of application runtime imports.
+
+Each `.sql` module also exports `valuePlan`; its `typePolicyHash` configures a matching portable
+adapter profile. For inline queries, use `getQueryValuePlan(query)` from `@typed-sql/core`.
+See [portable adapters](../reference/portable-adapters.md) for D1 and other explicit driver factories.
+
+The plugin supports static queries, bounded conditional fragments, and nonempty direct fragment maps
+in `.ts` and `.tsx` sources. Runtime selectors match actual SQL structure using the grammar's portable
+renderer, check every repeated item, and expand parameter contracts for the actual list length.
+Result columns in dynamic repeated queries are conservatively widened to nullable `unknown`:
+representative list lengths cannot prove projection dependence, indexing, or nullability at every cardinality. Unsupported combinations
+report a diagnostic instead of emitting an unchecked type. Empty or changed fragment structures are rejected.
+Continue using
+`tsc --runExternalCode` for typechecking; the Vite plugin checks SQL but does not replace TypeScript.
+Schema and imported configuration files are registered with Vite's watch graph.
 
 ## Editor and tooling boundaries
 

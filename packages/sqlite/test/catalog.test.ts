@@ -116,7 +116,7 @@ await describe("SQLite versioned catalogs", async () => {
     );
     strict.strictEqual(
       parameterTypeLiteral(1, table.parameters),
-      "readonly [bigint | number | string | Uint8Array | null]",
+      'readonly [bigint | number | string | Uint8Array | null | import("@typed-sql/core").JsonInput<unknown>]',
     );
     const star = sqlite().analyze("SELECT * FROM json_each('{}')", at("3.53.0"));
     strict.deepStrictEqual(

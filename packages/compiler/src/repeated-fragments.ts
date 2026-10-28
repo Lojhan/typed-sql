@@ -21,6 +21,7 @@ export function expandRepeatedFragments(
   query: ExtractedQuery,
   placeholder: (index: number) => string,
   maximumItems = DEFAULT_MAX_FRAGMENT_LIST_ITEMS,
+  representativeItems?: 1 | 2,
 ): RepeatedFragmentExpansion | undefined {
   const discoveries = query.interpolations.map((interpolation) =>
     discoverRepeatedFragmentInterpolation(source, interpolation, query.tagName),
@@ -73,7 +74,8 @@ export function expandRepeatedFragments(
       continue;
     }
     if (discovery.kind !== "fragments") continue;
-    const itemCount = discovery.dynamic ? discovery.representativeItems : discovery.elements.length;
+    const dynamicItems = representativeItems ?? discovery.representativeItems;
+    const itemCount = discovery.dynamic ? dynamicItems : discovery.elements.length;
     if (itemCount > maximumItems) {
       diagnostics.push({
         code: "TSQ015",
@@ -108,7 +110,7 @@ export function expandRepeatedFragments(
       sites.push({
         sourceSpan: discovery.range,
         dynamic: discovery.dynamic,
-        representativeItems: discovery.representativeItems,
+        representativeItems: dynamicItems,
         element: first,
         parameterOffset: siteOffset,
       });

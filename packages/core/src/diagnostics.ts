@@ -14,6 +14,7 @@ export const diagnosticRegistry = Object.freeze({
   TSQ013: { category: "support", summary: "An implicit SQL fragment-list expression cannot be analyzed safely." },
   TSQ014: { category: "contract", summary: "An implicit SQL fragment list belongs to another grammar tag." },
   TSQ015: { category: "resource", summary: "An implicit SQL fragment list exceeded a compiler resource limit." },
+  TSQ016: { category: "support", summary: "Executable value metadata is unavailable for this SQL structure." },
   TSQ100: { category: "schema", summary: "A referenced table does not exist." },
   TSQ101: { category: "schema", summary: "A referenced column does not exist." },
   TSQ102: { category: "schema", summary: "A column reference is ambiguous." },

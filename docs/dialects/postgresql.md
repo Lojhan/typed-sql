@@ -10,6 +10,8 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 
 ## Public entrypoints
 
+- `@typed-sql/postgres/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
+
 - `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
@@ -118,6 +120,12 @@ enums remain strings, domains retain their base representation, and types withou
 manifest codec delegate to the installed driver's parser table. `bytea` is normalized to
 `Uint8Array`. Driver settings that would contradict the selected type policy are rejected.
 
+For queries with executable value metadata, the owned `pg` adapter preserves JSON and JSON-array
+wire text until the shared validator decodes it. This keeps SQL `NULL` distinct from JSON `null`,
+including native SQL array elements. Untransformed queries retain the selected legacy JSON policy.
+Custom pools may declare `rawJsonParsers: true` only when they honor query-local text parsers;
+already parsed transports reject contracts whose null distinction cannot be verified.
+
 When `compatibilitySnapshot` is present, `createPgDatabase()` reads that generated artifact and
 negotiates the target before returning. It rejects mismatched grammar versions, server majors,
 extension versions, lexical settings, search paths, built-in catalog revisions, schema identities,
@@ -176,3 +184,25 @@ Cursor streaming and COPY require a pool with `pipeline` disabled. The pg driver
 Inside a transaction, the stream reuses the transaction client and never releases it directly. The stream must complete or close before the transaction callback returns. Transaction `execute()`, `batch()`, and `pipeline()` calls must likewise be awaited before return; the adapter settles outstanding work before rollback and never selects commit first.
 
 See [Execute queries](../guides/execution.md), [Route reads and retry transactions](../guides/routing-and-retries.md), [Database type mappings](../reference/type-mappings.md#postgresql), and [Compatibility](../reference/compatibility.md).
+
+## Database JSON declarations
+
+Introspection recognizes a directly enforced, validated check that calls the
+`pg_jsonschema` extension's `json_matches_schema` or `jsonb_matches_schema` routine
+with a literal schema and the matching JSON column. The declaration uses the
+supported structural JSON Schema subset. The catalog dependency must identify the
+extension-owned routine; a same-named application function does not establish this
+contract. Unvalidated checks, unenforced checks, compound predicates, and dynamic
+schemas retain conservative JSON types.
+
+Named composite values converted to JSON retain their catalog field names and
+JSON-compatible value types. Composite fields can contain SQL null independently
+of constraints on a table that shares the row type. Recursive composites use the
+same bounded JSON shape analysis as other nested values.
+
+JSON column parameters and explicit `json`/`jsonb` casts retain the JSON input
+contract independently of the result policy. They accept `sql.json(value)` in
+tagged queries and `jsonValue(value)` in positional query factories. SQL-standard
+`FORMAT JSON` document positions accept explicit JSON bindings too. Ordinary
+constructor values retain their SQL scalar behavior; cast an encoded document to
+`json` or `jsonb` when it must be embedded as JSON.

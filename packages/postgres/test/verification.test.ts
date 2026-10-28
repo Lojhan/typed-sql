@@ -104,7 +104,7 @@ await describe("PostgreSQL live verification", async () => {
         json === "string"
           ? [
               { index: 1, databaseType: "json", tsType: "string" },
-              { index: 2, databaseType: "jsonb[]", tsType: "readonly (string)[]" },
+              { index: 2, databaseType: "jsonb[]", tsType: "readonly (string | null)[]" },
             ]
           : [
               { index: 1, databaseType: "json" },

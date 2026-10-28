@@ -37,6 +37,7 @@ function compileValueDecoder(
   field: MySqlFieldLike,
   typePolicy: MySqlRuntimeTypePolicy,
   decimal?: (value: string) => unknown,
+  jsonWire?: "text" | "parsed",
 ): ValueDecoder | undefined {
   if (field.columnType === mysqlTypes.longlong) {
     if (typePolicy.bigint === "bigint") return nullable((value) => BigInt(String(value)));
@@ -66,8 +67,17 @@ function compileValueDecoder(
       ? nullable((value) => String(value))
       : nullable((value) => (value instanceof Date ? value : new Date(String(value))));
   }
-  if (field.columnType === mysqlTypes.json && typePolicy.json === "string")
-    return nullable((value) => (typeof value === "string" ? value : JSON.stringify(value)));
+  if (field.columnType === mysqlTypes.json) {
+    if (typePolicy.json === "string")
+      return nullable((value) =>
+        jsonWire === "parsed" ? JSON.stringify(value) : typeof value === "string" ? value : JSON.stringify(value),
+      );
+    if (jsonWire === "text")
+      return nullable((value) => {
+        if (typeof value !== "string") throw new TypeError("MySQL JSON text transport returned a non-string value");
+        return JSON.parse(value) as unknown;
+      });
+  }
   if (field.columnType === mysqlTypes.tiny && field.columnLength === 1 && typePolicy.tinyint1 === "boolean")
     return nullable((value) => value === true || value === 1 || value === "1");
   return undefined;
@@ -78,6 +88,7 @@ export function compileMySqlRowDecoders(
   fields: readonly MySqlFieldLike[],
   typePolicy: MySqlRuntimeTypePolicy,
   decimal?: (value: string) => unknown,
+  jsonWire?: "text" | "parsed",
 ): readonly MySqlColumnDecoder[] {
   const decoders: MySqlColumnDecoder[] = [];
   const visited = new Set<string>();
@@ -85,7 +96,7 @@ export function compileMySqlRowDecoders(
     // Preserve established behavior: the first metadata entry for a row property owns its decoding.
     if (visited.has(field.name)) continue;
     visited.add(field.name);
-    const decode = compileValueDecoder(field, typePolicy, decimal);
+    const decode = compileValueDecoder(field, typePolicy, decimal, jsonWire);
     if (decode !== undefined) decoders.push({ name: field.name, decode });
   }
   return decoders;
@@ -140,6 +151,7 @@ function snapshotDecoderMetadata(fields: readonly MySqlFieldLike[]): readonly My
 /** Database-local bounded cache for immutable decoder plans derived from native result metadata. */
 export class MySqlDecoderPlanCache {
   readonly #capacity: number;
+  readonly #jsonWire: "text" | "parsed" | undefined;
   readonly #decimal: ((value: string) => unknown) | undefined;
   readonly #entries: MySqlDecoderPlanEntry[] = [];
   readonly #plans = new Map<number, MySqlDecoderPlanEntry[]>();
@@ -149,10 +161,12 @@ export class MySqlDecoderPlanCache {
     typePolicy: MySqlRuntimeTypePolicy,
     decimal?: (value: string) => unknown,
     capacity = defaultDecoderPlanCacheCapacity,
+    jsonWire?: "text" | "parsed",
   ) {
     if (!Number.isSafeInteger(capacity) || capacity <= 0)
       throw new RangeError("MySQL decoder plan cache capacity must be a positive safe integer");
     this.#capacity = capacity;
+    this.#jsonWire = jsonWire;
     this.#decimal = decimal;
     this.#typePolicy = Object.freeze({ ...typePolicy });
   }
@@ -171,7 +185,7 @@ export class MySqlDecoderPlanCache {
     const entry: MySqlDecoderPlanEntry = {
       fields: snapshotDecoderMetadata(fields),
       hash,
-      plan: Object.freeze(compileMySqlRowDecoders(fields, this.#typePolicy, this.#decimal)),
+      plan: Object.freeze(compileMySqlRowDecoders(fields, this.#typePolicy, this.#decimal, this.#jsonWire)),
     };
     this.#entries.push(entry);
     if (bucket === undefined) this.#plans.set(hash, [entry]);

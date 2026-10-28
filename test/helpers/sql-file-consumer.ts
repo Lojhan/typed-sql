@@ -122,6 +122,10 @@ const database = createPostgresDatabase({ pool: { async query(text, values) {
 } } });
 assert.deepEqual(await database.all(find(7, input)), [{ id: 7, name: "Ada" }]);
 assert.deepEqual(seen, { text: ${JSON.stringify(sql)}, values: [7, input] });
+await database.all(find(8, "second"));
+assert.deepEqual(seen, { text: ${JSON.stringify(sql)}, values: [8, "second"] });
+await database.all(find(7, input));
+assert.deepEqual(seen, { text: ${JSON.stringify(sql)}, values: [7, input] });
 assert.throws(() => find(7), /expects 2/);
 console.log("sql-file-consumer-ok");`,
   );
@@ -130,9 +134,11 @@ console.log("sql-file-consumer-ok");`,
       cwd: directory,
       env: options.env,
     });
-  const supportsRuntime = Number(process.versions.node.split(".")[0]) >= 24;
+  const [major = 0, minor = 0, patch = 0] = process.versions.node.split(".").map(Number);
+  const supportsRuntime =
+    major > 25 || (major === 25 && minor >= 1) || (major === 24 && (minor > 11 || (minor === 11 && patch >= 1)));
   if (supportsRuntime) strict.match((await run()).stdout, /sql-file-consumer-ok/u);
-  else await strict.rejects(run(), /requires Node\.js 24 or newer/u);
+  else await strict.rejects(run(), /requires Node\.js 24\.11\.1 or newer/u);
   for (const invalid of [
     "SELECT '😀' AS emoji, definitely_missing FROM users",
     "SELECT '😀' AS emoji,\r\n  definitely_missing FROM users",

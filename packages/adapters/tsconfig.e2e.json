@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["e2e/**/*.ts"],
+  "references": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../postgres"
+    },
+    {
+      "path": "../sqlite"
+    }
+  ]
+}

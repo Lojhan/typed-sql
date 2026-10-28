@@ -1,0 +1,2126 @@
+[
+  {
+    "driver": "sqlite",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 135539200,
+    "perCall": 27107.84,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36234016
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledAllocatedBytes": 16005704
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledAllocatedBytes": 15960688
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12742792
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11389648
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5972640
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4198384
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3208608
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 142311752,
+    "perCall": 28462.3504,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36831984
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledAllocatedBytes": 15904864
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledAllocatedBytes": 15803568
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12882488
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11474624
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 6175848
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5544320
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3407568
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 155284600,
+    "perCall": 31056.92,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 53767928
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 29055120
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 18566184
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledAllocatedBytes": 15493608
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 9006928
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3734112
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3242296
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2907656
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 160457296,
+    "perCall": 32091.4592,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 53627656
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 30327160
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 18121904
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledAllocatedBytes": 16609528
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 8767784
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3801496
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3337464
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2907640
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 36036568,
+    "perCall": 7207.3136,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3787424
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3419184
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3332072
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2766408
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2743160
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 177,
+        "sampledAllocatedBytes": 2031728
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 1972864
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 276,
+        "sampledAllocatedBytes": 1533016
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 42421784,
+    "perCall": 8484.3568,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4990024
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3548912
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3364400
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2897224
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2651920
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 2252280
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 177,
+        "sampledAllocatedBytes": 1968984
+      },
+      {
+        "function": "push",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 1765488
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1317709,
+    "perCall": 26.35418,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 435833
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledMicroseconds": 204958
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 184291
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 152127
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 120539
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 421,
+        "sampledMicroseconds": 42292
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 20043
+      },
+      {
+        "function": "get",
+        "source": "node-sqlite.js",
+        "line": 75,
+        "sampledMicroseconds": 17459
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1355042,
+    "perCall": 27.10084,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 420084
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 204374
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledMicroseconds": 168085
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 153210
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 120623
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 37751
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 421,
+        "sampledMicroseconds": 31417
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 23042
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1085584,
+    "perCall": 21.71168,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 403002
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 178207
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 117375
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 325,
+        "sampledMicroseconds": 109247
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 54208
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 30126
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledMicroseconds": 23790
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 20125
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1117291,
+    "perCall": 22.34582,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 425332
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 164415
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 121163
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 325,
+        "sampledMicroseconds": 95336
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 46207
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledMicroseconds": 30084
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 21376
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 20084
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 333625,
+    "perCall": 6.6725,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 197830
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 17543
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 12500
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 11250
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledMicroseconds": 7668
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 7542
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 7541
+      },
+      {
+        "function": "query",
+        "source": "query.js",
+        "line": 52,
+        "sampledMicroseconds": 6250
+      }
+    ]
+  },
+  {
+    "driver": "sqlite",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 383458,
+    "perCall": 7.66916,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 200164
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 25293
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 20666
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 14959
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 8874
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledMicroseconds": 8792
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 8792
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 7584
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 169694608,
+    "perCall": 33938.9216,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 37331168
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledAllocatedBytes": 15760896
+      },
+      {
+        "function": "toString",
+        "source": "node:buffer",
+        "line": 845,
+        "sampledAllocatedBytes": 12062064
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11441768
+      },
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledAllocatedBytes": 6271152
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5781360
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4074920
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 367,
+        "sampledAllocatedBytes": 3671312
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 175148472,
+    "perCall": 35029.6944,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36695904
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledAllocatedBytes": 16176352
+      },
+      {
+        "function": "toString",
+        "source": "node:buffer",
+        "line": 845,
+        "sampledAllocatedBytes": 11947824
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11622976
+      },
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledAllocatedBytes": 6333808
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 6130560
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5297360
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 367,
+        "sampledAllocatedBytes": 3612784
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 170244760,
+    "perCall": 34048.952,
+    "topSelfFrames": [
+      {
+        "function": "parseDataRowMessage",
+        "source": "parser.js",
+        "line": 228,
+        "sampledAllocatedBytes": 34342072
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 28578360
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledAllocatedBytes": 16626168
+      },
+      {
+        "function": "_handleDataRow",
+        "source": "client.js",
+        "line": 455,
+        "sampledAllocatedBytes": 11768232
+      },
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledAllocatedBytes": 6521176
+      },
+      {
+        "function": "addFields",
+        "source": "result.js",
+        "line": 82,
+        "sampledAllocatedBytes": 3000544
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 2897176
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 290,
+        "sampledAllocatedBytes": 2860920
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 177541776,
+    "perCall": 35508.3552,
+    "topSelfFrames": [
+      {
+        "function": "parseDataRowMessage",
+        "source": "parser.js",
+        "line": 228,
+        "sampledAllocatedBytes": 34584448
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 30534912
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledAllocatedBytes": 16642704
+      },
+      {
+        "function": "_handleDataRow",
+        "source": "client.js",
+        "line": 455,
+        "sampledAllocatedBytes": 11899880
+      },
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledAllocatedBytes": 6657816
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 3074128
+      },
+      {
+        "function": "addFields",
+        "source": "result.js",
+        "line": 82,
+        "sampledAllocatedBytes": 2999112
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 290,
+        "sampledAllocatedBytes": 2890664
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 85504464,
+    "perCall": 17100.8928,
+    "topSelfFrames": [
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledAllocatedBytes": 6281320
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 367,
+        "sampledAllocatedBytes": 3592936
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3445120
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 3053392
+      },
+      {
+        "function": "addFields",
+        "source": "result.js",
+        "line": 82,
+        "sampledAllocatedBytes": 3008856
+      },
+      {
+        "function": "Uint8Array",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 2675784
+      },
+      {
+        "function": "removeListener",
+        "source": "node:events",
+        "line": 670,
+        "sampledAllocatedBytes": 2591504
+      },
+      {
+        "function": "query",
+        "source": "pg.js",
+        "line": 746,
+        "sampledAllocatedBytes": 2469280
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 90435832,
+    "perCall": 18087.1664,
+    "topSelfFrames": [
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledAllocatedBytes": 6457736
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4799320
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 367,
+        "sampledAllocatedBytes": 3527880
+      },
+      {
+        "function": "addFields",
+        "source": "result.js",
+        "line": 82,
+        "sampledAllocatedBytes": 3195816
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 2896904
+      },
+      {
+        "function": "Uint8Array",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 2783568
+      },
+      {
+        "function": "removeListener",
+        "source": "node:events",
+        "line": 670,
+        "sampledAllocatedBytes": 2713976
+      },
+      {
+        "function": "#executeUnobserved",
+        "source": "runtime.js",
+        "line": 258,
+        "sampledAllocatedBytes": 2351072
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 5709167,
+    "perCall": 114.18334,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 4798422
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 148952
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 117626
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 88875
+      },
+      {
+        "function": "writev",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 85834
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 52625
+      },
+      {
+        "function": "cloneQueryConfig",
+        "source": "utils.js",
+        "line": 171,
+        "sampledMicroseconds": 31292
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 28875
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 5836500,
+    "perCall": 116.73,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 5013036
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 119294
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 112999
+      },
+      {
+        "function": "writev",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 83500
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 78586
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 37625
+      },
+      {
+        "function": "cloneQueryConfig",
+        "source": "utils.js",
+        "line": 171,
+        "sampledMicroseconds": 29916
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 21417
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 3563666,
+    "perCall": 71.27332,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 3091455
+      },
+      {
+        "function": "slice",
+        "source": "node:buffer",
+        "line": 646,
+        "sampledMicroseconds": 41419
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 39960
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 325,
+        "sampledMicroseconds": 32584
+      },
+      {
+        "function": "utf8Slice",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 30918
+      },
+      {
+        "function": "parseRow",
+        "source": "result.js",
+        "line": 63,
+        "sampledMicroseconds": 26376
+      },
+      {
+        "function": "writev",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 26123
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 16166
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 3682500,
+    "perCall": 73.65,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 3005125
+      },
+      {
+        "function": "writev",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 57582
+      },
+      {
+        "function": "slice",
+        "source": "node:buffer",
+        "line": 646,
+        "sampledMicroseconds": 56335
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 325,
+        "sampledMicroseconds": 48250
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 37625
+      },
+      {
+        "function": "utf8Slice",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 37292
+      },
+      {
+        "function": "parseRow",
+        "source": "result.js",
+        "line": 63,
+        "sampledMicroseconds": 28706
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledMicroseconds": 27375
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 2370541,
+    "perCall": 47.41082,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 2193957
+      },
+      {
+        "function": "writev",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 25043
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 14583
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 12375
+      },
+      {
+        "function": "cloneQueryConfig",
+        "source": "utils.js",
+        "line": 171,
+        "sampledMicroseconds": 7542
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledMicroseconds": 7542
+      },
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledMicroseconds": 6376
+      },
+      {
+        "function": "default",
+        "source": "compiled.ts",
+        "line": 5,
+        "sampledMicroseconds": 5041
+      }
+    ]
+  },
+  {
+    "driver": "postgres",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 2494417,
+    "perCall": 49.88834,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 2210166
+      },
+      {
+        "function": "writev",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 42125
+      },
+      {
+        "function": "cloneQueryConfig",
+        "source": "utils.js",
+        "line": 171,
+        "sampledMicroseconds": 24751
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 21209
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 19542
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 14916
+      },
+      {
+        "function": "addFields",
+        "source": "result.js",
+        "line": 82,
+        "sampledMicroseconds": 9833
+      },
+      {
+        "function": "Query",
+        "source": "query.js",
+        "line": 9,
+        "sampledMicroseconds": 7500
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 175311184,
+    "perCall": 35062.2368,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36044400
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledAllocatedBytes": 15836152
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11487040
+      },
+      {
+        "function": "exports.decode",
+        "source": "string.js",
+        "line": 136,
+        "sampledAllocatedBytes": 10883328
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 6085016
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5083280
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 4252648
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledAllocatedBytes": 4035984
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 182245144,
+    "perCall": 36449.0288,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36508096
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledAllocatedBytes": 16007856
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11778104
+      },
+      {
+        "function": "exports.decode",
+        "source": "string.js",
+        "line": 136,
+        "sampledAllocatedBytes": 10862160
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 6176280
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5976560
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledAllocatedBytes": 4192976
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 4106200
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 157147168,
+    "perCall": 31429.4336,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 29273944
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledAllocatedBytes": 16837600
+      },
+      {
+        "function": "row",
+        "source": "query.js",
+        "line": 252,
+        "sampledAllocatedBytes": 11331344
+      },
+      {
+        "function": "readLengthCodedString",
+        "source": "packet.js",
+        "line": 436,
+        "sampledAllocatedBytes": 6545736
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 4279512
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledAllocatedBytes": 4275064
+      },
+      {
+        "function": "execute",
+        "source": "mysql2.js",
+        "line": 342,
+        "sampledAllocatedBytes": 4147016
+      },
+      {
+        "function": "fromCharCode",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4103928
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 162321368,
+    "perCall": 32464.2736,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 31037136
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 323,
+        "sampledAllocatedBytes": 16704896
+      },
+      {
+        "function": "row",
+        "source": "query.js",
+        "line": 252,
+        "sampledAllocatedBytes": 11458744
+      },
+      {
+        "function": "readLengthCodedString",
+        "source": "packet.js",
+        "line": 436,
+        "sampledAllocatedBytes": 6303520
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 4507384
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledAllocatedBytes": 4209016
+      },
+      {
+        "function": "fromCharCode",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4153200
+      },
+      {
+        "function": "execute",
+        "source": "mysql2.js",
+        "line": 342,
+        "sampledAllocatedBytes": 3979152
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 88330488,
+    "perCall": 17666.0976,
+    "topSelfFrames": [
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledAllocatedBytes": 4143312
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 4031632
+      },
+      {
+        "function": "execute",
+        "source": "mysql2.js",
+        "line": 342,
+        "sampledAllocatedBytes": 3807544
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3803160
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 249,
+        "sampledAllocatedBytes": 3399592
+      },
+      {
+        "function": "readField",
+        "source": "execute.js",
+        "line": 89,
+        "sampledAllocatedBytes": 3180440
+      },
+      {
+        "function": "#executeOn",
+        "source": "runtime.js",
+        "line": 288,
+        "sampledAllocatedBytes": 2415424
+      },
+      {
+        "function": "Command",
+        "source": "command.js",
+        "line": 7,
+        "sampledAllocatedBytes": 2278376
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 94125720,
+    "perCall": 18825.144,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4877520
+      },
+      {
+        "function": "nextTick",
+        "source": "task_queues",
+        "line": 111,
+        "sampledAllocatedBytes": 4361016
+      },
+      {
+        "function": "execute",
+        "source": "mysql2.js",
+        "line": 342,
+        "sampledAllocatedBytes": 4247832
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledAllocatedBytes": 4039672
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 249,
+        "sampledAllocatedBytes": 3613856
+      },
+      {
+        "function": "readField",
+        "source": "execute.js",
+        "line": 89,
+        "sampledAllocatedBytes": 3586784
+      },
+      {
+        "function": "#executeOn",
+        "source": "runtime.js",
+        "line": 288,
+        "sampledAllocatedBytes": 2399264
+      },
+      {
+        "function": "",
+        "source": "pool.js",
+        "line": 68,
+        "sampledAllocatedBytes": 2074472
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 4654667,
+    "perCall": 93.09334,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 3466994
+      },
+      {
+        "function": "captureStackHolder",
+        "source": "capture_local_err.js",
+        "line": 4,
+        "sampledMicroseconds": 232129
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 194419
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 134166
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 96457
+      },
+      {
+        "function": "writeBuffer",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 77542
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 57750
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledMicroseconds": 48667
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 4746041,
+    "perCall": 94.92082,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 3535295
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 259414
+      },
+      {
+        "function": "captureStackHolder",
+        "source": "capture_local_err.js",
+        "line": 4,
+        "sampledMicroseconds": 197119
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 126626
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 121124
+      },
+      {
+        "function": "writeBuffer",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 70418
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 70084
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledMicroseconds": 45084
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 3521542,
+    "perCall": 70.43084,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 2760501
+      },
+      {
+        "function": "captureStackHolder",
+        "source": "capture_local_err.js",
+        "line": 4,
+        "sampledMicroseconds": 139417
+      },
+      {
+        "function": "writeBuffer",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 73292
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 325,
+        "sampledMicroseconds": 59749
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 58747
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledMicroseconds": 26375
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 17542
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 277,
+        "sampledMicroseconds": 17541
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 3729208,
+    "perCall": 74.58416,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 2711501
+      },
+      {
+        "function": "captureStackHolder",
+        "source": "capture_local_err.js",
+        "line": 4,
+        "sampledMicroseconds": 213998
+      },
+      {
+        "function": "writeBuffer",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 90874
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 325,
+        "sampledMicroseconds": 75292
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 73084
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledMicroseconds": 37332
+      },
+      {
+        "function": "handlePacket",
+        "source": "connection.js",
+        "line": 556,
+        "sampledMicroseconds": 31127
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 25042
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 2520291,
+    "perCall": 50.40582,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 1956204
+      },
+      {
+        "function": "captureStackHolder",
+        "source": "capture_local_err.js",
+        "line": 4,
+        "sampledMicroseconds": 179333
+      },
+      {
+        "function": "writeBuffer",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 53581
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledMicroseconds": 42708
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 31544
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 18500
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 18250
+      },
+      {
+        "function": "runMicrotasks",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 11250
+      }
+    ]
+  },
+  {
+    "driver": "mysql",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 2524125,
+    "perCall": 50.4825,
+    "topSelfFrames": [
+      {
+        "function": "(idle)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 1952164
+      },
+      {
+        "function": "captureStackHolder",
+        "source": "capture_local_err.js",
+        "line": 4,
+        "sampledMicroseconds": 139873
+      },
+      {
+        "function": "writeBuffer",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 58916
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 42584
+      },
+      {
+        "function": "execute",
+        "source": "pool.js",
+        "line": 58,
+        "sampledMicroseconds": 38875
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 22625
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 20123
+      },
+      {
+        "function": "utf8ByteLength",
+        "source": "utf8.js",
+        "line": 2,
+        "sampledMicroseconds": 17624
+      }
+    ]
+  }
+]

@@ -1,4 +1,5 @@
 import { parseDialectServerEvidence } from "@typed-sql/core";
+import { parseJsonDeclaration } from "../json-schema.js";
 import type { ColumnSnapshot, DomainSnapshot, FunctionSnapshot, SchemaSnapshotV1, TableSnapshot } from "./model.js";
 import { LEGACY_SCHEMA_FORMAT_VERSION } from "./model.js";
 
@@ -22,6 +23,7 @@ function parseColumn(value: unknown, path: string): ColumnSnapshot {
     databaseType: value.databaseType,
     tsType: value.tsType,
     nullable: value.nullable,
+    ...(value.jsonDeclaration === undefined ? {} : { jsonDeclaration: parseJsonDeclaration(value.jsonDeclaration) }),
     ...(value.array === undefined ? {} : { array: value.array }),
     ...(value.defaultExpression === undefined ? {} : { defaultExpression: value.defaultExpression }),
   };

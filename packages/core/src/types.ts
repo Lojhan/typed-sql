@@ -1,4 +1,7 @@
 import type { DialectCapabilityStates, DialectServerEvidence } from "./dialect-capabilities.js";
+import type { JsonShape, JsonValueDescriptor } from "./json.js";
+import { jsonShapeType } from "./json.js";
+import type { RuntimeValueType } from "./query-value-plan.js";
 import type { QuerySemantics } from "./semantics.js";
 
 export const DIALECT_CONTRACT_VERSION = 4 as const;
@@ -27,6 +30,7 @@ export interface SqlDiagnosticFix {
 }
 
 export interface ColumnSnapshot {
+  readonly jsonDeclaration?: { readonly shape: JsonShape; readonly source: "database" | "application" };
   readonly name: string;
   readonly databaseType: string;
   readonly tsType: string;
@@ -171,19 +175,30 @@ export interface GeneratedSchemaSnapshot extends SchemaSnapshot {
 }
 
 export interface ResolvedColumn {
+  readonly runtimeType?: RuntimeValueType;
+  /** Native SQL scalar extracted from JSON, rather than serialized JSON text. */
+  readonly scalarJsonShape?: JsonShape;
   readonly name: string;
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** JSON structure and desired application representation; SQL nullability remains separate. */
+  readonly json?: JsonValueDescriptor;
   readonly range: SourceRange;
 }
 
 export interface ResolvedParameter {
+  /** The SQL argument accepts explicit serialized JSON as well as its native scalar/blob inputs. */
+  readonly acceptsJsonInput?: true;
+  readonly runtimeType?: RuntimeValueType;
+  readonly scalarJsonShape?: JsonShape;
   /** One-based database placeholder index. */
   readonly index: number;
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** JSON structure and desired application representation; SQL nullability remains separate. */
+  readonly json?: JsonValueDescriptor;
 }
 
 export interface DialectAnalysis {
@@ -193,6 +208,11 @@ export interface DialectAnalysis {
   readonly resultKind?: "rows" | "command";
   /** Grammar-owned, evidence-backed statement semantics. */
   readonly semantics: QuerySemantics;
+}
+
+/** Build frontends opt in only when emitted execution metadata validates decoded values. */
+export interface DialectAnalysisContext {
+  readonly runtimeValidation?: boolean;
 }
 
 /**
@@ -208,6 +228,12 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   readonly grammarVersion: string;
   /** Exact package entrypoint from which applications import the dialect's `sql` tag. */
   readonly sqlModule: string;
+  /** Portable entrypoint exporting sql and renderer; analysis still belongs to this plugin. */
+  readonly runtimeSqlModule?: string;
+  runtimeValueType?(
+    value: { readonly databaseType?: string; readonly tsType: string; readonly nullable: boolean },
+    policy?: Policy,
+  ): RuntimeValueType;
   /** Grammar-owned feature names and their support status. */
   readonly capabilities: DialectCapabilities;
   /** Additive version-aware capability contract; required for exact completeness claims. */
@@ -221,7 +247,7 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
     snapshot: Snapshot,
     policy?: Policy,
   ): readonly { readonly index: number; readonly range: SourceRange }[];
-  analyze(sql: string, snapshot: Snapshot, policy?: Policy): DialectAnalysis;
+  analyze(sql: string, snapshot: Snapshot, policy?: Policy, context?: DialectAnalysisContext): DialectAnalysis;
   validateSnapshot(value: unknown): Snapshot;
 }
 
@@ -443,6 +469,13 @@ export function assertDialectPlugin(value: unknown): asserts value is DialectPlu
   if (value.resolveCapabilities !== undefined && typeof value.resolveCapabilities !== "function") {
     throw new TypeError("typed-sql dialect.resolveCapabilities must be a function");
   }
+  if (
+    value.runtimeSqlModule !== undefined &&
+    (typeof value.runtimeSqlModule !== "string" || value.runtimeSqlModule.length === 0)
+  )
+    throw new TypeError("typed-sql dialect.runtimeSqlModule must be a non-empty string");
+  if (value.runtimeValueType !== undefined && typeof value.runtimeValueType !== "function")
+    throw new TypeError("typed-sql dialect.runtimeValueType must be a function");
   for (const method of ["placeholder", "quoteIdentifier", "analyze", "validateSnapshot"] as const) {
     if (typeof value[method] !== "function") throw new TypeError(`typed-sql dialect.${method} must be a function`);
   }
@@ -576,13 +609,50 @@ export function rowTypeLiteral(columns: readonly ResolvedColumn[]): string {
   return `{ ${properties.join(" ")} }`;
 }
 
-export function parameterTypeLiteral(parameterCount: number, parameters: readonly ResolvedParameter[]): string {
+function hasNestedJsonInput(type: RuntimeValueType): boolean {
+  return (
+    typeof type === "object" &&
+    ("json" in type ||
+      ("array" in type ? hasNestedJsonInput(type.array) : "union" in type && type.union.some(hasNestedJsonInput)))
+  );
+}
+
+function nestedInputType(type: RuntimeValueType, typeModule: string): string {
+  if (typeof type === "string") return type === "date" ? "Date" : type === "bytes" ? "Uint8Array" : type;
+  if ("json" in type) {
+    const shape = jsonShapeType(type.json.shape);
+    return `${type.json.representation === "text" ? "string" : shape} | import(${JSON.stringify(typeModule)}).JsonInput<${shape}>`;
+  }
+  if ("array" in type)
+    return `readonly (${nestedInputType(type.array, typeModule)}${type.elementNullable === false ? "" : " | null"})[]`;
+  if ("union" in type) return type.union.map((member) => `(${nestedInputType(member, typeModule)})`).join(" | ");
+  return JSON.stringify(type.literal);
+}
+
+export function parameterTypeLiteral(
+  parameterCount: number,
+  parameters: readonly ResolvedParameter[],
+  typeModule = "@typed-sql/core",
+): string {
   const byIndex = new Map(parameters.map((parameter) => [parameter.index, parameter]));
   const elements = Array.from({ length: parameterCount }, (_, offset) => {
     const parameter = byIndex.get(offset + 1);
     if (!parameter) return "unknown";
+    if (
+      parameter.runtimeType !== undefined &&
+      typeof parameter.runtimeType === "object" &&
+      "array" in parameter.runtimeType &&
+      hasNestedJsonInput(parameter.runtimeType)
+    )
+      return `${nestedInputType(parameter.runtimeType, typeModule)}${parameter.nullable ? " | null" : ""}`;
     if (parameter.tsType === "unknown") return "unknown";
-    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}`;
+    const inputShape =
+      parameter.json === undefined
+        ? parameter.acceptsJsonInput === true
+          ? "unknown"
+          : undefined
+        : jsonShapeType(parameter.json.shape);
+    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}${inputShape === undefined ? "" : ` | import(${JSON.stringify(typeModule)}).JsonInput<${inputShape}>`}`;
   });
   return `readonly [${elements.join(", ")}]`;
 }

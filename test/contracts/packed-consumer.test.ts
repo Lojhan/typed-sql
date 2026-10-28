@@ -1,10 +1,13 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
+import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
 import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
 
@@ -12,6 +15,7 @@ const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { NODE_PATH: _workspaceNodePath, ...isolatedEnvironment } = process.env;
 const publicPackages = [
+  "adapters",
   "ast",
   "core",
   "opentelemetry",
@@ -27,6 +31,7 @@ const publicPackages = [
   "sqlite",
 ] as const;
 const declarationCheckedPackages = new Set([
+  "adapters",
   "ast",
   "core",
   "opentelemetry",
@@ -55,7 +60,7 @@ async function writeEditorProject(
     const mappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
       (account) => sql.fragment\`(\${account.id}, \${account.email})\`,
     )} RETURNING id, email\`;
-    const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: bigint; email: string }> = true;
+    const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: unknown; email: unknown }> = true;
     const mappedParameters: Equal<QueryParameters<typeof mappedQuery>, readonly (bigint | string)[]> = true;
     const jsonQuery = sql\`SELECT jsonb_build_object('id', id, 'email', email) AS document FROM users\`;
     const jsonRow: Equal<QueryRow<typeof jsonQuery>, { document: { id: number; email: string } }> = true;
@@ -429,10 +434,10 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
-        try { require.resolve("pg"); throw new Error("pg was installed transitively"); }
-        catch (error) { if (error.message === "pg was installed transitively") throw error; }
-        try { require.resolve("mysql2"); throw new Error("mysql2 was installed transitively"); }
-        catch (error) { if (error.message === "mysql2 was installed transitively") throw error; }
+        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres"]) {
+          try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
+          catch (error) { if (error.message === driver + " was installed transitively") throw error; }
+        }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
@@ -574,6 +579,19 @@ await describe("packed public packages", async () => {
         { cwd: consumer, env: isolatedEnvironment },
       );
       await assertSqlFileConsumer({ consumer, previewCli: preview.stdout.trim(), env: isolatedEnvironment });
+      await assertMinimalGrammarConsumer({
+        consumer,
+        directory: join(temporary, "minimal-consumer"),
+        previewCli: preview.stdout.trim(),
+        env: isolatedEnvironment,
+      });
+      await assertPortableWorkerConsumer({
+        consumer,
+        viteUrl: pathToFileURL(createRequire(join(workspace, "packages/ts-bridge/package.json")).resolve("vite")).href,
+        miniflareUrl: pathToFileURL(
+          createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
+        ).href,
+      });
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {

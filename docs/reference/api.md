@@ -18,7 +18,7 @@ This page describes supported package entrypoints and type relationships. Intern
 - `QueryParameters<QueryValue>` extracts the parameter tuple.
 - `Database.execute(query)` returns `Promise<readonly Row[]>`.
 
-`Query` is invariant in both generic positions, so it cannot be silently widened to a different row or parameter contract.
+`Query` is invariant in both generic positions, so it cannot be silently widened to a different row or parameter contract. Query values are opaque: copying or rebuilding their object properties loses validation ownership and is rejected by execution adapters. Use the `sql` composition helpers.
 
 `SqlFragment<Parameters>` represents trusted static structure with its own ordered parameter tuple. `OptionalSqlFragment` also accepts `undefined`, `null`, and `false` as absent values during composition.
 
@@ -33,16 +33,30 @@ Applications import `sql` from their selected dialect root.
 | `sql.empty` | `SqlFragment<readonly []>` | Represent no structural content. |
 | `sql.ident(name)` | `SqlFragment<readonly []>` | Quote an identifier through the selected grammar. |
 | `sql.value(value)` | `SqlFragment<readonly [Value]>` | Create an explicit value fragment. |
+| `sql.json(value)` | `SqlFragment<readonly [JsonInput<Value>]>` | Validate and snapshot a JSON value as a bound parameter. |
 | `sql.join(parts, separator?)` | `SqlFragment` | Join trusted fragments, using a comma separator by default. |
 | `sql.and(parts)` | `SqlFragment` | Join present predicates with parenthesized `AND`. |
 | `sql.or(parts)` | `SqlFragment` | Join present predicates with parenthesized `OR`. |
 | `sql.where(query, predicate)` | `Query` | Preserve the base row and append predicate parameters. |
 | `sql.append(query, ...parts)` | `Query` | Append present fragments while preserving ordered parameters. |
+
+Composition preserves an attached result validator on the derived query. When the base carries an executable value plan, changed SQL requires a fresh verified plan before dispatch. The build frontend verifies `sql.where` and `sql.append` with a directly bound static base and bounded literal fragments, including optional append branches. Composition that changes the base result shape must be written as one complete SQL template.
 | `sql.validateResult(query, schema, options?)` | `Query` | Attach an application-owned Standard Schema validator to decoded rows. |
 | `sql.raw(text)` | `SqlFragment<readonly []>` | Insert trusted static SQL unchanged. |
 | `sql.dynamic(text)` | `Query<unknown>` | Opt out of static row inference for dynamic SQL. |
 
 `sql.raw()` is not an escaping function. Do not pass untrusted values to it.
+
+`sql.json(value)` accepts finite, acyclic JSON values and snapshots their serialized text.
+For positional `.sql` factories, pass `jsonValue(value)` from `@typed-sql/core` to represent the
+same explicit JSON binding. Both forms retain the logical `JsonInput<Value>` parameter type.
+Use `sql.json(null)` to bind JSON null; an ordinary interpolated `null` binds SQL `NULL`.
+Compiled JSON parameter contracts check the logical input shape independently of the selected
+text or parsed output policy. Invalid values such as `bigint`, `Date`, and `undefined` are rejected.
+
+The binding does not change SQL expression semantics. When embedding a parameter inside a JSON
+constructor, use the selected grammar's conversion where required, such as SQLite's `json(...)`.
+An encoded JSON parameter passed as an ordinary string value can otherwise become a quoted string.
 
 A non-empty `readonly SqlFragment[]` interpolated directly into a query is structural and renders
 with the fixed separator `, `. This supports direct fragment array literals and analyzable
@@ -208,6 +222,18 @@ Set `DatabaseObserver.captureErrorCause` only when an integration explicitly nee
 
 Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, column, domain, and function metadata, `SchemaProvider`, and source-mapped diagnostics.
 
+Column metadata can carry a `jsonDeclaration` with a bounded `shape` and a `source` of
+`"database"` or `"application"`. `@typed-sql/schema` exports `jsonShapeFromSchema()` to project
+JSON Schema into a structural shape and `parseJsonDeclaration()` to validate this metadata.
+Declarations survive snapshot serialization, format upgrades, and schema hashing. Application
+declarations require result validation before a narrower JSON type can be returned.
+
+The projection describes TypeScript structure; it is not a complete JSON Schema validator.
+For example, `integer` projects to `number`, while numeric bounds and string patterns are not
+represented by TypeScript primitive types. Local acyclic references are bounded; unsupported
+composition and recursive or external references are rejected. Use an application validator when
+those additional constraints must be enforced.
+
 ## Compiler entrypoints
 
 `@typed-sql/compiler` exposes a small package-root integration surface:
@@ -220,6 +246,15 @@ Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, 
 - live-verification candidate collection, native comparison, proof parsing and serialization, cache validation, and artifact-version constants.
 - migration compatibility analysis, report parsing and serialization, before/after evidence types, classifications, deployment directions, and artifact-version constants.
 - query-plan capture, budget review, artifact and report parsing and serialization, and their version constants.
+
+`compileSource({ runtimeMetadata: true, ... })` emits executable value metadata and prepares static
+plans once per module. Bounded structural choices require a grammar's `runtimeSqlModule` entrypoint
+to export `sql`, `renderer: SqlRenderer`, the `defineQueryValuePlan`, `defineQueryValuePlanSelector`,
+and `withQueryValuePlan` helpers, and the `Query`, `QueryValuePlan`, and `JsonInput` types. These helpers
+and types can be reexported from core by a third-party grammar; generated application modules resolve
+them through the selected grammar. First-party grammar `/query` entrypoints provide this contract.
+Missing runtime support
+reports `TSQ016`. Runtime selection compares rendered structure without parsing SQL in core.
 
 Each `CompiledQuery` includes:
 
@@ -290,3 +325,11 @@ does not install a SQL grammar, database driver, or test runner. See the
 ## Compatibility policy
 
 Removing or incompatibly changing a documented entrypoint, runtime export, type relationship, grammar contract, or diagnostic meaning requires a major version. Additive public exports may ship in a minor version. Experimental packages may change while marked experimental but must remain compatible with the matching core and compiler train.
+
+
+## Custom buffered executors
+
+`createDatabase` preserves the legacy executor contract for queries without executable value plans.
+It rejects compiled value plans because a raw executor supplies no decoding transport contract.
+Use `createBufferedDatabase` from `@typed-sql/adapters` with an explicit transport profile for compiled
+queries, or one of the [driver-specific portable adapters](./portable-adapters.md).

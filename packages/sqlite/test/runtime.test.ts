@@ -22,6 +22,25 @@ interface Account {
 }
 
 await describe("node:sqlite runtime adapter", async () => {
+  await it("preserves special column names and binary storage in materialized and streamed rows", () => {
+    const native = new DatabaseSync(":memory:");
+    try {
+      const connection = adaptNodeSqliteDatabase(native);
+      const source = `SELECT 'own value' AS "__proto__", 'column value' AS "constructor", X'00ff' AS bytes`;
+      const [materialized] = connection.all(source);
+      const [streamed] = [...connection.iterate(source)];
+      for (const row of [materialized!, streamed!]) {
+        strict.strictEqual(Object.getPrototypeOf(row), Object.prototype);
+        strict.strictEqual(Object.hasOwn(row, "__proto__"), true);
+        strict.strictEqual(Object.getOwnPropertyDescriptor(row, "__proto__")?.value, "own value");
+        strict.strictEqual(row.constructor, "column value");
+        strict.deepStrictEqual(row.bytes, new Uint8Array([0, 255]));
+      }
+    } finally {
+      native.close();
+    }
+  });
+
   await it("normalizes file URLs for Node releases whose DatabaseSync accepts only strings", async () => {
     const paths: PathLike[] = [];
     const url = new URL("file:///tmp/typed-sql-node-sqlite.db");

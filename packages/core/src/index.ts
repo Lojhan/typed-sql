@@ -84,6 +84,30 @@ export {
   UnsupportedExecutionCapabilityError,
 } from "./execution.js";
 export type {
+  JsonShape,
+  JsonShapePathResult,
+  JsonShapeProperty,
+  JsonValidationLimits,
+  JsonValue,
+  JsonValueDescriptor,
+} from "./json.js";
+export {
+  JSON_SHAPE_LIMITS,
+  jsonArrayShape,
+  jsonObjectShape,
+  jsonShapeAtPath,
+  jsonShapeFromValue,
+  jsonShapeType,
+  jsonTupleShape,
+  nullJsonShape,
+  parseJsonShape,
+  unionJsonShapes,
+  unknownJsonShape,
+  updateJsonShapePath,
+  validateJsonValue,
+} from "./json.js";
+export { jsonValue } from "./json-input.js";
+export type {
   ActiveDatabaseObservation,
   BatchOperationStart,
   DatabaseObservation,
@@ -102,6 +126,7 @@ export { registerPreparedQuery } from "./prepared.js";
 export type {
   ControlledQueryExecutor,
   Database,
+  JsonInput,
   OptionalSqlFragment,
   PreparedQueryRenderVariant,
   Query,
@@ -131,6 +156,28 @@ export {
   SqlFragmentListError,
   sql,
 } from "./query.js";
+export type {
+  QueryTransportProfile,
+  QueryValueDescriptor,
+  QueryValuePlan,
+  RuntimeValueType,
+} from "./query-value-plan.js";
+export {
+  assertQueryResultTransport,
+  decodeQueryResultRows,
+  decodeQueryResultStream,
+  defineQueryValuePlan,
+  encodeQueryValues,
+  getQueryValuePlan,
+  QueryValueError,
+  withQueryValuePlan,
+} from "./query-value-plan.js";
+export type {
+  QueryValuePlanChoice,
+  QueryValuePlanSelector,
+  RepeatedQueryValuePlan,
+} from "./query-value-plan-selection.js";
+export { defineQueryValuePlanSelector } from "./query-value-plan-selection.js";
 export type { IndexedTable, ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
@@ -188,6 +235,7 @@ export {
 export type {
   ColumnSnapshot,
   DialectAnalysis,
+  DialectAnalysisContext,
   DialectCapabilities,
   DialectPlugin,
   DomainSnapshot,

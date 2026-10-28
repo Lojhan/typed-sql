@@ -1,0 +1,77 @@
+{
+  "name": "@typed-sql/adapters",
+  "version": "2.2.0",
+  "description": "Explicit buffered database adapters for D1, libSQL, Neon and Postgres.js.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/adapters"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce",
+    "test:postgres": "tsc --project tsconfig.e2e.json --noEmit --pretty false && poku e2e/postgres.test.ts --reporter=compact --enforce",
+    "smoke:remote": "tsc --project tsconfig.e2e.json --noEmit --pretty false && poku e2e/remote-smoke.ts --reporter=compact --enforce"
+  },
+  "exports": {
+    ".": "./dist/packages/adapters/src/index.js",
+    "./d1": "./dist/packages/adapters/src/d1.js",
+    "./libsql": "./dist/packages/adapters/src/libsql.js",
+    "./neon-http": "./dist/packages/adapters/src/neon-http.js",
+    "./neon-ws": "./dist/packages/adapters/src/neon-ws.js",
+    "./postgres-js": "./dist/packages/adapters/src/postgres-js.js"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@libsql/client": "0.18.0",
+    "@neondatabase/serverless": "1.2.0",
+    "postgres": "3.4.9",
+    "miniflare": "4.20260730.0",
+    "ws": "8.21.0",
+    "@types/ws": "8.18.1",
+    "@typed-sql/sqlite": "workspace:*",
+    "@typed-sql/postgres": "workspace:*"
+  },
+  "peerDependencies": {
+    "@libsql/client": "^0.18.0",
+    "@neondatabase/serverless": "^1.2.0",
+    "postgres": "^3.4.9"
+  },
+  "peerDependenciesMeta": {
+    "@libsql/client": {
+      "optional": true
+    },
+    "@neondatabase/serverless": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
+    }
+  }
+}

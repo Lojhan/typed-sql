@@ -26,6 +26,7 @@ const mysqlContainer = `typed-sql-packed-mysql-${suffix}`;
 const postgresImage = "localhost/typed-sql-e2e-postgres:18.4";
 const mysqlImage = "localhost/typed-sql-e2e-mysql:8.4.11";
 const packageNames = [
+  "adapters",
   "ast",
   "core",
   "config",

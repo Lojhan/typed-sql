@@ -1,5 +1,5 @@
+import { sql } from "@typed-sql/core";
 import { describe, it, skip, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import { introspectPostgres } from "../src/index.js";
 import { createPgDatabase } from "../src/pg.js";
 

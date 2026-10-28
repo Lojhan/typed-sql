@@ -1,6 +1,6 @@
 import type { Query, QueryResults } from "@typed-sql/core";
+import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import {
   createPostgresDatabase,
   type PostgresClientLike,

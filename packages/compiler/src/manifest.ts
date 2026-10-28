@@ -294,9 +294,11 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
     ...(options.maxStructuralVariants === undefined ? {} : { maxStructuralVariants: options.maxStructuralVariants }),
   });
-  const extracted = extractStaticQueries(source, (index) => options.dialect.placeholder(index), [
+  const sqlModules = [
     options.dialect.sqlModule,
-  ]);
+    ...(options.dialect.runtimeSqlModule === undefined ? [] : [options.dialect.runtimeSqlModule]),
+  ];
+  const extracted = extractStaticQueries(source, (index) => options.dialect.placeholder(index), sqlModules);
   const compiledByStart = new Map(compilation.queries.map((query) => [query.query.range.start, query]));
   const entries: QueryManifestEntry[] = extracted.map((query) => {
     const location = { file, range: query.range };
@@ -354,7 +356,7 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
         : { capabilityEvidence: manifestCapabilityEvidence(compiled.semantics, capabilityStates) }),
     };
   });
-  for (const dynamic of extractDynamicQueries(source, [options.dialect.sqlModule])) {
+  for (const dynamic of extractDynamicQueries(source, sqlModules)) {
     const location = { file, range: dynamic.range };
     entries.push({
       id: entryId(options.dialect.id, location, "dynamic"),

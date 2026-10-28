@@ -980,6 +980,7 @@ export function adaptPgPool(
     };
   };
   return {
+    rawJsonParsers: true,
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
     async query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult> {
       if (typeof config !== "string" && config.name !== undefined) {

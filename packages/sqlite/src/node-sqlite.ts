@@ -111,7 +111,14 @@ function output(value: unknown): null | number | bigint | string | Uint8Array {
 }
 
 function row(source: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(source).map(([key, value]) => [key, output(value)]));
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(source)) {
+    const value = output(source[key]);
+    if (key === "__proto__") {
+      Object.defineProperty(result, key, { value, enumerable: true, configurable: true, writable: true });
+    } else result[key] = value;
+  }
+  return result;
 }
 
 interface NodeSqliteStatementCache {
@@ -279,6 +286,7 @@ export async function createNodeSqliteDatabase(options: NodeSqliteDatabaseOption
     return createSqliteDatabase({
       connection: adaptNodeSqliteDatabase(database, options),
       ownsConnection: true,
+      ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
       ...(options.preparedCardinalityVariantLimit === undefined
         ? {}
         : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),

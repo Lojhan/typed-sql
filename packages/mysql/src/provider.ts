@@ -2,6 +2,7 @@ import {
   defineSchemaSnapshotV2,
   type ForeignKeyAction,
   fingerprintSchemaExpression,
+  jsonShapeFromSchema,
   type RelationSnapshot,
   type RoutineSnapshot,
   type SchemaInput,
@@ -12,6 +13,7 @@ import {
 } from "@typed-sql/schema";
 import { mySqlServerEvidence } from "./capabilities.js";
 import { mySqlCoreCatalogForSchema } from "./catalog/index.js";
+import { parseSelect } from "./parser/index.js";
 import {
   defaultMySqlTypePolicy,
   type MySqlTypePolicy,
@@ -729,7 +731,70 @@ export class MySqlSchemaProvider implements SchemaProvider<SchemaSnapshotV2> {
                     ? {}
                     : { predicateHash: fingerprintSchemaExpression(row.check_clause) }),
                 } as const);
-      relations[key] = { ...relation, constraints: [...relation.constraints, constraint] };
+      let columnsWithJson = relation.columns;
+      // Only a complete, directly enforced builtin predicate proves the declaration.
+      // Arbitrary boolean expressions, dynamic schemas and unsupported schema forms stay opaque.
+      if (
+        row.constraint_type === "CHECK" &&
+        row.enforced === "YES" &&
+        typeof row.check_clause === "string" &&
+        row.check_clause.length <= 65536
+      ) {
+        try {
+          let clause = row.check_clause;
+          // MySQL CHECK_CLAUSE escapes quotes/backslashes as a SQL string body.
+          // Decode one complete string token, never splice or execute catalog SQL.
+          if (clause.includes("\\'")) {
+            const encoded = parseSelect(`SELECT '${clause}'`);
+            const body = encoded.columns[0]?.expression;
+            if (encoded.columns.length !== 1 || body?.kind !== "literal" || typeof body.value !== "string")
+              throw new TypeError("Invalid escaped check clause");
+            clause = body.value;
+          }
+          const select = parseSelect(`SELECT ${clause}`);
+          const predicate = select.columns[0]?.expression;
+          if (
+            select.columns.length === 1 &&
+            select.from === undefined &&
+            select.where === undefined &&
+            predicate?.kind === "call" &&
+            predicate.schema === undefined &&
+            predicate.name.name.toUpperCase() === "JSON_SCHEMA_VALID" &&
+            predicate.arguments.length === 2 &&
+            !predicate.distinct &&
+            predicate.over === undefined
+          ) {
+            const [document, reference] = predicate.arguments;
+            if (
+              document?.kind === "literal" &&
+              typeof document.value === "string" &&
+              reference?.kind === "column" &&
+              reference.relation === undefined
+            ) {
+              const name = Object.keys(relation.columns).find(
+                (name) => name.toLowerCase() === reference.column.name.toLowerCase(),
+              );
+              const column = name === undefined ? undefined : relation.columns[name];
+              if (
+                column !== undefined &&
+                column.databaseType.toLowerCase() === "json" &&
+                column.jsonDeclaration === undefined
+              ) {
+                columnsWithJson = {
+                  ...relation.columns,
+                  [name!]: {
+                    ...column,
+                    jsonDeclaration: { source: "database", shape: jsonShapeFromSchema(JSON.parse(document.value)) },
+                  },
+                };
+              }
+            }
+          }
+        } catch {
+          // Catalog evidence is retained, but is not sufficient for a typed JSON contract.
+        }
+      }
+      relations[key] = { ...relation, columns: columnsWithJson, constraints: [...relation.constraints, constraint] };
     }
     for (const row of normalizeIndexRows(indexRows)) {
       const key = relationKey(schemas, row.schema_name, row.table_name);

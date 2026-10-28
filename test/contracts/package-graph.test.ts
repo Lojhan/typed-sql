@@ -23,8 +23,18 @@ interface PackageManifest {
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(directory, "../..");
-const forbiddenDrivers = new Set(["pg", "pg-copy-streams", "mysql2", "better-sqlite3", "sqlite3"]);
+const forbiddenDrivers = new Set([
+  "pg",
+  "pg-copy-streams",
+  "mysql2",
+  "better-sqlite3",
+  "sqlite3",
+  "@libsql/client",
+  "@neondatabase/serverless",
+  "postgres",
+]);
 const publicPackages = [
+  "adapters",
   "ast",
   "core",
   "opentelemetry",
@@ -51,22 +61,24 @@ const stablePackages = [
   "mysql",
   "sqlite",
   "cli",
+  "adapters",
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
+  adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js"],
   ast: [".", "./toolkit"],
   core: ["."],
   opentelemetry: ["."],
   config: ["."],
   schema: ["."],
-  postgres: [".", "./runtime", "./pg"],
-  mysql: [".", "./runtime", "./mysql2"],
+  postgres: [".", "./runtime", "./pg", "./query"],
+  mysql: [".", "./runtime", "./mysql2", "./query"],
   compiler: ["."],
   conformance: [".", "./v2"],
   cli: [],
-  "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register"],
+  "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
-  sqlite: [".", "./runtime", "./node-sqlite"],
+  sqlite: [".", "./runtime", "./node-sqlite", "./query"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {
@@ -91,6 +103,7 @@ async function source(packageName: string, parent = "packages"): Promise<string>
 await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
     for (const packageName of [
+      "adapters",
       "core",
       "opentelemetry",
       "config",

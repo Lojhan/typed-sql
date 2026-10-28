@@ -40,7 +40,8 @@
   "exports": {
     ".": "./dist/packages/sqlite/src/index.js",
     "./runtime": "./dist/packages/sqlite/src/runtime.js",
-    "./node-sqlite": "./dist/packages/sqlite/src/node-sqlite.js"
+    "./node-sqlite": "./dist/packages/sqlite/src/node-sqlite.js",
+    "./query": "./dist/packages/sqlite/src/query.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

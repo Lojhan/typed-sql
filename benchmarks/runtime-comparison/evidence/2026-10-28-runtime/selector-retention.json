@@ -1,0 +1,25 @@
+{
+  "node": "24.11.1",
+  "platform": "darwin-arm64",
+  "measurement": "heapUsed difference after explicit GC, selector remains live",
+  "fields": 500,
+  "cardinalities": {
+    "first": 50,
+    "last": 113,
+    "count": 64
+  },
+  "before": {
+    "retainedBytes": 125708984,
+    "source": "selector implementation before 98ef8c5; independent review worktree"
+  },
+  "after": {
+    "retainedBytes": 537744,
+    "source": "98ef8c5"
+  },
+  "limitations": "Single-process observation, not a latency measurement or a heap-size guarantee. The before and after worktrees contain other changes; the exercised copyShape optimization is the isolated production change. Reproduce on a pre-change and post-change revision with the adjacent script.",
+  "reproduction": {
+    "revision": "6ebfc7f",
+    "retainedBytes": 558464,
+    "command": "node --max-old-space-size=512 --expose-gc --import tsx benchmarks/runtime-comparison/evidence/2026-10-28-runtime/selector-retention.mjs"
+  }
+}

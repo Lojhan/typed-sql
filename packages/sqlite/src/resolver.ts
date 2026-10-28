@@ -1,9 +1,23 @@
 import {
+  type JsonShape,
+  type JsonShapeProperty,
+  type JsonValueDescriptor,
+  jsonArrayShape,
+  jsonObjectShape,
+  jsonShapeAtPath,
+  jsonShapeFromValue,
+  jsonShapeType,
+  jsonTupleShape,
+  nullJsonShape,
   ParameterCollector,
   type ResolvedParameter,
   ResolverSchemaIndex,
+  type RuntimeValueType,
   type StructuralRoutineSnapshot,
+  unionJsonShapes,
   unionTypeLiterals,
+  unknownJsonShape,
+  updateJsonShapePath,
 } from "@typed-sql/core";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
 import {
@@ -47,6 +61,13 @@ import {
 } from "./type-policy.js";
 
 interface ResolvedType {
+  readonly json?: JsonValueDescriptor;
+  readonly acceptsJsonInput?: true;
+  readonly scalarJsonShape?: JsonShape;
+  readonly runtimeType?: RuntimeValueType;
+  /** SQLite's transient JSON TEXT subtype, never persisted through relation projections. */
+  readonly jsonSubtype?: true;
+  readonly jsonEmbedding?: JsonShape;
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
@@ -77,6 +98,7 @@ export interface ResolvedSqliteQuery {
 }
 
 export interface ResolveSqliteOptions {
+  readonly runtimeValidation?: boolean;
   readonly typePolicy?: SqliteTypePolicy;
   readonly strictExpressions?: boolean;
 }
@@ -155,6 +177,9 @@ function isConstantFrameExpression(expression: Expression): boolean {
 }
 
 class Resolver {
+  readonly #runtimeValidation: boolean;
+  #requiresJsonValidation = false;
+  readonly #projections: WeakMap<ColumnSnapshot, ResolvedType>;
   readonly #schema: SchemaSnapshot;
   readonly #policy: SqliteTypePolicy;
   readonly #strict: boolean;
@@ -163,7 +188,13 @@ class Resolver {
   readonly #index: ResolverSchemaIndex;
   #activeWindows: ReadonlyMap<string, WindowSpecification> = new Map();
 
-  constructor(schema: SchemaSnapshot, options: ResolveSqliteOptions) {
+  constructor(
+    schema: SchemaSnapshot,
+    options: ResolveSqliteOptions,
+    projections = new WeakMap<ColumnSnapshot, ResolvedType>(),
+  ) {
+    this.#projections = projections;
+    this.#runtimeValidation = options.runtimeValidation === true;
     this.#schema = schema;
     this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultSqliteTypePolicy;
@@ -468,12 +499,7 @@ class Resolver {
       const columns: Record<string, ColumnSnapshot> = {};
       result.columns.forEach((column, index) => {
         const columnName = query.columns[index] === undefined ? column.name : name(query.columns[index]!);
-        columns[columnName] = {
-          name: columnName,
-          databaseType: column.databaseType ?? "unknown",
-          tsType: column.tsType,
-          nullable: column.nullable,
-        };
+        columns[columnName] = this.#project(columnName, column);
       });
       ctes.set(key, { name: key, columns });
     }
@@ -551,12 +577,16 @@ class Resolver {
       const seed = seedColumns[index];
       const columnName = query.columns[index] === undefined ? seed?.name : name(query.columns[index]!);
       if (columnName === undefined) continue;
-      provisionalColumns[columnName] = {
-        name: columnName,
-        databaseType: seed?.databaseType ?? "unknown",
-        tsType: seed?.tsType ?? "unknown",
-        nullable: seed?.nullable ?? true,
-      };
+      provisionalColumns[columnName] = this.#project(
+        columnName,
+        seed?.json === undefined
+          ? {
+              tsType: seed?.tsType ?? "unknown",
+              nullable: seed?.nullable ?? true,
+              ...(seed?.databaseType === undefined ? {} : { databaseType: seed.databaseType }),
+            }
+          : this.#jsonResult(unknownJsonShape, seed.nullable, seed.json.representation === "binary"),
+      );
     }
     const recursiveScope = new Map(inherited);
     recursiveScope.set(name(query.name), { name: name(query.name), columns: provisionalColumns });
@@ -648,7 +678,11 @@ class Resolver {
   ): readonly ResolvedSqliteColumn[] {
     const merged: ResolvedSqliteColumn[] = [];
     for (const statement of statements) {
-      const probe = new Resolver(this.#schema, { typePolicy: this.#policy, strictExpressions: false });
+      const probe = new Resolver(
+        this.#schema,
+        { typePolicy: this.#policy, strictExpressions: false, runtimeValidation: this.#runtimeValidation },
+        this.#projections,
+      );
       const columns = probe.#select(statement, outer, inherited, false);
       if (merged.length === 0) {
         merged.push(...columns);
@@ -657,12 +691,9 @@ class Resolver {
       for (let index = 0; index < Math.min(merged.length, columns.length); index += 1) {
         const current = merged[index]!;
         const candidate = columns[index]!;
-        const sameDatabaseType = current.databaseType === candidate.databaseType && current.databaseType !== undefined;
         merged[index] = {
+          ...this.#mergeTypes([current, candidate], current.nullable || candidate.nullable),
           name: current.name,
-          tsType: unionSqliteTypes([current.tsType, candidate.tsType]),
-          nullable: current.nullable || candidate.nullable,
-          ...(sameDatabaseType ? { databaseType: current.databaseType } : {}),
           range: current.range,
         };
       }
@@ -740,15 +771,9 @@ class Resolver {
       for (let index = 0; index < columns.length; index += 1) {
         const left = columns[index]!;
         const candidate = right[index]!;
-        const { databaseType: _databaseType, ...leftWithoutDatabaseType } = left;
-        columns[index] = {
-          ...leftWithoutDatabaseType,
-          tsType: unionSqliteTypes([left.tsType, candidate.tsType]),
-          nullable: left.nullable || candidate.nullable,
-          ...(left.databaseType === candidate.databaseType && left.databaseType !== undefined
-            ? { databaseType: left.databaseType }
-            : {}),
-        };
+        const merged = this.#mergeTypes([left, candidate], left.nullable || candidate.nullable);
+        const { jsonSubtype: _subtype, jsonEmbedding: _embedding, ...projected } = merged;
+        columns[index] = { ...projected, name: left.name, range: left.range };
       }
     }
     this.#activeWindows = previousWindows;
@@ -914,11 +939,7 @@ class Resolver {
         if (reference.arguments[2]?.kind === "parameter")
           this.#expression(reference.arguments[2], scope, ctes, this.#databaseType("text", false));
       } else {
-        const jsonInput = {
-          tsType: sqliteFlexibleType(this.#policy),
-          nullable: true,
-          databaseType: "json",
-        };
+        const jsonInput = this.#jsonInput();
         const rootPath = { tsType: "string", nullable: true, databaseType: "text" };
         if (reference.arguments[0]?.kind === "parameter")
           this.#expression(reference.arguments[0], scope, ctes, jsonInput);
@@ -972,13 +993,7 @@ class Resolver {
       if (reference.lateral) this.#unsupported("SQLite does not support LATERAL subqueries", reference.range);
       const result = this.#statement(reference.query, reference.lateral ? scope : scope.outer, ctes);
       const columns: Record<string, ColumnSnapshot> = {};
-      for (const column of result.columns)
-        columns[column.name] = {
-          name: column.name,
-          databaseType: column.databaseType ?? "unknown",
-          tsType: column.tsType,
-          nullable: column.nullable,
-        };
+      for (const column of result.columns) columns[column.name] = this.#project(column.name, column);
       table = { name: name(reference.alias), columns };
       alias = name(reference.alias);
     } else {
@@ -1122,6 +1137,29 @@ class Resolver {
           `Invalid or unknown SQLite cast type ${expression.databaseType.name}`,
           expression.databaseType.range,
         );
+      if (
+        mapSqliteCastType(expression.databaseType.name, this.#policy) === "string" &&
+        source.json?.representation !== "binary" &&
+        source.jsonSubtype
+      )
+        return source;
+      if (
+        mapSqliteCastType(expression.databaseType.name, this.#policy) === "string" &&
+        source.jsonEmbedding !== undefined &&
+        source.json?.representation !== "binary"
+      ) {
+        const variants = source.jsonEmbedding.kind === "union" ? source.jsonEmbedding.variants : [source.jsonEmbedding];
+        return {
+          tsType: "string",
+          nullable: source.nullable,
+          databaseType: "text",
+          jsonEmbedding: unionJsonShapes(
+            variants.map((item) =>
+              ["object", "array", "tuple", "null", "unknown"].includes(item.kind) ? item : { kind: "string" },
+            ),
+          ),
+        };
+      }
       return {
         tsType: mapSqliteCastType(expression.databaseType.name, this.#policy),
         nullable: source.nullable,
@@ -1130,6 +1168,17 @@ class Resolver {
     }
     if (expression.kind === "unary") {
       const operand = this.#expression(expression.expression, scope, ctes);
+      if (
+        expression.operator !== "+" &&
+        expression.operator !== "NOT" &&
+        (operand.json !== undefined || operand.scalarJsonShape !== undefined || operand.jsonEmbedding !== undefined)
+      )
+        return {
+          tsType: unionSqliteTypes([this.#policy.integer, "number"]),
+          nullable: operand.nullable,
+          databaseType: "numeric",
+          runtimeType: { union: [this.#policy.integer, "number"] },
+        };
       return expression.operator === "NOT"
         ? { tsType: this.#policy.integer, nullable: operand.nullable, databaseType: "integer" }
         : operand;
@@ -1142,10 +1191,10 @@ class Resolver {
       const values = expression.branches.map((branch) => this.#expression(branch.then, scope, ctes));
       if (expression.elseExpression !== undefined)
         values.push(this.#expression(expression.elseExpression, scope, ctes));
-      return {
-        tsType: unionSqliteTypes(values.map((value) => value.tsType)),
-        nullable: expression.elseExpression === undefined || values.some((value) => value.nullable),
-      };
+      return this.#mergeTypes(
+        values,
+        expression.elseExpression === undefined || values.some((value) => value.nullable),
+      );
     }
     if (expression.kind === "subquery") {
       const result = this.#statement(expression.query, scope, ctes);
@@ -1158,11 +1207,8 @@ class Resolver {
         return { tsType: "unknown", nullable: true };
       }
       const column = result.columns[0]!;
-      return {
-        tsType: column.tsType,
-        nullable: true,
-        ...(column.databaseType === undefined ? {} : { databaseType: column.databaseType }),
-      };
+      const { name: _name, range: _range, ...type } = column;
+      return { ...type, nullable: true };
     }
     if (expression.kind === "exists") {
       this.#statement(expression.query, scope, ctes);
@@ -1224,16 +1270,23 @@ class Resolver {
     if (SQLITE_UNSUPPORTED_OPERATORS.has(expression.operator)) {
       this.#unsupported(`SQLite does not support operator ${expression.operator}`, expression.range);
     }
+    const operator = sqliteOperator(expression.operator);
     let left: ResolvedType;
     let right: ResolvedType;
-    if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
+    if (operator?.result === "json-text" || operator?.result === "json-flexible") {
+      left = this.#expression(expression.left, scope, ctes, this.#jsonInput());
+      right = this.#expression(expression.right, scope, ctes, {
+        tsType: "string",
+        nullable: true,
+        databaseType: "text",
+      });
+    } else if (expression.left.kind === "parameter" && expression.right.kind !== "parameter") {
       right = this.#expression(expression.right, scope, ctes);
       left = this.#expression(expression.left, scope, ctes, right);
     } else {
       left = this.#expression(expression.left, scope, ctes);
       right = this.#expression(expression.right, scope, ctes, expression.right.kind === "parameter" ? left : undefined);
     }
-    const operator = sqliteOperator(expression.operator);
     if (operator?.result === "json-text" || operator?.result === "json-flexible") {
       const availability = resolveSqliteBuiltin(
         "JSON",
@@ -1253,12 +1306,22 @@ class Resolver {
     if (operator?.result === "text") {
       return { tsType: "string", nullable: left.nullable || right.nullable, databaseType: "text" };
     }
-    if (operator?.result === "json-text") return { tsType: "string", nullable: true, databaseType: "text" };
-    if (operator?.result === "json-flexible")
-      return {
-        tsType: sqliteFlexibleType(this.#policy),
-        nullable: true,
-      };
+    if (operator?.result === "json-text" || operator?.result === "json-flexible") {
+      const argument = expression.right;
+      const path =
+        argument.kind === "literal" && typeof argument.value === "string"
+          ? this.#jsonPath(argument.value.startsWith("$") ? argument.value : `$.${JSON.stringify(argument.value)}`)
+          : argument.kind === "literal" && typeof argument.value === "number"
+            ? [argument.value]
+            : undefined;
+      return this.#jsonExtract(
+        this.#jsonDocument(left, expression.left),
+        path,
+        operator.result === "json-text",
+        false,
+        left.nullable || right.nullable,
+      );
+    }
     if (operator?.result === "numeric" && sqliteNumericOperands(left.databaseType, right.databaseType)) {
       return {
         tsType: unionSqliteTypes([this.#policy.integer, "number"]),
@@ -1355,7 +1418,14 @@ class Resolver {
       }
       this.#builtinParameters(functionName, expression, scope, ctes);
       this.#dateTimeArguments(functionName, expression);
-      return this.#builtinResult(builtin.definition, values, expression.arguments);
+      const result =
+        this.#jsonCall(functionName, values, expression.arguments) ??
+        this.#builtinResult(builtin.definition, values, expression.arguments);
+      if (builtinWindow) {
+        const { jsonSubtype: _subtype, jsonEmbedding: _embedding, ...stored } = result;
+        return stored;
+      }
+      return result;
     }
     if (builtin.status === "arity") {
       const ranges = [...new Set(builtin.definitions.map(({ arguments: range }) => this.#arity(range)))].join(" or ");
@@ -1555,7 +1625,7 @@ class Resolver {
       databaseType: "numeric",
     };
     const text = { tsType: "string", nullable: true, databaseType: "text" };
-    const json = { tsType: sqliteFlexibleType(this.#policy), nullable: true, databaseType: "json" };
+    const json = this.#jsonInput();
     const jsonValue = { tsType: sqliteFlexibleType(this.#policy), nullable: true };
     const timeValue = {
       tsType: unionSqliteTypes([this.#policy.integer, "number", "string"]),
@@ -1674,10 +1744,10 @@ class Resolver {
       case "blob-nullable":
         return { tsType: "Uint8Array", nullable: true, databaseType: "blob" };
       case "coalesce":
-        return {
-          tsType: unionSqliteTypes(values.map((value) => value.tsType)),
-          nullable: values.every((value) => value.nullable),
-        };
+        return this.#mergeTypes(
+          values,
+          values.every((value) => value.nullable),
+        );
       case "concat":
         return { tsType: "string", nullable: false, databaseType: "text" };
       case "concat-ws":
@@ -1687,18 +1757,15 @@ class Resolver {
       case "first-argument-nullable":
         return { ...first, nullable: true };
       case "flexible-nullable":
-        return {
-          tsType: unionSqliteTypes(values.map((value) => value.tsType)),
-          nullable: values.some((value) => value.nullable),
-        };
+        return this.#mergeTypes(
+          values,
+          values.some((value) => value.nullable),
+        );
       case "iif": {
         const branches = values.filter(
           (_, index) => index % 2 === 1 || (values.length % 2 === 1 && index === values.length - 1),
         );
-        return {
-          tsType: unionSqliteTypes(branches.map((value) => value.tsType)),
-          nullable: values.length % 2 === 0 || branches.some((value) => value.nullable),
-        };
+        return this.#mergeTypes(branches, values.length % 2 === 0 || branches.some((value) => value.nullable));
       }
       case "integer":
         return { tsType: this.#policy.integer, nullable: false, databaseType: "integer" };
@@ -1720,11 +1787,10 @@ class Resolver {
           : { tsType: "Uint8Array", nullable: true, databaseType: "blob" };
       case "lag-lead": {
         const fallback = values[2];
-        return {
-          ...first,
-          tsType: fallback === undefined ? first.tsType : unionSqliteTypes([first.tsType, fallback.tsType]),
-          nullable: first.nullable || fallback === undefined || fallback.nullable,
-        };
+        return this.#mergeTypes(
+          fallback === undefined ? [first] : [first, fallback],
+          first.nullable || fallback === undefined || fallback.nullable,
+        );
       }
       case "nullif":
         return { ...first, nullable: true };
@@ -1831,8 +1897,468 @@ class Resolver {
     return column;
   }
 
+  #project(name: string, value: ResolvedType): ColumnSnapshot {
+    const column = {
+      name,
+      databaseType: value.databaseType ?? "unknown",
+      tsType: value.tsType,
+      nullable: value.nullable,
+    };
+    const {
+      name: _name,
+      range: _range,
+      jsonSubtype: _subtype,
+      jsonEmbedding: _embedding,
+      ...stored
+    } = value as ResolvedSqliteColumn;
+    this.#projections.set(column, stored);
+    return column;
+  }
+
+  #mergeTypes(values: readonly ResolvedType[], nullable: boolean): ResolvedType {
+    const first = values[0];
+    if (
+      first?.json !== undefined &&
+      values.every((value) => value.json?.representation === first.json!.representation)
+    ) {
+      const result = this.#jsonResult(
+        unionJsonShapes(values.map((value) => value.json!.shape)),
+        nullable,
+        first.json.representation === "binary",
+      );
+      return {
+        ...result,
+        jsonEmbedding: unionJsonShapes(values.map((value) => this.#jsonValue(value))),
+        json: {
+          ...result.json!,
+          ...(values.some((value) => value.json?.requiresRuntimeValidation) ? { requiresRuntimeValidation: true } : {}),
+        },
+      };
+    }
+    // Mixed parsed JSON/native SQL branches have no single physical decoding contract.
+    if (values.some((value) => value.json?.representation === "parsed")) return { tsType: "unknown", nullable };
+    const hasScalar = values.some((value) => value.scalarJsonShape !== undefined);
+    const scalarShapes = values.map(
+      (value): JsonShape | undefined =>
+        value.scalarJsonShape ??
+        (value.tsType === "string" || value.json?.representation === "text"
+          ? { kind: "string" }
+          : value.tsType === "bigint" || value.tsType === "number"
+            ? { kind: "number" }
+            : undefined),
+    );
+    if (hasScalar && scalarShapes.some((shape) => shape === undefined)) return { tsType: "unknown", nullable };
+    return {
+      tsType: unionSqliteTypes(values.map((value) => value.tsType)),
+      nullable,
+      ...(hasScalar
+        ? {
+            scalarJsonShape: unionJsonShapes(scalarShapes as readonly JsonShape[]),
+            runtimeType: {
+              union: values.map(
+                (value) =>
+                  value.runtimeType ??
+                  (value.tsType === "string" || value.tsType === "number" || value.tsType === "bigint"
+                    ? value.tsType
+                    : "unknown"),
+              ),
+            } as RuntimeValueType,
+          }
+        : {}),
+      ...(first?.databaseType !== undefined && values.every((value) => value.databaseType === first.databaseType)
+        ? { databaseType: first.databaseType }
+        : {}),
+      ...(values.some((value) => value.json !== undefined || value.jsonEmbedding !== undefined)
+        ? { jsonEmbedding: unionJsonShapes(values.map((value) => this.#jsonValue(value))) }
+        : {}),
+    };
+  }
+
+  #jsonInput(): ResolvedType {
+    return {
+      tsType: sqliteFlexibleType(this.#policy),
+      nullable: true,
+      databaseType: "json",
+      acceptsJsonInput: true,
+    };
+  }
+
+  #jsonResult(shape: JsonShape, nullable: boolean, binary = false): ResolvedType {
+    const representation = binary
+      ? "binary"
+      : this.#policy.json === "parsed" && this.#runtimeValidation
+        ? "parsed"
+        : "text";
+    return {
+      tsType: binary ? "Uint8Array" : representation === "parsed" ? jsonShapeType(shape) : "string",
+      nullable,
+      databaseType: binary ? "blob" : "text",
+      jsonSubtype: true,
+      json: {
+        shape,
+        representation,
+        ...(representation === "parsed" || this.#requiresJsonValidation ? { requiresRuntimeValidation: true } : {}),
+      },
+    };
+  }
+
+  #jsonValue(value: ResolvedType, expression?: Expression): JsonShape {
+    if (expression?.kind === "literal" && expression.value === null) return nullJsonShape;
+    let shape =
+      value.jsonEmbedding ??
+      (value.jsonSubtype || value.json?.representation === "binary" ? value.json?.shape : undefined) ??
+      value.scalarJsonShape;
+    if (shape === undefined) {
+      const type = value.databaseType?.toLowerCase();
+      if (["integer", "int", "real", "numeric"].includes(type ?? "")) shape = { kind: "number" };
+      else if (["text", "varchar"].includes(type ?? "")) shape = { kind: "string" };
+      else if (value.tsType === "string") shape = { kind: "string" };
+    }
+    shape ??= unknownJsonShape;
+    return value.nullable ? unionJsonShapes([shape, nullJsonShape]) : shape;
+  }
+
+  #jsonDocument(value: ResolvedType, expression?: Expression): JsonShape {
+    if (value.json !== undefined) return value.json.shape;
+    if (expression?.kind === "literal" && typeof expression.value === "string") {
+      try {
+        const parsed: unknown = JSON.parse(expression.value);
+        // JSON.parse discards duplicate object labels; SQLite path lookup keeps the first.
+        // Only canonical containers establish literal structure without another JSON parser.
+        const trimmed = expression.value.trim();
+        if ((trimmed.startsWith("{") || trimmed.startsWith("[")) && JSON.stringify(parsed) !== trimmed)
+          return unknownJsonShape;
+        return jsonShapeFromValue(parsed);
+      } catch {
+        /* JSON5 and malformed/dynamic input stay unknown. */
+      }
+    }
+    return unknownJsonShape;
+  }
+
+  #jsonPath(text: string): readonly (string | number)[] | undefined {
+    if (!text.startsWith("$")) return undefined;
+    let rest = text.slice(1);
+    const path: (string | number)[] = [];
+    while (rest.length > 0 && path.length < 32) {
+      const quoted = /^\.("(?:[^"\\]|\\.)*")/u.exec(rest);
+      const member = /^\.([^.[\]"]+)/u.exec(rest);
+      const index = /^\[(\d+|#(?:-\d+)?)\]/u.exec(rest);
+      if (quoted !== null) {
+        try {
+          path.push(JSON.parse(quoted[1]!));
+        } catch {
+          return undefined;
+        }
+        rest = rest.slice(quoted[0].length);
+      } else if (member !== null) {
+        path.push(member[1]!);
+        rest = rest.slice(member[0].length);
+      } else if (index !== null) {
+        path.push(
+          index[1] === "#" || index[1] === "#-0"
+            ? Number.POSITIVE_INFINITY
+            : index[1]!.startsWith("#-")
+              ? -Number(index[1]!.slice(2))
+              : Number(index[1]),
+        );
+        rest = rest.slice(index[0].length);
+      } else return undefined;
+    }
+    return rest.length === 0 ? path : undefined;
+  }
+
+  #jsonExtract(
+    shape: JsonShape,
+    path: readonly (string | number)[] | undefined,
+    serialized: boolean,
+    binary: boolean,
+    nullable: boolean,
+  ): ResolvedType {
+    const selected =
+      path === undefined ? { shape: unknownJsonShape, presence: "maybe" as const } : jsonShapeAtPath(shape, path);
+    nullable ||= selected.presence !== "always";
+    if (selected.presence === "never") return { tsType: "never", nullable: true, scalarJsonShape: nullJsonShape };
+    if (serialized) return this.#jsonResult(selected.shape, nullable, binary);
+    const variants = selected.shape.kind === "union" ? selected.shape.variants : [selected.shape];
+    const structured = (item: JsonShape): boolean => ["object", "array", "tuple"].includes(item.kind);
+    if (variants.every(structured)) return this.#jsonResult(selected.shape, nullable, binary);
+    const types: string[] = [];
+    const runtime: RuntimeValueType[] = [];
+    const scalars: JsonShape[] = [];
+    for (const item of variants) {
+      if (item.kind === "null") {
+        nullable = true;
+        continue;
+      }
+      if (structured(item)) {
+        types.push(binary ? "Uint8Array" : "string");
+        runtime.push(binary ? "bytes" : "string");
+        continue;
+      }
+      const kind = item.kind === "literal" ? typeof item.value : item.kind;
+      if (kind === "boolean") {
+        types.push(this.#policy.integer === "bigint" ? "0n | 1n" : "0 | 1");
+        runtime.push(this.#policy.integer);
+        scalars.push(
+          unionJsonShapes([
+            { kind: "literal", value: 0 },
+            { kind: "literal", value: 1 },
+          ]),
+        );
+      } else if (kind === "number") {
+        types.push(this.#policy.integer, "number");
+        runtime.push(this.#policy.integer, "number");
+        scalars.push({ kind: "number" });
+      } else if (kind === "string") {
+        types.push("string");
+        runtime.push("string");
+        scalars.push(item);
+      } else {
+        types.push(this.#policy.integer, "number", "string", ...(binary ? ["Uint8Array"] : []));
+        runtime.push(this.#policy.integer, "number", "string", ...(binary ? ["bytes" as const] : []));
+        nullable = true;
+      }
+    }
+    const members = [...new Set(runtime)];
+    return {
+      tsType: types.length === 0 ? "never" : unionSqliteTypes(types),
+      nullable,
+      runtimeType: members.length === 0 ? "unknown" : members.length === 1 ? members[0]! : { union: members },
+      jsonEmbedding: unionJsonShapes(
+        variants.map((item) => {
+          const kind = item.kind === "literal" ? typeof item.value : item.kind;
+          return kind === "boolean"
+            ? unionJsonShapes([
+                { kind: "literal", value: 0 },
+                { kind: "literal", value: 1 },
+              ])
+            : kind === "number"
+              ? { kind: "number" }
+              : item;
+        }),
+      ),
+      ...(scalars.length === variants.length ? { scalarJsonShape: unionJsonShapes(scalars) } : {}),
+    };
+  }
+
+  #jsonUpdate(
+    shape: JsonShape,
+    path: readonly (string | number)[],
+    value: JsonShape | undefined,
+    mode: "set" | "insert" | "replace",
+    arrayInsert = false,
+    depth = 0,
+    budget = { nodes: 0 },
+  ): JsonShape {
+    if (++budget.nodes > 1_024 || depth > 32) return unknownJsonShape;
+    if (path.length === 0) return mode === "insert" ? shape : (value ?? nullJsonShape);
+    if (shape.kind === "unknown") return shape;
+    if (shape.kind === "union")
+      return unionJsonShapes(
+        shape.variants.map((item) => this.#jsonUpdate(item, path, value, mode, arrayInsert, depth + 1, budget)),
+      );
+    let key = path[0]!;
+    if (key === Number.POSITIVE_INFINITY && shape.kind === "tuple") key = shape.elements.length;
+    if (typeof key === "string" && shape.kind === "object") {
+      const selected = jsonShapeAtPath(shape, [key]);
+      if (path.length === 1) return updateJsonShapePath(shape, [key], value, mode);
+      if (selected.presence === "never" && mode === "replace") return shape;
+      const child =
+        selected.presence === "never"
+          ? typeof path[1] === "number"
+            ? jsonTupleShape([])
+            : jsonObjectShape({})
+          : selected.shape;
+      let next = this.#jsonUpdate(child, path.slice(1), value, mode, arrayInsert, depth + 1, budget);
+      if (selected.presence === "never" && next === child) return shape;
+      if (selected.presence === "maybe" && mode !== "replace" && value !== undefined) {
+        const missing = typeof path[1] === "number" ? jsonTupleShape([]) : jsonObjectShape({});
+        next = unionJsonShapes([
+          next,
+          this.#jsonUpdate(missing, path.slice(1), value, mode, arrayInsert, depth + 1, budget),
+        ]);
+      }
+      return updateJsonShapePath(shape, [key], next, selected.presence === "never" ? "set" : "replace");
+    }
+    if (typeof key === "number" && shape.kind === "tuple") {
+      const index = key < 0 ? shape.elements.length + key : key;
+      if (!Number.isSafeInteger(index) || index < 0 || index > shape.elements.length) return shape;
+      if (path.length === 1) {
+        if (arrayInsert && value !== undefined) {
+          const elements = [...shape.elements];
+          elements.splice(index, 0, value);
+          return jsonTupleShape(elements);
+        }
+        return updateJsonShapePath(shape, [index], value, mode);
+      }
+      if (index === shape.elements.length && mode === "replace") return shape;
+      const child = shape.elements[index] ?? (typeof path[1] === "number" ? jsonTupleShape([]) : jsonObjectShape({}));
+      return updateJsonShapePath(
+        shape,
+        [index],
+        this.#jsonUpdate(child, path.slice(1), value, mode, arrayInsert, depth + 1, budget),
+        index === shape.elements.length ? "set" : "replace",
+      );
+    }
+    if (typeof key === "number" && shape.kind === "array") {
+      if (key === Number.POSITIVE_INFINITY && path.length > 1) return unknownJsonShape;
+      return value === undefined
+        ? shape
+        : jsonArrayShape(
+            unionJsonShapes([
+              shape.element,
+              path.length === 1
+                ? value
+                : this.#jsonUpdate(shape.element, path.slice(1), value, mode, arrayInsert, depth + 1, budget),
+              ...(path.length > 1 && mode !== "replace"
+                ? [
+                    this.#jsonUpdate(
+                      typeof path[1] === "number" ? jsonTupleShape([]) : jsonObjectShape({}),
+                      path.slice(1),
+                      value,
+                      mode,
+                      arrayInsert,
+                      depth + 1,
+                      budget,
+                    ),
+                  ]
+                : []),
+            ]),
+          );
+    }
+    return shape;
+  }
+
+  #jsonPatch(left: JsonShape, right: JsonShape, budget = { nodes: 0 }): JsonShape {
+    if (++budget.nodes > 1_024) return unknownJsonShape;
+    if (left.kind === "unknown" || right.kind === "unknown") return unknownJsonShape;
+    if (left.kind === "union")
+      return unionJsonShapes(left.variants.map((item) => this.#jsonPatch(item, right, budget)));
+    if (right.kind === "union")
+      return unionJsonShapes(right.variants.map((item) => this.#jsonPatch(left, item, budget)));
+    if (right.kind !== "object") return right;
+    if (
+      right.additionalProperties !== undefined ||
+      Object.values(right.properties).some((property) => property.optional)
+    )
+      return unknownJsonShape;
+    let result = left.kind === "object" ? left : jsonObjectShape({});
+    for (const [key, property] of Object.entries(right.properties)) {
+      const previous = jsonShapeAtPath(result, [key]);
+      const apply = (patch: JsonShape): JsonShape => {
+        if (++budget.nodes > 1_024 || patch.kind === "unknown") return unknownJsonShape;
+        if (patch.kind === "union") return unionJsonShapes(patch.variants.map(apply));
+        return updateJsonShapePath(
+          result,
+          [key],
+          patch.kind === "null"
+            ? undefined
+            : this.#jsonPatch(previous.presence === "never" ? jsonObjectShape({}) : previous.shape, patch, budget),
+        );
+      };
+      result = apply(property.shape);
+    }
+    return result;
+  }
+
+  #jsonCall(name: string, values: readonly ResolvedType[], args: readonly Expression[]): ResolvedType | undefined {
+    if (!name.startsWith("JSON")) return undefined;
+    const binary = name.startsWith("JSONB");
+    const plain = name.replace(/^JSONB/u, "JSON");
+    const result = (shape: JsonShape, nullable = false) => this.#jsonResult(shape, nullable, binary);
+    if (plain === "JSON" || plain === "JSON_PRETTY")
+      return result(this.#jsonDocument(values[0]!, args[0]), values[0]!.nullable);
+    if (plain === "JSON_ARRAY")
+      return result(jsonTupleShape(values.map((value, index) => this.#jsonValue(value, args[index]))));
+    if (plain === "JSON_OBJECT") {
+      const properties: Record<string, JsonShapeProperty> = {};
+      for (let index = 0; index < args.length; index += 2) {
+        const key = args[index]!;
+        if (key.kind !== "literal") return result(unknownJsonShape);
+        if (typeof key.value !== "string") {
+          this.#diagnostic("TSQ202", "SQLite JSON object labels must be text", key.range);
+          return { tsType: "unknown", nullable: true };
+        }
+        Object.defineProperty(properties, key.value, {
+          value: {
+            shape: Object.hasOwn(properties, key.value)
+              ? unionJsonShapes([properties[key.value]!.shape, this.#jsonValue(values[index + 1]!, args[index + 1])])
+              : this.#jsonValue(values[index + 1]!, args[index + 1]),
+          },
+          enumerable: true,
+          configurable: true,
+        });
+      }
+      return result(jsonObjectShape(properties));
+    }
+    if (plain === "JSON_GROUP_ARRAY") return result(jsonArrayShape(this.#jsonValue(values[0]!, args[0])));
+    if (plain === "JSON_GROUP_OBJECT") return result(jsonObjectShape({}, this.#jsonValue(values[1]!, args[1])));
+    if (plain === "JSON_QUOTE") return result(this.#jsonValue(values[0]!, args[0]));
+    if (plain === "JSON_EXTRACT") {
+      const shape = this.#jsonDocument(values[0]!, args[0]);
+      const paths = args
+        .slice(1)
+        .map((argument) =>
+          argument.kind === "literal" && typeof argument.value === "string"
+            ? this.#jsonPath(argument.value)
+            : undefined,
+        );
+      if (paths.length === 1)
+        return this.#jsonExtract(shape, paths[0], false, binary, values[0]!.nullable || values[1]!.nullable);
+      const selected = paths.map((path) =>
+        path === undefined
+          ? unknownJsonShape
+          : (() => {
+              const item = jsonShapeAtPath(shape, path);
+              return item.presence === "never"
+                ? nullJsonShape
+                : item.presence === "maybe"
+                  ? unionJsonShapes([item.shape, nullJsonShape])
+                  : item.shape;
+            })(),
+      );
+      return result(
+        jsonTupleShape(selected),
+        values.some((value) => value.nullable),
+      );
+    }
+    if (["JSON_SET", "JSON_INSERT", "JSON_REPLACE", "JSON_ARRAY_INSERT", "JSON_REMOVE"].includes(plain)) {
+      let shape = this.#jsonDocument(values[0]!, args[0]);
+      for (let index = 1; index < args.length; index += plain === "JSON_REMOVE" ? 1 : 2) {
+        const argument = args[index]!;
+        const path =
+          argument.kind === "literal" && typeof argument.value === "string"
+            ? this.#jsonPath(argument.value)
+            : undefined;
+        if (path === undefined) return result(unknownJsonShape, true);
+        if (plain === "JSON_REMOVE" && path.length === 0)
+          return { tsType: "never", nullable: true, scalarJsonShape: nullJsonShape };
+        shape = this.#jsonUpdate(
+          shape,
+          path,
+          plain === "JSON_REMOVE" ? undefined : this.#jsonValue(values[index + 1]!, args[index + 1]),
+          plain === "JSON_INSERT" ? "insert" : plain === "JSON_REPLACE" ? "replace" : "set",
+          plain === "JSON_ARRAY_INSERT",
+        );
+      }
+      return result(
+        shape,
+        plain === "JSON_REMOVE"
+          ? values.some((value) => value.nullable)
+          : values[0]!.nullable || values.some((value, index) => index % 2 === 1 && value.nullable),
+      );
+    }
+    if (plain === "JSON_PATCH")
+      return result(
+        this.#jsonPatch(this.#jsonDocument(values[0]!, args[0]), this.#jsonDocument(values[1]!, args[1])),
+        values.some((value) => value.nullable),
+      );
+    return undefined;
+  }
+
   #columnType(relation: Relation, column: ColumnSnapshot): ResolvedType {
-    return { tsType: column.tsType, nullable: column.nullable || relation.nullable, databaseType: column.databaseType };
+    return { ...this.#snapshotType(column)!, nullable: column.nullable || relation.nullable };
   }
 
   #hasImplicitRowid(table: TableSnapshot, columnName: string): boolean {
@@ -1863,6 +2389,19 @@ class Resolver {
 
   #snapshotType(column: ColumnSnapshot | undefined): ResolvedType | undefined {
     if (column === undefined) return undefined;
+    const projected = this.#projections.get(column);
+    if (projected !== undefined) return projected;
+    const declaration = column.jsonDeclaration;
+    if (declaration !== undefined && (declaration.source === "database" || this.#runtimeValidation)) {
+      if (declaration.source === "application") this.#requiresJsonValidation = true;
+      const binary = column.databaseType.toLowerCase() === "blob";
+      const result = this.#jsonResult(declaration.shape, column.nullable, binary);
+      const { jsonSubtype: _subtype, ...stored } = result;
+      return {
+        ...stored,
+        ...(declaration.source === "application" ? { json: { ...result.json!, requiresRuntimeValidation: true } } : {}),
+      };
+    }
     return { tsType: column.tsType, nullable: column.nullable, databaseType: column.databaseType };
   }
 

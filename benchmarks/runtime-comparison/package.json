@@ -12,6 +12,9 @@
     "generate": "prisma generate",
     "benchmark": "tsx src/benchmark.ts",
     "benchmark:bulk": "tsx src/bulk.ts",
+    "benchmark:sqlite": "node src/runtime.mjs",
+    "benchmark:postgres": "node src/runtime.mjs postgres",
+    "benchmark:mysql": "node src/runtime.mjs mysql",
     "typecheck": "tsc --noEmit",
     "run": "pnpm databases:start && pnpm generate && pnpm benchmark && pnpm benchmark:bulk"
   },
@@ -20,12 +23,20 @@
     "@prisma/client": "7.10.0",
     "@typed-sql/mysql": "link:../../packages/mysql",
     "@typed-sql/postgres": "link:../../packages/postgres",
+    "@typed-sql/sqlite": "link:../../packages/sqlite",
+    "@typed-sql/ts-bridge": "link:../../packages/ts-bridge",
+    "@reylosql/sqlite": "0.6.0",
+    "@reylosql/postgres": "0.6.0",
+    "@reylosql/mysql": "0.6.0",
     "drizzle-orm": "0.45.2",
     "kysely": "0.29.5",
-    "mysql2": "3.24.3",
-    "pg": "8.23.0",
+    "mysql2": "3.24.6",
+    "pg": "8.23.1",
     "pg-copy-streams": "7.0.0",
-    "typeorm": "1.1.0"
+    "reylo": "0.6.0",
+    "typeorm": "1.1.0",
+    "@typed-sql/compiler": "link:../../packages/compiler",
+    "@typed-sql/core": "link:../../packages/core"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

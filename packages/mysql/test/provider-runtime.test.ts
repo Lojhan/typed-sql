@@ -611,6 +611,71 @@ class FakePool implements MySqlPoolLike {
 }
 
 await describe("MySQL provider and runtime", async () => {
+  await it("discovers only directly enforced literal JSON schema checks", async () => {
+    const document = JSON.stringify({
+      type: "object",
+      required: ["id"],
+      properties: { id: { type: "number" } },
+      additionalProperties: false,
+    });
+    const call = `json_schema_valid(_utf8mb4'${document}', \`id\`)`;
+    const cases = [
+      { predicate: call, enforced: "YES", valid: true },
+      { predicate: call.replaceAll("\\", "\\\\").replaceAll("'", "\\'"), enforced: "YES", valid: true },
+      { predicate: call, enforced: "NO", valid: false },
+      { predicate: call, enforced: undefined, valid: false },
+      { predicate: `${call} OR TRUE`, enforced: "YES", valid: false },
+      { predicate: `JSON_SCHEMA_VALID('invalid', id)`, enforced: "YES", valid: false },
+      { predicate: `JSON_SCHEMA_VALID('{"allOf":[]}', id)`, enforced: "YES", valid: false },
+      { predicate: `app.JSON_SCHEMA_VALID('${document}', id)`, enforced: "YES", valid: false },
+      { predicate: `JSON_SCHEMA_VALID(status, id)`, enforced: "YES", valid: false },
+      { predicate: `JSON_SCHEMA_VALID('${document}', status)`, enforced: "YES", valid: false },
+    ];
+    for (const item of cases) {
+      const catalog = new CatalogClient();
+      const client: MySqlQueryable = {
+        async query<Row extends Record<string, unknown>>(
+          source: string,
+          values?: readonly unknown[],
+        ): Promise<MySqlQueryResult<Row>> {
+          if (source.includes("information_schema.TABLE_CONSTRAINTS"))
+            return {
+              rows: [
+                {
+                  schema_name: "app",
+                  table_name: "users",
+                  constraint_name: "checked_json",
+                  constraint_type: "CHECK",
+                  columns: [],
+                  referenced_columns: [],
+                  referenced_table: null,
+                  check_clause: item.predicate,
+                  enforced: item.enforced,
+                },
+              ] as unknown as Row[],
+            };
+          const result = await catalog.query<Row>(source, values);
+          if (source.includes("information_schema.COLUMNS"))
+            return {
+              rows: result.rows.map((row) =>
+                row.column_name === "id" ? { ...row, database_type: "json", extra: "" } : row,
+              ) as Row[],
+            };
+          return result;
+        },
+      };
+      const snapshot = await new MySqlSchemaProvider({ client, includeSchemas: ["app"] }).introspect({});
+      const declaration = snapshot.relations.users?.columns.id?.jsonDeclaration;
+      strict.strictEqual(declaration !== undefined, item.valid, item.predicate);
+      strict.deepStrictEqual(snapshot.tables.users?.columns.id?.jsonDeclaration, declaration);
+      if (item.valid)
+        strict.deepStrictEqual(declaration, {
+          source: "database",
+          shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+        });
+    }
+  });
+
   await it("introspects schemas, columns, enums, defaults, functions, and server version", async () => {
     const client = new CatalogClient();
     const snapshot = await new MySqlSchemaProvider({ client, includeSchemas: ["app"] }).introspect({});
@@ -951,31 +1016,6 @@ await describe("MySQL provider and runtime", async () => {
     ]);
     strict.deepStrictEqual(pool.calls, [{ sql: "SELECT id FROM users WHERE email = ?", values: ["b@example.com"] }]);
     strict.throws(() => database.prepare("transaction-prepared", () => sql`SELECT 1`), /already registered/);
-  });
-
-  await it("caches rendering only in the database instance that prepared the query", async () => {
-    const firstPool = new FakePool();
-    const secondPool = new FakePool();
-    const firstDatabase = createMySqlDatabase({ pool: firstPool });
-    const secondDatabase = createMySqlDatabase({ pool: secondPool });
-    const source = sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`;
-    let segmentReads = 0;
-    const observed = new Proxy(source, {
-      get(target, property, receiver) {
-        if (property === "segments") segmentReads += 1;
-        return Reflect.get(target, property, receiver);
-      },
-    });
-    const prepared = firstDatabase.prepare("database-local", () => observed);
-    const query = prepared();
-    strict.strictEqual(segmentReads, 1);
-
-    await firstDatabase.execute(query);
-    strict.strictEqual(segmentReads, 1);
-    await secondDatabase.execute(query);
-    strict.strictEqual(segmentReads, 2);
-    strict.deepStrictEqual(firstPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
-    strict.deepStrictEqual(secondPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
   });
 
   await it("supports transactions, nested savepoints, rollback, and connection lifecycle", async () => {

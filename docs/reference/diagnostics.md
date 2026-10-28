@@ -17,6 +17,7 @@ Automation should depend on diagnostic codes and source ranges, not English mess
 | `TSQ005` | Runtime SQL cannot be analyzed statically. |
 | `TSQ006` | Source analysis exceeded a compiler resource limit. |
 | `TSQ007` | The schema snapshot and dialect do not match. |
+| `TSQ016` | The build cannot attach executable value metadata for this query structure. |
 | `TSQ100` | A referenced table does not exist. |
 | `TSQ101` | A referenced column does not exist. |
 | `TSQ102` | A column reference is ambiguous. |

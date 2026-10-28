@@ -22,6 +22,7 @@ import {
   type DatabaseOperationEnd,
   type DatabaseOperationStart,
   requireAdapterCapability,
+  validateJsonValue,
 } from "@typed-sql/core";
 import { createPostgresRoutedDatabase, postgres, postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase, createPgLiveVerifier } from "@typed-sql/postgres/pg";
@@ -29,6 +30,13 @@ import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { Pool } from "pg";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
+import {
+  assertCompiledLegacyValuePlans,
+  assertLegacyTextValuePlans,
+  assertLegacyValuePlans,
+  assertPostgresRawJsonValuePlans,
+} from "../../../test/helpers/legacy-value-plans.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
 import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
@@ -191,6 +199,41 @@ try {
   }
 
   await describe("developer PostgreSQL flow", async () => {
+    await it("enforces attached value plans through actual pg buffered, prepared, pipeline and cursor paths", async () => {
+      const database = await createPgDatabase({
+        connectionString,
+        typePolicy,
+        cursorImporter: () => import(pgCursorPackage),
+      });
+      let pipelineDatabase: Awaited<ReturnType<typeof createPgDatabase>> | undefined;
+      try {
+        pipelineDatabase = await createPgDatabase({ connectionString, typePolicy, poolConfig: { pipeline: true } });
+        const textPolicy = { ...typePolicy, json: "string" as const };
+        const textDatabase = await createPgDatabase({ connectionString, typePolicy: textPolicy });
+        try {
+          await assertLegacyTextValuePlans(textDatabase, "postgres", calculateTypePolicyHash(textPolicy));
+        } finally {
+          await textDatabase.close();
+        }
+        const pipeline = pipelineDatabase;
+        await assertLegacyValuePlans(database, "postgres", calculateTypePolicyHash(typePolicy), (queries) =>
+          pipeline.pipeline(queries),
+        );
+        await assertPostgresRawJsonValuePlans(database, calculateTypePolicyHash(typePolicy), pipelineDatabase);
+        const compiledDialect = postgres({ typePolicy });
+        await assertCompiledLegacyValuePlans(
+          database,
+          compiledDialect,
+          compiledDialect.validateSnapshot(
+            JSON.parse(await readFile(join(packageDirectory, "schema/catalog.snapshot.json"), "utf8")),
+          ),
+          packageDirectory,
+        );
+      } finally {
+        await database.close();
+        await pipelineDatabase?.close();
+      }
+    });
     await it("generates a package through the public CLI", async () => {
       const result = await cli("generate", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.ok(result.stdout.includes("Generated schema"));
@@ -215,7 +258,7 @@ try {
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.numeric_value?.tsType, "string");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
-      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint | null)[]");
       strict.ok(snapshot.metadata.schemaHash.length === 64);
       strict.ok(snapshot.metadata.typePolicyHash.length === 64);
       await mustRun(process.execPath, [
@@ -568,8 +611,8 @@ try {
         "date_value: Date",
         "json_value: unknown",
         "binary_value: Uint8Array",
-        "bigint_array: readonly (bigint)[]",
-        "numeric_array: readonly (string)[]",
+        "bigint_array: readonly (bigint | null)[]",
+        "numeric_array: readonly (string | null)[]",
         "nullable_text: string | null",
       ])
         strict.ok(rowType.includes(exact), `Missing ${exact} in ${contract.rowType}`);
@@ -626,6 +669,34 @@ try {
           { id: "1", plan: "pro", project_count: "1", total_budget: "12500.50" },
           { id: "2", plan: "free", project_count: null, total_budget: null },
         ]);
+      } finally {
+        await pool.end();
+      }
+    });
+
+    await it("matches native SQL-standard JSON construction with inferred null policies and formats", async () => {
+      if (Number(expectedVersion.split(".")[0]) < 16) return;
+      const dialect = postgres();
+      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const pool = new Pool({ connectionString });
+      try {
+        const cases: readonly (readonly [string, unknown])[] = [
+          ["JSON_OBJECT('a' VALUE NULL ABSENT ON NULL)", {}],
+          ["JSON_OBJECT('a' VALUE NULL NULL ON NULL)", { a: null }],
+          ["JSON_OBJECT('nested' VALUE '{\"id\":1}' FORMAT JSON RETURNING jsonb)", { nested: { id: 1 } }],
+          ["JSON_ARRAY(1,NULL ABSENT ON NULL)", [1]],
+          ["JSON_ARRAY(1,NULL NULL ON NULL)", [1, null]],
+          ["JSON_ARRAY(SELECT 1 AS element)", [1]],
+        ];
+        for (const [expression, expected] of cases) {
+          const source = `SELECT ${expression} AS value`;
+          const analysis = dialect.analyze(source, snapshot);
+          strict.deepStrictEqual(analysis.diagnostics, [], source);
+          const native = await pool.query(source);
+          strict.deepStrictEqual(native.rows[0]?.value, expected, source);
+          strict.ok(analysis.columns[0]?.json, source);
+          strict.ok(validateJsonValue(native.rows[0]?.value, analysis.columns[0]!.json!.shape), source);
+        }
       } finally {
         await pool.end();
       }
@@ -758,9 +829,9 @@ try {
         strict.deepStrictEqual(codec.jsonb_value, { enabled: true, kind: "jsonb" });
         strict.ok(codec.binary_value instanceof Uint8Array);
         strict.deepStrictEqual(Array.from(codec.binary_value as Uint8Array), [0, 165, 255]);
-        strict.deepStrictEqual(codec.bigint_array, [1n, 9007199254740993n]);
-        strict.deepStrictEqual(codec.numeric_array, ["1.25", "12345678901234567890.1234567890"]);
-        strict.deepStrictEqual(codec.text_array, ["one", "two"]);
+        strict.deepStrictEqual(codec.bigint_array, [1n, null, 9007199254740993n]);
+        strict.deepStrictEqual(codec.numeric_array, ["1.25", null, "12345678901234567890.1234567890"]);
+        strict.deepStrictEqual(codec.text_array, ["one", null, "two"]);
         strict.strictEqual(codec.nullable_text, null);
         strict.deepStrictEqual(await database.execute(postgresJsonProjection), [
           {

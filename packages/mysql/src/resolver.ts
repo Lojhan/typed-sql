@@ -1,4 +1,22 @@
-import { ParameterCollector, type ResolvedParameter, ResolverSchemaIndex, unionTypeLiterals } from "@typed-sql/core";
+import {
+  type JsonShape,
+  type JsonShapeProperty,
+  type JsonValueDescriptor,
+  jsonArrayShape,
+  jsonObjectShape,
+  jsonShapeAtPath,
+  jsonShapeFromValue,
+  jsonShapeType,
+  jsonTupleShape,
+  nullJsonShape,
+  ParameterCollector,
+  type ResolvedParameter,
+  ResolverSchemaIndex,
+  unionJsonShapes,
+  unionTypeLiterals,
+  unknownJsonShape,
+  updateJsonShapePath,
+} from "@typed-sql/core";
 import type { ColumnSnapshot, FunctionSnapshot, SchemaSnapshot, TableSnapshot } from "@typed-sql/schema";
 import {
   type MySqlCatalogCollation,
@@ -35,6 +53,19 @@ interface ResolvedType {
   readonly collation?: string;
   readonly coercibility?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   readonly unsigned?: boolean;
+  readonly json?: JsonValueDescriptor;
+  readonly jsonTextShape?: JsonShape;
+  readonly scalarJsonShape?: JsonShape;
+  readonly acceptsJsonInput?: true;
+}
+
+function jsonMetadata(value: object): Pick<ResolvedType, "json" | "jsonTextShape" | "scalarJsonShape"> {
+  const type = value as ResolvedType;
+  return {
+    ...(type.json === undefined ? {} : { json: type.json }),
+    ...(type.jsonTextShape === undefined ? {} : { jsonTextShape: type.jsonTextShape }),
+    ...(type.scalarJsonShape === undefined ? {} : { scalarJsonShape: type.scalarJsonShape }),
+  };
 }
 
 interface Relation {
@@ -65,6 +96,7 @@ export interface ResolvedMySqlQuery {
 
 export interface ResolveMySqlOptions {
   readonly typePolicy?: MySqlTypePolicy;
+  readonly runtimeValidation?: boolean;
   readonly strictExpressions?: boolean;
 }
 
@@ -260,10 +292,48 @@ function unionMySqlTypes(types: readonly string[]): string {
   return unionTypeLiterals([...new Set(types.flatMap((type) => type.split(" | ")))]);
 }
 
+const jsonDocumentFunctions = new Set([
+  "JSON_EXTRACT",
+  "JSON_VALID",
+  "JSON_SCHEMA_VALID",
+  "JSON_OVERLAPS",
+  "JSON_VALUE",
+  "JSON_UNQUOTE",
+  "JSON_SET",
+  "JSON_INSERT",
+  "JSON_REPLACE",
+  "JSON_REMOVE",
+  "JSON_ARRAY_APPEND",
+  "JSON_ARRAY_INSERT",
+  "JSON_MERGE_PATCH",
+  "JSON_MERGE_PRESERVE",
+  "JSON_MERGE",
+  "JSON_CONTAINS",
+  "JSON_CONTAINS_PATH",
+  "JSON_KEYS",
+  "JSON_LENGTH",
+  "JSON_DEPTH",
+  "JSON_TYPE",
+  "JSON_SEARCH",
+  "JSON_PRETTY",
+  "JSON_STORAGE_SIZE",
+  "JSON_STORAGE_FREE",
+]);
+const allJsonDocumentFunctions = new Set([
+  "JSON_MERGE_PATCH",
+  "JSON_MERGE_PRESERVE",
+  "JSON_MERGE",
+  "JSON_OVERLAPS",
+  "JSON_SCHEMA_VALID",
+]);
+
 class Resolver {
   readonly #schema: SchemaSnapshot;
   readonly #policy: MySqlTypePolicy;
   readonly #strict: boolean;
+  readonly #runtimeValidation: boolean;
+  #requiresJsonValidation = false;
+  #jsonOperations = 0;
   readonly #diagnostics: SqlDiagnostic[] = [];
   readonly #parameters = new ParameterCollector();
   readonly #index: ResolverSchemaIndex;
@@ -273,6 +343,7 @@ class Resolver {
 
   constructor(schema: SchemaSnapshot, options: ResolveMySqlOptions) {
     this.#schema = schema;
+    this.#runtimeValidation = options.runtimeValidation === true;
     this.#index = ResolverSchemaIndex.for(schema);
     this.#policy = options.typePolicy ?? defaultMySqlTypePolicy;
     this.#strict = options.strictExpressions ?? true;
@@ -289,6 +360,20 @@ class Resolver {
     const result = this.#statement(statement, undefined, new Map());
     return {
       ...result,
+      columns: result.columns.map((column) =>
+        column.json !== undefined ||
+        column.scalarJsonShape !== undefined ||
+        normalized(column.databaseType ?? "") !== "json"
+          ? column
+          : {
+              ...column,
+              tsType: this.#policy.json,
+              json: {
+                shape: unknownJsonShape,
+                representation: this.#policy.json === "string" ? ("text" as const) : ("parsed" as const),
+              },
+            },
+      ),
       parameters: this.#parameters.values(),
       diagnostics: this.#diagnostics,
     };
@@ -491,6 +576,7 @@ class Resolver {
           databaseType: column.databaseType ?? "unknown",
           tsType: column.tsType,
           nullable: column.nullable,
+          ...jsonMetadata(column),
         };
       });
       ctes.set(key, { name: key, columns });
@@ -847,8 +933,22 @@ class Resolver {
         const candidate = right[index]!;
         columns[index] = {
           name: left.name,
-          tsType: unionMySqlTypes([left.tsType, candidate.tsType]),
+          tsType:
+            left.json !== undefined || candidate.json !== undefined
+              ? left.json !== undefined &&
+                candidate.json !== undefined &&
+                left.databaseType === "json" &&
+                candidate.databaseType === "json"
+                ? this.#jsonResult(unionJsonShapes([left.json.shape, candidate.json.shape]), false).tsType
+                : "unknown"
+              : unionMySqlTypes([left.tsType, candidate.tsType]),
           nullable: left.nullable || candidate.nullable,
+          ...(left.json !== undefined &&
+          candidate.json !== undefined &&
+          left.databaseType === "json" &&
+          candidate.databaseType === "json"
+            ? { json: this.#jsonResult(unionJsonShapes([left.json.shape, candidate.json.shape]), false).json! }
+            : {}),
           ...(left.databaseType === candidate.databaseType && left.databaseType !== undefined
             ? { databaseType: left.databaseType }
             : {}),
@@ -1216,6 +1316,7 @@ class Resolver {
           databaseType: column.databaseType ?? "unknown",
           tsType: column.tsType,
           nullable: column.nullable,
+          ...jsonMetadata(column),
         };
       table = { name: name(reference.alias), columns };
       alias = name(reference.alias);
@@ -1373,6 +1474,8 @@ class Resolver {
           `Invalid or unknown MySQL cast type ${expression.databaseType.name}`,
           expression.databaseType.range,
         );
+      if (normalized(expression.databaseType.name) === "json")
+        return this.#jsonResult(this.#jsonDocument(source, expression.expression), source.nullable);
       return {
         tsType: mapMySqlType(expression.databaseType.name, this.#policy, this.#schema),
         nullable: source.nullable,
@@ -1418,7 +1521,9 @@ class Resolver {
       return expression.operator === "NOT"
         ? { tsType: "boolean", nullable: operand.nullable, databaseType: "boolean" }
         : expression.operator === "-"
-          ? { ...operand, unsigned: false }
+          ? operand.databaseType === "json"
+            ? { tsType: "number", nullable: operand.nullable, databaseType: "double" }
+            : { ...operand, unsigned: false }
           : operand;
     }
     if (expression.kind === "binary") return this.#binary(expression, scope, ctes);
@@ -1429,8 +1534,15 @@ class Resolver {
       const values = expression.branches.map((branch) => this.#expression(branch.then, scope, ctes));
       if (expression.elseExpression !== undefined)
         values.push(this.#expression(expression.elseExpression, scope, ctes));
+      if (values.length > 0 && values.every((value) => value.json !== undefined && value.databaseType === "json"))
+        return this.#jsonResult(
+          unionJsonShapes(values.map((value) => value.json!.shape)),
+          expression.elseExpression === undefined || values.some((value) => value.nullable),
+        );
       return {
-        tsType: unionTypeLiterals(values.map((value) => value.tsType)),
+        tsType: values.some((value) => value.json !== undefined)
+          ? "unknown"
+          : unionTypeLiterals(values.map((value) => value.tsType)),
         nullable: expression.elseExpression === undefined || values.some((value) => value.nullable),
       };
     }
@@ -1448,6 +1560,7 @@ class Resolver {
       return {
         tsType: column.tsType,
         nullable: true,
+        ...jsonMetadata(column),
         ...(column.databaseType === undefined ? {} : { databaseType: column.databaseType }),
       };
     }
@@ -1509,9 +1622,17 @@ class Resolver {
         databaseType: "boolean",
       };
     }
-    if (expression.operator === "->") return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
-    if (expression.operator === "->>")
-      return { tsType: "string", nullable: true, databaseType: "varchar", ...this.#connectionCollation(2) };
+    if (expression.operator === "->" || expression.operator === "->>") {
+      const path = this.#jsonPath(expression.right);
+      const selected =
+        path === undefined
+          ? { shape: unknownJsonShape, presence: "maybe" as const }
+          : this.#jsonSelect(left.json?.shape ?? unknownJsonShape, path);
+      const nullable = left.nullable || right.nullable || selected.presence !== "always";
+      return expression.operator === "->"
+        ? this.#jsonResult(selected.shape, nullable)
+        : { tsType: "string", nullable, databaseType: "varchar", ...this.#connectionCollation(2) };
+    }
     if (expression.operator === "||") {
       const collation = this.#resolveCollation(left, right, expression.range);
       return this.#collatable(left) && this.#collatable(right)
@@ -1594,7 +1715,18 @@ class Resolver {
     if (expression.arguments.some(containsWindowFunction)) {
       this.#diagnostic("TSQ223", "MySQL does not support nested window functions", expression.range);
     }
-    const values = expression.arguments.map((argument) => this.#expression(argument, scope, ctes));
+    const documentPositions = expression.schema === undefined && jsonDocumentFunctions.has(functionName);
+    const allDocuments = allJsonDocumentFunctions.has(functionName);
+    const values = expression.arguments.map((argument, index) =>
+      this.#expression(
+        argument,
+        scope,
+        ctes,
+        documentPositions && (index === 0 || allDocuments || (functionName === "JSON_CONTAINS" && index === 1))
+          ? { tsType: "unknown", nullable: true, acceptsJsonInput: true }
+          : undefined,
+      ),
+    );
     if (expression.filter !== undefined)
       this.#unsupported("MySQL does not support aggregate FILTER", expression.filter.range);
     if (expression.over !== undefined && "partitionBy" in expression.over) {
@@ -1625,6 +1757,9 @@ class Resolver {
     ) {
       this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
     }
+    if (values.some((value) => value.json?.requiresRuntimeValidation)) this.#requiresJsonValidation = true;
+    const json = expression.schema === undefined ? this.#jsonCall(functionName, expression, values) : undefined;
+    if (json !== undefined) return json;
     const builtin = expression.schema === undefined ? mySqlCatalogRoutine(functionName, this.#schema) : undefined;
     if (builtin !== undefined) {
       if (
@@ -1884,11 +2019,20 @@ class Resolver {
   }
 
   #columnType(relation: Relation, column: ColumnSnapshot): ResolvedType {
+    if (
+      column.jsonDeclaration !== undefined &&
+      (column.jsonDeclaration.source === "database" || this.#runtimeValidation) &&
+      normalized(column.databaseType) === "json"
+    ) {
+      if (column.jsonDeclaration.source === "application") this.#requiresJsonValidation = true;
+      return this.#jsonResult(column.jsonDeclaration.shape, column.nullable || relation.nullable);
+    }
     const evidence = this.#index.columnEvidence(relation.table, column);
     return {
       tsType: column.tsType,
       nullable: column.nullable || relation.nullable,
       databaseType: column.databaseType,
+      ...jsonMetadata(column),
       unsigned: isUnsigned(column.databaseType),
       ...(evidence?.characterSet === undefined ? {} : { characterSet: evidence.characterSet }),
       ...(evidence?.collation === undefined ? {} : { collation: evidence.collation }),
@@ -1985,6 +2129,416 @@ class Resolver {
     return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
   }
 
+  #jsonResult(shape: JsonShape, nullable: boolean): ResolvedType & { readonly json: JsonValueDescriptor } {
+    return {
+      tsType: this.#policy.json === "string" ? "string" : jsonShapeType(shape),
+      nullable,
+      databaseType: "json",
+      json: {
+        shape,
+        representation: this.#policy.json === "string" ? "text" : "parsed",
+        ...(this.#requiresJsonValidation ? { requiresRuntimeValidation: true as const } : {}),
+      },
+    };
+  }
+
+  #jsonValue(value: ResolvedType, expression?: Expression): JsonShape {
+    if (expression?.kind === "literal" && expression.value === null) return nullJsonShape;
+    let shape = value.databaseType === "json" ? (value.json?.shape ?? unknownJsonShape) : undefined;
+    const type = value.databaseType === undefined ? undefined : mySqlCatalogType(value.databaseType, this.#schema);
+    if (shape === undefined && type !== undefined) {
+      if (type.category.startsWith("numeric") || type.name === "year") shape = { kind: "number" };
+      else if (type.category === "boolean") shape = { kind: "boolean" };
+      else if (["string", "collection", "temporal"].includes(type.category)) shape = { kind: "string" };
+    }
+    shape ??= unknownJsonShape;
+    return value.nullable ? unionJsonShapes([shape, nullJsonShape]) : shape;
+  }
+
+  #jsonDocument(value: ResolvedType, expression?: Expression): JsonShape {
+    if (value.databaseType === "json") return value.json?.shape ?? unknownJsonShape;
+    if (value.jsonTextShape !== undefined) return value.jsonTextShape;
+    if (expression?.kind === "literal" && typeof expression.value === "string") {
+      try {
+        return jsonShapeFromValue(JSON.parse(expression.value));
+      } catch {
+        this.#diagnostic("TSQ203", "Invalid JSON document literal", expression.range);
+      }
+    }
+    return unknownJsonShape;
+  }
+
+  #jsonPath(expression: Expression | undefined): readonly (string | number)[] | undefined {
+    if (expression?.kind !== "literal" || typeof expression.value !== "string" || !expression.value.startsWith("$"))
+      return undefined;
+    let rest = expression.value.slice(1);
+    const result: (string | number)[] = [];
+    while (rest.length > 0 && result.length < 32) {
+      const member = /^\.([\p{ID_Start}_$][\p{ID_Continue}$]*)/u.exec(rest);
+      const quoted = /^\.("(?:[^"\\]|\\.)*")/u.exec(rest);
+      const index = /^\[(\d+|last(?:-\d+)?)\]/u.exec(rest);
+      if (quoted !== null) {
+        try {
+          result.push(JSON.parse(quoted[1]!));
+        } catch {
+          return undefined;
+        }
+        rest = rest.slice(quoted[0].length);
+      } else if (member !== null) {
+        result.push(member[1]!);
+        rest = rest.slice(member[0].length);
+      } else if (index !== null) {
+        result.push(index[1]!.startsWith("last") ? -(Number(index[1]!.slice(5) || 0) + 1) : Number(index[1]));
+        rest = rest.slice(index[0].length);
+      } else return undefined;
+    }
+    return rest.length === 0 ? result : undefined;
+  }
+
+  #jsonSelect(shape: JsonShape, path: readonly (string | number)[]): ReturnType<typeof jsonShapeAtPath> {
+    if (++this.#jsonOperations > 1024) return { shape: unknownJsonShape, presence: "maybe" };
+    if (path.length === 0) return { shape, presence: "always" };
+    if (shape.kind === "union") {
+      const values = shape.variants.map((variant) => this.#jsonSelect(variant, path));
+      const present = values.filter((value) => value.presence !== "never");
+      return {
+        shape: unionJsonShapes(present.map((value) => value.shape)),
+        presence:
+          present.length === 0 ? "never" : values.every((value) => value.presence === "always") ? "always" : "maybe",
+      };
+    }
+    const key = path[0]!;
+    // MySQL array path legs implicitly wrap a non-array value as a one-element array.
+    const selected =
+      typeof key === "number" && shape.kind !== "array" && shape.kind !== "tuple" && shape.kind !== "unknown"
+        ? key === 0 || key === -1
+          ? { shape, presence: "always" as const }
+          : { shape: unknownJsonShape, presence: "never" as const }
+        : jsonShapeAtPath(shape, [key]);
+    if (selected.presence === "never") return selected;
+    const next = this.#jsonSelect(selected.shape, path.slice(1));
+    return {
+      shape: next.shape,
+      presence: next.presence === "never" ? "never" : selected.presence === "maybe" ? "maybe" : next.presence,
+    };
+  }
+
+  #jsonUpdate(
+    shape: JsonShape,
+    path: readonly (string | number)[],
+    value: JsonShape | undefined,
+    mode: "set" | "insert" | "replace",
+  ): JsonShape {
+    if (++this.#jsonOperations > 1024) return unknownJsonShape;
+    if (path.length === 0) return mode === "insert" ? shape : (value ?? unknownJsonShape);
+    if (shape.kind === "union")
+      return unionJsonShapes(shape.variants.map((variant) => this.#jsonUpdate(variant, path, value, mode)));
+    if (shape.kind === "unknown") return shape;
+    const key = path[0]!;
+    if (path.length > 1) {
+      const selected = this.#jsonSelect(shape, [key]);
+      if (selected.presence === "never") return shape;
+      const changed = this.#jsonUpdate(selected.shape, path.slice(1), value, mode);
+      if (typeof key === "number" && shape.kind !== "tuple" && shape.kind !== "array") return changed;
+      return updateJsonShapePath(shape, [key], changed, "replace");
+    }
+    if (typeof key === "number") {
+      if (shape.kind === "tuple") {
+        const index = key < 0 ? shape.elements.length + key : key;
+        if (index < 0) return unknownJsonShape;
+        if (value !== undefined && index >= shape.elements.length && mode !== "replace")
+          return jsonTupleShape([...shape.elements, value]);
+        return updateJsonShapePath(shape, [index], value, mode);
+      }
+      if (shape.kind !== "array") {
+        if (key === 0 || key === -1) return mode === "insert" || value === undefined ? shape : value;
+        return mode === "replace" || value === undefined ? shape : jsonTupleShape([shape, value]);
+      }
+    }
+    return updateJsonShapePath(shape, [key], value, mode);
+  }
+
+  #jsonMergePatch(left: JsonShape, right: JsonShape): JsonShape {
+    if (++this.#jsonOperations > 1024) return unknownJsonShape;
+    if (right.kind === "unknown") return unknownJsonShape;
+    if (left.kind === "union")
+      return unionJsonShapes(left.variants.map((variant) => this.#jsonMergePatch(variant, right)));
+    if (right.kind === "union")
+      return unionJsonShapes(right.variants.map((variant) => this.#jsonMergePatch(left, variant)));
+    if (right.kind !== "object") return right;
+    if (right.additionalProperties !== undefined) return jsonObjectShape({}, unknownJsonShape);
+    let result: JsonShape =
+      left.kind === "object" ? left : jsonObjectShape({}, left.kind === "unknown" ? unknownJsonShape : undefined);
+    for (const [key, property] of Object.entries(right.properties)) {
+      const changed = this.#jsonMergePatchProperty(result, key, property.shape);
+      result = property.optional ? unionJsonShapes([result, changed]) : changed;
+    }
+    return result;
+  }
+
+  #jsonMergePatchProperty(parent: JsonShape, key: string, patch: JsonShape): JsonShape {
+    if (++this.#jsonOperations > 1024) return unknownJsonShape;
+    if (patch.kind === "union")
+      return unionJsonShapes(patch.variants.map((variant) => this.#jsonMergePatchProperty(parent, key, variant)));
+    const deleted = updateJsonShapePath(parent, [key], undefined);
+    if (patch.kind === "null") return deleted;
+    if (patch.kind === "unknown")
+      return unionJsonShapes([deleted, updateJsonShapePath(parent, [key], unknownJsonShape)]);
+    const previous = jsonShapeAtPath(parent, [key]);
+    return updateJsonShapePath(
+      parent,
+      [key],
+      this.#jsonMergePatch(previous.presence === "never" ? jsonObjectShape({}) : previous.shape, patch),
+    );
+  }
+
+  #jsonArrayChange(shape: JsonShape, path: readonly (string | number)[], value: JsonShape, insert: boolean): JsonShape {
+    if (++this.#jsonOperations > 1024 || shape.kind === "unknown") return unknownJsonShape;
+    if (shape.kind === "union")
+      return unionJsonShapes(shape.variants.map((part) => this.#jsonArrayChange(part, path, value, insert)));
+    if (path.length === 0) {
+      if (insert) return shape;
+      return shape.kind === "tuple"
+        ? jsonTupleShape([...shape.elements, value])
+        : shape.kind === "array"
+          ? jsonArrayShape(unionJsonShapes([shape.element, value]))
+          : jsonTupleShape([shape, value]);
+    }
+    const key = path[0]!;
+    if (insert && path.length === 1) {
+      if (typeof key !== "number") return unknownJsonShape;
+      if (shape.kind === "tuple") {
+        const index = key < 0 ? Math.max(0, shape.elements.length + key) : Math.min(key, shape.elements.length);
+        return jsonTupleShape([...shape.elements.slice(0, index), value, ...shape.elements.slice(index)]);
+      }
+      return shape.kind === "array" ? jsonArrayShape(unionJsonShapes([shape.element, value])) : shape;
+    }
+    const selected = this.#jsonSelect(shape, [key]);
+    if (selected.presence === "never") return shape;
+    const changed = this.#jsonArrayChange(selected.shape, path.slice(1), value, insert);
+    if (typeof key === "number" && shape.kind !== "tuple" && shape.kind !== "array") return changed;
+    return updateJsonShapePath(shape, [key], changed, "replace");
+  }
+
+  #jsonMergePreserve(left: JsonShape, right: JsonShape): JsonShape {
+    if (++this.#jsonOperations > 1024 || left.kind === "unknown" || right.kind === "unknown") return unknownJsonShape;
+    if (left.kind === "union")
+      return unionJsonShapes(left.variants.map((part) => this.#jsonMergePreserve(part, right)));
+    if (right.kind === "union")
+      return unionJsonShapes(right.variants.map((part) => this.#jsonMergePreserve(left, part)));
+    if (left.kind === "object" && right.kind === "object") {
+      if (left.additionalProperties !== undefined || right.additionalProperties !== undefined)
+        return jsonObjectShape({}, unknownJsonShape);
+      const properties: Record<string, JsonShapeProperty> = { ...left.properties };
+      for (const [key, property] of Object.entries(right.properties)) {
+        const previous = left.properties[key];
+        const shape =
+          previous === undefined
+            ? property.shape
+            : unionJsonShapes([
+                this.#jsonMergePreserve(previous.shape, property.shape),
+                ...(previous.optional ? [property.shape] : []),
+                ...(property.optional ? [previous.shape] : []),
+              ]);
+        Object.defineProperty(properties, key, {
+          value: {
+            shape,
+            ...(property.optional && (previous === undefined || previous.optional) ? { optional: true } : {}),
+          },
+          enumerable: true,
+          configurable: true,
+        });
+      }
+      return jsonObjectShape(properties);
+    }
+    const elements = (shape: JsonShape): readonly JsonShape[] | undefined =>
+      shape.kind === "tuple" ? shape.elements : shape.kind === "array" ? undefined : [shape];
+    const a = elements(left),
+      b = elements(right);
+    if (a !== undefined && b !== undefined) return jsonTupleShape([...a, ...b]);
+    return jsonArrayShape(
+      unionJsonShapes([
+        left.kind === "array" ? left.element : unionJsonShapes(a!),
+        right.kind === "array" ? right.element : unionJsonShapes(b!),
+      ]),
+    );
+  }
+
+  #jsonCall(
+    functionName: string,
+    expression: CallExpression,
+    values: readonly ResolvedType[],
+  ): ResolvedType | undefined {
+    const args = expression.arguments;
+    const arity = (minimum: number, maximum = minimum): boolean => {
+      if (args.length >= minimum && args.length <= maximum) return true;
+      this.#diagnostic("TSQ227", `${functionName} has an invalid argument count`, expression.range);
+      return false;
+    };
+    if (functionName === "COALESCE" || functionName === "IFNULL") {
+      const known = values.filter((_, index) => args[index]?.kind !== "literal" || args[index].value !== null);
+      if (known.length > 0 && known.every((value) => value.databaseType === "json" && value.json !== undefined))
+        return this.#jsonResult(
+          unionJsonShapes(known.map((value) => value.json!.shape)),
+          values.every((value) => value.nullable),
+        );
+      if (known.some((value) => value.json !== undefined))
+        return { tsType: "unknown", nullable: values.every((value) => value.nullable) };
+    }
+    if ((functionName === "LAG" || functionName === "LEAD") && values[0]?.json !== undefined && values.length > 2) {
+      const fallback = values[2]!;
+      if (fallback.json === undefined && (args[2]?.kind !== "literal" || args[2].value !== null))
+        return { tsType: "unknown", nullable: true };
+      return this.#jsonResult(
+        unionJsonShapes([values[0].json.shape, ...(fallback.json === undefined ? [] : [fallback.json.shape])]),
+        true,
+      );
+    }
+    if (functionName === "JSON_OBJECT") {
+      if (args.length % 2 !== 0) {
+        arity(args.length + 1);
+        return this.#jsonResult(unknownJsonShape, true);
+      }
+      const properties: Record<string, JsonShapeProperty> = {};
+      for (let index = 0; index < args.length; index += 2) {
+        const key = args[index]!;
+        if (key.kind !== "literal" || typeof key.value !== "string") return this.#jsonResult(unknownJsonShape, false);
+        Object.defineProperty(properties, key.value, {
+          value: { shape: this.#jsonValue(values[index + 1]!, args[index + 1]) },
+          enumerable: true,
+          configurable: true,
+        });
+      }
+      return this.#jsonResult(jsonObjectShape(properties), false);
+    }
+    if (functionName === "JSON_ARRAY")
+      return this.#jsonResult(jsonTupleShape(values.map((value, index) => this.#jsonValue(value, args[index]))), false);
+    if (functionName === "JSON_ARRAYAGG" || functionName === "JSON_OBJECTAGG") {
+      if (!arity(functionName === "JSON_ARRAYAGG" ? 1 : 2) || expression.distinct)
+        return this.#jsonResult(unknownJsonShape, true);
+      return this.#jsonResult(
+        functionName === "JSON_ARRAYAGG"
+          ? jsonArrayShape(this.#jsonValue(values[0]!, args[0]))
+          : jsonObjectShape({}, this.#jsonValue(values[1]!, args[1])),
+        true,
+      );
+    }
+    if (functionName === "JSON_EXTRACT" || functionName === "JSON_VALUE") {
+      if (!arity(2, functionName === "JSON_VALUE" ? 2 : Number.POSITIVE_INFINITY))
+        return this.#jsonResult(unknownJsonShape, true);
+      const source = this.#jsonDocument(values[0]!, args[0]);
+      const selections = args.slice(1).map((argument) => {
+        const path = this.#jsonPath(argument);
+        return path === undefined
+          ? { shape: unknownJsonShape, presence: "maybe" as const }
+          : this.#jsonSelect(source, path);
+      });
+      const present = selections.filter((selected) => selected.presence !== "never");
+      const nullable =
+        values.some((value) => value.nullable) || !selections.some((selected) => selected.presence === "always");
+      if (functionName === "JSON_VALUE")
+        return { tsType: "string", nullable: true, databaseType: "varchar", ...this.#connectionCollation(2) };
+      const shape =
+        selections.length === 1
+          ? selections[0]!.shape
+          : present.every((selected) => selected.presence === "always")
+            ? jsonTupleShape(present.map((selected) => selected.shape))
+            : jsonArrayShape(unionJsonShapes(present.map((selected) => selected.shape)));
+      return this.#jsonResult(shape, nullable);
+    }
+    if (functionName === "JSON_QUOTE" || functionName === "JSON_UNQUOTE") {
+      if (!arity(1)) return { tsType: "unknown", nullable: true };
+      return {
+        tsType: "string",
+        nullable: values[0]!.nullable,
+        databaseType: "varchar",
+        ...this.#connectionCollation(2),
+        ...(functionName === "JSON_QUOTE"
+          ? {
+              jsonTextShape:
+                args[0]?.kind === "literal" && typeof args[0].value === "string"
+                  ? { kind: "literal" as const, value: args[0].value }
+                  : { kind: "string" as const },
+            }
+          : {}),
+      };
+    }
+    if (["JSON_SET", "JSON_INSERT", "JSON_REPLACE"].includes(functionName)) {
+      if (!arity(3, Number.POSITIVE_INFINITY) || args.length % 2 !== 1) return this.#jsonResult(unknownJsonShape, true);
+      let shape = this.#jsonDocument(values[0]!, args[0]);
+      for (let index = 1; index < args.length; index += 2) {
+        const path = this.#jsonPath(args[index]);
+        if (path === undefined) return this.#jsonResult(unknownJsonShape, true);
+        shape = this.#jsonUpdate(
+          shape,
+          path,
+          this.#jsonValue(values[index + 1]!, args[index + 1]),
+          functionName === "JSON_INSERT" ? "insert" : functionName === "JSON_REPLACE" ? "replace" : "set",
+        );
+      }
+      return this.#jsonResult(
+        shape,
+        values[0]!.nullable || values.some((value, index) => index % 2 === 1 && value.nullable),
+      );
+    }
+    if (functionName === "JSON_ARRAY_APPEND" || functionName === "JSON_ARRAY_INSERT") {
+      if (!arity(3, Number.POSITIVE_INFINITY) || args.length % 2 !== 1) return this.#jsonResult(unknownJsonShape, true);
+      let shape = this.#jsonDocument(values[0]!, args[0]);
+      for (let index = 1; index < args.length; index += 2) {
+        const path = this.#jsonPath(args[index]);
+        if (path === undefined) return this.#jsonResult(unknownJsonShape, true);
+        shape = this.#jsonArrayChange(
+          shape,
+          path,
+          this.#jsonValue(values[index + 1]!, args[index + 1]),
+          functionName === "JSON_ARRAY_INSERT",
+        );
+      }
+      return this.#jsonResult(
+        shape,
+        values[0]!.nullable || values.some((value, index) => index % 2 === 1 && value.nullable),
+      );
+    }
+    if (functionName === "JSON_MERGE_PRESERVE" || functionName === "JSON_MERGE") {
+      if (!arity(2, Number.POSITIVE_INFINITY)) return this.#jsonResult(unknownJsonShape, true);
+      return this.#jsonResult(
+        values
+          .slice(1)
+          .reduce(
+            (shape, value, index) => this.#jsonMergePreserve(shape, this.#jsonDocument(value, args[index + 1])),
+            this.#jsonDocument(values[0]!, args[0]),
+          ),
+        values.some((value) => value.nullable),
+      );
+    }
+    if (functionName === "JSON_REMOVE") {
+      if (!arity(2, Number.POSITIVE_INFINITY)) return this.#jsonResult(unknownJsonShape, true);
+      let shape = this.#jsonDocument(values[0]!, args[0]);
+      for (const argument of args.slice(1)) {
+        const path = this.#jsonPath(argument);
+        if (path === undefined || path.length === 0) return this.#jsonResult(unknownJsonShape, true);
+        shape = this.#jsonUpdate(shape, path, undefined, "set");
+      }
+      return this.#jsonResult(
+        shape,
+        values.some((value) => value.nullable),
+      );
+    }
+    if (functionName === "JSON_MERGE_PATCH") {
+      if (!arity(2, Number.POSITIVE_INFINITY)) return this.#jsonResult(unknownJsonShape, true);
+      return this.#jsonResult(
+        values
+          .slice(1)
+          .reduce(
+            (shape, value, index) => this.#jsonMergePatch(shape, this.#jsonDocument(value, args[index + 1])),
+            this.#jsonDocument(values[0]!, args[0]),
+          ),
+        values.some((value) => value.nullable),
+      );
+    }
+    return undefined;
+  }
+
   #connectionCollation(
     coercibility: 0 | 1 | 2 | 3 | 4 | 5 | 6,
   ): Pick<ResolvedType, "characterSet" | "collation" | "coercibility"> {
@@ -2052,6 +2606,14 @@ class Resolver {
 
   #snapshotType(column: ColumnSnapshot | undefined): ResolvedType | undefined {
     if (column === undefined) return undefined;
+    if (
+      column.jsonDeclaration !== undefined &&
+      (column.jsonDeclaration.source === "database" || this.#runtimeValidation) &&
+      normalized(column.databaseType) === "json"
+    ) {
+      if (column.jsonDeclaration.source === "application") this.#requiresJsonValidation = true;
+      return this.#jsonResult(column.jsonDeclaration.shape, column.nullable);
+    }
     return {
       tsType: column.tsType,
       nullable: column.nullable,
@@ -2071,6 +2633,9 @@ class Resolver {
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
+    const json =
+      expected?.json ??
+      (expected?.databaseType === "json" ? this.#jsonResult(unknownJsonShape, expected.nullable).json : undefined);
     const parameterExpected =
       expected === undefined
         ? undefined
@@ -2078,6 +2643,11 @@ class Resolver {
             tsType: expected.tsType,
             nullable: expected.nullable,
             ...(expected.databaseType === undefined ? {} : { databaseType: expected.databaseType }),
+            ...(json === undefined ? {} : { json }),
+            ...(expected.scalarJsonShape === undefined ? {} : { scalarJsonShape: expected.scalarJsonShape }),
+            ...(expected.acceptsJsonInput === true || expected.databaseType === "json"
+              ? { acceptsJsonInput: true as const }
+              : {}),
           };
     const parameter = this.#parameters.record(index, parameterExpected);
     return {

@@ -1,6 +1,6 @@
 # Runtime comparison benchmark
 
-This isolated workspace contains two reproducible database-backed comparisons.
+This isolated workspace contains reproducible database-backed comparisons.
 
 The indexed lookup workload compares:
 
@@ -21,6 +21,10 @@ It is a reproducible experiment, not a universal leaderboard. Database version, 
 The [2.0.0-rc.0 assessment](./ASSESSMENT.md) records one version-pinned run, its complete aggregated
 results, and a feature and maintenance comparison. Treat that document as release evidence for the
 named versions and environment, not as a timeless performance claim.
+
+The [runtime profile evidence](./evidence/2026-10-28-runtime/README.md) preserves the SQLite,
+PostgreSQL and MySQL samples, exact driver versions and compressed V8 profiles for the compiler
+and runtime comparison with Reylo 0.6.0.
 
 ## Run it
 
@@ -84,3 +88,94 @@ awaiting results. The benchmark reports throughput separately for each row count
 extrapolating one small transfer.
 
 The APIs follow the projects' public documentation: [Drizzle PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [Drizzle prepared queries](https://orm.drizzle.team/docs/perf-queries), [Kysely](https://kysely.dev/), [Prisma PostgreSQL driver adapter](https://www.prisma.io/docs/orm/overview/databases/postgresql), and [TypeORM QueryBuilder](https://typeorm.io/docs/query-builder/select-query-builder/).
+
+## Reylo and SQL-file comparison
+
+The SQLite workload runs locally on Node.js 24 using its built-in driver. It compares current
+checkout packages with pinned Reylo 0.6.0: raw cached/prepared-per-call statements, typed-sql
+inline and logical prepared factories, typed-sql SQL-file factories with and without preparation,
+and Reylo's normal asynchronous and synchronous SQL-file APIs. This same comparison also supports
+PostgreSQL and MySQL using their respective grammar and driver packages. The SQLite command does
+not start any container. SQL-file execution requires Node.js 24.11.1 or newer in the 24.x line.
+
+`typed-inline` and `typed-prepared` measure the existing unplanned JavaScript factories.
+`typed-compiled-inline` and `typed-compiled-prepared` instead execute the real public compiler's
+`compileSource({ runtimeMetadata: true })` output in Node, including generated runtime guards.
+The harness checks that executable metadata was emitted. It does not construct plans by hand.
+Compilation and fixture creation are outside warm measurements and recorded separately as
+`fixtureBuildMilliseconds`; compiled-code process startup excludes that ahead-of-time work.
+SQL-file startup still includes its loader's analysis, so compare those startup prerequisites
+explicitly rather than treating them as identical compilation strategies.
+
+SQLite additionally reports `typed-file-parsed` and `typed-file-parsed-prepared`. These use the
+same `json: "parsed"` policy in the compiler and runtime, avoiding a second application-level
+JSON parse after the runtime validates and decodes the result. Other SQLite paths keep their
+original text policy. PostgreSQL and MySQL already decode JSON under their default policies.
+
+After building the root packages and installing this workspace, run:
+
+```sh
+SQLITE_BENCHMARK_TRIALS=3 SQLITE_BENCHMARK_SAMPLES=12 \
+SQLITE_BENCHMARK_ITERATIONS=1500 pnpm benchmark:sqlite
+```
+
+Run the network variants against dedicated disposable databases. These commands recreate only
+their `runtime_account` fixture table; do not point them at an application database:
+
+```sh
+POSTGRES_URL=postgresql://postgres@127.0.0.1:5432/typed_sql_benchmark \
+RUNTIME_BENCHMARK_TRIALS=3 RUNTIME_BENCHMARK_SAMPLES=12 \
+RUNTIME_BENCHMARK_ITERATIONS=1500 pnpm benchmark:postgres
+
+MYSQL_URL=mysql://root:password@127.0.0.1:3306/typed_sql_benchmark \
+RUNTIME_BENCHMARK_TRIALS=3 RUNTIME_BENCHMARK_SAMPLES=12 \
+RUNTIME_BENCHMARK_ITERATIONS=1500 pnpm benchmark:mysql
+```
+
+Network candidates use pools with a maximum of ten connections. PostgreSQL's raw cached path
+uses a named prepared statement; its other raw path uses an unnamed parameterized query.
+MySQL's cached path uses `mysql2.execute`, while its other raw path uses the text protocol through
+`mysql2.query`. There is no synchronous Reylo candidate for network drivers. Network concurrency
+1 and 8 measure separate workloads and can use independent physical connections. The JSON
+aggregate's record order is not part of the workload guarantee.
+
+Every worker gets a fresh project and reads the same 1,000-row fixture. SQLite uses a private
+database file per case; network workers read the run's shared fixture table. Separate processes
+avoid competing SQL-file loader hooks. Candidate order is shuffled reproducibly within each trial.
+The point lookup returns one row; the range workload returns 32 rows; the JSON aggregate returns
+the same 32 records as parsed JSON. JSON parsing is inside the timed operation whenever the
+driver/frontend returns text. This avoids comparing decoded Reylo objects with undecoded text.
+SQL files use a prebuilt offline snapshot for typed-sql and Reylo's normal live-schema analysis;
+their different prerequisites remain part of the reported startup costs.
+
+Cold startup measures process spawn through its first validated query report, including loader
+imports and analysis, with fixture creation excluded. First API-call latency is recorded separately
+after imports and candidate setup. Filesystem caches are not flushed. Warm runs retain all sample
+durations, CPU usage and environment/version/commit identities. Samples are batch-average
+milliseconds per operation: their p95 is not an individual request latency percentile. Concurrency
+1 and 8 are separate workloads over one connection, measuring queued logical calls rather than
+parallel SQLite I/O. Typed-sql retains transaction/stream serialization; Reylo executes directly on
+the supplied synchronous connection and does not provide that ownership queue.
+
+Use `SQLITE_BENCHMARK_CANDIDATES`, `SQLITE_BENCHMARK_WORKLOADS` (`point,multirow,json`) and
+`SQLITE_BENCHMARK_CONCURRENCY` to select cases. The same controls accept the
+`RUNTIME_BENCHMARK_` prefix for all three engines. `SQLITE_BENCHMARK_OUTPUT` selects the output JSON
+relative to this workspace. Results and synthetic fixture databases stay under ignored `results/`.
+
+Profile steady-state work separately from latency measurements:
+
+```sh
+SQLITE_BENCHMARK_PROFILE=cpu SQLITE_BENCHMARK_TRIALS=1 \
+SQLITE_BENCHMARK_CONCURRENCY=1 SQLITE_BENCHMARK_CANDIDATES=typed-prepared \
+pnpm benchmark:sqlite
+
+SQLITE_BENCHMARK_PROFILE=alloc SQLITE_BENCHMARK_TRIALS=1 \
+SQLITE_BENCHMARK_CONCURRENCY=1 SQLITE_BENCHMARK_CANDIDATES=typed-prepared \
+pnpm benchmark:sqlite
+```
+
+The profile paths are recorded in the report. CPU sampling and allocation sampling use separate
+runs after warm-up. Allocation sampling includes objects collected by minor and major GC;
+sampling estimates allocated bytes, while the ordinary heap-used delta is only retained-heap noise.
+Profiler-instrumented timings are not comparable with normal benchmark timings. Open the raw
+`.cpuprofile` and `.heapprofile` files in DevTools for attribution.

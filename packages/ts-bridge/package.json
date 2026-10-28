@@ -44,7 +44,8 @@
     ".": "./dist/packages/ts-bridge/src/index.js",
     "./native-lsp": "./dist/packages/ts-bridge/src/native-lsp.js",
     "./native-preview": "./dist/packages/ts-bridge/src/native-preview.js",
-    "./sql-register": "./dist/packages/ts-bridge/src/sql-register.js"
+    "./sql-register": "./dist/packages/ts-bridge/src/sql-register.js",
+    "./vite": "./dist/packages/ts-bridge/src/vite.js"
   },
   "dependencies": {
     "@typed-sql/core": "workspace:*",
@@ -65,5 +66,8 @@
       ],
       "dynamicConfig": true
     }
+  },
+  "devDependencies": {
+    "vite": "6.4.5"
   }
 }

@@ -30,7 +30,15 @@ import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { createPool } from "mysql2/promise";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
+import {
+  assertCompiledLegacyValuePlans,
+  assertLegacyTextValuePlans,
+  assertLegacyValuePlans,
+  assertMySqlRawJsonValuePlans,
+} from "../../../test/helpers/legacy-value-plans.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
+import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
 
 interface CommandResult {
@@ -47,7 +55,12 @@ interface GeneratedSnapshot {
     {
       readonly columns: Record<
         string,
-        { readonly databaseType: string; readonly tsType: string; readonly nullable: boolean }
+        {
+          readonly databaseType: string;
+          readonly tsType: string;
+          readonly nullable: boolean;
+          readonly jsonDeclaration?: unknown;
+        }
       >;
     }
   >;
@@ -182,6 +195,31 @@ try {
   }
 
   await describe("developer MySQL flow", async () => {
+    await it("enforces attached value plans through actual mysql2 buffered, prepared and streaming paths", async () => {
+      const database = await createMySql2Database({ connectionUri, typePolicy });
+      try {
+        const textPolicy = { ...typePolicy, json: "string" as const };
+        const textDatabase = await createMySql2Database({ connectionUri, typePolicy: textPolicy });
+        try {
+          await assertLegacyTextValuePlans(textDatabase, "mysql", calculateTypePolicyHash(textPolicy));
+        } finally {
+          await textDatabase.close();
+        }
+        await assertLegacyValuePlans(database, "mysql", calculateTypePolicyHash(typePolicy));
+        await assertMySqlRawJsonValuePlans(database, calculateTypePolicyHash(typePolicy));
+        const compiledDialect = mysql({ typePolicy });
+        await assertCompiledLegacyValuePlans(
+          database,
+          compiledDialect,
+          compiledDialect.validateSnapshot(
+            JSON.parse(await readFile(join(packageDirectory, "schema/catalog.snapshot.json"), "utf8")),
+          ),
+          packageDirectory,
+        );
+      } finally {
+        await database.close();
+      }
+    });
     await it("generates a package through the public CLI", async () => {
       const result = await cli("generate", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.ok(result.stdout.includes("Generated schema"));
@@ -204,6 +242,23 @@ try {
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.decimal_value?.tsType, "string");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bit_value?.tsType, "Uint8Array");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
+      strict.deepStrictEqual(snapshot.relations.checked_json?.columns.document?.jsonDeclaration, {
+        source: "database",
+        shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+      });
+      strict.strictEqual(snapshot.relations.unchecked_json?.columns.document?.jsonDeclaration, undefined);
+      const checkPool = createPool({ uri: connectionUri });
+      try {
+        await checkPool.query("INSERT INTO checked_json VALUES ('{\"id\":1}')");
+        await strict.rejects(
+          checkPool.query('INSERT INTO checked_json VALUES (\'{"id":"wrong"}\')'),
+          (error: unknown) =>
+            error instanceof Error && "code" in error && error.code === "ER_CHECK_CONSTRAINT_VIOLATED",
+        );
+        await checkPool.query('INSERT INTO unchecked_json VALUES (\'{"id":"wrong"}\')');
+      } finally {
+        await checkPool.end();
+      }
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
     });
@@ -483,6 +538,25 @@ try {
       strict.strictEqual(analysis.queries.length, 1);
       const contract = analysis.queries[0]!;
       strict.strictEqual(contract.parameterType, "readonly [number]");
+      const jsonSource = await readFile(join(packageDirectory, "src/json-query.ts"), "utf8");
+      const jsonAnalysis = analyzeSource(jsonSource, snapshot, selectedDialect);
+      strict.deepStrictEqual(jsonAnalysis.diagnostics, []);
+      strict.deepStrictEqual(
+        jsonAnalysis.queries.map(({ rowType, parameterType }) => ({ rowType, parameterType })),
+        [
+          {
+            rowType:
+              '{ "document": { "id": number; "wide": number; "amount": number; "date": string; "tiny": number; "nested": readonly [boolean, null]; "unchecked": unknown; }; }',
+            parameterType: "readonly [number]",
+          },
+          {
+            rowType:
+              '{ "selected": 1; "scalar_text": "hello"; "sql_text": string; "appended": { "items": readonly [1, boolean]; }; "inserted": readonly [1, number, 2]; "merged": { "a": readonly [1, 2]; }; }',
+            parameterType: "readonly [number]",
+          },
+          { rowType: '{ "aggregate": readonly ({ "id": number; })[] | null; }', parameterType: "readonly [number]" },
+        ],
+      );
       const rowType = contract.rowType.replace(/"([^"]+)":/gu, "$1:");
       for (const exact of [
         "id: number",
@@ -637,6 +711,30 @@ try {
         strict.strictEqual(codec.enum_value, "ready");
         strict.strictEqual(codec.set_value, "read,write");
         strict.strictEqual(codec.nullable_text, null);
+        strict.deepStrictEqual(await database.execute(mysqlJsonProjection), [
+          {
+            document: {
+              id: 1,
+              wide: Number("9007199254740993"),
+              amount: Number("12345678901234567890.1234567890"),
+              date: "2026-08-25",
+              tiny: 1,
+              nested: [true, null],
+              unchecked: { count: 1, kind: "json" },
+            },
+          },
+        ]);
+        strict.deepStrictEqual(await database.execute(mysqlJsonMutations), [
+          {
+            selected: 1,
+            scalar_text: "hello",
+            sql_text: "hello",
+            appended: { items: [1, true] },
+            inserted: [1, 3, 2],
+            merged: { a: [1, 2] },
+          },
+        ]);
+        strict.deepStrictEqual(await database.execute(mysqlJsonEmptyAggregate), [{ aggregate: null }]);
       } finally {
         await database.close();
       }

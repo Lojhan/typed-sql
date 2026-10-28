@@ -4,14 +4,27 @@ import {
   type ExecutionOptions,
   QueryCardinalityError,
 } from "./execution.js";
+import { type JsonInput, jsonValue, serializedJsonInput } from "./json-input.js";
+
+export type { JsonInput } from "./json-input.js";
+
+import {
+  getQueryValuePlan,
+  inheritQueryValuePlanRequirement,
+  type QueryValuePlan,
+  withQueryValuePlan,
+} from "./query-value-plan.js";
+import type { QueryValuePlanSelector } from "./query-value-plan-selection.js";
 import {
   type CompatibleResultSchema,
+  inheritQueryResultValidator,
   type QueryResultValidationOptions,
   queryResultValidationSource,
   type StandardSchemaV1,
   setQueryResultValidator,
   validateQueryResultRows,
 } from "./result-validation.js";
+import { utf8ByteLength } from "./utf8.js";
 
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
@@ -19,7 +32,7 @@ const queryRenderSkeletonBrand: unique symbol = Symbol("@typed-sql/core.query-re
 
 export type SqlSegment =
   | { readonly kind: "text"; readonly text: string }
-  | { readonly kind: "value"; readonly value: unknown }
+  | { readonly kind: "value"; readonly value: unknown; readonly jsonInput?: true }
   | { readonly kind: "identifier"; readonly name: string }
   | FragmentListSegment;
 
@@ -156,12 +169,16 @@ export interface SqlTag {
    * @internal Reserved compiler-overlay protocol. Applications must use the `sql` tag directly;
    * this member may change alongside matching core/compiler releases without application-level compatibility.
    */
-  readonly __typed: <Row, Params extends readonly unknown[]>() => <const Parts extends readonly unknown[]>(
+  readonly __typed: <Row, Params extends readonly unknown[]>(
+    plan?: QueryValuePlan | QueryValuePlanSelector,
+  ) => <const Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedSqlParts<Parts, Params>
   ) => Query<Row, Params>;
   /** @internal Reserved compiler overlay that preserves interpolation-derived parameter types. */
-  readonly __typedRow: <Row>() => <Parts extends readonly unknown[]>(
+  readonly __typedRow: <Row>(
+    plan?: QueryValuePlan | QueryValuePlanSelector,
+  ) => <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedTemplateParts<Parts>
   ) => Query<Row, SqlPartsParameters<Parts>>;
@@ -172,6 +189,8 @@ export interface SqlTag {
   readonly empty: SqlFragment<readonly []>;
   readonly ident: (name: string) => SqlFragment<readonly []>;
   readonly value: <Value>(value: Value) => SqlFragment<readonly [Value]>;
+  /** Bind a validated JSON snapshot; `sql.json(null)` represents JSON null rather than SQL NULL. */
+  readonly json: <Value>(value: Value) => SqlFragment<readonly [JsonInput<Value>]>;
   readonly join: <const Parts extends readonly SqlFragment[]>(
     parts: Parts,
     separator?: SqlFragment<readonly []>,
@@ -259,7 +278,12 @@ export type TransactionRunner = <T>(fn: (executor: QueryExecutor) => Promise<T>)
 
 const text = (textValue: string): SqlSegment => ({ kind: "text", text: textValue });
 const cachedText = (textValue: string): SqlSegment => Object.freeze({ kind: "text", text: textValue });
-const value = (valueItem: unknown): SqlSegment => ({ kind: "value", value: valueItem });
+const value = (valueItem: unknown): SqlSegment => {
+  const encoded = serializedJsonInput(valueItem);
+  return encoded === undefined
+    ? { kind: "value", value: valueItem }
+    : { kind: "value", value: encoded, jsonInput: true };
+};
 const fragmentTypeBrand = (): readonly unknown[] => [];
 const queryTypeBrand = Object.freeze({
   row: (row: unknown): unknown => row,
@@ -282,11 +306,33 @@ function isFragment(part: unknown): part is SqlFragment {
   );
 }
 
+const ownedQueries = new WeakSet<object>();
+
+/** @internal Query copies cannot carry adapter-owned validation metadata safely. */
+export function assertOwnedQuery(queryValue: object): void {
+  if (!ownedQueries.has(queryValue))
+    throw new TypeError("Expected a typed-sql query; copying query objects discards validation metadata");
+}
+
 function query<Row, Params extends readonly unknown[]>(segments: SqlSegment[]): Query<Row, Params> {
-  return Object.freeze({
+  const result = Object.freeze({
     [queryBrand]: queryTypeBrand as unknown as Query<Row, Params>[typeof queryBrand],
     segments: Object.freeze(segments),
   });
+  ownedQueries.add(result);
+  return result;
+}
+
+function derivedQuery<Row, SourceParams extends readonly unknown[], Params extends readonly unknown[]>(
+  base: Query<Row, SourceParams>,
+  segments: SqlSegment[],
+): Query<Row, Params> {
+  if (segments.length === base.segments.length && segments.every((segment, index) => segment === base.segments[index]))
+    return base as unknown as Query<Row, Params>;
+  const result = query<Row, Params>(segments);
+  inheritQueryResultValidator(base, result);
+  inheritQueryValuePlanRequirement(base, result);
+  return result;
 }
 
 const templateTextCache = new WeakMap<TemplateStringsArray, readonly SqlSegment[]>();
@@ -425,17 +471,23 @@ function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
 }
 
 export const sql: SqlTag = Object.assign(tag, {
-  __typed<Row, Params extends readonly unknown[]>() {
+  __typed<Row, Params extends readonly unknown[]>(plan?: QueryValuePlan | QueryValuePlanSelector) {
     return <const Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedSqlParts<Parts, Params>
-    ) => query<Row, Params>(templateSegments(strings, parts));
+    ) => {
+      const result = query<Row, Params>(templateSegments(strings, parts));
+      return plan === undefined ? result : withQueryValuePlan(result, plan);
+    };
   },
-  __typedRow<Row>() {
+  __typedRow<Row>(plan?: QueryValuePlan | QueryValuePlanSelector) {
     return <Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedTemplateParts<Parts>
-    ): Query<Row, SqlPartsParameters<Parts>> => query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
+    ): Query<Row, SqlPartsParameters<Parts>> => {
+      const result = query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
+      return plan === undefined ? result : withQueryValuePlan(result, plan);
+    };
   },
   fragment: fragmentTag,
   empty: fragment<readonly []>([]),
@@ -446,6 +498,9 @@ export const sql: SqlTag = Object.assign(tag, {
   },
   value<Value>(valueItem: Value): SqlFragment<readonly [Value]> {
     return fragment<readonly [Value]>([value(valueItem)]);
+  },
+  json<Value>(valueItem: Value): SqlFragment<readonly [JsonInput<Value>]> {
+    return fragment<readonly [JsonInput<Value>]>([value(jsonValue(valueItem))]);
   },
   join<const Parts extends readonly SqlFragment[]>(
     parts: Parts,
@@ -475,7 +530,7 @@ export const sql: SqlTag = Object.assign(tag, {
     appendSegments(segments, queryValue.segments);
     segments.push(whereSeparator);
     appendSegments(segments, predicate.segments);
-    return query<Row, readonly [...QueryParams, ...PredicateParams]>(segments);
+    return derivedQuery<Row, QueryParams, readonly [...QueryParams, ...PredicateParams]>(queryValue, segments);
   },
   append<Row, QueryParams extends readonly unknown[], const Parts extends readonly OptionalSqlFragment[]>(
     queryValue: Query<Row, QueryParams>,
@@ -488,7 +543,10 @@ export const sql: SqlTag = Object.assign(tag, {
       if (!isFragment(part)) throw new TypeError("sql.append() accepts SQL fragments or empty values");
       appendSegments(segments, part.segments);
     }
-    return query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(segments);
+    return derivedQuery<Row, QueryParams, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(
+      queryValue,
+      segments,
+    );
   },
   validateResult<Row, Params extends readonly unknown[], const Schema extends StandardSchemaV1>(
     queryValue: Query<Row, Params>,
@@ -554,7 +612,7 @@ export function renderQuery<Row, Params extends readonly unknown[]>(
       values.push(segment.value);
       chunk = renderer.placeholder(values.length);
     }
-    sqlBytes += Buffer.byteLength(chunk);
+    sqlBytes += utf8ByteLength(chunk);
     if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
       throw new SqlFragmentListError(
         "TSQL_FRAGMENT_LIST_LIMIT",
@@ -582,6 +640,19 @@ function visitSegments(
   }
 }
 
+/** @internal Explicit JSON bindings use JSON text on the driver boundary even for parsed application values. */
+export function explicitJsonParameterIndexes(query: Query<unknown, readonly unknown[]>): ReadonlySet<number> {
+  const indexes = new Set<number>();
+  let index = 0;
+  visitSegments(query.segments, (segment) => {
+    if (segment.kind === "value") {
+      if (segment.jsonInput === true) indexes.add(index);
+      index++;
+    }
+  });
+  return indexes;
+}
+
 function expandedSegments(segments: readonly SqlSegment[]): readonly Exclude<SqlSegment, FragmentListSegment>[] {
   const result: Exclude<SqlSegment, FragmentListSegment>[] = [];
   visitSegments(segments, (segment) => result.push(segment));
@@ -596,7 +667,7 @@ function assertQueryResourceLimits(segments: readonly SqlSegment[]): void {
       parameters += 1;
       sqlBytes += String(parameters).length + 1;
     } else {
-      sqlBytes += segment.kind === "text" ? Buffer.byteLength(segment.text) : Buffer.byteLength(segment.name) + 2;
+      sqlBytes += segment.kind === "text" ? utf8ByteLength(segment.text) : utf8ByteLength(segment.name) + 2;
     }
     if (parameters > DEFAULT_MAX_QUERY_PARAMETERS) {
       throw new SqlFragmentListError(
@@ -645,7 +716,7 @@ function compileRenderSkeletonSegments(
       chunks.push(renderer.placeholder(values.length));
       skeletonSegments.push(Object.freeze({ kind: "value" }));
     }
-    sqlBytes += Buffer.byteLength(chunks[chunks.length - 1]!);
+    sqlBytes += utf8ByteLength(chunks[chunks.length - 1]!);
     if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
       throw new SqlFragmentListError(
         "TSQL_FRAGMENT_LIST_LIMIT",
@@ -766,6 +837,10 @@ class DatabaseImplementation implements Database {
   }
 
   async execute<Row, Params extends readonly unknown[]>(queryValue: Query<Row, Params>): Promise<readonly Row[]> {
+    if (getQueryValuePlan(queryValue) !== undefined)
+      throw new TypeError(
+        "createDatabase cannot validate compiled value plans; use a driver adapter or createBufferedDatabase from @typed-sql/adapters with an explicit transport profile",
+      );
     const rendered = renderQuery(queryValue, this.#renderer);
     const rows = await this.#executor.execute(rendered.text, rendered.values);
     return validateQueryResultRows(queryValue, rows, "generic-adapter");
@@ -780,6 +855,10 @@ class DatabaseImplementation implements Database {
     }
     assertExecutionCapabilities(this.executionCapabilities, options);
     const controlled = this.#executor as ControlledQueryExecutor;
+    if (getQueryValuePlan(queryValue) !== undefined)
+      throw new TypeError(
+        "createDatabase cannot validate compiled value plans; use a driver adapter or createBufferedDatabase from @typed-sql/adapters with an explicit transport profile",
+      );
     const rendered = renderQuery(queryValue, this.#renderer);
     const rows = await controlled.executeControlled(rendered.text, rendered.values, options);
     return validateQueryResultRows(queryValue, rows, "generic-adapter");

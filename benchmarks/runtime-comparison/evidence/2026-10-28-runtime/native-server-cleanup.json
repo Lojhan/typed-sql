@@ -1,0 +1,13 @@
+{
+  "engine": "MySQL",
+  "version": "8.4.13",
+  "ownedPid": 35790,
+  "ownedPort": 62372,
+  "identityVerified": true,
+  "shutdown": "mysqladmin shutdown",
+  "processExited": true,
+  "portClosed": true,
+  "temporaryDataDirectoryRemoved": true,
+  "otherPodmanVMsUntouched": true,
+  "finishedAt": "2026-10-28T18:20:09.467446+00:00"
+}

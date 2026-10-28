@@ -1,6 +1,7 @@
 import {
   applyDialectCapabilityStates,
   DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
@@ -12,6 +13,7 @@ import {
   unmodeledMySqlSqlModes,
 } from "./capabilities.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { mysqlRuntimeValueType } from "./query.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
@@ -59,9 +61,11 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     id: "mysql",
     grammarVersion: MYSQL_DIALECT_VERSION,
     sqlModule: "@typed-sql/mysql",
+    runtimeSqlModule: "@typed-sql/mysql/query",
     capabilities: MYSQL_CAPABILITIES,
     resolveCapabilities: (snapshot: MySqlSchemaSnapshot) => resolveMySqlCapabilities(snapshot, versionPolicy),
     defaultTypePolicy,
+    runtimeValueType: mysqlRuntimeValueType,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("MySQL parameter indexes start at 1");
       return "?";
@@ -75,7 +79,12 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
         .filter((token) => token.kind === "parameter")
         .map((token) => ({ index: Number(token.value), range: token.range }));
     },
-    analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
+    analyze(
+      sql: string,
+      snapshot: MySqlSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
       try {
         const sqlMode = snapshot.server?.settings.sqlMode;
         const unmodeledModes = typeof sqlMode === "string" ? unmodeledMySqlSqlModes(sqlMode) : [];
@@ -97,7 +106,10 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
           };
         }
         const statement = parseStatement(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
-        const resolved = resolveMySqlStatement(statement, snapshot, { typePolicy: policy });
+        const resolved = resolveMySqlStatement(statement, snapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
         const analysis = {
           ...resolved,
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")

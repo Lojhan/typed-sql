@@ -1,0 +1,610 @@
+import { describe, it, strict } from "poku";
+import { type JsonShape, jsonObjectShape } from "../src/json.js";
+import { jsonValue } from "../src/json-input.js";
+import { bindQueryRenderSkeleton, compileQueryRenderSkeleton, renderQuery, sql } from "../src/query.js";
+import {
+  assertQueryResultTransport,
+  decodeQueryResultRows,
+  decodeQueryResultStream,
+  defineQueryValuePlan,
+  encodeQueryValues,
+  getQueryValuePlan,
+  type QueryTransportProfile,
+  QueryValueError,
+  type QueryValuePlan,
+  withQueryValuePlan,
+} from "../src/query-value-plan.js";
+import { ParameterCollector } from "../src/resolver.js";
+import type { StandardSchemaV1 } from "../src/result-validation.js";
+import { parameterTypeLiteral } from "../src/types.js";
+
+const text: QueryTransportProfile = { id: "test", dialect: "sqlite", integer: "lossless", jsonWire: "text" };
+const parsed: QueryTransportProfile = { ...text, jsonWire: "parsed" };
+function plan(overrides: Partial<QueryValuePlan> = {}): QueryValuePlan {
+  return {
+    dialect: "sqlite",
+    typePolicyHash: "policy",
+    columns: [
+      {
+        name: "value",
+        type: "unknown",
+        nullable: false,
+        json: { shape: { kind: "string" }, representation: "parsed" },
+      },
+    ],
+    parameters: [],
+    ...overrides,
+  };
+}
+await describe("query value plans", async () => {
+  await it("distinguishes wire JSON strings from parsed scalar strings", () => {
+    const query = withQueryValuePlan(sql<{ value: unknown }>`select 1`, plan());
+    strict.equal(decodeQueryResultRows(query, [{ value: '"hello"' }], text)[0]?.value, "hello");
+    strict.equal(decodeQueryResultRows(query, [{ value: '"hello"' }], parsed)[0]?.value, '"hello"');
+    strict.throws(() => decodeQueryResultRows(query, [{ value: "bad json" }], text), QueryValueError);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: "42" }], text), QueryValueError);
+    strict.throws(() => decodeQueryResultRows(query, [{}], text), QueryValueError);
+  });
+  await it("fails before dispatch for an incompatible integer or policy profile", () => {
+    const query = withQueryValuePlan(
+      sql<{ value: unknown }>`select 1`,
+      plan({ columns: [{ name: "value", type: "bigint", nullable: false }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(query, { ...text, integer: "safe-number" }), /bigint/);
+    strict.throws(() => assertQueryResultTransport(query, { ...text, typePolicyHash: "other" }), /policies/);
+    strict.throws(() => assertQueryResultTransport(query, { ...text, dialect: "postgres" }), /policies/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: Number.MAX_SAFE_INTEGER + 1 }], text), QueryValueError);
+  });
+  await it("rejects parsed transport when SQL NULL could bypass an application JSON declaration", () => {
+    const json = {
+      representation: "parsed" as const,
+      requiresRuntimeValidation: true as const,
+      shape: { kind: "object" as const, properties: { id: { shape: { kind: "number" as const } } } },
+    };
+    const scalar = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: true, type: "unknown", json }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(scalar, parsed), /distinguish/);
+    strict.deepEqual(decodeQueryResultRows(scalar, [{ value: null }], text), [{ value: null }]);
+    strict.throws(() => decodeQueryResultRows(scalar, [{ value: "null" }], text), /declared shape/);
+    const array = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: { array: { json } } }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(array, parsed), /distinguish/);
+    const union = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: { union: ["string", { array: { json } }] } }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(union, parsed), /distinguish/);
+  });
+  await it("enforces null-only native SQL array elements", () => {
+    const query = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: { array: "never", elementNullable: true } }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: [null] }], text), [{ value: [null] }]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["wrong"] }], text), /expected never/);
+  });
+  await it("snapshots descriptors without retaining mutable caller metadata", () => {
+    const input = plan();
+    const query = withQueryValuePlan(sql<{ value: unknown }>`select 1`, input);
+    strict.notEqual(getQueryValuePlan(query), input);
+    strict.ok(Object.isFrozen(getQueryValuePlan(query)?.columns[0]?.json?.shape));
+    strict.throws(() => withQueryValuePlan(query, input), /already/);
+    strict.throws(() => assertQueryResultTransport(sql<{ value: unknown }>`select 1`, text), /metadata/);
+  });
+  await it("preserves metadata through a result validator and enforces JSON null separately", () => {
+    const query = withQueryValuePlan(
+      sql<{ value: unknown }>`select 1`,
+      plan({
+        columns: [
+          {
+            name: "value",
+            type: "unknown",
+            nullable: false,
+            json: { representation: "parsed", shape: { kind: "null" } },
+          },
+        ],
+      }),
+    );
+    const schema: StandardSchemaV1<unknown, { value: unknown }> = {
+      "~standard": { version: 1, vendor: "test", validate: (value: unknown) => ({ value: { value } }) },
+    };
+    const validated = sql.validateResult(query, schema);
+    strict.equal(getQueryValuePlan(validated), getQueryValuePlan(query));
+    strict.equal(decodeQueryResultRows(query, [{ value: "null" }], text)[0]?.value, null);
+    strict.equal(decodeQueryResultRows(query, [{ value: null }], parsed)[0]?.value, null);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: null }], text), /SQL NULL/);
+  });
+  await it("validates inputs before serializing and never serializes ordinary text", () => {
+    const query = withQueryValuePlan(
+      sql`select ${"x"}`,
+      plan({
+        parameters: [
+          {
+            index: 1,
+            type: "unknown",
+            nullable: false,
+            json: { shape: { kind: "array", element: { kind: "number" } }, representation: "parsed" },
+          },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [[1, 2]], text), ["[1,2]"]);
+    strict.throws(() => encodeQueryValues(query, [[1, "x"]], text), QueryValueError);
+    strict.throws(() => encodeQueryValues(query, [], text), /count/);
+    const ordinary = withQueryValuePlan(
+      sql`select ${"x"}`,
+      plan({ parameters: [{ index: 1, type: "string", nullable: false }] }),
+    );
+    strict.deepEqual(encodeQueryValues(ordinary, ["{}"], text), ["{}"]);
+    strict.throws(() => encodeQueryValues(ordinary, [null], text), /SQL NULL/);
+  });
+  await it("normalizes explicit scalar codecs and preserves binary/array values", () => {
+    const query = withQueryValuePlan(
+      sql<{ value: unknown }>`select 1`,
+      plan({ columns: [{ name: "value", type: { array: { union: ["number", "string"] } }, nullable: false }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: [1, "two", null] }], text), [{ value: [1, "two", null] }]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: [true] }], text), /union/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: 1 }], text), /array/);
+    const nonnull = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: { array: "number", elementNullable: false }, nullable: false }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(nonnull, [{ value: [null] }], text), /NULL array element/);
+
+    const bytes = new Uint8Array([1, 2]);
+    const binary = withQueryValuePlan(
+      sql<{ value: unknown }>`select 1`,
+      plan({
+        columns: [
+          {
+            name: "value",
+            type: "bytes",
+            nullable: false,
+            json: { representation: "binary", shape: { kind: "unknown" } },
+          },
+        ],
+      }),
+    );
+    strict.equal(decodeQueryResultRows(binary, [{ value: bytes }], text)[0]?.value, bytes);
+    strict.throws(() => decodeQueryResultRows(binary, [{ value: "blob" }], text), /bytes/);
+    const numeric = withQueryValuePlan(
+      sql<{ value: unknown }>`select 1`,
+      plan({ columns: [{ name: "value", type: "number", nullable: false }] }),
+    );
+    strict.deepEqual(
+      decodeQueryResultRows(numeric, [{ value: "42" }], { ...text, normalizeValue: (value) => Number(value) }),
+      [{ value: 42 }],
+    );
+    strict.throws(
+      () => decodeQueryResultRows(numeric, [{ value: "42" }], { ...text, normalizeValue: () => null }),
+      /number/,
+    );
+  });
+  await it("rejects lossy SQL-null/JSON-null text profiles and retains special column names", () => {
+    const input = plan({
+      columns: [
+        { name: "value", type: "unknown", nullable: true, json: { representation: "text", shape: { kind: "null" } } },
+      ],
+    });
+    const nullable = withQueryValuePlan(sql`select 1`, input);
+    strict.throws(() => assertQueryResultTransport(nullable, parsed), /distinguish/);
+    const nonnull = withQueryValuePlan(sql<{ value: unknown }>`select 1`, {
+      ...input,
+      columns: input.columns.map((column) => ({ ...column, nullable: false })),
+    });
+    strict.equal(decodeQueryResultRows(nonnull, [{ value: null }], parsed)[0]?.value, "null");
+    const special = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "__proto__", type: "string", nullable: false }] }),
+    );
+    const row = decodeQueryResultRows(special, [JSON.parse('{"__proto__":"safe"}')], text)[0];
+    strict.equal(Object.getPrototypeOf(row), Object.prototype);
+    strict.equal(Object.getOwnPropertyDescriptor(row, "__proto__")?.value, "safe");
+  });
+  await it("reuses prepared immutable metadata while isolating each query's values", () => {
+    const prepared = defineQueryValuePlan(plan({ parameters: [{ index: 1, type: "string", nullable: false }] }));
+    strict.equal(defineQueryValuePlan(prepared), prepared);
+    const first = withQueryValuePlan(sql`select ${"first"}`, prepared);
+    const second = withQueryValuePlan(sql`select ${"second"}`, prepared);
+    strict.equal(getQueryValuePlan(first), getQueryValuePlan(second));
+    strict.deepEqual(encodeQueryValues(first, ["first"], text), ["first"]);
+    strict.deepEqual(encodeQueryValues(second, ["second"], text), ["second"]);
+    strict.throws(
+      () => defineQueryValuePlan({ ...prepared, columns: [prepared.columns[0]!, prepared.columns[0]!] }),
+      /duplicate/,
+    );
+    strict.throws(
+      () => defineQueryValuePlan({ ...prepared, parameters: [{ index: 2, type: "string", nullable: false }] }),
+      /ordered/,
+    );
+  });
+  await it("shares only owned JSON snapshots and still charges their full logical expansion", () => {
+    const input: { kind: "object"; properties: Record<string, { shape: JsonShape }> } = {
+      kind: "object",
+      properties: { id: { shape: { kind: "number" } } },
+    };
+    Object.freeze(input);
+    const prepare = (shape: JsonShape) =>
+      defineQueryValuePlan(
+        plan({
+          columns: [{ name: "value", type: "unknown", nullable: false, json: { representation: "parsed", shape } }],
+        }),
+      );
+    const first = prepare(input);
+    const canonical = first.columns[0]!.json!.shape;
+    strict.notEqual(canonical, input);
+    input.properties.id!.shape = { kind: "string" };
+    const second = prepare(input);
+    const firstQuery = withQueryValuePlan(sql`select 1`, first);
+    const secondQuery = withQueryValuePlan(sql`select 1`, second);
+    strict.deepEqual(decodeQueryResultRows(firstQuery, [{ value: '{"id":1}' }], text), [{ value: { id: 1 } }]);
+    strict.throws(() => decodeQueryResultRows(firstQuery, [{ value: '{"id":"changed"}' }], text));
+    strict.deepEqual(decodeQueryResultRows(secondQuery, [{ value: '{"id":"changed"}' }], text), [
+      { value: { id: "changed" } },
+    ]);
+    strict.equal(prepare(canonical).columns[0]!.json!.shape, canonical);
+    strict.equal(Object.isFrozen(canonical), true);
+
+    const wide = prepare(
+      jsonObjectShape(
+        Object.fromEntries(Array.from({ length: 500 }, (_, index) => [`k${index}`, { shape: { kind: "number" } }])),
+      ),
+    ).columns[0]!.json!.shape;
+    strict.equal(wide.kind, "object");
+    const parameters = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        index: index + 1,
+        type: "unknown" as const,
+        nullable: false,
+        json: { representation: "parsed" as const, shape: wide },
+      }));
+    const shared = defineQueryValuePlan(plan({ columns: [], parameters: parameters(64) }));
+    strict.equal(
+      shared.parameters.every((parameter) => parameter.json?.shape === wide),
+      true,
+    );
+    strict.throws(() => defineQueryValuePlan(plan({ columns: [], parameters: parameters(600) })), /expansion limit/);
+  });
+  await it("binds JSON literal null explicitly and snapshots validated JSON inputs", () => {
+    const renderer = { placeholder: (index: number) => `?${index}`, quoteIdentifier: (name: string) => name };
+    const valuePlan = defineQueryValuePlan(
+      plan({
+        parameters: [
+          { index: 1, type: "unknown", nullable: true, json: { representation: "parsed", shape: { kind: "unknown" } } },
+        ],
+      }),
+    );
+    const jsonNull = withQueryValuePlan(sql`select ${sql.json(null)}`, valuePlan);
+    strict.deepEqual(renderQuery(jsonNull, renderer).values, ["null"]);
+    strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, text), ["null"]);
+    strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, parsed), ["null"]);
+    const positional = (input: import("../src/query.js").JsonInput<null>) =>
+      withQueryValuePlan(sql`select ${sql.value(input)}`, valuePlan);
+    const bound = positional(jsonValue(null));
+    strict.deepEqual(encodeQueryValues(bound, renderQuery(bound, renderer).values, text), ["null"]);
+    strict.deepEqual(renderQuery(sql`select ${{}}`, renderer).values, [{}]);
+
+    const sqlNull = withQueryValuePlan(sql`select ${null}`, valuePlan);
+    strict.deepEqual(encodeQueryValues(sqlNull, renderQuery(sqlNull, renderer).values, text), [null]);
+    const input = { value: 1 };
+    const first = withQueryValuePlan(sql`select ${sql.json(input)}`, valuePlan);
+    input.value = 2;
+    const compiled = compileQueryRenderSkeleton(first, renderer);
+    strict.deepEqual(compiled.rendered.values, ['{"value":1}']);
+    const second = withQueryValuePlan(sql`select ${sql.json(input)}`, valuePlan);
+    const rebound = bindQueryRenderSkeleton(second, compiled.skeleton)!;
+    strict.deepEqual(rebound.values, ['{"value":2}']);
+    strict.deepEqual(encodeQueryValues(second, rebound.values, text), ['{"value":2}']);
+    strict.throws(() => sql.json({ value: 1n }), /finite/);
+    strict.throws(() => sql.json(new Date()), /finite/);
+    strict.throws(() => sql.json(undefined), /finite/);
+    const ordinary = withQueryValuePlan(
+      sql`select ${sql.json("hello")}`,
+      plan({ parameters: [{ index: 1, type: "string", nullable: false }] }),
+    );
+    strict.throws(() => encodeQueryValues(ordinary, renderQuery(ordinary, renderer).values, text), /JSON parameter/);
+  });
+  await it("retains JSON parameter contracts across repeated inference and fails closed on conflicts", () => {
+    const collector = new ParameterCollector();
+    const json = { representation: "parsed" as const, shape: { kind: "string" as const } };
+    collector.record(1, { tsType: "unknown", nullable: false, json });
+    strict.deepEqual(collector.record(1, { tsType: "unknown", nullable: false, json }).json, json);
+    collector.record(2, { tsType: "string", nullable: false, json });
+    strict.deepEqual(collector.record(2, { tsType: "string", nullable: true, json }).json, json);
+    collector.record(3, { tsType: "string", nullable: false, json });
+    strict.equal(
+      collector.record(3, { tsType: "string", nullable: false, json: { ...json, shape: { kind: "number" } } }).tsType,
+      "unknown",
+    );
+    strict.equal(collector.record(3, { tsType: "string", nullable: false, json }).json, undefined);
+  });
+  await it("checks explicit JSON logical input types independently of text output policy", () => {
+    const jsonTag = sql.__typed<unknown, readonly [string | import("../src/query.js").JsonInput<{ id: number }>]>();
+    jsonTag`select ${sql.json({ id: 1 })}`;
+    // @ts-expect-error JSON input shape must still match the inferred parameter.
+    jsonTag`select ${sql.json({ id: "wrong" })}`;
+    const numberTag = sql.__typed<unknown, readonly [number]>();
+    // @ts-expect-error Explicit JSON cannot masquerade as an ordinary numeric SQL parameter.
+    numberTag`select ${sql.json(1)}`;
+  });
+  await it("validates native JSON scalars without parsing SQL text as serialized JSON", () => {
+    const query = withQueryValuePlan(
+      sql`select 1`,
+      plan({
+        columns: [
+          { name: "value", type: "string", nullable: false, scalarJsonShape: { kind: "literal", value: "active" } },
+        ],
+      }),
+    );
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: "active" }], text), [{ value: "active" }]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: '"active"' }], text), /native JSON scalar/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: "other" }], text), /native JSON scalar/);
+    const literal = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: { literal: 1 }, nullable: false }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(literal, [{ value: 1 }], text), [{ value: 1 }]);
+    strict.throws(() => decodeQueryResultRows(literal, [{ value: 2 }], text), /literal/);
+    const input = withQueryValuePlan(
+      sql`select ${"other"}`,
+      plan({
+        parameters: [
+          { index: 1, type: "string", nullable: false, scalarJsonShape: { kind: "literal", value: "active" } },
+        ],
+      }),
+    );
+    strict.throws(() => encodeQueryValues(input, ["other"], text), /native JSON scalar/);
+  });
+  await it("keeps JSON input encoding independent of parsed driver output", () => {
+    const query = withQueryValuePlan(
+      sql`select ${[1, 2]}`,
+      plan({
+        parameters: [
+          {
+            index: 1,
+            type: "unknown",
+            nullable: false,
+            json: { representation: "parsed", shape: { kind: "array", element: { kind: "number" } } },
+          },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [[1, 2]], { ...parsed, jsonInputWire: "text" }), ["[1,2]"]);
+  });
+  await it("decodes and validates JSON inside native SQL arrays without conflating nulls", () => {
+    const json = {
+      representation: "parsed" as const,
+      shape: {
+        kind: "object" as const,
+        properties: { id: { shape: { kind: "number" as const } } },
+      },
+    };
+    const type = { array: { json }, elementNullable: true };
+    const query = withQueryValuePlan(sql`select 1`, plan({ columns: [{ name: "value", nullable: false, type }] }));
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: ['{"id":1}', null] }], text), [
+      { value: [{ id: 1 }, null] },
+    ]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["null"] }], text), /declared shape/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ['{"id":"wrong"}'] }], text), /declared shape/);
+    const input = withQueryValuePlan(
+      sql`select ${[jsonValue({ id: 1 }), null]}`,
+      plan({ columns: [], parameters: [{ index: 1, nullable: false, type }] }),
+    );
+    strict.deepEqual(encodeQueryValues(input, [[jsonValue({ id: 1 }), null]], text), [['{"id":1}', null]]);
+    const nullType = {
+      array: { json: { representation: "parsed" as const, shape: { kind: "null" as const } } },
+      elementNullable: false,
+    };
+    const nulls = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: nullType }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(nulls, [{ value: ["null"] }], text), [{ value: [null] }]);
+    strict.deepEqual(decodeQueryResultRows(nulls, [{ value: [null] }], parsed), [{ value: [null] }]);
+    strict.throws(() => decodeQueryResultRows(nulls, [{ value: [null] }], text), /NULL array element/);
+  });
+  await it("validates SQLite native bigint JSON scalars without converting their precision", () => {
+    const boolean = withQueryValuePlan(
+      sql`select 1`,
+      plan({
+        columns: [
+          {
+            name: "value",
+            type: "bigint",
+            nullable: false,
+            scalarJsonShape: {
+              kind: "union",
+              variants: [
+                { kind: "literal", value: 0 },
+                { kind: "literal", value: 1 },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    strict.deepEqual(decodeQueryResultRows(boolean, [{ value: 1n }], text), [{ value: 1n }]);
+    strict.throws(() => decodeQueryResultRows(boolean, [{ value: 2n }], text), /native JSON scalar/);
+    const numeric = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: "bigint", nullable: false, scalarJsonShape: { kind: "number" } }] }),
+    );
+    const maximum = 9223372036854775807n;
+    strict.deepEqual(decodeQueryResultRows(numeric, [{ value: maximum }], text), [{ value: maximum }]);
+    const wrong = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: "bigint", nullable: false, scalarJsonShape: { kind: "string" } }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(wrong, [{ value: 1n }], text), /native JSON scalar/);
+  });
+  await it("bounds compact DAG expansion and aggregate metadata before query execution", () => {
+    let expanded: import("../src/query-value-plan.js").RuntimeValueType = "number";
+    for (let depth = 0; depth < 20; depth++) expanded = { union: [expanded, expanded] };
+    strict.throws(
+      () => defineQueryValuePlan(plan({ columns: [{ name: "value", nullable: false, type: expanded }] })),
+      /expansion limit/,
+    );
+    let repeated: import("../src/query-value-plan.js").RuntimeValueType = "number";
+    for (let depth = 0; depth < 8; depth++) repeated = { union: [repeated, repeated] };
+    const columns = Array.from({ length: 600 }, (_, index) => ({
+      name: `column${index}`,
+      type: repeated,
+      nullable: false,
+    }));
+    strict.throws(() => defineQueryValuePlan(plan({ columns })), /expansion limit/);
+    strict.throws(
+      () =>
+        defineQueryValuePlan(
+          plan({
+            parameters: Array.from({ length: 65_536 }, (_, index) => ({
+              index: index + 1,
+              type: "number" as const,
+              nullable: false,
+            })),
+          }),
+        ),
+      /descriptor count/,
+    );
+  });
+  await it("decodes streamed rows before exposing them and closes once on malformed JSON", async () => {
+    const iterator = [{ value: '"first"' }, { value: "invalid" }][Symbol.iterator]();
+    let closes = 0;
+    const source: import("../src/execution.js").QueryStream<unknown> = {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return iterator.next();
+      },
+      async close() {
+        closes++;
+      },
+      async [Symbol.asyncDispose]() {
+        await this.close();
+      },
+    };
+    const query = withQueryValuePlan(sql<{ value: unknown }>`select 1`, plan());
+    const stream = decodeQueryResultStream(query, source, text);
+    strict.deepEqual(await stream.next(), { done: false, value: { value: "first" } });
+    await strict.rejects(stream.next(), QueryValueError);
+    strict.equal(closes, 1);
+    await stream.close();
+    strict.equal(closes, 1);
+    strict.equal((await stream.next()).done, true);
+  });
+  await it("accepts explicit JSON documents without excluding native numeric and binary inputs", () => {
+    const renderer = { placeholder: () => "?", quoteIdentifier: (name: string) => name };
+    const contract = plan({
+      parameters: [
+        { index: 1, type: { union: ["bigint", "number", "string", "bytes"] }, nullable: true, acceptsJsonInput: true },
+      ],
+    });
+    const explicit = withQueryValuePlan(sql`select ${sql.json({ id: 1 })}`, contract);
+    strict.deepEqual(encodeQueryValues(explicit, renderQuery(explicit, renderer).values, text), ['{"id":1}']);
+    const ordinary = withQueryValuePlan(sql`select ${1n}`, contract);
+    strict.deepEqual(encodeQueryValues(ordinary, [1n], text), [1n]);
+    const bytes = Uint8Array.of(1, 2);
+    strict.deepEqual(encodeQueryValues(ordinary, [bytes], text), [bytes]);
+    strict.deepEqual(encodeQueryValues(ordinary, [1.5], text), [1.5]);
+    const collector = new ParameterCollector();
+    collector.record(1, { tsType: "string", nullable: false });
+    collector.record(1, { tsType: "string", nullable: false, acceptsJsonInput: true });
+    const merged = collector.record(1, { tsType: "string", nullable: true });
+    strict.equal(merged.acceptsJsonInput, true);
+    strict.equal(merged.nullable, true);
+    strict.equal(
+      parameterTypeLiteral(1, collector.values()),
+      'readonly [string | null | import("@typed-sql/core").JsonInput<unknown>]',
+    );
+    strict.equal(
+      parameterTypeLiteral(1, [
+        { index: 1, tsType: "string", nullable: false, json: { representation: "text", shape: { kind: "number" } } },
+      ]),
+      'readonly [string | import("@typed-sql/core").JsonInput<number>]',
+    );
+  });
+  await it("notifies stream ownership of a value failure without replacing the original error", async () => {
+    let closes = 0;
+    let notified: unknown;
+    const source: import("../src/execution.js").QueryStream<unknown> = {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return { done: false, value: { value: "invalid" } };
+      },
+      async close() {
+        closes++;
+      },
+      async [Symbol.asyncDispose]() {
+        await this.close();
+      },
+    };
+    const stream = decodeQueryResultStream(withQueryValuePlan(sql`select 1`, plan()), source, text, (error) => {
+      notified = error;
+      throw new Error("notification failed");
+    });
+    await strict.rejects(stream.next(), (error: unknown) => error instanceof QueryValueError && error === notified);
+    await stream.close();
+    strict.equal(closes, 1);
+  });
+  await it("preserves exact JSON text parameter digits after validation", () => {
+    const value = '{ "n": 9223372036854775807 }';
+    const query = withQueryValuePlan(
+      sql`select ${value}`,
+      plan({
+        parameters: [
+          { index: 1, type: "string", nullable: false, json: { representation: "text", shape: { kind: "unknown" } } },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [value], text), [value]);
+    const renderer = { placeholder: () => "?", quoteIdentifier: (name: string) => name };
+    const explicit = withQueryValuePlan(
+      sql`select ${sql.json("quoted")}`,
+      plan({
+        parameters: [
+          { index: 1, type: "unknown", nullable: false, json: { representation: "parsed", shape: { kind: "string" } } },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(explicit, renderQuery(explicit, renderer).values, text), ['"quoted"']);
+  });
+  await it("preserves valid text JSON numbers beyond JavaScript range without admitting nonfinite parsed models", () => {
+    const raw = "1e999";
+    const columns = [
+      {
+        name: "value",
+        type: "string" as const,
+        nullable: false,
+        json: { representation: "text" as const, shape: { kind: "number" as const } },
+      },
+    ];
+    const query = withQueryValuePlan(
+      sql`select ${raw}`,
+      plan({
+        columns,
+        parameters: [
+          { index: 1, type: "string", nullable: false, json: { representation: "text", shape: { kind: "number" } } },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [raw], text), [raw]);
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: raw }], text), [{ value: raw }]);
+    const parsedModel = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ ...columns[0]!, json: { representation: "parsed", shape: { kind: "number" } } }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(parsedModel, [{ value: raw }], text), /JSON does not match/);
+    const constant = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ ...columns[0]!, json: { representation: "text", shape: { kind: "literal", value: 1 } } }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(constant, [{ value: raw }], text), /JSON does not match/);
+  });
+});

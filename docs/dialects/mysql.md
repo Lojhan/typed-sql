@@ -10,6 +10,8 @@ description: MySQL grammar coverage, catalog introspection, application-owned my
 
 ## Public entrypoints
 
+- `@typed-sql/mysql/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
+
 - `@typed-sql/mysql` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
 - `@typed-sql/mysql/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/mysql/mysql2` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `mysql2`.
@@ -132,6 +134,14 @@ promoting that syntax into the grammar.
 
 The adapter controls mysql2 options that affect row shape, decoding, statement caching, and protocol safety. Supplying conflicting `poolConfig` options such as `typeCast`, `rowsAsArray`, `maxPreparedStatements`, `multipleStatements`, or incompatible bigint, decimal, date, or JSON settings fails before a pool is created. Connection, TLS, timeout, and pool-capacity settings remain application-owned. Multi-statement strings stay disabled; use `database.batch()` for ordered commands.
 
+`createMySql2Database` reads JSON as text and applies the selected JSON policy itself. This keeps
+mysql2's BIGINT conversion from turning JSON numbers into strings while preserving exact ordinary
+BIGINT decoding. Custom `MySqlPoolLike` implementations can declare `jsonWire: "text"` for raw JSON
+cells or `jsonWire: "parsed"` for already decoded JSON values. This distinguishes a parsed JSON
+scalar such as `"hello"` from serialized JSON text. Omitting the fact retains the existing custom-pool
+contract. `adaptMySql2Pool(pool, "text")` supports a pool configured with `jsonStrings: true`.
+
+
 `database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. MySQL execution uses mysql2's binary `execute()` path and its per-connection prepared-statement cache. The factory caches its first structural SQL skeleton and rejects duplicate names or structural drift between calls. `preparedStatementLimit` bounds both the database's logical registrations and mysql2's per-connection LRU; it defaults to 16,000. The runtime rejects a new logical name at the bound instead of evicting a factory that application code may still hold. `decoderPlanCacheCapacity` independently bounds compiled row-decoder metadata.
 
 Homogeneous fragment lists may vary only in cardinality. `preparedCardinalityVariantLimit` bounds
@@ -183,3 +193,37 @@ An early `break`, `close()`, or async disposal stops delivering rows to the cons
 Inside a transaction, the stream reuses the transaction connection and never releases it directly. The stream must complete or close before the transaction callback returns.
 
 See [Execute queries](../guides/execution.md), [Route reads and retry transactions](../guides/routing-and-retries.md), [Database type mappings](../reference/type-mappings.md#mysql), and [Compatibility](../reference/compatibility.md).
+
+## Structured JSON expressions
+
+Literal-key `JSON_OBJECT`, `JSON_ARRAY`, `JSON_ARRAYAGG`, and `JSON_OBJECTAGG`
+retain nested JSON structure through derived tables and common table expressions.
+JSON numbers decode as JavaScript numbers even when ordinary SQL bigint or decimal
+columns use another type policy. Dates become JSON strings; SQL `NULL` used as a
+constructor value becomes JSON `null`. Empty aggregate input returns SQL `NULL`.
+
+Literal paths in `JSON_EXTRACT` and static mutations (`JSON_SET`, `JSON_INSERT`,
+`JSON_REPLACE`, `JSON_REMOVE`, `JSON_ARRAY_APPEND`, `JSON_ARRAY_INSERT`,
+`JSON_MERGE_PATCH`, and `JSON_MERGE_PRESERVE`) retain supported structural evidence.
+MySQL array path legs wrap a non-array value as a one-element array. Missing
+multi-path matches are omitted. Dynamic paths, wildcard paths, and unsupported
+values remain conservative. `JSON_UNQUOTE` returns SQL text, including the text
+`'null'` for a JSON null value.
+
+The `json: 'string'` type policy keeps JSON results serialized. An encoded JSON
+parameter remains SQL text in constructor value positions; use an explicit
+`CAST(... AS JSON)` when MySQL must embed a JSON document instead of a string.
+Application JSON declarations contribute narrower types only when analysis has a
+runtime validation contract; ordinary analysis does not trust those declarations.
+
+Introspection recognizes an enforced `CHECK (JSON_SCHEMA_VALID('literal schema',
+json_column))` as database evidence for the supported structural JSON Schema
+subset. Unenforced checks, compound predicates, dynamic schemas, and unsupported
+schema compositions do not narrow the column.
+
+JSON column parameters retain their declared shape even with `json: 'string'`.
+Use `sql.json(value)` in tagged queries or `jsonValue(value)` in positional query
+factories to pass an explicit JSON document. JSON document arguments such as the
+first argument of `JSON_EXTRACT` accept these bindings; constructor VALUE arguments
+keep their ordinary SQL value behavior. Use `CAST(... AS JSON)` to embed an encoded
+document inside a constructor.

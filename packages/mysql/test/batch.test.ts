@@ -358,22 +358,17 @@ await describe("MySQL ordered batches", async () => {
     strict.ok(pool.connection.events.slice(releaseIndex + 1).every((event) => !event.startsWith("EXECUTE")));
   });
 
-  await it("retains prepared rendering metadata and shared decoding", async () => {
+  await it("executes the prepared query identity through batch decoding", async () => {
     const pool = new BatchPool();
     const database = createMySqlDatabase({ pool });
     const source = sql<Account>`SELECT id, email FROM accounts WHERE id >= ${1n}`;
-    let segmentReads = 0;
-    const observed = new Proxy(source, {
-      get(target, property, receiver) {
-        if (property === "segments") segmentReads += 1;
-        return Reflect.get(target, property, receiver);
-      },
-    });
-    const prepared = database.prepare("batch-accounts", () => observed);
+    const prepared = database.prepare("batch-accounts", () => source);
     const query = prepared();
-    strict.strictEqual(segmentReads, 1);
+    strict.strictEqual(query, source);
     const [rows] = await database.batch([query]);
-    strict.strictEqual(segmentReads, 1);
+    strict.deepStrictEqual(pool.connection.calls, [
+      { sql: "SELECT id, email FROM accounts WHERE id >= ?", values: ["1"] },
+    ]);
     strict.deepStrictEqual(rows, [{ id: 2n, email: "alice@example.com" }]);
   });
 });

@@ -68,7 +68,7 @@ await describe("query resolver", async () => {
     strict.strictEqual(result.columns[0]?.nullable, true);
   });
 
-  await it("keeps JSON extraction nullable when the document and path are non-null", () => {
+  await it("distinguishes a proven JSON property from a missing literal path", () => {
     const result = resolveSelect(
       parseSelect(`SELECT JSONB '{"value":1}' ->> 'value' AS scalar, JSONB '{}' -> 'missing' AS document`),
       schema,
@@ -77,7 +77,7 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.columns.map(({ name, databaseType, nullable }) => ({ name, databaseType, nullable })),
       [
-        { name: "scalar", databaseType: "text", nullable: true },
+        { name: "scalar", databaseType: "text", nullable: false },
         { name: "document", databaseType: "jsonb", nullable: true },
       ],
     );
@@ -208,7 +208,7 @@ await describe("query resolver", async () => {
         { name: "text_matches", tsType: "boolean", nullable: false },
         { name: "combined_query", tsType: "string", nullable: false },
         { name: "path_matches", tsType: "boolean", nullable: false },
-        { name: "redacted", tsType: "unknown", nullable: false },
+        { name: "redacted", tsType: "{ }", nullable: false },
         { name: "negated_query", tsType: "string", nullable: false },
         { name: "shape_distance", tsType: "number", nullable: false },
         { name: "shape_center", tsType: "string", nullable: false },
@@ -539,12 +539,12 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
       [
-        { name: "document", databaseType: "jsonb", tsType: "unknown", nullable: false },
+        { name: "document", databaseType: "jsonb", tsType: '{ "id": number; "age"?: number; }', nullable: false },
         { name: "array_values", databaseType: "text", tsType: "string", nullable: false },
         { name: "names", databaseType: "bytea", tsType: "Uint8Array", nullable: false },
-        { name: "empty_object", databaseType: "json", tsType: "unknown", nullable: false },
+        { name: "empty_object", databaseType: "json", tsType: "{ }", nullable: false },
         { name: "parameterized_object", databaseType: "bytea", tsType: "Uint8Array", nullable: false },
-        { name: "parameterized_array", databaseType: "jsonb", tsType: "unknown", nullable: false },
+        { name: "parameterized_array", databaseType: "jsonb", tsType: "readonly (unknown)[]", nullable: false },
       ],
     );
     strict.deepStrictEqual(
@@ -627,7 +627,7 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
       [
-        { name: "by_name", databaseType: "jsonb", tsType: "unknown", nullable: true },
+        { name: "by_name", databaseType: "jsonb", tsType: "{ [key: string]: number | undefined; }", nullable: true },
         { name: "ages", databaseType: "text", tsType: "string", nullable: true },
       ],
     );
@@ -1845,9 +1845,9 @@ await describe("query resolver", async () => {
       [
         { name: "ids", tsType: "readonly (number)[]" },
         { name: "name", tsType: "string" },
-        { name: "all_scores", tsType: "readonly (number)[]" },
+        { name: "all_scores", tsType: "readonly (number | null)[]" },
         { name: "first_score", tsType: "number" },
-        { name: "top_scores", tsType: "readonly (number)[]" },
+        { name: "top_scores", tsType: "readonly (number | null)[]" },
         { name: "x_coordinate", tsType: "number" },
         { name: "any_score", tsType: "boolean" },
         { name: "every_score", tsType: "boolean" },
@@ -1876,7 +1876,7 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.parameters.map(({ index, tsType }) => ({ index, tsType })),
       [
-        { index: 1, tsType: "readonly (number)[]" },
+        { index: 1, tsType: "readonly (number | null)[]" },
         { index: 2, tsType: "number" },
         { index: 3, tsType: "boolean" },
         { index: 4, tsType: "number" },
@@ -1980,6 +1980,28 @@ await describe("query resolver", async () => {
         },
       },
     } as const satisfies SchemaSnapshot;
+    const compositeJson = resolveSelect(parseSelect("SELECT to_jsonb(profile) AS value FROM people"), compositeSchema);
+    strict.deepStrictEqual(compositeJson.diagnostics, []);
+    strict.strictEqual(compositeJson.columns[0]?.tsType, '{ "zip": number | null; "DisplayName": string | null; }');
+    const recursiveComposite = {
+      ...compositeSchema,
+      types: {
+        ...compositeSchema.types,
+        address: {
+          ...compositeSchema.types.address,
+          fields: [
+            { name: "child", typeIdentity: "pg:address", databaseType: "address", tsType: "unknown", nullable: true },
+          ],
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const recursiveJson = resolveSelect(
+      parseSelect("SELECT to_jsonb(profile) AS value FROM people"),
+      recursiveComposite,
+    );
+    strict.deepStrictEqual(recursiveJson.diagnostics, []);
+    strict.ok(recursiveJson.columns[0]?.json);
+    strict.ok(recursiveJson.columns[0]!.tsType.length < 16384);
     const result = resolveSelect(
       parseSelect(`
         SELECT (profile).zip AS zip,
@@ -2300,8 +2322,8 @@ await describe("query resolver", async () => {
       result.columns.map(({ name, tsType, databaseType }) => ({ name, tsType, databaseType })),
       [
         { name: "same_value", tsType: "number", databaseType: "integer" },
-        { name: "numeric_values", tsType: "readonly (string)[]", databaseType: "numeric[]" },
-        { name: "labels", tsType: "readonly (string)[]", databaseType: "text[]" },
+        { name: "numeric_values", tsType: "readonly (string | null)[]", databaseType: "numeric[]" },
+        { name: "labels", tsType: "readonly (string | null)[]", databaseType: "text[]" },
         { name: "widened", tsType: "number", databaseType: "integer" },
         { name: "defaulted", tsType: "string", databaseType: "text" },
         { name: "named", tsType: "string", databaseType: "text" },
