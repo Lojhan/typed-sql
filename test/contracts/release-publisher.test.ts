@@ -111,13 +111,19 @@ await describe("prerelease publisher", async () => {
     const statuses = [503, 200];
     strict.deepEqual(
       await npmDistTags("@typed-sql/core", {
-        fetch: async () => new Response(JSON.stringify({ latest: "2.1.0" }), { status: statuses.shift()! }),
+        fetch: async () =>
+          new Response(JSON.stringify({ "dist-tags": { latest: "2.1.0" } }), { status: statuses.shift()! }),
         wait: async () => undefined,
       }),
       { latest: "2.1.0" },
     );
     strict.deepEqual(
-      await npmDistTags("@typed-sql/core", { fetch: async () => new Response(null, { status: 404 }) }),
+      await npmDistTags("@typed-sql/core", {
+        fetch: async (url) => {
+          strict.equal(url, "https://registry.npmjs.org/@typed-sql%2Fcore");
+          return new Response(null, { status: 404 });
+        },
+      }),
       {},
     );
     await strict.rejects(
@@ -125,7 +131,15 @@ await describe("prerelease publisher", async () => {
       /HTTP 403/u,
     );
     await strict.rejects(
-      npmDistTags("@typed-sql/core", { fetch: async () => new Response('{"latest":"not-a-version"}') }),
+      npmDistTags("@typed-sql/core", { fetch: async () => new Response(null, { status: 401 }) }),
+      /HTTP 401/u,
+    );
+    await strict.rejects(
+      npmDistTags("@typed-sql/core", { fetch: async () => new Response("{}") }),
+      /Invalid npm dist-tags/u,
+    );
+    await strict.rejects(
+      npmDistTags("@typed-sql/core", { fetch: async () => new Response('{"dist-tags":{"latest":"not-a-version"}}') }),
       /Invalid npm dist-tags/u,
     );
   });
