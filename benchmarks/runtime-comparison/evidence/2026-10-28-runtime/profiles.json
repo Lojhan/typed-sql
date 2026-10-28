@@ -166,5 +166,341 @@
     "sha256": "171891e3844f4db246d960fa927dc8cfdc2f98f2b739526570137d58a2eaeb87",
     "bytes": 13274,
     "gzipBytes": 1663
+  },
+  {
+    "report": "sqlite-platform-prehoist-alloc.json",
+    "file": "sqlite-platform-prehoist-alloc/0-json-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "8f812342dfa3ba5bb902dd44b49807c19cec5cb3aec332c18446decf57e24b58",
+    "bytes": 2803790,
+    "gzipBytes": 302723
+  },
+  {
+    "report": "sqlite-platform-prehoist-alloc.json",
+    "file": "sqlite-platform-prehoist-alloc/0-json-1-typed-file.heapprofile.gz",
+    "sha256": "b38473a1a2073b9bc0a07880d575c5a5f76da98d5a6adb5a99208f4a017d9469",
+    "bytes": 2350843,
+    "gzipBytes": 246011
+  },
+  {
+    "report": "sqlite-platform-prehoist-alloc.json",
+    "file": "sqlite-platform-prehoist-alloc/0-multirow-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "17672be2b8f8c6c087c55e846efdae3055fe427805db27c878b420dd56aaad0f",
+    "bytes": 1752725,
+    "gzipBytes": 174913
+  },
+  {
+    "report": "sqlite-platform-prehoist-alloc.json",
+    "file": "sqlite-platform-prehoist-alloc/0-multirow-1-typed-file.heapprofile.gz",
+    "sha256": "0861ce32e5894b4eacd5bd630ac69e3e41bb659bb1a75b1de85c7c56381d1537",
+    "bytes": 1663502,
+    "gzipBytes": 163802
+  },
+  {
+    "report": "sqlite-platform-prehoist-alloc.json",
+    "file": "sqlite-platform-prehoist-alloc/0-point-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "8d60c36f9ac9c240f91b2de3afbc9c7b6be21b8c8762a18b0f514b35ae539e5f",
+    "bytes": 508845,
+    "gzipBytes": 54436
+  },
+  {
+    "report": "sqlite-platform-prehoist-alloc.json",
+    "file": "sqlite-platform-prehoist-alloc/0-point-1-typed-file.heapprofile.gz",
+    "sha256": "0a853ff0f9fabdd0a60b9517f91f074273442e845ac6ff8ef6b5a146de377e1e",
+    "bytes": 440548,
+    "gzipBytes": 46763
+  },
+  {
+    "report": "sqlite-platform-prehoist-cpu.json",
+    "file": "sqlite-platform-prehoist-cpu/0-json-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "eba715ed5d36686694085bd23d82b4de34c0729f80ca576fb44b93a6d1f8f807",
+    "bytes": 50062,
+    "gzipBytes": 5433
+  },
+  {
+    "report": "sqlite-platform-prehoist-cpu.json",
+    "file": "sqlite-platform-prehoist-cpu/0-json-1-typed-file.cpuprofile.gz",
+    "sha256": "03821d560cbed33a52c1b8d7f23ad0c665ee5af6eb9371ef922bf80b4040ecab",
+    "bytes": 33944,
+    "gzipBytes": 4111
+  },
+  {
+    "report": "sqlite-platform-prehoist-cpu.json",
+    "file": "sqlite-platform-prehoist-cpu/0-multirow-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "1fe3844d1e210d66bde93d4b1821ff98fb0489f07ab6abef6a3f8a5a766016eb",
+    "bytes": 28905,
+    "gzipBytes": 3580
+  },
+  {
+    "report": "sqlite-platform-prehoist-cpu.json",
+    "file": "sqlite-platform-prehoist-cpu/0-multirow-1-typed-file.cpuprofile.gz",
+    "sha256": "fc403a15ce1729336bc8ee47d21c3285bc5e0dca78b1bdae080c346bd3b87339",
+    "bytes": 27132,
+    "gzipBytes": 3404
+  },
+  {
+    "report": "sqlite-platform-prehoist-cpu.json",
+    "file": "sqlite-platform-prehoist-cpu/0-point-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "477209210ca4d61e07415958f327bb7ea7d21e8e82d720ca621bf144de3f0115",
+    "bytes": 22042,
+    "gzipBytes": 2520
+  },
+  {
+    "report": "sqlite-platform-prehoist-cpu.json",
+    "file": "sqlite-platform-prehoist-cpu/0-point-1-typed-file.cpuprofile.gz",
+    "sha256": "7af1b612ad0ec6a3842753ca1742b60ce780f72f4df8485ea541e9de1f857d3f",
+    "bytes": 20518,
+    "gzipBytes": 2423
+  },
+  {
+    "report": "sqlite-platform-posthoist-alloc.json",
+    "file": "sqlite-platform-posthoist-alloc/0-json-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "816f3ce5cf4b3e3be765c277880c87ce3c30215c82e0db7633092f2ec2eea546",
+    "bytes": 2282728,
+    "gzipBytes": 235425
+  },
+  {
+    "report": "sqlite-platform-posthoist-alloc.json",
+    "file": "sqlite-platform-posthoist-alloc/0-json-1-typed-file.heapprofile.gz",
+    "sha256": "475fe4e2c81874408b656a49ca15f5aa04025870ffff3dd3423fc4b52b381487",
+    "bytes": 2313849,
+    "gzipBytes": 242468
+  },
+  {
+    "report": "sqlite-platform-posthoist-alloc.json",
+    "file": "sqlite-platform-posthoist-alloc/0-multirow-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "c45c4d5d4c8b61083fb3867381bcd889fe3df95f337459fc470e7d07a0685e66",
+    "bytes": 1582321,
+    "gzipBytes": 153747
+  },
+  {
+    "report": "sqlite-platform-posthoist-alloc.json",
+    "file": "sqlite-platform-posthoist-alloc/0-multirow-1-typed-file.heapprofile.gz",
+    "sha256": "9796b8a345c441a13cb44f79701d6bc1371faadbed11d7d69eee5bd3d7541cee",
+    "bytes": 1633552,
+    "gzipBytes": 160313
+  },
+  {
+    "report": "sqlite-platform-posthoist-alloc.json",
+    "file": "sqlite-platform-posthoist-alloc/0-point-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "346f58a28c557d8bb9b67aecc0117689f7b5425f957ce582488f7dbe9e186efc",
+    "bytes": 365721,
+    "gzipBytes": 38320
+  },
+  {
+    "report": "sqlite-platform-posthoist-alloc.json",
+    "file": "sqlite-platform-posthoist-alloc/0-point-1-typed-file.heapprofile.gz",
+    "sha256": "a5bdad69099ccff1b74d42bbe487fde217dd1bc49aa7db0945324ea68fb6fafe",
+    "bytes": 416774,
+    "gzipBytes": 44169
+  },
+  {
+    "report": "sqlite-platform-posthoist-cpu.json",
+    "file": "sqlite-platform-posthoist-cpu/0-json-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "d824b2fd9b7cb918c9ffae6fac90f6b1455be14e60f96cf39250951d8b8bd21a",
+    "bytes": 31072,
+    "gzipBytes": 3801
+  },
+  {
+    "report": "sqlite-platform-posthoist-cpu.json",
+    "file": "sqlite-platform-posthoist-cpu/0-json-1-typed-file.cpuprofile.gz",
+    "sha256": "4696ecd7d9d9b45fe19b5ba581a6b3d464e6dc9af3ba02f2009a8f0d991503ca",
+    "bytes": 33730,
+    "gzipBytes": 4060
+  },
+  {
+    "report": "sqlite-platform-posthoist-cpu.json",
+    "file": "sqlite-platform-posthoist-cpu/0-multirow-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "f987ad3e0c71e20be34d4f44957f88b2d5d599049774066067b131bf4e116928",
+    "bytes": 24214,
+    "gzipBytes": 3098
+  },
+  {
+    "report": "sqlite-platform-posthoist-cpu.json",
+    "file": "sqlite-platform-posthoist-cpu/0-multirow-1-typed-file.cpuprofile.gz",
+    "sha256": "416feabdcdb4eb435c84570b0f300f828d1881f79cd55f2f983b77edf0981996",
+    "bytes": 26223,
+    "gzipBytes": 3257
+  },
+  {
+    "report": "sqlite-platform-posthoist-cpu.json",
+    "file": "sqlite-platform-posthoist-cpu/0-point-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "dc8e19602349246ad1c5c1db410ccc6971a9418bbb546d72ad0d297847229087",
+    "bytes": 16816,
+    "gzipBytes": 2082
+  },
+  {
+    "report": "sqlite-platform-posthoist-cpu.json",
+    "file": "sqlite-platform-posthoist-cpu/0-point-1-typed-file.cpuprofile.gz",
+    "sha256": "852ec8d3264cb49e51071226d3299dab0c9f773613ba23a05b642a5aec5b09f5",
+    "bytes": 18597,
+    "gzipBytes": 2265
+  },
+  {
+    "report": "sqlite-platform-preloops-alloc.json",
+    "file": "sqlite-platform-preloops-alloc/0-json-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "ffd8fc84b698b03a8c474c0e98dfca2f920da9f7dd7e47fe4a360c1470b9f9e1",
+    "bytes": 2290762,
+    "gzipBytes": 235382
+  },
+  {
+    "report": "sqlite-platform-preloops-alloc.json",
+    "file": "sqlite-platform-preloops-alloc/0-json-1-typed-file.heapprofile.gz",
+    "sha256": "85f79ef89657b6c560b60d33ba0800ff7f634ad99774d3b503585dc97abc1b01",
+    "bytes": 2366700,
+    "gzipBytes": 244596
+  },
+  {
+    "report": "sqlite-platform-preloops-alloc.json",
+    "file": "sqlite-platform-preloops-alloc/0-multirow-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "9246af111dde6b7f767c8fc1f59f423efed005b65dd98d31d070a6fa2fb32f34",
+    "bytes": 1567576,
+    "gzipBytes": 153187
+  },
+  {
+    "report": "sqlite-platform-preloops-alloc.json",
+    "file": "sqlite-platform-preloops-alloc/0-multirow-1-typed-file.heapprofile.gz",
+    "sha256": "ef2c6be468778de481f3566a8709974e43e758e8889d275a46f947b9776fb558",
+    "bytes": 1642965,
+    "gzipBytes": 161134
+  },
+  {
+    "report": "sqlite-platform-preloops-alloc.json",
+    "file": "sqlite-platform-preloops-alloc/0-point-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "e62bf2c3c2a996e190676bbcff072f298fd06643565e7ecb1b2c6635a4ef458b",
+    "bytes": 369669,
+    "gzipBytes": 38385
+  },
+  {
+    "report": "sqlite-platform-preloops-alloc.json",
+    "file": "sqlite-platform-preloops-alloc/0-point-1-typed-file.heapprofile.gz",
+    "sha256": "645c4edc6e6dc69889ea5319c352b1c7cf0a9611a84c82bfaca21dffd6c1ccd8",
+    "bytes": 421768,
+    "gzipBytes": 44591
+  },
+  {
+    "report": "sqlite-platform-preloops-cpu.json",
+    "file": "sqlite-platform-preloops-cpu/0-json-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "86aa1141728583a998b09c727c622ab616eff61a9916fa28a1ab4f47ff1dcb2f",
+    "bytes": 31718,
+    "gzipBytes": 3487
+  },
+  {
+    "report": "sqlite-platform-preloops-cpu.json",
+    "file": "sqlite-platform-preloops-cpu/0-json-1-typed-file.cpuprofile.gz",
+    "sha256": "56480c11e73be251226fd7d4313d4bf9415294f971b2d7754c3886cccb36fcc7",
+    "bytes": 31759,
+    "gzipBytes": 3589
+  },
+  {
+    "report": "sqlite-platform-preloops-cpu.json",
+    "file": "sqlite-platform-preloops-cpu/0-multirow-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "55dfc41d9f559ebfd14acc3ab30fb9f2800c6c041614c25491e036faf5137121",
+    "bytes": 23866,
+    "gzipBytes": 2759
+  },
+  {
+    "report": "sqlite-platform-preloops-cpu.json",
+    "file": "sqlite-platform-preloops-cpu/0-multirow-1-typed-file.cpuprofile.gz",
+    "sha256": "9f7874f253dbef2c1d0f19d4a1e80e676de292b49b375377a3076cb7251ad3d4",
+    "bytes": 25213,
+    "gzipBytes": 2912
+  },
+  {
+    "report": "sqlite-platform-preloops-cpu.json",
+    "file": "sqlite-platform-preloops-cpu/0-point-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "dd752ffe896a1cf79f4734505821528bfa89bdde978fd21417d3af1357259d42",
+    "bytes": 16284,
+    "gzipBytes": 2042
+  },
+  {
+    "report": "sqlite-platform-preloops-cpu.json",
+    "file": "sqlite-platform-preloops-cpu/0-point-1-typed-file.cpuprofile.gz",
+    "sha256": "9521a1e32c4abb18fcb8637cad928364526f309432fb640d8238c4a3aa1d7e41",
+    "bytes": 18826,
+    "gzipBytes": 2167
+  },
+  {
+    "report": "sqlite-platform-postloops-alloc.json",
+    "file": "sqlite-platform-postloops-alloc/0-json-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "2a58091c26429dd171297dc6bb4af65259a3dbbe4151327fc358506024e89e71",
+    "bytes": 1371349,
+    "gzipBytes": 139616
+  },
+  {
+    "report": "sqlite-platform-postloops-alloc.json",
+    "file": "sqlite-platform-postloops-alloc/0-json-1-typed-file.heapprofile.gz",
+    "sha256": "1237b035d72b5645a185fe1941bf83c1f56533b8d06ab6ff579d5121460820b1",
+    "bytes": 1435602,
+    "gzipBytes": 147524
+  },
+  {
+    "report": "sqlite-platform-postloops-alloc.json",
+    "file": "sqlite-platform-postloops-alloc/0-multirow-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "573fa92ba329386dca777e838bc0b073c3b1ac3a229438e0d89421d9715f1319",
+    "bytes": 1564766,
+    "gzipBytes": 153509
+  },
+  {
+    "report": "sqlite-platform-postloops-alloc.json",
+    "file": "sqlite-platform-postloops-alloc/0-multirow-1-typed-file.heapprofile.gz",
+    "sha256": "7941c81ec71d7b763e0165cfb4d5b044c4c42d52253b6856087898e71117d998",
+    "bytes": 1631113,
+    "gzipBytes": 159728
+  },
+  {
+    "report": "sqlite-platform-postloops-alloc.json",
+    "file": "sqlite-platform-postloops-alloc/0-point-1-typed-compiled-inline.heapprofile.gz",
+    "sha256": "2cde89a67bd670496740dd1f7b76623f09c9aee3b48dbce3771619740e959943",
+    "bytes": 372142,
+    "gzipBytes": 38690
+  },
+  {
+    "report": "sqlite-platform-postloops-alloc.json",
+    "file": "sqlite-platform-postloops-alloc/0-point-1-typed-file.heapprofile.gz",
+    "sha256": "57a1b1f16d495ec8f6dc7726b4ec9478fca6ec877e17173831d1e7c7eda31c0e",
+    "bytes": 422853,
+    "gzipBytes": 44853
+  },
+  {
+    "report": "sqlite-platform-postloops-cpu.json",
+    "file": "sqlite-platform-postloops-cpu/0-json-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "c1a11c770b20ac11bc006d584cb183d966ab43d4bab2b738c89e4de21f5e7394",
+    "bytes": 30665,
+    "gzipBytes": 3432
+  },
+  {
+    "report": "sqlite-platform-postloops-cpu.json",
+    "file": "sqlite-platform-postloops-cpu/0-json-1-typed-file.cpuprofile.gz",
+    "sha256": "b4cfac0ff38687365e801a6eb48d4a2728412ac00d1f59a16196d81567aace82",
+    "bytes": 31544,
+    "gzipBytes": 3546
+  },
+  {
+    "report": "sqlite-platform-postloops-cpu.json",
+    "file": "sqlite-platform-postloops-cpu/0-multirow-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "df6b0d77bd23b2c075db5e8e2ba17b6959bbda37819b10e65e6649df1bdb8e22",
+    "bytes": 25070,
+    "gzipBytes": 2935
+  },
+  {
+    "report": "sqlite-platform-postloops-cpu.json",
+    "file": "sqlite-platform-postloops-cpu/0-multirow-1-typed-file.cpuprofile.gz",
+    "sha256": "03eaf45b2ff778c010818c5bb69523c10aad1bedef3b415c9514d1d45c259176",
+    "bytes": 25430,
+    "gzipBytes": 2969
+  },
+  {
+    "report": "sqlite-platform-postloops-cpu.json",
+    "file": "sqlite-platform-postloops-cpu/0-point-1-typed-compiled-inline.cpuprofile.gz",
+    "sha256": "4035b233d0770da39c3fa5f71e34dcd28e03473e35730f0d8fcefffb3a9bf410",
+    "bytes": 16645,
+    "gzipBytes": 1976
+  },
+  {
+    "report": "sqlite-platform-postloops-cpu.json",
+    "file": "sqlite-platform-postloops-cpu/0-point-1-typed-file.cpuprofile.gz",
+    "sha256": "b56d2c8eece2acc7e59d3dfa2647c39654dbef0c1851df8a0fa7f42237ed05ea",
+    "bytes": 16567,
+    "gzipBytes": 2104
   }
 ]

@@ -1,0 +1,2834 @@
+[
+  {
+    "stage": "prehoist",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 268983816,
+    "perCall": 53796.7632,
+    "topSelfFrames": [
+      {
+        "function": "entries",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 45703456
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledAllocatedBytes": 36295896
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledAllocatedBytes": 35361200
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledAllocatedBytes": 15678176
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 15610656
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 14972840
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12617536
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 12029984
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 230956248,
+    "perCall": 46191.2496,
+    "topSelfFrames": [
+      {
+        "function": "entries",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 41932400
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledAllocatedBytes": 35994840
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledAllocatedBytes": 34427576
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 15708968
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledAllocatedBytes": 15589408
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 13078344
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11659704
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11518112
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 171934344,
+    "perCall": 34386.8688,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 54222880
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 29697600
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 18566440
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledAllocatedBytes": 15439632
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 9193872
+      },
+      {
+        "function": "copyDescriptor",
+        "source": "query-value-plan.js",
+        "line": 66,
+        "sampledAllocatedBytes": 5688672
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4465904
+      },
+      {
+        "function": "default",
+        "source": "compiled.ts",
+        "line": 2,
+        "sampledAllocatedBytes": 3245592
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 163522136,
+    "perCall": 32704.4272,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 54160136
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 30479784
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 17940920
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledAllocatedBytes": 16617744
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 8838336
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3639600
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3457600
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2890464
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 49284368,
+    "perCall": 9856.8736,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3675640
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3351896
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3299408
+      },
+      {
+        "function": "copyDescriptor",
+        "source": "query-value-plan.js",
+        "line": 66,
+        "sampledAllocatedBytes": 3279656
+      },
+      {
+        "function": "default",
+        "source": "compiled.ts",
+        "line": 2,
+        "sampledAllocatedBytes": 2911528
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2869768
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2776808
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 107,
+        "sampledAllocatedBytes": 2513656
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 42741152,
+    "perCall": 8548.2304,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5005144
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3629048
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3248992
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2973808
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2587704
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 2160848
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 171,
+        "sampledAllocatedBytes": 2065248
+      },
+      {
+        "function": "push",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 1694040
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1844208,
+    "perCall": 36.88416,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 560835
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledMicroseconds": 269753
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledMicroseconds": 212662
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 209008
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledMicroseconds": 143041
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 42038
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 40207
+      },
+      {
+        "function": "render",
+        "source": "json.js",
+        "line": 15,
+        "sampledMicroseconds": 35916
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1657292,
+    "perCall": 33.14584,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 507748
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledMicroseconds": 271294
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 209416
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledMicroseconds": 192081
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledMicroseconds": 152709
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 32751
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 406,
+        "sampledMicroseconds": 32543
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 27206
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1360333,
+    "perCall": 27.20666,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 525758
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 225953
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 142673
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 264,
+        "sampledMicroseconds": 108706
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 51875
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 44374
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledMicroseconds": 36374
+      },
+      {
+        "function": "defineQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 92,
+        "sampledMicroseconds": 24957
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1325042,
+    "perCall": 26.50084,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 542460
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 184581
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 148836
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 264,
+        "sampledMicroseconds": 106083
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 64876
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 31417
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 26083
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 23875
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 447667,
+    "perCall": 8.95334,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 214622
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 34128
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 20458
+      },
+      {
+        "function": "defineQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 92,
+        "sampledMicroseconds": 16165
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 13334
+      },
+      {
+        "function": "default",
+        "source": "compiled.ts",
+        "line": 2,
+        "sampledMicroseconds": 12749
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 12584
+      },
+      {
+        "function": "copyDescriptor",
+        "source": "query-value-plan.js",
+        "line": 66,
+        "sampledMicroseconds": 11251
+      }
+    ]
+  },
+  {
+    "stage": "prehoist",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 418709,
+    "perCall": 8.37418,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 219125
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 23581
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 19125
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 12625
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 12584
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledMicroseconds": 12541
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 11375
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledMicroseconds": 10041
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 223386696,
+    "perCall": 44677.3392,
+    "topSelfFrames": [
+      {
+        "function": "entries",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 42866000
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledAllocatedBytes": 36221696
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledAllocatedBytes": 34790496
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 15916304
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledAllocatedBytes": 15659776
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12923328
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11663768
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11223680
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 228464328,
+    "perCall": 45692.8656,
+    "topSelfFrames": [
+      {
+        "function": "entries",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 41665312
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledAllocatedBytes": 36526784
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledAllocatedBytes": 34391840
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledAllocatedBytes": 16121808
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 15615256
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12373160
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 12092672
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11536320
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 155613416,
+    "perCall": 31122.6832,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 54088600
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 29858080
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 17982136
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledAllocatedBytes": 15356640
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 8850992
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3946168
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3383104
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2861024
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 160701792,
+    "perCall": 32140.3584,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 53639912
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 29977080
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 18467488
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledAllocatedBytes": 16630120
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 8907976
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3538304
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3478688
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2898160
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 35515952,
+    "perCall": 7103.1904,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3618040
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3456768
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3318816
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2807744
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2527312
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 2094840
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 171,
+        "sampledAllocatedBytes": 2049344
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 260,
+        "sampledAllocatedBytes": 1504400
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 40709424,
+    "perCall": 8141.8848,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4881640
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3272800
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3151272
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2963144
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2771784
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 171,
+        "sampledAllocatedBytes": 2037200
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 1994608
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 260,
+        "sampledAllocatedBytes": 1718568
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1593750,
+    "perCall": 31.875,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 499247
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledMicroseconds": 282005
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 207542
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledMicroseconds": 198791
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledMicroseconds": 151790
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 406,
+        "sampledMicroseconds": 43916
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 32417
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 26334
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1657459,
+    "perCall": 33.14918,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 508335
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 389,
+        "sampledMicroseconds": 257166
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 206628
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 75,
+        "sampledMicroseconds": 197204
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 358,
+        "sampledMicroseconds": 137627
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 38709
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 35540
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 32625
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1194667,
+    "perCall": 23.89334,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 442714
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 193997
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 146951
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 264,
+        "sampledMicroseconds": 108624
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 66629
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 36666
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledMicroseconds": 28499
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 25793
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1232417,
+    "perCall": 24.64834,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 457790
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 186622
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 129837
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 264,
+        "sampledMicroseconds": 120296
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 64996
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 262,
+        "sampledMicroseconds": 24832
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 24625
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 23583
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 370500,
+    "perCall": 7.41,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 227335
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 16959
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 12374
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 12084
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 11333
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledMicroseconds": 9082
+      },
+      {
+        "function": "default",
+        "source": "compiled.ts",
+        "line": 5,
+        "sampledMicroseconds": 7583
+      },
+      {
+        "function": "withQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 128,
+        "sampledMicroseconds": 7500
+      }
+    ]
+  },
+  {
+    "stage": "posthoist",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 429125,
+    "perCall": 8.5825,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 243671
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 18708
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 17206
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 13792
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 12583
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 11292
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 260,
+        "sampledMicroseconds": 9917
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 264,
+        "sampledMicroseconds": 9666
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 222606424,
+    "perCall": 44521.2848,
+    "topSelfFrames": [
+      {
+        "function": "entries",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 41969328
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 396,
+        "sampledAllocatedBytes": 36407888
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledAllocatedBytes": 34336400
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 15726984
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledAllocatedBytes": 15367368
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12648120
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 12063496
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11840896
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 229526336,
+    "perCall": 45905.2672,
+    "topSelfFrames": [
+      {
+        "function": "entries",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 42462952
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 396,
+        "sampledAllocatedBytes": 36568056
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledAllocatedBytes": 35020696
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 16202720
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledAllocatedBytes": 15589144
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12805904
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11691736
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11396448
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 155712904,
+    "perCall": 31142.5808,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 54241256
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 30261200
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 17636392
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledAllocatedBytes": 16290040
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 8710072
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3716800
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3154208
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2902832
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 161505496,
+    "perCall": 32301.0992,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 54264552
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 30648496
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 17953328
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledAllocatedBytes": 16439488
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 9456864
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3883496
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3289448
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2869152
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 35748808,
+    "perCall": 7149.7616,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3737400
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3440736
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3206552
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2862560
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2707176
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 172,
+        "sampledAllocatedBytes": 2066128
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 1976984
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 260,
+        "sampledAllocatedBytes": 1508432
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 40894744,
+    "perCall": 8178.9488,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4828160
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3225312
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3191904
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2743200
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2665296
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 172,
+        "sampledAllocatedBytes": 2252112
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 2073040
+      },
+      {
+        "function": "push",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 1798464
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1389667,
+    "perCall": 27.79334,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 464751
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 396,
+        "sampledMicroseconds": 224164
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledMicroseconds": 200918
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 158289
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 110332
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 413,
+        "sampledMicroseconds": 40250
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 22626
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 21292
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1431708,
+    "perCall": 28.63416,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 435960
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 396,
+        "sampledMicroseconds": 239669
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 214587
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledMicroseconds": 167043
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 130869
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 23875
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 413,
+        "sampledMicroseconds": 23874
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 19708
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1072333,
+    "perCall": 21.44666,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 436667
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 164542
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 123040
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 267,
+        "sampledMicroseconds": 116208
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 48792
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledMicroseconds": 20207
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 19376
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 16417
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1093250,
+    "perCall": 21.865,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 402376
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 177170
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 114334
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 267,
+        "sampledMicroseconds": 108168
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 51460
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledMicroseconds": 26249
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 18874
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 18792
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 333250,
+    "perCall": 6.665,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 191294
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 17750
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 16249
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 14501
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 10082
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 8874
+      },
+      {
+        "function": "get",
+        "source": "node-sqlite.js",
+        "line": 75,
+        "sampledMicroseconds": 7500
+      },
+      {
+        "function": "withQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 128,
+        "sampledMicroseconds": 6334
+      }
+    ]
+  },
+  {
+    "stage": "preloops",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 366083,
+    "perCall": 7.32166,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 202251
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 18416
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 17541
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 11292
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 10542
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 8916
+      },
+      {
+        "function": "visitSegments",
+        "source": "query.js",
+        "line": 284,
+        "sampledMicroseconds": 8667
+      },
+      {
+        "function": "withQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 128,
+        "sampledMicroseconds": 7583
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 134506688,
+    "perCall": 26901.3376,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36308272
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 16139144
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledAllocatedBytes": 15486464
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 12730728
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 11211360
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5993400
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3922640
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3310760
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 5000,
+    "sampledAllocatedBytes": 140909592,
+    "perCall": 28181.9184,
+    "topSelfFrames": [
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledAllocatedBytes": 36432032
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledAllocatedBytes": 15987888
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledAllocatedBytes": 15457312
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 13144200
+      },
+      {
+        "function": "values",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 10964832
+      },
+      {
+        "function": "add",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5906160
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 5602000
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3407344
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 155360880,
+    "perCall": 31072.176,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 54060528
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 29027400
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 17730976
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledAllocatedBytes": 15667808
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 8763648
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3703192
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3524480
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2836088
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 5000,
+    "sampledAllocatedBytes": 160165336,
+    "perCall": 32033.0672,
+    "topSelfFrames": [
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 53595928
+      },
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 30409320
+      },
+      {
+        "function": "keys",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 17619872
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledAllocatedBytes": 16663400
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledAllocatedBytes": 9061040
+      },
+      {
+        "function": "map",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3792792
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3275352
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2945512
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "alloc",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 36052240,
+    "perCall": 7210.448,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 3741480
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3396072
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3385296
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2695136
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2534176
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 2082488
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 172,
+        "sampledAllocatedBytes": 1990144
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 260,
+        "sampledAllocatedBytes": 1722672
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "alloc",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 5000,
+    "sampledAllocatedBytes": 40981256,
+    "perCall": 8196.2512,
+    "topSelfFrames": [
+      {
+        "function": "next",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 4828160
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledAllocatedBytes": 3334216
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledAllocatedBytes": 3187512
+      },
+      {
+        "function": "acquire",
+        "source": "runtime.js",
+        "line": 17,
+        "sampledAllocatedBytes": 2915040
+      },
+      {
+        "function": "all",
+        "source": "runtime.js",
+        "line": 127,
+        "sampledAllocatedBytes": 2735584
+      },
+      {
+        "function": "operation",
+        "source": "runtime.mjs",
+        "line": 172,
+        "sampledAllocatedBytes": 2061664
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledAllocatedBytes": 1978904
+      },
+      {
+        "function": "push",
+        "source": "",
+        "line": 0,
+        "sampledAllocatedBytes": 1852424
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1302500,
+    "perCall": 26.05,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 449331
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 198208
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledMicroseconds": 170545
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 165581
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 109042
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 421,
+        "sampledMicroseconds": 31124
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 26208
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 17583
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "json",
+    "calls": 50000,
+    "sampledMicroseconds": 1347541,
+    "perCall": 26.95082,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 416460
+      },
+      {
+        "function": "normalize",
+        "source": "runtime.mjs",
+        "line": 76,
+        "sampledMicroseconds": 195874
+      },
+      {
+        "function": "decode",
+        "source": "query-value-plan.js",
+        "line": 219,
+        "sampledMicroseconds": 176084
+      },
+      {
+        "function": "matches",
+        "source": "json.js",
+        "line": 404,
+        "sampledMicroseconds": 171954
+      },
+      {
+        "function": "valid",
+        "source": "json.js",
+        "line": 365,
+        "sampledMicroseconds": 121625
+      },
+      {
+        "function": "",
+        "source": "json.js",
+        "line": 421,
+        "sampledMicroseconds": 31500
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 31374
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 21416
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1062417,
+    "perCall": 21.24834,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 431498
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 166625
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 127541
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 267,
+        "sampledMicroseconds": 82959
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 44917
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledMicroseconds": 23667
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 20166
+      },
+      {
+        "function": "(program)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 16334
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "multirow",
+    "calls": 50000,
+    "sampledMicroseconds": 1089250,
+    "perCall": 21.785,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 420205
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 173289
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 108792
+      },
+      {
+        "function": "decodeRow",
+        "source": "query-value-plan.js",
+        "line": 267,
+        "sampledMicroseconds": 96668
+      },
+      {
+        "function": "operation",
+        "source": "runtime.js",
+        "line": 133,
+        "sampledMicroseconds": 50377
+      },
+      {
+        "function": "",
+        "source": "query-value-plan.js",
+        "line": 265,
+        "sampledMicroseconds": 34042
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 17584
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 15833
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "cpu",
+    "candidate": "typed-compiled-inline",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 323583,
+    "perCall": 6.47166,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 187790
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 18876
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 14166
+      },
+      {
+        "function": "get",
+        "source": "node-sqlite.js",
+        "line": 75,
+        "sampledMicroseconds": 10083
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 10082
+      },
+      {
+        "function": "run",
+        "source": "runtime.js",
+        "line": 32,
+        "sampledMicroseconds": 8834
+      },
+      {
+        "function": "(garbage collector)",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 8833
+      },
+      {
+        "function": "withQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 128,
+        "sampledMicroseconds": 7459
+      }
+    ]
+  },
+  {
+    "stage": "postloops",
+    "mode": "cpu",
+    "candidate": "typed-file",
+    "workload": "point",
+    "calls": 50000,
+    "sampledMicroseconds": 352709,
+    "perCall": 7.05418,
+    "topSelfFrames": [
+      {
+        "function": "all",
+        "source": "",
+        "line": 0,
+        "sampledMicroseconds": 198376
+      },
+      {
+        "function": "post",
+        "source": "node:inspector",
+        "line": 115,
+        "sampledMicroseconds": 16542
+      },
+      {
+        "function": "query",
+        "source": "query.sql",
+        "line": 5,
+        "sampledMicroseconds": 12709
+      },
+      {
+        "function": "all",
+        "source": "node-sqlite.js",
+        "line": 141,
+        "sampledMicroseconds": 9834
+      },
+      {
+        "function": "withQueryValuePlan",
+        "source": "query-value-plan.js",
+        "line": 128,
+        "sampledMicroseconds": 8791
+      },
+      {
+        "function": "row",
+        "source": "node-sqlite.js",
+        "line": 60,
+        "sampledMicroseconds": 8750
+      },
+      {
+        "function": "maybeOne",
+        "source": "runtime.js",
+        "line": 146,
+        "sampledMicroseconds": 7958
+      },
+      {
+        "function": "renderQuery",
+        "source": "query.js",
+        "line": 260,
+        "sampledMicroseconds": 7500
+      }
+    ]
+  }
+]

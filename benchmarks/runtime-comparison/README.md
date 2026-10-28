@@ -1,6 +1,6 @@
 # Runtime comparison benchmark
 
-This isolated workspace contains two reproducible database-backed comparisons.
+This isolated workspace contains reproducible database-backed comparisons.
 
 The indexed lookup workload compares:
 
@@ -21,6 +21,10 @@ It is a reproducible experiment, not a universal leaderboard. Database version, 
 The [2.0.0-rc.0 assessment](./ASSESSMENT.md) records one version-pinned run, its complete aggregated
 results, and a feature and maintenance comparison. Treat that document as release evidence for the
 named versions and environment, not as a timeless performance claim.
+
+The [runtime profile evidence](./evidence/2026-10-28-runtime/README.md) preserves the SQLite,
+PostgreSQL and MySQL samples, exact driver versions and compressed V8 profiles for the compiler
+and runtime comparison with Reylo 0.6.0.
 
 ## Run it
 

@@ -69,6 +69,41 @@ concurrency 1 and 8, six samples of 500 calls per case, and 200 warm-up calls. T
 reports provide the network baseline for the final platform comparison. The SQLite built-in
 driver measurements are unaffected by this correction.
 
+## Compiler and validator allocation profiles
+
+The `sqlite-platform-*` reports execute real compiler-generated inline factories and the actual
+SQL-file loader. Each allocation profile covers 5,000 calls. CPU profiles cover 50,000 calls in
+separate processes. All use Node 24.11.1 and the same three workloads. The source commit and
+working-tree patch hash are recorded in each report.
+
+| Allocation profile, sampled MB | Before hoists | After hoists | Before validator loops | After validator loops |
+| --- | ---: | ---: | ---: | ---: |
+| Compiled inline, point | 49.284 | 35.516 | 35.749 | 36.052 |
+| Compiled inline, 32 rows | 171.934 | 155.613 | 155.713 | 155.361 |
+| Compiled inline, JSON | 268.984 | 223.387 | 222.606 | 134.507 |
+| SQL file, point | 42.741 | 40.709 | 40.895 | 40.981 |
+| SQL file, 32 rows | 163.522 | 160.702 | 161.505 | 160.165 |
+| SQL file, JSON | 230.956 | 228.464 | 229.526 | 140.910 |
+
+The first pair isolates compiler module-level plan preparation and SQL-file static-fragment
+hoisting; each affects its own candidate. Compiled inline point allocations fell approximately
+28%, and JSON allocations approximately 17%. The smaller SQL-file changes are close to the
+sampling variation in other cases and do not establish a separate latency improvement.
+
+The second pair includes the JSON-text overflow correction in both stages and isolates the
+validator loops. JSON allocations fell approximately 39%, while point and non-JSON 32-row
+controls remained nearly unchanged. Own-property, prototype, sparse-array, cycle, finite-value,
+depth and value-count guards remain. Reading own JSON values still happens before recursive
+validation so sibling getters cannot introduce a new finite-value false positive.
+
+The post-loop allocation report was recorded immediately before commit `bfce526`; its patch hash
+`080f391bea68c1deeea51d14db96f329bcd7477ea46d62657aedfa1ead6db97d` exactly matches
+`git diff 6eebb56 bfce526 -- packages/core/src/json.ts packages/core/test/json.test.ts`.
+The post-loop CPU report records the committed state. `platform-profile-summary.json` contains
+derived per-call allocation estimates and top self-allocation/CPU frames; the compressed raw
+profiles remain the source evidence. These profiler runs establish allocation and attribution
+changes, not warm latency or final-platform performance claims.
+
 ## Reading the artifacts
 
 Each JSON report retains every batch-average duration. Compute medians or percentiles over those
