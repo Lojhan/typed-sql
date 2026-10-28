@@ -1,5 +1,5 @@
+import { sql } from "@typed-sql/core";
 import { describe, it, strict } from "poku";
-import { sql } from "../../core/src/index.js";
 import {
   createMySqlDatabase,
   type MySqlConnectionLike,

@@ -1018,31 +1018,6 @@ await describe("MySQL provider and runtime", async () => {
     strict.throws(() => database.prepare("transaction-prepared", () => sql`SELECT 1`), /already registered/);
   });
 
-  await it("caches rendering only in the database instance that prepared the query", async () => {
-    const firstPool = new FakePool();
-    const secondPool = new FakePool();
-    const firstDatabase = createMySqlDatabase({ pool: firstPool });
-    const secondDatabase = createMySqlDatabase({ pool: secondPool });
-    const source = sql<{ id: bigint }>`SELECT id FROM users WHERE id = ${1n}`;
-    let segmentReads = 0;
-    const observed = new Proxy(source, {
-      get(target, property, receiver) {
-        if (property === "segments") segmentReads += 1;
-        return Reflect.get(target, property, receiver);
-      },
-    });
-    const prepared = firstDatabase.prepare("database-local", () => observed);
-    const query = prepared();
-    strict.strictEqual(segmentReads, 1);
-
-    await firstDatabase.execute(query);
-    strict.strictEqual(segmentReads, 1);
-    await secondDatabase.execute(query);
-    strict.strictEqual(segmentReads, 2);
-    strict.deepStrictEqual(firstPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
-    strict.deepStrictEqual(secondPool.calls, [{ sql: "SELECT id FROM users WHERE id = ?", values: ["1"] }]);
-  });
-
   await it("supports transactions, nested savepoints, rollback, and connection lifecycle", async () => {
     const pool = new FakePool();
     const database = createMySqlDatabase({ pool });

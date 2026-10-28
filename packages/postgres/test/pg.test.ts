@@ -1,8 +1,8 @@
 import { EventEmitter } from "node:events";
 import { Readable, Writable } from "node:stream";
+import { type DatabaseOperationEnd, requireAdapterCapability, sql } from "@typed-sql/core";
 import type { Pool as PgPool } from "pg";
 import { describe, it, strict } from "poku";
-import { type DatabaseOperationEnd, requireAdapterCapability, sql } from "../../core/src/index.js";
 import { postgresCopy } from "../src/index.js";
 import {
   adaptPgPool,
