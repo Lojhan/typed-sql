@@ -165,6 +165,7 @@ export type {
 export {
   assertQueryResultTransport,
   decodeQueryResultRows,
+  decodeQueryResultStream,
   defineQueryValuePlan,
   encodeQueryValues,
   getQueryValuePlan,

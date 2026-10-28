@@ -1,6 +1,7 @@
+import type { QueryStream } from "./execution.js";
 import { type JsonShape, type JsonValueDescriptor, parseJsonShape, validateJsonValue } from "./json.js";
 import { explicitJsonParameterIndexes, type Query } from "./query.js";
-import { queryResultValidationSource } from "./result-validation.js";
+import { mapQueryResultStream, queryResultValidationSource } from "./result-validation.js";
 
 /** Logical JavaScript values selected by a grammar's type policy. */
 export type RuntimeValueType =
@@ -341,19 +342,36 @@ export function decodeQueryResultRows<Row, Params extends readonly unknown[]>(
 ): readonly Row[] {
   assertQueryResultTransport(query, profile);
   const plan = getQueryValuePlan(query)!;
-  return rows.map((row, rowIndex) => {
-    if (typeof row !== "object" || row === null || Array.isArray(row))
-      throw new QueryValueError(`row ${rowIndex}`, "expected a result object");
-    const result: Record<string, unknown> = {};
-    for (const column of plan.columns) {
-      if (!Object.hasOwn(row, column.name)) throw new QueryValueError(column.name, "missing result column");
-      const value = decode((row as Record<string, unknown>)[column.name], column, profile, column.name);
-      if (column.name === "__proto__")
-        Object.defineProperty(result, column.name, { value, enumerable: true, writable: true, configurable: true });
-      else result[column.name] = value;
-    }
-    return result as Row;
-  });
+  return rows.map((row, index) => decodeRow(row, plan, profile, index) as Row);
+}
+
+function decodeRow(
+  row: unknown,
+  plan: QueryValuePlan,
+  profile: QueryTransportProfile,
+  rowIndex: number,
+): Record<string, unknown> {
+  if (typeof row !== "object" || row === null || Array.isArray(row))
+    throw new QueryValueError(`row ${rowIndex}`, "expected a result object");
+  const result: Record<string, unknown> = {};
+  for (const column of plan.columns) {
+    if (!Object.hasOwn(row, column.name)) throw new QueryValueError(column.name, "missing result column");
+    const value = decode((row as Record<string, unknown>)[column.name], column, profile, column.name);
+    if (column.name === "__proto__")
+      Object.defineProperty(result, column.name, { value, enumerable: true, writable: true, configurable: true });
+    else result[column.name] = value;
+  }
+  return result;
+}
+
+export function decodeQueryResultStream<Row, Params extends readonly unknown[]>(
+  query: Query<Row, Params>,
+  stream: QueryStream<unknown>,
+  profile: QueryTransportProfile,
+): QueryStream<Row> {
+  assertQueryResultTransport(query, profile);
+  const plan = getQueryValuePlan(query)!;
+  return mapQueryResultStream(stream, (row, index) => decodeRow(row, plan, profile, index) as Row);
 }
 
 export function encodeQueryValues<Row, Params extends readonly unknown[]>(

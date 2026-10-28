@@ -278,6 +278,14 @@ export function validateQueryResultStream<Row, Params extends readonly unknown[]
 ): QueryStream<Row> {
   const binding = validators.get(query);
   if (binding === undefined) return stream as QueryStream<Row>;
+  return mapQueryResultStream(stream, (value, index) => validateValue<Row>(binding, value, fingerprint, index));
+}
+
+/** @internal Share row transformation and failure cleanup between decoding and schema validation. */
+export function mapQueryResultStream<Row>(
+  stream: QueryStream<unknown>,
+  mapRow: (value: unknown, index: number) => Row | Promise<Row>,
+): QueryStream<Row> {
   let rowIndex = 0;
   let closed = false;
   const close = async (): Promise<void> => {
@@ -295,7 +303,7 @@ export function validateQueryResultStream<Row, Params extends readonly unknown[]
         return { done: true, value: undefined };
       }
       try {
-        const value = await validateValue<Row>(binding, result.value, fingerprint, rowIndex);
+        const value = await mapRow(result.value, rowIndex);
         rowIndex += 1;
         return { done: false, value };
       } catch (error) {

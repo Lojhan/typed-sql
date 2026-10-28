@@ -4,6 +4,7 @@ import { bindQueryRenderSkeleton, compileQueryRenderSkeleton, renderQuery, sql }
 import {
   assertQueryResultTransport,
   decodeQueryResultRows,
+  decodeQueryResultStream,
   defineQueryValuePlan,
   encodeQueryValues,
   getQueryValuePlan,
@@ -356,5 +357,31 @@ await describe("query value plans", async () => {
         ),
       /descriptor count/,
     );
+  });
+  await it("decodes streamed rows before exposing them and closes once on malformed JSON", async () => {
+    const iterator = [{ value: '"first"' }, { value: "invalid" }][Symbol.iterator]();
+    let closes = 0;
+    const source: import("../src/execution.js").QueryStream<unknown> = {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return iterator.next();
+      },
+      async close() {
+        closes++;
+      },
+      async [Symbol.asyncDispose]() {
+        await this.close();
+      },
+    };
+    const query = withQueryValuePlan(sql<{ value: unknown }>`select 1`, plan());
+    const stream = decodeQueryResultStream(query, source, text);
+    strict.deepEqual(await stream.next(), { done: false, value: { value: "first" } });
+    await strict.rejects(stream.next(), QueryValueError);
+    strict.equal(closes, 1);
+    await stream.close();
+    strict.equal(closes, 1);
+    strict.equal((await stream.next()).done, true);
   });
 });
