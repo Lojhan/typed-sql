@@ -158,10 +158,18 @@ await describe("grammar-neutral JSON structure", async () => {
     strict.strictEqual(updateJsonShapePath(tuple, [], nullJsonShape), nullJsonShape);
     const union = unionJsonShapes([jsonShapeFromValue({ x: 1 }), jsonShapeFromValue({ x: 2 })]);
     strict.strictEqual(jsonShapeType(updateJsonShapePath(union, ["x"], { kind: "boolean" })), '{ "x": boolean; }');
+    const open = jsonObjectShape({}, { kind: "string" });
+    const inserted = updateJsonShapePath(open, ["x"], { kind: "number" }, "insert");
+    strict.strictEqual(jsonShapeType(jsonShapeAtPath(inserted, ["x"]).shape), "string | number");
+    strict.strictEqual(jsonShapeAtPath(inserted, ["x"]).presence, "always");
+    strict.strictEqual(
+      jsonShapeAtPath(updateJsonShapePath(open, ["x"], { kind: "number" }, "replace"), ["x"]).presence,
+      "maybe",
+    );
     const optional = jsonObjectShape({ x: { shape: { kind: "number" }, optional: true } });
     strict.strictEqual(
       jsonShapeAtPath(updateJsonShapePath(optional, ["x"], { kind: "string" }), ["x"]).presence,
-      "maybe",
+      "always",
     );
   });
 
@@ -181,7 +189,8 @@ await describe("grammar-neutral JSON structure", async () => {
     let expanded: JsonShape = { kind: "number" };
     for (let index = 0; index < 30; index++)
       expanded = jsonObjectShape({ left: { shape: expanded }, right: { shape: expanded } });
-    strict.strictEqual(jsonShapeType(expanded), "unknown");
+    strict.ok(jsonShapeType(expanded).includes("unknown"));
+    strict.ok(JSON.stringify(expanded).length < 100_000);
     const cyclic: {
       kind: "object";
       properties: Record<string, { shape: JsonShape }>;

@@ -120,7 +120,9 @@ export function unionJsonShapes(shapes: readonly JsonShape[]): JsonShape {
   };
   if (!shapes.every((shape) => add(shape, 0))) return unknownJsonShape;
   if (variants.length === 0) return unknownJsonShape;
-  return variants.length === 1 ? variants[0]! : Object.freeze({ kind: "union", variants: Object.freeze(variants) });
+  const result: JsonShape =
+    variants.length === 1 ? variants[0]! : Object.freeze({ kind: "union", variants: Object.freeze(variants) });
+  return jsonShapeType(result) === "unknown" ? unknownJsonShape : result;
 }
 
 export function jsonObjectShape(
@@ -128,20 +130,22 @@ export function jsonObjectShape(
   additionalProperties?: JsonShape,
 ): JsonShape {
   if (Object.keys(properties).length > JSON_SHAPE_LIMITS.maximumNodes) return unknownJsonShape;
-  return Object.freeze({
+  const result: JsonShape = Object.freeze({
     kind: "object",
     properties: Object.freeze({ ...properties }),
     ...(additionalProperties === undefined ? {} : { additionalProperties }),
   });
+  return jsonShapeType(result) === "unknown" ? unknownJsonShape : result;
 }
 
 export function jsonArrayShape(element: JsonShape): JsonShape {
-  return Object.freeze({ kind: "array", element });
+  const result: JsonShape = Object.freeze({ kind: "array", element });
+  return jsonShapeType(result) === "unknown" ? unknownJsonShape : result;
 }
 export function jsonTupleShape(elements: readonly JsonShape[]): JsonShape {
-  return elements.length > JSON_SHAPE_LIMITS.maximumNodes
-    ? unknownJsonShape
-    : Object.freeze({ kind: "tuple", elements: Object.freeze([...elements]) });
+  if (elements.length > JSON_SHAPE_LIMITS.maximumNodes) return unknownJsonShape;
+  const result: JsonShape = Object.freeze({ kind: "tuple", elements: Object.freeze([...elements]) });
+  return jsonShapeType(result) === "unknown" ? unknownJsonShape : result;
 }
 
 /** Convert a known JSON document, preserving literal values and exact array positions. */
@@ -242,15 +246,23 @@ export function updateJsonShapePath(
     const leaf = offset === path.length - 1;
     if (node.kind === "object" && typeof key === "string") {
       const property = Object.hasOwn(node.properties, key) ? node.properties[key] : undefined;
-      if (property === undefined && (!leaf || mode === "replace")) return node;
-      if (property !== undefined && leaf && mode === "insert") return node;
+      if (property === undefined && !leaf) return node;
+      if (property === undefined && mode === "replace" && node.additionalProperties === undefined) return node;
+      if (property !== undefined && leaf && mode === "insert" && !property.optional) return node;
       const properties = { ...node.properties };
       if (leaf && value === undefined) delete properties[key];
       else
         Object.defineProperty(properties, key, {
           value: {
-            shape: leaf ? value! : update(property!.shape, offset + 1),
-            ...(property?.optional ? { optional: true } : {}),
+            shape: leaf
+              ? mode === "insert" &&
+                (property?.optional || (property === undefined && node.additionalProperties !== undefined))
+                ? unionJsonShapes([property?.shape ?? node.additionalProperties!, value!])
+                : value!
+              : update(property!.shape, offset + 1),
+            ...((!leaf && property?.optional) || (mode === "replace" && (property === undefined || property.optional))
+              ? { optional: true }
+              : {}),
           },
           enumerable: true,
           configurable: true,
