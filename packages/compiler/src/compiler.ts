@@ -5,6 +5,7 @@ import {
   mergeQuerySemantics,
   parameterTypeLiteral,
   type QuerySemantics,
+  type QueryValuePlan,
   type ResolvedColumn,
   type ResolvedParameter,
   resolveDialectCapabilityStates,
@@ -23,6 +24,7 @@ import {
   mapSqlRange,
 } from "./scanner.js";
 import { expandStructuralQuery, structuralRowType } from "./structural.js";
+import { buildQueryValuePlan } from "./value-plan.js";
 
 export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
 export const DEFAULT_MAX_SOURCE_BYTES = 4 * 1024 * 1024;
@@ -30,6 +32,7 @@ export const DEFAULT_MAX_QUERIES = 10_000;
 export const DEFAULT_MAX_GENERATED_DECLARATION_BYTES = 8 * 1024 * 1024;
 
 export interface CompiledQuery {
+  readonly valuePlan?: QueryValuePlan;
   readonly query: ExtractedQuery;
   readonly rowType: string;
   readonly parameterType: string;
@@ -91,6 +94,8 @@ export interface CompileSourceResult {
 }
 
 export interface CompileSourceOptions<Snapshot extends SchemaSnapshot, Policy> {
+  /** Emit executable value metadata for a build transform rather than a typechecking overlay. */
+  readonly runtimeMetadata?: boolean;
   readonly source: string;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: Snapshot;
@@ -244,7 +249,10 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (sourceBytes > maximumSourceBytes) {
     return resourceLimit(source, `Source uses ${sourceBytes} bytes; the configured limit is ${maximumSourceBytes}.`);
   }
-  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), [dialect.sqlModule]);
+  const sqlModules = [
+    ...new Set([dialect.sqlModule, ...(dialect.runtimeSqlModule === undefined ? [] : [dialect.runtimeSqlModule])]),
+  ];
+  const extracted = extractStaticQueries(source, (index) => dialect.placeholder(index), sqlModules);
   if (extracted.length > maximumQueries) {
     return resourceLimit(
       source,
@@ -489,6 +497,11 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       compiled.push({
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
+        ...(repeated?.sites.some(({ dynamic }) => dynamic) === true
+          ? {}
+          : {
+              valuePlan: buildQueryValuePlan(dialect, resolved, options.typePolicy ?? dialect.defaultTypePolicy),
+            }),
         parameterType:
           repeated?.sites.some(({ dynamic }) => dynamic) === true
             ? "readonly unknown[]"
@@ -518,12 +531,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       });
     }
   }
-  const appendFragments = extractAppendFragments(
-    source,
-    (index) => dialect.placeholder(index),
-    [dialect.sqlModule],
-    extracted,
-  );
+  const appendFragments = extractAppendFragments(source, (index) => dialect.placeholder(index), sqlModules, extracted);
   for (const { base, prefix, fragment, parameterOffset } of appendFragments) {
     const contextualSql = [base, ...prefix, fragment];
     const combined: ExtractedQuery = {
@@ -552,11 +560,15 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
       text:
-        item.fragmentList === true
-          ? `.__typedRow<${item.rowType}>()`
-          : item.structural
-            ? `.__typed<${item.rowType}, ${item.parameterType}>()`
-            : `<${item.rowType}, ${item.parameterType}>`,
+        options.runtimeMetadata === true && item.valuePlan !== undefined
+          ? item.fragmentList === true
+            ? `.__typedRow<${item.rowType}>(${JSON.stringify(item.valuePlan)})`
+            : `.__typed<${item.rowType}, ${item.parameterType}>(${JSON.stringify(item.valuePlan)})`
+          : item.fragmentList === true
+            ? `.__typedRow<${item.rowType}>()`
+            : item.structural
+              ? `.__typed<${item.rowType}, ${item.parameterType}>()`
+              : `<${item.rowType}, ${item.parameterType}>`,
     })),
     ...compiledFragments.map((item) => ({
       position: item.fragment.insertionPosition,

@@ -118,6 +118,7 @@ export {
   TypeScriptCompilerCompatibilityError,
   typeScriptCompilerVersionSupport,
 } from "./typescript.js";
+export { buildQueryValuePlan } from "./value-plan.js";
 export type {
   CollectQueryVerificationCandidatesOptions,
   FailedQueryProofEntry,
