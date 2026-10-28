@@ -492,6 +492,16 @@ export function analyzePlayground(
     if (analysis.diagnostics.some(({ severity }) => severity === "error")) return;
     const binding = queryBinding(mainSource, query.range, index);
     const rowType = analysis.resultKind === "command" ? "never" : rowTypeLiteral(analysis.columns);
+    const rowContract =
+      analysis.resultKind === "command"
+        ? "  never,"
+        : [
+            "  {",
+            ...analysis.columns.map(
+              ({ name, tsType, nullable }) => `    ${JSON.stringify(name)}: ${tsType}${nullable ? " | null" : ""};`,
+            ),
+            "  },",
+          ].join("\n");
     const parameterType =
       repeated?.sites.some(({ dynamic }) => dynamic) === true
         ? "readonly unknown[]"
@@ -503,7 +513,7 @@ export function analyzePlayground(
       sourceStart: query.range.start,
       sourceEnd: query.range.end,
       sql: analyzedQuery.sql,
-      contract: [`const ${binding}: Query<`, `  ${rowType},`, `  ${parameterType}`, ">;"].join("\n"),
+      contract: [`const ${binding}: Query<`, rowContract, `  ${parameterType}`, ">;"].join("\n"),
     });
   });
   return { diagnostics, queries };
