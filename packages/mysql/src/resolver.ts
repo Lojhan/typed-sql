@@ -360,6 +360,11 @@ class Resolver {
     const result = this.#statement(statement, undefined, new Map());
     return {
       ...result,
+      columns: result.columns.map((column) =>
+        column.json === undefined && normalized(column.databaseType ?? "") === "json"
+          ? { ...column, json: this.#jsonResult(unknownJsonShape, column.nullable).json }
+          : column,
+      ),
       parameters: this.#parameters.values(),
       diagnostics: this.#diagnostics,
     };

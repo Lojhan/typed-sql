@@ -24,6 +24,12 @@ const schema = {
 const analyze = (source: string) => resolveMySqlStatement(parseSelect(source), schema);
 
 await describe("MySQL structured JSON", async () => {
+  await it("retains a wire descriptor for opaque JSON projections", () => {
+    const result = analyze("SELECT document FROM accounts");
+    strict.equal(result.columns[0]?.tsType, "unknown");
+    strict.deepEqual(result.columns[0]?.json, { shape: { kind: "unknown" }, representation: "parsed" });
+  });
+
   await it("uses JSON serialization independently of scalar bigint, decimal, date and tinyint policies", () => {
     const result = analyze(
       "SELECT JSON_OBJECT('id', id, 'active', active, 'amount', amount, 'created', created, 'opaque', document, 'nested', JSON_ARRAY(TRUE, NULL)) AS result FROM accounts WHERE id = ?",

@@ -106,6 +106,18 @@ function supported(sqlText: string, policy: SyntheticTypePolicy): DialectAnalysi
       semantics,
     };
   }
+  if (sqlText === "INSERT INTO widgets (value, label) VALUES (?1, ?2)") {
+    return {
+      columns: [],
+      parameters: [
+        { index: 1, tsType: policy.scalar, nullable: false, databaseType: "scalar" },
+        { index: 2, tsType: "string | null", nullable: true, databaseType: "text" },
+      ],
+      diagnostics: [],
+      resultKind: "command",
+      semantics,
+    };
+  }
   if (sqlText === "INSERT INTO widgets (value, label) VALUES (?1, ?2), (?3, ?4)") {
     return {
       columns: [],
