@@ -1,5 +1,11 @@
 # @typed-sql/ast
 
+## 2.3.0-rc.0
+
+### Patch Changes
+
+- Publish the coherent 2.3.0-rc.0 release-candidate train.
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.

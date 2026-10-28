@@ -1,5 +1,44 @@
 # @typed-sql/sqlite
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- b24279d: Add explicit buffered adapters for D1, libSQL/Turso, Neon HTTP, Neon WebSocket, and Postgres.js.
+  Adapters enforce compiled value plans, transport precision, and truthful batch/transaction
+  capabilities while leaving drivers application-owned. Add portable grammar query entrypoints and
+  logical value descriptors without changing existing runtime entrypoint exports.
+- 19f37d9: Add an optional grammar-owned parameter occurrence contract and an experimental TypeScript 7.1
+  content mapper for SQL-file query factories. The mapper checks positional parameters and result
+  rows against the configured offline snapshot, reports original SQL diagnostics, and refreshes
+  configuration dependencies in native watch mode. An optional Node.js 24 preload executes the same
+  SQL files through the existing branded query and database APIs.
+- b24279d: Honor attached query value plans for SQLite parameters, buffered results, batches and streams before application validators. Carry the configured type policy into execution and reject mismatches before dispatch while preserving unplanned-query behavior.
+- b24279d: Track JSON shapes through SQLite constructors, aggregates, extraction, paths and mutations while preserving native TEXT, JSONB and scalar storage behavior. The optional `json: "parsed"` policy produces structured application values only when compiled runtime validation is enabled; existing policies retain JSON text.
+
+### Patch Changes
+
+- b24279d: Reduce temporary row-copy allocations in the Node SQLite adapter while preserving storage-value conversion and special column names.
+  
+  Avoid redundant promise wrappers around synchronous SQLite dispatch and queries without a result validator. Public methods remain asynchronous and use the existing transaction and stream ownership queue.
+- b24279d: Verify executable value plans against bounded conditional and repeated query structures. Preserve validators when composing queries, require fresh metadata for changed SQL, and route generated runtime imports through the selected grammar entrypoint.
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/core@2.3.0-rc.0
+  - @typed-sql/schema@2.3.0-rc.0
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.

@@ -1,5 +1,32 @@
 # @typed-sql/cli
 
+## 2.3.0-rc.0
+
+### Patch Changes
+
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [702bc16]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/compiler@2.3.0-rc.0
+  - @typed-sql/core@2.3.0-rc.0
+  - @typed-sql/schema@2.3.0-rc.0
+  - @typed-sql/config@2.3.0-rc.0
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.

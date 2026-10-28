@@ -1,5 +1,39 @@
 # @typed-sql/compiler
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- b24279d: Carry immutable grammar-owned value plans into portable execution, validate JSON representations and reject incompatible transport policies before dispatch. Build transforms can request executable metadata while typechecking overlays retain their existing behavior.
+
+### Patch Changes
+
+- b24279d: Prepare executable query value plans once per module and reuse them across inline query factory calls while preserving directive prologues, original diagnostic locations, and per-call parameter values.
+- b24279d: Preserve hashbangs terminated by any JavaScript line terminator when hoisting runtime plans, and analyze CR/CRLF template content using JavaScript's cooked newline semantics.
+- b24279d: Reject executable metadata transforms when the query structure cannot receive a runtime value plan, preventing unvalidated application JSON declarations from producing optimistic build output.
+- 702bc16: Skip optimizer-plan capture for runtime-sized mapped fragment-list queries with an explicit
+  `repeated-fragment-cardinality` reason. Their compiler SQL represents a list shape for analysis,
+  not a measured runtime cardinality, so its plan must not satisfy budgets for arbitrary list sizes.
+  Plan review reports these queries as unavailable and honors uncertainty failure policy.
+- 19f37d9: Verify PostgreSQL decoded JSON using native wire types without claiming independent nested shape evidence. Bind fresh and cached native proofs to the effective decoding policy, and consistently include dialect factory defaults in manifest and repeated-fragment identities. Regenerate manifests and verification proofs created with the previous default-policy identity.
+- b24279d: Verify executable value plans against bounded conditional and repeated query structures. Preserve validators when composing queries, require fresh metadata for changed SQL, and route generated runtime imports through the selected grammar entrypoint.
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/core@2.3.0-rc.0
+  - @typed-sql/schema@2.3.0-rc.0
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.
