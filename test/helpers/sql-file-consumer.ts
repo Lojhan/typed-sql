@@ -6,13 +6,11 @@ import { strict } from "poku";
 
 const execFile = promisify(callback);
 
-/** Exercises the installed mapper manifest, beta compiler and Node runtime frontend. */
-export async function assertSqlFileConsumer(options: {
-  readonly consumer: string;
-  readonly previewCli: string;
-  readonly env: NodeJS.ProcessEnv;
-}): Promise<void> {
-  const directory = join(options.consumer, "sql-file-consumer");
+const sql = "SELECT id, name FROM users WHERE id = $1 AND name <> $2";
+
+/** Shared fixture preparation; performs no compiler or runtime assertions. */
+export async function prepareSqlFileConsumer(consumer: string): Promise<string> {
+  const directory = join(consumer, "sql-file-consumer");
   await mkdir(directory);
   await writeFile(join(directory, "package.json"), JSON.stringify({ type: "module" }));
   await writeFile(
@@ -51,7 +49,6 @@ export default { dialect: postgres(), schema: { file: "schema.json" }, outDir: "
       files: ["main.ts"],
     }),
   );
-  const sql = "SELECT id, name FROM users WHERE id = $1 AND name <> $2";
   await writeFile(join(directory, "find.sql"), sql);
   await writeFile(join(directory, "constant.sql"), "SELECT 1 AS value");
   await writeFile(
@@ -71,6 +68,16 @@ const constantQuery = constant();
 const empty: Equal<QueryParameters<typeof constantQuery>, readonly []> = true;
 void [query, row, parameters, empty];`,
   );
+  return directory;
+}
+
+/** Exercises the installed mapper manifest, beta compiler and Node runtime frontend. */
+export async function assertSqlFileConsumer(options: {
+  readonly consumer: string;
+  readonly previewCli: string;
+  readonly env: NodeJS.ProcessEnv;
+}): Promise<void> {
+  const directory = await prepareSqlFileConsumer(options.consumer);
   const check = () =>
     execFile(process.execPath, [options.previewCli, "-p", directory, "--runExternalCode", "--pretty", "false"], {
       cwd: directory,
@@ -104,11 +111,11 @@ void [query, row, parameters, empty];`,
     (error: unknown) => error instanceof Error && "stdout" in error && /runExternalCode/u.test(String(error.stdout)),
   );
   await writeFile(
-    join(directory, "run.mjs"),
+    join(directory, "run.ts"),
     `import assert from "node:assert/strict";
 import find from "./find.sql";
 import { createPostgresDatabase } from "@typed-sql/postgres/runtime";
-const input = "Ada'; DROP TABLE users; --";
+const input: string = "Ada'; DROP TABLE users; --";
 let seen;
 const database = createPostgresDatabase({ pool: { async query(text, values) {
   seen = typeof text === "string" ? { text, values } : { text: text.text, values: text.values }; return { rows: [{ id: 7, name: "Ada" }], fields: [{ name: "id", dataTypeID: 23 }, { name: "name", dataTypeID: 25 }] };
@@ -119,7 +126,7 @@ assert.throws(() => find(7), /expects 2/);
 console.log("sql-file-consumer-ok");`,
   );
   const run = () =>
-    execFile(process.execPath, ["--import", "@typed-sql/ts-bridge/sql-register", join(directory, "run.mjs")], {
+    execFile(process.execPath, ["--import", "@typed-sql/ts-bridge/sql-register", join(directory, "run.ts")], {
       cwd: directory,
       env: options.env,
     });

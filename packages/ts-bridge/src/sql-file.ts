@@ -70,6 +70,17 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
       const occurrences = dialect.parameterOccurrences(content, project.snapshot, policy);
       let end = 0;
       for (const occurrence of occurrences) {
+        const { start, end: occurrenceEnd } = occurrence.range;
+        if (
+          !Number.isSafeInteger(start) ||
+          !Number.isSafeInteger(occurrenceEnd) ||
+          start < end ||
+          occurrenceEnd <= start ||
+          occurrenceEnd > content.length
+        ) {
+          diagnostics.push(unavailable("The grammar returned invalid SQL parameter occurrence ranges."));
+          break;
+        }
         if (occurrence.index !== count + 1) {
           diagnostics.push({
             ...unavailable(
@@ -84,6 +95,16 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
         count += 1;
       }
       parts.push(content.slice(end));
+      const resolvedIndexes = new Set(analysis?.parameters.map((parameter) => parameter.index));
+      if (
+        resolvedIndexes.size !== count ||
+        analysis?.parameters.length !== count ||
+        [...resolvedIndexes].some((index) => !Number.isSafeInteger(index) || index < 1 || index > count)
+      ) {
+        diagnostics.push(
+          unavailable("The grammar's SQL parameter occurrences do not match its inferred parameter contract."),
+        );
+      }
     }
   }
   const failed = diagnostics.some((item) => item.severity === "error");

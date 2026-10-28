@@ -102,12 +102,13 @@ typed factory and the runtime loader rejects the module. The runtime binds value
 Start the ESM application from its typed-sql configuration directory:
 
 ```sh
-node --import @typed-sql/ts-bridge/sql-register dist/main.js
+node --import @typed-sql/ts-bridge/sql-register src/main.ts
 ```
 
 The preload evaluates one configuration from the current working directory, reads its snapshot,
-and installs Node's synchronous module hooks. Restart the process after runtime configuration or
-snapshot changes. The compiler's watch refresh and Node's module cache are separate lifecycles.
+and installs Node's synchronous module hooks. Node's built-in type stripping runs the example's
+TypeScript entrypoint directly; its normal restrictions on erasable TypeScript syntax apply.
+Restart the process after runtime configuration or snapshot changes. The compiler's watch refresh and Node's module cache are separate lifecycles.
 
 Deploy the original `.sql` assets at the paths imported by your JavaScript, together with the
 typed-sql configuration, its local dependencies, and the snapshot. For example, an emitted
@@ -120,6 +121,9 @@ TypeScript 7.1's official editor integration runs configured content mappers in 
 after mapper permissions are granted. Enable the TypeScript 7 integration and use the beta SDK;
 see Microsoft's [content mapper announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-1-beta/#content-mappers).
 The same mapper reports SQL diagnostics and supplies the imported factory's TypeScript type.
+The typed-sql SDK proxy preserves the official client's external-code execution permission. Without that permission, mapped imports remain unavailable; the proxy does not enable
+external execution by default. SQL completion, rename, and definition mapping are not provided by
+this frontend.
 
 The stable `typed-sql check`, `generate`, and manifest commands discover inline TypeScript SQL
 templates. They **do not discover or cover `.sql` imports**. Use `tsc --runExternalCode` as the

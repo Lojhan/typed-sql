@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, it, strict, waitForExpectedResult } from "poku";
-import { assertSqlFileConsumer } from "../../../test/helpers/sql-file-consumer.js";
+import { assertSqlFileConsumer, prepareSqlFileConsumer } from "../../../test/helpers/sql-file-consumer.js";
 import { typescriptPreviewCliPath } from "../src/native-lsp.js";
 import { analyzeSqlFile, loadSqlFileProject } from "../src/sql-file.js";
 
@@ -48,6 +48,33 @@ await describe("official SQL content mapper", async () => {
         strict.match(result.text, /query: never/u);
         strict.match(result.runtime, /throw new SyntaxError/u);
       }
+      const parameterSource = "SELECT $1 AS value";
+      const placeholder = parameterSource.indexOf("$1");
+      for (const occurrences of [
+        [],
+        [{ index: 1, range: { start: -1, end: 2, line: 1, column: 1 } }],
+        [{ index: 1, range: { start: placeholder, end: parameterSource.length + 1, line: 1, column: 1 } }],
+        [{ index: 1, range: { start: placeholder, end: placeholder, line: 1, column: 1 } }],
+        [
+          { index: 1, range: { start: placeholder, end: placeholder + 2, line: 1, column: placeholder + 1 } },
+          { index: 2, range: { start: placeholder, end: placeholder + 2, line: 1, column: placeholder + 1 } },
+        ],
+      ]) {
+        const broken = {
+          ...project,
+          loaded: {
+            ...project.loaded,
+            config: {
+              ...project.loaded.config,
+              dialect: { ...project.loaded.config.dialect, parameterOccurrences: () => occurrences },
+            },
+          },
+        };
+        const result = analyzeSqlFile(parameterSource, broken);
+        strict.ok(result.diagnostics.some((item) => item.code === 901));
+        strict.match(result.text, /query: never/u);
+        strict.match(result.runtime, /throw new SyntaxError/u);
+      }
       const source = "SELECT '😀' AS emoji,\n  missing FROM nowhere";
       const result = analyzeSqlFile(source, project);
       strict.ok(
@@ -58,8 +85,7 @@ await describe("official SQL content mapper", async () => {
 
   await it("refreshes schema and imported config dependencies in the official compiler watch process", async () => {
     await fixture(async (consumer) => {
-      await assertSqlFileConsumer({ consumer, previewCli: typescriptPreviewCliPath(), env: process.env });
-      const directory = join(consumer, "sql-file-consumer");
+      const directory = await prepareSqlFileConsumer(consumer);
       const schemaFile = join(directory, "schema.json");
       const schema = JSON.parse(await readFile(schemaFile, "utf8"));
       await writeFile(
