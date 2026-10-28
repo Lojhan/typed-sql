@@ -56,10 +56,12 @@ async function writeEditorProject(
     )} RETURNING id, email\`;
     const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: bigint; email: string }> = true;
     const mappedParameters: Equal<QueryParameters<typeof mappedQuery>, readonly (bigint | string)[]> = true;
+    const jsonQuery = sql\`SELECT jsonb_build_object('id', id, 'email', email) AS document FROM users\`;
+    const jsonRow: Equal<QueryRow<typeof jsonQuery>, { document: { id: number; email: string } }> = true;
     const invalidMappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
       (account) => sql.fragment\`(\${account.email}, \${account.id})\`,
     )} RETURNING id\`;
-    void [mappedQuery, mappedRow, mappedParameters, invalidMappedQuery];
+    void [mappedQuery, mappedRow, mappedParameters, jsonQuery, jsonRow, invalidMappedQuery];
   `
       : "";
   const source = `
@@ -568,14 +570,14 @@ await describe("packed public packages", async () => {
           env: isolatedEnvironment,
         });
         strict.ok(
-          manifestRun.stdout.includes(`Generated ${dialect === "postgres" ? 6 : 4} queries (0 unresolved`),
+          manifestRun.stdout.includes(`Generated ${dialect === "postgres" ? 7 : 4} queries (0 unresolved`),
           manifestRun.stdout,
         );
         const manifestSource = await readFile(join(project.directory, ".typed-sql", "queries.json"), "utf8");
         strict.ok(!manifestSource.includes(project.directory));
         strict.strictEqual(
           (JSON.parse(manifestSource) as { readonly queries: readonly unknown[] }).queries.length,
-          dialect === "postgres" ? 6 : 4,
+          dialect === "postgres" ? 7 : 4,
         );
         const uri = pathToFileURL(project.queryFile).href;
         const client = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);

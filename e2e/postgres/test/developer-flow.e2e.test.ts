@@ -30,6 +30,7 @@ import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-previ
 import { Pool } from "pg";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 import { postgresCodecFidelity } from "../src/codec-query.js";
+import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
 import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
 
 interface CommandResult {
@@ -533,6 +534,28 @@ try {
       strict.strictEqual(analysis.queries.length, 1);
       const contract = analysis.queries[0]!;
       strict.strictEqual(contract.parameterType, "readonly [number]");
+      const jsonSource = await readFile(join(packageDirectory, "src/json-query.ts"), "utf8");
+      const jsonAnalysis = analyzeSource(jsonSource, snapshot, dialect);
+      strict.deepStrictEqual(jsonAnalysis.diagnostics, []);
+      strict.deepStrictEqual(
+        jsonAnalysis.queries.map(({ rowType, parameterType }) => ({ rowType, parameterType })),
+        [
+          {
+            rowType:
+              '{ "document": { "id": number; "wide": number; "amount": number | string; "date": string; "bytes": string; "nullable": string | null; "nested": { "enabled": boolean; }; "unchecked": unknown; }; }',
+            parameterType: "readonly [number]",
+          },
+          {
+            rowType:
+              '{ "aggregate": readonly ({ "id": number; })[] | null; "fallback": readonly ({ "id": number; })[]; }',
+            parameterType: "readonly [number]",
+          },
+          {
+            rowType: '{ "document": { "numeric": number | string; "float": number | string; }; }',
+            parameterType: "readonly []",
+          },
+        ],
+      );
       const rowType = contract.rowType.replace(/"([^"]+)":/gu, "$1:");
       for (const exact of [
         "id: number",
@@ -739,6 +762,24 @@ try {
         strict.deepStrictEqual(codec.numeric_array, ["1.25", "12345678901234567890.1234567890"]);
         strict.deepStrictEqual(codec.text_array, ["one", "two"]);
         strict.strictEqual(codec.nullable_text, null);
+        strict.deepStrictEqual(await database.execute(postgresJsonProjection), [
+          {
+            document: {
+              id: 1,
+              wide: Number(9007199254740993n),
+              amount: Number("12345678901234567890.1234567890"),
+              date: "2026-08-25",
+              bytes: "\\x00a5ff",
+              nullable: null,
+              nested: { enabled: true },
+              unchecked: { enabled: true, kind: "jsonb" },
+            },
+          },
+        ]);
+        strict.deepStrictEqual(await database.execute(postgresJsonEmptyAggregate), [{ aggregate: null, fallback: [] }]);
+        strict.deepStrictEqual(await database.execute(postgresJsonNonfinite), [
+          { document: { numeric: "NaN", float: "Infinity" } },
+        ]);
       } finally {
         await database.close();
       }
