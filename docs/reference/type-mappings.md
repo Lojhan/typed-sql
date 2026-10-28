@@ -164,3 +164,9 @@ Nullable object values become optional properties, and nullable array values can
 produce arrays of varying length. `FORMAT JSON` parses a literal document instead
 of quoting it. `RETURNING text` and `RETURNING bytea` keep their SQL scalar result
 types.
+
+Native PostgreSQL arrays of JSON values keep an element validation contract in
+compiled queries. Application-declared shapes propagate through array constructors,
+projections, conditional expressions and array aggregates. SQL-null array elements
+remain separate from a JSON null document; nullable source values add `null` to the
+inferred element type.

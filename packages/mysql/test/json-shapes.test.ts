@@ -369,6 +369,18 @@ await describe("MySQL structured JSON", async () => {
     strict.strictEqual(cast.parameters[0]?.acceptsJsonInput, true);
   });
 
+  await it("marks opaque JSON output for policy-correct planned decoding without changing its inferred type", () => {
+    const parsed = analyze("SELECT document AS value FROM accounts");
+    strict.deepStrictEqual(parsed.diagnostics, []);
+    strict.strictEqual(parsed.columns[0]?.tsType, "unknown");
+    strict.deepStrictEqual(parsed.columns[0]?.json, { shape: { kind: "unknown" }, representation: "parsed" });
+    const text = resolveMySqlStatement(parseSelect("SELECT document AS value FROM accounts"), schema, {
+      typePolicy: { ...defaultMySqlTypePolicy, json: "string" },
+    });
+    strict.strictEqual(text.columns[0]?.tsType, "unknown");
+    strict.deepStrictEqual(text.columns[0]?.json, { shape: { kind: "unknown" }, representation: "text" });
+  });
+
   await it("requires runtime-backed context before narrowing application JSON declarations", () => {
     const shape: JsonShape = { kind: "object", properties: { id: { shape: { kind: "number" } } } };
     const declared = {

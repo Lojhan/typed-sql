@@ -1,5 +1,12 @@
 import { describe, it, strict } from "poku";
-import { jsonShapeType, parameterTypeLiteral, rowTypeLiteral } from "../../core/src/index.js";
+import {
+  decodeQueryResultRows,
+  jsonShapeType,
+  parameterTypeLiteral,
+  rowTypeLiteral,
+  sql,
+  withQueryValuePlan,
+} from "../../core/src/index.js";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { postgresServerEvidence } from "../src/capabilities.js";
 import { parseSelect, parseStatement } from "../src/parser/index.js";
@@ -255,6 +262,123 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     strict.deepStrictEqual(cast.diagnostics, []);
     strict.strictEqual(cast.parameters[0]?.json?.shape.kind, "unknown");
     strict.strictEqual(cast.parameters[0]?.acceptsJsonInput, true);
+  });
+
+  await it("validates structured JSON elements in native ARRAY projections, unions and aggregates", () => {
+    const shape = { kind: "object", properties: { id: { shape: { kind: "number" } } } } as const;
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, jsonDeclaration: { source: "application", shape } },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    for (const source of [
+      "SELECT ARRAY[document] AS value FROM accounts",
+      "WITH docs AS (SELECT ARRAY[document] AS items FROM accounts) SELECT items AS value FROM docs",
+      "SELECT CASE WHEN true THEN ARRAY[document] ELSE ARRAY[document] END AS value FROM accounts",
+      "SELECT COALESCE(ARRAY[document],ARRAY[document]) AS value FROM accounts",
+      "SELECT ARRAY_AGG(document) AS value FROM accounts",
+      "SELECT ARRAY[document] AS value FROM accounts UNION ALL SELECT ARRAY[document] AS value FROM accounts",
+      "SELECT GREATEST(ARRAY[document],ARRAY[document]) AS value FROM accounts",
+      "SELECT LAG(ARRAY[document],1,ARRAY[document]) OVER () AS value FROM accounts",
+    ]) {
+      const result = resolveSelect(parseSelect(source), declared, { runtimeValidation: true });
+      strict.deepStrictEqual(result.diagnostics, [], source);
+      strict.deepStrictEqual(result.parameters, [], source);
+      strict.ok(result.columns[0]?.tsType.includes('{ "id": number; }'), source);
+      const column = result.columns[0]!;
+      strict.ok(column.runtimeType, source);
+      const query = withQueryValuePlan(sql`SELECT 1`, {
+        dialect: "postgres",
+        typePolicyHash: "test",
+        columns: [{ name: "value", nullable: column.nullable, type: column.runtimeType! }],
+        parameters: [],
+      });
+      const profile = { id: "json-array", dialect: "postgres", integer: "lossless", jsonWire: "text" } as const;
+      strict.deepStrictEqual(
+        decodeQueryResultRows(query, [{ value: ['{"id":1}'] }], profile),
+        [{ value: [{ id: 1 }] }],
+        source,
+      );
+      strict.throws(() => decodeQueryResultRows(query, [{ value: ['{"id":"wrong"}'] }], profile), /JSON|union/, source);
+    }
+    const unchecked = resolveSelect(parseSelect("SELECT ARRAY[document] AS value FROM accounts"), declared);
+    strict.strictEqual(unchecked.columns[0]?.tsType, "readonly (unknown)[]");
+    strict.deepStrictEqual(unchecked.columns[0]?.runtimeType, {
+      array: { json: { shape: { kind: "unknown" }, representation: "parsed" } },
+      elementNullable: false,
+    });
+  });
+
+  await it("keeps SQL NULL array elements separate from JSON document shapes", () => {
+    const shape = { kind: "object", properties: { id: { shape: { kind: "number" } } } } as const;
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: {
+              ...schema.tables.accounts.columns.document,
+              nullable: true,
+              jsonDeclaration: { source: "application", shape },
+            },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(parseSelect("SELECT ARRAY[document] AS value FROM accounts"), declared, {
+      runtimeValidation: true,
+    });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.columns[0]?.tsType, 'readonly ({ "id": number; } | null)[]');
+    const query = withQueryValuePlan(sql`SELECT 1`, {
+      dialect: "postgres",
+      typePolicyHash: "test",
+      columns: [{ name: "value", nullable: false, type: result.columns[0]!.runtimeType! }],
+      parameters: [],
+    });
+    const profile = { id: "nullable-json-array", dialect: "postgres", integer: "lossless", jsonWire: "text" } as const;
+    strict.deepStrictEqual(decodeQueryResultRows(query, [{ value: [null, '{"id":1}'] }], profile), [
+      { value: [null, { id: 1 }] },
+    ]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["null"] }], profile), /JSON/);
+  });
+
+  await it("marks opaque JSON and JSON array output datatypes for policy-correct planned decoding", () => {
+    const bare = analyze("SELECT document AS value FROM accounts");
+    strict.strictEqual(bare.columns[0]?.tsType, "unknown");
+    strict.deepStrictEqual(bare.columns[0]?.json, { shape: { kind: "unknown" }, representation: "parsed" });
+    const text = analyze("SELECT document AS value FROM accounts", { ...defaultPostgresTypePolicy, json: "string" });
+    strict.deepStrictEqual(text.columns[0]?.json, { shape: { kind: "unknown" }, representation: "text" });
+    const arrays = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            documents: { name: "documents", databaseType: "jsonb[]", tsType: "readonly unknown[]", nullable: false },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const array = resolveSelect(parseSelect("SELECT documents AS value FROM accounts"), arrays);
+    strict.deepStrictEqual(array.diagnostics, []);
+    strict.deepStrictEqual(array.columns[0]?.runtimeType, {
+      array: { json: { shape: { kind: "unknown" }, representation: "parsed" } },
+      elementNullable: true,
+    });
   });
 
   await it("retains null-only runtime guards for statically missing and JSON-null text paths", () => {

@@ -13,6 +13,7 @@ import {
   ParameterCollector,
   type ResolvedParameter,
   ResolverSchemaIndex,
+  type RuntimeValueType,
   type StructuralRoutineSnapshot,
   unionJsonShapes,
   unionTypeLiterals,
@@ -62,6 +63,7 @@ import type {
   WithClause,
 } from "./parser/index.js";
 import { walkStatement } from "./parser/index.js";
+import { postgresRuntimeValueType } from "./query.js";
 import { parsePostgresMajor } from "./support.js";
 import {
   defaultPostgresTypePolicy,
@@ -121,12 +123,14 @@ interface ResolvedType {
   readonly json?: JsonValueDescriptor;
   readonly scalarJsonShape?: JsonShape;
   readonly acceptsJsonInput?: true;
+  readonly runtimeType?: RuntimeValueType;
 }
-function jsonMetadata(value: object): Pick<ResolvedType, "json" | "scalarJsonShape"> {
+function jsonMetadata(value: object): Pick<ResolvedType, "json" | "scalarJsonShape" | "runtimeType"> {
   const type = value as ResolvedType;
   return {
     ...(type.json === undefined ? {} : { json: type.json }),
     ...(type.scalarJsonShape === undefined ? {} : { scalarJsonShape: type.scalarJsonShape }),
+    ...(type.runtimeType === undefined ? {} : { runtimeType: type.runtimeType }),
   };
 }
 function isJsonType(type: ResolvedType): boolean {
@@ -281,6 +285,7 @@ class Resolver {
     const result = this.#resolveStatement(statement, undefined, new Map());
     return {
       ...result,
+      columns: result.columns.map((column) => this.#completeJsonMetadata(column)),
       parameters: this.#parameters.values(),
       diagnostics: this.#diagnostics,
     };
@@ -1083,7 +1088,7 @@ class Resolver {
     for (let index = 0; index < columns.length; index += 1) {
       const left = columns[index]!;
       const candidate = right[index]!;
-      const { databaseType: _databaseType, json: _json, ...base } = left;
+      const { databaseType: _databaseType, json: _json, runtimeType: _runtimeType, ...base } = left;
       columns[index] = {
         ...base,
         tsType:
@@ -1092,6 +1097,7 @@ class Resolver {
             : mergeTypeLiterals(left.tsType, candidate.tsType),
         nullable: left.nullable || candidate.nullable,
         ...jsonUnion([left, candidate]),
+        ...this.#runtimeUnion([left, candidate]),
         ...(left.databaseType === candidate.databaseType && left.databaseType !== undefined
           ? { databaseType: left.databaseType }
           : {}),
@@ -2419,7 +2425,9 @@ class Resolver {
           expression,
           jsonTupleShape(elements.map((element, index) => this.#jsonValue(element, expression.elements[index]))),
         );
-        const elementType = unionTypeLiterals(elements.map((element) => element.tsType));
+        const elementType = unionTypeLiterals(
+          elements.map((element) => element.tsType + (element.nullable ? " | null" : "")),
+        );
         const databaseType =
           (elements.length === 0
             ? undefined
@@ -2427,9 +2435,33 @@ class Resolver {
                 elements.map((element) => element.databaseType),
                 this.#schema,
               )) ?? expectedElement;
+        const known = elements.filter((element) => element.databaseType !== undefined || !element.nullable);
+        const descriptors = known.map((element) => this.#jsonDescriptor(element));
+        const jsonElements =
+          descriptors.length > 0 &&
+          descriptors.every((descriptor): descriptor is JsonValueDescriptor => descriptor !== undefined);
+        const guarded =
+          jsonElements ||
+          known.some((element) => element.runtimeType !== undefined || element.scalarJsonShape !== undefined);
+        const elementRuntime: RuntimeValueType = jsonElements
+          ? {
+              json: {
+                representation: descriptors[0]!.representation,
+                shape: unionJsonShapes(descriptors.map((descriptor) => descriptor.shape)),
+                ...(descriptors.some((descriptor) => descriptor.requiresRuntimeValidation)
+                  ? { requiresRuntimeValidation: true as const }
+                  : {}),
+              },
+            }
+          : known.length === 1
+            ? this.#runtimeType(known[0]!)
+            : { union: known.map((element) => this.#runtimeType(element)) };
         return {
           tsType: `readonly (${elementType})[]`,
           nullable: false,
+          ...(guarded
+            ? { runtimeType: { array: elementRuntime, elementNullable: elements.some((element) => element.nullable) } }
+            : {}),
           ...(databaseType === undefined ? {} : { databaseType: `${databaseType}[]` }),
         };
       }
@@ -3102,6 +3134,7 @@ class Resolver {
         return {
           tsType: resolvedTypeUnion(results),
           ...jsonUnion(results),
+          ...this.#runtimeUnion(results),
           nullable: expression.elseExpression === undefined || results.some((result) => result.nullable),
           ...(databaseTypes.length === 1 ? { databaseType: databaseTypes[0] } : {}),
         };
@@ -4008,6 +4041,23 @@ class Resolver {
     if (routineRule === "integer-window" || routineRule === "grouping")
       return { tsType: "number", nullable: false, databaseType: "integer" };
     if (routineRule === "value-window") {
+      if (
+        (name === "LAG" || name === "LEAD") &&
+        resolved.length > 2 &&
+        [resolved[0], resolved[2]].some((value) => value?.runtimeType !== undefined || value?.json !== undefined)
+      ) {
+        const candidates =
+          expression.arguments[2]?.kind === "literal" && expression.arguments[2].value === null
+            ? [resolved[0]!]
+            : [resolved[0]!, resolved[2]!];
+        return {
+          tsType: resolvedTypeUnion(candidates),
+          ...jsonUnion(candidates),
+          ...this.#runtimeUnion(candidates),
+          nullable: true,
+          ...(resolved[0]?.databaseType === undefined ? {} : { databaseType: resolved[0].databaseType }),
+        };
+      }
       return { ...(resolved[0] ?? { tsType: "unknown" }), nullable: true };
     }
     if (routineRule === "ordered-set-value") {
@@ -4039,6 +4089,7 @@ class Resolver {
       }
       return {
         tsType: resolvedTypeUnion(known),
+        ...this.#runtimeUnion(known),
         nullable: resolved.every((result) => result.nullable),
         ...(known.length > 0 &&
         known.every((result) => result.databaseType === known[0]?.databaseType) &&
@@ -4050,9 +4101,12 @@ class Resolver {
     if (routineRule === "nullif") return { ...(resolved[0] ?? { tsType: "unknown" }), nullable: true };
     if (routineRule === "extrema")
       return {
-        tsType: resolved.some(isJsonType) ? resolvedTypeUnion(resolved) : (resolved[0]?.tsType ?? "unknown"),
+        tsType: resolved.some((item) => isJsonType(item) || item.runtimeType !== undefined)
+          ? resolvedTypeUnion(resolved)
+          : (resolved[0]?.tsType ?? "unknown"),
         ...(resolved[0]?.databaseType === undefined ? {} : { databaseType: resolved[0].databaseType }),
         ...jsonUnion(resolved),
+        ...this.#runtimeUnion(resolved),
         nullable: name === "MIN" || name === "MAX" ? true : resolved.some((result) => result.nullable),
       };
     if (routineRule === "numeric-aggregate")
@@ -4148,6 +4202,9 @@ class Resolver {
       const item = resolved[0] ?? aggregateOrder[0] ?? { tsType: "unknown", nullable: true };
       return {
         tsType: `readonly (${item.tsType}${item.nullable ? " | null" : ""})[]`,
+        ...(item.runtimeType !== undefined || this.#jsonDescriptor(item) !== undefined
+          ? { runtimeType: { array: this.#runtimeType(item), elementNullable: item.nullable } }
+          : {}),
         nullable: true,
         ...(item.databaseType === undefined ? {} : { databaseType: `${item.databaseType}[]` }),
       };
@@ -4248,6 +4305,54 @@ class Resolver {
       this.#index.routineOverloads(name, expression.arguments.length, schema).length === 0 &&
       this.#index.functions(name, expression.arguments.length, schema).length === 0
     );
+  }
+
+  #jsonDescriptor(value: ResolvedType): JsonValueDescriptor | undefined {
+    if (value.json !== undefined) return value.json;
+    if (value.scalarJsonShape !== undefined) return undefined;
+    const canonical =
+      value.databaseType === undefined ? undefined : postgresCanonicalType(value.databaseType, this.#schema);
+    return canonical === "json" || canonical === "jsonb"
+      ? { shape: unknownJsonShape, representation: this.#policy.json === "string" ? "text" : "parsed" }
+      : undefined;
+  }
+
+  #nativeJsonArrayType(databaseType: string | undefined): RuntimeValueType | undefined {
+    if (databaseType === undefined) return undefined;
+    const canonical = postgresCanonicalType(databaseType, this.#schema);
+    if (!canonical.endsWith("[]")) return undefined;
+    const element = canonical.slice(0, -2);
+    const json = this.#jsonDescriptor({ tsType: "unknown", nullable: true, databaseType: element });
+    const nested = json === undefined ? this.#nativeJsonArrayType(element) : { json };
+    return nested === undefined ? undefined : { array: nested, elementNullable: true };
+  }
+
+  #completeJsonMetadata<Type extends ResolvedType>(value: Type): Type {
+    const json = this.#jsonDescriptor(value);
+    const runtimeType = value.runtimeType ?? this.#nativeJsonArrayType(value.databaseType);
+    return { ...value, ...(json === undefined ? {} : { json }), ...(runtimeType === undefined ? {} : { runtimeType }) };
+  }
+
+  #runtimeType(value: ResolvedType): RuntimeValueType {
+    if (value.runtimeType !== undefined) return value.runtimeType;
+    if (
+      value.scalarJsonShape !== undefined &&
+      value.databaseType !== undefined &&
+      ["json", "jsonb"].includes(postgresCanonicalType(value.databaseType, this.#schema))
+    )
+      return {
+        json: { shape: value.scalarJsonShape, representation: this.#policy.json === "string" ? "text" : "parsed" },
+      };
+    const json = this.#jsonDescriptor(value);
+    return json === undefined
+      ? (this.#nativeJsonArrayType(value.databaseType) ?? postgresRuntimeValueType(value, this.#policy))
+      : { json };
+  }
+
+  #runtimeUnion(values: readonly ResolvedType[]): Pick<ResolvedType, "runtimeType"> {
+    return values.some((value) => value.runtimeType !== undefined)
+      ? { runtimeType: { union: values.map((value) => this.#runtimeType(value)) } }
+      : {};
   }
 
   #jsonResult(
