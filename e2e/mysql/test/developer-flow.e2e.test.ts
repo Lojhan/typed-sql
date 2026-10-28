@@ -536,7 +536,7 @@ try {
           },
           {
             rowType:
-              '{ "selected": 1; "appended": { "items": readonly [1, boolean]; }; "inserted": readonly [1, number, 2]; "merged": { "a": readonly [1, 2]; }; }',
+              '{ "selected": 1; "scalar_text": "hello"; "sql_text": string; "appended": { "items": readonly [1, boolean]; }; "inserted": readonly [1, number, 2]; "merged": { "a": readonly [1, 2]; }; }',
             parameterType: "readonly [number]",
           },
           { rowType: '{ "aggregate": readonly ({ "id": number; })[] | null; }', parameterType: "readonly [number]" },
@@ -710,7 +710,14 @@ try {
           },
         ]);
         strict.deepStrictEqual(await database.execute(mysqlJsonMutations), [
-          { selected: 1, appended: { items: [1, true] }, inserted: [1, 3, 2], merged: { a: [1, 2] } },
+          {
+            selected: 1,
+            scalar_text: "hello",
+            sql_text: "hello",
+            appended: { items: [1, true] },
+            inserted: [1, 3, 2],
+            merged: { a: [1, 2] },
+          },
         ]);
         strict.deepStrictEqual(await database.execute(mysqlJsonEmptyAggregate), [{ aggregate: null }]);
       } finally {
