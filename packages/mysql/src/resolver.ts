@@ -367,6 +367,7 @@ class Resolver {
           ? column
           : {
               ...column,
+              tsType: this.#policy.json,
               json: {
                 shape: unknownJsonShape,
                 representation: this.#policy.json === "string" ? ("text" as const) : ("parsed" as const),

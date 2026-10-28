@@ -369,15 +369,31 @@ await describe("MySQL structured JSON", async () => {
     strict.strictEqual(cast.parameters[0]?.acceptsJsonInput, true);
   });
 
-  await it("marks opaque JSON output for policy-correct planned decoding without changing its inferred type", () => {
+  await it("uses the selected policy for opaque JSON output without asserting an unvalidated shape", () => {
     const parsed = analyze("SELECT document AS value FROM accounts");
     strict.deepStrictEqual(parsed.diagnostics, []);
     strict.strictEqual(parsed.columns[0]?.tsType, "unknown");
     strict.deepStrictEqual(parsed.columns[0]?.json, { shape: { kind: "unknown" }, representation: "parsed" });
+    const unproven = {
+      ...schema,
+      tables: {
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, tsType: "{ id: number }" },
+          },
+        },
+      },
+    };
+    strict.equal(
+      resolveMySqlStatement(parseSelect("SELECT document FROM accounts"), unproven).columns[0]?.tsType,
+      "unknown",
+    );
     const text = resolveMySqlStatement(parseSelect("SELECT document AS value FROM accounts"), schema, {
       typePolicy: { ...defaultMySqlTypePolicy, json: "string" },
     });
-    strict.strictEqual(text.columns[0]?.tsType, "unknown");
+    strict.strictEqual(text.columns[0]?.tsType, "string");
     strict.deepStrictEqual(text.columns[0]?.json, { shape: { kind: "unknown" }, representation: "text" });
   });
 
