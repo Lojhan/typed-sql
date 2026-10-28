@@ -1,4 +1,5 @@
 import type { JsonShape, JsonValueDescriptor } from "./json.js";
+import type { RuntimeValueType } from "./query-value-plan.js";
 import type {
   ColumnSnapshot,
   FunctionSnapshot,
@@ -11,6 +12,7 @@ import type {
 } from "./types.js";
 
 export interface ResolverType {
+  readonly runtimeType?: RuntimeValueType;
   readonly scalarJsonShape?: JsonShape;
   readonly json?: JsonValueDescriptor;
   readonly tsType: string;
@@ -65,6 +67,9 @@ export class ParameterCollector {
       index,
       tsType: current.tsType,
       nullable: current.nullable || candidate.nullable,
+      ...((current.runtimeType ?? candidate.runtimeType) === undefined
+        ? {}
+        : { runtimeType: current.runtimeType ?? candidate.runtimeType }),
       ...((current.json ?? candidate.json) === undefined ? {} : { json: current.json ?? candidate.json }),
       ...((current.scalarJsonShape ?? candidate.scalarJsonShape) === undefined
         ? {}

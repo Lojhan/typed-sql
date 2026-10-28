@@ -175,6 +175,7 @@ export interface GeneratedSchemaSnapshot extends SchemaSnapshot {
 }
 
 export interface ResolvedColumn {
+  readonly runtimeType?: RuntimeValueType;
   /** Native SQL scalar extracted from JSON, rather than serialized JSON text. */
   readonly scalarJsonShape?: JsonShape;
   readonly name: string;
@@ -187,6 +188,7 @@ export interface ResolvedColumn {
 }
 
 export interface ResolvedParameter {
+  readonly runtimeType?: RuntimeValueType;
   readonly scalarJsonShape?: JsonShape;
   /** One-based database placeholder index. */
   readonly index: number;
