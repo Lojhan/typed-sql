@@ -27,8 +27,21 @@ function encodeValues(input: readonly unknown[]): LibsqlValue[] {
   });
 }
 
+function rows(input: readonly Record<string, unknown>[]): readonly Record<string, unknown>[] {
+  return input.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([name, value]) => [name, value instanceof ArrayBuffer ? new Uint8Array(value) : value]),
+    ),
+  );
+}
+
 export function createLibsqlDatabase(client: LibsqlClient, options: BufferedOptions): TransactionalDatabase {
   options = sqliteWireOptions(options, false);
+  if (
+    options.profile.jsonWire !== "text" ||
+    (options.profile.jsonInputWire !== undefined && options.profile.jsonInputWire !== "text")
+  )
+    throw new TypeError("This adapter requires text JSON wire formats");
   if (options.profile.dialect !== "sqlite" || options.profile.integer !== "lossless")
     throw new TypeError(
       "libSQL requires a SQLite lossless transport profile; configure the client with intMode: bigint",
@@ -36,7 +49,7 @@ export function createLibsqlDatabase(client: LibsqlClient, options: BufferedOpti
   const database = createBufferedDatabase(
     {
       async execute(text, values) {
-        return (await client.execute({ sql: text, args: encodeValues(values) })).rows;
+        return rows((await client.execute({ sql: text, args: encodeValues(values) })).rows);
       },
       async batch(statements) {
         return (
@@ -44,7 +57,7 @@ export function createLibsqlDatabase(client: LibsqlClient, options: BufferedOpti
             statements.map(({ text, values }) => ({ sql: text, args: encodeValues(values) })),
             "write",
           )
-        ).map((result) => result.rows);
+        ).map((result) => rows(result.rows));
       },
     },
     options,
@@ -56,7 +69,7 @@ export function createLibsqlDatabase(client: LibsqlClient, options: BufferedOpti
       const scope = transactionScope(
         {
           async execute(text, values) {
-            return (await transaction.execute({ sql: text, args: encodeValues(values) })).rows;
+            return rows((await transaction.execute({ sql: text, args: encodeValues(values) })).rows);
           },
         },
         options,

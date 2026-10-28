@@ -25,16 +25,30 @@ export interface D1SessionDatabase extends BatchDatabase {
 
 function rows(result: Awaited<ReturnType<D1Statement["all"]>>): readonly unknown[] {
   if (!result.success) throw new Error(result.error ?? "D1 statement failed");
-  const output = result.results ?? [];
-  for (const row of output) {
+  return (result.results ?? []).map((row) => {
     if (typeof row !== "object" || row === null || Array.isArray(row))
       throw new TypeError("D1 returned a non-object row");
     assertSafeNumbers(Object.values(row));
-  }
-  return output;
+    return Object.fromEntries(
+      Object.entries(row).map(([name, value]) => {
+        if (value instanceof ArrayBuffer) return [name, new Uint8Array(value)];
+        if (Array.isArray(value)) {
+          if (!value.every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255))
+            throw new TypeError("D1 returned invalid BLOB bytes");
+          return [name, Uint8Array.from(value)];
+        }
+        return [name, value];
+      }),
+    );
+  });
 }
 
 function createSession(binding: Pick<D1SessionBinding, "prepare" | "batch">, options: BufferedOptions): BatchDatabase {
+  if (
+    options.profile.jsonWire !== "text" ||
+    (options.profile.jsonInputWire !== undefined && options.profile.jsonInputWire !== "text")
+  )
+    throw new TypeError("D1 requires text JSON wire formats");
   if (!options.profile.typePolicyHash)
     throw new TypeError("D1 requires the compiled typePolicyHash in its transport profile");
   if (options.profile.integer !== "safe-number" || options.profile.dialect !== "sqlite")

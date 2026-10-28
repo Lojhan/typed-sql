@@ -10,6 +10,8 @@ export const postgresRenderer: SqlRenderer = Object.freeze({
 
 /** PostgreSQL owns its physical wire syntax; neutral runtime decoders receive normalized values. */
 export function normalizePostgresValue(value: unknown, type: RuntimeValueType): unknown {
+  if (typeof type === "object" && "literal" in type)
+    return normalizePostgresValue(value, typeof type.literal as "string" | "number" | "boolean");
   if (typeof value === "string" && type === "bigint") {
     if (!/^[+-]?\d+$/u.test(value)) throw new TypeError("Invalid PostgreSQL integer text");
     return BigInt(value);

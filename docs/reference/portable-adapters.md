@@ -76,8 +76,9 @@ const database = createLibsqlDatabase(client, {
 ```
 
 The driver must retain integer precision. `intMode: "bigint"` preserves SQLite's full integer
-range; the adapter also accepts exact integer text when a client uses string mode. Converting an
-already-rounded number to bigint cannot recover precision and is rejected. Native transactions
+range. The adapter requires bigint wire values for bigint logical plans; it does not coerce REAL
+numbers or text into integers. Converting an already-rounded number to bigint cannot recover
+precision and is rejected. Native transactions
 are opened in write mode and explicitly committed or rolled back. Close the application-owned
 client when its lifetime ends. See [libSQL client configuration](https://tursodatabase.github.io/libsql-client-ts/interfaces/Config.html).
 

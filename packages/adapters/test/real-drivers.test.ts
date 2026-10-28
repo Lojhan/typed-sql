@@ -43,6 +43,12 @@ async function sqliteValues(database: BatchDatabase): Promise<void> {
     parameters: [{ index: 1, type: "bytes", nullable: false }],
   });
   strict.deepEqual((await database.one(blob)).bytes, Uint8Array.of(0, 255));
+  const binary = await database.one(
+    statement<{ doc: Uint8Array }>("SELECT jsonb('{\"x\":1}') AS doc", "sqlite", [
+      { name: "doc", type: "bytes", nullable: false, json: { shape: { kind: "unknown" }, representation: "binary" } },
+    ]),
+  );
+  strict.ok(binary.doc instanceof Uint8Array && binary.doc.length > 0);
   await database.all(statement("CREATE TABLE json_values (id INTEGER PRIMARY KEY, doc TEXT) STRICT", "sqlite"));
   for (const [id, value] of [
     [1, sql.json({ hello: "world" })],
@@ -166,6 +172,12 @@ await describe("explicit buffered driver boundaries", async () => {
         { name: "n", type: "bigint", nullable: false },
       ]);
       strict.equal((await database.one(maximum)).n, 9_223_372_036_854_775_807n);
+      await strict.rejects(
+        database.one(
+          statement("SELECT CAST(7 AS REAL) AS n", "sqlite", [{ name: "n", type: "bigint", nullable: false }]),
+        ),
+        /expected bigint/u,
+      );
       await database.transaction(async (transaction) => {
         await transaction.all(statement("INSERT INTO items VALUES (1)", "sqlite"));
       });

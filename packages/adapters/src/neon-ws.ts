@@ -14,7 +14,7 @@ export interface NeonWsConnection {
     values: unknown[];
     types: typeof rawPostgresTypes;
   }): Promise<{ readonly rows: readonly Record<string, unknown>[] }>;
-  release(): void;
+  release(error?: Error): void;
 }
 export interface NeonWsPool {
   query(config: {
@@ -26,6 +26,11 @@ export interface NeonWsPool {
 }
 
 export function createNeonWebSocketDatabase(pool: NeonWsPool, options: BufferedOptions): TransactionalDatabase {
+  if (
+    options.profile.jsonWire !== "text" ||
+    (options.profile.jsonInputWire !== undefined && options.profile.jsonInputWire !== "text")
+  )
+    throw new TypeError("This adapter requires text JSON wire formats");
   if (options.profile.dialect !== "postgres" || options.profile.jsonWire !== "text")
     throw new TypeError("Neon WebSocket requires a PostgreSQL raw-text transport profile");
   const scope = (client: Pick<NeonWsConnection, "query">) =>
@@ -39,6 +44,8 @@ export function createNeonWebSocketDatabase(pool: NeonWsPool, options: BufferedO
     );
   const transaction = async <T>(run: (database: BufferedDatabase) => Promise<T>): Promise<T> => {
     const client = await pool.connect();
+    let reusable = false;
+    let releaseError: Error | undefined;
     try {
       await client.query({ text: "BEGIN", values: [], types: rawPostgresTypes });
       const owned = transactionScope(
@@ -53,14 +60,24 @@ export function createNeonWebSocketDatabase(pool: NeonWsPool, options: BufferedO
         const result = await run(owned.database);
         await owned.finish();
         await client.query({ text: "COMMIT", values: [], types: rawPostgresTypes });
+        reusable = true;
         return result;
       } catch (error) {
         await owned.finish().catch(() => undefined);
-        await client.query({ text: "ROLLBACK", values: [], types: rawPostgresTypes }).catch(() => undefined);
+        try {
+          await client.query({ text: "ROLLBACK", values: [], types: rawPostgresTypes });
+          reusable = true;
+        } catch {
+          /* State is unknown: discard the connection below. */
+        }
         throw error;
       }
+    } catch (error) {
+      releaseError =
+        error instanceof Error ? error : new Error("Transaction did not leave a reusable connection", { cause: error });
+      throw error;
     } finally {
-      client.release();
+      client.release(reusable ? undefined : (releaseError ?? new Error("Transaction state is unknown")));
     }
   };
   // Sequential dispatch inside one reserved native connection is an atomic batch.

@@ -12,6 +12,11 @@ type PostgresJsConnection = Pick<PostgresJsClient, "unsafe">;
 const utf8 = new TextDecoder();
 
 export function createPostgresJsDatabase(client: PostgresJsClient, options: BufferedOptions): TransactionalDatabase {
+  if (
+    options.profile.jsonWire !== "text" ||
+    (options.profile.jsonInputWire !== undefined && options.profile.jsonInputWire !== "text")
+  )
+    throw new TypeError("This adapter requires text JSON wire formats");
   if (options.profile.dialect !== "postgres" || options.profile.jsonWire !== "text")
     throw new TypeError("Postgres.js requires a PostgreSQL raw-text transport profile");
   const executor = (connection: PostgresJsConnection) => ({
