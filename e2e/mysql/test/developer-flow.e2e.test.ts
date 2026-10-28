@@ -33,6 +33,7 @@ import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "p
 import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
 import { assertLegacyTextValuePlans, assertLegacyValuePlans } from "../../../test/helpers/legacy-value-plans.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
+import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
 
 interface CommandResult {
@@ -522,6 +523,25 @@ try {
       strict.strictEqual(analysis.queries.length, 1);
       const contract = analysis.queries[0]!;
       strict.strictEqual(contract.parameterType, "readonly [number]");
+      const jsonSource = await readFile(join(packageDirectory, "src/json-query.ts"), "utf8");
+      const jsonAnalysis = analyzeSource(jsonSource, snapshot, selectedDialect);
+      strict.deepStrictEqual(jsonAnalysis.diagnostics, []);
+      strict.deepStrictEqual(
+        jsonAnalysis.queries.map(({ rowType, parameterType }) => ({ rowType, parameterType })),
+        [
+          {
+            rowType:
+              '{ "document": { "id": number; "wide": number; "amount": number; "date": string; "tiny": number; "nested": readonly [boolean, null]; "unchecked": unknown; }; }',
+            parameterType: "readonly [number]",
+          },
+          {
+            rowType:
+              '{ "selected": 1; "appended": { "items": readonly [1, boolean]; }; "inserted": readonly [1, number, 2]; "merged": { "a": readonly [1, 2]; }; }',
+            parameterType: "readonly [number]",
+          },
+          { rowType: '{ "aggregate": readonly ({ "id": number; })[] | null; }', parameterType: "readonly [number]" },
+        ],
+      );
       const rowType = contract.rowType.replace(/"([^"]+)":/gu, "$1:");
       for (const exact of [
         "id: number",
@@ -676,6 +696,23 @@ try {
         strict.strictEqual(codec.enum_value, "ready");
         strict.strictEqual(codec.set_value, "read,write");
         strict.strictEqual(codec.nullable_text, null);
+        strict.deepStrictEqual(await database.execute(mysqlJsonProjection), [
+          {
+            document: {
+              id: 1,
+              wide: Number("9007199254740993"),
+              amount: Number("12345678901234567890.1234567890"),
+              date: "2026-08-25",
+              tiny: 1,
+              nested: [true, null],
+              unchecked: { count: 1, kind: "json" },
+            },
+          },
+        ]);
+        strict.deepStrictEqual(await database.execute(mysqlJsonMutations), [
+          { selected: 1, appended: { items: [1, true] }, inserted: [1, 3, 2], merged: { a: [1, 2] } },
+        ]);
+        strict.deepStrictEqual(await database.execute(mysqlJsonEmptyAggregate), [{ aggregate: null }]);
       } finally {
         await database.close();
       }
