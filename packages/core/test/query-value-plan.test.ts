@@ -54,6 +54,30 @@ await describe("query value plans", async () => {
     strict.throws(() => assertQueryResultTransport(query, { ...text, dialect: "postgres" }), /policies/);
     strict.throws(() => decodeQueryResultRows(query, [{ value: Number.MAX_SAFE_INTEGER + 1 }], text), QueryValueError);
   });
+  await it("rejects parsed transport when SQL NULL could bypass an application JSON declaration", () => {
+    const json = {
+      representation: "parsed" as const,
+      requiresRuntimeValidation: true as const,
+      shape: { kind: "object" as const, properties: { id: { shape: { kind: "number" as const } } } },
+    };
+    const scalar = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: true, type: "unknown", json }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(scalar, parsed), /distinguish/);
+    strict.deepEqual(decodeQueryResultRows(scalar, [{ value: null }], text), [{ value: null }]);
+    strict.throws(() => decodeQueryResultRows(scalar, [{ value: "null" }], text), /declared shape/);
+    const array = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: { array: { json } } }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(array, parsed), /distinguish/);
+    const union = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: { union: ["string", { array: { json } }] } }] }),
+    );
+    strict.throws(() => assertQueryResultTransport(union, parsed), /distinguish/);
+  });
   await it("snapshots descriptors without retaining mutable caller metadata", () => {
     const input = plan();
     const query = withQueryValuePlan(sql<{ value: unknown }>`select 1`, input);

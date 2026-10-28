@@ -92,3 +92,74 @@ await it("enforces attached plans once across MySQL operations and retires rejec
     completions.some((completion) => completion.status === "error" && completion.errorType === "TSQL_QUERY_VALUE"),
   );
 });
+
+await it("validates owned JSON text before SQL NULL and parsed JSON become indistinguishable", async () => {
+  let wire: unknown = "null";
+  let calls = 0;
+  const fields = [{ name: "doc", columnType: 245 }];
+  const connection: MySqlConnectionLike = {
+    async execute() {
+      calls++;
+      return { rows: [{ doc: wire }], fields };
+    },
+    async query() {
+      return { rows: [] };
+    },
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    destroy() {},
+    release() {},
+    stream() {
+      let sent = false;
+      return {
+        fields: Promise.resolve(fields),
+        connectionReusable: true,
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+        async next() {
+          if (sent) return { done: true as const, value: undefined };
+          sent = true;
+          return { done: false as const, value: { doc: wire } };
+        },
+        async close() {},
+      };
+    },
+  };
+  const pool = { execute: connection.execute, getConnection: async () => connection, end: async () => {} };
+  const database = createMySqlDatabase({ pool: { ...pool, jsonWire: "text" } });
+  const query = withQueryValuePlan(sql`SELECT doc`, {
+    dialect: "mysql",
+    typePolicyHash: calculateTypePolicyHash(defaultMySqlTypePolicy),
+    parameters: [],
+    columns: [
+      {
+        name: "doc",
+        type: "unknown",
+        nullable: true,
+        json: {
+          representation: "parsed",
+          requiresRuntimeValidation: true,
+          shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+        },
+      },
+    ],
+  });
+  await strict.rejects(database.all(query), /declared shape/);
+  await strict.rejects(async () => {
+    for await (const _row of database.stream(query)) {
+    }
+  }, /declared shape/);
+  wire = null;
+  strict.deepEqual(await database.all(query), [{ doc: null }]);
+  wire = '{"id":1}';
+  strict.deepEqual(await database.all(query), [{ doc: { id: 1 } }]);
+  strict.deepEqual(await database.all(sql`SELECT doc`), [{ doc: { id: 1 } }]);
+  wire = '{"id":"wrong"}';
+  await strict.rejects(database.all(query), /declared shape/);
+  const generic = createMySqlDatabase({ pool });
+  const before = calls;
+  await strict.rejects(generic.all(query), /distinguish/);
+  strict.equal(calls, before);
+});

@@ -250,6 +250,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #observation: MySqlObservationState;
   readonly #safety: MySqlRuntimeSafetyState;
   readonly #decoderPlans: MySqlDecoderPlanCache;
+  readonly #plannedDecoderPlans: MySqlDecoderPlanCache;
   readonly #profile: QueryTransportProfile;
   readonly #executes: Set<MySqlConnectionOperation> | undefined;
   readonly #streams: Set<QueryStream<unknown>> | undefined;
@@ -265,6 +266,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     depth: number,
     prepared: MySqlPreparedQueryState,
     decoderPlans: MySqlDecoderPlanCache,
+    plannedDecoderPlans: MySqlDecoderPlanCache,
     observation: MySqlObservationState,
     safety: MySqlRuntimeSafetyState,
     profile: QueryTransportProfile,
@@ -276,6 +278,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#depth = depth;
     this.#prepared = prepared;
     this.#decoderPlans = decoderPlans;
+    this.#plannedDecoderPlans = plannedDecoderPlans;
     this.#observation = observation;
     this.#safety = safety;
     this.#profile = profile;
@@ -507,7 +510,9 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       if (this.#safety.rejectWarnings) throw new MySqlWarningError(warning);
     }
     if (!Array.isArray(result.rows)) return [];
-    const decoders = this.#decoderPlans.get(result.fields ?? []);
+    const decoders = (getQueryValuePlan(query) === undefined ? this.#decoderPlans : this.#plannedDecoderPlans).get(
+      result.fields ?? [],
+    );
     const rows = decodeMySqlRows(result.rows, decoders);
     return getQueryValuePlan(query) === undefined
       ? (rows as unknown as readonly Row[])
@@ -662,7 +667,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
       text: rendered.text,
       values: this.#encodeValues(query, rendered.values),
       batchSize,
-      decoderPlans: this.#decoderPlans,
+      decoderPlans: getQueryValuePlan(query) === undefined ? this.#decoderPlans : this.#plannedDecoderPlans,
       onClose: () => {
         this.#streams?.delete(exposedStream as QueryStream<unknown>);
         if (this.#transactionState?.active === exposedStream) this.#transactionState.active = undefined;
@@ -794,6 +799,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         1,
         this.#prepared,
         this.#decoderPlans,
+        this.#plannedDecoderPlans,
         this.#observation,
         this.#safety,
         this.#profile,
@@ -851,6 +857,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         depth,
         this.#prepared,
         this.#decoderPlans,
+        this.#plannedDecoderPlans,
         this.#observation,
         this.#safety,
         this.#profile,
@@ -1022,13 +1029,19 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
     0,
     createMySqlPreparedQueryState(options.preparedStatementLimit, options.preparedCardinalityVariantLimit),
     new MySqlDecoderPlanCache(typePolicy, options.decimal, options.decoderPlanCacheCapacity, options.pool.jsonWire),
+    new MySqlDecoderPlanCache(
+      options.pool.jsonWire === "text" ? { ...typePolicy, json: "string" } : typePolicy,
+      options.decimal,
+      options.decoderPlanCacheCapacity,
+      options.pool.jsonWire,
+    ),
     createMySqlObservationState(options.observer),
     safety,
     {
       id: "mysql",
       dialect: "mysql",
       integer: "lossless",
-      jsonWire: typePolicy.json === "string" ? "text" : "parsed",
+      jsonWire: options.pool.jsonWire === "text" || typePolicy.json === "string" ? "text" : "parsed",
       jsonInputWire: "text",
       typePolicyHash: calculateTypePolicyHash({ ...defaultMySqlTypePolicy, ...options.typePolicy }),
     },

@@ -244,6 +244,19 @@ function hasBigint(type: RuntimeValueType): boolean {
     : type === "bigint";
 }
 
+function ambiguousParsedJson(type: RuntimeValueType, nullable: boolean, json?: JsonValueDescriptor): boolean {
+  if (json !== undefined)
+    return (
+      nullable &&
+      ((json.representation === "text" && validateJsonValue(null, json.shape)) ||
+        (json.requiresRuntimeValidation === true && !validateJsonValue(null, json.shape)))
+    );
+  if (typeof type === "string" || "literal" in type) return false;
+  if ("json" in type) return ambiguousParsedJson("unknown", nullable, type.json);
+  if ("array" in type) return ambiguousParsedJson(type.array, type.elementNullable !== false);
+  return type.union.some((member) => ambiguousParsedJson(member, nullable));
+}
+
 export function assertQueryResultTransport<Row, Params extends readonly unknown[]>(
   query: Query<Row, Params>,
   profile: QueryTransportProfile,
@@ -262,12 +275,9 @@ export function assertQueryResultTransport<Row, Params extends readonly unknown[
     throw new QueryValueError("plan", "transport cannot preserve bigint values");
   if (
     profile.jsonWire === "parsed" &&
-    plan.columns.some(
-      (column) =>
-        column.nullable && column.json?.representation === "text" && validateJsonValue(null, column.json.shape),
-    )
+    plan.columns.some((column) => ambiguousParsedJson(column.type, column.nullable, column.json))
   )
-    throw new QueryValueError("plan", "parsed transport cannot distinguish SQL NULL from JSON null for text output");
+    throw new QueryValueError("plan", "parsed transport cannot distinguish SQL NULL from JSON null for this contract");
 }
 
 function scalar(
