@@ -433,10 +433,10 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
-        try { require.resolve("pg"); throw new Error("pg was installed transitively"); }
-        catch (error) { if (error.message === "pg was installed transitively") throw error; }
-        try { require.resolve("mysql2"); throw new Error("mysql2 was installed transitively"); }
-        catch (error) { if (error.message === "mysql2 was installed transitively") throw error; }
+        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres"]) {
+          try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
+          catch (error) { if (error.message === driver + " was installed transitively") throw error; }
+        }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");

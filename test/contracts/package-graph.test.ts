@@ -23,7 +23,16 @@ interface PackageManifest {
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(directory, "../..");
-const forbiddenDrivers = new Set(["pg", "pg-copy-streams", "mysql2", "better-sqlite3", "sqlite3"]);
+const forbiddenDrivers = new Set([
+  "pg",
+  "pg-copy-streams",
+  "mysql2",
+  "better-sqlite3",
+  "sqlite3",
+  "@libsql/client",
+  "@neondatabase/serverless",
+  "postgres",
+]);
 const publicPackages = [
   "adapters",
   "ast",
@@ -94,6 +103,7 @@ async function source(packageName: string, parent = "packages"): Promise<string>
 await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
     for (const packageName of [
+      "adapters",
       "core",
       "opentelemetry",
       "config",
