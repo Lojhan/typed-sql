@@ -88,6 +88,21 @@ await describe("MySQL structured JSON", async () => {
     }
   });
 
+  await it("clears JSON provenance when unary minus coerces a JSON operand to SQL double", () => {
+    const result = analyze(
+      `SELECT -JSON_OBJECT('a',1) AS object_number, -JSON_EXTRACT('[1]', '$[0]') AS scalar_number, +JSON_OBJECT('a',1) AS preserved`,
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(
+      result.columns.slice(0, 2).map(({ tsType, databaseType, json }) => ({ tsType, databaseType, json })),
+      [
+        { tsType: "number", databaseType: "double", json: undefined },
+        { tsType: "number", databaseType: "double", json: undefined },
+      ],
+    );
+    strict.strictEqual(result.columns[2]?.tsType, '{ "a": number; }');
+  });
+
   await it("does not overwrite an existing document root in JSON_INSERT", () => {
     const result = analyze(`SELECT JSON_INSERT('{"a":1}', '$', 2) AS result`);
     strict.deepStrictEqual(result.diagnostics, []);

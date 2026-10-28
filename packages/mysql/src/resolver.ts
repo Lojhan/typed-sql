@@ -1471,7 +1471,9 @@ class Resolver {
       return expression.operator === "NOT"
         ? { tsType: "boolean", nullable: operand.nullable, databaseType: "boolean" }
         : expression.operator === "-"
-          ? { ...operand, unsigned: false }
+          ? operand.databaseType === "json"
+            ? { tsType: "number", nullable: operand.nullable, databaseType: "double" }
+            : { ...operand, unsigned: false }
           : operand;
     }
     if (expression.kind === "binary") return this.#binary(expression, scope, ctes);
