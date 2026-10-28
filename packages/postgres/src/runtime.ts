@@ -97,6 +97,8 @@ export interface PostgresClientLike {
 }
 
 export interface PostgresPoolLike {
+  /** The adapter honors query-local text parsers for JSON and native JSON arrays. */
+  readonly rawJsonParsers?: true;
   readonly executionCapabilities?: ExecutionCapabilities;
   query(config: PostgresQueryConfig | string): Promise<PostgresQueryResult>;
   ensureCursor?(): Promise<void>;
@@ -323,6 +325,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #pool: PostgresPoolLike;
   readonly #client: PostgresClientLike | undefined;
   readonly #parsers: PostgresTypeParserSet;
+  readonly #plannedParsers: PostgresTypeParserSet;
   readonly #profile: QueryTransportProfile;
   readonly #ownsPool: boolean;
   readonly #prepared: PostgresPreparedQueryState;
@@ -377,6 +380,18 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#pool = pool;
     this.#client = client;
     this.#parsers = parsers;
+    this.#plannedParsers =
+      pool.rawJsonParsers === true
+        ? {
+            getTypeParser(oid, format) {
+              if (format === undefined || format === "text") {
+                if (oid === oids.json || oid === oids.jsonb) return String;
+                if (oid === 199 || oid === 3807) return (value) => parsePostgresArray(value, String);
+              }
+              return parsers.getTypeParser(oid, format);
+            },
+          }
+        : parsers;
     this.#profile = profile;
     this.#ownsPool = ownsPool;
     this.#transactionDepth = depth;
@@ -1144,7 +1159,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
         ? rendered.values
         : encodeQueryValues(query, rendered.values, this.#profile)
       ).map(encodeValue),
-      types: this.#parsers,
+      types: getQueryValuePlan(query) === undefined ? this.#parsers : this.#plannedParsers,
     };
   }
 
@@ -1417,7 +1432,7 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
       id: "postgres",
       dialect: "postgres",
       integer: "lossless",
-      jsonWire: policy.json === "string" ? "text" : "parsed",
+      jsonWire: options.pool.rawJsonParsers === true || policy.json === "string" ? "text" : "parsed",
       jsonInputWire: "text",
       typePolicyHash: calculateTypePolicyHash(policy),
     },

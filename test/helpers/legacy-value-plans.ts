@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 import {
   type Database,
+  jsonValue,
   type Query,
   type QueryStream,
   QueryValueError,
@@ -209,4 +210,66 @@ export async function assertCompiledLegacyValuePlans<Snapshot extends SchemaSnap
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
+}
+
+/** Owned pg must preserve physical JSON null before validating application result shapes. */
+export async function assertPostgresRawJsonValuePlans(
+  database: import("../../packages/postgres/src/runtime.js").PostgresDatabase,
+  typePolicyHash: string,
+  pipelineDatabase?: Pick<import("../../packages/postgres/src/runtime.js").PostgresDatabase, "pipeline">,
+): Promise<void> {
+  const json = {
+    shape: { kind: "array", element: { kind: "number" } },
+    representation: "parsed",
+    requiresRuntimeValidation: true,
+  } as const;
+  const query = (expression: string) =>
+    withQueryValuePlan(sql<{ doc: readonly number[] | null }>`SELECT ${sql.raw(expression)} AS doc`, {
+      dialect: "postgres",
+      typePolicyHash,
+      columns: [{ name: "doc", type: "unknown", nullable: true, json }],
+      parameters: [],
+    });
+  const good = query("'[1,2]'::jsonb"),
+    sqlNull = query("NULL::jsonb"),
+    jsonNull = query("'null'::jsonb");
+  strict.deepEqual(await database.all(sqlNull), [{ doc: null }]);
+  strict.deepEqual(await database.all(good), [{ doc: [1, 2] }]);
+  await strict.rejects(database.all(jsonNull), QueryValueError);
+  await strict.rejects(database.execute(jsonNull), QueryValueError);
+  await strict.rejects(database.one(jsonNull), QueryValueError);
+  await strict.rejects(database.maybeOne(jsonNull), QueryValueError);
+  await strict.rejects(database.batch([good, jsonNull]), QueryValueError);
+  if (pipelineDatabase !== undefined)
+    await strict.rejects(pipelineDatabase.pipeline([good, jsonNull]), QueryValueError);
+  const prepared = database.prepare("raw_json_null", () => jsonNull);
+  await strict.rejects(database.all(prepared()), QueryValueError);
+  await strict.rejects(async () => {
+    for await (const _ of database.stream(jsonNull)) {
+    }
+  }, QueryValueError);
+  await strict.rejects(
+    database.transaction((scope) => scope.all(jsonNull)),
+    QueryValueError,
+  );
+  const array = (expression: string) =>
+    withQueryValuePlan(sql<{ doc: readonly (readonly number[] | null)[] }>`SELECT ${sql.raw(expression)} AS doc`, {
+      dialect: "postgres",
+      typePolicyHash,
+      columns: [{ name: "doc", type: { array: { json } }, nullable: false }],
+      parameters: [],
+    });
+  strict.deepEqual(await database.all(array("ARRAY[NULL::jsonb,'[1,2]'::jsonb]")), [{ doc: [null, [1, 2]] }]);
+  await strict.rejects(database.all(array("ARRAY[NULL::jsonb,'null'::jsonb]")), QueryValueError);
+  const input = withQueryValuePlan(
+    sql<{ doc: readonly (readonly number[] | null)[] }>`SELECT ${[jsonValue([1, 2]), null]}::jsonb[] AS doc`,
+    {
+      dialect: "postgres",
+      typePolicyHash,
+      columns: [{ name: "doc", type: { array: { json } }, nullable: false }],
+      parameters: [{ index: 1, type: { array: { json } }, nullable: false }],
+    },
+  );
+  strict.deepEqual(await database.all(input), [{ doc: [[1, 2], null] }]);
+  strict.deepEqual(await database.all(sqlNull), [{ doc: null }], "a failed planned decode does not leak a lease");
 }

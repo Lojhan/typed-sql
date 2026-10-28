@@ -120,6 +120,12 @@ enums remain strings, domains retain their base representation, and types withou
 manifest codec delegate to the installed driver's parser table. `bytea` is normalized to
 `Uint8Array`. Driver settings that would contradict the selected type policy are rejected.
 
+For queries with executable value metadata, the owned `pg` adapter preserves JSON and JSON-array
+wire text until the shared validator decodes it. This keeps SQL `NULL` distinct from JSON `null`,
+including native SQL array elements. Untransformed queries retain the selected legacy JSON policy.
+Custom pools may declare `rawJsonParsers: true` only when they honor query-local text parsers;
+already parsed transports reject contracts whose null distinction cannot be verified.
+
 When `compatibilitySnapshot` is present, `createPgDatabase()` reads that generated artifact and
 negotiates the target before returning. It rejects mismatched grammar versions, server majors,
 extension versions, lexical settings, search paths, built-in catalog revisions, schema identities,

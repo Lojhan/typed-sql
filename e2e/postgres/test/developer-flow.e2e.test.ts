@@ -35,6 +35,7 @@ import {
   assertCompiledLegacyValuePlans,
   assertLegacyTextValuePlans,
   assertLegacyValuePlans,
+  assertPostgresRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
@@ -218,6 +219,7 @@ try {
         await assertLegacyValuePlans(database, "postgres", calculateTypePolicyHash(typePolicy), (queries) =>
           pipeline.pipeline(queries),
         );
+        await assertPostgresRawJsonValuePlans(database, calculateTypePolicyHash(typePolicy), pipelineDatabase);
         const compiledDialect = postgres({ typePolicy });
         await assertCompiledLegacyValuePlans(
           database,
