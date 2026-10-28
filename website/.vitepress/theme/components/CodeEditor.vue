@@ -93,10 +93,31 @@ export default defineComponent({
           create() {
             const dom = document.createElement("div");
             dom.className = "ts-code-editor__type-hover";
-            const content = document.createElement("pre");
-            content.textContent = target.content;
-            dom.append(content);
-            return { dom };
+            const hoverAppearance = new Compartment();
+            const preview = new EditorView({
+              parent: dom,
+              state: EditorState.create({
+                doc: target.content,
+                extensions: [
+                  javascript({ typescript: true }),
+                  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+                  hoverAppearance.of(appearanceExtension()),
+                  EditorState.readOnly.of(true),
+                  EditorView.editable.of(false),
+                  EditorView.contentAttributes.of({ "aria-label": "Inferred TypeScript type" }),
+                  EditorView.lineWrapping,
+                ],
+              }),
+            });
+            return {
+              dom,
+              update() {
+                preview.dispatch({ effects: hoverAppearance.reconfigure(appearanceExtension()) });
+              },
+              destroy() {
+                preview.destroy();
+              },
+            };
           },
         };
       },

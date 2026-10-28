@@ -276,6 +276,8 @@
 
 .ts-code-editor__type-hover {
   max-width: min(620px, calc(100vw - 36px));
+  max-height: min(420px, 60vh);
+  overflow: auto;
   border: 1px solid var(--ts-editor-tooltip-border);
   border-radius: var(--ts-radius-control);
   background: var(--ts-editor-tooltip-bg);
@@ -283,13 +285,25 @@
   color: var(--ts-editor-tooltip-text);
 }
 
-.ts-code-editor__type-hover pre {
-  overflow: auto;
-  margin: 0;
-  padding: 12px 14px;
+.ts-code-editor .ts-code-editor__type-hover .cm-editor {
+  height: auto;
+  min-height: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.ts-code-editor__type-hover .cm-scroller {
   font-family: var(--vp-font-family-mono);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.ts-code-editor__type-hover .cm-content {
+  padding: 12px 14px;
+}
+
+.ts-code-editor__type-hover .cm-line {
+  padding: 0;
 }
 
 .cm-tooltip.cm-tooltip-lint {
