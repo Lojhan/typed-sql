@@ -152,6 +152,46 @@ await describe("MySQL structured JSON", async () => {
     strict.strictEqual(validateJsonValue({ a: "x" }, shape), true);
   });
 
+  await it("deletes merge-patch members when nullable or unknown property values are JSON null", () => {
+    for (const member of [
+      { kind: "union", variants: [{ kind: "string" }, { kind: "null" }] },
+      { kind: "unknown" },
+    ] as const) {
+      const shape: JsonShape = { kind: "object", properties: { a: { shape: member } } };
+      const declared = {
+        ...schema,
+        tables: {
+          ...schema.tables,
+          accounts: {
+            ...schema.tables.accounts,
+            columns: {
+              ...schema.tables.accounts.columns,
+              document: {
+                ...schema.tables.accounts.columns.document,
+                jsonDeclaration: { source: "application", shape },
+              },
+            },
+          },
+        },
+      } as const satisfies SchemaSnapshot;
+      const result = resolveMySqlStatement(
+        parseSelect(`SELECT JSON_MERGE_PATCH('{"a":1,"keep":true}',document) AS value FROM accounts`),
+        declared,
+        { runtimeValidation: true },
+      );
+      strict.deepStrictEqual(result.diagnostics, []);
+      strict.deepStrictEqual(result.parameters, []);
+      strict.strictEqual(result.columns[0]?.nullable, false);
+      strict.strictEqual(result.columns[0]?.json?.requiresRuntimeValidation, true);
+      const output = result.columns[0]!.json!.shape;
+      strict.ok(validateJsonValue({ keep: true }, output));
+      strict.ok(validateJsonValue({ a: "changed", keep: true }, output));
+      strict.strictEqual(validateJsonValue({ keep: false }, output), false);
+      strict.strictEqual(validateJsonValue({}, output), false);
+      if (member.kind === "unknown") strict.ok(validateJsonValue({ a: { nested: 1 }, keep: true }, output));
+    }
+  });
+
   await it("preserves append, insertion and recursive merge JSON semantics", () => {
     const cases: readonly (readonly [string, unknown])[] = [
       [`JSON_ARRAY_APPEND('{"a":[1]}', '$.a', 2)`, { a: [1, 2] }],

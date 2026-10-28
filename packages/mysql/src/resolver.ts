@@ -2256,17 +2256,26 @@ class Resolver {
     let result: JsonShape =
       left.kind === "object" ? left : jsonObjectShape({}, left.kind === "unknown" ? unknownJsonShape : undefined);
     for (const [key, property] of Object.entries(right.properties)) {
-      const previous = jsonShapeAtPath(result, [key]);
-      const changed = updateJsonShapePath(
-        result,
-        [key],
-        property.shape.kind === "null"
-          ? undefined
-          : this.#jsonMergePatch(previous.presence === "never" ? jsonObjectShape({}) : previous.shape, property.shape),
-      );
+      const changed = this.#jsonMergePatchProperty(result, key, property.shape);
       result = property.optional ? unionJsonShapes([result, changed]) : changed;
     }
     return result;
+  }
+
+  #jsonMergePatchProperty(parent: JsonShape, key: string, patch: JsonShape): JsonShape {
+    if (++this.#jsonOperations > 1024) return unknownJsonShape;
+    if (patch.kind === "union")
+      return unionJsonShapes(patch.variants.map((variant) => this.#jsonMergePatchProperty(parent, key, variant)));
+    const deleted = updateJsonShapePath(parent, [key], undefined);
+    if (patch.kind === "null") return deleted;
+    if (patch.kind === "unknown")
+      return unionJsonShapes([deleted, updateJsonShapePath(parent, [key], unknownJsonShape)]);
+    const previous = jsonShapeAtPath(parent, [key]);
+    return updateJsonShapePath(
+      parent,
+      [key],
+      this.#jsonMergePatch(previous.presence === "never" ? jsonObjectShape({}) : previous.shape, patch),
+    );
   }
 
   #jsonArrayChange(shape: JsonShape, path: readonly (string | number)[], value: JsonShape, insert: boolean): JsonShape {
