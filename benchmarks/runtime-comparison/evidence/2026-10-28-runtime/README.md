@@ -55,6 +55,20 @@ of the completed metadata-backed frontend.
 paths. SQL-file static-fragment construction was an allocation candidate; its final effect must
 be measured after metadata generation and fragment hoisting are both integrated.
 
+## Corrected network driver baseline
+
+The original `postgres-node2411-before-platform.json` and
+`mysql-node2411-before-platform.json` used raw/Reylo driver versions 8.23.0/3.24.3 while the
+linked typed-sql adapters resolved 8.23.1/3.24.6. Retain them as historical observations; do not
+use their candidate ratios as a comparison with matching drivers.
+
+The `*-node2411-corrected-before-platform.json` reports rerun the old production runtime with
+matching drivers for every candidate: pg 8.23.1 and mysql2 3.24.6. Both raw and typed driver
+versions are recorded and asserted equal before measurement. They retain three trials,
+concurrency 1 and 8, six samples of 500 calls per case, and 200 warm-up calls. These corrected
+reports provide the network baseline for the final platform comparison. The SQLite built-in
+driver measurements are unaffected by this correction.
+
 ## Reading the artifacts
 
 Each JSON report retains every batch-average duration. Compute medians or percentiles over those
