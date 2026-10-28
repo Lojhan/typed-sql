@@ -1980,6 +1980,28 @@ await describe("query resolver", async () => {
         },
       },
     } as const satisfies SchemaSnapshot;
+    const compositeJson = resolveSelect(parseSelect("SELECT to_jsonb(profile) AS value FROM people"), compositeSchema);
+    strict.deepStrictEqual(compositeJson.diagnostics, []);
+    strict.strictEqual(compositeJson.columns[0]?.tsType, '{ "zip": number | null; "DisplayName": string | null; }');
+    const recursiveComposite = {
+      ...compositeSchema,
+      types: {
+        ...compositeSchema.types,
+        address: {
+          ...compositeSchema.types.address,
+          fields: [
+            { name: "child", typeIdentity: "pg:address", databaseType: "address", tsType: "unknown", nullable: true },
+          ],
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const recursiveJson = resolveSelect(
+      parseSelect("SELECT to_jsonb(profile) AS value FROM people"),
+      recursiveComposite,
+    );
+    strict.deepStrictEqual(recursiveJson.diagnostics, []);
+    strict.ok(recursiveJson.columns[0]?.json);
+    strict.ok(recursiveJson.columns[0]!.tsType.length < 16384);
     const result = resolveSelect(
       parseSelect(`
         SELECT (profile).zip AS zip,

@@ -178,3 +178,18 @@ Cursor streaming and COPY require a pool with `pipeline` disabled. The pg driver
 Inside a transaction, the stream reuses the transaction client and never releases it directly. The stream must complete or close before the transaction callback returns. Transaction `execute()`, `batch()`, and `pipeline()` calls must likewise be awaited before return; the adapter settles outstanding work before rollback and never selects commit first.
 
 See [Execute queries](../guides/execution.md), [Route reads and retry transactions](../guides/routing-and-retries.md), [Database type mappings](../reference/type-mappings.md#postgresql), and [Compatibility](../reference/compatibility.md).
+
+## Database JSON declarations
+
+Introspection recognizes a directly enforced, validated check that calls the
+`pg_jsonschema` extension's `json_matches_schema` or `jsonb_matches_schema` routine
+with a literal schema and the matching JSON column. The declaration uses the
+supported structural JSON Schema subset. The catalog dependency must identify the
+extension-owned routine; a same-named application function does not establish this
+contract. Unvalidated checks, unenforced checks, compound predicates, and dynamic
+schemas retain conservative JSON types.
+
+Named composite values converted to JSON retain their catalog field names and
+JSON-compatible value types. Composite fields can contain SQL null independently
+of constraints on a table that shares the row type. Recursive composites use the
+same bounded JSON shape analysis as other nested values.

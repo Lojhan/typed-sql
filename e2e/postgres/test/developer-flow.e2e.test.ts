@@ -671,7 +671,7 @@ try {
           ["JSON_OBJECT('nested' VALUE '{\"id\":1}' FORMAT JSON RETURNING jsonb)", { nested: { id: 1 } }],
           ["JSON_ARRAY(1,NULL ABSENT ON NULL)", [1]],
           ["JSON_ARRAY(1,NULL NULL ON NULL)", [1, null]],
-          ["JSON_ARRAY(SELECT 1)", [1]],
+          ["JSON_ARRAY(SELECT 1 AS element)", [1]],
         ];
         for (const [expression, expected] of cases) {
           const source = `SELECT ${expression} AS value`;

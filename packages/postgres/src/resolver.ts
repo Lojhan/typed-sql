@@ -4270,7 +4270,8 @@ class Resolver {
     };
   }
 
-  #jsonValue(value: ResolvedType, expression?: Expression): JsonShape {
+  #jsonValue(value: ResolvedType, expression?: Expression, depth = 0): JsonShape {
+    if (depth > 32 || ++this.#jsonOperations > 1024) return unknownJsonShape;
     if (expression?.kind === "literal" && expression.value === null) return nullJsonShape;
     let shape =
       (isJsonType(value) ? value.json?.shape : undefined) ??
@@ -4278,7 +4279,34 @@ class Resolver {
     if (shape === undefined && value.databaseType !== undefined) {
       const canonical = postgresCanonicalType(value.databaseType, this.#schema);
       const mapping = canonical.endsWith("[]") ? undefined : postgresCatalogTypeMapping(canonical, this.#schema);
-      if (canonical.endsWith("[]")) shape = unknownJsonShape;
+      const composite =
+        this.#schema.formatVersion !== 2
+          ? undefined
+          : Object.values(this.#schema.types).find(
+              (type): type is CompositeTypeSnapshot =>
+                type.kind === "composite" &&
+                [
+                  type.databaseType,
+                  type.identity,
+                  type.schema === undefined ? type.name : `${type.schema}.${type.name}`,
+                ].some((identity) => normalizeDatabaseType(identity) === normalizeDatabaseType(canonical)),
+            );
+      if (composite !== undefined) {
+        const properties: Record<string, JsonShapeProperty> = {};
+        for (const field of composite.fields)
+          Object.defineProperty(properties, field.name, {
+            value: {
+              shape: this.#jsonValue(
+                { tsType: field.tsType, databaseType: field.databaseType, nullable: true },
+                undefined,
+                depth + 1,
+              ),
+            },
+            enumerable: true,
+            configurable: true,
+          });
+        shape = jsonObjectShape(properties);
+      } else if (canonical.endsWith("[]")) shape = unknownJsonShape;
       else if (["smallint", "integer", "bigint"].includes(canonical)) shape = { kind: "number" };
       else if (["numeric", "real", "double precision"].includes(canonical))
         shape = unionJsonShapes([{ kind: "number" }, { kind: "string" }]);

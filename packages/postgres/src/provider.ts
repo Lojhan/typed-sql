@@ -11,11 +11,12 @@ import type {
   SchemaSnapshotV2,
   TypeSnapshot,
 } from "@typed-sql/schema";
-import { defineSchemaSnapshotV2, fingerprintSchemaExpression } from "@typed-sql/schema";
+import { defineSchemaSnapshotV2, fingerprintSchemaExpression, jsonShapeFromSchema } from "@typed-sql/schema";
 import { postgresServerEvidence } from "./capabilities.js";
 import { postgresCoreCatalog } from "./catalog/index.js";
 import { fingerprintPostgresExpressionSql } from "./expression-evidence.js";
 import { introspectPostgresExtensionManifests, type PostgresExtensionManifest } from "./extensions.js";
+import { parseSelect } from "./parser/index.js";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
@@ -131,6 +132,9 @@ interface ConstraintCatalogRow extends Record<string, unknown> {
   readonly expression_based?: boolean;
   readonly predicate_expression?: string | null;
   readonly exclusion_operators?: readonly string[] | null;
+  readonly validated?: boolean;
+  readonly enforced?: boolean;
+  readonly json_schema_routines?: readonly string[];
 }
 
 interface IndexCatalogRow extends Record<string, unknown> {
@@ -322,6 +326,21 @@ export const postgresCatalogQueries = {
       con.confdeltype AS delete_action,
       con.condeferrable AS deferrable,
       con.condeferred AS initially_deferred,
+      con.convalidated AS validated,
+      ${serverMajor >= 18 ? "con.conenforced" : "true"} AS enforced,
+      ARRAY(
+        SELECT pn.nspname || '.' || p.proname
+        FROM pg_catalog.pg_depend AS cd
+        JOIN pg_catalog.pg_proc AS p ON cd.refclassid = 'pg_catalog.pg_proc'::regclass AND p.oid = cd.refobjid
+        JOIN pg_catalog.pg_namespace AS pn ON pn.oid = p.pronamespace
+        JOIN pg_catalog.pg_depend AS ed ON ed.classid = 'pg_catalog.pg_proc'::regclass AND ed.objid = p.oid AND ed.deptype = 'e'
+        JOIN pg_catalog.pg_extension AS e ON ed.refclassid = 'pg_catalog.pg_extension'::regclass AND e.oid = ed.refobjid
+        WHERE cd.classid = 'pg_catalog.pg_constraint'::regclass AND cd.objid = con.oid
+          AND e.extname = 'pg_jsonschema' AND p.prorettype = 'boolean'::regtype
+          AND ((p.proname = 'json_matches_schema' AND p.proargtypes = '114 114'::oidvector)
+            OR (p.proname = 'jsonb_matches_schema' AND p.proargtypes = '114 3802'::oidvector))
+        ORDER BY pn.nspname, p.proname
+      ) AS json_schema_routines,
       ${nullsNotDistinct} AS nulls_not_distinct,
       (array_position(con.conkey, 0) IS NOT NULL) AS expression_based,
       CASE
@@ -815,7 +834,76 @@ export class PostgresSchemaProvider implements SchemaProvider<SchemaSnapshotV2> 
                         ? {}
                         : { predicateHash: fingerprintPostgresExpressionSql(row.predicate_expression) }),
                     } as const);
-        relations[relationKey] = { ...relation, constraints: [...relation.constraints, constraint] };
+        let columnsWithJson = relation.columns;
+        if (
+          row.constraint_type === "c" &&
+          row.validated === true &&
+          row.enforced === true &&
+          typeof row.predicate_expression === "string" &&
+          row.predicate_expression.length <= 65536 &&
+          (row.json_schema_routines?.length ?? 0) > 0
+        ) {
+          try {
+            const selected = parseSelect(`SELECT ${row.predicate_expression}`);
+            const predicate = selected.columns[0]?.expression;
+            if (
+              selected.columns.length === 1 &&
+              selected.from === undefined &&
+              predicate?.kind === "call" &&
+              predicate.arguments.length === 2 &&
+              !predicate.distinct &&
+              predicate.over === undefined
+            ) {
+              const name = predicate.name.quoted ? predicate.name.name : predicate.name.name.toLowerCase();
+              const namespace =
+                predicate.schema === undefined
+                  ? undefined
+                  : predicate.schema.quoted
+                    ? predicate.schema.name
+                    : predicate.schema.name.toLowerCase();
+              const routines = row.json_schema_routines ?? [];
+              const proven =
+                namespace === undefined
+                  ? routines.some((routine) => routine.endsWith(`.${name}`))
+                  : routines.includes(`${namespace}.${name}`);
+              let document = predicate.arguments[0]!;
+              if (document.kind === "cast" && document.databaseType.name === "json") document = document.expression;
+              const reference = predicate.arguments[1];
+              if (
+                proven &&
+                document.kind === "literal" &&
+                typeof document.value === "string" &&
+                reference?.kind === "column" &&
+                reference.relation === undefined
+              ) {
+                const columnName = reference.column.quoted
+                  ? reference.column.name
+                  : reference.column.name.toLowerCase();
+                const column = relation.columns[columnName];
+                if (
+                  column !== undefined &&
+                  column.jsonDeclaration === undefined &&
+                  column.databaseType === (name === "jsonb_matches_schema" ? "jsonb" : "json")
+                ) {
+                  columnsWithJson = {
+                    ...relation.columns,
+                    [columnName]: {
+                      ...column,
+                      jsonDeclaration: { source: "database", shape: jsonShapeFromSchema(JSON.parse(document.value)) },
+                    },
+                  };
+                }
+              }
+            }
+          } catch {
+            // Retain the constraint evidence without a structural declaration.
+          }
+        }
+        relations[relationKey] = {
+          ...relation,
+          columns: columnsWithJson,
+          constraints: [...relation.constraints, constraint],
+        };
       }
       for (const row of indexResult.rows) {
         const relationKey = qualifiedKey(row.schema_name, row.table_name);
