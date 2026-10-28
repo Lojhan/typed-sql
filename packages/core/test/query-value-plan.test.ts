@@ -11,6 +11,7 @@ import {
   type QueryValuePlan,
   withQueryValuePlan,
 } from "../src/query-value-plan.js";
+import type { StandardSchemaV1 } from "../src/result-validation.js";
 
 const text: QueryTransportProfile = { id: "test", dialect: "sqlite", integer: "lossless", jsonWire: "text" };
 const parsed: QueryTransportProfile = { ...text, jsonWire: "parsed" };
@@ -71,9 +72,10 @@ await describe("query value plans", async () => {
         ],
       }),
     );
-    const validated = sql.validateResult(query, {
-      "~standard": { version: 1 as const, vendor: "test", validate: (value: unknown) => ({ value: { value } }) },
-    });
+    const schema: StandardSchemaV1<unknown, { value: unknown }> = {
+      "~standard": { version: 1, vendor: "test", validate: (value: unknown) => ({ value: { value } }) },
+    };
+    const validated = sql.validateResult(query, schema);
     strict.equal(getQueryValuePlan(validated), getQueryValuePlan(query));
     strict.equal(decodeQueryResultRows(query, [{ value: "null" }], text)[0]?.value, null);
     strict.equal(decodeQueryResultRows(query, [{ value: null }], parsed)[0]?.value, null);
