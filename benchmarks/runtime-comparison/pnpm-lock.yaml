@@ -19,6 +19,12 @@ importers:
       '@prisma/client':
         specifier: 7.10.0
         version: 7.10.0(prisma@7.10.0(@types/node@24.13.3)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2))(typescript@7.0.2)
+      '@reylosql/mysql':
+        specifier: 0.6.0
+        version: 0.6.0
+      '@reylosql/postgres':
+        specifier: 0.6.0
+        version: 0.6.0
       '@reylosql/sqlite':
         specifier: 0.6.0
         version: 0.6.0
@@ -51,7 +57,7 @@ importers:
         version: 7.0.0
       reylo:
         specifier: 0.6.0
-        version: 0.6.0(@reylosql/sqlite@0.6.0)
+        version: 0.6.0(@reylosql/mysql@0.6.0)(@reylosql/postgres@0.6.0)(@reylosql/sqlite@0.6.0)
       typeorm:
         specifier: 1.1.0
         version: 1.1.0(mysql2@3.24.3(@types/node@24.13.3))(pg@8.23.0)
@@ -383,6 +389,12 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  '@reylosql/mysql@0.6.0':
+    resolution: {integrity: sha512-KZ+RCMOovYJWkG4nkdKGbplBSNnF002/5Ym/pBI8Dphjl0a/MdlL1Nsb82Er/SIPweflEbidiVEMBmEvmCNGDg==}
+
+  '@reylosql/postgres@0.6.0':
+    resolution: {integrity: sha512-Y4BV7iloJapUvsUs6kCEmU4TVB7qPBuAECzW7yLjMByhDHmsH9lS/oyNZ0UfZp36AghXQfzdv7C71S0BKM5D0Q==}
 
   '@reylosql/sqlite@0.6.0':
     resolution: {integrity: sha512-AKn4IdL9/PJmchJXRQmIZpXCuuLvNdSyLfSjBRXiMAO2h4BlZVJJR+Qvn7WtVqyOyHaxopsLUaiocj8VW1lnWg==}
@@ -1535,6 +1547,10 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.18
 
+  '@reylosql/mysql@0.6.0': {}
+
+  '@reylosql/postgres@0.6.0': {}
+
   '@reylosql/sqlite@0.6.0': {}
 
   '@sqltools/formatter@1.2.5': {}
@@ -2114,8 +2130,10 @@ snapshots:
 
   retry@0.12.0: {}
 
-  reylo@0.6.0(@reylosql/sqlite@0.6.0):
+  reylo@0.6.0(@reylosql/mysql@0.6.0)(@reylosql/postgres@0.6.0)(@reylosql/sqlite@0.6.0):
     optionalDependencies:
+      '@reylosql/mysql': 0.6.0
+      '@reylosql/postgres': 0.6.0
       '@reylosql/sqlite': 0.6.0
 
   robust-predicates@3.0.3: {}

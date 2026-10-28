@@ -85,13 +85,14 @@ extrapolating one small transfer.
 
 The APIs follow the projects' public documentation: [Drizzle PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [Drizzle prepared queries](https://orm.drizzle.team/docs/perf-queries), [Kysely](https://kysely.dev/), [Prisma PostgreSQL driver adapter](https://www.prisma.io/docs/orm/overview/databases/postgresql), and [TypeORM QueryBuilder](https://typeorm.io/docs/query-builder/select-query-builder/).
 
-## SQLite and SQL-file comparison
+## Reylo and SQL-file comparison
 
 The SQLite workload runs locally on Node.js 24 using its built-in driver. It compares current
 checkout packages with pinned Reylo 0.6.0: raw cached/prepared-per-call statements, typed-sql
 inline and logical prepared factories, typed-sql SQL-file factories with and without preparation,
-and Reylo's normal asynchronous and synchronous SQL-file APIs. The existing PostgreSQL/MySQL
-workloads above require their databases; the SQLite command does not start any container.
+and Reylo's normal asynchronous and synchronous SQL-file APIs. This same comparison also supports
+PostgreSQL and MySQL using their respective grammar and driver packages. The SQLite command does
+not start any container. SQL-file execution requires Node.js 24.11.1 or newer in the 24.x line.
 
 After building the root packages and installing this workspace, run:
 
@@ -99,6 +100,26 @@ After building the root packages and installing this workspace, run:
 SQLITE_BENCHMARK_TRIALS=3 SQLITE_BENCHMARK_SAMPLES=12 \
 SQLITE_BENCHMARK_ITERATIONS=1500 pnpm benchmark:sqlite
 ```
+
+Run the network variants against dedicated disposable databases. These commands recreate only
+their `runtime_account` fixture table; do not point them at an application database:
+
+```sh
+POSTGRES_URL=postgresql://postgres@127.0.0.1:5432/typed_sql_benchmark \
+RUNTIME_BENCHMARK_TRIALS=3 RUNTIME_BENCHMARK_SAMPLES=12 \
+RUNTIME_BENCHMARK_ITERATIONS=1500 pnpm benchmark:postgres
+
+MYSQL_URL=mysql://root:password@127.0.0.1:3306/typed_sql_benchmark \
+RUNTIME_BENCHMARK_TRIALS=3 RUNTIME_BENCHMARK_SAMPLES=12 \
+RUNTIME_BENCHMARK_ITERATIONS=1500 pnpm benchmark:mysql
+```
+
+Network candidates use pools with a maximum of ten connections. PostgreSQL's raw cached path
+uses a named prepared statement; its other raw path uses an unnamed parameterized query.
+MySQL's cached path uses `mysql2.execute`, while its other raw path uses the text protocol through
+`mysql2.query`. There is no synchronous Reylo candidate for network drivers. Network concurrency
+1 and 8 measure separate workloads and can use independent physical connections. The JSON
+aggregate's record order is not part of the workload guarantee.
 
 Every worker gets a fresh project and identical 1,000-row database. Separate processes avoid
 competing SQL-file loader hooks. Candidate order is shuffled reproducibly within each trial.
@@ -118,7 +139,8 @@ parallel SQLite I/O. Typed-sql retains transaction/stream serialization; Reylo e
 the supplied synchronous connection and does not provide that ownership queue.
 
 Use `SQLITE_BENCHMARK_CANDIDATES`, `SQLITE_BENCHMARK_WORKLOADS` (`point,multirow,json`) and
-`SQLITE_BENCHMARK_CONCURRENCY` to select cases. `SQLITE_BENCHMARK_OUTPUT` selects the output JSON
+`SQLITE_BENCHMARK_CONCURRENCY` to select cases. The same controls accept the
+`RUNTIME_BENCHMARK_` prefix for all three engines. `SQLITE_BENCHMARK_OUTPUT` selects the output JSON
 relative to this workspace. Results and synthetic fixture databases stay under ignored `results/`.
 
 Profile steady-state work separately from latency measurements:

@@ -5,10 +5,18 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { arch, cpus, platform, release } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
-import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// Keep the original SQLite commands reproducible while sharing measurement code.
+for (const [name, value] of Object.entries(process.env)) {
+  if (name.startsWith("RUNTIME_BENCHMARK_") && process.env[name.replace("RUNTIME_", "SQLITE_")] === undefined)
+    process.env[name.replace("RUNTIME_", "SQLITE_")] = value;
+}
+const driver =
+  process.env.RUNTIME_BENCHMARK_DRIVER ?? (process.argv[2] === "--worker" ? "sqlite" : (process.argv[2] ?? "sqlite"));
+if (!["sqlite", "postgres", "mysql"].includes(driver)) throw new TypeError("Expected sqlite, postgres, or mysql");
+const DatabaseSync = driver === "sqlite" ? (await import("node:sqlite")).DatabaseSync : undefined;
 const policy = { integer: "number", flexible: "union", unknown: "unknown" };
 const candidates = [
   "raw-cached",
@@ -28,6 +36,19 @@ const workloads = {
     width: 32,
   },
 };
+if (driver !== "sqlite") {
+  const first = driver === "postgres" ? "$1" : "?";
+  const last = driver === "postgres" ? "$2" : "?";
+  workloads.point.sql = `SELECT id, email, status FROM runtime_account WHERE id = ${first}`;
+  workloads.multirow.sql = `SELECT id, email, status FROM runtime_account WHERE id BETWEEN ${first} AND ${last} ORDER BY id`;
+  const aggregate = driver === "postgres" ? "jsonb_agg" : "JSON_ARRAYAGG";
+  const object = driver === "postgres" ? "jsonb_build_object" : "JSON_OBJECT";
+  workloads.json.sql = `SELECT ${aggregate}(${object}('id', id, 'email', email, 'status', status)) AS items FROM runtime_account WHERE id BETWEEN ${first} AND ${last}`;
+}
+const databaseUrl = () =>
+  driver === "postgres"
+    ? (process.env.POSTGRES_URL ?? "postgresql://typed_sql:typed_sql@127.0.0.1:55432/typed_sql_benchmark")
+    : (process.env.MYSQL_URL ?? "mysql://typed_sql:typed_sql@127.0.0.1:53306/typed_sql_benchmark");
 
 function integer(name, fallback) {
   const value = Number(process.env[name] ?? fallback);
@@ -55,7 +76,8 @@ function normalize(value, workload) {
 function check(value, index, workload) {
   const { width } = workloads[workload];
   const first = parameters(index, width)[0];
-  const rows = workload === "point" ? [value] : workload === "json" ? value.items : value;
+  const rows =
+    workload === "point" ? [value] : workload === "json" ? [...value.items].sort((a, b) => a.id - b.id) : value;
   assert.equal(rows.length, width);
   for (const [offset, row] of rows.entries()) {
     assert.equal(row.id, first + offset);
@@ -65,13 +87,32 @@ function check(value, index, workload) {
 }
 
 async function worker(candidate, workload, concurrency) {
-  const database = new DatabaseSync("app.db");
+  let database;
+  if (driver === "sqlite") database = new DatabaseSync("app.db");
+  else if (candidate.startsWith("raw") || candidate.startsWith("reylo")) {
+    if (driver === "postgres") {
+      const { default: pg } = await import("pg");
+      database = new pg.Pool({ connectionString: databaseUrl(), max: 10 });
+    } else {
+      const { default: mysql } = await import("mysql2/promise");
+      database = mysql.createPool({ uri: databaseUrl(), connectionLimit: 10 });
+    }
+  }
   const { sql: text, width } = workloads[workload];
   let typed;
   let run;
   if (candidate.startsWith("raw")) {
-    const statement = candidate === "raw-cached" ? database.prepare(text) : undefined;
-    run = (values) => (statement ?? database.prepare(text)).all(...values);
+    if (driver === "sqlite") {
+      const statement = candidate === "raw-cached" ? database.prepare(text) : undefined;
+      run = (values) => (statement ?? database.prepare(text)).all(...values);
+    } else if (driver === "postgres") {
+      run = (values) =>
+        database
+          .query({ text, values, ...(candidate === "raw-cached" ? { name: "runtime-comparison" } : {}) })
+          .then((result) => result.rows);
+    } else
+      run = (values) =>
+        database[candidate === "raw-cached" ? "execute" : "query"](text, values).then((result) => result[0]);
   } else if (candidate.startsWith("reylo")) {
     const { default: query } = await import(pathToFileURL(resolve("query.sql")).href);
     run = (values) =>
@@ -80,16 +121,35 @@ async function worker(candidate, workload, concurrency) {
         values.length === 1 ? { 1: values[0] } : { 1: values[0], 2: values[1] },
       );
   } else {
-    const { sql } = await import("@typed-sql/sqlite");
-    const { adaptNodeSqliteDatabase } = await import("@typed-sql/sqlite/node-sqlite");
-    const { createSqliteDatabase } = await import("@typed-sql/sqlite/runtime");
-    typed = createSqliteDatabase({
-      connection: adaptNodeSqliteDatabase(database, { typePolicy: policy }),
-      ownsConnection: false,
-    });
+    const { sql } = await import(`@typed-sql/${driver}`);
+    if (driver === "sqlite") {
+      const { adaptNodeSqliteDatabase } = await import("@typed-sql/sqlite/node-sqlite");
+      const { createSqliteDatabase } = await import("@typed-sql/sqlite/runtime");
+      typed = createSqliteDatabase({
+        connection: adaptNodeSqliteDatabase(database, { typePolicy: policy }),
+        ownsConnection: false,
+      });
+    } else if (driver === "postgres") {
+      const { createPgDatabase } = await import("@typed-sql/postgres/pg");
+      typed = await createPgDatabase({ connectionString: databaseUrl(), poolConfig: { max: 10 } });
+    } else {
+      const { createMySql2Database } = await import("@typed-sql/mysql/mysql2");
+      typed = await createMySql2Database({ connectionUri: databaseUrl(), poolConfig: { connectionLimit: 10 } });
+    }
     let factory;
     if (candidate.startsWith("typed-file")) factory = (await import(pathToFileURL(resolve("query.sql")).href)).default;
-    else if (workload === "point") factory = (id) => sql`SELECT id, email, status FROM account WHERE id = ${id}`;
+    else if (driver !== "sqlite") {
+      if (workload === "point") factory = (id) => sql`SELECT id, email, status FROM runtime_account WHERE id = ${id}`;
+      else if (workload === "multirow")
+        factory = (first, last) =>
+          sql`SELECT id, email, status FROM runtime_account WHERE id BETWEEN ${first} AND ${last} ORDER BY id`;
+      else if (driver === "postgres")
+        factory = (first, last) =>
+          sql`SELECT jsonb_agg(jsonb_build_object('id', id, 'email', email, 'status', status)) AS items FROM runtime_account WHERE id BETWEEN ${first} AND ${last}`;
+      else
+        factory = (first, last) =>
+          sql`SELECT JSON_ARRAYAGG(JSON_OBJECT('id', id, 'email', email, 'status', status)) AS items FROM runtime_account WHERE id BETWEEN ${first} AND ${last}`;
+    } else if (workload === "point") factory = (id) => sql`SELECT id, email, status FROM account WHERE id = ${id}`;
     else if (workload === "multirow")
       factory = (first, last) =>
         sql`SELECT id, email, status FROM account WHERE id BETWEEN ${first} AND ${last} ORDER BY id`;
@@ -170,18 +230,95 @@ async function worker(candidate, workload, concurrency) {
         millisecondsPerOperation: durations,
         cpuMicroseconds,
         heapUsedDeltaBytes,
-        sqliteVersion: database.prepare("SELECT sqlite_version() AS version").get().version,
+        databaseVersion:
+          driver === "sqlite"
+            ? database.prepare("SELECT sqlite_version() AS version").get().version
+            : process.env.RUNTIME_BENCHMARK_DATABASE_VERSION,
       }),
     );
   } finally {
     await typed?.close();
-    database.close();
+    if (driver === "sqlite") database.close();
+    else if (database !== undefined) await database.end();
   }
 }
 
-async function fixture(directory, workload) {
+async function networkFixture() {
+  const grammar = await import(`@typed-sql/${driver}`);
+  let pool;
+  let query;
+  if (driver === "postgres") {
+    const { default: pg } = await import("pg");
+    pool = new pg.Pool({ connectionString: databaseUrl(), max: 1 });
+    query = async (sql, values) => (await pool.query(sql, values)).rows;
+  } else {
+    const { default: mysql } = await import("mysql2/promise");
+    pool = mysql.createPool({ uri: databaseUrl(), connectionLimit: 1 });
+    query = async (sql, values) => (await pool.query(sql, values))[0];
+  }
+  try {
+    await query("DROP TABLE IF EXISTS runtime_account");
+    await query(
+      "CREATE TABLE runtime_account (id INTEGER PRIMARY KEY, email VARCHAR(255) NOT NULL, status VARCHAR(16) NOT NULL)",
+    );
+    const values = [];
+    const placeholders = [];
+    for (let id = 1; id <= 1_000; id++) {
+      values.push(id, `person-${id}@example.com`, "active");
+      placeholders.push(
+        driver === "postgres" ? `($${values.length - 2},$${values.length - 1},$${values.length})` : "(?,?,?)",
+      );
+    }
+    await query(`INSERT INTO runtime_account VALUES ${placeholders.join(",")}`, values);
+    const evidence = (
+      await query(driver === "postgres" ? "SHOW server_version" : "SELECT VERSION() AS version, @@sql_mode AS sqlMode")
+    )[0];
+    const version = driver === "postgres" ? evidence.server_version : evidence.version;
+    const server =
+      driver === "postgres"
+        ? grammar.postgresServerEvidence(version)
+        : grammar.mySqlServerEvidence(version, evidence.sqlMode);
+    return {
+      formatVersion: 1,
+      dialect: driver,
+      server,
+      tables: {
+        runtime_account: {
+          name: "runtime_account",
+          columns: {
+            id: {
+              name: "id",
+              databaseType: driver === "postgres" ? "integer" : "int",
+              tsType: "number",
+              nullable: false,
+            },
+            email: { name: "email", databaseType: "varchar(255)", tsType: "string", nullable: false },
+            status: { name: "status", databaseType: "varchar(16)", tsType: "string", nullable: false },
+          },
+        },
+      },
+    };
+  } finally {
+    await pool.end();
+  }
+}
+
+async function fixture(directory, workload, snapshot) {
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, "package.json"), JSON.stringify({ private: true, type: "module" }));
+  if (driver !== "sqlite") {
+    await writeFile(join(directory, "query.sql"), workloads[workload].sql);
+    await writeFile(
+      join(directory, ".reylo.yaml"),
+      `direct_url: ${JSON.stringify(databaseUrl())}\nsqlcommenter: false\n`,
+    );
+    await writeFile(
+      join(directory, "typed-sql.config.mjs"),
+      `import {${driver}} from '@typed-sql/${driver}'; export default {dialect:${driver}(),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
+    );
+    await writeFile(join(directory, "schema.json"), JSON.stringify(snapshot));
+    return;
+  }
   const database = new DatabaseSync(join(directory, "app.db"));
   let server;
   try {
@@ -238,7 +375,11 @@ async function runWorker(directory, candidate, workload, concurrency, profiles) 
   const child = spawn(process.execPath, args, {
     cwd: directory,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, ...(profiles === undefined ? {} : { SQLITE_BENCHMARK_PROFILE_DIR: profiles }) },
+    env: {
+      ...process.env,
+      RUNTIME_BENCHMARK_DRIVER: driver,
+      ...(profiles === undefined ? {} : { SQLITE_BENCHMARK_PROFILE_DIR: profiles }),
+    },
   });
   let output = "";
   let errors = "";
@@ -251,10 +392,18 @@ async function runWorker(directory, candidate, workload, concurrency, profiles) 
     errors += String(data);
   });
   await new Promise((resolveClose, reject) => {
-    child.once("error", reject);
-    child.once("close", (code) =>
-      code === 0 ? resolveClose() : reject(new Error(`${candidate}/${workload}: ${errors}\n${output}`)),
-    );
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`${candidate}/${workload}: worker exceeded 120 seconds\n${errors}`));
+    }, 120_000);
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.once("close", (code) => {
+      clearTimeout(timeout);
+      code === 0 ? resolveClose() : reject(new Error(`${candidate}/${workload}: ${errors}\n${output}`));
+    });
   });
   const records = output
     .trim()
@@ -270,9 +419,12 @@ async function runWorker(directory, candidate, workload, concurrency, profiles) 
 if (process.argv[2] === "--worker") {
   await worker(process.argv[3], process.argv[4], Number(process.argv[5]));
 } else {
-  const output = resolve(workspace, process.env.SQLITE_BENCHMARK_OUTPUT ?? "results/sqlite-latest.json");
+  const startedAt = new Date().toISOString();
+  const output = resolve(workspace, process.env.SQLITE_BENCHMARK_OUTPUT ?? `results/${driver}-latest.json`);
   await mkdir(dirname(output), { recursive: true });
-  const run = await mkdtemp(join(workspace, "results/sqlite-"));
+  const run = await mkdtemp(join(workspace, `results/${driver}-`));
+  const snapshot = driver === "sqlite" ? undefined : await networkFixture();
+  if (snapshot !== undefined) process.env.RUNTIME_BENCHMARK_DATABASE_VERSION = snapshot.server.version;
   if (
     process.env.SQLITE_BENCHMARK_PROFILE !== undefined &&
     !["cpu", "alloc"].includes(process.env.SQLITE_BENCHMARK_PROFILE)
@@ -283,7 +435,10 @@ if (process.argv[2] === "--worker") {
   const trials = integer("SQLITE_BENCHMARK_TRIALS", 3);
   const results = [];
   let seed = integer("SQLITE_BENCHMARK_SEED", 29);
-  const names = selected("SQLITE_BENCHMARK_CANDIDATES", candidates);
+  const names = selected(
+    "SQLITE_BENCHMARK_CANDIDATES",
+    driver === "sqlite" ? candidates : candidates.filter((name) => name !== "reylo-sync"),
+  );
   const queries = selected("SQLITE_BENCHMARK_WORKLOADS", Object.keys(workloads));
   const concurrency = (process.env.SQLITE_BENCHMARK_CONCURRENCY ?? "1,8").split(",").map((value) => {
     const count = Number(value);
@@ -301,7 +456,7 @@ if (process.argv[2] === "--worker") {
       for (const width of concurrency)
         for (const candidate of order) {
           const directory = join(run, `${trial}-${workload}-${width}-${candidate}`);
-          await fixture(directory, workload);
+          await fixture(directory, workload, snapshot);
           results.push({ trial, ...(await runWorker(directory, candidate, workload, width, profiles)) });
           console.error(`trial ${trial + 1}/${trials}: ${workload} concurrency=${width} ${candidate}`);
         }
@@ -318,19 +473,21 @@ if (process.argv[2] === "--worker") {
       platform: platform(),
       release: release(),
       architecture: arch(),
+      driver,
       cpu: cpus()[0].model,
       versions: {
-        typedSql: await version("@typed-sql/sqlite"),
+        typedSql: await version(`@typed-sql/${driver}`),
         reylo: await version("reylo"),
-        reyloSqlite: await version("@reylosql/sqlite"),
+        reyloGrammar: await version(`@reylosql/${driver}`),
       },
       trials,
       initialSeed: integer("SQLITE_BENCHMARK_SEED", 29),
       profiles,
       profileMode: process.env.SQLITE_BENCHMARK_PROFILE,
+      startedAt,
+      finishedAt: new Date().toISOString(),
     },
-    methodology:
-      "Separate fresh processes/projects avoid competing .sql loaders; deterministic shuffled candidate order per trial. Cold startup is process spawn to first validated query report, including loader imports/analysis but excluding fixture creation; first-call latency separately excludes loader/import/setup. Warm samples exclude imports/setup/warmup/assertions. p50/p95 must be computed from batch-average raw samples, not individual request-tail latency. One SQLite connection, so concurrency means queued logical calls, not parallel SQLite I/O. All candidates return equivalent rows; JSON text is parsed within timed operations where the driver/frontend does not decode it. Reylo freshness behavior is unchanged. Heap-used delta is retained-heap noise, not allocated bytes; allocation/CPU attribution comes from separate V8 profiles, whose timings are not comparable to ordinary runs.",
+    methodology: `Separate fresh processes/projects avoid competing .sql loaders; deterministic shuffled candidate order per trial. Cold startup is process spawn to first validated query report, including loader imports/analysis but excluding fixture creation; first-call latency separately excludes loader/import/setup. Warm samples exclude imports/setup/warmup/assertions. p50/p95 must be computed from batch-average raw samples, not individual request-tail latency. ${driver === "sqlite" ? "One SQLite connection: concurrency means queued logical calls, not parallel SQLite I/O; raw-cached reuses StatementSync, raw-prepare prepares each call." : driver === "postgres" ? "Pools have maximum10 connections; raw-cached uses a named prepared statement, raw-prepare uses an unnamed parameterized query." : "Pools have maximum10 connections; raw-cached uses mysql2.execute's statement cache, raw-prepare uses mysql2.query's text protocol."} All candidates return equivalent rows; JSON text is parsed within timed operations where the driver/frontend does not decode it; JSON result order is not a workload guarantee. Reylo freshness behavior is unchanged. Heap-used delta is retained-heap noise, not allocated bytes; allocation/CPU attribution comes from separate V8 profiles, whose timings are not comparable to ordinary runs.`,
     results,
   };
   await writeFile(output, `${JSON.stringify(report, null, 2)}\n`);
