@@ -133,10 +133,10 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
     : `import { sql } from ${JSON.stringify(dialect.runtimeSqlModule ?? dialect.sqlModule)};
 import { defineQueryValuePlan, withQueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};
 export const valuePlan = defineQueryValuePlan(${JSON.stringify(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy, count))});
-const parts = ${JSON.stringify(parts)};
+const parts = ${JSON.stringify(parts)}.map((text) => sql.raw(text));
 export default function query(...values) {
   if (values.length !== ${count}) throw new TypeError("SQL file expects ${count} positional parameters");
-  const fragments = parts.flatMap((text, index) => index === 0 ? [sql.raw(text)] : [sql.value(values[index - 1]), sql.raw(text)]);
+  const fragments = parts.flatMap((part, index) => index === 0 ? [part] : [sql.value(values[index - 1]), part]);
   return withQueryValuePlan(sql\`\${sql.join(fragments, sql.empty)}\`, valuePlan);
 }
 `;

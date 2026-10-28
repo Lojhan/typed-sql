@@ -122,6 +122,10 @@ const database = createPostgresDatabase({ pool: { async query(text, values) {
 } } });
 assert.deepEqual(await database.all(find(7, input)), [{ id: 7, name: "Ada" }]);
 assert.deepEqual(seen, { text: ${JSON.stringify(sql)}, values: [7, input] });
+await database.all(find(8, "second"));
+assert.deepEqual(seen, { text: ${JSON.stringify(sql)}, values: [8, "second"] });
+await database.all(find(7, input));
+assert.deepEqual(seen, { text: ${JSON.stringify(sql)}, values: [7, input] });
 assert.throws(() => find(7), /expects 2/);
 console.log("sql-file-consumer-ok");`,
   );
