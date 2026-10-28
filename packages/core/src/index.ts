@@ -84,6 +84,29 @@ export {
   UnsupportedExecutionCapabilityError,
 } from "./execution.js";
 export type {
+  JsonShape,
+  JsonShapePathResult,
+  JsonShapeProperty,
+  JsonValidationLimits,
+  JsonValue,
+  JsonValueDescriptor,
+} from "./json.js";
+export {
+  JSON_SHAPE_LIMITS,
+  jsonArrayShape,
+  jsonObjectShape,
+  jsonShapeAtPath,
+  jsonShapeFromValue,
+  jsonShapeType,
+  jsonTupleShape,
+  nullJsonShape,
+  parseJsonShape,
+  unionJsonShapes,
+  unknownJsonShape,
+  updateJsonShapePath,
+  validateJsonValue,
+} from "./json.js";
+export type {
   ActiveDatabaseObservation,
   BatchOperationStart,
   DatabaseObservation,

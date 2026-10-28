@@ -1,4 +1,5 @@
 import type { DialectCapabilityStates, DialectServerEvidence } from "./dialect-capabilities.js";
+import type { JsonValueDescriptor } from "./json.js";
 import type { QuerySemantics } from "./semantics.js";
 
 export const DIALECT_CONTRACT_VERSION = 4 as const;
@@ -175,6 +176,8 @@ export interface ResolvedColumn {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** JSON structure and desired application representation; SQL nullability remains separate. */
+  readonly json?: JsonValueDescriptor;
   readonly range: SourceRange;
 }
 
@@ -184,6 +187,8 @@ export interface ResolvedParameter {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+  /** JSON structure and desired application representation; SQL nullability remains separate. */
+  readonly json?: JsonValueDescriptor;
 }
 
 export interface DialectAnalysis {
