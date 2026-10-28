@@ -18,6 +18,7 @@ const driver =
 if (!["sqlite", "postgres", "mysql"].includes(driver)) throw new TypeError("Expected sqlite, postgres, or mysql");
 const DatabaseSync = driver === "sqlite" ? (await import("node:sqlite")).DatabaseSync : undefined;
 const policy = { integer: "number", flexible: "union", unknown: "unknown" };
+const selectedPolicy = (candidate) => (candidate.includes("-parsed") ? { ...policy, json: "parsed" } : policy);
 const candidates = [
   "raw-cached",
   "raw-prepare",
@@ -25,6 +26,10 @@ const candidates = [
   "typed-prepared",
   "typed-file",
   "typed-file-prepared",
+  "typed-file-parsed",
+  "typed-file-parsed-prepared",
+  "typed-compiled-inline",
+  "typed-compiled-prepared",
   "reylo-file",
   "reylo-sync",
 ];
@@ -125,9 +130,10 @@ async function worker(candidate, workload, concurrency) {
     if (driver === "sqlite") {
       const { adaptNodeSqliteDatabase } = await import("@typed-sql/sqlite/node-sqlite");
       const { createSqliteDatabase } = await import("@typed-sql/sqlite/runtime");
+      const typePolicy = selectedPolicy(candidate);
       typed = createSqliteDatabase({
-        connection: adaptNodeSqliteDatabase(database, { typePolicy: policy }),
-        typePolicy: policy,
+        connection: adaptNodeSqliteDatabase(database, { typePolicy }),
+        typePolicy,
         ownsConnection: false,
       });
     } else if (driver === "postgres") {
@@ -139,6 +145,8 @@ async function worker(candidate, workload, concurrency) {
     }
     let factory;
     if (candidate.startsWith("typed-file")) factory = (await import(pathToFileURL(resolve("query.sql")).href)).default;
+    else if (candidate.startsWith("typed-compiled"))
+      factory = (await import(pathToFileURL(resolve("compiled.ts")).href)).default;
     else if (driver !== "sqlite") {
       if (workload === "point") factory = (id) => sql`SELECT id, email, status FROM runtime_account WHERE id = ${id}`;
       else if (workload === "multirow")
@@ -304,7 +312,7 @@ async function networkFixture() {
   }
 }
 
-async function fixture(directory, workload, snapshot) {
+async function fixture(directory, workload, snapshot, candidate) {
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, "package.json"), JSON.stringify({ private: true, type: "module" }));
   if (driver !== "sqlite") {
@@ -338,7 +346,7 @@ async function fixture(directory, workload, snapshot) {
   await writeFile(join(directory, ".reylo.yaml"), "direct_url: file:./app.db\nsqlcommenter: false\n");
   await writeFile(
     join(directory, "typed-sql.config.mjs"),
-    `import {sqlite} from '@typed-sql/sqlite'; export default {dialect:sqlite({typePolicy:${JSON.stringify(policy)}}),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
+    `import {sqlite} from '@typed-sql/sqlite'; export default {dialect:sqlite({typePolicy:${JSON.stringify(selectedPolicy(candidate))}}),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
   );
   await writeFile(
     join(directory, "schema.json"),
@@ -365,6 +373,29 @@ async function fixture(directory, workload, snapshot) {
       },
     }),
   );
+}
+
+async function compileFixture(directory, workload) {
+  const { compileSource } = await import("@typed-sql/compiler");
+  const grammar = await import(`@typed-sql/${driver}`);
+  const dialect = grammar[driver](driver === "sqlite" ? { typePolicy: policy } : {});
+  const text = workloads[workload].sql;
+  const names = ["first", "last"];
+  const escapeTemplateText = (part) => part.replaceAll("\\", "\\\\").replaceAll("`", "\\`").replaceAll("${", "\\${");
+  const parts = [];
+  let cursor = 0;
+  for (const occurrence of dialect.parameterOccurrences(text)) {
+    parts.push(escapeTemplateText(text.slice(cursor, occurrence.range.start)), `\${${names[occurrence.index - 1]}}`);
+    cursor = occurrence.range.end;
+  }
+  parts.push(escapeTemplateText(text.slice(cursor)));
+  const source = `import {sql} from '${dialect.runtimeSqlModule}';\nexport default (first: number, last: number) => sql\`${parts.join("")}\`;\n`;
+  const schema = JSON.parse(await readFile(join(directory, "schema.json"), "utf8"));
+  const compiled = compileSource({ source, schema, dialect, runtimeMetadata: true });
+  assert.deepEqual(compiled.diagnostics, []);
+  assert.equal(compiled.queries.length, 1);
+  assert.ok(compiled.queries[0].valuePlan, "compiled-inline requires executable compiler metadata");
+  await writeFile(join(directory, "compiled.ts"), compiled.transformedSource);
 }
 
 async function runWorker(directory, candidate, workload, concurrency, profiles) {
@@ -438,7 +469,7 @@ if (process.argv[2] === "--worker") {
   let seed = integer("SQLITE_BENCHMARK_SEED", 29);
   const names = selected(
     "SQLITE_BENCHMARK_CANDIDATES",
-    driver === "sqlite" ? candidates : candidates.filter((name) => name !== "reylo-sync"),
+    driver === "sqlite" ? candidates : candidates.filter((name) => name !== "reylo-sync" && !name.includes("-parsed")),
   );
   const queries = selected("SQLITE_BENCHMARK_WORKLOADS", Object.keys(workloads));
   const concurrency = (process.env.SQLITE_BENCHMARK_CONCURRENCY ?? "1,8").split(",").map((value) => {
@@ -457,8 +488,15 @@ if (process.argv[2] === "--worker") {
       for (const width of concurrency)
         for (const candidate of order) {
           const directory = join(run, `${trial}-${workload}-${width}-${candidate}`);
-          await fixture(directory, workload, snapshot);
-          results.push({ trial, ...(await runWorker(directory, candidate, workload, width, profiles)) });
+          const fixtureStarted = performance.now();
+          await fixture(directory, workload, snapshot, candidate);
+          if (candidate.startsWith("typed-compiled")) await compileFixture(directory, workload);
+          const fixtureBuildMilliseconds = performance.now() - fixtureStarted;
+          results.push({
+            trial,
+            fixtureBuildMilliseconds,
+            ...(await runWorker(directory, candidate, workload, width, profiles)),
+          });
           console.error(`trial ${trial + 1}/${trials}: ${workload} concurrency=${width} ${candidate}`);
         }
   }

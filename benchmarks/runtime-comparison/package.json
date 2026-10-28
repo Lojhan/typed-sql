@@ -34,7 +34,8 @@
     "pg": "8.23.0",
     "pg-copy-streams": "7.0.0",
     "reylo": "0.6.0",
-    "typeorm": "1.1.0"
+    "typeorm": "1.1.0",
+    "@typed-sql/compiler": "link:../../packages/compiler"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

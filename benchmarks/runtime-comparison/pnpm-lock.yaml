@@ -28,6 +28,9 @@ importers:
       '@reylosql/sqlite':
         specifier: 0.6.0
         version: 0.6.0
+      '@typed-sql/compiler':
+        specifier: link:../../packages/compiler
+        version: link:../../packages/compiler
       '@typed-sql/mysql':
         specifier: link:../../packages/mysql
         version: link:../../packages/mysql

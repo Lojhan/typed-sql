@@ -94,6 +94,20 @@ and Reylo's normal asynchronous and synchronous SQL-file APIs. This same compari
 PostgreSQL and MySQL using their respective grammar and driver packages. The SQLite command does
 not start any container. SQL-file execution requires Node.js 24.11.1 or newer in the 24.x line.
 
+`typed-inline` and `typed-prepared` measure the existing unplanned JavaScript factories.
+`typed-compiled-inline` and `typed-compiled-prepared` instead execute the real public compiler's
+`compileSource({ runtimeMetadata: true })` output in Node, including generated runtime guards.
+The harness checks that executable metadata was emitted. It does not construct plans by hand.
+Compilation and fixture creation are outside warm measurements and recorded separately as
+`fixtureBuildMilliseconds`; compiled-code process startup excludes that ahead-of-time work.
+SQL-file startup still includes its loader's analysis, so compare those startup prerequisites
+explicitly rather than treating them as identical compilation strategies.
+
+SQLite additionally reports `typed-file-parsed` and `typed-file-parsed-prepared`. These use the
+same `json: "parsed"` policy in the compiler and runtime, avoiding a second application-level
+JSON parse after the runtime validates and decodes the result. Other SQLite paths keep their
+original text policy. PostgreSQL and MySQL already decode JSON under their default policies.
+
 After building the root packages and installing this workspace, run:
 
 ```sh
