@@ -600,20 +600,35 @@ export function renderQuery<Row, Params extends readonly unknown[]>(
   renderer: SqlRenderer,
 ): RenderedQuery {
   const segments = queryValue.segments;
-  assertQueryResourceLimits(segments);
   const values: unknown[] = [];
   const chunks: string[] = [];
   let sqlBytes = 0;
+  let estimatedSqlBytes = 0;
   visitSegments(segments, (segment) => {
     let chunk: string;
-    if (segment.kind === "text") chunk = segment.text;
-    else if (segment.kind === "identifier") chunk = renderer.quoteIdentifier(segment.name);
-    else {
+    let chunkBytes: number;
+    if (segment.kind === "text") {
+      chunk = segment.text;
+      chunkBytes = utf8ByteLength(chunk);
+      estimatedSqlBytes += chunkBytes;
+    } else if (segment.kind === "identifier") {
+      estimatedSqlBytes += utf8ByteLength(segment.name) + 2;
+      chunk = renderer.quoteIdentifier(segment.name);
+      chunkBytes = utf8ByteLength(chunk);
+    } else {
+      if (values.length === DEFAULT_MAX_QUERY_PARAMETERS) {
+        throw new SqlFragmentListError(
+          "TSQL_FRAGMENT_LIST_LIMIT",
+          `Query contains more than ${DEFAULT_MAX_QUERY_PARAMETERS} parameters after fragment-list expansion`,
+        );
+      }
       values.push(segment.value);
+      estimatedSqlBytes += String(values.length).length + 1;
       chunk = renderer.placeholder(values.length);
+      chunkBytes = utf8ByteLength(chunk);
     }
-    sqlBytes += utf8ByteLength(chunk);
-    if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
+    sqlBytes += chunkBytes;
+    if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES || estimatedSqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
       throw new SqlFragmentListError(
         "TSQL_FRAGMENT_LIST_LIMIT",
         `Rendered SQL exceeds the ${DEFAULT_MAX_RENDERED_SQL_BYTES}-byte limit after fragment-list expansion`,
