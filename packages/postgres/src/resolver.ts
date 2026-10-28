@@ -4370,6 +4370,7 @@ class Resolver {
       return {
         json: { shape: value.scalarJsonShape, representation: this.#policy.json === "string" ? "text" : "parsed" },
       };
+    if (value.scalarJsonShape?.kind === "null") return "never";
     const json = this.#jsonDescriptor(value);
     return json === undefined
       ? (this.#nativeJsonArrayType(value.databaseType) ?? postgresRuntimeValueType(value, this.#policy))

@@ -381,6 +381,42 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     });
   });
 
+  await it("retains null-only text extraction guards inside native SQL arrays", () => {
+    const shape = { kind: "object", properties: { id: { shape: { kind: "number" } } } } as const;
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, jsonDeclaration: { source: "application", shape } },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(parseSelect("SELECT ARRAY[document->>'missing'] AS value FROM accounts"), declared, {
+      runtimeValidation: true,
+    });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.columns[0]?.runtimeType, { array: "never", elementNullable: true });
+    const query = withQueryValuePlan(sql`SELECT 1`, {
+      dialect: "postgres",
+      typePolicyHash: "test",
+      columns: [{ name: "value", nullable: false, type: result.columns[0]!.runtimeType! }],
+      parameters: [],
+    });
+    const profile = { id: "null-only-text-array", dialect: "postgres", integer: "lossless", jsonWire: "text" } as const;
+    strict.deepStrictEqual(decodeQueryResultRows(query, [{ value: [null] }], profile), [{ value: [null] }]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["unexpected"] }], profile), /never|expected/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["null"] }], profile), /never|expected/);
+    const ordinary = resolveSelect(parseSelect("SELECT ARRAY[document->>'id'] AS value FROM accounts"), declared, {
+      runtimeValidation: true,
+    });
+    strict.strictEqual(ordinary.columns[0]?.tsType, "readonly (string)[]");
+  });
+
   await it("widens opaque JSON snapshot types before inheriting them into native arrays", () => {
     const opaque = {
       ...schema,
