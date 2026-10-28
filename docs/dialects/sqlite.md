@@ -12,6 +12,8 @@ through `@typed-sql/sqlite/node-sqlite`.
 
 ## Public entrypoints
 
+- `@typed-sql/sqlite/query` — portable `sql`, renderer, and runtime value descriptors for buffered adapters.
+
 - `@typed-sql/sqlite` — `sql`, dialect factory, snapshot types, type policy, and introspection over an injected queryable.
 - `@typed-sql/sqlite/runtime` — driver-neutral rendering and executable adapter contracts.
 - `@typed-sql/sqlite/node-sqlite` — lazy `node:sqlite` loading, schema provider, and executable database adapter.

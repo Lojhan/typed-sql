@@ -25,6 +25,7 @@ const directory = dirname(fileURLToPath(import.meta.url));
 const workspace = resolve(directory, "../..");
 const forbiddenDrivers = new Set(["pg", "pg-copy-streams", "mysql2", "better-sqlite3", "sqlite3"]);
 const publicPackages = [
+  "adapters",
   "ast",
   "core",
   "opentelemetry",
@@ -40,6 +41,7 @@ const publicPackages = [
   "sqlite",
 ] as const;
 const stablePackages = [
+  "adapters",
   "core",
   "opentelemetry",
   "ast",
@@ -54,19 +56,20 @@ const stablePackages = [
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
+  adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js"],
   ast: [".", "./toolkit"],
   core: ["."],
   opentelemetry: ["."],
   config: ["."],
   schema: ["."],
-  postgres: [".", "./runtime", "./pg"],
-  mysql: [".", "./runtime", "./mysql2"],
+  postgres: [".", "./runtime", "./pg", "./query"],
+  mysql: [".", "./runtime", "./mysql2", "./query"],
   compiler: ["."],
   conformance: [".", "./v2"],
   cli: [],
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register"],
   "language-server": ["."],
-  sqlite: [".", "./runtime", "./node-sqlite"],
+  sqlite: [".", "./runtime", "./node-sqlite", "./query"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {

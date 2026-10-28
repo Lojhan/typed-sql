@@ -8,6 +8,7 @@ import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
 import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { postgresRuntimeValueType } from "./query.js";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
@@ -91,9 +92,11 @@ export function postgres(
     id: "postgres",
     grammarVersion: POSTGRES_DIALECT_VERSION,
     sqlModule: "@typed-sql/postgres",
+    runtimeSqlModule: "@typed-sql/postgres/query",
     capabilities: POSTGRES_CAPABILITIES,
     resolveCapabilities: capabilitiesFor,
     defaultTypePolicy,
+    runtimeValueType: postgresRuntimeValueType,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("PostgreSQL parameter indexes start at 1");
       return `$${index}`;

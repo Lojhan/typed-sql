@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "./packages/adapters" },
     { "path": "./packages/core" },
     { "path": "./packages/config" },
     { "path": "./packages/ast" },

@@ -255,6 +255,12 @@
     {
       "text": "Reference",
       "items": [
+        {
+          "text": "Portable adapters",
+          "link": "/reference/portable-adapters",
+          "file": "docs/reference/portable-adapters.md",
+          "pageType": "reference"
+        },
         { "text": "Query API", "link": "/reference/api", "file": "docs/reference/api.md", "pageType": "reference" },
         {
           "text": "Grammar support",

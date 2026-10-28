@@ -12,6 +12,7 @@ const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { NODE_PATH: _workspaceNodePath, ...isolatedEnvironment } = process.env;
 const publicPackages = [
+  "adapters",
   "ast",
   "core",
   "opentelemetry",
@@ -27,6 +28,7 @@ const publicPackages = [
   "sqlite",
 ] as const;
 const declarationCheckedPackages = new Set([
+  "adapters",
   "ast",
   "core",
   "opentelemetry",

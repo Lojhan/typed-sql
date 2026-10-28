@@ -20,7 +20,6 @@ import {
   queryResultValidationSource,
   renderQuery,
   runControlledExecution,
-  type SqlRenderer,
   type StreamOptions,
   startDatabaseObservation,
   validateQueryResultBatch,
@@ -34,11 +33,13 @@ import {
   type PostgresPreparedQueryState,
   preparePostgresQuery,
 } from "./prepared.js";
+import { postgresRenderer } from "./query.js";
 import { type PostgresCursorLike, PostgresQueryStream, validatePostgresStreamBatchSize } from "./stream.js";
 import { defaultPostgresTypePolicy } from "./type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "./version.js";
 
 export type { PostgresPreparedQueryFactory } from "./prepared.js";
+export { postgresRenderer } from "./query.js";
 export type { PostgresCursorLike } from "./stream.js";
 
 export interface PostgresCodecPolicy {
@@ -306,11 +307,6 @@ export function createPostgresTypeParsers(
     },
   };
 }
-
-export const postgresRenderer: SqlRenderer = Object.freeze({
-  placeholder: (index: number) => `$${index}`,
-  quoteIdentifier: (name: string) => `"${name.replaceAll('"', '""')}"`,
-});
 
 function encodeValue(value: unknown): unknown {
   if (typeof value === "bigint") return value.toString();

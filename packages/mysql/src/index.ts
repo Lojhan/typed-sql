@@ -12,6 +12,7 @@ import {
   unmodeledMySqlSqlModes,
 } from "./capabilities.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
+import { mysqlRuntimeValueType } from "./query.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
@@ -59,9 +60,11 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     id: "mysql",
     grammarVersion: MYSQL_DIALECT_VERSION,
     sqlModule: "@typed-sql/mysql",
+    runtimeSqlModule: "@typed-sql/mysql/query",
     capabilities: MYSQL_CAPABILITIES,
     resolveCapabilities: (snapshot: MySqlSchemaSnapshot) => resolveMySqlCapabilities(snapshot, versionPolicy),
     defaultTypePolicy,
+    runtimeValueType: mysqlRuntimeValueType,
     placeholder(index: number): string {
       if (!Number.isInteger(index) || index < 1) throw new RangeError("MySQL parameter indexes start at 1");
       return "?";

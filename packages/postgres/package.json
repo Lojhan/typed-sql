@@ -40,7 +40,8 @@
   "exports": {
     ".": "./dist/packages/postgres/src/index.js",
     "./runtime": "./dist/packages/postgres/src/runtime.js",
-    "./pg": "./dist/packages/postgres/src/pg.js"
+    "./pg": "./dist/packages/postgres/src/pg.js",
+    "./query": "./dist/packages/postgres/src/query.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

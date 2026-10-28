@@ -11,7 +11,6 @@ import {
   type QueryStream,
   queryResultValidationSource,
   renderQuery,
-  type SqlRenderer,
   type StreamOptions,
   validateQueryResultBatch,
   validateQueryResultRows,
@@ -23,7 +22,10 @@ import {
   type SqlitePreparedQueryFactory,
   type SqlitePreparedQueryState,
 } from "./prepared.js";
+import { sqliteRenderer } from "./query.js";
 import { SQLITE_DIALECT_VERSION } from "./version.js";
+
+export { sqliteRenderer } from "./query.js";
 
 export interface SqliteConnectionLike {
   all(sql: string, values?: readonly unknown[]): readonly Record<string, unknown>[];
@@ -57,11 +59,6 @@ export interface SqliteDatabaseOptions {
   /** Maximum rendered cardinalities cached by each logical prepared factory. Defaults to 32. */
   readonly preparedCardinalityVariantLimit?: number;
 }
-
-export const sqliteRenderer: SqlRenderer = Object.freeze({
-  placeholder: () => "?",
-  quoteIdentifier: (identifier: string) => `"${identifier.replaceAll('"', '""')}"`,
-});
 
 function sqliteQueryFingerprint<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): string {
   const text = renderQuery(query, sqliteRenderer).text;

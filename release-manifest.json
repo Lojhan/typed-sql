@@ -14,7 +14,8 @@
     "@typed-sql/postgres",
     "@typed-sql/mysql",
     "@typed-sql/sqlite",
-    "@typed-sql/cli"
+    "@typed-sql/cli",
+    "@typed-sql/adapters"
   ],
   "packagePolicy": {
     "stable": [
@@ -28,7 +29,8 @@
       "@typed-sql/postgres",
       "@typed-sql/mysql",
       "@typed-sql/sqlite",
-      "@typed-sql/cli"
+      "@typed-sql/cli",
+      "@typed-sql/adapters"
     ],
     "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
   }

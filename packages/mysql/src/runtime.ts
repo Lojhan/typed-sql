@@ -21,7 +21,6 @@ import {
   queryResultValidationSource,
   renderQuery,
   runControlledExecution,
-  type SqlRenderer,
   type StreamOptions,
   startDatabaseObservation,
   UnsupportedExecutionCapabilityError,
@@ -45,12 +44,14 @@ import {
   type MySqlPreparedQueryState,
   prepareMySqlQuery,
 } from "./prepared.js";
+import { mysqlRenderer } from "./query.js";
 import { createMySqlQueryStream, type MySqlStreamingConnection, validateMySqlStreamBatchSize } from "./stream.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "./version.js";
 
 export type { MySqlFieldLike } from "./decoding.js";
 export type { MySqlPreparedQueryFactory } from "./prepared.js";
+export { mysqlRenderer } from "./query.js";
 export type { MySqlProtocolStream } from "./stream.js";
 
 export interface MySqlExecutionResult {
@@ -196,11 +197,6 @@ function serverDifferences(expected: DialectServerEvidence, actual: DialectServe
   }
   return Object.freeze(differences);
 }
-
-export const mysqlRenderer: SqlRenderer = Object.freeze({
-  placeholder: () => "?",
-  quoteIdentifier: (identifier: string) => `\`${identifier.replaceAll("`", "``")}\``,
-});
 
 interface MySqlTransactionConnectionState {
   active: QueryStream<unknown> | undefined;
