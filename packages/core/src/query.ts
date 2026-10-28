@@ -12,6 +12,7 @@ import {
   setQueryResultValidator,
   validateQueryResultRows,
 } from "./result-validation.js";
+import { utf8ByteLength } from "./utf8.js";
 
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
@@ -554,7 +555,7 @@ export function renderQuery<Row, Params extends readonly unknown[]>(
       values.push(segment.value);
       chunk = renderer.placeholder(values.length);
     }
-    sqlBytes += Buffer.byteLength(chunk);
+    sqlBytes += utf8ByteLength(chunk);
     if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
       throw new SqlFragmentListError(
         "TSQL_FRAGMENT_LIST_LIMIT",
@@ -596,7 +597,7 @@ function assertQueryResourceLimits(segments: readonly SqlSegment[]): void {
       parameters += 1;
       sqlBytes += String(parameters).length + 1;
     } else {
-      sqlBytes += segment.kind === "text" ? Buffer.byteLength(segment.text) : Buffer.byteLength(segment.name) + 2;
+      sqlBytes += segment.kind === "text" ? utf8ByteLength(segment.text) : utf8ByteLength(segment.name) + 2;
     }
     if (parameters > DEFAULT_MAX_QUERY_PARAMETERS) {
       throw new SqlFragmentListError(
@@ -645,7 +646,7 @@ function compileRenderSkeletonSegments(
       chunks.push(renderer.placeholder(values.length));
       skeletonSegments.push(Object.freeze({ kind: "value" }));
     }
-    sqlBytes += Buffer.byteLength(chunks[chunks.length - 1]!);
+    sqlBytes += utf8ByteLength(chunks[chunks.length - 1]!);
     if (sqlBytes > DEFAULT_MAX_RENDERED_SQL_BYTES) {
       throw new SqlFragmentListError(
         "TSQL_FRAGMENT_LIST_LIMIT",
