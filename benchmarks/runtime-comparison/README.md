@@ -84,3 +84,57 @@ awaiting results. The benchmark reports throughput separately for each row count
 extrapolating one small transfer.
 
 The APIs follow the projects' public documentation: [Drizzle PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql), [Drizzle prepared queries](https://orm.drizzle.team/docs/perf-queries), [Kysely](https://kysely.dev/), [Prisma PostgreSQL driver adapter](https://www.prisma.io/docs/orm/overview/databases/postgresql), and [TypeORM QueryBuilder](https://typeorm.io/docs/query-builder/select-query-builder/).
+
+## SQLite and SQL-file comparison
+
+The SQLite workload runs locally on Node.js 24 using its built-in driver. It compares current
+checkout packages with pinned Reylo 0.6.0: raw cached/prepared-per-call statements, typed-sql
+inline and logical prepared factories, typed-sql SQL-file factories with and without preparation,
+and Reylo's normal asynchronous and synchronous SQL-file APIs. The existing PostgreSQL/MySQL
+workloads above require their databases; the SQLite command does not start any container.
+
+After building the root packages and installing this workspace, run:
+
+```sh
+SQLITE_BENCHMARK_TRIALS=3 SQLITE_BENCHMARK_SAMPLES=12 \
+SQLITE_BENCHMARK_ITERATIONS=1500 pnpm benchmark:sqlite
+```
+
+Every worker gets a fresh project and identical 1,000-row database. Separate processes avoid
+competing SQL-file loader hooks. Candidate order is shuffled reproducibly within each trial.
+The point lookup returns one row; the range workload returns 32 rows; the JSON aggregate returns
+the same 32 records as parsed JSON. JSON parsing is inside the timed operation whenever the
+driver/frontend returns text. This avoids comparing decoded Reylo objects with undecoded text.
+SQL files use a prebuilt offline snapshot for typed-sql and Reylo's normal live-schema analysis;
+their different prerequisites remain part of the reported startup costs.
+
+Cold startup measures process spawn through its first validated query report, including loader
+imports and analysis, with fixture creation excluded. First API-call latency is recorded separately
+after imports and candidate setup. Filesystem caches are not flushed. Warm runs retain all sample
+durations, CPU usage and environment/version/commit identities. Samples are batch-average
+milliseconds per operation: their p95 is not an individual request latency percentile. Concurrency
+1 and 8 are separate workloads over one connection, measuring queued logical calls rather than
+parallel SQLite I/O. Typed-sql retains transaction/stream serialization; Reylo executes directly on
+the supplied synchronous connection and does not provide that ownership queue.
+
+Use `SQLITE_BENCHMARK_CANDIDATES`, `SQLITE_BENCHMARK_WORKLOADS` (`point,multirow,json`) and
+`SQLITE_BENCHMARK_CONCURRENCY` to select cases. `SQLITE_BENCHMARK_OUTPUT` selects the output JSON
+relative to this workspace. Results and synthetic fixture databases stay under ignored `results/`.
+
+Profile steady-state work separately from latency measurements:
+
+```sh
+SQLITE_BENCHMARK_PROFILE=cpu SQLITE_BENCHMARK_TRIALS=1 \
+SQLITE_BENCHMARK_CONCURRENCY=1 SQLITE_BENCHMARK_CANDIDATES=typed-prepared \
+pnpm benchmark:sqlite
+
+SQLITE_BENCHMARK_PROFILE=alloc SQLITE_BENCHMARK_TRIALS=1 \
+SQLITE_BENCHMARK_CONCURRENCY=1 SQLITE_BENCHMARK_CANDIDATES=typed-prepared \
+pnpm benchmark:sqlite
+```
+
+The profile paths are recorded in the report. CPU sampling and allocation sampling use separate
+runs after warm-up. Allocation sampling includes objects collected by minor and major GC;
+sampling estimates allocated bytes, while the ordinary heap-used delta is only retained-heap noise.
+Profiler-instrumented timings are not comparable with normal benchmark timings. Open the raw
+`.cpuprofile` and `.heapprofile` files in DevTools for attribution.
