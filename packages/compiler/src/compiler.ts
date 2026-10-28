@@ -283,7 +283,9 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const analyze = (sql: string): ReturnType<typeof dialect.analyze> => {
     const cached = analyses.get(sql);
     if (cached !== undefined) return cached;
-    const resolved = dialect.analyze(sql, schema, options.typePolicy);
+    const resolved = dialect.analyze(sql, schema, options.typePolicy, {
+      runtimeValidation: options.runtimeMetadata === true,
+    });
     analyses.set(sql, resolved);
     return resolved;
   };

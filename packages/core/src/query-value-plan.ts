@@ -1,4 +1,4 @@
-import { type JsonValueDescriptor, parseJsonShape, validateJsonValue } from "./json.js";
+import { type JsonShape, type JsonValueDescriptor, parseJsonShape, validateJsonValue } from "./json.js";
 import { explicitJsonParameterIndexes, type Query } from "./query.js";
 import { queryResultValidationSource } from "./result-validation.js";
 
@@ -11,10 +11,12 @@ export type RuntimeValueType =
   | "boolean"
   | "date"
   | "bytes"
+  | { readonly literal: string | number | boolean }
   | { readonly array: RuntimeValueType; readonly elementNullable?: boolean }
   | { readonly union: readonly RuntimeValueType[] };
 
 export interface QueryValueDescriptor {
+  readonly scalarJsonShape?: JsonShape;
   readonly type: RuntimeValueType;
   readonly nullable: boolean;
   readonly json?: JsonValueDescriptor;
@@ -34,6 +36,7 @@ export interface QueryTransportProfile {
   readonly typePolicyHash?: string;
   readonly integer: "safe-number" | "lossless";
   readonly jsonWire: "text" | "parsed";
+  readonly jsonInputWire?: "text" | "parsed";
   readonly normalizeValue?: (value: unknown, type: RuntimeValueType) => unknown;
 }
 
@@ -54,6 +57,14 @@ function copyType(type: RuntimeValueType, depth = 0): RuntimeValueType {
   if (depth > 32) throw new TypeError("Runtime value type exceeds depth limit");
   if (typeof type === "string" && ["unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type))
     return type;
+  if (
+    typeof type === "object" &&
+    type !== null &&
+    "literal" in type &&
+    ["string", "number", "boolean"].includes(typeof type.literal) &&
+    (typeof type.literal !== "number" || Number.isFinite(type.literal))
+  )
+    return Object.freeze({ literal: type.literal });
   if (typeof type === "object" && type !== null && "array" in type) {
     if (type.elementNullable !== undefined && typeof type.elementNullable !== "boolean")
       throw new TypeError("Invalid array element nullability");
@@ -70,14 +81,23 @@ function copyType(type: RuntimeValueType, depth = 0): RuntimeValueType {
 function copyDescriptor(value: QueryValueDescriptor): QueryValueDescriptor {
   if (typeof value.nullable !== "boolean") throw new TypeError("Invalid runtime nullability");
   const json = value.json;
+  if (json !== undefined && value.scalarJsonShape !== undefined)
+    throw new TypeError("A value cannot be both serialized JSON and a native JSON scalar");
   if (json !== undefined && !["parsed", "text", "binary"].includes(json.representation))
     throw new TypeError("Invalid JSON representation");
   return Object.freeze({
     type: copyType(value.type),
     nullable: value.nullable,
+    ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: parseJsonShape(value.scalarJsonShape) }),
     ...(json === undefined
       ? {}
-      : { json: Object.freeze({ shape: parseJsonShape(json.shape), representation: json.representation }) }),
+      : {
+          json: Object.freeze({
+            shape: parseJsonShape(json.shape),
+            representation: json.representation,
+            ...(json.requiresRuntimeValidation === true ? { requiresRuntimeValidation: true as const } : {}),
+          }),
+        }),
   });
 }
 
@@ -133,9 +153,11 @@ export function getQueryValuePlan<Row, Params extends readonly unknown[]>(
 
 function hasBigint(type: RuntimeValueType): boolean {
   return typeof type === "object"
-    ? "array" in type
-      ? hasBigint(type.array)
-      : type.union.some(hasBigint)
+    ? "literal" in type
+      ? false
+      : "array" in type
+        ? hasBigint(type.array)
+        : type.union.some(hasBigint)
     : type === "bigint";
 }
 
@@ -167,6 +189,10 @@ export function assertQueryResultTransport<Row, Params extends readonly unknown[
 
 function scalar(value: unknown, type: RuntimeValueType, location: string): unknown {
   if (typeof type === "object") {
+    if ("literal" in type) {
+      if (value !== type.literal) throw new QueryValueError(location, "value does not match its literal type");
+      return value;
+    }
     if ("union" in type) {
       for (const member of type.union) {
         try {
@@ -243,7 +269,10 @@ function decode(
     return json.representation === "text" ? (profile.jsonWire === "text" ? value : JSON.stringify(parsed)) : parsed;
   }
   const normalized = profile.normalizeValue === undefined ? value : profile.normalizeValue(value, descriptor.type);
-  return scalar(normalized, descriptor.type, location);
+  const result = scalar(normalized, descriptor.type, location);
+  if (descriptor.scalarJsonShape !== undefined && !validateJsonValue(result, descriptor.scalarJsonShape))
+    throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
+  return result;
 }
 
 export function decodeQueryResultRows<Row, Params extends readonly unknown[]>(
@@ -290,7 +319,10 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
         throw new QueryValueError(location, "explicit JSON binding requires a JSON parameter contract");
       if (profile.integer === "safe-number" && typeof value === "bigint")
         throw new QueryValueError(location, "transport cannot preserve bigint values");
-      return scalar(value, descriptor.type, location);
+      const result = scalar(value, descriptor.type, location);
+      if (descriptor.scalarJsonShape !== undefined && !validateJsonValue(result, descriptor.scalarJsonShape))
+        throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
+      return result;
     }
     const json = descriptor.json;
     if (json.representation === "binary") return scalar(value, "bytes", location);
@@ -305,6 +337,6 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
     }
     if (!validateJsonValue(parsed, json.shape))
       throw new QueryValueError(location, "JSON does not match its declared shape");
-    return profile.jsonWire === "text" ? JSON.stringify(parsed) : parsed;
+    return (profile.jsonInputWire ?? profile.jsonWire) === "text" ? JSON.stringify(parsed) : parsed;
   });
 }

@@ -18,6 +18,7 @@ export interface JsonShapeProperty {
 
 /** SQL nullability belongs to the enclosing column/parameter, not to this descriptor. */
 export interface JsonValueDescriptor {
+  readonly requiresRuntimeValidation?: true;
   readonly shape: JsonShape;
   readonly representation: "parsed" | "text" | "binary";
 }

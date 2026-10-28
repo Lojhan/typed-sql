@@ -228,6 +228,7 @@ export {
 export type {
   ColumnSnapshot,
   DialectAnalysis,
+  DialectAnalysisContext,
   DialectCapabilities,
   DialectPlugin,
   DomainSnapshot,

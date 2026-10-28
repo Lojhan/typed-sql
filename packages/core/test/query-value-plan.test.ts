@@ -250,4 +250,48 @@ await describe("query value plans", async () => {
     // @ts-expect-error Explicit JSON cannot masquerade as an ordinary numeric SQL parameter.
     numberTag`select ${sql.json(1)}`;
   });
+  await it("validates native JSON scalars without parsing SQL text as serialized JSON", () => {
+    const query = withQueryValuePlan(
+      sql`select 1`,
+      plan({
+        columns: [
+          { name: "value", type: "string", nullable: false, scalarJsonShape: { kind: "literal", value: "active" } },
+        ],
+      }),
+    );
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: "active" }], text), [{ value: "active" }]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: '"active"' }], text), /native JSON scalar/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: "other" }], text), /native JSON scalar/);
+    const literal = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: { literal: 1 }, nullable: false }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(literal, [{ value: 1 }], text), [{ value: 1 }]);
+    strict.throws(() => decodeQueryResultRows(literal, [{ value: 2 }], text), /literal/);
+    const input = withQueryValuePlan(
+      sql`select ${"other"}`,
+      plan({
+        parameters: [
+          { index: 1, type: "string", nullable: false, scalarJsonShape: { kind: "literal", value: "active" } },
+        ],
+      }),
+    );
+    strict.throws(() => encodeQueryValues(input, ["other"], text), /native JSON scalar/);
+  });
+  await it("keeps JSON input encoding independent of parsed driver output", () => {
+    const query = withQueryValuePlan(
+      sql`select ${[1, 2]}`,
+      plan({
+        parameters: [
+          {
+            index: 1,
+            type: "unknown",
+            nullable: false,
+            json: { representation: "parsed", shape: { kind: "array", element: { kind: "number" } } },
+          },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [[1, 2]], { ...parsed, jsonInputWire: "text" }), ["[1,2]"]);
+  });
 });

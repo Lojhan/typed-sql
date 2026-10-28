@@ -19,6 +19,7 @@ export function buildQueryValuePlan<Snapshot extends SchemaSnapshot, Policy>(
     type: dialect.runtimeValueType?.(value, policy) ?? "unknown",
     nullable: value.nullable,
     ...(value.json === undefined ? {} : { json: value.json }),
+    ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: value.scalarJsonShape }),
   });
   return {
     dialect: dialect.id,

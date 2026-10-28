@@ -175,6 +175,8 @@ export interface GeneratedSchemaSnapshot extends SchemaSnapshot {
 }
 
 export interface ResolvedColumn {
+  /** Native SQL scalar extracted from JSON, rather than serialized JSON text. */
+  readonly scalarJsonShape?: JsonShape;
   readonly name: string;
   readonly tsType: string;
   readonly nullable: boolean;
@@ -185,6 +187,7 @@ export interface ResolvedColumn {
 }
 
 export interface ResolvedParameter {
+  readonly scalarJsonShape?: JsonShape;
   /** One-based database placeholder index. */
   readonly index: number;
   readonly tsType: string;
@@ -201,6 +204,11 @@ export interface DialectAnalysis {
   readonly resultKind?: "rows" | "command";
   /** Grammar-owned, evidence-backed statement semantics. */
   readonly semantics: QuerySemantics;
+}
+
+/** Build frontends opt in only when emitted execution metadata validates decoded values. */
+export interface DialectAnalysisContext {
+  readonly runtimeValidation?: boolean;
 }
 
 /**
@@ -235,7 +243,7 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
     snapshot: Snapshot,
     policy?: Policy,
   ): readonly { readonly index: number; readonly range: SourceRange }[];
-  analyze(sql: string, snapshot: Snapshot, policy?: Policy): DialectAnalysis;
+  analyze(sql: string, snapshot: Snapshot, policy?: Policy, context?: DialectAnalysisContext): DialectAnalysis;
   validateSnapshot(value: unknown): Snapshot;
 }
 

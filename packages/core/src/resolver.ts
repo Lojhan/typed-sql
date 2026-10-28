@@ -1,3 +1,4 @@
+import type { JsonShape, JsonValueDescriptor } from "./json.js";
 import type {
   ColumnSnapshot,
   FunctionSnapshot,
@@ -10,6 +11,7 @@ import type {
 } from "./types.js";
 
 export interface ResolverType {
+  readonly scalarJsonShape?: JsonShape;
   readonly json?: JsonValueDescriptor;
   readonly tsType: string;
   readonly nullable: boolean;
@@ -31,17 +33,28 @@ export class ParameterCollector {
       current === undefined ||
       (current.tsType === "unknown" && candidate.tsType !== "unknown") ||
       (current.json === undefined && candidate.json !== undefined && current.tsType === candidate.tsType) ||
+      (current.scalarJsonShape === undefined &&
+        candidate.scalarJsonShape !== undefined &&
+        current.tsType === candidate.tsType) ||
       (current.databaseType === undefined && candidate.databaseType !== undefined)
     ) {
       this.#parameters.set(index, candidate);
       return candidate;
     }
-    if (candidate.tsType === "unknown" && (current.json === undefined || candidate.json === undefined)) return current;
+    if (
+      candidate.tsType === "unknown" &&
+      !(current.json !== undefined && candidate.json !== undefined) &&
+      !(current.scalarJsonShape !== undefined && candidate.scalarJsonShape !== undefined)
+    )
+      return current;
     if (
       current.tsType !== candidate.tsType ||
       (current.json !== undefined &&
         candidate.json !== undefined &&
-        JSON.stringify(current.json) !== JSON.stringify(candidate.json))
+        JSON.stringify(current.json) !== JSON.stringify(candidate.json)) ||
+      (current.scalarJsonShape !== undefined &&
+        candidate.scalarJsonShape !== undefined &&
+        JSON.stringify(current.scalarJsonShape) !== JSON.stringify(candidate.scalarJsonShape))
     ) {
       const conflict: ResolvedParameter = { index, tsType: "unknown", nullable: true };
       this.#parameters.set(index, conflict);
@@ -53,6 +66,9 @@ export class ParameterCollector {
       tsType: current.tsType,
       nullable: current.nullable || candidate.nullable,
       ...((current.json ?? candidate.json) === undefined ? {} : { json: current.json ?? candidate.json }),
+      ...((current.scalarJsonShape ?? candidate.scalarJsonShape) === undefined
+        ? {}
+        : { scalarJsonShape: current.scalarJsonShape ?? candidate.scalarJsonShape }),
       ...(current.databaseType === candidate.databaseType && current.databaseType !== undefined
         ? { databaseType: current.databaseType }
         : {}),
@@ -256,5 +272,3 @@ export class ResolverSchemaIndex {
     this.#foldedColumns.set(table, foldedColumns);
   }
 }
-
-import type { JsonValueDescriptor } from "./json.js";
