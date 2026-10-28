@@ -81,7 +81,16 @@ function isIdentifierPart(char: string | undefined): boolean {
 }
 
 function isWhitespace(char: string | undefined): boolean {
-  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f" || char === "\v";
+  return (
+    char === " " ||
+    char === "\t" ||
+    char === "\n" ||
+    char === "\r" ||
+    char === "\f" ||
+    char === "\v" ||
+    char === "\u2028" ||
+    char === "\u2029"
+  );
 }
 
 function identifierAt(source: string, start: number): { readonly value: string; readonly end: number } | undefined {
@@ -242,7 +251,12 @@ function skipQuoted(source: string, start: number, quote: string): number {
 
 /** Keep executable module declarations after hashbangs and JavaScript directives. */
 export function runtimeMetadataInsertionPosition(source: string): number {
-  let position = source.startsWith("#!") ? source.indexOf("\n") + 1 : 0;
+  const lineEnd = source.startsWith("#!") ? /[\r\n\u2028\u2029]/u.exec(source) : null;
+  let position = source.startsWith("#!")
+    ? lineEnd === null
+      ? source.length
+      : lineEnd.index + (source[lineEnd.index] === "\r" && source[lineEnd.index + 1] === "\n" ? 2 : 1)
+    : 0;
   while (position < source.length) {
     const start = skipTrivia(source, position);
     const quote = source[start];
@@ -405,6 +419,12 @@ function extractTemplate(
         sqlEnd: sql.length,
       });
       index = sourceEnd;
+      continue;
+    }
+    if (char === "\r") {
+      sql += "\n";
+      sqlOffsetMap.push(index);
+      index += source[index + 1] === "\n" ? 2 : 1;
       continue;
     }
     sql += char;
