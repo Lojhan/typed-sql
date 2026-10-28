@@ -395,6 +395,20 @@ export function validateJsonValue(
   shape: JsonShape = unknownJsonShape,
   limits: JsonValidationLimits = {},
 ): value is JsonValue {
+  return validateJsonModel(value, shape, limits, false);
+}
+
+/** @internal Only for values obtained by parsing valid JSON text that will remain text. */
+export function validateParsedJsonTextShape(value: unknown, shape: JsonShape): boolean {
+  return validateJsonModel(value, shape, {}, true);
+}
+
+function validateJsonModel(
+  value: unknown,
+  shape: JsonShape,
+  limits: JsonValidationLimits,
+  allowTextNumericOverflow: boolean,
+): boolean {
   const maximumDepth = limits.maximumDepth ?? 128;
   const maximumValues = limits.maximumValues ?? 1_000_000;
   if (
@@ -409,7 +423,7 @@ export function validateJsonValue(
   const valid = (item: unknown, depth: number): boolean => {
     if (++values > maximumValues || depth > maximumDepth) return false;
     if (item === null || typeof item === "string" || typeof item === "boolean") return true;
-    if (typeof item === "number") return Number.isFinite(item);
+    if (typeof item === "number") return allowTextNumericOverflow ? !Number.isNaN(item) : Number.isFinite(item);
     if (typeof item !== "object" || active.has(item)) return false;
     if (
       !Array.isArray(item) &&

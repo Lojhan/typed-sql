@@ -463,4 +463,36 @@ await describe("query value plans", async () => {
     );
     strict.deepEqual(encodeQueryValues(explicit, renderQuery(explicit, renderer).values, text), ['"quoted"']);
   });
+  await it("preserves valid text JSON numbers beyond JavaScript range without admitting nonfinite parsed models", () => {
+    const raw = "1e999";
+    const columns = [
+      {
+        name: "value",
+        type: "string" as const,
+        nullable: false,
+        json: { representation: "text" as const, shape: { kind: "number" as const } },
+      },
+    ];
+    const query = withQueryValuePlan(
+      sql`select ${raw}`,
+      plan({
+        columns,
+        parameters: [
+          { index: 1, type: "string", nullable: false, json: { representation: "text", shape: { kind: "number" } } },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [raw], text), [raw]);
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: raw }], text), [{ value: raw }]);
+    const parsedModel = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ ...columns[0]!, json: { representation: "parsed", shape: { kind: "number" } } }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(parsedModel, [{ value: raw }], text), /JSON does not match/);
+    const constant = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ ...columns[0]!, json: { representation: "text", shape: { kind: "literal", value: 1 } } }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(constant, [{ value: raw }], text), /JSON does not match/);
+  });
 });

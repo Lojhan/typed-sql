@@ -1,5 +1,11 @@
 import type { QueryStream } from "./execution.js";
-import { type JsonShape, type JsonValueDescriptor, parseJsonShape, validateJsonValue } from "./json.js";
+import {
+  type JsonShape,
+  type JsonValueDescriptor,
+  parseJsonShape,
+  validateJsonValue,
+  validateParsedJsonTextShape,
+} from "./json.js";
 import { explicitJsonParameterIndexes, type Query } from "./query.js";
 import { mapQueryResultStream, queryResultValidationSource } from "./result-validation.js";
 
@@ -327,8 +333,11 @@ function decode(
         throw new QueryValueError(location, "invalid JSON text");
       }
     }
-    if (!validateJsonValue(parsed, json.shape))
-      throw new QueryValueError(location, "JSON does not match its declared shape");
+    const valid =
+      json.representation === "text" && profile.jsonWire === "text"
+        ? validateParsedJsonTextShape(parsed, json.shape)
+        : validateJsonValue(parsed, json.shape);
+    if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
     return json.representation === "text" ? (profile.jsonWire === "text" ? value : JSON.stringify(parsed)) : parsed;
   }
   const normalized = profile.normalizeValue === undefined ? value : profile.normalizeValue(value, descriptor.type);
@@ -430,8 +439,12 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
         throw new QueryValueError(location, "invalid JSON text");
       }
     }
-    if (!validateJsonValue(parsed, json.shape))
-      throw new QueryValueError(location, "JSON does not match its declared shape");
+    const textInput = json.representation === "text" || explicitJson.has(index);
+    const valid =
+      textInput && (profile.jsonInputWire ?? profile.jsonWire) === "text"
+        ? validateParsedJsonTextShape(parsed, json.shape)
+        : validateJsonValue(parsed, json.shape);
+    if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
     if ((profile.jsonInputWire ?? profile.jsonWire) !== "text") return parsed;
     return json.representation === "text" || explicitJson.has(index) ? value : JSON.stringify(parsed);
   });
