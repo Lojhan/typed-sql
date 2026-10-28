@@ -1,10 +1,12 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
 import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
 
@@ -576,6 +578,13 @@ await describe("packed public packages", async () => {
         { cwd: consumer, env: isolatedEnvironment },
       );
       await assertSqlFileConsumer({ consumer, previewCli: preview.stdout.trim(), env: isolatedEnvironment });
+      await assertPortableWorkerConsumer({
+        consumer,
+        viteUrl: pathToFileURL(createRequire(join(workspace, "packages/ts-bridge/package.json")).resolve("vite")).href,
+        miniflareUrl: pathToFileURL(
+          createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
+        ).href,
+      });
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {

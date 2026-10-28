@@ -41,7 +41,6 @@ const publicPackages = [
   "sqlite",
 ] as const;
 const stablePackages = [
-  "adapters",
   "core",
   "opentelemetry",
   "ast",
@@ -53,6 +52,7 @@ const stablePackages = [
   "mysql",
   "sqlite",
   "cli",
+  "adapters",
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
@@ -67,7 +67,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   compiler: ["."],
   conformance: [".", "./v2"],
   cli: [],
-  "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register"],
+  "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite", "./query"],
 };
