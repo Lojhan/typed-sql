@@ -11,7 +11,7 @@ export type RuntimeValueType =
   | "boolean"
   | "date"
   | "bytes"
-  | { readonly array: RuntimeValueType }
+  | { readonly array: RuntimeValueType; readonly elementNullable?: boolean }
   | { readonly union: readonly RuntimeValueType[] };
 
 export interface QueryValueDescriptor {
@@ -54,8 +54,14 @@ function copyType(type: RuntimeValueType, depth = 0): RuntimeValueType {
   if (depth > 32) throw new TypeError("Runtime value type exceeds depth limit");
   if (typeof type === "string" && ["unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type))
     return type;
-  if (typeof type === "object" && type !== null && "array" in type)
-    return Object.freeze({ array: copyType(type.array, depth + 1) });
+  if (typeof type === "object" && type !== null && "array" in type) {
+    if (type.elementNullable !== undefined && typeof type.elementNullable !== "boolean")
+      throw new TypeError("Invalid array element nullability");
+    return Object.freeze({
+      array: copyType(type.array, depth + 1),
+      ...(type.elementNullable === undefined ? {} : { elementNullable: type.elementNullable }),
+    });
+  }
   if (typeof type === "object" && type !== null && "union" in type && type.union.length > 0 && type.union.length <= 32)
     return Object.freeze({ union: Object.freeze(type.union.map((member) => copyType(member, depth + 1))) });
   throw new TypeError("Invalid runtime value type");
@@ -172,7 +178,14 @@ function scalar(value: unknown, type: RuntimeValueType, location: string): unkno
       throw new QueryValueError(location, "value does not match any union member");
     }
     if (!Array.isArray(value)) throw new QueryValueError(location, "expected array");
-    return value.map((item, index) => (item === null ? null : scalar(item, type.array, `${location}[${index}]`)));
+    return value.map((item, index) => {
+      if (item === null) {
+        if (type.elementNullable === false)
+          throw new QueryValueError(`${location}[${index}]`, "unexpected NULL array element");
+        return null;
+      }
+      return scalar(item, type.array, `${location}[${index}]`);
+    });
   }
   const valid =
     type === "unknown" ||

@@ -114,6 +114,12 @@ await describe("query value plans", async () => {
     strict.deepEqual(decodeQueryResultRows(query, [{ value: [1, "two", null] }], text), [{ value: [1, "two", null] }]);
     strict.throws(() => decodeQueryResultRows(query, [{ value: [true] }], text), /union/);
     strict.throws(() => decodeQueryResultRows(query, [{ value: 1 }], text), /array/);
+    const nonnull = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: { array: "number", elementNullable: false }, nullable: false }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(nonnull, [{ value: [null] }], text), /NULL array element/);
+
     const bytes = new Uint8Array([1, 2]);
     const binary = withQueryValuePlan(
       sql<{ value: unknown }>`select 1`,

@@ -33,6 +33,7 @@ Applications import `sql` from their selected dialect root.
 | `sql.empty` | `SqlFragment<readonly []>` | Represent no structural content. |
 | `sql.ident(name)` | `SqlFragment<readonly []>` | Quote an identifier through the selected grammar. |
 | `sql.value(value)` | `SqlFragment<readonly [Value]>` | Create an explicit value fragment. |
+| `sql.json(value)` | `SqlFragment<readonly [JsonInput<Value>]>` | Validate and snapshot a JSON value as a bound parameter. |
 | `sql.join(parts, separator?)` | `SqlFragment` | Join trusted fragments, using a comma separator by default. |
 | `sql.and(parts)` | `SqlFragment` | Join present predicates with parenthesized `AND`. |
 | `sql.or(parts)` | `SqlFragment` | Join present predicates with parenthesized `OR`. |
@@ -43,6 +44,15 @@ Applications import `sql` from their selected dialect root.
 | `sql.dynamic(text)` | `Query<unknown>` | Opt out of static row inference for dynamic SQL. |
 
 `sql.raw()` is not an escaping function. Do not pass untrusted values to it.
+
+`sql.json(value)` accepts finite, acyclic JSON values and snapshots their serialized text.
+Use `sql.json(null)` to bind JSON null; an ordinary interpolated `null` binds SQL `NULL`.
+Compiled JSON parameter contracts check the logical input shape independently of the selected
+text or parsed output policy. Invalid values such as `bigint`, `Date`, and `undefined` are rejected.
+
+The binding does not change SQL expression semantics. When embedding a parameter inside a JSON
+constructor, use the selected grammar's conversion where required, such as SQLite's `json(...)`.
+An encoded JSON parameter passed as an ordinary string value can otherwise become a quoted string.
 
 A non-empty `readonly SqlFragment[]` interpolated directly into a query is structural and renders
 with the fixed separator `, `. This supports direct fragment array literals and analyzable
@@ -207,6 +217,18 @@ Set `DatabaseObserver.captureErrorCause` only when an integration explicitly nee
 `defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, optional manifest settings, live-verification settings, query-plan capture and budget settings, and compatibility report settings.
 
 Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, column, domain, and function metadata, `SchemaProvider`, and source-mapped diagnostics.
+
+Column metadata can carry a `jsonDeclaration` with a bounded `shape` and a `source` of
+`"database"` or `"application"`. `@typed-sql/schema` exports `jsonShapeFromSchema()` to project
+JSON Schema into a structural shape and `parseJsonDeclaration()` to validate this metadata.
+Declarations survive snapshot serialization, format upgrades, and schema hashing. Application
+declarations require result validation before a narrower JSON type can be returned.
+
+The projection describes TypeScript structure; it is not a complete JSON Schema validator.
+For example, `integer` projects to `number`, while numeric bounds and string patterns are not
+represented by TypeScript primitive types. Local acyclic references are bounded; unsupported
+composition and recursive or external references are rejected. Use an application validator when
+those additional constraints must be enforced.
 
 ## Compiler entrypoints
 
