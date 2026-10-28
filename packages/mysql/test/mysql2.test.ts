@@ -308,6 +308,7 @@ await describe("application-owned mysql2 integration", async () => {
     strict.strictEqual(raw.getConnectionCount, 0);
     strict.strictEqual((raw.createdPoolOptions as { maxPreparedStatements?: unknown }).maxPreparedStatements, 16_000);
     strict.strictEqual((raw.createdPoolOptions as { multipleStatements?: unknown }).multipleStatements, false);
+    strict.strictEqual((raw.createdPoolOptions as { jsonStrings?: unknown }).jsonStrings, true);
     strict.deepStrictEqual(await database.execute(prepared(1n)), [{ value: 1n }]);
     strict.strictEqual(raw.executeCount, 1);
     strict.strictEqual(raw.queryCount, 0);

@@ -134,6 +134,14 @@ promoting that syntax into the grammar.
 
 The adapter controls mysql2 options that affect row shape, decoding, statement caching, and protocol safety. Supplying conflicting `poolConfig` options such as `typeCast`, `rowsAsArray`, `maxPreparedStatements`, `multipleStatements`, or incompatible bigint, decimal, date, or JSON settings fails before a pool is created. Connection, TLS, timeout, and pool-capacity settings remain application-owned. Multi-statement strings stay disabled; use `database.batch()` for ordered commands.
 
+`createMySql2Database` reads JSON as text and applies the selected JSON policy itself. This keeps
+mysql2's BIGINT conversion from turning JSON numbers into strings while preserving exact ordinary
+BIGINT decoding. Custom `MySqlPoolLike` implementations can declare `jsonWire: "text"` for raw JSON
+cells or `jsonWire: "parsed"` for already decoded JSON values. This distinguishes a parsed JSON
+scalar such as `"hello"` from serialized JSON text. Omitting the fact retains the existing custom-pool
+contract. `adaptMySql2Pool(pool, "text")` supports a pool configured with `jsonStrings: true`.
+
+
 `database.prepare(name, factory)` returns ordinary queries carrying instance-local prepared metadata. MySQL execution uses mysql2's binary `execute()` path and its per-connection prepared-statement cache. The factory caches its first structural SQL skeleton and rejects duplicate names or structural drift between calls. `preparedStatementLimit` bounds both the database's logical registrations and mysql2's per-connection LRU; it defaults to 16,000. The runtime rejects a new logical name at the bound instead of evicting a factory that application code may still hold. `decoderPlanCacheCapacity` independently bounds compiled row-decoder metadata.
 
 Homogeneous fragment lists may vary only in cardinality. `preparedCardinalityVariantLimit` bounds

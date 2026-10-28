@@ -756,9 +756,10 @@ function createMySql2ProtocolStream(
   };
 }
 
-export function adaptMySql2Pool(pool: Pool): MySqlPoolLike {
+export function adaptMySql2Pool(pool: Pool, jsonWire?: "text" | "parsed"): MySqlPoolLike {
   const executable = pool as unknown as Executable;
   return {
+    ...(jsonWire === undefined ? {} : { jsonWire }),
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
     bulkLoad: true,
     execute: (sql, values) => execute(executable, "execute", sql, values),
@@ -784,13 +785,13 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     bigNumberStrings: true,
     decimalNumbers: false,
     dateStrings: true,
-    jsonStrings: options.typePolicy?.json === "string",
+    jsonStrings: true,
     rowsAsArray: false,
     maxPreparedStatements: options.preparedStatementLimit ?? 16_000,
     multipleStatements: false,
   });
   return createMySqlDatabase({
-    pool: adaptMySql2Pool(pool),
+    pool: adaptMySql2Pool(pool, "text"),
     ownsPool: true,
     ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
     ...(options.decimal === undefined ? {} : { decimal: options.decimal }),

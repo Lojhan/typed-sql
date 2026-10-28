@@ -79,6 +79,8 @@ export interface MySqlConnectionLike extends MySqlStreamingConnection {
 }
 
 export interface MySqlPoolLike {
+  /** Driver-owned JSON wire fact; omission retains the existing application-pool decoding contract. */
+  readonly jsonWire?: "text" | "parsed";
   readonly executionCapabilities?: ExecutionCapabilities;
   readonly bulkLoad?: boolean;
   execute(sql: string, values?: readonly unknown[]): Promise<MySqlExecutionResult>;
@@ -1019,7 +1021,7 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
     options.ownsPool ?? false,
     0,
     createMySqlPreparedQueryState(options.preparedStatementLimit, options.preparedCardinalityVariantLimit),
-    new MySqlDecoderPlanCache(typePolicy, options.decimal, options.decoderPlanCacheCapacity),
+    new MySqlDecoderPlanCache(typePolicy, options.decimal, options.decoderPlanCacheCapacity, options.pool.jsonWire),
     createMySqlObservationState(options.observer),
     safety,
     {

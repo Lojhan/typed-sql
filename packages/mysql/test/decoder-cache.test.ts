@@ -107,6 +107,31 @@ class CachePool implements MySqlPoolLike {
 }
 
 await describe("MySQL decoder plan cache", async () => {
+  await it("distinguishes driver-owned JSON text from already parsed scalar strings without precision-changing driver coercions", () => {
+    const fields = [{ name: "value", columnType: 245 }];
+    const raw = '{"wide":9007199254740993}';
+    const text = new MySqlDecoderPlanCache(defaultPolicy, undefined, 64, "text").get(fields);
+    strict.deepEqual(decodedValue(text, raw), JSON.parse(raw));
+    strict.equal(typeof (decodedValue(text, raw) as { wide: unknown }).wide, "number");
+    strict.equal(decodedValue(text, '"hello"'), "hello");
+    strict.equal(decodedValue(text, "null"), null);
+    strict.equal(decodedValue(text, null), null);
+    strict.throws(() => decodedValue(text, { wide: 1 }), /non-string/u);
+    strict.throws(() => decodedValue(text, "invalid"), SyntaxError);
+    const preserved = new MySqlDecoderPlanCache({ ...defaultPolicy, json: "string" }, undefined, 64, "text").get(
+      fields,
+    );
+    strict.equal(decodedValue(preserved, raw), raw);
+    const parsed = new MySqlDecoderPlanCache(defaultPolicy, undefined, 64, "parsed").get(fields);
+    strict.equal(decodedValue(parsed, "hello"), "hello");
+    const asText = new MySqlDecoderPlanCache({ ...defaultPolicy, json: "string" }, undefined, 64, "parsed").get(fields);
+    strict.equal(decodedValue(asText, "hello"), '"hello"');
+    strict.equal(
+      decodedValue(new MySqlDecoderPlanCache(defaultPolicy).get(fields), "hello"),
+      "hello",
+      "unmarked application pools retain their parsed-string contract",
+    );
+  });
   await it("hits across metadata identities and misses when an existing identity mutates", () => {
     const cache = new MySqlDecoderPlanCache(defaultPolicy);
     const mutableField = { name: "value", columnType: 8 };
