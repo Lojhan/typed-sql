@@ -226,7 +226,7 @@ await describe("query value plans", async () => {
     const jsonNull = withQueryValuePlan(sql`select ${sql.json(null)}`, valuePlan);
     strict.deepEqual(renderQuery(jsonNull, renderer).values, ["null"]);
     strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, text), ["null"]);
-    strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, parsed), [null]);
+    strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, parsed), ["null"]);
     const positional = (input: import("../src/query.js").JsonInput<null>) =>
       withQueryValuePlan(sql`select ${sql.value(input)}`, valuePlan);
     const bound = positional(jsonValue(null));

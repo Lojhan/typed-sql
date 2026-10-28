@@ -48,7 +48,8 @@ export interface QueryTransportProfile {
   readonly typePolicyHash?: string;
   readonly integer: "safe-number" | "lossless";
   readonly jsonWire: "text" | "parsed";
-  readonly jsonInputWire?: "text" | "parsed";
+  /** SQL JSON parameters use serialized documents, independently of result parsing. */
+  readonly jsonInputWire?: "text";
   readonly normalizeValue?: (value: unknown, type: RuntimeValueType) => unknown;
 }
 
@@ -510,11 +511,7 @@ function encodeValue(
     }
   }
   const textInput = json.representation === "text" || explicitJson;
-  const valid =
-    textInput && (profile.jsonInputWire ?? profile.jsonWire) === "text"
-      ? validateParsedJsonTextShape(parsed, json.shape)
-      : validateJsonValue(parsed, json.shape);
+  const valid = textInput ? validateParsedJsonTextShape(parsed, json.shape) : validateJsonValue(parsed, json.shape);
   if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
-  if ((profile.jsonInputWire ?? profile.jsonWire) !== "text") return parsed;
   return json.representation === "text" || explicitJson ? value : JSON.stringify(parsed);
 }
