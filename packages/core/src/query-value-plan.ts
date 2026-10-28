@@ -17,6 +17,8 @@ export type RuntimeValueType =
   | { readonly union: readonly RuntimeValueType[] };
 
 export interface QueryValueDescriptor {
+  /** Parameter-only permission for explicit JSON text without excluding native document inputs. */
+  readonly acceptsJsonInput?: true;
   readonly scalarJsonShape?: JsonShape;
   readonly type: RuntimeValueType;
   readonly nullable: boolean;
@@ -124,6 +126,7 @@ function copyDescriptor(value: QueryValueDescriptor, budget: PlanBudget): QueryV
   return Object.freeze({
     type: copyType(value.type, budget),
     nullable: value.nullable,
+    ...(value.acceptsJsonInput === true ? { acceptsJsonInput: true as const } : {}),
     ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: copyShape(value.scalarJsonShape, budget) }),
     ...(json === undefined
       ? {}
@@ -392,8 +395,11 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
       return null;
     }
     if (descriptor.json === undefined) {
-      if (explicitJson.has(index))
-        throw new QueryValueError(location, "explicit JSON binding requires a JSON parameter contract");
+      if (explicitJson.has(index)) {
+        if (descriptor.acceptsJsonInput !== true)
+          throw new QueryValueError(location, "explicit JSON binding requires a JSON parameter contract");
+        return scalar(value, "string", location);
+      }
       if (profile.integer === "safe-number" && typeof value === "bigint")
         throw new QueryValueError(location, "transport cannot preserve bigint values");
       const result = scalar(value, descriptor.type, location);

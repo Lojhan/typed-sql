@@ -188,6 +188,8 @@ export interface ResolvedColumn {
 }
 
 export interface ResolvedParameter {
+  /** The SQL argument accepts explicit serialized JSON as well as its native scalar/blob inputs. */
+  readonly acceptsJsonInput?: true;
   readonly runtimeType?: RuntimeValueType;
   readonly scalarJsonShape?: JsonShape;
   /** One-based database placeholder index. */
@@ -613,7 +615,13 @@ export function parameterTypeLiteral(parameterCount: number, parameters: readonl
     const parameter = byIndex.get(offset + 1);
     if (!parameter) return "unknown";
     if (parameter.tsType === "unknown") return "unknown";
-    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}${parameter.json === undefined ? "" : ` | import("@typed-sql/core").JsonInput<${jsonShapeType(parameter.json.shape)}>`}`;
+    const inputShape =
+      parameter.json === undefined
+        ? parameter.acceptsJsonInput === true
+          ? "unknown"
+          : undefined
+        : jsonShapeType(parameter.json.shape);
+    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}${inputShape === undefined ? "" : ` | import("@typed-sql/core").JsonInput<${inputShape}>`}`;
   });
   return `readonly [${elements.join(", ")}]`;
 }

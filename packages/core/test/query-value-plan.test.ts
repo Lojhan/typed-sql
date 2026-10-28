@@ -15,6 +15,7 @@ import {
 } from "../src/query-value-plan.js";
 import { ParameterCollector } from "../src/resolver.js";
 import type { StandardSchemaV1 } from "../src/result-validation.js";
+import { parameterTypeLiteral } from "../src/types.js";
 
 const text: QueryTransportProfile = { id: "test", dialect: "sqlite", integer: "lossless", jsonWire: "text" };
 const parsed: QueryTransportProfile = { ...text, jsonWire: "parsed" };
@@ -383,5 +384,36 @@ await describe("query value plans", async () => {
     await stream.close();
     strict.equal(closes, 1);
     strict.equal((await stream.next()).done, true);
+  });
+  await it("accepts explicit JSON documents without excluding native numeric and binary inputs", () => {
+    const renderer = { placeholder: () => "?", quoteIdentifier: (name: string) => name };
+    const contract = plan({
+      parameters: [
+        { index: 1, type: { union: ["bigint", "number", "string", "bytes"] }, nullable: true, acceptsJsonInput: true },
+      ],
+    });
+    const explicit = withQueryValuePlan(sql`select ${sql.json({ id: 1 })}`, contract);
+    strict.deepEqual(encodeQueryValues(explicit, renderQuery(explicit, renderer).values, text), ['{"id":1}']);
+    const ordinary = withQueryValuePlan(sql`select ${1n}`, contract);
+    strict.deepEqual(encodeQueryValues(ordinary, [1n], text), [1n]);
+    const bytes = Uint8Array.of(1, 2);
+    strict.deepEqual(encodeQueryValues(ordinary, [bytes], text), [bytes]);
+    strict.deepEqual(encodeQueryValues(ordinary, [1.5], text), [1.5]);
+    const collector = new ParameterCollector();
+    collector.record(1, { tsType: "string", nullable: false });
+    collector.record(1, { tsType: "string", nullable: false, acceptsJsonInput: true });
+    const merged = collector.record(1, { tsType: "string", nullable: true });
+    strict.equal(merged.acceptsJsonInput, true);
+    strict.equal(merged.nullable, true);
+    strict.equal(
+      parameterTypeLiteral(1, collector.values()),
+      'readonly [string | null | import("@typed-sql/core").JsonInput<unknown>]',
+    );
+    strict.equal(
+      parameterTypeLiteral(1, [
+        { index: 1, tsType: "string", nullable: false, json: { representation: "text", shape: { kind: "number" } } },
+      ]),
+      'readonly [string | import("@typed-sql/core").JsonInput<number>]',
+    );
   });
 });

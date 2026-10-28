@@ -27,6 +27,10 @@ export function buildQueryValuePlan<Snapshot extends SchemaSnapshot, Policy>(
     columns: analysis.columns.map((column) => ({ ...descriptor(column), name: column.name })),
     parameters: [...analysis.parameters]
       .sort((left, right) => left.index - right.index)
-      .map((parameter) => ({ ...descriptor(parameter), index: parameter.index })),
+      .map((parameter) => ({
+        ...descriptor(parameter),
+        index: parameter.index,
+        ...(parameter.acceptsJsonInput === true ? { acceptsJsonInput: true as const } : {}),
+      })),
   };
 }

@@ -12,6 +12,7 @@ import type {
 } from "./types.js";
 
 export interface ResolverType {
+  readonly acceptsJsonInput?: true;
   readonly runtimeType?: RuntimeValueType;
   readonly scalarJsonShape?: JsonShape;
   readonly json?: JsonValueDescriptor;
@@ -35,6 +36,9 @@ export class ParameterCollector {
       current === undefined ||
       (current.tsType === "unknown" && candidate.tsType !== "unknown") ||
       (current.json === undefined && candidate.json !== undefined && current.tsType === candidate.tsType) ||
+      (current.acceptsJsonInput === undefined &&
+        candidate.acceptsJsonInput === true &&
+        current.tsType === candidate.tsType) ||
       (current.scalarJsonShape === undefined &&
         candidate.scalarJsonShape !== undefined &&
         current.tsType === candidate.tsType) ||
@@ -67,6 +71,9 @@ export class ParameterCollector {
       index,
       tsType: current.tsType,
       nullable: current.nullable || candidate.nullable,
+      ...(current.acceptsJsonInput === true || candidate.acceptsJsonInput === true
+        ? { acceptsJsonInput: true as const }
+        : {}),
       ...((current.runtimeType ?? candidate.runtimeType) === undefined
         ? {}
         : { runtimeType: current.runtimeType ?? candidate.runtimeType }),
