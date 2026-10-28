@@ -4280,7 +4280,7 @@ class Resolver {
       const canonical = postgresCanonicalType(value.databaseType, this.#schema);
       const mapping = canonical.endsWith("[]") ? undefined : postgresCatalogTypeMapping(canonical, this.#schema);
       const composite =
-        this.#schema.formatVersion !== 2
+        mapping !== undefined || canonical.endsWith("[]") || this.#schema.formatVersion !== 2
           ? undefined
           : Object.values(this.#schema.types).find(
               (type): type is CompositeTypeSnapshot =>
