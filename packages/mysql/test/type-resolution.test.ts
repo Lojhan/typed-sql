@@ -224,9 +224,9 @@ await describe("MySQL catalog-backed type resolution", async () => {
         },
         {
           name: "json_value",
-          tsType: "unknown",
+          tsType: "1",
           databaseType: "json",
-          nullable: true,
+          nullable: false,
           coercibility: undefined,
         },
         {

@@ -1,6 +1,7 @@
 import {
   applyDialectCapabilityStates,
   DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
@@ -78,7 +79,12 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
         .filter((token) => token.kind === "parameter")
         .map((token) => ({ index: Number(token.value), range: token.range }));
     },
-    analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
+    analyze(
+      sql: string,
+      snapshot: MySqlSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
       try {
         const sqlMode = snapshot.server?.settings.sqlMode;
         const unmodeledModes = typeof sqlMode === "string" ? unmodeledMySqlSqlModes(sqlMode) : [];
@@ -100,7 +106,10 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
           };
         }
         const statement = parseStatement(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}) });
-        const resolved = resolveMySqlStatement(statement, snapshot, { typePolicy: policy });
+        const resolved = resolveMySqlStatement(statement, snapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
         const analysis = {
           ...resolved,
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")

@@ -185,3 +185,25 @@ An early `break`, `close()`, or async disposal stops delivering rows to the cons
 Inside a transaction, the stream reuses the transaction connection and never releases it directly. The stream must complete or close before the transaction callback returns.
 
 See [Execute queries](../guides/execution.md), [Route reads and retry transactions](../guides/routing-and-retries.md), [Database type mappings](../reference/type-mappings.md#mysql), and [Compatibility](../reference/compatibility.md).
+
+## Structured JSON expressions
+
+Literal-key `JSON_OBJECT`, `JSON_ARRAY`, `JSON_ARRAYAGG`, and `JSON_OBJECTAGG`
+retain nested JSON structure through derived tables and common table expressions.
+JSON numbers decode as JavaScript numbers even when ordinary SQL bigint or decimal
+columns use another type policy. Dates become JSON strings; SQL `NULL` used as a
+constructor value becomes JSON `null`. Empty aggregate input returns SQL `NULL`.
+
+Literal paths in `JSON_EXTRACT` and static mutations (`JSON_SET`, `JSON_INSERT`,
+`JSON_REPLACE`, `JSON_REMOVE`, `JSON_ARRAY_APPEND`, `JSON_ARRAY_INSERT`,
+`JSON_MERGE_PATCH`, and `JSON_MERGE_PRESERVE`) retain supported structural evidence.
+MySQL array path legs wrap a non-array value as a one-element array. Missing
+multi-path matches are omitted. Dynamic paths, wildcard paths, and unsupported
+values remain conservative. `JSON_UNQUOTE` returns SQL text, including the text
+`'null'` for a JSON null value.
+
+The `json: 'string'` type policy keeps JSON results serialized. An encoded JSON
+parameter remains SQL text in constructor value positions; use an explicit
+`CAST(... AS JSON)` when MySQL must embed a JSON document instead of a string.
+Application JSON declarations contribute narrower types only when analysis has a
+runtime validation contract; ordinary analysis does not trust those declarations.
