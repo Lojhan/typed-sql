@@ -168,6 +168,7 @@ function parseColumn(value: unknown, path: string): ColumnSnapshotV2 {
       "typeIdentity",
       "tsType",
       "nullable",
+      "jsonDeclaration",
       "nullabilitySource",
       "default",
       "defaultExpressionHash",
@@ -204,6 +205,7 @@ function parseColumn(value: unknown, path: string): ColumnSnapshotV2 {
     typeIdentity: text(source.typeIdentity, `${path}.typeIdentity`),
     tsType: text(source.tsType, `${path}.tsType`),
     nullable: bool(source.nullable, `${path}.nullable`),
+    ...(source.jsonDeclaration === undefined ? {} : { jsonDeclaration: parseJsonDeclaration(source.jsonDeclaration) }),
     nullabilitySource: oneOf(
       source.nullabilitySource,
       ["declared", "domain", "generated", "inferred", "unknown"],
@@ -632,6 +634,7 @@ function legacyColumn(column: ColumnSnapshotV2): ColumnSnapshot {
     databaseType: column.databaseType,
     tsType: column.tsType,
     nullable: column.nullable,
+    ...(column.jsonDeclaration === undefined ? {} : { jsonDeclaration: column.jsonDeclaration }),
     ...(column.dimensions === undefined ? {} : { array: true }),
   };
 }
@@ -774,3 +777,5 @@ export function schemaSnapshotV2Envelope(snapshot: SchemaSnapshotV2): SchemaSnap
     ...(snapshot.extension === undefined ? {} : { extension: snapshot.extension }),
   };
 }
+
+import { parseJsonDeclaration } from "../json-schema.js";

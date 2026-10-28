@@ -42,6 +42,7 @@ export function upgradeSchemaSnapshotV1(snapshot: SchemaSnapshotV1): SchemaSnaps
             typeIdentity: column.databaseType,
             tsType: column.tsType,
             nullable: column.nullable,
+            ...(column.jsonDeclaration === undefined ? {} : { jsonDeclaration: column.jsonDeclaration }),
             nullabilitySource: "unknown" as const,
             default: column.defaultExpression === undefined ? ("unknown" as const) : ("present" as const),
             ...(column.defaultExpression === undefined

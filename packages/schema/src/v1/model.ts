@@ -22,6 +22,7 @@ export interface TableSnapshot {
 }
 
 export interface ColumnSnapshot {
+  readonly jsonDeclaration?: import("../json-schema.js").JsonDeclaration;
   readonly name: string;
   readonly databaseType: string;
   readonly tsType: string;

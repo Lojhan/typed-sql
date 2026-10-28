@@ -29,6 +29,7 @@ export type ColumnClassification = "normal" | "hidden" | "system" | "rowid";
 export type Eligibility = boolean | "unknown";
 
 export interface ColumnSnapshotV2 {
+  readonly jsonDeclaration?: import("../json-schema.js").JsonDeclaration;
   readonly name: string;
   /** Zero-based declared relation-column order. */
   readonly position: number;

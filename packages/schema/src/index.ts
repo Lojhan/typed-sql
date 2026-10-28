@@ -16,6 +16,8 @@ export {
   matchesTypePolicyHash,
   serializeSchemaSnapshot,
 } from "./generator.js";
+export type { JsonDeclaration } from "./json-schema.js";
+export { jsonShapeFromSchema, parseJsonDeclaration } from "./json-schema.js";
 export {
   loadGeneratedSchemaSnapshot,
   loadSchemaSnapshot,
