@@ -1,5 +1,13 @@
 # @typed-sql/conformance
 
+## 2.3.0-rc.1
+
+### Patch Changes
+
+- Updated dependencies [b5808b9]
+  - @typed-sql/core@2.3.0-rc.1
+  - @typed-sql/compiler@2.3.0-rc.1
+
 ## 2.3.0-rc.0
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @typed-sql/core
 
+## 2.3.0-rc.1
+
+### Patch Changes
+
+- b5808b9: Validate query resource limits during rendering in a single traversal, retaining structural and rendered UTF-8 byte ceilings and the parameter limit.
+
 ## 2.3.0-rc.0
 
 ### Minor Changes
