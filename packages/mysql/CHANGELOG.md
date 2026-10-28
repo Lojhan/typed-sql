@@ -1,5 +1,45 @@
 # @typed-sql/mysql
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- b24279d: Infer bounded nested JSON constructors, aggregates, literal paths and static mutations using the shared JSON shape model. Preserve MySQL-specific JSON conversion, nullability and array autowrap semantics, and retain runtime validation metadata for application declarations.
+- b24279d: Add explicit buffered adapters for D1, libSQL/Turso, Neon HTTP, Neon WebSocket, and Postgres.js.
+  Adapters enforce compiled value plans, transport precision, and truthful batch/transaction
+  capabilities while leaving drivers application-owned. Add portable grammar query entrypoints and
+  logical value descriptors without changing existing runtime entrypoint exports.
+- 19f37d9: Add an optional grammar-owned parameter occurrence contract and an experimental TypeScript 7.1
+  content mapper for SQL-file query factories. The mapper checks positional parameters and result
+  rows against the configured offline snapshot, reports original SQL diagnostics, and refreshes
+  configuration dependencies in native watch mode. An optional Node.js 24 preload executes the same
+  SQL files through the existing branded query and database APIs.
+
+### Patch Changes
+
+- b24279d: Preserve JSON declaration metadata on input parameters under every JSON result policy and recognize explicit JSON bindings in supported document arguments. Constructor value arguments retain ordinary SQL scalar semantics.
+- b24279d: Enforce attached compiled value plans across buffered, prepared, batch, transaction, and streaming execution, including PostgreSQL pipelines. Encode JSON parameters as JSON text before driver binding, reject incompatible policies before dispatch, and validate planned results before application result schemas. Preserve MySQL JSON numeric text when the string policy is selected.
+- b24279d: Read JSON text from mysql2 and decode it once using the selected JSON policy, preventing BIGINT-safe driver settings from changing JSON numbers into strings. Preserve exact ordinary BIGINT values and add an explicit optional JSON wire fact for custom pools.
+- b24279d: Preserve structured JSON validation within native PostgreSQL array results and through projections, conditional expressions and aggregates. Mark opaque JSON output columns for policy-correct decoding, and include SQL-null elements in inferred array constructor types. Preserve null-only native element guards without accepting non-null values.
+- b24279d: Validate application-declared JSON before driver decoding can conflate JSON null with SQL NULL. Preserve JSON text through planned MySQL queries and validate structured JSON elements inside native SQL arrays. Reject parsed transports that cannot establish the declared contract.
+- b24279d: Verify executable value plans against bounded conditional and repeated query structures. Preserve validators when composing queries, require fresh metadata for changed SQL, and route generated runtime imports through the selected grammar entrypoint.
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/core@2.3.0-rc.0
+  - @typed-sql/schema@2.3.0-rc.0
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.

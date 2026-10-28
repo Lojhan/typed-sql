@@ -1,5 +1,47 @@
 # @typed-sql/postgres
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- b24279d: Add explicit buffered adapters for D1, libSQL/Turso, Neon HTTP, Neon WebSocket, and Postgres.js.
+  Adapters enforce compiled value plans, transport precision, and truthful batch/transaction
+  capabilities while leaving drivers application-owned. Add portable grammar query entrypoints and
+  logical value descriptors without changing existing runtime entrypoint exports.
+- 19f37d9: Infer nested PostgreSQL JSON object and aggregate result shapes from literal constructor keys and database JSON serialization rules. Preserve shape provenance through projections and empty-array aggregate fallbacks while keeping dynamic structures and unsupported conversions conservative.
+- b24279d: Carry bounded structured JSON descriptors through PostgreSQL constructors, aggregates and projections. Infer arrays, row/scalar conversions, literal path extraction and JSONB updates while keeping SQL nullability distinct from JSON null and preserving declared payload contracts.
+- 19f37d9: Add an optional grammar-owned parameter occurrence contract and an experimental TypeScript 7.1
+  content mapper for SQL-file query factories. The mapper checks positional parameters and result
+  rows against the configured offline snapshot, reports original SQL diagnostics, and refreshes
+  configuration dependencies in native watch mode. An optional Node.js 24 preload executes the same
+  SQL files through the existing branded query and database APIs.
+
+### Patch Changes
+
+- b24279d: Preserve JSON declaration metadata on input parameters under every JSON result policy and recognize explicit JSON bindings in supported document arguments. Constructor value arguments retain ordinary SQL scalar semantics.
+- 19f37d9: Verify PostgreSQL decoded JSON using native wire types without claiming independent nested shape evidence. Bind fresh and cached native proofs to the effective decoding policy, and consistently include dialect factory defaults in manifest and repeated-fragment identities. Regenerate manifests and verification proofs created with the previous default-policy identity.
+- b24279d: Enforce attached compiled value plans across buffered, prepared, batch, transaction, and streaming execution, including PostgreSQL pipelines. Encode JSON parameters as JSON text before driver binding, reject incompatible policies before dispatch, and validate planned results before application result schemas. Preserve MySQL JSON numeric text when the string policy is selected.
+- b24279d: Preserve structured JSON validation within native PostgreSQL array results and through projections, conditional expressions and aggregates. Mark opaque JSON output columns for policy-correct decoding, and include SQL-null elements in inferred array constructor types. Preserve null-only native element guards without accepting non-null values.
+- b24279d: Include null elements in catalog-backed PostgreSQL array types. PostgreSQL permits null elements independently of column nullability; literal array expressions can retain more precise element evidence.
+- b24279d: Preserve raw JSON text for planned node-postgres queries so application JSON validation distinguishes JSON null from SQL NULL, including native JSON arrays and streaming results.
+- b24279d: Verify executable value plans against bounded conditional and repeated query structures. Preserve validators when composing queries, require fresh metadata for changed SQL, and route generated runtime imports through the selected grammar entrypoint.
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/core@2.3.0-rc.0
+  - @typed-sql/schema@2.3.0-rc.0
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.

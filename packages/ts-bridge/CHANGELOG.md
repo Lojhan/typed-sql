@@ -1,5 +1,44 @@
 # @typed-sql/ts-bridge
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- 19f37d9: Add an optional grammar-owned parameter occurrence contract and an experimental TypeScript 7.1
+  content mapper for SQL-file query factories. The mapper checks positional parameters and result
+  rows against the configured offline snapshot, reports original SQL diagnostics, and refreshes
+  configuration dependencies in native watch mode. An optional Node.js 24 preload executes the same
+  SQL files through the existing branded query and database APIs.
+
+### Patch Changes
+
+- b24279d: Compile SQL files and static inline queries into portable runtime factories with checked value plans through the optional Vite build plugin. SQL modules export their value plan and use the selected grammar's portable runtime entrypoint.
+- b24279d: Reuse immutable SQL-file text fragments across factory calls while allocating fresh parameter values for each invocation.
+- b24279d: Require Node.js 24.11.1 or newer for the optional SQL runtime preload (25.1.0 or newer on Node.js 25) so configuration loading remains compatible with CommonJS database drivers.
+- b24279d: Verify executable value plans against bounded conditional and repeated query structures. Preserve validators when composing queries, require fresh metadata for changed SQL, and route generated runtime imports through the selected grammar entrypoint.
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [702bc16]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/compiler@2.3.0-rc.0
+  - @typed-sql/core@2.3.0-rc.0
+  - @typed-sql/schema@2.3.0-rc.0
+  - @typed-sql/config@2.3.0-rc.0
+
 ## 2.2.0-rc.0
 
 ### Patch Changes

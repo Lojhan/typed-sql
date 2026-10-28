@@ -69,6 +69,7 @@ await describe("stable release rehearsal policy", async () => {
   await it("publishes durable release notes with the supported and experimental boundaries", async () => {
     const release = JSON.parse(await readFile(resolve(workspace, "release-manifest.json"), "utf8")) as {
       readonly series: string;
+      readonly packagePolicy: { readonly stable: readonly string[] };
     };
     const notes = await readFile(resolve(workspace, `.github/release-notes/${release.series}.md`), "utf8");
     const normalizedNotes = notes.replaceAll(/\s+/gu, " ");
@@ -83,10 +84,13 @@ await describe("stable release rehearsal policy", async () => {
       "@typed-sql/language-server",
       "@typed-sql/sqlite",
       "remain experimental",
-      "eleven-package stable train",
+      "stable package train",
     ]) {
       strict.ok(normalizedNotes.includes(required), `stable release notes lost required boundary: ${required}`);
     }
+
+    for (const name of release.packagePolicy.stable)
+      strict.ok(normalizedNotes.includes(`\`${name}\``), `release notes omit stable package ${name}`);
 
     const workflow = await readFile(resolve(workspace, ".github/workflows/release.yml"), "utf8");
     const publishStable = workflow.indexOf("name: Publish stable");

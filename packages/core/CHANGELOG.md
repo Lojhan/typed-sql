@@ -1,5 +1,30 @@
 # @typed-sql/core
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- b24279d: Add sql.json() and jsonValue() for validated JSON snapshots and explicit JSON null bindings. Preserve JSON parameter contracts through inference and check logical JSON input shapes independently of the selected text/parsed output representation.
+- b24279d: Carry immutable grammar-owned value plans into portable execution, validate JSON representations and reject incompatible transport policies before dispatch. Build transforms can request executable metadata while typechecking overlays retain their existing behavior.
+- 19f37d9: Add an optional grammar-owned parameter occurrence contract and an experimental TypeScript 7.1
+  content mapper for SQL-file query factories. The mapper checks positional parameters and result
+  rows against the configured offline snapshot, reports original SQL diagnostics, and refreshes
+  configuration dependencies in native watch mode. An optional Node.js 24 preload executes the same
+  SQL files through the existing branded query and database APIs.
+- b24279d: Add bounded, grammar-neutral JSON structure descriptors, type rendering, literal path and structural update helpers, and finite JSON payload validation. Resolved fields can describe their desired parsed, text or binary JSON representation independently of SQL nullability.
+
+### Patch Changes
+
+- b24279d: Reuse core-normalized immutable JSON shapes across derived value plans, preserving caller-input snapshots and logical expansion limits while reducing retained metadata for repeated queries.
+- 19f37d9: Verify PostgreSQL decoded JSON using native wire types without claiming independent nested shape evidence. Bind fresh and cached native proofs to the effective decoding policy, and consistently include dialect factory defaults in manifest and repeated-fragment identities. Regenerate manifests and verification proofs created with the previous default-policy identity.
+- b24279d: Reduce temporary allocations while validating JSON shapes, retaining own-property, finite-value and resource checks and the existing order of reading JSON member values.
+- b24279d: Enforce attached compiled value plans across buffered, prepared, batch, transaction, and streaming execution, including PostgreSQL pipelines. Encode JSON parameters as JSON text before driver binding, reject incompatible policies before dispatch, and validate planned results before application result schemas. Preserve MySQL JSON numeric text when the string policy is selected.
+- b24279d: Preserve structured JSON validation within native PostgreSQL array results and through projections, conditional expressions and aggregates. Mark opaque JSON output columns for policy-correct decoding, and include SQL-null elements in inferred array constructor types. Preserve null-only native element guards without accepting non-null values.
+- b24279d: Preserve exact UTF-8 query size limits in runtimes without Node's Buffer global, while retaining the Node fast path.
+- b24279d: Reject copied query objects that would otherwise lose value plans or result validators. Keep query composition and validator wrappers owned, and reject compiled plans in the legacy generic executor when no transport decoding contract is available.
+- b24279d: Validate application-declared JSON before driver decoding can conflate JSON null with SQL NULL. Preserve JSON text through planned MySQL queries and validate structured JSON elements inside native SQL arrays. Reject parsed transports that cannot establish the declared contract.
+- b24279d: Verify executable value plans against bounded conditional and repeated query structures. Preserve validators when composing queries, require fresh metadata for changed SQL, and route generated runtime imports through the selected grammar entrypoint.
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.

@@ -1,5 +1,28 @@
 # @typed-sql/schema
 
+## 2.3.0-rc.0
+
+### Minor Changes
+
+- b24279d: Persist bounded structural JSON declarations and their database/application provenance through schema loading, upgrading and hashing. Add conservative JSON Schema shape projection with bounded local references and explicit rejection of unsupported composition.
+
+### Patch Changes
+
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+- Updated dependencies [19f37d9]
+- Updated dependencies [b24279d]
+- Updated dependencies [b24279d]
+  - @typed-sql/core@2.3.0-rc.0
+
 ## 2.2.0
 
 This release promotes the changes documented in 2.2.0-rc.0 to stable.
