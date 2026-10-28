@@ -137,6 +137,12 @@ export function setQueryResultValidator(
   validators.set(query, Object.freeze({ source, schema, options: Object.freeze({ ...options }) }));
 }
 
+/** @internal Preserve validation while giving changed SQL its own adapter metadata identity. */
+export function inheritQueryResultValidator(source: object, query: object): void {
+  const binding = validators.get(source);
+  if (binding !== undefined) validators.set(query, Object.freeze({ ...binding, source: query }));
+}
+
 export function hasQueryResultValidator(query: object): boolean {
   return validators.has(query);
 }

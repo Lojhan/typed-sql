@@ -8,6 +8,7 @@ import {
 } from "./json.js";
 import { serializedJsonInput } from "./json-input.js";
 import { explicitJsonParameterIndexes, type Query } from "./query.js";
+import type { QueryValuePlanSelector } from "./query-value-plan-selection.js";
 import { mapQueryResultStream, queryResultValidationSource } from "./result-validation.js";
 
 /** Logical JavaScript values selected by a grammar's type policy. */
@@ -63,6 +64,7 @@ export class QueryValueError extends TypeError {
 }
 
 const plans = new WeakMap<object, QueryValuePlan>();
+const requiredPlans = new WeakSet<object>();
 
 interface PlanBudget {
   remaining: number;
@@ -194,18 +196,40 @@ export function defineQueryValuePlan(plan: QueryValuePlan): QueryValuePlan {
 /** Attach compiler/grammar metadata without mutating the query or retaining parameter values. */
 export function withQueryValuePlan<Row, Params extends readonly unknown[]>(
   query: Query<Row, Params>,
-  plan: QueryValuePlan,
+  plan: QueryValuePlan | QueryValuePlanSelector,
 ): Query<Row, Params> {
   const source = queryResultValidationSource(query);
-  if (plans.has(source)) throw new TypeError("Query already has a value plan");
-  plans.set(source, defineQueryValuePlan(plan));
+  const existing = plans.get(source);
+  if (existing !== undefined && typeof plan !== "function") throw new TypeError("Query already has a value plan");
+  const selected = defineQueryValuePlan(typeof plan === "function" ? plan(query) : plan);
+  if (existing !== undefined) {
+    if (JSON.stringify(existing) !== JSON.stringify(selected))
+      throw new TypeError("Query already has a different value plan");
+    return query;
+  }
+  plans.set(source, selected);
   return query;
+}
+
+/** @internal Changed SQL must receive a newly verified plan before it can execute. */
+export function inheritQueryValuePlanRequirement<
+  SourceRow,
+  SourceParams extends readonly unknown[],
+  Row,
+  Params extends readonly unknown[],
+>(sourceQuery: Query<SourceRow, SourceParams>, query: Query<Row, Params>): void {
+  const source = queryResultValidationSource(sourceQuery);
+  if (plans.has(source) || requiredPlans.has(source)) requiredPlans.add(queryResultValidationSource(query));
 }
 
 export function getQueryValuePlan<Row, Params extends readonly unknown[]>(
   query: Query<Row, Params>,
 ): QueryValuePlan | undefined {
-  return plans.get(queryResultValidationSource(query));
+  const source = queryResultValidationSource(query);
+  const plan = plans.get(source);
+  if (plan === undefined && requiredPlans.has(source))
+    throw new QueryValueError("plan", "Composed SQL requires a newly verified runtime value plan");
+  return plan;
 }
 
 function hasBigint(type: RuntimeValueType): boolean {

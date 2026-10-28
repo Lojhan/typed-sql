@@ -63,6 +63,8 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
   });
   if (Buffer.byteLength(content) > DEFAULT_MAX_SOURCE_BYTES)
     diagnostics.push(unavailable("SQL file exceeds the source size limit."));
+  if (dialect.runtimeSqlModule === undefined)
+    diagnostics.push(unavailable("SQL files require a grammar portable runtime entrypoint."));
   const analysis =
     diagnostics.length === 0
       ? dialect.analyze(content, project.snapshot, policy, { runtimeValidation: true })
@@ -116,9 +118,11 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
   }
   const failed = diagnostics.some((item) => item.severity === "error");
   const row = analysis?.resultKind === "command" ? "never" : rowTypeLiteral(analysis?.columns ?? []);
-  const parameters = parameterTypeLiteral(count, analysis?.parameters ?? []);
+  const parameters = parameterTypeLiteral(count, analysis?.parameters ?? [], dialect.runtimeSqlModule);
   const type = failed ? "never" : `(...values: ${parameters}) => Query<${row}, ${parameters}>`;
-  const text = `import type { Query, QueryValuePlan } from "@typed-sql/core";\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
+  const text = failed
+    ? "declare const query: never; export default query;"
+    : `import type { Query, QueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
   const runtime = failed
     ? `export default undefined;\nthrow new SyntaxError(${JSON.stringify(
         diagnostics
@@ -127,8 +131,8 @@ export function analyzeSqlFile(content: string, project: SqlFileProject): SqlFil
           .join("\n"),
       )});\n`
     : `import { sql } from ${JSON.stringify(dialect.runtimeSqlModule ?? dialect.sqlModule)};
-import { defineQueryValuePlan, withQueryValuePlan } from "@typed-sql/core";
-export const valuePlan = defineQueryValuePlan(${JSON.stringify(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy))});
+import { defineQueryValuePlan, withQueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};
+export const valuePlan = defineQueryValuePlan(${JSON.stringify(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy, count))});
 const parts = ${JSON.stringify(parts)};
 export default function query(...values) {
   if (values.length !== ${count}) throw new TypeError("SQL file expects ${count} positional parameters");

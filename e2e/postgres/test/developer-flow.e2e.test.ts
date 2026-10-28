@@ -31,7 +31,11 @@ import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-previ
 import { Pool } from "pg";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
-import { assertLegacyTextValuePlans, assertLegacyValuePlans } from "../../../test/helpers/legacy-value-plans.js";
+import {
+  assertCompiledLegacyValuePlans,
+  assertLegacyTextValuePlans,
+  assertLegacyValuePlans,
+} from "../../../test/helpers/legacy-value-plans.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
 import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
@@ -213,6 +217,15 @@ try {
         const pipeline = pipelineDatabase;
         await assertLegacyValuePlans(database, "postgres", calculateTypePolicyHash(typePolicy), (queries) =>
           pipeline.pipeline(queries),
+        );
+        const compiledDialect = postgres({ typePolicy });
+        await assertCompiledLegacyValuePlans(
+          database,
+          compiledDialect,
+          compiledDialect.validateSnapshot(
+            JSON.parse(await readFile(join(packageDirectory, "schema/catalog.snapshot.json"), "utf8")),
+          ),
+          packageDirectory,
         );
       } finally {
         await database.close();

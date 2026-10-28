@@ -27,3 +27,9 @@ export function mysqlRuntimeValueType(
       return "unknown";
   }
 }
+
+export type { JsonInput, Query, QueryValuePlan } from "@typed-sql/core";
+
+export { defineQueryValuePlan, defineQueryValuePlanSelector, withQueryValuePlan } from "@typed-sql/core";
+/** Standard portable renderer export for compiler-generated runtime selectors. */
+export { mysqlRenderer as renderer };

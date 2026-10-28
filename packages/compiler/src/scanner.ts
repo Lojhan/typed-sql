@@ -18,6 +18,7 @@ export interface ExtractedInterpolation {
   readonly sourceEnd: number;
   readonly sqlStart: number;
   readonly sqlEnd: number;
+  readonly allowOmitted?: boolean;
 }
 
 export interface ExtractedAppendFragment {
@@ -482,8 +483,16 @@ function unwrappedRange(source: string, start: number, end: number): { readonly 
   return range;
 }
 
-function structuralOperand(source: string, start: number, end: number, tagName: string): StructuralOperand | undefined {
+function structuralOperand(
+  source: string,
+  start: number,
+  end: number,
+  tagName: string,
+  allowOmitted = false,
+): StructuralOperand | undefined {
   const range = trimmedRange(source, start, end);
+  if (allowOmitted && ["undefined", "null", "false"].includes(source.slice(range.start, range.end)))
+    return { kind: "empty", ...range };
   const empty = `${tagName}.empty`;
   if (source.slice(range.start, range.end) === empty) return { kind: "empty", ...range };
   const prefix = `${tagName}.fragment`;
@@ -875,11 +884,23 @@ export function parseStructuralInterpolation(
   const { start, end } = expression;
   const conditional = conditionalRanges(source, start, end);
   if (conditional === undefined) {
-    const truthy = structuralOperand(source, start, end, tagName);
+    const truthy = structuralOperand(source, start, end, tagName, interpolation.allowOmitted);
     return truthy === undefined ? undefined : { truthy };
   }
-  const truthy = structuralOperand(source, conditional.truthy.start, conditional.truthy.end, tagName);
-  const falsy = structuralOperand(source, conditional.falsy.start, conditional.falsy.end, tagName);
+  const truthy = structuralOperand(
+    source,
+    conditional.truthy.start,
+    conditional.truthy.end,
+    tagName,
+    interpolation.allowOmitted,
+  );
+  const falsy = structuralOperand(
+    source,
+    conditional.falsy.start,
+    conditional.falsy.end,
+    tagName,
+    interpolation.allowOmitted,
+  );
   if (truthy === undefined || falsy === undefined) return undefined;
   return {
     condition: source.slice(conditional.condition.start, conditional.condition.end).replace(/\s+/gu, " "),
@@ -1008,6 +1029,73 @@ export function extractDynamicQueries(
     index = end;
   }
   return queries;
+}
+
+/** Discover bounded composition of a directly bound query without interpreting SQL syntax. */
+export function extractQueryCompositions(
+  source: string,
+  placeholder: (index: number) => string,
+  sqlModules: readonly string[],
+  queries: readonly ExtractedQuery[],
+): readonly { base: ExtractedQuery; query: ExtractedQuery }[] {
+  const names = importedSqlNames(source, new Set(sqlModules));
+  const bindings = queries.flatMap((query) => {
+    const name = bindingNameBefore(source, query.range.start);
+    return name === undefined ? [] : [{ name, query }];
+  });
+  const result: { base: ExtractedQuery; query: ExtractedQuery }[] = [];
+  let index = 0;
+  while (index < source.length) {
+    const tag = nextCodeIdentifier(source, index);
+    if (tag === undefined) break;
+    index = tag.end;
+    if (!names.has(tag.value)) continue;
+    let cursor = skipTrivia(source, tag.end);
+    if (source[cursor] !== ".") continue;
+    const method = identifierAt(source, skipTrivia(source, cursor + 1));
+    if (method?.value !== "append" && method?.value !== "where") continue;
+    cursor = skipTrivia(source, method.end);
+    if (source[cursor] !== "(") continue;
+    const close = closingParenthesis(source, cursor);
+    if (close === undefined) continue;
+    const args = splitTopLevel(source, cursor + 1, close);
+    const baseName = args[0] === undefined ? undefined : source.slice(args[0].start, args[0].end);
+    const base = bindings
+      .filter((binding) => binding.name === baseName && binding.query.range.start < tag.end)
+      .sort((left, right) => right.query.range.start - left.query.range.start)[0]?.query;
+    if (base === undefined || args.length < 2 || (method.value === "where" && args.length !== 2)) continue;
+    let sql = base.sql + (method.value === "where" ? " WHERE " : "");
+    const offsets = [...base.sqlOffsetMap, ...Array.from({ length: sql.length - base.sql.length }, () => tag.end)];
+    const interpolations = [...base.interpolations];
+    for (const argument of args.slice(1)) {
+      const marker = placeholder(interpolations.length + 1);
+      const sqlStart = sql.length;
+      sql += marker;
+      offsets.push(...Array.from({ length: marker.length }, () => argument.start));
+      interpolations.push({
+        index: interpolations.length + 1,
+        sourceStart: argument.start,
+        expressionStart: argument.start,
+        expressionEnd: argument.end,
+        sourceEnd: argument.end,
+        sqlStart,
+        sqlEnd: sql.length,
+        allowOmitted: method.value === "append",
+      });
+    }
+    result.push({
+      base,
+      query: {
+        ...base,
+        sql,
+        sqlOffsetMap: offsets,
+        interpolations,
+        parameterCount: interpolations.length,
+        range: positionRange(source, tag.end - tag.value.length, close + 1),
+      },
+    });
+  }
+  return result;
 }
 
 export function extractAppendFragments(

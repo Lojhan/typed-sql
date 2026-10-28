@@ -172,6 +172,12 @@ export {
   QueryValueError,
   withQueryValuePlan,
 } from "./query-value-plan.js";
+export type {
+  QueryValuePlanChoice,
+  QueryValuePlanSelector,
+  RepeatedQueryValuePlan,
+} from "./query-value-plan-selection.js";
+export { defineQueryValuePlanSelector } from "./query-value-plan-selection.js";
 export type { IndexedTable, ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {

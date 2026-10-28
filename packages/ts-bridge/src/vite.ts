@@ -52,10 +52,6 @@ export function typedSql(options: { readonly config?: string } = {}) {
         id,
         result.diagnostics.filter((item) => item.severity === "error"),
       );
-      if (result.queries.some((query) => query.valuePlan === undefined))
-        throw new Error(
-          `${id}: this query structure has no executable value plan; use a static query for portable adapters`,
-        );
       return result.transformedSource === code ? null : { code: result.transformedSource, map: null };
     },
   };

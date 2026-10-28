@@ -39,6 +39,8 @@ Applications import `sql` from their selected dialect root.
 | `sql.or(parts)` | `SqlFragment` | Join present predicates with parenthesized `OR`. |
 | `sql.where(query, predicate)` | `Query` | Preserve the base row and append predicate parameters. |
 | `sql.append(query, ...parts)` | `Query` | Append present fragments while preserving ordered parameters. |
+
+Composition preserves an attached result validator on the derived query. When the base carries an executable value plan, changed SQL requires a fresh verified plan before dispatch. The build frontend verifies `sql.where` and `sql.append` with a directly bound static base and bounded literal fragments, including optional append branches. Composition that changes the base result shape must be written as one complete SQL template.
 | `sql.validateResult(query, schema, options?)` | `Query` | Attach an application-owned Standard Schema validator to decoded rows. |
 | `sql.raw(text)` | `SqlFragment<readonly []>` | Insert trusted static SQL unchanged. |
 | `sql.dynamic(text)` | `Query<unknown>` | Opt out of static row inference for dynamic SQL. |
@@ -244,6 +246,15 @@ those additional constraints must be enforced.
 - live-verification candidate collection, native comparison, proof parsing and serialization, cache validation, and artifact-version constants.
 - migration compatibility analysis, report parsing and serialization, before/after evidence types, classifications, deployment directions, and artifact-version constants.
 - query-plan capture, budget review, artifact and report parsing and serialization, and their version constants.
+
+`compileSource({ runtimeMetadata: true, ... })` emits executable value metadata and prepares static
+plans once per module. Bounded structural choices require a grammar's `runtimeSqlModule` entrypoint
+to export `sql`, `renderer: SqlRenderer`, the `defineQueryValuePlan`, `defineQueryValuePlanSelector`,
+and `withQueryValuePlan` helpers, and the `Query`, `QueryValuePlan`, and `JsonInput` types. These helpers
+and types can be reexported from core by a third-party grammar; generated application modules resolve
+them through the selected grammar. First-party grammar `/query` entrypoints provide this contract.
+Missing runtime support
+reports `TSQ016`. Runtime selection compares rendered structure without parsing SQL in core.
 
 Each `CompiledQuery` includes:
 

@@ -8,9 +8,11 @@ import { type JsonInput, jsonValue, serializedJsonInput } from "./json-input.js"
 
 export type { JsonInput } from "./json-input.js";
 
-import { type QueryValuePlan, withQueryValuePlan } from "./query-value-plan.js";
+import { inheritQueryValuePlanRequirement, type QueryValuePlan, withQueryValuePlan } from "./query-value-plan.js";
+import type { QueryValuePlanSelector } from "./query-value-plan-selection.js";
 import {
   type CompatibleResultSchema,
+  inheritQueryResultValidator,
   type QueryResultValidationOptions,
   queryResultValidationSource,
   type StandardSchemaV1,
@@ -163,14 +165,14 @@ export interface SqlTag {
    * this member may change alongside matching core/compiler releases without application-level compatibility.
    */
   readonly __typed: <Row, Params extends readonly unknown[]>(
-    plan?: QueryValuePlan,
+    plan?: QueryValuePlan | QueryValuePlanSelector,
   ) => <const Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedSqlParts<Parts, Params>
   ) => Query<Row, Params>;
   /** @internal Reserved compiler overlay that preserves interpolation-derived parameter types. */
   readonly __typedRow: <Row>(
-    plan?: QueryValuePlan,
+    plan?: QueryValuePlan | QueryValuePlanSelector,
   ) => <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedTemplateParts<Parts>
@@ -304,6 +306,18 @@ function query<Row, Params extends readonly unknown[]>(segments: SqlSegment[]): 
     [queryBrand]: queryTypeBrand as unknown as Query<Row, Params>[typeof queryBrand],
     segments: Object.freeze(segments),
   });
+}
+
+function derivedQuery<Row, SourceParams extends readonly unknown[], Params extends readonly unknown[]>(
+  base: Query<Row, SourceParams>,
+  segments: SqlSegment[],
+): Query<Row, Params> {
+  if (segments.length === base.segments.length && segments.every((segment, index) => segment === base.segments[index]))
+    return base as unknown as Query<Row, Params>;
+  const result = query<Row, Params>(segments);
+  inheritQueryResultValidator(base, result);
+  inheritQueryValuePlanRequirement(base, result);
+  return result;
 }
 
 const templateTextCache = new WeakMap<TemplateStringsArray, readonly SqlSegment[]>();
@@ -442,7 +456,7 @@ function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
 }
 
 export const sql: SqlTag = Object.assign(tag, {
-  __typed<Row, Params extends readonly unknown[]>(plan?: QueryValuePlan) {
+  __typed<Row, Params extends readonly unknown[]>(plan?: QueryValuePlan | QueryValuePlanSelector) {
     return <const Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedSqlParts<Parts, Params>
@@ -451,7 +465,7 @@ export const sql: SqlTag = Object.assign(tag, {
       return plan === undefined ? result : withQueryValuePlan(result, plan);
     };
   },
-  __typedRow<Row>(plan?: QueryValuePlan) {
+  __typedRow<Row>(plan?: QueryValuePlan | QueryValuePlanSelector) {
     return <Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedTemplateParts<Parts>
@@ -501,7 +515,7 @@ export const sql: SqlTag = Object.assign(tag, {
     appendSegments(segments, queryValue.segments);
     segments.push(whereSeparator);
     appendSegments(segments, predicate.segments);
-    return query<Row, readonly [...QueryParams, ...PredicateParams]>(segments);
+    return derivedQuery<Row, QueryParams, readonly [...QueryParams, ...PredicateParams]>(queryValue, segments);
   },
   append<Row, QueryParams extends readonly unknown[], const Parts extends readonly OptionalSqlFragment[]>(
     queryValue: Query<Row, QueryParams>,
@@ -514,7 +528,10 @@ export const sql: SqlTag = Object.assign(tag, {
       if (!isFragment(part)) throw new TypeError("sql.append() accepts SQL fragments or empty values");
       appendSegments(segments, part.segments);
     }
-    return query<Row, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(segments);
+    return derivedQuery<Row, QueryParams, readonly [...QueryParams, ...FragmentListParameters<Parts>]>(
+      queryValue,
+      segments,
+    );
   },
   validateResult<Row, Params extends readonly unknown[], const Schema extends StandardSchemaV1>(
     queryValue: Query<Row, Params>,

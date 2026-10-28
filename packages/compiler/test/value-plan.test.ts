@@ -38,6 +38,29 @@ await describe("executable compiler value metadata", async () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+  await it("retains unknown parameter slots when grammar evidence is sparse", () => {
+    const result = buildQueryValuePlan(
+      postgres(),
+      { columns: [], parameters: [{ index: 2, tsType: "number", nullable: false, databaseType: "integer" }] },
+      undefined,
+      3,
+    );
+    strict.deepEqual(result.parameters, [
+      { index: 1, type: "unknown", nullable: true },
+      { index: 2, type: "number", nullable: false },
+      { index: 3, type: "unknown", nullable: true },
+    ]);
+    strict.throws(
+      () =>
+        buildQueryValuePlan(
+          postgres(),
+          { columns: [], parameters: [{ index: 2, tsType: "number", nullable: false }] },
+          undefined,
+          1,
+        ),
+      TypeError,
+    );
+  });
   await it("preserves explicit JSON descriptors and recognizes portable grammar imports", async () => {
     const base = postgres();
     const valuePlan = buildQueryValuePlan(base, {
@@ -93,7 +116,7 @@ await describe("executable compiler value metadata", async () => {
     strict.ok(result.manifest.queries.some((query) => query.status === "unresolved" && query.reason === "dynamic"));
   });
   await it("rejects metadata transforms that would narrow application declarations without an executable plan", () => {
-    const dialect = postgres();
+    const { runtimeSqlModule: _portable, ...dialect } = postgres();
     const schema = {
       formatVersion: 1,
       dialect: "postgres",
@@ -192,5 +215,103 @@ await describe("executable compiler value metadata", async () => {
     const diagnostic = failure.diagnostics.find((item) => item.code === "TSQ101");
     strict.ok(diagnostic);
     strict.equal(invalid.slice(diagnostic!.range.start, diagnostic!.range.end), "missing_column");
+  });
+  await it("executes compiled conditional choices and dynamic cardinalities with isolated parameters", async () => {
+    const schema = (await loadSchemaSnapshot(
+      resolve(root, "test/fixtures/success/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const source = [
+      'import { sql } from "@typed-sql/postgres";',
+      'import { getQueryValuePlan, renderQuery, encodeQueryValues } from "@typed-sql/core";',
+      'import { renderer } from "@typed-sql/postgres/query";',
+      "let choices=0;const choose=(value:boolean)=>{choices++;return value;};",
+      "function conditional(flag:boolean,id:number){return sql`SELECT id${choose(flag)?sql.fragment`, name`:sql.empty} FROM users WHERE id=${id}`;}",
+      "function repeated(prefix:number,ids:readonly number[],suffix:number){return sql`SELECT id FROM users WHERE id>=${prefix} AND id IN (${ids.map(id=>sql.fragment`${id}`)}) AND id<=${suffix}`;}",
+      "function mixed(prefix:number,suffix:number,ids:readonly number[]){return sql`SELECT id FROM users WHERE id IN (${[sql.fragment`${prefix}`,sql.fragment`${suffix}`]}) OR id IN (${ids.map(id=>sql.fragment`${id}`)})`;}",
+      "const a=conditional(true,1),b=conditional(false,2),c=conditional(true,3);",
+      "const x=repeated(0,[1],9),y=repeated(2,[3,4,5],8),z=repeated(6,[7],10);",
+      'process.stdout.write(JSON.stringify({choices,columns:[a,b].map(q=>getQueryValuePlan(q)?.columns.map(c=>c.name)),same:getQueryValuePlan(a)===getQueryValuePlan(c),parameters:[x,y,z].map(q=>encodeQueryValues(q,renderQuery(q,renderer).values,{id:"pg",dialect:"postgres",integer:"lossless",jsonWire:"parsed"})),counts:[x,y,z].map(q=>getQueryValuePlan(q)?.parameters.length),mixed:renderQuery(mixed(0,9,[1,2,3]),renderer).values}));',
+    ].join("\r\n");
+    const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata: true });
+    strict.deepEqual(result.diagnostics, []);
+    strict.equal(result.queries.length, 3);
+    const repeated = result.queries.find((item) => item.repeatedFragments !== undefined)!;
+    strict.equal(repeated.repeatedFragments?.[0]?.element.sqlSkeleton, "{{parameter:1}}");
+    const directory = await mkdtemp(resolve(root, "node_modules/.selected-plans-"));
+    try {
+      const file = resolve(directory, "query.ts");
+      await writeFile(file, result.transformedSource);
+      const output = JSON.parse(
+        execFileSync(process.execPath, ["--import", "tsx", file], { cwd: root, encoding: "utf8" }),
+      );
+      strict.deepEqual(output, {
+        choices: 3,
+        columns: [["id", "name"], ["id"]],
+        same: true,
+        parameters: [
+          [0, 1, 9],
+          [2, 3, 4, 5, 8],
+          [6, 7, 10],
+        ],
+        counts: [3, 5, 3],
+        mixed: [0, 9, 1, 2, 3],
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  await it("verifies composed SQL and preserves callback evaluation and parameter isolation", async () => {
+    const schema = (await loadSchemaSnapshot(
+      resolve(root, "test/fixtures/success/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const source = [
+      'import {sql} from "@typed-sql/postgres";',
+      'import {getQueryValuePlan,renderQuery} from "@typed-sql/core";',
+      'import {renderer} from "@typed-sql/postgres/query";',
+      "let calls=0;",
+      "function make(id:number,flag:boolean){const base=sql`SELECT id FROM users`;return sql.append(base, (++calls,flag)?sql.fragment` WHERE id=${id}`:undefined);}",
+      "function filtered(id:number){const base=sql`SELECT id FROM users`;return sql.where(base,sql.fragment`id=${id}`);}",
+      "const queries=[make(1,true),make(2,false),filtered(3),make(4,true)];",
+      "process.stdout.write(JSON.stringify({calls,values:queries.map(q=>renderQuery(q,renderer).values),counts:queries.map(q=>getQueryValuePlan(q)?.parameters.length)}));",
+    ].join("\n");
+    const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata: true });
+    strict.deepEqual(result.diagnostics, []);
+    const directory = await mkdtemp(resolve(root, "node_modules/.composed-plans-"));
+    try {
+      const file = resolve(directory, "query.ts");
+      await writeFile(file, result.transformedSource);
+      strict.deepEqual(
+        JSON.parse(execFileSync(process.execPath, ["--import", "tsx", file], { cwd: root, encoding: "utf8" })),
+        { calls: 3, values: [[1], [], [3], [4]], counts: [1, 0, 1, 1] },
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+    const incompatible =
+      'import {sql} from "@typed-sql/postgres";const base=sql`UPDATE users SET name=${"next"}`;const q=sql.append(base,sql.fragment` RETURNING id`);';
+    for (const runtimeMetadata of [false, true])
+      strict.ok(
+        compileSource({ source: incompatible, schema, dialect: postgres(), runtimeMetadata }).diagnostics.some(
+          (item) => item.code === "TSQ016",
+        ),
+      );
+  });
+
+  await it("does not infer a fixed representative JSON tuple for a dynamic repeated list in any mode", () => {
+    for (const projection of [
+      "jsonb_build_array(${items.map(item=>sql.fragment`${item}::int`)})",
+      "jsonb_build_array(${items.map(item=>sql.fragment`${item}::int`)}) ->> 2",
+    ]) {
+      const source = `import {sql} from "@typed-sql/postgres";const q=sql\`SELECT ${projection} AS value\`;`;
+      const schema = { formatVersion: 1, dialect: "postgres", tables: {} } as const;
+      for (const runtimeMetadata of [false, true]) {
+        const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata });
+        strict.deepEqual(result.diagnostics, []);
+        strict.equal(result.queries[0]?.rowType, '{ "value": unknown | null; }');
+        if (runtimeMetadata && projection.endsWith("})"))
+          strict.equal(result.queries[0]?.valuePlanChoices?.[0]?.plan.columns[0]?.json?.shape.kind, "unknown");
+      }
+    }
   });
 });

@@ -31,7 +31,11 @@ import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-previ
 import { createPool } from "mysql2/promise";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
 import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
-import { assertLegacyTextValuePlans, assertLegacyValuePlans } from "../../../test/helpers/legacy-value-plans.js";
+import {
+  assertCompiledLegacyValuePlans,
+  assertLegacyTextValuePlans,
+  assertLegacyValuePlans,
+} from "../../../test/helpers/legacy-value-plans.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
@@ -201,6 +205,15 @@ try {
           await textDatabase.close();
         }
         await assertLegacyValuePlans(database, "mysql", calculateTypePolicyHash(typePolicy));
+        const compiledDialect = mysql({ typePolicy });
+        await assertCompiledLegacyValuePlans(
+          database,
+          compiledDialect,
+          compiledDialect.validateSnapshot(
+            JSON.parse(await readFile(join(packageDirectory, "schema/catalog.snapshot.json"), "utf8")),
+          ),
+          packageDirectory,
+        );
       } finally {
         await database.close();
       }

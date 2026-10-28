@@ -143,8 +143,13 @@ Each `.sql` module also exports `valuePlan`; its `typePolicyHash` configures a m
 adapter profile. For inline queries, use `getQueryValuePlan(query)` from `@typed-sql/core`.
 See [portable adapters](../reference/portable-adapters.md) for D1 and other explicit driver factories.
 
-The plugin supports static queries and fixed value bindings in `.ts` and `.tsx` sources. Structural
-variants and dynamic fragment lists without an executable value plan fail the build. Continue using
+The plugin supports static queries, bounded conditional fragments, and nonempty direct fragment maps
+in `.ts` and `.tsx` sources. Runtime selectors match actual SQL structure using the grammar's portable
+renderer, check every repeated item, and expand parameter contracts for the actual list length.
+JSON-derived result shapes in dynamic repeated queries are widened to `unknown`: representative
+list lengths cannot prove indexing or path behavior at every cardinality. Unsupported combinations
+report a diagnostic instead of emitting an unchecked type. Empty or changed fragment structures are rejected.
+Continue using
 `tsc --runExternalCode` for typechecking; the Vite plugin checks SQL but does not replace TypeScript.
 Schema and imported configuration files are registered with Vite's watch graph.
 

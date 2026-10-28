@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import type { DialectPlugin, SchemaSnapshot } from "@typed-sql/core";
 import {
   type Database,
   type Query,
@@ -8,6 +12,7 @@ import {
   withQueryValuePlan,
 } from "@typed-sql/core";
 import { strict } from "poku";
+import { compileSource } from "../../packages/compiler/src/index.js";
 
 type Row = { doc: readonly number[] };
 type PlannedQuery = Query<Row, readonly unknown[]>;
@@ -143,4 +148,64 @@ export async function assertLegacyTextValuePlans(
   strict.ok((await database.one(query("'{\"n\":9223372036854775807}'"))).doc?.includes("9223372036854775807"));
   strict.equal((await database.one(query("'null'"))).doc, "null");
   strict.equal((await database.one(query("NULL"))).doc, null);
+}
+
+/** Execute compiler-produced structural plans through a real database, not hand-authored metadata. */
+export async function assertCompiledLegacyValuePlans<Snapshot extends SchemaSnapshot, Policy>(
+  database: Pick<Database, "all">,
+  dialect: DialectPlugin<Snapshot, Policy>,
+  schema: Snapshot,
+  directory: string,
+): Promise<void> {
+  const mysql = dialect.id === "mysql";
+  const cast = mysql ? "CHAR" : "integer";
+  const type = mysql ? "string" : "number";
+  const source = [
+    `import {sql} from ${JSON.stringify(dialect.runtimeSqlModule)};`,
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: This string is application TypeScript source compiled below.
+    "export function conditional(flag:boolean,value:VALUE_TYPE){return sql`SELECT CAST(${value} AS SQL_CAST) AS id${flag?sql.fragment`, 'chosen' AS label`:sql.empty}`;}",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: This string is application TypeScript source compiled below.
+    "export function repeated(display:VALUE_TYPE,probe:VALUE_TYPE,values:readonly VALUE_TYPE[],flag:VALUE_TYPE){return sql`SELECT CAST(${display} AS SQL_CAST) AS id WHERE CAST(${probe} AS SQL_CAST) IN (${values.map(value=>sql.fragment`${value}`)}) AND CAST(${flag} AS SQL_CAST)=1`;}",
+  ]
+    .join("\n")
+    .replaceAll("VALUE_TYPE", type)
+    .replaceAll("SQL_CAST", cast);
+  const compiled = compileSource({ source, schema, dialect, runtimeMetadata: true });
+  strict.deepEqual(compiled.diagnostics, []);
+  strict.equal(compiled.queries.length, 2);
+  for (const query of compiled.queries)
+    for (const choice of query.valuePlanChoices ?? []) strict.equal(choice.plan.columns[0]?.type, type);
+  const temporary = await mkdtemp(join(directory, ".compiled-runtime-plans-"));
+  try {
+    const file = join(temporary, "queries.mts");
+    await writeFile(file, compiled.transformedSource);
+    const queries = (await import(pathToFileURL(file).href)) as {
+      conditional(flag: boolean, value: number | string): Query<{ id: number | string; label?: string }>;
+      repeated(
+        display: number | string,
+        probe: number | string,
+        values: readonly (number | string)[],
+        flag: number | string,
+      ): Query<{ id: number | string }>;
+    };
+    const value = (n: number) => (mysql ? String(n) : n);
+    strict.deepEqual(await database.all(queries.conditional(true, value(7))), [{ id: value(7), label: "chosen" }]);
+    strict.deepEqual(await database.all(queries.conditional(false, value(8))), [{ id: value(8) }]);
+    for (const count of [1, 2, 3, 7]) {
+      strict.deepEqual(
+        await database.all(
+          queries.repeated(
+            value(7),
+            value(8),
+            Array.from({ length: count }, (_, index) => value(8 + index)),
+            value(1),
+          ),
+        ),
+        [{ id: value(7) }],
+      );
+    }
+    strict.throws(() => queries.repeated(value(7), value(8), [], value(1)), /empty interpolated array/u);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 }

@@ -116,3 +116,9 @@ export function postgresRuntimeValueType(
       return "unknown";
   }
 }
+
+export type { JsonInput, Query, QueryValuePlan } from "@typed-sql/core";
+
+export { defineQueryValuePlan, defineQueryValuePlanSelector, withQueryValuePlan } from "@typed-sql/core";
+/** Standard portable renderer export for compiler-generated runtime selectors. */
+export { postgresRenderer as renderer };

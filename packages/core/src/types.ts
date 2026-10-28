@@ -228,7 +228,7 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   readonly grammarVersion: string;
   /** Exact package entrypoint from which applications import the dialect's `sql` tag. */
   readonly sqlModule: string;
-  /** Portable runtime tag entrypoint; analysis still belongs to this plugin. */
+  /** Portable entrypoint exporting sql and renderer; analysis still belongs to this plugin. */
   readonly runtimeSqlModule?: string;
   runtimeValueType?(
     value: { readonly databaseType?: string; readonly tsType: string; readonly nullable: boolean },
@@ -609,7 +609,11 @@ export function rowTypeLiteral(columns: readonly ResolvedColumn[]): string {
   return `{ ${properties.join(" ")} }`;
 }
 
-export function parameterTypeLiteral(parameterCount: number, parameters: readonly ResolvedParameter[]): string {
+export function parameterTypeLiteral(
+  parameterCount: number,
+  parameters: readonly ResolvedParameter[],
+  typeModule = "@typed-sql/core",
+): string {
   const byIndex = new Map(parameters.map((parameter) => [parameter.index, parameter]));
   const elements = Array.from({ length: parameterCount }, (_, offset) => {
     const parameter = byIndex.get(offset + 1);
@@ -621,7 +625,7 @@ export function parameterTypeLiteral(parameterCount: number, parameters: readonl
           ? "unknown"
           : undefined
         : jsonShapeType(parameter.json.shape);
-    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}${inputShape === undefined ? "" : ` | import("@typed-sql/core").JsonInput<${inputShape}>`}`;
+    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}${inputShape === undefined ? "" : ` | import(${JSON.stringify(typeModule)}).JsonInput<${inputShape}>`}`;
   });
   return `readonly [${elements.join(", ")}]`;
 }

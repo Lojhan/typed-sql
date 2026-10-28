@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import {
+  parameterTypeLiteral as coreParameterTypeLiteral,
   type DialectPlugin,
   mapQuerySemanticRanges,
   mergeQuerySemantics,
-  parameterTypeLiteral,
   type QuerySemantics,
   type QueryValuePlan,
+  type QueryValuePlanChoice,
+  type RepeatedQueryValuePlan,
   type ResolvedColumn,
   type ResolvedParameter,
   resolveDialectCapabilityStates,
@@ -13,15 +15,18 @@ import {
   type SchemaSnapshot,
   type SourceRange,
   type SqlDiagnostic,
+  unknownJsonShape,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { expandRepeatedFragments, type RepeatedFragmentExpansion } from "./repeated-fragments.js";
 import {
   type ExtractedQuery,
   extractAppendFragments,
+  extractQueryCompositions,
   extractStaticQueries,
   findUntaggedStructuralTemplates,
   mapSqlRange,
+  parseStructuralInterpolation,
   runtimeMetadataInsertionPosition,
 } from "./scanner.js";
 import { expandStructuralQuery, structuralRowType } from "./structural.js";
@@ -34,6 +39,7 @@ export const DEFAULT_MAX_GENERATED_DECLARATION_BYTES = 8 * 1024 * 1024;
 
 export interface CompiledQuery {
   readonly valuePlan?: QueryValuePlan;
+  readonly valuePlanChoices?: readonly QueryValuePlanChoice[];
   readonly query: ExtractedQuery;
   readonly rowType: string;
   readonly parameterType: string;
@@ -138,14 +144,11 @@ function fingerprint(dialect: Pick<DialectPlugin, "id" | "grammarVersion">, sql:
   return `sha256:${createHash("sha256").update(`${dialect.id}\0${dialect.grammarVersion}\0${sql}`).digest("hex")}`;
 }
 
-function extractedSkeleton(query: ExtractedQuery, parameterOffset = 0): string {
+function extractedSkeleton(query: ExtractedQuery): string {
   let cursor = 0;
   const chunks: string[] = [];
   for (const interpolation of query.interpolations) {
-    chunks.push(
-      query.sql.slice(cursor, interpolation.sqlStart),
-      `{{parameter:${interpolation.index - parameterOffset}}}`,
-    );
+    chunks.push(query.sql.slice(cursor, interpolation.sqlStart), `{{parameter:${interpolation.index}}}`);
     cursor = interpolation.sqlEnd;
   }
   chunks.push(query.sql.slice(cursor));
@@ -179,7 +182,7 @@ function repeatedFragmentArtifacts(
           )
           .map((parameter) => Object.freeze({ ...parameter, index: parameter.index - site.parameterOffset })),
       );
-      const sqlSkeleton = extractedSkeleton(site.element, site.parameterOffset);
+      const sqlSkeleton = extractedSkeleton(site.element);
       const identity = JSON.stringify({
         artifactContext,
         surroundingStructure,
@@ -231,6 +234,8 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   options: CompileSourceOptions<Snapshot, Policy>,
 ): CompileSourceResult {
   const { source, dialect, schema } = options;
+  const parameterTypeLiteral = (count: number, parameters: readonly ResolvedParameter[]): string =>
+    coreParameterTypeLiteral(count, parameters, dialect.runtimeSqlModule);
   if (schema.dialect !== dialect.id) {
     throw new TypeError(`Dialect ${dialect.id} cannot compile a ${schema.dialect} schema snapshot`);
   }
@@ -443,6 +448,26 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           rowType: structuralRowType(source, query, rows),
           parameterType: parameterTypes.join(" | "),
           structural: true,
+          ...(options.runtimeMetadata === true && dialect.runtimeSqlModule !== undefined
+            ? {
+                valuePlanChoices: [
+                  ...new Map(
+                    resolvedVariants.map(({ variant, resolved }) => [
+                      variant.query.sql,
+                      {
+                        sql: variant.query.sql,
+                        plan: buildQueryValuePlan(
+                          dialect,
+                          resolved,
+                          options.typePolicy ?? dialect.defaultTypePolicy,
+                          variant.query.parameterCount,
+                        ),
+                      },
+                    ]),
+                  ).values(),
+                ],
+              }
+            : {}),
           ...(repeated === undefined ? {} : { fragmentList: true as const }),
           variantFingerprints: Object.freeze(
             [...new Set(resolvedVariants.map((variant) => variant.fingerprint))].sort(),
@@ -460,9 +485,116 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       }
       continue;
     }
-    const resolved = analyze(analyzedQuery.sql);
+    let resolved = analyze(analyzedQuery.sql);
+    let repeatChoice: QueryValuePlanChoice | undefined;
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, analyzedQuery, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      if (repeated?.sites.some((site) => site.dynamic) === true) {
+        const single = expandRepeatedFragments(source, query, (index) => dialect.placeholder(index), undefined, 1)!;
+        const one = analyze(single.query.sql);
+        if (
+          one.diagnostics.some((item) => item.severity === "error") ||
+          one.columns.length !== resolved.columns.length ||
+          one.columns.some((column, index) => column.name !== resolved.columns[index]?.name)
+        ) {
+          diagnostics.push({
+            code: "TSQ013",
+            message: "A repeated fragment list changes the result columns with its cardinality.",
+            severity: "error",
+            range: query.range,
+          });
+          continue;
+        }
+        const onePlan = buildQueryValuePlan(
+          dialect,
+          one,
+          options.typePolicy ?? dialect.defaultTypePolicy,
+          single.query.parameterCount,
+        );
+        const twoPlan = buildQueryValuePlan(
+          dialect,
+          resolved,
+          options.typePolicy ?? dialect.defaultTypePolicy,
+          analyzedQuery.parameterCount,
+        );
+        resolved = {
+          ...resolved,
+          columns: resolved.columns.map((column, index) => {
+            // Finite representatives cannot prove JSON indexing or path behavior at arbitrary cardinalities.
+            if (
+              column.json === undefined &&
+              column.scalarJsonShape === undefined &&
+              JSON.stringify(onePlan.columns[index]) === JSON.stringify(twoPlan.columns[index])
+            )
+              return column;
+            const { json, scalarJsonShape: _scalar, runtimeType: _runtime, ...base } = column;
+            const other = one.columns[index]!;
+            const compatibleJson = json !== undefined && other.json?.representation === json.representation;
+            return {
+              ...base,
+              tsType: compatibleJson && json.representation === "text" ? "string" : "unknown",
+              nullable: true,
+              runtimeType: "unknown" as const,
+              ...(compatibleJson ? { json: { ...json, shape: unknownJsonShape } } : {}),
+            };
+          }),
+        };
+        if (options.runtimeMetadata === true && dialect.runtimeSqlModule !== undefined) {
+          const plan = buildQueryValuePlan(
+            dialect,
+            resolved,
+            options.typePolicy ?? dialect.defaultTypePolicy,
+            analyzedQuery.parameterCount,
+          );
+          const sites: RepeatedQueryValuePlan[] = [];
+          for (let listIndex = 0; listIndex < repeated.sites.length; listIndex++) {
+            const site = repeated.sites[listIndex]!;
+            if (!site.dynamic) continue;
+            let cursor = 0;
+            const chunks: string[] = [];
+            for (const interpolation of site.element.interpolations) {
+              chunks.push(
+                site.element.sql.slice(cursor, interpolation.sqlStart),
+                dialect.placeholder(interpolation.index),
+              );
+              cursor = interpolation.sqlEnd;
+            }
+            chunks.push(site.element.sql.slice(cursor));
+            sites.push({
+              listIndex,
+              elementSql: chunks.join(""),
+              separatorSql: ", ",
+              parameterOffset: site.parameterOffset,
+              parameterCount: site.element.parameterCount,
+              representativeItems: site.representativeItems,
+            });
+          }
+          const collapsed = plan.parameters
+            .filter(
+              (parameter) =>
+                !sites.some(
+                  (site) =>
+                    parameter.index > site.parameterOffset + site.parameterCount &&
+                    parameter.index <= site.parameterOffset + site.parameterCount * site.representativeItems,
+                ),
+            )
+            .map((parameter, index) => ({ ...parameter, index: index + 1 }));
+          const key = (parameter: QueryValuePlan["parameters"][number]) => {
+            const { index: _index, ...descriptor } = parameter;
+            return JSON.stringify(descriptor);
+          };
+          const consistent = sites.every((site) =>
+            Array.from(
+              { length: site.parameterCount },
+              (_, offset) =>
+                key(plan.parameters[site.parameterOffset + offset]!) ===
+                key(plan.parameters[site.parameterOffset + site.parameterCount + offset]!),
+            ).every(Boolean),
+          );
+          if (consistent && JSON.stringify(collapsed) === JSON.stringify(onePlan.parameters))
+            repeatChoice = { sql: analyzedQuery.sql, plan, repeated: sites };
+        }
+      }
       const variantFingerprint = identify(analyzedQuery.sql);
       const semantics = sourceSemantics(source, analyzedQuery, resolved.semantics);
       const artifacts = repeatedFragmentArtifacts(
@@ -501,9 +633,16 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
         query,
         rowType: resolved.resultKind === "command" ? "never" : rowTypeLiteral(resolved.columns),
         ...(repeated?.sites.some(({ dynamic }) => dynamic) === true
-          ? {}
+          ? repeatChoice === undefined
+            ? {}
+            : { valuePlanChoices: [repeatChoice] }
           : {
-              valuePlan: buildQueryValuePlan(dialect, resolved, options.typePolicy ?? dialect.defaultTypePolicy),
+              valuePlan: buildQueryValuePlan(
+                dialect,
+                resolved,
+                options.typePolicy ?? dialect.defaultTypePolicy,
+                analyzedQuery.parameterCount,
+              ),
             }),
         parameterType:
           repeated?.sites.some(({ dynamic }) => dynamic) === true
@@ -534,8 +673,87 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       });
     }
   }
+  const compositions: { query: ExtractedQuery; valuePlanChoices: readonly QueryValuePlanChoice[] }[] = [];
+  const boundedCompositions = new Set<ExtractedQuery>();
+  for (const composition of extractQueryCompositions(
+    source,
+    (index) => dialect.placeholder(index),
+    sqlModules,
+    extracted,
+  )) {
+    const { base, query } = composition;
+    const report = (message: string): void => {
+      diagnostics.push({ code: "TSQ016", message, severity: "error", range: query.range });
+    };
+    if (
+      query.interpolations
+        .slice(base.interpolations.length)
+        .some((item) => parseStructuralInterpolation(source, item, query.tagName) === undefined)
+    ) {
+      if (options.runtimeMetadata === true)
+        report("Runtime metadata requires bounded literal fragments for query composition.");
+      continue;
+    }
+    const expansion = expandStructuralQuery(source, query, (index) => dialect.placeholder(index), maximumVariants);
+    if (expansion?.kind !== "variants") {
+      if (options.runtimeMetadata === true) report("Query composition exceeds the supported structural bound.");
+      continue;
+    }
+    boundedCompositions.add(base);
+    const original = analyze(base.sql);
+    if (original.diagnostics.some((item) => item.severity === "error")) continue;
+    const choices: QueryValuePlanChoice[] = [];
+    let complete = true;
+    for (const variant of expansion.variants) {
+      const resolved = analyze(variant.query.sql);
+      diagnostics.push(...resolved.diagnostics.map((item) => mapDiagnostic(source, variant.query, item)));
+      if (resolved.diagnostics.some((item) => item.severity === "error")) {
+        complete = false;
+        continue;
+      }
+      if (
+        (resolved.resultKind ?? "rows") !== (original.resultKind ?? "rows") ||
+        rowTypeLiteral(resolved.columns) !== rowTypeLiteral(original.columns)
+      ) {
+        complete = false;
+        report(
+          "Query composition changes the inferred result shape; write the completed statement as one SQL template.",
+        );
+        continue;
+      }
+      if (!choices.some((item) => item.sql === variant.query.sql))
+        choices.push({
+          sql: variant.query.sql,
+          plan: buildQueryValuePlan(
+            dialect,
+            resolved,
+            options.typePolicy ?? dialect.defaultTypePolicy,
+            variant.query.parameterCount,
+          ),
+        });
+      for (const item of variant.fragments) {
+        const parameters = resolved.parameters
+          .filter(
+            (parameter) =>
+              parameter.index > item.parameterOffset &&
+              parameter.index <= item.parameterOffset + item.query.parameterCount,
+          )
+          .map((parameter) => ({ ...parameter, index: parameter.index - item.parameterOffset }));
+        if (!compiledFragments.some((existing) => existing.fragment.insertionPosition === item.query.insertionPosition))
+          compiledFragments.push({
+            fragment: item.query,
+            parameterType: parameterTypeLiteral(item.query.parameterCount, parameters),
+          });
+      }
+    }
+    if (options.runtimeMetadata === true && complete && choices.length > 0 && dialect.runtimeSqlModule !== undefined)
+      compositions.push({ query, valuePlanChoices: choices });
+    else if (options.runtimeMetadata === true && dialect.runtimeSqlModule === undefined)
+      report("Runtime query composition requires a portable grammar module.");
+  }
   const appendFragments = extractAppendFragments(source, (index) => dialect.placeholder(index), sqlModules, extracted);
   for (const { base, prefix, fragment, parameterOffset } of appendFragments) {
+    if (boundedCompositions.has(base)) continue;
     const contextualSql = [base, ...prefix, fragment];
     const combined: ExtractedQuery = {
       ...base,
@@ -561,7 +779,11 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   if (options.runtimeMetadata === true) {
     for (let index = compiled.length - 1; index >= 0; index--) {
       const item = compiled[index]!;
-      if (item.valuePlan !== undefined) continue;
+      if (
+        dialect.runtimeSqlModule !== undefined &&
+        (item.valuePlan !== undefined || item.valuePlanChoices !== undefined)
+      )
+        continue;
       diagnostics.push({
         code: "TSQ016",
         message: "Executable value metadata is unavailable for this SQL structure.",
@@ -572,9 +794,10 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       compiled.splice(index, 1);
     }
   }
-  const runtimePlans = new Map<CompiledQuery, string>();
+  const runtimePlans = new Map<object, string>();
+  let attach: string | undefined;
   let runtimeDeclarations = "";
-  if (options.runtimeMetadata === true && compiled.length > 0) {
+  if (options.runtimeMetadata === true && (compiled.length > 0 || compositions.length > 0)) {
     const usedNames = new Set(source.match(/[A-Za-z_$][\w$]*/gu) ?? []);
     let identifier = 0;
     const uniqueName = (): string => {
@@ -584,23 +807,43 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       usedNames.add(name);
       return name;
     };
-    const define = uniqueName();
-    runtimeDeclarations = `\nimport { defineQueryValuePlan as ${define} } from "@typed-sql/core";\n`;
-    for (const item of compiled) {
+    const define = compiled.some((item) => item.valuePlan !== undefined) ? uniqueName() : undefined;
+    const select =
+      compositions.length > 0 || compiled.some((item) => item.valuePlanChoices !== undefined)
+        ? uniqueName()
+        : undefined;
+    attach = compositions.length > 0 ? uniqueName() : undefined;
+    const renderer = select === undefined ? undefined : uniqueName();
+    const imports = [
+      ...(attach === undefined ? [] : [`withQueryValuePlan as ${attach}`]),
+      ...(define === undefined ? [] : [`defineQueryValuePlan as ${define}`]),
+      ...(select === undefined ? [] : [`defineQueryValuePlanSelector as ${select}`]),
+    ];
+    runtimeDeclarations = `\nimport { ${imports.join(", ")} } from ${JSON.stringify(dialect.runtimeSqlModule)};\n`;
+    if (renderer !== undefined)
+      runtimeDeclarations += `import { renderer as ${renderer} } from ${JSON.stringify(dialect.runtimeSqlModule)};\n`;
+    for (const item of [...compiled, ...compositions]) {
       const name = uniqueName();
       runtimePlans.set(item, name);
-      runtimeDeclarations += `const ${name} = ${define}(${JSON.stringify(item.valuePlan)});\n`;
+      runtimeDeclarations +=
+        item.valuePlanChoices === undefined
+          ? `const ${name} = ${define}(${JSON.stringify("valuePlan" in item ? item.valuePlan : undefined)});\n`
+          : `const ${name} = ${select}(${renderer}, ${JSON.stringify(item.valuePlanChoices)});\n`;
     }
   }
   let transformedSource = source;
   const insertions = [
+    ...compositions.flatMap((item) => [
+      { position: item.query.range.start, text: `${attach}(` },
+      { position: item.query.range.end, text: `, ${runtimePlans.get(item)})` },
+    ]),
     ...(runtimeDeclarations === ""
       ? []
       : [{ position: runtimeMetadataInsertionPosition(source), text: runtimeDeclarations }]),
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
       text:
-        options.runtimeMetadata === true && item.valuePlan !== undefined
+        options.runtimeMetadata === true && runtimePlans.has(item)
           ? item.fragmentList === true
             ? `.__typedRow<${item.rowType}>(${runtimePlans.get(item)})`
             : `.__typed<${item.rowType}, ${item.parameterType}>(${runtimePlans.get(item)})`

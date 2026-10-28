@@ -51,7 +51,9 @@ import { createD1Database } from "@typed-sql/adapters/d1";
 export default { async fetch(_request: Request, env: { DB: import("@typed-sql/adapters/d1").D1Binding }) {
   const database = createD1Database(env.DB, { renderer: sqliteRenderer, profile: { id: "worker-d1", dialect: "sqlite", integer: "safe-number", jsonWire: "text", typePolicyHash: valuePlan.typePolicyHash } });
   const inline = sql\`SELECT name FROM items WHERE id = \${1}\`;
-  return Response.json({ files: await database.all(find(1)), inline: await database.all(inline) });
+  const conditional = (includeName: boolean) => sql\`SELECT id\${includeName ? sql.fragment\`, name\` : sql.empty} FROM items WHERE id = \${1}\`;
+  const many = (ids: readonly number[]) => sql\`SELECT id, name FROM items WHERE id IN (\${ids.map(id => sql.fragment\`\${id}\`)}) ORDER BY id\`;
+  return Response.json({ files: await database.all(find(1)), inline: await database.all(inline), conditional: [await database.all(conditional(true)), await database.all(conditional(false))], repeated: [await database.all(many([1])), await database.all(many([1, 2, 3]))] });
 } };`,
   );
   const require = createRequire(join(directory, "package.json"));
@@ -88,9 +90,21 @@ export default { async fetch(_request: Request, env: { DB: import("@typed-sql/ad
     const binding = await mf.getD1Database("DB");
     await binding.prepare("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL) STRICT").all();
     await binding.prepare("INSERT INTO items VALUES (?, ?)").bind(1, "Ada").all();
+    await binding.prepare("INSERT INTO items VALUES (?, ?)").bind(2, "Grace").all();
     const response = await mf.dispatchFetch("https://worker.test/");
     strict.equal(response.status, 200);
-    strict.deepEqual(await response.json(), { files: [{ id: 1, name: "Ada" }], inline: [{ name: "Ada" }] });
+    strict.deepEqual(await response.json(), {
+      files: [{ id: 1, name: "Ada" }],
+      inline: [{ name: "Ada" }],
+      conditional: [[{ id: 1, name: "Ada" }], [{ id: 1 }]],
+      repeated: [
+        [{ id: 1, name: "Ada" }],
+        [
+          { id: 1, name: "Ada" },
+          { id: 2, name: "Grace" },
+        ],
+      ],
+    });
   } finally {
     await mf.dispose();
   }
