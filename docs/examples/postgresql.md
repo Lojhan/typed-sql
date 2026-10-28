@@ -40,6 +40,29 @@ predicates remain explicit structural fragments.
 Hover `activeAccounts` in a configured editor to see its selected row and ordered parameter tuple. Changing
 `projectBudget` or `status` changes the complete query type instead of widening it to a hand-written interface.
 
+## Build nested JSON with SQL
+
+Use PostgreSQL constructors and aggregation to return nested values in one statement:
+
+```ts
+import { sql } from "@typed-sql/postgres";
+
+const accounts = sql`
+  SELECT COALESCE(
+    jsonb_agg(jsonb_build_object('id', account.id, 'email', account.email)),
+    '[]'::jsonb
+  ) AS accounts
+  FROM users AS account
+`;
+```
+
+With parsed JSON results, `accounts` contains an array of objects whose keys come from the
+literal constructor keys. A PostgreSQL `bigint` inside JSON is a JavaScript `number`, while
+an ordinary selected `bigint` follows the scalar policy. Without `COALESCE`, an empty aggregate
+is SQL `NULL`. A left join can still introduce nullable properties or null array elements.
+See [constructed JSON mappings](../reference/type-mappings.md#constructed-postgresql-json)
+for JSON policies and conservative inference limits.
+
 ## Mutations and cardinality
 
 Mutations are ordinary tagged SQL and use PostgreSQL `RETURNING` when the caller needs a typed row:

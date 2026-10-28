@@ -41,6 +41,29 @@ Policy alternatives:
 
 `timestamp without time zone` follows the Node.js process timezone when represented as `Date`. JavaScript dates lose PostgreSQL sub-millisecond precision. Choose `string` when those semantics are not acceptable.
 
+### Constructed PostgreSQL JSON
+
+With parsed JSON policies (`json: "unknown"` or `json: "JsonValue"`), literal-key
+`json_build_object` and `jsonb_build_object` calls infer nested object properties.
+`json_agg` and `jsonb_agg` infer arrays of their JSON-converted elements. Aggregates
+remain nullable because empty input, filtering or an empty window frame can produce SQL
+`NULL`; ordinary JSON aggregates also retain null elements. An outer join can make
+individual object properties or aggregate elements nullable.
+
+Inside JSON, PostgreSQL serialization determines the value representation. Integers,
+including `bigint`, become JavaScript numbers after JSON parsing and can lose precision.
+`numeric`, `real` and `double precision` use `number | string` because PostgreSQL emits
+non-finite values as JSON strings. Dates, timestamps and `bytea` become strings.
+The scalar `bigint`, `numeric` and `date` policy choices do not change those nested values.
+The `json: "string"` policy returns the complete JSON result as text.
+
+Arbitrary JSON columns and unsupported value conversions retain `unknown` within a known
+object. Dynamic or duplicate keys and variadic constructor calls do not establish a closed
+object shape. Shape provenance survives CTEs, derived-table projections and scalar subqueries;
+unsupported transformations lose that provenance. `COALESCE(jsonb_agg(...), '[]'::jsonb)`
+retains a known array shape and removes its SQL-null result. Inferred JSON type text is
+bounded to 16,384 characters; larger shapes fall back to `unknown`.
+
 ## MySQL
 
 | MySQL type | Default TypeScript type | Runtime value |
