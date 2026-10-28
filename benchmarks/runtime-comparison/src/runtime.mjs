@@ -386,11 +386,12 @@ async function compileFixture(directory, workload) {
   const grammar = await import(`@typed-sql/${driver}`);
   const dialect = grammar[driver](driver === "sqlite" ? { typePolicy: policy } : {});
   const text = workloads[workload].sql;
+  const schema = JSON.parse(await readFile(join(directory, "schema.json"), "utf8"));
   const names = ["first", "last"];
   const escapeTemplateText = (part) => part.replaceAll("\\", "\\\\").replaceAll("`", "\\`").replaceAll("${", "\\${");
   const parts = [];
   let cursor = 0;
-  for (const occurrence of dialect.parameterOccurrences(text)) {
+  for (const occurrence of dialect.parameterOccurrences(text, schema)) {
     parts.push(escapeTemplateText(text.slice(cursor, occurrence.range.start)), `\${${names[occurrence.index - 1]}}`);
     cursor = occurrence.range.end;
   }
@@ -400,7 +401,6 @@ async function compileFixture(directory, workload) {
     .map((name) => `${name}: number`)
     .join(", ");
   const source = `import {sql} from '${dialect.runtimeSqlModule}';\nexport default (${parameters}) => sql\`${parts.join("")}\`;\n`;
-  const schema = JSON.parse(await readFile(join(directory, "schema.json"), "utf8"));
   const compiled = compileSource({ source, schema, dialect, runtimeMetadata: true });
   assert.deepEqual(compiled.diagnostics, []);
   assert.equal(compiled.queries.length, 1);
