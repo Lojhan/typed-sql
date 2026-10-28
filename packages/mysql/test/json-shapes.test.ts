@@ -88,6 +88,14 @@ await describe("MySQL structured JSON", async () => {
     }
   });
 
+  await it("does not overwrite an existing document root in JSON_INSERT", () => {
+    const result = analyze(`SELECT JSON_INSERT('{"a":1}', '$', 2) AS result`);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.columns[0]?.tsType, '{ "a": 1; }');
+    strict.ok(validateJsonValue({ a: 1 }, result.columns[0]!.json!.shape));
+    strict.strictEqual(validateJsonValue(2, result.columns[0]!.json!.shape), false);
+  });
+
   await it("describes static object/array mutations and preserves optional merge-patch branches", () => {
     const cases: readonly (readonly [string, string])[] = [
       ["JSON_SET('{\"a\":[1,2]}', '$.a[9]', TRUE)", '{ "a": readonly [1, 2, boolean]; }'],

@@ -2167,7 +2167,7 @@ class Resolver {
     mode: "set" | "insert" | "replace",
   ): JsonShape {
     if (++this.#jsonOperations > 1024) return unknownJsonShape;
-    if (path.length === 0) return value ?? unknownJsonShape;
+    if (path.length === 0) return mode === "insert" ? shape : (value ?? unknownJsonShape);
     if (shape.kind === "union")
       return unionJsonShapes(shape.variants.map((variant) => this.#jsonUpdate(variant, path, value, mode)));
     if (shape.kind === "unknown") return shape;
