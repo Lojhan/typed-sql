@@ -49,7 +49,12 @@ interface GeneratedSnapshot {
     {
       readonly columns: Record<
         string,
-        { readonly databaseType: string; readonly tsType: string; readonly nullable: boolean }
+        {
+          readonly databaseType: string;
+          readonly tsType: string;
+          readonly nullable: boolean;
+          readonly jsonDeclaration?: unknown;
+        }
       >;
     }
   >;
@@ -221,6 +226,23 @@ try {
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.decimal_value?.tsType, "string");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bit_value?.tsType, "Uint8Array");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
+      strict.deepStrictEqual(snapshot.relations.checked_json?.columns.document?.jsonDeclaration, {
+        source: "database",
+        shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+      });
+      strict.strictEqual(snapshot.relations.unchecked_json?.columns.document?.jsonDeclaration, undefined);
+      const checkPool = createPool({ uri: connectionUri });
+      try {
+        await checkPool.query("INSERT INTO checked_json VALUES ('{\"id\":1}')");
+        await strict.rejects(
+          checkPool.query('INSERT INTO checked_json VALUES (\'{"id":"wrong"}\')'),
+          (error: unknown) =>
+            error instanceof Error && "code" in error && error.code === "ER_CHECK_CONSTRAINT_VIOLATED",
+        );
+        await checkPool.query('INSERT INTO unchecked_json VALUES (\'{"id":"wrong"}\')');
+      } finally {
+        await checkPool.end();
+      }
       strict.strictEqual(snapshot.metadata.schemaHash.length, 64);
       strict.strictEqual(snapshot.metadata.typePolicyHash.length, 64);
     });

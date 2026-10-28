@@ -207,3 +207,8 @@ parameter remains SQL text in constructor value positions; use an explicit
 `CAST(... AS JSON)` when MySQL must embed a JSON document instead of a string.
 Application JSON declarations contribute narrower types only when analysis has a
 runtime validation contract; ordinary analysis does not trust those declarations.
+
+Introspection recognizes an enforced `CHECK (JSON_SCHEMA_VALID('literal schema',
+json_column))` as database evidence for the supported structural JSON Schema
+subset. Unenforced checks, compound predicates, dynamic schemas, and unsupported
+schema compositions do not narrow the column.
