@@ -1,0 +1,34 @@
+{
+  "source": "Homebrew formula metadata and official GHCR Homebrew bottle registry",
+  "artifacts": [
+    {
+      "formula": "mysql@8.4",
+      "version": "8.4.13",
+      "platform": "arm64_golden_gate",
+      "url": "https://ghcr.io/v2/homebrew/core/mysql/8.4/blobs/sha256:7d9b1d256ec98421f6c8bdc9e26e7e36b6d455ede7ea0142c46a8b15dcae413b",
+      "sha256": "7d9b1d256ec98421f6c8bdc9e26e7e36b6d455ede7ea0142c46a8b15dcae413b"
+    },
+    {
+      "formula": "abseil",
+      "version": "20260817.0",
+      "platform": "arm64_golden_gate",
+      "url": "https://ghcr.io/v2/homebrew/core/abseil/blobs/sha256:2646bd89795f0c7a87af89580cd3f14a29eef006ab76fed189eb1e70250c9fbc",
+      "sha256": "2646bd89795f0c7a87af89580cd3f14a29eef006ab76fed189eb1e70250c9fbc"
+    },
+    {
+      "formula": "protobuf",
+      "version": "36.2",
+      "platform": "arm64_golden_gate",
+      "url": "https://ghcr.io/v2/homebrew/core/protobuf/blobs/sha256:35068a9351547528d7ce95e8d4c510e32650813ce585f0441070d1bc54de60c5",
+      "sha256": "35068a9351547528d7ce95e8d4c510e32650813ce585f0441070d1bc54de60c5"
+    },
+    {
+      "formula": "zlib-ng-compat",
+      "version": "2.3.3",
+      "platform": "arm64_golden_gate",
+      "url": "https://ghcr.io/v2/homebrew/core/zlib-ng-compat/blobs/sha256:0daac190c96363dd46141a34ab1c3031acbc7016aa2648b2bf2ac8cfb1718505",
+      "sha256": "0daac190c96363dd46141a34ab1c3031acbc7016aa2648b2bf2ac8cfb1718505"
+    }
+  ],
+  "isolation": "Unpacked under /private/tmp with per-process DYLD_LIBRARY_PATH; no install, link, launchd or VM changes. Owned loopback server and dedicated benchmark schema. Reports contain actual server VERSION()."
+}

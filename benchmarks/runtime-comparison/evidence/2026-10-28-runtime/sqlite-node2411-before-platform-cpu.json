@@ -1,0 +1,83 @@
+{
+  "context": {
+    "commit": "59146045fb5442ea38330482088a647153a9f365",
+    "diffHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "node": "v24.11.1",
+    "platform": "darwin",
+    "release": "27.0.0",
+    "architecture": "arm64",
+    "driver": "sqlite",
+    "cpu": "Apple M3 Pro",
+    "versions": {
+      "typedSql": "2.2.0",
+      "reylo": "0.6.0",
+      "reyloGrammar": "0.6.0"
+    },
+    "trials": 1,
+    "initialSeed": 29,
+    "profiles": "/private/tmp/typed-sql-runtime-performance/benchmarks/runtime-comparison/results/sqlite-dv3aaH/profiles",
+    "profileMode": "cpu",
+    "startedAt": "2026-10-28T15:40:34.225Z",
+    "finishedAt": "2026-10-28T15:40:36.671Z"
+  },
+  "methodology": "Separate fresh processes/projects avoid competing .sql loaders; deterministic shuffled candidate order per trial. Cold startup is process spawn to first validated query report, including loader imports/analysis but excluding fixture creation; first-call latency separately excludes loader/import/setup. Warm samples exclude imports/setup/warmup/assertions. p50/p95 must be computed from batch-average raw samples, not individual request-tail latency. One SQLite connection: concurrency means queued logical calls, not parallel SQLite I/O; raw-cached reuses StatementSync, raw-prepare prepares each call. All candidates return equivalent rows; JSON text is parsed within timed operations where the driver/frontend does not decode it; JSON result order is not a workload guarantee. Reylo freshness behavior is unchanged. Heap-used delta is retained-heap noise, not allocated bytes; allocation/CPU attribution comes from separate V8 profiles, whose timings are not comparable to ordinary runs.",
+  "results": [
+    {
+      "trial": 0,
+      "phase": "warm",
+      "candidate": "typed-file",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 1,
+      "iterations": 50000,
+      "millisecondsPerOperation": [0.006277804160000001],
+      "cpuMicroseconds": {
+        "user": 216091,
+        "system": 140478
+      },
+      "heapUsedDeltaBytes": 1032552,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 122.98349999999999,
+      "firstCallMilliseconds": 0.5562919999999991
+    },
+    {
+      "trial": 0,
+      "phase": "warm",
+      "candidate": "typed-file",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 1,
+      "iterations": 50000,
+      "millisecondsPerOperation": [0.01776553334],
+      "cpuMicroseconds": {
+        "user": 793469,
+        "system": 158070
+      },
+      "heapUsedDeltaBytes": 21403128,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 92.45375000000001,
+      "firstCallMilliseconds": 0.5892079999999993
+    },
+    {
+      "trial": 0,
+      "phase": "warm",
+      "candidate": "typed-file",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 1,
+      "iterations": 50000,
+      "millisecondsPerOperation": [0.01518191],
+      "cpuMicroseconds": {
+        "user": 657011,
+        "system": 148472
+      },
+      "heapUsedDeltaBytes": 9606960,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 94.67416600000001,
+      "firstCallMilliseconds": 1.4108340000000084
+    }
+  ]
+}

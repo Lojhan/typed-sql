@@ -40,12 +40,15 @@ the full SQLite suite and coverage passed after both changes.
 
 ## Before-platform baseline on Node 24.11.1
 
-`sqlite-node2411-before-platform.json` and `postgres-node2411-before-platform.json` use the
+`sqlite-node2411-before-platform.json`, `postgres-node2411-before-platform.json` and
+`mysql-node2411-before-platform.json` use the
 optimized existing runtime, before the new metadata-backed frontend and adapter changes.
 They preserve three trials, concurrency 1 and 8, three workloads, all candidate paths, cold process
 startup and first API-call measurements. The PostgreSQL run used a dedicated local server with
 an isolated temporary data directory, stopped and removed afterward. The exact database version
-is recorded in the report. These are baseline measurements; they do not establish the performance
+is recorded in the report. MySQL used a dedicated schema on an owned temporary native MySQL
+8.4.13 server. `mysql-native-artifacts.json` records verified bottle digests and process isolation.
+These are baseline measurements; they do not establish the performance
 of the completed metadata-backed frontend.
 
 `sqlite-node2411-before-platform-alloc.json` separately profiles typed prepared and SQL-file

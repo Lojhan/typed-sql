@@ -145,5 +145,26 @@
     "sha256": "f9699e25c4d8658c350efc7b42ed30f549f3a303cc45e55df4e69ecdd3e3fde3",
     "bytes": 325891,
     "gzipBytes": 33456
+  },
+  {
+    "report": "sqlite-node2411-before-platform-cpu.json",
+    "file": "sqlite-node2411-before-platform-cpu/0-json-1-typed-file.cpuprofile.gz",
+    "sha256": "31626506aaacc637c68c17e359d4faa06066dd389bb771f244a58d69924fd1fd",
+    "bytes": 15552,
+    "gzipBytes": 1938
+  },
+  {
+    "report": "sqlite-node2411-before-platform-cpu.json",
+    "file": "sqlite-node2411-before-platform-cpu/0-multirow-1-typed-file.cpuprofile.gz",
+    "sha256": "d56df01e17a25588901972d0e2b42e11ceb020592569969275df87aac4c842a2",
+    "bytes": 16393,
+    "gzipBytes": 2084
+  },
+  {
+    "report": "sqlite-node2411-before-platform-cpu.json",
+    "file": "sqlite-node2411-before-platform-cpu/0-point-1-typed-file.cpuprofile.gz",
+    "sha256": "171891e3844f4db246d960fa927dc8cfdc2f98f2b739526570137d58a2eaeb87",
+    "bytes": 13274,
+    "gzipBytes": 1663
   }
 ]
