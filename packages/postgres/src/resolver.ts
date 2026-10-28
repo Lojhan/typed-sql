@@ -259,6 +259,7 @@ class Resolver {
   readonly #serverMajor: number | undefined;
   #insideMergeReturning = false;
   #requiresJsonValidation = false;
+  #jsonOperations = 0;
 
   constructor(schema: SchemaSnapshot, options: ResolveOptions) {
     this.#schema = schema;
@@ -2702,15 +2703,43 @@ class Resolver {
       case "json-object": {
         this.#requireServerMajor(16, "JSON_OBJECT constructor", expression.range);
         let inputsValid = true;
+        let knownKeys = true;
+        const properties: Record<string, JsonShapeProperty> = {};
         for (const entry of expression.entries) {
           const keyValid = this.#resolveJsonObjectKey(entry.key, scope, ctes, "JSON_OBJECT");
           inputsValid = keyValid && inputsValid;
           const valueValid = this.#resolveJsonConstructorValue(entry.value, scope, ctes);
-          inputsValid = valueValid && inputsValid;
+          inputsValid = valueValid.valid && inputsValid;
+          if (entry.key.kind !== "literal" || typeof entry.key.value !== "string") knownKeys = false;
+          else if (
+            !(
+              expression.nullPolicy === "absent" &&
+              entry.value.expression.kind === "literal" &&
+              entry.value.expression.value === null
+            )
+          ) {
+            const optional = expression.nullPolicy === "absent" && valueValid.resolved.nullable;
+            const previous = Object.getOwnPropertyDescriptor(properties, entry.key.value)?.value as
+              | JsonShapeProperty
+              | undefined;
+            const base = this.#sqlJsonShape(entry.value, valueValid.resolved);
+            const shape =
+              expression.nullPolicy === "null" && valueValid.resolved.nullable
+                ? unionJsonShapes([base, nullJsonShape])
+                : base;
+            Object.defineProperty(properties, entry.key.value, {
+              value: {
+                shape: previous === undefined ? shape : unionJsonShapes([previous.shape, shape]),
+                ...(optional && (previous === undefined || previous.optional) ? { optional: true } : {}),
+              },
+              enumerable: true,
+              configurable: true,
+            });
+          }
         }
         const output = this.#resolveJsonConstructorOutput(expression.returning, "JSON_OBJECT", expression.range);
         return inputsValid && output.valid
-          ? output.resolved
+          ? this.#sqlJsonOutput(output.resolved, knownKeys ? jsonObjectShape(properties) : unknownJsonShape)
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
       case "json-object-aggregate": {
@@ -2724,8 +2753,16 @@ class Resolver {
           expression.range,
           true,
         );
-        return keyValid && valueValid && output.valid
-          ? output.resolved
+        return keyValid && valueValid.valid && output.valid
+          ? this.#sqlJsonOutput(
+              output.resolved,
+              jsonObjectShape(
+                {},
+                expression.nullPolicy === "null" && valueValid.resolved.nullable
+                  ? unionJsonShapes([this.#sqlJsonShape(expression.value, valueValid.resolved), nullJsonShape])
+                  : this.#sqlJsonShape(expression.value, valueValid.resolved),
+              ),
+            )
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
       case "json-array-aggregate": {
@@ -2739,16 +2776,39 @@ class Resolver {
           expression.range,
           true,
         );
-        return valueValid && output.valid
-          ? output.resolved
+        return valueValid.valid && output.valid
+          ? this.#sqlJsonOutput(
+              output.resolved,
+              jsonArrayShape(
+                expression.nullPolicy === "null" && valueValid.resolved.nullable
+                  ? unionJsonShapes([this.#sqlJsonShape(expression.value, valueValid.resolved), nullJsonShape])
+                  : this.#sqlJsonShape(expression.value, valueValid.resolved),
+              ),
+            )
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
       case "json-array": {
         this.#requireServerMajor(16, "JSON_ARRAY constructor", expression.range);
         let inputsValid = true;
+        const elements: JsonShape[] = [];
+        let variableLength = false;
+        let queryShape: JsonShape | undefined;
         for (const value of expression.values) {
           const valueValid = this.#resolveJsonConstructorValue(value, scope, ctes);
-          inputsValid = valueValid && inputsValid;
+          inputsValid = valueValid.valid && inputsValid;
+          if (
+            expression.nullPolicy === "absent" &&
+            value.expression.kind === "literal" &&
+            value.expression.value === null
+          )
+            continue;
+          const shape = this.#sqlJsonShape(value, valueValid.resolved);
+          elements.push(
+            expression.nullPolicy === "null" && valueValid.resolved.nullable
+              ? unionJsonShapes([shape, nullJsonShape])
+              : shape,
+          );
+          variableLength ||= expression.nullPolicy === "absent" && valueValid.resolved.nullable;
         }
         if (expression.query !== undefined) {
           const query = this.#resolveStatement(expression.query, scope, ctes);
@@ -2760,17 +2820,30 @@ class Resolver {
             );
             inputsValid = false;
           } else if (expression.queryFormat !== undefined) {
+            queryShape = query.columns[0]!.json?.shape ?? unknownJsonShape;
             const formatValid = this.#validateSqlJsonFormat(
               expression.queryFormat,
               query.columns[0]!,
               "JSON_ARRAY query",
             );
             inputsValid = formatValid && inputsValid;
+          } else {
+            const column = query.columns[0]!;
+            queryShape = this.#jsonValue({ ...column, nullable: false });
+            if (expression.nullPolicy === "null" && column.nullable)
+              queryShape = unionJsonShapes([queryShape, nullJsonShape]);
           }
         }
         const output = this.#resolveJsonConstructorOutput(expression.returning, "JSON_ARRAY", expression.range);
         return inputsValid && output.valid
-          ? output.resolved
+          ? this.#sqlJsonOutput(
+              output.resolved,
+              queryShape !== undefined
+                ? jsonArrayShape(queryShape)
+                : variableLength
+                  ? jsonArrayShape(unionJsonShapes(elements))
+                  : jsonTupleShape(elements),
+            )
           : { tsType: "unknown", nullable: true, databaseType: "unknown" };
       }
       case "json-parse": {
@@ -4242,6 +4315,7 @@ class Resolver {
     coerceIndices: boolean,
   ): ReturnType<typeof jsonShapeAtPath> {
     if (path.length === 0) return { shape, presence: "always" };
+    if (++this.#jsonOperations > 1024) return { shape: unknownJsonShape, presence: "maybe" };
     if (shape.kind === "union") {
       const variants = shape.variants.map((variant) => this.#jsonAtPath(variant, path, coerceIndices));
       const present = variants.filter((variant) => variant.presence !== "never");
@@ -4280,6 +4354,7 @@ class Resolver {
     after = false,
   ): JsonShape {
     if (path.length === 0) return shape;
+    if (++this.#jsonOperations > 1024) return unknownJsonShape;
     if (shape.kind === "union")
       return unionJsonShapes(shape.variants.map((variant) => this.#jsonUpdate(variant, path, value, mode, after)));
     if (shape.kind === "unknown") return shape;
@@ -4352,6 +4427,7 @@ class Resolver {
   }
 
   #jsonRemove(shape: JsonShape, key: string | number): JsonShape {
+    if (++this.#jsonOperations > 1024) return unknownJsonShape;
     if (shape.kind === "union") return unionJsonShapes(shape.variants.map((variant) => this.#jsonRemove(variant, key)));
     if ((shape.kind === "object" && typeof key === "string") || (shape.kind === "tuple" && typeof key === "number"))
       return updateJsonShapePath(shape, [key], undefined);
@@ -4616,16 +4692,39 @@ class Resolver {
     return { resolved, valid };
   }
 
+  #sqlJsonShape(value: JsonValueExpression, resolved: ResolvedType): JsonShape {
+    if (value.format !== undefined) {
+      if (isJsonType(resolved)) return resolved.json?.shape ?? unknownJsonShape;
+      if (value.expression.kind === "literal" && typeof value.expression.value === "string") {
+        try {
+          return jsonShapeFromValue(JSON.parse(value.expression.value));
+        } catch {
+          return unknownJsonShape;
+        }
+      }
+      return unknownJsonShape;
+    }
+    return this.#jsonValue({ ...resolved, nullable: false }, value.expression);
+  }
+
+  #sqlJsonOutput(output: ResolvedType, shape: JsonShape): ResolvedType {
+    return isJsonType(output)
+      ? this.#jsonResult(output.databaseType as "json" | "jsonb", shape, output.nullable)
+      : output;
+  }
+
   #resolveJsonConstructorValue(
     value: JsonValueExpression,
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
-  ): boolean {
-    if (value.format !== undefined) return this.#resolveSqlJsonValue(value, scope, ctes, false).valid;
+  ): { readonly resolved: ResolvedType; readonly valid: boolean } {
+    if (value.format !== undefined) return this.#resolveSqlJsonValue(value, scope, ctes, false);
     const resolved = this.#resolveExpression(value.expression, scope, ctes);
-    return (
-      resolved.databaseType !== undefined || (value.expression.kind === "literal" && value.expression.value === null)
-    );
+    return {
+      resolved,
+      valid:
+        resolved.databaseType !== undefined || (value.expression.kind === "literal" && value.expression.value === null),
+    };
   }
 
   #resolveJsonObjectKey(
@@ -4659,12 +4758,14 @@ class Resolver {
     value: JsonValueExpression,
     scope: Scope,
     ctes: ReadonlyMap<string, TableSnapshot>,
-  ): boolean {
-    if (value.format !== undefined) return this.#resolveSqlJsonValue(value, scope, ctes, false).valid;
+  ): { readonly resolved: ResolvedType; readonly valid: boolean } {
+    if (value.format !== undefined) return this.#resolveSqlJsonValue(value, scope, ctes, false);
     const resolved = this.#resolveExpression(value.expression, scope, ctes, this.#databaseType("text", true));
-    return (
-      resolved.databaseType !== undefined || (value.expression.kind === "literal" && value.expression.value === null)
-    );
+    return {
+      resolved,
+      valid:
+        resolved.databaseType !== undefined || (value.expression.kind === "literal" && value.expression.value === null),
+    };
   }
 
   #resolveJsonAggregateSuffix(

@@ -156,3 +156,11 @@ and `WITHOUT ROWID` primary keys remain non-null.
 Nullability is applied after scalar mapping. Outer joins add `null` to columns from the nullable relation. `COUNT` follows the dialect's bigint policy, while decimal-producing aggregates follow the numeric or decimal policy.
 
 Generated snapshots include a `typePolicyHash`. `typed-sql drift` detects policy changes even when the database catalog remains unchanged.
+
+PostgreSQL 16 SQL-standard `JSON_OBJECT`, `JSON_ARRAY`, `JSON_OBJECTAGG` and
+`JSON_ARRAYAGG` retain structure with literal keys and supported value expressions.
+`ABSENT ON NULL` omits SQL-null values; it preserves an existing JSON null payload.
+Nullable object values become optional properties, and nullable array values can
+produce arrays of varying length. `FORMAT JSON` parses a literal document instead
+of quoting it. `RETURNING text` and `RETURNING bytea` keep their SQL scalar result
+types.

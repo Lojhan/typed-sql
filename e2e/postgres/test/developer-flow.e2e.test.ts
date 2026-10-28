@@ -22,6 +22,7 @@ import {
   type DatabaseOperationEnd,
   type DatabaseOperationStart,
   requireAdapterCapability,
+  validateJsonValue,
 } from "@typed-sql/core";
 import { createPostgresRoutedDatabase, postgres, postgresCopy, sql, typePolicy } from "@typed-sql/postgres";
 import { createPgDatabase, createPgLiveVerifier } from "@typed-sql/postgres/pg";
@@ -653,6 +654,34 @@ try {
           { id: "1", plan: "pro", project_count: "1", total_budget: "12500.50" },
           { id: "2", plan: "free", project_count: null, total_budget: null },
         ]);
+      } finally {
+        await pool.end();
+      }
+    });
+
+    await it("matches native SQL-standard JSON construction with inferred null policies and formats", async () => {
+      if (Number(expectedVersion.split(".")[0]) < 16) return;
+      const dialect = postgres();
+      const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
+      const pool = new Pool({ connectionString });
+      try {
+        const cases: readonly (readonly [string, unknown])[] = [
+          ["JSON_OBJECT('a' VALUE NULL ABSENT ON NULL)", {}],
+          ["JSON_OBJECT('a' VALUE NULL NULL ON NULL)", { a: null }],
+          ["JSON_OBJECT('nested' VALUE '{\"id\":1}' FORMAT JSON RETURNING jsonb)", { nested: { id: 1 } }],
+          ["JSON_ARRAY(1,NULL ABSENT ON NULL)", [1]],
+          ["JSON_ARRAY(1,NULL NULL ON NULL)", [1, null]],
+          ["JSON_ARRAY(SELECT 1)", [1]],
+        ];
+        for (const [expression, expected] of cases) {
+          const source = `SELECT ${expression} AS value`;
+          const analysis = dialect.analyze(source, snapshot);
+          strict.deepStrictEqual(analysis.diagnostics, [], source);
+          const native = await pool.query(source);
+          strict.deepStrictEqual(native.rows[0]?.value, expected, source);
+          strict.ok(analysis.columns[0]?.json, source);
+          strict.ok(validateJsonValue(native.rows[0]?.value, analysis.columns[0]!.json!.shape), source);
+        }
       } finally {
         await pool.end();
       }

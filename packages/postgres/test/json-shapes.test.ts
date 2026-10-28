@@ -1,6 +1,7 @@
 import { describe, it, strict } from "poku";
 import { jsonShapeType, rowTypeLiteral } from "../../core/src/index.js";
-import type { SchemaSnapshot } from "../../schema/src/index.js";
+import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
+import { postgresServerEvidence } from "../src/capabilities.js";
 import { parseSelect } from "../src/parser/index.js";
 import { resolveSelect } from "../src/resolver.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "../src/type-policy.js";
@@ -177,6 +178,33 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
       const result = analyze(`SELECT ${name}(jsonb_build_object('a', 1), jsonb_build_object('b', 'x')) AS document`);
       strict.deepStrictEqual(result.diagnostics, []);
       strict.strictEqual(rowTypeLiteral(result.columns), '{ "document": { "a": number; } | { "b": string; }; }');
+    }
+  });
+
+  await it("models SQL-standard constructor null policies, FORMAT JSON and query arrays", () => {
+    const cases: readonly (readonly [string, string])[] = [
+      ["JSON_OBJECT('a' VALUE score NULL ON NULL)", '{ "a": number | string | null; }'],
+      ["JSON_OBJECT('a' VALUE score ABSENT ON NULL)", '{ "a"?: number | string; }'],
+      ["JSON_OBJECT('a' VALUE NULL ABSENT ON NULL)", "{ }"],
+      ["JSON_OBJECT('a' VALUE 1, 'a' VALUE name ABSENT ON NULL)", '{ "a": number | string; }'],
+      ["JSON_OBJECT('nested' VALUE '{\"id\":1}' FORMAT JSON RETURNING jsonb)", '{ "nested": { "id": 1; }; }'],
+      ["JSON_ARRAY(1,NULL ABSENT ON NULL)", "readonly [number]"],
+      ["JSON_ARRAY(1,NULL NULL ON NULL)", "readonly [number, null]"],
+      ["JSON_ARRAY(score ABSENT ON NULL)", "readonly (number | string)[]"],
+      ["JSON_ARRAY(score NULL ON NULL)", "readonly [number | string | null]"],
+      ["JSON_ARRAY(SELECT id FROM accounts)", "readonly (number)[]"],
+      ["JSON_ARRAY('{\"id\":1}' FORMAT JSON RETURNING jsonb)", 'readonly [{ "id": 1; }]'],
+      ["JSON_ARRAYAGG(score ABSENT ON NULL)", "readonly (number | string)[]"],
+      ["JSON_ARRAYAGG(score NULL ON NULL)", "readonly (number | string | null)[]"],
+      ["JSON_OBJECTAGG(name VALUE score NULL ON NULL)", "{ [key: string]: number | string | null | undefined; }"],
+    ];
+    for (const [expression, type] of cases) {
+      const result = resolveSelect(parseSelect(`SELECT ${expression} AS value FROM accounts`), {
+        ...upgradeSchemaSnapshotV1(schema),
+        server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+      });
+      strict.deepStrictEqual(result.diagnostics, [], expression);
+      strict.strictEqual(result.columns[0]?.tsType, type, expression);
     }
   });
 

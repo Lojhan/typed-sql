@@ -539,12 +539,12 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
       [
-        { name: "document", databaseType: "jsonb", tsType: "unknown", nullable: false },
+        { name: "document", databaseType: "jsonb", tsType: '{ "id": number; "age"?: number; }', nullable: false },
         { name: "array_values", databaseType: "text", tsType: "string", nullable: false },
         { name: "names", databaseType: "bytea", tsType: "Uint8Array", nullable: false },
-        { name: "empty_object", databaseType: "json", tsType: "unknown", nullable: false },
+        { name: "empty_object", databaseType: "json", tsType: "{ }", nullable: false },
         { name: "parameterized_object", databaseType: "bytea", tsType: "Uint8Array", nullable: false },
-        { name: "parameterized_array", databaseType: "jsonb", tsType: "unknown", nullable: false },
+        { name: "parameterized_array", databaseType: "jsonb", tsType: "readonly (unknown)[]", nullable: false },
       ],
     );
     strict.deepStrictEqual(
@@ -627,7 +627,7 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.columns.map(({ name, databaseType, tsType, nullable }) => ({ name, databaseType, tsType, nullable })),
       [
-        { name: "by_name", databaseType: "jsonb", tsType: "unknown", nullable: true },
+        { name: "by_name", databaseType: "jsonb", tsType: "{ [key: string]: number | undefined; }", nullable: true },
         { name: "ages", databaseType: "text", tsType: "string", nullable: true },
       ],
     );
