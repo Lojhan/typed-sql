@@ -146,7 +146,9 @@ export async function npmDistTags(name, options = {}) {
   for (let attempt = 1; attempt <= (options.attempts ?? 3); attempt += 1) {
     let response;
     try {
-      response = await lookup(`${registry}/-/package/${encodedName}/dist-tags`, {
+      // The dist-tag endpoint returns 401 for a bootstrapped, unpublished package.
+      // Public package metadata returns 404 and carries the same authoritative tags.
+      response = await lookup(`${registry}/${encodedName}`, {
         signal: AbortSignal.timeout(15_000),
       });
     } catch (error) {
@@ -154,7 +156,8 @@ export async function npmDistTags(name, options = {}) {
     }
     if (response?.status === 404) return {};
     if (response?.status === 200) {
-      const tags = await response.json();
+      const metadata = await response.json();
+      const tags = metadata?.["dist-tags"];
       if (
         tags === null ||
         typeof tags !== "object" ||
