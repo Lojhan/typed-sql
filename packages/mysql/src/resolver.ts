@@ -2120,7 +2120,7 @@ class Resolver {
     return { tsType: this.#policy.json, nullable: true, databaseType: "json" };
   }
 
-  #jsonResult(shape: JsonShape, nullable: boolean): ResolvedType {
+  #jsonResult(shape: JsonShape, nullable: boolean): ResolvedType & { readonly json: JsonValueDescriptor } {
     return {
       tsType: this.#policy.json === "string" ? "string" : jsonShapeType(shape),
       nullable,
