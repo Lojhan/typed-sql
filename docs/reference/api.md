@@ -18,7 +18,7 @@ This page describes supported package entrypoints and type relationships. Intern
 - `QueryParameters<QueryValue>` extracts the parameter tuple.
 - `Database.execute(query)` returns `Promise<readonly Row[]>`.
 
-`Query` is invariant in both generic positions, so it cannot be silently widened to a different row or parameter contract.
+`Query` is invariant in both generic positions, so it cannot be silently widened to a different row or parameter contract. Query values are opaque: copying or rebuilding their object properties loses validation ownership and is rejected by execution adapters. Use the `sql` composition helpers.
 
 `SqlFragment<Parameters>` represents trusted static structure with its own ordered parameter tuple. `OptionalSqlFragment` also accepts `undefined`, `null`, and `false` as absent values during composition.
 
@@ -325,3 +325,11 @@ does not install a SQL grammar, database driver, or test runner. See the
 ## Compatibility policy
 
 Removing or incompatibly changing a documented entrypoint, runtime export, type relationship, grammar contract, or diagnostic meaning requires a major version. Additive public exports may ship in a minor version. Experimental packages may change while marked experimental but must remain compatible with the matching core and compiler train.
+
+
+## Custom buffered executors
+
+`createDatabase` preserves the legacy executor contract for queries without executable value plans.
+It rejects compiled value plans because a raw executor supplies no decoding transport contract.
+Use `createBufferedDatabase` from `@typed-sql/adapters` with an explicit transport profile for compiled
+queries, or one of the [driver-specific portable adapters](./portable-adapters.md).

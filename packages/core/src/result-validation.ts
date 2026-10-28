@@ -1,5 +1,5 @@
 import type { QueryBatch, QueryResults, QueryStream } from "./execution.js";
-import type { Query } from "./query.js";
+import { assertOwnedQuery, type Query } from "./query.js";
 
 /** Structural Standard Typed V1 contract, copied from the dependency-free specification. */
 export interface StandardTypedV1<Input = unknown, Output = Input> {
@@ -151,6 +151,7 @@ export function hasQueryResultValidator(query: object): boolean {
 export function queryResultValidationSource<Row, Params extends readonly unknown[]>(
   query: Query<Row, Params>,
 ): Query<unknown, Params> {
+  assertOwnedQuery(query);
   return (validators.get(query)?.source ?? query) as Query<unknown, Params>;
 }
 

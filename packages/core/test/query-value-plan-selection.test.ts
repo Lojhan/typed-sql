@@ -1,5 +1,6 @@
 import { it, strict } from "poku";
 import {
+  createDatabase,
   defineQueryValuePlanSelector,
   encodeQueryValues,
   getQueryValuePlan,
@@ -214,4 +215,49 @@ await it("requires fresh plans for changed SQL and preserves validators on the d
   strict.equal(sql.append(validated), validated);
   strict.equal(sql.append(validated, undefined, false, null, sql.empty), validated);
   strict.equal(getQueryValuePlan(sql.append(sql`SELECT 1`, sql.fragment` LIMIT 1`)), undefined);
+});
+
+await it("rejects public typed query copies instead of silently dropping metadata", () => {
+  const query = withQueryValuePlan(sql<{ id: number }>`SELECT id`, {
+    ...plan,
+    columns: [{ name: "id", type: "number", nullable: false }],
+    parameters: [],
+  });
+  const copy: typeof query = { ...query };
+  strict.throws(() => getQueryValuePlan(copy), /copying query objects/);
+  strict.throws(() => withQueryValuePlan(copy, plan), /copying query objects/);
+  const validator: StandardSchemaV1<unknown, { id: number }> = {
+    "~standard": { version: 1, vendor: "fixture", validate: (value) => ({ value: value as { id: number } }) },
+  };
+  const validated = sql.validateResult(query, validator);
+  strict.equal(getQueryValuePlan(validated), getQueryValuePlan(query));
+  const validatedCopy: typeof validated = { ...validated };
+  strict.throws(() => getQueryValuePlan(validatedCopy), /copying query objects/);
+  strict.throws(() => sql.where(copy, sql.fragment`true`), /copying query objects/);
+});
+
+await it("rejects planned queries and copied queries before generic executor dispatch", async () => {
+  let dispatches = 0;
+  const execute = async () => {
+    dispatches++;
+    return [{ id: 1 }];
+  };
+  const executor = {
+    execute,
+    executeControlled: execute,
+    executionCapabilities: { cancellation: true, deadlines: true },
+  };
+  const database = createDatabase(executor, renderer);
+  const plain = sql<{ id: number }>`SELECT id`;
+  strict.deepEqual(await database.all(plain), [{ id: 1 }]);
+  const query = withQueryValuePlan(sql<{ id: number }>`SELECT id`, {
+    ...plan,
+    columns: [{ name: "id", type: "number", nullable: false }],
+    parameters: [],
+  });
+  await strict.rejects(database.all(query), /explicit transport profile/);
+  await strict.rejects(database.all(query, { deadline: Date.now() + 1000 }), /explicit transport profile/);
+  await strict.rejects(database.all({ ...query }), /copying query objects/);
+  await strict.rejects(database.all({ ...plain }), /copying query objects/);
+  strict.equal(dispatches, 1);
 });

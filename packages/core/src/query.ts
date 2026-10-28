@@ -8,7 +8,12 @@ import { type JsonInput, jsonValue, serializedJsonInput } from "./json-input.js"
 
 export type { JsonInput } from "./json-input.js";
 
-import { inheritQueryValuePlanRequirement, type QueryValuePlan, withQueryValuePlan } from "./query-value-plan.js";
+import {
+  getQueryValuePlan,
+  inheritQueryValuePlanRequirement,
+  type QueryValuePlan,
+  withQueryValuePlan,
+} from "./query-value-plan.js";
 import type { QueryValuePlanSelector } from "./query-value-plan-selection.js";
 import {
   type CompatibleResultSchema,
@@ -301,11 +306,21 @@ function isFragment(part: unknown): part is SqlFragment {
   );
 }
 
+const ownedQueries = new WeakSet<object>();
+
+/** @internal Query copies cannot carry adapter-owned validation metadata safely. */
+export function assertOwnedQuery(queryValue: object): void {
+  if (!ownedQueries.has(queryValue))
+    throw new TypeError("Expected a typed-sql query; copying query objects discards validation metadata");
+}
+
 function query<Row, Params extends readonly unknown[]>(segments: SqlSegment[]): Query<Row, Params> {
-  return Object.freeze({
+  const result = Object.freeze({
     [queryBrand]: queryTypeBrand as unknown as Query<Row, Params>[typeof queryBrand],
     segments: Object.freeze(segments),
   });
+  ownedQueries.add(result);
+  return result;
 }
 
 function derivedQuery<Row, SourceParams extends readonly unknown[], Params extends readonly unknown[]>(
@@ -822,6 +837,10 @@ class DatabaseImplementation implements Database {
   }
 
   async execute<Row, Params extends readonly unknown[]>(queryValue: Query<Row, Params>): Promise<readonly Row[]> {
+    if (getQueryValuePlan(queryValue) !== undefined)
+      throw new TypeError(
+        "createDatabase cannot validate compiled value plans; use a driver adapter or createBufferedDatabase from @typed-sql/adapters with an explicit transport profile",
+      );
     const rendered = renderQuery(queryValue, this.#renderer);
     const rows = await this.#executor.execute(rendered.text, rendered.values);
     return validateQueryResultRows(queryValue, rows, "generic-adapter");
@@ -836,6 +855,10 @@ class DatabaseImplementation implements Database {
     }
     assertExecutionCapabilities(this.executionCapabilities, options);
     const controlled = this.#executor as ControlledQueryExecutor;
+    if (getQueryValuePlan(queryValue) !== undefined)
+      throw new TypeError(
+        "createDatabase cannot validate compiled value plans; use a driver adapter or createBufferedDatabase from @typed-sql/adapters with an explicit transport profile",
+      );
     const rendered = renderQuery(queryValue, this.#renderer);
     const rows = await controlled.executeControlled(rendered.text, rendered.values, options);
     return validateQueryResultRows(queryValue, rows, "generic-adapter");
