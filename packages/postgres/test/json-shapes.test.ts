@@ -180,6 +180,16 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     }
   });
 
+  await it("retains null-only runtime guards for statically missing and JSON-null text paths", () => {
+    for (const expression of ["'[1,2]'::jsonb -> '0'", "'{\"x\":null}'::jsonb ->> 'x'"]) {
+      const result = analyze(`SELECT ${expression} AS value`);
+      strict.deepStrictEqual(result.diagnostics, []);
+      strict.strictEqual(result.columns[0]?.tsType, "never");
+      strict.strictEqual(result.columns[0]?.nullable, true);
+      strict.deepStrictEqual(result.columns[0]?.scalarJsonShape, { kind: "null" });
+    }
+  });
+
   await it("publishes structured descriptors for arrays, conversions, paths and immutable JSONB updates", () => {
     const cases: readonly (readonly [string, string, boolean])[] = [
       ["jsonb_build_array(1, true, 'x', NULL)", "readonly [number, boolean, string, null]", false],

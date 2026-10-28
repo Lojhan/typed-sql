@@ -119,10 +119,14 @@ interface ResolvedType {
   readonly nullable: boolean;
   readonly databaseType?: string;
   readonly json?: JsonValueDescriptor;
+  readonly scalarJsonShape?: JsonShape;
 }
-function jsonMetadata(value: object): { readonly json?: JsonValueDescriptor } {
-  const json = (value as ResolvedType).json;
-  return json === undefined ? {} : { json };
+function jsonMetadata(value: object): Pick<ResolvedType, "json" | "scalarJsonShape"> {
+  const type = value as ResolvedType;
+  return {
+    ...(type.json === undefined ? {} : { json: type.json }),
+    ...(type.scalarJsonShape === undefined ? {} : { scalarJsonShape: type.scalarJsonShape }),
+  };
 }
 function isJsonType(type: ResolvedType): boolean {
   return type.databaseType === "json" || type.databaseType === "jsonb";
@@ -4326,10 +4330,16 @@ class Resolver {
     const hasNull = (item: JsonShape): boolean =>
       item.kind === "null" || item.kind === "unknown" || (item.kind === "union" && item.variants.some(hasNull));
     if (selected.presence === "never")
-      return { tsType: "never", nullable: true, databaseType: text ? "text" : databaseType };
+      return {
+        tsType: "never",
+        nullable: true,
+        databaseType: text ? "text" : databaseType,
+        scalarJsonShape: nullJsonShape,
+      };
     if (text)
       return {
         tsType: selected.shape.kind === "null" ? "never" : "string",
+        ...(selected.shape.kind === "null" ? { scalarJsonShape: nullJsonShape } : {}),
         nullable: input.nullable || selected.presence !== "always" || hasNull(selected.shape),
         databaseType: "text",
       };
