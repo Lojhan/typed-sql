@@ -77,6 +77,14 @@ The default verifier accepts only evidence-backed `read` and `write` operations.
   class, while result columns still require native output evidence assignable to the inferred type.
 - DDL, transaction-control, unknown, dynamic, stale, and unsupported queries are explicit skips or errors. They are never silently marked verified.
 
+For decoded PostgreSQL JSON, native metadata verifies the `json`/`jsonb` wire type, including
+JSON arrays, rather than the compiler's nested object properties. The adapter omits a TypeScript
+shape claim for those result columns. Constructor shape inference remains compiler-owned;
+application validation can check payloads at runtime. Raw JSON text retains its `string` mapping.
+The PostgreSQL verifier also identifies its effective decoding policy; fresh and cached proofs
+reject a policy mismatch. Use the same effective policy for compilation and verification, and
+regenerate manifests and proofs when that policy changes.
+
 Prepare metadata does not prove runtime cardinality, business constraints, permissions for every production role, or query-plan quality.
 
 ## Proof artifact

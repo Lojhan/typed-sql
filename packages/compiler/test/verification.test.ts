@@ -1,10 +1,12 @@
 import { describe, it, strict } from "poku";
 import type { LiveQueryVerifier, SchemaSnapshot } from "../../core/src/index.js";
-import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
+import { type PostgresSchemaSnapshot, postgres, typePolicy as postgresTypePolicy } from "../../postgres/src/index.js";
+import { createPgLiveVerifier } from "../../postgres/src/pg.js";
 import {
   assertQueryVerificationProofCurrent,
   buildQueryManifest,
   collectQueryVerificationCandidates,
+  compileSource,
   parseQueryVerificationProof,
   serializeQueryVerificationProof,
   verifyQueryManifest,
@@ -59,7 +61,100 @@ function verifier(overrides: Partial<LiveQueryVerifier> = {}): LiveQueryVerifier
   };
 }
 
+function nativeJsonVerifier(json?: "unknown" | "JsonValue" | "string", resultType = "jsonb") {
+  return createPgLiveVerifier({
+    ...(json === undefined ? {} : { typePolicy: { ...postgresTypePolicy, json } }),
+    pool: {
+      async query<Row extends Record<string, unknown>>(sql: string) {
+        return { rows: (sql.includes("server_version") ? [{ version: "18.4" }] : []) as unknown as readonly Row[] };
+      },
+      async connect() {
+        return {
+          async query<Row extends Record<string, unknown>>(sql: string) {
+            return {
+              rows: (sql.includes("pg_prepared_statements")
+                ? [{ parameterTypes: [], resultTypes: [resultType] }]
+                : []) as unknown as readonly Row[],
+            };
+          },
+          release() {},
+        };
+      },
+      async end() {},
+    },
+  });
+}
+
 await describe("live query verification", async () => {
+  await it("checks decoded JSON wire types without claiming native object-shape evidence or accepting policy mismatches", async () => {
+    for (const json of ["unknown", "JsonValue", "string"] as const) {
+      const typePolicy = { ...postgresTypePolicy, json };
+      const dialect = postgres({ typePolicy });
+      const options = {
+        rootDir: "/project",
+        sources: [
+          {
+            file: "/project/query.ts",
+            source:
+              "import { sql } from \"@typed-sql/postgres\"; const query = sql`SELECT jsonb_build_object('id', 1) AS document`;",
+          },
+        ],
+        dialect,
+        schema,
+        compilerVersion: "test",
+      };
+      const manifest = buildQueryManifest(options).manifest;
+      const explicit = buildQueryManifest({ ...options, typePolicy }).manifest;
+      strict.strictEqual(manifest.typePolicyHash, explicit.typePolicyHash);
+      const candidates = collectQueryVerificationCandidates({ ...options, manifest });
+      const verifier = nativeJsonVerifier(json);
+      const result = await verifyQueryManifest({ manifest, candidates, verifier });
+      strict.strictEqual(result.verified, 1);
+      if (json === "unknown") {
+        const implicit = nativeJsonVerifier();
+        strict.strictEqual(implicit.typePolicyHash, verifier.typePolicyHash);
+        strict.strictEqual((await verifyQueryManifest({ manifest, candidates, verifier: implicit })).verified, 1);
+      }
+      const entry = result.proof.entries[0]!;
+      if (entry.status !== "verified") strict.fail("Expected native wire verification");
+      strict.deepStrictEqual(entry.evidence.columns, [
+        { index: 1, databaseType: "jsonb", ...(json === "string" ? { tsType: "string" } : {}) },
+      ]);
+      assertQueryVerificationProofCurrent(manifest, result.proof, verifier);
+      const opposite = nativeJsonVerifier(json === "string" ? "unknown" : "string");
+      await strict.rejects(verifyQueryManifest({ manifest, candidates, verifier: opposite }), /type policy/u);
+      strict.throws(() => assertQueryVerificationProofCurrent(manifest, result.proof, opposite), /type policy/u);
+      const wrongWire = await verifyQueryManifest({
+        manifest,
+        candidates,
+        verifier: nativeJsonVerifier(json, json === "string" ? "bigint" : "text"),
+      });
+      strict.strictEqual(wrongWire.mismatched, 1);
+    }
+  });
+
+  await it("binds repeated-fragment identities to the effective factory policy", () => {
+    const source =
+      'import { sql } from "@typed-sql/postgres"; declare const rows: readonly { id: bigint; email: string }[]; const query = sql`INSERT INTO users (id, email) VALUES ${rows.map((row) => sql.fragment`(${row.id}, ${row.email})`)} RETURNING id`;';
+    const fingerprint = (json: "unknown" | "string", explicit: boolean) => {
+      const typePolicy = { ...postgresTypePolicy, json };
+      const result = compileSource({
+        source,
+        schema,
+        dialect: postgres({ typePolicy }),
+        ...(explicit ? { typePolicy } : {}),
+      });
+      strict.deepStrictEqual(result.diagnostics, []);
+      return result.queries[0]?.repeatedFragments?.[0]?.fingerprint;
+    };
+    const parsed = fingerprint("unknown", false);
+    strict.ok(parsed);
+    strict.strictEqual(parsed, fingerprint("unknown", true));
+    const raw = fingerprint("string", false);
+    strict.strictEqual(raw, fingerprint("string", true));
+    strict.notStrictEqual(parsed, raw);
+  });
+
   await it("collects transient SQL only after proving sources match the manifest", () => {
     const value = fixture();
     strict.strictEqual(value.candidates.length, 1);

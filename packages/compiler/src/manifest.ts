@@ -439,7 +439,7 @@ export function buildQueryManifest<Snapshot extends SchemaSnapshot, Policy>(
     throw new TypeError(`Dialect ${options.dialect.id} cannot build a manifest for ${options.schema.dialect}`);
   }
   const schemaHash = calculateSchemaHash(options.schema);
-  const typePolicyHash = calculateTypePolicyHash(options.typePolicy ?? {});
+  const typePolicyHash = calculateTypePolicyHash(options.typePolicy ?? options.dialect.defaultTypePolicy ?? {});
   const capabilityStates = resolveDialectCapabilityStates(options.dialect, options.schema, options.typePolicy);
   const capabilityFingerprint = sha256(JSON.stringify(capabilityStates));
   const inputs = options.sources

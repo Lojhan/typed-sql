@@ -262,6 +262,8 @@ export interface LiveQueryVerificationServer {
 export interface LiveQueryVerifier {
   readonly dialect: string;
   readonly adapterVersion: string;
+  /** Identity of the effective decoding policy, when the adapter supplies policy-dependent evidence. */
+  readonly typePolicyHash?: string;
   server(): Promise<LiveQueryVerificationServer>;
   verify(request: LiveQueryVerificationRequest): Promise<LiveQueryVerificationEvidence>;
   close(): Promise<void>;
