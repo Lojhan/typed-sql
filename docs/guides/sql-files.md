@@ -12,7 +12,7 @@ The factory returns the same `Query<Row, Parameters>` accepted by `database.all`
 `maybeOne`. Inline `sql` templates continue to work through the existing compiler/editor workflow.
 
 This frontend is tested with TypeScript **7.1.0-beta**. Its optional runtime loader requires **Node.js
-24 or newer** and an ESM application. TypeScript 7.0 and older do not support this content mapper.
+24.11.1 or newer** and an ESM application. Node.js 25 requires 25.1.0 or newer. TypeScript 7.0 and older do not support this content mapper.
 
 ## Configure checking
 

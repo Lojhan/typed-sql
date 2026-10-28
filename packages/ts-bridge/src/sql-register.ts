@@ -3,9 +3,11 @@ import * as nodeModule from "node:module";
 import { fileURLToPath } from "node:url";
 import { analyzeSqlFile, loadSqlFileProject } from "./sql-file.js";
 
-if (Number(process.versions.node.split(".")[0]) < 24) {
+const [major = 0, minor = 0, patch = 0] = process.versions.node.split(".").map(Number);
+// Older releases cannot safely mix tsx's async config loader with synchronous CommonJS hooks.
+if (!(major > 25 || (major === 25 && minor >= 1) || (major === 24 && (minor > 11 || (minor === 11 && patch >= 1))))) {
   throw new Error(
-    "@typed-sql/ts-bridge/sql-register requires Node.js 24 or newer; other typed-sql entrypoints retain their normal runtime support.",
+    "@typed-sql/ts-bridge/sql-register requires Node.js 24.11.1 or newer (Node.js 25 requires 25.1.0); other typed-sql entrypoints retain their normal runtime support.",
   );
 }
 

@@ -1,11 +1,14 @@
-import { spawn } from "node:child_process";
+import { execFile as callback, spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { describe, it, strict, waitForExpectedResult } from "poku";
 import { assertSqlFileConsumer, prepareSqlFileConsumer } from "../../../test/helpers/sql-file-consumer.js";
 import { typescriptPreviewCliPath } from "../src/native-lsp.js";
 import { analyzeSqlFile, loadSqlFileProject } from "../src/sql-file.js";
+
+const execFile = promisify(callback);
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -28,6 +31,29 @@ async function fixture(run: (directory: string) => Promise<void>): Promise<void>
 }
 
 await describe("official SQL content mapper", async () => {
+  await it("loads the actual CommonJS pg driver after the SQL preload or rejects unsupported Node patches", async () => {
+    await fixture(async (consumer) => {
+      const directory = await prepareSqlFileConsumer(consumer);
+      const run = () =>
+        execFile(
+          process.execPath,
+          [
+            "--import",
+            "@typed-sql/ts-bridge/sql-register",
+            "--input-type=module",
+            "-e",
+            "const { default: pg } = await import('pg'); console.log(typeof pg.Pool, typeof pg.Client);",
+          ],
+          { cwd: directory, env: process.env },
+        );
+      const [major = 0, minor = 0, patch = 0] = process.versions.node.split(".").map(Number);
+      const supported =
+        major > 25 || (major === 25 && minor >= 1) || (major === 24 && (minor > 11 || (minor === 11 && patch >= 1)));
+      if (supported) strict.match((await run()).stdout, /function function/u);
+      else await strict.rejects(run(), /requires Node\.js 24\.11\.1 or newer/u);
+    });
+  });
+
   await it("checks fresh imports with real beta tsc and executes the same branded queries through Node", async () => {
     await fixture(async (consumer) =>
       assertSqlFileConsumer({ consumer, previewCli: typescriptPreviewCliPath(), env: process.env }),
