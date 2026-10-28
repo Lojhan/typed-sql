@@ -116,3 +116,17 @@ and `.heapprofile` files. Decompress them before opening in DevTools. `profiles.
 file to its originating report and records the SHA-256 of the uncompressed bytes. Original
 absolute temporary profile paths remain in the reports as provenance; the mapped compressed
 files are the durable copies. Driver URLs and credentials are not stored in the reports.
+
+## Repeated-plan metadata retention
+
+`selector-retention.mjs` is a small reproduction for the bounded selector cache: one immutable
+500-field JSON shape, 64 distinct INSERT cardinalities from 50 through 113, and one shared input
+payload. Run it from the repository root with Node 24.11.1 and `--expose-gc --import tsx` on either
+side of `98ef8c5`. It samples retained heap after explicit GC; it does not execute a database query
+or measure invocation-value retention.
+
+The original independent review observed 125,708,984 retained bytes before immutable shape reuse
+and 537,744 afterward. `selector-retention.json` records the context and limits of this observation.
+The optimization shares only core-normalized immutable shape identities and still charges every
+logical node against each plan's expansion limit. Mutable caller objects remain copied on every
+normalization; the package tests exercise both caller mutation and repeated-shape budget rejection.
