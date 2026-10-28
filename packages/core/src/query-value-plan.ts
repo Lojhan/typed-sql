@@ -66,6 +66,7 @@ export class QueryValueError extends TypeError {
 
 const plans = new WeakMap<object, QueryValuePlan>();
 const requiredPlans = new WeakSet<object>();
+const normalizedShapeNodes = new WeakMap<JsonShape, number>();
 
 interface PlanBudget {
   remaining: number;
@@ -107,7 +108,14 @@ function copyType(
 }
 
 function copyShape(shape: JsonShape, budget: PlanBudget): JsonShape {
+  const ownedNodes = normalizedShapeNodes.get(shape);
+  if (ownedNodes !== undefined) {
+    budget.remaining -= ownedNodes;
+    if (budget.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
+    return shape;
+  }
   const normalized = parseJsonShape(shape);
+  const remaining = budget.remaining;
   const visit = (item: JsonShape): void => {
     if (--budget.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
     switch (item.kind) {
@@ -126,6 +134,7 @@ function copyShape(shape: JsonShape, budget: PlanBudget): JsonShape {
     }
   };
   visit(normalized);
+  normalizedShapeNodes.set(normalized, remaining - budget.remaining);
   return normalized;
 }
 

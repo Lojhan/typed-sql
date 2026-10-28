@@ -1,4 +1,5 @@
 import { describe, it, strict } from "poku";
+import { type JsonShape, jsonObjectShape } from "../src/json.js";
 import { jsonValue } from "../src/json-input.js";
 import { bindQueryRenderSkeleton, compileQueryRenderSkeleton, renderQuery, sql } from "../src/query.js";
 import {
@@ -213,6 +214,53 @@ await describe("query value plans", async () => {
       () => defineQueryValuePlan({ ...prepared, parameters: [{ index: 2, type: "string", nullable: false }] }),
       /ordered/,
     );
+  });
+  await it("shares only owned JSON snapshots and still charges their full logical expansion", () => {
+    const input: { kind: "object"; properties: Record<string, { shape: JsonShape }> } = {
+      kind: "object",
+      properties: { id: { shape: { kind: "number" } } },
+    };
+    Object.freeze(input);
+    const prepare = (shape: JsonShape) =>
+      defineQueryValuePlan(
+        plan({
+          columns: [{ name: "value", type: "unknown", nullable: false, json: { representation: "parsed", shape } }],
+        }),
+      );
+    const first = prepare(input);
+    const canonical = first.columns[0]!.json!.shape;
+    strict.notEqual(canonical, input);
+    input.properties.id!.shape = { kind: "string" };
+    const second = prepare(input);
+    const firstQuery = withQueryValuePlan(sql`select 1`, first);
+    const secondQuery = withQueryValuePlan(sql`select 1`, second);
+    strict.deepEqual(decodeQueryResultRows(firstQuery, [{ value: '{"id":1}' }], text), [{ value: { id: 1 } }]);
+    strict.throws(() => decodeQueryResultRows(firstQuery, [{ value: '{"id":"changed"}' }], text));
+    strict.deepEqual(decodeQueryResultRows(secondQuery, [{ value: '{"id":"changed"}' }], text), [
+      { value: { id: "changed" } },
+    ]);
+    strict.equal(prepare(canonical).columns[0]!.json!.shape, canonical);
+    strict.equal(Object.isFrozen(canonical), true);
+
+    const wide = prepare(
+      jsonObjectShape(
+        Object.fromEntries(Array.from({ length: 500 }, (_, index) => [`k${index}`, { shape: { kind: "number" } }])),
+      ),
+    ).columns[0]!.json!.shape;
+    strict.equal(wide.kind, "object");
+    const parameters = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        index: index + 1,
+        type: "unknown" as const,
+        nullable: false,
+        json: { representation: "parsed" as const, shape: wide },
+      }));
+    const shared = defineQueryValuePlan(plan({ columns: [], parameters: parameters(64) }));
+    strict.equal(
+      shared.parameters.every((parameter) => parameter.json?.shape === wide),
+      true,
+    );
+    strict.throws(() => defineQueryValuePlan(plan({ columns: [], parameters: parameters(600) })), /expansion limit/);
   });
   await it("binds JSON literal null explicitly and snapshots validated JSON inputs", () => {
     const renderer = { placeholder: (index: number) => `?${index}`, quoteIdentifier: (name: string) => name };
