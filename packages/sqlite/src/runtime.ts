@@ -205,7 +205,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#assertNoStream("execute a query");
     const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
     const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
-    const operation = async (): Promise<readonly Row[]> => {
+    const operation = (): readonly Row[] => {
       this.#assertOpen();
       return this.#connection.all(rendered.text, rendered.values) as readonly Row[];
     };
@@ -286,10 +286,10 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
       : source;
   }
 
-  async #validateRows<Row, Params extends readonly unknown[]>(
+  #validateRows<Row, Params extends readonly unknown[]>(
     query: Query<Row, Params>,
     rows: readonly unknown[],
-  ): Promise<readonly Row[]> {
+  ): readonly Row[] | Promise<readonly Row[]> {
     if (!hasQueryResultValidator(query)) return rows as readonly Row[];
     return validateQueryResultRows(query, rows, sqliteQueryFingerprint(query));
   }
