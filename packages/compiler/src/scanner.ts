@@ -240,6 +240,33 @@ function skipQuoted(source: string, start: number, quote: string): number {
   return source.length;
 }
 
+/** Keep executable module declarations after hashbangs and JavaScript directives. */
+export function runtimeMetadataInsertionPosition(source: string): number {
+  let position = source.startsWith("#!") ? source.indexOf("\n") + 1 : 0;
+  while (position < source.length) {
+    const start = skipTrivia(source, position);
+    const quote = source[start];
+    if (quote !== "'" && quote !== '"') return start;
+    const end = skipQuoted(source, start, quote);
+    const next = skipTrivia(source, end);
+    if (source[next] === ";") {
+      position = next + 1;
+      continue;
+    }
+    if (next === source.length) return next;
+    const tail = source.slice(next);
+    const continuation = (/^[([.`+\-*/%<>=&|^?,]/u.test(tail) && !/^(?:\+\+|--)/u.test(tail)) || /^!=/u.test(tail);
+    if (
+      !/[\r\n\u2028\u2029]/u.test(source.slice(end, next)) ||
+      continuation ||
+      /^(?:in|instanceof|as|satisfies)\b/u.test(source.slice(next))
+    )
+      return start;
+    position = end;
+  }
+  return position;
+}
+
 function skipTemplate(source: string, start: number): number {
   let index = start + 1;
   while (index < source.length) {

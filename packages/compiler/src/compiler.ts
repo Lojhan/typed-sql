@@ -22,6 +22,7 @@ import {
   extractStaticQueries,
   findUntaggedStructuralTemplates,
   mapSqlRange,
+  runtimeMetadataInsertionPosition,
 } from "./scanner.js";
 import { expandStructuralQuery, structuralRowType } from "./structural.js";
 import { buildQueryValuePlan } from "./value-plan.js";
@@ -571,15 +572,38 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       compiled.splice(index, 1);
     }
   }
+  const runtimePlans = new Map<CompiledQuery, string>();
+  let runtimeDeclarations = "";
+  if (options.runtimeMetadata === true && compiled.length > 0) {
+    const usedNames = new Set(source.match(/[A-Za-z_$][\w$]*/gu) ?? []);
+    let identifier = 0;
+    const uniqueName = (): string => {
+      let name: string;
+      do name = `__typedSqlRuntime${identifier++}`;
+      while (usedNames.has(name));
+      usedNames.add(name);
+      return name;
+    };
+    const define = uniqueName();
+    runtimeDeclarations = `\nimport { defineQueryValuePlan as ${define} } from "@typed-sql/core";\n`;
+    for (const item of compiled) {
+      const name = uniqueName();
+      runtimePlans.set(item, name);
+      runtimeDeclarations += `const ${name} = ${define}(${JSON.stringify(item.valuePlan)});\n`;
+    }
+  }
   let transformedSource = source;
   const insertions = [
+    ...(runtimeDeclarations === ""
+      ? []
+      : [{ position: runtimeMetadataInsertionPosition(source), text: runtimeDeclarations }]),
     ...compiled.map((item) => ({
       position: item.query.insertionPosition,
       text:
         options.runtimeMetadata === true && item.valuePlan !== undefined
           ? item.fragmentList === true
-            ? `.__typedRow<${item.rowType}>(${JSON.stringify(item.valuePlan)})`
-            : `.__typed<${item.rowType}, ${item.parameterType}>(${JSON.stringify(item.valuePlan)})`
+            ? `.__typedRow<${item.rowType}>(${runtimePlans.get(item)})`
+            : `.__typed<${item.rowType}, ${item.parameterType}>(${runtimePlans.get(item)})`
           : item.fragmentList === true
             ? `.__typedRow<${item.rowType}>()`
             : item.structural

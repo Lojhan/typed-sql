@@ -128,4 +128,69 @@ await describe("executable compiler value metadata", async () => {
     strict.deepEqual(ide.diagnostics, []);
     strict.equal(ide.queries[0]?.rowType, '{ "document": unknown; }');
   });
+  await it("reuses module plans without changing directives, tag identity, argument evaluation, or values", async () => {
+    const schema = (await loadSchemaSnapshot(
+      resolve(root, "test/fixtures/success/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const prefix = '#!/usr/bin/env node\n"use client"\n/* module header */\n"use strict";';
+    const source =
+      prefix +
+      "\n" +
+      [
+        'const __typedSqlRuntime0 = "application binding";',
+        "let evaluations = 0;",
+        "function make(value: number) { return tag`SELECT id FROM users WHERE id = ${(evaluations++, value)}`; }",
+        "const first = make(1); const second = make(2);",
+        "process.stdout.write(JSON.stringify({samePlan:getQueryValuePlan(first) === getQueryValuePlan(second), sameText:first.segments[0] === second.segments[0], evaluations, first:renderQuery(first, postgresRenderer).values, second:renderQuery(second, postgresRenderer).values, applicationBinding:__typedSqlRuntime0}));",
+        'import { sql as tag } from "@typed-sql/postgres";',
+        'import { postgresRenderer } from "@typed-sql/postgres/query";',
+        'import { getQueryValuePlan, renderQuery } from "@typed-sql/core";',
+      ].join("\n");
+    const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata: true });
+    strict.deepEqual(result.diagnostics, []);
+    strict.ok(result.transformedSource.startsWith(prefix));
+    const directory = await mkdtemp(resolve(root, "node_modules/.hoisted-plans-"));
+    try {
+      const file = resolve(directory, "query.ts");
+      await writeFile(file, result.transformedSource);
+      const output = JSON.parse(
+        execFileSync(process.execPath, ["--import", "tsx", file], { cwd: root, encoding: "utf8" }),
+      );
+      strict.deepEqual(output, {
+        samePlan: true,
+        sameText: true,
+        evaluations: 2,
+        first: [1],
+        second: [2],
+        applicationBinding: "application binding",
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+    for (const statement of [
+      "++globalThis.counter;",
+      "--globalThis.counter;",
+      "!globalThis.counter;",
+      "const value = 1;",
+    ]) {
+      const directiveSource = [
+        '"use client"',
+        statement,
+        'import { sql } from "@typed-sql/postgres";',
+        "const query = sql`SELECT id FROM users`;",
+      ].join("\n");
+      const directiveResult = compileSource({
+        source: directiveSource,
+        schema,
+        dialect: postgres(),
+        runtimeMetadata: true,
+      });
+      strict.ok(directiveResult.transformedSource.startsWith('"use client"'));
+    }
+    const invalid = `${source}\nconst invalid = tag\`SELECT missing_column FROM users\`;`;
+    const failure = compileSource({ source: invalid, schema, dialect: postgres(), runtimeMetadata: true });
+    const diagnostic = failure.diagnostics.find((item) => item.code === "TSQ101");
+    strict.ok(diagnostic);
+    strict.equal(invalid.slice(diagnostic!.range.start, diagnostic!.range.end), "missing_column");
+  });
 });
