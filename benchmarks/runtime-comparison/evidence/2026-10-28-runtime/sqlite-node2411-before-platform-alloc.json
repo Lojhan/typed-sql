@@ -31,9 +31,7 @@
       "warmups": 500,
       "samples": 1,
       "iterations": 5000,
-      "millisecondsPerOperation": [
-        0.0086546
-      ],
+      "millisecondsPerOperation": [0.0086546],
       "cpuMicroseconds": {
         "user": 36310,
         "system": 15421
@@ -52,9 +50,7 @@
       "warmups": 500,
       "samples": 1,
       "iterations": 5000,
-      "millisecondsPerOperation": [
-        0.009887116800000002
-      ],
+      "millisecondsPerOperation": [0.009887116800000002],
       "cpuMicroseconds": {
         "user": 44811,
         "system": 15323
@@ -73,9 +69,7 @@
       "warmups": 500,
       "samples": 1,
       "iterations": 5000,
-      "millisecondsPerOperation": [
-        0.0231001082
-      ],
+      "millisecondsPerOperation": [0.0231001082],
       "cpuMicroseconds": {
         "user": 110273,
         "system": 17437
@@ -94,9 +88,7 @@
       "warmups": 500,
       "samples": 1,
       "iterations": 5000,
-      "millisecondsPerOperation": [
-        0.027032574999999996
-      ],
+      "millisecondsPerOperation": [0.027032574999999996],
       "cpuMicroseconds": {
         "user": 129653,
         "system": 19566
@@ -115,9 +107,7 @@
       "warmups": 500,
       "samples": 1,
       "iterations": 5000,
-      "millisecondsPerOperation": [
-        0.01833865
-      ],
+      "millisecondsPerOperation": [0.01833865],
       "cpuMicroseconds": {
         "user": 83502,
         "system": 15949
@@ -136,9 +126,7 @@
       "warmups": 500,
       "samples": 1,
       "iterations": 5000,
-      "millisecondsPerOperation": [
-        0.020240058399999997
-      ],
+      "millisecondsPerOperation": [0.020240058399999997],
       "cpuMicroseconds": {
         "user": 94989,
         "system": 16197

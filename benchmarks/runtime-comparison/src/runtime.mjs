@@ -127,6 +127,7 @@ async function worker(candidate, workload, concurrency) {
       const { createSqliteDatabase } = await import("@typed-sql/sqlite/runtime");
       typed = createSqliteDatabase({
         connection: adaptNodeSqliteDatabase(database, { typePolicy: policy }),
+        typePolicy: policy,
         ownsConnection: false,
       });
     } else if (driver === "postgres") {
