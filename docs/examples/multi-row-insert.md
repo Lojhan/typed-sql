@@ -71,7 +71,7 @@ non-empty statement for the PostgreSQL grammar.
 <!-- docs:start postgres-multi-row-contract -->
 ```ts
 type InsertUsersQuery = Query<
-  { "id": bigint; "email": string; "status": "active" | "suspended"; },
+  { "id": unknown | null; "email": unknown | null; "status": unknown | null; },
   readonly (string | bigint)[]
 >;
 ```
