@@ -2250,17 +2250,18 @@ class Resolver {
     let result = left.kind === "object" ? left : jsonObjectShape({});
     for (const [key, property] of Object.entries(right.properties)) {
       const previous = jsonShapeAtPath(result, [key]);
-      result = updateJsonShapePath(
-        result,
-        [key],
-        property.shape.kind === "null"
-          ? undefined
-          : this.#jsonPatch(
-              previous.presence === "never" ? jsonObjectShape({}) : previous.shape,
-              property.shape,
-              budget,
-            ),
-      );
+      const apply = (patch: JsonShape): JsonShape => {
+        if (++budget.nodes > 1_024 || patch.kind === "unknown") return unknownJsonShape;
+        if (patch.kind === "union") return unionJsonShapes(patch.variants.map(apply));
+        return updateJsonShapePath(
+          result,
+          [key],
+          patch.kind === "null"
+            ? undefined
+            : this.#jsonPatch(previous.presence === "never" ? jsonObjectShape({}) : previous.shape, patch, budget),
+        );
+      };
+      result = apply(property.shape);
     }
     return result;
   }
@@ -2278,7 +2279,11 @@ class Resolver {
       const properties: Record<string, JsonShapeProperty> = {};
       for (let index = 0; index < args.length; index += 2) {
         const key = args[index]!;
-        if (key.kind !== "literal" || typeof key.value !== "string") return result(unknownJsonShape);
+        if (key.kind !== "literal") return result(unknownJsonShape);
+        if (typeof key.value !== "string") {
+          this.#diagnostic("TSQ202", "SQLite JSON object labels must be text", key.range);
+          return { tsType: "unknown", nullable: true };
+        }
         Object.defineProperty(properties, key.value, {
           value: {
             shape: Object.hasOwn(properties, key.value)

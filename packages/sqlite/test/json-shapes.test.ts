@@ -363,6 +363,58 @@ try {
       strict.deepEqual(missing.scalarJsonShape, { kind: "null" });
     });
 
+    await it("rejects known non-text object labels with their actual source spans", () => {
+      for (const label of ["1", "NULL", "TRUE"]) {
+        const text = `SELECT json_object(${label}, 2) AS result`;
+        strict.throws(() => database.prepare(text).get(), /labels must be TEXT/u);
+        const analysis = sqlite().analyze(text, snapshot);
+        strict.equal(analysis.columns[0]!.tsType, "unknown");
+        strict.deepEqual(
+          analysis.diagnostics.map((item) => ({ code: item.code, text: text.slice(item.range.start, item.range.end) })),
+          [{ code: "TSQ202", text: label }],
+        );
+      }
+    });
+
+    await it("deletes nullable merge-patch members at the parent object", () => {
+      database.exec("CREATE TABLE patchproof(value TEXT NOT NULL) STRICT");
+      for (const shape of [
+        { kind: "union", variants: [{ kind: "string" }, { kind: "null" }] },
+        { kind: "unknown" },
+      ] as const) {
+        const declared = parseSqliteSchemaSnapshot({
+          ...snapshot,
+          tables: {
+            ...snapshot.tables,
+            patchproof: {
+              name: "patchproof",
+              kind: "table",
+              strict: true,
+              columns: {
+                value: {
+                  name: "value",
+                  databaseType: "TEXT",
+                  tsType: "string",
+                  nullable: false,
+                  jsonDeclaration: { source: "application", shape: { kind: "object", properties: { a: { shape } } } },
+                },
+              },
+            },
+          },
+        });
+        const text = `SELECT json_patch('{"a":1,"keep":2}', value) AS result FROM patchproof`;
+        const analysis = sqlite().analyze(text, declared, defaultSqliteTypePolicy, { runtimeValidation: true });
+        strict.deepEqual(analysis.diagnostics, []);
+        for (const input of [{ a: null }, { a: "changed" }]) {
+          database.exec("DELETE FROM patchproof");
+          database.prepare("INSERT INTO patchproof VALUES (?)").run(JSON.stringify(input));
+          const native = JSON.parse(database.prepare(text).get()!.result as string);
+          strict.equal(validateJsonValue(native, analysis.columns[0]!.json!.shape), true);
+          strict.equal(Object.hasOwn(native, "a"), input.a !== null);
+        }
+      }
+    });
+
     await it("models empty aggregates, SQL NULL members, updates, removal and merge patches", () => {
       const cases = [
         "SELECT json_group_array(value) AS result FROM item WHERE 0",
