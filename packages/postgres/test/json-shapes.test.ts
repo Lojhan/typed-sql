@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { rowTypeLiteral } from "../../core/src/index.js";
+import { jsonShapeType, rowTypeLiteral } from "../../core/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
 import { parseSelect } from "../src/parser/index.js";
 import { resolveSelect } from "../src/resolver.js";
@@ -105,10 +105,9 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     strict.strictEqual(rowTypeLiteral(cast.columns), '{ "document": readonly (string)[] | null; }');
   });
 
-  await it("does not infer closed objects from dynamic, duplicate, variadic or nonliteral keys", () => {
+  await it("keeps dynamic, variadic and ambiguous nontext keys conservative", () => {
     for (const call of [
       "jsonb_build_object(name, id)",
-      "json_build_object('id', id, 'id', name)",
       "jsonb_build_object(1, id)",
       "jsonb_build_object(VARIADIC ARRAY['key', 'value'])",
     ]) {
@@ -123,7 +122,6 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
   await it("clears JSON provenance for text casts, CASE and compound projections", () => {
     for (const value of [
       "jsonb_build_object('id', id)::text",
-      "ARRAY[1, 2]",
       "CASE WHEN true THEN jsonb_build_object('id', id) ELSE document END",
       "(SELECT jsonb_build_object('id', id) UNION ALL SELECT document)",
     ]) {
@@ -137,7 +135,7 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     const fallback = analyze(
       `SELECT COALESCE((SELECT jsonb_build_object('id', id) FROM accounts LIMIT 1), '[]'::jsonb) AS document`,
     );
-    strict.strictEqual(rowTypeLiteral(fallback.columns), '{ "document": { "id": number; } | readonly never[]; }');
+    strict.strictEqual(rowTypeLiteral(fallback.columns), '{ "document": { "id": number; } | readonly []; }');
   });
 
   await it("does not apply builtin shapes to schema-qualified or quoted functions", () => {
@@ -171,7 +169,7 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     strict.deepStrictEqual(builtin.diagnostics, []);
     strict.strictEqual(rowTypeLiteral(builtin.columns), '{ "document": { "id": number; }; }');
     const objectAggregate = analyze("SELECT jsonb_object_agg(name, id) AS document FROM accounts");
-    strict.strictEqual(objectAggregate.columns[0]?.tsType, "unknown");
+    strict.strictEqual(objectAggregate.columns[0]?.tsType, "{ [key: string]: number | undefined; }");
   });
 
   await it("unions possible JSON results from GREATEST and LEAST rather than retaining the first shape", () => {
@@ -180,6 +178,147 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
       strict.deepStrictEqual(result.diagnostics, []);
       strict.strictEqual(rowTypeLiteral(result.columns), '{ "document": { "a": number; } | { "b": string; }; }');
     }
+  });
+
+  await it("publishes structured descriptors for arrays, conversions, paths and immutable JSONB updates", () => {
+    const cases: readonly (readonly [string, string, boolean])[] = [
+      ["jsonb_build_array(1, true, 'x', NULL)", "readonly [number, boolean, string, null]", false],
+      ["row_to_json(ROW(1, 'x'))", '{ "f1": number; "f2": string; }', false],
+      ["to_jsonb(ARRAY[1, 2])", "readonly [number, number]", false],
+      ["json_build_object('id', id, 'id', name)", '{ "id": string; }', false],
+      ["'{\"items\":[{\"id\":1},null]}'::jsonb #> '{items,0,id}'", "1", false],
+      ["'[1,2]'::jsonb -> 0", "1", false],
+      ["'[1,2]'::jsonb -> '0'", "never", true],
+      ["'{\"x\":null}'::jsonb -> 'x'", "null", false],
+      ["'{\"x\":null}'::jsonb ->> 'x'", "never", true],
+      ["jsonb_extract_path('{\"x\":[1,2]}'::jsonb, 'x', '1')", "2", false],
+      ["json_extract_path_text('{\"x\":true}'::json, 'x')", "string", false],
+      ["jsonb_set('{\"a\":[1,2]}'::jsonb, '{a,9}', 'true'::jsonb)", '{ "a": readonly [1, 2, true]; }', false],
+      ["jsonb_set('[1,2]'::jsonb, '{-9}', 'true'::jsonb)", "readonly [true, 1, 2]", false],
+      ["jsonb_set('{\"a\":1}'::jsonb, '{missing}', 'true'::jsonb, false)", '{ "a": 1; }', false],
+      ["jsonb_insert('[1,2]'::jsonb, '{0}', 'true'::jsonb)", "readonly [true, 1, 2]", false],
+      ["jsonb_insert('[1,2]'::jsonb, '{0}', 'true'::jsonb, true)", "readonly [1, true, 2]", false],
+      ['\'{"a":1}\'::jsonb || \'{"a":true,"b":2}\'::jsonb', '{ "a": true; "b": 2; }', false],
+      ["'[1]'::jsonb || '[true]'::jsonb", "readonly [1, true]", false],
+      ["'{\"a\":1,\"b\":2}'::jsonb #- '{a}'", '{ "b": 2; }', false],
+      ["'{\"a\":1,\"b\":2}'::jsonb - 'a'", '{ "b": 2; }', false],
+      ["'[1,2]'::jsonb - 0", "readonly [2]", false],
+      ['\'["a","b","a",1]\'::jsonb - \'a\'', 'readonly ["b", 1]', false],
+      ["'{\"a\":1,\"b\":2,\"c\":3}'::jsonb - ARRAY['a','b']", '{ "c": 3; }', false],
+    ];
+    for (const [expression, expected, nullable] of cases) {
+      const result = analyze(`SELECT ${expression} AS value FROM accounts`);
+      strict.deepStrictEqual(result.diagnostics, [], expression);
+      strict.strictEqual(result.columns[0]?.tsType, expected, expression);
+      strict.strictEqual(result.columns[0]?.nullable, nullable, expression);
+      if (result.columns[0]?.json !== undefined) {
+        strict.strictEqual(result.columns[0].json.representation, "parsed");
+        strict.strictEqual(jsonShapeType(result.columns[0].json.shape), expected);
+      }
+    }
+    for (const input of ["to_json('unknown')", "to_jsonb(NULL)", "row_to_json(1)", "array_to_json(1)"]) {
+      const result = analyze(`SELECT ${input} AS value`);
+      strict.strictEqual(result.columns[0]?.tsType, "unknown");
+      strict.strictEqual(result.diagnostics[0]?.code, "TSQ202");
+    }
+  });
+
+  await it("preserves declared JSON shape evidence through projected columns and whole-row conversion", () => {
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: {
+              ...schema.tables.accounts.columns.document,
+              jsonDeclaration: {
+                source: "application",
+                shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+              },
+            },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(
+      parseSelect("WITH selected AS (SELECT document FROM accounts) SELECT document -> 'id' AS value FROM selected"),
+      declared,
+      { runtimeValidation: true },
+    );
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.columns[0]?.tsType, "number");
+    strict.strictEqual(result.columns[0]?.json?.shape.kind, "number");
+    strict.strictEqual(result.columns[0]?.json?.requiresRuntimeValidation, true);
+    const untrusted = resolveSelect(parseSelect("SELECT document -> 'id' AS value FROM accounts"), declared);
+    strict.strictEqual(untrusted.columns[0]?.tsType, "unknown");
+    strict.strictEqual(untrusted.columns[0]?.nullable, true);
+    const databaseDeclared = {
+      ...declared,
+      tables: {
+        ...declared.tables,
+        accounts: {
+          ...declared.tables.accounts,
+          columns: {
+            ...declared.tables.accounts.columns,
+            document: {
+              ...declared.tables.accounts.columns.document,
+              jsonDeclaration: { ...declared.tables.accounts.columns.document.jsonDeclaration, source: "database" },
+            },
+          },
+        },
+      },
+    } as const;
+    strict.strictEqual(
+      resolveSelect(parseSelect("SELECT document -> 'id' AS value FROM accounts"), databaseDeclared).columns[0]?.tsType,
+      "number",
+    );
+    const row = analyze("SELECT to_jsonb(a) AS value FROM accounts a");
+    strict.deepStrictEqual(row.diagnostics, []);
+    strict.ok(row.columns[0]?.tsType.includes('"id": number'));
+  });
+
+  await it("does not promise a rank for JSON conversion of a stored PostgreSQL array", () => {
+    const stored = {
+      ...schema,
+      tables: {
+        items: {
+          name: "items",
+          columns: {
+            values: { name: "values", databaseType: "integer[]", tsType: "readonly (number)[]", nullable: false },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveSelect(parseSelect("SELECT to_json(values) AS value FROM items"), stored);
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.strictEqual(result.columns[0]?.tsType, "unknown");
+    strict.strictEqual(
+      resolveSelect(parseSelect("SELECT values FROM items"), stored).columns[0]?.tsType,
+      "readonly (number | null)[]",
+    );
+  });
+
+  await it("keeps dynamic paths, flags and unknown source JSON conservative", () => {
+    for (const expression of [
+      "document -> $1::text",
+      "document #> $1::text[]",
+      "jsonb_set(document, '{id}', '1'::jsonb)",
+      "jsonb_set('{\"id\":1}'::jsonb, $1::text[], 'true'::jsonb)",
+      "jsonb_set('{\"id\":1}'::jsonb, '{id}', 'true'::jsonb, $1::boolean)",
+      "jsonb_extract_path(document, $1::text)",
+    ]) {
+      const result = analyze(`SELECT ${expression} AS value FROM accounts`);
+      strict.deepStrictEqual(result.diagnostics, [], expression);
+      strict.strictEqual(result.columns[0]?.tsType, "unknown", expression);
+    }
+    const invalid = analyze("SELECT '{not-json}'::jsonb AS value");
+    strict.strictEqual(invalid.diagnostics[0]?.code, "TSQ203");
+    strict.strictEqual(analyze("SELECT to_json(1, 2) AS value").diagnostics[0]?.code, "TSQ227");
+    const input = analyze("SELECT jsonb_set('[1,2]'::jsonb, '{9}', 'true'::jsonb, false) AS value");
+    strict.strictEqual(input.columns[0]?.tsType, "readonly [1, 2]");
   });
 
   await it("bounds repeated projection expansion before constructing exponentially growing types", () => {

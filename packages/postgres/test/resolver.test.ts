@@ -68,7 +68,7 @@ await describe("query resolver", async () => {
     strict.strictEqual(result.columns[0]?.nullable, true);
   });
 
-  await it("keeps JSON extraction nullable when the document and path are non-null", () => {
+  await it("distinguishes a proven JSON property from a missing literal path", () => {
     const result = resolveSelect(
       parseSelect(`SELECT JSONB '{"value":1}' ->> 'value' AS scalar, JSONB '{}' -> 'missing' AS document`),
       schema,
@@ -77,7 +77,7 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.columns.map(({ name, databaseType, nullable }) => ({ name, databaseType, nullable })),
       [
-        { name: "scalar", databaseType: "text", nullable: true },
+        { name: "scalar", databaseType: "text", nullable: false },
         { name: "document", databaseType: "jsonb", nullable: true },
       ],
     );
@@ -208,7 +208,7 @@ await describe("query resolver", async () => {
         { name: "text_matches", tsType: "boolean", nullable: false },
         { name: "combined_query", tsType: "string", nullable: false },
         { name: "path_matches", tsType: "boolean", nullable: false },
-        { name: "redacted", tsType: "unknown", nullable: false },
+        { name: "redacted", tsType: "{ }", nullable: false },
         { name: "negated_query", tsType: "string", nullable: false },
         { name: "shape_distance", tsType: "number", nullable: false },
         { name: "shape_center", tsType: "string", nullable: false },
@@ -1845,9 +1845,9 @@ await describe("query resolver", async () => {
       [
         { name: "ids", tsType: "readonly (number)[]" },
         { name: "name", tsType: "string" },
-        { name: "all_scores", tsType: "readonly (number)[]" },
+        { name: "all_scores", tsType: "readonly (number | null)[]" },
         { name: "first_score", tsType: "number" },
-        { name: "top_scores", tsType: "readonly (number)[]" },
+        { name: "top_scores", tsType: "readonly (number | null)[]" },
         { name: "x_coordinate", tsType: "number" },
         { name: "any_score", tsType: "boolean" },
         { name: "every_score", tsType: "boolean" },
@@ -1876,7 +1876,7 @@ await describe("query resolver", async () => {
     strict.deepStrictEqual(
       result.parameters.map(({ index, tsType }) => ({ index, tsType })),
       [
-        { index: 1, tsType: "readonly (number)[]" },
+        { index: 1, tsType: "readonly (number | null)[]" },
         { index: 2, tsType: "number" },
         { index: 3, tsType: "boolean" },
         { index: 4, tsType: "number" },
@@ -2300,8 +2300,8 @@ await describe("query resolver", async () => {
       result.columns.map(({ name, tsType, databaseType }) => ({ name, tsType, databaseType })),
       [
         { name: "same_value", tsType: "number", databaseType: "integer" },
-        { name: "numeric_values", tsType: "readonly (string)[]", databaseType: "numeric[]" },
-        { name: "labels", tsType: "readonly (string)[]", databaseType: "text[]" },
+        { name: "numeric_values", tsType: "readonly (string | null)[]", databaseType: "numeric[]" },
+        { name: "labels", tsType: "readonly (string | null)[]", databaseType: "text[]" },
         { name: "widened", tsType: "number", databaseType: "integer" },
         { name: "defaulted", tsType: "string", databaseType: "text" },
         { name: "named", tsType: "string", databaseType: "text" },

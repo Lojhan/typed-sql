@@ -602,7 +602,7 @@ await describe("PostgreSQL schema provider", async () => {
     strict.strictEqual(snapshot.relations.users?.columns.id?.identity, "by-default");
     strict.strictEqual(snapshot.relations.users?.kind, "table");
     strict.strictEqual(snapshot.tables.users?.columns.role?.tsType, '"user" | "admin"');
-    strict.strictEqual(snapshot.tables.users?.columns.tags?.tsType, "readonly (string)[]");
+    strict.strictEqual(snapshot.tables.users?.columns.tags?.tsType, "readonly (string | null)[]");
     strict.strictEqual(snapshot.tables.users?.columns.tags?.array, true);
     strict.strictEqual(snapshot.tables.users?.columns.budget?.tsType, "string");
     strict.strictEqual(snapshot.tables.users?.columns.display_name?.tsType, "string");

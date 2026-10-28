@@ -1,6 +1,7 @@
 import {
   applyDialectCapabilityStates,
   DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
@@ -109,7 +110,12 @@ export function postgres(
         .filter((token) => token.kind === "parameter")
         .map((token) => ({ index: Number(token.value), range: token.range }));
     },
-    analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
+    analyze(
+      sql: string,
+      snapshot: PostgresSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
       try {
         const statement = parseStatement(sql);
         let extensions: ReturnType<typeof resolvePostgresExtensionManifests> | undefined;
@@ -122,7 +128,10 @@ export function postgres(
         }
         const analysisSnapshot = extensions?.snapshot ?? snapshot;
         const extensionIssues = extensions?.issues ?? [];
-        const resolved = resolveStatement(statement, analysisSnapshot, { typePolicy: policy });
+        const resolved = resolveStatement(statement, analysisSnapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
         const analysis = {
           ...resolved,
           diagnostics: [

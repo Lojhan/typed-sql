@@ -45,24 +45,31 @@ Policy alternatives:
 
 With parsed JSON policies (`json: "unknown"` or `json: "JsonValue"`), literal-key
 `json_build_object` and `jsonb_build_object` calls infer nested object properties.
-`json_agg` and `jsonb_agg` infer arrays of their JSON-converted elements. Aggregates
-remain nullable because empty input, filtering or an empty window frame can produce SQL
-`NULL`; ordinary JSON aggregates also retain null elements. An outer join can make
-individual object properties or aggregate elements nullable.
+Repeated literal keys use the last value, matching the parsed result. `json_build_array`
+and `jsonb_build_array` retain ordered element shapes. `json_agg`/`jsonb_agg` infer arrays;
+object aggregates retain their value type with open keys. Aggregates remain SQL-nullable
+on empty input, while their JSON values can contain independent JSON nulls.
 
-Inside JSON, PostgreSQL serialization determines the value representation. Integers,
-including `bigint`, become JavaScript numbers after JSON parsing and can lose precision.
-`numeric`, `real` and `double precision` use `number | string` because PostgreSQL emits
-non-finite values as JSON strings. Dates, timestamps and `bytea` become strings.
-The scalar `bigint`, `numeric` and `date` policy choices do not change those nested values.
-The `json: "string"` policy returns the complete JSON result as text.
+`to_json`, `to_jsonb`, `row_to_json` and `array_to_json` preserve known scalar, row and
+array conversions. Integers, including `bigint`, become JavaScript numbers after JSON
+parsing and can lose precision. `numeric`, `real` and `double precision` use
+`number | string` because PostgreSQL emits non-finite values as JSON strings. Dates,
+timestamps, `oid` and `bytea` become strings. Scalar decoding policies do not change
+those nested representations. The `json: "string"` policy preserves complete JSON text.
 
-Arbitrary JSON columns and unsupported value conversions retain `unknown` within a known
-object. Dynamic or duplicate keys and variadic constructor calls do not establish a closed
-object shape. Shape provenance survives CTEs, derived-table projections and scalar subqueries;
-unsupported transformations lose that provenance. `COALESCE(jsonb_agg(...), '[]'::jsonb)`
-retains a known array shape and removes its SQL-null result. Inferred JSON type text is
-bounded to 16,384 characters; larger shapes fall back to `unknown`.
+Known structure survives CTEs, derived-table projections and scalar subqueries. Literal
+paths with `->`, `->>`, `#>` and `#>>` distinguish absent paths from present JSON nulls;
+text extraction converts JSON null to SQL null. Literal JSONB updates with `jsonb_set`,
+`jsonb_insert`, concatenation and removal retain the resulting structure. Dynamic paths,
+unsupported transformations and arbitrary JSON columns retain conservative unknown shapes.
+`COALESCE(jsonb_agg(...), '[]'::jsonb)` removes SQL-null aggregate results while preserving
+known array elements.
+
+Shapes use shared bounds on depth, expanded nodes and emitted type length. Crossing a
+bound produces `unknown`, including in persisted metadata. Catalog-backed PostgreSQL
+arrays include nullable elements independently of the array column's SQL nullability;
+literal array constructors can retain more precise evidence. A driver transport must
+support and validate the array rank it returns.
 
 ## MySQL
 
