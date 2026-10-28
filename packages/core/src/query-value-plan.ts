@@ -432,6 +432,7 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
     }
     if (!validateJsonValue(parsed, json.shape))
       throw new QueryValueError(location, "JSON does not match its declared shape");
-    return (profile.jsonInputWire ?? profile.jsonWire) === "text" ? JSON.stringify(parsed) : parsed;
+    if ((profile.jsonInputWire ?? profile.jsonWire) !== "text") return parsed;
+    return json.representation === "text" || explicitJson.has(index) ? value : JSON.stringify(parsed);
   });
 }

@@ -441,4 +441,26 @@ await describe("query value plans", async () => {
     await stream.close();
     strict.equal(closes, 1);
   });
+  await it("preserves exact JSON text parameter digits after validation", () => {
+    const value = '{ "n": 9223372036854775807 }';
+    const query = withQueryValuePlan(
+      sql`select ${value}`,
+      plan({
+        parameters: [
+          { index: 1, type: "string", nullable: false, json: { representation: "text", shape: { kind: "unknown" } } },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(query, [value], text), [value]);
+    const renderer = { placeholder: () => "?", quoteIdentifier: (name: string) => name };
+    const explicit = withQueryValuePlan(
+      sql`select ${sql.json("quoted")}`,
+      plan({
+        parameters: [
+          { index: 1, type: "unknown", nullable: false, json: { representation: "parsed", shape: { kind: "string" } } },
+        ],
+      }),
+    );
+    strict.deepEqual(encodeQueryValues(explicit, renderQuery(explicit, renderer).values, text), ['"quoted"']);
+  });
 });
