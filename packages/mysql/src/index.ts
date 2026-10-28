@@ -14,6 +14,7 @@ import {
 } from "./capabilities.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { mysqlRuntimeValueType } from "./query.js";
+import { hasStableRepeatedResult } from "./repeated-inputs.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
@@ -112,6 +113,9 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
         });
         const analysis = {
           ...resolved,
+          ...(hasStableRepeatedResult(sql, statement, context.repeatedFragmentRanges)
+            ? { repeatedResultShapeStable: true as const }
+            : {}),
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
             ? unknownQuerySemantics(statement.range, "MySQL semantic analysis reported an error.")
             : analyzeMySqlSemantics(statement, snapshot),

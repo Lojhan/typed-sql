@@ -1,6 +1,10 @@
 import { assertFragmentListConformance } from "@typed-sql/conformance";
 import { describe, it, strict } from "poku";
-import { fragmentListCases, fragmentRows as rows } from "../../../test/helpers/fragment-list.js";
+import {
+  assertRepeatedInputInference,
+  fragmentListCases,
+  fragmentRows as rows,
+} from "../../../test/helpers/fragment-list.js";
 import { type MySqlSchemaSnapshot, mysql, sql } from "../src/index.js";
 import { mysqlRenderer } from "../src/runtime.js";
 
@@ -57,5 +61,8 @@ await describe("MySQL fragment-list conformance", async () => {
     });
     strict.strictEqual(report.grammar, "mysql");
     strict.deepStrictEqual(report.renderCardinalities, [1, 2, 5]);
+  });
+  await it("retains precise rows only with grammar-owned input repetition evidence", () => {
+    assertRepeatedInputInference({ dialect: mysql(), snapshot, castType: "DECIMAL", castParameterType: "string" });
   });
 });

@@ -208,11 +208,15 @@ export interface DialectAnalysis {
   readonly resultKind?: "rows" | "command";
   /** Grammar-owned, evidence-backed statement semantics. */
   readonly semantics: QuerySemantics;
+  /** Every repeated range in the analysis context is independent of result column types. */
+  readonly repeatedResultShapeStable?: true;
 }
 
 /** Build frontends opt in only when emitted execution metadata validates decoded values. */
 export interface DialectAnalysisContext {
   readonly runtimeValidation?: boolean;
+  /** UTF-16 SQL offsets of complete non-empty repeated lists in the representative statement. */
+  readonly repeatedFragmentRanges?: readonly Pick<SourceRange, "start" | "end">[];
 }
 
 /**

@@ -268,7 +268,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   const compiled: CompiledQuery[] = [];
   const compiledFragments: CompiledFragment[] = [];
   const diagnostics: SqlDiagnostic[] = [];
-  const analyses = new Map<string, ReturnType<typeof dialect.analyze>>();
+  const analyses = new Map<string, Map<string, ReturnType<typeof dialect.analyze>>>();
   const fingerprints = new Map<string, string>();
   let repeatedArtifactContext: Readonly<Record<string, unknown>> | undefined;
   const artifactContext = (): Readonly<Record<string, unknown>> => {
@@ -286,13 +286,23 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
     });
     return repeatedArtifactContext;
   };
-  const analyze = (sql: string): ReturnType<typeof dialect.analyze> => {
-    const cached = analyses.get(sql);
+  const analyze = (
+    sql: string,
+    repeatedFragmentRanges?: readonly Pick<SourceRange, "start" | "end">[],
+  ): ReturnType<typeof dialect.analyze> => {
+    const contextKey = repeatedFragmentRanges === undefined ? "" : JSON.stringify(repeatedFragmentRanges);
+    let contexts = analyses.get(sql);
+    const cached = contexts?.get(contextKey);
     if (cached !== undefined) return cached;
     const resolved = dialect.analyze(sql, schema, options.typePolicy, {
       runtimeValidation: options.runtimeMetadata === true,
+      ...(repeatedFragmentRanges === undefined ? {} : { repeatedFragmentRanges }),
     });
-    analyses.set(sql, resolved);
+    if (contexts === undefined) {
+      contexts = new Map();
+      analyses.set(sql, contexts);
+    }
+    contexts.set(contextKey, resolved);
     return resolved;
   };
   const identify = (sql: string): string => {
@@ -485,7 +495,8 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       }
       continue;
     }
-    let resolved = analyze(analyzedQuery.sql);
+    const repeatedRanges = repeated?.sites.filter(({ dynamic }) => dynamic).map(({ sqlRange }) => sqlRange);
+    let resolved = analyze(analyzedQuery.sql, repeatedRanges?.length ? repeatedRanges : undefined);
     let repeatChoice: QueryValuePlanChoice | undefined;
     diagnostics.push(...resolved.diagnostics.map((diagnostic) => mapDiagnostic(source, analyzedQuery, diagnostic)));
     if (!resolved.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
@@ -511,21 +522,21 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           options.typePolicy ?? dialect.defaultTypePolicy,
           single.query.parameterCount,
         );
-        // Representative cardinalities prove neither projection dependence nor nullability.
-        // Without grammar-owned influence evidence, preserve only unknown result contracts.
-        resolved = {
-          ...resolved,
-          columns: resolved.columns.map((column) => {
-            const { json, scalarJsonShape: _scalar, runtimeType: _runtime, ...base } = column;
-            return {
-              ...base,
-              tsType: "unknown",
-              nullable: true,
-              runtimeType: "unknown" as const,
-              ...(json === undefined ? {} : { json: { ...json, shape: unknownJsonShape } }),
-            };
-          }),
-        };
+        // Sample cardinalities are not a proof. Only the grammar can certify input-only ranges.
+        if (resolved.repeatedResultShapeStable !== true)
+          resolved = {
+            ...resolved,
+            columns: resolved.columns.map((column) => {
+              const { json, scalarJsonShape: _scalar, runtimeType: _runtime, ...base } = column;
+              return {
+                ...base,
+                tsType: "unknown",
+                nullable: true,
+                runtimeType: "unknown" as const,
+                ...(json === undefined ? {} : { json: { ...json, shape: unknownJsonShape } }),
+              };
+            }),
+          };
         if (options.runtimeMetadata === true && dialect.runtimeSqlModule !== undefined) {
           const plan = buildQueryValuePlan(
             dialect,
@@ -649,7 +660,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
             columns: Object.freeze(
               resolved.columns.map((column) => ({
                 ...column,
-                range: mapSqlRange(source, query, column.range),
+                range: mapSqlRange(source, analyzedQuery, column.range),
               })),
             ),
             parameters: Object.freeze(resolved.parameters.map((parameter) => Object.freeze({ ...parameter }))),

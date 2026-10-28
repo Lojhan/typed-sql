@@ -93,7 +93,7 @@ export const sourceSoundnessCorpus: readonly SourceSoundnessCase[] = [
         `rows.map((row) => sql.fragment\`${interpolation("row.id")}\`)`,
       )})\`;`,
     ].join("\n"),
-    expectation: { kind: "exact", rowType: '{ "id": unknown | null; }', parameterType: "readonly unknown[]" },
+    expectation: { kind: "exact", rowType: '{ "id": bigint; }', parameterType: "readonly unknown[]" },
   },
   {
     id: "wrong-grammar-fragment-list-diagnostic",

@@ -280,8 +280,9 @@ class Parser {
     do {
       this.#expectKeyword("ROW");
       this.#expectPunctuation("(");
-      const row = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-      if (this.#previous().value !== ")") this.#expectPunctuation(")");
+      const emptyRow = this.#matchPunctuation(")");
+      const row = emptyRow ? [] : [...this.#parseExpressionList()];
+      if (!emptyRow) this.#expectPunctuation(")");
       rows.push(row);
     } while (this.#matchPunctuation(","));
     const queryValues: ValuesClause = {
@@ -442,8 +443,9 @@ class Parser {
         }
         valuesRowConstructor = rowConstructor;
         this.#expectPunctuation("(");
-        const row = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-        if (this.#previous().value !== ")") this.#expectPunctuation(")");
+        const emptyRow = this.#matchPunctuation(")");
+        const row = emptyRow ? [] : [...this.#parseExpressionList()];
+        if (!emptyRow) this.#expectPunctuation(")");
         rows.push(row);
       } while (this.#matchPunctuation(","));
       source = { kind: "values", rows, range: mergeRanges(sourceStart, this.#previous().range) };
@@ -809,11 +811,11 @@ class Parser {
             if (statement.kind !== "select") throw this.#error("IN subquery must be SELECT", statement.range);
             values = statement;
           } else {
-            if (this.#current().value === ")")
+            if (this.#current().kind === "punctuation" && this.#current().value === ")")
               throw this.#error("IN requires at least one value", this.#current().range);
             values = this.#parseExpressionList();
           }
-          const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+          const close = this.#expectPunctuation(")");
           left = { kind: "in", expression: left, values, negated, range: mergeRanges(start, close.range) };
           continue;
         }
@@ -911,14 +913,16 @@ class Parser {
     }
     if (this.#matchKeyword("ARRAY")) {
       this.#expectPunctuation("[");
-      const elements = this.#matchPunctuation("]") ? [] : [...this.#parseExpressionList()];
-      const close = this.#previous().value === "]" ? this.#previous() : this.#expectPunctuation("]");
+      const emptyElements = this.#matchPunctuation("]");
+      const elements = emptyElements ? [] : [...this.#parseExpressionList()];
+      const close = emptyElements ? this.#previous() : this.#expectPunctuation("]");
       return { kind: "array", elements, range: mergeRanges(token.range, close.range) };
     }
     if (this.#matchKeyword("ROW")) {
       this.#expectPunctuation("(");
-      const elements = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-      const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+      const emptyElements = this.#matchPunctuation(")");
+      const elements = emptyElements ? [] : [...this.#parseExpressionList()];
+      const close = emptyElements ? this.#previous() : this.#expectPunctuation(")");
       return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
     }
     if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);

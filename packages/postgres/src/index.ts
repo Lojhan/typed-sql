@@ -10,6 +10,7 @@ import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCap
 import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { postgresRuntimeValueType } from "./query.js";
+import { hasStableRepeatedResult } from "./repeated-inputs.js";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
@@ -134,6 +135,9 @@ export function postgres(
         });
         const analysis = {
           ...resolved,
+          ...(hasStableRepeatedResult(sql, statement, context.repeatedFragmentRanges)
+            ? { repeatedResultShapeStable: true as const }
+            : {}),
           diagnostics: [
             ...resolved.diagnostics,
             ...extensionIssues.map(({ code, message }) => ({

@@ -431,6 +431,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
       "INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4) RETURNING id, name",
     );
     strict.strictEqual(result.queries[0]?.parameterType, "readonly unknown[]");
+    strict.strictEqual(result.queries[0]?.rowType, '{ "id": number; "name": string; }');
     const artifact = result.queries[0]?.repeatedFragments?.[0];
     strict.strictEqual(artifact?.kind, "repeated-fragment");
     strict.strictEqual(artifact?.minimumItems, 1);
@@ -457,7 +458,7 @@ await describe("TypeScript 7 compiler wrapper", async () => {
           'import type { QueryParameters, QueryRow } from "@typed-sql/core";',
           "type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;",
           "type Assert<T extends true> = T;",
-          "const inferredRow: Assert<Equal<QueryRow<typeof inserted>, { id: unknown; name: unknown }>> = true;",
+          "const inferredRow: Assert<Equal<QueryRow<typeof inserted>, { id: number; name: string }>> = true;",
           "const inferredParameters: Assert<Equal<QueryParameters<typeof inserted>, readonly (number | string)[]>> = true;",
           "void inferredRow; void inferredParameters;",
         ].join("\n"),

@@ -142,10 +142,15 @@ column coercion, nullability, result rows, and diagnostics. Runtime cardinality 
 fixed parameter tuple: a mapped array reports an honest readonly parameter array, while a literal
 tuple of fragments can retain its exact concatenated tuple.
 
-When the list length is dynamic, result properties are conservatively `unknown` and SQL-nullable.
-Changing the number of fragments can change a projection's value or nullability, even when
-small sample statements agree. Compiled runtime plans still verify the rendered SQL and
-validate every parameter in its actual position.
+For a dynamic list, the grammar can preserve precise results when it proves the repeated SQL
+only supplies inputs: scalar values in a top-level SELECT predicate's `IN` list, or scalar
+`INSERT ... VALUES` rows. Literals, parameters, and recognized casts qualify. `INSERT ... RETURNING`
+keeps its result types where the selected grammar supports that clause.
+
+Other placements remain conservatively `unknown` and SQL-nullable, including repeated projections,
+CTEs, compound queries, and general expressions. Changing the number of fragments can change a
+projection's value or nullability, even when small sample statements agree. Compiled runtime plans
+still verify the rendered SQL and validate every parameter in its actual position.
 
 The compiler recognizes direct synchronous `.map()` callbacks with one stable fragment skeleton,
 plus direct fragment array literals. A helper call, `flatMap`, async callback, mixed return, nested
