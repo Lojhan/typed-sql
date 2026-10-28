@@ -9,6 +9,7 @@ import { createD1Database, type D1Binding, d1Sessions } from "../src/d1.js";
 import type { BatchDatabase } from "../src/index.js";
 import { createLibsqlDatabase } from "../src/libsql.js";
 import { createNeonHttpDatabase } from "../src/neon-http.js";
+import d1SmokeWorker from "./helpers/d1-smoke-worker.js";
 
 const sqliteProfile = {
   id: "fixture-sqlite",
@@ -104,6 +105,16 @@ await describe("explicit buffered driver boundaries", async () => {
     });
     try {
       const binding = await mf.getD1Database("DB");
+      const smokeResponse = await d1SmokeWorker.fetch(
+        new Request("https://smoke.test", { headers: { authorization: "Bearer local-fixture" } }),
+        { DB: binding, SMOKE_TOKEN: "local-fixture" },
+      );
+      strict.deepEqual(await smokeResponse.json(), { adapter: "d1", rows: [{ value: 7 }] });
+      strict.equal(
+        (await d1SmokeWorker.fetch(new Request("https://smoke.test"), { DB: binding, SMOKE_TOKEN: "local-fixture" }))
+          .status,
+        403,
+      );
       const database = createD1Database(binding, {
         renderer: sqliteRenderer,
         profile: { ...sqliteProfile, id: "d1", integer: "safe-number" },

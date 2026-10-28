@@ -117,3 +117,24 @@ TYPED_SQL_ADAPTER_POSTGRES_URL=postgresql://postgres@127.0.0.1:5432/postgres pnp
 
 The PostgreSQL command requires a disposable local database and uses temporary tables. Cloud
 credentials and deployments are not required for these local checks.
+
+## Optional remote smoke
+
+The repository's `smoke:remote` command is opt-in. It runs a bound `SELECT 7` through exactly one
+selected adapter, does not create tables or resources, and closes its own driver client. Configure
+only endpoints you control and credentials suitable for read-only queries. Remote provider behavior
+is unverified until this command succeeds against that provider.
+
+```sh
+TYPED_SQL_REMOTE_ADAPTER=libsql TYPED_SQL_LIBSQL_URL=libsql://your-database.turso.io TYPED_SQL_LIBSQL_AUTH_TOKEN=... pnpm --filter @typed-sql/adapters smoke:remote
+TYPED_SQL_REMOTE_ADAPTER=neon-http TYPED_SQL_NEON_URL=... pnpm --filter @typed-sql/adapters smoke:remote
+TYPED_SQL_REMOTE_ADAPTER=neon-ws TYPED_SQL_NEON_URL=... pnpm --filter @typed-sql/adapters smoke:remote
+TYPED_SQL_REMOTE_ADAPTER=postgres-js TYPED_SQL_POSTGRES_URL=... pnpm --filter @typed-sql/adapters smoke:remote
+```
+
+For D1, the binding exists inside your Worker. The repository includes the read-only
+`packages/adapters/test/helpers/d1-smoke-worker.ts` entrypoint: bundle it with your normal Worker toolchain,
+configure a `DB` binding and a `SMOKE_TOKEN` secret, and deploy it yourself. The command never deploys
+or changes Worker configuration. Then set `TYPED_SQL_REMOTE_ADAPTER=d1`, `TYPED_SQL_D1_SMOKE_URL`
+and `TYPED_SQL_D1_SMOKE_TOKEN` before running `smoke:remote`. It checks the authenticated Worker's
+response; it does not replace the D1 binding with Cloudflare's separate REST query API.

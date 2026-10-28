@@ -34,7 +34,8 @@
   "type": "module",
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
-    "test:postgres": "tsc --project tsconfig.e2e.json --noEmit --pretty false && poku e2e/postgres.test.ts --reporter=compact --enforce"
+    "test:postgres": "tsc --project tsconfig.e2e.json --noEmit --pretty false && poku e2e/postgres.test.ts --reporter=compact --enforce",
+    "smoke:remote": "tsc --project tsconfig.e2e.json --noEmit --pretty false && poku e2e/remote-smoke.ts --reporter=compact --enforce"
   },
   "exports": {
     ".": "./dist/packages/adapters/src/index.js",
@@ -53,7 +54,9 @@
     "postgres": "3.4.9",
     "miniflare": "4.20260730.0",
     "ws": "8.21.0",
-    "@types/ws": "8.18.1"
+    "@types/ws": "8.18.1",
+    "@typed-sql/sqlite": "workspace:*",
+    "@typed-sql/postgres": "workspace:*"
   },
   "peerDependencies": {
     "@libsql/client": "^0.18.0",
