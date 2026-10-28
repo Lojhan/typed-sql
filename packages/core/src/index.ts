@@ -125,6 +125,7 @@ export { registerPreparedQuery } from "./prepared.js";
 export type {
   ControlledQueryExecutor,
   Database,
+  JsonInput,
   OptionalSqlFragment,
   PreparedQueryRenderVariant,
   Query,

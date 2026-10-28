@@ -1,5 +1,5 @@
 import { type JsonValueDescriptor, parseJsonShape, validateJsonValue } from "./json.js";
-import type { Query } from "./query.js";
+import { explicitJsonParameterIndexes, type Query } from "./query.js";
 import { queryResultValidationSource } from "./result-validation.js";
 
 /** Logical JavaScript values selected by a grammar's type policy. */
@@ -264,6 +264,7 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
   const plan = getQueryValuePlan(query)!;
   if (values.length !== plan.parameters.length)
     throw new QueryValueError("parameters", "parameter count differs from plan");
+  const explicitJson = explicitJsonParameterIndexes(query as unknown as Query<unknown, readonly unknown[]>);
   return values.map((value, index) => {
     const descriptor = plan.parameters[index]!;
     const location = `parameter ${index + 1}`;
@@ -272,6 +273,8 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
       return null;
     }
     if (descriptor.json === undefined) {
+      if (explicitJson.has(index))
+        throw new QueryValueError(location, "explicit JSON binding requires a JSON parameter contract");
       if (profile.integer === "safe-number" && typeof value === "bigint")
         throw new QueryValueError(location, "transport cannot preserve bigint values");
       return scalar(value, descriptor.type, location);
@@ -279,7 +282,7 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
     const json = descriptor.json;
     if (json.representation === "binary") return scalar(value, "bytes", location);
     let parsed = value;
-    if (json.representation === "text") {
+    if (json.representation === "text" || explicitJson.has(index)) {
       if (typeof value !== "string") throw new QueryValueError(location, "expected JSON text");
       try {
         parsed = JSON.parse(value);

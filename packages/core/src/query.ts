@@ -4,6 +4,7 @@ import {
   type ExecutionOptions,
   QueryCardinalityError,
 } from "./execution.js";
+import { validateJsonValue } from "./json.js";
 import { type QueryValuePlan, withQueryValuePlan } from "./query-value-plan.js";
 import {
   type CompatibleResultSchema,
@@ -18,10 +19,16 @@ import { utf8ByteLength } from "./utf8.js";
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
 const queryRenderSkeletonBrand: unique symbol = Symbol("@typed-sql/core.query-render-skeleton");
+declare const jsonInputBrand: unique symbol;
+
+/** Logical value carried by an explicitly serialized JSON binding. */
+export interface JsonInput<Value> {
+  readonly [jsonInputBrand]: Value;
+}
 
 export type SqlSegment =
   | { readonly kind: "text"; readonly text: string }
-  | { readonly kind: "value"; readonly value: unknown }
+  | { readonly kind: "value"; readonly value: unknown; readonly jsonInput?: true }
   | { readonly kind: "identifier"; readonly name: string }
   | FragmentListSegment;
 
@@ -178,6 +185,8 @@ export interface SqlTag {
   readonly empty: SqlFragment<readonly []>;
   readonly ident: (name: string) => SqlFragment<readonly []>;
   readonly value: <Value>(value: Value) => SqlFragment<readonly [Value]>;
+  /** Bind a validated JSON snapshot; `sql.json(null)` represents JSON null rather than SQL NULL. */
+  readonly json: <Value>(value: Value) => SqlFragment<readonly [JsonInput<Value>]>;
   readonly join: <const Parts extends readonly SqlFragment[]>(
     parts: Parts,
     separator?: SqlFragment<readonly []>,
@@ -459,6 +468,12 @@ export const sql: SqlTag = Object.assign(tag, {
   value<Value>(valueItem: Value): SqlFragment<readonly [Value]> {
     return fragment<readonly [Value]>([value(valueItem)]);
   },
+  json<Value>(valueItem: Value): SqlFragment<readonly [JsonInput<Value>]> {
+    if (!validateJsonValue(valueItem)) throw new TypeError("sql.json() requires a finite, acyclic JSON value");
+    return fragment<readonly [JsonInput<Value>]>([
+      { kind: "value", value: JSON.stringify(valueItem), jsonInput: true },
+    ]);
+  },
   join<const Parts extends readonly SqlFragment[]>(
     parts: Parts,
     separator: SqlFragment<readonly []> = commaSeparator,
@@ -592,6 +607,19 @@ function visitSegments(
       visitSegments(segment.items[index]!.segments, visit);
     }
   }
+}
+
+/** @internal Explicit JSON bindings use JSON text on the driver boundary even for parsed application values. */
+export function explicitJsonParameterIndexes(query: Query<unknown, readonly unknown[]>): ReadonlySet<number> {
+  const indexes = new Set<number>();
+  let index = 0;
+  visitSegments(query.segments, (segment) => {
+    if (segment.kind === "value") {
+      if (segment.jsonInput === true) indexes.add(index);
+      index++;
+    }
+  });
+  return indexes;
 }
 
 function expandedSegments(segments: readonly SqlSegment[]): readonly Exclude<SqlSegment, FragmentListSegment>[] {

@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { sql } from "../src/query.js";
+import { bindQueryRenderSkeleton, compileQueryRenderSkeleton, renderQuery, sql } from "../src/query.js";
 import {
   assertQueryResultTransport,
   decodeQueryResultRows,
@@ -11,6 +11,7 @@ import {
   type QueryValuePlan,
   withQueryValuePlan,
 } from "../src/query-value-plan.js";
+import { ParameterCollector } from "../src/resolver.js";
 import type { StandardSchemaV1 } from "../src/result-validation.js";
 
 const text: QueryTransportProfile = { id: "test", dialect: "sqlite", integer: "lossless", jsonWire: "text" };
@@ -179,5 +180,61 @@ await describe("query value plans", async () => {
       () => defineQueryValuePlan({ ...prepared, parameters: [{ index: 2, type: "string", nullable: false }] }),
       /ordered/,
     );
+  });
+  await it("binds JSON literal null explicitly and snapshots validated JSON inputs", () => {
+    const renderer = { placeholder: (index: number) => `?${index}`, quoteIdentifier: (name: string) => name };
+    const valuePlan = defineQueryValuePlan(
+      plan({
+        parameters: [
+          { index: 1, type: "unknown", nullable: true, json: { representation: "parsed", shape: { kind: "unknown" } } },
+        ],
+      }),
+    );
+    const jsonNull = withQueryValuePlan(sql`select ${sql.json(null)}`, valuePlan);
+    strict.deepEqual(renderQuery(jsonNull, renderer).values, ["null"]);
+    strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, text), ["null"]);
+    strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, parsed), [null]);
+    const sqlNull = withQueryValuePlan(sql`select ${null}`, valuePlan);
+    strict.deepEqual(encodeQueryValues(sqlNull, renderQuery(sqlNull, renderer).values, text), [null]);
+    const input = { value: 1 };
+    const first = withQueryValuePlan(sql`select ${sql.json(input)}`, valuePlan);
+    input.value = 2;
+    const compiled = compileQueryRenderSkeleton(first, renderer);
+    strict.deepEqual(compiled.rendered.values, ['{"value":1}']);
+    const second = withQueryValuePlan(sql`select ${sql.json(input)}`, valuePlan);
+    const rebound = bindQueryRenderSkeleton(second, compiled.skeleton)!;
+    strict.deepEqual(rebound.values, ['{"value":2}']);
+    strict.deepEqual(encodeQueryValues(second, rebound.values, text), ['{"value":2}']);
+    strict.throws(() => sql.json({ value: 1n }), /finite/);
+    strict.throws(() => sql.json(new Date()), /finite/);
+    strict.throws(() => sql.json(undefined), /finite/);
+    const ordinary = withQueryValuePlan(
+      sql`select ${sql.json("hello")}`,
+      plan({ parameters: [{ index: 1, type: "string", nullable: false }] }),
+    );
+    strict.throws(() => encodeQueryValues(ordinary, renderQuery(ordinary, renderer).values, text), /JSON parameter/);
+  });
+  await it("retains JSON parameter contracts across repeated inference and fails closed on conflicts", () => {
+    const collector = new ParameterCollector();
+    const json = { representation: "parsed" as const, shape: { kind: "string" as const } };
+    collector.record(1, { tsType: "unknown", nullable: false, json });
+    strict.deepEqual(collector.record(1, { tsType: "unknown", nullable: false, json }).json, json);
+    collector.record(2, { tsType: "string", nullable: false, json });
+    strict.deepEqual(collector.record(2, { tsType: "string", nullable: true, json }).json, json);
+    collector.record(3, { tsType: "string", nullable: false, json });
+    strict.equal(
+      collector.record(3, { tsType: "string", nullable: false, json: { ...json, shape: { kind: "number" } } }).tsType,
+      "unknown",
+    );
+    strict.equal(collector.record(3, { tsType: "string", nullable: false, json }).json, undefined);
+  });
+  await it("checks explicit JSON logical input types independently of text output policy", () => {
+    const jsonTag = sql.__typed<unknown, readonly [string | import("../src/query.js").JsonInput<{ id: number }>]>();
+    jsonTag`select ${sql.json({ id: 1 })}`;
+    // @ts-expect-error JSON input shape must still match the inferred parameter.
+    jsonTag`select ${sql.json({ id: "wrong" })}`;
+    const numberTag = sql.__typed<unknown, readonly [number]>();
+    // @ts-expect-error Explicit JSON cannot masquerade as an ordinary numeric SQL parameter.
+    numberTag`select ${sql.json(1)}`;
   });
 });

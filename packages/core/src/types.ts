@@ -1,5 +1,6 @@
 import type { DialectCapabilityStates, DialectServerEvidence } from "./dialect-capabilities.js";
 import type { JsonShape, JsonValueDescriptor } from "./json.js";
+import { jsonShapeType } from "./json.js";
 import type { RuntimeValueType } from "./query-value-plan.js";
 import type { QuerySemantics } from "./semantics.js";
 
@@ -595,7 +596,7 @@ export function parameterTypeLiteral(parameterCount: number, parameters: readonl
     const parameter = byIndex.get(offset + 1);
     if (!parameter) return "unknown";
     if (parameter.tsType === "unknown") return "unknown";
-    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}`;
+    return `${parameter.tsType}${parameter.nullable ? " | null" : ""}${parameter.json === undefined ? "" : ` | import("@typed-sql/core").JsonInput<${jsonShapeType(parameter.json.shape)}>`}`;
   });
   return `readonly [${elements.join(", ")}]`;
 }
