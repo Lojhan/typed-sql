@@ -341,6 +341,24 @@ await describe("runtime SQL tag", async () => {
       (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
     );
 
+    // Renderer compression must not bypass the structural byte ceiling.
+    const compressingRenderer: SqlRenderer = {
+      placeholder: () => "",
+      quoteIdentifier: () => "x",
+    };
+    strict.throws(
+      () => renderQuery(sql`${sql.ident("x".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES))}`, compressingRenderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+    strict.throws(
+      () => renderQuery(sql`${1}`, { ...renderer, placeholder: () => "x".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES + 1) }),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+    strict.throws(
+      () => renderQuery(sql`${sql.raw("😀".repeat(DEFAULT_MAX_RENDERED_SQL_BYTES / 4 + 1))}`, renderer),
+      (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
+    );
+
     const parameterHeavyFragment = Object.freeze({
       [Symbol.for("@typed-sql/core.fragment")]: () => [] as const,
       segments: Object.freeze(
@@ -348,7 +366,7 @@ await describe("runtime SQL tag", async () => {
       ),
     }) as unknown as SqlFragment;
     strict.throws(
-      () => renderQuery(sql`SELECT ${parameterHeavyFragment}`, renderer),
+      () => renderQuery(sql`SELECT ${parameterHeavyFragment}`, compressingRenderer),
       (error: unknown) => error instanceof SqlFragmentListError && error.code === "TSQL_FRAGMENT_LIST_LIMIT",
     );
   });
