@@ -106,6 +106,7 @@ export {
   updateJsonShapePath,
   validateJsonValue,
 } from "./json.js";
+export { jsonValue } from "./json-input.js";
 export type {
   ActiveDatabaseObservation,
   BatchOperationStart,

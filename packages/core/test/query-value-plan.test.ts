@@ -1,4 +1,5 @@
 import { describe, it, strict } from "poku";
+import { jsonValue } from "../src/json-input.js";
 import { bindQueryRenderSkeleton, compileQueryRenderSkeleton, renderQuery, sql } from "../src/query.js";
 import {
   assertQueryResultTransport,
@@ -200,6 +201,12 @@ await describe("query value plans", async () => {
     strict.deepEqual(renderQuery(jsonNull, renderer).values, ["null"]);
     strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, text), ["null"]);
     strict.deepEqual(encodeQueryValues(jsonNull, renderQuery(jsonNull, renderer).values, parsed), [null]);
+    const positional = (input: import("../src/query.js").JsonInput<null>) =>
+      withQueryValuePlan(sql`select ${sql.value(input)}`, valuePlan);
+    const bound = positional(jsonValue(null));
+    strict.deepEqual(encodeQueryValues(bound, renderQuery(bound, renderer).values, text), ["null"]);
+    strict.deepEqual(renderQuery(sql`select ${{}}`, renderer).values, [{}]);
+
     const sqlNull = withQueryValuePlan(sql`select ${null}`, valuePlan);
     strict.deepEqual(encodeQueryValues(sqlNull, renderQuery(sqlNull, renderer).values, text), [null]);
     const input = { value: 1 };

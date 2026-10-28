@@ -4,7 +4,10 @@ import {
   type ExecutionOptions,
   QueryCardinalityError,
 } from "./execution.js";
-import { validateJsonValue } from "./json.js";
+import { type JsonInput, jsonValue, serializedJsonInput } from "./json-input.js";
+
+export type { JsonInput } from "./json-input.js";
+
 import { type QueryValuePlan, withQueryValuePlan } from "./query-value-plan.js";
 import {
   type CompatibleResultSchema,
@@ -19,12 +22,6 @@ import { utf8ByteLength } from "./utf8.js";
 const fragmentBrand: unique symbol = Symbol.for("@typed-sql/core.fragment") as never;
 const queryBrand: unique symbol = Symbol.for("@typed-sql/core.query") as never;
 const queryRenderSkeletonBrand: unique symbol = Symbol("@typed-sql/core.query-render-skeleton");
-declare const jsonInputBrand: unique symbol;
-
-/** Logical value carried by an explicitly serialized JSON binding. */
-export interface JsonInput<Value> {
-  readonly [jsonInputBrand]: Value;
-}
 
 export type SqlSegment =
   | { readonly kind: "text"; readonly text: string }
@@ -274,7 +271,12 @@ export type TransactionRunner = <T>(fn: (executor: QueryExecutor) => Promise<T>)
 
 const text = (textValue: string): SqlSegment => ({ kind: "text", text: textValue });
 const cachedText = (textValue: string): SqlSegment => Object.freeze({ kind: "text", text: textValue });
-const value = (valueItem: unknown): SqlSegment => ({ kind: "value", value: valueItem });
+const value = (valueItem: unknown): SqlSegment => {
+  const encoded = serializedJsonInput(valueItem);
+  return encoded === undefined
+    ? { kind: "value", value: valueItem }
+    : { kind: "value", value: encoded, jsonInput: true };
+};
 const fragmentTypeBrand = (): readonly unknown[] => [];
 const queryTypeBrand = Object.freeze({
   row: (row: unknown): unknown => row,
@@ -469,10 +471,7 @@ export const sql: SqlTag = Object.assign(tag, {
     return fragment<readonly [Value]>([value(valueItem)]);
   },
   json<Value>(valueItem: Value): SqlFragment<readonly [JsonInput<Value>]> {
-    if (!validateJsonValue(valueItem)) throw new TypeError("sql.json() requires a finite, acyclic JSON value");
-    return fragment<readonly [JsonInput<Value>]>([
-      { kind: "value", value: JSON.stringify(valueItem), jsonInput: true },
-    ]);
+    return fragment<readonly [JsonInput<Value>]>([value(jsonValue(valueItem))]);
   },
   join<const Parts extends readonly SqlFragment[]>(
     parts: Parts,

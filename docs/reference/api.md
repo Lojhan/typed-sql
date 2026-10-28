@@ -46,6 +46,8 @@ Applications import `sql` from their selected dialect root.
 `sql.raw()` is not an escaping function. Do not pass untrusted values to it.
 
 `sql.json(value)` accepts finite, acyclic JSON values and snapshots their serialized text.
+For positional `.sql` factories, pass `jsonValue(value)` from `@typed-sql/core` to represent the
+same explicit JSON binding. Both forms retain the logical `JsonInput<Value>` parameter type.
 Use `sql.json(null)` to bind JSON null; an ordinary interpolated `null` binds SQL `NULL`.
 Compiled JSON parameter contracts check the logical input shape independently of the selected
 text or parsed output policy. Invalid values such as `bigint`, `Date`, and `undefined` are rejected.
