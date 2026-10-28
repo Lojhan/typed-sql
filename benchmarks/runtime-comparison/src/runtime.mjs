@@ -166,6 +166,11 @@ async function worker(candidate, workload, concurrency) {
     else
       factory = (first, last) =>
         sql`SELECT json_group_array(json_object('id', id, 'email', email, 'status', status)) AS items FROM account WHERE id BETWEEN ${first} AND ${last}`;
+    if (candidate.startsWith("typed-file") || candidate.startsWith("typed-compiled")) {
+      const { getQueryValuePlan } = await import("@typed-sql/core");
+      const probe = factory(...parameters(511, width));
+      assert.ok(getQueryValuePlan(probe), "the executed factory must attach a runtime value plan");
+    }
     if (candidate.endsWith("prepared")) factory = typed.prepare("comparison-query", factory);
     run = (values) => typed[workload === "multirow" ? "all" : "maybeOne"](factory(...values));
   }
@@ -538,6 +543,7 @@ if (process.argv[2] === "--worker") {
         reylo: await version("reylo"),
         reyloGrammar: await version(`@reylosql/${driver}`),
         compiler: await version("@typed-sql/compiler"),
+        core: await version("@typed-sql/core"),
         ...driverVersions,
       },
       trials,

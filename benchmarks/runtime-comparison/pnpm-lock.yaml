@@ -31,6 +31,9 @@ importers:
       '@typed-sql/compiler':
         specifier: link:../../packages/compiler
         version: link:../../packages/compiler
+      '@typed-sql/core':
+        specifier: link:../../packages/core
+        version: link:../../packages/core
       '@typed-sql/mysql':
         specifier: link:../../packages/mysql
         version: link:../../packages/mysql
