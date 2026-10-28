@@ -139,8 +139,9 @@ MySQL's cached path uses `mysql2.execute`, while its other raw path uses the tex
 1 and 8 measure separate workloads and can use independent physical connections. The JSON
 aggregate's record order is not part of the workload guarantee.
 
-Every worker gets a fresh project and identical 1,000-row database. Separate processes avoid
-competing SQL-file loader hooks. Candidate order is shuffled reproducibly within each trial.
+Every worker gets a fresh project and reads the same 1,000-row fixture. SQLite uses a private
+database file per case; network workers read the run's shared fixture table. Separate processes
+avoid competing SQL-file loader hooks. Candidate order is shuffled reproducibly within each trial.
 The point lookup returns one row; the range workload returns 32 rows; the JSON aggregate returns
 the same 32 records as parsed JSON. JSON parsing is inside the timed operation whenever the
 driver/frontend returns text. This avoids comparing decoded Reylo objects with undecoded text.

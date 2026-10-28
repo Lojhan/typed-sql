@@ -130,3 +130,97 @@ and 537,744 afterward. `selector-retention.json` records the context and limits 
 The optimization shares only core-normalized immutable shape identities and still charges every
 logical node against each plan's expansion limit. Mutable caller objects remain copied on every
 normalization; the package tests exercise both caller mutation and repeated-shape budget rejection.
+
+## Final integrated platform
+
+The `*-platform-final.json` reports measure clean commit `8ff007f`, whose production code is
+`54af832`; the additional commit passes the existing schema snapshot to the benchmark's
+SQL-mode-aware MySQL parameter tokenizer. Subsequent Miniflare development dependency patches
+do not alter this runtime or these native driver versions. All runs use Node 24.11.1 on the
+same Apple M3 Pro host: SQLite 3.50.4, PostgreSQL 18.6, and MySQL 8.4.13. Raw/Reylo and typed-sql
+resolve the same pg 8.23.1 and mysql2 3.24.6 versions, checked before timing.
+
+There are 540 ordinary observations: SQLite 216 and PostgreSQL/MySQL 162 each. Each engine has
+three trials, both concurrency 1 and 8, and point/32-row/JSON workloads. Every observation retains
+12 batch samples, with 1,500 calls per SQLite sample and 500 per network sample. Warm-up is
+500 calls for SQLite and 200 for network engines. The SQLite run finished before the dependency
+maintenance break; PostgreSQL and MySQL ran after a second explicit quiet-window clearance.
+No other agent builds or native proof workloads ran during these measurements.
+
+`final-timing-summary.json` derives medians and p95 batch averages from all retained samples,
+plus per-case startup, first-call and fixture-build medians. It does not estimate individual
+request tail latency. All generated factories are actually executed and checked for attached
+runtime plans; every workload validates returned values before and after warm measurements.
+
+The following are C1 median microseconds per operation, expressed as point / 32 rows / JSON:
+
+| Engine | Raw cached | Reylo SQL file | Unplanned inline | Compiled inline with guards | SQL file with guards |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| SQLite | 4.33 / 12.14 / 12.81 | 5.46 / 17.83 / 14.33 | 6.14 / 17.78 / 15.21 | 6.83 / 22.88 / 26.22 | 7.72 / 22.51 / 27.43 |
+| PostgreSQL | 37.08 / 50.89 / 85.86 | 48.07 / 66.85 / 103.50 | 49.91 / 67.16 / 105.97 | 50.04 / 72.22 / 116.89 | 51.42 / 74.54 / 119.06 |
+| MySQL | 44.97 / 61.58 / 78.76 | 48.64 / 65.97 / 84.20 | 50.17 / 68.62 / 85.24 | 49.60 / 72.14 / 94.95 | 51.89 / 72.88 / 96.26 |
+
+These results do not establish that typed-sql is faster than Reylo. Runtime parameter/result
+validation adds measurable work, especially SQLite's 32-row and JSON paths. SQLite's parsed-policy
+SQL file avoids the second application JSON parse and records 23.53 µs for JSON, versus 27.43 µs
+under the original text policy. These policies have different application return contracts.
+Prepared factories are separate candidates in the raw reports: PostgreSQL prepared compiled
+queries measure 43.53 / 61.66 / 106.47 µs, whereas MySQL prepared compiled queries measure
+51.25 / 73.17 / 94.74 µs. Preparation does not imply a universal improvement.
+
+For C8, the following are batch-average microseconds per operation, with the same workload order:
+
+| Engine | Raw cached | Reylo SQL file | Compiled inline with guards | SQL file with guards |
+| --- | ---: | ---: | ---: | ---: |
+| SQLite | 4.34 / 12.45 / 12.82 | 5.59 / 18.08 / 14.51 | 6.48 / 21.67 / 26.36 | 7.74 / 22.47 / 26.60 |
+| PostgreSQL | 14.78 / 22.88 / 25.67 | 16.81 / 26.03 / 29.68 | 18.09 / 31.67 / 39.22 | 18.95 / 32.41 / 40.01 |
+| MySQL | 15.79 / 21.41 / 25.09 | 18.27 / 24.32 / 28.59 | 20.16 / 30.79 / 39.48 | 20.57 / 31.46 / 41.29 |
+
+SQLite C8 schedules logical calls over one synchronous connection; it does not provide parallel
+SQLite I/O. Network C8 uses pools with up to ten physical connections. Typed-sql retains its
+transaction/stream ownership queue; Reylo's SQLite executor delegates directly to its supplied
+driver. This comparison preserves those different guarantees rather than removing safety work.
+
+Cold process-to-first-result point medians (ms) are Reylo / compiled inline / SQL file:
+SQLite 96.4 / 64.5 / 101.9; PostgreSQL 153.3 / 82.6 / 141.4; MySQL 151.1 / 94.6 / 133.5.
+Compiled factories have already been transformed; their separate fixture/build medians are
+3.5, 7.1 and 2.1 ms respectively, with every raw fixture-build sample retained. Compiler imports
+are cached within the benchmark coordinator, so these build medians do not promise a fresh
+compiler process startup time. Typed-sql SQL files analyze an offline snapshot during loading;
+Reylo SQL files use live schema analysis. Filesystem caches are not flushed.
+
+Against the earlier Node 24.11 baseline, SQLite guarded SQL-file C1 medians change from
+6.34 / 18.20 / 15.20 to 7.72 / 22.51 / 27.43 µs. Its old SQL-file path did not enforce the new
+runtime shape contracts. Raw and Reylo controls also drift by roughly 3–12%, but that does not
+explain away the JSON guard cost. Network baseline-to-final medians generally fall while their
+raw/Reylo controls also improve roughly 7–16%; this host/run drift prevents attributing those
+network improvements to production changes. Use the isolated allocation experiments above for
+optimization claims and the final same-run tables for frontend comparisons.
+
+## Final profiles and cleanup
+
+`*-platform-final-{alloc,cpu}.json` preserve six additional profiling runs, covering actual
+compiled inline and SQL-file paths for all three workloads and engines. Allocation sampling uses
+5,000 calls per case; CPU sampling uses 50,000. These 36 compressed V8 profiles are indexed with
+uncompressed SHA-256 digests in `profiles.json`; `final-profile-summary.json` records allocations
+and the largest self frames. Instrumented timings are excluded from the ordinary results above.
+
+Sampled allocated bytes per call (point / 32 rows / JSON) are:
+
+| Engine | Compiled inline | SQL file |
+| --- | ---: | ---: |
+| SQLite | 7,207 / 31,057 / 27,108 | 8,484 / 32,091 / 28,462 |
+| PostgreSQL | 17,101 / 34,049 / 33,939 | 18,087 / 35,508 / 35,030 |
+| MySQL | 17,666 / 31,429 / 35,062 | 18,825 / 32,464 / 36,449 |
+
+SQLite's native `all`, result-row copying and per-row decoding remain material in multirow CPU
+samples. JSON decoding, finite-value/shape checks, and the extra text-policy application parse
+remain visible. Network profiles mostly sample idle socket/server wait; among active frames,
+JSON decoding/validation and mysql2's captured error stacks contribute work. Idle samples are not
+CPU utilization. No driver error-stack setting, transaction ordering, validation guard, or resource
+limit was removed to improve these results.
+
+Owned PostgreSQL clusters were stopped and temporary directories removed after every run.
+`native-server-cleanup.json` records the final graceful shutdown of the isolated MySQL server,
+verified process identity/exit, closed port and removed temporary data directory. Other projects'
+VMs and global database installations were untouched.
