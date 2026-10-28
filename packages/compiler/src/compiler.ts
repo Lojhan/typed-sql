@@ -557,6 +557,20 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       });
     }
   }
+  if (options.runtimeMetadata === true) {
+    for (let index = compiled.length - 1; index >= 0; index--) {
+      const item = compiled[index]!;
+      if (item.valuePlan !== undefined) continue;
+      diagnostics.push({
+        code: "TSQ016",
+        message: "Executable value metadata is unavailable for this SQL structure.",
+        severity: "error",
+        range: item.query.range,
+        suggestion: "Use a static query with fixed bindings for runtime metadata.",
+      });
+      compiled.splice(index, 1);
+    }
+  }
   let transformedSource = source;
   const insertions = [
     ...compiled.map((item) => ({

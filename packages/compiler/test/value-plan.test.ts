@@ -92,4 +92,40 @@ await describe("executable compiler value metadata", async () => {
     strict.equal(result.stats.unresolvedQueries, 1);
     strict.ok(result.manifest.queries.some((query) => query.status === "unresolved" && query.reason === "dynamic"));
   });
+  await it("rejects metadata transforms that would narrow application declarations without an executable plan", () => {
+    const dialect = postgres();
+    const schema = {
+      formatVersion: 1,
+      dialect: "postgres",
+      tables: {
+        accounts: {
+          name: "accounts",
+          columns: {
+            document: {
+              name: "document",
+              databaseType: "jsonb",
+              tsType: "unknown",
+              nullable: false,
+              jsonDeclaration: {
+                source: "application",
+                shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+              },
+            },
+          },
+        },
+      },
+    } as const;
+    const source =
+      'import { sql } from "@typed-sql/postgres"; const query = sql`SELECT document FROM accounts ${condition ? sql.fragment`WHERE true` : sql.empty}`;';
+    const result = compileSource({ source, dialect, schema, runtimeMetadata: true });
+    strict.deepEqual(
+      result.diagnostics.map((item) => item.code),
+      ["TSQ016"],
+    );
+    strict.equal(result.queries.length, 0);
+    strict.ok(!result.transformedSource.includes(".__typed"));
+    const ide = compileSource({ source, dialect, schema });
+    strict.deepEqual(ide.diagnostics, []);
+    strict.equal(ide.queries[0]?.rowType, '{ "document": unknown; }');
+  });
 });
