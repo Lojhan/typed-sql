@@ -75,11 +75,11 @@ function copyDescriptor(value: QueryValueDescriptor): QueryValueDescriptor {
   });
 }
 
-/** Attach an immutable compiler/grammar plan without mutating the query or retaining parameter values. */
-export function withQueryValuePlan<Row, Params extends readonly unknown[]>(
-  query: Query<Row, Params>,
-  plan: QueryValuePlan,
-): Query<Row, Params> {
+const preparedPlans = new WeakSet<QueryValuePlan>();
+
+/** Normalize static build metadata once; the returned plan is safe to reuse across calls. */
+export function defineQueryValuePlan(plan: QueryValuePlan): QueryValuePlan {
+  if (preparedPlans.has(plan)) return plan;
   if (
     typeof plan.dialect !== "string" ||
     !plan.dialect ||
@@ -98,17 +98,24 @@ export function withQueryValuePlan<Row, Params extends readonly unknown[]>(
     if (parameter.index !== position + 1) throw new TypeError("Query parameters must be ordered and contiguous");
     return Object.freeze({ ...copyDescriptor(parameter), index: parameter.index });
   });
+  const result = Object.freeze({
+    dialect: plan.dialect,
+    typePolicyHash: plan.typePolicyHash,
+    columns: Object.freeze(columns),
+    parameters: Object.freeze(parameters),
+  });
+  preparedPlans.add(result);
+  return result;
+}
+
+/** Attach compiler/grammar metadata without mutating the query or retaining parameter values. */
+export function withQueryValuePlan<Row, Params extends readonly unknown[]>(
+  query: Query<Row, Params>,
+  plan: QueryValuePlan,
+): Query<Row, Params> {
   const source = queryResultValidationSource(query);
   if (plans.has(source)) throw new TypeError("Query already has a value plan");
-  plans.set(
-    source,
-    Object.freeze({
-      dialect: plan.dialect,
-      typePolicyHash: plan.typePolicyHash,
-      columns: Object.freeze(columns),
-      parameters: Object.freeze(parameters),
-    }),
-  );
+  plans.set(source, defineQueryValuePlan(plan));
   return query;
 }
 
@@ -142,6 +149,14 @@ export function assertQueryResultTransport<Row, Params extends readonly unknown[
     [...plan.columns, ...plan.parameters].some((item) => !item.json && hasBigint(item.type))
   )
     throw new QueryValueError("plan", "transport cannot preserve bigint values");
+  if (
+    profile.jsonWire === "parsed" &&
+    plan.columns.some(
+      (column) =>
+        column.nullable && column.json?.representation === "text" && validateJsonValue(null, column.json.shape),
+    )
+  )
+    throw new QueryValueError("plan", "parsed transport cannot distinguish SQL NULL from JSON null for text output");
 }
 
 function scalar(value: unknown, type: RuntimeValueType, location: string): unknown {
@@ -183,6 +198,13 @@ function decode(
 ): unknown {
   if (value === null) {
     if (
+      descriptor.json?.representation === "text" &&
+      profile.jsonWire === "parsed" &&
+      !descriptor.nullable &&
+      validateJsonValue(null, descriptor.json.shape)
+    )
+      return "null";
+    if (
       descriptor.json?.representation === "parsed" &&
       profile.jsonWire === "parsed" &&
       validateJsonValue(null, descriptor.json.shape)
@@ -221,10 +243,13 @@ export function decodeQueryResultRows<Row, Params extends readonly unknown[]>(
   return rows.map((row, rowIndex) => {
     if (typeof row !== "object" || row === null || Array.isArray(row))
       throw new QueryValueError(`row ${rowIndex}`, "expected a result object");
-    const result: Record<string, unknown> = Object.create(null);
+    const result: Record<string, unknown> = {};
     for (const column of plan.columns) {
       if (!Object.hasOwn(row, column.name)) throw new QueryValueError(column.name, "missing result column");
-      result[column.name] = decode((row as Record<string, unknown>)[column.name], column, profile, column.name);
+      const value = decode((row as Record<string, unknown>)[column.name], column, profile, column.name);
+      if (column.name === "__proto__")
+        Object.defineProperty(result, column.name, { value, enumerable: true, writable: true, configurable: true });
+      else result[column.name] = value;
     }
     return result as Row;
   });

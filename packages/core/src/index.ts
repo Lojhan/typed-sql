@@ -163,6 +163,7 @@ export type {
 export {
   assertQueryResultTransport,
   decodeQueryResultRows,
+  defineQueryValuePlan,
   encodeQueryValues,
   getQueryValuePlan,
   QueryValueError,
