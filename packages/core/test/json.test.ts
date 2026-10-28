@@ -158,6 +158,10 @@ await describe("grammar-neutral JSON structure", async () => {
     strict.strictEqual(updateJsonShapePath(tuple, [], nullJsonShape), nullJsonShape);
     const union = unionJsonShapes([jsonShapeFromValue({ x: 1 }), jsonShapeFromValue({ x: 2 })]);
     strict.strictEqual(jsonShapeType(updateJsonShapePath(union, ["x"], { kind: "boolean" })), '{ "x": boolean; }');
+    const openNested = jsonObjectShape({}, jsonObjectShape({ x: { shape: { kind: "number" } } }));
+    const changedNested = updateJsonShapePath(openNested, ["a", "x"], { kind: "string" });
+    strict.strictEqual(validateJsonValue({ a: { x: "changed" } }, changedNested), true);
+    strict.strictEqual(validateJsonValue({}, changedNested), true);
     const open = jsonObjectShape({}, { kind: "string" });
     const inserted = updateJsonShapePath(open, ["x"], { kind: "number" }, "insert");
     strict.strictEqual(jsonShapeType(jsonShapeAtPath(inserted, ["x"]).shape), "string | number");

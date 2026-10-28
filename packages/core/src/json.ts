@@ -246,7 +246,15 @@ export function updateJsonShapePath(
     const leaf = offset === path.length - 1;
     if (node.kind === "object" && typeof key === "string") {
       const property = Object.hasOwn(node.properties, key) ? node.properties[key] : undefined;
-      if (property === undefined && !leaf) return node;
+      if (property === undefined && !leaf) {
+        if (node.additionalProperties === undefined) return node;
+        const properties = { ...node.properties };
+        Object.defineProperty(properties, key, {
+          value: { shape: update(node.additionalProperties, offset + 1), optional: true },
+          enumerable: true,
+        });
+        return jsonObjectShape(properties, node.additionalProperties);
+      }
       if (property === undefined && mode === "replace" && node.additionalProperties === undefined) return node;
       if (property !== undefined && leaf && mode === "insert" && !property.optional) return node;
       const properties = { ...node.properties };
