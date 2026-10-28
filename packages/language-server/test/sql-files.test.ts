@@ -79,8 +79,11 @@ await it("honors the official native client's mapper execution permission throug
             }[];
           };
           const missing = sqlDiagnostics.items.find((item) => /TSQ101/u.test(item.message));
-          strict.ok(missing, JSON.stringify(sqlDiagnostics));
-          strict.deepStrictEqual(missing.range, { start: { line: 1, character: 2 }, end: { line: 1, character: 9 } });
+          strict.deepStrictEqual(
+            missing?.range,
+            { start: { line: 1, character: 2 }, end: { line: 1, character: 9 } },
+            JSON.stringify(sqlDiagnostics),
+          );
         }
       } finally {
         await client.close();
