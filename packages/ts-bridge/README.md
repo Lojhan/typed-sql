@@ -50,3 +50,8 @@ Read [Editor setup](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/ed
 [Compatibility](https://github.com/Lojhan/typed-sql/blob/main/docs/reference/compatibility.md).
 
 MIT © typed-sql contributors
+
+Optional `.sql` imports use the official TypeScript 7.1 content mapper with `noEmit: true`.
+The `/sql-register` preload executes these modules on Node.js 24 or newer. See
+[SQL file imports](https://github.com/Lojhan/typed-sql/blob/main/docs/guides/sql-files.md)
+for setup, runtime assets, and the boundary with stable CLI artifact workflows.

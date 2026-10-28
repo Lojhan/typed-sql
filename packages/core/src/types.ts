@@ -215,6 +215,12 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   readonly defaultTypePolicy: Policy;
   placeholder(index: number): string;
   quoteIdentifier(identifier: string): string;
+  /** Optional source-file frontend support. Occurrences preserve lexical order, including repeated indexes. */
+  parameterOccurrences?(
+    sql: string,
+    snapshot: Snapshot,
+    policy?: Policy,
+  ): readonly { readonly index: number; readonly range: SourceRange }[];
   analyze(sql: string, snapshot: Snapshot, policy?: Policy): DialectAnalysis;
   validateSnapshot(value: unknown): Snapshot;
 }

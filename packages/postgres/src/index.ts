@@ -7,7 +7,7 @@ import {
 import { parseSchemaSnapshot, type SchemaSnapshot } from "@typed-sql/schema";
 import { assertPostgresServerEvidence, POSTGRES_CAPABILITIES, resolvePostgresCapabilities } from "./capabilities.js";
 import { type PostgresExtensionManifest, resolvePostgresExtensionManifests } from "./extensions.js";
-import { parseStatement, SqlParseError } from "./parser/index.js";
+import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { resolveStatement } from "./resolver.js";
 import { analyzePostgresSemantics } from "./semantics.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "./type-policy.js";
@@ -100,6 +100,11 @@ export function postgres(
     },
     quoteIdentifier(identifier: string): string {
       return `"${identifier.replaceAll('"', '""')}"`;
+    },
+    parameterOccurrences(sql: string) {
+      return tokenize(sql)
+        .filter((token) => token.kind === "parameter")
+        .map((token) => ({ index: Number(token.value), range: token.range }));
     },
     analyze(sql: string, snapshot: PostgresSchemaSnapshot, policy = defaultTypePolicy) {
       try {
