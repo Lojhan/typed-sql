@@ -221,6 +221,25 @@ try {
           native.map((row) => ({ ...row })),
         );
       }
+      const tableQuery = sql`SELECT value AS result FROM json_each(${sql.json([1, 2])})`;
+      const tableSql = renderQuery(tableQuery, sqliteRenderer);
+      const tableAnalysis = analyze(tableSql.text);
+      strict.equal(tableAnalysis.parameters[0]!.acceptsJsonInput, true);
+      const tablePlan = withQueryValuePlan(tableQuery, {
+        dialect: "sqlite",
+        typePolicyHash: "fixture",
+        columns: tableAnalysis.columns.map((column) => ({ ...column, type: sqliteRuntimeValueType(column) })),
+        parameters: tableAnalysis.parameters.map((parameter) => ({
+          ...parameter,
+          type: sqliteRuntimeValueType(parameter),
+        })),
+      });
+      const statement = database.prepare(tableSql.text);
+      statement.setReadBigInts(true);
+      const rows = statement.all(
+        ...(encodeQueryValues(tablePlan, tableSql.values, profile) as (string | number | bigint | Uint8Array | null)[]),
+      );
+      strict.deepEqual(decodeQueryResultRows(tablePlan, rows, profile), [{ result: 1n }, { result: 2n }]);
       const ordinary = sql`SELECT json_array(${sql.json({ id: 7 })}) AS result`;
       const rendered = renderQuery(ordinary, sqliteRenderer);
       const analysis = analyze(rendered.text);

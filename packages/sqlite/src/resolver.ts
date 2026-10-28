@@ -939,11 +939,7 @@ class Resolver {
         if (reference.arguments[2]?.kind === "parameter")
           this.#expression(reference.arguments[2], scope, ctes, this.#databaseType("text", false));
       } else {
-        const jsonInput = {
-          tsType: sqliteFlexibleType(this.#policy),
-          nullable: true,
-          databaseType: "json",
-        };
+        const jsonInput = this.#jsonInput();
         const rootPath = { tsType: "string", nullable: true, databaseType: "text" };
         if (reference.arguments[0]?.kind === "parameter")
           this.#expression(reference.arguments[0], scope, ctes, jsonInput);
