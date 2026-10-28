@@ -2429,7 +2429,7 @@ class Resolver {
         const expectedElementType =
           expectedElement === undefined ? undefined : this.#databaseType(expectedElement, expected?.nullable ?? true);
         const elements = expression.elements.map((element) =>
-          this.#resolveExpression(element, scope, ctes, expectedElementType),
+          this.#completeJsonMetadata(this.#resolveExpression(element, scope, ctes, expectedElementType)),
         );
         this.#jsonConversions.set(
           expression,
@@ -4210,7 +4210,9 @@ class Resolver {
       };
     }
     if (routineRule === "array-aggregate") {
-      const item = resolved[0] ?? aggregateOrder[0] ?? { tsType: "unknown", nullable: true };
+      const item = this.#completeJsonMetadata(
+        resolved[0] ?? aggregateOrder[0] ?? { tsType: "unknown", nullable: true },
+      );
       return {
         tsType: `readonly (${item.tsType}${item.nullable ? " | null" : ""})[]`,
         ...(item.runtimeType !== undefined || this.#jsonDescriptor(item) !== undefined
@@ -4320,6 +4322,7 @@ class Resolver {
 
   #jsonDescriptor(value: ResolvedType): JsonValueDescriptor | undefined {
     if (value.json !== undefined) return value.json;
+    if (typeof value.runtimeType === "object" && "json" in value.runtimeType) return value.runtimeType.json;
     if (value.scalarJsonShape !== undefined) return undefined;
     const canonical =
       value.databaseType === undefined ? undefined : postgresCanonicalType(value.databaseType, this.#schema);
@@ -4341,7 +4344,20 @@ class Resolver {
   #completeJsonMetadata<Type extends ResolvedType>(value: Type): Type {
     const json = this.#jsonDescriptor(value);
     const runtimeType = value.runtimeType ?? this.#nativeJsonArrayType(value.databaseType);
-    return { ...value, ...(json === undefined ? {} : { json }), ...(runtimeType === undefined ? {} : { runtimeType }) };
+    const tsType =
+      value.json === undefined &&
+      !(typeof value.runtimeType === "object" && "json" in value.runtimeType) &&
+      json !== undefined
+        ? this.#policy.json
+        : value.runtimeType === undefined && runtimeType !== undefined && value.databaseType !== undefined
+          ? mapPostgresType(value.databaseType, this.#policy, this.#schema)
+          : value.tsType;
+    return {
+      ...value,
+      tsType,
+      ...(json === undefined ? {} : { json }),
+      ...(runtimeType === undefined ? {} : { runtimeType }),
+    };
   }
 
   #runtimeType(value: ResolvedType): RuntimeValueType {

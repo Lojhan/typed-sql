@@ -381,6 +381,44 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     });
   });
 
+  await it("widens opaque JSON snapshot types before inheriting them into native arrays", () => {
+    const opaque = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, tsType: "{ id: number }" },
+            documents: {
+              name: "documents",
+              databaseType: "jsonb[]",
+              tsType: "readonly { id: number }[]",
+              nullable: false,
+            },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    for (const [source, type] of [
+      ["SELECT document AS value FROM accounts", "unknown"],
+      ["SELECT documents AS value FROM accounts", "readonly (unknown | null)[]"],
+      ["SELECT ARRAY[document] AS value FROM accounts", "readonly (unknown)[]"],
+      ["SELECT ARRAY_AGG(document) AS value FROM accounts", "readonly (unknown)[]"],
+    ] as const) {
+      const result = resolveSelect(parseSelect(source), opaque, { runtimeValidation: true });
+      strict.deepStrictEqual(result.diagnostics, [], source);
+      strict.strictEqual(result.columns[0]?.tsType, type, source);
+    }
+    for (const json of ["JsonValue", "string"] as const) {
+      const result = resolveSelect(parseSelect("SELECT document AS value FROM accounts"), opaque, {
+        typePolicy: { ...defaultPostgresTypePolicy, json },
+      });
+      strict.strictEqual(result.columns[0]?.tsType, json);
+    }
+  });
+
   await it("merges SQL-null-only JSON branches without losing application shape validation", () => {
     const shape = { kind: "object", properties: { id: { shape: { kind: "number" } } } } as const;
     const declared = {
@@ -415,7 +453,7 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
         dialect: "postgres",
         typePolicyHash: "test",
         columns: [
-          { name: "value", type: "unknown", nullable: result.columns[0]!.nullable, json: result.columns[0]!.json },
+          { name: "value", type: "unknown", nullable: result.columns[0]!.nullable, json: result.columns[0]!.json! },
         ],
         parameters: [],
       });
