@@ -13,15 +13,18 @@ import { describe, it, strict } from "poku";
 import { defaultSqliteTypePolicy, parseSqliteSchemaSnapshot, type SqliteTypePolicy, sqlite } from "../src/index.js";
 import { readNodeSqliteServerEvidence } from "../src/node-sqlite.js";
 import { sqliteRenderer, sqliteRuntimeValueType } from "../src/query.js";
+import { sqliteVersionSupport } from "../src/support.js";
 
 const database = new DatabaseSync(":memory:");
 database.exec(
   "CREATE TABLE item(id INTEGER PRIMARY KEY, value TEXT) STRICT; INSERT INTO item VALUES (1, 'one'), (2, NULL)",
 );
+const nativeEvidence = readNodeSqliteServerEvidence(database);
+const nativeSupport = sqliteVersionSupport(nativeEvidence.version);
 const snapshot = parseSqliteSchemaSnapshot({
   formatVersion: 1,
   dialect: "sqlite",
-  server: readNodeSqliteServerEvidence(database),
+  server: nativeEvidence,
   tables: {
     item: {
       name: "item",
@@ -69,6 +72,33 @@ function execute(text: string, policy: SqliteTypePolicy = defaultSqliteTypePolic
 
 try {
   await describe("SQLite JSON inference agrees with native storage and transient subtypes", async () => {
+    await it("enforces the catalog boundary against the actual native JSON library", () => {
+      const text = "SELECT json_array(1) AS result";
+      const native = database.prepare(text).get()!;
+      strict.deepEqual(JSON.parse(native.result as string), [1]);
+      strict.equal(snapshot.server?.version, nativeEvidence.version);
+      const analysis = sqlite().analyze(text, snapshot, defaultSqliteTypePolicy);
+      if (nativeSupport === "supported") strict.deepEqual(analysis.diagnostics, []);
+      else {
+        strict.deepEqual(
+          analysis.diagnostics.map((item) => ({ code: item.code, text: text.slice(item.range.start, item.range.end) })),
+          [{ code: "TSQ403", text: "json_array(1)" }],
+        );
+        strict.equal(analysis.columns[0]?.tsType, "unknown");
+        strict.equal(analysis.columns[0]?.json, undefined);
+        const tableText = "SELECT * FROM json_each('[1]')";
+        strict.equal(database.prepare(tableText).get()!.value, 1);
+        const tableAnalysis = sqlite().analyze(tableText, snapshot, defaultSqliteTypePolicy);
+        strict.deepEqual(
+          tableAnalysis.diagnostics.map((item) => item.code),
+          ["TSQ403", "TSQ103"],
+        );
+        strict.equal(tableAnalysis.columns.length, 0);
+      }
+    });
+    // A new bundled SQLite library is runtime-tested above without claiming reviewed catalog semantics.
+    // Supported Node lines can ship a newer SQLite than the independently qualified language range.
+    if (nativeSupport !== "supported") return;
     await it("keeps default JSON text and binary JSONB, parsing only with validated opt-in", () => {
       const text = "SELECT json_object('id', id, 'value', value) AS result FROM item ORDER BY id";
       const plain = execute(text);
