@@ -56,6 +56,7 @@ interface ResolvedType {
   readonly json?: JsonValueDescriptor;
   readonly jsonTextShape?: JsonShape;
   readonly scalarJsonShape?: JsonShape;
+  readonly acceptsJsonInput?: true;
 }
 
 function jsonMetadata(value: object): Pick<ResolvedType, "json" | "jsonTextShape" | "scalarJsonShape"> {
@@ -290,6 +291,41 @@ function isUnsigned(databaseType: string | undefined): boolean {
 function unionMySqlTypes(types: readonly string[]): string {
   return unionTypeLiterals([...new Set(types.flatMap((type) => type.split(" | ")))]);
 }
+
+const jsonDocumentFunctions = new Set([
+  "JSON_EXTRACT",
+  "JSON_VALID",
+  "JSON_SCHEMA_VALID",
+  "JSON_OVERLAPS",
+  "JSON_VALUE",
+  "JSON_UNQUOTE",
+  "JSON_SET",
+  "JSON_INSERT",
+  "JSON_REPLACE",
+  "JSON_REMOVE",
+  "JSON_ARRAY_APPEND",
+  "JSON_ARRAY_INSERT",
+  "JSON_MERGE_PATCH",
+  "JSON_MERGE_PRESERVE",
+  "JSON_MERGE",
+  "JSON_CONTAINS",
+  "JSON_CONTAINS_PATH",
+  "JSON_KEYS",
+  "JSON_LENGTH",
+  "JSON_DEPTH",
+  "JSON_TYPE",
+  "JSON_SEARCH",
+  "JSON_PRETTY",
+  "JSON_STORAGE_SIZE",
+  "JSON_STORAGE_FREE",
+]);
+const allJsonDocumentFunctions = new Set([
+  "JSON_MERGE_PATCH",
+  "JSON_MERGE_PRESERVE",
+  "JSON_MERGE",
+  "JSON_OVERLAPS",
+  "JSON_SCHEMA_VALID",
+]);
 
 class Resolver {
   readonly #schema: SchemaSnapshot;
@@ -1665,7 +1701,18 @@ class Resolver {
     if (expression.arguments.some(containsWindowFunction)) {
       this.#diagnostic("TSQ223", "MySQL does not support nested window functions", expression.range);
     }
-    const values = expression.arguments.map((argument) => this.#expression(argument, scope, ctes));
+    const documentPositions = expression.schema === undefined && jsonDocumentFunctions.has(functionName);
+    const allDocuments = allJsonDocumentFunctions.has(functionName);
+    const values = expression.arguments.map((argument, index) =>
+      this.#expression(
+        argument,
+        scope,
+        ctes,
+        documentPositions && (index === 0 || allDocuments || (functionName === "JSON_CONTAINS" && index === 1))
+          ? { tsType: "unknown", nullable: true, acceptsJsonInput: true }
+          : undefined,
+      ),
+    );
     if (expression.filter !== undefined)
       this.#unsupported("MySQL does not support aggregate FILTER", expression.filter.range);
     if (expression.over !== undefined && "partitionBy" in expression.over) {
@@ -2563,6 +2610,9 @@ class Resolver {
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
+    const json =
+      expected?.json ??
+      (expected?.databaseType === "json" ? this.#jsonResult(unknownJsonShape, expected.nullable).json : undefined);
     const parameterExpected =
       expected === undefined
         ? undefined
@@ -2570,6 +2620,11 @@ class Resolver {
             tsType: expected.tsType,
             nullable: expected.nullable,
             ...(expected.databaseType === undefined ? {} : { databaseType: expected.databaseType }),
+            ...(json === undefined ? {} : { json }),
+            ...(expected.scalarJsonShape === undefined ? {} : { scalarJsonShape: expected.scalarJsonShape }),
+            ...(expected.acceptsJsonInput === true || expected.databaseType === "json"
+              ? { acceptsJsonInput: true as const }
+              : {}),
           };
     const parameter = this.#parameters.record(index, parameterExpected);
     return {

@@ -212,3 +212,10 @@ Introspection recognizes an enforced `CHECK (JSON_SCHEMA_VALID('literal schema',
 json_column))` as database evidence for the supported structural JSON Schema
 subset. Unenforced checks, compound predicates, dynamic schemas, and unsupported
 schema compositions do not narrow the column.
+
+JSON column parameters retain their declared shape even with `json: 'string'`.
+Use `sql.json(value)` in tagged queries or `jsonValue(value)` in positional query
+factories to pass an explicit JSON document. JSON document arguments such as the
+first argument of `JSON_EXTRACT` accept these bindings; constructor VALUE arguments
+keep their ordinary SQL value behavior. Use `CAST(... AS JSON)` to embed an encoded
+document inside a constructor.

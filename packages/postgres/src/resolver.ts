@@ -120,6 +120,7 @@ interface ResolvedType {
   readonly databaseType?: string;
   readonly json?: JsonValueDescriptor;
   readonly scalarJsonShape?: JsonShape;
+  readonly acceptsJsonInput?: true;
 }
 function jsonMetadata(value: object): Pick<ResolvedType, "json" | "scalarJsonShape"> {
   const type = value as ResolvedType;
@@ -4675,7 +4676,10 @@ class Resolver {
     ctes: ReadonlyMap<string, TableSnapshot>,
     requireJsonInput: boolean,
   ): { readonly resolved: ResolvedType; readonly valid: boolean } {
-    const expected = value.format?.encoding === undefined ? this.#databaseType("text", true) : undefined;
+    const expected =
+      value.format?.encoding === undefined
+        ? { ...this.#databaseType("text", true), acceptsJsonInput: true as const }
+        : undefined;
     const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);
     const canonical =
       resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
@@ -4817,7 +4821,10 @@ class Resolver {
     ctes: ReadonlyMap<string, TableSnapshot>,
     feature: "JSON constructor" | "JSON_SERIALIZE" | "IS JSON predicate",
   ): { readonly resolved: ResolvedType; readonly valid: boolean } {
-    const expected = value.format?.encoding === undefined ? this.#databaseType("text", true) : undefined;
+    const expected =
+      value.format?.encoding === undefined
+        ? { ...this.#databaseType("text", true), acceptsJsonInput: true as const }
+        : undefined;
     const resolved = this.#resolveExpression(value.expression, scope, ctes, expected);
     const canonical =
       resolved.databaseType === undefined ? undefined : postgresCanonicalType(resolved.databaseType, this.#schema);
@@ -5282,6 +5289,15 @@ class Resolver {
   }
 
   #recordParameter(index: number, expected: ResolvedType | undefined): ResolvedType {
+    if (expected !== undefined && isJsonType(expected)) {
+      return this.#parameters.record(index, {
+        ...expected,
+        json:
+          expected.json ??
+          this.#jsonResult(expected.databaseType as "json" | "jsonb", unknownJsonShape, expected.nullable).json!,
+        acceptsJsonInput: true,
+      });
+    }
     return this.#parameters.record(index, expected);
   }
 

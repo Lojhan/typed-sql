@@ -1,7 +1,7 @@
 import { describe, it, strict } from "poku";
-import { type JsonShape, jsonShapeType, validateJsonValue } from "../../core/src/index.js";
+import { type JsonShape, jsonShapeType, parameterTypeLiteral, validateJsonValue } from "../../core/src/index.js";
 import type { SchemaSnapshot } from "../../schema/src/index.js";
-import { parseSelect } from "../src/parser/index.js";
+import { parseSelect, parseStatement } from "../src/parser/index.js";
 import { resolveMySqlStatement } from "../src/resolver.js";
 import { defaultMySqlTypePolicy } from "../src/type-policy.js";
 
@@ -270,6 +270,57 @@ await describe("MySQL structured JSON", async () => {
         strict.ok(result.columns[0]?.json, expression);
       }
     }
+  });
+
+  await it("retains declared JSON input shapes and marks document arguments independently of VALUE arguments", () => {
+    const shape: JsonShape = { kind: "object", properties: { id: { shape: { kind: "number" } } } };
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, jsonDeclaration: { source: "database", shape } },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveMySqlStatement(parseStatement("INSERT INTO accounts (document) VALUES (?)"), declared, {
+      typePolicy: { ...defaultMySqlTypePolicy, json: "string" },
+    });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.parameters, [
+      {
+        index: 1,
+        tsType: "string",
+        nullable: false,
+        databaseType: "json",
+        json: { shape, representation: "text" },
+        acceptsJsonInput: true,
+      },
+    ]);
+    strict.strictEqual(
+      parameterTypeLiteral(1, result.parameters),
+      'readonly [string | import("@typed-sql/core").JsonInput<{ "id": number; }>]',
+    );
+    const contexts = analyze(
+      "SELECT JSON_EXTRACT(?, '$.id') AS document, JSON_OBJECT('value', ?) AS value, JSON_QUOTE(?) AS quoted",
+    );
+    strict.deepStrictEqual(contexts.diagnostics, []);
+    strict.deepStrictEqual(
+      contexts.parameters.map(({ index, acceptsJsonInput }) => ({ index, acceptsJsonInput })),
+      [
+        { index: 1, acceptsJsonInput: true },
+        { index: 2, acceptsJsonInput: undefined },
+        { index: 3, acceptsJsonInput: undefined },
+      ],
+    );
+    const cast = analyze("SELECT CAST(? AS JSON) AS document");
+    strict.deepStrictEqual(cast.diagnostics, []);
+    strict.strictEqual(cast.parameters[0]?.json?.shape.kind, "unknown");
+    strict.strictEqual(cast.parameters[0]?.acceptsJsonInput, true);
   });
 
   await it("requires runtime-backed context before narrowing application JSON declarations", () => {

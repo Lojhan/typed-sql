@@ -193,3 +193,10 @@ Named composite values converted to JSON retain their catalog field names and
 JSON-compatible value types. Composite fields can contain SQL null independently
 of constraints on a table that shares the row type. Recursive composites use the
 same bounded JSON shape analysis as other nested values.
+
+JSON column parameters and explicit `json`/`jsonb` casts retain the JSON input
+contract independently of the result policy. They accept `sql.json(value)` in
+tagged queries and `jsonValue(value)` in positional query factories. SQL-standard
+`FORMAT JSON` document positions accept explicit JSON bindings too. Ordinary
+constructor values retain their SQL scalar behavior; cast an encoded document to
+`json` or `jsonb` when it must be embedded as JSON.

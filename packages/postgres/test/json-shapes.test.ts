@@ -1,9 +1,9 @@
 import { describe, it, strict } from "poku";
-import { jsonShapeType, rowTypeLiteral } from "../../core/src/index.js";
+import { jsonShapeType, parameterTypeLiteral, rowTypeLiteral } from "../../core/src/index.js";
 import { type SchemaSnapshot, upgradeSchemaSnapshotV1 } from "../../schema/src/index.js";
 import { postgresServerEvidence } from "../src/capabilities.js";
-import { parseSelect } from "../src/parser/index.js";
-import { resolveSelect } from "../src/resolver.js";
+import { parseSelect, parseStatement } from "../src/parser/index.js";
+import { resolveSelect, resolveStatement } from "../src/resolver.js";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "../src/type-policy.js";
 
 const schema = {
@@ -206,6 +206,55 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
       strict.deepStrictEqual(result.diagnostics, [], expression);
       strict.strictEqual(result.columns[0]?.tsType, type, expression);
     }
+  });
+
+  await it("preserves JSON input declarations under text policy and marks FORMAT JSON document positions", () => {
+    const shape = { kind: "object", properties: { id: { shape: { kind: "number" } } } } as const;
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, jsonDeclaration: { source: "database", shape } },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    const result = resolveStatement(parseStatement("INSERT INTO accounts(document) VALUES ($1)"), declared, {
+      typePolicy: { ...defaultPostgresTypePolicy, json: "string" },
+    });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.deepStrictEqual(result.parameters, [
+      {
+        index: 1,
+        tsType: "string",
+        nullable: false,
+        databaseType: "jsonb",
+        json: { shape, representation: "text" },
+        acceptsJsonInput: true,
+      },
+    ]);
+    strict.strictEqual(
+      parameterTypeLiteral(1, result.parameters),
+      'readonly [string | import("@typed-sql/core").JsonInput<{ "id": number; }>]',
+    );
+    const format = resolveSelect(parseSelect("SELECT JSON_ARRAY($1 FORMAT JSON RETURNING jsonb) AS value"), {
+      ...upgradeSchemaSnapshotV1(schema),
+      server: postgresServerEvidence("18.6", [], { standardConformingStrings: "on" }),
+    });
+    strict.deepStrictEqual(format.diagnostics, []);
+    strict.strictEqual(format.parameters[0]?.acceptsJsonInput, true);
+    strict.strictEqual(format.parameters[0]?.databaseType, "text");
+    const value = analyze("SELECT jsonb_build_object('value', $1) AS value");
+    strict.deepStrictEqual(value.diagnostics, []);
+    strict.strictEqual(value.parameters[0]?.acceptsJsonInput, undefined);
+    const cast = analyze("SELECT $1::jsonb AS value");
+    strict.deepStrictEqual(cast.diagnostics, []);
+    strict.strictEqual(cast.parameters[0]?.json?.shape.kind, "unknown");
+    strict.strictEqual(cast.parameters[0]?.acceptsJsonInput, true);
   });
 
   await it("retains null-only runtime guards for statically missing and JSON-null text paths", () => {
