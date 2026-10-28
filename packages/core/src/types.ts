@@ -609,6 +609,26 @@ export function rowTypeLiteral(columns: readonly ResolvedColumn[]): string {
   return `{ ${properties.join(" ")} }`;
 }
 
+function hasNestedJsonInput(type: RuntimeValueType): boolean {
+  return (
+    typeof type === "object" &&
+    ("json" in type ||
+      ("array" in type ? hasNestedJsonInput(type.array) : "union" in type && type.union.some(hasNestedJsonInput)))
+  );
+}
+
+function nestedInputType(type: RuntimeValueType, typeModule: string): string {
+  if (typeof type === "string") return type === "date" ? "Date" : type === "bytes" ? "Uint8Array" : type;
+  if ("json" in type) {
+    const shape = jsonShapeType(type.json.shape);
+    return `${type.json.representation === "text" ? "string" : shape} | import(${JSON.stringify(typeModule)}).JsonInput<${shape}>`;
+  }
+  if ("array" in type)
+    return `readonly (${nestedInputType(type.array, typeModule)}${type.elementNullable === false ? "" : " | null"})[]`;
+  if ("union" in type) return type.union.map((member) => `(${nestedInputType(member, typeModule)})`).join(" | ");
+  return JSON.stringify(type.literal);
+}
+
 export function parameterTypeLiteral(
   parameterCount: number,
   parameters: readonly ResolvedParameter[],
@@ -618,6 +638,13 @@ export function parameterTypeLiteral(
   const elements = Array.from({ length: parameterCount }, (_, offset) => {
     const parameter = byIndex.get(offset + 1);
     if (!parameter) return "unknown";
+    if (
+      parameter.runtimeType !== undefined &&
+      typeof parameter.runtimeType === "object" &&
+      "array" in parameter.runtimeType &&
+      hasNestedJsonInput(parameter.runtimeType)
+    )
+      return `${nestedInputType(parameter.runtimeType, typeModule)}${parameter.nullable ? " | null" : ""}`;
     if (parameter.tsType === "unknown") return "unknown";
     const inputShape =
       parameter.json === undefined

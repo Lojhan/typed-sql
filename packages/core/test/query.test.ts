@@ -879,6 +879,37 @@ await describe("core contracts", async () => {
     );
   });
 
+  await it("renders explicit JSON inputs within native SQL arrays through the selected type module", () => {
+    strict.equal(
+      parameterTypeLiteral(
+        1,
+        [
+          {
+            index: 1,
+            tsType: "readonly ({id:number} | null)[]",
+            nullable: false,
+            runtimeType: {
+              array: {
+                json: {
+                  representation: "parsed",
+                  shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+                },
+              },
+            },
+          },
+        ],
+        "@example/grammar/query",
+      ),
+      'readonly [readonly ({ "id": number; } | import("@example/grammar/query").JsonInput<{ "id": number; }> | null)[]]',
+    );
+    strict.equal(
+      parameterTypeLiteral(1, [
+        { index: 1, tsType: 'readonly ("on" | "off")[]', nullable: false, runtimeType: { array: "string" } },
+      ]),
+      'readonly [readonly ("on" | "off")[]]',
+    );
+  });
+
   await it("shares indexed schema and parameter primitives with future grammars", () => {
     const indexedSchema: SchemaSnapshot = {
       formatVersion: 1,
