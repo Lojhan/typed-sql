@@ -286,6 +286,7 @@ export async function createNodeSqliteDatabase(options: NodeSqliteDatabaseOption
     return createSqliteDatabase({
       connection: adaptNodeSqliteDatabase(database, options),
       ownsConnection: true,
+      ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
       ...(options.preparedCardinalityVariantLimit === undefined
         ? {}
         : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),

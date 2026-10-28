@@ -2,20 +2,27 @@ import { createHash } from "node:crypto";
 import {
   assertExecutionCapabilities,
   type Database,
+  decodeQueryResultRows,
+  decodeQueryResultStream,
   type ExecutionOptions,
+  encodeQueryValues,
+  getQueryValuePlan,
   hasQueryResultValidator,
   type Query,
   type QueryBatch,
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
+  type QueryTransportProfile,
   queryResultValidationSource,
+  type RenderedQuery,
   renderQuery,
   type StreamOptions,
   validateQueryResultBatch,
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import {
   createSqlitePreparedQueryState,
   prepareSqliteQuery,
@@ -23,6 +30,7 @@ import {
   type SqlitePreparedQueryState,
 } from "./prepared.js";
 import { sqliteRenderer } from "./query.js";
+import { defaultSqliteTypePolicy, type SqliteTypePolicy } from "./type-policy.js";
 import { SQLITE_DIALECT_VERSION } from "./version.js";
 
 export { sqliteRenderer } from "./query.js";
@@ -54,6 +62,7 @@ export interface SqliteDatabase extends Database<SqliteTransaction> {
 }
 
 export interface SqliteDatabaseOptions {
+  readonly typePolicy?: SqliteTypePolicy;
   readonly connection: SqliteConnectionLike;
   readonly ownsConnection?: boolean;
   /** Maximum rendered cardinalities cached by each logical prepared factory. Defaults to 32. */
@@ -160,6 +169,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
   readonly #connection: SqliteConnectionLike;
   readonly #queue: ExclusiveQueue;
   readonly #prepared: SqlitePreparedQueryState;
+  readonly #profile: QueryTransportProfile;
   readonly #ownsConnection: boolean;
   readonly #transactionDepth: number;
   readonly #root: boolean;
@@ -175,6 +185,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     connection: SqliteConnectionLike,
     queue: ExclusiveQueue,
     prepared: SqlitePreparedQueryState,
+    profile: QueryTransportProfile,
     ownsConnection: boolean,
     transactionDepth: number,
     root: boolean,
@@ -183,6 +194,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#connection = connection;
     this.#queue = queue;
     this.#prepared = prepared;
+    this.#profile = profile;
     this.#ownsConnection = ownsConnection;
     this.#transactionDepth = transactionDepth;
     this.#root = root;
@@ -200,8 +212,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
     this.#assertOpen();
     if (options !== undefined) assertExecutionCapabilities(executionCapabilities, options);
     this.#assertNoStream("execute a query");
-    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
-    const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
+    const rendered = this.#render(query);
     const operation = (): readonly Row[] => {
       this.#assertOpen();
       return this.#connection.all(rendered.text, rendered.values) as readonly Row[];
@@ -237,10 +248,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
       this.#assertOpen();
       const results: (readonly unknown[])[] = [];
       for (const query of snapshot) {
-        const prepared = this.#prepared.queries.get(
-          queryResultValidationSource(query as Query<unknown, readonly unknown[]>),
-        );
-        const rendered = prepared?.rendered ?? renderQuery(query as Query<unknown, readonly unknown[]>, sqliteRenderer);
+        const rendered = this.#render(query as Query<unknown, readonly unknown[]>);
         results.push(await this.#connection.all(rendered.text, rendered.values));
       }
       return results as QueryResults<Queries>;
@@ -255,8 +263,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
   ): QueryStream<Row> {
     this.#assertOpen();
     validateBatchSize(options.batchSize);
-    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
-    const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
+    const rendered = this.#render(query);
     let source!: QueryStream<Row>;
     source = new SqliteQueryStream<Row>(async () => {
       this.#assertOpen();
@@ -278,24 +285,45 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
         throw error;
       }
     });
+    const decoded =
+      getQueryValuePlan(query) === undefined ? source : decodeQueryResultStream(query, source, this.#profile);
     return hasQueryResultValidator(query)
-      ? validateQueryResultStream(query, source, sqliteQueryFingerprint(query))
-      : source;
+      ? validateQueryResultStream(query, decoded, sqliteQueryFingerprint(query))
+      : decoded;
+  }
+
+  #render<Row, Params extends readonly unknown[]>(query: Query<Row, Params>): RenderedQuery {
+    const prepared = this.#prepared.queries.get(queryResultValidationSource(query));
+    const rendered = prepared?.rendered ?? renderQuery(query, sqliteRenderer);
+    return getQueryValuePlan(query) === undefined
+      ? rendered
+      : { text: rendered.text, values: encodeQueryValues(query, rendered.values, this.#profile) };
   }
 
   #validateRows<Row, Params extends readonly unknown[]>(
     query: Query<Row, Params>,
     rows: readonly unknown[],
   ): readonly Row[] | Promise<readonly Row[]> {
-    if (!hasQueryResultValidator(query)) return rows as readonly Row[];
-    return validateQueryResultRows(query, rows, sqliteQueryFingerprint(query));
+    const decoded =
+      getQueryValuePlan(query) === undefined
+        ? (rows as readonly Row[])
+        : decodeQueryResultRows(query, rows, this.#profile);
+    if (!hasQueryResultValidator(query)) return decoded;
+    return validateQueryResultRows(query, decoded, sqliteQueryFingerprint(query));
   }
 
   async #validateBatch<const Queries extends readonly unknown[]>(
     queries: QueryBatch<Queries>,
     results: QueryResults<Queries>,
   ): Promise<QueryResults<Queries>> {
-    return validateQueryResultBatch(queries, results, (query) => sqliteQueryFingerprint(query));
+    const list = queries as unknown as readonly Query<unknown>[];
+    if (!list.some((query) => getQueryValuePlan(query) !== undefined))
+      return validateQueryResultBatch(queries, results, (query) => sqliteQueryFingerprint(query));
+    const validated: (readonly unknown[])[] = [];
+    const resultList = results as readonly (readonly unknown[])[];
+    for (let index = 0; index < list.length; index++)
+      validated.push(await this.#validateRows(list[index]!, resultList[index]!));
+    return validated as QueryResults<Queries>;
   }
 
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
@@ -318,6 +346,7 @@ class SqliteDatabaseImplementation implements SqliteDatabase, SqliteTransaction 
         this.#connection,
         this.#queue,
         this.#prepared,
+        this.#profile,
         false,
         depth,
         false,
@@ -406,6 +435,13 @@ export function createSqliteDatabase(options: SqliteDatabaseOptions): SqliteData
     options.connection,
     new ExclusiveQueue(),
     createSqlitePreparedQueryState(options.preparedCardinalityVariantLimit),
+    Object.freeze({
+      id: "sqlite",
+      dialect: "sqlite",
+      integer: "lossless",
+      jsonWire: "text",
+      typePolicyHash: calculateTypePolicyHash(options.typePolicy ?? defaultSqliteTypePolicy),
+    }),
     options.ownsConnection ?? false,
     0,
     true,
