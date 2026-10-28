@@ -64,7 +64,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   compiler: ["."],
   conformance: [".", "./v2"],
   cli: [],
-  "ts-bridge": [".", "./native-lsp", "./native-preview"],
+  "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register"],
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite"],
 };

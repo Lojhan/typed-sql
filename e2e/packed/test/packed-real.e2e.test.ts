@@ -622,6 +622,23 @@ await describe(`${consumerSource} real-database consumers`, async () => {
       `,
       );
       await write(
+        join(consumer, "postgres", "src", "json-query.ts"),
+        `${await readFile(join(workspace, "e2e/postgres/src/json-query.ts"), "utf8")}
+        import type { QueryRow } from "@typed-sql/core";
+        type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+        const projectionIsExact: Equal<QueryRow<typeof postgresJsonProjection>, {
+          document: {
+            id: number; wide: number; amount: number | string; date: string; bytes: string;
+            nullable: string | null; nested: { enabled: boolean }; unchecked: unknown;
+          };
+        }> = true;
+        const emptyIsExact: Equal<QueryRow<typeof postgresJsonEmptyAggregate>, {
+          aggregate: readonly { id: number }[] | null; fallback: readonly { id: number }[];
+        }> = true;
+        void [projectionIsExact, emptyIsExact];
+        `,
+      );
+      await write(
         join(consumer, "mysql", "src", "query.ts"),
         `
         import { sql, typePolicy } from "@typed-sql/mysql";
@@ -957,6 +974,8 @@ await describe(`${consumerSource} real-database consumers`, async () => {
         import { sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite";
         import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
         import { createDashboardServer } from "./postgres/src/server.js";
+        import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "./postgres/src/json-query.js";
+        import assert from "node:assert/strict";
         import { z } from "zod";
         import * as v from "valibot";
         const postgres = await createPgDatabase({ connectionString: "postgresql://typed_sql:${artifactCredentialSentinel}@127.0.0.1:${postgresPort}/typed_sql_e2e", typePolicy: postgresTypePolicy });
@@ -972,6 +991,13 @@ await describe(`${consumerSource} real-database consumers`, async () => {
           ));
           if (pgRows[0]?.id !== 1n || pgRows[0]?.email !== "alice@example.com") throw new Error("packed pg execution failed");
           if (myRows[0]?.id !== 1n || myRows[0]?.status !== "active") throw new Error("packed mysql2 execution failed");
+          assert.deepStrictEqual(await postgres.execute(postgresJsonProjection), [{ document: {
+            id: 1, wide: Number(9007199254740993n), amount: Number("12345678901234567890.1234567890"),
+            date: "2026-08-25", bytes: "\\\\x00a5ff", nullable: null,
+            nested: { enabled: true }, unchecked: { enabled: true, kind: "jsonb" },
+          } }]);
+          assert.deepStrictEqual(await postgres.execute(postgresJsonEmptyAggregate), [{ aggregate: null, fallback: [] }]);
+          assert.deepStrictEqual(await postgres.execute(postgresJsonNonfinite), [{ document: { numeric: "NaN", float: "Infinity" } }]);
         } finally { await postgres.close(); await mysql.close(); }
 
         const sqlite = await createNodeSqliteDatabase({

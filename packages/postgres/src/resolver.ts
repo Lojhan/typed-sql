@@ -81,10 +81,49 @@ interface Scope {
   readonly outer?: Scope;
 }
 
-interface ResolvedType {
+// Parsed JSON provenance stays grammar-local: the wire policy can expose the same
+// value as raw text, while enclosing JSON constructors still embed its JSON value.
+const jsonShape = Symbol("postgres.json-shape");
+const maximumJsonShapeLength = 16_384;
+const shapedJsonFunctions = new Set([
+  "JSON_BUILD_OBJECT",
+  "JSONB_BUILD_OBJECT",
+  "JSON_AGG",
+  "JSONB_AGG",
+  "JSON_OBJECT_AGG",
+  "JSONB_OBJECT_AGG",
+]);
+interface JsonShape {
+  readonly [jsonShape]?: string;
+}
+function jsonMetadata(value: object): JsonShape {
+  const shape = (value as JsonShape)[jsonShape];
+  return shape === undefined ? {} : { [jsonShape]: shape };
+}
+function boundedJsonShape(parts: readonly string[]): string {
+  return parts.reduce((length, part) => length + part.length, 0) > maximumJsonShapeLength ? "unknown" : parts.join("");
+}
+
+function boundedJsonUnion(types: readonly string[]): string {
+  const distinct = [...new Set(types)];
+  return distinct.includes("unknown")
+    ? "unknown"
+    : boundedJsonShape(distinct.flatMap((type, index) => (index === 0 ? [type] : [" | ", type])));
+}
+
+interface ResolvedType extends JsonShape {
   readonly tsType: string;
   readonly nullable: boolean;
   readonly databaseType?: string;
+}
+
+function isJsonType(type: ResolvedType): boolean {
+  return type.databaseType === "json" || type.databaseType === "jsonb";
+}
+
+function resolvedTypeUnion(types: readonly ResolvedType[]): string {
+  const literals = types.map((type) => type.tsType);
+  return types.some(isJsonType) ? boundedJsonUnion(literals) : unionTypeLiterals(literals);
 }
 
 interface FunctionColumn {
@@ -283,6 +322,7 @@ class Resolver {
           databaseType: column.databaseType ?? "unknown",
           tsType: column.tsType,
           nullable: column.nullable,
+          ...jsonMetadata(column),
         };
       });
       const addGenerated = (identifier: Identifier, column: ColumnSnapshot): void => {
@@ -1006,10 +1046,13 @@ class Resolver {
     for (let index = 0; index < columns.length; index += 1) {
       const left = columns[index]!;
       const candidate = right[index]!;
-      const { databaseType: _databaseType, ...base } = left;
+      const { databaseType: _databaseType, [jsonShape]: _jsonShape, ...base } = left;
       columns[index] = {
         ...base,
-        tsType: mergeTypeLiterals(left.tsType, candidate.tsType),
+        tsType:
+          isJsonType(left) || isJsonType(candidate)
+            ? boundedJsonUnion([left.tsType, candidate.tsType])
+            : mergeTypeLiterals(left.tsType, candidate.tsType),
         nullable: left.nullable || candidate.nullable,
         ...(left.databaseType === candidate.databaseType && left.databaseType !== undefined
           ? { databaseType: left.databaseType }
@@ -1633,6 +1676,7 @@ class Resolver {
           databaseType: column.databaseType ?? "unknown",
           tsType: column.tsType,
           nullable: column.nullable,
+          ...jsonMetadata(column),
         };
       });
       if (reference.columns.length > 0 && reference.columns.length !== resolved.columns.length)
@@ -2526,10 +2570,18 @@ class Resolver {
             "Use a supported intermediate type or add exact extension cast evidence.",
           );
         }
+        const databaseType = postgresCanonicalType(expression.databaseType.name, this.#schema);
+        if (
+          (databaseType === "json" || databaseType === "jsonb") &&
+          expression.expression.kind === "literal" &&
+          expression.expression.value === "[]"
+        ) {
+          return this.#jsonResult(databaseType, "readonly never[]", false);
+        }
         return {
           tsType: mapPostgresType(expression.databaseType.name, this.#policy, this.#schema),
           nullable: source.nullable,
-          databaseType: postgresCanonicalType(expression.databaseType.name, this.#schema),
+          databaseType,
         };
       }
       case "unary": {
@@ -2896,7 +2948,7 @@ class Resolver {
           ),
         ];
         return {
-          tsType: unionTypeLiterals(results.map((result) => result.tsType)),
+          tsType: resolvedTypeUnion(results),
           nullable: expression.elseExpression === undefined || results.some((result) => result.nullable),
           ...(databaseTypes.length === 1 ? { databaseType: databaseTypes[0] } : {}),
         };
@@ -2920,6 +2972,7 @@ class Resolver {
         return {
           tsType: column.tsType,
           nullable: true,
+          ...jsonMetadata(column),
           ...(column.databaseType === undefined ? {} : { databaseType: column.databaseType }),
         };
       }
@@ -3567,7 +3620,12 @@ class Resolver {
   }
 
   #columnType(relation: Relation, column: ColumnSnapshot): ResolvedType {
-    return { tsType: column.tsType, nullable: column.nullable || relation.nullable, databaseType: column.databaseType };
+    return {
+      tsType: column.tsType,
+      nullable: column.nullable || relation.nullable,
+      databaseType: column.databaseType,
+      ...jsonMetadata(column),
+    };
   }
 
   #resolveCall(expression: CallExpression, scope: Scope, ctes: ReadonlyMap<string, TableSnapshot>): ResolvedType {
@@ -3665,6 +3723,31 @@ class Resolver {
     if ((expression.orderBy?.length ?? 0) > 0 && !aggregate) {
       this.#diagnostic("TSQ223", "Argument ORDER BY is only valid for aggregate functions", expression.range);
     }
+    const builtinJson = shapedJsonFunctions.has(name) && this.#isBuiltinJsonCall(expression);
+    if (builtinJson && (name === "JSON_BUILD_OBJECT" || name === "JSONB_BUILD_OBJECT")) {
+      const databaseType = name.startsWith("JSONB") ? "jsonb" : "json";
+      if (expression.variadic || expression.argumentNames?.some((argument) => argument !== undefined))
+        return this.#jsonResult(databaseType, "unknown", true);
+      if (resolved.length % 2 !== 0) {
+        this.#diagnostic("TSQ227", `${expression.name.name} requires alternating keys and values`, expression.range);
+        return { tsType: "unknown", nullable: true };
+      }
+      const keys = new Set<string>();
+      const fields: string[] = [];
+      let shapeLength = 4;
+      for (let index = 0; index < resolved.length; index += 2) {
+        const key = expression.arguments[index]!;
+        if (key.kind !== "literal" || typeof key.value !== "string" || keys.has(key.value))
+          return this.#jsonResult(databaseType, "unknown", false);
+        keys.add(key.value);
+        const value = this.#jsonValue(resolved[index + 1]!, expression.arguments[index + 1]);
+        const property = JSON.stringify(key.value);
+        shapeLength += property.length + value.length + 4;
+        if (shapeLength > maximumJsonShapeLength) return this.#jsonResult(databaseType, "unknown", false);
+        fields.push(`${property}: ${value}; `);
+      }
+      return this.#jsonResult(databaseType, boundedJsonShape(["{ ", ...fields, "}"]), false);
+    }
     if (routineRule === "count") return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
     if (routineRule === "bigint-window")
       return { tsType: this.#policy.bigint, nullable: false, databaseType: "bigint" };
@@ -3686,8 +3769,26 @@ class Resolver {
         const argument = expression.arguments[index];
         return argument?.kind !== "literal" || argument.value !== null;
       });
+      const jsonTypes = known.map((result) => result[jsonShape]);
+      if (
+        known.length > 0 &&
+        jsonTypes.every((type) => type !== undefined) &&
+        known.every((result) => result.databaseType === known[0]!.databaseType) &&
+        (known[0]!.databaseType === "json" || known[0]!.databaseType === "jsonb")
+      ) {
+        const nonempty = jsonTypes.filter((type) => type !== "readonly never[]");
+        const shapes =
+          nonempty.length > 0 && nonempty.every((type) => type?.startsWith("readonly (") && type.endsWith(")[]"))
+            ? nonempty
+            : jsonTypes;
+        return this.#jsonResult(
+          known[0]!.databaseType,
+          boundedJsonUnion(shapes as string[]),
+          resolved.every((result) => result.nullable),
+        );
+      }
       return {
-        tsType: unionTypeLiterals(known.map((result) => result.tsType)),
+        tsType: resolvedTypeUnion(known),
         nullable: resolved.every((result) => result.nullable),
         ...(known.length > 0 &&
         known.every((result) => result.databaseType === known[0]?.databaseType) &&
@@ -3699,7 +3800,10 @@ class Resolver {
     if (routineRule === "nullif") return { ...(resolved[0] ?? { tsType: "unknown" }), nullable: true };
     if (routineRule === "extrema")
       return {
-        ...(resolved[0] ?? { tsType: "unknown", nullable: true }),
+        tsType: resolved.some(isJsonType)
+          ? boundedJsonUnion(resolved.map((result) => result.tsType))
+          : (resolved[0]?.tsType ?? "unknown"),
+        ...(resolved[0]?.databaseType === undefined ? {} : { databaseType: resolved[0].databaseType }),
         nullable: name === "MIN" || name === "MAX" ? true : resolved.some((result) => result.nullable),
       };
     if (routineRule === "numeric-aggregate")
@@ -3710,7 +3814,35 @@ class Resolver {
       };
     if (routineRule === "boolean-aggregate") return { tsType: "boolean", nullable: true, databaseType: "boolean" };
     if (routineRule === "string-aggregate") return { tsType: "string", nullable: true, databaseType: "text" };
-    if (routineRule === "json-aggregate")
+    if (builtinJson && (name === "JSON_AGG" || name === "JSONB_AGG")) {
+      if (
+        resolved.length !== 1 ||
+        expression.variadic ||
+        expression.argumentNames?.some((argument) => argument !== undefined)
+      ) {
+        this.#diagnostic("TSQ227", `${expression.name.name} requires one value`, expression.range);
+        return { tsType: "unknown", nullable: true };
+      }
+      const argument = expression.arguments[0]!;
+      if (
+        resolved[0]!.databaseType === undefined ||
+        (argument.kind === "literal" && (argument.value === null || typeof argument.value === "string"))
+      ) {
+        this.#diagnostic(
+          "TSQ202",
+          `${expression.name.name} requires a known input type`,
+          argument.range,
+          "Cast the aggregate input to its PostgreSQL type.",
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      return this.#jsonResult(
+        name.startsWith("JSONB") ? "jsonb" : "json",
+        boundedJsonShape(["readonly (", this.#jsonValue(resolved[0]!, argument), ")[]"]),
+        true,
+      );
+    }
+    if (routineRule === "json-aggregate" && builtinJson)
       return { tsType: this.#policy.json, nullable: true, databaseType: name.startsWith("JSONB") ? "jsonb" : "json" };
     if (routineRule === "json-path-boolean" || routineRule === "json-path-json" || routineRule === "json-path-set") {
       const signature = this.#jsonPathCallTypes(expression);
@@ -3850,6 +3982,37 @@ class Resolver {
     }
     this.#diagnostic("TSQ202", `Unknown function ${expression.name.name}`, expression.range, undefined, "warning");
     return { tsType: "unknown", nullable: true };
+  }
+
+  #isBuiltinJsonCall(expression: CallExpression): boolean {
+    const name = sqlName(expression.name);
+    if (name !== name.toLowerCase()) return false;
+    const schema = expression.schema === undefined ? undefined : sqlName(expression.schema);
+    if (schema !== undefined && schema !== "pg_catalog") return false;
+    return (
+      this.#index.routineOverloads(name, expression.arguments.length, schema).length === 0 &&
+      this.#index.functions(name, expression.arguments.length, schema).length === 0
+    );
+  }
+
+  #jsonResult(databaseType: "json" | "jsonb", shape: string, nullable: boolean): ResolvedType {
+    return { tsType: this.#policy.json === "string" ? "string" : shape, nullable, databaseType, [jsonShape]: shape };
+  }
+
+  #jsonValue(value: ResolvedType, expression?: Expression): string {
+    if (expression?.kind === "literal" && expression.value === null) return "null";
+    let type = value[jsonShape];
+    if (type === undefined && value.databaseType !== undefined) {
+      const canonical = postgresCanonicalType(value.databaseType, this.#schema);
+      const mapping = canonical.endsWith("[]") ? undefined : postgresCatalogTypeMapping(canonical, this.#schema);
+      if (["smallint", "integer", "bigint"].includes(canonical)) type = "number";
+      else if (["numeric", "real", "double precision"].includes(canonical)) type = "number | string";
+      else if (mapping === "boolean") type = "boolean";
+      else if (mapping === "string" || mapping === "date" || mapping === "bytes" || canonical === "oid")
+        type = "string";
+    }
+    type ??= "unknown";
+    return type === "unknown" || !value.nullable ? type : `${type} | null`;
   }
 
   #typesCompatible(

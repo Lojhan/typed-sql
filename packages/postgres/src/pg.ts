@@ -10,6 +10,7 @@ import type {
   QueryPlanEvidence,
   QueryPlanInspector,
 } from "@typed-sql/core";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import type { Pool as PgPool, PoolClient, PoolConfig, QueryConfig } from "pg";
 import { postgresServerEvidence } from "./capabilities.js";
 import {
@@ -363,7 +364,7 @@ export async function resolvePgRuntimeCodecs(
   });
 }
 
-const POSTGRES_LIVE_VERIFIER_VERSION = "postgres-describe-v2";
+const POSTGRES_LIVE_VERIFIER_VERSION = "postgres-describe-v3";
 
 function describePgStatement(
   client: PgLiveVerifierClient,
@@ -419,6 +420,7 @@ function describePgStatement(
 
 /** Creates a lazy, non-executing adapter over PostgreSQL Parse and Describe metadata. */
 export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryVerifier {
+  const policy = Object.freeze({ ...(options.typePolicy ?? defaultPostgresTypePolicy) });
   const ownsPool = options.pool === undefined;
   let poolPromise: Promise<PgLiveVerifierPool> | undefined;
   let serverPromise: ReturnType<LiveQueryVerifier["server"]> | undefined;
@@ -449,6 +451,7 @@ export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryV
   return {
     dialect: "postgres",
     adapterVersion: POSTGRES_LIVE_VERIFIER_VERSION,
+    typePolicyHash: calculateTypePolicyHash(policy),
     server,
     async verify(request) {
       if (!/^sha256:[a-f\d]{64}$/u.test(request.fingerprint)) {
@@ -499,19 +502,20 @@ export function createPgLiveVerifier(options: PgLiveVerifierOptions): LiveQueryV
             databaseType: names.get(dataTypeID) ?? `oid:${dataTypeID}`,
           }));
         }
-        const policy = options.typePolicy ?? defaultPostgresTypePolicy;
-        const fields = (types: readonly { readonly name?: string; readonly databaseType: string }[]) =>
+        const fields = (types: readonly { readonly name?: string; readonly databaseType: string }[], columns = false) =>
           types.map(({ name: fieldName, databaseType }, offset) => ({
             index: offset + 1,
             databaseType,
             ...(fieldName === undefined ? {} : { name: fieldName }),
-            ...(isKnownPostgresType(databaseType, options.schema)
+            // Native JSON OIDs prove the wire type, not an object's properties.
+            ...(isKnownPostgresType(databaseType, options.schema) &&
+            !(columns && policy.json !== "string" && /^(?:json|jsonb)(?:\[\])*$/u.test(databaseType))
               ? { tsType: mapPostgresType(databaseType, policy, options.schema) }
               : {}),
           }));
         evidence = {
           parameters: fields(parameterTypes.map((databaseType) => ({ databaseType }))),
-          columns: fields(resultTypes),
+          columns: fields(resultTypes, true),
           ...(unavailable === undefined ? {} : { unavailable }),
         };
       } catch (error) {

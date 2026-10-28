@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
+import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -56,10 +57,12 @@ async function writeEditorProject(
     )} RETURNING id, email\`;
     const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: bigint; email: string }> = true;
     const mappedParameters: Equal<QueryParameters<typeof mappedQuery>, readonly (bigint | string)[]> = true;
+    const jsonQuery = sql\`SELECT jsonb_build_object('id', id, 'email', email) AS document FROM users\`;
+    const jsonRow: Equal<QueryRow<typeof jsonQuery>, { document: { id: number; email: string } }> = true;
     const invalidMappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
       (account) => sql.fragment\`(\${account.email}, \${account.id})\`,
     )} RETURNING id\`;
-    void [mappedQuery, mappedRow, mappedParameters, invalidMappedQuery];
+    void [mappedQuery, mappedRow, mappedParameters, jsonQuery, jsonRow, invalidMappedQuery];
   `
       : "";
   const source = `
@@ -561,6 +564,16 @@ await describe("packed public packages", async () => {
       const sdkVersion = await execFile(sdk, ["--version"], { cwd: consumer, env: isolatedEnvironment });
       strict.strictEqual(sdkVersion.stdout.trim(), "Version 7.1.0-beta");
       await strict.rejects(execFile(sdk, ["--noEmit"], { cwd: consumer, env: isolatedEnvironment }), /requires --lsp/u);
+      const preview = await execFile(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          'import { typescriptPreviewCliPath } from "@typed-sql/ts-bridge/native-lsp"; console.log(typescriptPreviewCliPath());',
+        ],
+        { cwd: consumer, env: isolatedEnvironment },
+      );
+      await assertSqlFileConsumer({ consumer, previewCli: preview.stdout.trim(), env: isolatedEnvironment });
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {
@@ -568,14 +581,14 @@ await describe("packed public packages", async () => {
           env: isolatedEnvironment,
         });
         strict.ok(
-          manifestRun.stdout.includes(`Generated ${dialect === "postgres" ? 6 : 4} queries (0 unresolved`),
+          manifestRun.stdout.includes(`Generated ${dialect === "postgres" ? 7 : 4} queries (0 unresolved`),
           manifestRun.stdout,
         );
         const manifestSource = await readFile(join(project.directory, ".typed-sql", "queries.json"), "utf8");
         strict.ok(!manifestSource.includes(project.directory));
         strict.strictEqual(
           (JSON.parse(manifestSource) as { readonly queries: readonly unknown[] }).queries.length,
-          dialect === "postgres" ? 6 : 4,
+          dialect === "postgres" ? 7 : 4,
         );
         const uri = pathToFileURL(project.queryFile).href;
         const client = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);

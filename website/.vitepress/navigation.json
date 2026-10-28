@@ -286,6 +286,12 @@
       "text": "Experimental",
       "items": [
         {
+          "text": "SQL file imports",
+          "link": "/guides/sql-files",
+          "file": "docs/guides/sql-files.md",
+          "pageType": "how-to"
+        },
+        {
           "text": "Editor tooling",
           "link": "/guides/editors",
           "file": "docs/guides/editors.md",

@@ -5,13 +5,18 @@ import {
   type PgLiveVerifierClient,
   type PgLiveVerifierPool,
 } from "../src/pg.js";
+import { defaultPostgresTypePolicy } from "../src/type-policy.js";
 
 class VerificationPool implements PgLiveVerifierPool {
   readonly clientQueries: string[] = [];
   readonly poolQueries: string[] = [];
   released: Error | boolean | undefined;
   ended = false;
-  constructor(readonly version = "18.4") {}
+  constructor(
+    readonly version = "18.4",
+    readonly resultTypes: readonly string[] = ["bigint", "text"],
+    readonly parameterTypes: readonly string[] = ["bigint"],
+  ) {}
 
   async query<Row extends Record<string, unknown>>(sql: string): Promise<{ readonly rows: readonly Row[] }> {
     this.poolQueries.push(sql);
@@ -27,8 +32,8 @@ class VerificationPool implements PgLiveVerifierPool {
           return {
             rows: [
               {
-                parameterTypes: ["bigint"],
-                ...(this.version.startsWith("18") ? { resultTypes: ["bigint", "text"] } : {}),
+                parameterTypes: this.parameterTypes,
+                ...(this.version.startsWith("18") ? { resultTypes: this.resultTypes } : {}),
               },
             ] as unknown as readonly Row[],
           };
@@ -67,6 +72,46 @@ await describe("PostgreSQL live verification", async () => {
     strict.deepStrictEqual(await verifier.server(), await verifier.server());
     await verifier.close();
     strict.strictEqual(pool.ended, false);
+  });
+
+  await it("keeps the policy identity and native field mapping on the same immutable configuration", async () => {
+    const typePolicy = { ...defaultPostgresTypePolicy, json: "unknown" as "unknown" | "string" };
+    const pool = new VerificationPool("18.4", ["jsonb"]);
+    const verifier = createPgLiveVerifier({ pool, typePolicy });
+    const identity = verifier.typePolicyHash;
+    typePolicy.json = "string";
+    const evidence = await verifier.verify({
+      fingerprint: `sha256:${"a".repeat(64)}`,
+      sql: "SELECT '{}'::jsonb",
+      operation: "read",
+    });
+    strict.strictEqual(verifier.typePolicyHash, identity);
+    strict.deepStrictEqual(evidence.columns, [{ index: 1, databaseType: "jsonb" }]);
+  });
+
+  await it("reports only native wire identity for decoded JSON columns while preserving parameter and raw-text policy", async () => {
+    for (const json of ["unknown", "JsonValue", "string"] as const) {
+      const pool = new VerificationPool("18.4", ["json", "jsonb[]"], ["jsonb"]);
+      const verifier = createPgLiveVerifier({ pool, typePolicy: { ...defaultPostgresTypePolicy, json } });
+      const evidence = await verifier.verify({
+        fingerprint: `sha256:${"a".repeat(64)}`,
+        sql: "SELECT $1::jsonb",
+        operation: "read",
+      });
+      strict.deepStrictEqual(evidence.parameters, [{ index: 1, databaseType: "jsonb", tsType: json }]);
+      strict.deepStrictEqual(
+        evidence.columns,
+        json === "string"
+          ? [
+              { index: 1, databaseType: "json", tsType: "string" },
+              { index: 2, databaseType: "jsonb[]", tsType: "readonly (string)[]" },
+            ]
+          : [
+              { index: 1, databaseType: "json" },
+              { index: 2, databaseType: "jsonb[]" },
+            ],
+      );
+    }
   });
 
   await it("reports PostgreSQL 17 result metadata as unavailable", async () => {

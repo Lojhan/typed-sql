@@ -5,7 +5,7 @@ import {
   unknownQuerySemantics,
 } from "@typed-sql/core";
 import { assertSqliteServerEvidence, resolveSqliteCapabilities, SQLITE_CAPABILITIES } from "./capabilities.js";
-import { parseStatement, SqlParseError } from "./parser/index.js";
+import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { resolveSqliteStatement } from "./resolver.js";
 import { analyzeSqliteSemantics } from "./semantics.js";
 import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot } from "./snapshot.js";
@@ -32,6 +32,11 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
     },
     quoteIdentifier(identifier: string): string {
       return `"${identifier.replaceAll('"', '""')}"`;
+    },
+    parameterOccurrences(sql: string) {
+      return tokenize(sql)
+        .filter((token) => token.kind === "parameter")
+        .map((token) => ({ index: Number(token.value), range: token.range }));
     },
     analyze(sql: string, snapshot: SqliteSchemaSnapshot, policy = defaultTypePolicy) {
       try {

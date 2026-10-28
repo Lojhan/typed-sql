@@ -11,7 +11,7 @@ import {
   resolveMySqlCapabilities,
   unmodeledMySqlSqlModes,
 } from "./capabilities.js";
-import { parseStatement, SqlParseError } from "./parser/index.js";
+import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { resolveMySqlStatement } from "./resolver.js";
 import { analyzeMySqlSemantics } from "./semantics.js";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy } from "./type-policy.js";
@@ -68,6 +68,12 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     },
     quoteIdentifier(identifier: string): string {
       return `\`${identifier.replaceAll("`", "``")}\``;
+    },
+    parameterOccurrences(sql: string, snapshot: MySqlSchemaSnapshot) {
+      const sqlMode = snapshot.server?.settings.sqlMode;
+      return tokenize(sql, typeof sqlMode === "string" ? { sqlMode } : {})
+        .filter((token) => token.kind === "parameter")
+        .map((token) => ({ index: Number(token.value), range: token.range }));
     },
     analyze(sql: string, snapshot: MySqlSchemaSnapshot, policy = defaultTypePolicy) {
       try {

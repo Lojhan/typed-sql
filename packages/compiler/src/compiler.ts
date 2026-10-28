@@ -268,7 +268,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
       }),
       capabilityEvidence: resolveDialectCapabilityStates(dialect, schema, options.typePolicy),
       schemaHash: calculateSchemaHash(schema),
-      typePolicyHash: calculateTypePolicyHash(options.typePolicy ?? {}),
+      typePolicyHash: calculateTypePolicyHash(options.typePolicy ?? dialect.defaultTypePolicy ?? {}),
     });
     return repeatedArtifactContext;
   };
