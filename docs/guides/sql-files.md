@@ -146,8 +146,8 @@ See [portable adapters](../reference/portable-adapters.md) for D1 and other expl
 The plugin supports static queries, bounded conditional fragments, and nonempty direct fragment maps
 in `.ts` and `.tsx` sources. Runtime selectors match actual SQL structure using the grammar's portable
 renderer, check every repeated item, and expand parameter contracts for the actual list length.
-JSON-derived result shapes in dynamic repeated queries are widened to `unknown`: representative
-list lengths cannot prove indexing or path behavior at every cardinality. Unsupported combinations
+Result columns in dynamic repeated queries are conservatively widened to nullable `unknown`:
+representative list lengths cannot prove projection dependence, indexing, or nullability at every cardinality. Unsupported combinations
 report a diagnostic instead of emitting an unchecked type. Empty or changed fragment structures are rejected.
 Continue using
 `tsc --runExternalCode` for typechecking; the Vite plugin checks SQL but does not replace TypeScript.

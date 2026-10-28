@@ -511,31 +511,18 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
           options.typePolicy ?? dialect.defaultTypePolicy,
           single.query.parameterCount,
         );
-        const twoPlan = buildQueryValuePlan(
-          dialect,
-          resolved,
-          options.typePolicy ?? dialect.defaultTypePolicy,
-          analyzedQuery.parameterCount,
-        );
+        // Representative cardinalities prove neither projection dependence nor nullability.
+        // Without grammar-owned influence evidence, preserve only unknown result contracts.
         resolved = {
           ...resolved,
-          columns: resolved.columns.map((column, index) => {
-            // Finite representatives cannot prove JSON indexing or path behavior at arbitrary cardinalities.
-            if (
-              column.json === undefined &&
-              column.scalarJsonShape === undefined &&
-              JSON.stringify(onePlan.columns[index]) === JSON.stringify(twoPlan.columns[index])
-            )
-              return column;
+          columns: resolved.columns.map((column) => {
             const { json, scalarJsonShape: _scalar, runtimeType: _runtime, ...base } = column;
-            const other = one.columns[index]!;
-            const compatibleJson = json !== undefined && other.json?.representation === json.representation;
             return {
               ...base,
-              tsType: compatibleJson && json.representation === "text" ? "string" : "unknown",
+              tsType: "unknown",
               nullable: true,
               runtimeType: "unknown" as const,
-              ...(compatibleJson ? { json: { ...json, shape: unknownJsonShape } } : {}),
+              ...(json === undefined ? {} : { json: { ...json, shape: unknownJsonShape } }),
             };
           }),
         };

@@ -302,6 +302,7 @@ await describe("executable compiler value metadata", async () => {
     for (const projection of [
       "jsonb_build_array(${items.map(item=>sql.fragment`${item}::int`)})",
       "jsonb_build_array(${items.map(item=>sql.fragment`${item}::int`)}) ->> 2",
+      "jsonb_build_array(${items.map(item=>sql.fragment`NULL`)},1,1,1,1,1) ->> 3",
     ]) {
       const source = `import {sql} from "@typed-sql/postgres";const q=sql\`SELECT ${projection} AS value\`;`;
       const schema = { formatVersion: 1, dialect: "postgres", tables: {} } as const;
