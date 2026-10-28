@@ -67,5 +67,6 @@ export function mapPostgresType(databaseType: string, policy: PostgresTypePolicy
     const values = schema.enums[unmodifiedType] ?? schema.enums[type]!;
     mapped = policy.enums === "string" ? "string" : values.map((value) => JSON.stringify(value)).join(" | ");
   } else mapped = policy.unknown;
-  return dimensions === 0 ? mapped : `${"readonly (".repeat(dimensions)}${mapped}${")[]".repeat(dimensions)}`;
+  for (let dimension = 0; dimension < dimensions; dimension++) mapped = `readonly (${mapped} | null)[]`;
+  return mapped;
 }

@@ -30,8 +30,8 @@ INSERT INTO public.codec_fidelity VALUES (
   '{"kind":"json","count":1}',
   '{"kind":"jsonb","enabled":true}',
   decode('00a5ff', 'hex'),
-  ARRAY[1::bigint, 9007199254740993::bigint],
-  ARRAY[1.25::numeric, 12345678901234567890.1234567890::numeric],
-  ARRAY['one', 'two'],
+  ARRAY[1::bigint, NULL::bigint, 9007199254740993::bigint],
+  ARRAY[1.25::numeric, NULL::numeric, 12345678901234567890.1234567890::numeric],
+  ARRAY['one', NULL::text, 'two'],
   NULL
 );

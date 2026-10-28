@@ -59,8 +59,11 @@ await describe("PostgreSQL type policy", async () => {
   await it("maps arrays, domains, and both enum policies", () => {
     strict.strictEqual(mapPostgresType("positive", policy, schema), "number");
     strict.strictEqual(mapPostgresType("mood", policy, schema), '"happy" | "sad"');
-    strict.strictEqual(mapPostgresType("app.state[]", policy, schema), 'readonly ("on" | "off")[]');
-    strict.strictEqual(mapPostgresType("integer[][]", policy, schema), "readonly (readonly (number)[])[]");
+    strict.strictEqual(mapPostgresType("app.state[]", policy, schema), 'readonly ("on" | "off" | null)[]');
+    strict.strictEqual(
+      mapPostgresType("integer[][]", policy, schema),
+      "readonly (readonly (number | null)[] | null)[]",
+    );
     strict.strictEqual(mapPostgresType("mood", { ...policy, enums: "string" }, schema), "string");
   });
 
@@ -83,7 +86,7 @@ await describe("PostgreSQL type policy", async () => {
     strict.strictEqual(mapPostgresType("address", policy, compositeSchema), "{ readonly zip: number; }");
     strict.strictEqual(
       mapPostgresType("public.address[]", policy, compositeSchema),
-      "readonly ({ readonly zip: number; })[]",
+      "readonly ({ readonly zip: number; } | null)[]",
     );
   });
 });

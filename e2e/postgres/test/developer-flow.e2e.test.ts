@@ -215,7 +215,7 @@ try {
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_value?.tsType, "bigint");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.numeric_value?.tsType, "string");
       strict.strictEqual(snapshot.relations.codec_fidelity?.columns.binary_value?.tsType, "Uint8Array");
-      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint)[]");
+      strict.strictEqual(snapshot.relations.codec_fidelity?.columns.bigint_array?.tsType, "readonly (bigint | null)[]");
       strict.ok(snapshot.metadata.schemaHash.length === 64);
       strict.ok(snapshot.metadata.typePolicyHash.length === 64);
       await mustRun(process.execPath, [
@@ -568,8 +568,8 @@ try {
         "date_value: Date",
         "json_value: unknown",
         "binary_value: Uint8Array",
-        "bigint_array: readonly (bigint)[]",
-        "numeric_array: readonly (string)[]",
+        "bigint_array: readonly (bigint | null)[]",
+        "numeric_array: readonly (string | null)[]",
         "nullable_text: string | null",
       ])
         strict.ok(rowType.includes(exact), `Missing ${exact} in ${contract.rowType}`);
@@ -758,9 +758,9 @@ try {
         strict.deepStrictEqual(codec.jsonb_value, { enabled: true, kind: "jsonb" });
         strict.ok(codec.binary_value instanceof Uint8Array);
         strict.deepStrictEqual(Array.from(codec.binary_value as Uint8Array), [0, 165, 255]);
-        strict.deepStrictEqual(codec.bigint_array, [1n, 9007199254740993n]);
-        strict.deepStrictEqual(codec.numeric_array, ["1.25", "12345678901234567890.1234567890"]);
-        strict.deepStrictEqual(codec.text_array, ["one", "two"]);
+        strict.deepStrictEqual(codec.bigint_array, [1n, null, 9007199254740993n]);
+        strict.deepStrictEqual(codec.numeric_array, ["1.25", null, "12345678901234567890.1234567890"]);
+        strict.deepStrictEqual(codec.text_array, ["one", null, "two"]);
         strict.strictEqual(codec.nullable_text, null);
         strict.deepStrictEqual(await database.execute(postgresJsonProjection), [
           {
