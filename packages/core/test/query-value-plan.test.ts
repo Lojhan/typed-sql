@@ -296,6 +296,38 @@ await describe("query value plans", async () => {
     );
     strict.deepEqual(encodeQueryValues(query, [[1, 2]], { ...parsed, jsonInputWire: "text" }), ["[1,2]"]);
   });
+  await it("decodes and validates JSON inside native SQL arrays without conflating nulls", () => {
+    const json = {
+      representation: "parsed" as const,
+      shape: {
+        kind: "object" as const,
+        properties: { id: { shape: { kind: "number" as const } } },
+      },
+    };
+    const type = { array: { json }, elementNullable: true };
+    const query = withQueryValuePlan(sql`select 1`, plan({ columns: [{ name: "value", nullable: false, type }] }));
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: ['{"id":1}', null] }], text), [
+      { value: [{ id: 1 }, null] },
+    ]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["null"] }], text), /declared shape/);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ['{"id":"wrong"}'] }], text), /declared shape/);
+    const input = withQueryValuePlan(
+      sql`select ${[jsonValue({ id: 1 }), null]}`,
+      plan({ columns: [], parameters: [{ index: 1, nullable: false, type }] }),
+    );
+    strict.deepEqual(encodeQueryValues(input, [[jsonValue({ id: 1 }), null]], text), [['{"id":1}', null]]);
+    const nullType = {
+      array: { json: { representation: "parsed" as const, shape: { kind: "null" as const } } },
+      elementNullable: false,
+    };
+    const nulls = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: nullType }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(nulls, [{ value: ["null"] }], text), [{ value: [null] }]);
+    strict.deepEqual(decodeQueryResultRows(nulls, [{ value: [null] }], parsed), [{ value: [null] }]);
+    strict.throws(() => decodeQueryResultRows(nulls, [{ value: [null] }], text), /NULL array element/);
+  });
   await it("validates SQLite native bigint JSON scalars without converting their precision", () => {
     const boolean = withQueryValuePlan(
       sql`select 1`,

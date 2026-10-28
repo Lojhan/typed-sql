@@ -6,6 +6,7 @@ import {
   validateJsonValue,
   validateParsedJsonTextShape,
 } from "./json.js";
+import { serializedJsonInput } from "./json-input.js";
 import { explicitJsonParameterIndexes, type Query } from "./query.js";
 import { mapQueryResultStream, queryResultValidationSource } from "./result-validation.js";
 
@@ -18,6 +19,7 @@ export type RuntimeValueType =
   | "boolean"
   | "date"
   | "bytes"
+  | { readonly json: JsonValueDescriptor }
   | { readonly literal: string | number | boolean }
   | { readonly array: RuntimeValueType; readonly elementNullable?: boolean }
   | { readonly union: readonly RuntimeValueType[] };
@@ -76,6 +78,8 @@ function copyType(
   if (depth > 32) throw new TypeError("Runtime value type exceeds depth limit");
   if (typeof type === "string" && ["unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type))
     return type;
+  if (typeof type === "object" && type !== null && "json" in type)
+    return Object.freeze({ json: copyDescriptor({ type: "unknown", nullable: false, json: type.json }, budget).json! });
   if (
     typeof type === "object" &&
     type !== null &&
@@ -206,11 +210,13 @@ export function getQueryValuePlan<Row, Params extends readonly unknown[]>(
 
 function hasBigint(type: RuntimeValueType): boolean {
   return typeof type === "object"
-    ? "literal" in type
+    ? "json" in type
       ? false
-      : "array" in type
-        ? hasBigint(type.array)
-        : type.union.some(hasBigint)
+      : "literal" in type
+        ? false
+        : "array" in type
+          ? hasBigint(type.array)
+          : type.union.some(hasBigint)
     : type === "bigint";
 }
 
@@ -240,8 +246,21 @@ export function assertQueryResultTransport<Row, Params extends readonly unknown[
     throw new QueryValueError("plan", "parsed transport cannot distinguish SQL NULL from JSON null for text output");
 }
 
-function scalar(value: unknown, type: RuntimeValueType, location: string): unknown {
+function scalar(
+  value: unknown,
+  type: RuntimeValueType,
+  location: string,
+  profile?: QueryTransportProfile,
+  encoding = false,
+): unknown {
   if (typeof type === "object") {
+    if ("json" in type) {
+      if (profile === undefined) throw new QueryValueError(location, "missing JSON transport profile");
+      const descriptor = { type: "unknown" as const, nullable: false, json: type.json };
+      return encoding
+        ? encodeValue(value, descriptor, profile, location, false)
+        : decode(value, descriptor, profile, location);
+    }
     if ("literal" in type) {
       if (value !== type.literal) throw new QueryValueError(location, "value does not match its literal type");
       return value;
@@ -249,7 +268,7 @@ function scalar(value: unknown, type: RuntimeValueType, location: string): unkno
     if ("union" in type) {
       for (const member of type.union) {
         try {
-          return scalar(value, member, location);
+          return scalar(value, member, location, profile, encoding);
         } catch (error) {
           if (!(error instanceof QueryValueError)) throw error;
         }
@@ -259,11 +278,14 @@ function scalar(value: unknown, type: RuntimeValueType, location: string): unkno
     if (!Array.isArray(value)) throw new QueryValueError(location, "expected array");
     return value.map((item, index) => {
       if (item === null) {
-        if (type.elementNullable === false)
+        if (type.elementNullable === false) {
+          if (!encoding && typeof type.array === "object" && "json" in type.array && profile?.jsonWire === "parsed")
+            return scalar(item, type.array, `${location}[${index}]`, profile, false);
           throw new QueryValueError(`${location}[${index}]`, "unexpected NULL array element");
+        }
         return null;
       }
-      return scalar(item, type.array, `${location}[${index}]`);
+      return scalar(item, type.array, `${location}[${index}]`, profile, encoding);
     });
   }
   const valid =
@@ -341,7 +363,7 @@ function decode(
     return json.representation === "text" ? (profile.jsonWire === "text" ? value : JSON.stringify(parsed)) : parsed;
   }
   const normalized = profile.normalizeValue === undefined ? value : profile.normalizeValue(value, descriptor.type);
-  const result = scalar(normalized, descriptor.type, location);
+  const result = scalar(normalized, descriptor.type, location, profile);
   if (descriptor.scalarJsonShape !== undefined && !matchesNativeJsonScalar(result, descriptor.scalarJsonShape))
     throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
   return result;
@@ -408,44 +430,57 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
   if (values.length !== plan.parameters.length)
     throw new QueryValueError("parameters", "parameter count differs from plan");
   const explicitJson = explicitJsonParameterIndexes(query as unknown as Query<unknown, readonly unknown[]>);
-  return values.map((value, index) => {
-    const descriptor = plan.parameters[index]!;
-    const location = `parameter ${index + 1}`;
-    if (value === null) {
-      if (!descriptor.nullable) throw new QueryValueError(location, "unexpected SQL NULL");
-      return null;
+  return values.map((value, index) =>
+    encodeValue(value, plan.parameters[index]!, profile, `parameter ${index + 1}`, explicitJson.has(index)),
+  );
+}
+
+function encodeValue(
+  value: unknown,
+  descriptor: QueryValueDescriptor,
+  profile: QueryTransportProfile,
+  location: string,
+  explicitJson: boolean,
+): unknown {
+  const encoded = serializedJsonInput(value);
+  if (encoded !== undefined) {
+    value = encoded;
+    explicitJson = true;
+  }
+  if (value === null) {
+    if (!descriptor.nullable) throw new QueryValueError(location, "unexpected SQL NULL");
+    return null;
+  }
+  if (descriptor.json === undefined) {
+    if (explicitJson) {
+      if (descriptor.acceptsJsonInput !== true)
+        throw new QueryValueError(location, "explicit JSON binding requires a JSON parameter contract");
+      return scalar(value, "string", location);
     }
-    if (descriptor.json === undefined) {
-      if (explicitJson.has(index)) {
-        if (descriptor.acceptsJsonInput !== true)
-          throw new QueryValueError(location, "explicit JSON binding requires a JSON parameter contract");
-        return scalar(value, "string", location);
-      }
-      if (profile.integer === "safe-number" && typeof value === "bigint")
-        throw new QueryValueError(location, "transport cannot preserve bigint values");
-      const result = scalar(value, descriptor.type, location);
-      if (descriptor.scalarJsonShape !== undefined && !matchesNativeJsonScalar(result, descriptor.scalarJsonShape))
-        throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
-      return result;
+    if (profile.integer === "safe-number" && typeof value === "bigint")
+      throw new QueryValueError(location, "transport cannot preserve bigint values");
+    const result = scalar(value, descriptor.type, location, profile, true);
+    if (descriptor.scalarJsonShape !== undefined && !matchesNativeJsonScalar(result, descriptor.scalarJsonShape))
+      throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
+    return result;
+  }
+  const json = descriptor.json;
+  if (json.representation === "binary") return scalar(value, "bytes", location);
+  let parsed = value;
+  if (json.representation === "text" || explicitJson) {
+    if (typeof value !== "string") throw new QueryValueError(location, "expected JSON text");
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      throw new QueryValueError(location, "invalid JSON text");
     }
-    const json = descriptor.json;
-    if (json.representation === "binary") return scalar(value, "bytes", location);
-    let parsed = value;
-    if (json.representation === "text" || explicitJson.has(index)) {
-      if (typeof value !== "string") throw new QueryValueError(location, "expected JSON text");
-      try {
-        parsed = JSON.parse(value);
-      } catch {
-        throw new QueryValueError(location, "invalid JSON text");
-      }
-    }
-    const textInput = json.representation === "text" || explicitJson.has(index);
-    const valid =
-      textInput && (profile.jsonInputWire ?? profile.jsonWire) === "text"
-        ? validateParsedJsonTextShape(parsed, json.shape)
-        : validateJsonValue(parsed, json.shape);
-    if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
-    if ((profile.jsonInputWire ?? profile.jsonWire) !== "text") return parsed;
-    return json.representation === "text" || explicitJson.has(index) ? value : JSON.stringify(parsed);
-  });
+  }
+  const textInput = json.representation === "text" || explicitJson;
+  const valid =
+    textInput && (profile.jsonInputWire ?? profile.jsonWire) === "text"
+      ? validateParsedJsonTextShape(parsed, json.shape)
+      : validateJsonValue(parsed, json.shape);
+  if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
+  if ((profile.jsonInputWire ?? profile.jsonWire) !== "text") return parsed;
+  return json.representation === "text" || explicitJson ? value : JSON.stringify(parsed);
 }
