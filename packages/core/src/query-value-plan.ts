@@ -229,6 +229,22 @@ function scalar(value: unknown, type: RuntimeValueType, location: string): unkno
   return value;
 }
 
+/** SQLite can expose an integer extracted from JSON as bigint under its integer policy. */
+function matchesNativeJsonScalar(value: unknown, shape: JsonShape): boolean {
+  if (typeof value !== "bigint") return validateJsonValue(value, shape);
+  switch (shape.kind) {
+    case "unknown":
+    case "number":
+      return true;
+    case "literal":
+      return typeof shape.value === "number" && Number.isSafeInteger(shape.value) && value === BigInt(shape.value);
+    case "union":
+      return shape.variants.some((member) => matchesNativeJsonScalar(value, member));
+    default:
+      return false;
+  }
+}
+
 function decode(
   value: unknown,
   descriptor: QueryValueDescriptor,
@@ -270,7 +286,7 @@ function decode(
   }
   const normalized = profile.normalizeValue === undefined ? value : profile.normalizeValue(value, descriptor.type);
   const result = scalar(normalized, descriptor.type, location);
-  if (descriptor.scalarJsonShape !== undefined && !validateJsonValue(result, descriptor.scalarJsonShape))
+  if (descriptor.scalarJsonShape !== undefined && !matchesNativeJsonScalar(result, descriptor.scalarJsonShape))
     throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
   return result;
 }
@@ -320,7 +336,7 @@ export function encodeQueryValues<Row, Params extends readonly unknown[]>(
       if (profile.integer === "safe-number" && typeof value === "bigint")
         throw new QueryValueError(location, "transport cannot preserve bigint values");
       const result = scalar(value, descriptor.type, location);
-      if (descriptor.scalarJsonShape !== undefined && !validateJsonValue(result, descriptor.scalarJsonShape))
+      if (descriptor.scalarJsonShape !== undefined && !matchesNativeJsonScalar(result, descriptor.scalarJsonShape))
         throw new QueryValueError(location, "native JSON scalar does not match its declared shape");
       return result;
     }

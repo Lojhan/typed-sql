@@ -294,4 +294,38 @@ await describe("query value plans", async () => {
     );
     strict.deepEqual(encodeQueryValues(query, [[1, 2]], { ...parsed, jsonInputWire: "text" }), ["[1,2]"]);
   });
+  await it("validates SQLite native bigint JSON scalars without converting their precision", () => {
+    const boolean = withQueryValuePlan(
+      sql`select 1`,
+      plan({
+        columns: [
+          {
+            name: "value",
+            type: "bigint",
+            nullable: false,
+            scalarJsonShape: {
+              kind: "union",
+              variants: [
+                { kind: "literal", value: 0 },
+                { kind: "literal", value: 1 },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    strict.deepEqual(decodeQueryResultRows(boolean, [{ value: 1n }], text), [{ value: 1n }]);
+    strict.throws(() => decodeQueryResultRows(boolean, [{ value: 2n }], text), /native JSON scalar/);
+    const numeric = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: "bigint", nullable: false, scalarJsonShape: { kind: "number" } }] }),
+    );
+    const maximum = 9223372036854775807n;
+    strict.deepEqual(decodeQueryResultRows(numeric, [{ value: maximum }], text), [{ value: maximum }]);
+    const wrong = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", type: "bigint", nullable: false, scalarJsonShape: { kind: "string" } }] }),
+    );
+    strict.throws(() => decodeQueryResultRows(wrong, [{ value: 1n }], text), /native JSON scalar/);
+  });
 });
