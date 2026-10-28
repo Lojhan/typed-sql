@@ -361,7 +361,9 @@ class Resolver {
     return {
       ...result,
       columns: result.columns.map((column) =>
-        column.json !== undefined || column.scalarJsonShape !== undefined || normalized(column.databaseType ?? "") !== "json"
+        column.json !== undefined ||
+        column.scalarJsonShape !== undefined ||
+        normalized(column.databaseType ?? "") !== "json"
           ? column
           : {
               ...column,
