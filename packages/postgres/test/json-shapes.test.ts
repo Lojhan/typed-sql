@@ -381,6 +381,68 @@ await describe("PostgreSQL constructed JSON shapes", async () => {
     });
   });
 
+  await it("merges SQL-null-only JSON branches without losing application shape validation", () => {
+    const shape = { kind: "object", properties: { id: { shape: { kind: "number" } } } } as const;
+    const declared = {
+      ...schema,
+      tables: {
+        ...schema.tables,
+        accounts: {
+          ...schema.tables.accounts,
+          columns: {
+            ...schema.tables.accounts.columns,
+            document: { ...schema.tables.accounts.columns.document, jsonDeclaration: { source: "application", shape } },
+          },
+        },
+      },
+    } as const satisfies SchemaSnapshot;
+    for (const source of [
+      "SELECT '{}'::jsonb->'missing' AS value UNION ALL SELECT document AS value FROM accounts",
+      "SELECT document AS value FROM accounts UNION ALL SELECT '{}'::jsonb->'missing' AS value",
+      "SELECT CASE WHEN true THEN '{}'::jsonb->'missing' ELSE document END AS value FROM accounts",
+      "SELECT COALESCE('{}'::jsonb->'missing',document) AS value FROM accounts",
+    ]) {
+      const result = resolveSelect(parseSelect(source), declared, { runtimeValidation: true });
+      strict.deepStrictEqual(result.diagnostics, [], source);
+      strict.strictEqual(result.columns[0]?.tsType, '{ "id": number; }', source);
+      strict.strictEqual(result.columns[0]?.scalarJsonShape, undefined, source);
+      strict.deepStrictEqual(
+        result.columns[0]?.json,
+        { shape, representation: "parsed", requiresRuntimeValidation: true },
+        source,
+      );
+      const query = withQueryValuePlan(sql`SELECT 1`, {
+        dialect: "postgres",
+        typePolicyHash: "test",
+        columns: [
+          { name: "value", type: "unknown", nullable: result.columns[0]!.nullable, json: result.columns[0]!.json },
+        ],
+        parameters: [],
+      });
+      const profile = {
+        id: "nullable-json-branches",
+        dialect: "postgres",
+        integer: "lossless",
+        jsonWire: "text",
+      } as const;
+      strict.deepStrictEqual(
+        decodeQueryResultRows(
+          query,
+          [...(result.columns[0]!.nullable ? [{ value: null }] : []), { value: '{"id":1}' }],
+          profile,
+        ),
+        [...(result.columns[0]!.nullable ? [{ value: null }] : []), { value: { id: 1 } }],
+        source,
+      );
+      strict.throws(() => decodeQueryResultRows(query, [{ value: '{"id":"wrong"}' }], profile), /JSON/, source);
+    }
+    const both = analyze("SELECT '{}'::jsonb->'x' AS value UNION ALL SELECT '{}'::jsonb->'y' AS value");
+    strict.deepStrictEqual(both.diagnostics, []);
+    strict.strictEqual(both.columns[0]?.tsType, "never");
+    strict.deepStrictEqual(both.columns[0]?.scalarJsonShape, { kind: "null" });
+    strict.strictEqual(both.columns[0]?.json, undefined);
+  });
+
   await it("retains null-only runtime guards for statically missing and JSON-null text paths", () => {
     for (const expression of ["'[1,2]'::jsonb -> '0'", "'{\"x\":null}'::jsonb ->> 'x'"]) {
       const result = analyze(`SELECT ${expression} AS value`);

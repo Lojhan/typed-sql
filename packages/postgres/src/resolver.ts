@@ -136,15 +136,19 @@ function jsonMetadata(value: object): Pick<ResolvedType, "json" | "scalarJsonSha
 function isJsonType(type: ResolvedType): boolean {
   return type.databaseType === "json" || type.databaseType === "jsonb";
 }
-function jsonUnion(types: readonly ResolvedType[]): { readonly json?: JsonValueDescriptor } {
-  const first = types[0]?.json;
-  return first === undefined || !types.every((type) => type.json?.representation === first.representation)
+function jsonUnion(types: readonly ResolvedType[]): Pick<ResolvedType, "json" | "scalarJsonShape"> {
+  const candidates = types.filter(
+    (type) => !(type.tsType === "never" && type.nullable && type.scalarJsonShape?.kind === "null"),
+  );
+  if (candidates.length === 0 && types.length > 0) return { scalarJsonShape: nullJsonShape };
+  const first = candidates[0]?.json;
+  return first === undefined || !candidates.every((type) => type.json?.representation === first.representation)
     ? {}
     : {
         json: {
           representation: first.representation,
-          shape: unionJsonShapes(types.map((type) => type.json!.shape)),
-          ...(types.some((type) => type.json?.requiresRuntimeValidation)
+          shape: unionJsonShapes(candidates.map((type) => type.json!.shape)),
+          ...(candidates.some((type) => type.json?.requiresRuntimeValidation)
             ? { requiresRuntimeValidation: true as const }
             : {}),
         },
@@ -1088,7 +1092,13 @@ class Resolver {
     for (let index = 0; index < columns.length; index += 1) {
       const left = columns[index]!;
       const candidate = right[index]!;
-      const { databaseType: _databaseType, json: _json, runtimeType: _runtimeType, ...base } = left;
+      const {
+        databaseType: _databaseType,
+        json: _json,
+        scalarJsonShape: _scalarJsonShape,
+        runtimeType: _runtimeType,
+        ...base
+      } = left;
       columns[index] = {
         ...base,
         tsType:
@@ -4089,6 +4099,7 @@ class Resolver {
       }
       return {
         tsType: resolvedTypeUnion(known),
+        ...jsonUnion(known),
         ...this.#runtimeUnion(known),
         nullable: resolved.every((result) => result.nullable),
         ...(known.length > 0 &&
