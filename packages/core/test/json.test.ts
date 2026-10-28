@@ -16,6 +16,18 @@ import {
 } from "../src/json.js";
 
 await describe("grammar-neutral JSON structure", async () => {
+  await it("reads sibling getters before recursively checking the captured JSON members", () => {
+    const nested = { value: 1 };
+    const input = {
+      nested,
+      get later() {
+        nested.value = Number.POSITIVE_INFINITY;
+        return 0;
+      },
+    };
+    strict.equal(validateJsonValue(input), false);
+  });
+
   await it("distinguishes a present JSON null, an optional property and a missing path", () => {
     const shape = jsonObjectShape({
       present: { shape: nullJsonShape },

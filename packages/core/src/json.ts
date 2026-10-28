@@ -440,7 +440,16 @@ function validateJsonModel(
           break;
         }
       }
-    } else result = Object.values(item).every((entry) => valid(entry, depth + 1));
+    } else {
+      // Read all own member values before recursion, preserving getter evaluation order.
+      const entries = Object.values(item);
+      for (let index = 0; index < entries.length; index++) {
+        if (!valid(entries[index], depth + 1)) {
+          result = false;
+          break;
+        }
+      }
+    }
     active.delete(item);
     return result;
   };
@@ -472,13 +481,15 @@ function validateJsonModel(
       case "object": {
         if (item === null || typeof item !== "object" || Array.isArray(item)) return false;
         const object = item as { readonly [key: string]: JsonValue };
-        for (const [key, property] of Object.entries(expected.properties)) {
+        for (const key in expected.properties) {
+          if (!Object.hasOwn(expected.properties, key)) continue;
+          const property = expected.properties[key]!;
           if (!Object.hasOwn(object, key)) {
             if (!property.optional) return false;
           } else if (!matches(object[key]!, property.shape, depth + 1)) return false;
         }
-        for (const key of Object.keys(object)) {
-          if (Object.hasOwn(expected.properties, key)) continue;
+        for (const key in object) {
+          if (!Object.hasOwn(object, key) || Object.hasOwn(expected.properties, key)) continue;
           if (
             expected.additionalProperties === undefined ||
             !matches(object[key]!, expected.additionalProperties, depth + 1)
