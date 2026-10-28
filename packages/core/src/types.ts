@@ -1,5 +1,6 @@
 import type { DialectCapabilityStates, DialectServerEvidence } from "./dialect-capabilities.js";
-import type { JsonValueDescriptor } from "./json.js";
+import type { JsonShape, JsonValueDescriptor } from "./json.js";
+import type { RuntimeValueType } from "./query-value-plan.js";
 import type { QuerySemantics } from "./semantics.js";
 
 export const DIALECT_CONTRACT_VERSION = 4 as const;
@@ -28,6 +29,7 @@ export interface SqlDiagnosticFix {
 }
 
 export interface ColumnSnapshot {
+  readonly jsonDeclaration?: { readonly shape: JsonShape; readonly source: "database" | "application" };
   readonly name: string;
   readonly databaseType: string;
   readonly tsType: string;
@@ -213,6 +215,12 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
   readonly grammarVersion: string;
   /** Exact package entrypoint from which applications import the dialect's `sql` tag. */
   readonly sqlModule: string;
+  /** Portable runtime tag entrypoint; analysis still belongs to this plugin. */
+  readonly runtimeSqlModule?: string;
+  runtimeValueType?(
+    value: { readonly databaseType?: string; readonly tsType: string; readonly nullable: boolean },
+    policy?: Policy,
+  ): RuntimeValueType;
   /** Grammar-owned feature names and their support status. */
   readonly capabilities: DialectCapabilities;
   /** Additive version-aware capability contract; required for exact completeness claims. */

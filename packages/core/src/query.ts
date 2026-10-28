@@ -4,6 +4,7 @@ import {
   type ExecutionOptions,
   QueryCardinalityError,
 } from "./execution.js";
+import { type QueryValuePlan, withQueryValuePlan } from "./query-value-plan.js";
 import {
   type CompatibleResultSchema,
   type QueryResultValidationOptions,
@@ -157,12 +158,16 @@ export interface SqlTag {
    * @internal Reserved compiler-overlay protocol. Applications must use the `sql` tag directly;
    * this member may change alongside matching core/compiler releases without application-level compatibility.
    */
-  readonly __typed: <Row, Params extends readonly unknown[]>() => <const Parts extends readonly unknown[]>(
+  readonly __typed: <Row, Params extends readonly unknown[]>(
+    plan?: QueryValuePlan,
+  ) => <const Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedSqlParts<Parts, Params>
   ) => Query<Row, Params>;
   /** @internal Reserved compiler overlay that preserves interpolation-derived parameter types. */
-  readonly __typedRow: <Row>() => <Parts extends readonly unknown[]>(
+  readonly __typedRow: <Row>(
+    plan?: QueryValuePlan,
+  ) => <Parts extends readonly unknown[]>(
     strings: TemplateStringsArray,
     ...parts: CheckedTemplateParts<Parts>
   ) => Query<Row, SqlPartsParameters<Parts>>;
@@ -426,17 +431,23 @@ function booleanGroup<const Parts extends readonly OptionalSqlFragment[]>(
 }
 
 export const sql: SqlTag = Object.assign(tag, {
-  __typed<Row, Params extends readonly unknown[]>() {
+  __typed<Row, Params extends readonly unknown[]>(plan?: QueryValuePlan) {
     return <const Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedSqlParts<Parts, Params>
-    ) => query<Row, Params>(templateSegments(strings, parts));
+    ) => {
+      const result = query<Row, Params>(templateSegments(strings, parts));
+      return plan === undefined ? result : withQueryValuePlan(result, plan);
+    };
   },
-  __typedRow<Row>() {
+  __typedRow<Row>(plan?: QueryValuePlan) {
     return <Parts extends readonly unknown[]>(
       strings: TemplateStringsArray,
       ...parts: CheckedTemplateParts<Parts>
-    ): Query<Row, SqlPartsParameters<Parts>> => query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
+    ): Query<Row, SqlPartsParameters<Parts>> => {
+      const result = query<Row, SqlPartsParameters<Parts>>(templateSegments(strings, parts));
+      return plan === undefined ? result : withQueryValuePlan(result, plan);
+    };
   },
   fragment: fragmentTag,
   empty: fragment<readonly []>([]),

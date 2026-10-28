@@ -154,6 +154,20 @@ export {
   SqlFragmentListError,
   sql,
 } from "./query.js";
+export type {
+  QueryTransportProfile,
+  QueryValueDescriptor,
+  QueryValuePlan,
+  RuntimeValueType,
+} from "./query-value-plan.js";
+export {
+  assertQueryResultTransport,
+  decodeQueryResultRows,
+  encodeQueryValues,
+  getQueryValuePlan,
+  QueryValueError,
+  withQueryValuePlan,
+} from "./query-value-plan.js";
 export type { IndexedTable, ResolverType } from "./resolver.js";
 export { closestName, ParameterCollector, ResolverSchemaIndex, unionTypeLiterals } from "./resolver.js";
 export type {
