@@ -5,6 +5,8 @@ export type { SqliteAffinity };
 export { sqliteAffinity };
 
 export interface SqliteTypePolicy {
+  /** Parsed JSON requires a compiled runtime-validation plan; SQL JSONB remains binary. */
+  readonly json?: "string" | "parsed";
   readonly integer: "bigint" | "number";
   readonly flexible: "union" | "unknown";
   readonly unknown: "unknown" | "never";

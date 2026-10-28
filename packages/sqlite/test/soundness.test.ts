@@ -86,7 +86,7 @@ await describe("SQLite soundness matrix", async () => {
       ["SELECT id FROM account WHERE id IN (SELECT account_id FROM audit)", '{ "id": bigint; }'],
       [
         "SELECT email || ':' || id AS label, '{}' -> 'value' AS json, '{}' ->> 'value' AS value FROM account",
-        '{ "label": string; "json": string | null; "value": bigint | number | string | Uint8Array | null; }',
+        '{ "label": string; "json": never | null; "value": never | null; }',
       ],
     ] as const;
     for (const [source, expected] of cases) {

@@ -1,6 +1,7 @@
 import {
   applyDialectCapabilityStates,
   DIALECT_CONTRACT_VERSION,
+  type DialectAnalysisContext,
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
@@ -41,10 +42,18 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
         .filter((token) => token.kind === "parameter")
         .map((token) => ({ index: Number(token.value), range: token.range }));
     },
-    analyze(sql: string, snapshot: SqliteSchemaSnapshot, policy = defaultTypePolicy) {
+    analyze(
+      sql: string,
+      snapshot: SqliteSchemaSnapshot,
+      policy = defaultTypePolicy,
+      context: DialectAnalysisContext = {},
+    ) {
       try {
         const statement = parseStatement(sql);
-        const resolved = resolveSqliteStatement(statement, snapshot, { typePolicy: policy });
+        const resolved = resolveSqliteStatement(statement, snapshot, {
+          typePolicy: policy,
+          runtimeValidation: context.runtimeValidation === true,
+        });
         const analysis = {
           ...resolved,
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
