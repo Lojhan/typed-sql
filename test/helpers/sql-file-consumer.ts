@@ -1,5 +1,5 @@
 import { execFile as callback } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { strict } from "poku";
@@ -145,5 +145,4 @@ console.log("sql-file-consumer-ok");`,
     if (supportsRuntime) await strict.rejects(run(), /TSQ101/u);
   }
   await writeFile(join(directory, "find.sql"), sql);
-  strict.strictEqual(await readFile(join(directory, "find.sql"), "utf8"), sql);
 }

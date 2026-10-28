@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
+import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
 
 const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -563,6 +564,16 @@ await describe("packed public packages", async () => {
       const sdkVersion = await execFile(sdk, ["--version"], { cwd: consumer, env: isolatedEnvironment });
       strict.strictEqual(sdkVersion.stdout.trim(), "Version 7.1.0-beta");
       await strict.rejects(execFile(sdk, ["--noEmit"], { cwd: consumer, env: isolatedEnvironment }), /requires --lsp/u);
+      const preview = await execFile(
+        process.execPath,
+        [
+          "--input-type=module",
+          "-e",
+          'import { typescriptPreviewCliPath } from "@typed-sql/ts-bridge/native-lsp"; console.log(typescriptPreviewCliPath());',
+        ],
+        { cwd: consumer, env: isolatedEnvironment },
+      );
+      await assertSqlFileConsumer({ consumer, previewCli: preview.stdout.trim(), env: isolatedEnvironment });
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {

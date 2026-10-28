@@ -3,7 +3,7 @@
 import { dirname } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createMessageConnection, NullLogger } from "vscode-jsonrpc/node";
-import { analyzeSqlFile, loadSqlFileProject, type SqlFileProject } from "./sql-file.js";
+import { analyzeSqlFile, loadSqlFileProject, type SqlFileAnalysis, type SqlFileProject } from "./sql-file.js";
 
 const projects = new Map<string, SqlFileProject | { readonly error: string }>();
 const connection = createMessageConnection(stdin, stdout, NullLogger);
@@ -49,7 +49,11 @@ connection.onRequest(
 );
 connection.onRequest(
   "transform",
-  (params: { readonly projectHandle: string; readonly fileName: string; readonly content: string }) => {
+  (params: {
+    readonly projectHandle: string;
+    readonly fileName: string;
+    readonly content: string;
+  }): Omit<SqlFileAnalysis, "runtime"> => {
     const project = projects.get(params.projectHandle);
     if (project === undefined) throw new Error("SQL mapper project is not open");
     if ("error" in project)
