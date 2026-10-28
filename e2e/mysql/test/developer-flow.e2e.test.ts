@@ -30,6 +30,8 @@ import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { createPool } from "mysql2/promise";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
+import { assertLegacyTextValuePlans, assertLegacyValuePlans } from "../../../test/helpers/legacy-value-plans.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { streamAccountsQuery } from "../src/stream-query.js";
 
@@ -182,6 +184,21 @@ try {
   }
 
   await describe("developer MySQL flow", async () => {
+    await it("enforces attached value plans through actual mysql2 buffered, prepared and streaming paths", async () => {
+      const database = await createMySql2Database({ connectionUri, typePolicy });
+      try {
+        const textPolicy = { ...typePolicy, json: "string" as const };
+        const textDatabase = await createMySql2Database({ connectionUri, typePolicy: textPolicy });
+        try {
+          await assertLegacyTextValuePlans(textDatabase, "mysql", calculateTypePolicyHash(textPolicy));
+        } finally {
+          await textDatabase.close();
+        }
+        await assertLegacyValuePlans(database, "mysql", calculateTypePolicyHash(typePolicy));
+      } finally {
+        await database.close();
+      }
+    });
     await it("generates a package through the public CLI", async () => {
       const result = await cli("generate", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.ok(result.stdout.includes("Generated schema"));

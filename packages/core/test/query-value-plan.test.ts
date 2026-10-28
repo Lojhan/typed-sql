@@ -416,4 +416,29 @@ await describe("query value plans", async () => {
       'readonly [string | import("@typed-sql/core").JsonInput<number>]',
     );
   });
+  await it("notifies stream ownership of a value failure without replacing the original error", async () => {
+    let closes = 0;
+    let notified: unknown;
+    const source: import("../src/execution.js").QueryStream<unknown> = {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return { done: false, value: { value: "invalid" } };
+      },
+      async close() {
+        closes++;
+      },
+      async [Symbol.asyncDispose]() {
+        await this.close();
+      },
+    };
+    const stream = decodeQueryResultStream(withQueryValuePlan(sql`select 1`, plan()), source, text, (error) => {
+      notified = error;
+      throw new Error("notification failed");
+    });
+    await strict.rejects(stream.next(), (error: unknown) => error instanceof QueryValueError && error === notified);
+    await stream.close();
+    strict.equal(closes, 1);
+  });
 });

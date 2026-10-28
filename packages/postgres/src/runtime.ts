@@ -7,8 +7,12 @@ import {
   type Database,
   type DatabaseObserver,
   databaseErrorCompletion,
+  decodeQueryResultRows,
+  decodeQueryResultStream,
   type ExecutionCapabilities,
   type ExecutionOptions,
+  encodeQueryValues,
+  getQueryValuePlan,
   hasQueryResultValidator,
   observeQueryStream,
   type Query,
@@ -17,6 +21,7 @@ import {
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
+  type QueryTransportProfile,
   queryResultValidationSource,
   renderQuery,
   runControlledExecution,
@@ -26,6 +31,7 @@ import {
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { createPostgresCopyCapability, type PostgresCopyTransport, postgresCopy } from "./bulk.js";
 import {
   createPostgresPreparedQueryState,
@@ -317,6 +323,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   readonly #pool: PostgresPoolLike;
   readonly #client: PostgresClientLike | undefined;
   readonly #parsers: PostgresTypeParserSet;
+  readonly #profile: QueryTransportProfile;
   readonly #ownsPool: boolean;
   readonly #prepared: PostgresPreparedQueryState;
   readonly #observation: PostgresObservationState;
@@ -351,6 +358,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     depth: number,
     prepared: PostgresPreparedQueryState,
     observation: PostgresObservationState,
+    profile: QueryTransportProfile,
     transactionState = {
       activeBatch: undefined as Promise<unknown> | undefined,
       activeCopy: undefined as Promise<unknown> | undefined,
@@ -369,6 +377,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#pool = pool;
     this.#client = client;
     this.#parsers = parsers;
+    this.#profile = profile;
     this.#ownsPool = ownsPool;
     this.#transactionDepth = depth;
     this.#prepared = prepared;
@@ -416,7 +425,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
     try {
       const result = await operation;
-      return result.rows as readonly Row[];
+      return this.#decodeRows(query, result.rows);
     } catch (error) {
       this.#recordTransactionOperationFailure(error);
       throw error;
@@ -502,7 +511,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     cancel: (error: QueryCancelledError) => void,
   ): Promise<readonly Row[]> {
     const result = await runControlledExecution(options, () => client.query(this.#queryConfig(query)), cancel);
-    return result.rows as readonly Row[];
+    return this.#decodeRows(query, result.rows);
   }
 
   async one<Row, Params extends readonly unknown[]>(
@@ -636,12 +645,13 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     this.#rejectOperationDuringTransactionExecute("execute a query pipeline");
     this.#rejectOperationDuringTransactionPipeline("execute another query pipeline");
     if (queries.length === 0) return emptyBatchResults as QueryResults<Queries>;
-    const configs = [...queries].map((value) =>
+    const querySnapshot = [...queries] as unknown as readonly Query<unknown>[];
+    const configs = querySnapshot.map((value) =>
       this.#queryConfig(value as unknown as Query<unknown, readonly unknown[]>),
     );
     if (this.#client !== undefined) {
       this.#assertPipelineClient(this.#client);
-      const operation = this.#executePipeline<Queries>(this.#client, configs);
+      const operation = this.#executePipeline<Queries>(this.#client, configs, querySnapshot);
       this.#transactionState.activePipeline = operation;
       try {
         return await operation;
@@ -665,7 +675,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       throw error;
     }
     try {
-      const results = await this.#executePipeline<Queries>(client, configs);
+      const results = await this.#executePipeline<Queries>(client, configs, querySnapshot);
       client.release();
       return results as QueryResults<Queries>;
     } catch (error) {
@@ -773,9 +783,15 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
             onError: (error: unknown) => this.#recordTransactionOperationFailure(error),
           }),
     });
+    const decodedStream =
+      getQueryValuePlan(query) === undefined
+        ? stream
+        : decodeQueryResultStream(query, stream, this.#profile, (error) =>
+            this.#recordTransactionOperationFailure(error),
+          );
     const validatedStream = hasQueryResultValidator(query)
-      ? validateQueryResultStream(query, stream, postgresQueryFingerprint(this.#observation, query))
-      : stream;
+      ? validateQueryResultStream(query, decodedStream, postgresQueryFingerprint(this.#observation, query))
+      : decodedStream;
     exposedStream =
       this.#observation.observer === undefined
         ? validatedStream
@@ -789,6 +805,15 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
           });
     if (this.#client !== undefined) this.#transactionStreams.add(exposedStream as QueryStream<unknown>);
     return exposedStream;
+  }
+
+  #decodeRows<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    rows: readonly unknown[],
+  ): readonly Row[] {
+    return getQueryValuePlan(query) === undefined
+      ? (rows as readonly Row[])
+      : decodeQueryResultRows(query, rows, this.#profile);
   }
 
   async #validateRows<Row, Params extends readonly unknown[]>(
@@ -985,6 +1010,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       1,
       this.#prepared,
       this.#observation,
+      this.#profile,
       {
         activeBatch: undefined,
         activeCopy: undefined,
@@ -1067,6 +1093,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
       depth,
       this.#prepared,
       this.#observation,
+      this.#profile,
       this.#transactionState,
     );
     try {
@@ -1113,7 +1140,10 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     return {
       ...(prepared === undefined ? {} : { name: prepared.statementName }),
       text: rendered.text,
-      values: rendered.values.map(encodeValue),
+      values: (getQueryValuePlan(query) === undefined
+        ? rendered.values
+        : encodeQueryValues(query, rendered.values, this.#profile)
+      ).map(encodeValue),
       types: this.#parsers,
     };
   }
@@ -1122,12 +1152,12 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     client: PostgresClientLike,
     queries: QueryBatch<Queries>,
   ): Promise<QueryResults<Queries>> {
-    const results: (readonly Record<string, unknown>[])[] = [];
+    const results: (readonly unknown[])[] = [];
     for (const value of queries) {
       this.#assertTransactionScopeOpen();
       const query = value as unknown as Query<unknown, readonly unknown[]>;
       const result = await client.query(this.#queryConfig(query));
-      results.push(result.rows);
+      results.push(this.#decodeRows(query, result.rows));
     }
     return results as QueryResults<Queries>;
   }
@@ -1135,6 +1165,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
   async #executePipeline<const Queries extends readonly unknown[]>(
     client: PostgresClientLike,
     configs: readonly PostgresQueryConfig[],
+    queries: readonly Query<unknown>[],
   ): Promise<QueryResults<Queries>> {
     const operations: Promise<PostgresQueryResult>[] = [];
     let dispatchFailed = false;
@@ -1150,10 +1181,10 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
     }
     const settlements = await Promise.allSettled(operations);
     if (dispatchFailed) throw dispatchError;
-    const results: (readonly Record<string, unknown>[])[] = [];
+    const results: (readonly unknown[])[] = [];
     for (const settlement of settlements) {
       if (settlement.status === "rejected") throw settlement.reason;
-      results.push(settlement.value.rows);
+      results.push(this.#decodeRows(queries[results.length]!, settlement.value.rows));
     }
     return results as QueryResults<Queries>;
   }
@@ -1368,6 +1399,7 @@ class PostgresDatabaseImplementation implements PostgresDatabase {
 }
 
 export function createPostgresDatabase(options: PostgresDatabaseOptions): PostgresDatabase {
+  const policy = { ...defaultPostgresTypePolicy, ...options.typePolicy };
   return new PostgresDatabaseImplementation(
     options.pool,
     undefined,
@@ -1381,5 +1413,13 @@ export function createPostgresDatabase(options: PostgresDatabaseOptions): Postgr
     0,
     createPostgresPreparedQueryState(options.preparedCardinalityVariantLimit),
     createPostgresObservationState(options.observer),
+    {
+      id: "postgres",
+      dialect: "postgres",
+      integer: "lossless",
+      jsonWire: policy.json === "string" ? "text" : "parsed",
+      jsonInputWire: "text",
+      typePolicyHash: calculateTypePolicyHash(policy),
+    },
   );
 }

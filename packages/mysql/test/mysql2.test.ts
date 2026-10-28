@@ -277,6 +277,25 @@ await describe("application-owned mysql2 integration", async () => {
     strict.deepStrictEqual(raw.pooledConnection.calls, ["SELECT 1 AS value", "UPDATE accounts SET active = 1"]);
   });
 
+  await it("keeps mysql2 JSON text unparsed when the selected policy promises raw text", async () => {
+    const raw = new FakeRawPool();
+    const database = await createMySql2Database({
+      connectionUri: "mysql://unused/app",
+      typePolicy: {
+        bigint: "bigint",
+        decimal: "string",
+        date: "Date",
+        json: "string",
+        tinyint1: "boolean",
+        unknown: "unknown",
+      },
+      driverImporter: async () => fakeDriver(raw),
+    });
+    strict.equal((raw.createdPoolOptions as { jsonStrings?: unknown }).jsonStrings, true);
+    strict.equal(raw.getConnectionCount, 0);
+    await database.close();
+  });
+
   await it("creates and owns a mysql2 pool without opening a connection", async () => {
     const raw = new FakeRawPool();
     const database = await createMySql2Database({

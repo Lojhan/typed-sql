@@ -8,8 +8,12 @@ import {
   type Database,
   type DatabaseObserver,
   databaseErrorCompletion,
+  decodeQueryResultRows,
+  decodeQueryResultStream,
   type ExecutionCapabilities,
   type ExecutionOptions,
+  encodeQueryValues,
+  getQueryValuePlan,
   hasQueryResultValidator,
   observeQueryStream,
   type Query,
@@ -18,6 +22,7 @@ import {
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
+  type QueryTransportProfile,
   queryResultValidationSource,
   renderQuery,
   runControlledExecution,
@@ -28,7 +33,7 @@ import {
   validateQueryResultRows,
   validateQueryResultStream,
 } from "@typed-sql/core";
-import type { SchemaSnapshotV2 } from "@typed-sql/schema";
+import { calculateTypePolicyHash, type SchemaSnapshotV2 } from "@typed-sql/schema";
 import { createMySqlBulkCapability, type MySqlBulkTransport, mysqlBulk } from "./bulk.js";
 import { assertMySqlServerEvidence } from "./capabilities.js";
 import {
@@ -243,6 +248,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
   readonly #observation: MySqlObservationState;
   readonly #safety: MySqlRuntimeSafetyState;
   readonly #decoderPlans: MySqlDecoderPlanCache;
+  readonly #profile: QueryTransportProfile;
   readonly #executes: Set<MySqlConnectionOperation> | undefined;
   readonly #streams: Set<QueryStream<unknown>> | undefined;
   readonly #transactionState: MySqlTransactionConnectionState | undefined;
@@ -259,6 +265,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     decoderPlans: MySqlDecoderPlanCache,
     observation: MySqlObservationState,
     safety: MySqlRuntimeSafetyState,
+    profile: QueryTransportProfile,
     transactionState?: MySqlTransactionConnectionState,
   ) {
     this.#pool = pool;
@@ -269,6 +276,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     this.#decoderPlans = decoderPlans;
     this.#observation = observation;
     this.#safety = safety;
+    this.#profile = profile;
     this.#executes = connection === undefined ? undefined : new Set();
     this.#streams = connection === undefined ? undefined : new Set();
     this.#transactionState = transactionState;
@@ -479,7 +487,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     ) {
       throw new MySqlWarningInspectionError();
     }
-    const result = await executor.execute(rendered.text, rendered.values.map(encodeMySqlValue));
+    const result = await executor.execute(rendered.text, this.#encodeValues(query, rendered.values));
     if (result.warningCount !== undefined && (!Number.isSafeInteger(result.warningCount) || result.warningCount < 0)) {
       throw new MySqlWarningInspectionError();
     }
@@ -498,7 +506,10 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
     }
     if (!Array.isArray(result.rows)) return [];
     const decoders = this.#decoderPlans.get(result.fields ?? []);
-    return decodeMySqlRows(result.rows, decoders) as unknown as readonly Row[];
+    const rows = decodeMySqlRows(result.rows, decoders);
+    return getQueryValuePlan(query) === undefined
+      ? (rows as unknown as readonly Row[])
+      : decodeQueryResultRows(query, rows, this.#profile);
   }
 
   async #verifyConnection(connection: Pick<MySqlConnectionLike, "readServerEvidence">): Promise<void> {
@@ -647,7 +658,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         }
       },
       text: rendered.text,
-      values: rendered.values.map(encodeMySqlValue),
+      values: this.#encodeValues(query, rendered.values),
       batchSize,
       decoderPlans: this.#decoderPlans,
       onClose: () => {
@@ -655,9 +666,11 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         if (this.#transactionState?.active === exposedStream) this.#transactionState.active = undefined;
       },
     });
+    const decodedStream =
+      getQueryValuePlan(query) === undefined ? queryStream : decodeQueryResultStream(query, queryStream, this.#profile);
     const validatedStream = hasQueryResultValidator(query)
-      ? validateQueryResultStream(query, queryStream, mysqlQueryFingerprint(this.#observation, query))
-      : queryStream;
+      ? validateQueryResultStream(query, decodedStream, mysqlQueryFingerprint(this.#observation, query))
+      : decodedStream;
     exposedStream =
       this.#observation.observer === undefined
         ? validatedStream
@@ -671,6 +684,15 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
           });
     this.#streams?.add(exposedStream as QueryStream<unknown>);
     return exposedStream;
+  }
+
+  #encodeValues<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    values: readonly unknown[],
+  ): readonly unknown[] {
+    return (getQueryValuePlan(query) === undefined ? values : encodeQueryValues(query, values, this.#profile)).map(
+      encodeMySqlValue,
+    );
   }
 
   async #validateRows<Row, Params extends readonly unknown[]>(
@@ -772,6 +794,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#decoderPlans,
         this.#observation,
         this.#safety,
+        this.#profile,
         { active: undefined, batch: undefined, bulk: undefined, execute: undefined, discarded: false, usable: true },
       );
       result = await fn(transaction);
@@ -828,6 +851,7 @@ class MySqlDatabaseImplementation implements MySqlDatabase {
         this.#decoderPlans,
         this.#observation,
         this.#safety,
+        this.#profile,
         this.#transactionState,
       );
       const result = await fn(transaction);
@@ -998,5 +1022,13 @@ export function createMySqlDatabase(options: MySqlDatabaseOptions): MySqlDatabas
     new MySqlDecoderPlanCache(typePolicy, options.decimal, options.decoderPlanCacheCapacity),
     createMySqlObservationState(options.observer),
     safety,
+    {
+      id: "mysql",
+      dialect: "mysql",
+      integer: "lossless",
+      jsonWire: typePolicy.json === "string" ? "text" : "parsed",
+      jsonInputWire: "text",
+      typePolicyHash: calculateTypePolicyHash({ ...defaultMySqlTypePolicy, ...options.typePolicy }),
+    },
   );
 }

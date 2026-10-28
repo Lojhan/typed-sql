@@ -784,7 +784,7 @@ export async function createMySql2Database(options: MySql2Options): Promise<MySq
     bigNumberStrings: true,
     decimalNumbers: false,
     dateStrings: true,
-    jsonStrings: false,
+    jsonStrings: options.typePolicy?.json === "string",
     rowsAsArray: false,
     maxPreparedStatements: options.preparedStatementLimit ?? 16_000,
     multipleStatements: false,

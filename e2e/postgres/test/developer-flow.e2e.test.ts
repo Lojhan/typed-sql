@@ -29,6 +29,8 @@ import { analyzeSource } from "@typed-sql/ts-bridge";
 import { NativePreviewTypeScriptBridge } from "@typed-sql/ts-bridge/native-preview";
 import { Pool } from "pg";
 import { describe, it, log, strict, waitForExpectedResult, waitForPort } from "poku";
+import { calculateTypePolicyHash } from "../../../packages/schema/src/index.js";
+import { assertLegacyTextValuePlans, assertLegacyValuePlans } from "../../../test/helpers/legacy-value-plans.js";
 import { postgresCodecFidelity } from "../src/codec-query.js";
 import { postgresJsonEmptyAggregate, postgresJsonNonfinite, postgresJsonProjection } from "../src/json-query.js";
 import { postgresAccountStream, postgresAccountsAtOrAbove } from "../src/stream-query.js";
@@ -191,6 +193,31 @@ try {
   }
 
   await describe("developer PostgreSQL flow", async () => {
+    await it("enforces attached value plans through actual pg buffered, prepared, pipeline and cursor paths", async () => {
+      const database = await createPgDatabase({
+        connectionString,
+        typePolicy,
+        cursorImporter: () => import(pgCursorPackage),
+      });
+      let pipelineDatabase: Awaited<ReturnType<typeof createPgDatabase>> | undefined;
+      try {
+        pipelineDatabase = await createPgDatabase({ connectionString, typePolicy, poolConfig: { pipeline: true } });
+        const textPolicy = { ...typePolicy, json: "string" as const };
+        const textDatabase = await createPgDatabase({ connectionString, typePolicy: textPolicy });
+        try {
+          await assertLegacyTextValuePlans(textDatabase, "postgres", calculateTypePolicyHash(textPolicy));
+        } finally {
+          await textDatabase.close();
+        }
+        const pipeline = pipelineDatabase;
+        await assertLegacyValuePlans(database, "postgres", calculateTypePolicyHash(typePolicy), (queries) =>
+          pipeline.pipeline(queries),
+        );
+      } finally {
+        await database.close();
+        await pipelineDatabase?.close();
+      }
+    });
     await it("generates a package through the public CLI", async () => {
       const result = await cli("generate", "--config", join(packageDirectory, "typed-sql.config.ts"));
       strict.ok(result.stdout.includes("Generated schema"));

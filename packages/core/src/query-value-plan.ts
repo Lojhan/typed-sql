@@ -371,10 +371,22 @@ export function decodeQueryResultStream<Row, Params extends readonly unknown[]>(
   query: Query<Row, Params>,
   stream: QueryStream<unknown>,
   profile: QueryTransportProfile,
+  onError?: (error: unknown) => void,
 ): QueryStream<Row> {
   assertQueryResultTransport(query, profile);
   const plan = getQueryValuePlan(query)!;
-  return mapQueryResultStream(stream, (row, index) => decodeRow(row, plan, profile, index) as Row);
+  return mapQueryResultStream(stream, (row, index) => {
+    try {
+      return decodeRow(row, plan, profile, index) as Row;
+    } catch (error) {
+      try {
+        onError?.(error);
+      } catch {
+        /* Preserve the original value failure. */
+      }
+      throw error;
+    }
+  });
 }
 
 export function encodeQueryValues<Row, Params extends readonly unknown[]>(
