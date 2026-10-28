@@ -663,6 +663,9 @@ await describe("PostgreSQL schema provider", async () => {
     for (const item of cases) {
       const base = new CatalogClient();
       const client: PostgresIntrospectionClient = {
+        release() {
+          base.release();
+        },
         query: async <Row extends Record<string, unknown>>(
           text: string,
           values?: readonly unknown[],
@@ -698,6 +701,7 @@ await describe("PostgreSQL schema provider", async () => {
         },
       };
       const snapshot = await new PostgresSchemaProvider({ client }).introspect({});
+      strict.strictEqual(base.released, false);
       const declaration = snapshot.relations.users?.columns.id?.jsonDeclaration;
       strict.strictEqual(declaration !== undefined, item.valid, item.predicate);
       strict.deepStrictEqual(snapshot.tables.users?.columns.id?.jsonDeclaration, declaration);
