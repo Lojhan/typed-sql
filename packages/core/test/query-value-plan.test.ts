@@ -328,4 +328,33 @@ await describe("query value plans", async () => {
     );
     strict.throws(() => decodeQueryResultRows(wrong, [{ value: 1n }], text), /native JSON scalar/);
   });
+  await it("bounds compact DAG expansion and aggregate metadata before query execution", () => {
+    let expanded: import("../src/query-value-plan.js").RuntimeValueType = "number";
+    for (let depth = 0; depth < 20; depth++) expanded = { union: [expanded, expanded] };
+    strict.throws(
+      () => defineQueryValuePlan(plan({ columns: [{ name: "value", nullable: false, type: expanded }] })),
+      /expansion limit/,
+    );
+    let repeated: import("../src/query-value-plan.js").RuntimeValueType = "number";
+    for (let depth = 0; depth < 8; depth++) repeated = { union: [repeated, repeated] };
+    const columns = Array.from({ length: 600 }, (_, index) => ({
+      name: `column${index}`,
+      type: repeated,
+      nullable: false,
+    }));
+    strict.throws(() => defineQueryValuePlan(plan({ columns })), /expansion limit/);
+    strict.throws(
+      () =>
+        defineQueryValuePlan(
+          plan({
+            parameters: Array.from({ length: 65_536 }, (_, index) => ({
+              index: index + 1,
+              type: "number" as const,
+              nullable: false,
+            })),
+          }),
+        ),
+      /descriptor count/,
+    );
+  });
 });

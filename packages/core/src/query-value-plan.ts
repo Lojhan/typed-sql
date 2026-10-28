@@ -53,7 +53,17 @@ export class QueryValueError extends TypeError {
 
 const plans = new WeakMap<object, QueryValuePlan>();
 
-function copyType(type: RuntimeValueType, depth = 0): RuntimeValueType {
+interface PlanBudget {
+  remaining: number;
+}
+
+function copyType(
+  type: RuntimeValueType,
+  budget: PlanBudget,
+  depth = 0,
+  local: PlanBudget = { remaining: 1024 },
+): RuntimeValueType {
+  if (--budget.remaining < 0 || --local.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
   if (depth > 32) throw new TypeError("Runtime value type exceeds depth limit");
   if (typeof type === "string" && ["unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type))
     return type;
@@ -69,16 +79,41 @@ function copyType(type: RuntimeValueType, depth = 0): RuntimeValueType {
     if (type.elementNullable !== undefined && typeof type.elementNullable !== "boolean")
       throw new TypeError("Invalid array element nullability");
     return Object.freeze({
-      array: copyType(type.array, depth + 1),
+      array: copyType(type.array, budget, depth + 1, local),
       ...(type.elementNullable === undefined ? {} : { elementNullable: type.elementNullable }),
     });
   }
   if (typeof type === "object" && type !== null && "union" in type && type.union.length > 0 && type.union.length <= 32)
-    return Object.freeze({ union: Object.freeze(type.union.map((member) => copyType(member, depth + 1))) });
+    return Object.freeze({
+      union: Object.freeze(type.union.map((member) => copyType(member, budget, depth + 1, local))),
+    });
   throw new TypeError("Invalid runtime value type");
 }
 
-function copyDescriptor(value: QueryValueDescriptor): QueryValueDescriptor {
+function copyShape(shape: JsonShape, budget: PlanBudget): JsonShape {
+  const normalized = parseJsonShape(shape);
+  const visit = (item: JsonShape): void => {
+    if (--budget.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
+    switch (item.kind) {
+      case "array":
+        visit(item.element);
+        break;
+      case "tuple":
+        item.elements.forEach(visit);
+        break;
+      case "union":
+        item.variants.forEach(visit);
+        break;
+      case "object":
+        for (const property of Object.values(item.properties)) visit(property.shape);
+        if (item.additionalProperties !== undefined) visit(item.additionalProperties);
+    }
+  };
+  visit(normalized);
+  return normalized;
+}
+
+function copyDescriptor(value: QueryValueDescriptor, budget: PlanBudget): QueryValueDescriptor {
   if (typeof value.nullable !== "boolean") throw new TypeError("Invalid runtime nullability");
   const json = value.json;
   if (json !== undefined && value.scalarJsonShape !== undefined)
@@ -86,14 +121,14 @@ function copyDescriptor(value: QueryValueDescriptor): QueryValueDescriptor {
   if (json !== undefined && !["parsed", "text", "binary"].includes(json.representation))
     throw new TypeError("Invalid JSON representation");
   return Object.freeze({
-    type: copyType(value.type),
+    type: copyType(value.type, budget),
     nullable: value.nullable,
-    ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: parseJsonShape(value.scalarJsonShape) }),
+    ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: copyShape(value.scalarJsonShape, budget) }),
     ...(json === undefined
       ? {}
       : {
           json: Object.freeze({
-            shape: parseJsonShape(json.shape),
+            shape: copyShape(json.shape, budget),
             representation: json.representation,
             ...(json.requiresRuntimeValidation === true ? { requiresRuntimeValidation: true as const } : {}),
           }),
@@ -113,16 +148,24 @@ export function defineQueryValuePlan(plan: QueryValuePlan): QueryValuePlan {
     !plan.typePolicyHash
   )
     throw new TypeError("Invalid query value plan identity");
+  if (
+    !Array.isArray(plan.columns) ||
+    !Array.isArray(plan.parameters) ||
+    plan.columns.length > 65_535 ||
+    plan.parameters.length > 65_535
+  )
+    throw new TypeError("Runtime value plan descriptor count limit");
+  const budget: PlanBudget = { remaining: 262_144 };
   const names = new Set<string>();
   const columns = plan.columns.map((column) => {
     if (typeof column.name !== "string" || names.has(column.name))
       throw new TypeError("Invalid or duplicate result column name");
     names.add(column.name);
-    return Object.freeze({ ...copyDescriptor(column), name: column.name });
+    return Object.freeze({ ...copyDescriptor(column, budget), name: column.name });
   });
   const parameters = plan.parameters.map((parameter, position) => {
     if (parameter.index !== position + 1) throw new TypeError("Query parameters must be ordered and contiguous");
-    return Object.freeze({ ...copyDescriptor(parameter), index: parameter.index });
+    return Object.freeze({ ...copyDescriptor(parameter, budget), index: parameter.index });
   });
   const result = Object.freeze({
     dialect: plan.dialect,
