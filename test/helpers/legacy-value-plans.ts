@@ -273,3 +273,47 @@ export async function assertPostgresRawJsonValuePlans(
   strict.deepEqual(await database.all(input), [{ doc: [[1, 2], null] }]);
   strict.deepEqual(await database.all(sqlNull), [{ doc: null }], "a failed planned decode does not leak a lease");
 }
+
+/** Owned MySQL preserves JSON text until application-declared shapes are validated. */
+export async function assertMySqlRawJsonValuePlans(
+  database: import("../../packages/mysql/src/runtime.js").MySqlDatabase,
+  typePolicyHash: string,
+): Promise<void> {
+  const query = (value: string | null) =>
+    withQueryValuePlan(sql`SELECT CAST(${value} AS JSON) AS doc`, {
+      dialect: "mysql",
+      typePolicyHash,
+      parameters: [{ index: 1, type: "unknown", nullable: true }],
+      columns: [
+        {
+          name: "doc",
+          type: "unknown",
+          nullable: true,
+          json: {
+            representation: "parsed",
+            requiresRuntimeValidation: true,
+            shape: { kind: "object", properties: { id: { shape: { kind: "number" } } } },
+          },
+        },
+      ],
+    });
+  const bad = query("null");
+  await strict.rejects(database.all(bad), QueryValueError);
+  await strict.rejects(database.all(query('{"id":"wrong"}')), QueryValueError);
+  strict.deepEqual(await database.all(query(null)), [{ doc: null }]);
+  strict.deepEqual(await database.all(query('{"id":1}')), [{ doc: { id: 1 } }]);
+  await strict.rejects(database.execute(bad), QueryValueError);
+  await strict.rejects(database.one(bad), QueryValueError);
+  await strict.rejects(database.maybeOne(bad), QueryValueError);
+  await strict.rejects(async () => {
+    for await (const _row of database.stream(bad)) {
+    }
+  }, QueryValueError);
+  await strict.rejects(database.batch([bad]), QueryValueError);
+  const prepared = database.prepare("raw_json_null", () => bad);
+  await strict.rejects(database.all(prepared()), QueryValueError);
+  await strict.rejects(
+    database.transaction((scope) => scope.all(bad)),
+    QueryValueError,
+  );
+}

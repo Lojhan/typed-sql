@@ -35,6 +35,7 @@ import {
   assertCompiledLegacyValuePlans,
   assertLegacyTextValuePlans,
   assertLegacyValuePlans,
+  assertMySqlRawJsonValuePlans,
 } from "../../../test/helpers/legacy-value-plans.js";
 import { mysqlCodecFidelity } from "../src/codec-query.js";
 import { mysqlJsonEmptyAggregate, mysqlJsonMutations, mysqlJsonProjection } from "../src/json-query.js";
@@ -205,6 +206,7 @@ try {
           await textDatabase.close();
         }
         await assertLegacyValuePlans(database, "mysql", calculateTypePolicyHash(typePolicy));
+        await assertMySqlRawJsonValuePlans(database, calculateTypePolicyHash(typePolicy));
         const compiledDialect = mysql({ typePolicy });
         await assertCompiledLegacyValuePlans(
           database,
