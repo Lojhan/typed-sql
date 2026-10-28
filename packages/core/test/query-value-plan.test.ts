@@ -79,6 +79,14 @@ await describe("query value plans", async () => {
     );
     strict.throws(() => assertQueryResultTransport(union, parsed), /distinguish/);
   });
+  await it("enforces null-only native SQL array elements", () => {
+    const query = withQueryValuePlan(
+      sql`select 1`,
+      plan({ columns: [{ name: "value", nullable: false, type: { array: "never", elementNullable: true } }] }),
+    );
+    strict.deepEqual(decodeQueryResultRows(query, [{ value: [null] }], text), [{ value: [null] }]);
+    strict.throws(() => decodeQueryResultRows(query, [{ value: ["wrong"] }], text), /expected never/);
+  });
   await it("snapshots descriptors without retaining mutable caller metadata", () => {
     const input = plan();
     const query = withQueryValuePlan(sql<{ value: unknown }>`select 1`, input);

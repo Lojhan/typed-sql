@@ -13,6 +13,7 @@ import { mapQueryResultStream, queryResultValidationSource } from "./result-vali
 
 /** Logical JavaScript values selected by a grammar's type policy. */
 export type RuntimeValueType =
+  | "never"
   | "unknown"
   | "string"
   | "number"
@@ -80,7 +81,10 @@ function copyType(
 ): RuntimeValueType {
   if (--budget.remaining < 0 || --local.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
   if (depth > 32) throw new TypeError("Runtime value type exceeds depth limit");
-  if (typeof type === "string" && ["unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type))
+  if (
+    typeof type === "string" &&
+    ["never", "unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type)
+  )
     return type;
   if (typeof type === "object" && type !== null && "json" in type)
     return Object.freeze({ json: copyDescriptor({ type: "unknown", nullable: false, json: type.json }, budget).json! });
