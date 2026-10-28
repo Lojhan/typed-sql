@@ -457,6 +457,13 @@ export function assertDialectPlugin(value: unknown): asserts value is DialectPlu
   if (value.resolveCapabilities !== undefined && typeof value.resolveCapabilities !== "function") {
     throw new TypeError("typed-sql dialect.resolveCapabilities must be a function");
   }
+  if (
+    value.runtimeSqlModule !== undefined &&
+    (typeof value.runtimeSqlModule !== "string" || value.runtimeSqlModule.length === 0)
+  )
+    throw new TypeError("typed-sql dialect.runtimeSqlModule must be a non-empty string");
+  if (value.runtimeValueType !== undefined && typeof value.runtimeValueType !== "function")
+    throw new TypeError("typed-sql dialect.runtimeValueType must be a function");
   for (const method of ["placeholder", "quoteIdentifier", "analyze", "validateSnapshot"] as const) {
     if (typeof value[method] !== "function") throw new TypeError(`typed-sql dialect.${method} must be a function`);
   }

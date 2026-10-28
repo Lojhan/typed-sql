@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, it, strict } from "poku";
 import { type PostgresSchemaSnapshot, postgres } from "../../postgres/src/index.js";
 import { calculateTypePolicyHash, loadSchemaSnapshot } from "../../schema/src/index.js";
-import { buildQueryValuePlan, compileSource } from "../src/index.js";
+import { buildQueryManifest, buildQueryValuePlan, compileSource } from "../src/index.js";
 
 const root = resolve(import.meta.dirname, "../../..");
 await describe("executable compiler value metadata", async () => {
@@ -72,5 +72,24 @@ await describe("executable compiler value metadata", async () => {
     strict.deepEqual(compiled.diagnostics, []);
     strict.equal(compiled.queries.length, 1);
     strict.equal(compiled.queries[0]?.valuePlan?.dialect, "postgres");
+  });
+  await it("includes portable static and dynamic queries in manifest coverage", async () => {
+    const base = postgres();
+    const schema = (await loadSchemaSnapshot(
+      resolve(root, "test/fixtures/success/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const source =
+      'import {sql} from "@example/portable-query"; const known=sql`SELECT id FROM users`; const dynamic=sql.dynamic("SELECT 1");';
+    const result = buildQueryManifest({
+      rootDir: root,
+      sources: [{ file: resolve(root, "app.ts"), source }],
+      projects: [],
+      dialect: { ...base, runtimeSqlModule: "@example/portable-query" },
+      schema,
+      compilerVersion: "test",
+    });
+    strict.equal(result.stats.resolvedQueries, 1);
+    strict.equal(result.stats.unresolvedQueries, 1);
+    strict.ok(result.manifest.queries.some((query) => query.status === "unresolved" && query.reason === "dynamic"));
   });
 });
