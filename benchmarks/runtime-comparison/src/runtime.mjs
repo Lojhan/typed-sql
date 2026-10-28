@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { arch, cpus, platform, release } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -389,7 +390,11 @@ async function compileFixture(directory, workload) {
     cursor = occurrence.range.end;
   }
   parts.push(escapeTemplateText(text.slice(cursor)));
-  const source = `import {sql} from '${dialect.runtimeSqlModule}';\nexport default (first: number, last: number) => sql\`${parts.join("")}\`;\n`;
+  const parameters = names
+    .slice(0, workloads[workload].width === 1 ? 1 : 2)
+    .map((name) => `${name}: number`)
+    .join(", ");
+  const source = `import {sql} from '${dialect.runtimeSqlModule}';\nexport default (${parameters}) => sql\`${parts.join("")}\`;\n`;
   const schema = JSON.parse(await readFile(join(directory, "schema.json"), "utf8"));
   const compiled = compileSource({ source, schema, dialect, runtimeMetadata: true });
   assert.deepEqual(compiled.diagnostics, []);
@@ -452,6 +457,20 @@ if (process.argv[2] === "--worker") {
   await worker(process.argv[3], process.argv[4], Number(process.argv[5]));
 } else {
   const startedAt = new Date().toISOString();
+  const driverVersions = {};
+  if (driver !== "sqlite") {
+    const name = driver === "postgres" ? "pg" : "mysql2";
+    const adapter = driver === "postgres" ? "@typed-sql/postgres/pg" : "@typed-sql/mysql/mysql2";
+    const readVersion = async (lookup) =>
+      JSON.parse(await readFile(lookup.resolve(`${name}/package.json`), "utf8")).version;
+    driverVersions.rawDriver = await readVersion(createRequire(import.meta.url));
+    driverVersions.typedDriver = await readVersion(createRequire(import.meta.resolve(adapter)));
+    assert.equal(
+      driverVersions.rawDriver,
+      driverVersions.typedDriver,
+      `Raw/Reylo and typed-sql must use the same ${name} version`,
+    );
+  }
   const output = resolve(workspace, process.env.SQLITE_BENCHMARK_OUTPUT ?? `results/${driver}-latest.json`);
   await mkdir(dirname(output), { recursive: true });
   const run = await mkdtemp(join(workspace, `results/${driver}-`));
@@ -518,6 +537,8 @@ if (process.argv[2] === "--worker") {
         typedSql: await version(`@typed-sql/${driver}`),
         reylo: await version("reylo"),
         reyloGrammar: await version(`@reylosql/${driver}`),
+        compiler: await version("@typed-sql/compiler"),
+        ...driverVersions,
       },
       trials,
       initialSeed: integer("SQLITE_BENCHMARK_SEED", 29),
