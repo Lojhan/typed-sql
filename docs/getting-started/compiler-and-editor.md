@@ -24,11 +24,26 @@ pnpm exec typed-sql check --project tsconfig.json
 ```
 
 Use `--file src/query.ts` to focus a local check. The command validates the workspace TypeScript
-version, applies its temporary semantic overlay, checks the selected project, and does not rewrite
+version, applies an in-memory semantic overlay to the project and its imported application modules, and does not rewrite
 application source.
 
-CI should run the same command. A normal `tsc` invocation remains useful for the rest of the program,
-but it does not replace typed-sql's query analysis.
+CI should run the same command. Use `typed-sql check` as the project's typechecking command, including downstream consumers of
+query factories. Use the application's transpiler or bundler for JavaScript output after this check;
+the checker does not emit JavaScript or declarations. For example:
+
+```json
+{
+  "scripts": {
+    "typecheck": "typed-sql check",
+    "build": "pnpm run typecheck && vite build"
+  }
+}
+```
+
+Replace `vite build` with the application's existing transpilation command. A separate ordinary
+`tsc` pass sees the conservative declarations rather than the inferred overlay, so it can report
+`unknown` for the same query consumers. It is not an equivalent replacement for this typecheck.
+Use `typed-sql check --show-types` to print the inferred contracts.
 
 ## Why normal TypeScript can show `unknown`
 

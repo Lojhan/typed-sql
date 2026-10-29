@@ -1,11 +1,8 @@
-import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { access, readFile, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import type { DialectPlugin, SchemaSnapshot, SqlDiagnostic } from "@typed-sql/core";
 import { analyzeSource, SOURCE_ANALYSIS_FORMAT_VERSION, type SourceAnalysisResult } from "./analysis.js";
-import { assertTypeScriptCompilerVersion } from "./typescript.js";
+import { findConfig, type NativeCheckResult, runNativeCheck } from "./native-check.js";
 
 export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly file: string;
@@ -21,150 +18,115 @@ export interface CheckFileOptions<Snapshot extends SchemaSnapshot = SchemaSnapsh
   readonly typeScriptTimeoutMs?: number;
 }
 
-export interface TypeScriptCheckResult {
-  readonly exitCode: number;
-  readonly output: string;
-  readonly command: string;
-}
+export interface TypeScriptCheckResult extends NativeCheckResult {}
 
 export interface CheckFileResult {
   readonly analysis: SourceAnalysisResult;
   readonly transformedSource: string;
   readonly sqlDiagnostics: readonly SqlDiagnostic[];
   readonly typeScript?: TypeScriptCheckResult;
+  readonly files?: readonly { readonly file: string; readonly analysis: SourceAnalysisResult }[];
   readonly ok: boolean;
 }
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
+export interface CheckProjectOptions<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown>
+  extends Omit<CheckFileOptions<Snapshot, Policy>, "file" | "runTypeScript"> {
+  readonly project: string;
 }
 
-async function findUp(filename: string, start: string): Promise<string | undefined> {
-  let directory = resolve(start);
-  while (true) {
-    const candidate = join(directory, filename);
-    if (await exists(candidate)) return candidate;
-    const parent = dirname(directory);
-    if (parent === directory) return undefined;
-    directory = parent;
-  }
+export interface CheckProjectResult {
+  readonly files: readonly { readonly file: string; readonly analysis: SourceAnalysisResult }[];
+  readonly typeScript: TypeScriptCheckResult;
+  readonly ok: boolean;
 }
 
-function configPath(fromDirectory: string, target: string): string {
-  const value = relative(fromDirectory, target).split(sep).join("/");
-  return value.startsWith(".") ? value : `./${value}`;
-}
-
-async function tscBinary(start: string): Promise<string> {
-  const name = process.platform === "win32" ? "tsc.cmd" : "tsc";
-  let directory = resolve(start);
-  while (true) {
-    const candidate = join(directory, "node_modules", ".bin", name);
-    if (await exists(candidate)) return candidate;
-    const parent = dirname(directory);
-    if (parent === directory) return name;
-    directory = parent;
-  }
-}
-
-export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
-  options: CheckFileOptions<Snapshot, Policy>,
-): Promise<CheckFileResult> {
-  const file = resolve(options.file);
-  const source = await readFile(file, "utf8");
+async function analyzer<Snapshot extends SchemaSnapshot, Policy>(
+  options: Omit<CheckFileOptions<Snapshot, Policy>, "file">,
+) {
   const schema =
     typeof options.schema === "string"
       ? options.dialect.validateSnapshot(JSON.parse(await readFile(resolve(options.schema), "utf8")) as unknown)
       : options.dialect.validateSnapshot(options.schema);
-  const analysis = analyzeSource(
-    {
-      formatVersion: SOURCE_ANALYSIS_FORMAT_VERSION,
-      source: { id: file, text: source },
-      compiler: {
-        ...(options.maxStructuralVariants === undefined
-          ? {}
-          : { maxStructuralVariants: options.maxStructuralVariants }),
-        ...(options.maxSourceBytes === undefined ? {} : { maxSourceBytes: options.maxSourceBytes }),
-        ...(options.maxQueries === undefined ? {} : { maxQueries: options.maxQueries }),
-        ...(options.maxGeneratedDeclarationBytes === undefined
-          ? {}
-          : { maxGeneratedDeclarationBytes: options.maxGeneratedDeclarationBytes }),
+  return (file: string, source: string): SourceAnalysisResult =>
+    analyzeSource(
+      {
+        formatVersion: SOURCE_ANALYSIS_FORMAT_VERSION,
+        source: { id: file, text: source },
+        compiler: {
+          ...(options.maxStructuralVariants === undefined
+            ? {}
+            : { maxStructuralVariants: options.maxStructuralVariants }),
+          ...(options.maxSourceBytes === undefined ? {} : { maxSourceBytes: options.maxSourceBytes }),
+          ...(options.maxQueries === undefined ? {} : { maxQueries: options.maxQueries }),
+          ...(options.maxGeneratedDeclarationBytes === undefined
+            ? {}
+            : { maxGeneratedDeclarationBytes: options.maxGeneratedDeclarationBytes }),
+        },
       },
-    },
-    {
-      dialect: options.dialect,
-      schema,
-      ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-    },
-  );
+      {
+        dialect: options.dialect,
+        schema,
+        ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+      },
+    );
+}
+
+function timeout(value = 60_000): number {
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new TypeError("typeScriptTimeoutMs must be a positive safe integer");
+  return value;
+}
+
+/** Check one entry file and transform every application module it imports in memory. */
+export async function checkFile<Snapshot extends SchemaSnapshot, Policy>(
+  options: CheckFileOptions<Snapshot, Policy>,
+): Promise<CheckFileResult> {
+  const milliseconds = timeout(options.typeScriptTimeoutMs);
+  const file = resolve(options.file);
+  const analyze = await analyzer(options);
+  const analysis = analyze(file, await readFile(file, "utf8"));
+  const analyses = new Map([[file, analysis]]);
   const hasSqlErrors = analysis.diagnostics.some((diagnostic) => diagnostic.severity === "error");
-  if (hasSqlErrors || options.runTypeScript === false) {
+  if (hasSqlErrors || options.runTypeScript === false)
     return {
       analysis,
       transformedSource: analysis.transformedSource,
       sqlDiagnostics: analysis.diagnostics,
+      files: [{ file, analysis }],
       ok: !hasSqlErrors,
     };
-  }
-
-  const directory = dirname(file);
-  const basename = file.slice(directory.length + 1);
-  const extensionIndex = basename.lastIndexOf(".");
-  const stem = extensionIndex === -1 ? basename : basename.slice(0, extensionIndex);
-  const extension = extensionIndex === -1 ? ".ts" : basename.slice(extensionIndex);
-  const nonce = `${process.pid}-${randomUUID()}`;
-  const overlay = join(directory, `.typed-sql-${stem}-${nonce}${extension}`);
-  const tempConfig = join(directory, `.typed-sql-tsconfig-${nonce}.json`);
-  const project = options.project === undefined ? await findUp("tsconfig.json", directory) : resolve(options.project);
-  if (project === undefined) throw new Error(`Could not find tsconfig.json from ${directory}`);
-  const config = {
-    extends: configPath(directory, project),
-    compilerOptions: { composite: false, declaration: false, declarationMap: false, incremental: false, noEmit: true },
-    files: [`./${overlay.slice(directory.length + 1)}`],
-    include: [],
+  const project = options.project === undefined ? await findConfig(dirname(file)) : resolve(options.project);
+  if (project === undefined) throw new Error(`Could not find tsconfig.json from ${dirname(file)}`);
+  const typeScript = await runNativeCheck({ project, file, timeout: milliseconds, analyze, analyses });
+  const sqlDiagnostics = [...analyses.values()].flatMap((result) => result.diagnostics);
+  return {
+    analysis,
+    transformedSource: analysis.transformedSource,
+    sqlDiagnostics,
+    typeScript,
+    files: [...analyses].map(([file, analysis]) => ({ file, analysis })),
+    ok: typeScript.exitCode === 0 && !sqlDiagnostics.some((diagnostic) => diagnostic.severity === "error"),
   };
-  const timeout = options.typeScriptTimeoutMs ?? 60_000;
-  if (!Number.isSafeInteger(timeout) || timeout < 1)
-    throw new TypeError("typeScriptTimeoutMs must be a positive safe integer");
-  const binary = await tscBinary(directory);
-  const versionResult = spawnSync(binary, ["--version"], {
-    cwd: directory,
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024,
-    timeout,
+}
+
+/** Check the complete configured project with shared, original-path query overlays. */
+export async function checkProject<Snapshot extends SchemaSnapshot, Policy>(
+  options: CheckProjectOptions<Snapshot, Policy>,
+): Promise<CheckProjectResult> {
+  const analyze = await analyzer(options);
+  const analyses = new Map<string, SourceAnalysisResult>();
+  const typeScript = await runNativeCheck({
+    project: resolve(options.project),
+    timeout: timeout(options.typeScriptTimeoutMs),
+    analyze,
+    analyses,
   });
-  const versionMatch = /^Version\s+([^\s]+)\s*$/u.exec(String(versionResult.stdout ?? "").trim());
-  if (versionResult.status !== 0 || versionMatch?.[1] === undefined) {
-    const detail = `${versionResult.stderr ?? ""}${versionResult.error?.message ?? ""}`.trim();
-    throw new Error(`typed-sql could not determine the TypeScript compiler version${detail ? `: ${detail}` : ""}`);
-  }
-  assertTypeScriptCompilerVersion(versionMatch[1]);
-  await writeFile(overlay, analysis.transformedSource, "utf8");
-  await writeFile(tempConfig, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-  try {
-    const result = spawnSync(binary, ["--project", tempConfig, "--pretty", "false"], {
-      cwd: directory,
-      encoding: "utf8",
-      maxBuffer: 16 * 1024 * 1024,
-      timeout,
-    });
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}${result.error?.message ?? ""}`
-      .replaceAll(overlay.slice(directory.length + 1), basename)
-      .replaceAll(tempConfig.slice(directory.length + 1), configPath(directory, project));
-    const typeScript = { exitCode: result.status ?? 1, output, command: `${binary} --project ${tempConfig}` };
-    return {
-      analysis,
-      transformedSource: analysis.transformedSource,
-      sqlDiagnostics: analysis.diagnostics,
-      typeScript,
-      ok: typeScript.exitCode === 0,
-    };
-  } finally {
-    await Promise.allSettled([unlink(overlay), unlink(tempConfig)]);
-  }
+  const files = [...analyses].sort(([a], [b]) => a.localeCompare(b)).map(([file, analysis]) => ({ file, analysis }));
+  return {
+    files,
+    typeScript,
+    ok:
+      typeScript.exitCode === 0 &&
+      !files.some(({ analysis }) => analysis.diagnostics.some((diagnostic) => diagnostic.severity === "error")),
+  };
 }

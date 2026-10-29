@@ -78,13 +78,14 @@ updated. The error reports the last completed setup state.
 
 typed-sql requires Node.js 22.11 or newer. The compiler uses an exact supported TypeScript version;
 check the current [compatibility matrix](../reference/compatibility.md#runtime-and-compiler) before
-installing into an existing project.
+installing into an existing project. Node applications include `"types": ["node"]` in their
+TypeScript compiler options. PostgreSQL applications also install `@types/pg`.
 
 ## PostgreSQL
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/postgres pg
-pnpm add -D @typed-sql/cli typescript
+pnpm add -D @typed-sql/cli typescript @types/node
 ```
 
 Application code imports `sql` from `@typed-sql/postgres`. The optional runtime and introspection
@@ -96,7 +97,7 @@ adapter is an explicit subpath at `@typed-sql/postgres/pg` and loads the applica
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/mysql mysql2
-pnpm add -D @typed-sql/cli typescript
+pnpm add -D @typed-sql/cli typescript @types/node
 ```
 
 Application code imports `sql` from `@typed-sql/mysql`. The adapter at
@@ -108,7 +109,7 @@ Application code imports `sql` from `@typed-sql/mysql`. The adapter at
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/sqlite
-pnpm add -D @typed-sql/cli typescript
+pnpm add -D @typed-sql/cli typescript @types/node
 ```
 
 Application code imports `sql` from `@typed-sql/sqlite`. The optional

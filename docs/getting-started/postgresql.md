@@ -37,7 +37,7 @@ mkdir src
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/postgres pg
-pnpm add -D @typed-sql/cli typescript tsx
+pnpm add -D @typed-sql/cli typescript tsx @types/node @types/pg
 ```
 
 `pg` is an explicit application dependency. Installing `@typed-sql/postgres` does not install it.
@@ -51,6 +51,7 @@ Create `tsconfig.json`:
     "moduleResolution": "NodeNext",
     "target": "ES2024",
     "strict": true,
+    "types": ["node"],
     "noEmit": true
   },
   "include": ["src/**/*.ts", "typed-sql.config.ts"]
@@ -148,7 +149,7 @@ export const accountById = (accountId: bigint) => sql`
 ## 7. Check the inferred contract
 
 ```sh
-pnpm exec typed-sql check --project tsconfig.json
+pnpm exec typed-sql check --project tsconfig.json --show-types
 ```
 
 Against the table above, the compiler proves:

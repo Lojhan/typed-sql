@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -933,14 +933,11 @@ await describe("TypeScript 7 compiler wrapper", async () => {
   await it("rejects an untested TypeScript patch before writing native-check overlays", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-compiler-version-"));
     try {
-      const binDirectory = join(directory, "node_modules", ".bin");
-      await mkdir(binDirectory, { recursive: true });
-      const binary = join(binDirectory, process.platform === "win32" ? "tsc.cmd" : "tsc");
+      await mkdir(join(directory, "node_modules", "typescript"), { recursive: true });
       await writeFile(
-        binary,
-        process.platform === "win32" ? "@echo Version 7.0.3\r\n" : "#!/bin/sh\nprintf 'Version 7.0.3\\n'\n",
+        join(directory, "node_modules", "typescript", "package.json"),
+        JSON.stringify({ name: "typescript", version: "7.0.3" }),
       );
-      if (process.platform !== "win32") await chmod(binary, 0o755);
       const file = join(directory, "query.ts");
       const project = join(directory, "tsconfig.json");
       await writeFile(file, 'import { sql } from "@typed-sql/postgres"; const query = sql`SELECT id FROM users`;\n');

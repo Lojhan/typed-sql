@@ -31,7 +31,7 @@ mkdir src
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/sqlite
-pnpm add -D @typed-sql/cli typescript tsx
+pnpm add -D @typed-sql/cli typescript tsx @types/node
 ```
 
 `node:sqlite` is built into supported Node versions. Installing `@typed-sql/sqlite` does not select
@@ -46,6 +46,7 @@ Create `tsconfig.json`:
     "moduleResolution": "NodeNext",
     "target": "ES2024",
     "strict": true,
+    "types": ["node"],
     "noEmit": true
   },
   "include": ["src/**/*.ts", "typed-sql.config.ts"]
@@ -54,13 +55,13 @@ Create `tsconfig.json`:
 
 ## 3. Create a minimal table
 
-Create `src/setup.ts`:
+Create the local database without adding a setup module to the application:
 
-```ts
+```sh
+node --input-type=module <<'JS'
 import { DatabaseSync } from "node:sqlite";
 
 const database = new DatabaseSync("app.db");
-
 try {
   database.exec(`
     CREATE TABLE account (
@@ -74,13 +75,12 @@ try {
 } finally {
   database.close();
 }
+JS
 ```
 
-Run it once:
-
-```sh
-pnpm exec tsx src/setup.ts
-```
+Run this once in a shell with heredoc support, such as Bash or Zsh. Other shells can save the
+JavaScript as a temporary `.mjs` file and run it with Node. The application itself needs only
+`tsconfig.json`, `typed-sql.config.ts`, and `src/main.ts`.
 
 ## 4. Create a minimal config
 
@@ -118,9 +118,9 @@ snapshot so schema changes are reviewable; application code does not import it.
 
 ## 6. Write one parameterized query
 
-Create `src/account.ts`:
+Create `src/main.ts`:
 
-<LiveQueryExample dialect="sqlite" filename="src/account.ts">
+<LiveQueryExample dialect="sqlite" filename="src/main.ts">
 <template #source>
 
 <!-- docs:start quickstart-sqlite-query -->
@@ -143,7 +143,7 @@ export const accountById = (accountId: bigint) => sql`
 ## 7. Check the inferred contract
 
 ```sh
-pnpm exec typed-sql check --project tsconfig.json
+pnpm exec typed-sql check --project tsconfig.json --show-types
 ```
 
 Against the strict table above, the compiler proves:
@@ -163,25 +163,30 @@ explains the conservative declaration shown by an ordinary TypeScript server.
 
 ## 8. Execute the query
 
-Create `src/run.ts`:
+Append this code to `src/main.ts`:
 
 ```ts
 import { typePolicy } from "@typed-sql/sqlite";
 import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
-import { accountById } from "./account.js";
 
 const database = await createNodeSqliteDatabase({ path: "app.db", typePolicy });
-
 try {
-  console.log(await database.maybeOne(accountById(1n)));
+  const account = await database.maybeOne(accountById(1n));
+  if (account) console.log(account.email);
 } finally {
   await database.close();
 }
 ```
 
+Check the complete module, including the inferred `account.email`, then run it:
+
 ```sh
-pnpm exec tsx src/run.ts
+pnpm exec typed-sql check --project tsconfig.json
+pnpm exec tsx src/main.ts
 ```
+
+The program prints `ada@example.com`. The same project check also carries inferred query types
+across imports when the query factory is later moved into its own module.
 
 The adapter is explicit. Another SQLite integration can implement the driver-neutral runtime
 contract without changing the grammar.

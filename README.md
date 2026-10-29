@@ -4,184 +4,86 @@
 
 [![CI](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml/badge.svg)](https://github.com/Lojhan/typed-sql/actions/workflows/ci.yml)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![TypeScript 7](https://img.shields.io/badge/TypeScript-7.0.2-3178c6.svg)](./docs/reference/compatibility.md)
-[![PostgreSQL, MySQL, SQLite](https://img.shields.io/badge/dialects-PostgreSQL%20%7C%20MySQL%20%7C%20SQLite-336791.svg)](./docs/index.md)
 
-typed-sql is a TypeScript SQL compiler. It analyzes ordinary static SQL templates against a
-snapshot of your real database, then carries the exact result and parameter types through your
-application. SQL stays SQL: there is no query-builder DSL, generated query wrapper, or generated
-application API.
+typed-sql checks SQL against a snapshot of your database and infers result rows and parameter types.
+Keep your SQL, database driver, connections and migrations.
 
 ```ts
-import { sql, typePolicy } from "@typed-sql/postgres";
-import { createPgDatabase } from "@typed-sql/postgres/pg";
+import { sql } from "@typed-sql/postgres";
 
-const accountId = 42n;
-
-const query = sql`
-  SELECT account.id, account.email, account.status, project.budget
+export const accountById = (accountId: bigint) => sql`
+  SELECT account.id, account.email, account.status
   FROM users AS account
-  LEFT JOIN projects AS project ON project.owner_id = account.id
   WHERE account.id = ${accountId}
 `;
-
-const database = await createPgDatabase({
-  connectionString: process.env.DATABASE_URL!,
-  typePolicy,
-});
-
-const rows = await database.execute(query);
 ```
 
-Hover `rows`:
+With the corresponding schema, the compiler proves:
 
 ```ts
-readonly {
-  id: bigint;
-  email: string;
-  status: "active" | "suspended";
-  budget: string | null;
-}[]
+Query<
+  { id: bigint; email: string; status: "active" | "suspended" },
+  readonly [bigint]
+>
 ```
 
-The type comes from the query, catalog, join nullability, database enum, and configured runtime
-codecs. The interpolation is also checked as `bigint` because it is compared with `account.id`.
+Interpolated values become driver parameters. Unsupported or ambiguous SQL receives a diagnostic or
+`unknown`; typed-sql does not guess a safe-looking type.
 
-## Why typed-sql
+## Try your first query
 
-- **Use your database language.** CTEs, joins, aggregates, window functions, database functions,
-  DML, and dialect-specific behavior remain visible.
-- **Infer rows and parameters.** A query carries both its result shape and ordered parameter tuple.
-- **Keep the database authoritative.** The CLI generates a deterministic, reviewable catalog
-  snapshot from PostgreSQL, MySQL, or SQLite.
-- **Own your driver.** Grammar packages do not install `pg` or `mysql2`; the application chooses
-  and configures its driver.
-- **Fail closed.** Unsupported, ambiguous, or dynamic SQL produces a diagnostic or
-  `Query<unknown>`, never `any` or an optimistic type.
-- **Use one grammar contract.** The compiler, CLI, editor tooling, and third-party dialects all
-  consume the same public interface.
-- **Carry build evidence into production.** Deterministic query manifests correlate runtime
-  fingerprints with inferred types, dependencies, and capabilities without storing SQL or values.
-- **Prove inference against the database.** Optional native prepare metadata verifies safe variants
-  and produces a deterministic, secret-free proof that CI can later validate offline.
-- **Review optimizer evidence.** Optional structured plans and explicit budgets expose cost,
-  cardinality, and node-shape regressions without executing application statements.
-- **Check migrations against deployed queries.** Offline compatibility reports analyze both rolling-
-  deployment directions and link breaks to exact query variants.
-- **Route with semantic proof.** Opt-in routed databases send only proven-safe reads to
-  application-owned replicas and support bounded retries for explicit transactions.
-- **Use native bulk protocols without losing SQL.** Optional PostgreSQL COPY and MySQL LOAD DATA
-  capabilities compile ordinary typed `INSERT` factories into backpressured application streams.
-- **Validate only where runtime proof matters.** Attach any Standard Schema V1 validator to decoded
-  results without adding a validator dependency or changing the unvalidated query path.
+The [SQLite quickstart](./docs/getting-started/sqlite.md) creates a local database and takes a query
+through checking and execution without a server. Existing applications can start with the
+[PostgreSQL](./docs/getting-started/postgresql.md) or [MySQL](./docs/getting-started/mysql.md) quickstart.
 
-## Install
-
-PostgreSQL:
-
-```sh
-pnpm add @typed-sql/core @typed-sql/postgres pg
-pnpm add -D @typed-sql/cli typescript@7.0.2
-```
-
-MySQL:
-
-```sh
-pnpm add @typed-sql/core @typed-sql/mysql mysql2
-pnpm add -D @typed-sql/cli typescript@7.0.2
-```
-
-SQLite:
-
-```sh
-pnpm add @typed-sql/core @typed-sql/sqlite
-pnpm add -D @typed-sql/cli typescript@7.0.2
-```
-
-Create `typed-sql.config.ts`, generate a schema snapshot, and check a query:
+The development loop is:
 
 ```sh
 pnpm exec typed-sql generate
-pnpm exec typed-sql check --file src/query.ts --project tsconfig.json
-pnpm exec typed-sql drift
-pnpm exec typed-sql manifest
-pnpm exec typed-sql verify --live
-pnpm exec typed-sql verify
-pnpm exec typed-sql explain --compare artifacts/plans.json
-pnpm exec typed-sql compat --before before.schema.json --after after.schema.json --before-manifest before.queries.json --after-manifest after.queries.json
+pnpm exec typed-sql check --project tsconfig.json --show-types
 ```
 
-See [Installation](./docs/getting-started/installation.md),
-[Configuration](./docs/getting-started/configuration.md), and
-[Your first query](./docs/getting-started/first-query.md) for the complete setup.
+The project check follows query types across imports and checks their application consumers. It uses
+the application's supported TypeScript 7 compiler and keeps source files unchanged. Use it as the
+project's typechecking step before your transpiler or bundler.
 
-## Compose SQL without a builder
+Exact editor hovers use the optional experimental language server. Ordinary TypeScript declarations
+remain conservative and can show `Query<unknown>` without analysis. See
+[compiler and editor workflow](./docs/getting-started/compiler-and-editor.md).
 
-Structural choices stay inside tagged SQL fragments, while interpolated values remain driver
-parameters:
+## Keep your database stack
 
-```ts
-function accounts<const Select extends { readonly status: boolean }>(
-  filters: { readonly status?: "active" | "suspended" | null },
-  select: Select,
-) {
-  return sql`
-    SELECT account.id, account.email
-      ${select.status ? sql.fragment`, account.status` : sql.empty}
-    FROM users AS account
-    WHERE 1 = 1
-      ${filters.status == null
-        ? sql.empty
-        : sql.fragment`AND account.status = ${filters.status}`}
-  `;
-}
-```
+- **SQL stays SQL.** Use supported joins, CTEs, aggregates, window functions, DML and dialect syntax.
+- **Types follow the query.** Infer result rows, nullability and ordered parameter tuples from schema evidence.
+- **Connections stay yours.** Reuse an [existing pool](./docs/guides/existing-pools.md) or choose an explicit [execution adapter](./docs/guides/adapters.md).
+- **Composition is explicit.** Use `sql.fragment`, `sql.empty` and `sql.ident` for structure; ordinary values remain parameters.
 
-Literal selections produce exact result shapes; runtime booleans produce the corresponding union.
-See [Compose conditional SQL](./docs/guides/composition.md) for predicates, joins, identifiers, and
-the structural-variant bound.
+[Compose conditional and repeated SQL](./docs/guides/composition.md), inspect
+[database type mappings](./docs/reference/type-mappings.md), or explore the
+[runnable applications](./docs/examples/index.md).
 
-## Packages
+## Editor setup
 
-| Package | Purpose | Track |
-| --- | --- | --- |
-| `@typed-sql/core` | Query, fragment, adapter, dialect, and diagnostic contracts | Stable |
-| `@typed-sql/opentelemetry` | Optional redacted OpenTelemetry database tracing | Stable |
-| `@typed-sql/ast` | Bounded tokenizer, parser, AST, and source ranges | Stable |
-| `@typed-sql/schema` | Versioned snapshots, hashes, migrations, and drift | Stable |
-| `@typed-sql/config` | Config discovery and loading | Stable |
-| `@typed-sql/compiler` | Grammar-neutral source analysis, manifests, verification, plan governance, and migration reports | Stable |
-| `@typed-sql/conformance` | Executable compatibility kit for SQL grammar packages | Stable |
-| `@typed-sql/postgres` | PostgreSQL grammar, codecs, introspection, and optional `pg` adapter | Stable |
-| `@typed-sql/mysql` | MySQL grammar, codecs, introspection, and optional `mysql2` adapter | Stable |
-| `@typed-sql/sqlite` | SQLite grammar, sound dynamic typing, introspection, and optional `node:sqlite` adapter | Stable |
-| `@typed-sql/cli` | Snapshot, checking, drift, manifest, verification, plan, and compatibility commands | Stable |
-| `@typed-sql/ts-bridge` | Isolated TypeScript preview integration | Experimental |
-| `@typed-sql/language-server` | TypeScript semantic proxy and SQL editor features | Experimental |
+Install [typed-sql for VS Code](https://marketplace.visualstudio.com/items?itemName=lojhan.typed-sql)
+and follow the [editor setup guide](./docs/guides/editors.md) for the native SDK and language server.
+Zed and other LSP clients use the same optional server.
 
-## Documentation
+The stable compiler path uses TypeScript 7.0.2. The experimental editor backend owns its isolated
+TypeScript 7.1 beta; applications do not replace their compiler to enable editor hovers.
+[Supported runtimes, databases and exact versions](./docs/reference/compatibility.md).
 
-- [Documentation site](https://lojhan.github.io/typed-sql/)
-- [Documentation source](./docs/index.md)
-- [Executable PostgreSQL, MySQL, and SQLite examples](./docs/examples/index.md)
-- [Execution adapters](./docs/guides/execution.md)
-- [Standard Schema result validation](./docs/guides/result-validation.md)
-- [Bulk data transfer](./docs/guides/bulk-data.md)
-- [Database observability](./docs/guides/observability.md)
-- [Query manifests](./docs/guides/query-manifests.md)
-- [Live database verification](./docs/guides/live-verification.md)
-- [Query plan governance](./docs/guides/query-plan-governance.md)
-- [Migration compatibility](./docs/guides/migration-compatibility.md)
-- [Read routing and transaction retries](./docs/guides/routing-and-retries.md)
-- [PostgreSQL grammar](./docs/dialects/postgresql.md)
-- [MySQL grammar](./docs/dialects/mysql.md)
-- [SQLite grammar](./docs/dialects/sqlite.md)
-- [Inference and safety](./docs/concepts/type-safety.md)
-- [Query API](./docs/reference/api.md)
-- [Diagnostics](./docs/reference/diagnostics.md)
-- [Editor setup](./docs/guides/editors.md)
-- [Author a custom grammar](./docs/extending/custom-grammars.md)
+## Go further
 
-Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
+[Documentation](https://lojhan.github.io/typed-sql/) ·
+[Query API](./docs/reference/api.md) ·
+[JSON and portable adapters](./docs/reference/portable-adapters.md) ·
+[SQL files](./docs/guides/sql-files.md) ·
+[Inference and safety](./docs/concepts/type-safety.md)
+
+Add [production controls](./docs/operations/index.md) when needed: drift detection, manifests,
+live verification, optimizer-plan review, migration compatibility and observability are independent
+of the first-query setup.
+
+For contributions and maintainer procedures, read [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 MIT © typed-sql contributors
