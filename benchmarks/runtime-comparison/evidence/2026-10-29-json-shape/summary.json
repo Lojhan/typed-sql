@@ -1,0 +1,554 @@
+{
+  "before-timing": [
+    {
+      "workload": "json",
+      "candidate": "raw-cached",
+      "concurrency": 1,
+      "medianMicroseconds": 12.540041666666665
+    },
+    {
+      "workload": "json",
+      "candidate": "raw-cached",
+      "concurrency": 8,
+      "medianMicroseconds": 12.491056000000006
+    },
+    {
+      "workload": "json",
+      "candidate": "reylo-file",
+      "concurrency": 1,
+      "medianMicroseconds": 13.665402666666665
+    },
+    {
+      "workload": "json",
+      "candidate": "reylo-file",
+      "concurrency": 8,
+      "medianMicroseconds": 14.309972333333338
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 1,
+      "medianMicroseconds": 25.930124999999997
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 8,
+      "medianMicroseconds": 25.741097333333318
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-compiled-prepared",
+      "concurrency": 1,
+      "medianMicroseconds": 26.14311133333333
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-compiled-prepared",
+      "concurrency": 8,
+      "medianMicroseconds": 25.96706933333333
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-file",
+      "concurrency": 1,
+      "medianMicroseconds": 26.933611333333328
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-file",
+      "concurrency": 8,
+      "medianMicroseconds": 25.975083333333345
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "concurrency": 1,
+      "medianMicroseconds": 22.97865300000001
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "concurrency": 8,
+      "medianMicroseconds": 23.122138999999983
+    },
+    {
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "concurrency": 1,
+      "medianMicroseconds": 12.010152666666666
+    },
+    {
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "concurrency": 8,
+      "medianMicroseconds": 11.905472333333336
+    },
+    {
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "concurrency": 1,
+      "medianMicroseconds": 17.694930666666657
+    },
+    {
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "concurrency": 8,
+      "medianMicroseconds": 17.64563900000001
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 1,
+      "medianMicroseconds": 21.284583666666673
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 8,
+      "medianMicroseconds": 20.940013666666665
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-compiled-prepared",
+      "concurrency": 1,
+      "medianMicroseconds": 22.294972
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-compiled-prepared",
+      "concurrency": 8,
+      "medianMicroseconds": 21.771583666666665
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-file",
+      "concurrency": 1,
+      "medianMicroseconds": 22.413194333333326
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-file",
+      "concurrency": 8,
+      "medianMicroseconds": 21.526721999999996
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "concurrency": 1,
+      "medianMicroseconds": 22.115333333333336
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "concurrency": 8,
+      "medianMicroseconds": 21.475527666666686
+    },
+    {
+      "workload": "point",
+      "candidate": "raw-cached",
+      "concurrency": 1,
+      "medianMicroseconds": 4.131846999999999
+    },
+    {
+      "workload": "point",
+      "candidate": "raw-cached",
+      "concurrency": 8,
+      "medianMicroseconds": 4.172777999999999
+    },
+    {
+      "workload": "point",
+      "candidate": "reylo-file",
+      "concurrency": 1,
+      "medianMicroseconds": 5.411430333333337
+    },
+    {
+      "workload": "point",
+      "candidate": "reylo-file",
+      "concurrency": 8,
+      "medianMicroseconds": 5.719027666666667
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 1,
+      "medianMicroseconds": 6.781138666666673
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 8,
+      "medianMicroseconds": 6.434319333333329
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-compiled-prepared",
+      "concurrency": 1,
+      "medianMicroseconds": 6.947263666666672
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-compiled-prepared",
+      "concurrency": 8,
+      "medianMicroseconds": 6.80879166666667
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-file",
+      "concurrency": 1,
+      "medianMicroseconds": 7.5003333333333355
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-file",
+      "concurrency": 8,
+      "medianMicroseconds": 7.167721999999998
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "concurrency": 1,
+      "medianMicroseconds": 7.575583333333336
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "concurrency": 8,
+      "medianMicroseconds": 7.210277666666665
+    }
+  ],
+  "after-timing": [
+    {
+      "workload": "json",
+      "candidate": "raw-cached",
+      "concurrency": 1,
+      "medianMicroseconds": 12.715277666666669
+    },
+    {
+      "workload": "json",
+      "candidate": "raw-cached",
+      "concurrency": 8,
+      "medianMicroseconds": 12.633166333333332
+    },
+    {
+      "workload": "json",
+      "candidate": "reylo-file",
+      "concurrency": 1,
+      "medianMicroseconds": 14.116208333333322
+    },
+    {
+      "workload": "json",
+      "candidate": "reylo-file",
+      "concurrency": 8,
+      "medianMicroseconds": 14.347958000000006
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 1,
+      "medianMicroseconds": 25.789055666666663
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 8,
+      "medianMicroseconds": 26.102541666666667
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "concurrency": 1,
+      "medianMicroseconds": 23.64849966666666
+    },
+    {
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "concurrency": 8,
+      "medianMicroseconds": 23.430180666666672
+    },
+    {
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "concurrency": 1,
+      "medianMicroseconds": 12.055694333333335
+    },
+    {
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "concurrency": 8,
+      "medianMicroseconds": 12.223750333333331
+    },
+    {
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "concurrency": 1,
+      "medianMicroseconds": 18.00370833333331
+    },
+    {
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "concurrency": 8,
+      "medianMicroseconds": 17.964028000000003
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 1,
+      "medianMicroseconds": 21.78006933333335
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 8,
+      "medianMicroseconds": 21.61659733333334
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "concurrency": 1,
+      "medianMicroseconds": 22.432207999999992
+    },
+    {
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "concurrency": 8,
+      "medianMicroseconds": 21.775458333333347
+    },
+    {
+      "workload": "point",
+      "candidate": "raw-cached",
+      "concurrency": 1,
+      "medianMicroseconds": 4.047680666666668
+    },
+    {
+      "workload": "point",
+      "candidate": "raw-cached",
+      "concurrency": 8,
+      "medianMicroseconds": 4.260444666666665
+    },
+    {
+      "workload": "point",
+      "candidate": "reylo-file",
+      "concurrency": 1,
+      "medianMicroseconds": 5.440458333333339
+    },
+    {
+      "workload": "point",
+      "candidate": "reylo-file",
+      "concurrency": 8,
+      "medianMicroseconds": 5.482208000000014
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 1,
+      "medianMicroseconds": 6.593277666666671
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "concurrency": 8,
+      "medianMicroseconds": 6.354611333333334
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "concurrency": 1,
+      "medianMicroseconds": 7.531708333333333
+    },
+    {
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "concurrency": 8,
+      "medianMicroseconds": 7.092347333333331
+    }
+  ],
+  "before-alloc": [
+    {
+      "profile": "before-alloc/0-json-1-typed-compiled-inline.heapprofile.gz",
+      "sampledAllocatedBytes": 132953872,
+      "topSelfFrames": [
+        {
+          "function": "matches",
+          "source": "json.js",
+          "sampledAllocatedBytes": 36341144
+        },
+        {
+          "function": "normalize",
+          "source": "runtime.mjs",
+          "sampledAllocatedBytes": 16115704
+        },
+        {
+          "function": "decode",
+          "source": "query-value-plan.js",
+          "sampledAllocatedBytes": 15670912
+        },
+        {
+          "function": "operation",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 12342216
+        },
+        {
+          "function": "values",
+          "source": "",
+          "sampledAllocatedBytes": 11475280
+        },
+        {
+          "function": "add",
+          "source": "",
+          "sampledAllocatedBytes": 6039000
+        },
+        {
+          "function": "run",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 3190344
+        },
+        {
+          "function": "next",
+          "source": "",
+          "sampledAllocatedBytes": 3033656
+        }
+      ]
+    },
+    {
+      "profile": "before-alloc/0-json-1-typed-file-parsed.heapprofile.gz",
+      "sampledAllocatedBytes": 122908096,
+      "topSelfFrames": [
+        {
+          "function": "matches",
+          "source": "json.js",
+          "sampledAllocatedBytes": 35986040
+        },
+        {
+          "function": "decode",
+          "source": "query-value-plan.js",
+          "sampledAllocatedBytes": 15904600
+        },
+        {
+          "function": "operation",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 12362176
+        },
+        {
+          "function": "values",
+          "source": "",
+          "sampledAllocatedBytes": 11873624
+        },
+        {
+          "function": "add",
+          "source": "",
+          "sampledAllocatedBytes": 5992968
+        },
+        {
+          "function": "next",
+          "source": "",
+          "sampledAllocatedBytes": 3684056
+        },
+        {
+          "function": "run",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 3266648
+        },
+        {
+          "function": "acquire",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 2945152
+        }
+      ]
+    }
+  ],
+  "after-alloc": [
+    {
+      "profile": "after-alloc/0-json-1-typed-compiled-inline.heapprofile.gz",
+      "sampledAllocatedBytes": 97680480,
+      "topSelfFrames": [
+        {
+          "function": "normalize",
+          "source": "runtime.mjs",
+          "sampledAllocatedBytes": 16072088
+        },
+        {
+          "function": "decode",
+          "source": "query-value-plan.js",
+          "sampledAllocatedBytes": 15826344
+        },
+        {
+          "function": "operation",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 12687920
+        },
+        {
+          "function": "values",
+          "source": "",
+          "sampledAllocatedBytes": 11565056
+        },
+        {
+          "function": "add",
+          "source": "",
+          "sampledAllocatedBytes": 5926800
+        },
+        {
+          "function": "run",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 3468712
+        },
+        {
+          "function": "next",
+          "source": "",
+          "sampledAllocatedBytes": 3008920
+        },
+        {
+          "function": "acquire",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 2943920
+        }
+      ]
+    },
+    {
+      "profile": "after-alloc/0-json-1-typed-file-parsed.heapprofile.gz",
+      "sampledAllocatedBytes": 85855944,
+      "topSelfFrames": [
+        {
+          "function": "decode",
+          "source": "query-value-plan.js",
+          "sampledAllocatedBytes": 15897952
+        },
+        {
+          "function": "operation",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 13039288
+        },
+        {
+          "function": "values",
+          "source": "",
+          "sampledAllocatedBytes": 11454160
+        },
+        {
+          "function": "add",
+          "source": "",
+          "sampledAllocatedBytes": 5880648
+        },
+        {
+          "function": "next",
+          "source": "",
+          "sampledAllocatedBytes": 3844560
+        },
+        {
+          "function": "run",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 3383184
+        },
+        {
+          "function": "acquire",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 2633064
+        },
+        {
+          "function": "all",
+          "source": "runtime.js",
+          "sampledAllocatedBytes": 2595000
+        }
+      ]
+    }
+  ]
+}

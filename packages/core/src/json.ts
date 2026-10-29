@@ -468,16 +468,30 @@ function validateJsonModel(
         return typeof item === expected.kind;
       case "literal":
         return item === expected.value;
-      case "union":
-        return expected.variants.some((variant) => matches(item, variant, depth + 1));
-      case "array":
-        return Array.isArray(item) && item.every((entry) => matches(entry, expected.element, depth + 1));
-      case "tuple":
-        return (
-          Array.isArray(item) &&
-          item.length === expected.elements.length &&
-          item.every((entry, index) => matches(entry, expected.elements[index]!, depth + 1))
-        );
+      case "union": {
+        const variants = expected.variants;
+        const length = variants.length;
+        for (let index = 0; index < length; index++) {
+          if (index in variants && matches(item, variants[index]!, depth + 1)) return true;
+        }
+        return false;
+      }
+      case "array": {
+        if (!Array.isArray(item)) return false;
+        const length = item.length;
+        for (let index = 0; index < length; index++) {
+          if (index in item && !matches(item[index]!, expected.element, depth + 1)) return false;
+        }
+        return true;
+      }
+      case "tuple": {
+        if (!Array.isArray(item) || item.length !== expected.elements.length) return false;
+        const length = item.length;
+        for (let index = 0; index < length; index++) {
+          if (index in item && !matches(item[index]!, expected.elements[index]!, depth + 1)) return false;
+        }
+        return true;
+      }
       case "object": {
         if (item === null || typeof item !== "object" || Array.isArray(item)) return false;
         const object = item as { readonly [key: string]: JsonValue };
