@@ -1,5 +1,13 @@
 # @typed-sql/opentelemetry
 
+## 2.3.0-rc.2
+
+### Patch Changes
+
+- Updated dependencies [f51b53d]
+- Updated dependencies [bc4068e]
+  - @typed-sql/core@2.3.0-rc.2
+
 ## 2.3.0-rc.1
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 # @typed-sql/sqlite
 
+## 2.3.0-rc.2
+
+### Minor Changes
+
+- f51b53d: Preserve precise result types for mapped scalar IN lists and scalar INSERT VALUES rows when the selected grammar proves result independence. Keep other repeated expressions conservative, scope cached analysis to its repeated ranges, map result-column locations through expanded SQL, and consume each SQL list delimiter explicitly.
+
+### Patch Changes
+
+- Updated dependencies [f51b53d]
+- Updated dependencies [bc4068e]
+  - @typed-sql/core@2.3.0-rc.2
+  - @typed-sql/schema@2.3.0-rc.2
+
 ## 2.3.0-rc.1
 
 ### Patch Changes
