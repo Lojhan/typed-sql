@@ -1,5 +1,17 @@
 # @typed-sql/ts-bridge
 
+## 2.3.0-rc.2
+
+### Patch Changes
+
+- Updated dependencies [f51b53d]
+- Updated dependencies [bc4068e]
+- Updated dependencies [0d571df]
+  - @typed-sql/core@2.3.0-rc.2
+  - @typed-sql/compiler@2.3.0-rc.2
+  - @typed-sql/config@2.3.0-rc.2
+  - @typed-sql/schema@2.3.0-rc.2
+
 ## 2.3.0-rc.1
 
 ### Patch Changes
