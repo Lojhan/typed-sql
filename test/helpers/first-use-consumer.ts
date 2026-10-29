@@ -70,11 +70,12 @@ export async function assertFirstUseConsumer(options: {
   const setupFile = join(directory, ".setup.mjs");
   await writeFile(setupFile, script);
   await execFile(process.execPath, [setupFile], { cwd: directory, env });
+  await rm(setupFile);
   const command = async (...args: string[]) =>
     execFile("pnpm", ["exec", "typed-sql", ...args], { cwd: directory, env, timeout: 60_000 });
   await command("generate");
   const first = await command("check", "--project", "tsconfig.json", "--show-types");
-  strict.match(first.stdout, /accountById.*Query</u);
+  strict.match(first.stdout.replaceAll("\\", "/"), /src\/main\.ts:.*Query</u);
   strict.match(first.stdout, /readonly \[bigint\]/u);
   strict.match(first.stdout, /Checked 1 project/u);
   const run = await execFile("pnpm", ["exec", "tsx", "src/main.ts"], { cwd: directory, env });

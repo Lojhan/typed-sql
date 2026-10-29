@@ -94,9 +94,8 @@ export async function runNativeCheck(options: {
       import.meta.url,
     ),
     {
-      execArgv: process.execArgv.filter(
-        (argument, index, args) => !argument.startsWith("--input-type") && args[index - 1] !== "--input-type",
-      ),
+      // The checker is compiled JavaScript; application loaders and watch/eval flags do not apply.
+      execArgv: [],
       workerData: {
         apiUrl: pathToFileURL(require.resolve("typescript/unstable/async")).href,
         cwd,
