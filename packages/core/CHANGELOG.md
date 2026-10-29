@@ -1,5 +1,16 @@
 # @typed-sql/core
 
+## 2.3.0
+
+### Minor Changes
+
+- f51b53d: Preserve precise result types for mapped scalar IN lists and scalar INSERT VALUES rows when the selected grammar proves result independence. Keep other repeated expressions conservative, scope cached analysis to its repeated ranges, map result-column locations through expanded SQL, and consume each SQL list delimiter explicitly.
+
+### Patch Changes
+
+- b5808b9: Validate query resource limits during rendering in a single traversal, retaining structural and rendered UTF-8 byte ceilings and the parameter limit.
+- bc4068e: Reduce temporary callback allocations when validating JSON arrays, tuples, and unions while retaining value, shape, and resource validation.
+
 ## 2.3.0-rc.2
 
 ### Minor Changes
