@@ -3,6 +3,7 @@ import { discoverRepeatedFragmentInterpolation, type ExtractedQuery, extractStru
 
 export interface RepeatedFragmentSite {
   readonly sourceSpan: SourceRange;
+  readonly sqlRange: Pick<SourceRange, "start" | "end">;
   readonly dynamic: boolean;
   readonly representativeItems: 1 | 2;
   readonly element: ExtractedQuery;
@@ -88,6 +89,7 @@ export function expandRepeatedFragments(
     }
     let first: ExtractedQuery | undefined;
     const siteOffset = parameterCount;
+    const sqlStart = sql.reduce((length, chunk) => length + chunk.length, 0);
     for (let itemIndex = 0; itemIndex < itemCount; itemIndex += 1) {
       const operand = discovery.elements[discovery.dynamic ? 0 : itemIndex]!;
       const fragment = extractStructuralOperand(source, operand, query.tagName, placeholder, parameterCount);
@@ -109,6 +111,7 @@ export function expandRepeatedFragments(
     if (first !== undefined) {
       sites.push({
         sourceSpan: discovery.range,
+        sqlRange: { start: sqlStart, end: sql.reduce((length, chunk) => length + chunk.length, 0) },
         dynamic: discovery.dynamic,
         representativeItems: dynamicItems,
         element: first,

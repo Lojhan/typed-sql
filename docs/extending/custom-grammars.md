@@ -25,6 +25,18 @@ Installing the grammar must not install a driver. Driver adapters load the appli
 
 Execution adapters can reuse `registerPreparedQuery` from `@typed-sql/core` for prepared-factory registration, query ownership, and render-variant checks. The adapter supplies its statement metadata, optional capacity policy, and logical owner-name mapping. Physical statement names and database-specific limits remain adapter responsibilities.
 
+## Repeated input evidence
+
+The compiler supplies `DialectAnalysisContext.repeatedFragmentRanges` when a statement contains
+runtime-sized fragment lists. These are UTF-16 offsets in the representative SQL. An analyzer can
+return `repeatedResultShapeStable: true` only when its own grammar proves that every supplied range
+can repeat without changing result column names, types, or SQL nullability. The non-empty list
+contract applies to every cardinality, not just the representative statements.
+
+Leave this field absent when the proof is unavailable. The compiler then widens repeated results
+to `unknown` and SQL-nullable types. Runtime value plans still check actual SQL and parameter
+positions. Returning evidence does not enable otherwise unsupported syntax or replace diagnostics.
+
 ## Minimal implementation
 
 ```ts

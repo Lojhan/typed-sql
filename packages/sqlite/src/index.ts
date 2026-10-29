@@ -8,6 +8,7 @@ import {
 import { assertSqliteServerEvidence, resolveSqliteCapabilities, SQLITE_CAPABILITIES } from "./capabilities.js";
 import { parseStatement, SqlParseError, tokenize } from "./parser/index.js";
 import { sqliteRuntimeValueType } from "./query.js";
+import { hasStableRepeatedResult } from "./repeated-inputs.js";
 import { resolveSqliteStatement } from "./resolver.js";
 import { analyzeSqliteSemantics } from "./semantics.js";
 import { parseSqliteSchemaSnapshot, type SqliteSchemaSnapshot } from "./snapshot.js";
@@ -56,6 +57,9 @@ export function sqlite(options: SqliteDialectOptions = {}): DialectPlugin<Sqlite
         });
         const analysis = {
           ...resolved,
+          ...(hasStableRepeatedResult(sql, statement, context.repeatedFragmentRanges)
+            ? { repeatedResultShapeStable: true as const }
+            : {}),
           semantics: resolved.diagnostics.some(({ severity }) => severity === "error")
             ? unknownQuerySemantics(statement.range, "SQLite semantic analysis reported an error.")
             : analyzeSqliteSemantics(statement, snapshot),

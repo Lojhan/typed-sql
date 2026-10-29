@@ -1,6 +1,10 @@
 import { assertFragmentListConformance } from "@typed-sql/conformance";
 import { describe, it, strict } from "poku";
-import { fragmentListCases, fragmentRows as rows } from "../../../test/helpers/fragment-list.js";
+import {
+  assertRepeatedInputInference,
+  fragmentListCases,
+  fragmentRows as rows,
+} from "../../../test/helpers/fragment-list.js";
 import { type PostgresSchemaSnapshot, postgres, sql } from "../src/index.js";
 import { postgresRenderer } from "../src/runtime.js";
 
@@ -60,5 +64,14 @@ await describe("PostgreSQL fragment-list conformance", async () => {
     });
     strict.strictEqual(report.grammar, "postgres");
     strict.deepStrictEqual(report.renderCardinalities, [1, 2, 5]);
+  });
+  await it("retains precise rows only with grammar-owned input repetition evidence", () => {
+    assertRepeatedInputInference({
+      dialect: postgres(),
+      snapshot,
+      castType: "bigint",
+      castParameterType: "bigint",
+      returningClause: "RETURNING id, email",
+    });
   });
 });

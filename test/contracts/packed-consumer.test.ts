@@ -60,7 +60,7 @@ async function writeEditorProject(
     const mappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
       (account) => sql.fragment\`(\${account.id}, \${account.email})\`,
     )} RETURNING id, email\`;
-    const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: unknown; email: unknown }> = true;
+    const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: bigint; email: string }> = true;
     const mappedParameters: Equal<QueryParameters<typeof mappedQuery>, readonly (bigint | string)[]> = true;
     const jsonQuery = sql\`SELECT jsonb_build_object('id', id, 'email', email) AS document FROM users\`;
     const jsonRow: Equal<QueryRow<typeof jsonQuery>, { document: { id: number; email: string } }> = true;
