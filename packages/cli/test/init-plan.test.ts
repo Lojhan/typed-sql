@@ -42,6 +42,11 @@ await describe("nonexecuting init planner", async () => {
         strict.ok(!plan.files.some((file) => file.path.endsWith("schema.json")));
         strict.equal(plan.dependencies[`@typed-sql/${grammar}`], "^2.1.0");
         strict.equal(plan.dependencies.typescript, TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion);
+        strict.ok(plan.dependencies["@types/node"]);
+        const compilerConfig = JSON.parse(
+          plan.files.find((file) => file.path === join(root, "tsconfig.json"))!.content,
+        );
+        strict.deepEqual(compilerConfig.compilerOptions.types, ["node"]);
         strict.ok(plan.pending.some((item) => item.includes("separate approval")));
         strict.deepEqual(await readdir(root), []);
       }

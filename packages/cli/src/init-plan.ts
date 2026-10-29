@@ -127,6 +127,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
     ["@typed-sql/core", `^${version}`],
     [grammars[grammar].package, `^${version}`],
     ["typescript", TYPESCRIPT_COMPILER_SUPPORT_POLICY.exactVersion],
+    ["@types/node", "^22.13.0"],
   ] as const) {
     const value = existing[name];
     if (value !== undefined && typeof value !== "string") throw new Error(`Invalid dependency ${name}`);
@@ -201,7 +202,7 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
     else if (file === "tsconfig.json")
       add(
         file,
-        `${JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: "ES2024", module: "NodeNext", jsx: "preserve", skipLibCheck: true }, include: ["src/**/*.ts", "src/**/*.tsx"] }, null, 2)}\n`,
+        `${JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: "ES2024", module: "NodeNext", types: ["node"], jsx: "preserve" }, include: ["src/**/*.ts", "src/**/*.tsx"] }, null, 2)}\n`,
       );
   }
   const ignorePath = join(root, ".gitignore");

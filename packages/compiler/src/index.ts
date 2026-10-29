@@ -12,8 +12,14 @@ export type {
   SourceAnalysisService,
 } from "./analysis.js";
 export { analyzeSource, createSourceAnalysisService, SOURCE_ANALYSIS_FORMAT_VERSION } from "./analysis.js";
-export type { CheckFileOptions, CheckFileResult, TypeScriptCheckResult } from "./check.js";
-export { checkFile } from "./check.js";
+export type {
+  CheckFileOptions,
+  CheckFileResult,
+  CheckProjectOptions,
+  CheckProjectResult,
+  TypeScriptCheckResult,
+} from "./check.js";
+export { checkFile, checkProject } from "./check.js";
 export type {
   AnalyzeSchemaCompatibilityOptions,
   CompatibilityClassification,

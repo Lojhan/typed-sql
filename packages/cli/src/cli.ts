@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join, parse, resolve } from "node:path";
+import { dirname, join, parse, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   analyzeSchemaCompatibility,
@@ -10,6 +10,7 @@ import {
   buildQueryManifest,
   captureQueryPlans,
   checkFile,
+  checkProject,
   collectQueryVerificationCandidates,
   listProjectSourceFiles,
   parseQueryManifest,
@@ -105,7 +106,8 @@ Global options:
 
 Examples:
   typed-sql capabilities --config typed-sql.config.ts
-  typed-sql check --config typed-sql.config.ts --file src/query.ts --project tsconfig.json
+  typed-sql check --project tsconfig.json
+  typed-sql check --file src/query.ts --project tsconfig.json --show-types
   typed-sql compat --before schema.before.json --after schema.after.json --before-manifest old.json --after-manifest new.json
   typed-sql doctor --config typed-sql.config.ts --json
   typed-sql doctor --config typed-sql.config.ts --support-bundle-preview
@@ -126,6 +128,7 @@ function parseArguments(args: readonly string[]): ParsedArguments {
     const argument = args[index]!;
     if (!argument.startsWith("--")) throw new Error(`Unexpected argument ${argument}`);
     if (
+      argument === "--show-types" ||
       argument === "--live" ||
       argument === "--json" ||
       argument === "--dry-run" ||
@@ -591,25 +594,62 @@ async function main(): Promise<void> {
   }
 
   if (parsed.command === "check") {
-    const file = resolve(required(parsed.options, "file"));
-    const result = await checkFile({
-      file,
+    const common = {
       schema: schemaFile,
       dialect,
       typePolicy: policy,
       ...(config.compiler?.maxStructuralVariants === undefined
         ? {}
         : { maxStructuralVariants: config.compiler.maxStructuralVariants }),
-      ...(parsed.options.project === undefined ? {} : { project: resolve(parsed.options.project) }),
-    });
-    for (const diagnostic of result.sqlDiagnostics) {
-      const suggestion = diagnostic.suggestion === undefined ? "" : ` ${diagnostic.suggestion}`;
-      process.stderr.write(
-        `${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${suggestion}\n`,
-      );
+    };
+    const report = (
+      files: readonly {
+        readonly file: string;
+        readonly analysis: import("@typed-sql/compiler").SourceAnalysisResult;
+      }[],
+      output: string,
+      ok: boolean,
+    ) => {
+      let sqlErrors = false;
+      for (const { file, analysis } of files) {
+        for (const diagnostic of analysis.diagnostics) {
+          sqlErrors ||= diagnostic.severity === "error";
+          const suggestion = diagnostic.suggestion === undefined ? "" : ` ${diagnostic.suggestion}`;
+          process.stderr.write(
+            `${file}:${diagnostic.range.line}:${diagnostic.range.column} - ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${suggestion}\n`,
+          );
+        }
+        if (parsed.options["show-types"] === "true")
+          for (const query of analysis.queries)
+            process.stdout.write(
+              `${relative(loaded.directory, file)}: ${query.binding?.name ?? `query ${query.index + 1}`} — ${query.queryType}\n`,
+            );
+      }
+      if (!sqlErrors && output) process.stderr.write(output);
+      if (!ok) process.exitCode = 1;
+    };
+    if (parsed.options.file !== undefined) {
+      const file = resolve(parsed.options.file);
+      const result = await checkFile({
+        ...common,
+        file,
+        ...(parsed.options.project === undefined ? {} : { project: resolve(parsed.options.project) }),
+      });
+      report(result.files ?? [{ file, analysis: result.analysis }], result.typeScript?.output ?? "", result.ok);
+    } else {
+      const projects =
+        parsed.options.project === undefined
+          ? (config.projects ?? ["tsconfig.json"]).map((project) => fromConfig(loaded.directory, project))
+          : [resolve(parsed.options.project)];
+      if (projects.length === 0) throw new Error("typed-sql check requires at least one TypeScript project");
+      let count = 0;
+      for (const project of projects) {
+        const result = await checkProject({ ...common, project });
+        report(result.files, result.typeScript.output, result.ok);
+        count += result.files.reduce((total, file) => total + file.analysis.queries.length, 0);
+      }
+      if (process.exitCode !== 1) process.stdout.write(`Checked ${projects.length} project(s), ${count} query(s).\n`);
     }
-    if (result.typeScript?.output) process.stderr.write(result.typeScript.output);
-    if (!result.ok) process.exitCode = 1;
     return;
   }
 

@@ -58,7 +58,20 @@ Do not run `vtsls` or `typescript-language-server` beside this proxy. An ordinar
 
 ## VS Code
 
-The repository includes an experimental VS Code extension that runs one thin language client per workspace folder. It resolves that folder's installed `@typed-sql/language-server`, so the VS Code integration does not carry a second analyzer or TypeScript bridge. Build and install the VSIX using the instructions in the [`editors/vscode`](https://github.com/Lojhan/typed-sql/tree/main/editors/vscode) directory.
+Install [typed-sql from Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=lojhan.typed-sql)
+and Microsoft's [TypeScript 7 extension](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview).
+The typed-sql extension uses each workspace folder's installed language server. A repository checkout
+or local VSIX build is not required.
+
+After the CLI quickstart works, configure the application:
+
+```sh
+pnpm exec typed-sql init --grammar postgres --editor vscode --apply --verify
+```
+
+Choose `mysql` or `sqlite` for those grammars. This preserves the existing database config, writes
+workspace settings and recommendations, and checks the installed server. Run `typed-sql check` to
+check the project itself; server startup and editor-host readiness are distinct.
 
 The preferred VS Code mode uses Microsoft's [TypeScript 7 extension](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview) as the language client. Its custom SDK launches the installed typed-sql proxy. Microsoft's built-in TypeScript extension stays enabled and coordinates provider ownership with the native client.
 

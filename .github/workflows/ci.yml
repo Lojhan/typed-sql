@@ -575,6 +575,8 @@ jobs:
           cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - name: Check project inference and original source positions on the host
+        run: pnpm exec poku packages/compiler/test/project-check.test.ts --reporter=compact --enforce
       - run: pnpm exec poku test/contracts/zed-launcher.test.ts --reporter=compact --enforce
       - run: pnpm --filter ./editors/vscode package:vsix
       - run: pnpm --filter ./editors/vscode test:host

@@ -9,6 +9,8 @@ import type {
   BuildQueryManifestResult,
   CheckFileOptions,
   CheckFileResult,
+  CheckProjectOptions,
+  CheckProjectResult,
   CollectQueryVerificationCandidatesOptions,
   CompatibilityClassification,
   CompatibilityEvidence,
@@ -543,6 +545,8 @@ type ReferencedStableTypes =
   | UnresolvedQueryManifestEntry
   | VerifyQueryManifestOptions
   | VerifyQueryManifestResult
+  | CheckProjectOptions
+  | CheckProjectResult
   | TypeScriptCheckResult
   | CodecConformanceCase<unknown, unknown>
   | CodecConformanceFixture<unknown, unknown>
@@ -775,6 +779,7 @@ const expectedRuntimeExports = {
     "buildQueryValuePlan",
     "captureQueryPlans",
     "checkFile",
+    "checkProject",
     "compileSource",
     "createSourceAnalysisService",
     "collectQueryVerificationCandidates",

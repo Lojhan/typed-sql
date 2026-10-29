@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
 import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
@@ -406,6 +407,12 @@ await describe("packed public packages", async () => {
       await execFile("pnpm", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], {
         cwd: consumer,
         env: { ...isolatedEnvironment, CI: "true" },
+      });
+      await assertFirstUseConsumer({
+        directory: join(temporary, "first-use"),
+        workspace,
+        dependencies,
+        env: isolatedEnvironment,
       });
       await writeFile(
         join(consumer, "verify.mjs"),

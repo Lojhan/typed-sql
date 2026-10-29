@@ -37,7 +37,7 @@ mkdir src
 
 ```sh
 pnpm add @typed-sql/core @typed-sql/mysql mysql2
-pnpm add -D @typed-sql/cli typescript tsx
+pnpm add -D @typed-sql/cli typescript tsx @types/node
 ```
 
 `mysql2` is an explicit application dependency. Installing `@typed-sql/mysql` does not install it.
@@ -51,6 +51,7 @@ Create `tsconfig.json`:
     "moduleResolution": "NodeNext",
     "target": "ES2024",
     "strict": true,
+    "types": ["node"],
     "noEmit": true
   },
   "include": ["src/**/*.ts", "typed-sql.config.ts"]
@@ -147,7 +148,7 @@ export const accountById = (accountId: bigint) => sql`
 ## 7. Check the inferred contract
 
 ```sh
-pnpm exec typed-sql check --project tsconfig.json
+pnpm exec typed-sql check --project tsconfig.json --show-types
 ```
 
 Against the table above, the compiler proves:
