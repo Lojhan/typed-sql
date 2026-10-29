@@ -1,5 +1,9 @@
 # @typed-sql/ast
 
+## 2.3.0
+
+No changes in this release.
+
 ## 2.3.0-rc.2
 
 ### Patch Changes
