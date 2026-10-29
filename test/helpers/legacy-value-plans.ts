@@ -176,7 +176,7 @@ export async function assertCompiledLegacyValuePlans<Snapshot extends SchemaSnap
   strict.equal(compiled.queries.length, 2);
   for (const query of compiled.queries)
     for (const choice of query.valuePlanChoices ?? [])
-      strict.equal(choice.plan.columns[0]?.type, query.repeatedFragments === undefined ? type : "unknown");
+      strict.equal(choice.plan.columns[0]?.type, type);
   const temporary = await mkdtemp(join(directory, ".compiled-runtime-plans-"));
   try {
     const file = join(temporary, "queries.mts");
