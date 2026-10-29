@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFile = promisify(execFileCallback);
@@ -38,7 +38,9 @@ async function tscBinary(start: string): Promise<string> {
 
 function isApplicationSource(file: string): boolean {
   return (
-    !file.split(sep).includes("node_modules") && !/\.d\.(?:c|m)?ts$/u.test(file) && /\.(?:c|m)?(?:j|t)sx?$/u.test(file)
+    !file.split(/[\\/]/u).includes("node_modules") &&
+    !/\.d\.(?:c|m)?ts$/u.test(file) &&
+    /\.(?:c|m)?(?:j|t)sx?$/u.test(file)
   );
 }
 

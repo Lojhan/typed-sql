@@ -33,6 +33,11 @@ export async function findConfig(start: string): Promise<string | undefined> {
   }
 }
 
+function fileKey(file: string): string {
+  const path = resolve(file);
+  return process.platform === "win32" ? path.toLowerCase() : path;
+}
+
 function originalOffset(analysis: SourceAnalysisResult, offset: number): number {
   let shift = 0;
   for (const insertion of analysis.insertions) {
@@ -48,7 +53,7 @@ function formatDiagnostic(diagnostic: Diagnostic, analyses: ReadonlyMap<string, 
   let location = "";
   if (diagnostic.fileName !== undefined) {
     const file = resolve(diagnostic.fileName);
-    const analysis = analyses.get(file);
+    const analysis = analyses.get(fileKey(file));
     const source = analysis?.source ?? readFileSync(file, "utf8");
     const offset = analysis === undefined ? diagnostic.pos : originalOffset(analysis, diagnostic.pos);
     const prefix = source.slice(0, Math.max(0, offset));
@@ -81,9 +86,13 @@ export async function runNativeCheck(options: {
     typeScriptTimeoutMs: options.timeout,
     ...(options.file === undefined ? {} : { entryFile: options.file }),
   });
+  const known = new Set([...options.analyses.keys()].map(fileKey));
   for (const file of files) {
     const key = resolve(file);
-    if (!options.analyses.has(key)) options.analyses.set(key, options.analyze(key, await readFile(key, "utf8")));
+    if (!known.has(fileKey(key))) {
+      options.analyses.set(key, options.analyze(key, await readFile(key, "utf8")));
+      known.add(fileKey(key));
+    }
   }
   const virtualProject = options.file === undefined ? undefined : join(cwd, `.typed-sql-check-${randomUUID()}.json`);
   const worker = new Worker(
@@ -102,7 +111,9 @@ export async function runNativeCheck(options: {
         project: options.project,
         file: options.file,
         virtualProject,
-        files: Object.fromEntries([...options.analyses].map(([file, analysis]) => [file, analysis.transformedSource])),
+        files: Object.fromEntries(
+          [...options.analyses].map(([file, analysis]) => [fileKey(file), analysis.transformedSource]),
+        ),
       },
     },
   );
@@ -127,13 +138,18 @@ export async function runNativeCheck(options: {
     const unique = [
       ...new Map(diagnostics.map((item) => [`${item.fileName}:${item.pos}:${item.code}:${item.text}`, item])).values(),
     ];
+    const byFile = new Map([...options.analyses].map(([file, analysis]) => [fileKey(file), analysis]));
     return {
       exitCode: unique.some((diagnostic) => diagnostic.category === 1) ? 1 : 0,
       output: unique
         .map((diagnostic) =>
           formatDiagnostic(
-            diagnostic.fileName === virtualProject ? { ...diagnostic, fileName: options.project, pos: 0 } : diagnostic,
-            options.analyses,
+            diagnostic.fileName !== undefined &&
+              virtualProject !== undefined &&
+              fileKey(diagnostic.fileName) === fileKey(virtualProject)
+              ? { ...diagnostic, fileName: options.project, pos: 0 }
+              : diagnostic,
+            byFile,
           ),
         )
         .join(""),

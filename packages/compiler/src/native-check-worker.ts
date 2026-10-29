@@ -11,13 +11,18 @@ const input = workerData as {
   readonly files: Readonly<Record<string, string>>;
 };
 const { API: NativeAPI } = (await import(input.apiUrl)) as { API: typeof API };
+function fileKey(file: string): string {
+  const path = resolve(file);
+  return process.platform === "win32" ? path.toLowerCase() : path;
+}
+const virtualProject = input.virtualProject === undefined ? undefined : fileKey(input.virtualProject);
 let changed: string | undefined;
 const api = new NativeAPI({
   cwd: input.cwd,
   fs: {
-    fileExists: (file) => (file === input.virtualProject ? true : undefined),
+    fileExists: (file) => (fileKey(file) === virtualProject ? true : undefined),
     readFile(file) {
-      if (file === input.virtualProject)
+      if (fileKey(file) === virtualProject)
         return JSON.stringify({
           extends: input.project,
           compilerOptions: {
@@ -30,7 +35,7 @@ const api = new NativeAPI({
           files: [input.file],
           include: [],
         });
-      const key = resolve(file);
+      const key = fileKey(file);
       if (Object.hasOwn(input.files, key)) return input.files[key];
       if (
         !file.split(/[\\/]/u).includes("node_modules") &&
