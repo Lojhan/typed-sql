@@ -1,0 +1,1754 @@
+{
+  "context": {
+    "commit": "a447c636b56f594f95a3e9a6fc9676f1c9435ff5",
+    "diffHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "node": "v24.11.1",
+    "platform": "darwin",
+    "release": "27.0.0",
+    "architecture": "arm64",
+    "driver": "sqlite",
+    "cpu": "Apple M3 Pro",
+    "versions": {
+      "typedSql": "2.3.0-rc.1",
+      "reylo": "0.6.0",
+      "reyloGrammar": "0.6.0",
+      "compiler": "2.3.0-rc.1",
+      "core": "2.3.0-rc.1"
+    },
+    "trials": 3,
+    "initialSeed": 29,
+    "startedAt": "2026-10-29T01:15:46.969Z",
+    "finishedAt": "2026-10-29T01:16:12.361Z"
+  },
+  "methodology": "Separate fresh processes/projects avoid competing .sql loaders; deterministic shuffled candidate order per trial. Cold startup is process spawn to first validated query report, including loader imports/analysis but excluding fixture creation; first-call latency separately excludes loader/import/setup. Warm samples exclude imports/setup/warmup/assertions. p50/p95 must be computed from batch-average raw samples, not individual request-tail latency. One SQLite connection: concurrency means queued logical calls, not parallel SQLite I/O; raw-cached reuses StatementSync, raw-prepare prepares each call. All candidates return equivalent rows; JSON text is parsed within timed operations where the driver/frontend does not decode it; JSON result order is not a workload guarantee. Reylo freshness behavior is unchanged. Heap-used delta is retained-heap noise, not allocated bytes; allocation/CPU attribution comes from separate V8 profiles, whose timings are not comparable to ordinary runs.",
+  "results": [
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 40.017708,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.008341472666666665, 0.007773444000000003, 0.007736833333333341, 0.007346166666666667, 0.006693444666666664,
+        0.006898388666666676, 0.007773361333333336, 0.00765322199999999, 0.010521861333333334, 0.0068389719999999935,
+        0.0066122780000000035, 0.006574666666666682
+      ],
+      "cpuMicroseconds": {
+        "user": 120297,
+        "system": 54716
+      },
+      "heapUsedDeltaBytes": -3356552,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 128.467542,
+      "firstCallMilliseconds": 0.661958999999996
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.231999999999971,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.006095139333333331, 0.005652888666666665, 0.005748471999999992, 0.005642722666666676, 0.005124333333333331,
+        0.005074666666666663, 0.005415611333333326, 0.005400083333333328, 0.0051025559999999925, 0.005056750000000003,
+        0.004994722666666671, 0.005006444000000007
+      ],
+      "cpuMicroseconds": {
+        "user": 73199,
+        "system": 49111
+      },
+      "heapUsedDeltaBytes": 2067360,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 108.45970900000003,
+      "firstCallMilliseconds": 0.7386670000000066
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 18.351625000000013,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.007269777333333337, 0.006930471999999999, 0.006916305333333336, 0.006300777999999999, 0.00651658333333333,
+        0.0065953886666666696, 0.00686269466666667, 0.006565610666666657, 0.00658113933333334, 0.006414750000000007,
+        0.0062724999999999986, 0.006291500000000004
+      ],
+      "cpuMicroseconds": {
+        "user": 103734,
+        "system": 52376
+      },
+      "heapUsedDeltaBytes": 3713432,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 69.76708399999995,
+      "firstCallMilliseconds": 0.8254590000000022
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.308208000000036,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.004126472, 0.004086222666666667, 0.004079721999999999, 0.004125888666666668, 0.004111889333333333,
+        0.004089139333333331, 0.0041838333333333345, 0.004060194000000005, 0.0040653886666666686, 0.004082361333333334,
+        0.004013166666666668, 0.0039704726666666655
+      ],
+      "cpuMicroseconds": {
+        "user": 29955,
+        "system": 46556
+      },
+      "heapUsedDeltaBytes": 2965808,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.481667000000016,
+      "firstCallMilliseconds": 0.0457920000000005
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.1035830000000715,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.011050389333333329, 0.01149436133333333, 0.007588833333333336, 0.00684336133333333, 0.007089778000000005,
+        0.007079528000000001, 0.0070485553333333355, 0.007156861333333343, 0.00601094466666666, 0.006648416666666682,
+        0.006342944666666673, 0.006419166666666664
+      ],
+      "cpuMicroseconds": {
+        "user": 138160,
+        "system": 52303
+      },
+      "heapUsedDeltaBytes": 17464544,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 97.21991600000001,
+      "firstCallMilliseconds": 0.66004199999999
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.2215419999999995,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.0059914999999999925, 0.005727028000000009, 0.005759389333333341, 0.0055165833333333395, 0.005371805999999992,
+        0.0054524439999999955, 0.005645333333333326, 0.005541306000000001, 0.005237444000000001, 0.005182805333333325,
+        0.005249166666666668, 0.00520186133333334
+      ],
+      "cpuMicroseconds": {
+        "user": 80436,
+        "system": 49392
+      },
+      "heapUsedDeltaBytes": 2877152,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 101.27308399999993,
+      "firstCallMilliseconds": 0.8850419999999986
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 3.8842910000000757,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.006804250000000001, 0.006311749999999999, 0.006594388666666665, 0.006389527333333338, 0.006479111333333331,
+        0.006493750000000006, 0.006732639333333339, 0.006675805333333339, 0.005957750000000013, 0.006163444666666654,
+        0.005995861333333343, 0.00604213866666665
+      ],
+      "cpuMicroseconds": {
+        "user": 105151,
+        "system": 50657
+      },
+      "heapUsedDeltaBytes": 484152,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 64.38458400000013,
+      "firstCallMilliseconds": 0.8125
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.262000000000171,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.0040055, 0.004191083333333334, 0.0042155553333333325, 0.0041783613333333325, 0.004138361333333331,
+        0.004124333333333335, 0.004214639333333333, 0.004217888666666667, 0.004172777333333329, 0.0041442499999999995,
+        0.00410775, 0.004072778
+      ],
+      "cpuMicroseconds": {
+        "user": 32343,
+        "system": 46241
+      },
+      "heapUsedDeltaBytes": 3016736,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.57116700000006,
+      "firstCallMilliseconds": 0.04616700000000051
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.265333999999939,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.029477749999999997, 0.022476249999999993, 0.022600166666666668, 0.02202572200000001, 0.022388861333333353,
+        0.02216175000000002, 0.022646083333333348, 0.022583193999999973, 0.02198647200000001, 0.028185194666666687,
+        0.022459750000000025, 0.022914500000000015
+      ],
+      "cpuMicroseconds": {
+        "user": 401284,
+        "system": 67001
+      },
+      "heapUsedDeltaBytes": 36656608,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 108.11295900000005,
+      "firstCallMilliseconds": 0.8010829999999913
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.3211669999996047,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.018816750000000004, 0.018811722000000003, 0.018000805333333328, 0.01791622266666665, 0.018190861333333336,
+        0.017342000000000003, 0.01758633333333334, 0.018024194000000004, 0.017044611333333327, 0.017025277999999994,
+        0.017452805333333345, 0.01676297199999999
+      ],
+      "cpuMicroseconds": {
+        "user": 299524,
+        "system": 58191
+      },
+      "heapUsedDeltaBytes": 6020056,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 97.2042919999999,
+      "firstCallMilliseconds": 0.8525000000000063
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 3.6720829999999296,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.022626944, 0.021669055333333336, 0.021678138666666655, 0.02142083333333333, 0.021444472, 0.021370611333333348,
+        0.027147694, 0.021175110666666646, 0.020864694666666652, 0.020677611333333328, 0.021357833333333322,
+        0.021000278000000018
+      ],
+      "cpuMicroseconds": {
+        "user": 373817,
+        "system": 64391
+      },
+      "heapUsedDeltaBytes": 5402736,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 64.7507499999997,
+      "firstCallMilliseconds": 0.835125000000005
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.2556249999997817,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.01224619466666667, 0.012406056000000002, 0.012529778000000002, 0.012264361333333331, 0.012040444666666672,
+        0.012232833333333342, 0.012187527333333321, 0.01254036133333335, 0.01213702733333334, 0.012206333333333343,
+        0.011841055999999999, 0.011695333333333337
+      ],
+      "cpuMicroseconds": {
+        "user": 177391,
+        "system": 51451
+      },
+      "heapUsedDeltaBytes": 14431096,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 26.41924999999992,
+      "firstCallMilliseconds": 0.05770899999999912
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.5237499999998363,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.028536166666666675, 0.022051972666666662, 0.021375638666666683, 0.021301110666666657, 0.02149305533333332,
+        0.0257341666666667, 0.023716028000000014, 0.021745639333333316, 0.02162766666666668, 0.020954306000000013,
+        0.021113221999999987, 0.021395360666666686
+      ],
+      "cpuMicroseconds": {
+        "user": 392144,
+        "system": 64475
+      },
+      "heapUsedDeltaBytes": 46593120,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 98.81979200000023,
+      "firstCallMilliseconds": 0.7094579999999979
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.3126250000000255,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.01817947266666667, 0.018847944666666658, 0.017844694666666668, 0.01774133333333335, 0.01829538866666667,
+        0.017877472000000012, 0.017856083333333345, 0.01831108333333331, 0.01686927800000001, 0.01739091666666669,
+        0.017141166666666662, 0.017649693999999994
+      ],
+      "cpuMicroseconds": {
+        "user": 303605,
+        "system": 57575
+      },
+      "heapUsedDeltaBytes": 1116136,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 93.50033300000041,
+      "firstCallMilliseconds": 0.7900000000000063
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 3.4415839999992386,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.022452111333333333, 0.021216971999999997, 0.02159577733333333, 0.021457833333333325, 0.025929916666666674,
+        0.021354250000000016, 0.022060999999999997, 0.021191750000000033, 0.020549499999999967, 0.020691638666666675,
+        0.021819138666666654, 0.021521222000000003
+      ],
+      "cpuMicroseconds": {
+        "user": 376487,
+        "system": 62873
+      },
+      "heapUsedDeltaBytes": 2566040,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 64.40462500000012,
+      "firstCallMilliseconds": 0.8681669999999997
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.4267500000005384,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.0128705, 0.013187250000000001, 0.013023860666666665, 0.012409750000000002, 0.011730833333333331,
+        0.012397999999999996, 0.012790056000000011, 0.012614888666666673, 0.012331805333333326, 0.012236694666666666,
+        0.01173663933333332, 0.01207086133333333
+      ],
+      "cpuMicroseconds": {
+        "user": 181792,
+        "system": 52675
+      },
+      "heapUsedDeltaBytes": 19813016,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 29.449416000000383,
+      "firstCallMilliseconds": 0.05270799999999909
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.087333999999828,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.027891222, 0.023981833333333327, 0.02311380600000001, 0.02791913866666666, 0.023519222000000013, 0.02267225,
+        0.023102778000000018, 0.023182944666666684, 0.023464777999999985, 0.023636833333333357, 0.023539278000000004,
+        0.02347600000000004
+      ],
+      "cpuMicroseconds": {
+        "user": 427620,
+        "system": 59189
+      },
+      "heapUsedDeltaBytes": 7109808,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 116.71854200000053,
+      "firstCallMilliseconds": 1.236582999999996
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.1929589999999735,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.014301138666666664, 0.013984305333333339, 0.014130166666666676, 0.014409166666666674, 0.013502861333333328,
+        0.013828638666666677, 0.01398394399999999, 0.014025333333333341, 0.013882138666666682, 0.013955388666666674,
+        0.013849028000000013, 0.013393805333333338
+      ],
+      "cpuMicroseconds": {
+        "user": 225634,
+        "system": 51475
+      },
+      "heapUsedDeltaBytes": 3490856,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 95.64229199999954,
+      "firstCallMilliseconds": 0.719333000000006
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 4.864749999999731,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.026413083333333334, 0.030017750000000006, 0.026581666666666667, 0.02618141666666666, 0.026101916666666662,
+        0.02574452800000002, 0.02601544466666667, 0.02568388866666665, 0.025299805333333324, 0.025108500000000013,
+        0.02499502800000001, 0.02501241666666666
+      ],
+      "cpuMicroseconds": {
+        "user": 455174,
+        "system": 57111
+      },
+      "heapUsedDeltaBytes": 1011184,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 64.7442089999995,
+      "firstCallMilliseconds": 0.943792000000002
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.2304999999996653,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012960000000000001, 0.012679083333333334, 0.012742722666666666, 0.012549250000000001, 0.012610472666666662,
+        0.01255147199999999, 0.012568555333333335, 0.012453611333333336, 0.01243380533333332, 0.012481028,
+        0.012509000000000015, 0.012431444666666664
+      ],
+      "cpuMicroseconds": {
+        "user": 180713,
+        "system": 49546
+      },
+      "heapUsedDeltaBytes": 1098800,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 26.56816600000002,
+      "firstCallMilliseconds": 0.0728749999999998
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.0374159999992116,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.028198888666666665, 0.022909943999999995, 0.023512972666666673, 0.022757583333333324, 0.022941333333333317,
+        0.022646888666666656, 0.023040583333333302, 0.023223027333333333, 0.023033222000000023, 0.023403138666666677,
+        0.023282389333333337, 0.023369666666666677
+      ],
+      "cpuMicroseconds": {
+        "user": 419737,
+        "system": 62277
+      },
+      "heapUsedDeltaBytes": 9368032,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 106.00995899999998,
+      "firstCallMilliseconds": 0.8864169999999945
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.327874999999949,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.014613277999999999, 0.014786138666666658, 0.01416766666666668, 0.014406055999999997, 0.014293972666666661,
+        0.014034027999999997, 0.014275639333333326, 0.013994889333333314, 0.01433219466666666, 0.014145722666666643,
+        0.013790055333333346, 0.01422977800000001
+      ],
+      "cpuMicroseconds": {
+        "user": 229205,
+        "system": 54822
+      },
+      "heapUsedDeltaBytes": 2715736,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 93.07374999999956,
+      "firstCallMilliseconds": 0.777000000000001
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 8.833832999999686,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.026165806000000003, 0.02585413866666666, 0.026404222666666668, 0.025963638666666667, 0.02628888866666667,
+        0.025847943999999984, 0.025943277333333337, 0.025569610666666676, 0.025265083333333337, 0.02538016666666666,
+        0.025045388666666668, 0.027942277333333324
+      ],
+      "cpuMicroseconds": {
+        "user": 453380,
+        "system": 58443
+      },
+      "heapUsedDeltaBytes": 4804160,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 67.42274999999972,
+      "firstCallMilliseconds": 1.0491250000000036
+    },
+    {
+      "trial": 0,
+      "fixtureBuildMilliseconds": 2.2645840000004682,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012411221999999998, 0.0128105, 0.012557722666666668, 0.012534499999999999, 0.012206805333333336,
+        0.01256161133333334, 0.012375610666666679, 0.012419388666666654, 0.012835416666666655, 0.015334888666666662,
+        0.012648138666666663, 0.012654694000000006
+      ],
+      "cpuMicroseconds": {
+        "user": 182173,
+        "system": 51167
+      },
+      "heapUsedDeltaBytes": 1855024,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.89008300000023,
+      "firstCallMilliseconds": 0.07579100000000061
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.489417000000685,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.005823277999999997, 0.0055731386666666655, 0.0055671113333333345, 0.005489583333333333, 0.005251361333333345,
+        0.005288222666666665, 0.005391527333333329, 0.0053840553333333215, 0.005138471999999998, 0.005073583333333336,
+        0.005030250000000004, 0.0050126666666666705
+      ],
+      "cpuMicroseconds": {
+        "user": 71614,
+        "system": 49708
+      },
+      "heapUsedDeltaBytes": 2094448,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 94.78125,
+      "firstCallMilliseconds": 0.7319160000000124
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.1734579999993002,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.004050916666666666, 0.004083694666666666, 0.004075833333333336, 0.004073472, 0.004118638666666665,
+        0.004077805333333335, 0.004256888666666664, 0.0041484446666666674, 0.004091250000000002, 0.004070916666666666,
+        0.004040388666666672, 0.003966055333333325
+      ],
+      "cpuMicroseconds": {
+        "user": 29766,
+        "system": 46839
+      },
+      "heapUsedDeltaBytes": 2935264,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.257917000000816,
+      "firstCallMilliseconds": 0.04849999999999888
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 1.9440420000009908,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.011599639333333338, 0.01212361066666667, 0.008041333333333322, 0.007236166666666672, 0.0073993613333333316,
+        0.007420139333333319, 0.007505861333333333, 0.007297833333333339, 0.006784139333333333, 0.006539278000000005,
+        0.006758944666666669, 0.006560499999999991
+      ],
+      "cpuMicroseconds": {
+        "user": 137798,
+        "system": 55570
+      },
+      "heapUsedDeltaBytes": 16518872,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 99.80091600000014,
+      "firstCallMilliseconds": 0.6976250000000022
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 3.167874999999185,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.007735111333333331, 0.0069106666666666665, 0.007031694666666671, 0.006690443999999995, 0.006576999999999998,
+        0.006589527333333327, 0.006772639333333331, 0.006645999999999996, 0.00605622200000001, 0.0060465,
+        0.006034194666666679, 0.0060449166666666655
+      ],
+      "cpuMicroseconds": {
+        "user": 103336,
+        "system": 52111
+      },
+      "heapUsedDeltaBytes": 3509032,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 70.31720800000039,
+      "firstCallMilliseconds": 0.8777499999999989
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.2850840000010066,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.005957471999999996, 0.005666055333333333, 0.005742833333333342, 0.005190972000000007, 0.005329221999999996,
+        0.00531552800000001, 0.0055264446666666725, 0.0053927500000000165, 0.005219027999999999, 0.005172194666666656,
+        0.0051978886666666614, 0.005064472000000005
+      ],
+      "cpuMicroseconds": {
+        "user": 78386,
+        "system": 48691
+      },
+      "heapUsedDeltaBytes": 2903808,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 92.44687499999964,
+      "firstCallMilliseconds": 0.7620409999999964
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.012957999999344,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.004277277999999998, 0.004313055333333334, 0.0042795559999999995, 0.0042724719999999985, 0.004234333333333335,
+        0.004226972666666669, 0.004327222666666667, 0.004245500000000002, 0.004292027999999997, 0.00418786133333334,
+        0.00415061133333333, 0.004131583333333329
+      ],
+      "cpuMicroseconds": {
+        "user": 32491,
+        "system": 47737
+      },
+      "heapUsedDeltaBytes": 3016336,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.2214159999985,
+      "firstCallMilliseconds": 0.04933300000000074
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.0617910000000848,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.0076699720000000015, 0.007478111333333336, 0.007310583333333331, 0.006721833333333327, 0.006833389333333325,
+        0.006780139333333333, 0.007063583333333345, 0.0070161386666666775, 0.006485806000000006, 0.006273777333333328,
+        0.006297333333333332, 0.006235250000000008
+      ],
+      "cpuMicroseconds": {
+        "user": 113909,
+        "system": 51078
+      },
+      "heapUsedDeltaBytes": 5778888,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 97.84891600000083,
+      "firstCallMilliseconds": 0.6297500000000014
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 3.592500000000655,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.007003027999999995, 0.006468472000000001, 0.006438250000000001, 0.006373943999999994, 0.006403443999999998,
+        0.006671638666666667, 0.006882083333333336, 0.009241499999999993, 0.00605744466666666, 0.005994389333333345,
+        0.006022444000000007, 0.006129777333333322
+      ],
+      "cpuMicroseconds": {
+        "user": 106979,
+        "system": 53376
+      },
+      "heapUsedDeltaBytes": 403056,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 63.088417000000845,
+      "firstCallMilliseconds": 0.7438750000000027
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 1.9966669999994338,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.018016555333333333, 0.01840594466666667, 0.01769788866666666, 0.017871055333333344, 0.01828522266666666,
+        0.01772402733333333, 0.018076916666666647, 0.01888188866666667, 0.01755386066666665, 0.01737163933333333,
+        0.016852971999999983, 0.017170694666666653
+      ],
+      "cpuMicroseconds": {
+        "user": 301576,
+        "system": 56648
+      },
+      "heapUsedDeltaBytes": 5973920,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 92.74041700000089,
+      "firstCallMilliseconds": 0.7554580000000044
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.206083999999464,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.01233075, 0.012091528, 0.01229222266666667, 0.011776388666666662, 0.012191639333333332, 0.012100833333333345,
+        0.012243528000000007, 0.012331110666666669, 0.01215297266666666, 0.011836694666666668, 0.011972388666666651,
+        0.011708111333333344
+      ],
+      "cpuMicroseconds": {
+        "user": 175174,
+        "system": 51160
+      },
+      "heapUsedDeltaBytes": 14907088,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 27.82391699999971,
+      "firstCallMilliseconds": 0.0517920000000025
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.2987080000002607,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.028866971999999994, 0.023029083333333346, 0.021890805333333332, 0.02232211133333332, 0.022263639333333324,
+        0.022100083333333336, 0.02238375, 0.02232086133333333, 0.02177361133333333, 0.021646916666666696,
+        0.02144980533333334, 0.021371556000000017
+      ],
+      "cpuMicroseconds": {
+        "user": 394537,
+        "system": 63134
+      },
+      "heapUsedDeltaBytes": 43811776,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 106.33837499999936,
+      "firstCallMilliseconds": 0.7632080000000059
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 3.4204589999990276,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.022704056, 0.021769639333333327, 0.02169141666666665, 0.021634222666666668, 0.021968721999999996,
+        0.022223193999999998, 0.022061638666666643, 0.02161816666666664, 0.021782000000000003, 0.020814861333333358,
+        0.02168163866666665, 0.020598361333333325
+      ],
+      "cpuMicroseconds": {
+        "user": 373320,
+        "system": 62098
+      },
+      "heapUsedDeltaBytes": 2603480,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 60.91416600000048,
+      "firstCallMilliseconds": 1.100791000000001
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.0893340000002354,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.018034527999999994, 0.018571472, 0.017690444000000013, 0.017711944666666663, 0.017955805999999994,
+        0.017556443999999997, 0.017747888666666652, 0.018133694666666655, 0.01704861066666668, 0.01725600000000001,
+        0.016949416666666668, 0.017107111333333327
+      ],
+      "cpuMicroseconds": {
+        "user": 294619,
+        "system": 57747
+      },
+      "heapUsedDeltaBytes": 32486888,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 93.2298750000009,
+      "firstCallMilliseconds": 0.8290410000000037
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.272624999999607,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012312944666666669, 0.01218013933333333, 0.019070222, 0.012325361333333338, 0.01225627800000001,
+        0.012368500000000003, 0.014912055333333323, 0.012272722000000007, 0.01259205533333333, 0.011796110666666663,
+        0.011687860666666666, 0.011888666666666665
+      ],
+      "cpuMicroseconds": {
+        "user": 188584,
+        "system": 55464
+      },
+      "heapUsedDeltaBytes": 10910632,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.599334000000454,
+      "firstCallMilliseconds": 0.05424999999999969
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.12554099999943,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.02784552799999999, 0.021841777999999996, 0.02146216666666665, 0.021355778000000006, 0.02136761133333334,
+        0.02146533333333332, 0.02176819466666666, 0.021640583333333324, 0.021583610666666687, 0.021203722000000008,
+        0.021415277333333354, 0.02120888866666667
+      ],
+      "cpuMicroseconds": {
+        "user": 385533,
+        "system": 59569
+      },
+      "heapUsedDeltaBytes": 46851376,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 99.57783400000153,
+      "firstCallMilliseconds": 0.7615830000000017
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 3.2525000000005093,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.022017027333333328, 0.020879444000000007, 0.02138375, 0.02142941666666667, 0.02155591666666667,
+        0.023996999999999977, 0.021607944000000014, 0.021372639333333342, 0.02063552800000002, 0.02053277800000001,
+        0.021062389333333348, 0.020319611333333303
+      ],
+      "cpuMicroseconds": {
+        "user": 368494,
+        "system": 61032
+      },
+      "heapUsedDeltaBytes": 2142456,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 64.94950000000063,
+      "firstCallMilliseconds": 0.8855410000000035
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.230833999999959,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.014485527999999998, 0.014329833333333332, 0.014205721999999999, 0.014083916666666672, 0.013723971999999984,
+        0.013646888666666674, 0.014122805333333323, 0.01373877733333334, 0.01384958333333331, 0.013761083333333356,
+        0.013699555333333327, 0.013620027333333345
+      ],
+      "cpuMicroseconds": {
+        "user": 225001,
+        "system": 51934
+      },
+      "heapUsedDeltaBytes": 3638840,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 94.19716599999992,
+      "firstCallMilliseconds": 0.7386669999999924
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.1712079999997513,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012960194, 0.012808721999999998, 0.012646055333333331, 0.012816694666666668, 0.012635499999999997,
+        0.012667278, 0.01275661066666667, 0.012635777333333332, 0.012520166666666664, 0.012466306000000012,
+        0.012464110666666651, 0.012532361333333332
+      ],
+      "cpuMicroseconds": {
+        "user": 181681,
+        "system": 50065
+      },
+      "heapUsedDeltaBytes": 1101064,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 26.010207999999693,
+      "firstCallMilliseconds": 0.0753749999999993
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.459332999998878,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.029075221999999998, 0.023992555333333332, 0.023524166666666683, 0.024854527999999997, 0.023582305333333352,
+        0.022989166666666658, 0.02370013933333333, 0.02364433333333333, 0.02329080533333331, 0.023646778000000004,
+        0.023642972000000022, 0.02348749999999999
+      ],
+      "cpuMicroseconds": {
+        "user": 430904,
+        "system": 61253
+      },
+      "heapUsedDeltaBytes": 7209688,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 112.98233400000026,
+      "firstCallMilliseconds": 0.903665999999987
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 3.466999999998734,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.026752055333333326, 0.026398527333333345, 0.02958405533333333, 0.026601556000000016, 0.026282944000000006,
+        0.025776000000000028, 0.026134666666666667, 0.025550861333333348, 0.025288749999999974, 0.025159222,
+        0.025244721999999987, 0.02556583333333333
+      ],
+      "cpuMicroseconds": {
+        "user": 458312,
+        "system": 57855
+      },
+      "heapUsedDeltaBytes": 849968,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 65.68458299999838,
+      "firstCallMilliseconds": 1.0474999999999994
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.344875000000684,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.014721944666666664, 0.014339666666666669, 0.01417358333333334, 0.013972916666666663, 0.01419988866666667,
+        0.014351666666666669, 0.014393389333333327, 0.014537333333333341, 0.01416308333333336, 0.013958916666666672,
+        0.013916861333333334, 0.01358325000000002
+      ],
+      "cpuMicroseconds": {
+        "user": 229019,
+        "system": 53896
+      },
+      "heapUsedDeltaBytes": 2571240,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 95.66970799999945,
+      "firstCallMilliseconds": 0.7934589999999986
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.0614170000008016,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.01330075, 0.012632166666666668, 0.012577333333333333, 0.012305805333333334, 0.012267249999999999,
+        0.01240827733333333, 0.012459750000000004, 0.012328611333333317, 0.012375805333333328, 0.012312944666666662,
+        0.01235005533333333, 0.012458389333333325
+      ],
+      "cpuMicroseconds": {
+        "user": 179305,
+        "system": 50004
+      },
+      "heapUsedDeltaBytes": 3955424,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 28.49108299999898,
+      "firstCallMilliseconds": 0.07704199999999872
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 2.0423749999990832,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.02896386133333333, 0.023275111333333334, 0.022828555333333347, 0.02283019466666667, 0.022561861333333353,
+        0.022561888666666658, 0.023084722666666644, 0.022182999999999994, 0.021880833333333308, 0.021726638666666683,
+        0.021872083333333306, 0.022196360666666692
+      ],
+      "cpuMicroseconds": {
+        "user": 411471,
+        "system": 58110
+      },
+      "heapUsedDeltaBytes": 9597744,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 101.7067500000012,
+      "firstCallMilliseconds": 0.9216660000000019
+    },
+    {
+      "trial": 1,
+      "fixtureBuildMilliseconds": 3.179583000001003,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.02565974999999999, 0.02556552799999999, 0.02559872199999999, 0.02519688933333333, 0.025327694666666675,
+        0.025230555333333352, 0.02543283333333333, 0.025261277999999984, 0.02471994466666668, 0.024428833333333348,
+        0.024527639333333316, 0.024400805333333362
+      ],
+      "cpuMicroseconds": {
+        "user": 441340,
+        "system": 54659
+      },
+      "heapUsedDeltaBytes": 4855584,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 69.47795799999949,
+      "firstCallMilliseconds": 1.0697090000000031
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.1840830000001006,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.006274333333333326, 0.005670833333333339, 0.005924194666666665, 0.005536610666666661, 0.005427138666666669,
+        0.005456166666666661, 0.005573361333333329, 0.00539730533333333, 0.005169416666666658, 0.005105833333333332,
+        0.005080472000000005, 0.005127250000000003
+      ],
+      "cpuMicroseconds": {
+        "user": 74056,
+        "system": 49793
+      },
+      "heapUsedDeltaBytes": 2087272,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 93.60612500000207,
+      "firstCallMilliseconds": 0.7496249999999947
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 3.332250000003114,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.007257194666666668, 0.0071297500000000015, 0.007136110666666667, 0.0071593893333333275, 0.006878778000000002,
+        0.006733916666666668, 0.007020805333333338, 0.006610916666666659, 0.0060745, 0.005971000000000003,
+        0.005925056000000002, 0.005936194666666665
+      ],
+      "cpuMicroseconds": {
+        "user": 104607,
+        "system": 54066
+      },
+      "heapUsedDeltaBytes": 3525760,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 65.16612499999974,
+      "firstCallMilliseconds": 0.8063330000000022
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.0824160000011034,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.004222444666666666, 0.004123666666666667, 0.004138193999999999, 0.004156610666666665, 0.0041373333333333305,
+        0.004164916666666666, 0.0042557219999999965, 0.003952333333333338, 0.004100472666666671, 0.004082305999999998,
+        0.004044388666666663, 0.0040010833333333365
+      ],
+      "cpuMicroseconds": {
+        "user": 30017,
+        "system": 46992
+      },
+      "heapUsedDeltaBytes": 2964864,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 24.707666999998764,
+      "firstCallMilliseconds": 0.04225000000000101
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.151040999997349,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "point",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.01277466666666667, 0.012572472000000005, 0.008209750000000005, 0.0073268613333333215, 0.007221194666666672,
+        0.007509805333333342, 0.00720313866666667, 0.007358583333333324, 0.006643250000000004, 0.006457916666666677,
+        0.006806999999999997, 0.006583916666666672
+      ],
+      "cpuMicroseconds": {
+        "user": 137317,
+        "system": 58054
+      },
+      "heapUsedDeltaBytes": 8674088,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 98.2947090000016,
+      "firstCallMilliseconds": 0.667625000000001
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.1122080000022834,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.005910194666666664, 0.005812443999999999, 0.005784749999999993, 0.005604943999999999, 0.005459444666666675,
+        0.005533111333333333, 0.005618472000000016, 0.005570888666666652, 0.00532116666666667, 0.005261111333333342,
+        0.005290833333333334, 0.00514894399999999
+      ],
+      "cpuMicroseconds": {
+        "user": 79840,
+        "system": 49761
+      },
+      "heapUsedDeltaBytes": 2864696,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 92.51050000000032,
+      "firstCallMilliseconds": 0.7206249999999983
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 3.0097920000007434,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.007220277333333333, 0.008740861333333327, 0.006788777999999998, 0.0065828333333333355, 0.006526277333333335,
+        0.006514499999999999, 0.006735555333333328, 0.006727055333333339, 0.005983833333333337, 0.005756194666666678,
+        0.005800999999999988, 0.005852778
+      ],
+      "cpuMicroseconds": {
+        "user": 106711,
+        "system": 53044
+      },
+      "heapUsedDeltaBytes": 432856,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 63.21274999999878,
+      "firstCallMilliseconds": 0.7627499999999969
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.204541999999492,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.004054722, 0.004353277999999999, 0.004285361333333335, 0.004255555333333333, 0.004184444666666669,
+        0.004202555333333332, 0.004289056000000002, 0.00422236133333333, 0.004228305333333329, 0.0042316113333333285,
+        0.004199083333333325, 0.004141166666666673
+      ],
+      "cpuMicroseconds": {
+        "user": 32290,
+        "system": 47411
+      },
+      "heapUsedDeltaBytes": 3044216,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 26.199040999999852,
+      "firstCallMilliseconds": 0.045459000000001026
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.144916999997804,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "point",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.011030999999999996, 0.011462333333333324, 0.008033888666666674, 0.006866110666666676, 0.007084806000000015,
+        0.007062471999999995, 0.006762360666666666, 0.007154138666666673, 0.00630508333333332, 0.006715694000000004,
+        0.006274693999999992, 0.006254111333333317
+      ],
+      "cpuMicroseconds": {
+        "user": 136301,
+        "system": 53184
+      },
+      "heapUsedDeltaBytes": 17309472,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 98.58508300000176,
+      "firstCallMilliseconds": 0.7114579999999933
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.061250000002474,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.018088278000000003, 0.017847777999999995, 0.01755941666666668, 0.017781527999999998, 0.017845806000000002,
+        0.017298472000000002, 0.01748497200000001, 0.018425694666666687, 0.01723502800000002, 0.01910680533333334,
+        0.020180805333333333, 0.016771333333333322
+      ],
+      "cpuMicroseconds": {
+        "user": 303804,
+        "system": 57366
+      },
+      "heapUsedDeltaBytes": 8188168,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 92.5981670000001,
+      "firstCallMilliseconds": 0.8093750000000028
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 3.1169170000030135,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.022667472666666667, 0.02157902733333333, 0.021470916666666673, 0.02135569399999999, 0.021247056000000004,
+        0.021236666666666678, 0.021657166666666703, 0.02076066666666668, 0.020739750000000032, 0.020631333333333335,
+        0.021125721999999996, 0.02053411066666668
+      ],
+      "cpuMicroseconds": {
+        "user": 369129,
+        "system": 59370
+      },
+      "heapUsedDeltaBytes": 5524192,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 65.23500000000058,
+      "firstCallMilliseconds": 0.869334000000002
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.1913749999985157,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012228388666666664, 0.011929528, 0.012413805333333333, 0.012118833333333337, 0.011644166666666669,
+        0.020018527999999994, 0.012213444666666665, 0.012635138666666667, 0.011909388666666663, 0.011681222666666656,
+        0.011949916666666657, 0.011716277333333323
+      ],
+      "cpuMicroseconds": {
+        "user": 183193,
+        "system": 52774
+      },
+      "heapUsedDeltaBytes": 14288696,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.34495799999786,
+      "firstCallMilliseconds": 0.05079100000000025
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.085750000002008,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "multirow",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.023215833333333328, 0.022901499999999998, 0.02270949999999999, 0.02226863933333334, 0.021995056000000016,
+        0.02289797199999998, 0.02218180533333331, 0.02159202799999999, 0.021311749999999997, 0.021085416666666676,
+        0.02100999999999999, 0.020832944666666662
+      ],
+      "cpuMicroseconds": {
+        "user": 384574,
+        "system": 58963
+      },
+      "heapUsedDeltaBytes": 19712056,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 108.15116599999965,
+      "firstCallMilliseconds": 0.7647079999999988
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.189125000000786,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.018650194666666675, 0.018799750000000007, 0.017959888666666663, 0.017897944666666662, 0.018530250000000005,
+        0.02005636133333333, 0.019006944000000015, 0.018638527333333325, 0.01704127733333333, 0.01712825000000002,
+        0.017125, 0.018159055333333337
+      ],
+      "cpuMicroseconds": {
+        "user": 308744,
+        "system": 59174
+      },
+      "heapUsedDeltaBytes": -1299880,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 94.55187500000102,
+      "firstCallMilliseconds": 0.7532500000000084
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 3.1913339999991877,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.022104361333333336, 0.021207944666666673, 0.02129666666666666, 0.02115958333333333, 0.021270555333333333,
+        0.021014472666666676, 0.021474583333333307, 0.021170305333333316, 0.020560749999999985, 0.020517722000000013,
+        0.02121625000000002, 0.020306083333333353
+      ],
+      "cpuMicroseconds": {
+        "user": 365728,
+        "system": 58415
+      },
+      "heapUsedDeltaBytes": 1663032,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 64.84445799999958,
+      "firstCallMilliseconds": 0.9022919999999957
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.0997910000005504,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012424555333333335, 0.012276610666666665, 0.013127499999999999, 0.012516222666666663, 0.01323208333333333,
+        0.012602527333333332, 0.012649360666666666, 0.01232841666666667, 0.01228586066666666, 0.011937166666666655,
+        0.011613278, 0.011673278
+      ],
+      "cpuMicroseconds": {
+        "user": 180587,
+        "system": 52581
+      },
+      "heapUsedDeltaBytes": 15027144,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.47058299999844,
+      "firstCallMilliseconds": 0.055167000000000854
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.0930000000007567,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "multirow",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.02261369399999999, 0.022129444666666682, 0.021948472666666666, 0.02140388866666668, 0.021386083333333316,
+        0.021138944666666666, 0.021819500000000023, 0.02149247200000002, 0.021092555333333356, 0.021262638666666667,
+        0.021808555333333365, 0.020756694666666665
+      ],
+      "cpuMicroseconds": {
+        "user": 377722,
+        "system": 58022
+      },
+      "heapUsedDeltaBytes": -980880,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 99.61349999999948,
+      "firstCallMilliseconds": 0.6962079999999986
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.138875000000553,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.017406444666666666, 0.014171971999999993, 0.013901555333333343, 0.01416461133333333, 0.013883750000000002,
+        0.013872833333333327, 0.014102694666666669, 0.01443588866666668, 0.01403947199999997, 0.013972944666666648,
+        0.01393675, 0.0137165273333333
+      ],
+      "cpuMicroseconds": {
+        "user": 230499,
+        "system": 52785
+      },
+      "heapUsedDeltaBytes": 3525032,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 95.84583399999974,
+      "firstCallMilliseconds": 0.7195830000000001
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 3.487541999998939,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.026562638666666666, 0.025917916666666665, 0.025864444666666656, 0.025752972, 0.025640472666666653,
+        0.025361777999999998, 0.02578450000000002, 0.025046416666666647, 0.024995360666666633, 0.025015639333333336,
+        0.02487116666666668, 0.03024616666666668
+      ],
+      "cpuMicroseconds": {
+        "user": 449718,
+        "system": 57396
+      },
+      "heapUsedDeltaBytes": 865872,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 65.6720830000013,
+      "firstCallMilliseconds": 1.0067080000000033
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.16137499999968,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012960806, 0.012688166666666665, 0.012650222000000004, 0.01262538866666666, 0.012609277999999998,
+        0.012653694666666666, 0.012681972000000012, 0.012671971999999983, 0.012563416666666664, 0.012605833333333332,
+        0.012535750000000007, 0.012542222666666684
+      ],
+      "cpuMicroseconds": {
+        "user": 181509,
+        "system": 49796
+      },
+      "heapUsedDeltaBytes": 1068648,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.423666000002413,
+      "firstCallMilliseconds": 0.0728749999999998
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.224166999996669,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "json",
+      "concurrency": 1,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.028986416666666667, 0.024670500000000005, 0.024551888666666667, 0.02365633333333333, 0.02310908333333335,
+        0.022948249999999993, 0.023483833333333336, 0.02398311133333334, 0.023651361333333322, 0.02359641666666668,
+        0.023721110666666656, 0.027732499999999997
+      ],
+      "cpuMicroseconds": {
+        "user": 433100,
+        "system": 61748
+      },
+      "heapUsedDeltaBytes": 6950104,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 123.96708299999955,
+      "firstCallMilliseconds": 0.9539589999999976
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.2134169999990263,
+      "phase": "warm",
+      "candidate": "reylo-file",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.014537416666666664, 0.013937249999999997, 0.013928111333333333, 0.013896639333333325, 0.013835222000000006,
+        0.014101861333333337, 0.014199889333333337, 0.014152083333333338, 0.013491388666666694, 0.013574610666666672,
+        0.013460028000000004, 0.013323639333333328
+      ],
+      "cpuMicroseconds": {
+        "user": 224638,
+        "system": 51768
+      },
+      "heapUsedDeltaBytes": 4584496,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 94.7289579999997,
+      "firstCallMilliseconds": 0.7084169999999972
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 3.375625000000582,
+      "phase": "warm",
+      "candidate": "typed-compiled-inline",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.025965666666666665, 0.025715610666666663, 0.025557416666666673, 0.027086000000000013, 0.02784708333333335,
+        0.026210166666666663, 0.025824250000000007, 0.02547275000000002, 0.025038333333333298, 0.024995499999999993,
+        0.025914000000000024, 0.025040472666666612
+      ],
+      "cpuMicroseconds": {
+        "user": 451114,
+        "system": 58740
+      },
+      "heapUsedDeltaBytes": 4766496,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 63.98374999999942,
+      "firstCallMilliseconds": 0.9377909999999972
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.1830410000002303,
+      "phase": "warm",
+      "candidate": "raw-cached",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.012493138666666669, 0.012484444666666665, 0.012853500000000002, 0.012750833333333333, 0.012803555333333331,
+        0.012808861333333331, 0.012903694666666658, 0.012574916666666677, 0.012619472000000012, 0.012722971999999989,
+        0.012689388666666673, 0.012649416666666677
+      ],
+      "cpuMicroseconds": {
+        "user": 180519,
+        "system": 52530
+      },
+      "heapUsedDeltaBytes": 4006800,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 25.895917000001646,
+      "firstCallMilliseconds": 0.07295899999999911
+    },
+    {
+      "trial": 2,
+      "fixtureBuildMilliseconds": 2.105249999996886,
+      "phase": "warm",
+      "candidate": "typed-file-parsed",
+      "workload": "json",
+      "concurrency": 8,
+      "warmups": 500,
+      "samples": 12,
+      "iterations": 1500,
+      "millisecondsPerOperation": [
+        0.027713277999999994, 0.02328652733333333, 0.022709249999999997, 0.022556166666666665, 0.02356888866666668,
+        0.02467958333333335, 0.023210055333333306, 0.023043056000000017, 0.023051722000000004, 0.02323052800000001,
+        0.02295283333333331, 0.02305847266666668
+      ],
+      "cpuMicroseconds": {
+        "user": 419905,
+        "system": 60878
+      },
+      "heapUsedDeltaBytes": 9648344,
+      "databaseVersion": "3.50.4",
+      "startupMilliseconds": 100.19008300000132,
+      "firstCallMilliseconds": 0.917625000000001
+    }
+  ]
+}

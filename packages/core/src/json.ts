@@ -398,9 +398,14 @@ export function validateJsonValue(
   return validateJsonModel(value, shape, limits, false);
 }
 
-/** @internal Only for values obtained by parsing valid JSON text that will remain text. */
-export function validateParsedJsonTextShape(value: unknown, shape: JsonShape): boolean {
-  return validateJsonModel(value, shape, {}, true);
+/** @internal Parse here so the specialized validator never receives caller-owned objects. */
+export function parseAndValidateJsonText(
+  text: string,
+  shape: JsonShape,
+  allowTextNumericOverflow: boolean,
+): { readonly value: unknown; readonly valid: boolean } {
+  const value: unknown = JSON.parse(text);
+  return { value, valid: validateJsonModel(value, shape, {}, allowTextNumericOverflow, true) };
 }
 
 function validateJsonModel(
@@ -408,6 +413,7 @@ function validateJsonModel(
   shape: JsonShape,
   limits: JsonValidationLimits,
   allowTextNumericOverflow: boolean,
+  freshlyParsed = false,
 ): boolean {
   const maximumDepth = limits.maximumDepth ?? 128;
   const maximumValues = limits.maximumValues ?? 1_000_000;
@@ -419,23 +425,32 @@ function validateJsonModel(
   )
     return false;
   let values = 0;
-  const active = new Set<object>();
+  const active = freshlyParsed ? undefined : new Set<object>();
   const valid = (item: unknown, depth: number): boolean => {
     if (++values > maximumValues || depth > maximumDepth) return false;
     if (item === null || typeof item === "string" || typeof item === "boolean") return true;
     if (typeof item === "number") return allowTextNumericOverflow ? !Number.isNaN(item) : Number.isFinite(item);
-    if (typeof item !== "object" || active.has(item)) return false;
+    if (typeof item !== "object" || active?.has(item)) return false;
     if (
+      !freshlyParsed &&
       !Array.isArray(item) &&
       Object.getPrototypeOf(item) !== Object.prototype &&
       Object.getPrototypeOf(item) !== null
     )
       return false;
-    active.add(item);
+    active?.add(item);
     let result = true;
     if (Array.isArray(item)) {
       for (let index = 0; index < item.length; index++) {
-        if (!Object.hasOwn(item, index) || !valid(item[index], depth + 1)) {
+        if ((!freshlyParsed && !Object.hasOwn(item, index)) || !valid(item[index], depth + 1)) {
+          result = false;
+          break;
+        }
+      }
+    } else if (freshlyParsed) {
+      // JSON.parse without a reviver creates dense arrays and data-only objects with no cycles.
+      for (const key in item) {
+        if (Object.hasOwn(item, key) && !valid((item as Record<string, unknown>)[key], depth + 1)) {
           result = false;
           break;
         }
@@ -450,7 +465,7 @@ function validateJsonModel(
         }
       }
     }
-    active.delete(item);
+    active?.delete(item);
     return result;
   };
   if (!valid(value, 0)) return false;

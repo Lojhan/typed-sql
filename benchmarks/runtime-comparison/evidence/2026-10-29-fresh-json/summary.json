@@ -1,0 +1,294 @@
+{
+  "before": [
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.617930666666663
+    },
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 13.964166666666662
+    },
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 25.764486000000012
+    },
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 23.63990266666669
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.170249999999992
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 17.813667000000002
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 21.457694333333336
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 22.294750333333333
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 4.084958666666667
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 5.3944163333333295
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 6.603152666666665
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 7.336513999999994
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.56826400000001
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 14.15758333333335
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 25.56756933333333
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 23.04181966666666
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.330110999999999
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 17.866777666666678
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 21.283611
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 21.47890266666667
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 4.215097333333333
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 5.455944333333335
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 6.473791666666665
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 6.941124666666676
+    }
+  ],
+  "after": [
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.584652666666665
+    },
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 13.833569333333338
+    },
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 24.27637466666667
+    },
+    {
+      "concurrency": 1,
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 21.848083333333335
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.069014000000006
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 17.74504166666666
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 21.473514000000016
+    },
+    {
+      "concurrency": 1,
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 22.315777333333358
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 4.137583333333337
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 5.312430666666666
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 6.594958333333328
+    },
+    {
+      "concurrency": 1,
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 7.146250000000009
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.367333333333335
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 13.874569666666659
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 23.955235999999992
+    },
+    {
+      "concurrency": 8,
+      "workload": "json",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 21.227152666666655
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 12.194013999999997
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 17.692611000000007
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 21.221389000000016
+    },
+    {
+      "concurrency": 8,
+      "workload": "multirow",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 21.683152666666672
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "raw-cached",
+      "medianMicroseconds": 4.158027666666669
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "reylo-file",
+      "medianMicroseconds": 5.54969433333334
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "typed-compiled-inline",
+      "medianMicroseconds": 6.4856110000000005
+    },
+    {
+      "concurrency": 8,
+      "workload": "point",
+      "candidate": "typed-file-parsed",
+      "medianMicroseconds": 7.1223056666666675
+    }
+  ]
+}

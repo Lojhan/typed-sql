@@ -2,9 +2,9 @@ import type { QueryStream } from "./execution.js";
 import {
   type JsonShape,
   type JsonValueDescriptor,
+  parseAndValidateJsonText,
   parseJsonShape,
   validateJsonValue,
-  validateParsedJsonTextShape,
 } from "./json.js";
 import { serializedJsonInput } from "./json-input.js";
 import { explicitJsonParameterIndexes, type Query } from "./query.js";
@@ -394,19 +394,18 @@ function decode(
   const json = descriptor.json;
   if (json !== undefined) {
     if (json.representation === "binary") return scalar(value, "bytes", location);
-    let parsed = value;
+    let parsed: unknown = value;
+    let valid: boolean;
     if (profile.jsonWire === "text") {
       if (typeof value !== "string") throw new QueryValueError(location, "expected JSON text");
       try {
-        parsed = JSON.parse(value);
+        const model = parseAndValidateJsonText(value, json.shape, json.representation === "text");
+        parsed = model.value;
+        valid = model.valid;
       } catch {
         throw new QueryValueError(location, "invalid JSON text");
       }
-    }
-    const valid =
-      json.representation === "text" && profile.jsonWire === "text"
-        ? validateParsedJsonTextShape(parsed, json.shape)
-        : validateJsonValue(parsed, json.shape);
+    } else valid = validateJsonValue(parsed, json.shape);
     if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
     return json.representation === "text" ? (profile.jsonWire === "text" ? value : JSON.stringify(parsed)) : parsed;
   }
@@ -514,17 +513,18 @@ function encodeValue(
   }
   const json = descriptor.json;
   if (json.representation === "binary") return scalar(value, "bytes", location);
-  let parsed = value;
+  let parsed: unknown = value;
+  let valid: boolean;
   if (json.representation === "text" || explicitJson) {
     if (typeof value !== "string") throw new QueryValueError(location, "expected JSON text");
     try {
-      parsed = JSON.parse(value);
+      const model = parseAndValidateJsonText(value, json.shape, true);
+      parsed = model.value;
+      valid = model.valid;
     } catch {
       throw new QueryValueError(location, "invalid JSON text");
     }
-  }
-  const textInput = json.representation === "text" || explicitJson;
-  const valid = textInput ? validateParsedJsonTextShape(parsed, json.shape) : validateJsonValue(parsed, json.shape);
+  } else valid = validateJsonValue(parsed, json.shape);
   if (!valid) throw new QueryValueError(location, "JSON does not match its declared shape");
   return json.representation === "text" || explicitJson ? value : JSON.stringify(parsed);
 }

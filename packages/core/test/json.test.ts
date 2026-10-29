@@ -8,6 +8,7 @@ import {
   jsonShapeFromValue,
   jsonShapeType,
   nullJsonShape,
+  parseAndValidateJsonText,
   parseJsonShape,
   unionJsonShapes,
   unknownJsonShape,
@@ -16,6 +17,52 @@ import {
 } from "../src/json.js";
 
 await describe("grammar-neutral JSON structure", async () => {
+  await it("checks fresh JSON text against the same contracts as caller-owned values", () => {
+    const shapes: readonly JsonShape[] = [
+      unknownJsonShape,
+      { kind: "number" },
+      jsonArrayShape({ kind: "number" }),
+      { kind: "tuple", elements: [{ kind: "number" }, nullJsonShape] },
+      unionJsonShapes([{ kind: "number" }, nullJsonShape]),
+      jsonObjectShape({ id: { shape: { kind: "number" } } }),
+      jsonObjectShape({}, { kind: "string" }),
+    ];
+    for (const text of [
+      "null",
+      "42",
+      "1e999",
+      '"hello"',
+      "true",
+      "[]",
+      "[1,2]",
+      "[1,null]",
+      '[1,"bad"]',
+      '{"id":1}',
+      '{"id":"bad"}',
+      '{"id":1,"extra":true}',
+      '{"id":0,"id":1}',
+      '{"__proto__":{"id":1},"constructor":"safe"}',
+    ]) {
+      for (const shape of shapes) {
+        const expected: unknown = JSON.parse(text);
+        const actual = parseAndValidateJsonText(text, shape, false);
+        strict.deepEqual(actual.value, expected);
+        strict.equal(actual.valid, validateJsonValue(expected, shape), `${text}: ${shape.kind}`);
+      }
+    }
+    strict.equal(parseAndValidateJsonText("1e999", { kind: "number" }, true).valid, true);
+    strict.throws(() => parseAndValidateJsonText("[", unknownJsonShape, false), SyntaxError);
+  });
+
+  await it("retains depth and value-count bounds for freshly parsed JSON", () => {
+    const nested = (depth: number) => `${"[".repeat(depth)}0${"]".repeat(depth)}`;
+    strict.equal(parseAndValidateJsonText(nested(128), unknownJsonShape, false).valid, true);
+    strict.equal(parseAndValidateJsonText(nested(129), unknownJsonShape, false).valid, false);
+    const wide = (count: number) => `[${"0,".repeat(count - 1)}0]`;
+    strict.equal(parseAndValidateJsonText(wide(999_999), unknownJsonShape, false).valid, true);
+    strict.equal(parseAndValidateJsonText(wide(1_000_000), unknownJsonShape, false).valid, false);
+  });
+
   await it("reads sibling getters before recursively checking the captured JSON members", () => {
     const nested = { value: 1 };
     const input = {
