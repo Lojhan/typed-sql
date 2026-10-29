@@ -1399,7 +1399,7 @@ class Parser {
             if (statement.kind !== "select") throw this.#error("IN subquery must be SELECT", statement.range);
             values = statement;
           } else {
-            if (this.#current().value === ")")
+            if (this.#current().kind === "punctuation" && this.#current().value === ")")
               throw this.#error("IN requires at least one value", this.#current().range);
             values = this.#parseExpressionList();
           }

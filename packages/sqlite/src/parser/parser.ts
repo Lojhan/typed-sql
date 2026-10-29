@@ -354,10 +354,10 @@ class Parser {
       const rows: Expression[][] = [];
       do {
         this.#expectPunctuation("(");
-        const row = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-        const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+        const emptyRow = this.#matchPunctuation(")");
+        const row = emptyRow ? [] : [...this.#parseExpressionList()];
+        if (!emptyRow) this.#expectPunctuation(")");
         rows.push(row);
-        if (close.value !== ")") throw this.#error("Expected ) after VALUES row", close.range);
       } while (this.#matchPunctuation(","));
       source = { kind: "values", rows, range: mergeRanges(sourceStart, this.#previous().range) };
     } else if (this.#current().value === "SELECT" || this.#current().value === "WITH") {
@@ -542,8 +542,9 @@ class Parser {
       tableName = this.#parseIdentifier();
     }
     if (this.#matchPunctuation("(")) {
-      const args = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-      const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+      const emptyArgs = this.#matchPunctuation(")");
+      const args = emptyArgs ? [] : [...this.#parseExpressionList()];
+      const close = emptyArgs ? this.#previous() : this.#expectPunctuation(")");
       let alias: Identifier | undefined;
       if (this.#matchKeyword("AS")) alias = this.#parseIdentifier();
       else if (this.#current().kind === "identifier" || this.#current().kind === "quoted-identifier")
@@ -682,11 +683,11 @@ class Parser {
               if (statement.kind !== "select") throw this.#error("IN subquery must be SELECT", statement.range);
               values = statement;
             } else {
-              if (this.#current().value === ")")
+              if (this.#current().kind === "punctuation" && this.#current().value === ")")
                 throw this.#error("IN requires at least one value", this.#current().range);
               values = this.#parseExpressionList();
             }
-            const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+            const close = this.#expectPunctuation(")");
             end = close.range;
           }
           left = { kind: "in", expression: left, values, negated, range: mergeRanges(start, end) };
@@ -776,14 +777,16 @@ class Parser {
     }
     if (this.#matchKeyword("ARRAY")) {
       this.#expectPunctuation("[");
-      const elements = this.#matchPunctuation("]") ? [] : [...this.#parseExpressionList()];
-      const close = this.#previous().value === "]" ? this.#previous() : this.#expectPunctuation("]");
+      const emptyElements = this.#matchPunctuation("]");
+      const elements = emptyElements ? [] : [...this.#parseExpressionList()];
+      const close = emptyElements ? this.#previous() : this.#expectPunctuation("]");
       return { kind: "array", elements, range: mergeRanges(token.range, close.range) };
     }
     if (this.#matchKeyword("ROW")) {
       this.#expectPunctuation("(");
-      const elements = this.#matchPunctuation(")") ? [] : [...this.#parseExpressionList()];
-      const close = this.#previous().value === ")" ? this.#previous() : this.#expectPunctuation(")");
+      const emptyElements = this.#matchPunctuation(")");
+      const elements = emptyElements ? [] : [...this.#parseExpressionList()];
+      const close = emptyElements ? this.#previous() : this.#expectPunctuation(")");
       return { kind: "row", elements, range: mergeRanges(token.range, close.range) };
     }
     if (this.#matchKeyword("CAST")) return this.#parseCast(token.range);

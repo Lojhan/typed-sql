@@ -230,13 +230,14 @@ await describe("executable compiler value metadata", async () => {
       "function mixed(prefix:number,suffix:number,ids:readonly number[]){return sql`SELECT id FROM users WHERE id IN (${[sql.fragment`${prefix}`,sql.fragment`${suffix}`]}) OR id IN (${ids.map(id=>sql.fragment`${id}`)})`;}",
       "const a=conditional(true,1),b=conditional(false,2),c=conditional(true,3);",
       "const x=repeated(0,[1],9),y=repeated(2,[3,4,5],8),z=repeated(6,[7],10);",
-      'process.stdout.write(JSON.stringify({choices,columns:[a,b].map(q=>getQueryValuePlan(q)?.columns.map(c=>c.name)),same:getQueryValuePlan(a)===getQueryValuePlan(c),parameters:[x,y,z].map(q=>encodeQueryValues(q,renderQuery(q,renderer).values,{id:"pg",dialect:"postgres",integer:"lossless",jsonWire:"parsed"})),counts:[x,y,z].map(q=>getQueryValuePlan(q)?.parameters.length),mixed:renderQuery(mixed(0,9,[1,2,3]),renderer).values}));',
+      'process.stdout.write(JSON.stringify({choices,columns:[a,b].map(q=>getQueryValuePlan(q)?.columns.map(c=>c.name)),same:getQueryValuePlan(a)===getQueryValuePlan(c),parameters:[x,y,z].map(q=>encodeQueryValues(q,renderQuery(q,renderer).values,{id:"pg",dialect:"postgres",integer:"lossless",jsonWire:"parsed"})),counts:[x,y,z].map(q=>getQueryValuePlan(q)?.parameters.length),rowTypes:[x,y,z].map(q=>getQueryValuePlan(q)?.columns.map(c=>[c.type,c.nullable])),mixed:renderQuery(mixed(0,9,[1,2,3]),renderer).values}));',
     ].join("\r\n");
     const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata: true });
     strict.deepEqual(result.diagnostics, []);
     strict.equal(result.queries.length, 3);
     const repeated = result.queries.find((item) => item.repeatedFragments !== undefined)!;
     strict.equal(repeated.repeatedFragments?.[0]?.element.sqlSkeleton, "{{parameter:1}}");
+    strict.equal(repeated.rowType, '{ "id": number; }');
     const directory = await mkdtemp(resolve(root, "node_modules/.selected-plans-"));
     try {
       const file = resolve(directory, "query.ts");
@@ -254,6 +255,7 @@ await describe("executable compiler value metadata", async () => {
           [6, 7, 10],
         ],
         counts: [3, 5, 3],
+        rowTypes: [[["number", false]], [["number", false]], [["number", false]]],
         mixed: [0, 9, 1, 2, 3],
       });
     } finally {
@@ -313,6 +315,82 @@ await describe("executable compiler value metadata", async () => {
         if (runtimeMetadata && projection.endsWith("})"))
           strict.equal(result.queries[0]?.valuePlanChoices?.[0]?.plan.columns[0]?.json?.shape.kind, "unknown");
       }
+    }
+  });
+  await it("separates repetition evidence for identical SQL at different interpolation sites", async () => {
+    const schema = (await loadSchemaSnapshot(
+      resolve(root, "test/fixtures/success/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const input =
+      "function input(ids:readonly number[]){return sql`SELECT jsonb_build_array(${1}::int, ${2}::int) AS value FROM users WHERE id IN (${ids.map(id=>sql.fragment`${id}`)})`;}";
+    const projection =
+      "function projection(items:readonly number[]){return sql`SELECT jsonb_build_array(${items.map(item=>sql.fragment`${item}::int`)}) AS value FROM users WHERE id IN (${1}, ${2})`;}";
+    for (const definitions of [
+      [input, projection],
+      [projection, input],
+    ])
+      for (const runtimeMetadata of [false, true]) {
+        const source = ['import {sql} from "@typed-sql/postgres";', ...definitions].join("\n");
+        const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata });
+        strict.deepEqual(result.diagnostics, []);
+        strict.deepEqual(
+          result.queries.map(({ rowType }) => rowType),
+          definitions.map((definition) =>
+            definition === input
+              ? '{ "value": readonly [number | null, number | null]; }'
+              : '{ "value": unknown | null; }',
+          ),
+        );
+        if (runtimeMetadata) {
+          strict.equal(result.queries[0]?.valuePlanChoices?.[0]?.sql, result.queries[1]?.valuePlanChoices?.[0]?.sql);
+          const directory = await mkdtemp(resolve(root, "node_modules/.repeated-input-cache-"));
+          try {
+            const file = resolve(directory, "query.ts");
+            await writeFile(
+              file,
+              result.transformedSource +
+                '\nimport {getQueryValuePlan} from "@typed-sql/core";\n' +
+                "process.stdout.write(JSON.stringify([input([1,2,3]),projection([1,2,3])].map(query=>{const plan=getQueryValuePlan(query);return {kind:plan?.columns[0]?.json?.shape.kind,parameters:plan?.parameters.length};})));",
+            );
+            strict.deepEqual(
+              JSON.parse(execFileSync(process.execPath, ["--import", "tsx", file], { cwd: root, encoding: "utf8" })),
+              [
+                { kind: "tuple", parameters: 5 },
+                { kind: "unknown", parameters: 5 },
+              ],
+            );
+          } finally {
+            await rm(directory, { recursive: true, force: true });
+          }
+        }
+      }
+    const base = postgres();
+    const withoutProof = {
+      ...base,
+      analyze: (...args: Parameters<typeof base.analyze>) => {
+        const { repeatedResultShapeStable: _proof, ...analysis } = base.analyze(...args);
+        return analysis;
+      },
+    };
+    const result = compileSource({
+      source: ['import {sql} from "@typed-sql/postgres";', input].join("\n"),
+      schema,
+      dialect: withoutProof,
+    });
+    strict.deepEqual(result.diagnostics, []);
+    strict.equal(result.queries[0]?.rowType, '{ "value": unknown | null; }');
+  });
+
+  await it("does not treat a repeated RETURNING projection as INSERT input", async () => {
+    const schema = (await loadSchemaSnapshot(
+      resolve(root, "test/fixtures/success/schema.json"),
+    )) as PostgresSchemaSnapshot;
+    const source =
+      "import {sql} from \"@typed-sql/postgres\";const q=sql`INSERT INTO users (id,name) VALUES (1,'one') RETURNING jsonb_build_array(${items.map(item=>sql.fragment`${item}::int`)}) AS value`;";
+    for (const runtimeMetadata of [false, true]) {
+      const result = compileSource({ source, schema, dialect: postgres(), runtimeMetadata });
+      strict.deepEqual(result.diagnostics, []);
+      strict.equal(result.queries[0]?.rowType, '{ "value": unknown | null; }');
     }
   });
 });

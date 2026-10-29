@@ -1,6 +1,10 @@
 import { assertFragmentListConformance } from "@typed-sql/conformance";
 import { describe, it, strict } from "poku";
-import { fragmentListCases, fragmentRows as rows } from "../../../test/helpers/fragment-list.js";
+import {
+  assertRepeatedInputInference,
+  fragmentListCases,
+  fragmentRows as rows,
+} from "../../../test/helpers/fragment-list.js";
 import { type SqliteSchemaSnapshot, sql, sqlite } from "../src/index.js";
 import { sqliteRenderer } from "../src/runtime.js";
 
@@ -71,5 +75,14 @@ await describe("SQLite fragment-list conformance", async () => {
     });
     strict.strictEqual(report.grammar, "sqlite");
     strict.deepStrictEqual(report.renderCardinalities, [1, 2, 5]);
+  });
+  await it("retains precise rows only with grammar-owned input repetition evidence", () => {
+    assertRepeatedInputInference({
+      dialect: sqlite(),
+      snapshot,
+      castType: "INTEGER",
+      castParameterType: "bigint",
+      returningClause: "RETURNING id, email",
+    });
   });
 });
