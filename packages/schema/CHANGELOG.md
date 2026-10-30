@@ -1,5 +1,11 @@
 # @typed-sql/schema
 
+## 2.4.0
+
+### Patch Changes
+
+- @typed-sql/core@2.4.0
+
 ## 2.4.0-rc.0
 
 ### Patch Changes

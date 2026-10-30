@@ -1,5 +1,18 @@
 # @typed-sql/build
 
+## 2.4.0
+
+### Minor Changes
+
+- Add the stable build and test integration package with optional host entrypoints, offline SQL-file compilation, inline execution plans, source maps, dependency-aware caches, and co-located SQL declarations. Support Vite/Vitest, Jest, webpack/Rspack/Rsbuild, Next.js, esbuild, Rollup/Rolldown, Bun, and native Node preloads.
+
+### Patch Changes
+
+- @typed-sql/compiler@2.4.0
+  - @typed-sql/config@2.4.0
+  - @typed-sql/core@2.4.0
+  - @typed-sql/schema@2.4.0
+
 ## 2.4.0-rc.0
 
 ### Minor Changes

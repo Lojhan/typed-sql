@@ -1,7 +1,8 @@
 {
-  "channel": "rc",
+  "channel": "stable",
   "series": "2.4.0",
-  "npmTag": "next",
+  "npmTag": "latest",
+  "sourceCandidate": "2.4.0-rc.0",
   "packages": [
     "@typed-sql/core",
     "@typed-sql/opentelemetry",
@@ -15,9 +16,7 @@
     "@typed-sql/sqlite",
     "@typed-sql/cli",
     "@typed-sql/adapters",
-    "@typed-sql/build",
-    "@typed-sql/ts-bridge",
-    "@typed-sql/language-server"
+    "@typed-sql/build"
   ],
   "packagePolicy": {
     "stable": [

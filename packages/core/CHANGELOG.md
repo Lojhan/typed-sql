@@ -1,5 +1,9 @@
 # @typed-sql/core
 
+## 2.4.0
+
+No changes in this release.
+
 ## 2.4.0-rc.0
 
 ### Patch Changes
