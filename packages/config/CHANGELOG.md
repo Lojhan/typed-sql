@@ -1,5 +1,15 @@
 # @typed-sql/config
 
+## 2.4.0
+
+### Minor Changes
+
+- Support runtime-owned configuration importers with isolated cache identities and dependency-aware invalidation, allowing native host configuration loading without preview-backed dependencies.
+
+### Patch Changes
+
+- @typed-sql/core@2.4.0
+
 ## 2.4.0-rc.0
 
 ### Minor Changes

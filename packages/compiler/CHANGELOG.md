@@ -1,5 +1,16 @@
 # @typed-sql/compiler
 
+## 2.4.0
+
+### Minor Changes
+
+- Expose shared grammar-neutral SQL-file compilation and precise source insertions for build transforms and source maps. Preserve offline diagnostics, runtime value plans, and fail-closed inference across integration hosts.
+
+### Patch Changes
+
+- @typed-sql/core@2.4.0
+  - @typed-sql/schema@2.4.0
+
 ## 2.4.0-rc.0
 
 ### Minor Changes

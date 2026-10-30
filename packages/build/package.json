@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/build",
-  "version": "2.4.0-rc.0",
+  "version": "2.4.0",
   "description": "Stable build and test integrations for typed-sql SQL modules and compiled query plans.",
   "license": "MIT",
   "author": "Lojhan",
