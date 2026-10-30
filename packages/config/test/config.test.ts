@@ -1,12 +1,46 @@
-import { mkdir, mkdtemp, realpath, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, it, strict } from "poku";
 import { CONFIG_CACHE_LIMIT, discoverConfig, fromConfig, loadConfig } from "../src/index.js";
 
 const fixture = new URL("../../../e2e/postgres/typed-sql.config.ts", import.meta.url);
 
 await describe("typed-sql config", async () => {
+  await it("isolates host importer caches and invalidates their reported local dependencies", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-config-importer-"));
+    const file = join(directory, "typed-sql.config.mjs");
+    const helper = join(directory, "policy.json");
+    try {
+      const original = (await loadConfig({ file: fixture.pathname })).config;
+      await writeFile(file, "// configuration evaluated by an application-owned host importer\n");
+      await writeFile(helper, '{"integer":"number"}');
+      let imports = 0;
+      const importer = async (_file: string, onImport: (url: string) => void) => {
+        imports++;
+        onImport(pathToFileURL(helper).href);
+        return { default: { ...original, typePolicy: JSON.parse(await readFile(helper, "utf8")) } };
+      };
+      const first = await loadConfig({ file, importer });
+      strict.deepStrictEqual(first.config.typePolicy, { integer: "number" });
+      strict.strictEqual(await loadConfig({ file, importer }), first);
+      strict.equal(imports, 1);
+      await writeFile(helper, '{"integer":"bigint"}');
+      const [second, concurrent] = await Promise.all([loadConfig({ file, importer }), loadConfig({ file, importer })]);
+      strict.strictEqual(second, concurrent);
+      strict.deepStrictEqual(second.config.typePolicy, { integer: "bigint" });
+      strict.equal(imports, 2);
+      const other = await loadConfig({
+        file,
+        importer: async () => ({ default: { ...original, typePolicy: { integer: "string" } } }),
+      });
+      strict.deepStrictEqual(other.config.typePolicy, { integer: "string" });
+      await strict.rejects(loadConfig({ file, importer: async () => ({ default: null }) }), /must default-export/u);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   await it("reloads a transitive helper without an entry edit and coalesces unchanged loads", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-config-dependencies-"));
     const file = join(directory, "typed-sql.config.mts");

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, it, strict } from "poku";
@@ -7,6 +7,24 @@ import { describe, it, strict } from "poku";
 const workspace = resolve(import.meta.dirname, "../..");
 
 await describe("CI evidence lanes", async () => {
+  await it("runs every packed build host suite in required CI and records release evidence", async () => {
+    const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
+    const hosts = workflow.slice(workflow.indexOf("  build-integrations:\n")).split(/\n(?= {2}\S)/u)[0]!;
+    strict.ok(hosts.includes("node-version: 24.22.2"));
+    strict.ok(hosts.includes("bun-version: 1.4.4"));
+    for (const file of await readdir(join(workspace, "e2e/build/test"))) {
+      if (file.endsWith(".test.mjs")) strict.ok(hosts.includes(file), `required CI omits ${file}`);
+    }
+    strict.ok(hosts.includes("--config=poku.config.js --reporter=compact --enforce"));
+    const publish = await readFile(join(workspace, ".github/workflows/release.yml"), "utf8");
+    strict.ok(publish.includes("pnpm e2e:build"));
+    strict.ok(publish.includes("--gate build-integrations"));
+    const policy = JSON.parse(await readFile(join(workspace, "release-evidence-policy.json"), "utf8")) as {
+      channels: Record<string, { required: string[] }>;
+    };
+    for (const channel of ["beta", "rc", "stable"])
+      strict.ok(policy.channels[channel]!.required.includes("build-integrations"));
+  });
   await it("keeps pull-request work bounded and comprehensive matrices scheduled", async () => {
     const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
     strict.ok(workflow.includes('cron: "17 4 * * 2"'));
@@ -39,7 +57,7 @@ await describe("CI evidence lanes", async () => {
 
   await it("requires representative live database and packaged editor checks before protected quality", async () => {
     const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
-    for (const job of ["packed-real-databases", "editor-artifacts"]) {
+    for (const job of ["packed-real-databases", "editor-artifacts", "build-integrations"]) {
       const start = workflow.indexOf(`  ${job}:\n`);
       strict.ok(start >= 0);
       const section = workflow.slice(start).split(/\n(?= {2}\S)/u)[0]!;
@@ -48,10 +66,13 @@ await describe("CI evidence lanes", async () => {
     const quality = workflow.slice(workflow.indexOf("  quality:\n")).split(/\n(?= {2}\S)/u)[0]!;
     strict.ok(quality.includes("if: always()"));
     strict.ok(
-      quality.includes("needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms]"),
+      quality.includes(
+        "needs: [source-quality, packed-real-databases, editor-artifacts, editor-sdk-platforms, build-integrations]",
+      ),
     );
     strict.ok(quality.includes("node scripts/assert-ci-prerequisites.mjs"));
     for (const [variable, job] of [
+      ["TYPED_SQL_BUILD_RESULT", "build-integrations"],
       ["TYPED_SQL_SOURCE_RESULT", "source-quality"],
       ["TYPED_SQL_DATABASE_RESULT", "packed-real-databases"],
       ["TYPED_SQL_EDITOR_RESULT", "editor-artifacts"],
@@ -65,6 +86,7 @@ await describe("CI evidence lanes", async () => {
   await it("fails the protected summary for failed, cancelled, skipped, missing or unknown prerequisites", () => {
     const script = join(workspace, "scripts/assert-ci-prerequisites.mjs");
     const successful = {
+      TYPED_SQL_BUILD_RESULT: "success",
       TYPED_SQL_SOURCE_RESULT: "success",
       TYPED_SQL_DATABASE_RESULT: "success",
       TYPED_SQL_EDITOR_RESULT: "success",

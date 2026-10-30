@@ -1,0 +1,117 @@
+{
+  "name": "@typed-sql/build",
+  "version": "2.3.0",
+  "description": "Stable build and test integrations for typed-sql SQL modules and compiled query plans.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/build"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.cjs",
+    "dist/**/*.d.cts",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "type": "module",
+  "sideEffects": [
+    "./dist/packages/build/src/register.js",
+    "./dist/packages/build/src/bun-register.js"
+  ],
+  "exports": {
+    ".": "./dist/packages/build/src/index.js",
+    "./vite": "./dist/packages/build/src/vite.js",
+    "./rollup": "./dist/packages/build/src/rollup.js",
+    "./rolldown": "./dist/packages/build/src/rolldown.js",
+    "./webpack": "./dist/packages/build/src/webpack.js",
+    "./webpack-loader": "./dist/packages/build/src/webpack-loader.cjs",
+    "./rspack": "./dist/packages/build/src/rspack.js",
+    "./rsbuild": "./dist/packages/build/src/rsbuild.js",
+    "./esbuild": "./dist/packages/build/src/esbuild.js",
+    "./jest": "./dist/packages/build/src/jest.cjs",
+    "./jest-dependencies": "./dist/packages/build/src/jest-dependencies.cjs",
+    "./next": "./dist/packages/build/src/next.js",
+    "./register": "./dist/packages/build/src/register.js",
+    "./bun": "./dist/packages/build/src/bun.js",
+    "./bun-register": "./dist/packages/build/src/bun-register.js"
+  },
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce"
+  },
+  "dependencies": {
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/config": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*",
+    "magic-string": "1.4.5",
+    "picomatch": "^4.0.3",
+    "@jridgewell/remapping": "2.3.5"
+  },
+  "peerDependencies": {
+    "@rsbuild/core": ">=2 <3",
+    "@rspack/core": ">=2 <3",
+    "esbuild": ">=0.28 <0.29",
+    "jest": ">=30.5 <31",
+    "rolldown": ">=1 <2",
+    "rollup": ">=4 <5",
+    "vite": ">=6.4.5 <9",
+    "webpack": ">=5 <6",
+    "next": ">=16.4 <17"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    },
+    "rollup": {
+      "optional": true
+    },
+    "rolldown": {
+      "optional": true
+    },
+    "webpack": {
+      "optional": true
+    },
+    "@rspack/core": {
+      "optional": true
+    },
+    "@rsbuild/core": {
+      "optional": true
+    },
+    "esbuild": {
+      "optional": true
+    },
+    "jest": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/picomatch": "^4.0.2",
+    "esbuild": "0.28.2",
+    "@jridgewell/trace-mapping": "0.3.31"
+  },
+  "bin": {
+    "typed-sql-build": "./dist/packages/build/src/cli.js"
+  }
+}

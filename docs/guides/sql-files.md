@@ -1,18 +1,32 @@
 ---
 title: SQL file imports
 pageType: how-to
-description: Import an experimental SQL file as a typed query factory using the TypeScript 7.1 content mapper and the optional Node runtime loader.
+description: Import SQL files as typed query factories with stable build integrations or the optional TypeScript 7.1 content mapper.
 ---
 
 # SQL file imports
 
-The experimental `@typed-sql/ts-bridge` content mapper checks `.sql` imports directly against your
-configured offline schema snapshot. Each file contains one statement and exports a query factory.
-The factory returns the same `Query<Row, Parameters>` accepted by `database.all`, `one`, and
-`maybeOne`. Inline `sql` templates continue to work through the existing compiler/editor workflow.
+Each `.sql` file contains one statement and exports a query factory returning the same
+`Query<Row, Parameters>` accepted by `database.all`, `one`, and `maybeOne`.
 
-This frontend is tested with TypeScript **7.1.0-beta**. Its optional runtime loader requires **Node.js
-24.11.1 or newer** and an ESM application. Node.js 25 requires 25.1.0 or newer. TypeScript 7.0 and older do not support this content mapper.
+## Stable build and test workflow
+
+Use [`@typed-sql/build`](../integrations/index.md) with your bundler or test runner. Generate
+co-located `.d.sql.ts` declarations with `typed-sql-build types` and enable
+`allowArbitraryExtensions` in your TypeScript configuration. No TypeScript beta is required.
+Run generation before checking and use `typed-sql-build types --check` to verify committed
+outputs in CI. Build adapters validate the current SQL and attach checked runtime value plans.
+
+The [installation tutorials](../integrations/index.md) cover Vite/Vitest, Jest, webpack, Rspack,
+Rsbuild, Next.js, esbuild, Rollup, Rolldown, Bun, native Node test runners, Astro, Nuxt,
+SvelteKit, and Wrangler/D1.
+
+## Experimental live content mapper
+
+The `@typed-sql/ts-bridge` content mapper checks `.sql` imports directly against the configured
+snapshot, without a declaration-generation step. It is tested with TypeScript **7.1.0-beta**.
+TypeScript 7.0 and older do not support this content mapper. Use this optional frontend for
+live TypeScript checking of SQL assets; the stable build integrations supply runtime compilation.
 
 ## Configure checking
 
@@ -99,10 +113,12 @@ typed factory and the runtime loader rejects the module. The runtime binds value
 
 ## Run on Node
 
-Start the ESM application from its typed-sql configuration directory:
+Install `@typed-sql/build` as an application dependency for this runtime path. It requires
+Node.js **24.11.1 or newer**; Node.js 25 requires 25.1.0 or newer. Start the ESM application
+from its typed-sql configuration directory:
 
 ```sh
-node --import @typed-sql/ts-bridge/sql-register src/main.ts
+node --import @typed-sql/build/register src/main.ts
 ```
 
 The preload evaluates one configuration from the current working directory, reads its snapshot,
@@ -117,41 +133,21 @@ copy these assets; the mapper does not copy them. A Vite build can instead compi
 
 ## Build for Workers and other bundled runtimes
 
-Use the build-only Vite integration when the deployed runtime cannot load configuration or SQL
-files. Install Vite and the bridge as development dependencies, and the selected grammar plus
-`@typed-sql/adapters` as application dependencies.
+Use the [Wrangler custom build](../integrations/workers.md) or an explicit
+[bundler adapter](../integrations/bundlers.md) when the deployed runtime cannot load configuration
+or SQL assets. Import the grammar's portable query entrypoint in runtime modules and keep the
+build integration in build configuration. Bundles contain static SQL and checked value plans;
+configuration and snapshots remain build inputs.
 
-```ts
-// vite.config.ts
-import { defineConfig } from "vite";
-import { typedSql } from "@typed-sql/ts-bridge/vite";
+Each SQL module exports `valuePlan`; its `typePolicyHash` can configure a matching
+[portable adapter profile](../reference/portable-adapters.md). For inline queries, use
+`getQueryValuePlan(query)` from `@typed-sql/core`.
 
-export default defineConfig({
-  plugins: [typedSql()],
-  ssr: { target: "webworker", noExternal: true },
-  build: { ssr: "src/worker.ts" },
-});
-```
-
-The plugin compiles `.sql` modules and inline TypeScript templates during the build. Generated
-queries contain static SQL and checked value plans. Import inline `sql` and the renderer from the
-grammar's portable entrypoint, such as `@typed-sql/sqlite/query`. Configuration and snapshots remain
-build inputs: the Worker bundle does not need the compiler, filesystem, or configuration loader.
-Keep the bridge/plugin out of application runtime imports.
-
-Each `.sql` module also exports `valuePlan`; its `typePolicyHash` configures a matching portable
-adapter profile. For inline queries, use `getQueryValuePlan(query)` from `@typed-sql/core`.
-See [portable adapters](../reference/portable-adapters.md) for D1 and other explicit driver factories.
-
-The plugin supports static queries, bounded conditional fragments, and nonempty direct fragment maps
-in `.ts` and `.tsx` sources. Runtime selectors match actual SQL structure using the grammar's portable
-renderer, check every repeated item, and expand parameter contracts for the actual list length.
-Result columns in dynamic repeated queries are conservatively widened to nullable `unknown`:
-representative list lengths cannot prove projection dependence, indexing, or nullability at every cardinality. Unsupported combinations
-report a diagnostic instead of emitting an unchecked type. Empty or changed fragment structures are rejected.
-Continue using
-`tsc --runExternalCode` for typechecking; the Vite plugin checks SQL but does not replace TypeScript.
-Schema and imported configuration files are registered with Vite's watch graph.
+The adapters support bounded conditional fragments and grammar-proven repeated fragments.
+Result-dependent structures remain conservative when the compiler cannot prove an exact
+contract. Empty or changed fragment structures fail closed. Build transforms do not replace
+application typechecking: use `typed-sql check` for inline inference, plus generated SQL
+file declarations or the experimental content mapper for imported assets.
 
 ## Editor and tooling boundaries
 
@@ -164,7 +160,8 @@ external execution by default. SQL completion, rename, and definition mapping ar
 this frontend.
 
 The stable `typed-sql check`, `generate`, and manifest commands discover inline TypeScript SQL
-templates. They **do not discover or cover `.sql` imports**. Use `tsc --runExternalCode` as the
-authoritative check for this frontend. SQL-file statements are absent from generated query
+templates. They **do not analyze the source of `.sql` imports**. Generate declarations with
+`typed-sql-build types` before ordinary checking, or use `tsc --runExternalCode` for live
+asset checking through the experimental mapper. SQL-file statements are absent from generated query
 manifests and their live-verification, plan, and compatibility reports. Keep queries inline when
 those artifact workflows are required.

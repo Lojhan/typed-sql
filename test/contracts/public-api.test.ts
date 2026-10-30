@@ -4,6 +4,14 @@ import type { SelectLockingClause, SqlAstContext, SqlAstVisitor } from "../../pa
 import * as astApi from "../../packages/ast/src/index.js";
 import * as astToolkitApi from "../../packages/ast/src/toolkit/index.js";
 import type {
+  BuildDiagnostic,
+  BuildOptions,
+  BuildProject,
+  BuildResult,
+  BuildSourceMap,
+} from "../../packages/build/src/index.js";
+import * as buildApi from "../../packages/build/src/index.js";
+import type {
   AnalyzeSchemaCompatibilityOptions,
   BuildQueryManifestOptions,
   BuildQueryManifestResult,
@@ -22,6 +30,8 @@ import type {
   CompiledQueryVariant,
   CompileSourceOptions,
   CompileSourceResult,
+  CompileSqlFileOptions,
+  CompileSqlFileResult,
   DeploymentDirection,
   ExtractedDynamicQuery,
   ExtractedInterpolation,
@@ -64,6 +74,7 @@ import type {
   VerifyQueryManifestResult,
 } from "../../packages/compiler/src/index.js";
 import * as compilerApi from "../../packages/compiler/src/index.js";
+import type { ConfigImporter } from "../../packages/config/src/index.js";
 import * as configApi from "../../packages/config/src/index.js";
 import type {
   CodecConformanceCase,
@@ -487,6 +498,14 @@ async function transactionBatchContract(
 }
 
 type ReferencedStableTypes =
+  | BuildOptions
+  | BuildProject
+  | BuildResult
+  | BuildDiagnostic
+  | BuildSourceMap
+  | ConfigImporter
+  | CompileSqlFileOptions
+  | CompileSqlFileResult
   | AnalyzeSchemaCompatibilityOptions
   | CheckFileOptions
   | CheckFileResult
@@ -729,6 +748,7 @@ void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
+  build: ["BuildError", "BuildSession", "generateSqlTypes", "loadBuildProject"],
   ast: [
     "DEFAULT_MAX_PARSE_DEPTH",
     "DEFAULT_MAX_SQL_LENGTH",
@@ -781,6 +801,7 @@ const expectedRuntimeExports = {
     "checkFile",
     "checkProject",
     "compileSource",
+    "compileSqlFile",
     "createSourceAnalysisService",
     "collectQueryVerificationCandidates",
     "extractDynamicQueries",
@@ -1123,6 +1144,7 @@ const expectedRuntimeExports = {
 await describe("stable public API", async () => {
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
+      build: Object.keys(buildApi).sort(),
       ast: Object.keys(astApi).sort(),
       astToolkit: Object.keys(astToolkitApi).sort(),
       compiler: Object.keys(compilerApi).sort(),

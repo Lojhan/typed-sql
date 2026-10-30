@@ -77,6 +77,7 @@ TypeScript 7.1 beta; applications do not replace their compiler to enable editor
 [Documentation](https://lojhan.github.io/typed-sql/) ·
 [Query API](./docs/reference/api.md) ·
 [JSON and portable adapters](./docs/reference/portable-adapters.md) ·
+[Build and test integrations](./docs/integrations/index.md) ·
 [SQL files](./docs/guides/sql-files.md) ·
 [Inference and safety](./docs/concepts/type-safety.md)
 

@@ -1,4 +1,5 @@
 const prerequisites = {
+  build: process.env.TYPED_SQL_BUILD_RESULT,
   source: process.env.TYPED_SQL_SOURCE_RESULT,
   database: process.env.TYPED_SQL_DATABASE_RESULT,
   editor: process.env.TYPED_SQL_EDITOR_RESULT,

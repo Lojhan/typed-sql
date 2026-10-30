@@ -87,7 +87,11 @@ jobs:
           cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:exceptions:check
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.4
       - run: pnpm verify
+      - run: pnpm e2e:build
       # verify has already produced a clean build in this immutable job.
       - run: node scripts/verify-release-artifacts.mjs --output artifacts/release/artifacts.json
       - run: pnpm test:pack
@@ -118,6 +122,7 @@ jobs:
           --gate api
           --gate packed-consumer
           --gate conformance-smoke
+          --gate build-integrations
           --gate performance
           --gate soak
           --gate artifact-integrity

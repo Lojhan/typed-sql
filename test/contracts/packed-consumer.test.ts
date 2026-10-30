@@ -16,6 +16,7 @@ const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { NODE_PATH: _workspaceNodePath, ...isolatedEnvironment } = process.env;
 const publicPackages = [
+  "build",
   "adapters",
   "ast",
   "core",
@@ -32,6 +33,7 @@ const publicPackages = [
   "sqlite",
 ] as const;
 const declarationCheckedPackages = new Set([
+  "build",
   "adapters",
   "ast",
   "core",
@@ -240,7 +242,10 @@ await describe("packed public packages", async () => {
         }
         if (declarationCheckedPackages.has(directory)) {
           for (const exportTarget of Object.values(packedManifest.exports ?? {})) {
-            const declarationTarget = `package/${exportTarget.replace(/^\.\//u, "").replace(/\.js$/u, ".d.ts")}`;
+            const declarationTarget = `package/${exportTarget
+              .replace(/^\.\//u, "")
+              .replace(/\.cjs$/u, ".d.cts")
+              .replace(/\.js$/u, ".d.ts")}`;
             strict.ok(
               listing.includes(declarationTarget),
               `${packageManifest.name} must pack declarations for ${exportTarget}`,

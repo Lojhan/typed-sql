@@ -69,7 +69,8 @@
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
     "version-packages": "node scripts/version-packages.mjs",
     "editor:sdk:build": "node scripts/build-editor-sdk.mjs",
-    "editor:sdk:build:all": "node scripts/build-editor-sdk.mjs --all"
+    "editor:sdk:build:all": "node scripts/build-editor-sdk.mjs --all",
+    "e2e:build": "pnpm typecheck && pnpm --filter @typed-sql/e2e-build e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

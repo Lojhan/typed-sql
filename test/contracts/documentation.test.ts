@@ -448,6 +448,35 @@ await describe("public documentation", async () => {
     );
   });
 
+  await it("documents every stable build entrypoint with an installation tutorial", async () => {
+    const build = JSON.parse(await text("packages/build/package.json")) as { exports: Record<string, string> };
+    const tutorials = new Map([
+      [".", "index"],
+      ["./vite", "vite"],
+      ["./jest", "jest"],
+      ["./jest-dependencies", "jest"],
+      ["./webpack", "bundlers"],
+      ["./webpack-loader", "bundlers"],
+      ["./rspack", "bundlers"],
+      ["./rsbuild", "bundlers"],
+      ["./esbuild", "bundlers"],
+      ["./rollup", "bundlers"],
+      ["./rolldown", "bundlers"],
+      ["./next", "next"],
+      ["./register", "node"],
+      ["./bun", "bun"],
+      ["./bun-register", "bun"],
+    ]);
+    strict.deepStrictEqual([...tutorials.keys()].sort(), Object.keys(build.exports).sort());
+    for (const [entrypoint, page] of tutorials) {
+      const documentation = await text(`docs/integrations/${page}.md`);
+      const name = entrypoint === "." ? "@typed-sql/build" : `@typed-sql/build${entrypoint.slice(1)}`;
+      strict.ok(documentation.includes(name), `${name} has no installation example`);
+      strict.match(documentation, /(?:pnpm|bun) add/u);
+    }
+    strict.ok((await text("docs/integrations/index.md")).includes("typed-sql-build types --check"));
+  });
+
   await it("keeps the v1 upgrade contract aligned with public version boundaries", async () => {
     const migration = await text("docs/guides/upgrading-from-v1.md");
     const customGrammars = await text("docs/extending/custom-grammars.md");

@@ -34,6 +34,7 @@ const forbiddenDrivers = new Set([
   "postgres",
 ]);
 const publicPackages = [
+  "build",
   "adapters",
   "ast",
   "core",
@@ -62,9 +63,27 @@ const stablePackages = [
   "sqlite",
   "cli",
   "adapters",
+  "build",
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
+  build: [
+    ".",
+    "./vite",
+    "./rollup",
+    "./rolldown",
+    "./webpack",
+    "./webpack-loader",
+    "./rspack",
+    "./rsbuild",
+    "./esbuild",
+    "./jest",
+    "./jest-dependencies",
+    "./next",
+    "./register",
+    "./bun",
+    "./bun-register",
+  ],
   adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js"],
   ast: [".", "./toolkit"],
   core: ["."],
@@ -103,6 +122,7 @@ async function source(packageName: string, parent = "packages"): Promise<string>
 await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
     for (const packageName of [
+      "build",
       "adapters",
       "core",
       "opentelemetry",
@@ -214,7 +234,7 @@ await describe("public package graph", async () => {
   });
 
   await it("keeps every neutral package free of dialect, driver, and SQL-feature decisions", async () => {
-    const neutralPackages = ["core", "compiler", "conformance", "config", "schema"] as const;
+    const neutralPackages = ["build", "core", "compiler", "conformance", "config", "schema"] as const;
     const forbiddenSource = [
       { label: "first-party dialect name", pattern: /\b(?:postgres(?:ql)?|mysql2?)\b/iu },
       { label: "dialect-specific RETURNING", pattern: /\bRETURNING\b/u },
