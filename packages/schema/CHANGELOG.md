@@ -1,5 +1,11 @@
 # @typed-sql/schema
 
+## 2.4.0-rc.0
+
+### Patch Changes
+
+- Publish the coherent 2.4.0-rc.0 release-candidate train.
+
 ## 2.3.0
 
 ### Patch Changes

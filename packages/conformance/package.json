@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/conformance",
-  "version": "2.3.0",
+  "version": "2.4.0-rc.0",
   "description": "Public grammar, capability, codec, and performance conformance kit for typed-sql dialects.",
   "license": "MIT",
   "author": "Lojhan",
