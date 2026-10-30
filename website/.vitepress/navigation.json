@@ -1,17 +1,37 @@
 {
   "topNavigation": [
-    { "text": "Docs", "link": "/getting-started/" },
-    { "text": "Examples", "link": "/examples/" },
-    { "text": "Dialects", "link": "/dialects/" },
-    { "text": "Reference", "link": "/reference/api" },
-    { "text": "GitHub", "link": "https://github.com/Lojhan/typed-sql" }
+    {
+      "text": "Docs",
+      "link": "/getting-started/"
+    },
+    {
+      "text": "Examples",
+      "link": "/examples/"
+    },
+    {
+      "text": "Dialects",
+      "link": "/dialects/"
+    },
+    {
+      "text": "Reference",
+      "link": "/reference/api"
+    },
+    {
+      "text": "GitHub",
+      "link": "https://github.com/Lojhan/typed-sql"
+    }
   ],
   "sections": [
     {
       "text": "Start",
       "collapsed": false,
       "items": [
-        { "text": "Product overview", "link": "/", "file": "docs/index.md", "pageType": "landing" },
+        {
+          "text": "Product overview",
+          "link": "/",
+          "file": "docs/index.md",
+          "pageType": "landing"
+        },
         {
           "text": "Choose a dialect",
           "link": "/getting-started/",
@@ -116,6 +136,65 @@
       ]
     },
     {
+      "text": "Build and test integrations",
+      "items": [
+        {
+          "text": "Build and test overview",
+          "link": "/integrations/",
+          "file": "docs/integrations/index.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Vite and Vitest",
+          "link": "/integrations/vite",
+          "file": "docs/integrations/vite.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Jest",
+          "link": "/integrations/jest",
+          "file": "docs/integrations/jest.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Bundler adapters",
+          "link": "/integrations/bundlers",
+          "file": "docs/integrations/bundlers.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Node and test runners",
+          "link": "/integrations/node",
+          "file": "docs/integrations/node.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Next.js",
+          "link": "/integrations/next",
+          "file": "docs/integrations/next.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Bun",
+          "link": "/integrations/bun",
+          "file": "docs/integrations/bun.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Astro, Nuxt, and SvelteKit",
+          "link": "/integrations/frameworks",
+          "file": "docs/integrations/frameworks.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "Wrangler and D1",
+          "link": "/integrations/workers",
+          "file": "docs/integrations/workers.md",
+          "pageType": "tutorial"
+        }
+      ]
+    },
+    {
       "text": "Operate",
       "items": [
         {
@@ -165,7 +244,12 @@
     {
       "text": "Examples",
       "items": [
-        { "text": "Overview", "link": "/examples/", "file": "docs/examples/index.md", "pageType": "landing" },
+        {
+          "text": "Overview",
+          "link": "/examples/",
+          "file": "docs/examples/index.md",
+          "pageType": "landing"
+        },
         {
           "text": "Query recipes",
           "link": "/examples/recipes",
@@ -184,8 +268,18 @@
           "file": "docs/examples/postgresql.md",
           "pageType": "tutorial"
         },
-        { "text": "MySQL", "link": "/examples/mysql", "file": "docs/examples/mysql.md", "pageType": "tutorial" },
-        { "text": "SQLite", "link": "/examples/sqlite", "file": "docs/examples/sqlite.md", "pageType": "tutorial" },
+        {
+          "text": "MySQL",
+          "link": "/examples/mysql",
+          "file": "docs/examples/mysql.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "SQLite",
+          "link": "/examples/sqlite",
+          "file": "docs/examples/sqlite.md",
+          "pageType": "tutorial"
+        },
         {
           "text": "PostgreSQL + SQLite",
           "link": "/examples/multi-database",
@@ -261,7 +355,12 @@
           "file": "docs/reference/portable-adapters.md",
           "pageType": "reference"
         },
-        { "text": "Query API", "link": "/reference/api", "file": "docs/reference/api.md", "pageType": "reference" },
+        {
+          "text": "Query API",
+          "link": "/reference/api",
+          "file": "docs/reference/api.md",
+          "pageType": "reference"
+        },
         {
           "text": "Grammar support",
           "link": "/reference/grammar-support",

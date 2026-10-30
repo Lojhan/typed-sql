@@ -6,7 +6,6 @@ import { promisify } from "node:util";
 import { describe, it, strict, waitForExpectedResult } from "poku";
 import { assertSqlFileConsumer, prepareSqlFileConsumer } from "../../../test/helpers/sql-file-consumer.js";
 import { typescriptPreviewCliPath } from "../src/native-lsp.js";
-import { analyzeSqlFile, loadSqlFileProject } from "../src/sql-file.js";
 
 const execFile = promisify(callback);
 
@@ -58,55 +57,6 @@ await describe("official SQL content mapper", async () => {
     await fixture(async (consumer) =>
       assertSqlFileConsumer({ consumer, previewCli: typescriptPreviewCliPath(), env: process.env }),
     );
-  });
-
-  await it("fails closed for ambiguous parameter cardinality and preserves original UTF-16 diagnostic offsets", async () => {
-    await fixture(async (directory) => {
-      await writeFile(
-        join(directory, "typed-sql.config.mjs"),
-        `import { postgres } from '@typed-sql/postgres'; export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'.typed-sql'};`,
-      );
-      await writeFile(join(directory, "schema.json"), JSON.stringify({ dialect: "postgres", tables: {} }));
-      const project = await loadSqlFileProject(directory);
-      for (const text of ["SELECT $1 AS a, $1 AS b", "SELECT $2 AS a", "SELECT $2 AS a, $1 AS b"]) {
-        const result = analyzeSqlFile(text, project);
-        strict.ok(result.diagnostics.some((item) => item.code === 901));
-        strict.match(result.text, /query: never/u);
-        strict.match(result.runtime, /throw new SyntaxError/u);
-      }
-      const parameterSource = "SELECT $1 AS value";
-      const placeholder = parameterSource.indexOf("$1");
-      for (const occurrences of [
-        [],
-        [{ index: 1, range: { start: -1, end: 2, line: 1, column: 1 } }],
-        [{ index: 1, range: { start: placeholder, end: parameterSource.length + 1, line: 1, column: 1 } }],
-        [{ index: 1, range: { start: placeholder, end: placeholder, line: 1, column: 1 } }],
-        [
-          { index: 1, range: { start: placeholder, end: placeholder + 2, line: 1, column: placeholder + 1 } },
-          { index: 2, range: { start: placeholder, end: placeholder + 2, line: 1, column: placeholder + 1 } },
-        ],
-      ]) {
-        const broken = {
-          ...project,
-          loaded: {
-            ...project.loaded,
-            config: {
-              ...project.loaded.config,
-              dialect: { ...project.loaded.config.dialect, parameterOccurrences: () => occurrences },
-            },
-          },
-        };
-        const result = analyzeSqlFile(parameterSource, broken);
-        strict.ok(result.diagnostics.some((item) => item.code === 901));
-        strict.match(result.text, /query: never/u);
-        strict.match(result.runtime, /throw new SyntaxError/u);
-      }
-      const source = "SELECT '😀' AS emoji,\n  missing FROM nowhere";
-      const result = analyzeSqlFile(source, project);
-      strict.ok(
-        result.diagnostics.some((item) => source.slice(item.start, item.start + item.length).includes("nowhere")),
-      );
-    });
   });
 
   await it("refreshes schema and imported config dependencies in the official compiler watch process", async () => {

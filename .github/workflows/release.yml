@@ -87,7 +87,13 @@ jobs:
           cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:exceptions:check
+      - name: Install the pinned official Bun binary
+        run: |
+          npm install --prefix "$RUNNER_TEMP/typed-sql-bun" --ignore-scripts --no-audit --no-fund @oven/bun-linux-x64@1.4.4
+          printf '%s\n' "$RUNNER_TEMP/typed-sql-bun/node_modules/@oven/bun-linux-x64/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/typed-sql-bun/node_modules/@oven/bun-linux-x64/bin/bun" --version
       - run: pnpm verify
+      - run: pnpm e2e:build
       # verify has already produced a clean build in this immutable job.
       - run: node scripts/verify-release-artifacts.mjs --output artifacts/release/artifacts.json
       - run: pnpm test:pack
@@ -118,6 +124,7 @@ jobs:
           --gate api
           --gate packed-consumer
           --gate conformance-smoke
+          --gate build-integrations
           --gate performance
           --gate soak
           --gate artifact-integrity

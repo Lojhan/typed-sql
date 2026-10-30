@@ -15,7 +15,8 @@
     "@typed-sql/mysql",
     "@typed-sql/sqlite",
     "@typed-sql/cli",
-    "@typed-sql/adapters"
+    "@typed-sql/adapters",
+    "@typed-sql/build"
   ],
   "packagePolicy": {
     "stable": [
@@ -30,7 +31,8 @@
       "@typed-sql/mysql",
       "@typed-sql/sqlite",
       "@typed-sql/cli",
-      "@typed-sql/adapters"
+      "@typed-sql/adapters",
+      "@typed-sql/build"
     ],
     "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
   }

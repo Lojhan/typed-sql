@@ -23,6 +23,8 @@ typed-sql separates the application query contract, SQL grammar, schema metadata
 | `@typed-sql/mysql` | MySQL grammar, catalog model, resolver, type policy, and codecs | No |
 | `@typed-sql/sqlite` | SQLite grammar, dynamic-type model, introspection, and optional built-in Node adapter | No |
 | `@typed-sql/cli` | Snapshot generation, checking, drift, manifests, verification, plan governance, compatibility, and provider discovery | No |
+| `@typed-sql/build` | Stable optional build/test adapters, SQL module declarations, and shared offline execution-plan compilation | No |
+| `@typed-sql/adapters` | Explicit portable database adapters over application-owned clients and bindings | No |
 | `@typed-sql/ts-bridge` | Experimental TypeScript semantic overlay and isolated preview bridge | No |
 | `@typed-sql/language-server` | Experimental TypeScript and LSP semantic proxy | No |
 

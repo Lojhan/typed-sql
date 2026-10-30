@@ -21,13 +21,14 @@ version boundaries, see [Upgrade from typed-sql v1](../guides/upgrading-from-v1.
 | Surface | Contract | Tested target |
 | --- | --- | --- |
 | Node.js | 22.11 or newer | 22.11.0, current Node 22, 24, and 26 lines for compiler/editor integration |
+| SQL module declaration consumers | Exactly 6.0.3 or 7.0.2 for generated SQL modules | 6.0.3 framework consumers and 7.0.2 standalone consumers; inline inference uses the correctness path below |
 | TypeScript correctness path | Exactly 7.0.2 | 7.0.2 on every tested Node line |
 | TypeScript editor backend | Exactly `7.1.0-beta`, installed inside the bridge | The pinned preview on every tested Node line |
 | typed-sql editor protocol | Version 1; the existing unversioned client shape is treated as version 1 | Versioned and unversioned v1 clients |
 | Module format | ESM packages with exported JavaScript and declarations | NodeNext ESM consumers and packed package exports |
 | Package manager | Any package manager that honors package exports | Repository checks use pnpm |
 
-TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by some editors. CLI checking and compiler transforms are authoritative and do not depend on that file. Other TypeScript patches are not implicitly supported: each exact compiler or preview patch enters the compatibility matrix as a non-blocking canary before it can replace a supported target.
+TypeScript 7.0 does not provide the legacy `tsserver.js` entrypoint expected by some editors. CLI checking and compiler transforms are authoritative and do not depend on that file. Other TypeScript compiler/backend patches are not implicitly supported: each exact compiler or preview patch enters the compatibility matrix as a non-blocking canary before it can replace a supported target.
 
 `typed-sql check` verifies the application-installed TypeScript package before opening its in-memory overlay. The editor bridge
 similarly verifies its bundled preview package before loading a project. An unsupported patch stops
@@ -55,7 +56,7 @@ Driver configurations that change decoded value shapes can violate static types.
 
 | Surface | Status |
 | --- | --- |
-| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `cli`, `adapters` | Stable package contract |
+| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `cli`, `adapters`, `build` | Stable package contract |
 | `ts-bridge`, `language-server` | Experimental while their preview contracts are exercised |
 | VS Code and Zed integrations | Experimental distribution |
 

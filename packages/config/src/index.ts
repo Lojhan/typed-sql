@@ -40,9 +40,25 @@ export interface LoadedConfig {
   readonly dependencies?: readonly string[];
 }
 
+/** Host loader must evaluate a fresh local graph and report imported file URLs. */
+export type ConfigImporter = (file: string, onImport: (url: string) => void) => Promise<{ readonly default?: unknown }>;
+const importerIds = new WeakMap<ConfigImporter, number>();
+let nextImporterId = 1;
+function importerIdentity(importer: ConfigImporter | undefined): number {
+  if (importer === undefined) return 0;
+  let id = importerIds.get(importer);
+  if (id === undefined) {
+    id = nextImporterId++;
+    importerIds.set(importer, id);
+  }
+  return id;
+}
+
 export interface LoadConfigOptions {
   readonly file?: string;
   readonly cwd?: string;
+  /** Runtime-specific module loader. Default: isolated tsx namespaces on Node.js. */
+  readonly importer?: ConfigImporter;
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -85,7 +101,7 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
       ? await discoverConfig(options.cwd)
       : resolve(options.cwd ?? process.cwd(), options.file);
   const hash = await hashFile(file);
-  const key = `${file}\0${hash}`;
+  const key = `${importerIdentity(options.importer)}\0${file}\0${hash}`;
   const cached = configCache.get(key);
   if (cached !== undefined) {
     const loaded = await cached;
@@ -112,14 +128,16 @@ export async function loadConfig(options: LoadConfigOptions = {}): Promise<Loade
   const dependencies = new Set<string>([file]);
   // A fresh tsx namespace reloads the entire imported module graph, not only the
   // entry module. Reuse is handled above once every recorded dependency matches.
-  const loading = tsImport(pathToFileURL(file).href, {
-    parentURL: import.meta.url,
-    onImport(url) {
-      if (!url.startsWith("file:")) return;
-      const path = fileURLToPath(url);
-      if (!path.split(sep).includes("node_modules")) dependencies.add(path);
-    },
-  })
+  const onImport = (url: string) => {
+    if (!url.startsWith("file:")) return;
+    const path = fileURLToPath(url);
+    if (!path.split(sep).includes("node_modules")) dependencies.add(path);
+  };
+  const loading = (
+    options.importer === undefined
+      ? tsImport(pathToFileURL(file).href, { parentURL: import.meta.url, onImport })
+      : options.importer(file, onImport)
+  )
     .then(async (module: { readonly default?: unknown }) => {
       if (!isConfig(module.default)) throw new TypeError(`${file} must default-export defineConfig({...})`);
       const paths = Object.freeze([...dependencies].sort());

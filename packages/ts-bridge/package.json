@@ -53,7 +53,8 @@
     "@typed-sql/schema": "workspace:*",
     "@typed-sql/typescript-preview": "npm:typescript@7.1.0-beta",
     "@typed-sql/config": "workspace:*",
-    "vscode-jsonrpc": "10.0.0"
+    "vscode-jsonrpc": "10.0.0",
+    "@typed-sql/build": "workspace:*"
   },
   "typescript": {
     "contentMapper": {

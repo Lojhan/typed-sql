@@ -95,6 +95,8 @@ export interface CompiledFragment {
 
 export interface CompileSourceResult {
   readonly transformedSource: string;
+  /** Insertions at original UTF-16 offsets, in the order used to construct transformedSource. */
+  readonly insertions: readonly { readonly position: number; readonly text: string }[];
   readonly queries: readonly CompiledQuery[];
   readonly fragments: readonly CompiledFragment[];
   readonly diagnostics: readonly SqlDiagnostic[];
@@ -122,6 +124,7 @@ function positiveLimit(value: number | undefined, fallback: number, name: string
 function resourceLimit(source: string, message: string): CompileSourceResult {
   return {
     transformedSource: source,
+    insertions: [],
     queries: [],
     fragments: [],
     diagnostics: [
@@ -868,6 +871,7 @@ export function compileSource<Snapshot extends SchemaSnapshot, Policy>(
   }
   return {
     transformedSource,
+    insertions,
     queries: compiled,
     fragments: compiledFragments,
     diagnostics: deduplicateDiagnostics(diagnostics),

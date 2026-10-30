@@ -16,6 +16,7 @@ const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { NODE_PATH: _workspaceNodePath, ...isolatedEnvironment } = process.env;
 const publicPackages = [
+  "build",
   "adapters",
   "ast",
   "core",
@@ -32,6 +33,7 @@ const publicPackages = [
   "sqlite",
 ] as const;
 const declarationCheckedPackages = new Set([
+  "build",
   "adapters",
   "ast",
   "core",
@@ -240,7 +242,10 @@ await describe("packed public packages", async () => {
         }
         if (declarationCheckedPackages.has(directory)) {
           for (const exportTarget of Object.values(packedManifest.exports ?? {})) {
-            const declarationTarget = `package/${exportTarget.replace(/^\.\//u, "").replace(/\.js$/u, ".d.ts")}`;
+            const declarationTarget = `package/${exportTarget
+              .replace(/^\.\//u, "")
+              .replace(/\.cjs$/u, ".d.cts")
+              .replace(/\.js$/u, ".d.ts")}`;
             strict.ok(
               listing.includes(declarationTarget),
               `${packageManifest.name} must pack declarations for ${exportTarget}`,
@@ -391,6 +396,9 @@ await describe("packed public packages", async () => {
                 tsx: `link:${join(workspace, "node_modules", "tsx")}`,
                 "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
                 "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
+                "magic-string": `link:${join(workspace, "packages", "build", "node_modules", "magic-string")}`,
+                "@jridgewell/remapping": `link:${join(workspace, "packages", "build", "node_modules", "@jridgewell", "remapping")}`,
+                picomatch: `link:${join(workspace, "packages", "build", "node_modules", "picomatch")}`,
                 "jsonc-parser": `link:${join(workspace, "packages", "cli", "node_modules", "jsonc-parser")}`,
                 "proper-lockfile": `link:${join(workspace, "packages", "cli", "node_modules", "proper-lockfile")}`,
                 "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
@@ -404,10 +412,22 @@ await describe("packed public packages", async () => {
           2,
         )}\n`,
       );
-      await execFile("pnpm", ["install", "--offline", "--ignore-scripts", "--no-frozen-lockfile"], {
-        cwd: consumer,
-        env: { ...isolatedEnvironment, CI: "true" },
-      });
+      // A fresh store catches missing tarball/override closure even on a warm developer machine.
+      await execFile(
+        "pnpm",
+        [
+          "install",
+          "--offline",
+          "--ignore-scripts",
+          "--no-frozen-lockfile",
+          "--store-dir",
+          join(temporary, "pnpm-store"),
+        ],
+        {
+          cwd: consumer,
+          env: { ...isolatedEnvironment, CI: "true" },
+        },
+      );
       await assertFirstUseConsumer({
         directory: join(temporary, "first-use"),
         workspace,

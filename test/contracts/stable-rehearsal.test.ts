@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
@@ -89,8 +89,24 @@ await describe("stable release rehearsal policy", async () => {
       strict.ok(normalizedNotes.includes(required), `stable release notes lost required boundary: ${required}`);
     }
 
-    for (const name of release.packagePolicy.stable)
-      strict.ok(normalizedNotes.includes(`\`${name}\``), `release notes omit stable package ${name}`);
+    for (const name of release.packagePolicy.stable) {
+      if (normalizedNotes.includes(`\`${name}\``)) continue;
+      // A newly introduced package belongs in its pending Changeset, not historical published notes.
+      const changelog = await readFile(
+        resolve(workspace, "packages", name.slice("@typed-sql/".length), "CHANGELOG.md"),
+        "utf8",
+      );
+      strict.ok(!/^## \d+\.\d+\.\d+/mu.test(changelog), `release notes omit stable package ${name}`);
+      const pending = await Promise.all(
+        (await readdir(resolve(workspace, ".changeset")))
+          .filter((file) => file.endsWith(".md") && file !== "README.md")
+          .map((file) => readFile(resolve(workspace, ".changeset", file), "utf8")),
+      );
+      strict.ok(
+        pending.some((text) => text.split("---")[1]?.includes(`"${name}":`)),
+        `new stable package ${name} needs a pending Changeset`,
+      );
+    }
 
     const workflow = await readFile(resolve(workspace, ".github/workflows/release.yml"), "utf8");
     const publishStable = workflow.indexOf("name: Publish stable");

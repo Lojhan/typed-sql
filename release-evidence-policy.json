@@ -5,7 +5,16 @@
       "required": ["quality", "typecheck", "unit"]
     },
     "beta": {
-      "required": ["quality", "typecheck", "unit", "soundness", "api", "packed-consumer", "conformance-smoke"]
+      "required": [
+        "quality",
+        "typecheck",
+        "unit",
+        "soundness",
+        "api",
+        "packed-consumer",
+        "conformance-smoke",
+        "build-integrations"
+      ]
     },
     "rc": {
       "required": [
@@ -16,6 +25,7 @@
         "api",
         "packed-consumer",
         "conformance-smoke",
+        "build-integrations",
         "database-matrix",
         "typescript-editor-matrix",
         "fuzz",
@@ -34,6 +44,7 @@
         "api",
         "packed-consumer",
         "conformance-smoke",
+        "build-integrations",
         "database-matrix",
         "typescript-editor-matrix",
         "fuzz",

@@ -25,6 +25,20 @@ pnpm docs:build
 pnpm performance
 ```
 
+The build/test host matrix uses Node.js 24.22.2 and Bun 1.4.4. After installing those runtimes, run:
+
+```sh
+pnpm e2e:build
+```
+
+The matrix packs the library's public dependency closure, installs each host into an isolated
+consumer, builds real artifacts, and executes queries against owned in-memory SQLite or local
+workerd D1 databases. It also checks SQL declaration consumption, invalid SQL, configuration and
+schema invalidation, source maps, Jest transformer composition, and framework production routes.
+`e2e/build/hosts.json` records exact host versions. Host dependencies are installed per consumer;
+no workspace source links are used as library dependencies. The CI matrix splits these tests
+into six required groups. Use `TYPED_SQL_BUN` to select an owned Bun binary explicitly.
+
 Run real database flows with:
 
 ```sh

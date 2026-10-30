@@ -17,21 +17,56 @@
   ],
   "exclude": ["fixtures"],
   "references": [
-    { "path": "../packages/adapters" },
-    { "path": "../editors/vscode" },
-    { "path": "../packages/core" },
-    { "path": "../packages/config" },
-    { "path": "../packages/ast" },
-    { "path": "../packages/schema" },
-    { "path": "../packages/postgres" },
-    { "path": "../packages/mysql" },
-    { "path": "../packages/sqlite" },
-    { "path": "../packages/compiler" },
-    { "path": "../packages/conformance" },
-    { "path": "../packages/opentelemetry" },
-    { "path": "../packages/cli" },
-    { "path": "../packages/ts-bridge" },
-    { "path": "../packages/language-server" },
-    { "path": "../examples/synthetic-grammar" }
+    {
+      "path": "../packages/build"
+    },
+    {
+      "path": "../packages/adapters"
+    },
+    {
+      "path": "../editors/vscode"
+    },
+    {
+      "path": "../packages/core"
+    },
+    {
+      "path": "../packages/config"
+    },
+    {
+      "path": "../packages/ast"
+    },
+    {
+      "path": "../packages/schema"
+    },
+    {
+      "path": "../packages/postgres"
+    },
+    {
+      "path": "../packages/mysql"
+    },
+    {
+      "path": "../packages/sqlite"
+    },
+    {
+      "path": "../packages/compiler"
+    },
+    {
+      "path": "../packages/conformance"
+    },
+    {
+      "path": "../packages/opentelemetry"
+    },
+    {
+      "path": "../packages/cli"
+    },
+    {
+      "path": "../packages/ts-bridge"
+    },
+    {
+      "path": "../packages/language-server"
+    },
+    {
+      "path": "../examples/synthetic-grammar"
+    }
   ]
 }
