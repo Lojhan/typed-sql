@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/adapters",
-  "version": "2.3.0",
+  "version": "2.4.0-rc.0",
   "description": "Explicit buffered database adapters for D1, libSQL, Neon and Postgres.js.",
   "license": "MIT",
   "author": "Lojhan",
