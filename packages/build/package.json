@@ -14,7 +14,7 @@
     "url": "https://github.com/Lojhan/typed-sql/issues"
   },
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22.11"
   },
   "files": [
     "dist/**/*.js",

@@ -26,6 +26,7 @@ const mysqlContainer = `typed-sql-packed-mysql-${suffix}`;
 const postgresImage = "localhost/typed-sql-e2e-postgres:18.4";
 const mysqlImage = "localhost/typed-sql-e2e-mysql:8.4.11";
 const packageNames = [
+  "build",
   "adapters",
   "ast",
   "core",
@@ -263,6 +264,9 @@ await describe(`${consumerSource} real-database consumers`, async () => {
                     overrides: {
                       ...dependencies,
                       ...driverLinks,
+                      "magic-string": `link:${join(workspace, "packages", "build", "node_modules", "magic-string")}`,
+                      "@jridgewell/remapping": `link:${join(workspace, "packages", "build", "node_modules", "@jridgewell", "remapping")}`,
+                      picomatch: `link:${join(workspace, "packages", "build", "node_modules", "picomatch")}`,
                       "jsonc-parser": `link:${join(workspace, "packages", "cli", "node_modules", "jsonc-parser")}`,
                       "proper-lockfile": `link:${join(workspace, "packages", "cli", "node_modules", "proper-lockfile")}`,
                       "@typed-sql/typescript-preview": localTypescript!.preview.package,

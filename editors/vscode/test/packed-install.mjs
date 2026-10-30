@@ -19,6 +19,7 @@ export async function installPackedServer(root, run) {
   // Include each workspace dependency in the isolated install, never resolve a
   // prerelease workspace package from the registry or link production sources.
   const directories = [
+    "build",
     "ast",
     "core",
     "config",
