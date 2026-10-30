@@ -11,7 +11,7 @@ await describe("CI evidence lanes", async () => {
     const workflow = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
     const hosts = workflow.slice(workflow.indexOf("  build-integrations:\n")).split(/\n(?= {2}\S)/u)[0]!;
     strict.ok(hosts.includes("node-version: 24.22.2"));
-    strict.ok(hosts.includes("bun-version: 1.4.4"));
+    strict.ok(hosts.includes("@oven/bun-linux-x64@1.4.4"));
     for (const file of await readdir(join(workspace, "e2e/build/test"))) {
       if (file.endsWith(".test.mjs")) strict.ok(hosts.includes(file), `required CI omits ${file}`);
     }
