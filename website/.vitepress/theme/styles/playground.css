@@ -75,7 +75,7 @@
   display: flex;
   flex-direction: column;
 }
-.pg-source #pg-editor {
+.pg-source .pg-editor-content {
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -514,4 +514,19 @@
 .pg-source .ts-code-editor__type-hover .cm-line {
   padding: 0;
   line-height: 1.6;
+}
+
+.pg-editor-layout {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pg-source .cm-definition-link {
+  color: var(--ts-c-type);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }

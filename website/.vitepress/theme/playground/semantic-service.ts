@@ -1,5 +1,6 @@
 import ts from "@typed-sql/browser-typescript";
 import { extractStaticQueries } from "../../../../packages/compiler/src/scanner.js";
+import type { EditorCompletion, EditorRequest, EditorResponse } from "./editor-protocol.js";
 import { analyzePlaygroundSource, type PlaygroundDialect, type PlaygroundQuery } from "./playground.js";
 import { validWorkspaceFiles, type WorkspaceFile, type WorkspaceFiles } from "./workspace.js";
 import { analyzeSqlFiles, workspaceProblem } from "./workspace-sql.js";
@@ -111,6 +112,28 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
       }),
   };
   const service = ts.createLanguageService(host);
+  let overlays = new Map<string, Insertion[]>();
+  let latestQueries: readonly WorkspaceQuery[] = [];
+  let currentFiles: WorkspaceFiles = {};
+  const transformedPosition = (file: string, position: number) =>
+    position +
+    (overlays.get(file) ?? [])
+      .filter((item) => item.position <= position)
+      .reduce((sum, item) => sum + item.text.length, 0);
+  const preferences: ts.UserPreferences = {
+    includeCompletionsForModuleExports: true,
+    includeCompletionsWithInsertText: true,
+    importModuleSpecifierEnding: "auto",
+    importModuleSpecifierPreference: "relative",
+    quotePreference: "double",
+  };
+  const completionOptions = { ...preferences, includeCompletionsWithSnippetText: false };
+  const allowedCompletion = (entry: { source?: string; data?: ts.CompletionEntryData }) =>
+    (!entry.data?.fileName || entry.data.fileName.startsWith(userRoot)) &&
+    (!entry.source ||
+      entry.source.startsWith(userRoot) ||
+      entry.source.startsWith(".") ||
+      entry.source === `@typed-sql/${activeDialect}`);
 
   return {
     analyze(dialect: PlaygroundDialect, files: WorkspaceFiles): WorkspaceAnalysis {
@@ -122,7 +145,8 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
       const problems: WorkspaceProblem[] = [...sql.problems];
       const queries: WorkspaceQuery[] = [...sql.queries];
       const hovers: Record<string, WorkspaceHover[]> = Object.fromEntries(Object.keys(files).map((file) => [file, []]));
-      const overlays = new Map<string, Insertion[]>();
+      overlays = new Map<string, Insertion[]>();
+      currentFiles = { ...files };
       virtual = new Map(Object.entries(sql.modules));
       const typescriptFiles = Object.keys(files)
         .filter((file) => file.endsWith(".ts"))
@@ -249,7 +273,132 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
           to: query.sourceEnd,
           content: `Query<${query.rowType}, ${query.parameterType}>`,
         });
+      latestQueries = queries;
       return { queries, hovers, problems, version: ts.version };
+    },
+    interact(request: EditorRequest): EditorResponse {
+      const { file, position } = request;
+      if (
+        !file.endsWith(".ts") ||
+        currentFiles[file] === undefined ||
+        position < 0 ||
+        position > currentFiles[file]!.length
+      )
+        return undefined;
+      const fileName = `${userRoot}${file}`;
+      const transformed = transformedPosition(file, position);
+      if (request.kind === "definition") {
+        const definitions = service.getDefinitionAtPosition(fileName, transformed) ?? [];
+        for (const definition of definitions) {
+          if (definition.fileName.startsWith(userRoot)) {
+            const target = definition.fileName.slice(userRoot.length);
+            if (!(target in currentFiles)) continue;
+            const insertions = overlays.get(target) ?? [];
+            return {
+              file: target,
+              from: originalPosition(definition.textSpan.start, insertions),
+              to: originalPosition(definition.textSpan.start + definition.textSpan.length, insertions),
+            };
+          }
+          if (definition.fileName.startsWith("/__sql__/")) {
+            const target = definition.fileName.slice("/__sql__/".length, -".d.ts".length);
+            if (!(target in currentFiles)) continue;
+            const query =
+              latestQueries.find((item) => item.file === target && item.binding === definition.name) ??
+              latestQueries.find((item) => item.file === target);
+            return { file: target, from: query?.sourceStart ?? 0, to: query?.sourceEnd ?? 0 };
+          }
+        }
+        return undefined;
+      }
+      if (request.kind === "completions") {
+        const info = service.getCompletionsAtPosition(fileName, transformed, completionOptions);
+        const entries = (info?.entries ?? []).filter(allowedCompletion).map(
+          (entry): EditorCompletion => ({
+            name: entry.name,
+            kind: entry.kind,
+            sortText: entry.sortText,
+            ...(entry.source ? { source: entry.source } : {}),
+            ...(entry.insertText ? { insertText: entry.insertText } : {}),
+            ...(entry.data ? { data: entry.data } : {}),
+            ...(entry.replacementSpan
+              ? {
+                  replacement: {
+                    from: originalPosition(entry.replacementSpan.start, overlays.get(file) ?? []),
+                    to: originalPosition(
+                      entry.replacementSpan.start + entry.replacementSpan.length,
+                      overlays.get(file) ?? [],
+                    ),
+                  },
+                }
+              : {}),
+          }),
+        );
+        if (info?.isGlobalCompletion && !entries.some((entry) => entry.name === "sql" && !entry.source))
+          entries.push({
+            name: "sql",
+            kind: "function",
+            sortText: "16",
+            source: `@typed-sql/${activeDialect}`,
+            grammarImport: true,
+          });
+        return entries;
+      }
+      if (request.entry.grammarImport) {
+        if (request.entry.name !== "sql" || request.entry.source !== `@typed-sql/${activeDialect}`) return undefined;
+        const source = currentFiles[file]!;
+        const from = source.startsWith("#!") ? source.indexOf("\n") + 1 : 0;
+        return {
+          edits: [{ from, to: from, insert: `import { sql } from "@typed-sql/${activeDialect}";\n` }],
+          detail: "Import sql from the selected grammar",
+        };
+      }
+      if (!allowedCompletion(request.entry)) return undefined;
+      const details = service.getCompletionEntryDetails(
+        fileName,
+        transformed,
+        request.entry.name,
+        { indentSize: 2, convertTabsToSpaces: true, newLineCharacter: "\n" },
+        request.entry.source,
+        preferences,
+        request.entry.data,
+      );
+      const edits = [];
+      for (const action of details?.codeActions ?? []) {
+        if (action.changes.some((change) => change.fileName !== fileName || change.isNewFile)) return undefined;
+        for (const change of action.changes)
+          for (const edit of change.textChanges) {
+            const insertions = overlays.get(file) ?? [];
+            const from = originalPosition(edit.span.start, insertions);
+            const to = originalPosition(edit.span.start + edit.span.length, insertions);
+            // Never apply a service edit that touches synthesized SQL type arguments.
+            if (
+              transformedPosition(file, from) !== edit.span.start ||
+              transformedPosition(file, to) !== edit.span.start + edit.span.length
+            )
+              return undefined;
+            let insert = edit.newText;
+            const importSource = ts.createSourceFile("imports.ts", insert, ts.ScriptTarget.ES2022, true);
+            const replacements: { from: number; to: number; text: string }[] = [];
+            for (const statement of importSource.statements) {
+              if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+              const specifier = statement.moduleSpecifier;
+              if (!specifier.text.startsWith(".") || /\.(?:ts|sql)$/u.test(specifier.text)) continue;
+              const path = relativePath(specifier.text, fileName);
+              const suffix = virtual.has(`${path}.ts`) ? ".ts" : virtual.has(`${path}/index.ts`) ? "/index.ts" : "";
+              if (suffix)
+                replacements.push({
+                  from: specifier.getStart(importSource) + 1,
+                  to: specifier.end - 1,
+                  text: specifier.text + suffix,
+                });
+            }
+            for (const replacement of replacements.reverse())
+              insert = insert.slice(0, replacement.from) + replacement.text + insert.slice(replacement.to);
+            edits.push({ from, to, insert });
+          }
+      }
+      return { edits, detail: ts.displayPartsToString(details?.displayParts) };
     },
     dispose: () => service.dispose(),
   };

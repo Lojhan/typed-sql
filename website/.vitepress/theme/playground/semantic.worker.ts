@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import type { EditorRequestEnvelope } from "./editor-protocol.js";
 import type { PlaygroundDialect } from "./playground.js";
 import { createSemanticWorkspace } from "./semantic-service.js";
 import { validWorkspaceFiles, type WorkspaceFiles } from "./workspace.js";
@@ -18,14 +19,27 @@ for (const [path, source] of Object.entries(libraries))
   declarations[`/lib/${path.split("/").pop()}`] = source as string;
 const workspace = createSemanticWorkspace(declarations);
 
-self.onmessage = ({ data }: MessageEvent<{ revision: number; dialect: PlaygroundDialect; files: WorkspaceFiles }>) => {
+let snapshot = "";
+self.onmessage = ({
+  data,
+}: MessageEvent<EditorRequestEnvelope | { revision: number; dialect: PlaygroundDialect; files: WorkspaceFiles }>) => {
   try {
-    if (!validWorkspaceFiles(data.files))
-      throw new Error("Use up to 40 .ts/.sql files, 40,000 characters each, and 200,000 characters total.");
-    self.postMessage({ revision: data.revision, result: workspace.analyze(data.dialect, data.files) });
+    if (!validWorkspaceFiles(data.files)) throw new Error("Invalid workspace size or file paths.");
+    const next = JSON.stringify([data.dialect, data.files]);
+    if ("request" in data) {
+      if (next !== snapshot) {
+        workspace.analyze(data.dialect, data.files);
+        snapshot = next;
+      }
+      self.postMessage({ id: data.id, value: workspace.interact(data.request) });
+    } else {
+      const result = workspace.analyze(data.dialect, data.files);
+      snapshot = next;
+      self.postMessage({ revision: data.revision, result });
+    }
   } catch (error) {
     self.postMessage({
-      revision: data.revision,
+      ...("request" in data ? { id: data.id } : { revision: data.revision }),
       error: error instanceof Error ? error.message : "Analysis could not complete.",
     });
   }
