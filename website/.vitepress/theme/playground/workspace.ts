@@ -1,3 +1,4 @@
+import { COMMERCE_FILES } from "./commerce-example.js";
 import type { PlaygroundDialect } from "./playground.js";
 
 export type WorkspaceFile = string;
@@ -30,6 +31,11 @@ export function validWorkspaceFiles(value: unknown): value is WorkspaceFiles {
 
 export const LESSONS = [
   {
+    id: "commerce",
+    title: "Commerce · advanced PostgreSQL",
+    description: "Seven tables, CTEs, mapped inserts, JSON documents, and transactional workflows.",
+  },
+  {
     id: "workspace",
     title: "SQL + TypeScript files",
     description: "Import a SQL query and share schema and functions across files.",
@@ -54,11 +60,19 @@ export const LESSONS = [
 
 export type Lesson = (typeof LESSONS)[number]["id"];
 
+export function lessonSupportsDialect(lesson: Lesson, dialect: PlaygroundDialect): boolean {
+  return lesson !== "commerce" || dialect === "postgres";
+}
+
 export function lessonFiles(
   dialect: PlaygroundDialect,
   lesson: Lesson,
   schema: string,
 ): WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string> {
+  if (lesson === "commerce") {
+    if (!lessonSupportsDialect(lesson, dialect)) throw new RangeError("The commerce workspace uses PostgreSQL syntax.");
+    return { ...COMMERCE_FILES };
+  }
   const table = dialect === "sqlite" ? "account" : "users";
   const projection =
     lesson === "joins"

@@ -22,6 +22,7 @@ import type { WorkspaceAnalysis } from "../playground/semantic-service.js";
 import {
   LESSONS,
   lessonFiles,
+  lessonSupportsDialect,
   validWorkspaceFiles,
   type WorkspaceFile,
   type WorkspaceFiles,
@@ -43,7 +44,12 @@ import {
   WORKSPACE_STORAGE_KEY,
   type WorkspaceExample,
 } from "../playground/workspace-storage.js";
-import { panelShortcut, WORKSPACE_CONFIG_PATH, workspaceConfigSource } from "../playground/workspace-ui.js";
+import {
+  panelShortcut,
+  WORKSPACE_CONFIG_NAME,
+  WORKSPACE_CONFIG_PATH,
+  workspaceConfigSource,
+} from "../playground/workspace-ui.js";
 import EditorIcon from "./EditorIcon.vue";
 import EditorPaneLayout from "./EditorPaneLayout.vue";
 import HighlightedCode from "./HighlightedCode.vue";
@@ -82,6 +88,7 @@ const activePaneId = ref(editorPanes(layout.value)[0]!.id);
 const activePane = computed(
   () => editorPanes(layout.value).find((pane) => pane.id === activePaneId.value) ?? editorPanes(layout.value)[0]!,
 );
+const availableLessons = computed(() => LESSONS.filter(({ id }) => lessonSupportsDialect(id, dialect.value)));
 const activeFile = computed({
   get: () => activePane.value.file,
   set: (file: string) => {
@@ -247,7 +254,10 @@ function loadLesson() {
   notice.value = "";
   applyingExample = true;
   drafts[dialect.value] = lessonFiles(dialect.value, lesson.value, DEFAULT_SCHEMAS[dialect.value]);
-  activeFile.value = lesson.value === "errors" || lesson.value === "workspace" ? "app.ts" : "queries/account.ts";
+  activeFile.value =
+    lesson.value === "commerce" || lesson.value === "errors" || lesson.value === "workspace"
+      ? "app.ts"
+      : "queries/account.ts";
   layout.value = createPane(
     activeFile.value,
     Object.keys(files.value).filter((file) => file.endsWith(".ts") || file.startsWith("queries/")),
@@ -462,7 +472,7 @@ onBeforeUnmount(() => {
       <header class="pg-toolbar">
         <label class="pg-select"><select v-model="dialect" aria-label="Database grammar"><option v-for="id in PLAYGROUND_DIALECTS" :key="id" :value="id">{{ PLAYGROUND_DIALECT_LABELS[id] }}</option></select></label>
         <span class="pg-divider" />
-        <label class="pg-select pg-lesson"><select v-model="lesson" aria-label="Playground example" @change="loadLesson"><option v-if="lesson === 'custom'" value="custom">Custom workspace</option><option v-for="item in LESSONS" :key="item.id" :value="item.id">{{ item.title }}</option></select></label>
+        <label class="pg-select pg-lesson"><select v-model="lesson" aria-label="Playground example" @change="loadLesson"><option v-if="lesson === 'custom'" value="custom">Custom workspace</option><option v-for="item in availableLessons" :key="item.id" :value="item.id">{{ item.title }}</option></select></label>
         <div class="pg-actions"><button type="button" :disabled="lesson === 'custom'" :title="lesson === 'custom' ? 'Choose an example to reset' : 'Reset example'" @click="loadLesson">↺ Reset</button><button class="pg-share" type="button" @click="share">↗ Share</button></div>
       </header>
       <div class="pg-workbench" :style="layoutStyle">

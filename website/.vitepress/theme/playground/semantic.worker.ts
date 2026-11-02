@@ -17,6 +17,13 @@ const declarations: Record<string, string> = {
 for (const [path, source] of Object.entries(core)) declarations[`/core/${path.split("/").pop()}`] = source as string;
 for (const [path, source] of Object.entries(libraries))
   declarations[`/lib/${path.split("/").pop()}`] = source as string;
+// Load the shipped driver-neutral type contracts, without importing runtime JS or a driver.
+const postgresRuntime = import.meta.glob(
+  "../../../../packages/postgres/dist/packages/postgres/src/{runtime,prepared,stream,query,type-policy}.d.ts",
+  { query: "?raw", import: "default", eager: true },
+);
+for (const [path, source] of Object.entries(postgresRuntime))
+  declarations[`/postgres/${path.split("/").pop()}`] = source as string;
 const workspace = createSemanticWorkspace(declarations);
 
 let snapshot = "";

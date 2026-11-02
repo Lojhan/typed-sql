@@ -1,5 +1,12 @@
 import { DEFAULT_SCHEMAS, PLAYGROUND_DIALECTS, type PlaygroundDialect } from "./playground.js";
-import { LESSONS, type Lesson, lessonFiles, validWorkspaceFiles, type WorkspaceFiles } from "./workspace.js";
+import {
+  LESSONS,
+  type Lesson,
+  lessonFiles,
+  lessonSupportsDialect,
+  validWorkspaceFiles,
+  type WorkspaceFiles,
+} from "./workspace.js";
 
 export const WORKSPACE_STORAGE_KEY = "typed-sql.playground.v2";
 export const LEGACY_STORAGE_KEY = "typed-sql.playground.v1";
@@ -26,7 +33,12 @@ function sameFiles(left: WorkspaceFiles, right: WorkspaceFiles): boolean {
 }
 
 export function identifyExample(dialect: PlaygroundDialect, files: WorkspaceFiles): WorkspaceExample {
-  return LESSONS.find(({ id }) => sameFiles(files, lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect])))?.id ?? "custom";
+  return (
+    LESSONS.find(
+      ({ id }) =>
+        lessonSupportsDialect(id, dialect) && sameFiles(files, lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect])),
+    )?.id ?? "custom"
+  );
 }
 
 export function defaultPlaygroundState(): PlaygroundState {
@@ -50,7 +62,7 @@ export function upgradeLegacyWorkspace(dialect: PlaygroundDialect, files: Worksp
   );
   const candidates: WorkspaceFiles[] = [];
   for (const { id } of LESSONS) {
-    if (id === "workspace") continue;
+    if (id === "workspace" || id === "commerce") continue;
     const modern = lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect]);
     // The old dynamic example used the same account table name for every dialect.
     const query =
