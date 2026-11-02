@@ -312,6 +312,12 @@ completed by the account owner. The workflow deliberately has no PAT fallback. S
 [VSCE trusted publishing guide](https://github.com/microsoft/vscode-vsce#trusted-publishing) and
 [Open VSX trusted publishing guide](https://github.com/eclipse-openvsx/openvsx/blob/main/cli/README.md#trusted-publishing).
 
+Open VSX requires an active published extension before its trusted publisher can be registered.
+For its first publication, upload a verified prerelease VSIX through the signed-in registry UI,
+then register the protected GitHub workflow. If the version already exists on Marketplace, use
+that exact CI-verified VSIX for the bootstrap upload. Marketplace publishing uses the locked root
+`@vscode/vsce` client independently of the extension's packaging client.
+
 After reviewing comprehensive CI evidence, dispatch:
 
 ```sh
@@ -323,6 +329,12 @@ job can be retried independently after partial publication. These prerelease upl
 promote the editor to stable. The bridge and language server remain on the experimental track
 while they depend on preview TypeScript APIs; changing that support policy requires an explicit
 maintainer review of actual compatibility and host evidence.
+
+After partial publication, pass `-f artifact_run_id=<original-marketplace-run>` to reuse its
+`typed-sql-marketplace-vsix` artifact instead of rebuilding a published version. The retry still
+requires comprehensive CI for its current main commit. It also authenticates the original main
+workflow, its successful artifact job, source ancestry, and comprehensive CI for that source,
+then verifies the original VSIX hash and manifest. Select only the registry that needs retrying.
 
 When direct Marketplace OIDC is unavailable, the account owner can upload the exact reviewed
 VSIX through the signed-in Marketplace UI. Use `typed-sql-editor-artifacts` from a successful
