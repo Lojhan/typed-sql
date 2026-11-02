@@ -125,7 +125,7 @@ await describe("editor marketplace publication policy", async () => {
               "evidence",
           } as const;
           const key = routes[String(url) as keyof typeof routes];
-          strict.ok(key, `unexpected API request ${url}`);
+          if (key === undefined) throw new Error(`unexpected API request ${url}`);
           return Response.json({ ...fixtures, ...changes }[key]);
         },
       });
