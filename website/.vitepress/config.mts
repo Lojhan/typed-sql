@@ -8,6 +8,21 @@ const extensionsBrowserRuntime = fileURLToPath(
   new URL("./theme/playground/extensions-browser-runtime.ts", import.meta.url),
 );
 
+function playgroundRuntimePlugin() {
+  return {
+    name: "typed-sql-playground-runtime",
+    enforce: "pre" as const,
+    resolveId(source: string, importer: string | undefined) {
+      if (
+        source === "./extensions.js" &&
+        importer?.replaceAll("\\", "/").endsWith("/packages/postgres/src/type-resolution.ts")
+      )
+        return extensionsBrowserRuntime;
+      return null;
+    },
+  };
+}
+
 export default defineConfig({
   lang: "en-US",
   title: "typed-sql",
@@ -26,21 +41,8 @@ export default defineConfig({
   },
   vite: {
     publicDir: fileURLToPath(new URL("../public", import.meta.url)),
-    plugins: [
-      {
-        name: "typed-sql-playground-runtime",
-        enforce: "pre",
-        resolveId(source, importer) {
-          if (
-            source === "./extensions.js" &&
-            importer?.replaceAll("\\", "/").endsWith("/packages/postgres/src/type-resolution.ts")
-          ) {
-            return extensionsBrowserRuntime;
-          }
-          return null;
-        },
-      },
-    ],
+    plugins: [playgroundRuntimePlugin()],
+    worker: { plugins: () => [playgroundRuntimePlugin()] },
     resolve: {
       alias: [
         { find: /^vue$/, replacement: `${vuePackage}/dist/vue.runtime.esm-bundler.js` },

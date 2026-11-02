@@ -305,6 +305,37 @@
 .ts-code-editor__type-hover .cm-line {
   padding: 0;
 }
+.ts-type-code {
+  color: var(--ts-editor-text);
+}
+.ts-type-code code {
+  font: inherit;
+  color: inherit;
+  background: none;
+  padding: 0;
+}
+.ts-type-code .tok-keyword {
+  color: var(--ts-c-violet);
+}
+.ts-type-code .tok-typeName,
+.ts-type-code .tok-className {
+  color: var(--ts-c-amber);
+}
+.ts-type-code .tok-variableName.tok-definition,
+.ts-type-code .tok-propertyName {
+  color: var(--ts-c-type);
+}
+.ts-type-code .tok-string {
+  color: var(--ts-c-sql);
+}
+.ts-type-code .tok-number,
+.ts-type-code .tok-bool,
+.ts-type-code .tok-atom {
+  color: var(--ts-c-amber);
+}
+.ts-type-code .tok-comment {
+  color: var(--ts-editor-muted);
+}
 
 .cm-tooltip.cm-tooltip-lint {
   overflow: hidden;

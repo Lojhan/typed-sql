@@ -1,6 +1,10 @@
 {
   "topNavigation": [
     {
+      "text": "Playground",
+      "link": "/playground"
+    },
+    {
       "text": "Docs",
       "link": "/getting-started/"
     },
@@ -30,6 +34,12 @@
           "text": "Product overview",
           "link": "/",
           "file": "docs/index.md",
+          "pageType": "landing"
+        },
+        {
+          "text": "Playground",
+          "link": "/playground",
+          "file": "docs/playground.md",
           "pageType": "landing"
         },
         {
