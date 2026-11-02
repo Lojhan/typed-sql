@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import {
+  closeEditorFile,
+  createPane,
+  type DropEdge,
+  dropEditorFile,
+  type EditorLayout,
+  editorPanes,
+  isCloseFileShortcut,
+  openInPane,
+  removePane,
+} from "../playground/editor-layout.js";
+import type { EditorAction, EditorLocation, EditorResponse } from "../playground/editor-protocol.js";
+import {
   DEFAULT_SCHEMAS,
   PLAYGROUND_DIALECT_LABELS,
   PLAYGROUND_DIALECTS,
@@ -31,14 +43,9 @@ import {
   WORKSPACE_STORAGE_KEY,
   type WorkspaceExample,
 } from "../playground/workspace-storage.js";
-import {
-  panelShortcut,
-  WORKSPACE_CONFIG_NAME,
-  WORKSPACE_CONFIG_PATH,
-  workspaceConfigSource,
-} from "../playground/workspace-ui.js";
-import CodeEditor, { type CodeEditorHandle } from "./CodeEditor.vue";
+import { panelShortcut, WORKSPACE_CONFIG_PATH, workspaceConfigSource } from "../playground/workspace-ui.js";
 import EditorIcon from "./EditorIcon.vue";
+import EditorPaneLayout from "./EditorPaneLayout.vue";
 import HighlightedCode from "./HighlightedCode.vue";
 import PanelResizeHandle from "./PanelResizeHandle.vue";
 import ScrollArea from "./ScrollArea.vue";
@@ -57,7 +64,65 @@ const lesson = computed({
     exampleByDialect[dialect.value] = value;
   },
 });
-const activeFile = ref<WorkspaceFile>("app.ts");
+const layouts = reactive(
+  Object.fromEntries(
+    PLAYGROUND_DIALECTS.map((id) => [
+      id,
+      createPane("app.ts", ["app.ts", "queries/account.ts", "queries/account.sql"]),
+    ]),
+  ) as Record<PlaygroundDialect, EditorLayout>,
+);
+const layout = computed({
+  get: () => layouts[dialect.value],
+  set: (value: EditorLayout) => {
+    layouts[dialect.value] = value;
+  },
+});
+const activePaneId = ref(editorPanes(layout.value)[0]!.id);
+const activePane = computed(
+  () => editorPanes(layout.value).find((pane) => pane.id === activePaneId.value) ?? editorPanes(layout.value)[0]!,
+);
+const activeFile = computed({
+  get: () => activePane.value.file,
+  set: (file: string) => {
+    openInPane(activePane.value, file);
+  },
+});
+function focusPane(id: string) {
+  activePaneId.value = id;
+}
+function selectPaneFile(id: string, file: string) {
+  focusPane(id);
+  activeFile.value = file;
+}
+function dropFile(id: string, file: string, edge: DropEdge, source?: string, before?: string) {
+  if (!(file in files.value) && file !== WORKSPACE_CONFIG_PATH) return;
+  if (edge !== "center" && editorPanes(layout.value).length >= 8) {
+    notice.value = "Up to eight editor panes can be open.";
+    return;
+  }
+  const result = dropEditorFile(layout.value, id, file, edge, source, before);
+  layout.value = result.layout;
+  activePaneId.value = result.active;
+}
+function closeFile(id: string, file: string) {
+  layout.value = closeEditorFile(layout.value, id, file);
+  if (!editorPanes(layout.value).some((pane) => pane.id === activePaneId.value))
+    activePaneId.value = editorPanes(layout.value)[0]!.id;
+  void nextTick(() =>
+    editor.value?.focusRange(
+      activePane.value.id,
+      activePane.value.cursors[activeFile.value] ?? 0,
+      activePane.value.cursors[activeFile.value] ?? 0,
+    ),
+  );
+}
+function closePane(id: string) {
+  if (editorPanes(layout.value).length < 2) return;
+  layout.value = removePane(layout.value, id)!;
+  if (!editorPanes(layout.value).some((pane) => pane.id === activePaneId.value))
+    activePaneId.value = editorPanes(layout.value)[0]!.id;
+}
 const defaults = defaultPlaygroundState();
 const drafts = reactive(
   Object.fromEntries(PLAYGROUND_DIALECTS.map((id) => [id, defaults.workspaces[id].files])) as Record<
@@ -68,19 +133,7 @@ const drafts = reactive(
 const files = computed(() => drafts[dialect.value]);
 const configSource = computed(() => workspaceConfigSource(dialect.value, files.value));
 const readonlyFile = computed(() => activeFile.value === WORKSPACE_CONFIG_PATH);
-const activeFileName = computed(() => (readonlyFile.value ? WORKSPACE_CONFIG_NAME : activeFile.value));
-const source = computed({
-  get: () => (readonlyFile.value ? configSource.value : (files.value[activeFile.value] ?? "")),
-  set: (value: string) => {
-    if (!readonlyFile.value) files.value[activeFile.value] = value;
-  },
-});
 const fileTabs = computed(() => [...Object.keys(files.value), WORKSPACE_CONFIG_PATH].sort());
-const openedFiles = reactive(
-  Object.fromEntries(
-    PLAYGROUND_DIALECTS.map((id) => [id, ["app.ts", "queries/account.ts", "queries/account.sql"]]),
-  ) as Record<PlaygroundDialect, string[]>,
-);
 const showFiles = ref(true);
 const showInspector = ref(true);
 const showProblems = ref(true);
@@ -111,30 +164,15 @@ const notice = ref("");
 const cursor = ref(-1);
 const selectedQuery = ref<QuerySelection>();
 const output = ref<"contract" | "sql">("contract");
-const editor = ref<CodeEditorHandle>();
+const editor = ref<{ focusRange(id: string, from: number, to: number): void; measure(): void }>();
 const query = computed(() => resolveQuerySelection(result.value?.queries ?? [], activeFile.value, selectedQuery.value));
 const problemState = ref<ProblemsPanelState>({ open: true, finalizedProblems: [] });
 const problems = computed(() => problemState.value.finalizedProblems);
 const problemFiles = computed(() => [...new Set(problems.value.map(({ file }) => file))]);
-const fileTabItems = computed(() =>
-  [...new Set([...openedFiles[dialect.value], activeFile.value])]
-    .filter((file) => file in files.value || file === WORKSPACE_CONFIG_PATH)
-    .map((file) => ({
-      value: file,
-      label: file === WORKSPACE_CONFIG_PATH ? WORKSPACE_CONFIG_NAME : file.split("/").pop()!,
-      title: file === WORKSPACE_CONFIG_PATH ? `${WORKSPACE_CONFIG_NAME} · Read only` : file,
-      icon: file.endsWith(".sql") ? "SQL" : "TS",
-      iconTone: file.endsWith(".sql") ? ("sql" as const) : ("type" as const),
-      attention: problems.value.some((item) => item.file === file),
-    })),
-);
 const outputTabItems = [
   { value: "contract", label: "Inferred types" },
   { value: "sql", label: "SQL preview" },
 ] as const;
-const diagnostics = computed(() =>
-  busy.value ? [] : problems.value.filter((problem) => problem.file === activeFile.value),
-);
 const hovers = computed(() => (busy.value ? [] : (result.value?.hovers[activeFile.value] ?? [])));
 const inspected = computed(() => hovers.value.find(({ from, to }) => cursor.value >= from && cursor.value <= to));
 const cleanRow = computed(() =>
@@ -146,6 +184,32 @@ const cleanRow = computed(() =>
 let worker: Worker | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let revision = 0;
+let requestId = 0;
+const pending = new Map<number, { resolve: (value: EditorResponse) => void; timeout: ReturnType<typeof setTimeout> }>();
+function interact(file: string, request: EditorAction): Promise<EditorResponse> {
+  if (!worker || file === WORKSPACE_CONFIG_PATH) return Promise.resolve(undefined);
+  const id = ++requestId;
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      pending.delete(id);
+      resolve(undefined);
+    }, 8000);
+    pending.set(id, { resolve, timeout });
+    worker!.postMessage({ id, request: { ...request, file }, dialect: dialect.value, files: { ...files.value } });
+  });
+}
+async function goToDefinition(paneId: string, file: string, position: number) {
+  const document = files.value[file];
+  const target = (await interact(file, { kind: "definition", position })) as EditorLocation | undefined;
+  if (activePane.value.id !== paneId || file !== activeFile.value || document !== files.value[file]) return;
+  if (!target || !(target.file in files.value)) {
+    notice.value = "No workspace definition found for this symbol.";
+    return;
+  }
+  activeFile.value = target.file;
+  await nextTick();
+  editor.value?.focusRange(paneId, target.from, target.to);
+}
 let disposed = false;
 let resizeObserver: ResizeObserver | undefined;
 let applyingExample = false;
@@ -184,6 +248,11 @@ function loadLesson() {
   applyingExample = true;
   drafts[dialect.value] = lessonFiles(dialect.value, lesson.value, DEFAULT_SCHEMAS[dialect.value]);
   activeFile.value = lesson.value === "errors" || lesson.value === "workspace" ? "app.ts" : "queries/account.ts";
+  layout.value = createPane(
+    activeFile.value,
+    Object.keys(files.value).filter((file) => file.endsWith(".ts") || file.startsWith("queries/")),
+  );
+  activePaneId.value = editorPanes(layout.value)[0]!.id;
   applyingExample = false;
   cursor.value = -1;
   selectedQuery.value = undefined;
@@ -220,6 +289,12 @@ function inspectAt(position: number) {
 }
 
 function handlePanelShortcut(event: KeyboardEvent) {
+  if (isCloseFileShortcut(event) && shell.value?.contains(event.target as Node)) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (activeFile.value) closeFile(activePane.value.id, activeFile.value);
+    return;
+  }
   const panel = panelShortcut(event);
   if (!panel) return;
   event.preventDefault();
@@ -233,7 +308,7 @@ async function focusProblem(file: WorkspaceFile, from: number, to: number) {
   activeFile.value = file;
   await nextTick();
   cursor.value = from;
-  editor.value?.focusRange(from, to);
+  editor.value?.focusRange(activePane.value.id, from, to);
 }
 
 async function share() {
@@ -299,6 +374,15 @@ onMounted(async () => {
     if (disposed) return;
     worker = new SemanticWorker();
     worker.onmessage = ({ data }) => {
+      if ("id" in data) {
+        const request = pending.get(data.id);
+        if (request) {
+          clearTimeout(request.timeout);
+          pending.delete(data.id);
+          request.resolve(data.value);
+        }
+        return;
+      }
       if (data.revision !== revision) return;
       busy.value = false;
       failure.value = data.error ?? "";
@@ -341,15 +425,18 @@ watch(
   },
   { deep: true, flush: "sync" },
 );
-watch(activeFile, () => {
-  if (!openedFiles[dialect.value].includes(activeFile.value)) openedFiles[dialect.value].push(activeFile.value);
-  cursor.value = -1;
-  if (selectedQuery.value?.file !== activeFile.value) {
-    const candidate = resolveQuerySelection(result.value?.queries ?? [], activeFile.value);
-    selectedQuery.value = candidate ? querySelection(candidate) : undefined;
-  }
-});
+watch(
+  () => [activePane.value.id, activeFile.value],
+  () => {
+    cursor.value = activePane.value.cursors[activeFile.value] ?? -1;
+    if (selectedQuery.value?.file !== activeFile.value) {
+      const candidate = resolveQuerySelection(result.value?.queries ?? [], activeFile.value);
+      selectedQuery.value = candidate ? querySelection(candidate) : undefined;
+    }
+  },
+);
 watch(dialect, () => {
+  activePaneId.value = editorPanes(layout.value)[0]!.id;
   selectedQuery.value = undefined;
   if (!readonlyFile.value && !(activeFile.value in files.value)) activeFile.value = Object.keys(files.value)[0]!;
 });
@@ -358,6 +445,11 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", handlePanelShortcut, true);
   clearTimeout(timer);
   resizeObserver?.disconnect();
+  for (const request of pending.values()) {
+    clearTimeout(request.timeout);
+    request.resolve(undefined);
+  }
+  pending.clear();
   worker?.terminate();
 });
 </script>
@@ -377,12 +469,7 @@ onBeforeUnmount(() => {
         <WorkspaceFileTree v-show="showFiles" id="pg-file-tree" :files="fileTabs" :active-file="activeFile" :problems="problemFiles" @select="activeFile = $event" @create="createFile" />
         <PanelResizeHandle v-if="showFiles" v-model="treeWidth" orientation="vertical" :min="120" :max="treeMax" label="Resize file tree" />
         <div class="pg-panels">
-        <div class="pg-source">
-          <WorkspaceTabs v-model="activeFile" :items="fileTabItems" id-prefix="pg-files" panel-id="pg-editor" aria-label="Workspace files" />
-          <div id="pg-editor" role="tabpanel" :aria-labelledby="`pg-files-${activeFile}`">
-            <CodeEditor :key="`${dialect}:${activeFile}`" ref="editor" v-model="source" :readonly="readonlyFile" :language="activeFile.endsWith('.sql') ? 'sql' : 'typescript'" :sql-dialect="dialect" :aria-label="readonlyFile ? `View ${activeFileName} (read only)` : `Edit ${activeFileName}`" :diagnostics="diagnostics" :hovers="hovers" :invalid="diagnostics.length > 0" @inspect="inspectAt" />
-          </div>
-        </div>
+        <EditorPaneLayout ref="editor" class="pg-editor-layout" :node="layout" :active="activePane.id" :files="files" :dialect="dialect" :config="configSource" :analysis="result" :busy="busy" :multiple="editorPanes(layout).length > 1" :interact="interact" @focus-pane="focusPane" @select-file="selectPaneFile" @edit="(file, value) => { if (file in files) files[file] = value; }" @inspect="(id, position) => { if (id === activePane.id) inspectAt(position); }" @definition="goToDefinition" @drop-file="dropFile" @close-pane="closePane" @close-file="closeFile" />
         <PanelResizeHandle v-if="showInspector" :model-value="narrow ? inspectorHeight : inspectorWidth" :orientation="narrow ? 'horizontal' : 'vertical'" :min="narrow ? 120 : 240" :max="inspectorMax" reverse label="Resize type inspector" @update:model-value="value => narrow ? inspectorHeight = value : inspectorWidth = value" />
         <aside v-show="showInspector" id="pg-inspector" class="pg-inspector" aria-label="Type inference">
           <WorkspaceTabs v-model="output" :items="outputTabItems" id-prefix="pg-output" panel-id="pg-output-panel" aria-label="Query output" />

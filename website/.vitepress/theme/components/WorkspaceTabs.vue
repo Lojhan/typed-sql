@@ -1,8 +1,10 @@
 <script setup lang="ts" generic="Value extends string">
 import { ref } from "vue";
+import { dragEditorFile, EDITOR_FILE_MIME, readEditorDrop } from "../playground/editor-layout.js";
 import ScrollArea from "./ScrollArea.vue";
 
 const props = defineProps<{
+  paneId?: string;
   modelValue: Value;
   items: readonly {
     value: Value;
@@ -16,7 +18,19 @@ const props = defineProps<{
   panelId: string;
   ariaLabel: string;
 }>();
-const emit = defineEmits<{ "update:modelValue": [value: Value] }>();
+const emit = defineEmits<{
+  "update:modelValue": [value: Value];
+  closeFile: [file: Value];
+  dropFile: [file: string, source: string | undefined, before: string];
+}>();
+function dropTab(event: DragEvent, before: string) {
+  if (!props.paneId) return;
+  const data = readEditorDrop(event);
+  if (!data) return;
+  event.preventDefault();
+  event.stopPropagation();
+  emit("dropFile", data.file, data.pane, before);
+}
 const root = ref<HTMLElement>();
 
 function navigate(event: KeyboardEvent, index: number) {
@@ -47,10 +61,13 @@ function navigate(event: KeyboardEvent, index: number) {
 
 <template>
   <ScrollArea class="workspace-tabs" :label="ariaLabel" fill><div ref="root" class="workspace-tabs__list" role="tablist" :aria-label="ariaLabel">
+    <div v-for="(item, index) in items" :key="item.value" class="workspace-tabs__item">
     <button
-      v-for="(item, index) in items"
       :id="`${idPrefix}-${item.value}`"
-      :key="item.value"
+      :draggable="!!paneId"
+      @dragstart="paneId && dragEditorFile($event, item.value, paneId)"
+      @dragover="event => { if (paneId && event.dataTransfer?.types.includes(EDITOR_FILE_MIME)) { event.preventDefault(); event.stopPropagation(); } }"
+      @drop="dropTab($event, item.value)"
       type="button"
       role="tab"
       :aria-selected="modelValue === item.value"
@@ -66,6 +83,8 @@ function navigate(event: KeyboardEvent, index: number) {
       </span>
       <span v-if="item.attention" class="workspace-tabs__attention" aria-label="Has problems" />
     </button>
+    <button v-if="paneId" class="workspace-tabs__close" type="button" :aria-label="`Close ${item.label}`" title="Close file (Cmd+W / Ctrl+W; Ctrl+Alt+W fallback)" @click.stop="emit('closeFile', item.value)">×</button>
+    </div>
   </div></ScrollArea>
 </template>
 
@@ -80,6 +99,10 @@ function navigate(event: KeyboardEvent, index: number) {
 
 .workspace-tabs__list { display: flex; height: 100%; min-width: max-content; }
 
+.workspace-tabs__item { display: flex; position: relative; height: 100%; }
+.workspace-tabs__item:has(.workspace-tabs__close) > [role="tab"] { padding-right: 30px; }
+.workspace-tabs button.workspace-tabs__close { position: absolute; right: 4px; top: 0; height: 100%; width: 22px; padding: 0; border: 0; background: transparent; opacity: 0; font-size: 16px; }
+.workspace-tabs__item:hover .workspace-tabs__close, .workspace-tabs__item:focus-within .workspace-tabs__close { opacity: 1; }
 .workspace-tabs button {
   display: flex;
   align-items: center;
