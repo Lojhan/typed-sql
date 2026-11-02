@@ -11,8 +11,13 @@ export default defineComponent({
     const pageClasses = computed(() => [
       `typed-sql-page--${frontmatter.value.pageType ?? "unclassified"}`,
       ...(page.value.relativePath === "index.md" ? ["typed-sql-page--home"] : []),
+      ...(page.value.relativePath === "playground.md" ? ["typed-sql-page--playground"] : []),
     ]);
-    return () => h(Fragment, null, [h(DefaultTheme.Layout, { class: pageClasses.value }), h(SchemaWorkspaceLauncher)]);
+    return () =>
+      h(Fragment, null, [
+        h(DefaultTheme.Layout, { class: pageClasses.value }),
+        ...(page.value.relativePath === "playground.md" ? [] : [h(SchemaWorkspaceLauncher)]),
+      ]);
   },
 });
 </script>

@@ -65,6 +65,8 @@ Checked against the maintained PostgreSQL example schema. The compiler proves a 
 
 ## Try it in your browser
 
+[Open the full playground](./playground.md) to follow types across imports, edit the schema, and explore guided examples.
+
 Edit the query and hover a binding, adapter result, or indexed row to inspect its inferred type. Switch grammars
 above; the shared schema workspace supplies the evidence for every live example on the site.
 

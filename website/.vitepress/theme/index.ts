@@ -33,6 +33,10 @@ export default {
       defineAsyncComponent(() => import("./components/SqlPlayground.vue")),
     );
     app.component(
+      "PlaygroundWorkspace",
+      defineAsyncComponent(() => import("./components/PlaygroundWorkspace.vue")),
+    );
+    app.component(
       "LiveQueryExample",
       defineAsyncComponent(() => import("./components/LiveQueryExample.vue")),
     );

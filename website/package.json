@@ -21,9 +21,12 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
     "@typed-sql/postgres": "workspace:*",
-    "@typed-sql/sqlite": "workspace:*"
+    "@typed-sql/sqlite": "workspace:*",
+    "@lezer/highlight": "^1.2.5",
+    "@typed-sql/browser-typescript": "npm:typescript@6.0.3"
   },
   "devDependencies": {
+    "vite": "6.4.5",
     "vitepress": "1.6.4",
     "vue": "3.5.44"
   },

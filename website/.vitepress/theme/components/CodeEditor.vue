@@ -53,6 +53,7 @@ export default defineComponent({
   },
   emits: {
     "update:modelValue": (value: string) => typeof value === "string",
+    inspect: (position: number) => Number.isInteger(position),
   },
   setup(props, { emit, expose }) {
     const { isDark } = useData();
@@ -74,6 +75,7 @@ export default defineComponent({
       EditorView.contentAttributes.of({
         "aria-label": props.ariaLabel,
         "aria-invalid": String(props.invalid),
+        "aria-readonly": String(props.readonly),
         spellcheck: "false",
         autocapitalize: "off",
         autocomplete: "off",
@@ -163,6 +165,7 @@ export default defineComponent({
             typeHover,
             EditorView.lineWrapping,
             EditorView.updateListener.of((update) => {
+              if (update.selectionSet) emit("inspect", update.state.selection.main.head);
               if (!update.docChanged || synchronizing) return;
               emit("update:modelValue", update.state.doc.toString());
             }),
@@ -192,7 +195,7 @@ export default defineComponent({
       () => editor?.dispatch({ effects: editable.reconfigure(editableExtension()) }),
     );
     watch(
-      () => [props.ariaLabel, props.invalid] as const,
+      () => [props.ariaLabel, props.invalid, props.readonly] as const,
       () => editor?.dispatch({ effects: attributes.reconfigure(attributeExtension()) }),
     );
     watch(isDark, () => editor?.dispatch({ effects: appearance.reconfigure(appearanceExtension()) }));

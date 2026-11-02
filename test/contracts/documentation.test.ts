@@ -515,6 +515,13 @@ await describe("public documentation", async () => {
     strict.ok(compatibility.includes("./upgrading-from-v1.md#adopt-compiler-and-ci-artifacts"));
   });
 
+  await it("exposes the interactive playground in the documentation", async () => {
+    strict.ok((await text("website/.vitepress/theme/index.ts")).includes('"PlaygroundWorkspace"'));
+    strict.ok(
+      publicDocumentationPages.some(({ file, link }) => file === "docs/playground.md" && link === "/playground"),
+    );
+  });
+
   await it("keeps the documentation site private", async () => {
     const sitePackage = JSON.parse(await text("website/package.json")) as { readonly private: boolean };
     strict.strictEqual(sitePackage.private, true);
