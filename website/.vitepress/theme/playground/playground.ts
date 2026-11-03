@@ -190,7 +190,10 @@ function balancedGroupLength(source: string): number | undefined {
   return undefined;
 }
 
-function columnAttributes(source: string): { nullable: boolean; hasDefault: boolean; primaryKey: boolean } | undefined {
+function columnAttributes(
+  source: string,
+  dialect: PlaygroundDialect,
+): { nullable: boolean; hasDefault: boolean; primaryKey: boolean } | undefined {
   let remaining = source.trim();
   let nullable = true;
   let explicitNullability: boolean | undefined;
@@ -221,6 +224,13 @@ function columnAttributes(source: string): { nullable: boolean; hasDefault: bool
     if (generated) {
       hasDefault = true;
       remaining = remaining.slice(generated[0].length).trim();
+      continue;
+    }
+    const jsonDefault = dialect === "mysql" ? /^DEFAULT\s+\(JSON_OBJECT\(\)\)/iu.exec(remaining) : null;
+    if (jsonDefault) {
+      if (hasDefault) return undefined;
+      hasDefault = true;
+      remaining = remaining.slice(jsonDefault[0].length).trim();
       continue;
     }
     const defaultValue =
@@ -337,7 +347,7 @@ function enumLabels(value: string): readonly string[] | undefined {
   return labels.length > 0 ? labels : undefined;
 }
 
-function parseColumn(part: SourcePart, position: number): PendingColumn | undefined {
+function parseColumn(part: SourcePart, position: number, dialect: PlaygroundDialect): PendingColumn | undefined {
   const match = /^\s*("(?:[^"]|"")+"|`(?:[^`]|``)+`|[A-Za-z_][\w$]*)\s+([\s\S]+?)\s*$/u.exec(part.text);
   if (match === null) return undefined;
   const name = identifierParts(match[1]!);
@@ -346,7 +356,7 @@ function parseColumn(part: SourcePart, position: number): PendingColumn | undefi
   const typeLength = columnTypeLength(definition);
   const databaseType = typeLength === undefined ? undefined : definition.slice(0, typeLength).trim();
   if (databaseType === undefined || databaseType.length === 0) return undefined;
-  const attributes = columnAttributes(definition.slice(typeLength));
+  const attributes = columnAttributes(definition.slice(typeLength), dialect);
   if (attributes === undefined) return undefined;
   return {
     name: name[0]!,
@@ -492,7 +502,7 @@ export function parsePlaygroundSchema(
           );
         continue;
       }
-      const column = parseColumn(part, columns.length);
+      const column = parseColumn(part, columns.length, dialect);
       if (column === undefined)
         diagnostics.push(
           diagnostic(schemaSource, "schema.sql", "PLAY006", "Invalid or unsupported column definition.", part.start),

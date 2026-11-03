@@ -7,7 +7,7 @@ description: Use two typed-sql grammars, configs, generated schemas, and drivers
 # PostgreSQL and SQLite example
 
 A project can use more than one database without merging their grammars or generated schemas. This example keeps
-customer records in PostgreSQL and customer preferences in a local SQLite database, then combines both typed
+user records in PostgreSQL and user JSON profiles in a local SQLite database, then combines both typed
 results in one application service.
 
 | Boundary | PostgreSQL | SQLite |
@@ -16,7 +16,7 @@ results in one application service.
 | Driver | Application-owned `pg` | Node's built-in `node:sqlite` |
 | Config | `postgres/typed-sql.config.ts` | `sqlite/typed-sql.config.ts` |
 | Generated contract | `postgres/generated/db` | `sqlite/generated/db` |
-| Source ownership | Customer records | Customer preferences |
+| Source ownership | User records | User JSON profiles |
 
 ## Configure each database independently
 

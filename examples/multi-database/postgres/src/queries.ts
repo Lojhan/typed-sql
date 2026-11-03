@@ -1,7 +1,4 @@
 import { sql } from "@typed-sql/postgres";
-
-export const customerById = (customerId: bigint) => sql`
-  SELECT customer.id, customer.email, customer.display_name
-  FROM customer
-  WHERE customer.id = ${customerId}
+export const userById = (userId: bigint) => sql`
+  SELECT id, email, display_name FROM users WHERE id = ${userId}
 `;

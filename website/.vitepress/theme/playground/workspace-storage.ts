@@ -1,5 +1,13 @@
 import { DEFAULT_SCHEMAS, PLAYGROUND_DIALECTS, type PlaygroundDialect } from "./playground.js";
-import { LESSONS, type Lesson, lessonFiles, validWorkspaceFiles, type WorkspaceFiles } from "./workspace.js";
+import { PREVIOUS_EXAMPLES } from "./previous-examples.js";
+import {
+  LESSONS,
+  type Lesson,
+  lessonFiles,
+  lessonSupportsDialect,
+  validWorkspaceFiles,
+  type WorkspaceFiles,
+} from "./workspace.js";
 
 export const WORKSPACE_STORAGE_KEY = "typed-sql.playground.v2";
 export const LEGACY_STORAGE_KEY = "typed-sql.playground.v1";
@@ -26,7 +34,12 @@ function sameFiles(left: WorkspaceFiles, right: WorkspaceFiles): boolean {
 }
 
 export function identifyExample(dialect: PlaygroundDialect, files: WorkspaceFiles): WorkspaceExample {
-  return LESSONS.find(({ id }) => sameFiles(files, lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect])))?.id ?? "custom";
+  return (
+    LESSONS.find(
+      ({ id }) =>
+        lessonSupportsDialect(id, dialect) && sameFiles(files, lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect])),
+    )?.id ?? "custom"
+  );
 }
 
 export function defaultPlaygroundState(): PlaygroundState {
@@ -36,7 +49,7 @@ export function defaultPlaygroundState(): PlaygroundState {
     workspaces: Object.fromEntries(
       PLAYGROUND_DIALECTS.map((dialect): [PlaygroundDialect, StoredWorkspace] => [
         dialect,
-        { files: lessonFiles(dialect, "workspace", DEFAULT_SCHEMAS[dialect]), example: "workspace" },
+        { files: lessonFiles(dialect, "commerce", DEFAULT_SCHEMAS[dialect]), example: "commerce" },
       ]),
     ) as PlaygroundState["workspaces"],
   };
@@ -50,7 +63,7 @@ export function upgradeLegacyWorkspace(dialect: PlaygroundDialect, files: Worksp
   );
   const candidates: WorkspaceFiles[] = [];
   for (const { id } of LESSONS) {
-    if (id === "workspace") continue;
+    if (id === "workspace" || id === "commerce") continue;
     const modern = lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect]);
     // The old dynamic example used the same account table name for every dialect.
     const query =
@@ -105,8 +118,14 @@ export function restorePlaygroundState(saved: unknown, legacy?: unknown): Playgr
       state.dialect = saved.dialect as PlaygroundDialect;
     for (const dialect of PLAYGROUND_DIALECTS) {
       const record = (saved.workspaces as Record<string, unknown>)[dialect];
-      if (typeof record === "object" && record !== null && "files" in record && validWorkspaceFiles(record.files))
-        state.workspaces[dialect] = { files: { ...record.files }, example: identifyExample(dialect, record.files) };
+      if (typeof record === "object" && record !== null && "files" in record && validWorkspaceFiles(record.files)) {
+        const previous = PREVIOUS_EXAMPLES.find(
+          (example) => example.dialect === dialect && sameFiles(record.files as WorkspaceFiles, example.files),
+        );
+        const lesson = previous?.lesson === "workspace" ? "commerce" : previous?.lesson;
+        const files = lesson ? lessonFiles(dialect, lesson, DEFAULT_SCHEMAS[dialect]) : { ...record.files };
+        state.workspaces[dialect] = { files, example: identifyExample(dialect, files) };
+      }
     }
   } else if (typeof legacy === "object" && legacy !== null) {
     for (const dialect of PLAYGROUND_DIALECTS) {

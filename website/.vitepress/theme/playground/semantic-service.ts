@@ -1,5 +1,8 @@
 import ts from "@typed-sql/browser-typescript";
+import { parameterTypeLiteral } from "@typed-sql/core";
+import { expandRepeatedFragments } from "../../../../packages/compiler/src/repeated-fragments.js";
 import { extractStaticQueries } from "../../../../packages/compiler/src/scanner.js";
+import { browserDialectRuntime } from "./dialect-browser-runtime.js";
 import type { EditorCompletion, EditorRequest, EditorResponse } from "./editor-protocol.js";
 import { analyzePlaygroundSource, type PlaygroundDialect, type PlaygroundQuery } from "./playground.js";
 import { validWorkspaceFiles, type WorkspaceFile, type WorkspaceFiles } from "./workspace.js";
@@ -95,6 +98,10 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
       name === "/" || [...virtual.keys(), ...Object.keys(declarations)].some((file) => file.startsWith(`${name}/`)),
     resolveModuleNames: (names, containingFile) =>
       names.map((name) => {
+        if (name === `@typed-sql/${activeDialect}/runtime`)
+          return declarations[`/${activeDialect}/runtime.d.ts`]
+            ? { resolvedFileName: `/${activeDialect}/runtime.d.ts`, extension: ts.Extension.Dts }
+            : undefined;
         if (name === "@typed-sql/core") return { resolvedFileName: "/core/index.ts", extension: ts.Extension.Ts };
         if (name === `@typed-sql/${activeDialect}`)
           return { resolvedFileName: "/grammar.d.ts", extension: ts.Extension.Dts };
@@ -178,11 +185,29 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
           for (const query of result.queries) {
             queries.push({ ...query, file });
             const original = extracted.find((item) => item.range.start === query.sourceStart);
-            if (original)
+            if (original) {
+              const runtime = browserDialectRuntime(dialect);
+              const repeated = expandRepeatedFragments(source, original, runtime.placeholder);
               insertions.push({
                 position: original.insertionPosition,
-                text: `<${query.rowType}, ${query.parameterType}>`,
+                text: repeated ? `.__typedRow<${query.rowType}>()` : `<${query.rowType}, ${query.parameterType}>`,
               });
+              if (repeated) {
+                const analysis = runtime.analyze(repeated.query.sql, sql.snapshot);
+                for (const { query: fragment, parameterOffset } of repeated.fragments) {
+                  if (insertions.some((item) => item.position === fragment.insertionPosition)) continue;
+                  const parameters = analysis.parameters
+                    .filter(
+                      ({ index }) => index > parameterOffset && index <= parameterOffset + fragment.parameterCount,
+                    )
+                    .map((parameter) => ({ ...parameter, index: parameter.index - parameterOffset }));
+                  insertions.push({
+                    position: fragment.insertionPosition,
+                    text: `<${parameterTypeLiteral(fragment.parameterCount, parameters)}>`,
+                  });
+                }
+              }
+            }
           }
         }
         insertions.sort((left, right) => left.position - right.position);
@@ -267,6 +292,29 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
         };
         visit(source);
       }
+      const program = service.getProgram();
+      const checker = program?.getTypeChecker();
+      if (checker)
+        for (let index = 0; index < queries.length; index++) {
+          const query = queries[index]!;
+          if (!query.file.endsWith(".ts")) continue;
+          const source = program?.getSourceFile(`${userRoot}${query.file}`);
+          if (!source) continue;
+          const position = transformedPosition(query.file, query.sourceStart);
+          const visit = (node: ts.Node) => {
+            if (ts.isTaggedTemplateExpression(node) && node.getStart(source) === position) {
+              const type = checker.getTypeAtLocation(node);
+              if (type.symbol?.name !== "Query" || !(type.flags & ts.TypeFlags.Object)) return;
+              const arguments_ = checker.getTypeArguments(type as ts.TypeReference);
+              if (arguments_.length !== 2) return;
+              const parameterType = checker.typeToString(arguments_[1]!, node, ts.TypeFormatFlags.NoTruncation);
+              queries[index] = { ...query, parameterType, contract: `Query<${query.rowType}, ${parameterType}>` };
+              return;
+            }
+            ts.forEachChild(node, visit);
+          };
+          visit(source);
+        }
       for (const query of queries)
         hovers[query.file]!.push({
           from: query.sourceStart,
@@ -354,6 +402,12 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
         };
       }
       if (!allowedCompletion(request.entry)) return undefined;
+      // Background analysis rebuilds TypeScript's export map. Completion data
+      // belongs to that map's generation, so resolve it again before acceptance.
+      const freshEntry = service
+        .getCompletionsAtPosition(fileName, transformed, completionOptions)
+        ?.entries.find((entry) => entry.name === request.entry.name && entry.source === request.entry.source);
+      if (!freshEntry) return undefined;
       const details = service.getCompletionEntryDetails(
         fileName,
         transformed,
@@ -361,8 +415,9 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
         { indentSize: 2, convertTabsToSpaces: true, newLineCharacter: "\n" },
         request.entry.source,
         preferences,
-        request.entry.data,
+        freshEntry.data,
       );
+      if (request.entry.source && !details?.codeActions?.length) return undefined;
       const edits = [];
       for (const action of details?.codeActions ?? []) {
         if (action.changes.some((change) => change.fileName !== fileName || change.isNewFile)) return undefined;

@@ -136,12 +136,12 @@ the storage-class union or `unknown`; registering a runtime converter alone cann
 
 ```ts
 const encoded = JSON.stringify({ theme: "dark" });
-await database.execute(sql`UPDATE account SET preferences = ${encoded} WHERE id = ${accountId}`);
+await database.execute(sql`UPDATE users SET profile = ${encoded} WHERE id = ${accountId}`);
 
 const [stored] = await database.execute(sql`
-  SELECT preferences FROM account WHERE id = ${accountId}
+  SELECT profile FROM users AS account WHERE id = ${accountId}
 `);
-const preferences = JSON.parse(String(stored?.preferences)) as unknown;
+const profile = JSON.parse(String(stored?.profile)) as unknown;
 ```
 An exact `INTEGER PRIMARY KEY` rowid alias is non-null `bigint` by default and is not a required
 insert column because SQLite can allocate it. Ordinary primary-key columns in non-STRICT rowid

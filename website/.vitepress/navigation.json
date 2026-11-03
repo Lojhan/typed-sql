@@ -261,6 +261,12 @@
           "pageType": "landing"
         },
         {
+          "text": "Commerce schema",
+          "link": "/examples/commerce-schema",
+          "file": "docs/examples/commerce-schema.md",
+          "pageType": "reference"
+        },
+        {
           "text": "Query recipes",
           "link": "/examples/recipes",
           "file": "docs/examples/recipes.md",

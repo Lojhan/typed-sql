@@ -14,5 +14,7 @@ footer: false
 
 # Playground
 
+Examples use the [shared commerce schema](./examples/commerce-schema.md): users, teams, memberships, products, orders, order items, and audit events.
+
 </template>
 </PlaygroundWorkspace>

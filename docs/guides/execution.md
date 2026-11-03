@@ -27,7 +27,7 @@ const database = await createPgDatabase({
 try {
   const query = sql`
     SELECT account.id, account.email
-    FROM accounts AS account
+    FROM users AS account
     ORDER BY account.id
   `;
 
@@ -57,7 +57,7 @@ const database = await createMySql2Database({
 try {
   const query = sql`
     SELECT account.id, account.email
-    FROM accounts AS account
+    FROM users AS account
     ORDER BY account.id
   `;
 
@@ -87,7 +87,7 @@ const database = await createNodeSqliteDatabase({
 try {
   const rows = await database.execute(sql`
     SELECT account.id, account.email
-    FROM account
+    FROM users AS account
     ORDER BY account.id
   `);
 } finally {
@@ -143,7 +143,7 @@ Execution options intentionally do not alter `batch()`, PostgreSQL `pipeline()`,
 ```ts
 const accountById = database.prepare("account-by-id", (accountId: bigint) => sql`
   SELECT account.id, account.email, account.status
-  FROM accounts AS account
+  FROM users AS account
   WHERE account.id = ${accountId}
 `);
 
@@ -172,27 +172,27 @@ The MySQL adapter keeps multi-statement strings disabled. Applications that requ
 ```ts
 const accountQuery = sql`
   SELECT account.id, account.email
-  FROM accounts AS account
+  FROM users AS account
   WHERE account.id = ${42n}
 `;
-const projectQuery = sql`
-  SELECT project.id, project.name
-  FROM projects AS project
-  WHERE project.owner_id = ${42n}
+const orderQuery = sql`
+  SELECT purchase.id, purchase.status
+  FROM orders AS purchase
+  WHERE purchase.user_id = ${42n}
 `;
 
-const [accounts, projects] = await database.batch([accountQuery, projectQuery]);
+const [accounts, orders] = await database.batch([accountQuery, orderQuery]);
 ```
 
-`accounts` and `projects` retain their respective inferred row arrays. Prepared queries remain ordinary `Query` values and can appear in the same batch. Passing an empty tuple returns immediately without acquiring a connection.
+`accounts` and `orders` retain their respective inferred row arrays. Prepared queries remain ordinary `Query` values and can appear in the same batch. Passing an empty tuple returns immediately without acquiring a connection.
 
 A root batch is sequential and non-atomic. It performs one driver execution per query on the same connection, stops at the first failure, and does not claim a single network round trip. Successfully completed statements are not rolled back when a later statement fails.
 
 Use an explicit transaction when atomicity is required and supported by the statements and database:
 
 ```ts
-const [accounts, projects] = await database.transaction((transaction) =>
-  transaction.batch([accountQuery, projectQuery]),
+const [accounts, orders] = await database.transaction((transaction) =>
+  transaction.batch([accountQuery, orderQuery]),
 );
 ```
 
@@ -216,7 +216,7 @@ const database = await createPgDatabase({
   poolConfig: { pipeline: true },
 });
 
-const [accounts, projects] = await database.pipeline([accountQuery, projectQuery]);
+const [accounts, orders] = await database.pipeline([accountQuery, orderQuery]);
 ```
 
 `pipeline()` leases one client and calls `client.query()` for every input before awaiting their results. This uses node-postgres's public pipeline mode to remove the idle network round trip between independent queries. Results retain input order even when responses settle in another order, and prepared-query metadata remains attached.
@@ -231,7 +231,7 @@ This is deliberately separate from `batch()`. A pipeline cannot stop dispatch at
 const accounts = database.stream(
   sql`
     SELECT account.id, account.email, account.status
-    FROM accounts AS account
+    FROM users AS account
     ORDER BY account.id
   `,
   { batchSize: 500 },
@@ -272,7 +272,7 @@ Transaction callbacks receive the selected adapter's transaction type, so `execu
 ```ts
 const changedAccount = database.prepare("changed-account", (accountId: bigint) => sql`
   SELECT account.id, account.email
-  FROM accounts AS account
+  FROM users AS account
   WHERE account.id = ${accountId}
 `);
 
@@ -300,7 +300,7 @@ Ordinary interpolations become driver parameters:
 ```ts
 const query = sql`
   SELECT account.id
-  FROM accounts AS account
+  FROM users AS account
   WHERE account.id = ${accountId}
 `;
 ```
@@ -310,7 +310,7 @@ Identifiers are SQL structure and must be explicit:
 ```ts
 const query = sql`
   SELECT ${sql.ident("display_name")}
-  FROM accounts
+  FROM users
 `;
 ```
 

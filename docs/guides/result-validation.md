@@ -29,7 +29,7 @@ const accountSchema = z.object({
 
 const accountQuery = sql`
   SELECT account.id, account.email, account.status
-  FROM accounts AS account
+  FROM users AS account
   WHERE account.id = ${accountId}
 `;
 

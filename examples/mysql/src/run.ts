@@ -5,7 +5,7 @@ import { loadAccountWorkspace } from "./batches.js";
 import { findAccount } from "./cardinality.js";
 import { createOperationLog } from "./observation.js";
 import { prepareAccountQueries } from "./prepared.js";
-import { accountProjectSummary } from "./queries.js";
+import { accountOrderSummary } from "./queries.js";
 import { collectActiveAccounts } from "./streams.js";
 
 export async function runMySqlExample() {
@@ -18,7 +18,7 @@ export async function runMySqlExample() {
       findAccount(database, 1n),
       database.maybeOne(prepared.accountById(2n)),
       loadAccountWorkspace(database, 1n),
-      database.all(accountProjectSummary),
+      database.all(accountOrderSummary),
       collectActiveAccounts(database),
     ]);
     return {

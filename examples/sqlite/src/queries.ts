@@ -8,7 +8,7 @@ export interface AccountFilters {
 
 export interface AccountSelect {
   readonly status: boolean;
-  readonly projectBudget: boolean;
+  readonly orderTotal: boolean;
 }
 
 export function accounts<const Select extends AccountSelect>(filters: AccountFilters, select: Select) {
@@ -17,9 +17,9 @@ export function accounts<const Select extends AccountSelect>(filters: AccountFil
       account.id,
       account.email
       ${select.status ? sql.fragment`, account.status` : sql.empty}
-      ${select.projectBudget ? sql.fragment`, project.budget` : sql.empty}
-    FROM account
-      ${select.projectBudget ? sql.fragment`LEFT JOIN project ON project.owner_id = account.id` : sql.empty}
+      ${select.orderTotal ? sql.fragment`, purchase.total_cents` : sql.empty}
+    FROM users AS account
+      ${select.orderTotal ? sql.fragment`LEFT JOIN orders AS purchase ON purchase.user_id = account.id` : sql.empty}
     WHERE 1 = 1
       ${filters.status == null ? sql.empty : sql.fragment`AND account.status = ${filters.status}`}
       ${filters.minimumId == null ? sql.empty : sql.fragment`AND account.id >= ${filters.minimumId}`}
@@ -27,38 +27,38 @@ export function accounts<const Select extends AccountSelect>(filters: AccountFil
   `;
 }
 
-export const activeAccounts = accounts({ status: "active", minimumId: 1n }, { status: true, projectBudget: true });
+export const activeAccounts = accounts({ status: "active", minimumId: 1n }, { status: true, orderTotal: true });
 
 export const accountById = (accountId: bigint) => sql`
   SELECT account.id, account.email, account.status
-  FROM account
+  FROM users AS account
   WHERE account.id = ${accountId}
 `;
 
-export const projectsByOwner = (ownerId: bigint) => sql`
-  SELECT project.id, project.owner_id, project.name, project.budget
-  FROM project
-  WHERE project.owner_id = ${ownerId}
-  ORDER BY project.id
+export const ordersByCustomer = (userId: bigint) => sql`
+  SELECT purchase.id, purchase.user_id, purchase.status, purchase.total_cents
+  FROM orders AS purchase
+  WHERE purchase.user_id = ${userId}
+  ORDER BY purchase.id
 `;
 
-export const accountProjectSummary = sql`
-  WITH project_totals AS (
+export const accountOrderSummary = sql`
+  WITH order_totals AS (
     SELECT
-      project.owner_id,
-      COUNT(*) AS project_count,
-      SUM(project.budget) AS total_budget
-    FROM project
-    GROUP BY project.owner_id
+      purchase.user_id,
+      COUNT(*) AS order_count,
+      SUM(purchase.total_cents) AS total_cents
+    FROM orders AS purchase
+    GROUP BY purchase.user_id
   )
   SELECT
     account.id,
     account.email,
     account.status,
-    project_totals.project_count,
-    project_totals.total_budget
-  FROM account
-  LEFT JOIN project_totals ON project_totals.owner_id = account.id
+    order_totals.order_count,
+    order_totals.total_cents
+  FROM users AS account
+  LEFT JOIN order_totals ON order_totals.user_id = account.id
   ORDER BY account.id
 `;
 

@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/pages.yml
       - docs/**
+      - examples/**
       - website/**
       - package.json
       - pnpm-lock.yaml

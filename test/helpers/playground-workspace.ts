@@ -15,5 +15,10 @@ export function createTestWorkspace() {
     if (file.endsWith(".ts")) declarations[`/core/${file}`] = readFileSync(new URL(file, core), "utf8");
   for (const file of readdirSync(libraries))
     if (/^lib\..*\.d\.ts$/u.test(file)) declarations[`/lib/${file}`] = readFileSync(join(libraries, file), "utf8");
+  for (const dialect of ["postgres", "mysql", "sqlite"]) {
+    const root = new URL(`../../packages/${dialect}/dist/packages/${dialect}/src/`, import.meta.url);
+    for (const file of readdirSync(root))
+      if (file.endsWith(".d.ts")) declarations[`/${dialect}/${file}`] = readFileSync(new URL(file, root), "utf8");
+  }
   return createSemanticWorkspace(declarations);
 }

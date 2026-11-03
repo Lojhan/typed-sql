@@ -50,7 +50,7 @@ await describe("playground TypeScript workspace", async () => {
       const files = lessonFiles("postgres", "joins", DEFAULT_SCHEMAS.postgres);
       const joined = workspace.analyze("postgres", files);
       strict.deepStrictEqual(joined.problems, []);
-      strict.match(joined.queries[0]!.rowType, /"project_name": string \| null/u);
+      strict.match(joined.queries[0]!.rowType, /"team_name": string \| null/u);
       files["schema/tables.sql"] = files["schema/tables.sql"].replaceAll("email text", "renamed_email text");
       const invalid = workspace.analyze("postgres", files);
       strict.strictEqual(invalid.queries.length, 0);
@@ -94,12 +94,12 @@ await describe("playground TypeScript workspace", async () => {
       const result = workspace.analyze("postgres", files);
       strict.deepStrictEqual(result.problems, []);
       strict.ok(result.hovers["src/main.ts"]!.some(({ content }) => /Query<.*email/su.test(content)));
-      files["src/queries/account.ts"] = files["src/queries/account.ts"].replace("id, email", "id, name");
+      files["src/queries/account.ts"] = files["src/queries/account.ts"].replace("id, email", "id, display_name");
       const updated = workspace.analyze("postgres", files);
       const hover = updated.hovers["src/main.ts"]!.find(
         ({ from }) => from === files["src/main.ts"].indexOf("result ="),
       );
-      strict.match(hover!.content, /name: string/u);
+      strict.match(hover!.content, /display_name: string/u);
       strict.ok(!hover!.content.includes("email"));
     });
     await it("supports named SQL queries and diagnoses errors in the original SQL file", () => {

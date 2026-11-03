@@ -62,6 +62,8 @@ await describe("playground editor interactions", async () => {
       }) as EditorCompletion[];
       const entry = entries.find((item) => item.name === "accountById" && item.source);
       strict.ok(entry, JSON.stringify(entries.filter((item) => item.source)));
+      // The debounced worker can analyze the same snapshot between suggestion and acceptance.
+      workspace.analyze("postgres", { ...base, "app.ts": source });
       const details = workspace.interact({
         kind: "completionEdits",
         file: "app.ts",

@@ -1,6 +1,6 @@
 import { describe, it, strict } from "poku";
 import { DEFAULT_SCHEMAS, PLAYGROUND_DIALECTS } from "../../website/.vitepress/theme/playground/playground.js";
-import { LESSONS, lessonFiles } from "../../website/.vitepress/theme/playground/workspace.js";
+import { LESSONS, lessonFiles, lessonSupportsDialect } from "../../website/.vitepress/theme/playground/workspace.js";
 import {
   decodeSharedWorkspace,
   defaultPlaygroundState,
@@ -43,6 +43,7 @@ await describe("playground examples and saved workspaces", async () => {
       });
       await it(`all ${dialect} examples reference existing query files`, () => {
         for (const { id } of LESSONS) {
+          if (!lessonSupportsDialect(id, dialect)) continue;
           const files = lessonFiles(dialect, id, DEFAULT_SCHEMAS[dialect]);
           strict.ok("queries/account.ts" in files);
           strict.ok(!("queries.ts" in files));

@@ -5,7 +5,7 @@ import { createNodeSqliteDatabase } from "@typed-sql/sqlite/node-sqlite";
 import { connectionString } from "../postgres/typed-sql.config.js";
 import { setupSqliteDatabase } from "../sqlite/setup.js";
 import { databasePath } from "../sqlite/typed-sql.config.js";
-import { getCustomerProfile, setCustomerPreference } from "./service.js";
+import { getUserProfile, setUserProfile } from "./service.js";
 
 export async function runMultiDatabaseExample() {
   await setupSqliteDatabase();
@@ -14,10 +14,10 @@ export async function runMultiDatabaseExample() {
   const databases = { postgres, sqlite };
 
   try {
-    const before = await getCustomerProfile(databases, 1n);
-    const updatedPreference = await setCustomerPreference(databases, 1n, "light", false);
-    const after = await getCustomerProfile(databases, 1n);
-    return { before, updatedPreference, after };
+    const before = await getUserProfile(databases, 1n);
+    const updatedProfile = await setUserProfile(databases, 1n, "light", false);
+    const after = await getUserProfile(databases, 1n);
+    return { before, updatedProfile, after };
   } finally {
     await Promise.all([postgres.close(), sqlite.close()]);
   }

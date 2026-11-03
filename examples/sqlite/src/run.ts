@@ -5,7 +5,7 @@ import { loadAccountWorkspace } from "./batches.js";
 import { sqliteExecutionCapabilities } from "./capabilities.js";
 import { findAccount } from "./cardinality.js";
 import { prepareAccountQueries } from "./prepared.js";
-import { accountProjectSummary } from "./queries.js";
+import { accountOrderSummary } from "./queries.js";
 import { collectActiveAccounts } from "./streams.js";
 
 export async function runSqliteExample() {
@@ -16,7 +16,7 @@ export async function runSqliteExample() {
     const account = await findAccount(database, 1n);
     const preparedAccount = await database.maybeOne(prepared.accountById(2n));
     const workspace = await loadAccountWorkspace(database, 1n);
-    const summary = await database.all(accountProjectSummary);
+    const summary = await database.all(accountOrderSummary);
     const streamedAccounts = await collectActiveAccounts(database);
     return {
       account,

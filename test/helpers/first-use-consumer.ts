@@ -54,6 +54,12 @@ export async function assertFirstUseConsumer(options: {
       pnpm: { overrides: options.dependencies },
     }),
   );
+  const schemaInclude = /^<<<\s+(.+\/schema\/001-schema\.sql)\s*$/mu.exec(markdown);
+  strict.ok(schemaInclude, "SQLite quickstart is missing its shared schema include");
+  await writeFile(
+    join(directory, "schema.sql"),
+    await readFile(join(workspace, "docs/getting-started", schemaInclude![1]!), "utf8"),
+  );
   await writeFile(join(directory, "tsconfig.json"), block("json", "compilerOptions"));
   await writeFile(join(directory, "typed-sql.config.ts"), block("ts", "defineConfig"));
   const query = block("ts", "export const accountById");
@@ -79,7 +85,7 @@ export async function assertFirstUseConsumer(options: {
   strict.match(first.stdout, /readonly \[bigint\]/u);
   strict.match(first.stdout, /Checked 1 project/u);
   const run = await execFile("pnpm", ["exec", "tsx", "src/main.ts"], { cwd: directory, env });
-  strict.equal(run.stdout.trim(), "ada@example.com");
+  strict.equal(run.stdout.trim(), "alice@example.com");
   await writeFile(join(directory, "src/query.ts"), query);
   const consumer = `import {accountById} from "./query.js";\n${execution}`;
   await writeFile(main, consumer);

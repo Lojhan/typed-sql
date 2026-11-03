@@ -17,7 +17,7 @@ export const validatedAccountById = (accountId: bigint) =>
   sql.validateResult(
     sql<ValidatedAccount>`
       SELECT account.id, account.email, account.status
-      FROM account
+      FROM users AS account
       WHERE account.id = ${accountId}
     `,
     accountResult,

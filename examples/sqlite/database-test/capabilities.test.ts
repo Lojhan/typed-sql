@@ -21,11 +21,11 @@ import { describe, it, strict } from "poku";
 import { insertSmallAccountBatch, loadAccountWorkspace } from "../src/batches.js";
 import { sqliteExecutionCapabilities } from "../src/capabilities.js";
 import { findAccount, listActiveAccounts, requireAccount } from "../src/cardinality.js";
-import { deleteAccount, deleteProjectsByOwner, updateAccountStatus } from "../src/mutations.js";
+import { deleteAccount, deleteOrdersByCustomer, updateAccountStatus } from "../src/mutations.js";
 import { prepareAccountQueries } from "../src/prepared.js";
-import { accountProjectSummary } from "../src/queries.js";
+import { accountOrderSummary } from "../src/queries.js";
 import { collectActiveAccounts, firstActiveAccount } from "../src/streams.js";
-import { createAccountWithProject } from "../src/transactions.js";
+import { createAccountWithOrder } from "../src/transactions.js";
 import { validatedAccountById } from "../src/validation.js";
 import { databasePath } from "../typed-sql.config.js";
 
@@ -41,7 +41,7 @@ function rowValue(row: unknown): Readonly<Record<string, unknown>> {
 
 async function removeAccounts(ids: readonly bigint[]): Promise<void> {
   for (const id of ids) {
-    await database.execute(deleteProjectsByOwner(id));
+    await database.execute(deleteOrdersByCustomer(id));
     await database.execute(deleteAccount(id));
   }
 }
@@ -56,7 +56,7 @@ try {
         status: "active",
       });
       strict.strictEqual(await findAccount(database, -1n), undefined);
-      strict.strictEqual((await database.all(accountProjectSummary)).length, 2);
+      strict.strictEqual((await database.all(accountOrderSummary)).length, 2);
 
       const prepared = prepareAccountQueries(database);
       strict.strictEqual(prepared.accountById.statementName, "example-account-by-id");
@@ -65,13 +65,13 @@ try {
         email: "bob@example.com",
         status: "suspended",
       });
-      strict.strictEqual((await loadAccountWorkspace(database, 1n)).projects.length, 1);
+      strict.strictEqual((await loadAccountWorkspace(database, 1n)).orders.length, 1);
       strict.strictEqual((await collectActiveAccounts(database)).length, 1);
       strict.deepStrictEqual(rowValue((await firstActiveAccount(database))!), {
         id: 1n,
         email: "alice@example.com",
         status: "active",
-        budget: 12500.5,
+        total_cents: 12500n,
       });
       strict.deepStrictEqual(rowValue(await database.one(validatedAccountById(1n))), {
         id: 1n,
@@ -83,10 +83,10 @@ try {
 
     await it("commits typed mutations atomically", async () => {
       await removeAccounts([9_001n]);
-      const created = await createAccountWithProject(
+      const created = await createAccountWithOrder(
         database,
         { id: 9_001n, email: "transaction.sqlite@example.com", status: "active" },
-        { id: 9_001n, name: "SQLite transaction", budget: 42.5 },
+        { id: 9_001n, status: "paid", totalCents: 4250n },
       );
       strict.deepStrictEqual(rowValue(created.account), {
         id: 9_001n,
@@ -140,7 +140,7 @@ try {
           ROW_NUMBER() OVER ordered AS position,
           LAG(email, 1, 'missing') OVER ordered AS previous,
           SUM(id) OVER (ordered ROWS BETWEEN 1 PRECEDING AND CURRENT ROW EXCLUDE TIES) AS running_id
-        FROM account
+        FROM users AS account
         WINDOW ordered AS (ORDER BY id)
         ORDER BY id
       `);
@@ -153,7 +153,7 @@ try {
     await it("executes SQLite UPSERT, RETURNING, and UPDATE FROM", async () => {
       await removeAccounts([9_201n]);
       const inserted = await database.execute(sql`
-        INSERT INTO account (id, email, status)
+        INSERT INTO users (id, email, status)
         VALUES (${9_201n}, ${"upsert.sqlite@example.com"}, ${"active"})
         ON CONFLICT (id) DO UPDATE SET
           email = excluded.email,
@@ -166,10 +166,10 @@ try {
         status: "active",
       });
       const updated = await database.execute(sql`
-        UPDATE account
+        UPDATE users
         SET status = source.status
-        FROM account AS source
-        WHERE account.id = ${9_201n} AND source.id = ${2n}
+        FROM users AS source
+        WHERE users.id = ${9_201n} AND source.id = ${2n}
         RETURNING id, status
       `);
       strict.deepStrictEqual(rowValue(updated[0]), { id: 9_201n, status: "suspended" });
@@ -181,7 +181,7 @@ try {
       const snapshot = dialect.validateSnapshot(JSON.parse(await readFile(generatedSnapshotPath, "utf8")));
       if (snapshot.formatVersion !== 2) throw new TypeError("The SQLite conformance run requires snapshot v2");
       if (snapshot.metadata === undefined) throw new TypeError("The generated SQLite snapshot requires metadata");
-      const query = sql`SELECT id FROM account WHERE id = ${1n}`;
+      const query = sql`SELECT id FROM users AS account WHERE id = ${1n}`;
       const versionRows = await database.execute(sql`SELECT sqlite_version() AS version`);
       const version = String(rowValue(versionRows[0]).version);
       const target = {
@@ -195,11 +195,11 @@ try {
         featureId: "statement.select",
         grammar: "sqlite",
         targets: [target],
-        source: "SELECT id FROM account WHERE id = ?",
+        source: "SELECT id FROM users AS account WHERE id = ?",
         schemaFixture: "examples/sqlite/schema/catalog.snapshot.json",
         query,
         compilerSource:
-          'import { sql } from "@typed-sql/sqlite";\nexport const query = sql`SELECT id FROM account WHERE id = ${1n}`;',
+          'import { sql } from "@typed-sql/sqlite";\nexport const query = sql`SELECT id FROM users AS account WHERE id = ${1n}`;',
         live: { execute: true, maximumRows: 1 },
         expected: [
           {
@@ -216,7 +216,7 @@ try {
             ],
             parameters: [{ index: 1, tsType: "bigint", nullable: false, databaseType: "INTEGER" }],
             diagnostics: [],
-            rendered: { text: "SELECT id FROM account WHERE id = ?", values: [1n] },
+            rendered: { text: "SELECT id FROM users AS account WHERE id = ?", values: [1n] },
             compiled: { rowType: '{ "id": bigint; }', parameterType: "readonly [bigint]" },
             decodedRows: [{ id: 1n }],
             skips: {

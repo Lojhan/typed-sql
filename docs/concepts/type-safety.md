@@ -16,7 +16,7 @@ The complete row, ordered parameter tuple, result kind, and relevant nullability
 
 ```ts
 Query<
-  { id: bigint; email: string; budget: string | null },
+  { id: bigint; email: string; team_name: string | null },
   readonly [bigint]
 >
 ```

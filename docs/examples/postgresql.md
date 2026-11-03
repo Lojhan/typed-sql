@@ -19,7 +19,7 @@ join only exists when its projected column is requested.
 
 ## Define the database
 
-The pinned container initializes this small schema:
+The pinned container initializes the shared commerce schema:
 
 <<< ../../examples/postgres/schema/001-schema.sql
 
@@ -38,7 +38,7 @@ predicates remain explicit structural fragments.
 <<< ../../examples/postgres/src/queries.ts
 
 Hover `activeAccounts` in a configured editor to see its selected row and ordered parameter tuple. Changing
-`projectBudget` or `status` changes the complete query type instead of widening it to a hand-written interface.
+`orderTotal` or `status` changes the complete query type instead of widening it to a hand-written interface.
 
 ## Build nested JSON with SQL
 

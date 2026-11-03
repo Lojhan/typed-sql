@@ -16,12 +16,857 @@ export const schema = {
     }
   },
   "relations": {
-    "account": {
+    "audit_events": {
       "capabilities": {
         "strict": true,
         "withoutRowid": false
       },
       "columns": {
+        "created_at": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "present",
+          "defaultExpressionHash": "sha256:9ff7b5b715046baeffdb1af30ed68f6e43b40bf43d1f76734de5b26ecacb58e8",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "created_at",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 4,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "event_name": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "event_name",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "id": {
+          "classification": "rowid",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "by-default",
+          "insertable": true,
+          "name": "id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "payload": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "payload",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 3,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "user_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "user_id",
+          "nullabilitySource": "declared",
+          "nullable": true,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        }
+      },
+      "constraints": [
+        {
+          "columns": [
+            "user_id"
+          ],
+          "deferrable": "unknown",
+          "expressionBased": false,
+          "identity": "main.audit_events.foreign-key:user_id->users(id)",
+          "initiallyDeferred": "unknown",
+          "kind": "foreign-key",
+          "match": "simple",
+          "onDelete": "no-action",
+          "onUpdate": "no-action",
+          "partial": false,
+          "referencedColumns": [
+            "id"
+          ],
+          "referencedRelation": "users"
+        },
+        {
+          "columns": [
+            "id"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.audit_events.primary-key",
+          "initiallyDeferred": false,
+          "kind": "primary-key",
+          "nullsDistinct": false,
+          "partial": false
+        }
+      ],
+      "indexes": [],
+      "kind": "table",
+      "name": "audit_events",
+      "schema": "main"
+    },
+    "memberships": {
+      "capabilities": {
+        "strict": true,
+        "withoutRowid": false
+      },
+      "columns": {
+        "role": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "role",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "team_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "team_id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "user_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "user_id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        }
+      },
+      "constraints": [
+        {
+          "columns": [],
+          "deferrable": false,
+          "expressionBased": true,
+          "identity": "main.memberships.check:0:sha256:713594fa03f2ffc50025c918d2fb25c40c6e7af9311fa3982887606293ff4083",
+          "initiallyDeferred": false,
+          "kind": "check",
+          "partial": false,
+          "predicate": "present",
+          "predicateHash": "sha256:713594fa03f2ffc50025c918d2fb25c40c6e7af9311fa3982887606293ff4083"
+        },
+        {
+          "columns": [
+            "team_id"
+          ],
+          "deferrable": "unknown",
+          "expressionBased": false,
+          "identity": "main.memberships.foreign-key:team_id->teams(id)",
+          "initiallyDeferred": "unknown",
+          "kind": "foreign-key",
+          "match": "simple",
+          "onDelete": "no-action",
+          "onUpdate": "no-action",
+          "partial": false,
+          "referencedColumns": [
+            "id"
+          ],
+          "referencedRelation": "teams"
+        },
+        {
+          "columns": [
+            "user_id"
+          ],
+          "deferrable": "unknown",
+          "expressionBased": false,
+          "identity": "main.memberships.foreign-key:user_id->users(id)",
+          "initiallyDeferred": "unknown",
+          "kind": "foreign-key",
+          "match": "simple",
+          "onDelete": "no-action",
+          "onUpdate": "no-action",
+          "partial": false,
+          "referencedColumns": [
+            "id"
+          ],
+          "referencedRelation": "users"
+        },
+        {
+          "columns": [
+            "user_id",
+            "team_id"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.memberships.primary-key",
+          "initiallyDeferred": false,
+          "kind": "primary-key",
+          "nullsDistinct": false,
+          "partial": false
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            {
+              "collation": "BINARY",
+              "column": "user_id"
+            },
+            {
+              "collation": "BINARY",
+              "column": "team_id"
+            }
+          ],
+          "extension": {
+            "attributes": {
+              "origin": "primary-key"
+            },
+            "version": "1"
+          },
+          "identity": "main.memberships.sqlite_autoindex_memberships_1",
+          "method": "btree",
+          "name": "sqlite_autoindex_memberships_1",
+          "predicate": "none",
+          "unique": true,
+          "valid": true
+        }
+      ],
+      "kind": "table",
+      "name": "memberships",
+      "schema": "main"
+    },
+    "order_items": {
+      "capabilities": {
+        "strict": true,
+        "withoutRowid": false
+      },
+      "columns": {
+        "order_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "order_id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "product_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "product_id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "quantity": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "quantity",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "unit_price_cents": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "unit_price_cents",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 3,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        }
+      },
+      "constraints": [
+        {
+          "columns": [
+            "order_id"
+          ],
+          "deferrable": "unknown",
+          "expressionBased": false,
+          "identity": "main.order_items.foreign-key:order_id->orders(id)",
+          "initiallyDeferred": "unknown",
+          "kind": "foreign-key",
+          "match": "simple",
+          "onDelete": "no-action",
+          "onUpdate": "no-action",
+          "partial": false,
+          "referencedColumns": [
+            "id"
+          ],
+          "referencedRelation": "orders"
+        },
+        {
+          "columns": [
+            "product_id"
+          ],
+          "deferrable": "unknown",
+          "expressionBased": false,
+          "identity": "main.order_items.foreign-key:product_id->products(id)",
+          "initiallyDeferred": "unknown",
+          "kind": "foreign-key",
+          "match": "simple",
+          "onDelete": "no-action",
+          "onUpdate": "no-action",
+          "partial": false,
+          "referencedColumns": [
+            "id"
+          ],
+          "referencedRelation": "products"
+        },
+        {
+          "columns": [
+            "order_id",
+            "product_id"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.order_items.primary-key",
+          "initiallyDeferred": false,
+          "kind": "primary-key",
+          "nullsDistinct": false,
+          "partial": false
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            {
+              "collation": "BINARY",
+              "column": "order_id"
+            },
+            {
+              "collation": "BINARY",
+              "column": "product_id"
+            }
+          ],
+          "extension": {
+            "attributes": {
+              "origin": "primary-key"
+            },
+            "version": "1"
+          },
+          "identity": "main.order_items.sqlite_autoindex_order_items_1",
+          "method": "btree",
+          "name": "sqlite_autoindex_order_items_1",
+          "predicate": "none",
+          "unique": true,
+          "valid": true
+        }
+      ],
+      "kind": "table",
+      "name": "order_items",
+      "schema": "main"
+    },
+    "orders": {
+      "capabilities": {
+        "strict": true,
+        "withoutRowid": false
+      },
+      "columns": {
+        "created_at": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "present",
+          "defaultExpressionHash": "sha256:9ff7b5b715046baeffdb1af30ed68f6e43b40bf43d1f76734de5b26ecacb58e8",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "created_at",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 4,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "id": {
+          "classification": "rowid",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "by-default",
+          "insertable": true,
+          "name": "id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "shipped_at": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "shipped_at",
+          "nullabilitySource": "declared",
+          "nullable": true,
+          "position": 5,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "status": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "status",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "total_cents": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "total_cents",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 3,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "user_id": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "user_id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        }
+      },
+      "constraints": [
+        {
+          "columns": [],
+          "deferrable": false,
+          "expressionBased": true,
+          "identity": "main.orders.check:0:sha256:6e34a0a3b0b60b12a04d7069c9d806b7dd96ee3b2ee74e656e1458394ffe3553",
+          "initiallyDeferred": false,
+          "kind": "check",
+          "partial": false,
+          "predicate": "present",
+          "predicateHash": "sha256:6e34a0a3b0b60b12a04d7069c9d806b7dd96ee3b2ee74e656e1458394ffe3553"
+        },
+        {
+          "columns": [
+            "user_id"
+          ],
+          "deferrable": "unknown",
+          "expressionBased": false,
+          "identity": "main.orders.foreign-key:user_id->users(id)",
+          "initiallyDeferred": "unknown",
+          "kind": "foreign-key",
+          "match": "simple",
+          "onDelete": "no-action",
+          "onUpdate": "no-action",
+          "partial": false,
+          "referencedColumns": [
+            "id"
+          ],
+          "referencedRelation": "users"
+        },
+        {
+          "columns": [
+            "id"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.orders.primary-key",
+          "initiallyDeferred": false,
+          "kind": "primary-key",
+          "nullsDistinct": false,
+          "partial": false
+        }
+      ],
+      "indexes": [],
+      "kind": "table",
+      "name": "orders",
+      "schema": "main"
+    },
+    "products": {
+      "capabilities": {
+        "strict": true,
+        "withoutRowid": false
+      },
+      "columns": {
+        "active": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "active",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 4,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "id": {
+          "classification": "rowid",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "by-default",
+          "insertable": true,
+          "name": "id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "metadata": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "metadata",
+          "nullabilitySource": "declared",
+          "nullable": true,
+          "position": 5,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "price_cents": {
+          "classification": "normal",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "price_cents",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 3,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "sku": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "sku",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 1,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "title": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "title",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        }
+      },
+      "constraints": [
+        {
+          "columns": [
+            "id"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.products.primary-key",
+          "initiallyDeferred": false,
+          "kind": "primary-key",
+          "nullsDistinct": false,
+          "partial": false
+        },
+        {
+          "columns": [
+            "sku"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.products.sqlite_autoindex_products_1",
+          "initiallyDeferred": false,
+          "kind": "unique",
+          "name": "sqlite_autoindex_products_1",
+          "nullsDistinct": true,
+          "partial": false
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            {
+              "collation": "BINARY",
+              "column": "sku"
+            }
+          ],
+          "extension": {
+            "attributes": {
+              "origin": "unique"
+            },
+            "version": "1"
+          },
+          "identity": "main.products.sqlite_autoindex_products_1",
+          "method": "btree",
+          "name": "sqlite_autoindex_products_1",
+          "predicate": "none",
+          "unique": true,
+          "valid": true
+        }
+      ],
+      "kind": "table",
+      "name": "products",
+      "schema": "main"
+    },
+    "teams": {
+      "capabilities": {
+        "strict": true,
+        "withoutRowid": false
+      },
+      "columns": {
+        "id": {
+          "classification": "rowid",
+          "databaseType": "INTEGER",
+          "default": "none",
+          "generated": "none",
+          "identity": "by-default",
+          "insertable": true,
+          "name": "id",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "sqlite:INTEGER",
+          "updatable": true
+        },
+        "name": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "name",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 1,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "slug": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "none",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "slug",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        }
+      },
+      "constraints": [
+        {
+          "columns": [
+            "id"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.teams.primary-key",
+          "initiallyDeferred": false,
+          "kind": "primary-key",
+          "nullsDistinct": false,
+          "partial": false
+        },
+        {
+          "columns": [
+            "slug"
+          ],
+          "deferrable": false,
+          "expressionBased": false,
+          "identity": "main.teams.sqlite_autoindex_teams_1",
+          "initiallyDeferred": false,
+          "kind": "unique",
+          "name": "sqlite_autoindex_teams_1",
+          "nullsDistinct": true,
+          "partial": false
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            {
+              "collation": "BINARY",
+              "column": "slug"
+            }
+          ],
+          "extension": {
+            "attributes": {
+              "origin": "unique"
+            },
+            "version": "1"
+          },
+          "identity": "main.teams.sqlite_autoindex_teams_1",
+          "method": "btree",
+          "name": "sqlite_autoindex_teams_1",
+          "predicate": "none",
+          "unique": true,
+          "valid": true
+        }
+      ],
+      "kind": "table",
+      "name": "teams",
+      "schema": "main"
+    },
+    "users": {
+      "capabilities": {
+        "strict": true,
+        "withoutRowid": false
+      },
+      "columns": {
+        "created_at": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "present",
+          "defaultExpressionHash": "sha256:9ff7b5b715046baeffdb1af30ed68f6e43b40bf43d1f76734de5b26ecacb58e8",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "created_at",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 5,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
+        "display_name": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "present",
+          "defaultExpressionHash": "sha256:6f49cdbd80e1b95d5e6427e1501fc217790daee87055fa5b4e71064288bddede",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "display_name",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
         "email": {
           "classification": "normal",
           "databaseType": "TEXT",
@@ -52,17 +897,34 @@ export const schema = {
           "typeIdentity": "sqlite:INTEGER",
           "updatable": true
         },
+        "profile": {
+          "classification": "normal",
+          "databaseType": "TEXT",
+          "default": "present",
+          "defaultExpressionHash": "sha256:437da515a768a74bdc5d9c67803dfe8e3f0339ebad2e87474f5d3fde0427bd80",
+          "generated": "none",
+          "identity": "none",
+          "insertable": true,
+          "name": "profile",
+          "nullabilitySource": "declared",
+          "nullable": false,
+          "position": 4,
+          "tsType": "string",
+          "typeIdentity": "sqlite:TEXT",
+          "updatable": true
+        },
         "status": {
           "classification": "normal",
           "databaseType": "TEXT",
-          "default": "none",
+          "default": "present",
+          "defaultExpressionHash": "sha256:880684c199f7f20d14b8d1c1300fd60114d8049634f8d423bf3dfc5de839f2e1",
           "generated": "none",
           "identity": "none",
           "insertable": true,
           "name": "status",
           "nullabilitySource": "declared",
           "nullable": false,
-          "position": 2,
+          "position": 3,
           "tsType": "string",
           "typeIdentity": "sqlite:TEXT",
           "updatable": true
@@ -73,7 +935,7 @@ export const schema = {
           "columns": [],
           "deferrable": false,
           "expressionBased": true,
-          "identity": "main.account.check:0:sha256:6b509fb05f28811f0e74aaa6fb5be341a114d70141f9ce3bf1a7c6345fdea2fe",
+          "identity": "main.users.check:0:sha256:6b509fb05f28811f0e74aaa6fb5be341a114d70141f9ce3bf1a7c6345fdea2fe",
           "initiallyDeferred": false,
           "kind": "check",
           "partial": false,
@@ -86,7 +948,7 @@ export const schema = {
           ],
           "deferrable": false,
           "expressionBased": false,
-          "identity": "main.account.primary-key",
+          "identity": "main.users.primary-key",
           "initiallyDeferred": false,
           "kind": "primary-key",
           "nullsDistinct": false,
@@ -98,10 +960,10 @@ export const schema = {
           ],
           "deferrable": false,
           "expressionBased": false,
-          "identity": "main.account.sqlite_autoindex_account_1",
+          "identity": "main.users.sqlite_autoindex_users_1",
           "initiallyDeferred": false,
           "kind": "unique",
-          "name": "sqlite_autoindex_account_1",
+          "name": "sqlite_autoindex_users_1",
           "nullsDistinct": true,
           "partial": false
         }
@@ -120,120 +982,16 @@ export const schema = {
             },
             "version": "1"
           },
-          "identity": "main.account.sqlite_autoindex_account_1",
+          "identity": "main.users.sqlite_autoindex_users_1",
           "method": "btree",
-          "name": "sqlite_autoindex_account_1",
+          "name": "sqlite_autoindex_users_1",
           "predicate": "none",
           "unique": true,
           "valid": true
         }
       ],
       "kind": "table",
-      "name": "account",
-      "schema": "main"
-    },
-    "project": {
-      "capabilities": {
-        "strict": true,
-        "withoutRowid": false
-      },
-      "columns": {
-        "budget": {
-          "classification": "normal",
-          "databaseType": "REAL",
-          "default": "none",
-          "generated": "none",
-          "identity": "none",
-          "insertable": true,
-          "name": "budget",
-          "nullabilitySource": "declared",
-          "nullable": true,
-          "position": 3,
-          "tsType": "number",
-          "typeIdentity": "sqlite:REAL",
-          "updatable": true
-        },
-        "id": {
-          "classification": "rowid",
-          "databaseType": "INTEGER",
-          "default": "none",
-          "generated": "none",
-          "identity": "by-default",
-          "insertable": true,
-          "name": "id",
-          "nullabilitySource": "declared",
-          "nullable": false,
-          "position": 0,
-          "tsType": "bigint",
-          "typeIdentity": "sqlite:INTEGER",
-          "updatable": true
-        },
-        "name": {
-          "classification": "normal",
-          "databaseType": "TEXT",
-          "default": "none",
-          "generated": "none",
-          "identity": "none",
-          "insertable": true,
-          "name": "name",
-          "nullabilitySource": "declared",
-          "nullable": false,
-          "position": 2,
-          "tsType": "string",
-          "typeIdentity": "sqlite:TEXT",
-          "updatable": true
-        },
-        "owner_id": {
-          "classification": "normal",
-          "databaseType": "INTEGER",
-          "default": "none",
-          "generated": "none",
-          "identity": "none",
-          "insertable": true,
-          "name": "owner_id",
-          "nullabilitySource": "declared",
-          "nullable": false,
-          "position": 1,
-          "tsType": "bigint",
-          "typeIdentity": "sqlite:INTEGER",
-          "updatable": true
-        }
-      },
-      "constraints": [
-        {
-          "columns": [
-            "owner_id"
-          ],
-          "deferrable": "unknown",
-          "expressionBased": false,
-          "identity": "main.project.foreign-key:owner_id->account(id)",
-          "initiallyDeferred": "unknown",
-          "kind": "foreign-key",
-          "match": "simple",
-          "onDelete": "no-action",
-          "onUpdate": "no-action",
-          "partial": false,
-          "referencedColumns": [
-            "id"
-          ],
-          "referencedRelation": "account"
-        },
-        {
-          "columns": [
-            "id"
-          ],
-          "deferrable": false,
-          "expressionBased": false,
-          "identity": "main.project.primary-key",
-          "initiallyDeferred": false,
-          "kind": "primary-key",
-          "nullsDistinct": false,
-          "partial": false
-        }
-      ],
-      "indexes": [],
-      "kind": "table",
-      "name": "project",
+      "name": "users",
       "schema": "main"
     }
   },
@@ -303,13 +1061,6 @@ export const schema = {
       "name": "INTEGER",
       "tsType": "bigint | number | string | Uint8Array"
     },
-    "REAL": {
-      "databaseType": "REAL",
-      "identity": "sqlite:REAL",
-      "kind": "scalar",
-      "name": "REAL",
-      "tsType": "bigint | number | string | Uint8Array"
-    },
     "TEXT": {
       "databaseType": "TEXT",
       "identity": "sqlite:TEXT",
@@ -321,7 +1072,7 @@ export const schema = {
 } as const;
 export const metadata = {
   "generatorVersion": "1.0.0",
-  "schemaHash": "95a0fd92ad4dcc89b2e40692c3789afe531d95f9b59c3511d7f5f143424d3596",
+  "schemaHash": "f171738cfc89bb911096b9ff9962c2231e6ad7557bb55f018148cf8530cb80bf",
   "typePolicyHash": "11dfa860af2ba2997d752a95bd8448538406a84ed23da56bf90903f2de2dd49b",
   "schemaFormat": 2
 } as const;

@@ -32,8 +32,8 @@ SQLite's grammar analyzes the complete query after all conditional fragments are
 
 <<< ../../examples/sqlite/src/queries.ts
 
-SQLite cannot derive an enum from a `CHECK` constraint, so `status` remains `string`. The selected `budget`
-column is `number | null` under this type policy.
+SQLite cannot derive an enum from a `CHECK` constraint, so `status` remains `string`. The selected `total_cents`
+column is `bigint | null` after a left join under this type policy.
 
 ## Mutations and cardinality
 

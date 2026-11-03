@@ -53,25 +53,22 @@ Create `tsconfig.json`:
 }
 ```
 
-## 3. Create a minimal table
+## 3. Create the commerce schema
+
+Save the following shared commerce schema as `schema.sql` in the project root. It defines users, teams, memberships, products, orders, order items, and audit events, with sample rows.
+
+<<< ../../examples/sqlite/schema/001-schema.sql
 
 Create the local database without adding a setup module to the application:
 
 ```sh
 node --input-type=module <<'JS'
+import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
 const database = new DatabaseSync("app.db");
 try {
-  database.exec(`
-    CREATE TABLE account (
-      id INTEGER PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL CHECK (status IN ('active', 'suspended'))
-    ) STRICT;
-    INSERT INTO account (id, email, status)
-    VALUES (1, 'ada@example.com', 'active');
-  `);
+  database.exec(readFileSync("schema.sql", "utf8"));
 } finally {
   database.close();
 }
@@ -129,7 +126,7 @@ import { sql } from "@typed-sql/sqlite";
 
 export const accountById = (accountId: bigint) => sql`
   SELECT account.id, account.email, account.status
-  FROM account
+  FROM users AS account
   WHERE account.id = ${accountId}
 `;
 ```
@@ -185,7 +182,7 @@ pnpm exec typed-sql check --project tsconfig.json
 pnpm exec tsx src/main.ts
 ```
 
-The program prints `ada@example.com`. The same project check also carries inferred query types
+The program prints `alice@example.com`. The same project check also carries inferred query types
 across imports when the query factory is later moved into its own module.
 
 The adapter is explicit. Another SQLite integration can implement the driver-neutral runtime
@@ -198,7 +195,7 @@ Temporarily interpolate a string directly in the `INTEGER` comparison:
 ```ts
 const wrongId = "1";
 
-sql`SELECT id FROM account WHERE id = ${wrongId}`;
+sql`SELECT id FROM users AS account WHERE id = ${wrongId}`;
 ```
 
 Run `typed-sql check` again. The transformed check reports that `string` is not assignable to the

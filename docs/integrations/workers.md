@@ -92,7 +92,7 @@ watcher is separate from esbuild's context watch API.
 With an `account` table containing a text `email` column, create `src/find-account.sql`:
 
 ```sql
-SELECT email FROM account WHERE email = ?
+SELECT email FROM users AS account WHERE email = ?
 ```
 
 ```ts
