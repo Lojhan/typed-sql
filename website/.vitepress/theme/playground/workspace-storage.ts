@@ -1,3 +1,4 @@
+import { validWorkspaceFolders } from "./file-operations.js";
 import { DEFAULT_SCHEMAS, PLAYGROUND_DIALECTS, type PlaygroundDialect } from "./playground.js";
 import { PREVIOUS_EXAMPLES } from "./previous-examples.js";
 import {
@@ -14,6 +15,7 @@ export const LEGACY_STORAGE_KEY = "typed-sql.playground.v1";
 export type WorkspaceExample = Lesson | "custom";
 export interface StoredWorkspace {
   files: WorkspaceFiles;
+  folders?: string[];
   example: WorkspaceExample;
 }
 export interface PlaygroundState {
@@ -119,12 +121,22 @@ export function restorePlaygroundState(saved: unknown, legacy?: unknown): Playgr
     for (const dialect of PLAYGROUND_DIALECTS) {
       const record = (saved.workspaces as Record<string, unknown>)[dialect];
       if (typeof record === "object" && record !== null && "files" in record && validWorkspaceFiles(record.files)) {
-        const previous = PREVIOUS_EXAMPLES.find(
-          (example) => example.dialect === dialect && sameFiles(record.files as WorkspaceFiles, example.files),
-        );
+        const folders =
+          "folders" in record && validWorkspaceFolders(record.folders, record.files)
+            ? [...new Set(record.folders)]
+            : undefined;
+        const previous = folders?.length
+          ? undefined
+          : PREVIOUS_EXAMPLES.find(
+              (example) => example.dialect === dialect && sameFiles(record.files as WorkspaceFiles, example.files),
+            );
         const lesson = previous?.lesson === "workspace" ? "commerce" : previous?.lesson;
         const files = lesson ? lessonFiles(dialect, lesson, DEFAULT_SCHEMAS[dialect]) : { ...record.files };
-        state.workspaces[dialect] = { files, example: identifyExample(dialect, files) };
+        state.workspaces[dialect] = {
+          files,
+          example: folders?.length ? "custom" : identifyExample(dialect, files),
+          ...(folders ? { folders } : {}),
+        };
       }
     }
   } else if (typeof legacy === "object" && legacy !== null) {
@@ -149,6 +161,15 @@ export function decodeSharedWorkspace(
   )
     return undefined;
   const dialect = value.dialect as PlaygroundDialect;
+  const folders =
+    "folders" in value && validWorkspaceFolders(value.folders, value.files) ? [...new Set(value.folders)] : undefined;
   // Shared snapshots are exact user input; never inject files or migrate their sources.
-  return { dialect, workspace: { files: { ...value.files }, example: identifyExample(dialect, value.files) } };
+  return {
+    dialect,
+    workspace: {
+      files: { ...value.files },
+      ...(folders ? { folders } : {}),
+      example: folders?.length ? "custom" : identifyExample(dialect, value.files),
+    },
+  };
 }

@@ -12,6 +12,7 @@ import {
   removePane,
 } from "../playground/editor-layout.js";
 import type { EditorAction, EditorLocation, EditorResponse } from "../playground/editor-protocol.js";
+import { containsPath, entryPathError, renameWorkspaceEntry, workspaceFolders } from "../playground/file-operations.js";
 import {
   DEFAULT_SCHEMAS,
   PLAYGROUND_DIALECT_LABELS,
@@ -137,6 +138,8 @@ const drafts = reactive(
     WorkspaceFiles
   >,
 );
+const directories = reactive<Record<PlaygroundDialect, string[]>>({ postgres: [], mysql: [], sqlite: [] });
+const folders = computed(() => directories[dialect.value]);
 const files = computed(() => drafts[dialect.value]);
 const configSource = computed(() => workspaceConfigSource(dialect.value, files.value));
 const readonlyFile = computed(() => activeFile.value === WORKSPACE_CONFIG_PATH);
@@ -227,7 +230,10 @@ function saveWorkspace() {
     version: 2,
     dialect: dialect.value,
     workspaces: Object.fromEntries(
-      PLAYGROUND_DIALECTS.map((id) => [id, { files: { ...drafts[id] }, example: exampleByDialect[id] }]),
+      PLAYGROUND_DIALECTS.map((id) => [
+        id,
+        { files: { ...drafts[id] }, folders: [...directories[id]], example: exampleByDialect[id] },
+      ]),
     ) as PlaygroundState["workspaces"],
   };
   try {
@@ -253,6 +259,7 @@ function loadLesson() {
   if (lesson.value === "custom") return;
   notice.value = "";
   applyingExample = true;
+  directories[dialect.value] = [];
   drafts[dialect.value] = lessonFiles(dialect.value, lesson.value, DEFAULT_SCHEMAS[dialect.value]);
   activeFile.value =
     lesson.value === "commerce" || lesson.value === "errors" || lesson.value === "workspace"
@@ -273,23 +280,62 @@ function createFile(path: string) {
     notice.value = "The playground configuration is read only.";
     return;
   }
-  if (path in files.value) {
-    notice.value = "A file with this path already exists.";
+  const error = entryPathError(files.value, folders.value, path, false);
+  if (error) {
+    notice.value = error;
     return;
   }
-  const table = dialect.value === "sqlite" ? "account" : "users";
-  const content = path.endsWith(".ts")
-    ? `import { sql } from "@typed-sql/${dialect.value}";\n\nexport const query = sql\`SELECT id, email FROM ${table}\`;\n`
-    : path.startsWith("schema/")
-      ? "-- Define shared tables or scalar functions here.\n"
-      : `SELECT id, email FROM ${table};\n`;
-  const updated = { ...files.value, [path]: content };
+  const updated = { ...files.value, [path]: "" };
   if (!validWorkspaceFiles(updated)) {
     notice.value = "The workspace size limit has been reached.";
     return;
   }
   drafts[dialect.value] = updated;
   activeFile.value = path;
+}
+
+function createFolder(path: string) {
+  const error = entryPathError(files.value, folders.value, path, true);
+  if (error) {
+    notice.value = error;
+    return;
+  }
+  directories[dialect.value] = workspaceFolders(Object.keys(files.value), [...folders.value, path]);
+  lesson.value = "custom";
+  if (location.hash.startsWith("#code=")) history.replaceState(null, "", location.pathname + location.search);
+  saveWorkspace();
+}
+function renameEntry(from: string, to: string, folder: boolean) {
+  try {
+    const updated = renameWorkspaceEntry(files.value, folders.value, from, to, folder);
+    for (const pane of editorPanes(layout.value)) {
+      pane.file = updated.mapped(pane.file);
+      pane.tabs = pane.tabs.map(updated.mapped);
+      pane.cursors = Object.fromEntries(
+        Object.entries(pane.cursors).map(([path, cursor]) => [updated.mapped(path), cursor]),
+      );
+    }
+    directories[dialect.value] = updated.folders;
+    drafts[dialect.value] = updated.files;
+    lesson.value = "custom";
+    saveWorkspace();
+  } catch (error) {
+    notice.value = error instanceof Error ? error.message : "Could not rename this entry.";
+  }
+}
+function deleteEntry(path: string, folder: boolean) {
+  if (path === WORKSPACE_CONFIG_PATH || path === WORKSPACE_CONFIG_NAME) return;
+  const matches = (file: string) => (folder ? containsPath(path, file) : path === file);
+  // Preserve the parent and any other empty folders when the final child is deleted.
+  directories[dialect.value] = workspaceFolders(Object.keys(files.value), folders.value).filter((dir) => !matches(dir));
+  for (const pane of [...editorPanes(layout.value)]) {
+    for (const file of [...pane.tabs]) if (matches(file)) layout.value = closeEditorFile(layout.value, pane.id, file);
+    for (const file of Object.keys(pane.cursors)) if (matches(file)) delete pane.cursors[file];
+  }
+  activePaneId.value = activePane.value.id;
+  drafts[dialect.value] = Object.fromEntries(Object.entries(files.value).filter(([file]) => !matches(file)));
+  lesson.value = "custom";
+  saveWorkspace();
 }
 
 function inspectAt(position: number) {
@@ -322,7 +368,12 @@ async function focusProblem(file: WorkspaceFile, from: number, to: number) {
 }
 
 async function share() {
-  const payload = { dialect: dialect.value, lesson: lesson.value, files: { ...files.value } };
+  const payload = {
+    dialect: dialect.value,
+    lesson: lesson.value,
+    files: { ...files.value },
+    folders: [...folders.value],
+  };
   const hash = `#code=${encodeURIComponent(JSON.stringify(payload))}`;
   if (hash.length > 100_000) {
     notice.value = "This workspace is too large for a share link.";
@@ -359,6 +410,7 @@ onMounted(async () => {
     const saved = restorePlaygroundState(parseSaved(WORKSPACE_STORAGE_KEY), parseSaved(LEGACY_STORAGE_KEY));
     for (const id of PLAYGROUND_DIALECTS) {
       drafts[id] = saved.workspaces[id].files;
+      directories[id] = saved.workspaces[id].folders ?? [];
       exampleByDialect[id] = saved.workspaces[id].example;
     }
     dialect.value = saved.dialect;
@@ -371,13 +423,14 @@ onMounted(async () => {
       if (shared) {
         dialect.value = shared.dialect;
         drafts[dialect.value] = shared.workspace.files;
+        directories[dialect.value] = shared.workspace.folders ?? [];
         lesson.value = shared.workspace.example;
       } else notice.value = "This share link does not contain a valid playground.";
     } catch {
       notice.value = "The shared playground link is malformed. Your saved workspace is still available.";
     }
   }
-  if (!(activeFile.value in files.value)) activeFile.value = Object.keys(files.value)[0]!;
+  if (!(activeFile.value in files.value)) activeFile.value = Object.keys(files.value)[0] ?? "";
   // Load the compiler only on the dedicated playground, never in the homepage bundle.
   try {
     const { default: SemanticWorker } = await import("../playground/semantic.worker.ts?worker");
@@ -448,7 +501,7 @@ watch(
 watch(dialect, () => {
   activePaneId.value = editorPanes(layout.value)[0]!.id;
   selectedQuery.value = undefined;
-  if (!readonlyFile.value && !(activeFile.value in files.value)) activeFile.value = Object.keys(files.value)[0]!;
+  if (!readonlyFile.value && !(activeFile.value in files.value)) activeFile.value = Object.keys(files.value)[0] ?? "";
 });
 onBeforeUnmount(() => {
   disposed = true;
@@ -476,7 +529,7 @@ onBeforeUnmount(() => {
         <div class="pg-actions"><button type="button" :disabled="lesson === 'custom'" :title="lesson === 'custom' ? 'Choose an example to reset' : 'Reset example'" @click="loadLesson">↺ Reset</button><button class="pg-share" type="button" @click="share">↗ Share</button></div>
       </header>
       <div class="pg-workbench" :style="layoutStyle">
-        <WorkspaceFileTree v-show="showFiles" id="pg-file-tree" :files="fileTabs" :active-file="activeFile" :problems="problemFiles" @select="activeFile = $event" @create="createFile" />
+        <WorkspaceFileTree :key="dialect" v-show="showFiles" id="pg-file-tree" :files="fileTabs" :folders="folders" :active-file="activeFile" :problems="problemFiles" @select="activeFile = $event" @create="createFile" @create-folder="createFolder" @rename="renameEntry" @delete="deleteEntry" />
         <PanelResizeHandle v-if="showFiles" v-model="treeWidth" orientation="vertical" :min="120" :max="treeMax" label="Resize file tree" />
         <div class="pg-panels">
         <EditorPaneLayout ref="editor" class="pg-editor-layout" :node="layout" :active="activePane.id" :files="files" :dialect="dialect" :config="configSource" :analysis="result" :busy="busy" :multiple="editorPanes(layout).length > 1" :interact="interact" @focus-pane="focusPane" @select-file="selectPaneFile" @edit="(file, value) => { if (file in files) files[file] = value; }" @inspect="(id, position) => { if (id === activePane.id) inspectAt(position); }" @definition="goToDefinition" @drop-file="dropFile" @close-pane="closePane" @close-file="closeFile" />
