@@ -6,11 +6,11 @@ export interface NewAccount {
   readonly status: "active" | "suspended";
 }
 
-export interface NewProject {
+export interface NewOrder {
   readonly id: bigint;
-  readonly ownerId: bigint;
-  readonly name: string;
-  readonly budget: string | null;
+  readonly userId: bigint;
+  readonly status: "draft" | "paid" | "shipped" | "cancelled";
+  readonly totalCents: number;
 }
 
 export const insertAccount = (account: NewAccount) => sql`
@@ -32,15 +32,15 @@ export const deleteAccount = (accountId: bigint) => sql`
   RETURNING id, email, status
 `;
 
-export const insertProject = (project: NewProject) => sql`
-  INSERT INTO projects (id, owner_id, name, budget)
-  VALUES (${project.id}, ${project.ownerId}, ${project.name}, ${project.budget})
-  RETURNING id, owner_id, name, budget
+export const insertOrder = (purchase: NewOrder) => sql`
+  INSERT INTO orders (id, user_id, status, total_cents)
+  VALUES (${purchase.id}, ${purchase.userId}, ${purchase.status}::order_status, ${purchase.totalCents})
+  RETURNING id, user_id, status, total_cents
 `;
 
-export const deleteProjectsByOwner = (ownerId: bigint) => sql`
-  DELETE FROM projects
-  WHERE owner_id = ${ownerId}
+export const deleteOrdersByCustomer = (userId: bigint) => sql`
+  DELETE FROM orders
+  WHERE user_id = ${userId}
 `;
 
 /** The plain, one-row INSERT shape required by PostgreSQL COPY FROM. */

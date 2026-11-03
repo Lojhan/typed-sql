@@ -1,14 +1,14 @@
 import type { SqliteDatabase } from "@typed-sql/sqlite/runtime";
-import { insertAccount, insertProject, type NewAccount, type NewProject } from "./mutations.js";
+import { insertAccount, insertOrder, type NewAccount, type NewOrder } from "./mutations.js";
 
-export function createAccountWithProject(
+export function createAccountWithOrder(
   database: SqliteDatabase,
   account: NewAccount,
-  project: Omit<NewProject, "ownerId">,
+  purchase: Omit<NewOrder, "userId">,
 ) {
   return database.transaction(async (transaction) => {
     const insertedAccount = await transaction.one(insertAccount(account));
-    const insertedProject = await transaction.one(insertProject({ ...project, ownerId: account.id }));
-    return { account: insertedAccount, project: insertedProject };
+    const insertedOrder = await transaction.one(insertOrder({ ...purchase, userId: account.id }));
+    return { account: insertedAccount, purchase: insertedOrder };
   });
 }

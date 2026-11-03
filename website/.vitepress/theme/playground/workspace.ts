@@ -1,4 +1,4 @@
-import { COMMERCE_FILES } from "./commerce-example.js";
+import { commerceFiles } from "./commerce-example.js";
 import type { PlaygroundDialect } from "./playground.js";
 
 export type WorkspaceFile = string;
@@ -32,7 +32,7 @@ export function validWorkspaceFiles(value: unknown): value is WorkspaceFiles {
 export const LESSONS = [
   {
     id: "commerce",
-    title: "Commerce · advanced PostgreSQL",
+    title: "Commerce · full workspace",
     description: "Seven tables, CTEs, mapped inserts, JSON documents, and transactional workflows.",
   },
   {
@@ -61,7 +61,7 @@ export const LESSONS = [
 export type Lesson = (typeof LESSONS)[number]["id"];
 
 export function lessonSupportsDialect(lesson: Lesson, dialect: PlaygroundDialect): boolean {
-  return lesson !== "commerce" || dialect === "postgres";
+  return LESSONS.some(({ id }) => id === lesson) && ["postgres", "mysql", "sqlite"].includes(dialect);
 }
 
 export function lessonFiles(
@@ -70,34 +70,33 @@ export function lessonFiles(
   schema: string,
 ): WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string> {
   if (lesson === "commerce") {
-    if (!lessonSupportsDialect(lesson, dialect)) throw new RangeError("The commerce workspace uses PostgreSQL syntax.");
-    return { ...COMMERCE_FILES };
+    return commerceFiles(dialect);
   }
-  const table = dialect === "sqlite" ? "account" : "users";
+  const table = "users";
   const projection =
     lesson === "joins"
-      ? "account.id, account.email, project.name AS project_name"
+      ? "account.id, account.email, team.name AS team_name"
       : "account.id, account.email, account.status";
   const body =
     lesson === "unknown"
-      ? 'sql.dynamic("SELECT * FROM account")'
+      ? 'sql.dynamic("SELECT * FROM users")'
       : `sql\`
   SELECT ${projection}
-  FROM ${table} AS account${lesson === "joins" ? "\n  LEFT JOIN projects AS project ON project.owner_id = account.id" : ""}
+  FROM ${table} AS account${lesson === "joins" ? "\n  LEFT JOIN memberships AS membership ON membership.user_id = account.id\n  LEFT JOIN teams AS team ON team.id = membership.team_id" : ""}
   WHERE account.id = \${id}
 \``;
   return {
     ...(lesson === "workspace"
       ? {
           "queries/account.sql": `-- name: accountById\nSELECT id, email, status\nFROM ${table}\nWHERE id = ${dialect === "postgres" ? "$1" : "?"};\n`,
-          "queries/summary.ts": `import { sql } from "@typed-sql/${dialect}";\n\nexport const accountSummary = sql\`SELECT id, ${dialect === "sqlite" ? "upper(email)" : "display_email(email)"} AS label FROM ${table}\`;\n`,
+          "queries/summary.ts": `import { sql } from "@typed-sql/${dialect}";\n\nexport const accountSummary = sql\`SELECT id, ${dialect === "sqlite" ? "lower(email)" : "display_email(email)"} AS label FROM ${table}\`;\n`,
           ...(dialect === "sqlite"
             ? {}
             : {
                 "schema/functions.sql":
                   dialect === "postgres"
-                    ? "CREATE FUNCTION display_email(value text) RETURNS text\nLANGUAGE SQL IMMUTABLE AS $$ SELECT upper(value) $$;\n"
-                    : "CREATE FUNCTION display_email(value TEXT) RETURNS TEXT\nDETERMINISTIC RETURN UPPER(value);\n",
+                    ? "CREATE FUNCTION display_email(value text) RETURNS text\nLANGUAGE SQL IMMUTABLE AS $$ SELECT lower(value) $$;\n"
+                    : "CREATE FUNCTION display_email(value TEXT) RETURNS TEXT\nDETERMINISTIC RETURN LOWER(value);\n",
               }),
         }
       : {}),

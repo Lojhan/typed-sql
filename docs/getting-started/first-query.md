@@ -6,6 +6,8 @@ pageType: tutorial
 
 # Query and check loop
 
+Examples use the [shared commerce schema](../examples/commerce-schema.md): users, teams, memberships, products, orders, order items, and audit events.
+
 Every dialect follows the same development loop: import its `sql` tag, write a static template, run
 the stable compiler check, then execute the unchanged query object through an application-owned
 driver or adapter.

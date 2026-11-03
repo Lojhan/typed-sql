@@ -6,7 +6,7 @@ import { describe, it, strict } from "poku";
 import { connectionString } from "../postgres/typed-sql.config.js";
 import { setupSqliteDatabase } from "../sqlite/setup.js";
 import { databasePath } from "../sqlite/typed-sql.config.js";
-import { getCustomerProfile, setCustomerPreference } from "../src/service.js";
+import { getUserProfile, setUserProfile } from "../src/service.js";
 
 await setupSqliteDatabase();
 const postgres = await createPgDatabase({ connectionString, typePolicy: postgresTypePolicy });
@@ -22,21 +22,20 @@ function plainValue(value: unknown): unknown {
 try {
   await describe("one application with PostgreSQL and SQLite", async () => {
     await it("combines independently inferred rows from both drivers", async () => {
-      strict.deepStrictEqual(plainValue(await getCustomerProfile(databases, 1n)), {
-        customer: { id: 1n, email: "alice@example.com", display_name: "Alice" },
-        preference: { customer_id: 1n, theme: "dark", email_notifications: 1n },
+      strict.deepStrictEqual(plainValue(await getUserProfile(databases, 1n)), {
+        user: { id: 1n, email: "alice@example.com", display_name: "Alice" },
+        profile: { id: 1n, profile: '{"theme":"dark","emailNotifications":true}' },
       });
     });
 
     await it("keeps writes scoped to the selected database", async () => {
-      strict.deepStrictEqual(plainValue(await setCustomerPreference(databases, 1n, "light", false)), {
-        customer_id: 1n,
-        theme: "light",
-        email_notifications: 0n,
+      strict.deepStrictEqual(plainValue(await setUserProfile(databases, 1n, "light", false)), {
+        id: 1n,
+        profile: '{"theme":"light","emailNotifications":false}',
       });
-      strict.deepStrictEqual(plainValue(await getCustomerProfile(databases, 1n)), {
-        customer: { id: 1n, email: "alice@example.com", display_name: "Alice" },
-        preference: { customer_id: 1n, theme: "light", email_notifications: 0n },
+      strict.deepStrictEqual(plainValue(await getUserProfile(databases, 1n)), {
+        user: { id: 1n, email: "alice@example.com", display_name: "Alice" },
+        profile: { id: 1n, profile: '{"theme":"light","emailNotifications":false}' },
       });
     });
   });

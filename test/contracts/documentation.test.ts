@@ -357,7 +357,7 @@ await describe("public documentation", async () => {
     const expectedHeadings = [
       "1. Check the prerequisites",
       "2. Install the packages",
-      "3. Create a minimal table",
+      "3. Create the commerce schema",
       "4. Create a minimal config",
       "5. Generate the snapshot",
       "6. Write one parameterized query",

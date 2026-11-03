@@ -54,12 +54,12 @@ const copy = requireAdapterCapability(database, postgresCopy);
 interface AccountInput {
   readonly id: bigint;
   readonly email: string;
-  readonly note: string | null;
+  readonly displayName: string;
 }
 
 const accountInsert = (row: AccountInput) => sql`
-  INSERT INTO account (id, email, note)
-  VALUES (${row.id}, ${row.email}, ${row.note})
+  INSERT INTO users (id, email, display_name)
+  VALUES (${row.id}, ${row.email}, ${row.displayName})
 `;
 
 const result = await copy.copyFrom(accountInsert, accountSource(), {
@@ -94,8 +94,8 @@ outer transaction controls commit.
 
 ```ts
 const output = copy.copyTo(sql`
-  SELECT account.id, account.email, account.note
-  FROM account
+  SELECT account.id, account.email, account.display_name
+  FROM users AS account
   ORDER BY account.id
 `);
 
@@ -131,12 +131,12 @@ const bulk = requireAdapterCapability(database, mysqlBulk);
 interface AccountInput {
   readonly id: bigint;
   readonly email: string;
-  readonly note: string | null;
+  readonly displayName: string;
 }
 
 const accountInsert = (row: AccountInput) => sql`
-  INSERT INTO account (id, email, note)
-  VALUES (${row.id}, ${row.email}, ${row.note})
+  INSERT INTO users (id, email, display_name)
+  VALUES (${row.id}, ${row.email}, ${row.displayName})
 `;
 
 const result = await bulk.loadData(accountInsert, accountSource(), {

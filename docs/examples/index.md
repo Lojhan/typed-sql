@@ -6,6 +6,8 @@ description: Run maintained typed-sql applications for PostgreSQL, MySQL, SQLite
 
 # Examples
 
+Examples use the [shared commerce schema](./commerce-schema.md): users, teams, memberships, products, orders, order items, and audit events.
+
 Choose the smallest example that answers the question. Inline proofs teach one contract, recipes pair
 one task with compiler and renderer evidence, and runnable applications include database setup,
 generated evidence, driver lifecycle, and real-database tests.

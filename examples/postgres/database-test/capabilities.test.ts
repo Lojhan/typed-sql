@@ -7,14 +7,14 @@ import { loadAccountWorkspace } from "../src/batches.js";
 import { exportAccountsAsCsv, importAccounts } from "../src/bulk.js";
 import { waitUntilAborted, waitUntilDeadline } from "../src/cancellation.js";
 import { findAccount, listActiveAccounts, requireAccount } from "../src/cardinality.js";
-import { deleteAccount, deleteProjectsByOwner, updateAccountStatus } from "../src/mutations.js";
+import { deleteAccount, deleteOrdersByCustomer, updateAccountStatus } from "../src/mutations.js";
 import { createOperationLog } from "../src/observation.js";
 import { loadIndependentReports } from "../src/pipelines.js";
 import { prepareAccountQueries } from "../src/prepared.js";
-import { accountById, accountProjectSummary } from "../src/queries.js";
+import { accountById, accountOrderSummary } from "../src/queries.js";
 import { createAccountRouter } from "../src/routing.js";
 import { collectActiveAccounts, firstActiveAccount } from "../src/streams.js";
-import { createAccountWithProject } from "../src/transactions.js";
+import { createAccountWithOrder } from "../src/transactions.js";
 import { validatedAccountById } from "../src/validation.js";
 import { connectionString } from "../typed-sql.config.js";
 
@@ -38,7 +38,7 @@ const pipelineDatabase = await createPgDatabase({
 
 async function removeAccounts(ids: readonly bigint[]): Promise<void> {
   for (const id of ids) {
-    await database.execute(deleteProjectsByOwner(id));
+    await database.execute(deleteOrdersByCustomer(id));
     await database.execute(deleteAccount(id));
   }
 }
@@ -53,7 +53,7 @@ try {
         status: "active",
       });
       strict.strictEqual(await findAccount(database, -1n), undefined);
-      strict.strictEqual((await database.all(accountProjectSummary)).length, 2);
+      strict.strictEqual((await database.all(accountOrderSummary)).length, 2);
 
       const prepared = prepareAccountQueries(database);
       strict.strictEqual(prepared.accountById.statementName, "example-account-by-id");
@@ -64,7 +64,7 @@ try {
       });
 
       const workspace = await loadAccountWorkspace(database, 1n);
-      strict.strictEqual(workspace.projects.length, 1);
+      strict.strictEqual(workspace.orders.length, 1);
       const reports = await loadIndependentReports(pipelineDatabase, 1n);
       strict.strictEqual(reports.summary.length, 2);
       strict.strictEqual((await collectActiveAccounts(database)).length, 1);
@@ -72,7 +72,7 @@ try {
         id: 1n,
         email: "alice@example.com",
         status: "active",
-        budget: "12500.50",
+        total_cents: 12500,
       });
       strict.deepStrictEqual(await database.one(validatedAccountById(1n)), {
         id: 1n,
@@ -83,10 +83,10 @@ try {
 
     await it("commits typed mutations atomically", async () => {
       await removeAccounts([9_001n]);
-      const created = await createAccountWithProject(
+      const created = await createAccountWithOrder(
         database,
         { id: 9_001n, email: "transaction.pg@example.com", status: "active" },
-        { id: 9_001n, name: "PostgreSQL transaction", budget: "42.50" },
+        { id: 9_001n, status: "paid", totalCents: 4250 },
       );
       strict.deepStrictEqual(created.account, {
         id: 9_001n,

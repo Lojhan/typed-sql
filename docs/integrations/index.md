@@ -40,7 +40,7 @@ SELECT email FROM users WHERE email = $1
 For MySQL, use `?` in place of `$1`. The SQLite quickstart names its table `account`, so use:
 
 ```sql
-SELECT email FROM account WHERE email = ?
+SELECT email FROM users AS account WHERE email = ?
 ```
 
 Each file contains one statement. Positional parameters must appear once in order; use inline

@@ -98,9 +98,9 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
       name === "/" || [...virtual.keys(), ...Object.keys(declarations)].some((file) => file.startsWith(`${name}/`)),
     resolveModuleNames: (names, containingFile) =>
       names.map((name) => {
-        if (name === "@typed-sql/postgres/runtime" && activeDialect === "postgres")
-          return declarations["/postgres/runtime.d.ts"]
-            ? { resolvedFileName: "/postgres/runtime.d.ts", extension: ts.Extension.Dts }
+        if (name === `@typed-sql/${activeDialect}/runtime`)
+          return declarations[`/${activeDialect}/runtime.d.ts`]
+            ? { resolvedFileName: `/${activeDialect}/runtime.d.ts`, extension: ts.Extension.Dts }
             : undefined;
         if (name === "@typed-sql/core") return { resolvedFileName: "/core/index.ts", extension: ts.Extension.Ts };
         if (name === `@typed-sql/${activeDialect}`)

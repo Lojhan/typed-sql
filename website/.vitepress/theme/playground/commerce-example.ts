@@ -1,67 +1,9 @@
+import { COMMERCE_SCHEMAS } from "../../../../examples/shared/commerce-schema.js";
 import type { WorkspaceFiles } from "./workspace.js";
 
-// PostgreSQL commerce workspace: maintained, analyzed examples used by the product walkthrough.
+// Shared commerce scenarios used by the documentation and default playground workspace.
 export const COMMERCE_FILES = {
-  "schema/tables.sql": `CREATE TYPE account_status AS ENUM ('active', 'suspended');
-CREATE TYPE order_status AS ENUM ('draft', 'paid', 'shipped', 'cancelled');
-CREATE TYPE membership_role AS ENUM ('owner', 'admin', 'member');
-
-CREATE TABLE users (
-  id bigint PRIMARY KEY,
-  email text NOT NULL UNIQUE,
-  display_name text NOT NULL,
-  status account_status NOT NULL,
-  profile jsonb NOT NULL,
-  created_at timestamptz NOT NULL
-);
-
-CREATE TABLE teams (
-  id bigint PRIMARY KEY,
-  name text NOT NULL,
-  slug text NOT NULL UNIQUE
-);
-
-CREATE TABLE memberships (
-  user_id bigint NOT NULL REFERENCES users(id),
-  team_id bigint NOT NULL REFERENCES teams(id),
-  role membership_role NOT NULL,
-  PRIMARY KEY (user_id, team_id)
-);
-
-CREATE TABLE products (
-  id bigint PRIMARY KEY,
-  sku text NOT NULL UNIQUE,
-  title text NOT NULL,
-  price_cents integer NOT NULL,
-  active boolean NOT NULL,
-  metadata jsonb
-);
-
-CREATE TABLE orders (
-  id bigint PRIMARY KEY,
-  user_id bigint NOT NULL REFERENCES users(id),
-  status order_status NOT NULL,
-  total_cents integer NOT NULL,
-  created_at timestamptz NOT NULL,
-  shipped_at timestamptz
-);
-
-CREATE TABLE order_items (
-  order_id bigint NOT NULL REFERENCES orders(id),
-  product_id bigint NOT NULL REFERENCES products(id),
-  quantity integer NOT NULL,
-  unit_price_cents integer NOT NULL,
-  PRIMARY KEY (order_id, product_id)
-);
-
-CREATE TABLE audit_events (
-  id bigint PRIMARY KEY,
-  user_id bigint REFERENCES users(id),
-  event_name text NOT NULL,
-  payload jsonb NOT NULL,
-  created_at timestamptz NOT NULL
-);
-`,
+  "schema/tables.sql": COMMERCE_SCHEMAS.postgres,
   "schema/functions.sql": `CREATE FUNCTION display_email(value text) RETURNS text
 LANGUAGE SQL IMMUTABLE AS $$ SELECT lower(value) $$;
 `,
@@ -69,7 +11,7 @@ LANGUAGE SQL IMMUTABLE AS $$ SELECT lower(value) $$;
 
 // One user can have no team. The LEFT JOIN keeps that fact in the row.
 export const accountById = (id: bigint) => sql\`
-  SELECT u.id, u.email, u.display_name, u.status,
+  SELECT u.id, u.email, u.display_name, u.status, u.created_at,
          t.name AS team_name, m.role
   FROM users AS u
   LEFT JOIN memberships AS m ON m.user_id = u.id
@@ -99,6 +41,7 @@ export const orderDocument = (orderId: bigint) => sql\`
   SELECT o.id, jsonb_build_object(
     'id', o.id,
     'status', o.status::text,
+    'totalCents', o.total_cents,
     'customer', jsonb_build_object('email', u.email),
     'items', COALESCE(jsonb_agg(jsonb_build_object(
       'sku', p.sku, 'quantity', i.quantity,
@@ -110,7 +53,7 @@ export const orderDocument = (orderId: bigint) => sql\`
   JOIN order_items AS i ON i.order_id = o.id
   JOIN products AS p ON p.id = i.product_id
   WHERE o.id = \${orderId}
-  GROUP BY o.id, o.status, u.email
+  GROUP BY o.id, o.status, o.total_cents, u.email
 \`;
 `,
   "queries/insert-products.ts": `import { sql } from "@typed-sql/postgres";
@@ -210,6 +153,9 @@ export async function importCatalog(database: PostgresDatabase) {
 import { accountById } from "./queries/account.ts";
 import { orderDocument } from "./queries/order-json.ts";
 import { insertProducts } from "./queries/insert-products.ts";
+import { insertPair } from "./queries/insert-pair.ts";
+import { catalog, markShipped } from "./queries/catalog.ts";
+import { recordAudit } from "./queries/audit.ts";
 import type { QueryRow, QueryParameters } from "@typed-sql/core";
 
 const account = accountById(42n);
@@ -220,6 +166,16 @@ const inserted = insertProducts([
   { id: 102n, sku: "LAMP-01", title: "Task lamp", priceCents: 8900 }
 ]);
 
+const pair = insertPair(
+  { id: 103n, sku: "CHAIR-01", title: "Studio chair", priceCents: 15900 },
+  { id: 104n, sku: "SHELF-01", title: "Wall shelf", priceCents: 6900 }
+);
+const products = catalog(2500);
+const shipped = markShipped(9001n, new Date("2026-11-02T12:00:00Z"));
+const audit = recordAudit(5001n, 42n, {
+  source: "supplier-feed", productIds: [101, 102], approved: true
+}, new Date("2026-11-02T12:00:00Z"));
+
 type Account = QueryRow<typeof account>;
 type OrderDocument = QueryRow<typeof document>;
 type RevenueParameters = QueryParameters<typeof revenue>;
@@ -228,3 +184,65 @@ type RevenueParameters = QueryParameters<typeof revenue>;
 // This workspace checks types; it never opens a database connection.
 `,
 } satisfies WorkspaceFiles;
+
+/** Keep the same application model and scenarios while respecting each grammar's native contracts. */
+export function commerceFiles(
+  dialect: "postgres" | "mysql" | "sqlite",
+): WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string> {
+  const files: WorkspaceFiles = Object.fromEntries(
+    Object.entries(COMMERCE_FILES).map(([path, source]) => [
+      path,
+      source
+        .replaceAll("@typed-sql/postgres", `@typed-sql/${dialect}`)
+        .replaceAll(
+          "PostgresDatabase",
+          dialect === "mysql" ? "MySqlDatabase" : dialect === "sqlite" ? "SqliteDatabase" : "PostgresDatabase",
+        ),
+    ]),
+  );
+  files["schema/tables.sql"] = COMMERCE_SCHEMAS[dialect];
+  if (dialect === "postgres")
+    return files as WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string>;
+  files["queries/revenue.sql"] = files["queries/revenue.sql"]!.replace("$1", "?");
+  for (const path of ["queries/order-json.ts", "queries/catalog.ts"])
+    files[path] = files[path]!.replaceAll("::text", "").replaceAll("::order_status", "");
+  if (dialect === "mysql") {
+    files["app.ts"] = files["app.ts"]!.replace("revenueByCustomer(10000)", 'revenueByCustomer("10000")');
+    files["schema/functions.sql"] =
+      "CREATE FUNCTION display_email(value TEXT) RETURNS TEXT\nDETERMINISTIC RETURN LOWER(value);\n";
+    files["queries/order-json.ts"] = files["queries/order-json.ts"]!.replaceAll("jsonb_build_object", "JSON_OBJECT")
+      .replaceAll("jsonb_agg", "JSON_ARRAYAGG")
+      .replace("'[]'::jsonb", "JSON_ARRAY()");
+    for (const [path, source] of Object.entries(files)) files[path] = source.replace(/\n[ \t]*RETURNING [^\n]+/gu, "");
+    files["workflows/checkout.ts"] = files["workflows/checkout.ts"]!.replace(
+      "transaction.all(insertProducts",
+      "transaction.execute(insertProducts",
+    ).replace("transaction.one(recordAudit", "transaction.execute(recordAudit");
+  } else {
+    delete files["schema/functions.sql"];
+    files["queries/audit.ts"] = files["queries/audit.ts"]!.replace(
+      "sql.json(payload)",
+      "JSON.stringify(payload)",
+    ).replace(
+      "JSON is validated and snapshotted as a single bound value.",
+      "SQLite stores JSON text; serialize the payload explicitly before binding it.",
+    );
+    files["queries/revenue.sql"] = files["queries/revenue.sql"]!.replace("display_email", "lower");
+    files["queries/order-json.ts"] = files["queries/order-json.ts"]!.replaceAll("jsonb_build_object", "json_object")
+      .replaceAll("jsonb_agg", "json_group_array")
+      .replace("'[]'::jsonb", "json_array()");
+    for (const [path, source] of Object.entries(files)) {
+      files[path] = source
+        .replaceAll("priceCents: number", "priceCents: bigint")
+        .replaceAll("minimumPrice: number", "minimumPrice: bigint")
+        .replaceAll("createdAt: Date", "createdAt: string")
+        .replaceAll("shippedAt: Date", "shippedAt: string")
+        .replaceAll("${true}", "${1n}")
+        .replace(/priceCents: (\d+)\b/gu, "priceCents: $1n")
+        .replaceAll("catalog(2500)", "catalog(2500n)")
+        .replaceAll("revenueByCustomer(10000)", "revenueByCustomer(10000n)")
+        .replaceAll('new Date("2026-11-02T12:00:00Z")', '"2026-11-02T12:00:00Z"');
+    }
+  }
+  return files as WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string>;
+}

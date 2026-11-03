@@ -1,7 +1,7 @@
 # PostgreSQL and SQLite example
 
 This private workspace package shows one application using two grammar packages and two explicit
-drivers. PostgreSQL owns customer records; a local SQLite database owns customer preferences.
+drivers. Both databases use the shared commerce model. PostgreSQL supplies user records; SQLite stores application-owned JSON profiles.
 
 From the repository root:
 

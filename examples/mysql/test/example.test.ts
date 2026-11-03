@@ -3,27 +3,27 @@ import { mysqlRenderer } from "@typed-sql/mysql/runtime";
 import { describe, it, strict } from "poku";
 import { accountById as documentedAccountById } from "../src/documentation.js";
 import { insertAccount } from "../src/mutations.js";
-import { accountProjectSummary, accounts } from "../src/queries.js";
+import { accountOrderSummary, accounts } from "../src/queries.js";
 import { validatedAccountById } from "../src/validation.js";
 
 await describe("MySQL example", async () => {
   await it("composes selected columns, joins, and ordered parameters", () => {
     const rendered = renderQuery(
-      accounts({ status: "active", minimumId: 7n }, { status: true, projectBudget: true }),
+      accounts({ status: "active", minimumId: 7n }, { status: true, orderTotal: true }),
       mysqlRenderer,
     );
 
     strict.match(rendered.text, /account\.status/u);
-    strict.match(rendered.text, /LEFT JOIN projects/u);
+    strict.match(rendered.text, /LEFT JOIN orders/u);
     strict.match(rendered.text, /account\.status = \?/u);
     strict.match(rendered.text, /account\.id >= \?/u);
     strict.deepStrictEqual(rendered.values, ["active", 7n]);
   });
 
   await it("omits optional structure without leaving parameters behind", () => {
-    const rendered = renderQuery(accounts({}, { status: false, projectBudget: false }), mysqlRenderer);
+    const rendered = renderQuery(accounts({}, { status: false, orderTotal: false }), mysqlRenderer);
 
-    strict.doesNotMatch(rendered.text, /account\.status|JOIN projects|project\.budget/u);
+    strict.doesNotMatch(rendered.text, /account\.status|JOIN orders|purchase\.total_cents/u);
     strict.deepStrictEqual(rendered.values, []);
   });
 
@@ -35,8 +35,8 @@ await describe("MySQL example", async () => {
     strict.match(mutation.text, /INSERT INTO users/u);
     strict.deepStrictEqual(mutation.values, [7n, "seven@example.com", "active"]);
 
-    const cte = renderQuery(accountProjectSummary, mysqlRenderer);
-    strict.match(cte.text, /WITH project_totals AS/u);
+    const cte = renderQuery(accountOrderSummary, mysqlRenderer);
+    strict.match(cte.text, /WITH order_totals AS/u);
     strict.deepStrictEqual(cte.values, []);
   });
 

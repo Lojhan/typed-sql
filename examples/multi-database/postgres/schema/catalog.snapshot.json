@@ -2,15 +2,18 @@
   "formatVersion": 1,
   "dialect": "postgres",
   "dialectVersion": "1.0.0",
+  "version": "18.4",
   "tables": {
-    "customer": {
-      "name": "customer",
+    "users": {
+      "name": "users",
+      "schema": "public",
       "columns": {
         "id": {
           "name": "id",
           "databaseType": "bigint",
           "tsType": "bigint",
-          "nullable": false
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
         },
         "email": {
           "name": "email",
@@ -22,11 +25,240 @@
           "name": "display_name",
           "databaseType": "text",
           "tsType": "string",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "account_status",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "profile": {
+          "name": "profile",
+          "databaseType": "jsonb",
+          "tsType": "unknown",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "timestamptz",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        }
+      }
+    },
+    "teams": {
+      "name": "teams",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        },
+        "slug": {
+          "name": "slug",
+          "databaseType": "text",
+          "tsType": "string",
           "nullable": false
         }
-      },
-      "schema": "public"
+      }
+    },
+    "memberships": {
+      "name": "memberships",
+      "schema": "public",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "team_id": {
+          "name": "team_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "role": {
+          "name": "role",
+          "databaseType": "membership_role",
+          "tsType": "\"owner\" | \"admin\" | \"member\"",
+          "nullable": false
+        }
+      }
+    },
+    "products": {
+      "name": "products",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "sku": {
+          "name": "sku",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        },
+        "title": {
+          "name": "title",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        },
+        "active": {
+          "name": "active",
+          "databaseType": "boolean",
+          "tsType": "boolean",
+          "nullable": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "databaseType": "jsonb",
+          "tsType": "unknown",
+          "nullable": true
+        }
+      }
+    },
+    "orders": {
+      "name": "orders",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "user_id": {
+          "name": "user_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "order_status",
+          "tsType": "\"draft\" | \"paid\" | \"shipped\" | \"cancelled\"",
+          "nullable": false
+        },
+        "total_cents": {
+          "name": "total_cents",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "timestamptz",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "shipped_at": {
+          "name": "shipped_at",
+          "databaseType": "timestamptz",
+          "tsType": "Date",
+          "nullable": true
+        }
+      }
+    },
+    "order_items": {
+      "name": "order_items",
+      "schema": "public",
+      "columns": {
+        "order_id": {
+          "name": "order_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        },
+        "unit_price_cents": {
+          "name": "unit_price_cents",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        }
+      }
+    },
+    "audit_events": {
+      "name": "audit_events",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        },
+        "user_id": {
+          "name": "user_id",
+          "databaseType": "bigint",
+          "tsType": "bigint",
+          "nullable": true
+        },
+        "event_name": {
+          "name": "event_name",
+          "databaseType": "text",
+          "tsType": "string",
+          "nullable": false
+        },
+        "payload": {
+          "name": "payload",
+          "databaseType": "jsonb",
+          "tsType": "unknown",
+          "nullable": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "timestamptz",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "DEFAULT"
+        }
+      }
     }
   },
-  "version": "18.4"
+  "enums": {
+    "account_status": ["active", "suspended"],
+    "order_status": ["draft", "paid", "shipped", "cancelled"],
+    "membership_role": ["owner", "admin", "member"]
+  }
 }

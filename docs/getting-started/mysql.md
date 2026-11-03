@@ -58,24 +58,25 @@ Create `tsconfig.json`:
 }
 ```
 
-## 3. Create a minimal table
+## 3. Create the commerce schema
+
+Save the following shared commerce schema as `schema.sql` in the project root. It defines users, teams, memberships, products, orders, order items, and audit events, with sample rows.
+
+<<< ../../examples/mysql/schema/001-schema.sql
 
 Create `src/setup.ts`:
 
 ```ts
+import { readFile } from "node:fs/promises";
 import { createConnection } from "mysql2/promise";
 
-const connection = await createConnection(process.env.DATABASE_URL!);
+const connection = await createConnection({
+  uri: process.env.DATABASE_URL!,
+  multipleStatements: true,
+});
 
 try {
-  await connection.query(`
-    CREATE TABLE users (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      status ENUM('active', 'suspended') NOT NULL DEFAULT 'active'
-    )
-  `);
-  await connection.query("INSERT INTO users (email) VALUES (?)", ["ada@example.com"]);
+  await connection.query(await readFile(new URL("../schema.sql", import.meta.url), "utf8"));
 } finally {
   await connection.end();
 }

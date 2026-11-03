@@ -5,39 +5,251 @@
   "version": "8.4.11",
   "tables": {
     "users": {
-      "schema": "typed_sql_examples",
       "name": "users",
-      "columns": {
-        "id": { "name": "id", "databaseType": "bigint unsigned", "tsType": "bigint", "nullable": false },
-        "email": { "name": "email", "databaseType": "varchar(255)", "tsType": "string", "nullable": false },
-        "status": {
-          "name": "status",
-          "databaseType": "enum('active','suspended')",
-          "tsType": "\"active\" | \"suspended\"",
-          "nullable": false,
-          "defaultExpression": "active"
-        }
-      }
-    },
-    "projects": {
       "schema": "typed_sql_examples",
-      "name": "projects",
       "columns": {
-        "id": { "name": "id", "databaseType": "bigint unsigned", "tsType": "bigint", "nullable": false },
-        "owner_id": {
-          "name": "owner_id",
-          "databaseType": "bigint unsigned",
+        "id": {
+          "name": "id",
+          "databaseType": "BIGINT UNSIGNED",
           "tsType": "bigint",
           "nullable": false
         },
-        "name": { "name": "name", "databaseType": "varchar(120)", "tsType": "string", "nullable": false },
-        "budget": {
-          "name": "budget",
-          "databaseType": "decimal(14,2)",
+        "email": {
+          "name": "email",
+          "databaseType": "VARCHAR(255)",
           "tsType": "string",
+          "nullable": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "databaseType": "VARCHAR(255)",
+          "tsType": "string",
+          "nullable": false,
+          "defaultExpression": "''"
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "ENUM('active', 'suspended')",
+          "tsType": "\"active\" | \"suspended\"",
+          "nullable": false,
+          "defaultExpression": "'active'"
+        },
+        "profile": {
+          "name": "profile",
+          "databaseType": "JSON",
+          "tsType": "unknown",
+          "nullable": false,
+          "defaultExpression": "(JSON_OBJECT())"
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "DATETIME",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "CURRENT_TIMESTAMP"
+        }
+      }
+    },
+    "teams": {
+      "name": "teams",
+      "schema": "typed_sql_examples",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "name": {
+          "name": "name",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "slug": {
+          "name": "slug",
+          "databaseType": "VARCHAR(255)",
+          "tsType": "string",
+          "nullable": false
+        }
+      }
+    },
+    "memberships": {
+      "name": "memberships",
+      "schema": "typed_sql_examples",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "team_id": {
+          "name": "team_id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "role": {
+          "name": "role",
+          "databaseType": "ENUM('owner', 'admin', 'member')",
+          "tsType": "\"owner\" | \"admin\" | \"member\"",
+          "nullable": false
+        }
+      }
+    },
+    "products": {
+      "name": "products",
+      "schema": "typed_sql_examples",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "sku": {
+          "name": "sku",
+          "databaseType": "VARCHAR(255)",
+          "tsType": "string",
+          "nullable": false
+        },
+        "title": {
+          "name": "title",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        },
+        "active": {
+          "name": "active",
+          "databaseType": "boolean",
+          "tsType": "boolean",
+          "nullable": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "databaseType": "JSON",
+          "tsType": "unknown",
           "nullable": true
         }
       }
+    },
+    "orders": {
+      "name": "orders",
+      "schema": "typed_sql_examples",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "status": {
+          "name": "status",
+          "databaseType": "ENUM('draft', 'paid', 'shipped', 'cancelled')",
+          "tsType": "\"draft\" | \"paid\" | \"shipped\" | \"cancelled\"",
+          "nullable": false
+        },
+        "total_cents": {
+          "name": "total_cents",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "DATETIME",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "CURRENT_TIMESTAMP"
+        },
+        "shipped_at": {
+          "name": "shipped_at",
+          "databaseType": "DATETIME",
+          "tsType": "Date",
+          "nullable": true
+        }
+      }
+    },
+    "order_items": {
+      "name": "order_items",
+      "schema": "typed_sql_examples",
+      "columns": {
+        "order_id": {
+          "name": "order_id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "product_id": {
+          "name": "product_id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        },
+        "unit_price_cents": {
+          "name": "unit_price_cents",
+          "databaseType": "integer",
+          "tsType": "number",
+          "nullable": false
+        }
+      }
+    },
+    "audit_events": {
+      "name": "audit_events",
+      "schema": "typed_sql_examples",
+      "columns": {
+        "id": {
+          "name": "id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "databaseType": "BIGINT UNSIGNED",
+          "tsType": "bigint",
+          "nullable": true
+        },
+        "event_name": {
+          "name": "event_name",
+          "databaseType": "TEXT",
+          "tsType": "string",
+          "nullable": false
+        },
+        "payload": {
+          "name": "payload",
+          "databaseType": "JSON",
+          "tsType": "unknown",
+          "nullable": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "databaseType": "DATETIME",
+          "tsType": "Date",
+          "nullable": false,
+          "defaultExpression": "CURRENT_TIMESTAMP"
+        }
+      }
     }
-  }
+  },
+  "enums": {}
 }

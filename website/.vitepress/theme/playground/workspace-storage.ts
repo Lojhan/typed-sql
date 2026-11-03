@@ -1,4 +1,5 @@
 import { DEFAULT_SCHEMAS, PLAYGROUND_DIALECTS, type PlaygroundDialect } from "./playground.js";
+import { PREVIOUS_EXAMPLES } from "./previous-examples.js";
 import {
   LESSONS,
   type Lesson,
@@ -48,7 +49,7 @@ export function defaultPlaygroundState(): PlaygroundState {
     workspaces: Object.fromEntries(
       PLAYGROUND_DIALECTS.map((dialect): [PlaygroundDialect, StoredWorkspace] => [
         dialect,
-        { files: lessonFiles(dialect, "workspace", DEFAULT_SCHEMAS[dialect]), example: "workspace" },
+        { files: lessonFiles(dialect, "commerce", DEFAULT_SCHEMAS[dialect]), example: "commerce" },
       ]),
     ) as PlaygroundState["workspaces"],
   };
@@ -117,8 +118,14 @@ export function restorePlaygroundState(saved: unknown, legacy?: unknown): Playgr
       state.dialect = saved.dialect as PlaygroundDialect;
     for (const dialect of PLAYGROUND_DIALECTS) {
       const record = (saved.workspaces as Record<string, unknown>)[dialect];
-      if (typeof record === "object" && record !== null && "files" in record && validWorkspaceFiles(record.files))
-        state.workspaces[dialect] = { files: { ...record.files }, example: identifyExample(dialect, record.files) };
+      if (typeof record === "object" && record !== null && "files" in record && validWorkspaceFiles(record.files)) {
+        const previous = PREVIOUS_EXAMPLES.find(
+          (example) => example.dialect === dialect && sameFiles(record.files as WorkspaceFiles, example.files),
+        );
+        const lesson = previous?.lesson === "workspace" ? "commerce" : previous?.lesson;
+        const files = lesson ? lessonFiles(dialect, lesson, DEFAULT_SCHEMAS[dialect]) : { ...record.files };
+        state.workspaces[dialect] = { files, example: identifyExample(dialect, files) };
+      }
     }
   } else if (typeof legacy === "object" && legacy !== null) {
     for (const dialect of PLAYGROUND_DIALECTS) {

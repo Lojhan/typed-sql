@@ -18,7 +18,7 @@ import type { QueryRow } from "@typed-sql/core";
 
 const accountsBase = sql`
   SELECT account.id, account.email, account.status
-  FROM accounts AS account
+  FROM users AS account
 `;
 
 type Account = QueryRow<typeof accountsBase>;
@@ -54,7 +54,7 @@ Use `sql.append()` when an imperative `WHERE 1 = 1` shape reads more clearly:
 function accounts(filters: AccountFilters) {
   const query = sql`
     SELECT account.id, account.email, account.status
-    FROM accounts AS account
+    FROM users AS account
   `;
 
   return sql.append(
@@ -81,7 +81,7 @@ Keep conditional structure inside ordinary SQL templates:
 ```ts
 interface AccountSelect {
   readonly status: boolean;
-  readonly budget: boolean;
+  readonly displayName: boolean;
 }
 
 function accounts<const Select extends AccountSelect>(select: Select) {
@@ -90,8 +90,8 @@ function accounts<const Select extends AccountSelect>(select: Select) {
       account.id,
       account.email
       ${select.status ? sql.fragment`, account.status` : sql.empty}
-      ${select.budget ? sql.fragment`, account.budget` : sql.empty}
-    FROM accounts AS account
+      ${select.displayName ? sql.fragment`, account.display_name` : sql.empty}
+    FROM users AS account
   `;
 }
 ```
@@ -104,7 +104,7 @@ A literal `true` or `false` produces the corresponding exact row. A runtime bool
 sql`
   SELECT account.id
     ${select.status ? `, account.status` : sql.empty}
-  FROM accounts AS account
+  FROM users AS account
 `;
 ```
 

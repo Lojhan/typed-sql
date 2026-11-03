@@ -60,9 +60,9 @@ import WorkspaceTabs from "./WorkspaceTabs.vue";
 
 const dialect = ref<PlaygroundDialect>("postgres");
 const exampleByDialect = reactive<Record<PlaygroundDialect, WorkspaceExample>>({
-  postgres: "workspace",
-  mysql: "workspace",
-  sqlite: "workspace",
+  postgres: "commerce",
+  mysql: "commerce",
+  sqlite: "commerce",
 });
 const lesson = computed({
   get: () => exampleByDialect[dialect.value],

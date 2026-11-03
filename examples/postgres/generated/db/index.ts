@@ -10,26 +10,433 @@ export const schema = {
     }
   },
   "relations": {
-    "projects": {
+    "audit_events": {
       "capabilities": {
         "evidenceComplete": false
       },
       "columns": {
-        "budget": {
+        "created_at": {
           "classification": "normal",
-          "databaseType": "numeric(14,2)",
+          "databaseType": "timestamptz",
+          "default": "present",
+          "defaultExpressionHash": "sha256:9ff7b5b715046baeffdb1af30ed68f6e43b40bf43d1f76734de5b26ecacb58e8",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "created_at",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 4,
+          "tsType": "Date",
+          "typeIdentity": "timestamptz",
+          "updatable": "unknown"
+        },
+        "event_name": {
+          "classification": "normal",
+          "databaseType": "text",
           "default": "unknown",
           "generated": "none",
           "identity": "unknown",
           "insertable": "unknown",
-          "name": "budget",
+          "name": "event_name",
           "nullabilitySource": "unknown",
-          "nullable": true,
-          "position": 3,
+          "nullable": false,
+          "position": 2,
           "tsType": "string",
-          "typeIdentity": "numeric(14,2)",
+          "typeIdentity": "text",
           "updatable": "unknown"
         },
+        "id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "payload": {
+          "classification": "normal",
+          "databaseType": "jsonb",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "payload",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 3,
+          "tsType": "unknown",
+          "typeIdentity": "jsonb",
+          "updatable": "unknown"
+        },
+        "user_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "user_id",
+          "nullabilitySource": "unknown",
+          "nullable": true,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "audit_events",
+      "schema": "public"
+    },
+    "memberships": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "role": {
+          "classification": "normal",
+          "databaseType": "membership_role",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "role",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "\"owner\" | \"admin\" | \"member\"",
+          "typeIdentity": "membership_role",
+          "updatable": "unknown"
+        },
+        "team_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "team_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "user_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "user_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "memberships",
+      "schema": "public"
+    },
+    "order_items": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "order_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "order_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "product_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "product_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "quantity": {
+          "classification": "normal",
+          "databaseType": "integer",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "quantity",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "number",
+          "typeIdentity": "integer",
+          "updatable": "unknown"
+        },
+        "unit_price_cents": {
+          "classification": "normal",
+          "databaseType": "integer",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "unit_price_cents",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 3,
+          "tsType": "number",
+          "typeIdentity": "integer",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "order_items",
+      "schema": "public"
+    },
+    "orders": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "created_at": {
+          "classification": "normal",
+          "databaseType": "timestamptz",
+          "default": "present",
+          "defaultExpressionHash": "sha256:9ff7b5b715046baeffdb1af30ed68f6e43b40bf43d1f76734de5b26ecacb58e8",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "created_at",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 4,
+          "tsType": "Date",
+          "typeIdentity": "timestamptz",
+          "updatable": "unknown"
+        },
+        "id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "shipped_at": {
+          "classification": "normal",
+          "databaseType": "timestamptz",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "shipped_at",
+          "nullabilitySource": "unknown",
+          "nullable": true,
+          "position": 5,
+          "tsType": "Date",
+          "typeIdentity": "timestamptz",
+          "updatable": "unknown"
+        },
+        "status": {
+          "classification": "normal",
+          "databaseType": "order_status",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "status",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "\"draft\" | \"paid\" | \"shipped\" | \"cancelled\"",
+          "typeIdentity": "order_status",
+          "updatable": "unknown"
+        },
+        "total_cents": {
+          "classification": "normal",
+          "databaseType": "integer",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "total_cents",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 3,
+          "tsType": "number",
+          "typeIdentity": "integer",
+          "updatable": "unknown"
+        },
+        "user_id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "user_id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "orders",
+      "schema": "public"
+    },
+    "products": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
+        "active": {
+          "classification": "normal",
+          "databaseType": "boolean",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "active",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 4,
+          "tsType": "boolean",
+          "typeIdentity": "boolean",
+          "updatable": "unknown"
+        },
+        "id": {
+          "classification": "normal",
+          "databaseType": "bigint",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "id",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 0,
+          "tsType": "bigint",
+          "typeIdentity": "bigint",
+          "updatable": "unknown"
+        },
+        "metadata": {
+          "classification": "normal",
+          "databaseType": "jsonb",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "metadata",
+          "nullabilitySource": "unknown",
+          "nullable": true,
+          "position": 5,
+          "tsType": "unknown",
+          "typeIdentity": "jsonb",
+          "updatable": "unknown"
+        },
+        "price_cents": {
+          "classification": "normal",
+          "databaseType": "integer",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "price_cents",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 3,
+          "tsType": "number",
+          "typeIdentity": "integer",
+          "updatable": "unknown"
+        },
+        "sku": {
+          "classification": "normal",
+          "databaseType": "text",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "sku",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 1,
+          "tsType": "string",
+          "typeIdentity": "text",
+          "updatable": "unknown"
+        },
+        "title": {
+          "classification": "normal",
+          "databaseType": "text",
+          "default": "unknown",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "title",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "text",
+          "updatable": "unknown"
+        }
+      },
+      "constraints": [],
+      "indexes": [],
+      "kind": "table",
+      "name": "products",
+      "schema": "public"
+    },
+    "teams": {
+      "capabilities": {
+        "evidenceComplete": false
+      },
+      "columns": {
         "id": {
           "classification": "normal",
           "databaseType": "bigint",
@@ -55,31 +462,31 @@ export const schema = {
           "name": "name",
           "nullabilitySource": "unknown",
           "nullable": false,
-          "position": 2,
+          "position": 1,
           "tsType": "string",
           "typeIdentity": "text",
           "updatable": "unknown"
         },
-        "owner_id": {
+        "slug": {
           "classification": "normal",
-          "databaseType": "bigint",
+          "databaseType": "text",
           "default": "unknown",
           "generated": "none",
           "identity": "unknown",
           "insertable": "unknown",
-          "name": "owner_id",
+          "name": "slug",
           "nullabilitySource": "unknown",
           "nullable": false,
-          "position": 1,
-          "tsType": "bigint",
-          "typeIdentity": "bigint",
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "text",
           "updatable": "unknown"
         }
       },
       "constraints": [],
       "indexes": [],
       "kind": "table",
-      "name": "projects",
+      "name": "teams",
       "schema": "public"
     },
     "users": {
@@ -87,6 +494,38 @@ export const schema = {
         "evidenceComplete": false
       },
       "columns": {
+        "created_at": {
+          "classification": "normal",
+          "databaseType": "timestamptz",
+          "default": "present",
+          "defaultExpressionHash": "sha256:9ff7b5b715046baeffdb1af30ed68f6e43b40bf43d1f76734de5b26ecacb58e8",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "created_at",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 5,
+          "tsType": "Date",
+          "typeIdentity": "timestamptz",
+          "updatable": "unknown"
+        },
+        "display_name": {
+          "classification": "normal",
+          "databaseType": "text",
+          "default": "present",
+          "defaultExpressionHash": "sha256:6f49cdbd80e1b95d5e6427e1501fc217790daee87055fa5b4e71064288bddede",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "display_name",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 2,
+          "tsType": "string",
+          "typeIdentity": "text",
+          "updatable": "unknown"
+        },
         "email": {
           "classification": "normal",
           "databaseType": "text",
@@ -117,18 +556,34 @@ export const schema = {
           "typeIdentity": "bigint",
           "updatable": "unknown"
         },
+        "profile": {
+          "classification": "normal",
+          "databaseType": "jsonb",
+          "default": "present",
+          "defaultExpressionHash": "sha256:437da515a768a74bdc5d9c67803dfe8e3f0339ebad2e87474f5d3fde0427bd80",
+          "generated": "none",
+          "identity": "unknown",
+          "insertable": "unknown",
+          "name": "profile",
+          "nullabilitySource": "unknown",
+          "nullable": false,
+          "position": 4,
+          "tsType": "unknown",
+          "typeIdentity": "jsonb",
+          "updatable": "unknown"
+        },
         "status": {
           "classification": "normal",
           "databaseType": "account_status",
           "default": "present",
-          "defaultExpressionHash": "sha256:8acbc277dbb2b4c6cc692a23fb6d3b5ca396f9899f4525191056abcb17327674",
+          "defaultExpressionHash": "sha256:880684c199f7f20d14b8d1c1300fd60114d8049634f8d423bf3dfc5de839f2e1",
           "generated": "none",
           "identity": "unknown",
           "insertable": "unknown",
           "name": "status",
           "nullabilitySource": "unknown",
           "nullable": false,
-          "position": 2,
+          "position": 3,
           "tsType": "\"active\" | \"suspended\"",
           "typeIdentity": "account_status",
           "updatable": "unknown"
@@ -160,12 +615,37 @@ export const schema = {
       ],
       "name": "account_status",
       "tsType": "\"active\" | \"suspended\""
+    },
+    "membership_role": {
+      "databaseType": "membership_role",
+      "identity": "membership_role",
+      "kind": "enum",
+      "labels": [
+        "owner",
+        "admin",
+        "member"
+      ],
+      "name": "membership_role",
+      "tsType": "\"owner\" | \"admin\" | \"member\""
+    },
+    "order_status": {
+      "databaseType": "order_status",
+      "identity": "order_status",
+      "kind": "enum",
+      "labels": [
+        "draft",
+        "paid",
+        "shipped",
+        "cancelled"
+      ],
+      "name": "order_status",
+      "tsType": "\"draft\" | \"paid\" | \"shipped\" | \"cancelled\""
     }
   }
 } as const;
 export const metadata = {
   "generatorVersion": "1.0.0",
-  "schemaHash": "9d0e2f0a1d3db9d7ec0be39ee541261a28a7d6c178bbf8d82f4f688d8868523d",
+  "schemaHash": "307d36c9791ddbe306d13d3c6e04292d0fe4ced89e64b675417d8d9ffb42af29",
   "typePolicyHash": "fff28bed837f9e4a3ae6c99da77e301413c980a01d443522778c31079241a51c",
   "schemaFormat": 2
 } as const;

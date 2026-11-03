@@ -7,13 +7,13 @@ import { loadAccountWorkspace } from "../src/batches.js";
 import { importAccounts } from "../src/bulk.js";
 import { waitUntilAborted, waitUntilDeadline } from "../src/cancellation.js";
 import { findAccount, listActiveAccounts, requireAccount } from "../src/cardinality.js";
-import { deleteAccount, deleteProjectsByOwner, updateAccountStatus } from "../src/mutations.js";
+import { deleteAccount, deleteOrdersByCustomer, updateAccountStatus } from "../src/mutations.js";
 import { createOperationLog } from "../src/observation.js";
 import { prepareAccountQueries } from "../src/prepared.js";
-import { accountById, accountProjectSummary } from "../src/queries.js";
+import { accountById, accountOrderSummary } from "../src/queries.js";
 import { createAccountRouter } from "../src/routing.js";
 import { collectActiveAccounts, firstActiveAccount } from "../src/streams.js";
-import { createAccountWithProject } from "../src/transactions.js";
+import { createAccountWithOrder } from "../src/transactions.js";
 import { validatedAccountById } from "../src/validation.js";
 import { connectionUri } from "../typed-sql.config.js";
 
@@ -22,7 +22,7 @@ const database = await createMySql2Database({ connectionUri, typePolicy, observe
 
 async function removeAccounts(ids: readonly bigint[]): Promise<void> {
   for (const id of ids) {
-    await database.execute(deleteProjectsByOwner(id));
+    await database.execute(deleteOrdersByCustomer(id));
     await database.execute(deleteAccount(id));
   }
 }
@@ -37,7 +37,7 @@ try {
         status: "active",
       });
       strict.strictEqual(await findAccount(database, -1n), undefined);
-      strict.strictEqual((await database.all(accountProjectSummary)).length, 2);
+      strict.strictEqual((await database.all(accountOrderSummary)).length, 2);
 
       const prepared = prepareAccountQueries(database);
       strict.strictEqual(prepared.accountById.statementName, "example-account-by-id");
@@ -46,13 +46,13 @@ try {
         email: "bob@example.com",
         status: "suspended",
       });
-      strict.strictEqual((await loadAccountWorkspace(database, 1n)).projects.length, 1);
+      strict.strictEqual((await loadAccountWorkspace(database, 1n)).orders.length, 1);
       strict.strictEqual((await collectActiveAccounts(database)).length, 1);
       strict.deepStrictEqual(await firstActiveAccount(database), {
         id: 1n,
         email: "alice@example.com",
         status: "active",
-        budget: "12500.50",
+        total_cents: 12500,
       });
       strict.deepStrictEqual(await database.one(validatedAccountById(1n)), {
         id: 1n,
@@ -63,10 +63,10 @@ try {
 
     await it("commits typed mutations atomically", async () => {
       await removeAccounts([9_001n]);
-      const created = await createAccountWithProject(
+      const created = await createAccountWithOrder(
         database,
         { id: 9_001n, email: "transaction.mysql@example.com", status: "active" },
-        { id: 9_001n, name: "MySQL transaction", budget: "42.50" },
+        { id: 9_001n, status: "paid", totalCents: 4250 },
       );
       strict.deepStrictEqual(created.account, {
         id: 9_001n,

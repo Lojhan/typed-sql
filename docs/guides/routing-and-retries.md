@@ -52,19 +52,19 @@ const requestDatabase = database.context();
 
 const before = await requestDatabase.all(sql`
   SELECT account.id, account.email
-  FROM accounts AS account
+  FROM users AS account
   ORDER BY account.id
 `); // eligible for a replica
 
 await requestDatabase.execute(sql`
-  UPDATE accounts
+  UPDATE users
   SET last_seen_at = CURRENT_TIMESTAMP
   WHERE id = ${42n}
 `); // primary; this context is now pinned
 
 const after = await requestDatabase.all(sql`
   SELECT account.id, account.last_seen_at
-  FROM accounts AS account
+  FROM users AS account
   WHERE account.id = ${42n}
 `); // primary because the context is pinned
 ```

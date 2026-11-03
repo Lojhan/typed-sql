@@ -13,7 +13,8 @@
     "grammar/**/*.ts",
     "helpers/**/*.ts",
     "soundness/**/*.ts",
-    "../website/.vitepress/theme/playground/**/*.ts"
+    "../website/.vitepress/theme/playground/**/*.ts",
+    "../examples/shared/**/*.ts"
   ],
   "exclude": ["fixtures"],
   "references": [
