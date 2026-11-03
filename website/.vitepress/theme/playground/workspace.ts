@@ -18,7 +18,6 @@ export function validWorkspaceFiles(value: unknown): value is WorkspaceFiles {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const entries = Object.entries(value);
   return (
-    entries.length > 0 &&
     entries.length <= WORKSPACE_LIMITS.files &&
     entries.every(
       ([path, source]) =>

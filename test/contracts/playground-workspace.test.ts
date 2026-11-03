@@ -148,7 +148,7 @@ await describe("playground TypeScript workspace", async () => {
       strict.strictEqual(filePathError("src/queries/account.sql"), undefined);
       for (const path of ["../escape.ts", "/absolute.sql", "node_modules/x.ts", "__sql__/x.ts", "file.js"])
         strict.ok(filePathError(path));
-      strict.ok(!validWorkspaceFiles({}));
+      strict.ok(validWorkspaceFiles({}));
       strict.ok(!validWorkspaceFiles({ "too-big.ts": "x".repeat(40_001) }));
       strict.ok(!validWorkspaceFiles({ "file.ts": "", "file.ts/nested.ts": "" }));
       strict.ok(validWorkspaceFiles({ "src/a.ts": "export {};", "schema/tables.sql": "" }));
