@@ -47,8 +47,12 @@ import {
 } from "../playground/workspace-storage.js";
 import {
   panelShortcut,
+  toggleWorkspacePanel,
+  visibleWorkspacePanels,
   WORKSPACE_CONFIG_NAME,
   WORKSPACE_CONFIG_PATH,
+  type WorkspacePanel,
+  type WorkspacePanelState,
   workspaceConfigSource,
 } from "../playground/workspace-ui.js";
 import EditorIcon from "./EditorIcon.vue";
@@ -144,10 +148,16 @@ const files = computed(() => drafts[dialect.value]);
 const configSource = computed(() => workspaceConfigSource(dialect.value, files.value));
 const readonlyFile = computed(() => activeFile.value === WORKSPACE_CONFIG_PATH);
 const fileTabs = computed(() => [...Object.keys(files.value), WORKSPACE_CONFIG_PATH].sort());
-const showFiles = ref(true);
-const showInspector = ref(true);
+const panelState = ref<WorkspacePanelState>({ desktop: { files: true, inspector: true }, mobile: null });
+const visiblePanels = computed(() => visibleWorkspacePanels(panelState.value, narrow.value));
+const showFiles = computed(() => visiblePanels.value.files);
+const showInspector = computed(() => visiblePanels.value.inspector);
+function togglePanel(panel: WorkspacePanel) {
+  panelState.value = toggleWorkspacePanel(panelState.value, panel, narrow.value);
+}
 const showProblems = ref(true);
 const treeWidth = ref(200);
+const treeHeight = ref(240);
 const inspectorWidth = ref(400);
 const inspectorHeight = ref(240);
 const problemsHeight = ref(160);
@@ -155,14 +165,16 @@ const shell = ref<HTMLElement>();
 const shellWidth = ref(1200);
 const shellHeight = ref(700);
 const narrow = computed(() => shellWidth.value <= 720);
+const mobilePanelMax = computed(() => Math.max(120, shellHeight.value * 0.55));
 const treeMax = computed(() => Math.max(120, Math.min(400, shellWidth.value * 0.35)));
 const inspectorMax = computed(() =>
   narrow.value
-    ? Math.max(120, shellHeight.value * 0.55)
+    ? mobilePanelMax.value
     : Math.max(240, shellWidth.value - (showFiles.value ? Math.min(treeWidth.value, treeMax.value) + 4 : 0) - 240),
 );
 const problemsMax = computed(() => Math.max(80, shellHeight.value * 0.45));
 const layoutStyle = computed(() => ({
+  "--pg-tree-height": `${Math.min(treeHeight.value, mobilePanelMax.value)}px`,
   "--pg-tree-width": `${Math.min(treeWidth.value, treeMax.value)}px`,
   "--pg-inspector-width": `${Math.min(inspectorWidth.value, inspectorMax.value)}px`,
   "--pg-inspector-height": `${Math.min(inspectorHeight.value, inspectorMax.value)}px`,
@@ -355,8 +367,7 @@ function handlePanelShortcut(event: KeyboardEvent) {
   if (!panel) return;
   event.preventDefault();
   event.stopPropagation();
-  if (panel === "files") showFiles.value = !showFiles.value;
-  else showInspector.value = !showInspector.value;
+  togglePanel(panel);
 }
 
 async function focusProblem(file: WorkspaceFile, from: number, to: number) {
@@ -530,7 +541,7 @@ onBeforeUnmount(() => {
       </header>
       <div class="pg-workbench" :style="layoutStyle">
         <WorkspaceFileTree :key="dialect" v-show="showFiles" id="pg-file-tree" :files="fileTabs" :folders="folders" :active-file="activeFile" :problems="problemFiles" @select="activeFile = $event" @create="createFile" @create-folder="createFolder" @rename="renameEntry" @delete="deleteEntry" />
-        <PanelResizeHandle v-if="showFiles" v-model="treeWidth" orientation="vertical" :min="120" :max="treeMax" label="Resize file tree" />
+        <PanelResizeHandle v-if="showFiles" class="pg-tree-resize" :model-value="narrow ? treeHeight : treeWidth" :orientation="narrow ? 'horizontal' : 'vertical'" :min="120" :max="narrow ? mobilePanelMax : treeMax" :reverse="narrow" label="Resize file tree" @update:model-value="value => narrow ? treeHeight = value : treeWidth = value" />
         <div class="pg-panels">
         <EditorPaneLayout ref="editor" class="pg-editor-layout" :node="layout" :active="activePane.id" :files="files" :dialect="dialect" :config="configSource" :analysis="result" :busy="busy" :multiple="editorPanes(layout).length > 1" :interact="interact" @focus-pane="focusPane" @select-file="selectPaneFile" @edit="(file, value) => { if (file in files) files[file] = value; }" @inspect="(id, position) => { if (id === activePane.id) inspectAt(position); }" @definition="goToDefinition" @drop-file="dropFile" @close-pane="closePane" @close-file="closeFile" />
         <PanelResizeHandle v-if="showInspector" :model-value="narrow ? inspectorHeight : inspectorWidth" :orientation="narrow ? 'horizontal' : 'vertical'" :min="narrow ? 120 : 240" :max="inspectorMax" reverse label="Resize type inspector" @update:model-value="value => narrow ? inspectorHeight = value : inspectorWidth = value" />
@@ -560,15 +571,15 @@ onBeforeUnmount(() => {
       <ScrollArea v-if="problems.length && showProblems" id="pg-problems" class="pg-problems" label="Problems" :style="{ height: `${Math.min(problemsHeight, problemsMax)}px` }" :aria-busy="busy" aria-label="Workspace problems"><button v-for="(problem, index) in problems" :key="index" type="button" :disabled="busy" @click="focusProblem(problem.file, problem.from, problem.to)"><span class="pg-error">{{ problem.code }}</span><span>{{ problem.message }}</span><small>{{ problem.file }}:{{ problem.line }}</small></button></ScrollArea>
       <footer class="pg-status" aria-label="Editor status and panels">
         <div class="pg-status-group">
-          <button class="pg-dock-toggle" type="button" :aria-expanded="showFiles" aria-controls="pg-file-tree" aria-label="Toggle file tree" title="Toggle file tree (Cmd+B)" @click="showFiles = !showFiles"><EditorIcon name="collapse" /></button>
+          <button class="pg-dock-toggle" type="button" :aria-expanded="showFiles" aria-controls="pg-file-tree" aria-label="Toggle file tree" title="Toggle file tree (Cmd+B)" @click="togglePanel('files')"><EditorIcon name="collapse" /></button>
           <button v-if="problems.length" class="pg-error pg-problems-toggle" type="button" :aria-expanded="showProblems" aria-controls="pg-problems" @click="showProblems = !showProblems"><EditorIcon name="chevron" :class="{ 'is-open': showProblems }" /><span>{{ problems.length }} problem{{ problems.length === 1 ? '' : 's' }}</span></button>
           <span v-else :class="{ 'pg-error': failure }" role="status">{{ busy ? 'Checking…' : failure ? 'Analysis unavailable' : 'No problems' }}</span>
           <span v-if="notice" role="status">{{ notice }}</span>
         </div>
         <div class="pg-status-group">
-          <span v-if="readonlyFile" class="pg-readonly"><EditorIcon name="lock" />Read only</span>
+          <span v-if="readonlyFile" class="pg-readonly"><EditorIcon name="lock" /><span>Read only</span></span>
           <a href="./getting-started/compiler-and-editor" title="The browser uses TypeScript 6; the TypeScript 7 CLI check is authoritative.">Browser TypeScript {{ result?.version ?? '6' }}</a>
-          <button class="pg-dock-toggle pg-dock-toggle--right" type="button" :aria-expanded="showInspector" aria-controls="pg-inspector" aria-label="Toggle type inspector" aria-keyshortcuts="Meta+Alt+B Control+Alt+B" title="Toggle type inspector (Cmd+Alt+B; Ctrl+Alt+B in Chrome)" @click="showInspector = !showInspector"><EditorIcon name="collapse" /></button>
+          <button class="pg-dock-toggle pg-dock-toggle--right" type="button" :aria-expanded="showInspector" aria-controls="pg-inspector" aria-label="Toggle type inspector" aria-keyshortcuts="Meta+Alt+B Control+Alt+B" title="Toggle type inspector (Cmd+Alt+B; Ctrl+Alt+B in Chrome)" @click="togglePanel('inspector')"><EditorIcon name="collapse" /></button>
         </div>
       </footer>
     </section>

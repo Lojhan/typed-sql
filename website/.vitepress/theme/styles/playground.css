@@ -26,32 +26,54 @@
   background: var(--ts-editor-bg);
 }
 .pg-toolbar {
-  min-height: 49px;
+  height: 42px;
+  min-height: 42px;
+  min-width: 0;
+  flex-wrap: nowrap;
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 8px 20px;
+  padding: 0 20px;
   background: var(--ts-editor-panel);
   border-bottom: 1px solid var(--vp-c-divider);
   flex-shrink: 0;
 }
+.pg-select {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.pg-select.pg-lesson {
+  flex: 1 1 0;
+}
 .pg-select select {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--vp-c-text-1);
   background: transparent;
   border: 0;
   font-size: 12px;
   padding-right: 8px;
 }
+.pg-lesson select {
+  width: 100%;
+}
 .pg-select option {
   background: var(--ts-editor-panel);
   color: var(--vp-c-text-1);
 }
 .pg-divider {
+  flex-shrink: 0;
   width: 1px;
   height: 20px;
   background: var(--vp-c-divider);
 }
 .pg-actions {
+  flex-shrink: 0;
+  white-space: nowrap;
   margin-left: auto;
   display: flex;
   gap: 12px;
@@ -170,6 +192,8 @@
   line-height: 1.7;
 }
 .pg-status {
+  min-width: 0;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -217,8 +241,7 @@
 @media (max-width: 720px) {
   .pg-toolbar {
     gap: 10px;
-    padding: 8px 12px;
-    flex-wrap: wrap;
+    padding: 0 12px;
   }
   .pg-divider {
     display: none;
@@ -396,6 +419,29 @@
 .pg-status a,
 .pg-status span {
   font: inherit;
+}
+.pg-status-group:first-child {
+  flex: 1 1 0;
+}
+.pg-status-group:last-child {
+  flex: 0 1 auto;
+  max-width: 55%;
+  justify-content: flex-end;
+}
+.pg-status-group > span,
+.pg-status-group > a,
+.pg-problems-toggle > span,
+.pg-readonly > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-status .pg-problems-toggle {
+  min-width: 0;
+}
+.pg-status .pg-dock-toggle {
+  flex: 0 0 24px;
 }
 .pg-status button {
   padding: 0;
@@ -600,4 +646,21 @@
 .pg-tree-move-error button {
   margin-left: auto;
   align-self: flex-start;
+}
+
+@media (max-width: 720px) {
+  .pg-workbench {
+    flex-direction: column;
+  }
+  .pg-workbench > .pg-panels {
+    order: 0;
+  }
+  .pg-workbench > .pg-tree-resize {
+    order: 1;
+  }
+  .pg-workbench > .pg-file-tree {
+    order: 2;
+    width: 100%;
+    height: var(--pg-tree-height, 240px);
+  }
 }
