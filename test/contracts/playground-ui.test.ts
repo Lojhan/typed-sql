@@ -5,7 +5,10 @@ import { queryAtPosition } from "../../website/.vitepress/theme/playground/works
 import {
   BROWSER_COMPILER_SETTINGS,
   panelShortcut,
+  toggleWorkspacePanel,
+  visibleWorkspacePanels,
   WORKSPACE_CONFIG_PATH,
+  type WorkspacePanelState,
   workspaceConfigSource,
 } from "../../website/.vitepress/theme/playground/workspace-ui.js";
 
@@ -46,6 +49,21 @@ await describe("playground editor controls", async () => {
       { ...event, key: "s", code: "KeyS" },
     ])
       strict.strictEqual(panelShortcut(ignored), undefined);
+  });
+  await it("keeps mobile panels exclusive while preserving independent desktop choices across breakpoints", () => {
+    let state: WorkspacePanelState = { desktop: { files: true, inspector: true }, mobile: null };
+    strict.deepStrictEqual(visibleWorkspacePanels(state, true), { files: false, inspector: false });
+    strict.deepStrictEqual(visibleWorkspacePanels(state, false), { files: true, inspector: true });
+    state = toggleWorkspacePanel(state, "files", true);
+    strict.deepStrictEqual(visibleWorkspacePanels(state, true), { files: true, inspector: false });
+    state = toggleWorkspacePanel(state, "inspector", true);
+    strict.deepStrictEqual(visibleWorkspacePanels(state, true), { files: false, inspector: true });
+    strict.deepStrictEqual(visibleWorkspacePanels(state, false), { files: true, inspector: true });
+    state = toggleWorkspacePanel(state, "inspector", false);
+    strict.deepStrictEqual(visibleWorkspacePanels(state, false), { files: true, inspector: false });
+    strict.deepStrictEqual(visibleWorkspacePanels(state, true), { files: false, inspector: true });
+    state = toggleWorkspacePanel(state, "inspector", true);
+    strict.deepStrictEqual(visibleWorkspacePanels(state, true), { files: false, inspector: false });
   });
   await it("selects the query under the cursor without crossing files", () => {
     const first = { file: "queries/a.sql", binding: "first", sourceStart: 0, sourceEnd: 15 };

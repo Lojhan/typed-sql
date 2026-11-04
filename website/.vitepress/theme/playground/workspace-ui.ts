@@ -48,3 +48,21 @@ export function panelShortcut(
     return undefined;
   return event.altKey ? "inspector" : "files";
 }
+
+export type WorkspacePanel = "files" | "inspector";
+export interface WorkspacePanelState {
+  desktop: Record<WorkspacePanel, boolean>;
+  mobile: WorkspacePanel | null;
+}
+export function visibleWorkspacePanels(state: WorkspacePanelState, mobile: boolean): Record<WorkspacePanel, boolean> {
+  return mobile ? { files: state.mobile === "files", inspector: state.mobile === "inspector" } : state.desktop;
+}
+export function toggleWorkspacePanel(
+  state: WorkspacePanelState,
+  panel: WorkspacePanel,
+  mobile: boolean,
+): WorkspacePanelState {
+  return mobile
+    ? { ...state, mobile: state.mobile === panel ? null : panel }
+    : { ...state, desktop: { ...state.desktop, [panel]: !state.desktop[panel] } };
+}
