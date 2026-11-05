@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="414" viewBox="0 0 1000 414" role="img" aria-labelledby="title description">
+<title id="title">Declare identities once. Keep them in queries.</title><desc id="description">UserId and OrderId column brands from schema configuration survive in inferred SQL result rows and repeated bound parameters. Brand is imported from @typed-sql/core.</desc>
+<style>
+svg{--bg:#0b1b22;--bar:#10242d;--line:#29404b;--ink:#d9e7ed;--muted:#8099a6;--accent:#60d4e1;--purple:#c69bed;--blue:#8ec7fa;--green:#b4ce94;--gold:#e3bc78;--error:#ff8796;--tint:#173940;--ok:#8fd6b0;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+@media(prefers-color-scheme:light){svg{--bg:#f9fbfd;--bar:#edf3f7;--line:#cfdee7;--ink:#213848;--muted:#61798a;--accent:#007887;--purple:#7f3e9c;--blue:#155d9d;--green:#426527;--gold:#885c12;--error:#bc2949;--tint:#e0f1f3;--ok:#19754d}}
+text{white-space:pre}.code{fill:var(--ink)}.line-number{fill:var(--muted);font-size:12px;text-anchor:end}.label{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;fill:var(--muted)}.heading{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;font-weight:600;fill:var(--ink)}.sql{fill:var(--accent)}.keyword{fill:var(--purple)}.string{fill:var(--green)}.value{fill:var(--gold)}.type{fill:var(--blue)}.scene{opacity:0}.scene-0{opacity:1}.hidden{display:none}.reveal{transform-box:fill-box;transform-origin:left center}.typing-caret{animation-timing-function:steps(1)}.progress{transform-origin:0 0;animation:progress 8.8s linear infinite}@keyframes progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes scene-0{0%{opacity:1}49.9886%{opacity:1}50.0000%{opacity:0}100%{opacity:0}} .scene-0{animation:scene-0 8.8s steps(1) infinite}
+@keyframes resolved-0{0%{opacity:0}13.0568%{opacity:0}13.0682%{opacity:1}49.9886%{opacity:1}50.0000%{opacity:0}100%{opacity:0}} .resolved-0{animation:resolved-0 8.8s steps(1) infinite}
+@keyframes checking-0{0%{opacity:1}13.0568%{opacity:1}13.0682%{opacity:0}100%{opacity:0}} .checking-0{animation:checking-0 8.8s steps(1) infinite}
+@keyframes reveal-0{0%,1.7045%{transform:scaleX(0)}11.3636%,100%{transform:scaleX(1)}}.reveal-0{animation:reveal-0 8.8s steps(8,end) infinite}
+@keyframes suffix-0{0%,1.7045%{transform:translateX(-62.4px)}11.3636%,100%{transform:translateX(0)}}.suffix-0{animation:suffix-0 8.8s steps(8,end) infinite}
+@keyframes caret-0{0%,1.7045%{transform:translateX(0)}11.3636%,100%{transform:translateX(62.4px)}}.caret-0{animation:caret-0 8.8s steps(8,end) infinite}
+@keyframes hover-0{0%{opacity:0}22.7159%{opacity:0}22.7273%{opacity:1}48.2841%{opacity:1}48.2955%{opacity:0}100%{opacity:0}} .hover-0{animation:hover-0 8.8s steps(1) infinite}
+@keyframes pointer-0{0%,13.6364%{transform:translate(520px,354px)}22.1591%,100%{transform:translate(190.6px,156px)}}.pointer-0{animation:pointer-0 8.8s cubic-bezier(.2,.7,.3,1) infinite}
+@keyframes scene-1{0%{opacity:0}49.9886%{opacity:0}50.0000%{opacity:1}99.9886%{opacity:1}100.0000%{opacity:0}100%{opacity:0}} .scene-1{animation:scene-1 8.8s steps(1) infinite}
+@keyframes hover-1{0%{opacity:0}72.7159%{opacity:0}72.7273%{opacity:1}98.2841%{opacity:1}98.2955%{opacity:0}100%{opacity:0}} .hover-1{animation:hover-1 8.8s steps(1) infinite}
+@keyframes pointer-1{0%,63.6364%{transform:translate(520px,354px)}72.1591%,100%{transform:translate(143.8px,133px)}}.pointer-1{animation:pointer-1 8.8s cubic-bezier(.2,.7,.3,1) infinite}
+@media(prefers-reduced-motion:reduce){.scene{animation:none!important;opacity:0}.scene.final{opacity:1}.motion,.progress,.resolved{animation:none!important;transform:none!important}.typing-caret,.pointer,.hover,.checking{display:none!important}.resolved{opacity:1!important}}
+</style>
+<rect x=".5" y=".5" width="999" height="413" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+<path d="M12 1H988Q999 1 999 12V42H1V12Q1 1 12 1" fill="var(--bar)"/>
+<text x="20" y="26" class="heading">PostgreSQL</text><text x="120" y="26" class="label">/ Declare identities once. Keep them in queries.</text>
+<path d="M590 42V381M1 76H999M1 381H999" stroke="var(--line)" fill="none"/>
+<text x="610" y="64" class="heading">Inferred types</text>
+<g class="scene scene-0">
+<text x="18" y="64" class="heading">schema/brands.ts</text><path d="M10 75h160" stroke="var(--accent)" stroke-width="2"/><text x="198" y="64" class="label">queries/orders.sql</text>
+
+
+<text x="22" y="106" class="line-number">1</text><text x="46" y="106" class="code" font-size="13"><tspan class="keyword">export</tspan> <tspan class="keyword">const</tspan> brands = {</text>
+<text x="22" y="129" class="line-number">2</text><text x="46" y="129" class="code" font-size="13">  columns: {</text>
+<text x="22" y="152" class="line-number">3</text><text x="46" y="152" class="code" font-size="13">    users: { id: </text>
+<defs><clipPath id="typing-0"><rect width="63.4" height="23" class="reveal-0 reveal motion"/></clipPath></defs>
+<g transform="translate(178.6 135)"><g clip-path="url(#typing-0)"><text x="0" y="17" class="code" font-size="13"><tspan class="string">&quot;UserId&quot;</tspan></text></g><rect x="0" y="1" width="1.5" height="20" fill="var(--accent)" class="caret-0 typing-caret motion"/></g>
+<g class="suffix-0 typing-suffix motion"><text x="241" y="152" class="code" font-size="13"> },</text></g>
+<text x="22" y="175" class="line-number">4</text><text x="46" y="175" class="code" font-size="13">    orders: {</text>
+<text x="22" y="198" class="line-number">5</text><text x="46" y="198" class="code" font-size="13">      id: <tspan class="string">&quot;OrderId&quot;</tspan>,</text>
+<text x="22" y="221" class="line-number">6</text><text x="46" y="221" class="code" font-size="13">      user_id: <tspan class="string">&quot;UserId&quot;</tspan></text>
+<text x="22" y="244" class="line-number">7</text><text x="46" y="244" class="code" font-size="13">    }</text>
+<text x="22" y="267" class="line-number">8</text><text x="46" y="267" class="code" font-size="13">  }</text>
+<text x="22" y="290" class="line-number">9</text><text x="46" y="290" class="code" font-size="13">} <tspan class="keyword">as</tspan> <tspan class="keyword">const</tspan>;</text>
+<g class="resolved-0 resolved"><text x="610" y="103" class="label">Result row · queries/orders.sql</text><text x="610" y="128" class="code" font-size="14">{</text>
+<text x="610" y="151" class="code" font-size="14">  <tspan class="string">&quot;id&quot;</tspan>: <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;OrderId&quot;</tspan>&gt;;</text>
+<text x="610" y="174" class="code" font-size="14">  <tspan class="string">&quot;user_id&quot;</tspan>: <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;;</text>
+<text x="610" y="197" class="code" font-size="14">}</text>
+<text x="610" y="242" class="label">Bound parameters</text><text x="610" y="267" class="code" font-size="13"><tspan class="keyword">readonly</tspan> [</text>
+<text x="610" y="290" class="code" font-size="13">  <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;,</text>
+<text x="610" y="313" class="code" font-size="13">  <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;</text>
+<text x="610" y="336" class="code" font-size="13">]</text>
+<circle cx="18" cy="398" r="3" fill="var(--ok)"/>
+<text x="30" y="402" class="label">withSchemaBrands(snapshot, brands) · explicit identities</text></g>
+<g class="checking-0 checking"><text x="610" y="103" class="label">Checking the edit…</text><text x="18" y="402" class="label">Analyzing…</text></g>
+<g class="pointer-0 pointer motion"><path d="M0 0L2 20L7 15L12 24L16 22L11 13L18 12Z" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/></g>
+<g class="hover-0 hover"><path d="M178.6 156h62.4" stroke="var(--accent)"/>
+<rect x="54" y="172" width="510" height="75" rx="7" fill="var(--bar)" stroke="var(--line)"/>
+<text x="68" y="194" class="label">Column identity · users.id</text>
+<text x="68" y="218" class="code" font-size="13"><tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;</text></g>
+</g>
+<g class="scene scene-1 final">
+<text x="18" y="64" class="label">schema/brands.ts</text><text x="198" y="64" class="heading">queries/orders.sql</text><path d="M190 75h160" stroke="var(--accent)" stroke-width="2"/>
+
+<rect x="38" y="112" width="540" height="23" rx="3" fill="var(--tint)"/>
+<text x="22" y="106" class="line-number">1</text><text x="46" y="106" class="code" font-size="13">-- name: ordersByCustomer</text>
+<text x="22" y="129" class="line-number">2</text><text x="46" y="129" class="code" font-size="13"><tspan class="sql">SELECT</tspan> id, user_id <tspan class="sql">FROM</tspan> orders</text>
+<text x="22" y="152" class="line-number">3</text><text x="46" y="152" class="code" font-size="13"><tspan class="sql">WHERE</tspan> user_id = <tspan class="value">:userId</tspan> <tspan class="sql">OR</tspan> user_id = <tspan class="value">:userId</tspan>;</text>
+<text x="22" y="175" class="line-number">4</text><text x="46" y="175" class="code" font-size="13"></text>
+<g class=" resolved"><text x="610" y="103" class="label">Result row · queries/orders.sql</text><text x="610" y="128" class="code" font-size="14">{</text>
+<text x="610" y="151" class="code" font-size="14">  <tspan class="string">&quot;id&quot;</tspan>: <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;OrderId&quot;</tspan>&gt;;</text>
+<text x="610" y="174" class="code" font-size="14">  <tspan class="string">&quot;user_id&quot;</tspan>: <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;;</text>
+<text x="610" y="197" class="code" font-size="14">}</text>
+<text x="610" y="242" class="label">Bound parameters</text><text x="610" y="267" class="code" font-size="13"><tspan class="keyword">readonly</tspan> [</text>
+<text x="610" y="290" class="code" font-size="13">  <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;,</text>
+<text x="610" y="313" class="code" font-size="13">  <tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;</text>
+<text x="610" y="336" class="code" font-size="13">]</text>
+<circle cx="18" cy="398" r="3" fill="var(--ok)"/>
+<text x="30" y="402" class="label">Brand is imported from @typed-sql/core</text></g>
+<g class="hidden checking"><text x="610" y="103" class="label">Checking the edit…</text><text x="18" y="402" class="label">Analyzing…</text></g>
+<g class="pointer-1 pointer motion"><path d="M0 0L2 20L7 15L12 24L16 22L11 13L18 12Z" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/></g>
+<g class="hover-1 hover"><path d="M131.8 133h54.6" stroke="var(--accent)"/>
+<rect x="54" y="149" width="510" height="75" rx="7" fill="var(--bar)" stroke="var(--line)"/>
+<text x="68" y="171" class="label">Column · orders.user_id</text>
+<text x="68" y="195" class="code" font-size="13"><tspan class="type">Brand</tspan>&lt;<tspan class="type">bigint</tspan>, <tspan class="string">&quot;UserId&quot;</tspan>&gt;</text></g>
+</g>
+<rect x="1" y="412" width="998" height="1.5" fill="var(--accent)" class="progress"/>
+</svg>

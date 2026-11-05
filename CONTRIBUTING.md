@@ -203,6 +203,10 @@ links. Run `pnpm docs:check` before opening a pull request.
 Run `pnpm docs:build` to apply the same broken-link and static-rendering checks used for GitHub
 Pages.
 
+The README feature animations are native SVGs generated from checked playground query contracts.
+Run `pnpm typecheck` before `pnpm docs:demos` to regenerate them, or `pnpm docs:demos:check` to detect
+stale assets. Review typing, hover, file-tab, light/dark, and reduced-motion states in a browser.
+
 Maintainer procedures, release mechanics, and automation instructions belong in `AGENTS.md` or
 repository configuration rather than the public documentation.
 

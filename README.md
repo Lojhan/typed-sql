@@ -8,8 +8,6 @@
 typed-sql checks SQL against a snapshot of your database and infers result rows and parameter types.
 Keep your SQL, database driver, connections and migrations.
 
-[![Playground demo: named and positional bindings, branded IDs, mapped inserts, and nested JSON inference](./docs/assets/typed-sql.gif)](https://lojhan.github.io/typed-sql/playground)
-
 [Try the playground](https://lojhan.github.io/typed-sql/playground) ·
 [Get started](./docs/getting-started/index.md) ·
 [Documentation](https://lojhan.github.io/typed-sql/)
@@ -40,6 +38,10 @@ Unsupported or ambiguous SQL receives a diagnostic or `unknown`.
 
 ## SQL files, named arguments, and positional bindings
 
+### Named arguments
+
+![Named bindings: a repeated userId, a rejected string argument, and a corrected bigint call](./docs/assets/typed-sql-named.svg)
+
 Import a `.sql` file through a [build integration](./docs/integrations/index.md). A repeated name
 is one factory argument and two bound values:
 
@@ -56,6 +58,10 @@ const query = ordersByCustomer({ userId: 42n });
 // Parameter tuple: readonly [bigint, bigint]
 // ordersByCustomer({ userId: "42" }) → TypeScript error
 ```
+
+### Positional bindings
+
+![PostgreSQL positional bindings: reordering SQL occurrences updates the bound parameter tuple](./docs/assets/typed-sql-positional.svg)
 
 PostgreSQL numbered parameters can repeat and appear in a different order:
 
@@ -74,11 +80,21 @@ const query = account(42n, "excluded@example.com");
 ```
 
 MySQL and SQLite `?` arguments follow occurrence order. Mixed styles, unused numeric gaps, and
-incompatible repeated types produce diagnostics. Add `UserId` and `OrderId` brands to schema columns
-to keep identities distinct in arguments and results. See the
+incompatible repeated types produce diagnostics.
+
+### Branded identities
+
+![Branded identities: column configuration flows into inferred result rows and parameters](./docs/assets/typed-sql-brands.svg)
+
+Add `UserId` and `OrderId` brands to schema columns to keep identities distinct in arguments and
+results. See the
 [SQL files and application identities walkthrough](./docs/examples/sql-files-and-identities.md).
 
 ## Compose collections and infer nested results
+
+### Mapped inserts
+
+![Mapped insert: a collection stays parameterized and adding a RETURNING column updates the result type](./docs/assets/typed-sql-map.svg)
 
 Use `.map()` with explicit fragments for one insert over a runtime-sized collection:
 
@@ -106,6 +122,10 @@ Each item contributes bound values; the returned row is
 `{ id: bigint; sku: string; price_cents: number }`. Dynamic collection lengths produce a readonly
 parameter array; fixed-size fragment tuples can retain an exact parameter tuple.
 [Multi-row inserts](./docs/examples/multi-row-insert.md) explains both forms.
+
+### Nested JSON
+
+![Nested JSON: renaming an object key in SQL updates the inferred shape while preserving nested item arrays](./docs/assets/typed-sql-json.svg)
 
 PostgreSQL JSON constructors preserve the shape they build:
 
