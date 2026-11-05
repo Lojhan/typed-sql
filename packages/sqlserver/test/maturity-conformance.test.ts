@@ -368,4 +368,19 @@ await describe("SQL Server vendor-backed conformance-v2 maturity corpus", async 
     strict.ok(relations?.some((d) => d.name === "widgets"));
     strict.ok(!relations?.some((d) => d.name === "selected"));
   });
+  await it("retains legitimate prototype-like JSON keys without inherited properties", () => {
+    const result = grammar.analyze(
+      "SELECT JSON_OBJECT('__proto__':id,'constructor':quantity) AS value FROM dbo.widgets",
+      snapshot,
+      { ...grammar.defaultTypePolicy, json: "parsed" },
+    );
+    strict.deepEqual(result.diagnostics, []);
+    strict.equal(result.columns[0]?.tsType, '{ "__proto__": number; "constructor": number; }');
+    const shape = result.columns[0]?.json?.shape;
+    strict.equal(shape?.kind, "object");
+    if (shape?.kind === "object") {
+      strict.deepEqual(Object.keys(shape.properties), ["__proto__", "constructor"]);
+      strict.equal(Object.hasOwn(shape.properties, "__proto__"), true);
+    }
+  });
 });
