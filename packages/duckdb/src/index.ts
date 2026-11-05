@@ -57,7 +57,7 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
             "TSQ402",
           );
         try {
-          assertDuckDBSemanticEvidence(snapshot.server, false);
+          assertDuckDBSemanticEvidence(snapshot.server);
         } catch (error) {
           throw new DuckDBParseError(
             error instanceof Error ? error.message : "Unsupported DuckDB semantic settings",

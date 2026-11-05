@@ -1,12 +1,13 @@
 import { describe, it, strict } from "poku";
 import { duckDBServerEvidence, duckdb } from "../src/index.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
+import { fixtureEvidence } from "./helpers/evidence.js";
 
 const snapshot: DuckDBSchemaSnapshot = {
   formatVersion: 1,
   dialect: "duckdb",
   dialectVersion: "1.0.0",
-  server: duckDBServerEvidence("v2.0.0", [], { currentCatalog: "db", currentSchema: "main" }),
+  server: fixtureEvidence("v2.0.0", { currentCatalog: "db", currentSchema: "main" }),
   tables: {
     '"db"."main"."users"': {
       name: "users",
@@ -134,7 +135,7 @@ await it("binds lambda variables, nested closures and versioned arrow syntax", (
     "SELECT MAP {'a':1}+1 AS value",
   ])
     strict.ok(duckdb().analyze(query, snapshot).diagnostics.length, query);
-  const legacy = { ...snapshot, server: duckDBServerEvidence("1.5.6") };
+  const legacy = { ...snapshot, server: fixtureEvidence("1.5.6") };
   strict.deepEqual(duckdb().analyze("SELECT list_transform([1],x -> x+1) AS value", legacy).diagnostics, []);
   const collision = duckdb().analyze("SELECT id::VARCHAR AS id FROM users WHERE id=$1", snapshot);
   strict.deepEqual(collision.diagnostics, []);
@@ -158,4 +159,24 @@ await it("recognizes canonical named binds in expressions without consuming nati
     ),
     ["value"],
   );
+});
+await it("requires recorded critical settings rather than invented snapshot defaults", () => {
+  for (const version of ["1.5.6", "2.0.0"]) {
+    const complete = fixtureEvidence(version);
+    for (const name of [
+      "Calendar",
+      "integer_division",
+      "preserve_identifier_case",
+      ...(version === "1.5.6" ? ["old_implicit_casting"] : []),
+    ]) {
+      const settings = { ...complete.settings };
+      delete settings[name];
+      const target = { ...snapshot, server: duckDBServerEvidence(version, [], settings) };
+      strict.equal(duckdb().analyze("SELECT 1 AS value", target).diagnostics[0]?.code, "TSQ402", `${version}:${name}`);
+    }
+  }
+  const parameters = duckdb().parameterOccurrences!("SELECT ((:id))::BIGINT", snapshot);
+  strict.equal(parameters[0]?.name, "id");
+  strict.equal(parameters[0]?.range.start, 9);
+  strict.equal(parameters[0]?.range.end, 12);
 });

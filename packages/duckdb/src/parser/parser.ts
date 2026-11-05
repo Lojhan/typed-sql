@@ -264,7 +264,7 @@ export class DuckDBParser {
         slot = this.named.size + 1;
         this.named.set(name, slot);
       }
-      return { kind: "parameter", value: String(slot), range: this.range(range) };
+      return { kind: "parameter", value: String(slot), parameterRange: this.range(range), range: this.range(range) };
     }
     if (token.kind === "parameter") {
       let value: string;
@@ -281,7 +281,7 @@ export class DuckDBParser {
       }
       if (!/^[1-9]\d*$/u.test(value) || Number(value) > 65535)
         throw new DuckDBParseError("Invalid DuckDB parameter slot", range);
-      return { kind: "parameter", value, range };
+      return { kind: "parameter", value, parameterRange: range, range };
     }
     if (["NOT", "+", "-", "~", "EXISTS"].includes(upper))
       return { kind: "unary", value: upper, left: this.expression(upper === "NOT" ? 3 : 8), range: this.range(range) };
@@ -367,6 +367,7 @@ export class DuckDBParser {
         } while (this.accept(",") && !this.is("}"));
         this.expect("}");
       }
+      if (!names.length) throw new DuckDBParseError("STRUCT literal requires a field", range, "TSQ201");
       return { kind: "struct", names, args, range: this.range(range) };
     }
     if (upper === "CASE") {
@@ -783,6 +784,16 @@ export class DuckDBParser {
       return { name, value: this.expression() };
     });
   }
+  grouping(): Expression {
+    const start = this.token().range;
+    if (this.accept("GROUPING")) {
+      this.expect("SETS");
+      this.expect("(");
+      const args = this.list(() => this.expression(), ")");
+      return { kind: "call", names: ["grouping_sets"], args, range: this.range(start) };
+    }
+    return this.expression();
+  }
   select(start: SourceRange, ctes: readonly CommonTable[]): Statement {
     const fromFirst = this.accept("FROM"),
       initialRelations = fromFirst ? this.relations() : undefined;
@@ -806,7 +817,7 @@ export class DuckDBParser {
     if (this.accept("GROUP")) {
       this.expect("BY");
       if (this.accept("ALL")) groupAll = true;
-      else group = this.list(() => this.expression());
+      else group = this.list(() => this.grouping());
     }
     const having = this.accept("HAVING") ? this.expression() : undefined;
     const windows = this.accept("WINDOW")
@@ -844,8 +855,19 @@ export class DuckDBParser {
         const all = this.accept("ALL");
         if (!all) this.accept("DISTINCT");
         const byName = this.accept("BY");
-        if (byName) this.expect("NAME");
-        set = { operation, all, byName, right: this.statement() };
+        if (byName) {
+          this.expect("NAME");
+          if (operation !== "UNION")
+            throw new DuckDBParseError("BY NAME applies only to UNION", this.token().range, "TSQ201");
+        }
+        if (order || limit || offset)
+          throw new DuckDBParseError("Set operand ORDER/LIMIT requires parentheses", this.token().range, "TSQ201");
+        const right = this.statement();
+        order = right.order ? [...right.order] : undefined;
+        limit = right.limit;
+        offset = right.offset;
+        const { order: _order, limit: _limit, offset: _offset, ...operand } = right;
+        set = { operation, all, byName, right: operand };
         break;
       }
     }
@@ -898,12 +920,13 @@ export function duckDBParameterOccurrences(source: string) {
   return parameters
     .sort((a, b) => a.range.start - b.range.start)
     .map((parameter) => {
-      const text = source.slice(parameter.range.start, parameter.range.end),
+      const range = parameter.parameterRange ?? parameter.range;
+      const text = source.slice(range.start, range.end),
         named = /^[$:][\p{L}_]/u.test(text);
       return {
         index: named ? 0 : Number(parameter.value),
         ...(named ? { name: text.slice(1) } : {}),
-        range: parameter.range,
+        range,
       };
     });
 }

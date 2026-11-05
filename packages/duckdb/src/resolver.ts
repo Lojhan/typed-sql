@@ -12,7 +12,13 @@ import { duckDBBuiltinSignatures } from "./catalog/index.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import { type DuckDBType, duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { tokenize } from "./parser/tokenizer.js";
-import type { Expression, Projection, Relation, Statement } from "./parser/types.js";
+import {
+  duckDBExpressionChildren,
+  type Expression,
+  type Projection,
+  type Relation,
+  type Statement,
+} from "./parser/types.js";
 import type { DuckDBSchemaSnapshot } from "./snapshot.js";
 import { type DuckDBTypePolicy, duckDBRuntimeType, duckDBTypeScript } from "./type-policy.js";
 
@@ -35,6 +41,7 @@ interface Scope {
   readonly aliases: Map<string, Value>;
   readonly ctes: Map<string, readonly Field[]>;
   readonly windowNames?: ReadonlySet<string>;
+  readonly aggregateScope?: Scope;
 }
 const scalar = (name: string): DuckDBType => ({ kind: "scalar", name }),
   unknown: Value = { type: scalar("ANY"), nullable: true },
@@ -136,6 +143,10 @@ export class DuckDBResolver {
   readonly parameters = new Map<number, { value: Value; range: SourceRange }>();
   readonly dependencies: QueryDependency[] = [];
   private calls = 0;
+  private effect: "read" | "write" | "ddl" | "unknown" = "read";
+  private volatile = false;
+  private unknownVolatility = false;
+  private sessionAffinity = false;
   constructor(
     readonly snapshot: DuckDBSchemaSnapshot,
     readonly policy: DuckDBTypePolicy,
@@ -146,17 +157,13 @@ export class DuckDBResolver {
   recordParameter(expr: Expression, value: Value): void {
     const index = Number(expr.value),
       old = this.parameters.get(index);
-    if (old && old.value.type.kind !== "scalar" && value.type.kind === "scalar" && value.type.name === "ANY") return;
-    if (
-      old &&
-      old.value.type.kind === "scalar" &&
-      old.value.type.name !== "ANY" &&
-      !same(old.value.type, value.type) &&
-      !(value.type.kind === "scalar" && value.type.name === "ANY")
-    ) {
+    const unconstrained = (type: DuckDBType) => type.kind === "scalar" && ["ANY", "NULL"].includes(type.name);
+    if (old && unconstrained(value.type) && !unconstrained(old.value.type)) return;
+    if (old && !unconstrained(old.value.type) && !unconstrained(value.type) && !same(old.value.type, value.type)) {
       this.error("Repeated parameter has incompatible native types", expr.range, "TSQ202");
       return;
     }
+    if (value.type.kind === "scalar" && value.type.name === "NULL") value = old?.value ?? unknown;
     this.parameters.set(index, { value, range: expr.range });
   }
   infer(expr: Expression, scope: Scope, expected?: Value): Value {
@@ -247,7 +254,9 @@ export class DuckDBResolver {
               name.toUpperCase().includes("DATE")
                 ? "DATE"
                 : name.toUpperCase().includes("TIMESTAMP")
-                  ? "TIMESTAMPTZ"
+                  ? name.toUpperCase() === "LOCALTIMESTAMP"
+                    ? "TIMESTAMP"
+                    : "TIMESTAMPTZ"
                   : "TIME",
             ),
             nullable: false,
@@ -410,7 +419,7 @@ export class DuckDBResolver {
         if (base.type.kind === "tuple") {
           const index = Number(expr.args?.[0]?.value) - 1;
           if (Number.isInteger(index) && base.type.elements[index])
-            return { type: base.type.elements[index]!, nullable: base.nullable };
+            return { type: base.type.elements[index]!, nullable: true };
         }
         this.error("Indexing needs a known native list/array/map/tuple", expr.range, "TSQ201");
         return unknown;
@@ -432,6 +441,198 @@ export class DuckDBResolver {
         return unknown;
       }
     }
+  }
+  aggregate(expression: Expression): boolean {
+    if (expression.kind !== "call" || expression.window) return false;
+    const name = expression.names?.at(-1)?.toLowerCase() ?? "";
+    return (
+      ["json_group_array", "json_group_object"].includes(name) ||
+      (this.snapshot.formatVersion === 2 &&
+        Object.values(this.snapshot.routines)
+          .flat()
+          .some(
+            (routine) => routine.kind === "aggregate" && duckDBAsciiFold(routine.name) === duckDBAsciiFold(name),
+          )) ||
+      duckDBBuiltinSignatures(this.snapshot.server?.versionKey ?? "", name).some(
+        (signature) => signature[1] === "aggregate",
+      )
+    );
+  }
+  groupingExpressions(expression: Expression): readonly Expression[] {
+    if (
+      expression.kind === "call" &&
+      ["cube", "rollup", "grouping_sets"].includes(expression.names?.at(-1)?.toLowerCase() ?? "")
+    )
+      return (expression.args ?? []).flatMap((item) =>
+        item.kind === "tuple" ? (item.args ?? []) : this.groupingExpressions(item),
+      );
+    return [expression];
+  }
+  validateGrouping(statement: Statement, scope: Scope): void {
+    if (statement.kind !== "select") return;
+    const aliases = new Map(
+      statement.projections.filter((item) => item.alias).map((item) => [duckDBAsciiFold(item.alias!), item.expression]),
+    );
+    const expand = (expression: Expression, seen = new Set<string>()): Expression => {
+      if (expression.kind !== "name" || expression.left || expression.names?.length !== 1) return expression;
+      const name = duckDBAsciiFold(expression.names[0]!);
+      if (scope.fields.some((field) => !field.usingHidden && duckDBAsciiFold(field.name) === name)) return expression;
+      const alias = aliases.get(name);
+      if (!alias || seen.has(name)) return expression;
+      seen.add(name);
+      return expand(alias, seen);
+    };
+    let work = 0;
+    const budget = (expression: Expression, depth: number): boolean => {
+      if (++work > 100000 || depth > 128) {
+        if (work <= 100001) this.error("DuckDB grouping/alias expansion limit", expression.range, "TSQ002");
+        return false;
+      }
+      return true;
+    };
+    const key = (input: Expression, depth = 0): string => {
+      if (!budget(input, depth)) return "expansion-limit";
+      const expression = expand(input);
+      if (expression.kind === "name" && !expression.left) {
+        const names = expression.names ?? [],
+          name = names.at(-1) ?? "",
+          candidates = scope.fields.filter(
+            (field) =>
+              duckDBAsciiFold(field.name) === duckDBAsciiFold(name) &&
+              (names.length !== 1 || !field.usingHidden) &&
+              (names.length === 1 || duckDBAsciiFold(field.relation ?? "") === duckDBAsciiFold(names.at(-2) ?? "")),
+          );
+        if (candidates.length === 1)
+          return `column:${duckDBAsciiFold(candidates[0]!.relation ?? "")}:${duckDBAsciiFold(name)}`;
+      }
+      return JSON.stringify([
+        expression.kind,
+        expression.value,
+        expression.names?.map(duckDBAsciiFold),
+        expression.nativeType,
+        duckDBExpressionChildren(expression).map((child) => key(child, depth + 1)),
+      ]);
+    };
+    const has = (input: Expression, predicate: (expression: Expression) => boolean, depth = 0): boolean => {
+      if (!budget(input, depth)) return false;
+      const expression = expand(input);
+      return (
+        predicate(expression) || duckDBExpressionChildren(expression).some((child) => has(child, predicate, depth + 1))
+      );
+    };
+    const projections = statement.projections.map((item) => item.expression),
+      groups = (statement.group ?? [])
+        .flatMap((expression) => this.groupingExpressions(expression))
+        .map((expression) => {
+          if (expression.kind === "literal" && /^[1-9]\d*$/u.test(expression.value ?? "")) {
+            const projection = projections[Number(expression.value) - 1];
+            if (!projection) {
+              this.error("GROUP BY ordinal exceeds projection count", expression.range, "TSQ201");
+              return expression;
+            }
+            return projection;
+          }
+          return expand(expression);
+        });
+    const aggregating = Boolean(
+      statement.groupAll ||
+        (statement.group?.length ?? 0) ||
+        statement.having ||
+        [...projections, ...(statement.order ?? [])].some((expression) =>
+          has(expression, (item) => this.aggregate(item)),
+        ),
+    );
+    const grouped = new Set(groups.map((expression) => key(expression)));
+    if (
+      !statement.group?.length &&
+      projections.some((expression) =>
+        has(
+          expression,
+          (item) =>
+            item.kind === "call" && ["grouping", "grouping_id"].includes(item.names?.at(-1)?.toLowerCase() ?? ""),
+        ),
+      )
+    )
+      this.error("GROUPING requires GROUP BY expressions", statement.range, "TSQ201");
+    if (statement.groupAll)
+      for (const expression of projections)
+        if (!has(expression, (item) => this.aggregate(item) || Boolean(item.window))) grouped.add(key(expression));
+    const check = (
+      input: Expression,
+      allowAggregate: boolean,
+      allowWindow: boolean,
+      insideAggregate = false,
+      depth = 0,
+    ): void => {
+      if (!budget(input, depth)) return;
+      const expression = expand(input),
+        aggregate = this.aggregate(expression);
+      if (aggregate) {
+        if (!allowAggregate || insideAggregate)
+          this.error("Aggregate is not valid in this expression context", expression.range, "TSQ201");
+        for (const child of duckDBExpressionChildren(expression)) check(child, true, false, true, depth + 1);
+        return;
+      }
+      if (expression.window && !allowWindow)
+        this.error("Window expression is not valid in this context", expression.range, "TSQ201");
+      for (const child of duckDBExpressionChildren(expression))
+        check(child, allowAggregate, allowWindow && !expression.window, insideAggregate, depth + 1);
+    };
+    for (const expression of [statement.where, ...groups].filter((value): value is Expression => value !== undefined))
+      check(expression, false, false);
+    for (const relation of statement.relations) if (relation.condition) check(relation.condition, false, false);
+    if (statement.having) check(statement.having, true, false);
+    for (const expression of [
+      ...projections,
+      ...(statement.order ?? []),
+      ...(statement.qualify ? [statement.qualify] : []),
+    ])
+      check(expression, true, true);
+    if (
+      statement.qualify &&
+      ![...projections, statement.qualify].some((expression) => has(expression, (item) => Boolean(item.window)))
+    )
+      this.error("QUALIFY requires a window expression", statement.qualify.range, "TSQ201");
+    if (!aggregating) return;
+    const groupedValue = (input: Expression, depth = 0, locals: ReadonlySet<string> = new Set()): void => {
+      if (!budget(input, depth)) return;
+      if (input.kind === "name" && input.names?.length === 1 && locals.has(duckDBAsciiFold(input.names[0]!))) return;
+      const expression = expand(input);
+      if (
+        expression.kind === "lambda" ||
+        (expression.kind === "binary" && expression.value === "->" && expression.left?.kind === "name")
+      ) {
+        const names = expression.names ?? expression.left?.names ?? [];
+        if (expression.right)
+          groupedValue(expression.right, depth + 1, new Set([...locals, ...names.map(duckDBAsciiFold)]));
+        return;
+      }
+      if (grouped.has(key(expression)) || this.aggregate(expression) || expression.kind === "subquery") return;
+      if (expression.kind === "name" && !expression.left) {
+        if (
+          scope.fields.some(
+            (field) =>
+              !field.usingHidden && duckDBAsciiFold(field.name) === duckDBAsciiFold(expression.names?.at(-1) ?? ""),
+          )
+        )
+          this.error("Column must be grouped or aggregated", expression.range, "TSQ201");
+        return;
+      }
+      if (expression.kind === "star") {
+        for (const field of scope.fields.filter((field) => !field.usingHidden))
+          if (!grouped.has(`column:${duckDBAsciiFold(field.relation ?? "")}:${duckDBAsciiFold(field.name)}`))
+            this.error("Star includes an ungrouped column", expression.range, "TSQ201");
+        return;
+      }
+      for (const child of duckDBExpressionChildren(expression)) groupedValue(child, depth + 1, locals);
+    };
+    for (const expression of [
+      ...projections,
+      ...(statement.order ?? []),
+      ...(statement.having ? [statement.having] : []),
+      ...(statement.qualify ? [statement.qualify] : []),
+    ])
+      groupedValue(expression);
   }
   collectionLambda(expr: Expression, scope: Scope): Value {
     const name = expr.names?.at(-1)?.toLowerCase() ?? "",
@@ -497,6 +698,7 @@ export class DuckDBResolver {
     for (const binding of bindings) aliases.delete(duckDBAsciiFold(binding.name));
     const local: Scope = {
       ...scope,
+      aggregateScope: scope.aggregateScope ?? scope,
       aliases,
       fields: [
         ...scope.fields.filter((field) => !names.some((name) => duckDBAsciiFold(name) === duckDBAsciiFold(field.name))),
@@ -522,6 +724,8 @@ export class DuckDBResolver {
     };
   }
   call(expr: Expression, scope: Scope, expected?: Value): Value {
+    if (scope.aggregateScope && (this.aggregate(expr) || expr.window))
+      return this.call(expr, scope.aggregateScope, expected);
     const name = expr.names?.at(-1)?.toLowerCase() ?? "",
       args = expr.args ?? [];
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
@@ -588,6 +792,33 @@ export class DuckDBResolver {
     const version = this.snapshot.server?.versionKey ?? "";
     const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
     const signatures = duckDBBuiltinSignatures(version, builtinName);
+    const aggregate =
+      signatures.some((signature) => signature[1] === "aggregate") ||
+      ["json_group_array", "json_group_object"].includes(name);
+    const window =
+      signatures.some((signature) => signature[1] === "window") ||
+      [
+        "row_number",
+        "rank",
+        "dense_rank",
+        "percent_rank",
+        "cume_dist",
+        "ntile",
+        "lag",
+        "lead",
+        "first_value",
+        "last_value",
+        "nth_value",
+      ].includes(name);
+    if (
+      (expr.window && !aggregate && !window) ||
+      (expr.filter && !aggregate) ||
+      ((expr.context?.length ?? 0) > 0 && !expr.window && !aggregate)
+    ) {
+      this.error("Function does not support these aggregate/window modifiers", expr.range, "TSQ201");
+      return unknown;
+    }
+
     const matches = matchDuckDBBuiltin(
       version,
       builtinName,
@@ -626,6 +857,12 @@ export class DuckDBResolver {
     if (name === "if") {
       if (args[0]) this.infer(args[0], scope, bool(true));
       return nullableUnion(values.slice(1));
+    }
+    if (["percent_rank", "cume_dist"].includes(name)) return { type: scalar("DOUBLE"), nullable: false };
+    if (["grouping", "grouping_id"].includes(name)) {
+      if (!values.length || values.length > 63)
+        this.error("GROUPING needs one to63 grouped expressions", expr.range, "TSQ201");
+      return { type: scalar("BIGINT"), nullable: false };
     }
     if (name === "count_if") return { type: scalar("HUGEINT"), nullable: true };
     if (["count", "count_star", "row_number", "rank", "dense_rank", "ntile"].includes(name))
@@ -928,6 +1165,10 @@ export class DuckDBResolver {
     );
     if (exact.length === 1) {
       const routine = exact[0]!;
+      if (routine.dataAccess === "unknown" && this.effect === "read") this.effect = "unknown";
+      if (routine.volatility === "volatile") this.volatile = true;
+      if (routine.volatility === "unknown") this.unknownVolatility = true;
+
       if (routine.result.kind === "scalar" || routine.result.kind === "set") {
         for (let i = 0; i < args.length; i++)
           if (args[i]?.kind === "parameter")
@@ -1164,9 +1405,28 @@ export class DuckDBResolver {
     return "expression";
   }
   query(statement: Statement, parent: Scope = emptyScope()): Field[] {
+    if (["insert", "update", "delete", "merge", "create"].includes(statement.kind)) {
+      this.effect = statement.kind === "create" ? "ddl" : "write";
+      if (statement.target)
+        this.dependencies.push({
+          kind: "relation",
+          access: "write",
+          name: statement.target.at(-1)!,
+          ...(statement.target.length > 1 ? { schema: statement.target.at(-2)! } : {}),
+          certainty: "resolved",
+          range: statement.range,
+        });
+    }
+
     const ctes = new Map(parent.ctes);
     let scope: Scope = { fields: [...parent.fields], aliases: new Map(), ctes };
     for (const cte of statement.ctes) {
+      if (
+        ["insert", "update", "delete", "merge"].includes(cte.query.kind) &&
+        this.snapshot.server?.versionKey !== "2.0.0"
+      )
+        this.error("Modifying CTEs require DuckDB2.0", cte.query.range, "TSQ401");
+
       if (cte.recursive) {
         const anchor = cte.query.set ? { ...cte.query, set: undefined } : cte.query;
         const initial = this.query(anchor as Statement, { ...scope, ctes });
@@ -1196,6 +1456,23 @@ export class DuckDBResolver {
       if (relation.join !== "semi" && relation.join !== "anti") fields.push(...next);
       if (relation.condition)
         this.infer(relation.condition, { ...scope, fields: [...parent.fields, ...previous, ...next] }, bool(true));
+      if (
+        ["cross", "positional"].includes(relation.join ?? "") &&
+        (relation.condition || relation.using || relation.natural)
+      )
+        this.error("CROSS/POSITIONAL joins do not accept conditions", relation.range, "TSQ201");
+      if (["asof", "asof-left"].includes(relation.join ?? "") && !relation.using) {
+        const inequalities: Expression[] = [];
+        const visit = (expression: Expression): void => {
+          if (expression.kind === "binary" && ["<", "<=", ">", ">="].includes(expression.value ?? ""))
+            inequalities.push(expression);
+          for (const child of duckDBExpressionChildren(expression)) visit(child);
+        };
+        if (relation.condition) visit(relation.condition);
+        if (inequalities.length !== 1)
+          this.error("ASOF JOIN requires exactly one ordering inequality", relation.range, "TSQ201");
+      }
+
       if (relation.using || relation.natural) {
         const names =
           relation.using ??
@@ -1284,8 +1561,34 @@ export class DuckDBResolver {
     }
     let output = this.project(statement.kind === "select" ? statement.projections : (statement.returning ?? []), scope);
     if (statement.where) this.infer(statement.where, scope, bool(true));
+    this.validateGrouping(statement, scope);
+    if (
+      statement.group?.some(
+        (expression) =>
+          expression.kind === "call" &&
+          ["cube", "rollup", "grouping_sets"].includes(expression.names?.at(-1)?.toLowerCase() ?? ""),
+      )
+    ) {
+      const nullableKey = (expression: Expression): boolean =>
+        !this.aggregate(expression) &&
+        (expression.kind === "star" ||
+          (expression.kind === "name" &&
+            scope.fields.some(
+              (field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(expression.names?.at(-1) ?? ""),
+            )) ||
+          duckDBExpressionChildren(expression).some(nullableKey));
+      output = output.map((field) =>
+        statement.projections.some(
+          (projection) =>
+            projection.expression.range.start === field.range?.start && nullableKey(projection.expression),
+        )
+          ? { ...field, nullable: true }
+          : field,
+      );
+    }
+
     for (const expression of [
-      ...(statement.group ?? []),
+      ...(statement.group ?? []).flatMap((expression) => this.groupingExpressions(expression)),
       ...(statement.distinctOn ?? []),
       ...(statement.order ?? []),
       ...(statement.having ? [statement.having] : []),
@@ -1369,15 +1672,15 @@ export class DuckDBResolver {
       }));
     const writes = ["insert", "update", "delete", "merge", "create"].includes(statement.kind),
       evidence = [{ kind: "syntax" as const, description: "DuckDB statement AST", range: statement.range }];
-    if (writes && statement.target)
-      this.dependencies.push({
-        kind: "relation",
-        access: "write",
-        name: statement.target.at(-1)!,
-        ...(statement.target.length > 1 ? { schema: statement.target.at(-2)! } : {}),
-        certainty: "resolved",
-        range: statement.range,
-      });
+    const expands = (expression: Expression): boolean =>
+      (expression.kind === "call" && expression.names?.at(-1)?.toLowerCase() === "unnest") ||
+      duckDBExpressionChildren(expression).some(expands);
+    const scalarResult =
+      statement.kind === "select" &&
+      !statement.relations.length &&
+      !statement.set &&
+      !statement.projections.some((projection) => expands(projection.expression));
+    const zero = statement.limit?.kind === "literal" && statement.limit.value === "0";
     return {
       columns,
       parameters,
@@ -1385,17 +1688,28 @@ export class DuckDBResolver {
       resultKind: writes && !statement.returning ? "command" : "rows",
       semantics: defineQuerySemantics({
         version: 1,
-        operation: { value: writes ? (statement.kind === "create" ? "ddl" : "write") : "read", evidence },
+        operation: { value: this.effect, evidence },
         dependencies: this.dependencies,
         cardinality: {
-          minimum: statement.kind === "select" && !statement.relations.length ? 1 : 0,
-          maximum:
-            (statement.kind === "select" && !statement.relations.length) || statement.limit?.value === "1" ? 1 : "many",
+          minimum:
+            scalarResult && !zero && !statement.where && !statement.having && !statement.qualify && !statement.offset
+              ? 1
+              : 0,
+          maximum: zero ? 0 : scalarResult || statement.limit?.value === "1" ? 1 : "many",
           evidence,
         },
-        volatility: { value: "unknown", evidence },
-        locking: { value: "none", evidence },
-        connectionAffinity: { value: writes ? "transaction" : "none", evidence },
+        volatility: { value: this.volatile ? "volatile" : this.unknownVolatility ? "unknown" : "stable", evidence },
+        locking: { value: this.effect === "read" ? "none" : "unknown", evidence },
+        connectionAffinity: {
+          value: this.sessionAffinity
+            ? "session"
+            : this.effect === "read"
+              ? "none"
+              : this.effect === "unknown"
+                ? "unknown"
+                : "transaction",
+          evidence,
+        },
         capabilities: [...(statement.set ? ["setOperations"] : []), ...(statement.returning ? ["returning"] : [])],
       }),
     };

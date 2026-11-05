@@ -1,5 +1,6 @@
 import { parseDuckDBType } from "../src/native-types.js";
 import { duckDBRuntimeType } from "../src/type-policy.js";
+import { fixtureEvidence } from "./helpers/evidence.js";
 
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
@@ -7,7 +8,7 @@ const sdk =
 import { type Query, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
-import { duckDBServerEvidence, duckdb, typePolicy } from "../src/index.js";
+import { duckdb, typePolicy } from "../src/index.js";
 import { adaptDuckDBConnection, createNodeDuckDBDatabase } from "../src/node-api.js";
 import { createDuckDBDatabase, type DuckDBDatabase } from "../src/runtime.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
@@ -16,7 +17,7 @@ const snapshot = (version: string): DuckDBSchemaSnapshot => ({
   formatVersion: 1,
   dialect: "duckdb",
   dialectVersion: "1.0.0",
-  server: duckDBServerEvidence(version),
+  server: fixtureEvidence(version),
   tables: {
     items: {
       name: "items",

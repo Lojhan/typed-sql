@@ -24,6 +24,7 @@ export interface Expression {
     | "lambda";
   readonly range: SourceRange;
   readonly value?: string;
+  readonly parameterRange?: SourceRange;
   readonly names?: readonly string[];
   readonly args?: readonly Expression[];
   readonly left?: Expression;
@@ -98,4 +99,15 @@ export interface Statement {
   readonly returning?: readonly Projection[];
   readonly byName?: boolean;
   readonly conflict?: boolean;
+}
+
+/** Child expressions in the current SQL scope; subqueries own independent binding scopes. */
+export function duckDBExpressionChildren(expression: Expression): readonly Expression[] {
+  return [
+    ...(expression.left ? [expression.left] : []),
+    ...(expression.right ? [expression.right] : []),
+    ...(expression.args ?? []),
+    ...(expression.filter ? [expression.filter] : []),
+    ...(expression.context ?? []),
+  ];
 }
