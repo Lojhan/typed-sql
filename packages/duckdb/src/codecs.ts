@@ -310,7 +310,7 @@ export function decodeDuckDBValue(
       if (name === "BLOB") {
         const bytes = value instanceof Uint8Array ? value : own(object(value, path), "bytes", path);
         if (!(bytes instanceof Uint8Array)) return fail(path, "expected native blob");
-        return bytes.slice();
+        return Uint8Array.from(bytes);
       }
       if (name === "INTERVAL") {
         const item = object(value, path);
@@ -469,7 +469,7 @@ export function encodeDuckDBValue(
       }
       if (name === "BLOB") {
         if (!(value instanceof Uint8Array)) return fail(path, "expected byte input");
-        return value.slice();
+        return Uint8Array.from(value);
       }
       if (name === "BOOLEAN") {
         if (typeof value !== "boolean") return fail(path, "expected boolean input");

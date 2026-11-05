@@ -1,5 +1,11 @@
 import { describe, it, strict } from "poku";
-import { decodeDuckDBValue, formatDuckDBTimestamp, parseDuckDBDecimal, parseDuckDBTemporal } from "../src/codecs.js";
+import {
+  decodeDuckDBValue,
+  encodeDuckDBValue,
+  formatDuckDBTimestamp,
+  parseDuckDBDecimal,
+  parseDuckDBTemporal,
+} from "../src/codecs.js";
 import { formatDuckDBType, parseDuckDBType } from "../src/native-types.js";
 import { duckDBRuntimeType, duckDBTypeScript } from "../src/type-policy.js";
 
@@ -63,4 +69,19 @@ await describe("DuckDB native structural types and exact policy", async () => {
     strict.throws(() => parseDuckDBTemporal("2025-02-29", "DATE"), /calendar/u);
     strict.throws(() => parseDuckDBTemporal("2026-01-01 00:00:00.000000001", "TIMESTAMP"), /precision/u);
   });
+});
+
+await it("owns Buffer-backed BLOB input and output without preserving Buffer or shared storage", () => {
+  const input = Buffer.from([1, 2, 3]),
+    type = parseDuckDBType("BLOB");
+  const decoded = decodeDuckDBValue(input, type) as Uint8Array;
+  const encoded = encodeDuckDBValue(input, type) as Uint8Array;
+  strict.equal(Object.getPrototypeOf(decoded), Uint8Array.prototype);
+  strict.equal(Object.getPrototypeOf(encoded), Uint8Array.prototype);
+  input[0] = 99;
+  strict.deepEqual(decoded, Uint8Array.of(1, 2, 3));
+  strict.deepEqual(encoded, Uint8Array.of(1, 2, 3));
+  decoded[1] = 88;
+  encoded[2] = 77;
+  strict.deepEqual(input, Buffer.from([99, 2, 3]));
 });

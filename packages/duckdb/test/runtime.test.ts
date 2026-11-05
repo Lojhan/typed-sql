@@ -406,6 +406,16 @@ await it("preserves native prepared cache identity through attached result valid
     strict.deepEqual(await database.one(sql.validateResult(factory(), schema)), { value: 1 });
     strict.deepEqual(await database.one(sql.validateResult(factory(), schema)), { value: 1 });
     strict.equal(prepares, 1);
+
+    const retired = factory();
+    await database.unprepare("validated");
+    strict.throws(() => factory(), /retired/u);
+    await strict.rejects(database.all(retired), /retired/u);
+    const again = database.prepare("validated", () =>
+      compiled<{ value: number }>("SELECT 2 AS value", [], sdk.version().slice(1)),
+    );
+    strict.deepEqual(await database.one(again()), { value: 2 });
+    strict.equal(prepares, 2);
   } finally {
     await database.close();
     connection.closeSync();
