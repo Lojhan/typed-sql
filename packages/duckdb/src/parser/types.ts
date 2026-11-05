@@ -2,6 +2,7 @@ import type { SourceRange } from "@typed-sql/core";
 export interface Token {
   readonly kind: "word" | "quoted" | "string" | "number" | "parameter" | "operator" | "eof";
   readonly text: string;
+  readonly modernEscapes?: boolean;
   readonly value: string;
   readonly range: SourceRange;
 }

@@ -67,10 +67,12 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
         }
         if (
           snapshot.server?.versionKey !== "2.0.0" &&
-          tokenize(source).some((token) => token.kind === "quoted" && token.text.startsWith("`"))
+          tokenize(source).some(
+            (token) => (token.kind === "quoted" && token.text.startsWith("`")) || token.modernEscapes,
+          )
         )
           throw new DuckDBParseError(
-            "Backtick identifiers require qualified DuckDB2.0 evidence",
+            "Backtick identifiers and modern escape-string bytes require qualified DuckDB2.0 evidence",
             { start: 0, end: source.length, line: 1, column: 1 },
             "TSQ401",
           );
