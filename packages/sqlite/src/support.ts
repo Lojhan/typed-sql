@@ -1,6 +1,6 @@
 export const SQLITE_LANGUAGE_SUPPORT = Object.freeze({
   minimum: "3.39.0",
-  maximum: "3.53.4",
+  maximum: "3.54.1",
   unknownVersion: "conservative",
   newerVersion: "conservative",
 } as const);

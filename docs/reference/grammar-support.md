@@ -16,7 +16,7 @@ The ranges below describe supported language lines. Exact server patches exercis
 | --- | --- | --- |
 | MySQL | 8.4, 9.7 | 26.7 |
 | PostgreSQL | 14, 15, 16, 17, 18 | 19 |
-| SQLite | 3.39.0–3.53.4 | 3.54.0 |
+| SQLite | 3.39.0–3.54.1 | None |
 
 ## Feature classifications
 

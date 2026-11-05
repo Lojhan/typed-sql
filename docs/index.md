@@ -171,7 +171,7 @@ repository.
   <article class="ts-dialect-card">
     <StatusBadge status="stable" />
     <h3>SQLite</h3>
-    <p>SQLite 3.39.0–3.53.4 grammar and PRAGMA catalog provider, with an optional <code>node:sqlite</code> adapter.</p>
+    <p>SQLite 3.39.0–3.54.1 grammar and PRAGMA catalog provider, with an optional <code>node:sqlite</code> adapter.</p>
     <a href="./dialects/sqlite">SQLite support <span aria-hidden="true">→</span></a>
   </article>
 </DialectCards>

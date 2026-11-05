@@ -555,16 +555,16 @@ jobs:
             url: https://www.sqlite.org/2022/sqlite-autoconf-3390000.tar.gz
             sha3: b8e5b3265992350d40c4ad31efc2e6dec6256813f1d5acc8f0ea805e9f33ca2a
             experimental: false
-          - label: sqlite-3.53.4-latest
+          - label: sqlite-3.53.4-regression
             version: 3.53.4
             url: https://www.sqlite.org/2026/sqlite-autoconf-3530400.tar.gz
             sha3: 454e45f61c6bd75b7420e7190732dea03ce6639c63ada47bbc592f67fc340338
             experimental: false
-          - label: sqlite-3.54.0-canary
-            version: 3.54.0
-            url: https://www.sqlite.org/snapshot/sqlite-snapshot-202607312245.tar.gz
-            sha3: f7487e5c39a4b89f87d3ddee618c25c65278987b98d30ebc2a8b6bb4e277065a
-            experimental: true
+          - label: sqlite-3.54.1-latest
+            version: 3.54.1
+            url: https://www.sqlite.org/2026/sqlite-autoconf-3540100.tar.gz
+            sha3: b6ced585c750916b1052667239a12c25a7ff34e7f06e1e6e01ecb0427657d9c4
+            experimental: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

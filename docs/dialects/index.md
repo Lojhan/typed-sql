@@ -13,7 +13,7 @@ compiler—owns SQL syntax, built-ins, coercions, nullability, version gates, an
 | --- | --- | --- |
 | [PostgreSQL](./postgresql.md) | Majors 14–18 | Application-owned `pg`; optional adapter at `@typed-sql/postgres/pg` |
 | [MySQL](./mysql.md) | 8.4 and 9.7 LTS series | Application-owned `mysql2`; optional adapter at `@typed-sql/mysql/mysql2` |
-| [SQLite](./sqlite.md) | 3.39.0–3.53.4 complete baseline | Injected connection or optional built-in `node:sqlite` adapter |
+| [SQLite](./sqlite.md) | 3.39.0–3.54.1 complete baseline | Injected connection or optional built-in `node:sqlite` adapter |
 
 These three grammar packages are on the stable package track. A stable range is not the same thing as
 the exact versions exercised by the repository. Each dialect page lists both, including non-blocking

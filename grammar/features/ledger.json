@@ -34,8 +34,8 @@
     "sqlite": {
       "title": "SQLite",
       "versionScheme": "numeric",
-      "stable": [{ "minimum": "3.39.0", "maximum": "3.53.4" }],
-      "canary": [{ "minimum": "3.54.0", "maximum": "3.54.0" }],
+      "stable": [{ "minimum": "3.39.0", "maximum": "3.54.1" }],
+      "canary": [],
       "sources": [
         {
           "title": "SQLite 3.39.0 release",
@@ -45,12 +45,12 @@
         {
           "title": "SQLite release history",
           "url": "https://www.sqlite.org/changes.html",
-          "vendorVersion": "3.53.4"
+          "vendorVersion": "3.54.1"
         },
         {
-          "title": "SQLite 3.54.0 prerelease snapshot",
-          "url": "https://www.sqlite.org/download.html",
-          "vendorVersion": "3.54.0"
+          "title": "SQLite 3.54.1 release",
+          "url": "https://www.sqlite.org/releaselog/3_54_1.html",
+          "vendorVersion": "3.54.1"
         }
       ]
     }
