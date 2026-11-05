@@ -73,7 +73,8 @@
     "e2e:build": "pnpm typecheck && pnpm --filter @typed-sql/e2e-build e2e",
     "docs:demos": "node --import tsx scripts/generate-readme-demos.ts",
     "docs:demos:check": "node --import tsx scripts/generate-readme-demos.ts --check",
-    "e2e:sqlite-wasm": "pnpm typecheck && node --import tsx e2e/sqlite-wasm/test.mjs"
+    "e2e:sqlite-wasm": "pnpm typecheck && node --import tsx e2e/sqlite-wasm/test.mjs",
+    "e2e:duckdb": "pnpm typecheck && pnpm --filter @typed-sql/e2e-duckdb e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
