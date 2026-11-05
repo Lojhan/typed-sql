@@ -964,6 +964,20 @@ export class DuckDBResolver {
       return unknown;
     }
     const values = args.filter((arg) => arg.kind !== "star").map((arg) => this.infer(arg, scope));
+    if (["in", "not in", "between", "not between"].includes(name)) {
+      const known = values.filter(
+        (value) => !(value.type.kind === "scalar" && ["ANY", "NULL"].includes(value.type.name)),
+      );
+      const target = this.unionValues(known).type;
+      if (known.length && !(target.kind === "scalar" && target.name === "ANY")) {
+        const context = known.find((value) => same(value.type, target)) ?? {
+          type: target,
+          nullable: known.some((value) => value.nullable),
+        };
+        for (let i = 0; i < args.length; i++)
+          if (args[i]?.kind === "parameter") values[i] = this.infer(args[i]!, scope, context);
+      }
+    }
     const version = this.snapshot.server?.versionKey ?? "";
     if (name === "sum_no_overflow" && version !== "2.0.0") {
       this.error("sum_no_overflow is internal-only on DuckDB1.5.6", expr.range, "TSQ401");

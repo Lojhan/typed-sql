@@ -79,6 +79,9 @@ await describe("DuckDB native execution and lifecycle", async () => {
           ),
           { id: 9223372036854775807n, name: "Ada", amount: "12345678901234567890.1200" },
         );
+        strict.deepEqual(await database.all(q("SELECT id FROM items WHERE id IN($1,$2)", [9223372036854775807n, 4n])), [
+          { id: 9223372036854775807n },
+        ]);
         const summary = await database.one(q("SUMMARIZE SELECT id FROM items"));
         strict.equal(summary.column_name, "id");
         strict.equal(summary.count, 1n);

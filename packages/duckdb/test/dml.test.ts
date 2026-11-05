@@ -18,6 +18,10 @@ await it(`qualifies DML aliases and conflict parameters on native DuckDB ${versi
     await database.queryable.all("CREATE TABLE users(id BIGINT PRIMARY KEY,email VARCHAR NOT NULL,team_id INTEGER)");
     const snapshot = await new DuckDBSchemaProvider({ client: database.queryable }).introspect();
     const queries = [
+      "SELECT id FROM users WHERE id IN($1,$2)",
+      "SELECT id FROM users WHERE id NOT IN($1,$2)",
+      "SELECT id FROM users WHERE id BETWEEN $1 AND $2",
+      "SELECT id FROM users WHERE $1 BETWEEN id AND $2",
       "INSERT INTO users(id,email) VALUES($1,$2) RETURNING id,email",
       "INSERT INTO users AS u(id,email) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET email=excluded.email WHERE u.id=$3 RETURNING u.id,u.email",
       "UPDATE users AS u SET email=$1 WHERE u.id=$2 RETURNING u.id,u.email",
@@ -75,10 +79,10 @@ await it(`qualifies DML aliases and conflict parameters on native DuckDB ${versi
         })),
       });
     };
-    strict.deepEqual(await database.all(compiled(queries[0]!, [1n, "first"])), [{ id: 1n, email: "first" }]);
-    strict.deepEqual(await database.all(compiled(queries[1]!, [1n, "second", 1n])), [{ id: 1n, email: "second" }]);
-    strict.deepEqual(await database.all(compiled(queries[2]!, ["third", 1n])), [{ id: 1n, email: "third" }]);
-    strict.deepEqual(await database.all(compiled(queries[3]!, [1n])), [{ id: 1n }]);
+    strict.deepEqual(await database.all(compiled(queries[4]!, [1n, "first"])), [{ id: 1n, email: "first" }]);
+    strict.deepEqual(await database.all(compiled(queries[5]!, [1n, "second", 1n])), [{ id: 1n, email: "second" }]);
+    strict.deepEqual(await database.all(compiled(queries[6]!, ["third", 1n])), [{ id: 1n, email: "third" }]);
+    strict.deepEqual(await database.all(compiled(queries[7]!, [1n])), [{ id: 1n }]);
     for (const text of [
       "INSERT INTO users(id,email) VALUES(1,'x') ON CONFLICT(id) DO UPDATE SET missing=$1",
       "INSERT INTO users(id,email) VALUES(1,'x') ON CONFLICT(missing) DO NOTHING",
