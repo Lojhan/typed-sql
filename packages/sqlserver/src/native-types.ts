@@ -1,7 +1,10 @@
+import { validateSqlServerCollationName } from "./collation.js";
 /** Canonical allowlisted SQL Server system types. Unknown user/CLR types remain opaque. */
 export interface SqlServerNativeType {
   readonly name: string;
   readonly text: string;
+  readonly baseText?: string;
+  readonly collation?: string;
   readonly length?: number | "max";
   readonly precision?: number;
   readonly scale?: number;
@@ -38,7 +41,15 @@ const aliases: Readonly<Record<string, string>> = {
   character: "char",
 };
 export function parseSqlServerNativeType(source: string): SqlServerNativeType | undefined {
-  if (source.length > 256) return undefined;
+  if (source.length > 512) return undefined;
+  const collated = /^(.*?)\s+COLLATE\s+([A-Za-z][A-Za-z0-9_]{0,127})$/iu.exec(source.trim());
+  if (collated) {
+    const base = parseSqlServerNativeType(collated[1]!);
+    if (!base || base.collation || !["varchar", "char", "nvarchar", "nchar", "text", "ntext"].includes(base.name))
+      return undefined;
+    const collation = validateSqlServerCollationName(collated[2]!);
+    return Object.freeze({ ...base, baseText: base.text, collation, text: `${base.text} COLLATE ${collation}` });
+  }
   const match = /^\s*([a-z][a-z0-9 ]*)(?:\(\s*(max|\d+)\s*(?:,\s*(\d+)\s*)?\))?\s*$/iu.exec(source);
   if (!match) return undefined;
   const raw = match[1]!.trim().toLowerCase().replace(/ +/gu, " ");

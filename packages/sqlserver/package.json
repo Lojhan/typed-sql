@@ -39,7 +39,9 @@
   },
   "exports": {
     ".": "./dist/packages/sqlserver/src/index.js",
-    "./query": "./dist/packages/sqlserver/src/query.js"
+    "./query": "./dist/packages/sqlserver/src/query.js",
+    "./runtime": "./dist/packages/sqlserver/src/runtime.js",
+    "./odbc": "./dist/packages/sqlserver/src/odbc.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

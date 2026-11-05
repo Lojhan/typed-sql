@@ -118,7 +118,7 @@ export function tokenize(source: string, options: TokenizeOptions = {}): readonl
       emit("identifier", value, start);
       continue;
     }
-    if (char === "@" || char === "?" || (char === ":" && options.sqlFileParameters)) {
+    if (char === "@" || char === "?") {
       if (char === "?") {
         advance();
         emit("parameter", String(++anonymous), start);
@@ -206,7 +206,7 @@ export function tokenize(source: string, options: TokenizeOptions = {}): readonl
       emit("operator", operator, start);
       continue;
     }
-    if ("(),.;".includes(char)) {
+    if ("(),.;:".includes(char)) {
       advance();
       emit("punctuation", char, start);
       continue;
