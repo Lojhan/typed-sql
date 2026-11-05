@@ -81,6 +81,14 @@ const database = await createSqlServerOdbcDatabase({
 ```
 
 The factory reads the actual engine, product, database compatibility level and session settings.
+Before each typed dispatch, the native adapter rereads these facts while holding the same execution
+lease. Changed database, compatibility level, collation, default schema or critical session settings
+reject the request before its SQL executes. Recreate the wrapper after intentional changes. The
+raw catalog/setup queryable bypasses this typed check so session repair and metadata tools can
+operate without recursive lease acquisition. Application-supplied neutral connections can provide
+`readServerEvidence(controls)` for the same checks, or attest their own session through `serverEvidence`.
+Cancellation and deadlines cover the native evidence reads as well as application execution.
+Pre-aborted and expired requests issue neither private evidence SQL nor application SQL.
 Owned sessions establish `QUOTED_IDENTIFIER`, `ANSI_WARNINGS`, `ARITHABORT` and
 `CONCAT_NULL_YIELDS_NULL` as enabled, with `us_english`, `DATEFORMAT mdy` and `DATEFIRST 7`.
 Injected connections are validated without changing SQL session semantics unless
@@ -90,7 +98,13 @@ connection remains application-owned unless `ownsConnection: true` is explicit.
 `database.prepare(name, factory)` caches logical rendering and value plans. The ODBC adapter
 uses physical native preparation only when its result transport is qualified. The pinned native
 driver removes a genuine trailing NUL from prepared text results. Statements returning arbitrary
-text, XML or JSON therefore use the exact raw path **before execution**. This choice preserves
+text, XML or JSON therefore select raw transport **before dispatch** when the raw result family is qualified.
+The SDK also corrupts some large `varchar(max)` and legacy `text` values while converting
+unknown-length ODBC chunks. Compiled queries returning `varchar(max)`, `text` or unqualified
+legacy `ntext` fail before dispatch, including DML `OUTPUT`. Raw queryable requests reject
+those native metadata families before exposing rows; a raw request may already have executed
+side effects before its metadata arrives. Bounded `varchar(n)` and Unicode `nvarchar(max)` use
+the separately qualified raw paths. This choice preserves
 `OUTPUT`, ordering and side effects: the adapter neither rewrites projections nor retries an
 already executed statement. Numeric, temporal and binary results can use native preparation.
 An application-provided neutral adapter can declare its own `supportsPreparedPlan` capability.
@@ -110,7 +124,12 @@ and rolls back. Nested transactions are explicitly unsupported. See [Execution](
 native provider. Introspection requires database `VIEW DEFINITION` and writes schema format 2,
 including column order, aliases, identity/computed/default evidence, collations and code pages,
 write eligibility, temporal/history attributes, constraint trust, filtered/included indexes and
-routine signatures. Raw expressions are retained as fingerprints rather than published definitions.
+routine signatures. Active history tables and generated period columns are not writable. Alias
+nullability remains separate from each column's actual nullability; standalone and alias-bound
+defaults retain presence even when their definitions are unavailable. Raw expressions are retained
+as fingerprints rather than published definitions. Object-level permission restrictions can hide
+metadata despite a database-level grant; capture with a principal that can see every intended
+object. Introspection does not grant permissions.
 Generated schema files are compiler inputs, not runtime application imports.
 
 The grammar covers joins and `APPLY`, ordinary and recursive CTEs, scalar subqueries, set operations,

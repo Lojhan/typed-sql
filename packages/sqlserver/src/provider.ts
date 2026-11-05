@@ -35,9 +35,9 @@ export const sqlServerCatalogQueries = Object.freeze({
   options: "DBCC USEROPTIONS WITH NO_INFOMSGS",
   schemas:
     "SELECT name FROM sys.schemas WHERE schema_id<16384 AND name NOT IN ('sys','INFORMATION_SCHEMA') ORDER BY name",
-  types: `SELECT s.name AS schema_name,t.name AS type_name,t.user_type_id,t.system_type_id,t.is_user_defined,t.is_assembly_type,t.is_table_type,b.name AS base_name,t.max_length,t.precision,t.scale,t.is_nullable FROM sys.types t JOIN sys.schemas s ON s.schema_id=t.schema_id LEFT JOIN sys.types b ON b.user_type_id=t.system_type_id AND b.user_type_id=b.system_type_id ORDER BY s.name,t.name`,
+  types: `SELECT s.name AS schema_name,t.name AS type_name,t.user_type_id,t.system_type_id,t.is_user_defined,t.is_assembly_type,t.is_table_type,b.name AS base_name,t.max_length,t.precision,t.scale,t.is_nullable,t.default_object_id,t.rule_object_id,OBJECT_DEFINITION(NULLIF(t.default_object_id,0)) AS bound_default_expression,OBJECT_DEFINITION(NULLIF(t.rule_object_id,0)) AS bound_rule_expression FROM sys.types t JOIN sys.schemas s ON s.schema_id=t.schema_id LEFT JOIN sys.types b ON b.user_type_id=t.system_type_id AND b.user_type_id=b.system_type_id ORDER BY s.name,t.name`,
   relations: `SELECT s.name AS schema_name,o.name AS object_name,o.object_id,o.type AS object_type,t.temporal_type,t.history_table_id,t.is_memory_optimized,t.is_filetable,CONVERT(int,CASE WHEN EXISTS(SELECT 1 FROM sys.triggers tr WHERE tr.parent_id=o.object_id AND tr.is_disabled=0) THEN 1 ELSE 0 END) AS enabled_after_trigger FROM sys.objects o JOIN sys.schemas s ON s.schema_id=o.schema_id LEFT JOIN sys.tables t ON t.object_id=o.object_id WHERE o.type IN ('U','V') AND o.is_ms_shipped=0 ORDER BY s.name,o.name`,
-  columns: `SELECT c.object_id,c.column_id,c.name AS column_name,c.user_type_id,c.system_type_id,c.max_length,c.precision,c.scale,c.is_nullable,c.is_identity,c.is_computed,c.is_hidden,c.generated_always_type,c.is_sparse,c.is_column_set,c.collation_name,COLLATIONPROPERTY(c.collation_name,'CodePage') AS code_page,c.encryption_type,c.is_masked,cc.is_persisted,cc.definition AS generation_expression,dc.definition AS default_expression,CONVERT(nvarchar(128),ic.seed_value) AS identity_seed,CONVERT(nvarchar(128),ic.increment_value) AS identity_increment FROM sys.columns c JOIN sys.objects o ON o.object_id=c.object_id LEFT JOIN sys.computed_columns cc ON cc.object_id=c.object_id AND cc.column_id=c.column_id LEFT JOIN sys.default_constraints dc ON dc.object_id=c.default_object_id LEFT JOIN sys.identity_columns ic ON ic.object_id=c.object_id AND ic.column_id=c.column_id WHERE o.is_ms_shipped=0 AND o.type IN ('U','V','IF','TF','FT') ORDER BY c.object_id,c.column_id`,
+  columns: `SELECT c.object_id,c.column_id,c.name AS column_name,c.user_type_id,c.system_type_id,c.max_length,c.precision,c.scale,c.is_nullable,c.is_identity,c.is_computed,c.is_hidden,c.generated_always_type,c.is_sparse,c.is_column_set,c.collation_name,COLLATIONPROPERTY(c.collation_name,'CodePage') AS code_page,c.encryption_type,c.is_masked,cc.is_persisted,cc.definition AS generation_expression,c.default_object_id,c.rule_object_id,ut.default_object_id AS type_default_object_id,ut.rule_object_id AS type_rule_object_id,OBJECT_DEFINITION(NULLIF(c.default_object_id,0)) AS default_expression,OBJECT_DEFINITION(NULLIF(c.rule_object_id,0)) AS bound_rule_expression,CONVERT(nvarchar(128),ic.seed_value) AS identity_seed,CONVERT(nvarchar(128),ic.increment_value) AS identity_increment FROM sys.columns c JOIN sys.objects o ON o.object_id=c.object_id JOIN sys.types ut ON ut.user_type_id=c.user_type_id LEFT JOIN sys.computed_columns cc ON cc.object_id=c.object_id AND cc.column_id=c.column_id LEFT JOIN sys.identity_columns ic ON ic.object_id=c.object_id AND ic.column_id=c.column_id WHERE o.is_ms_shipped=0 AND o.type IN ('U','V','IF','TF','FT') ORDER BY c.object_id,c.column_id`,
   constraints: `SELECT kc.parent_object_id AS object_id,kc.object_id AS constraint_id,kc.name,kc.type AS constraint_type,ic.key_ordinal AS ordinal,c.name AS column_name,CAST(NULL AS nvarchar(128)) AS referenced_schema,CAST(NULL AS nvarchar(128)) AS referenced_table,CAST(NULL AS nvarchar(128)) AS referenced_column,CAST(NULL AS nvarchar(60)) AS delete_action,CAST(NULL AS nvarchar(60)) AS update_action,CAST(NULL AS nvarchar(max)) AS definition,CAST(0 AS bit) AS is_disabled,CAST(0 AS bit) AS is_not_trusted FROM sys.key_constraints kc JOIN sys.index_columns ic ON ic.object_id=kc.parent_object_id AND ic.index_id=kc.unique_index_id AND ic.key_ordinal>0 JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id UNION ALL SELECT fk.parent_object_id,fk.object_id,fk.name,'F',fc.constraint_column_id,c.name,rs.name,ro.name,rc.name,fk.delete_referential_action_desc,fk.update_referential_action_desc,NULL,fk.is_disabled,fk.is_not_trusted FROM sys.foreign_keys fk JOIN sys.foreign_key_columns fc ON fc.constraint_object_id=fk.object_id JOIN sys.columns c ON c.object_id=fc.parent_object_id AND c.column_id=fc.parent_column_id JOIN sys.objects ro ON ro.object_id=fc.referenced_object_id JOIN sys.schemas rs ON rs.schema_id=ro.schema_id JOIN sys.columns rc ON rc.object_id=fc.referenced_object_id AND rc.column_id=fc.referenced_column_id UNION ALL SELECT ch.parent_object_id,ch.object_id,ch.name,'C',0,c.name,NULL,NULL,NULL,NULL,NULL,ch.definition,ch.is_disabled,ch.is_not_trusted FROM sys.check_constraints ch LEFT JOIN sys.columns c ON c.object_id=ch.parent_object_id AND c.column_id=ch.parent_column_id ORDER BY object_id,constraint_id,ordinal`,
   indexes: `SELECT i.object_id,i.index_id,i.name,i.is_unique,i.type_desc,i.is_disabled,i.is_hypothetical,i.has_filter,i.filter_definition,ic.index_column_id,ic.key_ordinal,ic.is_descending_key,ic.is_included_column,c.name AS column_name FROM sys.indexes i JOIN sys.objects o ON o.object_id=i.object_id LEFT JOIN sys.index_columns ic ON ic.object_id=i.object_id AND ic.index_id=i.index_id LEFT JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id WHERE o.is_ms_shipped=0 AND i.index_id>0 ORDER BY i.object_id,i.index_id,ic.index_column_id`,
   routines: `SELECT s.name AS schema_name,o.name AS routine_name,o.object_id,o.type AS object_type,CONVERT(int,OBJECTPROPERTYEX(o.object_id,'IsDeterministic')) AS deterministic,m.is_schema_bound,m.null_on_null_input,m.uses_quoted_identifier,m.uses_ansi_nulls,CONVERT(int,CASE WHEN m.definition IS NULL THEN 1 ELSE 0 END) AS definition_unavailable FROM sys.objects o JOIN sys.schemas s ON s.schema_id=o.schema_id LEFT JOIN sys.sql_modules m ON m.object_id=o.object_id WHERE o.is_ms_shipped=0 AND o.type IN ('FN','IF','TF','FS','FT','P','PC','AF') ORDER BY s.name,o.name`,
@@ -194,7 +194,19 @@ export class SqlServerSchemaProvider implements SchemaProvider<SchemaSnapshotV2 
             tsType,
             extension: {
               version: "1",
-              attributes: { custom: flag(row, "is_user_defined"), systemTypeId: integer(row, "system_type_id") },
+              attributes: {
+                custom: flag(row, "is_user_defined"),
+                systemTypeId: integer(row, "system_type_id"),
+                declaredNullable: flag(row, "is_nullable"),
+                defaultObjectId: integer(row, "default_object_id"),
+                ruleObjectId: integer(row, "rule_object_id"),
+                ...(optionalText(row, "bound_default_expression")
+                  ? { boundDefaultHash: fingerprintSchemaExpression(text(row, "bound_default_expression")) }
+                  : {}),
+                ...(optionalText(row, "bound_rule_expression")
+                  ? { boundRuleHash: fingerprintSchemaExpression(text(row, "bound_rule_expression")) }
+                  : {}),
+              },
             },
           };
     }
@@ -202,7 +214,7 @@ export class SqlServerSchemaProvider implements SchemaProvider<SchemaSnapshotV2 
       constraintsByObject = rowsBy(constraintRows, "object_id"),
       indexesByObject = rowsBy(indexRows, "object_id"),
       parametersByObject = rowsBy(parameterRows, "object_id");
-    const columns = (id: number, view: boolean): Record<string, ColumnSnapshotV2> => {
+    const columns = (id: number, view: boolean, history = false): Record<string, ColumnSnapshotV2> => {
       const result: Record<string, ColumnSnapshotV2> = Object.create(null);
       for (const [position, row] of (columnsByObject.get(id) ?? []).entries()) {
         const resolved = resolveType(row),
@@ -223,7 +235,12 @@ export class SqlServerSchemaProvider implements SchemaProvider<SchemaSnapshotV2 
           tsType: encrypted ? policy.unknown : mapSqlServerType(resolved.databaseType, policy),
           nullable: flag(row, "is_nullable"),
           nullabilitySource: "declared",
-          default: defaultExpression ? "present" : "none",
+          default:
+            defaultExpression || integer(row, "default_object_id") !== 0
+              ? "present"
+              : integer(row, "type_default_object_id") !== 0
+                ? "unknown"
+                : "none",
           ...(defaultExpression ? { defaultExpressionHash: fingerprintSchemaExpression(defaultExpression) } : {}),
           generated: generated ? (flag(row, "is_persisted") ? "stored" : "virtual") : "none",
           ...(expression ? { generatedExpressionHash: fingerprintSchemaExpression(expression) } : {}),
@@ -232,14 +249,21 @@ export class SqlServerSchemaProvider implements SchemaProvider<SchemaSnapshotV2 
           classification: hidden ? "hidden" : "normal",
           insertable: view
             ? "unknown"
-            : !generated && !identity && !always && resolved.databaseType !== "rowversion" && !encrypted,
+            : !history && !generated && !identity && !always && resolved.databaseType !== "rowversion" && !encrypted,
           updatable: view
             ? "unknown"
-            : !generated && !identity && !always && resolved.databaseType !== "rowversion" && !encrypted,
+            : !history && !generated && !identity && !always && resolved.databaseType !== "rowversion" && !encrypted,
           extension: {
             version: "1",
             attributes: {
               columnId: integer(row, "column_id"),
+              defaultObjectId: integer(row, "default_object_id"),
+              ruleObjectId: integer(row, "rule_object_id"),
+              typeDefaultObjectId: integer(row, "type_default_object_id"),
+              typeRuleObjectId: integer(row, "type_rule_object_id"),
+              ...(optionalText(row, "bound_rule_expression")
+                ? { boundRuleHash: fingerprintSchemaExpression(text(row, "bound_rule_expression")) }
+                : {}),
               sparse: flag(row, "is_sparse"),
               columnSet: flag(row, "is_column_set"),
               masked: flag(row, "is_masked"),
@@ -331,10 +355,15 @@ export class SqlServerSchemaProvider implements SchemaProvider<SchemaSnapshotV2 
         name,
         schema,
         kind: view ? "view" : "table",
-        columns: columns(id, view),
+        columns: columns(id, view, row.temporal_type !== null && integer(row, "temporal_type") === 1),
         constraints: constraints(id),
         indexes: indexes(id),
-        capabilities: { outputWithoutInto: !flag(row, "enabled_after_trigger") },
+        capabilities: {
+          outputWithoutInto: !flag(row, "enabled_after_trigger"),
+          insertable: view ? "unknown" : integer(row, "temporal_type") !== 1,
+          updatable: view ? "unknown" : integer(row, "temporal_type") !== 1,
+          deletable: view ? "unknown" : integer(row, "temporal_type") !== 1,
+        },
         extension: {
           version: "1",
           attributes: {

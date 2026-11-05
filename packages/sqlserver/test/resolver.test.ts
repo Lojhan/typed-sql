@@ -176,4 +176,16 @@ await describe("SQL Server native inference", async () => {
     const diagnostic = analyze(source).diagnostics[0]!;
     strict.equal(source.slice(diagnostic.range.start, diagnostic.range.end), "missing");
   });
+  await it("does not claim repeated relation sources preserve SELECT star width", () => {
+    for (const source of [
+      "SELECT * FROM dbo.orders o JOIN (SELECT order_id FROM dbo.items) i ON i.order_id=o.id",
+      "SELECT id FROM dbo.orders WHERE id IN (1,2)",
+    ]) {
+      const start = source.indexOf(source.includes(" JOIN ") ? "JOIN" : "1,2");
+      const end = source.includes(" JOIN ") ? source.length : start + 3;
+      const result = grammar.analyze(source, snapshot, undefined, { repeatedFragmentRanges: [{ start, end }] });
+      strict.deepEqual(result.diagnostics, []);
+      strict.equal(result.repeatedResultShapeStable === true, !source.includes(" JOIN "));
+    }
+  });
 });

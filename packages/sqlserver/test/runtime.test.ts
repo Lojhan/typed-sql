@@ -496,4 +496,168 @@ await describe("SQL Server exact runtime boundaries and leases", async () => {
     strict.equal(closed, 1);
     strict.equal((await db.one(id(2n))).id, 2n);
   });
+  await it("keeps execution aliases, scoped cardinality and stream disposal on the same owned connection", async () => {
+    const connection = new Connection();
+    let closed = 0;
+    connection.stream = () => ({
+      fields: Promise.resolve([{ name: "id" }]),
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return { done: false, value: { id: "7" } };
+      },
+      async close() {
+        closed++;
+      },
+    });
+    const db = createSqlServerDatabase({ connection });
+    strict.deepEqual(await db.execute(id(1n)), [{ id: 1n }]);
+    strict.deepEqual(await db.maybeOne(id(2n)), { id: 2n });
+    strict.deepEqual(await db.batch([]), []);
+    await db.transaction(async (scope) => {
+      strict.deepEqual(await scope.execute(id(3n)), [{ id: 3n }]);
+      strict.deepEqual(await scope.one(id(4n)), { id: 4n });
+      strict.deepEqual(await scope.maybeOne(id(5n)), { id: 5n });
+      const stream = scope.stream(id(7n));
+      strict.equal(stream[Symbol.asyncIterator](), stream);
+      strict.deepEqual(await stream.next(), { done: false, value: { id: 7n } });
+      strict.deepEqual(await stream.return!(), { done: true, value: undefined });
+      const abandoned = scope.stream(id(7n));
+      await abandoned[Symbol.asyncDispose]();
+      const throwing = scope.stream(id(7n));
+      await throwing.next();
+      await strict.rejects(() => throwing.throw!(new Error("consumer stopped")), /consumer stopped/);
+    });
+    const root = db.stream(id(7n));
+    strict.equal(root[Symbol.asyncIterator](), root);
+    await root.next();
+    await root[Symbol.asyncDispose]();
+    const throwing = db.stream(id(7n));
+    await throwing.next();
+    await strict.rejects(() => throwing.throw!(new Error("root consumer stopped")), /root consumer stopped/);
+    strict.equal(closed, 4);
+    connection.rows = [];
+    strict.equal(await db.maybeOne(id(1n)), undefined);
+    await strict.rejects(() => db.one(id(1n)), QueryCardinalityError);
+    connection.rows = [{ id: "1" }, { id: "2" }];
+    await strict.rejects(() => db.maybeOne(id(1n)), QueryCardinalityError);
+    await db.close();
+  });
+  await it("rejects unsupported streaming without leasing and propagates catalog result set errors", async () => {
+    const connection = new Connection(),
+      db = createSqlServerDatabase({ connection });
+    await strict.rejects(() => db.stream(id(1n)).next(), /protocol streaming/);
+    strict.deepEqual(await db.one(id(1n)), { id: 1n });
+    strict.deepEqual(await db.queryable.all("SELECT catalog", ["2"]), [{ id: "2" }]);
+    connection.lateResults = 2;
+    await strict.rejects(() => db.queryable.all("SELECT catalog"), /multiple result sets/);
+    await db.close();
+  });
+  await it("checks native metadata families, modifiers, ordered names and row identities independently", async () => {
+    for (const result of [
+      { rows: [{ amount: "1.0000000000" }], fields: [] },
+      { rows: [{ amount: "1.0000000000" }], fields: [{ name: "other" }] },
+      { rows: [{ amount: "1.0000000000" }], fields: [{ name: "amount", databaseType: "int" }] },
+      { rows: [{ amount: "1.0000000000" }], fields: [{ name: "amount", databaseType: "decimal(38,9)" }] },
+      { rows: [{ amount: "1.0000000000" }], fields: [{ name: "amount", precision: 37 }] },
+      { rows: [{ amount: "1.0000000000" }], fields: [{ name: "amount", scale: 9 }] },
+      { rows: [{ amount: "1.0000000000" }], fields: [{ name: "amount", length: 10 }] },
+      { rows: [{}], fields: [{ name: "amount" }] },
+      { rows: [{ amount: "1.0000000000" }], warnings: [{ code: "01004" }] },
+    ]) {
+      const db = createSqlServerDatabase({
+        connection: {
+          async execute() {
+            return result;
+          },
+        },
+      });
+      await strict.rejects(() => db.all(amount("1.0000000000")));
+      await db.close();
+    }
+    for (const result of [
+      { rows: [{ amount: "1.0000000000" }] },
+      {
+        rows: [{ amount: "1.0000000000" }],
+        fields: [{ name: "amount", databaseType: "decimal(38,10)", precision: 38, scale: 10 }],
+        warnings: [{ code: "01000" }],
+      },
+    ]) {
+      const db = createSqlServerDatabase({
+        connection: {
+          async execute() {
+            return result;
+          },
+        },
+      });
+      strict.deepEqual(await db.all(amount("1.0000000000")), [{ amount: "1.0000000000" }]);
+      await db.close();
+    }
+  });
+  await it("validates configuration and prepared codec bounds before native work", async () => {
+    for (const options of [
+      { preparedStatementLimit: 0 },
+      { preparedCardinalityVariantLimit: -1 },
+      { maximumPreparedValueBytes: NaN },
+      { maximumPreparedValueBytes: 1.5 },
+    ])
+      strict.throws(
+        () => createSqlServerDatabase({ connection: new Connection(), ...options }),
+        /positive safe integer/,
+      );
+    strict.throws(
+      () =>
+        createSqlServerDatabase({
+          connection: new Connection(),
+          typePolicy: { ...defaultSqlServerTypePolicy, decimal: "Decimal" },
+        }),
+      /codecs/,
+    );
+    const connection = new Connection(),
+      db = createSqlServerDatabase({ connection, maximumPreparedValueBytes: 2 });
+    const find = db.prepare("small", id);
+    await strict.rejects(() => db.all(find(123n)), /byte limit/);
+    strict.equal(connection.calls.length, 0);
+    await db.close();
+    const bare = createSqlServerDatabase({
+      connection: {
+        async execute() {
+          return { rows: [] };
+        },
+      },
+    });
+    const prepared = bare.prepare("requires-native", id);
+    await strict.rejects(() => bare.all(prepared(1n)), /native prepared/);
+    await bare.close();
+  });
+  await it("releases a failed cursor and quarantines native cleanup failures", async () => {
+    for (const closeFails of [false, true]) {
+      const connection = new Connection();
+      connection.stream = () => ({
+        fields: Promise.resolve([{ name: "id" }]),
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+        async next() {
+          throw new Error("cursor read failed");
+        },
+        async close() {
+          if (closeFails) throw new Error("cursor cleanup failed");
+        },
+      });
+      const db = createSqlServerDatabase({ connection });
+      await strict.rejects(() => db.stream(id(1n)).next(), closeFails ? /cleanup failed/ : /read failed/);
+      if (closeFails) await strict.rejects(() => db.all(id(1n)), /unusable/);
+      else strict.deepEqual(await db.one(id(1n)), { id: 1n });
+      await db.close();
+    }
+    const connection = new Connection();
+    connection.close = async () => {
+      throw new Error("connection close failed");
+    };
+    const db = createSqlServerDatabase({ connection, ownsConnection: true });
+    await strict.rejects(() => db.close(), /connection close failed/);
+    await strict.rejects(() => db.all(id(1n)), /closed/);
+  });
 });

@@ -7,14 +7,17 @@ import {
   type DialectServerEvidence,
   databaseErrorCompletion,
   decodeQueryResultRows,
+  defineDialectServerEvidence,
   type ExecutionCapabilities,
   type ExecutionOptions,
   encodeQueryValues,
+  executionDeadline,
   getQueryValuePlan,
   observeQueryStream,
   type PreparedQueryRenderCache,
   type Query,
   type QueryBatch,
+  QueryCancelledError,
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
@@ -38,10 +41,11 @@ import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServer
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";
 export interface SqlServerField {
   readonly name: string;
+  readonly wireType?: "odbc-varchar-unlimited-text";
   readonly databaseType?: string;
   readonly precision?: number;
   readonly scale?: number;
-  readonly length?: number;
+  readonly length?: number | "max";
   readonly nullable?: boolean;
 }
 export interface SqlServerExecutionResult {
@@ -51,6 +55,7 @@ export interface SqlServerExecutionResult {
   readonly warnings?: readonly { readonly code?: string; readonly message?: string }[];
 }
 export interface SqlServerNativePrepared {
+  readonly fields?: readonly SqlServerField[];
   execute(values: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   close(): Promise<void>;
 }
@@ -60,8 +65,12 @@ export interface SqlServerProtocolStream extends AsyncIterableIterator<Readonly<
   close(): Promise<void>;
 }
 export interface SqlServerConnectionLike {
+  /** Read actual facts using the unlocked native protocol under the runtime lease; honor the supplied cancellation/deadline controls. */
+  readServerEvidence?(options?: ExecutionOptions): Promise<DialectServerEvidence>;
   execute(sql: string, values?: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   prepare?(sql: string): Promise<SqlServerNativePrepared>;
+  /** Reject native transport limitations before a query with possible side effects is dispatched. */
+  assertPlanSupported?(plan: QueryValuePlan): void;
   /** Native transports may decline a physical plan before dispatch; logical preparation then uses exact raw execution. */
   supportsPreparedPlan?(plan: QueryValuePlan): boolean;
   stream?(sql: string, values: readonly unknown[], options: { readonly batchSize: number }): SqlServerProtocolStream;
@@ -153,6 +162,50 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   const { connection } = options;
   if (!options.serverEvidence) throw new TypeError("SQL Server runtime requires actual connection server evidence");
   assertSqlServerRuntimeEvidence(options.serverEvidence);
+  const serverEvidence = defineDialectServerEvidence({
+    ...options.serverEvidence,
+    features: [...options.serverEvidence.features],
+    settings: { ...options.serverEvidence.settings },
+  });
+  const evidenceIdentity = (evidence: DialectServerEvidence) =>
+    JSON.stringify([
+      evidence.product,
+      evidence.version,
+      evidence.versionKey,
+      ...[
+        "compatibilityLevel",
+        "collation",
+        "defaultSchema",
+        "databaseName",
+        "engineEdition",
+        "edition",
+        "previewFeatures",
+        "quotedIdentifier",
+        "ansiWarnings",
+        "arithAbort",
+        "concatNullOn",
+        "dateFirst",
+        "dateFormat",
+        "language",
+      ].map((key) => evidence.settings[key]),
+    ]);
+  const expectedEvidence = evidenceIdentity(serverEvidence);
+  const assertControlsActive = (controls: ExecutionOptions) => {
+    const deadline = executionDeadline(controls);
+    if (controls.signal?.aborted) throw new QueryCancelledError("signal", { cause: controls.signal.reason });
+    if (deadline !== undefined && deadline <= Date.now()) throw new QueryCancelledError("deadline");
+  };
+  const validateSession = async (controls: ExecutionOptions = {}) => {
+    assertControlsActive(controls);
+    if (!connection.readServerEvidence) return;
+    const actual = await connection.readServerEvidence(controls);
+    assertControlsActive(controls);
+    assertSqlServerRuntimeEvidence(actual);
+    if (evidenceIdentity(actual) !== expectedEvidence)
+      throw new TypeError(
+        "SQL Server native session evidence changed; recreate the database after intentional database or settings changes",
+      );
+  };
   if (leases.has(connection)) throw new Error("SQL Server wrappers require an idle connection");
   const policy = validateSqlServerTypePolicy(options.typePolicy ?? defaultSqlServerTypePolicy);
   const policyHash = options.typePolicyHash ?? calculateTypePolicyHash(policy);
@@ -204,6 +257,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         throw new TypeError("SQL Server native target metadata is missing; regenerate with a compatible compiler/core");
       requireSqlServerNativeType(descriptor.databaseType);
     }
+    connection.assertPlanSupported?.(plan);
     const logical = renderQuery(query, sqlServerRenderer);
     const parsed = parseStatement(logical.text);
     const occurrences = new Set<number>();
@@ -271,19 +325,24 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       const expected = requireSqlServerNativeType(plan.columns[index]!.databaseType!);
       if (field.databaseType) {
         const actual = requireSqlServerNativeType(field.databaseType);
+        const jsonTextWire =
+          expected.name === "json" && actual.name === "varchar" && field.wireType === "odbc-varchar-unlimited-text";
         if (
-          actual.name !== expected.name ||
-          (field.databaseType.includes("(") &&
-            (actual.length !== expected.length ||
-              actual.precision !== expected.precision ||
-              actual.scale !== expected.scale))
+          !jsonTextWire &&
+          (actual.name !== expected.name ||
+            (field.databaseType.includes("(") &&
+              (actual.length !== expected.length ||
+                actual.precision !== expected.precision ||
+                actual.scale !== expected.scale)))
         )
           throw new TypeError("SQL Server native result type disagrees with the compiled target");
       }
       if (
         (field.precision !== undefined && field.precision !== expected.precision) ||
         (field.scale !== undefined && field.scale !== expected.scale) ||
-        (field.length !== undefined && field.length !== expected.length)
+        (field.length !== undefined &&
+          field.length !== expected.length &&
+          !(expected.name === "json" && field.wireType === "odbc-varchar-unlimited-text"))
       )
         throw new TypeError("SQL Server native result precision, scale or length disagrees with the compiled target");
     }
@@ -309,6 +368,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     controls: ExecutionOptions = {},
   ): Promise<SqlServerExecutionResult> {
     assertExecutionCapabilities(executionCapabilities, controls);
+    assertControlsActive(controls);
     if (!statement.preparedName || connection.supportsPreparedPlan?.(statement.plan) === false)
       return connection.execute(statement.text, statement.values, controls);
     if (!connection.prepare)
@@ -323,16 +383,32 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     if (!prepared) {
       if (nativePrepared.size >= capacity) throw new RangeError("SQL Server native prepared cache capacity exceeded");
       prepared = { name: statement.preparedName, handle: await connection.prepare(statement.text) };
+      try {
+        validateFields(statement.plan, prepared.handle.fields);
+      } catch (error) {
+        await prepared.handle.close();
+        throw error;
+      }
       nativePrepared.set(key, prepared);
     }
+    assertControlsActive(controls);
     return prepared.handle.execute(statement.values, controls);
   }
-  async function leased<T>(lease: object | undefined, operation: () => Promise<T>): Promise<T> {
+  async function leased<T>(
+    lease: object | undefined,
+    operation: () => Promise<T>,
+    typed = false,
+    controls: ExecutionOptions = {},
+  ): Promise<T> {
     ensureOpen(lease);
-    if (lease) return operation();
+    if (lease) {
+      if (typed) await validateSession(controls);
+      return operation();
+    }
     const token = {};
     leases.set(connection, token);
     try {
+      if (typed) await validateSession(controls);
       return await operation();
     } finally {
       leases.delete(connection);
@@ -369,12 +445,16 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     });
     try {
       const operation = () =>
-        leased(lease, async () =>
-          validateQueryResultRows(
-            query,
-            decode<Row>(statement, await execute(statement, controls)),
-            `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
-          ),
+        leased(
+          lease,
+          async () =>
+            validateQueryResultRows(
+              query,
+              decode<Row>(statement, await execute(statement, controls)),
+              `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
+            ),
+          true,
+          controls,
         );
       const rows = await (observation ? observation.run(operation) : operation());
       if (cardinality === "one" && rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
@@ -624,6 +704,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     });
     scopeLeases.set(scoped, token);
     try {
+      await validateSession();
       const before = await control("SELECT @@TRANCOUNT AS count, XACT_STATE() AS state");
       if (Number(before.rows[0]?.count) !== 0 || Number(before.rows[0]?.state) !== 0)
         throw new Error("SQL Server transactions require an idle connection");
@@ -676,13 +757,17 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     let lease: object | undefined;
     let done = false;
     let opening: Promise<void> | undefined;
+    let attesting: Promise<void> | undefined;
+    const attestationControls = new AbortController();
     let finishing: Promise<void> | undefined;
     let queued = Promise.resolve();
     const release = (): Promise<void> => {
       if (finishing) return finishing;
       done = true;
+      attestationControls.abort("SQL Server stream closed during session attestation");
       finishing = (async () => {
         try {
+          await attesting?.catch(() => {});
           await source?.close();
           if (source?.connectionReusable === false) broken.add(connection);
         } catch (error) {
@@ -706,12 +791,16 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         if (!parentLease) leases.set(connection, lease);
         hooks?.opened();
         try {
+          attesting = validateSession({ signal: attestationControls.signal });
+          await attesting;
+          if (done) return;
           source = connection.stream(statement.text, statement.values, { batchSize });
           const fields = await source.fields;
           if (!done) validateFields(statement.plan, fields);
         } catch (error) {
+          const intentionalClose = done;
           await release();
-          throw error;
+          if (!intentionalClose) throw error;
         }
       })();
       return opening;
@@ -776,7 +865,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     );
   }
   const database: SqlServerDatabase = {
-    serverEvidence: options.serverEvidence,
+    serverEvidence,
     ...scope(),
     transaction,
     batch,

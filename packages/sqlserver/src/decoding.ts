@@ -103,6 +103,16 @@ export function validateSqlServerTemporal(value: string, type: SqlServerNativeTy
   const prefix = time ? value.slice(0, 8) : value.slice(0, 19);
   return `${prefix}${scale ? `.${fraction.slice(0, scale).padEnd(scale, "0")}` : ""}${zone ?? ""}`;
 }
+/** Normalize counted ODBC temporal text without discarding its seven-digit fraction. */
+export function normalizeSqlServerTemporalText(value: string, target: SqlServerNativeType): string {
+  const canonical = value.replace(/^(\d{4}-\d{2}-\d{2}) /u, "$1T").replace(/ ([+-]\d{2}:\d{2})$/u, "$1");
+  const validated = validateSqlServerTemporal(canonical, target);
+  if (target.name !== "datetimeoffset") return validated;
+  const instant = new Date(validated);
+  const fraction = /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/u.exec(validated)?.[1];
+  if (!Number.isFinite(instant.getTime())) throw new TypeError("Invalid SQL Server native datetimeoffset text");
+  return `${instant.toISOString().slice(0, 19)}${fraction ? `.${fraction}` : ""}Z`;
+}
 export function encodeSqlServerParameter(
   value: unknown,
   descriptor: QueryValueDescriptor,
@@ -205,6 +215,21 @@ export function decodeSqlServerNativeValue(
     throw new TypeError("SQL Server compiled columns require physical native target metadata");
   const target = requireSqlServerNativeType(descriptor.databaseType);
   if (isSqlServerTemporal(target)) {
+    if (typeof value === "string") {
+      const text = normalizeSqlServerTemporalText(value, target);
+      if (policy.temporal !== "Date") return text;
+      const iso =
+        target.name === "time"
+          ? `1970-01-01T${text}Z`
+          : target.name === "date"
+            ? `${text}T00:00:00Z`
+            : target.name === "datetimeoffset"
+              ? text
+              : `${text}Z`;
+      const date = new Date(iso);
+      if (!Number.isFinite(date.getTime())) throw new TypeError("Invalid SQL Server Date-policy text");
+      return date;
+    }
     if (policy.temporal === "Date") {
       if (!(value instanceof Date) || !Number.isFinite(value.getTime()))
         throw new TypeError("SQL Server temporal transport must return Date");
@@ -227,6 +252,19 @@ export function decodeSqlServerNativeValue(
       return number;
     }
     return text;
+  }
+  if (target.name === "bit" && typeof value === "string") {
+    if (value === "1") return true;
+    if (value === "0") return false;
+    throw new TypeError("SQL Server BIT text must be zero or one");
+  }
+  if (target.name === "json") {
+    if (typeof value !== "string") throw new TypeError("SQL Server JSON text wire requires string transport");
+    try {
+      JSON.parse(value);
+    } catch {
+      throw new TypeError("SQL Server JSON text wire returned invalid JSON");
+    }
   }
   if (value instanceof Uint8Array) return Uint8Array.from(value);
   return value;
