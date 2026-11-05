@@ -19,6 +19,10 @@ await it(`qualifies analytical result shapes on actual DuckDB${version}`, async 
     const snapshot = await new DuckDBSchemaProvider({ client: database.queryable }).introspect();
     const queries = [
       "SELECT ID FROM users",
+      "DESCRIBE users",
+      "DESCRIBE SELECT id FROM users",
+      "SUMMARIZE users",
+      "SUMMARIZE SELECT id FROM users",
       "SELECT CASE WHEN id>1 THEN email ELSE NULL END AS value FROM users",
       "SELECT CASE team_id WHEN 1 THEN 42 ELSE NULL END AS value FROM users",
       "SELECT id BETWEEN 1 AND 3 AS value,id NOT BETWEEN 1 AND 3 AS inverse FROM users",
@@ -146,6 +150,8 @@ await it(`qualifies analytical result shapes on actual DuckDB${version}`, async 
     }
     for (const query of [
       "SELECT id,count(*) FROM users",
+      "DESCRIBE SELECT missing FROM users",
+      "SUMMARIZE SELECT missing FROM users",
       "SELECT * REPLACE(email AS missing) FROM users",
       "SELECT * REPLACE(email AS email) RENAME(email AS x) FROM users",
       "SELECT * REPLACE(email AS email,email AS email) FROM users",

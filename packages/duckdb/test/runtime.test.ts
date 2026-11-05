@@ -79,6 +79,10 @@ await describe("DuckDB native execution and lifecycle", async () => {
           ),
           { id: 9223372036854775807n, name: "Ada", amount: "12345678901234567890.1200" },
         );
+        const summary = await database.one(q("SUMMARIZE SELECT id FROM items"));
+        strict.equal(summary.column_name, "id");
+        strict.equal(summary.count, 1n);
+        strict.equal(summary.null_percentage, "0.00");
         const scalars: readonly (readonly [string, unknown])[] = [
           ["BOOLEAN", true],
           ["TINYINT", -128],
@@ -225,10 +229,14 @@ await it("preserves tagged NULL through each native container and ordered map ke
         ],
       ],
     ] as const) {
-      const row = await database.one(compiled(`SELECT $1::${target} AS value`, [input], version));
+      const prepared = database.prepare(`nested_${target}`, (input: unknown) =>
+        compiled(`SELECT $1::${target} AS value`, [input], version),
+      );
+      const row = await database.one(prepared(input));
       strict.deepEqual(row.value, input);
-      const empty = await database.one(compiled(`SELECT $1::${target} AS value`, [null], version));
+      const empty = await database.one(prepared(null));
       strict.equal(empty.value, null);
+      strict.deepEqual((await database.one(prepared(input))).value, input);
     }
     if (version === "2.0.0") {
       const target = "TUPLE(UNION(n INTEGER,s VARCHAR),VARCHAR)",

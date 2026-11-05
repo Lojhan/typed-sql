@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { duckDBServerEvidence, duckdb } from "../src/index.js";
+import { duckDBServerEvidence, duckdb, parseDuckDBType } from "../src/index.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
 
@@ -179,4 +179,28 @@ await it("requires recorded critical settings rather than invented snapshot defa
   strict.equal(parameters[0]?.name, "id");
   strict.equal(parameters[0]?.range.start, 9);
   strict.equal(parameters[0]?.range.end, 12);
+});
+
+await it("requires stable explicit labels before lowering native UNION parameters", () => {
+  for (const version of ["1.5.6", "2.0.0"]) {
+    const target = { ...snapshot, server: fixtureEvidence(version) };
+    for (const type of [
+      "UNION(n INTEGER,s VARCHAR)",
+      "STRUCT(choice UNION(n INTEGER,s VARCHAR))",
+      "MAP(INTEGER,UNION(n INTEGER,s VARCHAR))",
+      "UNION(n INTEGER,s VARCHAR)[2]",
+    ]) {
+      const source = `SELECT CAST(:value AS ${type})`;
+      const rejected = duckdb().analyze(source, target);
+      strict.ok(
+        rejected.diagnostics.some((item) => item.message.includes("AS alias")),
+        source,
+      );
+      strict.equal(rejected.semantics?.operation.value, "unknown");
+      const aliased = duckdb().analyze(`${source} AS document`, target);
+      strict.deepEqual(aliased.diagnostics, [], source);
+      strict.equal(aliased.columns[0]?.name, "document");
+      strict.deepEqual(parseDuckDBType(aliased.parameters[0]!.databaseType!), parseDuckDBType(type));
+    }
+  }
 });

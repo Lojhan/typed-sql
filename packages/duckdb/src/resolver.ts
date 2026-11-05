@@ -1899,6 +1899,8 @@ export class DuckDBResolver {
         output = output.map((field, i) => ({ ...this.unionValues([field, right[i] ?? nil], "set"), name: field.name }));
       }
     }
+    if ((statement.kind === "describe" || statement.kind === "summarize") && statement.source)
+      this.query(statement.source, scope);
     if (statement.kind === "describe")
       output = [
         { name: "column_name", type: scalar("VARCHAR"), nullable: false },
@@ -1924,7 +1926,10 @@ export class DuckDBResolver {
         "null_percentage",
       ].map((name) => ({
         name,
-        type: scalar(["approx_unique", "count"].includes(name) ? "BIGINT" : "VARCHAR"),
+        type:
+          name === "null_percentage"
+            ? { kind: "scalar", name: "DECIMAL", precision: 9, scale: 2 }
+            : scalar(["approx_unique", "count"].includes(name) ? "BIGINT" : "VARCHAR"),
         nullable: !["column_name", "column_type", "count"].includes(name),
       }));
     return output;
