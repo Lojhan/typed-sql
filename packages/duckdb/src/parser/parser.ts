@@ -5,6 +5,9 @@ import type { CommonTable, Expression, Projection, Relation, Statement, Token } 
 
 const clauses = new Set([
   "SELECT",
+  "RENAME",
+  "EXCLUDE",
+  "REPLACE",
   "FROM",
   "WHERE",
   "GROUP",
@@ -561,7 +564,9 @@ export class DuckDBParser {
         this.take();
         expression = this.expression();
       } else expression = this.expression();
-      let exclude: readonly string[] | undefined, replace: readonly Projection[] | undefined;
+      let exclude: readonly string[] | undefined,
+        replace: readonly Projection[] | undefined,
+        rename: readonly { name: string; alias: string }[] | undefined;
       if (expression.kind === "star") {
         if (this.accept("EXCLUDE")) {
           if (this.accept("(")) exclude = this.list(() => this.identifier().value, ")");
@@ -571,6 +576,14 @@ export class DuckDBParser {
           this.expect("(");
           replace = this.projections();
           this.expect(")");
+        }
+        if (this.accept("RENAME")) {
+          const item = () => {
+            const name = this.identifier().value;
+            this.expect("AS");
+            return { name, alias: this.identifier().value };
+          };
+          rename = this.accept("(") ? this.list(item, ")") : [item()];
         }
       }
       if (this.accept("AS")) alias = this.identifier().value;
@@ -585,6 +598,7 @@ export class DuckDBParser {
         ...(alias === undefined ? {} : { alias }),
         ...(exclude ? { exclude } : {}),
         ...(replace ? { replace } : {}),
+        ...(rename ? { rename } : {}),
       };
     });
   }

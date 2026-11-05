@@ -44,6 +44,7 @@ export interface Projection {
   readonly alias?: string;
   readonly exclude?: readonly string[];
   readonly replace?: readonly Projection[];
+  readonly rename?: readonly { readonly name: string; readonly alias: string }[];
 }
 export interface Relation {
   readonly range: SourceRange;

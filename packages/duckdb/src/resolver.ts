@@ -1420,14 +1420,37 @@ export class DuckDBResolver {
         for (const name of projection.exclude ?? [])
           if (!scope.fields.some((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)))
             this.error(`Unknown EXCLUDE column ${name}`, expression.range);
+        if (
+          new Set((projection.replace ?? []).map((item) => duckDBAsciiFold(item.alias ?? ""))).size !==
+            projection.replace?.length &&
+          projection.replace
+        )
+          this.error("Duplicate REPLACE column", expression.range);
+        if (
+          this.snapshot.server?.versionKey === "1.5.6" &&
+          projection.rename &&
+          new Set(projection.rename.map((item) => duckDBAsciiFold(item.name))).size !== projection.rename.length
+        )
+          this.error("Duplicate RENAME column requires DuckDB 2.0", expression.range);
+        for (const name of (projection.replace ?? []).map((item) => item.alias ?? ""))
+          if (!fields.some((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)))
+            this.error(`Unknown star modifier column ${name}`, expression.range);
         for (const field of fields) {
+          const renamed = projection.rename?.findLast(
+            (item) => duckDBAsciiFold(item.name) === duckDBAsciiFold(field.name),
+          );
           const replacement = projection.replace?.find(
             (item) => duckDBAsciiFold(item.alias ?? "") === duckDBAsciiFold(field.name),
           );
+          if (renamed && replacement) this.error("A star column cannot have both REPLACE and RENAME", expression.range);
           output.push(
             replacement
-              ? { ...this.infer(replacement.expression, scope), name: field.name, range: replacement.expression.range }
-              : { ...field, range: expression.range },
+              ? {
+                  ...this.infer(replacement.expression, scope),
+                  name: replacement.alias!,
+                  range: replacement.expression.range,
+                }
+              : { ...field, name: renamed?.alias ?? field.name, range: expression.range },
           );
         }
         continue;
