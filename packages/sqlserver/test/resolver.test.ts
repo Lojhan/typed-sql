@@ -43,6 +43,23 @@ function analyze(source: string) {
   return grammar.analyze(source, snapshot);
 }
 await describe("SQL Server native inference", async () => {
+  await it("does not treat provisional unknown parameter nullability as catalog evidence", () => {
+    const result = analyze("SELECT id FROM dbo.orders WHERE id=@__typed_sql_1 AND name=@__typed_sql_2");
+    strict.deepEqual(result.diagnostics, []);
+    strict.deepEqual(
+      result.parameters.map((parameter) => [parameter.index, parameter.nullable]),
+      [
+        [1, false],
+        [2, true],
+      ],
+    );
+    const cast = analyze("SELECT CAST(@__typed_sql_1 AS bigint) AS id");
+    strict.equal(cast.parameters[0]?.nullable, true);
+    strict.equal(cast.columns[0]?.nullable, true);
+    strict.equal(analyze("SELECT CAST(NULL AS bigint) AS id").columns[0]?.nullable, true);
+    strict.equal(analyze("SELECT CAST(1 AS bigint) AS id").columns[0]?.nullable, false);
+  });
+
   await it("proves repeated INSERT VALUES shapes and distinguishes output projection changes", () => {
     const source =
       "INSERT INTO dbo.orders(id,status,amount) OUTPUT inserted.id VALUES (@__typed_sql_1,@__typed_sql_2,@__typed_sql_3),(@__typed_sql_4,@__typed_sql_5,@__typed_sql_6)";

@@ -210,7 +210,7 @@ class Resolver {
       const result = {
         index: expression.index,
         ...candidate,
-        nullable: candidate.nullable || current?.nullable === true,
+        nullable: candidate.nullable || (current?.tsType !== "unknown" && current?.nullable === true),
         runtimeType: runtime(candidate, this.policy),
       };
       this.parameters.set(expression.index, result);
@@ -636,7 +636,7 @@ class Resolver {
           typeof this.schema.server?.settings.collation === "string"
             ? `${declaredTarget.text} COLLATE ${this.schema.server.settings.collation}`
             : expression.databaseType;
-        let target = type(targetText, expression.try, this.policy);
+        let target = type(targetText, true, this.policy);
         const argument = this.scalar(this.expression(expression.argument, scope, ctes, target), expression.argument);
         const argumentType = native(argument);
         if (
@@ -644,7 +644,7 @@ class Resolver {
           declaredTarget &&
           ["char", "varchar", "nchar", "nvarchar"].includes(declaredTarget.name)
         )
-          target = type(`${declaredTarget.text} COLLATE ${argumentType.collation}`, expression.try, this.policy);
+          target = type(`${declaredTarget.text} COLLATE ${argumentType.collation}`, true, this.policy);
         if (argument.databaseType && !argumentType)
           this.diagnostic(
             "TSQ201",
