@@ -95,6 +95,35 @@ class Connection implements SqlServerConnectionLike {
   }
 }
 await describe("SQL Server exact runtime boundaries and leases", async () => {
+  await it("binds empty and nonempty binary through one stable typed hex renderer", async () => {
+    const calls: { text: string; values: readonly unknown[] }[] = [];
+    const connection: SqlServerConnectionLike = {
+      async execute(text, values = []) {
+        calls.push({ text, values });
+        return {
+          rows: [{ bytes: values[0] === "" ? new Uint8Array() : Uint8Array.of(0, 255, 0) }],
+          fields: [{ name: "bytes", databaseType: "varbinary" }],
+        };
+      },
+    };
+    const db = createSqlServerDatabase({ connection });
+    const query = (value: Uint8Array) =>
+      withQueryValuePlan(sql<{ bytes: Uint8Array }>`SELECT ${value} AS bytes`, {
+        dialect: "sqlserver",
+        typePolicyHash: hash,
+        columns: [{ name: "bytes", type: "bytes", nullable: false, databaseType: "varbinary(max)" }],
+        parameters: [{ index: 1, type: "bytes", nullable: false, databaseType: "varbinary(max)" }],
+      });
+    strict.deepEqual([...(await db.one(query(new Uint8Array()))).bytes], []);
+    strict.deepEqual([...(await db.one(query(Uint8Array.of(0, 255, 0)))).bytes], [0, 255, 0]);
+    strict.equal(calls[0]?.text, "SELECT (CONVERT(varbinary(max), ?, 2)) AS bytes");
+    strict.equal(calls[1]?.text, calls[0]?.text);
+    strict.deepEqual(
+      calls.map((call) => call.values),
+      [[""], ["00FF00"]],
+    );
+  });
+
   await it("lowers native TOP expressions while preserving string text and rejecting raw marker collisions", async () => {
     const connection = new Connection(),
       db = createSqlServerDatabase({ connection });

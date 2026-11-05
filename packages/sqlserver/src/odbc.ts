@@ -2,9 +2,10 @@ import { Buffer } from "node:buffer";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { type ExecutionOptions, runControlledExecution } from "@typed-sql/core";
+import { type ExecutionOptions, type QueryValuePlan, runControlledExecution } from "@typed-sql/core";
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
+import { requireSqlServerNativeType } from "./native-types.js";
 import {
   readSqlServerServerEvidence,
   SqlServerSchemaProvider,
@@ -254,7 +255,11 @@ function nativeBindings(driver: SqlServerOdbcDriver, values: readonly unknown[])
     )
       return driver.Double(value);
     if (typeof value === "bigint") return driver.NVarChar(value.toString());
-    if (value instanceof Uint8Array) return driver.VarBinary(Buffer.from(value));
+    if (value instanceof Uint8Array) {
+      if (value.byteLength === 0)
+        throw new TypeError("Raw ODBC empty binary requires typed hex conversion; use a compiled SQL Server query");
+      return driver.VarBinary(Buffer.from(value));
+    }
     throw new TypeError("Unsupported raw ODBC binding");
   });
 }
@@ -274,6 +279,15 @@ export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: 
   let reusable = true;
   const connection: SqlServerConnectionLike = Object.freeze({
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
+    // SDK6 prepared string buffers remove a genuine final UTF-16 NUL. Choose raw before executing,
+    // never decode/retry a potentially side-effecting statement after observing a damaged result.
+    supportsPreparedPlan(plan: QueryValuePlan) {
+      return !plan.columns.some((column) =>
+        ["char", "varchar", "nchar", "nvarchar", "text", "ntext", "xml", "json"].includes(
+          requireSqlServerNativeType(column.databaseType!).name,
+        ),
+      );
+    },
     async execute(text: string, values: readonly unknown[] = [], controls: ExecutionOptions = {}) {
       if (!reusable) throw new Error("Native SQL Server connection is quarantined");
       let operation: NativeRequest | undefined;

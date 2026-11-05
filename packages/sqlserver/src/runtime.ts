@@ -62,6 +62,8 @@ export interface SqlServerProtocolStream extends AsyncIterableIterator<Readonly<
 export interface SqlServerConnectionLike {
   execute(sql: string, values?: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   prepare?(sql: string): Promise<SqlServerNativePrepared>;
+  /** Native transports may decline a physical plan before dispatch; logical preparation then uses exact raw execution. */
+  supportsPreparedPlan?(plan: QueryValuePlan): boolean;
   stream?(sql: string, values: readonly unknown[], options: { readonly batchSize: number }): SqlServerProtocolStream;
   readonly executionCapabilities?: ExecutionCapabilities;
   close?(): Promise<void>;
@@ -237,9 +239,10 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
           const descriptor = plan!.parameters[index - 1];
           if (!descriptor?.databaseType) throw new TypeError("Missing native SQL Server bound target");
           const target = requireSqlServerNativeType(descriptor.databaseType);
-          const nativeType = target.baseText ?? target.text;
+          const binary = ["binary", "varbinary", "image"].includes(target.name);
+          const nativeType = target.name === "image" ? "varbinary(max)" : (target.baseText ?? target.text);
           const marker = target.collation ? `? COLLATE ${target.collation}` : "?";
-          return `(CONVERT(${nativeType}, ${marker}${isSqlServerTemporal(target) && !["time", "date", "datetime", "smalldatetime"].includes(target.name) ? (target.name === "datetimeoffset" ? ", 127" : ", 126") : ""}))`;
+          return `(CONVERT(${nativeType}, ${marker}${binary ? ", 2" : isSqlServerTemporal(target) && !["time", "date", "datetime", "smalldatetime"].includes(target.name) ? (target.name === "datetimeoffset" ? ", 127" : ", 126") : ""}))`;
         },
       });
       renderers.set(plan, renderer);
@@ -306,7 +309,8 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     controls: ExecutionOptions = {},
   ): Promise<SqlServerExecutionResult> {
     assertExecutionCapabilities(executionCapabilities, controls);
-    if (!statement.preparedName) return connection.execute(statement.text, statement.values, controls);
+    if (!statement.preparedName || connection.supportsPreparedPlan?.(statement.plan) === false)
+      return connection.execute(statement.text, statement.values, controls);
     if (!connection.prepare)
       throw new TypeError("This SQL Server connection does not implement native prepared statements");
     const key = JSON.stringify([

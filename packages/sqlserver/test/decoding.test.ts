@@ -79,16 +79,17 @@ await describe("SQL Server lossless native codecs", async () => {
   await it("copies binary buffers and rejects missing or incompatible metadata", () => {
     const nativeBuffer = Buffer.from([0, 255]);
     const decoded = decodeSqlServerNativeValue(nativeBuffer, descriptor("varbinary(max)"), policy) as Uint8Array;
-    const encoded = encode(nativeBuffer, "varbinary(max)") as Uint8Array;
+    const encoded = encode(nativeBuffer, "varbinary(max)");
     nativeBuffer[0] = 42;
     strict.deepEqual([...decoded], [0, 255]);
-    strict.deepEqual([...encoded], [0, 255]);
+    strict.equal(encoded, "00FF");
+    strict.equal(encode(new Uint8Array(), "varbinary(max)"), "");
     const original = Uint8Array.of(0, 255),
-      copy = encode(original, "varbinary(max)") as Uint8Array;
+      copy = encode(original, "varbinary(max)");
     original[0] = 42;
-    strict.deepEqual([...copy], [0, 255]);
-    strict.throws(() => encode(copy, "binary(1)"), /length/);
-    strict.throws(() => encode(copy, "rowversion"), /assigned/);
+    strict.equal(copy, "00FF");
+    strict.throws(() => encode(Uint8Array.of(0, 255), "binary(1)"), /length/);
+    strict.throws(() => encode(Uint8Array.of(0, 255), "rowversion"), /assigned/);
     strict.throws(() => encode("nope", "uniqueidentifier"), /uniqueidentifier/);
     strict.throws(() => encode(null, "bigint"), /nullable/);
     strict.equal(encodeSqlServerParameter(null, descriptor("bigint", true), policy), null);
