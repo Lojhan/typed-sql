@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
 import { renderFeatureLedgerDocumentation } from "../../packages/conformance/src/feature-ledger-markdown.js";
-import { parseGrammarFeatureLedger } from "../../packages/conformance/src/index.js";
+import { compareGrammarVersions, parseGrammarFeatureLedger } from "../../packages/conformance/src/index.js";
 import {
   type DialectPlugin,
   diagnosticRegistry,
@@ -11,13 +11,41 @@ import {
   UnsupportedAdapterCapabilityError,
   UnsupportedExecutionCapabilityError,
 } from "../../packages/core/src/index.js";
+import { duckDBServerEvidence, duckdb } from "../../packages/duckdb/src/browser.js";
 import { mysql } from "../../packages/mysql/src/index.js";
 import { postgres } from "../../packages/postgres/src/index.js";
 import { sqlite } from "../../packages/sqlite/src/index.js";
+import { sqlServerServerEvidence, sqlserver } from "../../packages/sqlserver/src/browser.js";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const requiredOwnedSurfaces = [
+  ...["duckdb", "sqlserver"].flatMap((dialect) => [
+    ...["catalog", "coercion", "function-catalog", "nullability", "operator-catalog", "semantics"].map(
+      (surface) => `resolver:${dialect}.${surface}`,
+    ),
+    ...[
+      "batch",
+      "buffered",
+      "cancellation",
+      "decoding",
+      "live-verification",
+      "plan-inspection",
+      "prepared",
+      "streaming",
+      "transaction",
+    ].map((surface) => `runtime:${dialect}.${surface}`),
+    `schema:${dialect}.introspection`,
+  ]),
+  "runtime:duckdb.appender",
+  "ast:sqlserver.apply",
+  "ast:sqlserver.output",
+  "ast:sqlserver.top",
+  "resolver:duckdb.lambda",
+  "resolver:duckdb.map",
+  "resolver:duckdb.struct",
+  "resolver:duckdb.union",
+  "resolver:duckdb.unnest",
   "ast:lexical.comments",
   "ast:lexical.identifiers",
   "ast:lexical.numbers",
@@ -92,6 +120,40 @@ const grammars: readonly {
   readonly dialect: DialectPlugin;
   readonly snapshot: SchemaSnapshot;
 }[] = [
+  ...["1.5.6", "2.0.0"].map((version) => ({
+    dialect: duckdb(),
+    snapshot: {
+      formatVersion: 1 as const,
+      dialect: "duckdb",
+      server: duckDBServerEvidence(version, [], {
+        Calendar: "gregorian",
+        integer_division: "false",
+        preserve_identifier_case: version === "1.5.6" ? "true" : "preserve_case",
+        ...(version === "1.5.6" ? { old_implicit_casting: "false" } : {}),
+      }),
+      tables: {},
+    },
+  })),
+  ...[14, 15, 16, 17].map((major) => ({
+    dialect: sqlserver(),
+    snapshot: {
+      formatVersion: 1 as const,
+      dialect: "sqlserver",
+      server: sqlServerServerEvidence(`${major}.0.1000.0`, {
+        compatibilityLevel: major * 10,
+        collation: "Latin1_General_100_CI_AS",
+        defaultSchema: "dbo",
+        quotedIdentifier: true,
+        ansiWarnings: true,
+        arithAbort: true,
+        concatNullYieldsNull: true,
+        dateFirst: 7,
+        dateFormat: "mdy",
+        language: "us_english",
+      }),
+      tables: {},
+    },
+  })),
   {
     dialect: mysql(),
     snapshot: {
@@ -150,9 +212,16 @@ await describe("grammar feature ledger contract", async () => {
           support.level === "exact" || support.level === "conservative",
           `${dialect.id}.${capability} boolean compatibility view`,
         );
+        const policy = ledger.dialects[dialect.id]!;
+        const version = snapshot.server?.versionKey ?? snapshot.version!;
+        const outsideFeatureWindow =
+          (support.introduced !== undefined &&
+            compareGrammarVersions(version, support.introduced, policy.versionScheme) < 0) ||
+          (support.removed !== undefined &&
+            compareGrammarVersions(version, support.removed, policy.versionScheme) >= 0);
         strict.strictEqual(
           states[capability]?.level === "unsupported",
-          support.level === "unsupported",
+          support.level === "unsupported" || outsideFeatureWindow,
           `${dialect.id}.${capability} current support state`,
         );
       }
@@ -209,18 +278,22 @@ await describe("grammar feature ledger contract", async () => {
     );
   });
 
-  await it("has no unclassified stable or canary target", () => {
+  await it("keeps native version policies discrete and records availability conditions", () => {
+    strict.deepEqual(ledger.dialects.duckdb?.stable, [
+      { minimum: "1.5.6", maximum: "1.5.6" },
+      { minimum: "2.0.0", maximum: "2.0.0" },
+    ]);
+    strict.deepEqual(
+      ledger.dialects.sqlserver?.stable.map((range) => range.minimum),
+      ["14", "15", "16", "17"],
+    );
     for (const entry of ledger.entries) {
-      for (const [dialect, policy] of Object.entries(ledger.dialects)) {
+      for (const dialect of Object.keys(ledger.dialects)) {
         const support = entry.dialects[dialect];
         if (support === undefined) throw new Error(`${entry.id}.${dialect} is unclassified`);
-        for (const range of [...policy.stable, ...policy.canary]) {
-          if (support.introduced !== undefined) {
-            // A target older than introduction is explicitly outside the feature's availability window.
-            strict.ok(typeof support.introduced === "string");
-          }
-          strict.ok(range.minimum.length > 0 && range.maximum.length > 0);
-        }
+        strict.ok(support.tests.length > 0);
+        if (["duckdb", "sqlserver"].includes(dialect) && support.level === "exact")
+          strict.ok(support.conditions?.length, `${entry.id}.${dialect} needs its qualification conditions`);
       }
     }
   });
