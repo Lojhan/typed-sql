@@ -1,4 +1,5 @@
 import { describe, it, strict } from "poku";
+import { sqlserver } from "../src/browser.js";
 import {
   introspectSqlServer,
   sqlServerCatalogQueries as query,
@@ -222,5 +223,102 @@ await describe("SQL Server native catalog classifications and validation", async
     const options = fixture();
     options.data.set(query.options, []);
     await strict.rejects(readSqlServerServerEvidence(options.client), /dateformat/);
+  });
+  await it("keeps rowversion nonwritable and alias nullability/default/rule facts independent of columns", async () => {
+    const state = fixture(),
+      types = state.data.get(query.types)!,
+      base = types[0]!,
+      column = state.data.get(query.columns)![0]!;
+    state.data.set(query.types, [
+      ...types.map((type) =>
+        type.user_type_id === 500
+          ? {
+              ...type,
+              is_nullable: false,
+              default_object_id: 700,
+              rule_object_id: 701,
+              bound_default_expression: "CREATE DEFAULT dbo.alias_default AS 7",
+              bound_rule_expression: "CREATE RULE dbo.alias_positive AS @value > 0",
+            }
+          : type,
+      ),
+      {
+        ...base,
+        type_name: "timestamp",
+        base_name: "timestamp",
+        user_type_id: 189,
+        system_type_id: 189,
+        max_length: 8,
+        precision: 0,
+        scale: 0,
+      },
+    ]);
+    state.data.set(query.columns, [
+      ...state.data.get(query.columns)!,
+      { ...column, column_id: 8, column_name: "rv", user_type_id: 189, system_type_id: 189, is_identity: false },
+      {
+        ...column,
+        column_id: 9,
+        column_name: "alias_nullable",
+        user_type_id: 500,
+        system_type_id: 127,
+        is_identity: false,
+        is_nullable: true,
+        default_object_id: 700,
+        rule_object_id: 701,
+        default_expression: "CREATE DEFAULT dbo.alias_default AS 7",
+        bound_rule_expression: "CREATE RULE dbo.alias_positive AS @value > 0",
+      },
+      {
+        ...column,
+        column_id: 10,
+        column_name: "hidden_default",
+        is_identity: false,
+        default_object_id: 702,
+        default_expression: null,
+      },
+    ]);
+    const snapshot = await new SqlServerSchemaProvider({ client: state.client }).introspect();
+    const columns = snapshot.relations["dbo.orders"]!.columns,
+      alias = snapshot.types["dbo.OrderId"]!;
+    strict.equal(columns.rv?.databaseType, "rowversion");
+    strict.equal(columns.rv?.insertable, false);
+    strict.equal(columns.rv?.updatable, false);
+    strict.equal(columns.alias_nullable?.nullable, true);
+    strict.equal(columns.alias_nullable?.default, "present");
+    strict.equal(alias.kind, "scalar");
+    strict.equal(alias.extension?.attributes.declaredNullable, false);
+    strict.equal(alias.extension?.attributes.defaultObjectId, 700);
+    strict.equal(alias.extension?.attributes.ruleObjectId, 701);
+    strict.equal(typeof alias.extension?.attributes.boundDefaultHash, "string");
+    strict.equal(typeof columns.alias_nullable?.extension?.attributes.boundRuleHash, "string");
+    strict.equal(columns.hidden_default?.default, "present");
+    strict.equal(columns.hidden_default?.defaultExpressionHash, undefined);
+    strict.doesNotMatch(JSON.stringify(snapshot), /CREATE DEFAULT|CREATE RULE/);
+  });
+  await it("refuses all direct mutation classes on active temporal history tables", async () => {
+    const state = fixture();
+    state.data.set(query.relations, [{ ...state.data.get(query.relations)![0], temporal_type: 1 }]);
+    const snapshot = await new SqlServerSchemaProvider({ client: state.client }).introspect(),
+      table = snapshot.relations["dbo.orders"]!;
+    strict.equal(table.capabilities?.insertable, false);
+    strict.equal(table.capabilities?.updatable, false);
+    strict.equal(table.capabilities?.deletable, false);
+    strict.equal(table.columns.status?.insertable, false);
+    strict.equal(table.columns.status?.updatable, false);
+    const grammar = sqlserver();
+    for (const source of [
+      "INSERT INTO dbo.orders(status) VALUES(N'new')",
+      "UPDATE dbo.orders SET status=N'new'",
+      "DELETE FROM dbo.orders",
+    ])
+      strict.ok(
+        grammar.analyze(source, snapshot).diagnostics.some((diagnostic) => diagnostic.code === "TSQ203"),
+        source,
+      );
+    state.data.set(query.relations, [{ ...state.data.get(query.relations)![0], temporal_type: 0 }]);
+    const detached = await new SqlServerSchemaProvider({ client: state.client }).introspect();
+    strict.equal(detached.relations["dbo.orders"]?.capabilities?.deletable, true);
+    strict.equal(detached.relations["dbo.orders"]?.columns.status?.updatable, true);
   });
 });

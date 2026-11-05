@@ -1869,6 +1869,14 @@ class Resolver {
       target = this.relation(statement.target, ctes);
       scope = { relations: [target] };
     }
+    const writeCapability =
+      statement.kind === "insert" ? "insertable" : statement.kind === "update" ? "updatable" : "deletable";
+    if (target.catalog?.capabilities?.[writeCapability] === false)
+      this.diagnostic(
+        "TSQ203",
+        "This native relation is not writable for the requested operation",
+        statement.target.range,
+      );
     if (statement.output && !statement.output.into && target.catalog?.capabilities?.outputWithoutInto === false)
       this.diagnostic(
         "TSQ203",

@@ -16,6 +16,10 @@ export function fixture() {
     precision,
     scale,
     is_nullable: true,
+    default_object_id: 0,
+    rule_object_id: 0,
+    bound_default_expression: null,
+    bound_rule_expression: null,
   });
   const column = (name: string, id: number, typeId: number, extra: Row = {}) => ({
     object_id: 100,
@@ -40,6 +44,9 @@ export function fixture() {
     is_persisted: false,
     generation_expression: null,
     default_expression: null,
+    default_object_id: 0,
+    rule_object_id: 0,
+    bound_rule_expression: null,
     identity_seed: null,
     identity_increment: null,
     ...extra,

@@ -122,7 +122,12 @@ and rolls back. Nested transactions are explicitly unsupported. See [Execution](
 native provider. Introspection requires database `VIEW DEFINITION` and writes schema format 2,
 including column order, aliases, identity/computed/default evidence, collations and code pages,
 write eligibility, temporal/history attributes, constraint trust, filtered/included indexes and
-routine signatures. Raw expressions are retained as fingerprints rather than published definitions.
+routine signatures. Active history tables and generated period columns are not writable. Alias
+nullability remains separate from each column's actual nullability; standalone and alias-bound
+defaults retain presence even when their definitions are unavailable. Raw expressions are retained
+as fingerprints rather than published definitions. Object-level permission restrictions can hide
+metadata despite a database-level grant; capture with a principal that can see every intended
+object. Introspection does not grant permissions.
 Generated schema files are compiler inputs, not runtime application imports.
 
 The grammar covers joins and `APPLY`, ordinary and recursive CTEs, scalar subqueries, set operations,
