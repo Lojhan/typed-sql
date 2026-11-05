@@ -87,11 +87,22 @@ for (const [sdk, engine] of [
     } finally {
       await lock.close();
     }
+    const online = await fixture.command(
+      project,
+      "pnpm",
+      ["exec", "typed-sql", "generate", "--config", "online.config.mjs"],
+      { env: environment },
+    );
+    assert.match(online.output, /Generated schema/u);
+    assert.equal(await readFile(join(project, "native-imports.log"), "utf8"), "SDK initialized\n");
+    const generated = JSON.parse(await readFile(join(project, "generated/db/schema.json"), "utf8"));
+    assert.equal(generated.server.version, engine);
+    await writeFile(join(artifacts, `${engine}-online-generate.log`), online.output);
     const executed = await fixture.command(project, process.execPath, ["execute.mjs"], { env: environment });
     await writeFile(join(artifacts, `${engine}-bundled.log`), executed.output);
     await rm(join(artifacts, `${engine}-failure.log`), { force: true });
     console.log(
-      `${sdk}: packed runtime, services/appender, strict CLI config, offline CLI/build under native lock with/without SDK, and bundled execution passed`,
+      `${sdk}: packed runtime, services/appender, strict CLI config, offline CLI/build under native lock with/without SDK, online provider generation, and bundled execution passed`,
     );
   } catch (error) {
     await writeFile(join(artifacts, `${engine}-failure.log`), String(error));

@@ -3,7 +3,7 @@ import { defineConfig } from "@typed-sql/core";
 import { duckdb } from "@typed-sql/duckdb";
 import { createNodeDuckDBLiveVerifier, createNodeDuckDBPlanInspector } from "@typed-sql/duckdb/node-api";
 
-const native = {
+export const native = {
   path: process.env.TYPED_SQL_DUCKDB_PATH ?? "persistent.duckdb",
   async sdkImporter() {
     appendFileSync("native-imports.log", "SDK initialized\n");
