@@ -120,6 +120,8 @@ export interface QueryVerificationProof {
   readonly verifierVersion: typeof QUERY_VERIFIER_VERSION;
   readonly adapterVersion: string;
   readonly dialect: string;
+  /** Physical type comparison was required while producing this proof. */
+  readonly nativeTypeComparison?: true;
   /** Additive binding to the schema contract and its canonical content. */
   readonly schemaFormat?: 1 | 2;
   readonly schemaHash?: string;
@@ -319,8 +321,10 @@ function compareField(
   target: "column" | "parameter",
   expected: QueryVerificationExpectedField,
   actual: LiveQueryVerificationField,
-): readonly QueryVerificationMismatch[] {
+  verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
+): { readonly mismatches: readonly QueryVerificationMismatch[]; readonly unavailable: boolean } {
   const mismatches: QueryVerificationMismatch[] = [];
+  let unavailable = false;
   const add = (kind: QueryVerificationMismatchKind, expectedValue: string, actualValue: string) =>
     mismatches.push({ kind, target, index: expected.index, expected: expectedValue, actual: actualValue });
   if (
@@ -331,6 +335,15 @@ function compareField(
   ) {
     add("column-name", expected.name, actual.name);
   }
+  if (verifier.compareDatabaseTypes !== undefined) {
+    if (expected.databaseType === undefined || actual.databaseType === undefined) unavailable = true;
+    else {
+      const comparison = verifier.compareDatabaseTypes(expected.databaseType, actual.databaseType, target);
+      if (comparison === "unavailable") unavailable = true;
+      else if (comparison === "different") add("database-type", expected.databaseType, actual.databaseType);
+      else if (comparison !== "equal") throw new TypeError("Invalid native database type comparison");
+    }
+  }
   if (expected.tsType !== "unknown" && actual.tsType !== undefined) {
     const expectedWireType = brandBaseType(expected.tsType) ?? expected.tsType;
     if (
@@ -340,6 +353,7 @@ function compareField(
       add("typescript-type", expected.tsType, actual.tsType);
     }
   } else if (
+    verifier.compareDatabaseTypes === undefined &&
     expected.databaseType !== undefined &&
     actual.databaseType !== undefined &&
     normalizedType(expected.databaseType) !== normalizedType(actual.databaseType)
@@ -349,14 +363,16 @@ function compareField(
   if (actual.nullable !== undefined && expected.nullable !== actual.nullable) {
     add("nullability", String(expected.nullable), String(actual.nullable));
   }
-  return mismatches;
+  return { mismatches, unavailable };
 }
 
 function compareEvidence(
   candidate: QueryVerificationCandidate,
   evidence: LiveQueryVerificationEvidence,
-): readonly QueryVerificationMismatch[] {
+  verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
+): readonly QueryVerificationMismatch[] | "unavailable" {
   const mismatches: QueryVerificationMismatch[] = [];
+  let unavailable = false;
   if (candidate.columns.length !== evidence.columns.length) {
     mismatches.push({
       kind: "column-count",
@@ -374,12 +390,16 @@ function compareEvidence(
     });
   }
   for (let index = 0; index < Math.min(candidate.columns.length, evidence.columns.length); index += 1) {
-    mismatches.push(...compareField("column", candidate.columns[index]!, evidence.columns[index]!));
+    const fields = compareField("column", candidate.columns[index]!, evidence.columns[index]!, verifier);
+    unavailable ||= fields.unavailable;
+    mismatches.push(...fields.mismatches);
   }
   for (let index = 0; index < Math.min(candidate.parameters.length, evidence.parameters.length); index += 1) {
-    mismatches.push(...compareField("parameter", candidate.parameters[index]!, evidence.parameters[index]!));
+    const fields = compareField("parameter", candidate.parameters[index]!, evidence.parameters[index]!, verifier);
+    unavailable ||= fields.unavailable;
+    mismatches.push(...fields.mismatches);
   }
-  return mismatches;
+  return mismatches.length ? mismatches : unavailable ? "unavailable" : mismatches;
 }
 
 function safeToPrepare(operation: QueryVerificationCandidate["operation"]): boolean {
@@ -413,6 +433,7 @@ function normalizedServer(server: LiveQueryVerificationServer): LiveQueryVerific
 }
 
 function verificationCacheKey(value: {
+  readonly nativeTypeComparison?: true;
   readonly adapterVersion: string;
   readonly dialect: string;
   readonly manifestHash: string;
@@ -424,6 +445,7 @@ function verificationCacheKey(value: {
       canonicalize({
         verifierVersion: QUERY_VERIFIER_VERSION,
         adapterVersion: value.adapterVersion,
+        ...(value.nativeTypeComparison === true ? { nativeTypeComparison: true } : {}),
         dialect: value.dialect,
         manifestHash: value.manifestHash,
         server: normalizedServer(value.server),
@@ -509,7 +531,16 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
         columns: native.columns.map((field) => ({ ...field })),
         parameters: native.parameters.map((field) => ({ ...field })),
       };
-      const mismatches = compareEvidence(item, evidence);
+      const mismatches = compareEvidence(item, evidence, options.verifier);
+      if (mismatches === "unavailable")
+        return {
+          queryId: item.queryId,
+          variantFingerprint: item.variantFingerprint,
+          source: item.source,
+          status: "skipped",
+          code: "TSQ501",
+          reason: "native-metadata-unavailable",
+        };
       return mismatches.length === 0
         ? {
             queryId: item.queryId,
@@ -539,7 +570,10 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
     }
   });
   const manifestHash = `sha256:${sha256(serializeQueryManifest(options.manifest))}`;
+  const comparisonCapability =
+    options.verifier.compareDatabaseTypes === undefined ? {} : { nativeTypeComparison: true as const };
   const cacheKey = verificationCacheKey({
+    ...comparisonCapability,
     adapterVersion: options.verifier.adapterVersion,
     dialect: options.verifier.dialect,
     manifestHash,
@@ -547,6 +581,7 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
     entries,
   });
   const proof: QueryVerificationProof = {
+    ...comparisonCapability,
     formatVersion: QUERY_VERIFICATION_FORMAT_VERSION,
     verifierVersion: QUERY_VERIFIER_VERSION,
     adapterVersion: options.verifier.adapterVersion,
@@ -631,6 +666,8 @@ export function parseQueryVerificationProof(value: unknown): QueryVerificationPr
     if (typeof value[property] !== "string" || value[property].length === 0)
       throw new TypeError(`Query verification proof ${property} must be a non-empty string`);
   }
+  if (value.nativeTypeComparison !== undefined && value.nativeTypeComparison !== true)
+    throw new TypeError("Query verification nativeTypeComparison must be true when present");
   fingerprint(value.manifestHash, "Query verification manifestHash");
   fingerprint(value.cacheKey, "Query verification cacheKey");
   if (value.schemaFormat !== undefined && value.schemaFormat !== 1 && value.schemaFormat !== 2) {
@@ -709,7 +746,7 @@ export function parseQueryVerificationProof(value: unknown): QueryVerificationPr
 export function assertQueryVerificationProofCurrent(
   manifest: QueryManifest,
   proof: QueryVerificationProof,
-  verifier?: Pick<LiveQueryVerifier, "dialect" | "adapterVersion" | "typePolicyHash">,
+  verifier?: Pick<LiveQueryVerifier, "dialect" | "adapterVersion" | "typePolicyHash" | "compareDatabaseTypes">,
 ): void {
   if (verifier !== undefined) assertVerifierTypePolicy(manifest, verifier);
   const manifestHash = `sha256:${sha256(serializeQueryManifest(manifest))}`;
@@ -726,7 +763,10 @@ export function assertQueryVerificationProofCurrent(
     (proof.dialect !== verifier.dialect || proof.adapterVersion !== verifier.adapterVersion)
   )
     throw new TypeError("Query verification proof adapter is stale");
+  if (verifier?.compareDatabaseTypes !== undefined && proof.nativeTypeComparison !== true)
+    throw new TypeError("Query verification proof native type comparison is stale");
   const expectedCacheKey = verificationCacheKey({
+    ...(proof.nativeTypeComparison === true ? { nativeTypeComparison: true } : {}),
     adapterVersion: proof.adapterVersion,
     dialect: proof.dialect,
     manifestHash,
