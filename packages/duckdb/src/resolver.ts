@@ -423,9 +423,13 @@ export class DuckDBResolver {
           this.error("Incompatible concatenation operands", expr.range, "TSQ201");
           return unknown;
         }
+        const literalTarget =
+          (left.integerLiteralRange || right.integerLiteralRange) && isNumeric(left.type) && isNumeric(right.type)
+            ? this.unionValues([left, right]).type
+            : undefined;
         const operators = matchDuckDBBuiltin(this.snapshot.server?.versionKey ?? "", expr.value ?? "", [
-          left.type,
-          right.type,
+          literalTarget ?? left.type,
+          literalTarget ?? right.type,
         ]);
         if (!operators.length) {
           this.error("No qualified DuckDB operator overload matches the operands", expr.range, "TSQ201");
