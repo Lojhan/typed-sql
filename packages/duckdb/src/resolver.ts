@@ -41,6 +41,8 @@ interface Field extends Value {
   readonly schema?: string;
   readonly catalog?: string;
   readonly usingHidden?: boolean;
+  readonly insertable?: boolean | "unknown";
+  readonly updatable?: boolean | "unknown";
 }
 interface Scope {
   readonly fields: readonly Field[];
@@ -785,8 +787,16 @@ export class DuckDBResolver {
     ) {
       return this.collectionLambda(expr, scope);
     }
+    if (name === "json_object" && args.length % 2 !== 0) {
+      this.error("json_object requires key/value pairs", expr.range, "TSQ201");
+      return unknown;
+    }
     const values = args.filter((arg) => arg.kind !== "star").map((arg) => this.infer(arg, scope));
     const version = this.snapshot.server?.versionKey ?? "";
+    if (name === "sum_no_overflow" && version !== "2.0.0") {
+      this.error("sum_no_overflow is internal-only on DuckDB1.5.6", expr.range, "TSQ401");
+      return unknown;
+    }
     const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
     const signatures = duckDBBuiltinSignatures(version, builtinName);
     const aggregate =
@@ -1126,19 +1136,15 @@ export class DuckDBResolver {
         "row_to_json",
         "array_to_json",
         "json_merge_patch",
-        "json_extract",
-        "json_query",
         "json_group_object",
         "json_group_array",
       ].includes(name)
     )
       return {
-        type:
-          (name === "json_extract" || name === "json_query") &&
-          (values[1]?.type.kind === "list" || values[1]?.type.kind === "array")
-            ? { kind: "list", element: scalar("JSON") }
-            : scalar("JSON"),
-        nullable: !["json_object", "json_array"].includes(name) && values.some((x) => x.nullable),
+        type: scalar("JSON"),
+        nullable:
+          ["json_group_array", "json_group_object"].includes(name) ||
+          (!["json_object", "json_array"].includes(name) && values.some((x) => x.nullable)),
       };
     if (["json_extract_string", "json_value"].includes(name))
       return {
@@ -1148,6 +1154,13 @@ export class DuckDBResolver {
             : scalar("VARCHAR"),
         nullable: true,
       };
+    if (name === "json_extract" || name === "json_query") {
+      const multiple = values[1]?.type.kind === "list" || values[1]?.type.kind === "array";
+      return {
+        type: multiple ? { kind: "list", element: scalar("JSON") } : scalar("JSON"),
+        nullable: multiple ? values.some((value) => value.nullable) : true,
+      };
+    }
     if (name === "json_valid") return bool(values.some((x) => x.nullable));
     if (["random", "pi", "sin", "cos", "tan", "sqrt", "exp", "ln", "log", "pow", "power"].includes(name))
       return { type: scalar("DOUBLE"), nullable: values.some((x) => x.nullable) };
@@ -1278,6 +1291,12 @@ export class DuckDBResolver {
       name: column.name,
       type: parseDuckDBType(column.databaseType),
       nullable: column.nullable,
+      ...(this.snapshot.formatVersion === 2 && this.snapshot.relations[key]?.columns[column.name]
+        ? {
+            insertable: this.snapshot.relations[key]!.columns[column.name]!.insertable,
+            updatable: this.snapshot.relations[key]!.columns[column.name]!.updatable,
+          }
+        : {}),
       tsType: column.tsType,
       relation: names.at(-1) ?? key,
       catalog:
@@ -1562,14 +1581,18 @@ export class DuckDBResolver {
 
     if (statement.kind === "insert") {
       const target = fields.length ? fields : this.table(statement.target ?? [], statement.range),
-        columns = statement.columns ?? target.map((field) => field.name);
+        columns = statement.columns ?? target.filter((field) => field.insertable !== false).map((field) => field.name);
       for (const row of statement.values ?? []) {
         if (row.length && row.length !== columns.length)
           this.error("INSERT value count differs from target columns", statement.range, "TSQ202");
         for (let i = 0; i < row.length; i++) {
           const column = target.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(columns[i] ?? ""));
           if (!column) this.error(`Unknown INSERT column ${columns[i]}`, row[i]!.range);
-          else this.infer(row[i]!, scope, column);
+          else {
+            if (column.insertable !== undefined && column.insertable !== true)
+              this.error("INSERT column is generated or not proven insertable", row[i]!.range, "TSQ202");
+            this.infer(row[i]!, scope, column);
+          }
         }
       }
       if (statement.source) {
@@ -1581,7 +1604,11 @@ export class DuckDBResolver {
     for (const assignment of statement.assignments ?? []) {
       const target = fields.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(assignment.name));
       if (!target) this.error(`Unknown UPDATE column ${assignment.name}`, statement.range);
-      else this.infer(assignment.value, scope, target);
+      else {
+        if (target.updatable !== undefined && target.updatable !== true)
+          this.error("UPDATE column is generated or not proven updatable", assignment.value.range, "TSQ202");
+        this.infer(assignment.value, scope, target);
+      }
     }
     let output = this.project(statement.kind === "select" ? statement.projections : (statement.returning ?? []), scope);
     if (statement.where) this.infer(statement.where, scope, bool(true));
