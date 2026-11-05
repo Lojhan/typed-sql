@@ -5,7 +5,7 @@ import {
   type QuerySemantics,
 } from "@typed-sql/core";
 import { SQLSERVER_BUILTINS } from "./catalog/index.js";
-import { type Statement, walkStatement } from "./parser/index.js";
+import { type Statement, walkExpression, walkStatement } from "./parser/index.js";
 export function analyzeSqlServerSemantics(statement: Statement): QuerySemantics {
   const evidence = [
     {
@@ -88,18 +88,38 @@ export function analyzeSqlServerSemantics(statement: Statement): QuerySemantics 
         else if (builtin.volatility === "stable" && volatility === "immutable") volatility = "stable";
         if (expression.over) capabilities.add("windows");
         if (expression.returningJson) capabilities.add("nativeJson");
-        if (builtin?.kind === "aggregate" && !expression.over) aggregate = true;
+
         if (name.startsWith("JSON_") || name === "OPENJSON") capabilities.add("json");
       }
       if (expression.kind === "cast" && expression.databaseType === "json") capabilities.add("nativeJson");
     },
   });
+  if (statement.kind === "select") {
+    const subqueries: { start: number; end: number }[] = [];
+    const inspect = (expression: Parameters<typeof walkExpression>[0]) =>
+      walkExpression(expression, {
+        expression(value) {
+          if (value.kind === "subquery" || value.kind === "exists") subqueries.push(value.range);
+          if (
+            value.kind === "call" &&
+            value.name.parts.length === 1 &&
+            SQLSERVER_BUILTINS[value.name.parts[0]!.toUpperCase()]?.kind === "aggregate" &&
+            !value.over &&
+            !subqueries.some((range) => value.range.start >= range.start && value.range.end <= range.end)
+          )
+            aggregate = true;
+        },
+      });
+    for (const projection of statement.projections) inspect(projection.expression);
+    if (statement.having) inspect(statement.having);
+  }
   const write = statement.kind !== "select";
   const command = write && (!statement.output || statement.output.into !== undefined);
   const single =
     statement.kind === "select" &&
     (!statement.from || (aggregate && !statement.group.length)) &&
-    !statement.compounds.length;
+    !statement.compounds.length &&
+    !statement.forJson;
   const oneTop =
     statement.kind === "select" &&
     statement.top?.count.kind === "literal" &&
@@ -111,7 +131,17 @@ export function analyzeSqlServerSemantics(statement: Statement): QuerySemantics 
     operation: { value: write ? "write" : "read", evidence },
     dependencies,
     cardinality: {
-      minimum: command ? 0 : single && statement.kind === "select" && !statement.where && !statement.having ? 1 : 0,
+      minimum: command
+        ? 0
+        : single &&
+            statement.kind === "select" &&
+            !statement.where &&
+            !statement.having &&
+            !statement.top &&
+            !statement.offset &&
+            !statement.fetch
+          ? 1
+          : 0,
       maximum: command ? 0 : single || oneTop ? 1 : "many",
       evidence,
     },

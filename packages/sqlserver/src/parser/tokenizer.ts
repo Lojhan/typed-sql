@@ -35,7 +35,31 @@ export function tokenize(source: string, options: TokenizeOptions = {}): readonl
   const fail = (message: string, start: SourceRange): never => {
     throw new SqlServerParseError(message, range(start));
   };
+  const parentheses: { json: boolean; key: boolean; tokens: boolean }[] = [];
   const emit = (kind: Token["kind"], value: string, start: SourceRange) => {
+    if (options.sqlFileParameters) {
+      const current = parentheses.at(-1);
+      if (value === "(" && kind === "punctuation") {
+        if (current?.json && current.key) current.tokens = true;
+        const previous = out.at(-1),
+          qualified = out.at(-2)?.value === ".";
+        parentheses.push({
+          json:
+            previous?.kind === "word" &&
+            !qualified &&
+            ["JSON_OBJECT", "JSON_OBJECTAGG"].includes(previous.value.toUpperCase()),
+          key: true,
+          tokens: false,
+        });
+      } else if (value === ")" && kind === "punctuation") parentheses.pop();
+      else if (current?.json && value === "," && kind === "punctuation") {
+        current.key = true;
+        current.tokens = false;
+      } else if (current?.json && value === ":" && kind === "punctuation") {
+        current.key = false;
+        current.tokens = false;
+      } else if (current?.json && current.key) current.tokens = true;
+    }
     out.push(
       Object.freeze({ kind, text: source.slice(start.start, index), value, range: Object.freeze(range(start)) }),
     );
@@ -118,7 +142,14 @@ export function tokenize(source: string, options: TokenizeOptions = {}): readonl
       emit("identifier", value, start);
       continue;
     }
-    if (char === "@" || char === "?") {
+    const jsonKeyDelimiter = parentheses.at(-1)?.json && parentheses.at(-1)?.key && parentheses.at(-1)?.tokens;
+    const fileNamed =
+      options.sqlFileParameters === true &&
+      char === ":" &&
+      source[index - 1] !== ":" &&
+      /[\p{L}_]/u.test(source[index + 1] ?? "") &&
+      !jsonKeyDelimiter;
+    if (char === "@" || char === "?" || fileNamed) {
       if (char === "?") {
         advance();
         emit("parameter", String(++anonymous), start);

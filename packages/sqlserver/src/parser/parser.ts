@@ -24,6 +24,8 @@ import {
 } from "./types.js";
 
 const endProjection = new Set([
+  "SELECT",
+  "DEFAULT",
   "FROM",
   "WHERE",
   "GROUP",
