@@ -13,7 +13,7 @@ no database server or third-party driver is required.
 ## 1. Check the prerequisites
 
 Use Node.js 22.13 or newer for the built-in `node:sqlite` adapter and TypeScript 7.0.2. The SQLite
-grammar supports library versions 3.39.0–3.53.4 and treats unknown newer libraries conservatively.
+grammar supports library versions 3.39.0–3.54.1 and treats unknown newer libraries conservatively.
 Review [SQLite compatibility](../dialects/sqlite.md#supported-versions) for exact evidence.
 
 The quickstart stores its scoped development database at `app.db`.

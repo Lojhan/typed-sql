@@ -157,7 +157,7 @@ Grammars own SQL analysis; drivers are optional, explicit application dependenci
 | --- | --- | --- | --- |
 | `@typed-sql/postgres` | PostgreSQL 14–18 | `@typed-sql/postgres/pg` | `pg` 8.23.1 |
 | `@typed-sql/mysql` | MySQL 8.4 and 9.7 LTS | `@typed-sql/mysql/mysql2` | `mysql2` 3.24.6 |
-| `@typed-sql/sqlite` | SQLite 3.39.0–3.53.4 | `@typed-sql/sqlite/node-sqlite` | `node:sqlite`: Node 22.13.0 and current 22, 24, 26 lines |
+| `@typed-sql/sqlite` | SQLite 3.39.0–3.54.1 | `@typed-sql/sqlite/node-sqlite` | `node:sqlite`: Node 22.13.0 and current 22, 24, 26 lines |
 
 Additional execution adapters accept application-owned clients:
 

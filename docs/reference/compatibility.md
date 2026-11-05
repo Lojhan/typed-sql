@@ -47,7 +47,7 @@ The report excludes setting values, schema expressions, source text, credentials
 | `pg` | Application-owned driver loaded by `@typed-sql/postgres/pg` | `pg` 8.23.1 |
 | MySQL | MySQL 8.4 and 9.7 LTS grammar and catalog provider; patch-compatible within each LTS series | MySQL 8.4.11 and 9.7.2 across default, lexical-mode, and unsigned-arithmetic profiles; MySQL 26.7.0 as a non-blocking innovation canary |
 | `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.6 |
-| SQLite | SQLite 3.39.0–3.53.4 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.53.4, every supported Node line's bundled library, and a non-blocking 3.54.0 canary |
+| SQLite | SQLite 3.39.0–3.54.1 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.54.1, every supported Node line's bundled library, with exact 3.54.1 release coverage |
 | `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |
 
 Driver configurations that change decoded value shapes can violate static types. The adapters own or reject those settings as documented in [Database type mappings](./type-mappings.md).

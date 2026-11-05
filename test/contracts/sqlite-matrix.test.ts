@@ -17,15 +17,15 @@ await describe("SQLite support matrix", async () => {
       "node-24-current",
       "node-26-current",
       "sqlite-3.39.0-minimum",
-      "sqlite-3.53.4-latest",
-      "sqlite-3.54.0-canary",
+      "sqlite-3.53.4-regression",
+      "sqlite-3.54.1-latest",
     ]) {
       strict.ok(workflow.includes(`label: ${target}`), `missing SQLite matrix target ${target}`);
     }
     strict.ok(workflow.includes("continue-on-error: ${{ matrix.experimental }}"));
     strict.ok(workflow.includes("b8e5b3265992350d40c4ad31efc2e6dec6256813f1d5acc8f0ea805e9f33ca2a"));
     strict.ok(workflow.includes("454e45f61c6bd75b7420e7190732dea03ce6639c63ada47bbc592f67fc340338"));
-    strict.ok(workflow.includes("f7487e5c39a4b89f87d3ddee618c25c65278987b98d30ebc2a8b6bb4e277065a"));
+    strict.ok(workflow.includes("b6ced585c750916b1052667239a12c25a7ff34e7f06e1e6e01ecb0427657d9c4"));
 
     const packageManifest = JSON.parse(await readFile(join(workspace, "packages", "sqlite", "package.json"), "utf8"));
     strict.strictEqual(packageManifest.engines.node, ">=22.11");
@@ -73,6 +73,13 @@ await describe("SQLite support matrix", async () => {
       strict.strictEqual(artifact.evidence.plan.detail, undefined);
       strict.strictEqual(artifact.summary.fail, 0);
       strict.ok(artifact.results.every(({ status }: { status: string }) => status === "pass"));
+      strict.ok(
+        artifact.results
+          .filter(({ valuesMatch }: { valuesMatch?: boolean }) => valuesMatch !== undefined)
+          .every(({ valuesMatch }: { valuesMatch: boolean }) => valuesMatch),
+      );
+      for (const id of ["json-format", "boolean-optimizer", "union-limit", "rowid-add", "rowid-drop", "rowid-rename"])
+        strict.ok(artifact.results.some((result: { id: string }) => result.id === `release-3.54.${id}`));
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

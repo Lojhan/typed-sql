@@ -24,7 +24,7 @@ Node 26. Odd-numbered and unlisted future Node lines fail closed until they ente
 
 ## Supported versions
 
-The complete language baseline is SQLite 3.39.0 through 3.53.4. The 3.39 floor is intentional: it
+The complete language baseline is SQLite 3.39.0 through 3.54.1. The 3.39 floor is intentional: it
 is the first release with RIGHT and FULL OUTER JOIN, completing the query-structure baseline. The
 upper bound is the latest release verified by this repository, not a prediction that later SQLite
 versions are incompatible. Older libraries can still resolve individually version-gated features,
@@ -39,8 +39,8 @@ cancellation.
 
 | Evidence dimension | Stable contract | Verification |
 | --- | --- | --- |
-| SQLite language | 3.39.0–3.53.4 | Source-built 3.39.0 and 3.53.4 plus every supported Node line's bundled library |
-| Newer SQLite | Conservative until reviewed | Non-blocking source-built 3.54.0 canary |
+| SQLite language | 3.39.0–3.54.1 | Source-built 3.39.0 and 3.54.1 plus every supported Node line's bundled library |
+| Newer SQLite | Conservative until reviewed | Versions beyond 3.54.1 are not promoted by version detection alone |
 | Node grammar use | Node 22.11 or newer | Repository-wide Node checks |
 | `node:sqlite` adapter | Node 22 from 22.13 onward, Node 24, and Node 26 | Minimum and current releases from each listed line |
 | Compile-option features | Exact only when recorded evidence enables them | Differential probes retain the normalized compile-option list |

@@ -142,19 +142,28 @@ await describe("SQLite grammar", async () => {
     strict.strictEqual(omittedWindows?.aggregateFilter?.level, "unsupported");
     strict.strictEqual(omittedWindows?.aggregateFilter?.diagnostic, "TSQ406");
     strict.strictEqual(SQLITE_LANGUAGE_SUPPORT.minimum, "3.39.0");
-    strict.strictEqual(SQLITE_LANGUAGE_SUPPORT.maximum, "3.53.4");
+    strict.strictEqual(SQLITE_LANGUAGE_SUPPORT.maximum, "3.54.1");
     strict.strictEqual(NODE_SQLITE_RUNTIME_SUPPORT.minimum, "22.13.0");
     strict.strictEqual(sqliteVersionSupport("3.53.4"), "supported");
-    strict.strictEqual(sqliteVersionSupport("3.54.0"), "newer-than-tested");
-    strict.strictEqual(sqliteVersionSupport("3.53.5rc1"), "prerelease");
+    strict.strictEqual(sqliteVersionSupport("3.54.1"), "supported");
+    strict.strictEqual(sqliteVersionSupport("3.54.0"), "supported");
+    strict.strictEqual(sqliteVersionSupport("3.54.2"), "newer-than-tested");
     strict.strictEqual(
       dialect.resolveCapabilities?.({
         ...schema,
-        version: "3.54.0",
+        server: { product: "sqlite", version: "3.54.1", versionKey: "3.54.1", features: [], settings: {} },
+      }).setOperations?.level,
+      "exact",
+    );
+    strict.strictEqual(sqliteVersionSupport("3.54.2rc1"), "prerelease");
+    strict.strictEqual(
+      dialect.resolveCapabilities?.({
+        ...schema,
+        version: "3.55.0",
         server: {
           product: "sqlite",
-          version: "3.54.0",
-          versionKey: "3.54.0",
+          version: "3.55.0",
+          versionKey: "3.55.0",
           features: [],
           settings: {},
         },

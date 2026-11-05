@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -209,11 +210,59 @@ const probes = [
   },
 ];
 
+// Reviewed 3.54 release changes: compare values, not just statement acceptance.
+probes.push(
+  {
+    id: "release-3.54.json-format",
+    featureIds: ["expression.scalar"],
+    expected: atLeast(parsedVersion, "3.54.0"),
+    sql: `SELECT printf('%J', 'a"b' || char(10)) AS quoted, format('%j', 'a"b') AS fragment`,
+    ...(atLeast(parsedVersion, "3.54.0")
+      ? { expectedRows: [{ quoted: JSON.stringify('a"b\n'), fragment: 'a\\"b' }] }
+      : {}),
+  },
+  {
+    id: "release-3.54.boolean-optimizer",
+    featureIds: ["expression.scalar"],
+    expected: true,
+    sql: "SELECT CAST(CASE WHEN NULL OR TRUE THEN 1 ELSE 0 END AS TEXT) AS value",
+    expectedRows: [{ value: "1" }],
+  },
+  {
+    id: "release-3.54.union-limit",
+    featureIds: ["query.set-operation", "query.ordering-pagination"],
+    expected: true,
+    sql: "SELECT CAST(value AS TEXT) AS value FROM (SELECT 1 AS value UNION SELECT 2) LIMIT 1",
+    expectedRows: [{ value: "1" }],
+  },
+);
+for (const [name, setup, sql] of [
+  ["add", "CREATE TABLE rowid_add(value TEXT)", "ALTER TABLE rowid_add ADD COLUMN rowid INTEGER"],
+  ["drop", "CREATE TABLE rowid_drop(rowid INTEGER, value TEXT)", "ALTER TABLE rowid_drop DROP COLUMN rowid"],
+  ["rename", "CREATE TABLE rowid_rename(value TEXT)", "ALTER TABLE rowid_rename RENAME COLUMN value TO rowid"],
+]) {
+  probes.push({
+    id: `release-3.54.rowid-${name}`,
+    featureIds: [],
+    expected: false,
+    forbidden: atLeast(parsedVersion, "3.54.0"),
+    setup: `${setup};`,
+    sql,
+  });
+}
+
 const results = [];
 for (const probe of probes) {
   let accepted = false;
+  let valuesMatch = true;
   try {
-    execute(probe.sql, probe.setup);
+    const rows = execute(probe.sql, probe.setup);
+    valuesMatch =
+      probe.expectedRows === undefined ||
+      isDeepStrictEqual(
+        rows.map((row) => ({ ...row })),
+        probe.expectedRows,
+      );
     accepted = true;
   } catch {
     accepted = false;
@@ -221,9 +270,10 @@ for (const probe of probes) {
   results.push({
     id: probe.id,
     featureIds: probe.featureIds,
-    expected: probe.expected ? "available" : "not-required",
+    expected: probe.forbidden ? "unavailable" : probe.expected ? "available" : "not-required",
     actual: accepted ? "available" : "unavailable",
-    status: probe.expected && !accepted ? "fail" : "pass",
+    ...(probe.expectedRows === undefined ? {} : { valuesMatch }),
+    status: (probe.expected && !accepted) || (probe.forbidden && accepted) || !valuesMatch ? "fail" : "pass",
   });
 }
 
