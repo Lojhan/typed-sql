@@ -1,7 +1,14 @@
 import { Buffer } from "node:buffer";
 import { describe, it, strict } from "poku";
 import { type OdbcFunctions, OdbcNative, type SqlServerKoffi } from "../src/odbc-native.js";
-import { ODBC_PHASE, type OdbcWorkerOptions, odbcState, ODBC_STATE as S } from "../src/odbc-protocol.js";
+import {
+  ODBC_PHASE,
+  type OdbcWorkerOptions,
+  odbcPositiveInteger,
+  odbcState,
+  odbcValueBytes,
+  ODBC_STATE as S,
+} from "../src/odbc-protocol.js";
 import { acknowledgeOdbcCancellation } from "../src/odbc-worker.js";
 
 class Memory {
@@ -212,5 +219,49 @@ await describe("SQL Server direct ODBC native ABI value and cancellation contrac
     });
     strict.deepEqual(messages.at(-1), { ack: 3, failed: true });
     strict.equal(Atomics.load(words, S.controlFailure), 1);
+  });
+  await it("bounds every payload kind and rejects invalid configured native limits", () => {
+    strict.deepEqual([null, "é😀", Uint8Array.of(0, 255), 1.25].map(odbcValueBytes), [0, 6, 2, 8]);
+    strict.equal(odbcPositiveInteger(1, "limit"), 1);
+    for (const value of [0, -1, Infinity, NaN, 1.5])
+      strict.throws(() => odbcPositiveInteger(value, "limit"), /positive safe integer/);
+  });
+  await it("refuses ambiguous final lengths, unexpected conversion warnings and NULL after partial data", () => {
+    for (const indicator of [-4, -2, 1, 8]) {
+      const native = new OdbcNative(sdk, options(), {
+        SQLGetData: (_s, _c, _t, _b, _l, out) => {
+          output(out)[0] = indicator;
+          return 0;
+        },
+      });
+      strict.throws(() => native.cell(1n, 1, false), /exact-value-length/);
+    }
+    let calls = 0;
+    const native = new OdbcNative(sdk, options(), {
+      SQLGetData: (_s, _c, _t, _b, _l, out) => {
+        output(out)[0] = ++calls === 1 ? -4 : -1;
+        return calls === 1 ? 1 : 0;
+      },
+      SQLGetDiagRecW: (_k, _h, index, state, code) => {
+        if (index !== 1) return 100;
+        Buffer.from("01004\0", "utf16le").copy(buffer(state));
+        output(code)[0] = 0;
+        return 0;
+      },
+    });
+    strict.throws(() => native.cell(1n, 1, false), /NULL-after-partial/);
+    const warning = new OdbcNative(sdk, options(), {
+      SQLGetData: (_s, _c, _t, _b, _l, out) => {
+        output(out)[0] = -4;
+        return 1;
+      },
+      SQLGetDiagRecW: (_k, _h, index, state, code) => {
+        if (index !== 1) return 100;
+        Buffer.from("01S07\0", "utf16le").copy(buffer(state));
+        output(code)[0] = 0;
+        return 0;
+      },
+    });
+    strict.throws(() => warning.cell(1n, 1, false), /conversion-warning/);
   });
 });
