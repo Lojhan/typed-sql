@@ -120,7 +120,7 @@ function allowedKeys(value: Record<string, unknown>, keys: readonly string[]): v
 
 function chargeText(value: string, budget: PlanBudget, maximum: number): string {
   if (value.length > maximum || value.includes("\0")) throw new TypeError("Runtime value metadata text limit");
-  budget.text = (budget.text ?? 262_144) - value.length;
+  budget.text = (budget.text ?? 1_048_576) - value.length;
   if (budget.text < 0) throw new TypeError("Runtime value metadata text limit");
   return value;
 }
@@ -303,7 +303,7 @@ export function defineQueryValuePlan(plan: QueryValuePlan): QueryValuePlan {
     throw new TypeError("Runtime value plan descriptor count limit");
   dataArray(plan.columns);
   dataArray(plan.parameters);
-  const budget: PlanBudget = { remaining: 262_144, text: 262_144 };
+  const budget: PlanBudget = { remaining: 262_144, text: 1_048_576 };
   const names = new Set<string>();
   const columns = plan.columns.map((column) => {
     dataObject(column);
