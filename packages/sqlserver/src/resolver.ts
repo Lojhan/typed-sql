@@ -578,12 +578,33 @@ class Resolver {
         return unknown;
       case "cast": {
         const target = type(expression.databaseType, expression.try, this.policy);
-        this.expression(expression.argument, scope, ctes, target);
+        const argument = this.expression(expression.argument, scope, ctes, target);
+        const input = native(argument)?.name,
+          destination = native(target)?.name;
+        if (
+          destination === "xml" &&
+          input &&
+          !["xml", "varchar", "nvarchar", "char", "nchar", "text", "ntext", "binary", "varbinary", "image"].includes(
+            input,
+          )
+        )
+          this.diagnostic("TSQ201", `Explicit conversion from ${input} to xml is not permitted`, expression.range);
+        if (
+          input &&
+          destination &&
+          ((numericNames.has(input) && ["date", "time", "datetime2", "datetimeoffset"].includes(destination)) ||
+            (["date", "time", "datetime2", "datetimeoffset"].includes(input) && numericNames.has(destination)))
+        )
+          this.diagnostic(
+            "TSQ201",
+            `Explicit conversion from ${input} to ${destination} is not permitted`,
+            expression.range,
+          );
         if (expression.style) this.expected(expression.style, type("int", false, this.policy), scope, ctes);
         if (native(target)?.name === "json") this.requireVersion(17, expression.range, "Native JSON");
         return {
           ...target,
-          nullable: expression.try || this.expression(expression.argument, scope, ctes, target).nullable,
+          nullable: expression.try || argument.nullable,
         };
       }
       case "unary": {
@@ -725,6 +746,7 @@ class Resolver {
   }
   call(expression: Expression & { kind: "call" }, scope: Scope, ctes: Ctes, expected?: Value): Value {
     const name = partsLast(expression.name).toUpperCase();
+    if (expression.returningJson) this.requireVersion(17, expression.range, "Native JSON RETURNING");
     const builtin = expression.name.parts.length === 1 ? SQLSERVER_BUILTINS[name] : undefined;
     if (!builtin) {
       const candidates = Object.values(this.schema.functions ?? {}).filter(
@@ -960,6 +982,10 @@ class Resolver {
               );
               continue;
             }
+            if (Object.hasOwn(properties, String(key.value))) {
+              this.diagnostic("TSQ203", "Duplicate JSON object keys have ambiguous native path semantics", key.range);
+              continue;
+            }
             Object.defineProperty(properties, String(key.value), {
               value: {
                 shape: this.shape(args[i + 1] ?? unknown),
@@ -1099,37 +1125,136 @@ class Resolver {
         this.expression(order.expression, outputScope, ctes);
       else this.expression(order.expression, scope, ctes);
     }
-    let hasAggregate = false;
-    const nonAggregate: Expression[] = [];
-    const gather = (expression: Expression, aggregate = false): void => {
+    const expressionKinds = new Set([
+      "parameter",
+      "column",
+      "literal",
+      "system",
+      "default",
+      "star",
+      "cast",
+      "unary",
+      "binary",
+      "case",
+      "call",
+      "between",
+      "in",
+      "exists",
+      "isnull",
+      "subquery",
+    ]);
+    const children = (expression: Expression): Expression[] => {
+      const result: Expression[] = [];
+      const collect = (value: unknown): void => {
+        if (!value || typeof value !== "object") return;
+        if (Array.isArray(value)) {
+          for (const child of value) collect(child);
+          return;
+        }
+        if ("kind" in value) {
+          if (value.kind === "select") return;
+          if (expressionKinds.has(String(value.kind))) {
+            result.push(value as Expression);
+            return;
+          }
+        }
+        for (const [key, child] of Object.entries(value)) if (key !== "range" && key !== "name") collect(child);
+      };
+      for (const [key, value] of Object.entries(expression)) if (key !== "range" && key !== "name") collect(value);
+      return result;
+    };
+    const columnIdentity = (expression: Expression & { kind: "column" }): string => {
+      const name = partsLast(expression.name),
+        qualifier = expression.name.parts.slice(0, -1).join(".");
+      const matches = scope.relations.filter(
+        (relation) =>
+          (!qualifier || relation.qualifiers.some((value) => this.same(value, qualifier))) &&
+          relation.columns.some((column) => this.same(column.name, name)),
+      );
+      return matches.length === 1
+        ? `${matches[0]!.key}:${this.key(name)}`
+        : expression.name.parts.map((part) => this.key(part)).join(".");
+    };
+    const keyOf = (value: unknown): unknown => {
+      if (!value || typeof value !== "object") return value;
+      if (Array.isArray(value)) return value.map(keyOf);
+      if ("kind" in value && value.kind === "column")
+        return { column: columnIdentity(value as Expression & { kind: "column" }) };
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([key]) => key !== "range")
+          .map(([key, child]) => [key, keyOf(child)]),
+      );
+    };
+    const expressionKey = (value: Expression) => JSON.stringify(keyOf(value));
+    const grouped = new Set(statement.group.map(expressionKey));
+    const forbiddenAggregate = (expression: Expression, context: string): void => {
+      if (expression.kind === "subquery" || expression.kind === "exists") return;
       if (
         expression.kind === "call" &&
-        SQLSERVER_BUILTINS[partsLast(expression.name).toUpperCase()]?.kind === "aggregate" &&
+        ((expression.name.parts.length === 1
+          ? SQLSERVER_BUILTINS[partsLast(expression.name).toUpperCase()]?.kind
+          : undefined) === "aggregate" ||
+          expression.over)
+      )
+        this.diagnostic("TSQ203", `Aggregate and window functions are not permitted in ${context}`, expression.range);
+      for (const child of children(expression)) forbiddenAggregate(child, context);
+    };
+    if (statement.where) forbiddenAggregate(statement.where, "WHERE");
+    for (const group of statement.group) forbiddenAggregate(group, "GROUP BY");
+    for (const join of statement.joins) if (join.on) forbiddenAggregate(join.on, "JOIN ON");
+    let hasAggregate = false;
+    const nonAggregate: Expression[] = [];
+    const gather = (expression: Expression): void => {
+      if (expression.kind === "subquery" || expression.kind === "exists") return;
+      if (
+        expression.kind === "call" &&
+        (expression.name.parts.length === 1
+          ? SQLSERVER_BUILTINS[partsLast(expression.name).toUpperCase()]?.kind
+          : undefined) === "aggregate" &&
         !expression.over
       ) {
         hasAggregate = true;
         return;
       }
-      if (expression.kind === "column" && !aggregate) nonAggregate.push(expression);
-      if (expression.kind === "binary") {
-        gather(expression.left, aggregate);
-        gather(expression.right, aggregate);
-      }
-      if (expression.kind === "unary" || expression.kind === "cast") gather(expression.argument, aggregate);
-      if (expression.kind === "call") for (const arg of expression.arguments) gather(arg, aggregate);
+      if (grouped.has(expressionKey(expression))) return;
+      if (expression.kind === "column") nonAggregate.push(expression);
+      for (const child of children(expression)) gather(child);
     };
+    if (statement.having) gather(statement.having);
     for (const projection of statement.projections) gather(projection.expression);
-    if (hasAggregate || statement.group.length) {
-      const grouped = statement.group
-        .filter((value): value is Expression & { kind: "column" } => value.kind === "column")
-        .map((value) => value.name.parts.map((part) => this.key(part)).join("."));
-      for (const expression of nonAggregate) {
-        if (
-          expression.kind === "column" &&
-          !grouped.includes(expression.name.parts.map((part) => this.key(part)).join("."))
-        )
-          this.diagnostic("TSQ203", "Non-aggregate projection must be present in GROUP BY", expression.range);
-      }
+    if (hasAggregate || statement.group.length || statement.having)
+      for (const expression of nonAggregate)
+        this.diagnostic("TSQ203", "Non-aggregate column must be present in GROUP BY", expression.range);
+    if (statement.distinct) {
+      const projected = new Set(statement.projections.map((projection) => expressionKey(projection.expression)));
+      const directColumns = new Set(
+        statement.projections
+          .filter((projection) => projection.expression.kind === "column")
+          .map((projection) => expressionKey(projection.expression)),
+      );
+      if (statement.projections.some((projection) => projection.expression.kind === "star"))
+        for (const relation of scope.relations)
+          for (const column of relation.columns)
+            directColumns.add(JSON.stringify({ column: `${relation.key}:${this.key(column.name)}` }));
+      const checkOrder = (expression: Expression): void => {
+        if (projected.has(expressionKey(expression))) return;
+        if (expression.kind === "column") {
+          if (
+            expression.name.parts.length === 1 &&
+            columns.some((column) => this.same(column.name, partsLast(expression.name)))
+          )
+            return;
+          if (!directColumns.has(expressionKey(expression)))
+            this.diagnostic(
+              "TSQ203",
+              "SELECT DISTINCT ORDER BY columns must appear in the projection",
+              expression.range,
+            );
+        }
+        for (const child of children(expression)) checkOrder(child);
+      };
+      for (const order of statement.order) checkOrder(order.expression);
     }
     if (statement.forJson) {
       const shape: JsonShape = {
