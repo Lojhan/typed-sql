@@ -9,6 +9,7 @@ import {
   type TypeSnapshot,
 } from "@typed-sql/schema";
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "./native-types.js";
+import { assertDuckDBSemanticEvidence, DUCKDB_SEMANTIC_SETTINGS } from "./settings.js";
 import { type DuckDBSchemaSnapshot, duckDBRelationIdentity } from "./snapshot.js";
 import { duckDBServerEvidence, duckDBVersionSupport } from "./support.js";
 import {
@@ -59,18 +60,7 @@ interface FunctionRow extends Record<string, unknown> {
   stability: string | null;
   macro_definition: string | null;
 }
-const settingNames = Object.freeze([
-  "TimeZone",
-  "Calendar",
-  "schema",
-  "search_path",
-  "preserve_identifier_case",
-  "default_collation",
-  "default_null_order",
-  "default_order",
-  "old_implicit_casting",
-  "lambda_syntax",
-]);
+const settingNames = DUCKDB_SEMANTIC_SETTINGS;
 /** Catalog reads are explicit, bounded to selected namespaces, and never install extensions. */
 export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot> {
   private readonly policy: DuckDBTypePolicy;
@@ -97,6 +87,7 @@ export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot
       settings.currentCatalog = current[0].catalog;
       settings.currentSchema = current[0].schema;
     }
+    assertDuckDBSemanticEvidence(duckDBServerEvidence(version, [], settings));
     const extensionRows = await client.all<{ extension_name: string; extension_version: string; loaded: boolean }>(
       "SELECT extension_name,extension_version,loaded FROM duckdb_extensions() WHERE loaded ORDER BY extension_name",
     );
