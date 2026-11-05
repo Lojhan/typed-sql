@@ -8,27 +8,156 @@
 typed-sql checks SQL against a snapshot of your database and infers result rows and parameter types.
 Keep your SQL, database driver, connections and migrations.
 
+[![Playground demo: named and positional bindings, branded IDs, mapped inserts, and nested JSON inference](./docs/assets/typed-sql.gif)](https://lojhan.github.io/typed-sql/playground)
+
+[Try the playground](https://lojhan.github.io/typed-sql/playground) ·
+[Get started](./docs/getting-started/index.md) ·
+[Documentation](https://lojhan.github.io/typed-sql/)
+
 ```ts
 import { sql } from "@typed-sql/postgres";
 
-export const accountById = (accountId: bigint) => sql`
-  SELECT account.id, account.email, account.status
-  FROM users AS account
-  WHERE account.id = ${accountId}
+export const accountById = (id: bigint) => sql`
+  SELECT u.id, u.email, t.name AS team_name
+  FROM users AS u
+  LEFT JOIN memberships AS m ON m.user_id = u.id
+  LEFT JOIN teams AS t ON t.id = m.team_id
+  WHERE u.id = ${id}
 `;
 ```
 
-With the corresponding schema, the compiler proves:
+Against the [commerce schema](./docs/examples/commerce-schema.md), the compiler infers:
 
 ```ts
 Query<
-  { id: bigint; email: string; status: "active" | "suspended" },
+  { id: bigint; email: string; team_name: string | null },
   readonly [bigint]
 >
 ```
 
-Interpolated values become driver parameters. Unsupported or ambiguous SQL receives a diagnostic or
-`unknown`; typed-sql does not guess a safe-looking type.
+The left join keeps `team_name` nullable. Interpolated values become bound parameters.
+Unsupported or ambiguous SQL receives a diagnostic or `unknown`.
+
+## SQL files, named arguments, and positional bindings
+
+Import a `.sql` file through a [build integration](./docs/integrations/index.md). A repeated name
+is one factory argument and two bound values:
+
+```sql
+-- orders.sql
+SELECT id, user_id, status FROM orders
+WHERE user_id = :userId OR user_id = :userId
+```
+
+```ts
+import ordersByCustomer from "./orders.sql";
+
+const query = ordersByCustomer({ userId: 42n });
+// Parameter tuple: readonly [bigint, bigint]
+// ordersByCustomer({ userId: "42" }) → TypeScript error
+```
+
+PostgreSQL numbered parameters can repeat and appear in a different order:
+
+```sql
+-- account.sql
+SELECT id, email FROM users
+WHERE email <> $2 AND (id = $1 OR id = $1)
+```
+
+```ts
+import account from "./account.sql";
+
+const query = account(42n, "excluded@example.com");
+// Factory arguments follow numeric order: id, email.
+// Bound tuple follows SQL occurrences: readonly [string, bigint, bigint].
+```
+
+MySQL and SQLite `?` arguments follow occurrence order. Mixed styles, unused numeric gaps, and
+incompatible repeated types produce diagnostics. Add `UserId` and `OrderId` brands to schema columns
+to keep identities distinct in arguments and results. See the
+[SQL files and application identities walkthrough](./docs/examples/sql-files-and-identities.md).
+
+## Compose collections and infer nested results
+
+Use `.map()` with explicit fragments for one insert over a runtime-sized collection:
+
+```ts
+interface NewProduct {
+  id: bigint;
+  sku: string;
+  title: string;
+  priceCents: number;
+}
+
+export function insertProducts(items: readonly NewProduct[]) {
+  if (!items.length) throw new RangeError("At least one product is required");
+  return sql`
+    INSERT INTO products (id, sku, title, price_cents, active)
+    VALUES ${items.map((item) => sql.fragment`
+      (${item.id}, ${item.sku}, ${item.title}, ${item.priceCents}, ${true})
+    `)}
+    RETURNING id, sku, price_cents
+  `;
+}
+```
+
+Each item contributes bound values; the returned row is
+`{ id: bigint; sku: string; price_cents: number }`. Dynamic collection lengths produce a readonly
+parameter array; fixed-size fragment tuples can retain an exact parameter tuple.
+[Multi-row inserts](./docs/examples/multi-row-insert.md) explains both forms.
+
+PostgreSQL JSON constructors preserve the shape they build:
+
+```ts
+export const orderSummary = (id: bigint) => sql`
+  SELECT jsonb_build_object(
+    'status', o.status::text,
+    'totalCents', o.total_cents,
+    'customer', jsonb_build_object('email', u.email)
+  ) AS document
+  FROM orders AS o
+  JOIN users AS u ON u.id = o.user_id
+  WHERE o.id = ${id}
+`;
+// Row: { document: {
+//   status: string; totalCents: number; customer: { email: string }
+// } }
+```
+
+Nested JSON aggregation, CTEs, join nullability, and adapter results are also demonstrated in the
+[commerce playground](https://lojhan.github.io/typed-sql/playground). Arbitrary stored JSON remains
+conservative unless its shape is proven. See [JSON type mappings](./docs/reference/type-mappings.md).
+
+## Grammar and driver compatibility
+
+Grammars own SQL analysis; drivers are optional, explicit application dependencies.
+
+| Grammar package | Supported database versions | Introspection and execution adapter | Tested driver / runtime |
+| --- | --- | --- | --- |
+| `@typed-sql/postgres` | PostgreSQL 14–18 | `@typed-sql/postgres/pg` | `pg` 8.23.1 |
+| `@typed-sql/mysql` | MySQL 8.4 and 9.7 LTS | `@typed-sql/mysql/mysql2` | `mysql2` 3.24.6 |
+| `@typed-sql/sqlite` | SQLite 3.39.0–3.53.4 | `@typed-sql/sqlite/node-sqlite` | `node:sqlite`: Node 22.13.0 and current 22, 24, 26 lines |
+
+Additional execution adapters accept application-owned clients:
+
+| Client or platform | Grammar | Adapter in `@typed-sql/adapters` | Callback transactions |
+| --- | --- | --- | --- |
+| Cloudflare D1 | SQLite | `/d1` | No; native atomic batch |
+| libSQL / Turso | SQLite | `/libsql` | Yes |
+| Neon HTTP | PostgreSQL | `/neon-http` | No; noninteractive batch |
+| Neon WebSocket | PostgreSQL | `/neon-ws` | Yes |
+| Postgres.js | PostgreSQL | `/postgres-js` | Yes |
+
+These portable adapters buffer results and require compiled value plans or an application decoder.
+D1 uses safe-number integers and STRICT tables. See
+[portable adapters and transport limits](./docs/reference/portable-adapters.md).
+
+Supported database ranges and exact tested versions are different. The
+[full compatibility reference](./docs/reference/compatibility.md) records database patches,
+canaries, runtime versions, and compiler requirements. Feature coverage varies by grammar; see the
+[grammar support matrix](./docs/reference/grammar-support.md). Custom grammars use the
+[public dialect contract](./docs/extending/custom-grammars.md).
 
 ## Try your first query
 
@@ -36,15 +165,13 @@ The [SQLite quickstart](./docs/getting-started/sqlite.md) creates a local databa
 through checking and execution without a server. Existing applications can start with the
 [PostgreSQL](./docs/getting-started/postgresql.md) or [MySQL](./docs/getting-started/mysql.md) quickstart.
 
-The development loop is:
-
 ```sh
 pnpm exec typed-sql generate
 pnpm exec typed-sql check --project tsconfig.json --show-types
 ```
 
-The project check follows query types across imports and checks their application consumers. It uses
-the application's supported TypeScript 7 compiler and keeps source files unchanged. Use it as the
+The project check follows query types across imports and checks application consumers. It uses the
+application's supported TypeScript 7 compiler and keeps source files unchanged. Use it as the
 project's typechecking step before your transpiler or bundler.
 
 Exact editor hovers use the optional experimental language server. Ordinary TypeScript declarations
@@ -53,14 +180,9 @@ remain conservative and can show `Query<unknown>` without analysis. See
 
 ## Keep your database stack
 
-- **SQL stays SQL.** Use supported joins, CTEs, aggregates, window functions, DML and dialect syntax.
-- **Types follow the query.** Infer result rows, nullability and ordered parameter tuples from schema evidence.
 - **Connections stay yours.** Reuse an [existing pool](./docs/guides/existing-pools.md) or choose an explicit [execution adapter](./docs/guides/adapters.md).
-- **Composition is explicit.** Use `sql.fragment`, `sql.empty` and `sql.ident` for structure; ordinary values remain parameters.
-
-[Compose conditional and repeated SQL](./docs/guides/composition.md), inspect
-[database type mappings](./docs/reference/type-mappings.md), or explore the
-[runnable applications](./docs/examples/index.md).
+- **Composition is explicit.** Use `sql.fragment`, `sql.empty` and `sql.ident` for structure; ordinary values remain parameters. See [SQL composition](./docs/guides/composition.md).
+- **SQL assets join deployment checks.** Imported queries participate in [manifests](./docs/guides/query-manifests.md), [live verification](./docs/guides/live-verification.md), [plan review](./docs/guides/query-plan-governance.md), and [migration compatibility](./docs/guides/migration-compatibility.md).
 
 ## Editor setup
 
@@ -70,21 +192,8 @@ Zed and other LSP clients use the same optional server.
 
 The stable compiler path uses TypeScript 7.0.2. The experimental editor backend owns its isolated
 TypeScript 7.1 beta; applications do not replace their compiler to enable editor hovers.
-[Supported runtimes, databases and exact versions](./docs/reference/compatibility.md).
 
-## Go further
-
-[Documentation](https://lojhan.github.io/typed-sql/) ·
-[Query API](./docs/reference/api.md) ·
-[JSON and portable adapters](./docs/reference/portable-adapters.md) ·
-[Build and test integrations](./docs/integrations/index.md) ·
-[SQL files](./docs/guides/sql-files.md) ·
-[Inference and safety](./docs/concepts/type-safety.md)
-
-Add [production controls](./docs/operations/index.md) when needed: drift detection, manifests,
-live verification, optimizer-plan review, migration compatibility and observability are independent
-of the first-query setup.
-
-For contributions and maintainer procedures, read [CONTRIBUTING.md](./CONTRIBUTING.md).
+[Query API](./docs/reference/api.md) · [Runnable examples](./docs/examples/index.md) ·
+[Inference and safety](./docs/concepts/type-safety.md) · [Contributing](./CONTRIBUTING.md)
 
 MIT © typed-sql contributors
