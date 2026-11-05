@@ -11,12 +11,14 @@ import {
   type DuckDBNativeStatement,
 } from "./runtime.js";
 import { duckDBVersionSupport } from "./support.js";
-export type DuckDBSDK = Omit<typeof NativeSDK, "default">;
+/** An SDK import is untrusted until its required capabilities are checked at runtime. */
+export type DuckDBSDK = unknown;
+type ValidatedDuckDBSDK = Omit<typeof NativeSDK, "default">;
 export type DuckDBSDKImporter = () => Promise<DuckDBSDK>;
 const packageName = "@duckdb/node-api";
 const loadSDK: DuckDBSDKImporter = async () => {
   try {
-    return (await import(packageName)) as DuckDBSDK;
+    return await import(packageName);
   } catch (error) {
     if (
       typeof error === "object" &&
@@ -33,9 +35,59 @@ const loadSDK: DuckDBSDKImporter = async () => {
     throw error;
   }
 };
+const requiredSDKFunctions = [
+  "version",
+  "DuckDBConnection",
+  "DuckDBInstance",
+  "ENUM",
+  "LIST",
+  "ARRAY",
+  "STRUCT",
+  "TUPLE",
+  "MAP",
+  "UNION",
+  "DECIMAL",
+  "listValue",
+  "arrayValue",
+  "tupleValue",
+  "structValue",
+  "unionValue",
+  "mapValue",
+  "decimalValue",
+  "blobValue",
+  "uuidValue",
+  "bitValue",
+  "intervalValue",
+  "dateValue",
+  "timeValue",
+  "timeTZValue",
+  "timestampSecondsValue",
+  "timestampMillisValue",
+  "timestampNanosValue",
+  "timestampTZValue",
+  "timestampValue",
+] as const;
+function validateSDK(value: unknown): ValidatedDuckDBSDK {
+  if (typeof value !== "object" || value === null)
+    throw new TypeError("DuckDB sdkImporter must return the official SDK module");
+  const module = value as Readonly<Record<string, unknown>>;
+  for (const name of requiredSDKFunctions) {
+    if (typeof module[name] !== "function") throw new TypeError(`DuckDB SDK is missing required capability ${name}`);
+  }
+  if (
+    typeof module.DuckDBTypeId !== "object" ||
+    module.DuckDBTypeId === null ||
+    typeof module.ResultReturnType !== "object" ||
+    module.ResultReturnType === null
+  )
+    throw new TypeError("DuckDB SDK is missing native type/result metadata");
+  // Native handles are accepted only after an instanceof check against these same constructors.
+  // The boundary intentionally does not expose one SDK version's private class identity in declarations.
+  return value as ValidatedDuckDBSDK;
+}
 export interface NodeDuckDBOptions extends Omit<DuckDBDatabaseOptions, "connection"> {
-  readonly connection?: NativeSDK.DuckDBConnection;
-  readonly instance?: NativeSDK.DuckDBInstance;
+  readonly connection?: object;
+  readonly instance?: object;
   readonly path?: string;
   readonly configuration?: Readonly<Record<string, string>>;
   readonly sdkImporter?: DuckDBSDKImporter;
@@ -68,7 +120,7 @@ function adapterError(error: unknown): Error {
   );
 }
 /** Translate SDK metadata structurally, preserving aliases, tuple positions and nested native identity. */
-export function duckDBTypeFromSDK(type: NativeSDK.DuckDBType, sdk: DuckDBSDK): DuckDBType {
+function nativeTypeFromSDK(type: NativeSDK.DuckDBType, sdk: ValidatedDuckDBSDK): DuckDBType {
   const id = sdk.DuckDBTypeId;
   switch (type.typeId) {
     case id.DECIMAL: {
@@ -76,33 +128,33 @@ export function duckDBTypeFromSDK(type: NativeSDK.DuckDBType, sdk: DuckDBSDK): D
       return { kind: "scalar", name: "DECIMAL", precision: value.width, scale: value.scale };
     }
     case id.LIST:
-      return { kind: "list", element: duckDBTypeFromSDK((type as NativeSDK.DuckDBListType).valueType, sdk) };
+      return { kind: "list", element: nativeTypeFromSDK((type as NativeSDK.DuckDBListType).valueType, sdk) };
     case id.ARRAY: {
       const value = type as NativeSDK.DuckDBArrayType;
-      return { kind: "array", element: duckDBTypeFromSDK(value.valueType, sdk), length: value.length };
+      return { kind: "array", element: nativeTypeFromSDK(value.valueType, sdk), length: value.length };
     }
     case id.STRUCT: {
       const value = type as NativeSDK.DuckDBStructType;
       return value.entryNames.length > 0 && value.entryNames.every((name) => name === "")
-        ? { kind: "tuple", elements: value.entryTypes.map((item) => duckDBTypeFromSDK(item, sdk)) }
+        ? { kind: "tuple", elements: value.entryTypes.map((item) => nativeTypeFromSDK(item, sdk)) }
         : {
             kind: "struct",
-            fields: value.entryNames.map((name, i) => ({ name, type: duckDBTypeFromSDK(value.entryTypes[i]!, sdk) })),
+            fields: value.entryNames.map((name, i) => ({ name, type: nativeTypeFromSDK(value.entryTypes[i]!, sdk) })),
           };
     }
     case id.UNION: {
       const value = type as NativeSDK.DuckDBUnionType;
       return {
         kind: "union",
-        fields: value.memberTags.map((name, i) => ({ name, type: duckDBTypeFromSDK(value.memberTypes[i]!, sdk) })),
+        fields: value.memberTags.map((name, i) => ({ name, type: nativeTypeFromSDK(value.memberTypes[i]!, sdk) })),
       };
     }
     case id.MAP: {
       const value = type as NativeSDK.DuckDBMapType;
       return {
         kind: "map",
-        key: duckDBTypeFromSDK(value.keyType, sdk),
-        value: duckDBTypeFromSDK(value.valueType, sdk),
+        key: nativeTypeFromSDK(value.keyType, sdk),
+        value: nativeTypeFromSDK(value.valueType, sdk),
       };
     }
     case id.ENUM:
@@ -125,7 +177,14 @@ export function duckDBTypeFromSDK(type: NativeSDK.DuckDBType, sdk: DuckDBSDK): D
     }
   }
 }
-function sdkType(type: DuckDBType, sdk: DuckDBSDK): NativeSDK.DuckDBType {
+/** Decode metadata only from the same checked SDK module that owns its native handles. */
+export function duckDBTypeFromSDK(type: unknown, importedSDK: DuckDBSDK): DuckDBType {
+  const sdk = validateSDK(importedSDK);
+  if (typeof type !== "object" || type === null || !("typeId" in type) || typeof type.typeId !== "number")
+    throw new TypeError("DuckDB metadata must contain a native type identifier");
+  return nativeTypeFromSDK(type as NativeSDK.DuckDBType, sdk);
+}
+function sdkType(type: DuckDBType, sdk: ValidatedDuckDBSDK): NativeSDK.DuckDBType {
   switch (type.kind) {
     case "enum":
       return sdk.ENUM(type.values);
@@ -151,7 +210,7 @@ function sdkType(type: DuckDBType, sdk: DuckDBSDK): NativeSDK.DuckDBType {
     }
   }
 }
-function nativeValue(binding: DuckDBBinding, sdk: DuckDBSDK): NativeSDK.DuckDBValue {
+function nativeValue(binding: DuckDBBinding, sdk: ValidatedDuckDBSDK): NativeSDK.DuckDBValue {
   const { value, type } = binding;
   if (value === null) return null;
   const convert = (value: unknown, type: DuckDBType) => nativeValue({ value, type }, sdk);
@@ -205,6 +264,7 @@ function nativeValue(binding: DuckDBBinding, sdk: DuckDBSDK): NativeSDK.DuckDBVa
           case "TIME":
             return sdk.timeValue(item.ticks);
           case "TIME_NS":
+            if (typeof sdk.timeNSValue !== "function") throw new TypeError("This SDK does not support TIME_NS");
             return sdk.timeNSValue(item.ticks);
           case "TIMETZ":
             return sdk.timeTZValue(item.ticks, item.offset!);
@@ -215,6 +275,8 @@ function nativeValue(binding: DuckDBBinding, sdk: DuckDBSDK): NativeSDK.DuckDBVa
           case "TIMESTAMP_NS":
             return sdk.timestampNanosValue(item.ticks);
           case "TIMESTAMPTZ_NS":
+            if (typeof sdk.timestampTZNanosValue !== "function")
+              throw new TypeError("This SDK does not support TIMESTAMPTZ_NS");
             return sdk.timestampTZNanosValue(item.ticks);
           case "TIMESTAMPTZ":
             return sdk.timestampTZValue(item.ticks);
@@ -227,7 +289,8 @@ function nativeValue(binding: DuckDBBinding, sdk: DuckDBSDK): NativeSDK.DuckDBVa
   }
 }
 /** Adapt an injected connection; construction never owns or closes it implicitly. */
-export function adaptDuckDBConnection(connection: NativeSDK.DuckDBConnection, sdk: DuckDBSDK): DuckDBConnectionLike {
+export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSDK): DuckDBConnectionLike {
+  const sdk = validateSDK(importedSDK);
   if (!(connection instanceof sdk.DuckDBConnection))
     throw new TypeError("DuckDB connection and sdkImporter must belong to the same SDK module");
   const libraryVersion = sdk.version();
@@ -274,7 +337,7 @@ export function adaptDuckDBConnection(connection: NativeSDK.DuckDBConnection, sd
               ? []
               : Array.from({ length: result.columnCount }, (_, i) => ({
                   name: result.columnName(i),
-                  type: duckDBTypeFromSDK(result.columnType(i), sdk),
+                  type: nativeTypeFromSDK(result.columnType(i), sdk),
                 }));
           let resultClosed = false;
           return Object.freeze({
@@ -317,11 +380,13 @@ export async function createNodeDuckDBDatabase(options: NodeDuckDBOptions = {}):
     throw new TypeError("Inject a DuckDB connection or choose instance/path options");
   if (options.instance && (options.path !== undefined || options.configuration !== undefined))
     throw new TypeError("Injected DuckDB instance cannot also specify a path/configuration");
-  const sdk = await (options.sdkImporter ?? loadSDK)();
+  const sdk = validateSDK(await (options.sdkImporter ?? loadSDK)());
   if (options.instance && !(options.instance instanceof sdk.DuckDBInstance))
     throw new TypeError("DuckDB instance and sdkImporter must belong to the same SDK module");
-  let instance = options.instance,
-    connection = options.connection,
+  if (options.connection && !(options.connection instanceof sdk.DuckDBConnection))
+    throw new TypeError("DuckDB connection and sdkImporter must belong to the same SDK module");
+  let instance = options.instance as NativeSDK.DuckDBInstance | undefined,
+    connection = options.connection as NativeSDK.DuckDBConnection | undefined,
     createdInstance = false,
     createdConnection = false;
   try {
