@@ -9,6 +9,8 @@ const grammars = {
   postgres: { package: "@typed-sql/postgres", factory: "postgres" },
   mysql: { package: "@typed-sql/mysql", factory: "mysql" },
   sqlite: { package: "@typed-sql/sqlite", factory: "sqlite" },
+  sqlserver: { package: "@typed-sql/sqlserver", factory: "sqlserver" },
+  duckdb: { package: "@typed-sql/duckdb", factory: "duckdb" },
 } as const;
 const managers = ["npm", "pnpm", "yarn", "bun"] as const;
 type Manager = (typeof managers)[number];
@@ -57,7 +59,8 @@ export async function planInit(options: Readonly<Record<string, string>>, versio
     if ((key === "dry-run" || key === "json") && value !== "true") throw new Error(`--${key} does not accept a value`);
   }
   const grammar = options.grammar as keyof typeof grammars;
-  if (!Object.hasOwn(grammars, grammar ?? "")) throw new Error("init requires --grammar postgres|mysql|sqlite");
+  if (!Object.hasOwn(grammars, grammar ?? ""))
+    throw new Error(`init requires --grammar ${Object.keys(grammars).join("|")}`);
   const editor = options.editor ?? "none";
   if (editor !== "none" && editor !== "vscode" && editor !== "zed")
     throw new Error("--editor must be none, vscode, or zed");
