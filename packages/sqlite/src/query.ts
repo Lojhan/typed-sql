@@ -1,4 +1,5 @@
 import type { RuntimeValueType, SqlRenderer } from "@typed-sql/core";
+import { brandBaseType } from "@typed-sql/core";
 import { defaultSqliteTypePolicy, type SqliteTypePolicy, sqliteFlexibleType } from "./type-policy.js";
 
 export { sql } from "@typed-sql/core";
@@ -14,6 +15,8 @@ export function sqliteRuntimeValueType(
 ): RuntimeValueType {
   if (value.tsType === sqliteFlexibleType(policy) && policy.flexible === "union")
     return { union: [...new Set<RuntimeValueType>([policy.integer, "number", "string", "bytes"])] };
+  const base = brandBaseType(value.tsType);
+  if (base !== undefined) return base;
   switch (value.tsType) {
     case "number":
     case "bigint":

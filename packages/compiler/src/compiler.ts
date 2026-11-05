@@ -18,6 +18,7 @@ import {
   unknownJsonShape,
 } from "@typed-sql/core";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { DEFAULT_MAX_SOURCE_BYTES } from "./limits.js";
 import { expandRepeatedFragments, type RepeatedFragmentExpansion } from "./repeated-fragments.js";
 import {
   type ExtractedQuery,
@@ -33,7 +34,7 @@ import { expandStructuralQuery, structuralRowType } from "./structural.js";
 import { buildQueryValuePlan } from "./value-plan.js";
 
 export const DEFAULT_MAX_STRUCTURAL_VARIANTS = 64;
-export const DEFAULT_MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+export { DEFAULT_MAX_SOURCE_BYTES } from "./limits.js";
 export const DEFAULT_MAX_QUERIES = 10_000;
 export const DEFAULT_MAX_GENERATED_DECLARATION_BYTES = 8 * 1024 * 1024;
 

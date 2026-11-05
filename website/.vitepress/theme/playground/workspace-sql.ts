@@ -1,9 +1,11 @@
 import { parameterTypeLiteral, rowTypeLiteral } from "@typed-sql/core";
+import { analyzeSqlFile } from "../../../../packages/compiler/src/sql-file-analysis.js";
 import type { RoutineSnapshot, SchemaSnapshotV2 } from "../../../../packages/schema/src/model.js";
 import { browserDialectRuntime } from "./dialect-browser-runtime.js";
 import { type PlaygroundDialect, parsePlaygroundSchema } from "./playground.js";
 import type { WorkspaceProblem, WorkspaceQuery } from "./semantic-service.js";
 import type { WorkspaceFiles } from "./workspace.js";
+import { applyWorkspaceBrands, BRANDS_FILE } from "./workspace-brands.js";
 
 export interface SqlStatement {
   readonly file: string;
@@ -188,7 +190,24 @@ export function analyzeSqlFiles(
     const from = segment ? segment.statement.from + offset - segment.start : 0;
     problems.push(workspaceProblem(files, file, from, from + 1, diagnostic.code, diagnostic.message));
   }
-  const snapshot = parsed.snapshot;
+  let snapshot = parsed.snapshot;
+  if (snapshot) {
+    try {
+      snapshot = applyWorkspaceBrands(snapshot, files);
+    } catch (error) {
+      problems.push(
+        workspaceProblem(
+          files,
+          BRANDS_FILE,
+          0,
+          files[BRANDS_FILE]?.length ?? 0,
+          "PLAY208",
+          error instanceof Error ? error.message : "Invalid brand configuration.",
+        ),
+      );
+      snapshot = undefined;
+    }
+  }
   const runtime = browserDialectRuntime(dialect);
   if (snapshot) {
     const registry: Record<string, RoutineSnapshot[]> = {};
@@ -317,9 +336,15 @@ export function analyzeSqlFiles(
     }
     let rowType = "unknown";
     let parameterType = "readonly unknown[]";
+    let factoryParameters = "...parameters: readonly unknown[]";
     if (!fatalSchema && snapshot) {
-      const analysis = runtime.analyze(statement.text, snapshot);
-      for (const diagnostic of analysis.diagnostics) {
+      const asset = analyzeSqlFile({
+        source: statement.text,
+        schema: snapshot,
+        dialect: { ...runtime, defaultTypePolicy: undefined },
+      });
+      const analysis = asset.analysis;
+      for (const diagnostic of asset.diagnostics) {
         const from = statement.from + diagnostic.range.start;
         const problem = workspaceProblem(
           files,
@@ -331,28 +356,31 @@ export function analyzeSqlFiles(
         );
         problems.push({ ...problem, severity: diagnostic.severity === "warning" ? "warning" : "error" });
       }
-      if (!analysis.diagnostics.some(({ severity }) => severity === "error")) {
+      if (Math.max(asset.count, asset.bindings.length) > 256) {
+        problems.push(
+          workspaceProblem(
+            files,
+            statement.file,
+            statement.from,
+            statement.to,
+            "PLAY206",
+            "SQL query files support up to 256 parameter positions.",
+          ),
+        );
+        list.push({
+          name,
+          declaration: `export declare const ${name}: (...parameters: readonly unknown[]) => import("@typed-sql/core").Query<unknown>;`,
+        });
+        perFile.set(statement.file, list);
+        continue;
+      }
+      if (analysis && !asset.diagnostics.some(({ severity }) => severity === "error")) {
         const parameterCount = Math.max(0, ...analysis.parameters.map(({ index }) => index));
-        if (parameterCount > 256) {
-          problems.push(
-            workspaceProblem(
-              files,
-              statement.file,
-              statement.from,
-              statement.to,
-              "PLAY206",
-              "SQL query files support up to 256 parameter positions.",
-            ),
-          );
-          list.push({
-            name,
-            declaration: `export declare const ${name}: (...parameters: readonly unknown[]) => import("@typed-sql/core").Query<unknown>;`,
-          });
-          perFile.set(statement.file, list);
-          continue;
-        }
         rowType = analysis.resultKind === "command" ? "never" : rowTypeLiteral(analysis.columns);
         parameterType = parameterTypeLiteral(parameterCount, analysis.parameters);
+        factoryParameters = asset.named
+          ? `parameters: { ${asset.logicalParameters.map((parameter, index) => `${JSON.stringify(asset.names[index])}: ${parameterTypeLiteral(1, [{ ...parameter, index: 1 }]).slice("readonly [".length, -1)}`).join("; ")} }`
+          : `...parameters: ${parameterTypeLiteral(asset.count, asset.logicalParameters)}`;
         queries.push({
           file: statement.file,
           binding: name,
@@ -380,7 +408,7 @@ export function analyzeSqlFiles(
     } else
       list.push({
         name,
-        declaration: `export declare const ${name}: (...parameters: ${parameterType}) => import("@typed-sql/core").Query<${rowType}, ${parameterType}>;`,
+        declaration: `export declare const ${name}: (${factoryParameters}) => import("@typed-sql/core").Query<${rowType}, ${parameterType}>;`,
       });
     perFile.set(statement.file, list);
   }

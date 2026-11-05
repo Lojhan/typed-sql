@@ -14,7 +14,7 @@ footer: false
 
 # Playground
 
-Examples use the [shared commerce schema](./examples/commerce-schema.md): users, teams, memberships, products, orders, order items, and audit events.
+Examples use the [shared commerce schema](./examples/commerce-schema.md). Choose **SQL parameter bindings** for named and repeated arguments, or **Branded application IDs** to keep user and order IDs distinct. The [walkthrough](./examples/sql-files-and-identities.md) connects those examples to schema providers and deployment checks.
 
 </template>
 </PlaygroundWorkspace>

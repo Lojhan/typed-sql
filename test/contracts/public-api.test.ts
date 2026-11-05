@@ -867,6 +867,8 @@ const expectedRuntimeExports = {
   ],
   config: ["CONFIG_CACHE_LIMIT", "discoverConfig", "fromConfig", "loadConfig"],
   core: [
+    "brandBaseType",
+    "brandValue",
     "ARTIFACT_COMPATIBILITY_IDENTITY_FORMAT_VERSION",
     "CORE_ARTIFACT_COMPATIBILITY_VERSION",
     "UnsupportedAdapterCapabilityError",
@@ -1054,6 +1056,7 @@ const expectedRuntimeExports = {
   ],
   postgresRuntime: ["createPostgresDatabase", "createPostgresTypeParsers", "postgresRenderer"],
   schema: [
+    "withSchemaBrands",
     "LEGACY_SCHEMA_FORMAT_VERSION",
     "SCHEMA_FORMAT_VERSION",
     "calculateSchemaHash",

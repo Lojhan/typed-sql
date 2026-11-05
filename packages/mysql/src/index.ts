@@ -76,9 +76,13 @@ export function mysql(options: MySqlDialectOptions = {}): DialectPlugin<MySqlSch
     },
     parameterOccurrences(sql: string, snapshot: MySqlSchemaSnapshot) {
       const sqlMode = snapshot.server?.settings.sqlMode;
-      return tokenize(sql, typeof sqlMode === "string" ? { sqlMode } : {})
+      return tokenize(sql, { ...(typeof sqlMode === "string" ? { sqlMode } : {}), sqlFileParameters: true })
         .filter((token) => token.kind === "parameter")
-        .map((token) => ({ index: Number(token.value), range: token.range }));
+        .map((token) => ({
+          index: token.text.startsWith(":") ? 0 : Number(token.value),
+          ...(token.text.startsWith(":") ? { name: token.value } : {}),
+          range: token.range,
+        }));
     },
     analyze(
       sql: string,

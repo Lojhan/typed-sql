@@ -53,7 +53,7 @@ connection.onRequest(
     readonly projectHandle: string;
     readonly fileName: string;
     readonly content: string;
-  }): Omit<SqlFileAnalysis, "runtime"> => {
+  }): Pick<SqlFileAnalysis, "text" | "extension" | "diagnostics"> => {
     const project = projects.get(params.projectHandle);
     if (project === undefined) throw new Error("SQL mapper project is not open");
     if ("error" in project)
@@ -62,8 +62,8 @@ connection.onRequest(
         extension: ".ts",
         diagnostics: [{ messageText: project.error, code: 901, start: 0, length: Math.min(params.content.length, 1) }],
       };
-    const { runtime: _runtime, ...result } = analyzeSqlFile(params.content, project);
-    return result;
+    const { text, extension, diagnostics } = analyzeSqlFile(params.content, project);
+    return { text, extension, diagnostics };
   },
 );
 connection.onRequest("closeProject", (params: { readonly projectHandle: string }) => {

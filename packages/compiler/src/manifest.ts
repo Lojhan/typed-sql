@@ -20,6 +20,7 @@ import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema"
 import { canonicalize, compareText } from "./artifact-serialization.js";
 import { compileSource } from "./compiler.js";
 import { extractDynamicQueries, extractStaticQueries } from "./scanner.js";
+import { compileSqlFile } from "./sql-file.js";
 
 export const QUERY_MANIFEST_FORMAT_VERSION = 1 as const;
 export const QUERY_FINGERPRINT_ALGORITHM = "typed-sql-v1" as const;
@@ -287,24 +288,44 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
   options: BuildQueryManifestOptions<Snapshot, Policy>,
   capabilityStates: DialectCapabilityStates,
 ): readonly QueryManifestEntry[] {
-  const compilation = compileSource({
-    source,
-    dialect: options.dialect,
-    schema: options.schema,
-    ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-    ...(options.maxStructuralVariants === undefined ? {} : { maxStructuralVariants: options.maxStructuralVariants }),
-  });
+  const asset = file.endsWith(".sql")
+    ? compileSqlFile({
+        source,
+        dialect: options.dialect,
+        schema: options.schema,
+        ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+      })
+    : undefined;
+  const compilation =
+    asset === undefined
+      ? compileSource({
+          source,
+          dialect: options.dialect,
+          schema: options.schema,
+          ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+          ...(options.maxStructuralVariants === undefined
+            ? {}
+            : { maxStructuralVariants: options.maxStructuralVariants }),
+        })
+      : {
+          queries: asset.query === undefined ? [] : [asset.query],
+          diagnostics: asset.sourceDiagnostics,
+        };
   const sqlModules = [
     options.dialect.sqlModule,
     ...(options.dialect.runtimeSqlModule === undefined ? [] : [options.dialect.runtimeSqlModule]),
   ];
-  const extracted = extractStaticQueries(source, (index) => options.dialect.placeholder(index), sqlModules);
+  const extracted =
+    asset === undefined
+      ? extractStaticQueries(source, (index) => options.dialect.placeholder(index), sqlModules)
+      : [asset.query?.query ?? { sql: source, range: { start: 0, end: source.length, line: 1, column: 1 } }];
   const compiledByStart = new Map(compilation.queries.map((query) => [query.query.range.start, query]));
   const entries: QueryManifestEntry[] = extracted.map((query) => {
     const location = { file, range: query.range };
     const compiled = compiledByStart.get(query.range.start);
     if (compiled === undefined) {
-      const diagnostics = compilation.diagnostics.filter((diagnostic) => inRange(diagnostic, query.range));
+      const diagnostics =
+        asset?.sourceDiagnostics ?? compilation.diagnostics.filter((diagnostic) => inRange(diagnostic, query.range));
       return {
         id: entryId(options.dialect.id, location, `unresolved\0${query.sql}`),
         source: location,
@@ -321,9 +342,9 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
       fingerprint: compiled.fingerprint,
       rowType: compiled.rowType,
       parameterType: compiled.parameterType,
-      diagnostics: compilation.diagnostics
-        .filter((diagnostic) => inRange(diagnostic, query.range))
-        .map(manifestDiagnostic),
+      diagnostics: (
+        asset?.sourceDiagnostics ?? compilation.diagnostics.filter((diagnostic) => inRange(diagnostic, query.range))
+      ).map(manifestDiagnostic),
       ...(compiled.repeatedFragments === undefined
         ? {}
         : {
@@ -356,7 +377,7 @@ function sourceEntries<Snapshot extends SchemaSnapshot, Policy>(
         : { capabilityEvidence: manifestCapabilityEvidence(compiled.semantics, capabilityStates) }),
     };
   });
-  for (const dynamic of extractDynamicQueries(source, sqlModules)) {
+  for (const dynamic of asset === undefined ? extractDynamicQueries(source, sqlModules) : []) {
     const location = { file, range: dynamic.range };
     entries.push({
       id: entryId(options.dialect.id, location, "dynamic"),

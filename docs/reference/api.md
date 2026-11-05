@@ -220,6 +220,10 @@ Set `DatabaseObserver.captureErrorCause` only when an integration explicitly nee
 
 `defineConfig()` accepts a `DialectPlugin`, schema file and provider, output directory, TypeScript projects, type policy, compiler options, optional manifest settings, live-verification settings, query-plan capture and budget settings, and compatibility report settings.
 
+`@typed-sql/core` exports `Brand<Value, Name>`, `brandValue()` and `brandBaseType()`.
+`@typed-sql/schema` exports `SchemaBrands` and `withSchemaBrands()` for explicit scalar column/domain
+identities. See [schema snapshots](../guides/schema-snapshots.md#brand-application-identities).
+
 Public schema types include `SchemaSnapshot`, `GeneratedSchemaSnapshot`, table, column, domain, and function metadata, `SchemaProvider`, and source-mapped diagnostics.
 
 Column metadata can carry a `jsonDeclaration` with a bounded `shape` and a `source` of

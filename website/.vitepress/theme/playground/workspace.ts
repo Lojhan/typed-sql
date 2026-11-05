@@ -1,4 +1,5 @@
 import { commerceFiles } from "./commerce-example.js";
+import { featureExampleFiles } from "./feature-examples.js";
 import type { PlaygroundDialect } from "./playground.js";
 
 export type WorkspaceFile = string;
@@ -29,6 +30,16 @@ export function validWorkspaceFiles(value: unknown): value is WorkspaceFiles {
 }
 
 export const LESSONS = [
+  {
+    id: "bindings",
+    title: "SQL parameter bindings",
+    description: "Named objects, repeated values, positional order, and imported query contracts.",
+  },
+  {
+    id: "brands",
+    title: "Branded application IDs",
+    description: "Keep UserId and OrderId distinct through SQL files, templates, and results.",
+  },
   {
     id: "commerce",
     title: "Commerce · full workspace",
@@ -68,6 +79,7 @@ export function lessonFiles(
   lesson: Lesson,
   schema: string,
 ): WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string> {
+  if (lesson === "bindings" || lesson === "brands") return featureExampleFiles(dialect, lesson, schema);
   if (lesson === "commerce") {
     return commerceFiles(dialect);
   }

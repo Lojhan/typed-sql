@@ -76,6 +76,10 @@ pnpm exec tsc --runExternalCode --watch
 An emit-enabled mapper project reports an error. The native watch process observes the schema,
 typed-sql configuration, and its imported local configuration modules.
 
+Try **SQL parameter bindings** in the [playground](../playground.md), or follow the
+[SQL files and application identities tutorial](../examples/sql-files-and-identities.md) for a
+provider configuration, branded query arguments, and deployment artifacts.
+
 ## Bind positional parameters
 
 Write `src/find-user.sql`:
@@ -99,12 +103,29 @@ The configured grammar and snapshot determine the parameter tuple and result row
 a bigint `id` and text `email` produce `readonly [bigint, string]`. A file without placeholders
 exports a zero-argument factory. Incorrect argument types or counts are TypeScript errors.
 
-PostgreSQL uses `$1`, `$2`, and so on. MySQL and SQLite use `?` in binding order. Each positional
-parameter must appear exactly once in order. Repeated, reordered, or gapped numbered placeholders
-report a source diagnostic. Named parameters and structural interpolation are unsupported in this
-frontend; use [explicit inline composition](./composition.md) when
-the SQL structure varies. Placeholders inside strings, quoted identifiers, or comments remain text.
-MySQL placeholder scanning uses the snapshot's recorded SQL mode.
+PostgreSQL uses `$1`, `$2`, and so on. MySQL and SQLite use `?` in binding order.
+Numbered placeholders can repeat or appear in a different order; arguments remain in numeric
+index order. Indexes must be contiguous from 1. The compiler expands repeated values into
+independent bound occurrences and rejects incompatible inferred types for the same argument.
+
+## Bind named parameters
+
+All three grammars accept named parameters in SQL assets:
+
+```sql
+SELECT id, email FROM users WHERE id = :id OR parent_id = :id
+```
+
+```ts
+const query = findUser({ id: userId });
+```
+
+Names use ASCII letters, digits and underscores, starting with a letter or underscore.
+The factory takes an object containing exactly the declared own properties. Named and positional
+parameters cannot be mixed. Strings, quoted identifiers, comments and PostgreSQL casts retain
+their ordinary meaning. In PostgreSQL subscripts, parenthesize named bindings, as
+`items[(:index)]`, to distinguish them from native slice bounds such as `items[:upper]`. MySQL scanning respects the snapshot's SQL mode. Structural interpolation
+remains explicit through [inline composition](./composition.md).
 
 SQL errors are reported against the original `.sql` file. Invalid SQL does not expose a callable
 typed factory and the runtime loader rejects the module. The runtime binds values through
@@ -159,9 +180,19 @@ The typed-sql SDK proxy preserves the official client's external-code execution 
 external execution by default. SQL completion, rename, and definition mapping are not provided by
 this frontend.
 
-The stable `typed-sql check`, `generate`, and manifest commands discover inline TypeScript SQL
-templates. They **do not analyze the source of `.sql` imports**. Generate declarations with
-`typed-sql-build types` before ordinary checking, or use `tsc --runExternalCode` for live
-asset checking through the experimental mapper. SQL-file statements are absent from generated query
-manifests and their live-verification, plan, and compatibility reports. Keep queries inline when
-those artifact workflows are required.
+The stable `typed-sql check` command checks inline TypeScript SQL templates. Generate SQL-file
+declarations with `typed-sql-build types` before ordinary checking, or use
+`tsc --runExternalCode` for live asset checking through the experimental mapper.
+
+## Include imported queries in artifacts
+
+Query manifests discover literal relative or absolute `.sql` imports and re-exports in the
+configured TypeScript source graph. Unrelated SQL files, including migration scripts, are not
+collected. Package aliases and computed module paths are not SQL asset discovery routes.
+A missing imported SQL file fails discovery. The manifest records source hashes, original SQL-file
+locations, inferred contracts and dependencies; it does not persist SQL text or bound values.
+
+Imported SQL statements participate in live verification, query-plan capture and schema
+compatibility reports using the same analysis as their runtime factories. Editing an SQL asset
+invalidates its manifest and cached proofs. Regenerate the manifest before verification or plan
+capture. Direct compiler API callers include SQL files in their `sources` array.

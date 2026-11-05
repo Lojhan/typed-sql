@@ -10,6 +10,11 @@ typed-sql normally works from a checked-in schema snapshot. That keeps `tsc`, ed
 
 It does not replace offline inference. It adds database-backed proof for extension types, overload resolution, coercions, and server-version differences.
 
+Imported `.sql` queries participate when their literal imports are discovered from the configured
+TypeScript projects. Their named/repeated parameters expand to the native occurrence-ordered tuple.
+Changing the SQL file invalidates the manifest and proof. Application brands are checked against
+their underlying scalar representation, not treated as database-enforced identity constraints.
+
 ## Configure an adapter
 
 The grammar package owns the native adapter, while the application owns the driver and connection settings.

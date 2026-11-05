@@ -250,7 +250,11 @@ async function projectSources(
   if (projects.length === 0) throw new Error("typed-sql requires at least one TypeScript project");
   const sourceFiles = [
     ...new Set(
-      (await Promise.all(projects.map((project) => listProjectSourceFiles({ project, cwd: directory })))).flat(),
+      (
+        await Promise.all(
+          projects.map((project) => listProjectSourceFiles({ project, cwd: directory, includeSqlAssets: true })),
+        )
+      ).flat(),
     ),
   ].sort();
   const sources = await Promise.all(sourceFiles.map(async (file) => ({ file, source: await readFile(file, "utf8") })));

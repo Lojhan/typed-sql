@@ -17,6 +17,11 @@ Applications adopting compatibility artifacts from typed-sql v1 should first fol
 [v1 upgrade guide](./upgrading-from-v1.md#adopt-compiler-and-ci-artifacts) so snapshots and manifests
 come from one coherent package set.
 
+Imported `.sql` queries are included in each manifest when discovered from literal TypeScript
+imports. Preserve their corresponding sources and schema generation together. Reports locate
+affected dependencies in the original SQL file, including when a schema change makes that query
+unresolved. See [query manifests](./query-manifests.md#imported-sql-files).
+
 ## Produce the four inputs
 
 Keep one snapshot and manifest from each application revision:

@@ -4,6 +4,8 @@ export const DEFAULT_MAX_SQL_LENGTH = 1_000_000;
 export const DEFAULT_MAX_TOKENS = 100_000;
 
 export interface TokenizeOptions {
+  /** SQL asset frontend only; ordinary SQL analysis does not enable named bindings. */
+  readonly sqlFileParameters?: boolean;
   readonly maxSqlLength?: number;
   readonly maxTokens?: number;
 }
@@ -180,6 +182,7 @@ class Scanner {
   #line = 1;
   #column = 1;
   #parameterIndex = 0;
+  readonly #sqlFileParameters: boolean;
 
   constructor(source: string, options: TokenizeOptions) {
     const maxSqlLength = options.maxSqlLength ?? DEFAULT_MAX_SQL_LENGTH;
@@ -196,6 +199,7 @@ class Scanner {
       );
     }
     this.#source = source;
+    this.#sqlFileParameters = options.sqlFileParameters === true;
   }
 
   scan(): readonly Token[] {
@@ -221,6 +225,12 @@ class Scanner {
     const start = this.#position();
     const char = this.#peek();
 
+    if (this.#sqlFileParameters && char === ":" && this.#peek(-1) !== ":" && /[A-Za-z_]/u.test(this.#peek(1))) {
+      this.#advance();
+      while (/[A-Za-z0-9_]/u.test(this.#peek())) this.#advance();
+      const text = this.#source.slice(start.index, this.#index);
+      return this.#token("parameter", text, text.slice(1), start);
+    }
     if (isWordStart(char)) return this.#scanWord(start);
     if (/[0-9]/.test(char)) return this.#scanNumber(start);
     if (char === "'") return this.#scanString(start);

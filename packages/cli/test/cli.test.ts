@@ -122,6 +122,20 @@ await describe("typed-sql manifest command", async () => {
       const second = await execute(["manifest"], temporary);
       strict.match(second.stdout, /Generated 1 queries \(0 unresolved, 1 files reused\)/u);
       strict.strictEqual(await readFile(outFile, "utf8"), initial);
+      await writeFile(join(temporary, "src", "query.sql"), "SELECT id FROM users WHERE id = :id OR id = :id");
+      await writeFile(join(temporary, "src", "query.ts"), 'import query from "./query.sql"; void query;');
+      const asset = await execute(["manifest"], temporary);
+      strict.match(asset.stdout, /Generated 1 queries \(0 unresolved/u);
+      const manifest = JSON.parse(await readFile(outFile, "utf8"));
+      strict.strictEqual(manifest.queries[0].source.file, "src/query.sql");
+      strict.strictEqual(manifest.queries[0].variants[0].parameters.length, 2);
+      await writeFile(join(temporary, "src", "query.sql"), "SELECT missing FROM users");
+      await strict.rejects(execute(["manifest"], temporary), (error: unknown) => {
+        if (!(error instanceof Error && "stdout" in error && "code" in error)) return false;
+        strict.strictEqual(error.code, 2);
+        strict.match(String(error.stdout), /1 unresolved/u);
+        return true;
+      });
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

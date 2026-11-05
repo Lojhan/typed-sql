@@ -95,3 +95,47 @@ needs the corresponding `TSQ406` warnings directly; never treat a permission-lim
 as proof that routines, constraints, or indexes do not exist.
 
 Do not import application APIs from the generated folder. Application code imports `sql` and `typePolicy` from the dialect package; generated output is schema metadata for analysis and review.
+
+## Brand application identities
+
+Follow the [SQL files and application identities tutorial](../examples/sql-files-and-identities.md)
+for a full provider configuration. In the [playground](../playground.md), select **Branded application
+IDs** and edit `schema/brands.ts` to see inferred rows and arguments change.
+
+Use `withSchemaBrands` from `@typed-sql/schema` when a scalar column or domain represents a distinct
+application identity. Apply it inside the schema provider so generation, drift checks, checking
+and execution use the same snapshot contract:
+
+```ts
+import { withSchemaBrands } from "@typed-sql/schema";
+
+const schemaProvider = {
+  async introspect() {
+    return withSchemaBrands(await provider.introspect(), {
+      columns: { users: { id: "UserId" }, posts: { id: "PostId", user_id: "UserId" } },
+      // domains: { account_id: "AccountId" },
+    });
+  },
+};
+```
+
+Keys are exact snapshot relation/domain identities. Unknown targets and non-scalar types are errors.
+Brands support precise `string`, `number` and `bigint` scalars. They preserve nullability and wire
+encoding; they do not reinterpret JSON or validate business rules. A brand affects the schema hash
+and survives snapshot serialization. Use the same brand name for columns representing the same
+identity, including foreign keys; brand propagation through foreign keys is explicit.
+
+Direct projections, aliases, CTEs and column-context parameters retain the identity. Arithmetic and
+casts follow the grammar's ordinary result-type rules rather than inventing identities for computed
+values. Establish an identity at a trusted application boundary with `brandValue`:
+
+```ts
+import { brandValue, type Brand } from "@typed-sql/core";
+
+type UserId = Brand<bigint, "UserId">;
+const userId: UserId = brandValue(42n, "UserId");
+```
+
+`brandValue` leaves the primitive unchanged. Validate external input before branding it; this is
+an explicit application assertion, not a database constraint or runtime validator. Branded values
+remain distinct in TypeScript, while live verification compares their underlying scalar wire types.

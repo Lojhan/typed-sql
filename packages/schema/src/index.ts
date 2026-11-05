@@ -1,4 +1,6 @@
 export { writeArtifactFiles } from "./artifact-files.js";
+export type { SchemaBrands } from "./brands.js";
+export { withSchemaBrands } from "./brands.js";
 export type {
   GenerateSchemaOptions,
   SchemaDriftChange,

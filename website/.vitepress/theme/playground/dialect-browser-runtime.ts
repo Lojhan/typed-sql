@@ -10,6 +10,7 @@ import {
   SqlParseError as MySqlParseError,
   parseStatement as parseMySqlStatement,
 } from "../../../../packages/mysql/src/parser/index.js";
+import { tokenize as tokenizeMySql } from "../../../../packages/mysql/src/parser/tokenizer.js";
 import { resolveMySqlStatement } from "../../../../packages/mysql/src/resolver.js";
 import { analyzeMySqlSemantics } from "../../../../packages/mysql/src/semantics.js";
 import { defaultMySqlTypePolicy, mapMySqlType } from "../../../../packages/mysql/src/type-policy.js";
@@ -20,6 +21,7 @@ import {
   SqlParseError as PostgresParseError,
   parseStatement as parsePostgresStatement,
 } from "../../../../packages/postgres/src/parser/index.js";
+import { tokenize as tokenizePostgres } from "../../../../packages/postgres/src/parser/tokenizer.js";
 import { resolveStatement as resolvePostgresStatement } from "../../../../packages/postgres/src/resolver.js";
 import { analyzePostgresSemantics } from "../../../../packages/postgres/src/semantics.js";
 import { defaultPostgresTypePolicy, mapPostgresType } from "../../../../packages/postgres/src/type-policy.js";
@@ -30,6 +32,7 @@ import {
   parseStatement as parseSqliteStatement,
   SqlParseError as SqliteParseError,
 } from "../../../../packages/sqlite/src/parser/index.js";
+import { tokenize as tokenizeSqlite } from "../../../../packages/sqlite/src/parser/tokenizer.js";
 import { resolveSqliteStatement } from "../../../../packages/sqlite/src/resolver.js";
 import { analyzeSqliteSemantics } from "../../../../packages/sqlite/src/semantics.js";
 import type { SqliteSchemaSnapshot } from "../../../../packages/sqlite/src/snapshot.js";
@@ -42,6 +45,10 @@ export interface BrowserDialectRuntime {
   readonly dialectVersion: string;
   readonly module: `@typed-sql/${PlaygroundDialect}`;
   readonly placeholder: (index: number) => string;
+  readonly parameterOccurrences: (
+    sql: string,
+    snapshot: BrowserSchemaSnapshot,
+  ) => readonly { readonly index: number; readonly name?: string; readonly range: SourceRange }[];
   readonly analyze: (sql: string, snapshot: BrowserSchemaSnapshot) => DialectAnalysis;
   readonly mapType: (databaseType: string, snapshot: BrowserSchemaSnapshot, strict: boolean) => string;
 }
@@ -63,11 +70,29 @@ function parseFailure(
   };
 }
 
+function fileParameters(
+  tokens: readonly {
+    readonly kind: string;
+    readonly text: string;
+    readonly value: string;
+    readonly range: SourceRange;
+  }[],
+) {
+  return tokens
+    .filter((token) => token.kind === "parameter")
+    .map((token) => ({
+      index: token.text.startsWith(":") ? 0 : Number(token.value),
+      ...(token.text.startsWith(":") ? { name: token.value } : {}),
+      range: token.range,
+    }));
+}
+
 const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Object.freeze({
   postgres: {
     dialectVersion: POSTGRES_DIALECT_VERSION,
     module: "@typed-sql/postgres",
     placeholder: (index) => `$${index}`,
+    parameterOccurrences: (sql) => fileParameters(tokenizePostgres(sql, { sqlFileParameters: true })),
     mapType: (databaseType, snapshot) =>
       mapPostgresType(databaseType, defaultPostgresTypePolicy, snapshot as PostgresSchemaSnapshot),
     analyze(sql, snapshot) {
@@ -93,6 +118,15 @@ const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Obj
     dialectVersion: MYSQL_DIALECT_VERSION,
     module: "@typed-sql/mysql",
     placeholder: () => "?",
+    parameterOccurrences: (sql, snapshot) =>
+      fileParameters(
+        tokenizeMySql(sql, {
+          sqlFileParameters: true,
+          ...(typeof snapshot.server.settings.sqlMode === "string"
+            ? { sqlMode: snapshot.server.settings.sqlMode }
+            : {}),
+        }),
+      ),
     mapType: (databaseType, snapshot) =>
       mapMySqlType(databaseType, defaultMySqlTypePolicy, snapshot as MySqlSchemaSnapshot),
     analyze(sql, snapshot) {
@@ -116,6 +150,7 @@ const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Obj
     dialectVersion: SQLITE_DIALECT_VERSION,
     module: "@typed-sql/sqlite",
     placeholder: () => "?",
+    parameterOccurrences: (sql) => fileParameters(tokenizeSqlite(sql, { sqlFileParameters: true })),
     mapType: (databaseType, snapshot, strict) =>
       mapSqliteType(databaseType, defaultSqliteTypePolicy, { strict, schema: snapshot as SqliteSchemaSnapshot }),
     analyze(sql, snapshot) {
