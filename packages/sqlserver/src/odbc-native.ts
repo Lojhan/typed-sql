@@ -63,6 +63,7 @@ export function loadOdbcFunctions(koffi: SqlServerKoffi, libraryPath: string): O
     SQLSetStmtAttrW: [h, "int32_t", h, "int32_t"],
     SQLDriverConnectW: [h, h, p, "int16_t", p, "int16_t", out("int16_t"), "uint16_t"],
     SQLDisconnect: [h],
+    SQLGetInfoW: [h, "uint16_t", p, "int16_t", out("int16_t")],
     SQLFreeHandle: ["int16_t", h],
     SQLGetDiagRecW: ["int16_t", h, "int16_t", p, out("int32_t"), p, "int16_t", out("int16_t")],
     SQLExecDirectW: [h, p, "int32_t"],

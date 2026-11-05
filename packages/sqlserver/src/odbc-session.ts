@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { type OdbcNative, OdbcNativeError } from "./odbc-native.js";
 import {
   type OdbcBoundValue,
@@ -24,6 +25,7 @@ export class OdbcSession {
   env = 0n;
   connection = 0n;
   connected = false;
+  driverIdentity?: Readonly<{ name: string; version: string; odbcVersion: string; managerVersion: string }>;
   closed = false;
   readonly statements = new Map<number, Statement>();
   readonly owned = new Set<Statement>();
@@ -46,6 +48,37 @@ export class OdbcSession {
       const rc = n.api.SQLDriverConnectW!(this.connection, 0n, n.wide(text), text.length, null, 0, [0], 0);
       this.connected = rc === 0 || rc === 1;
       n.check(rc, "connect", 2, this.connection, [5701, 5703]);
+      const info = (code: number) => {
+        const bytes = Buffer.alloc(1024),
+          length = [0];
+        n.check(
+          n.api.SQLGetInfoW!(this.connection, code, bytes, bytes.length, length),
+          "driver-identity",
+          2,
+          this.connection,
+        );
+        // SQLGetInfoW counts bytes, unlike SQLDescribeColW's character count.
+        const count = length[0]!;
+        if (!Number.isSafeInteger(count) || count <= 0 || count >= bytes.length || count % 2 !== 0)
+          throw new OdbcNativeError("driver-identity-length");
+        const value = bytes.subarray(0, count).toString("utf16le");
+        if (!/^[\x20-\x7e]+$/u.test(value)) throw new OdbcNativeError("driver-identity-text");
+        return value;
+      };
+      const identity = Object.freeze({
+        name: info(6),
+        version: info(7),
+        odbcVersion: info(77),
+        managerVersion: info(171),
+      });
+      if (
+        !/^libmsodbcsql-18\.\d+\.so\.\d+\.\d+$/u.test(identity.name) ||
+        !/^18\.\d{2}\.\d{4}$/u.test(identity.version) ||
+        !/^03\.\d{2}$/u.test(identity.odbcVersion) ||
+        !/^03\.\d{2}(?:\.\d{4}){2}$/u.test(identity.managerVersion)
+      )
+        throw new OdbcNativeError("unqualified-ODBC-driver");
+      this.driverIdentity = identity;
     } catch (error) {
       try {
         this.close();
