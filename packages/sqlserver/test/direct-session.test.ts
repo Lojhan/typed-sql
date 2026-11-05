@@ -71,6 +71,36 @@ await describe("SQL Server data worker statement and retained-memory protocol", 
     state.session.close();
     strict.equal(state.calls.filter((call) => call.name === "SQLDisconnect").length, 1);
   });
+  await it("preserves the original native failure while quarantining failed cleanup", () => {
+    for (const [failedCall, stage, kind] of [
+      ["SQLSetStmtAttrW", "query-timeout", "execute"],
+      ["SQLPrepareW", "prepare", "prepare"],
+      ["SQLExecDirectW", "execute", "execute"],
+      ["SQLFetch", "fetch", "execute"],
+    ] as const) {
+      const state = nativeApiFixture();
+      state.session.open();
+      state.failed.set(failedCall, 1);
+      state.failed.set("SQLFreeHandle", 1);
+      strict.throws(
+        () => {
+          if (kind === "prepare") state.session.command({ id: 1, kind, text: "SELECT source" });
+          else state.session.command({ id: 1, kind, text: "SELECT source", values: [] });
+        },
+        new RegExp(`ODBC ${stage}`),
+      );
+      strict.equal(state.native.reusable, false);
+      strict.equal(state.session.owned.size, 1);
+      strict.throws(
+        () => state.session.command({ id: 2, kind: "execute", text: "SELECT unsafe", values: [] }),
+        /quarantined/,
+      );
+      state.session.close();
+      strict.equal(state.session.owned.size, 0);
+      strict.equal(state.session.connection, 0n);
+    }
+  });
+
   await it("rebinds one prepared statement through short, long, empty, NULL and long values with fixed MAX targets", () => {
     const state = nativeApiFixture();
     state.session.open();

@@ -141,6 +141,30 @@ export interface SqlServerDatabaseOptions {
   /** Bound values larger than this are rejected before native preparation/execution. Default1MiB. */
   readonly maximumPreparedValueBytes?: number;
 }
+/** Internal shared preflight: adapters validate before opening or configuring native sessions. */
+export function validateSqlServerRuntimeOptions(
+  options: Pick<
+    SqlServerDatabaseOptions,
+    | "typePolicy"
+    | "decimal"
+    | "preparedStatementLimit"
+    | "preparedCardinalityVariantLimit"
+    | "maximumPreparedValueBytes"
+  >,
+) {
+  const policy = validateSqlServerTypePolicy(options.typePolicy ?? defaultSqlServerTypePolicy);
+  if (
+    policy.decimal === "Decimal" &&
+    (!options.decimal || typeof options.decimal.decode !== "function" || typeof options.decimal.encode !== "function")
+  )
+    throw new TypeError("SQL Server Decimal policy requires encode/decode codecs");
+  const capacity = options.preparedStatementLimit ?? 256,
+    variantCapacity = options.preparedCardinalityVariantLimit ?? 32,
+    maxPreparedBytes = options.maximumPreparedValueBytes ?? 1024 * 1024;
+  for (const [name, value] of Object.entries({ capacity, variantCapacity, maxPreparedBytes }))
+    if (!Number.isSafeInteger(value) || value < 1) throw new RangeError(`${name} must be a positive safe integer`);
+  return { policy, capacity, variantCapacity, maxPreparedBytes };
+}
 interface PreparedExecution {
   readonly query: Query<unknown>;
   readonly plan: QueryValuePlan;
@@ -256,7 +280,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       );
   };
   if (leases.has(connection)) throw new Error("SQL Server wrappers require an idle connection");
-  const policy = validateSqlServerTypePolicy(options.typePolicy ?? defaultSqlServerTypePolicy);
+  const { policy, capacity, variantCapacity, maxPreparedBytes } = validateSqlServerRuntimeOptions(options);
   const policyHash = options.typePolicyHash ?? calculateTypePolicyHash(policy);
   const profile = {
     id: "sqlserver-native",
@@ -266,13 +290,6 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     jsonWire: "text" as const,
     normalizeValue: normalizeSqlServerValue,
   };
-  if (policy.decimal === "Decimal" && !options.decimal)
-    throw new TypeError("SQL Server Decimal policy requires encode/decode codecs");
-  const capacity = options.preparedStatementLimit ?? 256,
-    variantCapacity = options.preparedCardinalityVariantLimit ?? 32,
-    maxPreparedBytes = options.maximumPreparedValueBytes ?? 1024 * 1024;
-  for (const [name, value] of Object.entries({ capacity, variantCapacity, maxPreparedBytes }))
-    if (!Number.isSafeInteger(value) || value < 1) throw new RangeError(`${name} must be a positive safe integer`);
   const executionCapabilities = Object.freeze(
     connection.executionCapabilities ?? { cancellation: false, deadlines: false },
   );

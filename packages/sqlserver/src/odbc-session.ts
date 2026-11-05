@@ -95,7 +95,7 @@ export class OdbcSession {
       n.check(n.api.SQLSetStmtAttrW!(handle, 0, BigInt(n.options.queryTimeoutSeconds), 0), "query-timeout", 3, handle);
       return statement;
     } catch (error) {
-      this.destroy(statement);
+      this.destroyAfterFailure(statement);
       throw error;
     }
   }
@@ -114,6 +114,14 @@ export class OdbcSession {
     }
     for (const pointer of statement.allocations.splice(0)) this.native.koffi.free(pointer);
     this.owned.delete(statement);
+  }
+  destroyAfterFailure(statement: Statement): void {
+    try {
+      this.destroy(statement);
+    } catch {
+      // Keep the execution/metadata failure primary. Failed frees retain their owned allocations.
+      this.native.reusable = false;
+    }
   }
   reset(statement: Statement): void {
     const n = this.native;
@@ -144,7 +152,7 @@ export class OdbcSession {
       }
       return { statement, ...(columns ? { columns } : {}) };
     } catch (error) {
-      this.destroy(statement);
+      this.destroyAfterFailure(statement);
       throw error;
     }
   }
@@ -191,7 +199,7 @@ export class OdbcSession {
       this.firstResult(statement);
       return statement;
     } catch (error) {
-      if (!existing) this.destroy(statement);
+      if (!existing) this.destroyAfterFailure(statement);
       throw error;
     }
   }
@@ -265,6 +273,7 @@ export class OdbcSession {
           )
             throw new OdbcNativeError("unknown-prepared-handle");
           let statement: Statement | undefined;
+          let failed = false;
           try {
             statement = this.start("text" in command ? command.text : "", command.values, existing);
             if (command.kind === "streamStart") {
@@ -281,8 +290,14 @@ export class OdbcSession {
             )
               throw new OdbcNativeError("result-memory-bound");
             return { id: command.id, result };
+          } catch (error) {
+            failed = true;
+            throw error;
           } finally {
-            if (statement && command.kind !== "streamStart" && !existing) this.destroy(statement);
+            if (statement && command.kind !== "streamStart" && !existing) {
+              if (failed) this.destroyAfterFailure(statement);
+              else this.destroy(statement);
+            }
           }
         }
         case "streamNext": {
