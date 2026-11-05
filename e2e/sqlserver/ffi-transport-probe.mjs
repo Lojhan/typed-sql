@@ -164,13 +164,28 @@ function readCell(statement, ordinal, binary, payloadBytes) {
   }
   throw new Error("get-data-call-limit");
 }
-function query(connection, text, values = [], payloadBytes = 4096) {
+function destroyStatement(statement, allocations) {
+  // A failed free must not leave retained pointers dangling. Dedicated process exits.
+  const rc = api.free(3, statement);
+  if (rc === 0)
+    allocations.forEach((pointer) => {
+      koffi.free(pointer);
+    });
+  else check(rc, "free-statement", 3, statement);
+}
+function query(connection, text, values = [], payloadBytes = 4096, reusable) {
   assert.ok(text.length < 1_000_000);
-  const statement = allocate(3, connection);
-  const allocations = [];
+  const statement = reusable?.statement ?? allocate(3, connection);
+  const allocations = reusable?.allocations ?? [];
   try {
     if (values.length) {
-      check(api.prepare(statement, wide(text), text.length), "prepare", 3, statement);
+      if (!reusable?.prepared) {
+        check(api.prepare(statement, wide(text), text.length), "prepare", 3, statement);
+        if (reusable) {
+          reusable.prepared = true;
+          reusable.prepares++;
+        }
+      }
       bind(statement, values, allocations);
       // Stable input/indicator allocations survive execution, GC and all result draining.
       globalThis.gc?.();
@@ -241,13 +256,7 @@ function query(connection, text, values = [], payloadBytes = 4096) {
     }
     return { rows, metadata, traces, commandStages };
   } finally {
-    // A failed free must not leave retained pointers dangling. Dedicated process exits.
-    const rc = api.free(3, statement);
-    if (rc === 0)
-      allocations.forEach((pointer) => {
-        koffi.free(pointer);
-      });
-    else check(rc, "free-statement", 3, statement);
+    if (!reusable) destroyStatement(statement, allocations);
   }
 }
 const text = (value) => ({ kind: "text", value });
@@ -364,18 +373,47 @@ try {
       [`${"ascii".repeat(8000)}\0\0`],
     );
     if (evidence.major >= 15) {
-      probe(
-        "prepared-varchar-utf8",
-        "SELECT CONVERT(varchar(max),? COLLATE Latin1_General_100_BIN2_UTF8) AS value",
-        [text(unicode)],
-        [unicode],
-      );
-      probe(
-        "direct-varchar-utf8",
-        "SELECT CONVERT(varchar(max),REPLICATE(CONVERT(nvarchar(max),N'aé漢'),14000) COLLATE Latin1_General_100_BIN2_UTF8)+CHAR(0)+CHAR(0) AS value",
-        [],
-        [`${"aé漢".repeat(14000)}\0\0`],
-      );
+      for (const payload of [4096, 4094, 6]) {
+        probe(
+          `prepared-varchar-utf8-${payload}`,
+          "SELECT CONVERT(varchar(max),? COLLATE Latin1_General_100_BIN2_UTF8) AS value",
+          [text(unicode)],
+          [unicode],
+          payload,
+        );
+        probe(
+          `direct-varchar-utf8-${payload}`,
+          "SELECT CONVERT(varchar(max),REPLICATE(CONVERT(nvarchar(max),N'aé漢😀'),12000) COLLATE Latin1_General_100_BIN2_UTF8)+CHAR(0)+CHAR(0) AS value",
+          [],
+          [unicode],
+          payload,
+        );
+      }
+    }
+    // Prepare once, replace data/indicator pointers without changing the native
+    // parameter type, fully drain each execution, and retain old pointers until free.
+    const reusable = { statement: allocate(3, connection), allocations: [], prepared: false, prepares: 0 };
+    try {
+      let baseline;
+      for (const [index, value] of ["short", unicode, "", null, unicode].entries()) {
+        current = `prepared-rebind-${index}`;
+        const result = query(connection, "SELECT CONVERT(nvarchar(max),?) AS value", [text(value)], 4096, reusable);
+        assert.equal(result.rows.length, 1);
+        assert.ok(result.rows[0][0] === value, "Rebind fidelity mismatch");
+        if (baseline) assert.deepEqual(result.metadata, baseline);
+        baseline = result.metadata;
+        evidence.cases.push({
+          name: current,
+          status: "pass",
+          metadata: result.metadata,
+          values: [{ null: value === null, length: value?.length ?? null, sha256: digest(result.rows[0][0]) }],
+          prepares: reusable.prepares,
+          traces: result.traces,
+        });
+      }
+      assert.equal(reusable.prepares, 1);
+    } finally {
+      destroyStatement(reusable.statement, reusable.allocations);
     }
     probe(
       "text-null-empty-nul",
