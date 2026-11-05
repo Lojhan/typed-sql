@@ -106,8 +106,9 @@ function bind(statement, values, allocations) {
         index + 1,
         1,
         binary ? -2 : -8,
-        binary ? -4 : -10,
-        Math.max(1, value.value?.length ?? 0),
+        binary ? -4 : -9,
+        // SQL_SS_LENGTH_UNLIMITED=0 selects NVARCHAR(MAX), independent of value length.
+        binary ? Math.max(1, value.value?.length ?? 0) : 0,
         0,
         data,
         bytes.length,
