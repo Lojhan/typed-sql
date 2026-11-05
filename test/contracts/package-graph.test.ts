@@ -60,6 +60,8 @@ const publicPackages = [
   "ts-bridge",
   "language-server",
   "sqlite",
+  "sqlserver",
+  "duckdb",
 ] as const;
 const stablePackages = [
   "core",
@@ -72,6 +74,8 @@ const stablePackages = [
   "postgres",
   "mysql",
   "sqlite",
+  "sqlserver",
+  "duckdb",
   "cli",
   "adapters",
   "build",
@@ -109,6 +113,8 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite", "./query"],
+  sqlserver: [".", "./query", "./runtime", "./odbc", "./browser"],
+  duckdb: [".", "./query", "./runtime", "./node-api"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {
@@ -145,6 +151,8 @@ await describe("public package graph", async () => {
       "postgres",
       "mysql",
       "sqlite",
+      "sqlserver",
+      "duckdb",
     ]) {
       const packageManifest = await manifest(packageName);
       for (const field of [packageManifest.dependencies, packageManifest.optionalDependencies]) {

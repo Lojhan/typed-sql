@@ -86,6 +86,12 @@ importers:
         specifier: 4.23.15
         version: 4.23.15
 
+  e2e/duckdb:
+    devDependencies:
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+
   e2e/mysql:
     dependencies:
       '@typed-sql/cli':
