@@ -178,6 +178,62 @@ await describe("SQL Server explicit ODBC adapter", async () => {
     await db.close();
   });
 
+  await it("rejects unbounded legacy text plans before SELECT or DML OUTPUT can dispatch", async () => {
+    const state = setup();
+    const db = await createSqlServerOdbcDatabase({
+      connection: state.native,
+      driverImporter: async () => state.driver,
+      driverVersion: "6.2.2",
+    });
+    const before = state.requested.length;
+    for (const databaseType of ["varchar(max)", "text", "ntext"]) {
+      const query = withQueryValuePlan(sql<{ label: string }>`DELETE FROM dbo.messages OUTPUT deleted.label`, {
+        dialect: "sqlserver",
+        typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+        columns: [{ name: "label", type: "string", nullable: false, databaseType }],
+        parameters: [],
+      });
+      await strict.rejects(() => db.all(query), /cannot preserve arbitrary/);
+    }
+    strict.equal(state.requested.length, before);
+    await db.close();
+  });
+  await it("withholds unsupported raw metadata from buffered and streaming consumers", async () => {
+    for (const metadata of [
+      { name: "label", sqlType: "varchar", size: 0 },
+      { name: "label", sqlType: "text" },
+      { name: "label", sqlType: "varchar" },
+    ]) {
+      const state = setup();
+      state.script = (q) => {
+        q.emit("meta", [metadata]);
+        if (q.cancelled) return;
+        q.emit("row", 0);
+        q.emit("column", 0, "corrupted");
+        q.emit("done");
+        q.emit("free");
+      };
+      const connection = adaptSqlServerOdbcConnection(state.driver, state.native);
+      await strict.rejects(() => connection.execute("SELECT label"), /cannot preserve arbitrary/);
+      const stream = connection.stream!("SELECT label", [], { batchSize: 1 });
+      await strict.rejects(() => stream.next(), /cannot preserve arbitrary/);
+      await stream.close();
+    }
+  });
+  await it("allows bounded native VARCHAR metadata below the driver's LOB chunk threshold", async () => {
+    const state = setup();
+    state.script = (q) => {
+      q.emit("meta", [{ name: "label", sqlType: "varchar", size: 8000 }]);
+      q.emit("row", 0);
+      q.emit("column", 0, "é\0");
+      q.emit("done");
+      q.emit("free");
+    };
+    strict.deepEqual((await adaptSqlServerOdbcConnection(state.driver, state.native).execute("SELECT label")).rows, [
+      { label: "é\0" },
+    ]);
+  });
+
   await it("resolves the default SDK from the application rather than the grammar package", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-odbc-loader-")),
       cwd = process.cwd();

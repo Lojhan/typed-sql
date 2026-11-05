@@ -62,6 +62,8 @@ export interface SqlServerProtocolStream extends AsyncIterableIterator<Readonly<
 export interface SqlServerConnectionLike {
   execute(sql: string, values?: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   prepare?(sql: string): Promise<SqlServerNativePrepared>;
+  /** Reject native transport limitations before a query with possible side effects is dispatched. */
+  assertPlanSupported?(plan: QueryValuePlan): void;
   /** Native transports may decline a physical plan before dispatch; logical preparation then uses exact raw execution. */
   supportsPreparedPlan?(plan: QueryValuePlan): boolean;
   stream?(sql: string, values: readonly unknown[], options: { readonly batchSize: number }): SqlServerProtocolStream;
@@ -204,6 +206,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         throw new TypeError("SQL Server native target metadata is missing; regenerate with a compatible compiler/core");
       requireSqlServerNativeType(descriptor.databaseType);
     }
+    connection.assertPlanSupported?.(plan);
     const logical = renderQuery(query, sqlServerRenderer);
     const parsed = parseStatement(logical.text);
     const occurrences = new Set<number>();

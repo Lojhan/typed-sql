@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { type ExecutionOptions, type QueryValuePlan, runControlledExecution } from "@typed-sql/core";
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
-import { requireSqlServerNativeType } from "./native-types.js";
+import { parseSqlServerNativeType, requireSqlServerNativeType } from "./native-types.js";
 import {
   readSqlServerServerEvidence,
   SqlServerSchemaProvider,
@@ -119,6 +119,26 @@ function field(value: SqlServerOdbcMetadata): SqlServerField {
     ...(typeof value.nullable === "boolean" ? { nullable: value.nullable } : {}),
   };
 }
+/** SDK6 SQL_NO_TOTAL conversion loses true NULs in long non-Unicode text.
+ * Bounded CHAR/VARCHAR are at most8000 bytes (16000 UTF-16 bytes), below its24KiB LOB chunk.
+ * Unbounded/legacy metadata must never be decoded or exposed as exact text.
+ */
+function assertTextTransport(databaseType: string, metadataLength?: number, fromMetadata = false): void {
+  const target = parseSqlServerNativeType(databaseType);
+  if (!target) return;
+  if (
+    ["text", "ntext"].includes(target.name) ||
+    (["varchar", "char"].includes(target.name) &&
+      (target.length === "max" ||
+        !(
+          (!fromMetadata && typeof target.length === "number") ||
+          (Number.isInteger(metadataLength) && metadataLength! > 0 && metadataLength! <= 8000)
+        )))
+  )
+    throw new TypeError(
+      "msnodesqlv8 cannot preserve arbitrary VARCHAR(MAX)/TEXT values; use a qualified exact SQL Server transport",
+    );
+}
 /** Observe raw native tokens so duplicate column names, truncation and late errors cannot disappear. */
 function request(query: SqlServerOdbcQuery, onRow?: (row: Readonly<Record<string, unknown>>) => void): NativeRequest {
   let resolveFields!: (fields: readonly SqlServerField[]) => void, rejectFields!: (error: unknown) => void;
@@ -176,6 +196,7 @@ function request(query: SqlServerOdbcQuery, onRow?: (row: Readonly<Record<string
       return;
     }
     const metadata = value as unknown as readonly SqlServerOdbcMetadata[];
+    for (const column of metadata) if (column.sqlType) assertTextTransport(column.sqlType, column.size, true);
     sets++;
     if (sets === 1) {
       fields = metadata.map(field);
@@ -279,6 +300,9 @@ export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: 
   let reusable = true;
   const connection: SqlServerConnectionLike = Object.freeze({
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
+    assertPlanSupported(plan: QueryValuePlan) {
+      for (const column of plan.columns) assertTextTransport(column.databaseType!);
+    },
     // SDK6 prepared string buffers remove a genuine final UTF-16 NUL. Choose raw before executing,
     // never decode/retry a potentially side-effecting statement after observing a damaged result.
     supportsPreparedPlan(plan: QueryValuePlan) {
