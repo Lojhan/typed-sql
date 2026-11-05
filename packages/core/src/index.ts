@@ -162,6 +162,7 @@ export type {
   QueryTransportProfile,
   QueryValueDescriptor,
   QueryValuePlan,
+  RuntimeValueField,
   RuntimeValueType,
 } from "./query-value-plan.js";
 export {
