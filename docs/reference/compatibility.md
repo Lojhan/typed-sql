@@ -104,3 +104,19 @@ major line. New tooling uses `resolveCapabilities(snapshot, policy?)` to disting
 conservative, and unsupported states from normalized server evidence. Boolean-only third-party
 grammars continue to load, but their `true` values resolve conservatively until they implement the
 versioned contract.
+
+## Browser SQLite persistence
+
+The official SQLite Wasm OO1 adapter is exercised with `@sqlite.org/sqlite-wasm`
+3.54.1-build1 (SQLite 3.54.1) in Chromium. This is an exact tested driver version,
+not a promise of compatibility with every Wasm SDK release.
+
+| Backend | Execution context | Browser requirements | Persistence verification |
+|---|---|---|---|
+| Memory | Main thread or worker | WebAssembly and BigInt | Adapter execution suite |
+| `opfs` | Dedicated worker | OPFS, SharedArrayBuffer, cross-origin isolation | Connection reopen, worker restart, page reload, concurrent-worker lock recovery |
+| `opfs-sahpool` | Dedicated worker | OPFS synchronous access handles; exclusive pool ownership | Connection reopen, worker restart, page reload, conflicting initialization and handoff |
+
+Browser storage availability depends on the browser, origin and storage permissions.
+The application selects the backend explicitly and surfaces initialization failures.
+See [SQLite Wasm persistence](../guides/sqlite-wasm.md) for setup and ownership.

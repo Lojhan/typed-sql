@@ -91,6 +91,8 @@ jobs:
             tests: test/frameworks.test.mjs
           - group: workers
             tests: test/workers.test.mjs
+          - group: sqlite-wasm
+            tests: test/sqlite-wasm.test.mjs
           - group: bun
             tests: test/bun.test.mjs
     steps:
@@ -110,7 +112,17 @@ jobs:
           "$RUNNER_TEMP/typed-sql-bun/node_modules/@oven/bun-linux-x64/bin/bun" --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - name: Install Chromium and browser system dependencies
+        if: matrix.group == 'sqlite-wasm'
+        run: pnpm dlx playwright@1.64.1 install --with-deps chromium
       - run: pnpm --filter @typed-sql/e2e-build exec poku ${{ matrix.tests }} --config=poku.config.js --reporter=compact --enforce
+      - if: always() && matrix.group == 'sqlite-wasm'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sqlite-wasm-browser-${{ github.run_attempt }}
+          path: artifacts/sqlite-wasm/browser
+          if-no-files-found: error
+          retention-days: 14
 
   typescript-editor-matrix:
     if: github.event_name != 'pull_request'

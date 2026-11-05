@@ -122,9 +122,10 @@ export async function consumer(hosts, libraries = []) {
   await mkdir(artifacts);
   try {
     const packages = new Map();
-    for (const entry of await readdir(join(repository, "packages"))) {
+    for (const entry of await readdir(join(repository, "packages"), { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
       try {
-        const location = join(repository, "packages", entry);
+        const location = join(repository, "packages", entry.name);
         const metadata = JSON.parse(await readFile(join(location, "package.json"), "utf8"));
         packages.set(metadata.name, { location, metadata });
       } catch (error) {

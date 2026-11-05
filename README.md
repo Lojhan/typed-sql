@@ -165,6 +165,7 @@ Additional execution adapters accept application-owned clients:
 | --- | --- | --- | --- |
 | Cloudflare D1 | SQLite | `/d1` | No; native atomic batch |
 | libSQL / Turso | SQLite | `/libsql` | Yes |
+| Official SQLite Wasm: memory, OPFS, SAH-pool | SQLite | `/sqlite-wasm` | Yes |
 | Neon HTTP | PostgreSQL | `/neon-http` | No; noninteractive batch |
 | Neon WebSocket | PostgreSQL | `/neon-ws` | Yes |
 | Postgres.js | PostgreSQL | `/postgres-js` | Yes |
