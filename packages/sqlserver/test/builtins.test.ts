@@ -111,4 +111,30 @@ await describe("SQL Server ordered statistics and function namespaces", async ()
       strict.equal(result.semantics?.operation.value, "unknown");
     }
   });
+  await it("never borrows local function metadata for another database or linked server", () => {
+    const schema = {
+      ...snapshot,
+      server: { ...snapshot.server, settings: { ...snapshot.server.settings, databaseName: "commerce" } },
+      functions: {
+        make: {
+          name: "make",
+          schema: "custom",
+          argumentTypes: ["int"],
+          databaseReturnType: "bigint",
+          returnType: "bigint",
+          nullable: false,
+        },
+      },
+    };
+    const local = grammar.analyze("SELECT commerce.custom.make(quantity) AS value FROM dbo.widgets", schema);
+    strict.deepEqual(local.diagnostics, []);
+    strict.equal(local.columns[0]?.tsType, "bigint");
+    for (const name of ["other.custom.make", "linked.commerce.custom.make"]) {
+      const result = grammar.analyze(`SELECT ${name}(quantity) AS value FROM dbo.widgets`, schema);
+      strict.ok(result.diagnostics.some((d) => d.code === "TSQ108"));
+      strict.equal(result.semantics?.operation.value, "unknown");
+    }
+    const table = grammar.analyze("SELECT * FROM other.custom.records(1) AS r", schema);
+    strict.ok(table.diagnostics.some((d) => d.code === "TSQ108"));
+  });
 });

@@ -334,6 +334,17 @@ class Resolver {
       })),
     };
   }
+  validateRoutineQualification(name: Name): void {
+    if (
+      name.parts.length > 3 ||
+      (name.parts.length === 3 && !this.same(name.parts[0]!, String(this.schema.server?.settings.databaseName ?? "")))
+    )
+      this.diagnostic(
+        "TSQ108",
+        "Cross-database or linked-server functions require matching catalog evidence",
+        name.range,
+      );
+  }
   source(source: Source, scope: Scope, ctes: Ctes, allowCorrelation: boolean): Relation {
     if (source.kind === "table") {
       const relation = this.relation(source.name, ctes);
@@ -361,6 +372,7 @@ class Resolver {
         columns: columns.map((column, index) => ({ ...column, name: source.columns[index] ?? column.name })),
       };
     }
+    this.validateRoutineQualification(source.call.name);
     const name = partsLast(source.call.name).toUpperCase();
     let columns: Relation["columns"] = [];
     if (source.call.name.parts.length === 1 && name === "OPENJSON") {
@@ -939,6 +951,7 @@ class Resolver {
     }
   }
   call(expression: Expression & { kind: "call" }, scope: Scope, ctes: Ctes, expected?: Value): Value {
+    this.validateRoutineQualification(expression.name);
     const name = partsLast(expression.name).toUpperCase();
     if (expression.returningJson) this.requireVersion(17, expression.range, "Native JSON RETURNING");
     if (expression.name.parts.length === 1 && name === "NEWSEQUENTIALID")
