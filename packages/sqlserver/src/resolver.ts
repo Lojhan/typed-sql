@@ -349,6 +349,15 @@ class Resolver {
     if (source.kind === "table") {
       const relation = this.relation(source.name, ctes);
       if (source.systemTime) {
+        if (
+          source.systemTime.kind !== "parameter" &&
+          !(source.systemTime.kind === "literal" && source.systemTime.literal === "string")
+        )
+          this.diagnostic(
+            "TSQ203",
+            "FOR SYSTEM_TIME AS OF requires a datetime literal or variable, not a scalar expression",
+            source.systemTime.range,
+          );
         this.expected(source.systemTime, type("datetime2(7)", false, this.policy), scope, ctes);
         if (relation.catalog?.extension?.attributes?.temporalType !== 2)
           this.diagnostic("TSQ203", "FOR SYSTEM_TIME requires qualified system-versioned table evidence", source.range);
