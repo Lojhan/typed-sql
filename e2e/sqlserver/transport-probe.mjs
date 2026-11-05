@@ -97,7 +97,7 @@ try {
   evidence.unixOdbc = execFileSync("odbcinst", ["-j"], { encoding: "utf8" }).split("\n")[0];
   for (const level of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
     const name = `typed_sql_qualification_${level}`;
-    await query(`CREATE DATABASE [${name}]`);
+    await query(`CREATE DATABASE [${name}] COLLATE SQL_Latin1_General_CP1_CI_AS`);
     await query(`ALTER DATABASE [${name}] SET COMPATIBILITY_LEVEL = ${level}`);
     await query(`USE [${name}]`);
     const compat = await one("SELECT compatibility_level AS level FROM sys.databases WHERE name = DB_NAME()");
@@ -210,6 +210,99 @@ try {
         bytes: Array.from(inserted.bytes),
         rollback: true,
       };
+    });
+    await run(`compat-${level}.prepared-long-unicode`, async () => {
+      const prepared = await new Promise((resolve, reject) =>
+        connection.prepare(
+          { query_str: "SELECT CONVERT(nvarchar(max),?) AS value", numeric_string: true },
+          (error, value) => (error ? reject(error) : resolve(value)),
+        ),
+      );
+      try {
+        for (const input of ["short", "😀".repeat(5000), "", "longer after empty"]) {
+          const result = await prepared.promises.query([sql.NVarChar(input)]);
+          assert.equal(result.first[0].value, input);
+        }
+        const nul = "left\0right";
+        const result = await one("SELECT CONVERT(nvarchar(max),?) AS value", [sql.NVarChar(nul)]);
+        return { executions: 4, maxUtf16Length: 10000, embeddedNullPreserved: result.value === nul };
+      } finally {
+        await prepared.promises.free();
+      }
+    });
+    await run(`compat-${level}.prepared-max-results`, async () => {
+      connection.setMaxPreparedColumnSize(64);
+      let prepared;
+      try {
+        prepared = await new Promise((resolve, reject) =>
+          connection.prepare(
+            {
+              query_str:
+                "SELECT REPLICATE(CONVERT(nvarchar(max),N'é😀'),5000) AS textValue, CONVERT(varbinary(max),REPLICATE(CONVERT(varchar(max),'abcdef'),5000)) AS binaryValue",
+              numeric_string: true,
+              max_prepared_column_size: 64,
+            },
+            (error, value) => (error ? reject(error) : resolve(value)),
+          ),
+        );
+        const result = await prepared.promises.query([]);
+        const row = result.first[0];
+        const textExact = row.textValue === "é😀".repeat(5000);
+        const binaryExact = Buffer.from(row.binaryValue).equals(Buffer.from("abcdef".repeat(5000)));
+        return {
+          outcome: "success",
+          textExact,
+          binaryExact,
+          textLength: row.textValue.length,
+          binaryLength: row.binaryValue.length,
+          warnings: result.info,
+          metadata: prepared.getMeta(),
+          silentTruncation: (!textExact || !binaryExact) && result.info.length === 0,
+        };
+      } catch (error) {
+        return { outcome: "detected-error", error: safeError(error) };
+      } finally {
+        await prepared?.promises.free();
+        connection.setMaxPreparedColumnSize(1024 * 1024);
+        assert.equal(Number((await one("SELECT 1 AS recovered")).recovered), 1);
+      }
+    });
+    await run(`compat-${level}.collation-inputs`, async () => {
+      const legacy = await one(
+        "SELECT CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS) AS value, DATALENGTH(CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS)) AS bytes",
+        [sql.NVarChar("é€"), sql.NVarChar("é€")],
+      );
+      assert.equal(legacy.value, "é€");
+      assert.equal(Number(legacy.bytes), 2);
+      const unrepresentable = await one("SELECT CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS) AS value", [
+        sql.NVarChar("漢"),
+      ]);
+      assert.notEqual(unrepresentable.value, "漢", "Preflight must reject a codepage substitution");
+      const result = { cp1252: legacy.value, unrepresentableSubstitutionObserved: true };
+      if (major >= 15) {
+        const input = "😀😀";
+        const utf8 = await one(
+          "SELECT CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS_SC_UTF8) AS value, DATALENGTH(CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS_SC_UTF8)) AS bytes",
+          [sql.NVarChar(input), sql.NVarChar(input)],
+        );
+        assert.equal(utf8.value, input);
+        assert.equal(Number(utf8.bytes), 8);
+        await query("CREATE TABLE unicode_values(value varchar(8) COLLATE Latin1_General_100_CI_AS_SC_UTF8 NOT NULL)");
+        await query(
+          "INSERT INTO unicode_values VALUES(CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS_SC_UTF8))",
+          [sql.NVarChar(input)],
+        );
+        assert.equal((await one("SELECT value FROM unicode_values")).value, input);
+        const truncated = await one("SELECT CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS_SC_UTF8) AS value", [
+          sql.NVarChar("😀😀é"),
+        ]);
+        assert.notEqual(truncated.value, "😀😀é", "Preflight must reject an oversized UTF8 encoding");
+        result.utf8 = utf8.value;
+        result.utf8Bytes = Number(utf8.bytes);
+        result.truncationObserved = true;
+        result.differentDatabaseAndColumnCodepages = true;
+      }
+      return result;
     });
     await run(`compat-${level}.conversion-semantics`, async () => {
       const result = await query(
