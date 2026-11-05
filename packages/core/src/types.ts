@@ -528,6 +528,8 @@ function assertVerificationConfig(
     for (const method of ["server", "verify", "close"] as const) {
       if (typeof live[method] !== "function") throw new TypeError(`verification.live.${method} must be a function`);
     }
+    if (live.compareDatabaseTypes !== undefined && typeof live.compareDatabaseTypes !== "function")
+      throw new TypeError("verification.live.compareDatabaseTypes must be a function");
   }
 }
 

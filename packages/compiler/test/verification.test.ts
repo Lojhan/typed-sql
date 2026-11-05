@@ -834,4 +834,32 @@ await describe("live query verification", async () => {
   });
 });
 
+await describe("native verifier configuration", async () => {
+  await it("rejects invalid optional comparators before native calls and cached proof reuse", async () => {
+    const value = fixture();
+    const strictVerifier = verifier({ compareDatabaseTypes: () => "equal" });
+    const valid = await verifyQueryManifest({ ...value, verifier: strictVerifier });
+    let calls = 0;
+    for (const comparison of [null, true, 1, "equal", {}]) {
+      const invalid = verifier({
+        ...strictVerifier,
+        compareDatabaseTypes: comparison as never,
+        async server() {
+          calls++;
+          return { version: "18.4" };
+        },
+      });
+      await strict.rejects(
+        verifyQueryManifest({ ...value, verifier: invalid }),
+        /compareDatabaseTypes must be a function/u,
+      );
+      strict.throws(
+        () => assertQueryVerificationProofCurrent(value.manifest, valid.proof, invalid),
+        /compareDatabaseTypes must be a function/u,
+      );
+    }
+    strict.equal(calls, 0);
+  });
+});
+
 void (schema satisfies SchemaSnapshot);
