@@ -35,6 +35,7 @@ const forbiddenDrivers = new Set([
   "mssql",
   "tedious",
   "msnodesqlv8",
+  "koffi",
   "@duckdb/node-api",
   "@duckdb/node-bindings",
   "@duckdb/duckdb-wasm",
@@ -42,7 +43,7 @@ const forbiddenDrivers = new Set([
   "@sqlite.org/sqlite-wasm",
 ]);
 function isDatabaseDriver(name: string): boolean {
-  return forbiddenDrivers.has(name) || name.startsWith("@duckdb/node-bindings-");
+  return forbiddenDrivers.has(name) || name.startsWith("@duckdb/node-bindings-") || name.startsWith("@koromix/koffi-");
 }
 const publicPackages = [
   "build",
