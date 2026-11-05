@@ -8,7 +8,7 @@ import { parseGrammarFeatureLedger } from "../src/index.js";
 
 const duckSnapshot = {
   formatVersion: 1 as const,
-  dialect: "duckdb",
+  dialect: "duckdb" as const,
   server: duckDBServerEvidence("2.0.0", [], {
     Calendar: "gregorian",
     integer_division: "false",
