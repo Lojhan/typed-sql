@@ -522,6 +522,32 @@ await describe("public documentation", async () => {
     );
   });
 
+  await it("surfaces stable SQL imports and the SQL asset/identity walkthrough", async () => {
+    strict.ok(
+      documentationSections
+        .find(({ text }) => text === "Build and test integrations")
+        ?.items.some(({ link }) => link === "/guides/sql-files"),
+    );
+    strict.ok(
+      !documentationSections
+        .find(({ text }) => text === "Experimental")
+        ?.items.some(({ link }) => link === "/guides/sql-files"),
+    );
+    strict.ok(
+      publicDocumentationPages.some(
+        ({ file, pageType }) => file === "docs/examples/sql-files-and-identities.md" && pageType === "tutorial",
+      ),
+    );
+    const tutorial = await text("docs/examples/sql-files-and-identities.md");
+    for (const link of [
+      "../guides/live-verification.md",
+      "../guides/query-plan-governance.md",
+      "../guides/migration-compatibility.md",
+      "../playground.md",
+    ])
+      strict.ok(tutorial.includes(link));
+  });
+
   await it("keeps the documentation site private", async () => {
     const sitePackage = JSON.parse(await text("website/package.json")) as { readonly private: boolean };
     strict.strictEqual(sitePackage.private, true);

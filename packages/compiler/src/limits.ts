@@ -1,0 +1,1 @@
+export const DEFAULT_MAX_SOURCE_BYTES = 4 * 1024 * 1024;

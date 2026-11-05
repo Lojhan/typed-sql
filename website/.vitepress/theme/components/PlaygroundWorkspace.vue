@@ -273,10 +273,9 @@ function loadLesson() {
   applyingExample = true;
   directories[dialect.value] = [];
   drafts[dialect.value] = lessonFiles(dialect.value, lesson.value, DEFAULT_SCHEMAS[dialect.value]);
-  activeFile.value =
-    lesson.value === "commerce" || lesson.value === "errors" || lesson.value === "workspace"
-      ? "app.ts"
-      : "queries/account.ts";
+  activeFile.value = ["commerce", "errors", "workspace", "bindings", "brands"].includes(lesson.value)
+    ? "app.ts"
+    : "queries/account.ts";
   layout.value = createPane(
     activeFile.value,
     Object.keys(files.value).filter((file) => file.endsWith(".ts") || file.startsWith("queries/")),

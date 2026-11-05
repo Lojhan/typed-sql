@@ -19,6 +19,9 @@ generated evidence, driver lifecycle, and real-database tests.
 - Use the flagship [multi-row insert from `Array.map`](./multi-row-insert.md) for a complete recipe
   with schema, exact inferred contract, rendered SQL, ordered values, dialect notes, and tested source.
 
+- Try [SQL files and application identities](./sql-files-and-identities.md) for named/repeated bindings,
+  distinct user/order IDs, and deployment checks over imported SQL.
+
 ## Runnable applications
 
 The repository applications use only public entrypoints. Workspace dependencies resolve to the

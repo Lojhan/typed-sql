@@ -10,6 +10,11 @@ description: Capture redacted optimizer evidence and review explicit query-plan 
 
 Plan capture is optional. Compilation, editor inference, manifest generation, and ordinary execution do not connect to a database or read plan artifacts.
 
+Imported `.sql` statements use the same manifest fingerprints and compiled SQL as their runtime
+factories. Inspector requests and parameter samples follow expanded occurrence order; a repeated
+logical argument appears at each of its bound positions. See the
+[SQL-file example](../examples/sql-files-and-identities.md#include-sql-assets-in-deployment-checks).
+
 ## Configure an inspector
 
 PostgreSQL exposes its adapter from the driver-specific subpath:

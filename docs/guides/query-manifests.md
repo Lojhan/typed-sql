@@ -10,7 +10,7 @@ A query manifest turns compiler analysis into a versioned JSON artifact. It reco
 
 The same artifact is the offline input to [live verification](./live-verification.md), which compares compiler evidence with native database prepare metadata and writes a separate secret-free proof.
 
-Application code does not import the manifest or generated query wrappers. It continues importing `sql` from the selected grammar package:
+Application code does not import the manifest. Queries use the selected grammar’s `sql` tag or a [SQL-file factory](./sql-files.md). For example:
 
 <LiveQueryExample dialect="postgres" filename="src/queries.ts">
 <template #source>
@@ -57,6 +57,20 @@ pnpm exec typed-sql manifest
 `--project` analyzes one explicit tsconfig instead of the configured project list. `--out` overrides the configured output path.
 
 The command asks the workspace TypeScript executable for the files selected by each tsconfig. SQL parsing and inference still run through the grammar-neutral typed-sql compiler and the configured dialect; the compiler package does not depend on TypeScript preview APIs.
+
+## Imported SQL files
+
+Literal relative or absolute `.sql` imports and re-exports in the configured TypeScript source graph
+are included alongside inline templates. A missing imported SQL file fails discovery; unrelated
+migration scripts are not collected. Package aliases and computed paths are not discovery routes.
+
+Named and repeated bindings are analyzed through the same frontend as their generated factories.
+Manifest parameter descriptions follow the expanded SQL occurrence order, which can differ from
+the factory's logical argument order. SQL-file locations and dependency spans refer to the original
+source, and each asset's content hash participates in stale-proof rejection.
+
+See [SQL files and application identities](../examples/sql-files-and-identities.md) for a complete
+example and its verification, plan, and migration-compatibility workflows.
 
 ## Artifact contents
 

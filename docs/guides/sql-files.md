@@ -76,6 +76,10 @@ pnpm exec tsc --runExternalCode --watch
 An emit-enabled mapper project reports an error. The native watch process observes the schema,
 typed-sql configuration, and its imported local configuration modules.
 
+Try **SQL parameter bindings** in the [playground](../playground.md), or follow the
+[SQL files and application identities tutorial](../examples/sql-files-and-identities.md) for a
+provider configuration, branded query arguments, and deployment artifacts.
+
 ## Bind positional parameters
 
 Write `src/find-user.sql`:
@@ -104,7 +108,9 @@ Numbered placeholders can repeat or appear in a different order; arguments remai
 index order. Indexes must be contiguous from 1. The compiler expands repeated values into
 independent bound occurrences and rejects incompatible inferred types for the same argument.
 
-All three grammars also accept named parameters in SQL assets:
+## Bind named parameters
+
+All three grammars accept named parameters in SQL assets:
 
 ```sql
 SELECT id, email FROM users WHERE id = :id OR parent_id = :id
@@ -177,6 +183,8 @@ this frontend.
 The stable `typed-sql check` command checks inline TypeScript SQL templates. Generate SQL-file
 declarations with `typed-sql-build types` before ordinary checking, or use
 `tsc --runExternalCode` for live asset checking through the experimental mapper.
+
+## Include imported queries in artifacts
 
 Query manifests discover literal relative or absolute `.sql` imports and re-exports in the
 configured TypeScript source graph. Unrelated SQL files, including migration scripts, are not

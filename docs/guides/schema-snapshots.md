@@ -98,6 +98,10 @@ Do not import application APIs from the generated folder. Application code impor
 
 ## Brand application identities
 
+Follow the [SQL files and application identities tutorial](../examples/sql-files-and-identities.md)
+for a full provider configuration. In the [playground](../playground.md), select **Branded application
+IDs** and edit `schema/brands.ts` to see inferred rows and arguments change.
+
 Use `withSchemaBrands` from `@typed-sql/schema` when a scalar column or domain represents a distinct
 application identity. Apply it inside the schema provider so generation, drift checks, checking
 and execution use the same snapshot contract:

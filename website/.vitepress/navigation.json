@@ -155,6 +155,12 @@
           "pageType": "tutorial"
         },
         {
+          "text": "SQL file imports",
+          "link": "/guides/sql-files",
+          "file": "docs/guides/sql-files.md",
+          "pageType": "how-to"
+        },
+        {
           "text": "Vite and Vitest",
           "link": "/integrations/vite",
           "file": "docs/integrations/vite.md",
@@ -271,6 +277,12 @@
           "link": "/examples/recipes",
           "file": "docs/examples/recipes.md",
           "pageType": "landing"
+        },
+        {
+          "text": "SQL files and application IDs",
+          "link": "/examples/sql-files-and-identities",
+          "file": "docs/examples/sql-files-and-identities.md",
+          "pageType": "tutorial"
         },
         {
           "text": "Multi-row insert",
@@ -406,12 +418,6 @@
     {
       "text": "Experimental",
       "items": [
-        {
-          "text": "SQL file imports",
-          "link": "/guides/sql-files",
-          "file": "docs/guides/sql-files.md",
-          "pageType": "how-to"
-        },
         {
           "text": "Editor tooling",
           "link": "/guides/editors",
