@@ -337,7 +337,11 @@ class Resolver {
   source(source: Source, scope: Scope, ctes: Ctes, allowCorrelation: boolean): Relation {
     if (source.kind === "table") {
       const relation = this.relation(source.name, ctes);
-      if (source.systemTime) this.expected(source.systemTime, type("datetime2(7)", false, this.policy), scope, ctes);
+      if (source.systemTime) {
+        this.expected(source.systemTime, type("datetime2(7)", false, this.policy), scope, ctes);
+        if (relation.catalog?.extension?.attributes?.temporalType !== 2)
+          this.diagnostic("TSQ203", "FOR SYSTEM_TIME requires qualified system-versioned table evidence", source.range);
+      }
       return { ...relation, qualifiers: source.alias ? [source.alias] : relation.qualifiers };
     }
     if (source.kind === "derived") {
@@ -1781,9 +1785,34 @@ class Resolver {
     const aliases: Relation[] = [];
     if (operation !== "delete") aliases.push({ ...target, key: "inserted", qualifiers: ["inserted"] });
     if (operation !== "insert") aliases.push({ ...target, key: "deleted", qualifiers: ["deleted"] });
-    const columns = this.projection(output.projections, { relations: [...aliases, ...scope.relations] }, ctes);
+    const columns = this.projection(
+      output.projections,
+      { relations: [...aliases, ...scope.relations] },
+      ctes,
+      output.into !== undefined,
+    );
     if (output.into) {
-      this.relation(output.into, ctes);
+      const destination = this.relation(output.into, ctes);
+      const targets = output.columns.length
+        ? output.columns.map((name) => destination.columns.find((column) => this.same(column.name, name)))
+        : destination.columns.filter(
+            (column) =>
+              !column.hidden &&
+              destination.catalog?.columns[column.name]?.identity !== "always" &&
+              (!destination.catalog || destination.catalog.columns[column.name]?.generated === "none"),
+          );
+      if (targets.length !== columns.length)
+        this.diagnostic("TSQ203", "OUTPUT INTO width disagrees with its target columns", output.range);
+      if (new Set(output.columns.map((name) => this.key(name))).size !== output.columns.length)
+        this.diagnostic("TSQ203", "OUTPUT INTO target column list contains duplicates", output.range);
+      for (const [index, target] of targets.entries()) {
+        if (!target) this.diagnostic("TSQ101", "OUTPUT INTO contains an unknown target column", output.range);
+        else {
+          if (destination.catalog?.columns[target.name]?.insertable === false)
+            this.diagnostic("TSQ203", `OUTPUT INTO target ${target.name} is not insertable`, output.range);
+          if (columns[index]) this.common(columns[index]!, target, output.range);
+        }
+      }
       return [];
     }
     return columns;
