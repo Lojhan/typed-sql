@@ -1,5 +1,8 @@
 import { Buffer } from "node:buffer";
 import { EventEmitter } from "node:events";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import {
   adaptSqlServerOdbcConnection,
@@ -140,6 +143,28 @@ function setup() {
   };
 }
 await describe("SQL Server explicit ODBC adapter", async () => {
+  await it("resolves the default SDK from the application rather than the grammar package", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typed-sql-odbc-loader-")),
+      cwd = process.cwd();
+    try {
+      const sdk = join(directory, "node_modules", "msnodesqlv8");
+      await mkdir(sdk, { recursive: true });
+      await writeFile(join(directory, "package.json"), JSON.stringify({ private: true, type: "module" }));
+      await writeFile(
+        join(sdk, "package.json"),
+        JSON.stringify({ name: "msnodesqlv8", version: "6.2.1", main: "index.cjs" }),
+      );
+      await writeFile(join(sdk, "index.cjs"), "module.exports={applicationOwned:true}");
+      process.chdir(directory);
+      const loaded = await loadSqlServerOdbcDriver();
+      strict.equal((loaded as unknown as { applicationOwned: boolean }).applicationOwned, true);
+      await strict.rejects(createSqlServerOdbcDatabase({ connectionString: "unused" }), /qualified/);
+    } finally {
+      process.chdir(cwd);
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   await it("checks actual server evidence before mutation and validates injected SQL session settings", async () => {
     const future = setup();
     future.environment.version = "18.0.1.1";

@@ -1,5 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { type ExecutionOptions, runControlledExecution } from "@typed-sql/core";
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
@@ -394,8 +396,9 @@ export async function loadSqlServerOdbcDriver(
 ): Promise<SqlServerOdbcDriver> {
   if (importer) return importer();
   try {
-    const packageName = "msnodesqlv8";
-    const loaded = (await import(packageName)) as { default?: SqlServerOdbcDriver } & Partial<SqlServerOdbcDriver>;
+    const applicationRequire = createRequire(resolve(process.cwd(), "package.json"));
+    const moduleUrl = pathToFileURL(applicationRequire.resolve("msnodesqlv8")).href;
+    const loaded = (await import(moduleUrl)) as { default?: SqlServerOdbcDriver } & Partial<SqlServerOdbcDriver>;
     return (loaded.default ?? loaded) as SqlServerOdbcDriver;
   } catch (error) {
     throw new Error(
@@ -410,7 +413,10 @@ export async function createSqlServerOdbcDatabase(options: SqlServerOdbcOptions)
   const version =
     options.driverVersion ??
     (!options.driverImporter
-      ? String((createRequire(import.meta.url)("msnodesqlv8/package.json") as { version: unknown }).version)
+      ? String(
+          (createRequire(resolve(process.cwd(), "package.json"))("msnodesqlv8/package.json") as { version: unknown })
+            .version,
+        )
       : undefined);
   if (!version || (!/^6\.(?:[3-9]|[1-9]\d)\.\d+$/u.test(version) && !/^6\.2\.(?:[2-9]|[1-9]\d)$/u.test(version)))
     throw new TypeError("Exact SQL Server ODBC transport requires qualified msnodesqlv8 >=6.2.2 <7");
