@@ -61,11 +61,25 @@ function rejectsAnalysis(snapshot, source) {
   return result.diagnostics.map((diagnostic) => diagnostic.code);
 }
 async function nativeReject(db, operation, label, constraint = false) {
+  const rule = typeof constraint === "object" ? constraint : undefined;
+  const count = () => db.queryable.all(`SELECT COUNT_BIG(*) AS row_count FROM ${rule.table}`);
+  const before = rule ? await count() : undefined;
   let failure;
   try {
     await operation();
   } catch (error) {
     failure = error;
+  }
+  const observed = {
+    label,
+    code: failure?.code,
+    diagnostics: failure?.diagnostics?.map(({ state, native }) => ({ state, native })),
+  };
+  if (rule) {
+    rule.report.nativeRejections ??= [];
+    rule.report.nativeRejections.push(observed);
+    observed.before = before;
+    observed.after = await count();
   }
   assert.ok(failure, `Native SQL must reject ${label}`);
   assert.equal(failure.code, "TSQL_ODBC_NATIVE", `A native rejection, not a local codec/transport error: ${label}`);
@@ -74,7 +88,13 @@ async function nativeReject(db, operation, label, constraint = false) {
     failure.diagnostics.every((diagnostic) => !diagnostic.state.startsWith("08")),
     `No connection-loss class for ${label}`,
   );
-  if (constraint)
+  if (rule) {
+    assert.ok(
+      failure.diagnostics.some((diagnostic) => diagnostic.native === 513),
+      `Native bound-rule violation 513: ${label}`,
+    );
+    assert.deepEqual(observed.after, before, `Rejected rule insert must not mutate ${rule.table}`);
+  } else if (constraint)
     assert.ok(
       failure.diagnostics.some((diagnostic) => diagnostic.state.startsWith("23")),
       `Native integrity-constraint SQLSTATE for ${label}`,
@@ -196,7 +216,7 @@ async function aliases(db, report) {
     db,
     () => db.one(bound.factory({ value: -1n, nullable: null })),
     "alias rule",
-    true,
+    { table: "dbo.catalog_columns", report },
   );
   for (const [source, native] of [
     ["INSERT INTO dbo.catalog_columns(id) VALUES(50)", "INSERT INTO dbo.catalog_columns(id) VALUES(50)"],
@@ -233,7 +253,7 @@ async function aliases(db, report) {
     db,
     () => q("INSERT INTO dbo.catalog_columns(nullable_override) VALUES(5)"),
     "column rule overrides alias rule",
-    true,
+    { table: "dbo.catalog_columns", report },
   );
   await q("EXEC sys.sp_unbindefault N'dbo.catalog_alias'");
   await q("EXEC sys.sp_unbindrule N'dbo.catalog_alias'");
@@ -310,7 +330,7 @@ async function futureOnly(db, report) {
     db,
     () => db.one(newBound.factory({ id: 2, value: -1n })),
     "futureonly new-column rule",
-    true,
+    { table: "dbo.catalog_after", report },
   );
   report.native = {
     before,
@@ -521,6 +541,7 @@ async function permissions(db, report) {
   await q("GRANT EXECUTE ON OBJECT::dbo.catalog_visible_function TO catalog_reader");
   const owner = await capture(db),
     ownerNames = Object.keys(owner.relations).sort();
+  assert.equal(owner.routines["dbo.catalog_visible_function"]?.length, 1);
   await q("DENY VIEW DEFINITION ON OBJECT::dbo.catalog_visible_function TO catalog_reader");
   await q("DENY VIEW DEFINITION ON OBJECT::dbo.catalog_invisible TO catalog_reader");
   await q("DENY VIEW DEFINITION ON OBJECT::dbo.catalog_visible TO catalog_reader");
@@ -541,18 +562,39 @@ async function permissions(db, report) {
       )
     )[0];
     report.definitionVisibility = routine;
-    assert.ok(integer(routine.object_id) > 0, "EXECUTE grant preserves object visibility");
     assert.equal(integer(routine.unavailable), 1);
-    const defaultFact = (await columnFacts(db, "catalog_visible")).find((row) => row.name === "value");
-    assert.ok(defaultFact && integer(defaultFact.default_object_id) > 0);
+    // DENY VIEW DEFINITION can hide the object row and OBJECT_ID despite an
+    // independent permission to invoke it. Prove invocation separately from catalog visibility.
+    const invoked = await q("SELECT dbo.catalog_visible_function() AS permitted_result");
+    report.permittedInvocation = invoked;
+    assert.equal(invoked.length, 1);
+    assert.equal(integer(invoked[0].permitted_result), 123);
+    const visibleColumns = await columnFacts(db, "catalog_visible");
+    report.restrictedColumns = visibleColumns;
+    const defaultFact = visibleColumns.find((row) => row.name === "value");
     restricted = await capture(db);
-    compareBindings(restricted.relations["dbo.catalog_visible"].columns.value, defaultFact);
+    const visibleRelation = restricted.relations["dbo.catalog_visible"];
+    if (defaultFact) {
+      assert.ok(integer(defaultFact.default_object_id) > 0);
+      assert.ok(visibleRelation, "Provider retains a natively visible table");
+      compareBindings(visibleRelation.columns.value, defaultFact);
+    } else {
+      assert.equal(visibleRelation, undefined, "Provider must not invent a table hidden from native catalogs");
+    }
     const routineSnapshot = restricted.routines["dbo.catalog_visible_function"]?.[0];
-    assert.ok(routineSnapshot, "Visible routine remains in the provider snapshot without its definition");
-    assert.equal(attributes(routineSnapshot).definitionUnavailable, true);
+    if (routine.object_id === null) {
+      assert.equal(routineSnapshot, undefined, "Provider must not invent a routine hidden from native catalogs");
+    } else {
+      assert.ok(integer(routine.object_id) > 0);
+      assert.ok(routineSnapshot, "Provider retains the natively visible routine");
+      assert.equal(attributes(routineSnapshot).definitionUnavailable, true);
+    }
     const omitted = ownerNames.filter((name) => !restricted.relations[name]);
     report.visibility = {
       effective,
+      routineObjectVisible: routine.object_id !== null,
+      routineOmitted: routineSnapshot === undefined,
+      tableColumnsVisible: visibleColumns.length > 0,
       definitionUnavailable: true,
       defaultFact,
       ownerRelationCount: ownerNames.length,
