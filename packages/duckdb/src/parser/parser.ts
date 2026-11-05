@@ -694,6 +694,7 @@ export class DuckDBParser {
         }
         this.expect("INTO");
         const target = this.qualified(),
+          targetAlias = this.accept("AS") ? this.identifier().value : undefined,
           columns = this.accept("(") ? this.list(() => this.identifier().value, ")") : undefined;
         let byName = false;
         if (this.accept("BY")) {
@@ -710,15 +711,18 @@ export class DuckDBParser {
           this.expect("VALUES");
           values = [[]];
         } else source = this.statement();
+        let conflictColumns: string[] | undefined,
+          conflictAssignments: { name: string; value: Expression }[] | undefined,
+          conflictWhere: Expression | undefined;
         if (this.accept("ON")) {
           this.expect("CONFLICT");
-          if (this.accept("(")) this.list(() => this.identifier().value, ")");
+          if (this.accept("(")) conflictColumns = this.list(() => this.identifier().value, ")");
           this.expect("DO");
           if (!this.accept("NOTHING")) {
             this.expect("UPDATE");
             this.expect("SET");
-            this.assignments();
-            if (this.accept("WHERE")) this.expression();
+            conflictAssignments = this.assignments();
+            if (this.accept("WHERE")) conflictWhere = this.expression();
           }
           conflict = true;
         }
@@ -730,6 +734,10 @@ export class DuckDBParser {
           projections: [],
           relations: [],
           target,
+          ...(targetAlias ? { targetAlias } : {}),
+          ...(conflictColumns ? { conflictColumns } : {}),
+          ...(conflictAssignments ? { conflictAssignments } : {}),
+          ...(conflictWhere ? { conflictWhere } : {}),
           ...(columns ? { columns } : {}),
           ...(values ? { values } : {}),
           ...(source ? { source } : {}),
@@ -738,8 +746,8 @@ export class DuckDBParser {
           ...(conflict ? { conflict } : {}),
         };
       } else if (this.accept("UPDATE")) {
-        const target = this.qualified();
-        if (this.accept("AS")) this.identifier();
+        const target = this.qualified(),
+          targetAlias = this.accept("AS") ? this.identifier().value : undefined;
         this.expect("SET");
         const assignments = this.assignments(),
           relations = this.accept("FROM") ? this.relations() : [],
@@ -752,14 +760,15 @@ export class DuckDBParser {
           projections: [],
           relations,
           target,
+          ...(targetAlias ? { targetAlias } : {}),
           assignments,
           ...(where ? { where } : {}),
           ...(returning ? { returning } : {}),
         };
       } else if (this.accept("DELETE")) {
         this.expect("FROM");
-        const target = this.qualified();
-        if (this.accept("AS")) this.identifier();
+        const target = this.qualified(),
+          targetAlias = this.accept("AS") ? this.identifier().value : undefined;
         const relations = this.accept("USING") ? this.relations() : [],
           where = this.accept("WHERE") ? this.expression() : undefined,
           returning = this.accept("RETURNING") ? this.projections() : undefined;
@@ -770,6 +779,7 @@ export class DuckDBParser {
           projections: [],
           relations,
           target,
+          ...(targetAlias ? { targetAlias } : {}),
           ...(where ? { where } : {}),
           ...(returning ? { returning } : {}),
         };

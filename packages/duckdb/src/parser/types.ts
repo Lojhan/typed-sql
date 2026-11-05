@@ -93,6 +93,10 @@ export interface Statement {
     readonly right: Statement;
   };
   readonly target?: readonly string[];
+  readonly targetAlias?: string;
+  readonly conflictColumns?: readonly string[];
+  readonly conflictAssignments?: readonly { readonly name: string; readonly value: Expression }[];
+  readonly conflictWhere?: Expression;
   readonly columns?: readonly string[];
   readonly values?: readonly (readonly Expression[])[];
   readonly source?: Statement;

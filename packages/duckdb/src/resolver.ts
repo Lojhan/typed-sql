@@ -1519,7 +1519,13 @@ export class DuckDBResolver {
       );
     }
     let fields: Field[] = [];
-    if (statement.target) fields.push(...this.table(statement.target, statement.range));
+    if (statement.target)
+      fields.push(
+        ...this.table(statement.target, statement.range).map((field) => ({
+          ...field,
+          ...(statement.targetAlias ? { relation: statement.targetAlias } : {}),
+        })),
+      );
     for (const relation of statement.relations) {
       const previous = [...fields],
         next = this.relation(relation, { ...scope, fields: [...parent.fields, ...fields] });
@@ -1611,6 +1617,8 @@ export class DuckDBResolver {
     if (statement.kind === "insert") {
       const target = fields.length ? fields : this.table(statement.target ?? [], statement.range),
         columns = statement.columns ?? target.filter((field) => field.insertable !== false).map((field) => field.name);
+      if (new Set(columns.map(duckDBAsciiFold)).size !== columns.length)
+        this.error("INSERT target columns must be unique", statement.range, "TSQ202");
       for (const row of statement.values ?? []) {
         if (row.length && row.length !== columns.length)
           this.error("INSERT value count differs from target columns", statement.range, "TSQ202");
@@ -1625,20 +1633,32 @@ export class DuckDBResolver {
         }
       }
       if (statement.source) {
-        const source = this.query(statement.source, scope);
+        const source = this.query(statement.source, { ...scope, fields: parent.fields });
         if (source.length !== columns.length)
           this.error("INSERT SELECT column count differs", statement.range, "TSQ202");
       }
     }
-    for (const assignment of statement.assignments ?? []) {
+    const conflictScope: Scope = {
+      ...scope,
+      fields: [...scope.fields, ...fields.map((field) => ({ ...field, relation: "excluded", usingHidden: true }))],
+    };
+    for (const name of statement.conflictColumns ?? [])
+      if (!fields.some((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)))
+        this.error(`Unknown conflict target column ${name}`, statement.range);
+    for (const assignment of [...(statement.assignments ?? []), ...(statement.conflictAssignments ?? [])]) {
       const target = fields.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(assignment.name));
       if (!target) this.error(`Unknown UPDATE column ${assignment.name}`, statement.range);
       else {
         if (target.updatable !== undefined && target.updatable !== true)
           this.error("UPDATE column is generated or not proven updatable", assignment.value.range, "TSQ202");
-        this.infer(assignment.value, scope, target);
+        this.infer(
+          assignment.value,
+          statement.conflictAssignments?.includes(assignment) ? conflictScope : scope,
+          target,
+        );
       }
     }
+    if (statement.conflictWhere) this.infer(statement.conflictWhere, conflictScope, bool(true));
     let output = this.project(statement.kind === "select" ? statement.projections : (statement.returning ?? []), scope);
     if (statement.where) this.infer(statement.where, scope, bool(true));
     this.validateGrouping(statement, scope);
