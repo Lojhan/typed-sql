@@ -627,6 +627,239 @@ await describe("live query verification", async () => {
     };
     strict.throws(() => assertQueryVerificationProofCurrent(value.manifest, edited), /cache key/u);
   });
+  await it("checks grammar-owned physical identity even when JavaScript types match", async () => {
+    const value = fixture();
+    const original = value.candidates[0]!;
+    const candidate = {
+      ...original,
+      columns: original.columns.map((column, index) =>
+        index === 1 ? { ...column, databaseType: "decimal(12,2)", tsType: "string" } : column,
+      ),
+    };
+    for (const comparison of ["equal", "different", "unavailable", "throw", "invalid"] as const) {
+      const calls: readonly string[][] = [];
+      const native = verifier({
+        compareDatabaseTypes(expected, actual, target) {
+          (calls as string[][]).push([expected, actual, target]);
+          if (expected === "decimal(12,2)") {
+            if (comparison === "throw") throw new Error("SELECT recognizable-secret FROM private_table");
+            if (comparison === "invalid") return "invalid" as "equal";
+            return comparison;
+          }
+          return "equal";
+        },
+        async verify() {
+          return {
+            columns: [
+              { index: 1, databaseType: "bigint", tsType: "bigint" },
+              { index: 2, databaseType: "decimal(12,4)", tsType: "string" },
+            ],
+            parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+          };
+        },
+      });
+      const result = await verifyQueryManifest({ manifest: value.manifest, candidates: [candidate], verifier: native });
+      const entry = result.proof.entries.find(
+        (entry) => entry.queryId === candidate.queryId && entry.variantFingerprint === candidate.variantFingerprint,
+      )!;
+      strict.equal(
+        entry.status,
+        comparison === "equal"
+          ? "verified"
+          : comparison === "different"
+            ? "mismatch"
+            : comparison === "unavailable"
+              ? "skipped"
+              : "error",
+      );
+      strict.deepEqual(entry.source, candidate.source);
+      strict.equal(entry.variantFingerprint, candidate.variantFingerprint);
+      strict.ok(calls.some((call) => call[0] === "decimal(12,2)" && call[1] === "decimal(12,4)"));
+      if (entry.status === "mismatch")
+        strict.ok(entry.mismatches.some((m) => m.kind === "database-type" && m.target === "column" && m.index === 2));
+      strict.ok(!serializeQueryVerificationProof(result.proof).includes("recognizable-secret"));
+    }
+  });
+  await it("invalidates coarse cached proofs when native comparison becomes required", async () => {
+    const value = fixture();
+    const original = value.candidates[0]!;
+    const candidate = {
+      ...original,
+      columns: original.columns.map((column, index) =>
+        index === 1 ? { ...column, databaseType: "decimal(38,2)", tsType: "string" } : column,
+      ),
+    };
+    const native = (databaseType: string) =>
+      verifier({
+        async verify() {
+          return {
+            columns: [
+              { index: 1, databaseType: "bigint", tsType: "bigint" },
+              { index: 2, databaseType, tsType: "string" },
+            ],
+            parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+          };
+        },
+      });
+    const options = { manifest: value.manifest, candidates: [candidate] };
+    const coarseVerifier = native("decimal(12,2)");
+    const coarse = await verifyQueryManifest({ ...options, verifier: coarseVerifier });
+    strict.equal(coarse.verified, 1, "Legacy JS-type comparison remains backward compatible");
+    strict.equal(Object.hasOwn(coarse.proof, "nativeTypeComparison"), false);
+    const serialized = serializeQueryVerificationProof(coarse.proof);
+    strict.ok(!serialized.includes("nativeTypeComparison"));
+    const cached = parseQueryVerificationProof(JSON.parse(serialized));
+    strict.doesNotThrow(() => assertQueryVerificationProofCurrent(value.manifest, cached, coarseVerifier));
+    const strictVerifier: LiveQueryVerifier = {
+      ...coarseVerifier,
+      compareDatabaseTypes: (expected, actual) => (expected === actual ? "equal" : "different"),
+    };
+    // Adapter identity, adapter version and JS policy deliberately remain identical.
+    strict.throws(
+      () => assertQueryVerificationProofCurrent(value.manifest, cached, strictVerifier),
+      /native type comparison/u,
+    );
+    const rechecked = await verifyQueryManifest({ ...options, verifier: strictVerifier });
+    strict.equal(rechecked.mismatched, 1);
+    strict.equal(rechecked.proof.nativeTypeComparison, true);
+    const matching = native("decimal(38,2)");
+    const legacyMatching = await verifyQueryManifest({ ...options, verifier: matching });
+    const properVerifier = {
+      ...matching,
+      compareDatabaseTypes(expected: string, actual: string) {
+        return expected === actual ? ("equal" as const) : ("different" as const);
+      },
+    };
+    const proper = await verifyQueryManifest({ ...options, verifier: properVerifier });
+    strict.equal(proper.verified, 1);
+    strict.notEqual(proper.proof.cacheKey, legacyMatching.proof.cacheKey);
+    strict.deepEqual(proper.proof.entries, legacyMatching.proof.entries);
+    strict.doesNotThrow(() =>
+      assertQueryVerificationProofCurrent(
+        value.manifest,
+        parseQueryVerificationProof(JSON.parse(serializeQueryVerificationProof(proper.proof))),
+        properVerifier,
+      ),
+    );
+    strict.throws(
+      () =>
+        assertQueryVerificationProofCurrent(value.manifest, { ...cached, nativeTypeComparison: true }, strictVerifier),
+      /cache key/u,
+    );
+    strict.throws(() => {
+      const { nativeTypeComparison: _flag, ...without } = proper.proof;
+      assertQueryVerificationProofCurrent(value.manifest, without);
+    }, /cache key/u);
+    for (const flag of [false, 0, "true", null]) {
+      strict.throws(
+        () => parseQueryVerificationProof({ ...cached, nativeTypeComparison: flag }),
+        /nativeTypeComparison/u,
+      );
+    }
+  });
+  await it("does not certify missing physical fields for an opted-in verifier", async () => {
+    const value = fixture();
+    for (const missing of ["expected", "actual"] as const) {
+      const original = value.candidates[0]!;
+      const columns = original.columns.map((column, index) => {
+        if (index !== 1 || missing !== "expected") return column;
+        const { databaseType: _databaseType, ...rest } = column;
+        return rest;
+      });
+      const result = await verifyQueryManifest({
+        manifest: value.manifest,
+        candidates: [{ ...original, columns }],
+        verifier: verifier({
+          compareDatabaseTypes: () => "equal",
+          async verify() {
+            return {
+              columns: [
+                { index: 1, databaseType: "bigint", tsType: "bigint" },
+                { index: 2, ...(missing === "actual" ? {} : { databaseType: "text" }), tsType: "string" },
+              ],
+              parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+            };
+          },
+        }),
+      });
+      strict.equal(result.verified, 0);
+      strict.equal(result.failed, 0);
+      strict.ok(
+        result.proof.entries.some(
+          (entry) => entry.status === "skipped" && entry.reason === "native-metadata-unavailable",
+        ),
+      );
+    }
+  });
+  await it("keeps known mismatch precedence over unavailable physical evidence", async () => {
+    const value = fixture();
+    for (const scenario of ["count-and-name", "other-field-drift", "field-types"] as const) {
+      const result = await verifyQueryManifest({
+        manifest: value.manifest,
+        candidates: [value.candidates[0]!],
+        verifier: verifier({
+          compareDatabaseTypes(expected, actual) {
+            return scenario === "field-types" ? "unavailable" : expected === actual ? "equal" : "different";
+          },
+          async verify() {
+            return {
+              columns:
+                scenario === "count-and-name"
+                  ? [{ index: 1, name: "wrong" }]
+                  : scenario === "other-field-drift"
+                    ? [
+                        { index: 1, databaseType: "integer", tsType: "bigint" },
+                        { index: 2, tsType: "string" },
+                      ]
+                    : [
+                        { index: 1, name: "wrong", databaseType: "bigint", tsType: "string", nullable: true },
+                        { index: 2, databaseType: "text", tsType: "string" },
+                      ],
+              parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+            };
+          },
+        }),
+      });
+      const entry = result.proof.entries.find((entry) => entry.status === "mismatch");
+      if (entry?.status !== "mismatch") strict.fail(`Known mismatch lost for ${scenario}`);
+      const kinds = entry.mismatches.map((m) => m.kind);
+      for (const kind of scenario === "count-and-name"
+        ? ["column-count", "column-name"]
+        : scenario === "other-field-drift"
+          ? ["database-type"]
+          : ["column-name", "typescript-type", "nullability"])
+        strict.ok(kinds.includes(kind as (typeof kinds)[number]));
+      strict.deepEqual(entry.source, value.candidates[0]!.source);
+    }
+  });
+});
+
+await describe("native verifier configuration", async () => {
+  await it("rejects invalid optional comparators before native calls and cached proof reuse", async () => {
+    const value = fixture();
+    const strictVerifier = verifier({ compareDatabaseTypes: () => "equal" });
+    const valid = await verifyQueryManifest({ ...value, verifier: strictVerifier });
+    let calls = 0;
+    for (const comparison of [null, true, 1, "equal", {}]) {
+      const invalid = verifier({
+        ...strictVerifier,
+        compareDatabaseTypes: comparison as never,
+        async server() {
+          calls++;
+          return { version: "18.4" };
+        },
+      });
+      await strict.rejects(
+        verifyQueryManifest({ ...value, verifier: invalid }),
+        /compareDatabaseTypes must be a function/u,
+      );
+      strict.throws(
+        () => assertQueryVerificationProofCurrent(value.manifest, valid.proof, invalid),
+        /compareDatabaseTypes must be a function/u,
+      );
+    }
+    strict.equal(calls, 0);
+  });
 });
 
 void (schema satisfies SchemaSnapshot);

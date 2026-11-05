@@ -90,6 +90,16 @@ The PostgreSQL verifier also identifies its effective decoding policy; fresh and
 reject a policy mismatch. Use the same effective policy for compilation and verification, and
 regenerate manifests and proofs when that policy changes.
 
+A grammar-owned verifier can implement `compareDatabaseTypes(expected, actual, target)` to
+compare physical types even when both map to the same JavaScript type. This catches differences
+such as decimal precision or string length. It returns `equal`, `different`, or `unavailable`;
+missing required native evidence produces a skip rather than an optimistic proof. Known
+mismatches remain failures even when another field is unavailable.
+
+Proofs record whether native type comparison was used. A strict verifier rejects cached proofs
+created without it. Grammar authors must change `adapterVersion` when their comparison or native
+evidence semantics change; comparator functions are not serialized into proof artifacts.
+
 Prepare metadata does not prove runtime cardinality, business constraints, permissions for every production role, or query-plan quality.
 
 ## Proof artifact

@@ -706,6 +706,24 @@ await describe("core contracts", async () => {
         dialect,
         schema: { file: "schema.json" },
         outDir: "generated",
+        verification: { live: { ...live, compareDatabaseTypes: () => "equal" } },
+      }),
+    );
+    strict.throws(
+      () =>
+        defineConfig({
+          dialect,
+          schema: { file: "schema.json" },
+          outDir: "generated",
+          verification: { live: { ...live, compareDatabaseTypes: "equal" as never } },
+        }),
+      /compareDatabaseTypes must be a function/u,
+    );
+    strict.doesNotThrow(() =>
+      defineConfig({
+        dialect,
+        schema: { file: "schema.json" },
+        outDir: "generated",
         verification: { live, proofFile: ".typed-sql/proof.json", concurrency: 2 },
       }),
     );
