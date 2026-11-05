@@ -105,6 +105,8 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
     validateSnapshot: parseDuckDBSchemaSnapshot,
   });
 }
+
+export { type DuckDBBuiltinSignature, duckDBBuiltinCatalog, duckDBBuiltinSignatures } from "./catalog/index.js";
 export { DuckDBValueError, decodeDuckDBValue } from "./codecs.js";
 export type { DuckDBType, DuckDBTypeField } from "./native-types.js";
 export { duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
