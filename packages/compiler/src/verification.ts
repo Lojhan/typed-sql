@@ -320,8 +320,9 @@ function compareField(
   expected: QueryVerificationExpectedField,
   actual: LiveQueryVerificationField,
   verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
-): readonly QueryVerificationMismatch[] | "unavailable" {
+): { readonly mismatches: readonly QueryVerificationMismatch[]; readonly unavailable: boolean } {
   const mismatches: QueryVerificationMismatch[] = [];
+  let unavailable = false;
   const add = (kind: QueryVerificationMismatchKind, expectedValue: string, actualValue: string) =>
     mismatches.push({ kind, target, index: expected.index, expected: expectedValue, actual: actualValue });
   if (
@@ -333,11 +334,13 @@ function compareField(
     add("column-name", expected.name, actual.name);
   }
   if (verifier.compareDatabaseTypes !== undefined) {
-    if (expected.databaseType === undefined || actual.databaseType === undefined) return "unavailable";
-    const comparison = verifier.compareDatabaseTypes(expected.databaseType, actual.databaseType, target);
-    if (comparison === "unavailable") return "unavailable";
-    if (comparison === "different") add("database-type", expected.databaseType, actual.databaseType);
-    else if (comparison !== "equal") throw new TypeError("Invalid native database type comparison");
+    if (expected.databaseType === undefined || actual.databaseType === undefined) unavailable = true;
+    else {
+      const comparison = verifier.compareDatabaseTypes(expected.databaseType, actual.databaseType, target);
+      if (comparison === "unavailable") unavailable = true;
+      else if (comparison === "different") add("database-type", expected.databaseType, actual.databaseType);
+      else if (comparison !== "equal") throw new TypeError("Invalid native database type comparison");
+    }
   }
   if (expected.tsType !== "unknown" && actual.tsType !== undefined) {
     const expectedWireType = brandBaseType(expected.tsType) ?? expected.tsType;
@@ -358,7 +361,7 @@ function compareField(
   if (actual.nullable !== undefined && expected.nullable !== actual.nullable) {
     add("nullability", String(expected.nullable), String(actual.nullable));
   }
-  return mismatches;
+  return { mismatches, unavailable };
 }
 
 function compareEvidence(
@@ -367,6 +370,7 @@ function compareEvidence(
   verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
 ): readonly QueryVerificationMismatch[] | "unavailable" {
   const mismatches: QueryVerificationMismatch[] = [];
+  let unavailable = false;
   if (candidate.columns.length !== evidence.columns.length) {
     mismatches.push({
       kind: "column-count",
@@ -385,15 +389,15 @@ function compareEvidence(
   }
   for (let index = 0; index < Math.min(candidate.columns.length, evidence.columns.length); index += 1) {
     const fields = compareField("column", candidate.columns[index]!, evidence.columns[index]!, verifier);
-    if (fields === "unavailable") return fields;
-    mismatches.push(...fields);
+    unavailable ||= fields.unavailable;
+    mismatches.push(...fields.mismatches);
   }
   for (let index = 0; index < Math.min(candidate.parameters.length, evidence.parameters.length); index += 1) {
     const fields = compareField("parameter", candidate.parameters[index]!, evidence.parameters[index]!, verifier);
-    if (fields === "unavailable") return fields;
-    mismatches.push(...fields);
+    unavailable ||= fields.unavailable;
+    mismatches.push(...fields.mismatches);
   }
-  return mismatches;
+  return mismatches.length ? mismatches : unavailable ? "unavailable" : mismatches;
 }
 
 function safeToPrepare(operation: QueryVerificationCandidate["operation"]): boolean {
