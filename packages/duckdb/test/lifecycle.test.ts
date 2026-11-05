@@ -321,3 +321,38 @@ await it("observes cardinality, cancellation, scoped batches and lazy streams wi
   strict.equal(JSON.stringify(starts).includes("SELECT"), false);
   await database.close();
 });
+await it("snapshots native bytes synchronously before yielding to the operation queue", async () => {
+  const input = Buffer.from([1, 2, 3]),
+    captured: unknown[] = [];
+  const statement = withQueryValuePlan(sql`INSERT INTO blobs VALUES(${input})`, {
+    dialect: "duckdb",
+    typePolicyHash: calculateTypePolicyHash(defaultDuckDBTypePolicy),
+    columns: [],
+    parameters: [{ index: 1, type: "bytes", nullable: false, databaseType: "BLOB" }],
+  });
+  const database = createDuckDBDatabase({
+    connection: {
+      libraryVersion: "2.0.0",
+      async prepare() {
+        return {
+          async execute(bindings) {
+            captured.push(bindings[0]?.value);
+            return {
+              columns: [],
+              async readAll() {
+                return [];
+              },
+              close() {},
+            };
+          },
+          close() {},
+        };
+      },
+    },
+  });
+  const pending = database.all(statement);
+  input.fill(9);
+  await pending;
+  strict.deepEqual(captured, [Uint8Array.of(1, 2, 3)]);
+  await database.close();
+});
