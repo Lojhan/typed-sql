@@ -10,6 +10,16 @@ description: SQL Server grammar, compatibility levels, catalog snapshots, exact 
 Applications import `sql` from this package. The explicit `@typed-sql/sqlserver/odbc` entrypoint
 loads the application's `msnodesqlv8` installation and Microsoft ODBC Driver 18.
 
+## Public entrypoints
+
+| Import | Purpose |
+| --- | --- |
+| `@typed-sql/sqlserver/query` | Portable `sql`, renderer, compiler value plans and query types. |
+| `@typed-sql/sqlserver` | Grammar factory, policies, analysis and injected catalog provider. |
+| `@typed-sql/sqlserver/runtime` | Driver-neutral execution, codecs and connection ownership. |
+| `@typed-sql/sqlserver/odbc` | Explicit application-owned native driver loading, execution and introspection. |
+| `@typed-sql/sqlserver/browser` | Grammar surface without native adapters or catalog provider exports. |
+
 ## Compatibility
 
 Engine versions and database compatibility levels are separate settings.
