@@ -1001,7 +1001,12 @@ class Resolver {
       case "abs": {
         const argument = native(first);
         if (!argument) return unknown;
-        if (argument.name === "decimal") return type(`decimal(38,${argument.scale})`, nullable, this.policy);
+        if (argument.name === "decimal") {
+          // Pinned native14–17 builds retain ABS precision; both DMF and runtime variant metadata agree.
+          const precision = name === "ABS" ? argument.precision : 38;
+          const scale = ["DEGREES", "RADIANS"].includes(name) ? 18 : argument.scale;
+          return type(`decimal(${precision},${scale})`, nullable, this.policy);
+        }
         if (["int", "smallint", "tinyint"].includes(argument.name)) return type("int", nullable, this.policy);
         if (["money", "smallmoney"].includes(argument.name)) return type("money", nullable, this.policy);
         if (
@@ -1085,8 +1090,22 @@ class Resolver {
         return type("datetime2(7)", nullable, this.policy);
       case "datetimeoffset":
         return type("datetimeoffset(7)", nullable, this.policy);
-      case "same":
-        return { ...first, nullable };
+      case "same": {
+        const input = native(first);
+        if (!input) return unknown;
+        if (input.name === "decimal")
+          return type(
+            `decimal(${input.precision},${["CEILING", "FLOOR"].includes(name) ? 0 : input.scale})`,
+            nullable,
+            this.policy,
+          );
+        if (["int", "smallint", "tinyint"].includes(input.name)) return type("int", nullable, this.policy);
+        if (["money", "smallmoney"].includes(input.name)) return type("money", nullable, this.policy);
+        if (["bit", "real", "float"].includes(input.name)) return type("float(53)", nullable, this.policy);
+        if (input.name === "bigint") return { ...first, nullable };
+        this.diagnostic("TSQ201", `${name} requires a numeric input`, expression.range);
+        return unknown;
+      }
       case "nullableSame":
         if (["MIN", "MAX"].includes(name) && native(first)?.name === "bit")
           this.diagnostic("TSQ201", `${name} does not accept BIT`, expression.range);
