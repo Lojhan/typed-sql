@@ -193,7 +193,7 @@ await it("validates streamed rows lazily with one global index across native chu
       },
     },
   });
-  const checked = sql.validateResult(query, {
+  const schema: import("@typed-sql/core").StandardSchemaV1<{ value: number }, { value: number }> = {
     "~standard": {
       version: 1,
       vendor: "test",
@@ -203,7 +203,8 @@ await it("validates streamed rows lazily with one global index across native chu
         return item.value === 3 ? { issues: [{ message: "third row rejected" }] } : { value: item };
       },
     },
-  });
+  };
+  const checked = sql.validateResult(query, schema);
   const stream = database.stream(checked);
   strict.deepEqual(validated, []);
   strict.deepEqual((await stream.next()).value, { value: 1 });
@@ -256,4 +257,67 @@ await it("retires every cached handle and owned connection after one close failu
   strict.equal(prepares, 2);
   await database.close();
   await sibling.close();
+});
+await it("observes cardinality, cancellation, scoped batches and lazy streams without values", async () => {
+  const starts: import("@typed-sql/core").DatabaseOperationStart[] = [],
+    ends: import("@typed-sql/core").DatabaseOperationEnd[] = [];
+  const database = createDuckDBDatabase({
+    observer: {
+      start(operation) {
+        starts.push(operation);
+        return {
+          end(completion) {
+            ends.push(completion);
+          },
+        };
+      },
+    },
+    connection: {
+      libraryVersion: "2.0.0",
+      interrupt() {},
+      async prepare(text) {
+        return {
+          async execute() {
+            const user = text.startsWith("SELECT");
+            return {
+              columns: user ? [{ name: "value", type: { kind: "scalar" as const, name: "INTEGER" } }] : [],
+              async readAll() {
+                return user ? [[1]] : [];
+              },
+              async *chunks() {
+                yield [[1], [2]];
+              },
+              close() {},
+            };
+          },
+          close() {},
+        };
+      },
+    },
+  });
+  await database.transaction(async (tx) => {
+    await tx.all(query);
+  });
+  strict.equal(starts[0]?.kind, "transaction");
+  strict.equal(starts[1]?.transactionDepth, 1);
+  await database.batch([query]);
+  strict.ok(starts.some((operation) => operation.kind === "batch" && operation.size === 1));
+  const before = starts.length,
+    stream = database.stream(query);
+  strict.equal(starts.length, before);
+  await stream.next();
+  await stream.close();
+  strict.equal(starts.at(-1)?.kind, "stream");
+  strict.equal(ends.at(-1)?.rowCount, 1);
+  const abort = new AbortController();
+  abort.abort();
+  await strict.rejects(database.all(query, { signal: abort.signal }), /cancelled/u);
+  strict.equal(ends.at(-1)?.status, "cancelled");
+  strict.equal(ends.at(-1)?.cancellationReason, "signal");
+  strict.equal(
+    ends.some((completion) => "cause" in completion),
+    false,
+  );
+  strict.equal(JSON.stringify(starts).includes("SELECT"), false);
+  await database.close();
 });
