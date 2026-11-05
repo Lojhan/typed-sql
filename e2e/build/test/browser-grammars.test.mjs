@@ -1,0 +1,40 @@
+import { describe, it, strict } from "poku";
+import { consumer } from "../src/consumer.mjs";
+
+await describe("packed browser grammar entrypoints", async () => {
+  await it("validates snapshots and analyzes SQL without Node services or aliases", async () => {
+    const fixture = await consumer(["esbuild"], ["@typed-sql/schema", "@typed-sql/sqlserver"]);
+    try {
+      const project = await fixture.project("browser-grammar");
+      const result = await fixture.node(
+        project,
+        `
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {build} from 'esbuild';
+const built = await build({bundle:true,write:false,platform:'browser',format:'iife',target:'es2024',
+  stdin:{resolveDir:process.cwd(),contents:\`
+import {parseSchemaSnapshot} from '@typed-sql/schema/snapshot';
+import {sqlserver,sqlServerServerEvidence} from '@typed-sql/sqlserver/browser';
+const snapshot=parseSchemaSnapshot({formatVersion:1,dialect:'sqlserver',server:sqlServerServerEvidence('17.0.5035.5',{
+ compatibilityLevel:170,collation:'Latin1_General_100_CI_AS',defaultSchema:'dbo',quotedIdentifier:true,ansiWarnings:true,
+ arithAbort:true,concatNullYieldsNull:true,dateFirst:7,dateFormat:'mdy',language:'us_english'}),
+ tables:{widgets:{name:'widgets',schema:'dbo',columns:{id:{name:'id',databaseType:'bigint',tsType:'bigint',nullable:false}}}}});
+globalThis.result=sqlserver().analyze('SELECT id FROM widgets WHERE id=@__typed_sql_1',snapshot);
+\`}});
+const context={TextEncoder,TextDecoder};
+vm.runInNewContext(built.outputFiles[0].text,context,{timeout:5000});
+const result=JSON.parse(JSON.stringify(context.result));
+assert.deepEqual(result.diagnostics,[]);
+assert.equal(result.columns[0].tsType,'bigint');
+assert.equal(result.parameters[0].tsType,'bigint');
+assert.equal(result.parameters[0].nullable,false);
+console.log('Packed browser grammar works without Node, driver dependencies or aliases');
+`,
+      );
+      strict.match(result.output, /Packed browser grammar works/u);
+    } finally {
+      await fixture.close();
+    }
+  });
+});

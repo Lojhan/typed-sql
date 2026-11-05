@@ -252,6 +252,7 @@ import type {
 } from "../../packages/postgres/src/runtime.js";
 import * as postgresRuntimeApi from "../../packages/postgres/src/runtime.js";
 import * as schemaApi from "../../packages/schema/src/index.js";
+import * as schemaSnapshotApi from "../../packages/schema/src/snapshot.js";
 import * as sqliteApi from "../../packages/sqlite/src/index.js";
 import * as nodeSqliteApi from "../../packages/sqlite/src/node-sqlite.js";
 import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
@@ -1080,6 +1081,13 @@ const expectedRuntimeExports = {
     "jsonShapeFromSchema",
     "parseJsonDeclaration",
   ],
+  schemaSnapshot: [
+    "LEGACY_SCHEMA_FORMAT_VERSION",
+    "SCHEMA_FORMAT_VERSION",
+    "defineSchemaSnapshotV2",
+    "migrateSchemaSnapshot",
+    "parseSchemaSnapshot",
+  ],
   sqlite: [
     "NODE_SQLITE_RUNTIME_SUPPORT",
     "SQLITE_DIALECT_VERSION",
@@ -1163,6 +1171,7 @@ await describe("stable public API", async () => {
       pg: Object.keys(pgApi).sort(),
       postgresRuntime: Object.keys(postgresRuntimeApi).sort(),
       schema: Object.keys(schemaApi).sort(),
+      schemaSnapshot: Object.keys(schemaSnapshotApi).sort(),
       sqlite: Object.keys(sqliteApi).sort(),
       sqliteRuntime: Object.keys(sqliteRuntimeApi).sort(),
       nodeSqlite: Object.keys(nodeSqliteApi).sort(),

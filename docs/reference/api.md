@@ -304,6 +304,11 @@ Dialect contract version 4 requires every `DialectAnalysis` to include `QuerySem
 
 See [Authoring a custom grammar](../extending/custom-grammars.md).
 
+Browser compiler integrations can import `parseSchemaSnapshot`, `migrateSchemaSnapshot`, and
+`defineSchemaSnapshotV2` from `@typed-sql/schema/snapshot`. This portable entrypoint uses the same
+snapshot codecs as the package root without loading filesystem, hashing, or generation services.
+Its snapshots remain compiler inputs; application query code imports the selected grammar.
+
 ## Grammar conformance entrypoints
 
 `@typed-sql/conformance` is a stable, driver-free test package for grammar authors:
