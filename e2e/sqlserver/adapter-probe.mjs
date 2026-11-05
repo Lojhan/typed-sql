@@ -151,7 +151,38 @@ try {
             .replace(/\s+collate\s+.+$/u, "")
             .replace(/\s+/gu, "")
             .replace(/^float\(53\)$/u, "float");
-        for (const test of MATURITY_CASES) {
+        const stringCases = [
+          "LOWER(code)",
+          "UPPER(code)",
+          "LTRIM(code)",
+          "RTRIM(code)",
+          "TRIM(code)",
+          "LEFT(code,2)",
+          "RIGHT(code,2)",
+          "SUBSTRING(code,1,2)",
+          "REVERSE(code)",
+          "REPLACE(code,N's',N'xx')",
+          "TRANSLATE(code,N'sa',N'xy')",
+          "STUFF(code,1,1,N'x')",
+          "REPLICATE(code,2)",
+          "CHAR(65)",
+          "NCHAR(65)",
+          "SPACE(2)",
+          "QUOTENAME(code)",
+          "SOUNDEX(code)",
+          "FORMAT(quantity,N'N2',N'en-US')",
+          "STR(quantity)",
+          "CONCAT(code,N'x')",
+          "CONCAT(code,document)",
+          "CONCAT_WS(N',',code,N'x')",
+          "LOWER(document)",
+          "REPLACE(document,N's',N'x')",
+          "REPLICATE(document,2)",
+        ].map((expression) => ({
+          id: `native-string:${expression}`,
+          sql: `SELECT ${expression} AS value FROM dbo.widgets`,
+        }));
+        for (const test of [...MATURITY_CASES, ...stringCases]) {
           const analysis = grammar.analyze(test.sql, schema);
           const diagnostics = analysis.diagnostics.filter((item) => item.severity === "error");
           let metadata, failure;
