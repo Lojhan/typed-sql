@@ -180,6 +180,12 @@ importers:
 
   e2e/sqlserver:
     devDependencies:
+      '@typed-sql/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
+      '@typed-sql/sqlserver':
+        specifier: workspace:*
+        version: link:../../packages/sqlserver
       msnodesqlv8:
         specifier: 6.2.2
         version: 6.2.2

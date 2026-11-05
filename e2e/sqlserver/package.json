@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "qualify:transport": "node transport-probe.mjs"
+    "qualify:transport": "node transport-probe.mjs",
+    "qualify:adapter": "node adapter-probe.mjs"
   },
   "devDependencies": {
-    "msnodesqlv8": "6.2.2"
+    "msnodesqlv8": "6.2.2",
+    "@typed-sql/sqlserver": "workspace:*",
+    "@typed-sql/compiler": "workspace:*"
   }
 }
