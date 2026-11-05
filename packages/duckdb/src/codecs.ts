@@ -375,3 +375,147 @@ export function decodeDuckDBValue(
     }
   }
 }
+/** A driver-neutral, already checked native input. Native SDK wrappers are created only by its adapter. */
+export function encodeDuckDBValue(
+  value: unknown,
+  type: DuckDBType,
+  policy: DuckDBTypePolicy = defaultDuckDBTypePolicy,
+  path = "input",
+  budget: Budget = { remaining: 1000000 },
+): unknown {
+  consume(budget, path);
+  if (value === null) return null;
+  if (!isKnownDuckDBType(type)) return fail(path, `unsupported native target ${formatDuckDBType(type)}`);
+  const next = (item: unknown, child: DuckDBType, key: string) =>
+    encodeDuckDBValue(item, child, policy, `${path}${key}`, budget);
+  switch (type.kind) {
+    case "list":
+    case "array":
+      if (!Array.isArray(value) || (type.kind === "array" && value.length !== type.length))
+        return fail(path, "native array length mismatch");
+      return value.map((item, i) => next(item, type.element, `[${i}]`));
+    case "tuple":
+      if (!Array.isArray(value) || value.length !== type.elements.length)
+        return fail(path, "native tuple length mismatch");
+      return value.map((item, i) => next(item, type.elements[i]!, `[${i}]`));
+    case "struct": {
+      const item = object(value, path);
+      if (Object.keys(item).length !== type.fields.length) return fail(path, "struct shape mismatch");
+      return Object.fromEntries(
+        type.fields.map((field) => [field.name, next(own(item, field.name, path), field.type, `.${field.name}`)]),
+      );
+    }
+    case "map": {
+      if (!Array.isArray(value)) return fail(path, "expected ordered map entries");
+      const seen = new Set<string>();
+      return value.map((entry, i) => {
+        if (!Array.isArray(entry) || entry.length !== 2 || entry[0] === null)
+          return fail(path, "invalid map key/value entry");
+        const key = next(entry[0], type.key, `[${i}][0]`),
+          fingerprint = duckDBMapKeyIdentity(key);
+        if (seen.has(fingerprint)) return fail(path, "map keys must be structurally unique");
+        seen.add(fingerprint);
+        return [key, next(entry[1], type.value, `[${i}][1]`)] as const;
+      });
+    }
+    case "union": {
+      const item = object(value, path),
+        tag = own(item, "tag", path);
+      if (typeof tag !== "string") return fail(path, "invalid union tag");
+      const field = type.fields.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(tag));
+      if (!field) return fail(path, "unknown union member");
+      return { tag: field.name, value: next(own(item, "value", path), field.type, ".value") };
+    }
+    case "enum":
+      if (typeof value !== "string" || !type.values.includes(value)) return fail(path, "unknown enum member");
+      return value;
+    case "scalar": {
+      const name = type.name;
+      if (name in signedBits || name in unsignedBits || name === "BIGNUM") {
+        let exact: bigint;
+        if (smallInteger(name)) {
+          exact = BigInt(integer(value, path));
+        } else if (policy.bigint === "string") {
+          if (typeof value !== "string" || !/^-?\d+$/u.test(value)) return fail(path, "expected exact integer text");
+          exact = BigInt(value);
+        } else if (policy.bigint === "number") {
+          exact = BigInt(integer(value, path));
+        } else exact = bigint(value, path);
+        assertDuckDBInteger(exact, name, path);
+        return smallInteger(name) ? Number(exact) : exact;
+      }
+      if (name === "DECIMAL")
+        return {
+          value: parseDuckDBDecimal(value, type.precision!, type.scale!, path),
+          width: type.precision!,
+          scale: type.scale!,
+        };
+      if (name === "VARCHAR" || name === "JSON") {
+        if (typeof value !== "string") return fail(path, "expected text bind value");
+        if (name === "JSON") JSON.parse(value);
+        return value;
+      }
+      if (name === "UUID") {
+        if (
+          typeof value !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value)
+        )
+          return fail(path, "invalid UUID input");
+        return BigInt(`0x${value.replaceAll("-", "")}`);
+      }
+      if (name === "BIT") {
+        if (typeof value !== "string" || !/^[01]*$/u.test(value)) return fail(path, "invalid BIT input");
+        return value;
+      }
+      if (name === "BLOB") {
+        if (!(value instanceof Uint8Array)) return fail(path, "expected byte input");
+        return value.slice();
+      }
+      if (name === "BOOLEAN") {
+        if (typeof value !== "boolean") return fail(path, "expected boolean input");
+        return value;
+      }
+      if (name === "FLOAT" || name === "DOUBLE") {
+        if (
+          typeof value !== "number" ||
+          !Number.isFinite(value) ||
+          (Number.isInteger(value) && !Number.isSafeInteger(value))
+        )
+          return fail(path, "expected finite safely represented number");
+        if (name === "FLOAT" && !Number.isFinite(Math.fround(value)))
+          return fail(path, "FLOAT input exceeds native range");
+        return value;
+      }
+      if (name === "INTERVAL") {
+        const item = object(value, path),
+          months = integer(own(item, "months", path), path),
+          days = integer(own(item, "days", path), path),
+          micros = bigint(own(item, "micros", path), path);
+        assertDuckDBInteger(BigInt(months), "INTEGER", path);
+        assertDuckDBInteger(BigInt(days), "INTEGER", path);
+        assertDuckDBInteger(micros, "BIGINT", path);
+        return { months, days, micros };
+      }
+      if (name === "DATE" || name.startsWith("TIME")) return parseDuckDBTemporal(value, name, path);
+      return fail(path, "non-NULL input cannot satisfy the native NULL type");
+    }
+  }
+}
+function smallInteger(name: string): boolean {
+  return ["TINYINT", "SMALLINT", "INTEGER", "UTINYINT", "USMALLINT", "UINTEGER"].includes(name);
+}
+/** Native SQL key equality for the supported finite, normalized key families, including nested NULL. */
+export function duckDBMapKeyIdentity(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "bigint") return `i:${value}`;
+  if (typeof value === "number") return `n:${Object.is(value, -0) ? 0 : value}`;
+  if (typeof value === "string") return `s:${JSON.stringify(value)}`;
+  if (typeof value === "boolean") return `b:${value}`;
+  if (value instanceof Uint8Array) return `bytes:${Array.from(value).join(",")}`;
+  if (Array.isArray(value)) return `[${value.map(duckDBMapKeyIdentity).join(";")}]`;
+  const item = object(value, "map key");
+  return `{${Object.keys(item)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${duckDBMapKeyIdentity(own(item, key, "map key"))}`)
+    .join(";")}}`;
+}

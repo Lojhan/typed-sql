@@ -139,6 +139,8 @@ export function duckDBRuntimeType(
         })),
       };
     case "scalar": {
+      if (type.name === "JSON" && policy.json !== "string")
+        return { json: { shape: { kind: "unknown" }, representation: "parsed" } };
       const mapped = duckDBTypeScript(type, policy);
       if (["number", "bigint", "boolean", "string", "never"].includes(mapped))
         return mapped as "number" | "bigint" | "boolean" | "string" | "never";
