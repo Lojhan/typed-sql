@@ -1,41 +1,12 @@
 import { readFile } from "node:fs/promises";
 import type { GeneratedSchemaMetadata, GeneratedSchemaSnapshot, SchemaSnapshot, TypePolicy } from "./model.js";
-import { LEGACY_SCHEMA_FORMAT_VERSION, SCHEMA_FORMAT_VERSION } from "./model.js";
-import { parseSchemaSnapshotV1 } from "./v1/codec.js";
+import { parseSchemaSnapshot } from "./snapshot.js";
 import { upgradeSchemaSnapshotV1 } from "./v1/upgrade.js";
-import { parseSchemaSnapshotV2 } from "./v2/codec.js";
+
+export { migrateSchemaSnapshot, parseSchemaSnapshot } from "./snapshot.js";
 
 function record(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Dispatches to the isolated v1 or v2 codec. Unversioned historical input is v1. */
-export function parseSchemaSnapshot(value: unknown): SchemaSnapshot {
-  if (!record(value)) throw new TypeError("Schema snapshot must be an object");
-  if (value.formatVersion === SCHEMA_FORMAT_VERSION) {
-    // Public v2 values carry derived v1 projections for the typed-sql 2 transition. Strip only
-    // those recognized projections so validation is idempotent while every other extra key fails.
-    const {
-      version: _version,
-      tables: _tables,
-      enums: _enums,
-      domains: _domains,
-      functions: _functions,
-      ...envelope
-    } = value;
-    return parseSchemaSnapshotV2(envelope);
-  }
-  if (value.formatVersion === undefined || value.formatVersion === LEGACY_SCHEMA_FORMAT_VERSION) {
-    return parseSchemaSnapshotV1(value);
-  }
-  throw new TypeError(
-    `Unsupported schema.formatVersion ${String(value.formatVersion)}; this release supports formats ${LEGACY_SCHEMA_FORMAT_VERSION} and ${SCHEMA_FORMAT_VERSION}`,
-  );
-}
-
-/** Validates historical input without silently changing its on-disk format. */
-export function migrateSchemaSnapshot(value: unknown): SchemaSnapshot {
-  return parseSchemaSnapshot(value);
 }
 
 export { upgradeSchemaSnapshotV1 };
