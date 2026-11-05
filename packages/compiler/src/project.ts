@@ -5,11 +5,14 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { extractSqlFileImports } from "./scanner.js";
 
 const execFile = promisify(execFileCallback);
 
 export interface ListProjectSourceFilesOptions {
   readonly project: string;
+  /** Include literal SQL imports in the discovered application graph. */
+  readonly includeSqlAssets?: boolean;
   readonly entryFile?: string;
   readonly cwd?: string;
   readonly typeScriptTimeoutMs?: number;
@@ -107,7 +110,7 @@ export async function listProjectSourceFiles(options: ListProjectSourceFilesOpti
         timeout,
       },
     );
-    return [
+    const sources = [
       ...new Set(
         result.stdout
           .split(/\r?\n/u)
@@ -117,6 +120,20 @@ export async function listProjectSourceFiles(options: ListProjectSourceFilesOpti
     ]
       .filter(isApplicationSource)
       .sort();
+    if (!options.includeSqlAssets) return sources;
+    const assets = new Set<string>();
+    for (const file of sources) {
+      const source = await readFile(file, "utf8");
+      for (const name of extractSqlFileImports(source)) {
+        if (!name.startsWith(".") && !isAbsolute(name))
+          throw new TypeError(`SQL asset imports must be relative or absolute: ${name}`);
+        const asset = resolve(dirname(file), name);
+        // A missing imported file must fail discovery, not silently disappear from artifacts.
+        await access(asset, constants.R_OK);
+        assets.add(asset);
+      }
+    }
+    return [...new Set([...sources, ...assets])].sort();
   } catch (error) {
     const candidate = error as {
       readonly stdout?: string;

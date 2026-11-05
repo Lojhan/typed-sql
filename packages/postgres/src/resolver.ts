@@ -1,4 +1,5 @@
 import {
+  brandBaseType,
   closestName,
   type JsonShape,
   type JsonShapeProperty,
@@ -3263,6 +3264,16 @@ class Resolver {
     }
   }
 
+  #comparisonContext(databaseType: string, source: ResolvedType, operator: string): ResolvedType {
+    const expected = this.#databaseType(databaseType, source.nullable);
+    return ["=", "<>", "!=", "<", "<=", ">", ">="].includes(operator) &&
+      brandBaseType(source.tsType) !== undefined &&
+      source.databaseType !== undefined &&
+      postgresCanonicalType(source.databaseType, this.#schema) === postgresCanonicalType(databaseType, this.#schema)
+      ? { ...expected, tsType: source.tsType }
+      : expected;
+  }
+
   #resolveBinary(
     expression: Extract<Expression, { readonly kind: "binary" }>,
     scope: Scope,
@@ -3318,7 +3329,7 @@ class Resolver {
           expression.left,
           scope,
           ctes,
-          this.#databaseType(operator.argumentTypes[0]!, right.nullable),
+          this.#comparisonContext(operator.argumentTypes[0]!, right, expression.operator),
         );
       }
       if (this.#acceptsTypeContext(expression.right)) {
@@ -3326,7 +3337,7 @@ class Resolver {
           expression.right,
           scope,
           ctes,
-          this.#databaseType(operator.argumentTypes[1]!, left.nullable),
+          this.#comparisonContext(operator.argumentTypes[1]!, left, expression.operator),
         );
       }
       const json = this.#jsonBinary(expression, left, right);

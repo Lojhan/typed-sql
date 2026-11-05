@@ -1,4 +1,5 @@
 import type { RuntimeValueType, SqlRenderer } from "@typed-sql/core";
+import { brandBaseType } from "@typed-sql/core";
 import { defaultMySqlTypePolicy, type MySqlTypePolicy, mySqlEnumValues } from "./type-policy.js";
 
 export { sql } from "@typed-sql/core";
@@ -13,6 +14,8 @@ export function mysqlRuntimeValueType(
   _policy: MySqlTypePolicy = defaultMySqlTypePolicy,
 ): RuntimeValueType {
   if (value.databaseType !== undefined && mySqlEnumValues(value.databaseType) !== undefined) return "string";
+  const base = brandBaseType(value.tsType);
+  if (base !== undefined) return base;
   switch (value.tsType) {
     case "number":
     case "bigint":

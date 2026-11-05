@@ -25,6 +25,8 @@ export {
   parseArtifactCompatibilityIdentity,
   serializeArtifactCompatibilityIdentity,
 } from "./artifact-compatibility.js";
+export type { Brand } from "./brand.js";
+export { brandBaseType, brandValue } from "./brand.js";
 export type { BulkRowOptions, BulkRowPolicy, BulkRowProgress } from "./bulk.js";
 export { executeBulkRows } from "./bulk.js";
 export type {

@@ -1,4 +1,5 @@
 import type { RuntimeValueType, SqlRenderer } from "@typed-sql/core";
+import { brandBaseType } from "@typed-sql/core";
 import { defaultPostgresTypePolicy, mapPostgresType, type PostgresTypePolicy } from "./type-policy.js";
 
 export { sql } from "@typed-sql/core";
@@ -102,6 +103,8 @@ export function postgresRuntimeValueType(
       array: postgresRuntimeValueType({ ...value, databaseType: base, tsType: mapPostgresType(base, policy) }, policy),
     };
   }
+  const base = brandBaseType(value.tsType);
+  if (base !== undefined) return base;
   switch (value.tsType) {
     case "number":
     case "bigint":

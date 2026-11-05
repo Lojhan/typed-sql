@@ -220,7 +220,7 @@ function lineStarts(source: string): readonly number[] {
   return starts;
 }
 
-function positionRange(source: string, start: number, end: number): SourceRange {
+export function positionRange(source: string, start: number, end: number): SourceRange {
   const starts = lineStarts(source);
   let low = 0;
   let high = starts.length;
@@ -1200,4 +1200,61 @@ export function mapSqlRange(source: string, query: ExtractedQuery, range: Source
   const start = query.sqlOffsetMap[range.start] ?? query.range.start;
   const last = range.end > range.start ? query.sqlOffsetMap[range.end - 1] : start;
   return positionRange(source, start, (last ?? start) + 1);
+}
+
+/** Literal SQL module dependencies, excluding comments, strings and template text. */
+export function extractSqlFileImports(source: string): readonly string[] {
+  const imports = new Set<string>();
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") {
+      index = skipQuoted(source, index, char);
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "/") {
+      index = skipLineComment(source, index);
+      continue;
+    }
+    if (char === "/" && source[index + 1] === "*") {
+      index = skipBlockComment(source, index);
+      continue;
+    }
+    const keyword = identifierAt(source, index);
+    if (keyword === undefined) {
+      index += 1;
+      continue;
+    }
+    let previousIndex = index - 1;
+    while (previousIndex >= 0 && /\s/u.test(source[previousIndex]!)) previousIndex -= 1;
+    const previous = source[previousIndex];
+    index = keyword.end;
+    if (!["import", "export"].includes(keyword.value) || previous === ".") continue;
+    let cursor = skipTrivia(source, index);
+    let literal = keyword.value === "import" && ["'", '"', "("].includes(source[cursor]!);
+    if (source[cursor] === "(") cursor = skipTrivia(source, cursor + 1);
+    if (source[cursor] === "." || (keyword.value === "export" && !["{", "*"].includes(source[cursor]!))) continue;
+    while (cursor < source.length && source[cursor] !== ";") {
+      cursor = skipTrivia(source, cursor);
+      const quote = source[cursor];
+      if (quote === "'" || quote === '"') {
+        const end = skipQuoted(source, cursor, quote);
+        if (literal) {
+          const name = source.slice(cursor + 1, end - 1);
+          if (name.endsWith(".sql") && !name.includes("\\")) imports.add(name);
+          index = end;
+          break;
+        }
+        cursor = end;
+      } else {
+        const token = identifierAt(source, cursor);
+        if (token !== undefined) {
+          literal = token.value === "from";
+          cursor = token.end;
+        } else if (["=", "`", "("].includes(source[cursor]!)) break;
+        else cursor += 1;
+      }
+    }
+  }
+  return [...imports].sort();
 }

@@ -11,6 +11,7 @@ import type {
   ResolvedParameter,
   SchemaSnapshot,
 } from "@typed-sql/core";
+import { brandBaseType } from "@typed-sql/core";
 import { canonicalize, compareText } from "./artifact-serialization.js";
 import { compileSource } from "./compiler.js";
 import {
@@ -19,6 +20,7 @@ import {
   type QueryManifestLocation,
   serializeQueryManifest,
 } from "./manifest.js";
+import { compileSqlFile } from "./sql-file.js";
 
 export const QUERY_VERIFICATION_FORMAT_VERSION = 1 as const;
 export const QUERY_VERIFIER_VERSION = "typed-sql-v1" as const;
@@ -200,13 +202,26 @@ export function collectQueryVerificationCandidates<Snapshot extends SchemaSnapsh
   const candidates: QueryVerificationCandidate[] = [];
   for (const input of options.sources) {
     const file = portableRelative(options.rootDir, input.file);
-    const compilation = compileSource({
-      source: input.source,
-      dialect: options.dialect,
-      schema: options.schema,
-      ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
-      ...(options.maxStructuralVariants === undefined ? {} : { maxStructuralVariants: options.maxStructuralVariants }),
-    });
+    const asset = input.file.endsWith(".sql")
+      ? compileSqlFile({
+          source: input.source,
+          dialect: options.dialect,
+          schema: options.schema,
+          ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+        })
+      : undefined;
+    const compilation =
+      asset === undefined
+        ? compileSource({
+            source: input.source,
+            dialect: options.dialect,
+            schema: options.schema,
+            ...(options.typePolicy === undefined ? {} : { typePolicy: options.typePolicy }),
+            ...(options.maxStructuralVariants === undefined
+              ? {}
+              : { maxStructuralVariants: options.maxStructuralVariants }),
+          })
+        : { queries: asset.query === undefined ? [] : [asset.query] };
     for (const query of compilation.queries) {
       const entry = entries.get(`${file}\0${query.query.range.start}`);
       if (entry === undefined || entry.fingerprint !== query.fingerprint) {
@@ -317,9 +332,10 @@ function compareField(
     add("column-name", expected.name, actual.name);
   }
   if (expected.tsType !== "unknown" && actual.tsType !== undefined) {
+    const expectedWireType = brandBaseType(expected.tsType) ?? expected.tsType;
     if (
-      expected.tsType !== actual.tsType &&
-      (target !== "parameter" || !parameterTypeCompatible(expected.tsType, actual.tsType))
+      expectedWireType !== actual.tsType &&
+      (target !== "parameter" || !parameterTypeCompatible(expectedWireType, actual.tsType))
     ) {
       add("typescript-type", expected.tsType, actual.tsType);
     }

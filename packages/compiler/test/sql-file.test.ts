@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
+import { renderQuery } from "../../core/src/index.js";
 import { mysql } from "../../mysql/src/index.js";
 import { postgres } from "../../postgres/src/index.js";
+import { postgresRenderer } from "../../postgres/src/runtime.js";
 import { sqlite } from "../../sqlite/src/index.js";
 import { compileSqlFile, DEFAULT_MAX_SOURCE_BYTES } from "../src/index.js";
 
@@ -49,13 +51,89 @@ await describe("stable SQL module compiler", async () => {
     }
   });
 
-  await it("fails closed for repeated, gapped or reordered SQL placeholders", () => {
-    for (const source of ["SELECT $1 AS a, $1 AS b", "SELECT $2 AS a", "SELECT $2 AS a, $1 AS b"]) {
+  await it("supports repeated and reordered positional bindings while rejecting gaps", () => {
+    for (const source of ["SELECT $1::bigint AS a, $1::bigint AS b", "SELECT $2::text AS a, $1::bigint AS b"]) {
       const result = compileSqlFile({ dialect, schema, source });
-      strict.ok(result.diagnostics.some((item) => item.code === 901));
-      strict.match(result.text, /query: never/u);
-      strict.match(result.runtime, /throw new SyntaxError/u);
+      strict.deepStrictEqual(result.diagnostics, []);
+      strict.ok(result.query);
+      strict.strictEqual(result.query!.variants[0]!.parameters.length, 2);
     }
+    const result = compileSqlFile({ dialect, schema, source: "SELECT $2::bigint AS a" });
+    strict.ok(result.diagnostics.some((item) => item.code === 901));
+    strict.match(result.text, /query: never/u);
+  });
+
+  await it("binds repeated named parameters across grammars and ignores lexical lookalikes", () => {
+    for (const grammar of [postgres(), mysql(), sqlite()]) {
+      const snapshot = grammar.validateSnapshot({
+        dialect: grammar.id,
+        tables: {
+          users: {
+            name: "users",
+            strict: true,
+            columns: { name: { name: "name", databaseType: "text", tsType: "string", nullable: false } },
+          },
+        },
+      });
+      const source = "SELECT name, ':fake' AS label FROM users WHERE name = :name OR name = :name -- :ignored\n";
+      const result = compileSqlFile({ dialect: grammar, schema: snapshot, source });
+      strict.deepStrictEqual(result.diagnostics, []);
+      strict.match(result.text, /parameters: \{ "name": string/u);
+      strict.strictEqual(result.query?.variants[0]?.parameters.length, 2);
+      strict.ok(result.query?.query.sql.includes(":fake"));
+      strict.ok(result.query?.query.sql.includes(":ignored"));
+      strict.match(result.runtime, /\[0,0\]\[index - 1\]/u);
+      const mixed = compileSqlFile({
+        dialect: grammar,
+        schema: snapshot,
+        source: `SELECT name FROM users WHERE name = :name OR name = ${grammar.placeholder(1)}`,
+      });
+      strict.ok(mixed.diagnostics.some((item) => item.messageText.includes("cannot mix")));
+    }
+    const incompatible = compileSqlFile({ dialect, schema, source: "SELECT :value::bigint AS a, :value::text AS b" });
+    strict.ok(incompatible.diagnostics.some((item) => item.messageText.includes("incompatible inferred types")));
+    const source = "SELECT '😀' AS emoji,\n :long_name::bigint AS id, missing FROM nowhere";
+    const invalid = compileSqlFile({ dialect, schema, source });
+    strict.ok(
+      invalid.diagnostics.some((item) => source.slice(item.start, item.start + item.length).includes("nowhere")),
+    );
+  });
+
+  await it("preserves PostgreSQL slice colons, dollar strings and casts when scanning names", () => {
+    const source =
+      "SELECT numbers[lower:upper], numbers[:upper], numbers[(:index)], ARRAY[:value], $$:ignored$$, :id::bigint FROM users";
+    const parameters = dialect.parameterOccurrences!(source, schema);
+    strict.deepStrictEqual(
+      parameters.map((item) => item.name),
+      ["index", "value", "id"],
+    );
+    strict.deepStrictEqual(
+      parameters.map((item) => source.slice(item.range.start, item.range.end)),
+      [":index", ":value", ":id"],
+    );
+  });
+
+  await it("executes generated factories with reordered/repeated values and validates named arguments", async () => {
+    const load = async (source: string) => {
+      const result = compileSqlFile({ dialect, schema, source });
+      strict.deepStrictEqual(result.diagnostics, []);
+      const runtime = result.runtime.replaceAll(
+        JSON.stringify(dialect.runtimeSqlModule),
+        JSON.stringify(import.meta.resolve(dialect.runtimeSqlModule!)),
+      );
+      return (await import(`data:text/javascript;base64,${Buffer.from(runtime).toString("base64")}`)).default;
+    };
+    const positional = await load("SELECT $2::text AS a, $1::bigint AS b, $2::text AS c");
+    const rendered = renderQuery(positional(42n, "Ada"), postgresRenderer);
+    strict.deepStrictEqual(rendered.values, ["Ada", 42n, "Ada"]);
+    strict.match(rendered.text, /\$1::text AS a, \$2::bigint AS b, \$3::text AS c/u);
+    strict.throws(() => positional(42n), /expects 2/u);
+    const named = await load("SELECT :id::bigint AS a, :id::bigint AS b");
+    strict.deepStrictEqual(renderQuery(named({ id: 7n }), postgresRenderer).values, [7n, 7n]);
+    strict.throws(() => named({}), /named parameters/u);
+    strict.throws(() => named({ id: 1n, extra: true }), /named parameters/u);
+    strict.throws(() => named(Object.create({ id: 1n })), /named parameters/u);
+    strict.throws(() => named(null), /named parameters/u);
   });
 
   await it("rejects inconsistent third-party grammar binding contracts and preserves source offsets", () => {

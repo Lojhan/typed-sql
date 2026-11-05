@@ -250,7 +250,7 @@ export interface DialectPlugin<Snapshot extends SchemaSnapshot = SchemaSnapshot,
     sql: string,
     snapshot: Snapshot,
     policy?: Policy,
-  ): readonly { readonly index: number; readonly range: SourceRange }[];
+  ): readonly { readonly index: number; readonly name?: string; readonly range: SourceRange }[];
   analyze(sql: string, snapshot: Snapshot, policy?: Policy, context?: DialectAnalysisContext): DialectAnalysis;
   validateSnapshot(value: unknown): Snapshot;
 }

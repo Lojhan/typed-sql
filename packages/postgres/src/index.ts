@@ -107,9 +107,13 @@ export function postgres(
       return `"${identifier.replaceAll('"', '""')}"`;
     },
     parameterOccurrences(sql: string) {
-      return tokenize(sql)
+      return tokenize(sql, { sqlFileParameters: true })
         .filter((token) => token.kind === "parameter")
-        .map((token) => ({ index: Number(token.value), range: token.range }));
+        .map((token) => ({
+          index: token.text.startsWith(":") ? 0 : Number(token.value),
+          ...(token.text.startsWith(":") ? { name: token.value } : {}),
+          range: token.range,
+        }));
     },
     analyze(
       sql: string,
