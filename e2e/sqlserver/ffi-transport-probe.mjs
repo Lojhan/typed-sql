@@ -19,6 +19,7 @@ const api = {
   alloc: fn("SQLAllocHandle", ["int16_t", p, out(p)]),
   envAttr: fn("SQLSetEnvAttr", [p, "int32_t", p, "int32_t"]),
   connect: fn("SQLDriverConnectW", [p, p, p, "int16_t", p, "int16_t", out("int16_t"), "uint16_t"]),
+  info: fn("SQLGetInfoW", [p, "uint16_t", p, "int16_t", out("int16_t")]),
   disconnect: fn("SQLDisconnect", [p]),
   free: fn("SQLFreeHandle", ["int16_t", p]),
   diag: fn("SQLGetDiagRecW", ["int16_t", p, "int16_t", p, out("int32_t"), p, "int16_t", out("int16_t")]),
@@ -319,6 +320,19 @@ try {
         records.every((record) => record.state === "01000" && (record.native === 5701 || record.native === 5703));
       if (!contextOnly) check(connectResult, "connect", 2, connection);
     } else check(connectResult, "connect", 2, connection);
+    evidence.driver = {};
+    for (const [name, code] of [
+      ["name", 6],
+      ["version", 7],
+      ["odbcVersion", 77],
+      ["managerVersion", 171],
+    ]) {
+      const buffer = Buffer.alloc(1024),
+        length = [0];
+      check(api.info(connection, code, buffer, buffer.length, length), `driver-info-${name}`, 2, connection);
+      assert.ok(length[0] >= 0 && length[0] < buffer.length && length[0] % 2 === 0);
+      evidence.driver[name] = buffer.subarray(0, length[0]).toString("utf16le");
+    }
     const version = query(connection, "SELECT CONVERT(nvarchar(128),SERVERPROPERTY('ProductVersion')) AS version");
     assert.equal(Number(version.rows[0][0].split(".")[0]), evidence.major);
     evidence.serverVersion = version.rows[0][0];

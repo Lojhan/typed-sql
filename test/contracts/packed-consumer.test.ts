@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
+import { grammarCases } from "../editor-hub/cases.mjs";
 import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
@@ -31,6 +32,8 @@ const publicPackages = [
   "ts-bridge",
   "language-server",
   "sqlite",
+  "sqlserver",
+  "duckdb",
 ] as const;
 const declarationCheckedPackages = new Set([
   "build",
@@ -45,11 +48,13 @@ const declarationCheckedPackages = new Set([
   "compiler",
   "conformance",
   "sqlite",
+  "sqlserver",
+  "duckdb",
 ]);
 
 async function writeEditorProject(
   consumer: string,
-  dialect: "mysql" | "postgres" | "sqlite",
+  dialect: "mysql" | "postgres" | "sqlite" | "sqlserver" | "duckdb",
 ): Promise<{ readonly directory: string; readonly queryFile: string; readonly source: string }> {
   const directory = join(consumer, `editor-${dialect}`);
   const queryFile = join(directory, "query.ts");
@@ -129,35 +134,65 @@ async function writeEditorProject(
       2,
     )}\n`,
   );
-  await writeFile(
-    join(directory, "schema.json"),
-    dialect === "sqlite"
-      ? `${JSON.stringify(
-          {
-            formatVersion: 1,
-            dialect: "sqlite",
-            dialectVersion: "1.0.0",
-            tables: {
-              users: {
-                schema: "main",
-                name: "users",
-                kind: "table",
-                strict: true,
-                withoutRowid: false,
-                indexes: [],
-                foreignKeys: [],
-                columns: {
-                  id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
-                  email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
-                  status: { name: "status", databaseType: "TEXT", tsType: "string", nullable: false },
+  const nativeSpec = grammarCases.find((spec) => spec.id === dialect);
+  const nativeSchema =
+    dialect === "sqlserver" || dialect === "duckdb"
+      ? {
+          ...nativeSpec!.schema,
+          tables: {
+            users: {
+              name: "users",
+              schema: dialect === "sqlserver" ? "dbo" : "main",
+              columns: {
+                id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+                email: {
+                  name: "email",
+                  databaseType: dialect === "sqlserver" ? "nvarchar(100)" : "VARCHAR",
+                  tsType: "string",
+                  nullable: false,
+                },
+                status: {
+                  name: "status",
+                  databaseType: dialect === "sqlserver" ? "nvarchar(40)" : "VARCHAR",
+                  tsType: "string",
+                  nullable: false,
                 },
               },
             },
           },
-          null,
-          2,
-        )}\n`
-      : await readFile(join(workspace, "e2e", dialect, "schema", "catalog.snapshot.json"), "utf8"),
+        }
+      : undefined;
+  await writeFile(
+    join(directory, "schema.json"),
+    nativeSchema
+      ? JSON.stringify(nativeSchema)
+      : dialect === "sqlite"
+        ? `${JSON.stringify(
+            {
+              formatVersion: 1,
+              dialect: "sqlite",
+              dialectVersion: "1.0.0",
+              tables: {
+                users: {
+                  schema: "main",
+                  name: "users",
+                  kind: "table",
+                  strict: true,
+                  withoutRowid: false,
+                  indexes: [],
+                  foreignKeys: [],
+                  columns: {
+                    id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
+                    email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
+                    status: { name: "status", databaseType: "TEXT", tsType: "string", nullable: false },
+                  },
+                },
+              },
+            },
+            null,
+            2,
+          )}\n`
+        : await readFile(join(workspace, "e2e", dialect, "schema", "catalog.snapshot.json"), "utf8"),
   );
   await writeFile(queryFile, source);
   return { directory, queryFile, source };
@@ -448,6 +483,13 @@ await describe("packed public packages", async () => {
         import { loadMySql2Driver } from "@typed-sql/mysql/mysql2";
         import { sqlite, sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite";
         import { sqliteRenderer } from "@typed-sql/sqlite/runtime";
+        import { sqlserver } from "@typed-sql/sqlserver";
+        import { loadSqlServerOdbcDriver } from "@typed-sql/sqlserver/odbc";
+        import "@typed-sql/sqlserver/runtime";
+        import "@typed-sql/sqlserver/msnodesqlv8";
+        import { duckdb } from "@typed-sql/duckdb";
+        import "@typed-sql/duckdb/node-api";
+        import "@typed-sql/duckdb/runtime";
         import { createNodeSqliteDatabase, loadNodeSqlite } from "@typed-sql/sqlite/node-sqlite";
         import { buildQueryManifest, compileSource, parseQueryManifest, serializeQueryManifest } from "@typed-sql/compiler";
         import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
@@ -461,13 +503,16 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
-        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres"]) {
+        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "koffi", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-bindings"]) {
           try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
           catch (error) { if (error.message === driver + " was installed transitively") throw error; }
         }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
+        if (sqlserver().id !== "sqlserver" || duckdb().id !== "duckdb") throw new Error("native grammar import failed");
+        try { await loadSqlServerOdbcDriver(); throw new Error("Koffi was installed transitively"); }
+        catch (error) { if (!/koffi/i.test(String(error.message)) || error.message === "Koffi was installed transitively") throw error; }
         if (postgres().sqlModule !== "@typed-sql/postgres") throw new Error("PostgreSQL sqlModule contract failed");
         if (mysql().sqlModule !== "@typed-sql/mysql") throw new Error("MySQL sqlModule contract failed");
         if (sqlite().sqlModule !== "@typed-sql/sqlite") throw new Error("SQLite sqlModule contract failed");
@@ -619,7 +664,7 @@ await describe("packed public packages", async () => {
           createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
         ).href,
       });
-      for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
+      for (const dialect of ["postgres", "mysql", "sqlite", "sqlserver", "duckdb"] as const) {
         const project = await writeEditorProject(consumer, dialect);
         const manifestRun = await execFile(typedSql, ["manifest"], {
           cwd: project.directory,
@@ -680,7 +725,7 @@ await describe("packed public packages", async () => {
           const cte = await hoverText(client, project.queryFile, project.source, "cteQuery");
           strict.ok(cte.includes("id: bigint"), cte);
           strict.ok(
-            dialect === "sqlite"
+            dialect === "sqlite" || dialect === "sqlserver" || dialect === "duckdb"
               ? cte.includes("status: string")
               : cte.includes('status: \\"active\\" | \\"suspended\\"'),
             cte,
