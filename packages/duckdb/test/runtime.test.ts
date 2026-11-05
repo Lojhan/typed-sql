@@ -1,6 +1,5 @@
-const sdk = (await import(
-  process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "duckdb-node-15" : "@duckdb/node-api"
-)) as typeof import("@duckdb/node-api");
+const sdk =
+  process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 
 import { type Query, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
@@ -244,4 +243,11 @@ await it("drains a native interrupt/deadline and immediately reuses the connecti
   } finally {
     await database.close();
   }
+});
+
+await it("rejects malformed SDK imports and foreign native handles before dispatch", async () => {
+  await strict.rejects(createNodeDuckDBDatabase({ sdkImporter: async () => ({}) }), /missing required capability/u);
+  await strict.rejects(createNodeDuckDBDatabase({ sdkImporter: async () => null }), /official SDK module/u);
+  await strict.rejects(createNodeDuckDBDatabase({ connection: {}, sdkImporter: async () => sdk }), /same SDK module/u);
+  await strict.rejects(createNodeDuckDBDatabase({ instance: {}, sdkImporter: async () => sdk }), /same SDK module/u);
 });
