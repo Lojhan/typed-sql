@@ -71,6 +71,57 @@ try {
         "SELECT id,amount,label,active,bytes,happened FROM dbo.adapter_values WHERE id=:id OR id=:id",
       );
       const all = await compile(schema, "SELECT id FROM dbo.adapter_values ORDER BY id");
+      await check(`${level}: independent native prepared zero termination`, async () => {
+        const connection = await native.promises.open({ conn_str: dsn(`typed_sql_adapter_${level}`) });
+        const cases = [];
+        try {
+          for (const type of ["nvarchar(40)", "nvarchar(max)", "varbinary(max)"]) {
+            const binary = type.startsWith("varbinary");
+            const statement = await new Promise((resolve, reject) =>
+              connection.prepare(
+                { query_str: `SELECT CONVERT(${type},?) AS value`, numeric_string: true },
+                (error, value) => (error ? reject(error) : resolve(value)),
+              ),
+            );
+            try {
+              for (const input of [
+                "",
+                "x\0",
+                "x\0\0",
+                "\0",
+                "x\0y",
+                ...(type === "nvarchar(max)" ? ["😀漢字é\0".repeat(2000)] : []),
+              ]) {
+                const value = binary ? Buffer.from(input) : input;
+                const binding = binary ? native.VarBinary(value) : native.NVarChar(value);
+                const raw = await connection.promises.query(
+                  { query_str: `SELECT CONVERT(${type},?) AS value`, numeric_string: true },
+                  [binding],
+                );
+                assert.deepEqual(raw.first[0].value, value);
+                const result = (await statement.promises.query([binding])).first[0].value;
+                cases.push({
+                  type,
+                  inputLength: value.length,
+                  outputLength: result.length,
+                  exact: binary ? value.equals(result) : result === value,
+                  inputTail: binary ? Array.from(value.subarray(-8)) : input.slice(-8),
+                  outputTail: binary ? Array.from(result.subarray(-8)) : result.slice(-8),
+                });
+              }
+            } finally {
+              await statement.promises.free();
+            }
+          }
+        } finally {
+          await connection.promises.close();
+        }
+        evidence.cases.push({
+          name: `${level}: raw native prepared string/binary fidelity`,
+          status: "evidence",
+          cases,
+        });
+      });
       const row = {
         id: 9223372036854775807n,
         amount: "1234567890123456789012345678.1234567890",
