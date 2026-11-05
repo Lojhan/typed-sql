@@ -2,10 +2,14 @@ import { cp, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { consumer } from "../build/src/consumer.mjs";
+import { firstUse } from "./first-use.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const output = resolve(directory, `../../artifacts/sqlserver/packed-${process.env.TYPED_SQL_SQLSERVER_MAJOR}.log`);
-const fixture = await consumer(["koffi", "typescript", "@types/node"], ["@typed-sql/sqlserver", "@typed-sql/compiler"]);
+const fixture = await consumer(
+  ["koffi", "typescript", "@types/node", "esbuild"],
+  ["@typed-sql/sqlserver", "@typed-sql/compiler", "@typed-sql/cli"],
+);
 try {
   const application = join(fixture.directory, "application");
   await mkdir(application);
@@ -28,6 +32,7 @@ try {
   ]);
   await writeFile(output.replace(/\.log$/u, "-types.log"), types.output);
   console.log("Packed native SQL Server workers and execution passed");
+  await firstUse(fixture);
 } catch (error) {
   const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;
   const message = password ? String(error).replaceAll(password, "[redacted]") : String(error);
