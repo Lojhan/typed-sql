@@ -19,6 +19,7 @@ export function buildQueryValuePlan<Snapshot extends SchemaSnapshot, Policy>(
   ): QueryValueDescriptor => ({
     type: value.runtimeType ?? dialect.runtimeValueType?.(value, policy) ?? "unknown",
     nullable: value.nullable,
+    ...(value.databaseType === undefined ? {} : { databaseType: value.databaseType }),
     ...(value.json === undefined ? {} : { json: value.json }),
     ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: value.scalarJsonShape }),
   });

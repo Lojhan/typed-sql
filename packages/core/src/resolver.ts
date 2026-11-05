@@ -55,6 +55,9 @@ export class ParameterCollector {
       return current;
     if (
       current.tsType !== candidate.tsType ||
+      (current.runtimeType !== undefined &&
+        candidate.runtimeType !== undefined &&
+        JSON.stringify(current.runtimeType) !== JSON.stringify(candidate.runtimeType)) ||
       (current.json !== undefined &&
         candidate.json !== undefined &&
         JSON.stringify(current.json) !== JSON.stringify(candidate.json)) ||
