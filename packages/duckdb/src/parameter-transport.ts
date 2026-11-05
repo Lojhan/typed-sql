@@ -27,17 +27,24 @@ function hasUnion(type: DuckDBType): boolean {
 export function duckDBParameterTransport(type: DuckDBType): DuckDBParameterTransport {
   if (!hasUnion(type)) return { wireType: type, encode: (value) => value, placeholder: (marker) => marker };
   let ordinal = 0;
-  const plan = (target: DuckDBType): DuckDBParameterTransport => {
+  let planned = 0;
+  let witnesses: DuckDBType[] = [];
+  const plan = (target: DuckDBType, rootMarker: string): DuckDBParameterTransport => {
+    if (++planned > 16384) throw new RangeError("DuckDB physical type expansion limit");
     if (!hasUnion(target)) return { wireType: target, encode: (value) => value, placeholder: (marker) => marker };
-    const targetText = formatDuckDBType(target),
-      cast = (value: string) => `CAST(${value} AS ${targetText})`;
+    const witness = `(${rootMarker}).${identifier(`__typed_sql_type_${witnesses.length}`)}`;
+    witnesses.push(target);
+    const cast = (value: string) => `cast_to_type(${value}, ${witness})`;
     const bounded = (text: string) => {
       if (text.length > 1048576) throw new RangeError("DuckDB physical parameter lowering limit");
       return text;
     };
     switch (target.kind) {
       case "union": {
-        const members = target.fields.map((field) => ({ name: field.name, plan: plan(field.type) }));
+        const members = target.fields.map((field) => ({
+          name: field.name,
+          plan: plan(field.type, rootMarker),
+        }));
         return {
           wireType: {
             kind: "struct",
@@ -68,7 +75,7 @@ export function duckDBParameterTransport(type: DuckDBType): DuckDBParameterTrans
       }
       case "list":
       case "array": {
-        const child = plan(target.element),
+        const child = plan(target.element, rootMarker),
           variable = `__typed_sql_element_${ordinal++}`;
         return {
           wireType:
@@ -84,7 +91,10 @@ export function duckDBParameterTransport(type: DuckDBType): DuckDBParameterTrans
         };
       }
       case "struct": {
-        const fields = target.fields.map((field) => ({ name: field.name, plan: plan(field.type) }));
+        const fields = target.fields.map((field) => ({
+          name: field.name,
+          plan: plan(field.type, rootMarker),
+        }));
         return {
           wireType: {
             kind: "struct",
@@ -110,7 +120,7 @@ export function duckDBParameterTransport(type: DuckDBType): DuckDBParameterTrans
         };
       }
       case "tuple": {
-        const elements = target.elements.map(plan);
+        const elements = target.elements.map((element) => plan(element, rootMarker));
         return {
           wireType: { kind: "tuple", elements: elements.map((item) => item.wireType) },
           encode(value) {
@@ -126,8 +136,8 @@ export function duckDBParameterTransport(type: DuckDBType): DuckDBParameterTrans
         };
       }
       case "map": {
-        const key = plan(target.key),
-          value = plan(target.value),
+        const key = plan(target.key, rootMarker),
+          value = plan(target.value, rootMarker),
           variable = `__typed_sql_map_${ordinal++}`;
         return {
           wireType: { kind: "map", key: key.wireType, value: value.wireType },
@@ -149,5 +159,51 @@ export function duckDBParameterTransport(type: DuckDBType): DuckDBParameterTrans
         return { wireType: target, encode: (value) => value, placeholder: (marker) => marker };
     }
   };
-  return plan(type);
+  const payload = plan(type, "NULL");
+  const wireType: DuckDBType = {
+    kind: "struct",
+    fields: [
+      { name: "__typed_sql_payload", type: payload.wireType },
+      ...witnesses.map((witness, i) => ({ name: `__typed_sql_type_${i}`, type: witness })),
+    ],
+  };
+  let nodes = 0;
+  const visit = (value: DuckDBType, depth: number): void => {
+    if (++nodes > 16384 || depth > 128) throw new RangeError("DuckDB physical type expansion limit");
+    switch (value.kind) {
+      case "list":
+      case "array":
+        visit(value.element, depth + 1);
+        break;
+      case "tuple":
+        for (const child of value.elements) visit(child, depth + 1);
+        break;
+      case "struct":
+      case "union":
+        for (const child of value.fields) visit(child.type, depth + 1);
+        break;
+      case "map":
+        visit(value.key, depth + 1);
+        visit(value.value, depth + 1);
+        break;
+    }
+  };
+  visit(wireType, 0);
+  if (new TextEncoder().encode(formatDuckDBType(wireType)).byteLength > 1048576)
+    throw new RangeError("DuckDB physical type text limit");
+  return {
+    wireType,
+    encode(value) {
+      return Object.fromEntries([
+        ["__typed_sql_payload", payload.encode(value)],
+        ...witnesses.map((_, i) => [`__typed_sql_type_${i}`, null]),
+      ]);
+    },
+    placeholder(marker) {
+      ordinal = 0;
+      planned = 0;
+      witnesses = [];
+      return plan(type, marker).placeholder(`(${marker}).${identifier("__typed_sql_payload")}`);
+    },
+  };
 }
