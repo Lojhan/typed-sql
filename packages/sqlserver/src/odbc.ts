@@ -8,11 +8,11 @@ import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { requireSqlServerNativeType } from "./native-types.js";
 import { requireSqlServerKoffi } from "./odbc-native.js";
 import {
+  type OdbcBoundValue,
   type OdbcColumn,
   type OdbcCommand,
   type OdbcReply,
   type OdbcResult,
-  type OdbcValue,
   type OdbcWorkerOptions,
   odbcPositiveInteger,
   odbcState,
@@ -79,11 +79,11 @@ export function sqlServerOdbcField(column: OdbcColumn): SqlServerField {
       : {}),
   };
 }
-function bindings(values: readonly unknown[], maximum: number): readonly OdbcValue[] {
+function bindings(values: readonly unknown[], maximum: number): readonly OdbcBoundValue[] {
   let bytes = 0;
   if (values.length > 2100) throw new RangeError("SQL Server supports at most2100 parameters");
   return values.map((value) => {
-    let result: OdbcValue;
+    let result: OdbcBoundValue;
     if (value === null || typeof value === "string") result = value;
     else if (typeof value === "boolean") result = value ? "1" : "0";
     else if (typeof value === "bigint") result = value.toString();
@@ -93,8 +93,11 @@ function bindings(values: readonly unknown[], maximum: number): readonly OdbcVal
       (!Number.isInteger(value) || Number.isSafeInteger(value))
     )
       result = String(value);
-    else if (value instanceof Uint8Array) result = Uint8Array.from(value);
-    else throw new TypeError("Unsupported direct ODBC bound value");
+    else if (value instanceof Uint8Array) {
+      if (bytes + value.byteLength > maximum)
+        throw new RangeError("SQL Server bound values exceed the configured memory limit");
+      result = Uint8Array.from(value);
+    } else throw new TypeError("Unsupported direct ODBC bound value");
     bytes += typeof result === "string" ? result.length * 2 : (result?.byteLength ?? 0);
     if (bytes > maximum) throw new RangeError("SQL Server bound values exceed the configured memory limit");
     return result;
@@ -199,7 +202,8 @@ class SqlServerOdbcTransport {
   }
   async request(command: CommandBody, controls: ExecutionOptions = {}, cursor?: number): Promise<OdbcReply> {
     await this.ready;
-    if (this.closed || !this.reusable) throw new Error("SQL Server direct ODBC connection is closed or quarantined");
+    if (this.closed || (!this.reusable && !["close", "freePrepared", "streamClose"].includes(command.kind)))
+      throw new Error("SQL Server direct ODBC connection is closed or quarantined");
     if (this.busy || (this.cursor !== undefined && this.cursor !== cursor))
       throw new Error("SQL Server direct ODBC connection is busy");
     if (this.nextId >= 0x7fffffff)

@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { endianness } from "node:os";
 import {
   ODBC_PHASE,
+  type OdbcBoundValue,
   type OdbcColumn,
   type OdbcDiagnostic,
   type OdbcValue,
@@ -119,8 +120,9 @@ export class OdbcNative {
   constructor(
     readonly koffi: SqlServerKoffi,
     readonly options: OdbcWorkerOptions,
+    functions?: OdbcFunctions,
   ) {
-    this.api = loadOdbcFunctions(koffi, options.libraryPath);
+    this.api = functions ?? loadOdbcFunctions(koffi, options.libraryPath);
     this.state = odbcState(options.shared);
   }
   diagnostics(kind: number, handle: bigint): readonly OdbcDiagnostic[] {
@@ -178,6 +180,7 @@ export class OdbcNative {
     Atomics.store(words, S.epoch, this.epoch);
     Atomics.store(words, S.phase, ODBC_PHASE.native);
     try {
+      this.assertActive();
       return this.api[name]!(...args);
     } finally {
       Atomics.store(words, S.phase, ODBC_PHASE.drain);
@@ -200,7 +203,7 @@ export class OdbcNative {
     if (text.length > 1_000_000) throw new OdbcNativeError("SQL-length");
     return Buffer.from(`${text}\0`, "utf16le");
   }
-  bind(statement: bigint, values: readonly OdbcValue[], allocations: unknown[]): void {
+  bind(statement: bigint, values: readonly OdbcBoundValue[], allocations: unknown[]): void {
     for (const [index, value] of values.entries()) {
       this.assertActive();
       const binary = value instanceof Uint8Array;
@@ -296,7 +299,36 @@ export class OdbcNative {
     }
     return columns;
   }
-  cell(statement: bigint, index: number, binary: boolean): OdbcValue {
+  cell(
+    statement: bigint,
+    index: number,
+    binary: boolean,
+    floating?: "real" | "float",
+    maximumBytes = this.options.maximumCellBytes,
+  ): OdbcValue {
+    if (floating) {
+      const size = floating === "real" ? 4 : 8,
+        buffer = Buffer.alloc(size),
+        indicator: [number | bigint] = [0n];
+      const rc = this.call(
+        "SQLGetData",
+        statement,
+        statement,
+        index,
+        floating === "real" ? 7 : 8,
+        buffer,
+        size,
+        indicator,
+      );
+      this.assertActive();
+      this.check(rc, "floating-result", 3, statement);
+      if (Number(indicator[0]) === -1) return null;
+      if (size > maximumBytes) throw new OdbcNativeError("result-memory-bound");
+      if (Number(indicator[0]) !== size) throw new OdbcNativeError("floating-result-width");
+      const value = floating === "real" ? buffer.readFloatLE() : buffer.readDoubleLE();
+      if (!Number.isFinite(value)) throw new OdbcNativeError("nonfinite-floating-result");
+      return value;
+    }
     const chunks: Buffer[] = [];
     let total = 0;
     const payload = this.options.chunkBytes,
@@ -326,7 +358,7 @@ export class OdbcNative {
       if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > payload || (!binary && bytes % 2))
         throw new OdbcNativeError("exact-value-length");
       total += bytes;
-      if (total > this.options.maximumCellBytes) throw new OdbcNativeError("cell-byte-limit");
+      if (total > Math.min(this.options.maximumCellBytes, maximumBytes)) throw new OdbcNativeError("cell-byte-limit");
       chunks.push(Buffer.from(buffer.subarray(0, bytes)));
       if (rc === 0) {
         const value = Buffer.concat(chunks);

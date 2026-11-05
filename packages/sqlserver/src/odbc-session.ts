@@ -1,10 +1,12 @@
 import { type OdbcNative, OdbcNativeError } from "./odbc-native.js";
 import {
+  type OdbcBoundValue,
   type OdbcColumn,
   type OdbcCommand,
   type OdbcReply,
   type OdbcResult,
   type OdbcValue,
+  odbcValueBytes,
   ODBC_STATE as S,
 } from "./odbc-protocol.js";
 
@@ -142,7 +144,7 @@ export class OdbcSession {
     }
     throw new OdbcNativeError("result-stage-limit");
   }
-  start(text: string, values: readonly OdbcValue[], existing?: Statement): Statement {
+  start(text: string, values: readonly OdbcBoundValue[], existing?: Statement): Statement {
     const n = this.native,
       statement = existing ?? this.create(false);
     try {
@@ -172,13 +174,21 @@ export class OdbcSession {
         break;
       }
       n.check(rc, "fetch", 3, statement.handle, [5701, 5703, 8153]);
-      const row = statement.columns.map((column, index) =>
-        n.cell(statement.handle, index + 1, [-2, -3, -4].includes(column.type)),
-      );
-      const bytes = row.reduce(
-        (sum, value) => sum + (typeof value === "string" ? value.length * 2 : (value?.byteLength ?? 0)),
-        0,
-      );
+      const row: OdbcValue[] = [];
+      let bytes = 0;
+      for (const [index, column] of statement.columns.entries()) {
+        const remaining = n.options.maximumResultBytes - batchBytes - bytes;
+        const value = n.cell(
+          statement.handle,
+          index + 1,
+          [-2, -3, -4].includes(column.type),
+          column.type === 7 ? "real" : [6, 8].includes(column.type) ? "float" : undefined,
+          remaining,
+        );
+        bytes += odbcValueBytes(value);
+        if (bytes + batchBytes > n.options.maximumResultBytes) throw new OdbcNativeError("result-memory-bound");
+        row.push(value);
+      }
       batchBytes += bytes;
       statement.bytes += bytes;
       statement.rows++;
@@ -225,12 +235,7 @@ export class OdbcSession {
             const result = this.fetch(statement, this.native.options.maximumRows + 1);
             if (
               result.rows.reduce(
-                (bytes, row) =>
-                  bytes +
-                  row.reduce(
-                    (sum, value) => sum + (typeof value === "string" ? value.length * 2 : (value?.byteLength ?? 0)),
-                    0,
-                  ),
+                (bytes, row) => bytes + row.reduce<number>((sum, value) => sum + odbcValueBytes(value), 0),
                 0,
               ) > this.native.options.maximumResultBytes
             )
