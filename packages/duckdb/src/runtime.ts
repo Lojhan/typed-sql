@@ -262,6 +262,24 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     nativePrepared.set(cacheKey, native);
     return { statement: native, owned: false };
   };
+  const cleanup = async (
+    result: DuckDBNativeResult | undefined,
+    statement: DuckDBNativeStatement | undefined,
+    preserveFailure: boolean,
+  ) => {
+    let failure: unknown;
+    let failed = false;
+    for (const resource of [result, statement]) {
+      try {
+        await resource?.close();
+      } catch (error) {
+        if (!failed) failure = error;
+        failed = true;
+        current.broken = true;
+      }
+    }
+    if (failed && !preserveFailure) throw failure;
+  };
   const operation = async <Row>(
     statement: Ready,
     scope: Scope | undefined,
@@ -271,6 +289,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     assertExecutionCapabilities(capabilities, controls);
     const release = await acquire(scope);
     let handle: Awaited<ReturnType<typeof prepared>> | undefined, result: DuckDBNativeResult | undefined;
+    let failed = true;
     const fingerprint = `sha256:${createHash("sha256").update(`duckdb\0${DUCKDB_DIALECT_VERSION}\0${statement.text}`).digest("hex")}`;
     const observation = startDatabaseObservation(options.observer, {
       kind: "query",
@@ -300,6 +319,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           () => connection.interrupt?.(),
         );
       const rows = await (observation ? observation.run(run) : run());
+      const finishedResult = result,
+        finishedStatement = handle?.owned ? handle.statement : undefined;
+      result = undefined;
+      handle = undefined;
+      await cleanup(finishedResult, finishedStatement, false);
+      failed = false;
       observation?.end({ status: "success", rowCount: rows.length });
       return rows;
     } catch (error) {
@@ -313,23 +338,22 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       throw error;
     } finally {
       try {
-        await result?.close();
-        if (handle?.owned) await handle.statement.close();
-      } catch {
-        current.broken = true;
+        await cleanup(result, handle?.owned ? handle.statement : undefined, failed);
+      } finally {
+        release();
       }
-      release();
     }
   };
   const control = async (text: string) => {
     const statement = await connection.prepare(text);
     let result: DuckDBNativeResult | undefined;
+    let failed = true;
     try {
       result = await statement.execute([]);
       await result.readAll();
+      failed = false;
     } finally {
-      await result?.close();
-      await statement.close();
+      await cleanup(result, statement, failed);
     }
   };
   const stream = <Row, Params extends readonly unknown[]>(
@@ -345,6 +369,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     const generator = (async function* () {
       const release = await acquire(scope);
       let handle: Awaited<ReturnType<typeof prepared>> | undefined, result: DuckDBNativeResult | undefined;
+      let failed = false;
       try {
         ensure(scope);
         handle = await prepared(statement);
@@ -376,16 +401,15 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           for (const row of rows) yield row as Row;
         }
       } catch (error) {
+        failed = true;
         if (scope) scope.failures.push(error);
         throw error;
       } finally {
         try {
-          await result?.close();
-          if (handle?.owned) await handle.statement.close();
-        } catch {
-          current.broken = true;
+          await cleanup(result, handle?.owned ? handle.statement : undefined, failed);
+        } finally {
+          release();
         }
-        release();
       }
     })();
     const result: QueryStream<Row> = {
@@ -526,6 +550,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       ): Promise<readonly Row[]> {
         const release = await acquire();
         let statement: DuckDBNativeStatement | undefined, result: DuckDBNativeResult | undefined;
+        let failed = true;
         try {
           ensure();
           statement = await connection.prepare(text);
@@ -537,11 +562,15 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
             }),
           );
           columns(result);
-          return decode(await result.readAll(), result.columns) as Row[];
+          const rows = decode(await result.readAll(), result.columns) as Row[];
+          failed = false;
+          return rows;
         } finally {
-          await result?.close();
-          await statement?.close();
-          release();
+          try {
+            await cleanup(result, statement, failed);
+          } finally {
+            release();
+          }
         }
       },
     }),
