@@ -19,6 +19,7 @@ import {
   type QueryStream,
   type QueryTransportProfile,
   type QueryValuePlan,
+  queryResultValidationSource,
   registerPreparedQuery,
   renderQuery,
   runControlledExecution,
@@ -26,6 +27,7 @@ import {
   type StreamOptions,
   startDatabaseObservation,
   validateQueryResultRows,
+  validateQueryResultStream,
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { decodeDuckDBValue, encodeDuckDBValue } from "./codecs.js";
@@ -257,7 +259,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     return pending;
   };
   const prepared = async (statement: Ready): Promise<{ statement: DuckDBNativeStatement; owned: boolean }> => {
-    const registration = registered.queries.get(statement.query);
+    const registration = registered.queries.get(queryResultValidationSource(statement.query));
     if (!registration) return { statement: await connection.prepare(statement.text), owned: true };
     const cacheKey = `${registration.statementName}\0${statement.text}\0${statement.physicalKey}`;
     let native = nativePrepared.get(cacheKey);
@@ -327,7 +329,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       transactionDepth: scope ? 1 : 0,
       fingerprint,
       cardinality,
-      prepared: registered.queries.has(statement.query),
+      prepared: registered.queries.has(queryResultValidationSource(statement.query)),
     });
     try {
       ensure(scope);
@@ -427,19 +429,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           );
           if (step.done) break;
           const chunk = step.value;
-          const rows = await runControlledExecution(
-            controls,
-            async () => {
-              const decoded = decodeQueryResultRows(statement.query, decode(chunk, result!.columns), profile);
-              return validateQueryResultRows(statement.query, decoded, "duckdb-native");
-            },
-            () => connection.interrupt?.(),
-          );
-          for (const row of rows) {
+          for (const raw of chunk) {
             if (controls.signal?.aborted) throw new QueryCancelledError("signal");
             const due = executionDeadline(controls);
             if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
-            yield row as Row;
+            const decoded = decodeQueryResultRows(statement.query, decode([raw], result.columns), profile);
+            yield decoded[0] as Row;
           }
         }
       } catch (error) {
@@ -485,7 +480,24 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       },
     };
     scope?.streams.add(result as QueryStream<unknown>);
-    return result;
+    const validated = validateQueryResultStream(query, result, "duckdb-native");
+    if (validated === result) return result;
+    const tracked: QueryStream<Row> = {
+      ...validated,
+      next() {
+        return track(scope, () =>
+          runControlledExecution(
+            controls,
+            () => validated.next(),
+            () => connection.interrupt?.(),
+          ),
+        );
+      },
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+    };
+    return tracked;
   };
   const transaction = async <T>(scope: Scope | undefined, callback: (local: Scope) => Promise<T>): Promise<T> => {
     if (scope) throw new TypeError("DuckDB nested transactions are not supported");
@@ -637,13 +649,25 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       const release = await current.queue.acquire();
       try {
         if (closed) return;
-        for (const handle of nativePrepared.values()) await handle.close();
-        nativePrepared.clear();
         closed = true;
+        let failure: unknown,
+          failed = false;
+        const retire = async (close: () => void | Promise<void>) => {
+          try {
+            await close();
+          } catch (error) {
+            if (!failed) failure = error;
+            failed = true;
+            current.broken = true;
+          }
+        };
+        for (const handle of nativePrepared.values()) await retire(() => handle.close());
+        nativePrepared.clear();
         if (options.ownsConnection) {
-          await connection.close?.();
+          await retire(() => connection.close?.());
           current.dead = true;
         }
+        if (failed) throw failure;
       } finally {
         release();
       }
