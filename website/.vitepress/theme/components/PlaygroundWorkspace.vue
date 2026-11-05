@@ -64,11 +64,9 @@ import WorkspaceFileTree from "./WorkspaceFileTree.vue";
 import WorkspaceTabs from "./WorkspaceTabs.vue";
 
 const dialect = ref<PlaygroundDialect>("postgres");
-const exampleByDialect = reactive<Record<PlaygroundDialect, WorkspaceExample>>({
-  postgres: "commerce",
-  mysql: "commerce",
-  sqlite: "commerce",
-});
+const exampleByDialect = reactive(
+  Object.fromEntries(PLAYGROUND_DIALECTS.map((id) => [id, "commerce"])) as Record<PlaygroundDialect, WorkspaceExample>,
+);
 const lesson = computed({
   get: () => exampleByDialect[dialect.value],
   set: (value: WorkspaceExample) => {
@@ -142,7 +140,9 @@ const drafts = reactive(
     WorkspaceFiles
   >,
 );
-const directories = reactive<Record<PlaygroundDialect, string[]>>({ postgres: [], mysql: [], sqlite: [] });
+const directories = reactive(
+  Object.fromEntries(PLAYGROUND_DIALECTS.map((id) => [id, []])) as Record<PlaygroundDialect, string[]>,
+);
 const folders = computed(() => directories[dialect.value]);
 const files = computed(() => drafts[dialect.value]);
 const configSource = computed(() => workspaceConfigSource(dialect.value, files.value));
