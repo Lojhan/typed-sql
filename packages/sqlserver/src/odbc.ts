@@ -52,7 +52,25 @@ export async function loadSqlServerOdbcDriver(importer?: () => Promise<unknown>)
   return requireSqlServerKoffi(importer ? await importer() : application("koffi"));
 }
 export function sqlServerOdbcField(column: OdbcColumn): SqlServerField {
-  const base = requireSqlServerNativeType(column.typeName),
+  // SQLGetTypeInfo represents IDENTITY as a type attribute; it is not part of the value's SQL target.
+  // Only normalize the exact qualified spelling when the independently reported ODBC code agrees.
+  const identity = /^(bigint|int|smallint|tinyint|decimal|numeric) identity$/iu.exec(column.typeName);
+  let typeName = column.typeName;
+  if (identity) {
+    const underlying = identity[1]!.toLowerCase(),
+      codes: Readonly<Record<string, readonly number[]>> = {
+        bigint: [-5],
+        int: [4],
+        smallint: [5],
+        tinyint: [-6],
+        decimal: [2, 3],
+        numeric: [2, 3],
+      };
+    if (!codes[underlying]!.includes(column.type) || column.scale !== 0)
+      throw new TypeError("SQL Server IDENTITY metadata disagrees with its native ODBC value family");
+    typeName = underlying;
+  }
+  const base = requireSqlServerNativeType(typeName),
     name = base.name;
   let text = base.text;
   if (["varchar", "nvarchar", "char", "nchar", "binary", "varbinary"].includes(name)) {

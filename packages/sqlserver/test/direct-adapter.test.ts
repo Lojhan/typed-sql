@@ -95,6 +95,27 @@ await describe("SQL Server direct adapter protocol composition", async () => {
     strict.equal(credentials, 0);
     strict.equal(imports, 0);
   });
+  await it("normalizes exact identity type attributes only with matching independent numeric metadata", () => {
+    for (const [name, code, size] of [
+      ["bigint", -5, 19],
+      ["int", 4, 10],
+      ["smallint", 5, 5],
+      ["tinyint", -6, 3],
+      ["decimal", 3, 20],
+      ["numeric", 2, 20],
+    ] as const) {
+      const field = sqlServerOdbcField(column("id", `${name} identity`, size, code));
+      strict.equal(field.databaseType, ["decimal", "numeric"].includes(name) ? "decimal(20,0)" : name);
+    }
+    for (const input of [
+      column("id", "bigint identity", 19, 12),
+      column("id", "decimal identity", 20, 3, 2),
+      column("id", "nvarchar identity", 40, -9),
+      column("id", "bigint identity extra"),
+      column("id", "bigint identity(1,1)"),
+    ])
+      strict.throws(() => sqlServerOdbcField(input));
+  });
   await it("preserves native metadata families and describes the actual JSON wire facade", () => {
     for (const [input, type] of [
       [column("x", "decimal", 38, 3, 10), "decimal(38,10)"],
