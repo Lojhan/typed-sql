@@ -179,6 +179,58 @@ try {
       }
       return result;
     });
+    await run(`compat-${level}.legacy-and-time-temporals`, async () => {
+      const result = [];
+      for (const input of ["2026-11-05T12:34:56.003", "2026-11-05T12:34:56.007", "2026-11-05T12:34:56.997"]) {
+        const row = await one(
+          "SELECT value,CONVERT(varchar(33),value,126) AS serverText FROM (SELECT CONVERT(datetime,?,126) AS value) AS t",
+          [sql.NVarChar(input)],
+        );
+        assert.ok(row.value instanceof Date && Number.isFinite(row.value.getTime()));
+        assert.equal(row.serverText, input);
+        result.push({
+          type: "datetime",
+          input,
+          iso: row.value.toISOString(),
+          nanosecondsDelta: row.value.nanosecondsDelta,
+          serverText: row.serverText,
+        });
+      }
+      for (const [type, input] of [
+        ["date", "0001-01-01"],
+        ["smalldatetime", "2026-11-05T12:34:56"],
+      ]) {
+        const row = await one(
+          `SELECT value,CONVERT(varchar(33),value,126) AS serverText FROM (SELECT CONVERT(${type},?,126) AS value) AS t`,
+          [sql.NVarChar(input)],
+        );
+        assert.ok(row.value instanceof Date && Number.isFinite(row.value.getTime()));
+        result.push({
+          type,
+          input,
+          iso: row.value.toISOString(),
+          nanosecondsDelta: row.value.nanosecondsDelta,
+          serverText: row.serverText,
+        });
+      }
+      for (let scale = 0; scale <= 7; scale++) {
+        const row = await one(
+          `SELECT value,CONVERT(varchar(33),value,126) AS serverText FROM (SELECT CONVERT(time(${scale}),?,126) AS value) AS t`,
+          [sql.NVarChar("12:34:56.1234567")],
+        );
+        const canonical = exactTimestamp(row.value).slice(11, -1);
+        const [whole, fraction = ""] = row.serverText.split(".");
+        assert.equal(canonical, `${whole}.${fraction.padEnd(7, "0")}`);
+        result.push({
+          type: `time(${scale})`,
+          iso: row.value.toISOString(),
+          nanosecondsDelta: row.value.nanosecondsDelta,
+          serverText: row.serverText,
+          canonical,
+        });
+      }
+      return result;
+    });
     await run(`compat-${level}.dml-output-and-rollback`, async () => {
       await query(
         "CREATE TABLE transport_values(id int NOT NULL PRIMARY KEY, amount decimal(38,10), moment datetime2(7), label nvarchar(max), bytes varbinary(max))",
