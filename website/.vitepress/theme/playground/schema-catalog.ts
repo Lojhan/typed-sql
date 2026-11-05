@@ -2,6 +2,14 @@ import { COMMERCE_SCHEMAS } from "../../../../examples/shared/commerce-schema.js
 import type { PlaygroundDialect } from "./dialect-browser-runtime.js";
 
 export const PLAYGROUND_DIALECTS = ["postgres", "mysql", "sqlite"] as const;
+export function isPlaygroundDialect(value: unknown): value is PlaygroundDialect {
+  return typeof value === "string" && PLAYGROUND_DIALECTS.includes(value as PlaygroundDialect);
+}
+
+export function isPlaygroundGrammarModule(value: string): boolean {
+  return PLAYGROUND_DIALECTS.some((dialect) => value === `@typed-sql/${dialect}`);
+}
+
 export const PLAYGROUND_DIALECT_LABELS: Readonly<Record<PlaygroundDialect, string>> = Object.freeze({
   postgres: "PostgreSQL",
   mysql: "MySQL",

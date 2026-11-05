@@ -1,5 +1,5 @@
 import { type InjectionKey, inject, type Ref, reactive, readonly, ref } from "vue";
-import { DEFAULT_SCHEMAS, type PlaygroundDialect } from "./schema-catalog.js";
+import { DEFAULT_SCHEMAS, isPlaygroundDialect, type PlaygroundDialect } from "./schema-catalog.js";
 
 const storageKey = "typed-sql.docs.schemas.v1";
 
@@ -24,10 +24,7 @@ function savedSchemas(): Partial<Record<PlaygroundDialect, string>> {
     if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
     return Object.fromEntries(
       Object.entries(value).filter(
-        ([dialect, source]) =>
-          (dialect === "postgres" || dialect === "mysql" || dialect === "sqlite") &&
-          typeof source === "string" &&
-          source.length <= 40_000,
+        ([dialect, source]) => isPlaygroundDialect(dialect) && typeof source === "string" && source.length <= 40_000,
       ),
     );
   } catch {

@@ -1,10 +1,16 @@
 import { describe, it, strict } from "poku";
-import { DEFAULT_SCHEMAS } from "../../website/.vitepress/theme/playground/playground.js";
+import { DEFAULT_SCHEMAS, parsePlaygroundSchema } from "../../website/.vitepress/theme/playground/playground.js";
 import { createTestWorkspace } from "../helpers/playground-workspace.js";
 
 const schema = DEFAULT_SCHEMAS.postgres;
 
 await describe("playground module resolution", async () => {
+  await it("preserves UTF-16 schema offsets through astral comments and uses qualified SQLite evidence", () => {
+    const schema = "/*😀*/CREATE TABLE users (id BIGINT, id BIGINT);";
+    const duplicate = parsePlaygroundSchema("postgres", schema).diagnostics.find(({ code }) => code === "PLAY007");
+    strict.equal(duplicate?.column, schema.indexOf(", id") + 2);
+    strict.equal(parsePlaygroundSchema("sqlite", DEFAULT_SCHEMAS.sqlite).snapshot?.server.version, "3.54.1");
+  });
   const workspace = createTestWorkspace();
   try {
     await it("does not invent a directory import or missing TypeScript/SQL module", () => {

@@ -89,7 +89,7 @@ function diagnostic(
 }
 
 function maskComments(source: string): string {
-  const output = [...source];
+  const output = source.split("");
   let index = 0;
   let quote: "'" | '"' | "`" | undefined;
   while (index < output.length) {
@@ -533,7 +533,7 @@ export function parsePlaygroundSchema(
         }
       : dialect === "mysql"
         ? { product: "mysql", version: "9.7.0", versionKey: "9.7.0", features: [], settings: {} }
-        : { product: "sqlite", version: "3.53.4", versionKey: "3.53.4", features: [], settings: {} };
+        : { product: "sqlite", version: "3.54.1", versionKey: "3.54.1", features: [], settings: {} };
   const namespace = dialect === "postgres" ? "public" : dialect === "mysql" ? "app" : "main";
   const snapshotBase: SchemaSnapshotV2 = {
     formatVersion: 2,

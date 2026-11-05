@@ -1,6 +1,6 @@
 import { commerceFiles } from "./commerce-example.js";
 import { featureExampleFiles } from "./feature-examples.js";
-import type { PlaygroundDialect } from "./playground.js";
+import { isPlaygroundDialect, type PlaygroundDialect } from "./schema-catalog.js";
 
 export type WorkspaceFile = string;
 export type WorkspaceFiles = Record<WorkspaceFile, string>;
@@ -71,7 +71,7 @@ export const LESSONS = [
 export type Lesson = (typeof LESSONS)[number]["id"];
 
 export function lessonSupportsDialect(lesson: Lesson, dialect: PlaygroundDialect): boolean {
-  return LESSONS.some(({ id }) => id === lesson) && ["postgres", "mysql", "sqlite"].includes(dialect);
+  return LESSONS.some(({ id }) => id === lesson) && isPlaygroundDialect(dialect);
 }
 
 export function lessonFiles(

@@ -5,6 +5,7 @@ import { extractStaticQueries } from "../../../../packages/compiler/src/scanner.
 import { browserDialectRuntime } from "./dialect-browser-runtime.js";
 import type { EditorCompletion, EditorRequest, EditorResponse } from "./editor-protocol.js";
 import { analyzePlaygroundSource, type PlaygroundDialect, type PlaygroundQuery } from "./playground.js";
+import { isPlaygroundGrammarModule } from "./schema-catalog.js";
 import { validWorkspaceFiles, type WorkspaceFile, type WorkspaceFiles } from "./workspace.js";
 import { analyzeSqlFiles, workspaceProblem } from "./workspace-sql.js";
 import { BROWSER_COMPILER_SETTINGS } from "./workspace-ui.js";
@@ -105,7 +106,7 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
         if (name === "@typed-sql/core") return { resolvedFileName: "/core/index.ts", extension: ts.Extension.Ts };
         if (name === `@typed-sql/${activeDialect}`)
           return { resolvedFileName: "/grammar.d.ts", extension: ts.Extension.Dts };
-        if (/^@typed-sql\/(postgres|mysql|sqlite)$/u.test(name)) return undefined;
+        if (isPlaygroundGrammarModule(name)) return undefined;
         if (containingFile.startsWith(userRoot) && name.startsWith(".")) {
           const path = relativePath(name, containingFile);
           if (path === undefined || !path.startsWith(userRoot)) return undefined;
@@ -164,7 +165,7 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
         const insertions: Insertion[] = [];
         if (sql.snapshot) {
           const result = analyzePlaygroundSource(dialect, sql.snapshot, source);
-          const extracted = extractStaticQueries(source, (index) => (dialect === "postgres" ? `$${index}` : "?"), [
+          const extracted = extractStaticQueries(source, browserDialectRuntime(dialect).placeholder, [
             `@typed-sql/${dialect}`,
           ]);
           for (const diagnostic of result.diagnostics) {
@@ -227,7 +228,7 @@ export function createSemanticWorkspace(declarations: Readonly<Record<string, st
         const findMismatchedImports = (node: ts.Node) => {
           if (
             ts.isStringLiteral(node) &&
-            /^@typed-sql\/(postgres|mysql|sqlite)$/u.test(node.text) &&
+            isPlaygroundGrammarModule(node.text) &&
             node.text !== `@typed-sql/${dialect}`
           ) {
             const parent = node.parent;
