@@ -142,6 +142,12 @@
           "link": "/guides/routing-and-retries",
           "file": "docs/guides/routing-and-retries.md",
           "pageType": "how-to"
+        },
+        {
+          "text": "SQLite Wasm persistence",
+          "link": "/guides/sqlite-wasm",
+          "file": "docs/guides/sqlite-wasm.md",
+          "pageType": "how-to"
         }
       ]
     },

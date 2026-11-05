@@ -1,0 +1,12 @@
+{
+  "name": "@typed-sql/e2e-sqlite-wasm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "node --import tsx test.mjs"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
+  }
+}

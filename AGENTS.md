@@ -55,6 +55,7 @@ pnpm test:pack
 pnpm docs:check
 pnpm docs:start
 pnpm docs:build
+pnpm e2e:sqlite-wasm
 pnpm performance
 ```
 

@@ -172,6 +172,12 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  e2e/sqlite-wasm:
+    devDependencies:
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+
   editors/vscode:
     dependencies:
       vscode-languageclient:

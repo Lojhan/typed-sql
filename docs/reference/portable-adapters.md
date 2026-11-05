@@ -153,6 +153,9 @@ an explicitly owned connection does not delete its database or release applicati
 `@typed-sql/sqlite` to reuse its catalog and snapshot logic. The queryable shares the connection lease;
 its raw results are schema inputs, while application queries use compiled value plans.
 
+For persistent browser databases, see [SQLite Wasm persistence](../guides/sqlite-wasm.md)
+for OPFS headers, SAH-pool ownership, asset delivery and recovery.
+
 ## Verification boundaries
 
 Local tests exercise actual workerd D1 bindings, the libSQL file client, Postgres.js against local

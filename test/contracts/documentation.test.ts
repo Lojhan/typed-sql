@@ -221,6 +221,19 @@ async function assertLocalLinks(path: string): Promise<void> {
 }
 
 await describe("public documentation", async () => {
+  await it("documents explicit persistent Wasm backends and non-destructive pool recovery", async () => {
+    const guide = await text("docs/guides/sqlite-wasm.md");
+    strict.ok(publicDocumentationPages.some(({ file }) => file === "docs/guides/sqlite-wasm.md"));
+    for (const contract of [
+      "preserveOnInitFailure: true",
+      "pool.pauseVfs()",
+      "pool.unpauseVfs()",
+      "crossOriginIsolated",
+      "application/wasm",
+      "ownsConnection: true",
+    ])
+      strict.ok(guide.includes(contract), `Wasm persistence guide omits ${contract}`);
+  });
   await it("keeps one intentional, durable information architecture", async () => {
     strict.deepStrictEqual(await markdownFiles("docs"), [...expectedPublicDocs]);
 
