@@ -126,7 +126,10 @@ export function validateSqlServerVerificationProbe(request: LiveQueryVerificatio
   if (
     !/^sha256:[a-f\d]{64}$/u.test(request.fingerprint) ||
     !(request.operation === "read" || request.operation === "write") ||
-    request.sql.length > 1024 * 1024
+    typeof request.sql !== "string" ||
+    request.sql.length > 1024 * 1024 ||
+    request.sql.includes("\0") ||
+    !request.sql.isWellFormed()
   )
     throw new TypeError("SQL Server native verification requires a bounded query and SHA-256 fingerprint");
   try {

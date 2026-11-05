@@ -91,6 +91,8 @@ await describe("SQL Server native verification services", async () => {
       "SELECT @arbitrary AS value",
       "SELECT ? AS value",
       "SELECT @__typed_sql_2 AS value",
+      "SELECT 'literal\0value' AS value",
+      "SELECT '\ud800' AS value",
     ]) {
       await strict.rejects(verifier.verify({ fingerprint, sql, operation: "read" }));
     }
