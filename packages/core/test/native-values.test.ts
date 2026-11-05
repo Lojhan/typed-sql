@@ -278,7 +278,7 @@ await describe("native structural value contracts", async () => {
       () =>
         defineQueryValuePlan({
           ...plan("string"),
-          columns: Array.from({ length: 100 }, (_, index) => ({
+          columns: Array.from({ length: 300 }, (_, index) => ({
             name: `c${index}`,
             type: "string",
             nullable: false,
@@ -289,6 +289,22 @@ await describe("native structural value contracts", async () => {
     );
     strict.throws(() => defineQueryValuePlan(plan({ array: "string", length: Number.MAX_SAFE_INTEGER })), /length/);
     strict.throws(() => encodeQueryValues(query({ array: "number" }), [new Array(3)], profile), /own data/);
+  });
+  await it("retains the existing parameter ceiling with ordinary native type metadata", () => {
+    const valuePlan = defineQueryValuePlan({
+      dialect: "synthetic",
+      typePolicyHash: "policy",
+      columns: [],
+      parameters: Array.from({ length: 65_535 }, (_, offset) => ({
+        index: offset + 1,
+        type: "number" as const,
+        nullable: false,
+        databaseType: "INTEGER",
+      })),
+    });
+    strict.equal(valuePlan.parameters.length, 65_535);
+    strict.equal(valuePlan.parameters[65_534]!.databaseType, "INTEGER");
+    strict.equal(Object.isFrozen(valuePlan.parameters[65_534]), true);
   });
   await it("keeps physical targets through repeated-plan selection and detects conflicting native shapes", () => {
     const factory = (values: readonly string[]) => sql`insert ${values.map((value) => sql.fragment`${value}`)}`;
