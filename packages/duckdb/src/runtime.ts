@@ -4,6 +4,7 @@ import {
   assertQueryResultTransport,
   type Database,
   type DatabaseObserver,
+  type DialectServerEvidence,
   decodeQueryResultRows,
   type ExecutionOptions,
   encodeQueryValues,
@@ -21,6 +22,7 @@ import {
   registerPreparedQuery,
   renderQuery,
   runControlledExecution,
+  type SchemaSnapshot,
   type StreamOptions,
   startDatabaseObservation,
   validateQueryResultRows,
@@ -30,6 +32,7 @@ import { decodeDuckDBValue, encodeDuckDBValue } from "./codecs.js";
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { duckDBParameterTransport } from "./parameter-transport.js";
 import { duckdbRenderer } from "./query.js";
+import { assertDuckDBSemanticEvidence, duckDBEvidenceDifferences } from "./settings.js";
 import { duckDBVersionSupport } from "./support.js";
 import {
   type DuckDBTypePolicy,
@@ -53,12 +56,14 @@ export interface DuckDBNativeResult {
   close(): void | Promise<void>;
 }
 export interface DuckDBNativeStatement {
+  readonly columns?: readonly DuckDBNativeColumn[];
   execute(bindings: readonly DuckDBBinding[], stream?: boolean): Promise<DuckDBNativeResult>;
   close(): void | Promise<void>;
 }
 export interface DuckDBConnectionLike {
   readonly identity?: object;
   readonly libraryVersion: string;
+  readServerEvidence?(): Promise<DialectServerEvidence>;
   prepare(text: string): Promise<DuckDBNativeStatement>;
   interrupt?(): void;
   close?(): void | Promise<void>;
@@ -88,6 +93,7 @@ export interface DuckDBDatabaseOptions {
   readonly connection: DuckDBConnectionLike;
   readonly typePolicy?: DuckDBTypePolicy;
   readonly ownsConnection?: boolean;
+  readonly compatibilitySnapshot?: SchemaSnapshot;
   readonly observer?: DatabaseObserver;
   readonly preparedCardinalityVariantLimit?: number;
 }
@@ -201,7 +207,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     const physicalKey = JSON.stringify(plan.parameters.map((x) => x.databaseType)) + "\0" + typePolicyHash;
     return { query, text: physicalRendered.text, bindings, plan, physicalKey };
   };
-  const columns = (result: DuckDBNativeResult, plan?: QueryValuePlan) => {
+  const columns = (result: Pick<DuckDBNativeResult, "columns">, plan?: QueryValuePlan) => {
     const names = result.columns.map((x) => x.name);
     if (new Set(names).size !== names.length) throw new TypeError("DuckDB result columns must have unique names");
     if (
@@ -280,6 +286,21 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     }
     if (failed && !preserveFailure) throw failure;
   };
+  let expectedEvidence = options.compatibilitySnapshot?.server;
+  if (options.compatibilitySnapshot && (!expectedEvidence || options.compatibilitySnapshot.dialect !== "duckdb"))
+    throw new TypeError("DuckDB compatibility snapshot requires DuckDB server evidence");
+  const verifyConnection = async () => {
+    if (!connection.readServerEvidence) {
+      if (expectedEvidence) throw new TypeError("DuckDB adapter cannot prove runtime server/settings compatibility");
+      return;
+    }
+    const actual = await connection.readServerEvidence();
+    assertDuckDBSemanticEvidence(actual);
+    if (expectedEvidence) {
+      const differences = duckDBEvidenceDifferences(expectedEvidence, actual);
+      if (differences.length) throw new TypeError(`DuckDB runtime evidence differs (${differences.join(", ")})`);
+    } else expectedEvidence = actual;
+  };
   const operation = async <Row>(
     statement: Ready,
     scope: Scope | undefined,
@@ -302,11 +323,14 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     });
     try {
       ensure(scope);
+      await verifyConnection();
       const run = () =>
         runControlledExecution(
           controls,
           async () => {
             handle = await prepared(statement);
+            if (handle.statement.columns && statement.plan.columns.length)
+              columns({ columns: handle.statement.columns }, statement.plan);
             if (controls.signal?.aborted) throw new QueryCancelledError("signal");
             const due = executionDeadline(controls);
             if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
@@ -372,7 +396,10 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       let failed = false;
       try {
         ensure(scope);
+        await verifyConnection();
         handle = await prepared(statement);
+        if (handle.statement.columns && statement.plan.columns.length)
+          columns({ columns: handle.statement.columns }, statement.plan);
         result = await runControlledExecution(
           controls,
           () => handle!.statement.execute(statement.bindings, true),
@@ -477,6 +504,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         try {
           ensure();
           current.transaction = owner;
+          await verifyConnection();
           await control("BEGIN TRANSACTION");
           begun = true;
           const value = await callback(makeScope(local));
@@ -553,6 +581,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         let failed = true;
         try {
           ensure();
+          await verifyConnection();
           statement = await connection.prepare(text);
           result = await statement.execute(
             values.map((value) => {

@@ -93,3 +93,8 @@ await it("fails closed on unqualified engine evidence and retains branded parame
   strict.equal(result.columns[0]?.tsType, result.parameters[0]?.tsType);
   strict.equal(result.columns[0]?.range.start, 7);
 });
+
+await it("rejects semantic settings that change proven typing rules", () => {
+  const incompatible = { ...snapshot, server: duckDBServerEvidence("2.0.0", [], { integer_division: "true" }) };
+  strict.equal(duckdb().analyze("SELECT 4/2 AS value", incompatible).diagnostics[0]?.code, "TSQ402");
+});

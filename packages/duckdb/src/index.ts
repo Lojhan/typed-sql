@@ -8,6 +8,7 @@ import {
 import { parseDuckDBStatement } from "./parser/parser.js";
 import { DuckDBParseError, tokenize } from "./parser/tokenizer.js";
 import { resolveDuckDBStatement } from "./resolver.js";
+import { assertDuckDBSemanticEvidence } from "./settings.js";
 import { type DuckDBSchemaSnapshot, parseDuckDBSchemaSnapshot } from "./snapshot.js";
 import { DUCKDB_CAPABILITIES, duckDBVersionSupport, resolveDuckDBCapabilities } from "./support.js";
 import {
@@ -67,6 +68,15 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
             { start: 0, end: source.length, line: 1, column: 1 },
             "TSQ402",
           );
+        try {
+          assertDuckDBSemanticEvidence(snapshot.server, false);
+        } catch (error) {
+          throw new DuckDBParseError(
+            error instanceof Error ? error.message : "Unsupported DuckDB semantic settings",
+            { start: 0, end: source.length, line: 1, column: 1 },
+            "TSQ402",
+          );
+        }
         if (
           snapshot.server?.versionKey !== "2.0.0" &&
           tokenize(source).some((token) => token.kind === "quoted" && token.text.startsWith("`"))

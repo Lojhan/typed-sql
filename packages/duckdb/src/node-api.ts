@@ -10,7 +10,8 @@ import {
   type DuckDBNativeResult,
   type DuckDBNativeStatement,
 } from "./runtime.js";
-import { duckDBVersionSupport } from "./support.js";
+import { assertDuckDBSemanticEvidence, DUCKDB_SEMANTIC_SETTINGS } from "./settings.js";
+import { duckDBServerEvidence, duckDBVersionSupport } from "./support.js";
 /** An SDK import is untrusted until its required capabilities are checked at runtime. */
 export type DuckDBSDK = unknown;
 type ValidatedDuckDBSDK = Omit<typeof NativeSDK, "default">;
@@ -301,6 +302,41 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
     libraryVersion,
     interrupt: () => connection.interrupt(),
     close: () => connection.closeSync(),
+    async readServerEvidence() {
+      const read = async (text: string) => {
+        const result = await connection.run(text);
+        try {
+          return await result.getRows();
+        } finally {
+          result.closeSync();
+        }
+      };
+      const current = (await read("SELECT version(),current_database(),current_schema()"))[0];
+      if (!current || current.some((value) => typeof value !== "string"))
+        throw new TypeError("DuckDB server evidence is invalid");
+      const rows = await read(
+        `SELECT name,value FROM duckdb_settings() WHERE name IN (${DUCKDB_SEMANTIC_SETTINGS.map((name) => `'${name}'`).join(",")}) ORDER BY name`,
+      );
+      const settings: Record<string, string> = {
+        currentCatalog: String(current[1]),
+        currentSchema: String(current[2]),
+      };
+      for (const [name, value] of rows) {
+        if (typeof name !== "string" || typeof value !== "string")
+          throw new TypeError("DuckDB setting evidence is invalid");
+        settings[name] = value;
+      }
+      const extensions = await read(
+        "SELECT extension_name,extension_version FROM duckdb_extensions() WHERE loaded ORDER BY extension_name",
+      );
+      const evidence = duckDBServerEvidence(
+        String(current[0]),
+        extensions.map(([name, version]) => `${name}@${version || "builtin"}`),
+        settings,
+      );
+      assertDuckDBSemanticEvidence(evidence);
+      return evidence;
+    },
     async prepare(text: string): Promise<DuckDBNativeStatement> {
       if (text.includes("\0")) throw new TypeError("DuckDB SQL cannot contain NUL");
       let native: NativeSDK.DuckDBPreparedStatement;
@@ -312,7 +348,26 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
         throw adapterError(error);
       }
       let closed = false;
+      // Parameter-dependent expressions remain INVALID until execution in both qualified engines.
+      const metadata = (() => {
+        try {
+          return Array.from({ length: native.columnCount }, (_, i) => native.columnTypeId(i)).some(
+            (id) => id === sdk.DuckDBTypeId.INVALID,
+          )
+            ? undefined
+            : Array.from({ length: native.columnCount }, (_, i) => ({
+                name: native.columnName(i),
+                type: nativeTypeFromSDK(native.columnType(i), sdk),
+              }));
+        } catch (error) {
+          try {
+            native.destroySync();
+          } catch {}
+          throw error;
+        }
+      })();
       return Object.freeze({
+        ...(metadata ? { columns: metadata } : {}),
         async close() {
           if (closed) return;
           closed = true;
@@ -332,13 +387,22 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
           } catch (error) {
             throw adapterError(error);
           }
-          const command = result.returnType !== sdk.ResultReturnType.QUERY_RESULT,
+          let command: boolean;
+          let columns: readonly { name: string; type: DuckDBType }[];
+          try {
+            command = result.returnType !== sdk.ResultReturnType.QUERY_RESULT;
             columns = command
               ? []
               : Array.from({ length: result.columnCount }, (_, i) => ({
                   name: result.columnName(i),
                   type: nativeTypeFromSDK(result.columnType(i), sdk),
                 }));
+          } catch (error) {
+            try {
+              result.closeSync();
+            } catch {}
+            throw error;
+          }
           let resultClosed = false;
           return Object.freeze({
             columns,
@@ -413,9 +477,16 @@ export async function createNodeDuckDBDatabase(options: NodeDuckDBOptions = {}):
         if (ownsInstance) instance?.closeSync();
       },
     };
+    const initialEvidence = await base.readServerEvidence!();
     return createDuckDBDatabase({
       connection: adapted,
       ownsConnection,
+      compatibilitySnapshot: options.compatibilitySnapshot ?? {
+        formatVersion: 1,
+        dialect: "duckdb",
+        tables: {},
+        server: initialEvidence,
+      },
       ...(options.typePolicy ? { typePolicy: options.typePolicy } : {}),
       ...(options.observer ? { observer: options.observer } : {}),
       ...(options.preparedCardinalityVariantLimit === undefined

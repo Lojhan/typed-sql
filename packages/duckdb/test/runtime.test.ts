@@ -251,3 +251,35 @@ await it("rejects malformed SDK imports and foreign native handles before dispat
   await strict.rejects(createNodeDuckDBDatabase({ connection: {}, sdkImporter: async () => sdk }), /same SDK module/u);
   await strict.rejects(createNodeDuckDBDatabase({ instance: {}, sdkImporter: async () => sdk }), /same SDK module/u);
 });
+await it("checks leased semantic settings and prepared DML metadata before dispatch", async () => {
+  const instance = await sdk.DuckDBInstance.create(),
+    connection = await instance.connect();
+  const database = await createNodeDuckDBDatabase({ connection, sdkImporter: async () => sdk });
+  const raw = async (text: string) => {
+    const result = await connection.run(text);
+    try {
+      return await result.getRows();
+    } finally {
+      result.closeSync();
+    }
+  };
+  try {
+    await database.one(compiled("SELECT 1 AS value", [], sdk.version().slice(1)));
+    await raw("SET integer_division=true");
+    await strict.rejects(database.one(compiled("SELECT 1 AS value", [], sdk.version().slice(1))), /integer_division/u);
+    await raw("SET integer_division=false");
+    await raw("CREATE TABLE metadata_guard(id BIGINT)");
+    const wrong = withQueryValuePlan(sql`INSERT INTO metadata_guard VALUES(7) RETURNING id`, {
+      dialect: "duckdb",
+      typePolicyHash: calculateTypePolicyHash(typePolicy),
+      parameters: [],
+      columns: [{ name: "id", type: "string", nullable: false, databaseType: "VARCHAR" }],
+    });
+    await strict.rejects(database.all(wrong), /metadata differs/u);
+    strict.deepEqual(await raw("SELECT count(*) FROM metadata_guard"), [[0n]]);
+  } finally {
+    await database.close();
+    connection.closeSync();
+    instance.closeSync();
+  }
+});
