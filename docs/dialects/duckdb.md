@@ -146,7 +146,29 @@ returns. Produce rows independently of operations on the leased connection.
 
 The explicit `/node-api` entrypoint exports `createNodeDuckDBLiveVerifier(options)` and
 `createNodeDuckDBPlanInspector(options)`. Both accept the same connection and ownership options as
-`createNodeDuckDBDatabase`. An existing database exposes `liveVerifier` and `planInspector` services
+`createNodeDuckDBDatabase`. These factories return synchronous, lazy service objects: loading a config
+and reading service metadata do not import the SDK or open a database. The first native method
+initializes the service once; concurrent calls share that initialization. Closing an unused service
+keeps it offline. Closing an active service drains admitted work and releases owned resources.
+
+```ts
+import { defineConfig } from '@typed-sql/core';
+import { duckdb } from '@typed-sql/duckdb';
+import {
+  createNodeDuckDBLiveVerifier,
+  createNodeDuckDBPlanInspector,
+} from '@typed-sql/duckdb/node-api';
+
+export default defineConfig({
+  dialect: duckdb(),
+  schema: { file: 'schema.json' },
+  outDir: 'generated',
+  verification: { live: createNodeDuckDBLiveVerifier({ path: 'app.duckdb' }) },
+  plans: { live: createNodeDuckDBPlanInspector({ path: 'app.duckdb' }) },
+});
+```
+
+An existing database exposes `liveVerifier` and `planInspector` services
 that share its connection lease and compatibility checks. Close a standalone service to release its
 owned resources; close the database to release services obtained from that database.
 

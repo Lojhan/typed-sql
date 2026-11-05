@@ -107,9 +107,151 @@ await it(`native verification and non-executing plans on DuckDB ${version}`, asy
   const ownedVerifier = await createNodeDuckDBLiveVerifier({ sdkImporter: async () => sdk });
   strict.equal((await ownedVerifier.server()).version, `v${version}`);
   await ownedVerifier.close();
-  await strict.rejects(ownedVerifier.server(), /failed/u);
+  await strict.rejects(ownedVerifier.server(), /closed/u);
   const ownedInspector = await createNodeDuckDBPlanInspector({ sdkImporter: async () => sdk });
   strict.equal((await ownedInspector.environment()).version, `v${version}`);
   await ownedInspector.close();
-  await strict.rejects(ownedInspector.environment(), /failed/u);
+  await strict.rejects(ownedInspector.environment(), /closed/u);
+});
+await it(`shares lazy initialization and drains a racing close on native ${version}`, async () => {
+  for (const kind of ["verify", "plan"] as const) {
+    let imports = 0,
+      connectionsClosed = 0,
+      instancesClosed = 0;
+    let started!: () => void, finish!: () => void;
+    const importing = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const trackedSDK = {
+      ...sdk,
+      DuckDBInstance: Object.assign(() => undefined, {
+        async create() {
+          const instance = await sdk.DuckDBInstance.create();
+          const connect = instance.connect.bind(instance),
+            close = instance.closeSync.bind(instance);
+          instance.closeSync = () => {
+            instancesClosed++;
+            close();
+          };
+          Object.defineProperty(instance, "connect", {
+            value: async () => {
+              const connection = await connect(),
+                close = connection.closeSync.bind(connection);
+              connection.closeSync = () => {
+                connectionsClosed++;
+                close();
+              };
+              return connection;
+            },
+          });
+          return instance;
+        },
+      }),
+    };
+    const sdkImporter = async () => {
+      imports++;
+      started();
+      await gate;
+      return trackedSDK;
+    };
+    const service =
+      kind === "verify"
+        ? createNodeDuckDBLiveVerifier({ sdkImporter })
+        : createNodeDuckDBPlanInspector({ sdkImporter });
+    strict.equal(imports, 0);
+    const first = "server" in service ? service.server() : service.environment();
+    const second = "server" in service ? service.server() : service.environment();
+    await importing;
+    strict.equal(imports, 1);
+    const closing = service.close();
+    strict.equal(service.close(), closing);
+    finish();
+    await strict.rejects(first, /closed/u);
+    await strict.rejects(second, /closed/u);
+    await closing;
+    strict.equal(connectionsClosed, 1);
+    strict.equal(instancesClosed, 1);
+    strict.equal(imports, 1);
+    await strict.rejects("server" in service ? service.server() : service.environment(), /closed/u);
+  }
+});
+await it(`drains an initialized service operation before native close on ${version}`, async () => {
+  let connectionsClosed = 0,
+    instancesClosed = 0,
+    importing = 0;
+  let entered!: () => void, resume!: () => void;
+  const active = new Promise<void>((resolve) => {
+      entered = resolve;
+    }),
+    gate = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+  const importer = async () => {
+    importing++;
+    return {
+      ...sdk,
+      DuckDBInstance: Object.assign(() => undefined, {
+        async create() {
+          const instance = await sdk.DuckDBInstance.create(),
+            connect = instance.connect.bind(instance),
+            close = instance.closeSync.bind(instance);
+          instance.closeSync = () => {
+            instancesClosed++;
+            close();
+          };
+          Object.defineProperty(instance, "connect", {
+            value: async () => {
+              const connection = await connect(),
+                run = connection.run.bind(connection),
+                close = connection.closeSync.bind(connection);
+              let reads = 0;
+              Object.defineProperty(connection, "run", {
+                value: async (text: string) => {
+                  if (++reads === 4) {
+                    entered();
+                    await gate;
+                  }
+                  return run(text);
+                },
+              });
+              connection.closeSync = () => {
+                connectionsClosed++;
+                close();
+              };
+              return connection;
+            },
+          });
+          return instance;
+        },
+      }),
+    };
+  };
+  const verifier = createNodeDuckDBLiveVerifier({ sdkImporter: importer });
+  const pending = verifier.verify({ fingerprint, sql: "SELECT 1 AS value", operation: "read" });
+  await active;
+  const closing = verifier.close();
+  strict.equal(connectionsClosed, 0);
+  strict.equal(instancesClosed, 0);
+  resume();
+  strict.equal((await pending).columns[0]?.name, "value");
+  await closing;
+  strict.equal(connectionsClosed, 1);
+  strict.equal(instancesClosed, 1);
+  strict.equal(importing, 1);
+  const inspector = createNodeDuckDBPlanInspector({ sdkImporter: async () => sdk, configuration: { threads: "1" } });
+  const request = {
+    fingerprint,
+    sql: "SELECT $1::BIGINT AS value",
+    operation: "read" as const,
+    parameterCount: 1,
+    values: [42n],
+  };
+  const capture = inspector.capture(request);
+  request.sql = "SELECT missing";
+  request.values[0] = 7n;
+  strict.ok((await capture).nodes.length > 0);
+  await inspector.close();
 });

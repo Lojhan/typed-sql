@@ -1,5 +1,6 @@
 import type * as NativeSDK from "@duckdb/node-api";
 import type { LiveQueryVerifier, QueryPlanInspector } from "@typed-sql/core";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { type DuckDBType, formatDuckDBType } from "./native-types.js";
 import { DuckDBSchemaProvider, type DuckDBSchemaProviderOptions } from "./provider.js";
 import {
@@ -13,6 +14,8 @@ import {
 } from "./runtime.js";
 import { assertDuckDBSemanticEvidence, DUCKDB_SEMANTIC_SETTINGS } from "./settings.js";
 import { duckDBServerEvidence, duckDBVersionSupport } from "./support.js";
+import { defaultDuckDBTypePolicy, validateDuckDBTypePolicy } from "./type-policy.js";
+import { DUCKDB_DIALECT_VERSION } from "./version.js";
 /** An SDK import is untrusted until its required capabilities are checked at runtime. */
 export type DuckDBSDK = unknown;
 type ValidatedDuckDBSDK = Omit<typeof NativeSDK, "default">;
@@ -615,13 +618,83 @@ export function nodeDuckDB(
   };
 }
 
-/** Native prepare/describe only; closes the database resources created by this service. */
-export async function createNodeDuckDBLiveVerifier(options: NodeDuckDBOptions = {}): Promise<LiveQueryVerifier> {
-  const database = await createNodeDuckDBDatabase(options);
-  return Object.freeze({ ...database.liveVerifier, close: () => database.close() });
+/** Config loading creates no SDK promise, connection, or native handle. */
+function lazyDatabase(options: NodeDuckDBOptions) {
+  const policy = validateDuckDBTypePolicy(options.typePolicy ?? defaultDuckDBTypePolicy);
+  const captured: NodeDuckDBOptions = Object.freeze({
+    ...options,
+    typePolicy: policy,
+    ...(options.configuration ? { configuration: Object.freeze({ ...options.configuration }) } : {}),
+  });
+  let closed = false;
+  let initialization: Promise<DuckDBDatabase> | undefined;
+  let closing: Promise<void> | undefined;
+  const pending = new Set<Promise<unknown>>();
+  return {
+    typePolicyHash: calculateTypePolicyHash(policy),
+    use<T>(work: (database: DuckDBDatabase) => Promise<T>): Promise<T> {
+      if (closed) return Promise.reject(new Error("DuckDB service is closed"));
+      initialization ??= Promise.resolve().then(() => {
+        if (closed) throw new Error("DuckDB service is closed");
+        return createNodeDuckDBDatabase(captured);
+      });
+      const operation = (async () => {
+        const database = await initialization;
+        if (closed) throw new Error("DuckDB service is closed");
+        return work(database);
+      })();
+      pending.add(operation);
+      void operation.then(
+        () => pending.delete(operation),
+        () => pending.delete(operation),
+      );
+      return operation;
+    },
+    close(): Promise<void> {
+      if (closing) return closing;
+      closed = true;
+      closing = (async () => {
+        await Promise.allSettled([...pending]);
+        // Database construction already retires partially created resources on failure.
+        const database = await initialization?.catch(() => undefined);
+        if (database) await database.close();
+      })();
+      return closing;
+    },
+  };
 }
-/** Native non-executing structured EXPLAIN with transient application planning samples. */
-export async function createNodeDuckDBPlanInspector(options: NodeDuckDBOptions = {}): Promise<QueryPlanInspector> {
-  const database = await createNodeDuckDBDatabase(options);
-  return Object.freeze({ ...database.planInspector, close: () => database.close() });
+/** Lazy native prepare/describe service, directly usable in typed-sql config. */
+export function createNodeDuckDBLiveVerifier(options: NodeDuckDBOptions = {}): LiveQueryVerifier {
+  const database = lazyDatabase(options);
+  return Object.freeze({
+    dialect: "duckdb",
+    adapterVersion: DUCKDB_DIALECT_VERSION,
+    typePolicyHash: database.typePolicyHash,
+    server: () => database.use((database) => database.liveVerifier.server()),
+    verify(request: Parameters<LiveQueryVerifier["verify"]>[0]) {
+      const owned = { ...request };
+      return database.use((database) => database.liveVerifier.verify(owned));
+    },
+    close: () => database.close(),
+  });
+}
+/** Lazy non-executing structured EXPLAIN service with transient planning samples. */
+export function createNodeDuckDBPlanInspector(options: NodeDuckDBOptions = {}): QueryPlanInspector {
+  const database = lazyDatabase(options);
+  return Object.freeze({
+    dialect: "duckdb",
+    adapterVersion: DUCKDB_DIALECT_VERSION,
+    parameterMode: "samples-required",
+    environment: () => database.use((database) => database.planInspector.environment()),
+    capture(request: Parameters<QueryPlanInspector["capture"]>[0]) {
+      let owned: typeof request;
+      try {
+        owned = { ...request, ...(request.values === undefined ? {} : { values: structuredClone(request.values) }) };
+      } catch {
+        return Promise.reject(new TypeError("DuckDB planning samples must be cloneable application values"));
+      }
+      return database.use((database) => database.planInspector.capture(owned));
+    },
+    close: () => database.close(),
+  });
 }
