@@ -1,8 +1,5 @@
-import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { Worker } from "node:worker_threads";
-import { type ExecutionOptions, runControlledExecution } from "@typed-sql/core";
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { requireSqlServerNativeType } from "./native-types.js";
@@ -10,14 +7,11 @@ import { requireSqlServerKoffi } from "./odbc-native.js";
 import {
   type OdbcBoundValue,
   type OdbcColumn,
-  type OdbcCommand,
   type OdbcReply,
   type OdbcResult,
-  type OdbcWorkerOptions,
   odbcPositiveInteger,
-  odbcState,
-  ODBC_STATE as S,
 } from "./odbc-protocol.js";
+import { SqlServerOdbcTransport } from "./odbc-transport.js";
 import {
   readSqlServerServerEvidence,
   SqlServerSchemaProvider,
@@ -114,145 +108,6 @@ function rows(result: OdbcResult): SqlServerExecutionResult {
     }),
   };
 }
-type CommandBody = OdbcCommand extends infer Command
-  ? Command extends OdbcCommand
-    ? Omit<Command, "id">
-    : never
-  : never;
-class SqlServerOdbcTransport {
-  readonly state;
-  readonly control: Worker;
-  readonly data: Worker;
-  readonly ready: Promise<void>;
-  nextId = 1;
-  busy = false;
-  closed = false;
-  reusable = true;
-  cursor: number | undefined;
-  private readonly acknowledgements = new Map<number, () => void>();
-  private pending: { id: number; resolve(reply: OdbcReply): void; reject(error: unknown): void } | undefined;
-  constructor(readonly options: OdbcWorkerOptions) {
-    this.state = odbcState(options.shared);
-    const sibling = new URL("./odbc-worker.js", import.meta.url),
-      url = existsSync(sibling) ? sibling : new URL("../dist/packages/sqlserver/src/odbc-worker.js", import.meta.url);
-    this.control = new Worker(url, { workerData: { role: "control", options } });
-    this.data = new Worker(url, { workerData: { role: "data", options } });
-    const start = (worker: Worker) =>
-      new Promise<void>((resolve, reject) => {
-        const listener = (message: { ready?: boolean; error?: unknown }) => {
-          if (message.ready === undefined) return;
-          worker.off("message", listener);
-          if (message.ready) resolve();
-          else reject(new Error("SQL Server ODBC worker initialization failed"));
-        };
-        worker.on("message", listener);
-        worker.once("error", () => reject(new Error("SQL Server ODBC worker initialization failed")));
-        worker.once("exit", (code) => {
-          if (code !== 0) reject(new Error("SQL Server ODBC worker exited during initialization"));
-        });
-      });
-    this.ready = Promise.all([start(this.control), start(this.data)]).then(() => {});
-    void this.ready.catch(() => {
-      this.reusable = false;
-      this.control.postMessage({ kind: "close" });
-      this.data.postMessage({ id: 0, kind: "close" });
-      this.control.unref();
-      this.data.unref();
-    });
-    this.data.on("message", (reply: OdbcReply) => {
-      if (!Number.isInteger(reply.id) || reply.id !== this.pending?.id) return;
-      const pending = this.pending;
-      this.pending = undefined;
-      if (reply.error) {
-        if (!reply.error.reusable) this.reusable = false;
-        const error = new Error(reply.error.message);
-        Object.assign(error, {
-          code: "TSQL_ODBC_NATIVE",
-          stage: reply.error.stage,
-          diagnostics: reply.error.diagnostics,
-        });
-        pending.reject(error);
-      } else pending.resolve(reply);
-    });
-    this.control.on("message", (message: { ack?: number; failed?: boolean }) => {
-      if (message.failed) this.reusable = false;
-      if (message.ack !== undefined) {
-        this.acknowledgements.get(message.ack)?.();
-        this.acknowledgements.delete(message.ack);
-      }
-    });
-    const failed = () => {
-      this.reusable = false;
-      Atomics.store(this.state.words, S.controlFailure, 1);
-      Atomics.notify(this.state.words, S.ack);
-      Atomics.notify(this.state.words, S.borrows);
-      this.pending?.reject(new Error("SQL Server ODBC worker failed; connection quarantined"));
-      this.pending = undefined;
-      for (const resolve of this.acknowledgements.values()) resolve();
-      this.acknowledgements.clear();
-    };
-    this.control.on("error", failed);
-    this.data.on("error", failed);
-    this.control.on("exit", () => {
-      if (!this.closed) failed();
-    });
-    this.data.on("exit", () => {
-      if (!this.closed) failed();
-    });
-  }
-  async request(command: CommandBody, controls: ExecutionOptions = {}, cursor?: number): Promise<OdbcReply> {
-    await this.ready;
-    if (this.closed || (!this.reusable && !["close", "freePrepared", "streamClose"].includes(command.kind)))
-      throw new Error("SQL Server direct ODBC connection is closed or quarantined");
-    if (this.busy || (this.cursor !== undefined && this.cursor !== cursor))
-      throw new Error("SQL Server direct ODBC connection is busy");
-    if (this.nextId >= 0x7fffffff)
-      throw new RangeError("SQL Server ODBC request epoch exhausted; recreate the connection");
-    this.busy = true;
-    const id = this.nextId++;
-    try {
-      return await runControlledExecution(
-        controls,
-        () =>
-          new Promise<OdbcReply>((resolve, reject) => {
-            this.pending = { id, resolve, reject };
-            this.data.postMessage({ ...command, id });
-          }),
-        () => {
-          Atomics.store(this.state.words, S.cancel, id);
-          this.control.postMessage({ kind: "cancel", epoch: id });
-        },
-      );
-    } finally {
-      if (
-        Atomics.load(this.state.words, S.cancel) === id &&
-        Atomics.load(this.state.words, S.ack) !== id &&
-        !Atomics.load(this.state.words, S.controlFailure)
-      )
-        await new Promise<void>((resolve) => {
-          this.acknowledgements.set(id, resolve);
-          if (Atomics.load(this.state.words, S.ack) === id) {
-            this.acknowledgements.delete(id);
-            resolve();
-          }
-        });
-      this.busy = false;
-    }
-  }
-  async close(): Promise<void> {
-    if (this.closed) return;
-    if (this.busy || this.cursor !== undefined) throw new Error("Cannot close an active direct ODBC connection");
-    try {
-      await this.request({ kind: "close" });
-    } finally {
-      this.closed = true;
-      this.reusable = false;
-      this.control.postMessage({ kind: "close" });
-      this.control.unref();
-      this.data.unref();
-    }
-  }
-}
 export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promise<SqlServerConnectionLike> {
   for (const [name, value] of Object.entries({
     connectionTimeoutSeconds: options.connectionTimeoutSeconds ?? 15,
@@ -287,6 +142,8 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
   await transport.ready;
   const connection: SqlServerConnectionLike = {
     executionCapabilities: { cancellation: true, deadlines: true },
+    validatePreparedMetadata: true,
+    preparedControls: true,
     async readServerEvidence(controls = {}) {
       return (
         await readSqlServerServerEvidence({
@@ -303,8 +160,8 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
       );
       return rows(result.result!);
     },
-    async prepare(text) {
-      const reply = await transport.request({ kind: "prepare", text }),
+    async prepare(text, controls = {}) {
+      const reply = await transport.request({ kind: "prepare", text }, controls),
         handle = reply.handle!;
       let closed = false,
         running = false;
@@ -343,6 +200,7 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
         ended = false,
         closing: Promise<void> | undefined;
       let queue: readonly Readonly<Record<string, unknown>>[] = [];
+      let queueIndex = 0;
       const input = bindings(values, transport.options.maximumResultBytes);
       active = transport.request({ kind: "streamStart", text, values: input }, { signal: cancellation.signal });
       const opening = active.then((reply) => {
@@ -362,7 +220,7 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
           try {
             await opening;
             if (done) return { done: true, value: undefined };
-            if (!queue.length) {
+            if (queueIndex >= queue.length) {
               if (ended) return { done: true, value: undefined };
               active = transport.request(
                 { kind: "streamNext", handle: handle!, batchSize: streamOptions.batchSize },
@@ -371,10 +229,14 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
               );
               const reply = await active;
               queue = rows(reply.result!).rows;
+              queueIndex = 0;
               if (reply.done) ended = true;
             }
-            const value = queue[0];
-            queue = queue.slice(1);
+            const value = queue[queueIndex++];
+            if (queueIndex >= queue.length) {
+              queue = [];
+              queueIndex = 0;
+            }
             return value === undefined ? { done: true, value: undefined } : { done: false, value };
           } catch (error) {
             if (done) return { done: true, value: undefined };
@@ -388,8 +250,12 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
           if (closing) return closing;
           closing = (async () => {
             done = true;
+            queue = [];
+            queueIndex = 0;
             cancellation.abort("SQL Server stream closed");
             await active?.catch(() => {});
+            queue = [];
+            queueIndex = 0;
             await opening.catch(() => {});
             if (handle !== undefined) {
               try {

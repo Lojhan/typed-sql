@@ -15,6 +15,7 @@ import {
   type SqlServerExecutionResult,
   type SqlServerProtocolStream,
   type SqlServerScope,
+  validateSqlServerResultFields,
 } from "../src/runtime.js";
 import { defaultSqlServerTypePolicy } from "../src/type-policy.js";
 
@@ -659,5 +660,131 @@ await describe("SQL Server exact runtime boundaries and leases", async () => {
     const db = createSqlServerDatabase({ connection, ownsConnection: true });
     await strict.rejects(() => db.close(), /connection close failed/);
     await strict.rejects(() => db.all(id(1n)), /closed/);
+  });
+  await it("validates available physical metadata before any ordinary typed DML can mutate", async () => {
+    let executes = 0,
+      closes = 0;
+    const connection: SqlServerConnectionLike = {
+      validatePreparedMetadata: true,
+      async execute() {
+        throw new Error("typed query bypassed metadata preparation");
+      },
+      async prepare() {
+        return {
+          fields: [{ name: "id", databaseType: "int" }],
+          async execute() {
+            executes++;
+            return { rows: [{ id: "1" }] };
+          },
+          async close() {
+            closes++;
+          },
+        };
+      },
+    };
+    const db = createSqlServerDatabase({ connection });
+    const mutation = withQueryValuePlan(sql<{ id: bigint }>`DELETE FROM dbo.messages OUTPUT deleted.id`, {
+      dialect: "sqlserver",
+      typePolicyHash: hash,
+      columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+      parameters: [],
+    });
+    await strict.rejects(() => db.all(mutation), /native result type/);
+    strict.equal(executes, 0);
+    strict.equal(closes, 1);
+    connection.prepare = async () => ({
+      fields: [{ name: "id", databaseType: "bigint" }],
+      async execute() {
+        executes++;
+        return { rows: [{ id: "1" }] };
+      },
+      async close() {
+        closes++;
+      },
+    });
+    strict.deepEqual(await db.one(mutation), { id: 1n });
+    strict.equal(executes, 1);
+    strict.equal(closes, 2);
+    await db.close();
+  });
+  await it("propagates controls through native preparation and closes an unused cancelled handle", async () => {
+    const controller = new AbortController();
+    let closes = 0,
+      executes = 0;
+    const db = createSqlServerDatabase({
+      connection: {
+        executionCapabilities: { cancellation: true, deadlines: true },
+        validatePreparedMetadata: true,
+        async execute() {
+          throw new Error("raw execution dispatched");
+        },
+        async prepare(_text, controls) {
+          strict.equal(controls?.signal, controller.signal);
+          controller.abort("prepared before execution");
+          return {
+            async execute() {
+              executes++;
+              return { rows: [] };
+            },
+            async close() {
+              closes++;
+            },
+          };
+        },
+      },
+    });
+    await strict.rejects(
+      () => db.all(id(1n), { signal: controller.signal }),
+      (error) => (error as { code?: unknown }).code === "TSQL_CANCELLED",
+    );
+    strict.equal(executes, 0);
+    strict.equal(closes, 1);
+    await db.close();
+  });
+  await it("preserves a metadata error if closing the rejected prepared handle also fails", async () => {
+    const db = createSqlServerDatabase({
+      connection: {
+        validatePreparedMetadata: true,
+        async execute() {
+          return { rows: [] };
+        },
+        async prepare() {
+          return {
+            fields: [],
+            async execute() {
+              return { rows: [] };
+            },
+            async close() {
+              throw new Error("cleanup failed");
+            },
+          };
+        },
+      },
+    });
+    await strict.rejects(() => db.all(id(1n)), /metadata width/);
+    await strict.rejects(() => db.all(id(1n)), /unusable/);
+    await db.close();
+  });
+  await it("qualifies native JSON's actual VARCHAR text wire without renaming its metadata", () => {
+    const plan = {
+      dialect: "sqlserver",
+      typePolicyHash: hash,
+      columns: [{ name: "value", type: "string" as const, nullable: false, databaseType: "json" }],
+      parameters: [],
+    };
+    const fields = [
+      {
+        name: "value",
+        databaseType: "varchar(max)",
+        length: "max" as const,
+        wireType: "odbc-varchar-unlimited-text" as const,
+      },
+    ];
+    strict.throws(() => validateSqlServerResultFields(plan, fields), /native result type/);
+    strict.doesNotThrow(() => validateSqlServerResultFields(plan, fields, true));
+    strict.throws(
+      () => validateSqlServerResultFields(plan, [{ name: "value", databaseType: "varchar(max)" }], true),
+      /native result type/,
+    );
   });
 });

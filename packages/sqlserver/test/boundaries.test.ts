@@ -107,7 +107,7 @@ await describe("SQL Server public policy and evidence boundaries", async () => {
       ["character varying(8)", "varchar(8)"],
       ["double precision", "float(53)"],
       ["decimal", "decimal(18,0)"],
-      ["float(24)", "float(24)"],
+      ["float(24)", "real"],
       ["time(0)", "time(0)"],
       ["varchar(8) COLLATE Latin1_General_100_CI_AS_SC_UTF8", "varchar(8) COLLATE Latin1_General_100_CI_AS_SC_UTF8"],
     ])

@@ -84,7 +84,9 @@ export function parseSqlServerNativeType(source: string): SqlServerNativeType | 
   if (name === "float") {
     const precision = integer ?? 53;
     if (first === "max" || second !== undefined || precision < 1 || precision > 53) return undefined;
-    return Object.freeze({ name, text: `float(${precision})`, precision });
+    return precision <= 24
+      ? Object.freeze({ name: "real", text: "real" })
+      : Object.freeze({ name, text: "float(53)", precision: 53 });
   }
   return undefined;
 }

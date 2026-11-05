@@ -300,6 +300,7 @@ export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: 
   let reusable = true;
   const connection: SqlServerConnectionLike = Object.freeze({
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
+    preparedControls: false,
     async readServerEvidence(controls: ExecutionOptions = {}) {
       const evidence = await readSqlServerServerEvidence({
         async all<Row extends Record<string, unknown>>(text: string): Promise<readonly Row[]> {

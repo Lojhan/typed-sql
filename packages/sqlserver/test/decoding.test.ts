@@ -185,4 +185,32 @@ await describe("SQL Server lossless native codecs", async () => {
     strict.equal(decodeSqlServerNativeValue(null, descriptor("date", true), policy), null);
     strict.equal(decodeSqlServerNativeValue("text", descriptor("nvarchar(4)"), policy), "text");
   });
+  await it("normalizes counted ODBC temporal strings without passing 100ns fractions through Date", () => {
+    for (const [value, type, expected] of [
+      ["0001-01-01 00:00:00.0000001", "datetime2(7)", "0001-01-01T00:00:00.0000001"],
+      ["0099-12-31 00:00:00.1234567 +05:45", "datetimeoffset(7)", "0099-12-30T18:15:00.1234567Z"],
+      ["1969-12-31 23:00:00.0000001 -03:30", "datetimeoffset(7)", "1970-01-01T02:30:00.0000001Z"],
+      ["9999-12-31 23:59:59.997", "datetime", "9999-12-31T23:59:59.997"],
+      ["2079-06-06 23:59:00", "smalldatetime", "2079-06-06T23:59:00"],
+      ["03:04:05.1234567", "time(7)", "03:04:05.1234567"],
+    ] as const)
+      strict.equal(decodeSqlServerNativeValue(value, descriptor(type), policy), expected);
+    const datePolicy = { ...policy, temporal: "Date" as const };
+    strict.deepEqual(
+      decodeSqlServerNativeValue("03:04:05.1234567", descriptor("time(7)"), datePolicy),
+      new Date("1970-01-01T03:04:05.123Z"),
+    );
+    strict.deepEqual(
+      decodeSqlServerNativeValue("0099-12-31 00:00:00.1234567", descriptor("datetime2(7)"), datePolicy),
+      new Date("0099-12-31T00:00:00.123Z"),
+    );
+    strict.equal(decodeSqlServerNativeValue("1", descriptor("bit"), policy), true);
+    strict.equal(decodeSqlServerNativeValue("0", descriptor("bit"), policy), false);
+    strict.throws(() => decodeSqlServerNativeValue("true", descriptor("bit"), policy), /zero or one/);
+    strict.equal(
+      decodeSqlServerNativeValue('{"n":9007199254740993}', descriptor("json"), policy),
+      '{"n":9007199254740993}',
+    );
+    strict.throws(() => decodeSqlServerNativeValue("bad JSON", descriptor("json"), policy), /invalid JSON/);
+  });
 });
