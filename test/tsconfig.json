@@ -8,6 +8,7 @@
     "../packages/*/test/**/*.test.ts",
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",
+    "../packages/*/test/environment.ts",
     "contracts/**/*.test.ts",
     "fuzz/**/*.ts",
     "grammar/**/*.ts",
