@@ -56,6 +56,7 @@ function setup() {
     q.emit("done");
     if (!q.prepared) q.emit("free");
   };
+  let beforeEvidence: (query: NativeQuery, text: string) => boolean = () => false;
   let close = 0,
     free = 0;
   const bindings: unknown[][] = [];
@@ -73,6 +74,7 @@ function setup() {
             ? { "Set Option": "dateformat", Value: "mdy" }
             : undefined;
       if (evidenceRow) {
+        if (beforeEvidence(q, text!)) return;
         q.emit(
           "meta",
           Object.keys(evidenceRow).map((name) => ({ name })),
@@ -137,6 +139,9 @@ function setup() {
     configured,
     set script(next: typeof script) {
       script = next;
+    },
+    set beforeEvidence(next: typeof beforeEvidence) {
+      beforeEvidence = next;
     },
     get closes() {
       return close;
@@ -587,6 +592,151 @@ await describe("SQL Server explicit ODBC adapter", async () => {
     strict.equal(state.requested.filter((text) => text.startsWith("SELECT (CONVERT")).length, typedCount);
     await db.queryable.all("SET SHOWPLAN_XML OFF");
     state.environment.compatibility_level = 170;
+    await db.one(query);
+    await db.close();
+  });
+  await it("does not dispatch even private evidence reads for pre-aborted or expired typed operations", async () => {
+    const state = setup(),
+      db = await createSqlServerOdbcDatabase({
+        connection: state.native,
+        driverImporter: async () => state.driver,
+        driverVersion: "6.2.2",
+      });
+    const query = withQueryValuePlan(sql<{ id: bigint }>`SELECT ${1n} AS id`, {
+      dialect: "sqlserver",
+      typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+      columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+      parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "bigint" }],
+    });
+    const controller = new AbortController();
+    controller.abort("already closed");
+    const before = state.requested.length;
+    for (const operation of [
+      () => db.all(query, { signal: controller.signal }),
+      () => db.one(query, { signal: controller.signal }),
+      () => db.all(query, { deadline: Date.now() - 1 }),
+      () => db.one(query, { deadline: new Date(Date.now() - 1) }),
+    ])
+      await strict.rejects(operation, (error) => (error as { code?: unknown }).code === "TSQL_CANCELLED");
+    strict.equal(state.requested.length, before);
+    strict.equal(state.queries.length, before);
+    await db.one(query);
+    await db.close();
+  });
+  await it("propagates cancellation into either native evidence read and retains the lease through cleanup", async () => {
+    for (const stage of [sqlServerCatalogQueries.server, sqlServerCatalogQueries.options]) {
+      for (const broken of [false, true]) {
+        const state = setup(),
+          db = await createSqlServerOdbcDatabase({
+            connection: state.native,
+            driverImporter: async () => state.driver,
+            driverVersion: "6.2.2",
+          });
+        const query = withQueryValuePlan(sql<{ id: bigint }>`SELECT ${1n} AS id`, {
+          dialect: "sqlserver",
+          typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+          columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+          parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "bigint" }],
+        });
+        let blocked: NativeQuery | undefined;
+        state.beforeEvidence = (q, text) => {
+          if (text !== stage) return false;
+          blocked = q;
+          if (broken) {
+            const cancel = q.cancelQuery.bind(q);
+            q.cancelQuery = (callback) => cancel(() => callback?.(new Error("cancel acknowledgement failed")));
+          }
+          return true;
+        };
+        const before = state.requested.length,
+          controller = new AbortController(),
+          pending = db.all(query, { signal: controller.signal });
+        while (!blocked) await Promise.resolve();
+        await strict.rejects(() => db.all(query), /leased/);
+        controller.abort("evidence caller closed");
+        await strict.rejects(
+          pending,
+          (error) =>
+            (error as { code?: unknown }).code === "TSQL_CANCELLED" &&
+            (error as Error).cause === "evidence caller closed",
+        );
+        strict.equal(blocked.cancelled, 1);
+        strict.equal(
+          state.requested
+            .slice(before)
+            .every((text) => text === sqlServerCatalogQueries.server || text === sqlServerCatalogQueries.options),
+          true,
+        );
+        strict.equal(blocked.listenerCount("free"), 0);
+        state.beforeEvidence = () => false;
+        if (broken) await strict.rejects(() => db.one(query), /quarantined/);
+        else strict.equal((await db.one(query)).id, 9223372036854775807n);
+        await db.close();
+      }
+    }
+  });
+  await it("propagates an absolute deadline into a pending native evidence request", async () => {
+    const state = setup(),
+      db = await createSqlServerOdbcDatabase({
+        connection: state.native,
+        driverImporter: async () => state.driver,
+        driverVersion: "6.2.2",
+      });
+    const query = withQueryValuePlan(sql<{ id: bigint }>`SELECT ${1n} AS id`, {
+      dialect: "sqlserver",
+      typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+      columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+      parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "bigint" }],
+    });
+    let blocked: NativeQuery | undefined;
+    state.beforeEvidence = (q) => {
+      blocked = q;
+      return true;
+    };
+    await strict.rejects(
+      () => db.one(query, { deadline: Date.now() + 200 }),
+      (error) => (error as { reason?: unknown }).reason === "deadline",
+    );
+    strict.equal(blocked?.cancelled, 1);
+    state.beforeEvidence = () => false;
+    await db.one(query);
+    await db.close();
+  });
+  await it("cancels private stream attestation and retains its lease until native terminal cleanup", async () => {
+    const state = setup(),
+      db = await createSqlServerOdbcDatabase({
+        connection: state.native,
+        driverImporter: async () => state.driver,
+        driverVersion: "6.2.2",
+      });
+    const query = withQueryValuePlan(sql<{ id: bigint }>`SELECT ${1n} AS id`, {
+      dialect: "sqlserver",
+      typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+      columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+      parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "bigint" }],
+    });
+    let blocked: NativeQuery | undefined;
+    state.beforeEvidence = (q) => {
+      blocked = q;
+      q.cancelQuery = (callback) => {
+        q.cancelled++;
+        callback?.();
+      };
+      return true;
+    };
+    const stream = db.stream(query),
+      pending = stream.next();
+    while (!blocked) await Promise.resolve();
+    const closing = stream.close();
+    strict.equal(blocked.cancelled, 1);
+    await strict.rejects(() => db.one(query), /leased/);
+    await strict.rejects(() => db.close(), /active request/);
+    blocked.emit("error", new Error("cancelled"));
+    blocked.emit("done");
+    blocked.emit("free");
+    await closing;
+    strict.deepEqual(await pending, { done: true, value: undefined });
+    state.beforeEvidence = () => false;
     await db.one(query);
     await db.close();
   });

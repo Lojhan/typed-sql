@@ -11,11 +11,13 @@ import {
   type ExecutionCapabilities,
   type ExecutionOptions,
   encodeQueryValues,
+  executionDeadline,
   getQueryValuePlan,
   observeQueryStream,
   type PreparedQueryRenderCache,
   type Query,
   type QueryBatch,
+  QueryCancelledError,
   QueryCardinalityError,
   type QueryResults,
   type QueryStream,
@@ -61,8 +63,8 @@ export interface SqlServerProtocolStream extends AsyncIterableIterator<Readonly<
   close(): Promise<void>;
 }
 export interface SqlServerConnectionLike {
-  /** Read actual session facts using the unlocked native protocol; called while the runtime owns its lease. */
-  readServerEvidence?(): Promise<DialectServerEvidence>;
+  /** Read actual facts using the unlocked native protocol under the runtime lease; honor the supplied cancellation/deadline controls. */
+  readServerEvidence?(options?: ExecutionOptions): Promise<DialectServerEvidence>;
   execute(sql: string, values?: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   prepare?(sql: string): Promise<SqlServerNativePrepared>;
   /** Reject native transport limitations before a query with possible side effects is dispatched. */
@@ -186,9 +188,16 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       ].map((key) => evidence.settings[key]),
     ]);
   const expectedEvidence = evidenceIdentity(serverEvidence);
-  const validateSession = async () => {
+  const assertControlsActive = (controls: ExecutionOptions) => {
+    const deadline = executionDeadline(controls);
+    if (controls.signal?.aborted) throw new QueryCancelledError("signal", { cause: controls.signal.reason });
+    if (deadline !== undefined && deadline <= Date.now()) throw new QueryCancelledError("deadline");
+  };
+  const validateSession = async (controls: ExecutionOptions = {}) => {
+    assertControlsActive(controls);
     if (!connection.readServerEvidence) return;
-    const actual = await connection.readServerEvidence();
+    const actual = await connection.readServerEvidence(controls);
+    assertControlsActive(controls);
     assertSqlServerRuntimeEvidence(actual);
     if (evidenceIdentity(actual) !== expectedEvidence)
       throw new TypeError(
@@ -352,6 +361,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     controls: ExecutionOptions = {},
   ): Promise<SqlServerExecutionResult> {
     assertExecutionCapabilities(executionCapabilities, controls);
+    assertControlsActive(controls);
     if (!statement.preparedName || connection.supportsPreparedPlan?.(statement.plan) === false)
       return connection.execute(statement.text, statement.values, controls);
     if (!connection.prepare)
@@ -368,18 +378,24 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       prepared = { name: statement.preparedName, handle: await connection.prepare(statement.text) };
       nativePrepared.set(key, prepared);
     }
+    assertControlsActive(controls);
     return prepared.handle.execute(statement.values, controls);
   }
-  async function leased<T>(lease: object | undefined, operation: () => Promise<T>, typed = false): Promise<T> {
+  async function leased<T>(
+    lease: object | undefined,
+    operation: () => Promise<T>,
+    typed = false,
+    controls: ExecutionOptions = {},
+  ): Promise<T> {
     ensureOpen(lease);
     if (lease) {
-      if (typed) await validateSession();
+      if (typed) await validateSession(controls);
       return operation();
     }
     const token = {};
     leases.set(connection, token);
     try {
-      if (typed) await validateSession();
+      if (typed) await validateSession(controls);
       return await operation();
     } finally {
       leases.delete(connection);
@@ -425,6 +441,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
               `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
             ),
           true,
+          controls,
         );
       const rows = await (observation ? observation.run(operation) : operation());
       if (cardinality === "one" && rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
@@ -727,13 +744,17 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     let lease: object | undefined;
     let done = false;
     let opening: Promise<void> | undefined;
+    let attesting: Promise<void> | undefined;
+    const attestationControls = new AbortController();
     let finishing: Promise<void> | undefined;
     let queued = Promise.resolve();
     const release = (): Promise<void> => {
       if (finishing) return finishing;
       done = true;
+      attestationControls.abort("SQL Server stream closed during session attestation");
       finishing = (async () => {
         try {
+          await attesting?.catch(() => {});
           await source?.close();
           if (source?.connectionReusable === false) broken.add(connection);
         } catch (error) {
@@ -757,14 +778,16 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         if (!parentLease) leases.set(connection, lease);
         hooks?.opened();
         try {
-          await validateSession();
+          attesting = validateSession({ signal: attestationControls.signal });
+          await attesting;
           if (done) return;
           source = connection.stream(statement.text, statement.values, { batchSize });
           const fields = await source.fields;
           if (!done) validateFields(statement.plan, fields);
         } catch (error) {
+          const intentionalClose = done;
           await release();
-          throw error;
+          if (!intentionalClose) throw error;
         }
       })();
       return opening;

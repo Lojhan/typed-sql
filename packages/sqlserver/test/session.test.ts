@@ -18,6 +18,7 @@ function fixture() {
     streams = 0;
   const calls: string[] = [];
   const connection: SqlServerConnectionLike = {
+    executionCapabilities: { cancellation: true, deadlines: true },
     async readServerEvidence() {
       reads++;
       return current;
@@ -148,8 +149,10 @@ await describe("SQL Server lease-local native session attestation", async () => 
     const stream = state.database.stream(query),
       pending = stream.next();
     while (!resolve) await Promise.resolve();
-    await stream.close();
+    const closing = stream.close();
+    await strict.rejects(() => state.database.all(query), /leased/);
     resolve(serverEvidence);
+    await closing;
     strict.deepEqual(await pending, { done: true, value: undefined });
     strict.equal(state.streams, 0);
     await state.database.close();
@@ -173,5 +176,26 @@ await describe("SQL Server lease-local native session attestation", async () => 
     const injected = createSqlServerDatabase({ connection, serverEvidence });
     strict.deepEqual(await injected.one(query), { id: 1n });
     await injected.close();
+  });
+  await it("passes controls to an injected evidence hook and rechecks cancellation after it returns", async () => {
+    const state = fixture(),
+      controller = new AbortController();
+    const deadline = Date.now() + 10000;
+    state.connection.readServerEvidence = async (options) => {
+      strict.equal(options?.signal, controller.signal);
+      strict.equal(options?.deadline, deadline);
+      controller.abort("cancelled between attestation and dispatch");
+      return serverEvidence;
+    };
+    await strict.rejects(
+      () => state.database.one(query, { signal: controller.signal, deadline }),
+      (error) =>
+        (error as { code?: unknown }).code === "TSQL_CANCELLED" &&
+        (error as Error).cause === "cancelled between attestation and dispatch",
+    );
+    strict.equal(state.calls.length, 0);
+    state.connection.readServerEvidence = async () => serverEvidence;
+    strict.deepEqual(await state.database.one(query), { id: 1n });
+    await state.database.close();
   });
 });

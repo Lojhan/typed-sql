@@ -86,7 +86,9 @@ lease. Changed database, compatibility level, collation, default schema or criti
 reject the request before its SQL executes. Recreate the wrapper after intentional changes. The
 raw catalog/setup queryable bypasses this typed check so session repair and metadata tools can
 operate without recursive lease acquisition. Application-supplied neutral connections can provide
-`readServerEvidence()` for the same checks, or attest their own session through `serverEvidence`.
+`readServerEvidence(controls)` for the same checks, or attest their own session through `serverEvidence`.
+Cancellation and deadlines cover the native evidence reads as well as application execution.
+Pre-aborted and expired requests issue neither private evidence SQL nor application SQL.
 Owned sessions establish `QUOTED_IDENTIFIER`, `ANSI_WARNINGS`, `ARITHABORT` and
 `CONCAT_NULL_YIELDS_NULL` as enabled, with `us_english`, `DATEFORMAT mdy` and `DATEFIRST 7`.
 Injected connections are validated without changing SQL session semantics unless

@@ -300,10 +300,10 @@ export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: 
   let reusable = true;
   const connection: SqlServerConnectionLike = Object.freeze({
     executionCapabilities: Object.freeze({ cancellation: true, deadlines: true }),
-    async readServerEvidence() {
+    async readServerEvidence(controls: ExecutionOptions = {}) {
       const evidence = await readSqlServerServerEvidence({
         async all<Row extends Record<string, unknown>>(text: string): Promise<readonly Row[]> {
-          return (await connection.execute(text)).rows as readonly Row[];
+          return (await connection.execute(text, [], controls)).rows as readonly Row[];
         },
       });
       return evidence.server;
