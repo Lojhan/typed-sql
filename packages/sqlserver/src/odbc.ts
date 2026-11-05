@@ -69,14 +69,39 @@ export interface SqlServerOdbcDriver {
 export interface SqlServerOdbcOptions
   extends Omit<SqlServerDatabaseOptions, "connection" | "ownsConnection" | "serverEvidence"> {
   readonly connectionString?: string | (() => string | Promise<string>);
-  readonly connection?: SqlServerOdbcConnection;
+  readonly connection?: unknown;
   readonly ownsConnection?: boolean;
   readonly connectionTimeoutSeconds?: number;
   /** Explicit native loading seam; applications normally install msnodesqlv8 and omit this. */
-  readonly driverImporter?: () => Promise<SqlServerOdbcDriver>;
+  readonly driverImporter?: () => Promise<unknown>;
   readonly driverVersion?: string;
   /** Owned sessions are configured by default; injected sessions are only validated unless explicitly enabled. */
   readonly configureSession?: boolean;
+}
+function nativeRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+function requireDriver(value: unknown): SqlServerOdbcDriver {
+  if (
+    !nativeRecord(value) ||
+    !nativeRecord(value.promises) ||
+    typeof value.promises.open !== "function" ||
+    ["NVarChar", "VarBinary", "Double", "Bit"].some((key) => typeof value[key] !== "function")
+  )
+    throw new TypeError("Invalid application-owned msnodesqlv8 driver protocol");
+  return value as unknown as SqlServerOdbcDriver;
+}
+function requireConnection(value: unknown): SqlServerOdbcConnection {
+  if (
+    !nativeRecord(value) ||
+    !nativeRecord(value.promises) ||
+    typeof value.promises.close !== "function" ||
+    ["queryRaw", "prepare", "setUseUTC", "setUseNumericString", "setMaxPreparedColumnSize"].some(
+      (key) => typeof value[key] !== "function",
+    )
+  )
+    throw new TypeError("Invalid application-owned msnodesqlv8 connection protocol");
+  return value as unknown as SqlServerOdbcConnection;
 }
 interface NativeRequest {
   readonly query: SqlServerOdbcQuery;
@@ -237,10 +262,9 @@ const adapted = new WeakMap<
   SqlServerOdbcConnection,
   { driver: SqlServerOdbcDriver; connection: SqlServerConnectionLike }
 >();
-export function adaptSqlServerOdbcConnection(
-  driver: SqlServerOdbcDriver,
-  native: SqlServerOdbcConnection,
-): SqlServerConnectionLike {
+export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: unknown): SqlServerConnectionLike {
+  const driver = requireDriver(driverValue),
+    native = requireConnection(nativeValue);
   const cached = adapted.get(native);
   if (cached) {
     if (cached.driver !== driver)
@@ -391,15 +415,13 @@ export function adaptSqlServerOdbcConnection(
   adapted.set(native, { driver, connection });
   return connection;
 }
-export async function loadSqlServerOdbcDriver(
-  importer?: () => Promise<SqlServerOdbcDriver>,
-): Promise<SqlServerOdbcDriver> {
-  if (importer) return importer();
+export async function loadSqlServerOdbcDriver(importer?: () => Promise<unknown>): Promise<SqlServerOdbcDriver> {
+  if (importer) return requireDriver(await importer());
   try {
     const applicationRequire = createRequire(resolve(process.cwd(), "package.json"));
     const moduleUrl = pathToFileURL(applicationRequire.resolve("msnodesqlv8")).href;
     const loaded = (await import(moduleUrl)) as { default?: SqlServerOdbcDriver } & Partial<SqlServerOdbcDriver>;
-    return (loaded.default ?? loaded) as SqlServerOdbcDriver;
+    return requireDriver(loaded.default ?? loaded);
   } catch (error) {
     throw new Error(
       "@typed-sql/sqlserver/odbc requires the application-owned msnodesqlv8 driver and Microsoft ODBC Driver18; install them explicitly",
@@ -420,16 +442,18 @@ export async function createSqlServerOdbcDatabase(options: SqlServerOdbcOptions)
       : undefined);
   if (!version || (!/^6\.(?:[3-9]|[1-9]\d)\.\d+$/u.test(version) && !/^6\.2\.(?:[2-9]|[1-9]\d)$/u.test(version)))
     throw new TypeError("Exact SQL Server ODBC transport requires qualified msnodesqlv8 >=6.2.2 <7");
-  const owns = options.connection ? options.ownsConnection === true : true;
-  let native = options.connection;
+  const owns = options.connection !== undefined ? options.ownsConnection === true : true;
+  let native = options.connection === undefined ? undefined : requireConnection(options.connection);
   if (!native) {
     const connectionString =
       typeof options.connectionString === "function" ? await options.connectionString() : options.connectionString;
     if (!connectionString) throw new TypeError("SQL Server ODBC requires an injected connection or connectionString");
-    native = await driver.promises.open({
-      conn_str: connectionString,
-      ...(options.connectionTimeoutSeconds === undefined ? {} : { conn_timeout: options.connectionTimeoutSeconds }),
-    });
+    native = requireConnection(
+      await driver.promises.open({
+        conn_str: connectionString,
+        ...(options.connectionTimeoutSeconds === undefined ? {} : { conn_timeout: options.connectionTimeoutSeconds }),
+      }),
+    );
   }
   try {
     const maximum = options.maximumPreparedValueBytes ?? 1024 * 1024;
