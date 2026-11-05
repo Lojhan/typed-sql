@@ -149,7 +149,7 @@ application problem.
   </a>
 </PathCards>
 
-## PostgreSQL, MySQL, and SQLite
+## Choose your SQL grammar
 
 Each stable grammar owns its language semantics, built-ins, coercions, nullability rules, version
 gates, and diagnostics. A supported range is distinct from the exact versions exercised by the
@@ -173,6 +173,18 @@ repository.
     <h3>SQLite</h3>
     <p>SQLite 3.39.0–3.54.1 grammar and PRAGMA catalog provider, with an optional <code>node:sqlite</code> adapter.</p>
     <a href="./dialects/sqlite">SQLite support <span aria-hidden="true">→</span></a>
+  </article>
+  <article class="ts-dialect-card">
+    <StatusBadge status="stable" />
+    <h3>SQL Server</h3>
+    <p>T-SQL grammar, native catalog evidence and an optional counted ODBC adapter for Linux x64.</p>
+    <a href="./dialects/sqlserver">SQL Server support <span aria-hidden="true">→</span></a>
+  </article>
+  <article class="ts-dialect-card">
+    <StatusBadge status="stable" />
+    <h3>DuckDB</h3>
+    <p>Versioned analytical SQL, nested native types and an optional adapter for an application-owned Node SDK.</p>
+    <a href="./dialects/duckdb">DuckDB support <span aria-hidden="true">→</span></a>
   </article>
 </DialectCards>
 
@@ -218,7 +230,7 @@ composable control rather than a prerequisite for the first query.
 <template #stable-title>Compiler and database path</template>
 <template #stable-description>
 
-Core contracts, schema/configuration, compiler, CLI, PostgreSQL, MySQL, SQLite, conformance, and
+Core contracts, schema/configuration, compiler, CLI, PostgreSQL, MySQL, SQLite, SQL Server, DuckDB, conformance, and
 OpenTelemetry integration follow the stable package contract.
 
 </template>
@@ -243,7 +255,7 @@ complete maintained application.
 
 <PathCards label="Start using typed-sql">
   <a class="ts-path-card ts-path-card--primary" href="./getting-started/">
-    <strong>Choose PostgreSQL, MySQL, or SQLite</strong>
+    <strong>Choose your database grammar</strong>
     <span>Install the grammar and your driver, generate a snapshot, and check the first query.</span>
   </a>
   <a class="ts-path-card" href="./examples/">

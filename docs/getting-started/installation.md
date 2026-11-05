@@ -118,6 +118,33 @@ versions, so there is no npm driver dependency.
 
 [Continue with the SQLite quickstart](./sqlite.md).
 
+## SQL Server
+
+```sh
+pnpm add @typed-sql/core @typed-sql/sqlserver koffi
+pnpm add -D @typed-sql/cli typescript @types/node
+```
+
+Application code imports `sql` from `@typed-sql/sqlserver`. The explicit
+`@typed-sql/sqlserver/odbc` adapter requires an application-owned Koffi installation,
+unixODBC and Microsoft ODBC Driver 18 on Linux x64. See the
+[exact compatibility matrix](../dialects/sqlserver.md#compatibility).
+
+[Continue with the SQL Server quickstart](./sqlserver.md).
+
+## DuckDB
+
+```sh
+pnpm add @typed-sql/core @typed-sql/duckdb @duckdb/node-api
+pnpm add -D @typed-sql/cli typescript @types/node
+```
+
+Application code imports `sql` from `@typed-sql/duckdb`. The explicit
+`@typed-sql/duckdb/node-api` adapter loads the application's SDK. Engine and SDK versions
+are paired in the [compatibility matrix](../dialects/duckdb.md#engine-and-driver-compatibility).
+
+[Continue with the DuckDB quickstart](./duckdb.md).
+
 ## Optional packages
 
 Add these only when their capability is used:
