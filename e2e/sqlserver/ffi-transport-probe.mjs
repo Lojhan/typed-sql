@@ -336,6 +336,10 @@ try {
     const version = query(connection, "SELECT CONVERT(nvarchar(128),SERVERPROPERTY('ProductVersion')) AS version");
     assert.equal(Number(version.rows[0][0].split(".")[0]), evidence.major);
     evidence.serverVersion = version.rows[0][0];
+    evidence.bindingNotices = query(
+      connection,
+      "SELECT message_id,text FROM sys.messages WHERE language_id=1033 AND message_id IN(15512,15513) ORDER BY message_id",
+    ).rows;
     function probe(name, sql, values, expected, payloadBytes = 4096, expectedMetadata) {
       current = name;
       const result = query(connection, sql, values, payloadBytes);

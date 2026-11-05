@@ -178,6 +178,10 @@ try {
           "LOWER(document)",
           "REPLACE(document,N's',N'x')",
           "REPLICATE(document,2)",
+          "LEN(document)",
+          "DATALENGTH(document)",
+          "CHARINDEX(N's',document)",
+          "PATINDEX(N'%s%',document)",
         ].map((expression) => ({
           id: `native-string:${expression}`,
           sql: `SELECT ${expression} AS value FROM dbo.widgets`,
@@ -351,6 +355,49 @@ try {
       // Keep qualifying the runtime after a metadata disagreement, then fail the
       // overall gate. A failing oracle must never hide later transport evidence.
       await check(`${level}: vendor corpus native result metadata`, qualifyCorpus, { continueOnFailure: true });
+      await check(`${level}: native builtin NULL contracts and dynamic dimension evidence`, async () => {
+        for (const expression of [
+          "CHAR(999)",
+          "NCHAR(-1)",
+          "SPACE(-1)",
+          "STUFF(code,0,1,N'x')",
+          "QUOTENAME(REPLICATE(N'x',129))",
+          "FORMAT(1,N'Q')",
+          "STR(quantity,0)",
+          "CONCAT_WS(CAST(NULL AS nvarchar(1)),code,N'x')",
+        ]) {
+          const source = `SELECT ${expression} AS value FROM dbo.widgets`;
+          const analysis = grammar.analyze(source, schema);
+          const raw = await db.queryable.all(source);
+          evidence.cases.push({ name: `${level}: native NULL ${expression}`, status: "evidence", raw, analysis });
+          if (raw[0]?.value === null && !analysis.diagnostics.some((item) => item.severity === "error"))
+            assert.equal(analysis.columns[0]?.nullable, true, `${expression} returns SQL NULL for nonnullable inputs`);
+        }
+        const cases = [];
+        for (const expression of [
+          "LEFT(code,@__typed_sql_1)",
+          "RIGHT(code,@__typed_sql_1)",
+          "SUBSTRING(code,@__typed_sql_1,@__typed_sql_2)",
+          "REPLICATE(code,@__typed_sql_1)",
+          "SPACE(@__typed_sql_1)",
+          "STR(quantity,@__typed_sql_1,@__typed_sql_2)",
+          "LEFT(document,2)",
+          "RIGHT(document,2)",
+          "SUBSTRING(document,1,2)",
+          "LOWER(CAST(code AS char(12)))",
+          "LOWER(CAST(code AS varchar(12)))",
+          "REPLICATE(CAST(code AS char(12)),2)",
+          "REPLICATE(CAST(code AS varchar(12)),2)",
+        ]) {
+          const source = `SELECT ${expression} AS value FROM dbo.widgets`;
+          const metadata = await db.queryable.all(
+            "SELECT name,system_type_name,is_nullable,error_number,error_message FROM sys.dm_exec_describe_first_result_set(?,?,0) ORDER BY column_ordinal",
+            [source, "@__typed_sql_1 int,@__typed_sql_2 int"],
+          );
+          cases.push({ expression, metadata, analysis: grammar.analyze(source, schema) });
+        }
+        evidence.cases.push({ name: `${level}: native dynamic string dimensions`, status: "evidence", cases });
+      });
       const row = {
         id: 9223372036854775807n,
         amount: "1234567890123456789012345678.1234567890",
