@@ -8,6 +8,7 @@ const reserved = new Set([
   "left",
   "right",
   "select",
+  "system",
   "from",
   "where",
   "order",

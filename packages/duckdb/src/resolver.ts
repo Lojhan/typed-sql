@@ -153,6 +153,7 @@ export class DuckDBResolver {
   readonly parameters = new Map<number, { value: Value; range: SourceRange }>();
   readonly dependencies: QueryDependency[] = [];
   private calls = 0;
+  private functionIndex: Map<string, { path: string[]; macro: boolean }[]> | undefined;
   private effect: "read" | "write" | "ddl" | "unknown" = "read";
   private volatile = false;
   private unknownVolatility = false;
@@ -736,11 +737,92 @@ export class DuckDBResolver {
       nullable: collection.nullable,
     };
   }
+  functionNamespaces(expr: Expression): readonly string[] | null | undefined {
+    const names = expr.names ?? [],
+      name = duckDBAsciiFold(names.at(-1) ?? "");
+    const catalog = String(this.snapshot.server?.settings.currentCatalog ?? ""),
+      schema = String(this.snapshot.server?.settings.currentSchema ?? "main");
+    const explicit = names.length > 1;
+    const paths: string[][] = [];
+    if (names.length === 3) paths.push([names[0]!, names[1]!]);
+    else if (names.length === 2) paths.push([catalog, names[0]!], ["temp", names[0]!], ["system", names[0]!]);
+    else if (names.length === 1) {
+      paths.push(["temp", "main"]);
+      let path: string[] = [];
+      for (const token of tokenize(String(this.snapshot.server?.settings.search_path ?? ""))) {
+        if (token.text === ",") {
+          if (path.length) paths.push(path.length === 1 ? [catalog, path[0]!] : path);
+          path = [];
+        } else if (token.kind === "word" || token.kind === "quoted") path.push(token.value);
+      }
+      if (path.length) paths.push(path.length === 1 ? [catalog, path[0]!] : path);
+      paths.push([catalog, schema], [catalog, "main"], ["system", "main"]);
+    }
+    const sameNamespace = (left: readonly string[], right: readonly string[]) =>
+      left.length === 2 &&
+      right.length === 2 &&
+      duckDBAsciiFold(left[0]!) === duckDBAsciiFold(right[0]!) &&
+      duckDBAsciiFold(left[1]!) === duckDBAsciiFold(right[1]!);
+    if (!this.functionIndex) {
+      const index = new Map<string, { path: string[]; macro: boolean }[]>();
+      const add = (name: string, entry: { path: string[]; macro: boolean }) => {
+        const key = duckDBAsciiFold(name),
+          values = index.get(key) ?? [];
+        values.push(entry);
+        index.set(key, values);
+      };
+      const macros = this.snapshot.formatVersion === 2 ? this.snapshot.extension?.attributes.macros : undefined;
+      if (Array.isArray(macros))
+        for (const value of macros)
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            !Array.isArray(value) &&
+            typeof value.name === "string" &&
+            typeof value.catalog === "string" &&
+            typeof value.schema === "string"
+          )
+            add(value.name, { path: [value.catalog, value.schema], macro: true });
+      if (this.snapshot.formatVersion === 2)
+        for (const routine of Object.values(this.snapshot.routines).flat())
+          add(routine.name, {
+            path: [String(routine.extension?.attributes.catalog ?? catalog), routine.schema ?? "main"],
+            macro: false,
+          });
+      this.functionIndex = index;
+    }
+    const entries = [...(this.functionIndex.get(name) ?? [])];
+    const builtin =
+      duckDBBuiltinSignatures(this.snapshot.server?.versionKey ?? "", name).length > 0 ||
+      ["if", "ifnull", "nullif", "coalesce", "json_group_array", "json_group_object"].includes(name);
+    if (builtin) entries.push({ path: ["system", "main"], macro: false });
+    for (const path of paths) {
+      const selected = entries.filter((entry) => sameNamespace(entry.path, path));
+      if (!selected.length) continue;
+      if (sameNamespace(path, ["system", "main"])) return path;
+      if (selected.some((entry) => entry.macro) || builtin) {
+        this.error(
+          "A schema-owned function or macro requires proven native semantics; builtin fallback is unsafe",
+          expr.range,
+          "TSQ401",
+        );
+        return undefined;
+      }
+      return path;
+    }
+    if (explicit) {
+      this.error(`Unknown qualified DuckDB function ${names.join(".")}`, expr.range, "TSQ201");
+      return undefined;
+    }
+    return null;
+  }
   call(expr: Expression, scope: Scope, expected?: Value): Value {
     if (scope.aggregateScope && (this.aggregate(expr) || expr.window))
       return this.call(expr, scope.aggregateScope, expected);
     const name = expr.names?.at(-1)?.toLowerCase() ?? "",
       args = expr.args ?? [];
+    const namespaces = this.functionNamespaces(expr);
+    if (namespaces === undefined) return unknown;
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     for (const expression of expr.context ?? []) this.infer(expression, scope);
     if (expr.windowName && !scope.windowNames?.has(duckDBAsciiFold(expr.windowName)))
@@ -1192,6 +1274,11 @@ export class DuckDBResolver {
       .filter(
         (routine) =>
           duckDBAsciiFold(routine.name) === duckDBAsciiFold(name) &&
+          (!namespaces ||
+            (duckDBAsciiFold(routine.schema ?? "main") === duckDBAsciiFold(namespaces[1]!) &&
+              duckDBAsciiFold(
+                String(routine.extension?.attributes.catalog ?? this.snapshot.server?.settings.currentCatalog ?? ""),
+              ) === duckDBAsciiFold(namespaces[0]!))) &&
           routine.kind !== "procedure" &&
           routine.arguments.length === values.length,
       );
