@@ -154,7 +154,10 @@ await describe("SQL Server explicit ODBC adapter", async () => {
         join(sdk, "package.json"),
         JSON.stringify({ name: "msnodesqlv8", version: "6.2.1", main: "index.cjs" }),
       );
-      await writeFile(join(sdk, "index.cjs"), "module.exports={applicationOwned:true}");
+      await writeFile(
+        join(sdk, "index.cjs"),
+        "module.exports={applicationOwned:true,promises:{open(){}},NVarChar(){},VarBinary(){},Double(){},Bit(){}}",
+      );
       process.chdir(directory);
       const loaded = await loadSqlServerOdbcDriver();
       strict.equal((loaded as unknown as { applicationOwned: boolean }).applicationOwned, true);
