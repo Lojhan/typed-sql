@@ -31,11 +31,13 @@ the native adapter does not claim their compatibility.
 | Import | Purpose |
 | --- | --- |
 | `@typed-sql/duckdb` | `sql`, grammar factory, policies, native type helpers, catalog and snapshot provider contracts |
+| `@typed-sql/duckdb/browser` | Portable grammar factory, policies, parsing, catalog and snapshot validation; no Node services |
 | `@typed-sql/duckdb/query` | Lightweight query construction and native `$N` rendering |
 | `@typed-sql/duckdb/runtime` | Driver-neutral native connection and execution contracts |
 | `@typed-sql/duckdb/node-api` | Lazy official SDK loading, catalog provider and executable adapter |
 
-The root and query entrypoints are browser safe and do not import the driver. Installing the grammar
+The browser and query entrypoints do not import Node services or the driver. The root entrypoint also
+exports the catalog provider, whose fingerprinting services use Node APIs. Installing the grammar
 does not install the SDK. The SDK is loaded when the explicit native adapter is constructed.
 
 ## Native values

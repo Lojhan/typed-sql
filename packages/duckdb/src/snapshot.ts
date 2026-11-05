@@ -1,4 +1,4 @@
-import { parseSchemaSnapshot, type SchemaSnapshotV1, type SchemaSnapshotV2 } from "@typed-sql/schema";
+import { parseSchemaSnapshot, type SchemaSnapshotV1, type SchemaSnapshotV2 } from "@typed-sql/schema/snapshot";
 import { parseDuckDBType } from "./native-types.js";
 import { DUCKDB_DIALECT_VERSION } from "./version.js";
 export type DuckDBSchemaSnapshot = (SchemaSnapshotV1 | SchemaSnapshotV2) & { readonly dialect: "duckdb" };

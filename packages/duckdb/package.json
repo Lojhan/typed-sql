@@ -36,7 +36,8 @@
     ".": "./dist/packages/duckdb/src/index.js",
     "./query": "./dist/packages/duckdb/src/query.js",
     "./runtime": "./dist/packages/duckdb/src/runtime.js",
-    "./node-api": "./dist/packages/duckdb/src/node-api.js"
+    "./node-api": "./dist/packages/duckdb/src/node-api.js",
+    "./browser": "./dist/packages/duckdb/src/browser.js"
   },
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
