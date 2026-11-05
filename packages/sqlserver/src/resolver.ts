@@ -1002,6 +1002,14 @@ class Resolver {
               );
           },
         });
+    if (builtin.kind === "window")
+      for (const argument of expression.arguments)
+        walkExpression(argument, {
+          expression: (value) => {
+            if (value.kind === "call" && value.over)
+              this.diagnostic("TSQ203", "Analytic arguments cannot contain an analytic function", value.range);
+          },
+        });
     if (expression.over) {
       if (
         builtin.kind === "window" &&
@@ -1232,7 +1240,20 @@ class Resolver {
       case "nullableSame":
         if (["MIN", "MAX"].includes(name) && native(first)?.name === "bit")
           this.diagnostic("TSQ201", `${name} does not accept BIT`, expression.range);
-        if (args.length > 1 && first.tsType !== "unknown") infer(1, first);
+        if (["LAG", "LEAD"].includes(name)) {
+          if (args[1]) {
+            infer(1, type("bigint", false, this.policy));
+            const offset = numericConstant(expression.arguments[1]!);
+            if (offset !== undefined && offset < 0)
+              this.diagnostic("TSQ203", `${name} offset must not be negative`, expression.arguments[1]!.range);
+          }
+          if (args[2] && first.tsType !== "unknown") infer(2, first);
+        } else if (args.length > 1 && first.tsType !== "unknown") infer(1, first);
+        if (
+          ["MIN", "MAX"].includes(name) &&
+          ["xml", "json", "text", "ntext", "image"].includes(native(first)?.name ?? "")
+        )
+          this.diagnostic("TSQ201", `${name} does not accept this native type`, expression.range);
         return { ...first, nullable: true };
       case "sum":
       case "avg": {

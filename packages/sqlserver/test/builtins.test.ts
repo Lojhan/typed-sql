@@ -82,4 +82,33 @@ await describe("SQL Server ordered statistics and function namespaces", async ()
       );
     }
   });
+  // https://learn.microsoft.com/en-us/sql/t-sql/functions/lag-transact-sql
+  await it("keeps analytic value, numeric offset and default parameter targets separate", () => {
+    for (const name of ["LAG", "LEAD"]) {
+      const source = `SELECT ${name}(code,@__typed_sql_1,@__typed_sql_2) OVER(ORDER BY id) AS value FROM dbo.widgets`;
+      const result = grammar.analyze(source, snapshot);
+      strict.deepEqual(result.diagnostics, []);
+      strict.deepEqual(
+        result.parameters.map((parameter) => [parameter.index, parameter.databaseType]),
+        [
+          [1, "bigint"],
+          [2, "nvarchar(40) COLLATE Latin1_General_100_CI_AS"],
+        ],
+      );
+      strict.equal(result.columns[0]?.databaseType, "nvarchar(40) COLLATE Latin1_General_100_CI_AS");
+    }
+    for (const expression of [
+      "LAG(code,-1) OVER(ORDER BY id)",
+      "LAG(ROW_NUMBER() OVER(ORDER BY id)) OVER(ORDER BY id)",
+      "MAX(payload)",
+      "MIN(payload)",
+    ]) {
+      const result = grammar.analyze(`SELECT ${expression} AS value FROM dbo.widgets`, snapshot);
+      strict.ok(
+        result.diagnostics.some((d) => d.severity === "error"),
+        expression,
+      );
+      strict.equal(result.semantics?.operation.value, "unknown");
+    }
+  });
 });
