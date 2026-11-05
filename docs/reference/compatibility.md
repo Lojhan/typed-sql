@@ -50,7 +50,8 @@ The report excludes setting values, schema expressions, source text, credentials
 | SQLite | SQLite 3.39.0–3.54.1 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.54.1, every supported Node line's bundled library, with exact 3.54.1 release coverage |
 | `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |
 | [SQL Server](../dialects/sqlserver.md) | Boxed engine majors 14–17, with each engine's supported compatibility levels 140–170 | 14.0.3560.2, 15.0.4500.2, 16.0.4305.5 and 17.0.5035.5; ten engine/compatibility combinations |
-| `msnodesqlv8` | Application-owned driver loaded by `@typed-sql/sqlserver/odbc`; Microsoft ODBC Driver 18 is a separate system dependency | 6.2.2 with ODBC 18.7.1.1 and unixODBC 2.3.12 on native Linux x64 |
+| `koffi` | Application-owned direct ODBC bridge loaded by `@typed-sql/sqlserver/odbc`; exact 3.3.7 on Linux x64 | Counted value transport with ODBC 18.7.1.1 and unixODBC 2.3.12 |
+| `msnodesqlv8` | Explicit `@typed-sql/sqlserver/msnodesqlv8` compatibility adapter; restricted text result families | 6.2.2 with ODBC 18.7.1.1 and unixODBC 2.3.12 on native Linux x64 |
 | [DuckDB](../dialects/duckdb.md) | Exact engine targets 1.5.6 and 2.0.0; intermediate and future versions are conservative | Both genuine native engines, each in a separate process |
 | `@duckdb/node-api` | Application-owned official Node SDK loaded by `@typed-sql/duckdb/node-api` | 1.5.6-r.2 with engine 1.5.6; 2.0.0-r.1 with engine 2.0.0 |
 

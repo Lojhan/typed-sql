@@ -13,7 +13,7 @@ await describe("SQL-file bindings and application identities in the playground",
         strict.deepStrictEqual(result.problems, []);
         strict.strictEqual(
           result.queries.find(({ binding }) => binding === "ordersByCustomer")!.parameterType,
-          dialect === "sqlserver" ? "readonly [bigint | null, bigint | null]" : "readonly [bigint, bigint]",
+          "readonly [bigint, bigint]",
         );
         const wrong = {
           ...files,
@@ -27,9 +27,7 @@ await describe("SQL-file bindings and application identities in the playground",
           positional.parameterType,
           dialect === "postgres" || dialect === "duckdb"
             ? "readonly [string, bigint, bigint]"
-            : dialect === "sqlserver"
-              ? "readonly [string | null, bigint | null]"
-              : "readonly [string, bigint]",
+            : "readonly [string, bigint]",
         );
         const mixed = {
           ...files,

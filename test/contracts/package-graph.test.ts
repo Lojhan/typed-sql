@@ -114,8 +114,8 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite", "./query"],
-  sqlserver: [".", "./query", "./runtime", "./odbc", "./browser"],
-  duckdb: [".", "./query", "./runtime", "./node-api"],
+  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser"],
+  duckdb: [".", "./query", "./runtime", "./node-api", "./browser"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {

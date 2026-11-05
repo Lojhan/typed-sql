@@ -6,8 +6,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { compileSqlFile } from "@typed-sql/compiler";
 import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
+import { createSqlServerMsnodesqlv8Database } from "@typed-sql/sqlserver/msnodesqlv8";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import { sql } from "@typed-sql/sqlserver/query";
+import { createSqlServerLiveVerifier, createSqlServerPlanInspector } from "@typed-sql/sqlserver/runtime";
 import native from "msnodesqlv8";
 import { DDL, MATURITY_CASES } from "../../packages/sqlserver/test/helpers/maturity-corpus.ts";
 
@@ -71,6 +73,67 @@ try {
       });
       const schema = await new SqlServerSchemaProvider({ client: db.queryable, includeSchemas: ["dbo"] }).introspect();
       await writeFile(resolve(generated, `schema-${level}.json`), JSON.stringify(schema, null, 2));
+      await check(`${level}: native verification and SHOWPLAN services`, async () => {
+        const pool = {
+          async acquire() {
+            const connection = await createSqlServerOdbcDatabase({
+              connectionString: dsn(`typed_sql_adapter_${level}`),
+            });
+            return {
+              all: (text, values) => connection.queryable.all(text, values),
+              release: () => connection.close(),
+              discard: () => connection.close(),
+            };
+          },
+        };
+        const verifier = createSqlServerLiveVerifier({ pool });
+        const inspector = createSqlServerPlanInspector({ pool });
+        try {
+          const request = {
+            fingerprint: `sha256:${"a".repeat(64)}`,
+            operation: "read",
+            sql: "SELECT amount FROM dbo.widgets WHERE id=@__typed_sql_1",
+          };
+          const described = await verifier.verify(request);
+          assert.equal(described.columns[0].databaseType, "decimal(12,2)");
+          assert.equal(described.parameters[0].databaseType, "bigint");
+          assert.equal(
+            verifier.compareDatabaseTypes("decimal(12,4)", described.columns[0].databaseType, "column"),
+            "different",
+          );
+          const environment = await inspector.environment();
+          assert.match(environment.statisticsFingerprint, /^sha256:[a-f\d]{64}$/u);
+          const plan = await inspector.capture({ ...request, parameterCount: 1 });
+          assert.ok(plan.nodes.length > 0);
+          evidence.cases.push({ name: `${level}: native services evidence`, status: "evidence", described, plan });
+        } finally {
+          await verifier.close();
+          await inspector.close();
+        }
+      });
+      await check(`${level}: exact default VARCHAR MAX and guarded compatibility adapter`, async () => {
+        for (const input of ["", "x\0", "é\0".repeat(20000), "\0".repeat(40000)]) {
+          const [actual] = await db.queryable.all("SELECT CONVERT(varchar(max),?) AS value", [input]);
+          assert.equal(actual.value, input);
+        }
+        if (major >= 15) {
+          const input = "😀漢字é\0".repeat(10000);
+          const [actual] = await db.queryable.all(
+            "SELECT CONVERT(varchar(max),? COLLATE Latin1_General_100_CI_AS_SC_UTF8) AS value",
+            [input],
+          );
+          assert.equal(actual.value, input);
+        }
+        const compatibility = await createSqlServerMsnodesqlv8Database({
+          connectionString: dsn(`typed_sql_adapter_${level}`),
+        });
+        try {
+          const unsupported = await compile(schema, "SELECT CAST('x' AS varchar(max)) AS value");
+          await assert.rejects(compatibility.one(unsupported()), /VARCHAR|varchar|unsupported|exact|fidelity/iu);
+        } finally {
+          await compatibility.close();
+        }
+      });
       const insert = await compile(
         schema,
         "INSERT INTO dbo.adapter_values (id,amount,label,active,bytes,happened) OUTPUT inserted.id,inserted.amount,inserted.label,inserted.active,inserted.bytes,inserted.happened VALUES (:id,:amount,:label,:active,:bytes,:happened)",
@@ -181,7 +244,7 @@ try {
             const expression = `${fn}(CAST(1 AS ${type})${fn === "POWER" ? ",2" : ""})`;
             try {
               const [metadata] = await db.queryable.all(
-                `SELECT SQL_VARIANT_PROPERTY(${expression},'BaseType') AS type,SQL_VARIANT_PROPERTY(${expression},'Precision') AS precision,SQL_VARIANT_PROPERTY(${expression},'Scale') AS scale`,
+                `SELECT CONVERT(nvarchar(128),SQL_VARIANT_PROPERTY(${expression},'BaseType')) AS type,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Precision')) AS precision,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Scale')) AS scale`,
               );
               promotions.push({ fn, input: type, ...metadata });
             } catch (error) {
@@ -190,7 +253,7 @@ try {
           }
           const expression = `${fn}(amount${fn === "POWER" ? ",2" : ""})`;
           const [metadata] = await db.queryable.all(
-            `SELECT SQL_VARIANT_PROPERTY(${expression},'BaseType') AS type,SQL_VARIANT_PROPERTY(${expression},'Precision') AS precision,SQL_VARIANT_PROPERTY(${expression},'Scale') AS scale FROM dbo.widgets`,
+            `SELECT CONVERT(nvarchar(128),SQL_VARIANT_PROPERTY(${expression},'BaseType')) AS type,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Precision')) AS precision,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Scale')) AS scale FROM dbo.widgets`,
           );
           promotions.push({ fn, input: "nonconstant table decimal(12,2)", ...metadata });
         }
@@ -288,11 +351,10 @@ try {
               ...report,
               ...(failure ? { failure } : {}),
             });
-            assert.equal(failure, undefined, "Native VARCHAR conversion must not crash or hang");
-            assert.ok(
-              report.cases.every((item) => item.state === "completed" && item.exact),
-              "Native VARCHAR conversion loses text",
-            );
+            // Negative control for the explicit compatibility SDK. Its known
+            // corruption is why the public default uses counted direct ODBC.
+            // The typed compatibility guard and exact default are asserted above.
+            assert.ok(report.cases.length > 0, "Compatibility counterexample must leave evidence");
           }
         },
         { continueOnFailure: true },

@@ -8,7 +8,7 @@ description: SQL Server grammar, compatibility levels, catalog snapshots, exact 
 
 `@typed-sql/sqlserver` is a stable grammar package. It owns T-SQL parsing, inference, native type policies and catalog snapshots.
 Applications import `sql` from this package. The explicit `@typed-sql/sqlserver/odbc` entrypoint
-loads the application's `msnodesqlv8` installation and Microsoft ODBC Driver 18.
+loads the application's `koffi` installation and calls Microsoft ODBC Driver 18 through unixODBC.
 
 ## Public entrypoints
 
@@ -18,6 +18,7 @@ loads the application's `msnodesqlv8` installation and Microsoft ODBC Driver 18.
 | `@typed-sql/sqlserver` | Grammar factory, policies, analysis and injected catalog provider. |
 | `@typed-sql/sqlserver/runtime` | Driver-neutral execution, codecs and connection ownership. |
 | `@typed-sql/sqlserver/odbc` | Explicit application-owned native driver loading, execution and introspection. |
+| `@typed-sql/sqlserver/msnodesqlv8` | Explicit compatibility adapter with restricted text result support. |
 | `@typed-sql/sqlserver/browser` | Grammar surface without native adapters or catalog provider exports. |
 
 ## Compatibility
@@ -38,13 +39,14 @@ and do not satisfy the boxed SQL Server contract.
 
 | Execution adapter | Application dependency | Accepted driver range | Exact native transport tested |
 | --- | --- | --- | --- |
-| `@typed-sql/sqlserver/odbc` | `msnodesqlv8` | >=6.2.2, <7 | 6.2.2, ODBC 18.7.1.1, unixODBC 2.3.12, Linux x64 |
+| `@typed-sql/sqlserver/odbc` | `koffi` | Exact 3.3.7, Linux x64 | Counted value transport: 3.3.7, ODBC 18.7.1.1, unixODBC 2.3.12 |
+| `@typed-sql/sqlserver/msnodesqlv8` | `msnodesqlv8` | >=6.2.2, <7 | 6.2.2, ODBC 18.7.1.1, unixODBC 2.3.12, Linux x64; restricted text families |
 | `@typed-sql/sqlserver/runtime` | Your connection implementation | Explicit qualified connection protocol | Protocol tests |
 
 Install drivers explicitly:
 
 ```sh
-pnpm add @typed-sql/sqlserver msnodesqlv8
+pnpm add @typed-sql/sqlserver koffi
 ```
 
 Microsoft ODBC Driver 18 and the native driver's platform prerequisites are separate system
@@ -95,8 +97,12 @@ Injected connections are validated without changing SQL session semantics unless
 `configureSession: true` is explicit. Closing a wrapper frees its prepared handles; an injected
 connection remains application-owned unless `ownsConnection: true` is explicit.
 
-`database.prepare(name, factory)` caches logical rendering and value plans. The ODBC adapter
-uses physical native preparation only when its result transport is qualified. The pinned native
+`database.prepare(name, factory)` caches logical rendering and value plans. The direct ODBC adapter
+uses counted UTF-16 and binary buffers for prepared and unprepared results. Native calls run in a
+data worker, with a separate worker for cancellation.
+
+The explicit `@typed-sql/sqlserver/msnodesqlv8` compatibility adapter
+uses physical native preparation only when its result transport is qualified. Its pinned native
 driver removes a genuine trailing NUL from prepared text results. Statements returning arbitrary
 text, XML or JSON therefore select raw transport **before dispatch** when the raw result family is qualified.
 The SDK also corrupts some large `varchar(max)` and legacy `text` values while converting
@@ -139,3 +145,12 @@ rows, because one document can span multiple server rows. Unsupported syntax, am
 invalid expression contexts and unqualified capabilities produce diagnostics.
 
 See [Type mappings](../reference/type-mappings.md) and [SQL files](../guides/sql-files.md).
+
+## Native verification and plans
+
+`createSqlServerLiveVerifier` and `createSqlServerPlanInspector` from
+`@typed-sql/sqlserver/runtime` accept an application-owned pool. Each `acquire()` must return
+one exclusive physical session with `all(sql, values)`, `release()` and `discard()` methods.
+Parameter and result descriptions use native SQL Server metadata without executing application
+DML. Physical type comparison includes lengths, precision and scale. SHOWPLAN capture accepts
+read queries, restores the session setting before release, and discards sessions after cleanup failure.

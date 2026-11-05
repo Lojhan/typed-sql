@@ -73,6 +73,12 @@
           "pageType": "tutorial"
         },
         {
+          "text": "SQL Server quickstart",
+          "link": "/getting-started/sqlserver",
+          "file": "docs/getting-started/sqlserver.md",
+          "pageType": "tutorial"
+        },
+        {
           "text": "Choose packages",
           "link": "/getting-started/installation",
           "file": "docs/getting-started/installation.md",
@@ -324,6 +330,12 @@
           "text": "DuckDB",
           "link": "/examples/duckdb",
           "file": "docs/examples/duckdb.md",
+          "pageType": "tutorial"
+        },
+        {
+          "text": "SQL Server",
+          "link": "/examples/sqlserver",
+          "file": "docs/examples/sqlserver.md",
           "pageType": "tutorial"
         },
         {

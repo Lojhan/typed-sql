@@ -921,3 +921,8 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   };
   return Object.freeze(database);
 }
+
+export type { SqlServerLiveVerifierOptions, SqlServerServicePool, SqlServerServiceSession } from "./live-verifier.js";
+export { createSqlServerLiveVerifier } from "./live-verifier.js";
+export type { SqlServerPlanInspectorOptions } from "./plan-inspector.js";
+export { createSqlServerPlanInspector } from "./plan-inspector.js";
