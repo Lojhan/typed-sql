@@ -9,6 +9,7 @@ import {
   type RuntimeValueType,
   type SourceRange,
   type SqlDiagnostic,
+  unionJsonShapes,
 } from "@typed-sql/core";
 import type { ColumnSnapshot, RelationSnapshot, SchemaSnapshot } from "@typed-sql/schema";
 import { SQLSERVER_BUILTINS, SQLSERVER_DATEPARTS } from "./catalog/index.js";
@@ -29,6 +30,8 @@ interface Value {
   readonly runtimeType?: RuntimeValueType;
   readonly hidden?: boolean;
   readonly predicate?: true;
+  readonly jsonFragment?: boolean;
+  readonly sqlNull?: true;
   readonly json?: JsonValueDescriptor;
 }
 interface Relation {
@@ -90,6 +93,15 @@ function type(name: string, nullable = false, policy: SqlServerTypePolicy = defa
     tsType: mapSqlServerType(name, policy),
     nullable,
     databaseType: parseSqlServerNativeType(name)?.text ?? name,
+    ...(parseSqlServerNativeType(name)?.name === "json"
+      ? {
+          json: {
+            shape: { kind: "unknown" as const },
+            representation: policy.json === "parsed" ? ("parsed" as const) : ("text" as const),
+          },
+          jsonFragment: true,
+        }
+      : {}),
   };
 }
 function partsLast(name: Name): string {
@@ -210,6 +222,7 @@ class Resolver {
       const result = {
         index: expression.index,
         ...candidate,
+        ...(candidate.json ? { jsonFragment: native(candidate)?.name === "json" } : {}),
         nullable: candidate.nullable || (current?.tsType !== "unknown" && current?.nullable === true),
         runtimeType: runtime(candidate, this.policy),
       };
@@ -269,6 +282,7 @@ class Resolver {
               representation: this.policy.json === "parsed" ? ("parsed" as const) : ("text" as const),
             },
             tsType: this.policy.json === "parsed" ? this.jsonType(column.jsonDeclaration.shape) : "string",
+            jsonFragment: original?.name === "json",
           }
         : {}),
     };
@@ -481,6 +495,33 @@ class Resolver {
     return value;
   }
   common(left: Value, right: Value, range: SourceRange, nullable = left.nullable || right.nullable): Value {
+    const result = { ...this.commonNative(left, right, range, nullable) };
+    delete result.json;
+    delete result.jsonFragment;
+    if (!left.sqlNull || !right.sqlNull) delete result.sqlNull;
+    const leftShape = left.json?.shape,
+      rightShape = right.json?.shape;
+    const shape = left.sqlNull
+      ? rightShape
+      : right.sqlNull
+        ? leftShape
+        : leftShape && rightShape
+          ? unionJsonShapes([leftShape, rightShape])
+          : undefined;
+    const nativeJson = native(result)?.name === "json";
+    if (shape || nativeJson) {
+      const actual = shape ?? { kind: "unknown" as const };
+      return {
+        ...result,
+        tsType: this.policy.json === "parsed" ? this.jsonType(actual) : "string",
+        json: { shape: actual, representation: this.policy.json === "parsed" ? "parsed" : "text" },
+        ...(nativeJson ? { jsonFragment: true } : {}),
+      };
+    }
+    if (left.json || right.json) return { ...result, tsType: mapSqlServerType(result.databaseType ?? "", this.policy) };
+    return result;
+  }
+  commonNative(left: Value, right: Value, range: SourceRange, nullable = left.nullable || right.nullable): Value {
     if (left.tsType === "unknown" && left.databaseType === undefined) return { ...right, nullable };
     if (right.tsType === "unknown" && right.databaseType === undefined) return { ...left, nullable };
     const a = native(left),
@@ -541,17 +582,57 @@ class Resolver {
     return result === "unknown" ? "JsonValue" : result;
   }
   shape(value: Value): JsonShape {
-    if (value.json) return value.json.shape;
-    const base = brandBaseType(value.tsType) ?? value.tsType;
-    const shape: JsonShape =
-      base === "string"
-        ? { kind: "string" }
-        : base === "number" || base === "bigint"
-          ? { kind: "number" }
-          : base === "boolean"
-            ? { kind: "boolean" }
+    if (value.sqlNull) return { kind: "null" };
+    const nativeType = native(value),
+      name = nativeType?.name;
+    let shape: JsonShape;
+    if (value.json) {
+      shape =
+        value.jsonFragment === true || name === "json"
+          ? value.json.shape
+          : value.jsonFragment === false
+            ? { kind: "string" }
             : { kind: "unknown" };
-    return value.nullable ? { kind: "union", variants: [shape, { kind: "null" }] } : shape;
+    } else if (name === "json") shape = { kind: "unknown" };
+    else if (name && numericNames.has(name) && !["money", "smallmoney"].includes(name)) shape = { kind: "number" };
+    else if (name === "bit") shape = { kind: "boolean" };
+    else if (
+      name &&
+      [
+        "date",
+        "time",
+        "datetime",
+        "datetime2",
+        "datetimeoffset",
+        "smalldatetime",
+        "binary",
+        "varbinary",
+        "image",
+        "rowversion",
+        "uniqueidentifier",
+        "money",
+        "smallmoney",
+        "char",
+        "varchar",
+        "nchar",
+        "nvarchar",
+        "text",
+        "ntext",
+      ].includes(name)
+    )
+      shape = { kind: "string" };
+    else {
+      const base = brandBaseType(value.tsType) ?? value.tsType;
+      shape =
+        base === "string"
+          ? { kind: "string" }
+          : base === "number" || base === "bigint"
+            ? { kind: "number" }
+            : base === "boolean"
+              ? { kind: "boolean" }
+              : { kind: "unknown" };
+    }
+    return value.nullable ? unionJsonShapes([shape, { kind: "null" }]) : shape;
   }
   expression(expression: Expression, scope: Scope, ctes: Ctes, expected?: Value): Value {
     if (++this.#depth > 256) {
@@ -570,7 +651,8 @@ class Resolver {
       case "parameter":
         return this.parameter(expression, expected);
       case "literal": {
-        if (expression.literal === "null") return expected ? { ...expected, nullable: true } : unknown;
+        if (expression.literal === "null")
+          return expected ? { ...expected, nullable: true, sqlNull: true } : { ...unknown, sqlNull: true };
         if (expression.literal === "string")
           return type(
             `${expression.unicode ? "nvarchar" : "varchar"}(${Math.max(1, Math.min(String(expression.value).length, expression.unicode ? 4000 : 8000))})`,
@@ -833,7 +915,9 @@ class Resolver {
           );
           result = result ? this.common(result, branch, expression.range) : branch;
         }
-        return { ...(result ?? unknown), nullable: !expression.otherwise || result?.nullable === true };
+        const output = { ...(result ?? unknown), nullable: !expression.otherwise || result?.nullable === true };
+        if (native(output)?.name !== "json") delete output.jsonFragment;
+        return output;
       }
       case "call":
         return this.call(expression, scope, ctes, expected);
@@ -1147,6 +1231,16 @@ class Resolver {
           result = args[0]!;
         }
         if (args[1]) infer(1, result);
+        if (result.json || args[1]?.json) {
+          const merged = this.common(result, args[1] ?? unknown, expression.range);
+          const base = { ...merged };
+          delete base.databaseType;
+          return {
+            ...base,
+            ...(result.databaseType === undefined ? {} : { databaseType: result.databaseType }),
+            nullable: result.nullable && (args[1]?.nullable ?? true),
+          };
+        }
         return { ...result, nullable: result.nullable && (args[1]?.nullable ?? true) };
       }
       case "coalesce":
@@ -1206,10 +1300,21 @@ class Resolver {
           nullable: builtin.rule === "jsonQuery" || first.nullable,
           databaseType: "nvarchar(max)",
           json: { shape, representation: this.policy.json === "parsed" ? "parsed" : "text" },
+          ...(builtin.rule === "jsonQuery" ? { jsonFragment: true } : {}),
         };
       }
       case "jsonArray":
       case "jsonObject": {
+        for (const [index, value] of args.entries())
+          if (
+            (builtin.rule === "jsonArray" || index % 2 === 1) &&
+            (["xml", "sql_variant"].includes(native(value)?.name ?? "") || (value.databaseType && !native(value)))
+          )
+            this.diagnostic(
+              "TSQ201",
+              "This native type requires an explicit supported scalar conversion before JSON serialization",
+              expression.arguments[index]!.range,
+            );
         let shape: JsonShape;
         if (builtin.rule === "jsonArray") {
           shape = {
@@ -1250,6 +1355,7 @@ class Resolver {
           tsType: this.policy.json === "parsed" ? this.jsonType(shape) : "string",
           nullable: builtin.kind === "aggregate",
           databaseType: expression.returningJson ? "json" : "nvarchar(max)",
+          jsonFragment: true,
           json: { shape, representation: this.policy.json === "parsed" ? "parsed" : "text" },
         };
       }
@@ -1672,6 +1778,8 @@ class Resolver {
         statement.output.range,
       );
     if (statement.kind === "insert") {
+      if (statement.values.length > 1000)
+        this.diagnostic("TSQ203", "SQL Server INSERT VALUES supports at most one thousand rows", statement.range);
       const columns = statement.columns.length
         ? statement.columns.map((name) => target.columns.find((column) => this.same(column.name, name)))
         : target.columns.filter(
