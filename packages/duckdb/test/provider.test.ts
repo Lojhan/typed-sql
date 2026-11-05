@@ -1,13 +1,16 @@
-import * as sdk from "@duckdb/node-api";
-import * as sdk15 from "duckdb-node-15";
+const sdk = (await import(
+  process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "duckdb-node-15" : "@duckdb/node-api"
+)) as typeof import("@duckdb/node-api");
+
 import { describe, it, strict } from "poku";
 import { decodeDuckDBValue } from "../src/codecs.js";
 import { parseDuckDBType } from "../src/native-types.js";
 import { type DuckDBQueryable, DuckDBSchemaProvider } from "../src/provider.js";
 
 await describe("DuckDB native catalog evidence", async () => {
-  for (const driver of [sdk15, sdk])
+  for (const driver of [sdk])
     await it(`introspects real${driver.version()} catalogs without losing nested type identity`, async () => {
+      strict.equal(driver.version(), process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "v1.5.6" : "v2.0.0");
       const instance = await driver.DuckDBInstance.create(),
         connection = await instance.connect();
       const client: DuckDBQueryable = {

@@ -21,6 +21,7 @@ interface Value {
   readonly runtimeType?: RuntimeValueType;
 }
 interface Field extends Value {
+  readonly range?: SourceRange;
   readonly name: string;
   readonly relation?: string;
   readonly schema?: string;
@@ -742,7 +743,7 @@ export class DuckDBResolver {
           (expression.kind === "name" ? expression.names?.at(-1) : undefined) ??
           (expression.kind === "call" ? expression.names?.at(-1) : undefined) ??
           this.expressionName(expression);
-      output.push({ ...value, name });
+      output.push({ ...value, name, range: expression.range });
       scope.aliases.set(duckDBAsciiFold(name), value);
     }
     return output;
@@ -906,14 +907,14 @@ export class DuckDBResolver {
           nullable: field.nullable,
           databaseType: formatDuckDBType(field.type),
           runtimeType: field.runtimeType ?? duckDBRuntimeType(field.type, this.policy),
-          range: statement.range,
+          range: field.range ?? statement.range,
         };
       });
     const parameters: ResolvedParameter[] = [...this.parameters.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([index, { value }]) => ({
         index,
-        tsType: duckDBTypeScript(value.type, this.policy),
+        tsType: value.tsType ?? duckDBTypeScript(value.type, this.policy),
         nullable: value.nullable,
         databaseType: formatDuckDBType(value.type),
         runtimeType: duckDBRuntimeType(value.type, this.policy),

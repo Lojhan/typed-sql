@@ -69,6 +69,7 @@ const settingNames = Object.freeze([
   "default_null_order",
   "default_order",
   "old_implicit_casting",
+  "lambda_syntax",
 ]);
 /** Catalog reads are explicit, bounded to selected namespaces, and never install extensions. */
 export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot> {
