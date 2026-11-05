@@ -284,6 +284,7 @@ export class OdbcNative {
         throw new OdbcNativeError("metadata-bound");
       const label = name.subarray(0, nameLength[0]! * 2).toString("utf16le"),
         native = typeName.subarray(0, typeLength[0]).toString("utf16le");
+      if (native.toLowerCase() === "sql_variant") throw new OdbcNativeError("unqualified-sql-variant-codec");
       if (names.has(label)) throw new OdbcNativeError("duplicate-column-name");
       names.add(label);
       const width = Number(size[0]);

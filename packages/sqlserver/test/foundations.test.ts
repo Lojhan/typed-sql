@@ -106,4 +106,8 @@ await describe("SQL Server grammar-owned lexical and native foundations", async 
     strict.equal(sqlServerVersionSupport("18.0.1.1", 180), "conservative");
     strict.equal(sqlServerVersionSupport("17.0.5035.5-preview", 170), "conservative");
   });
+  await it("recognizes underscore system type identities without inventing a scalar variant codec", () => {
+    strict.deepEqual(requireSqlServerNativeType("sql_variant"), { name: "sql_variant", text: "sql_variant" });
+    strict.equal(mapSqlServerType("sql_variant"), "unknown");
+  });
 });

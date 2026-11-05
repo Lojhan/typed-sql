@@ -50,7 +50,7 @@ export function parseSqlServerNativeType(source: string): SqlServerNativeType | 
     const collation = validateSqlServerCollationName(collated[2]!);
     return Object.freeze({ ...base, baseText: base.text, collation, text: `${base.text} COLLATE ${collation}` });
   }
-  const match = /^\s*([a-z][a-z0-9 ]*)(?:\(\s*(max|\d+)\s*(?:,\s*(\d+)\s*)?\))?\s*$/iu.exec(source);
+  const match = /^\s*([a-z][a-z0-9_ ]*)(?:\(\s*(max|\d+)\s*(?:,\s*(\d+)\s*)?\))?\s*$/iu.exec(source);
   if (!match) return undefined;
   const raw = match[1]!.trim().toLowerCase().replace(/ +/gu, " ");
   const name = aliases[raw] ?? raw;
