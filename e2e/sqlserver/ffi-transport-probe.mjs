@@ -38,6 +38,7 @@ const api = {
     out("int16_t"),
     out("int16_t"),
   ]),
+  attribute: fn("SQLColAttributeW", [p, "uint16_t", "uint16_t", p, "int16_t", out("int16_t"), out("intptr")]),
   fetch: fn("SQLFetch", [p]),
   get: fn("SQLGetData", [p, "uint16_t", "int16_t", p, "intptr", out("intptr")]),
   more: fn("SQLMoreResults", [p]),
@@ -175,7 +176,13 @@ function query(connection, text, values = [], payloadBytes = 4096) {
       check(api.execute(statement), "execute", 3, statement);
     } else check(api.direct(statement, wide(text), text.length), "exec-direct", 3, statement);
     const count = [0];
+    let commandStages = 0;
     check(api.columns(statement, count), "result-column-count", 3, statement);
+    while (count[0] === 0) {
+      assert.ok(++commandStages <= 128, "Command stage limit");
+      check(api.more(statement), "advance-to-rowset", 3, statement);
+      check(api.columns(statement, count), "result-column-count", 3, statement);
+    }
     assert.ok(count[0] > 0 && count[0] <= 128);
     const metadata = [];
     for (let ordinal = 1; ordinal <= count[0]; ordinal++) {
@@ -192,7 +199,17 @@ function query(connection, text, values = [], payloadBytes = 4096) {
         statement,
       );
       assert.ok(nameLength[0] >= 0 && nameLength[0] < 129);
+      const typeName = Buffer.alloc(258);
+      const typeNameBytes = [0];
+      check(
+        api.attribute(statement, ordinal, 14, typeName, typeName.length, typeNameBytes, [0]),
+        "column-type-name",
+        3,
+        statement,
+      );
+      assert.ok(typeNameBytes[0] >= 0 && typeNameBytes[0] < typeName.length && typeNameBytes[0] % 2 === 0);
       metadata.push({
+        typeName: typeName.subarray(0, typeNameBytes[0]).toString("utf16le"),
         name: name.subarray(0, nameLength[0] * 2).toString("utf16le"),
         type: type[0],
         size: Number(size[0]),
@@ -213,9 +230,15 @@ function query(connection, text, values = [], payloadBytes = 4096) {
       traces.push(cells.map((cell) => cell.trace));
       assert.ok(row < 127, "Probe row limit");
     }
-    const more = api.more(statement);
-    assert.equal(more, 100, "Unexpected additional result set or native error");
-    return { rows, metadata, traces };
+    for (;;) {
+      const more = api.more(statement);
+      if (more === 100) break;
+      check(more, "drain-command-results", 3, statement);
+      check(api.columns(statement, count), "result-column-count", 3, statement);
+      assert.equal(count[0], 0, "Unexpected additional rowset");
+      assert.ok(++commandStages <= 128, "Command stage limit");
+    }
+    return { rows, metadata, traces, commandStages };
   } finally {
     // A failed free must not leave retained pointers dangling. Dedicated process exits.
     const rc = api.free(3, statement);
@@ -297,6 +320,9 @@ try {
           null: value === null,
           length: value?.length ?? null,
           sha256: digest(value),
+          ...(name.startsWith("temporal-") && typeof value === "string"
+            ? { format: value.replace(/[0-9]/gu, "d") }
+            : {}),
         })),
         traces: result.traces,
       });
@@ -392,6 +418,72 @@ try {
         assert.equal(columns[0].scale, 10);
       },
     );
+    probe(
+      "native-bit-guid-xml",
+      "SELECT CONVERT(bit,?) AS yes,CONVERT(bit,?) AS no,CONVERT(uniqueidentifier,?) AS guid,CONVERT(xml,?) AS doc",
+      [text("1"), text("0"), text("01234567-0123-0123-0123-012345678901"), text('<r a="x">é漢😀</r>')],
+      ["1", "0", "01234567-0123-0123-0123-012345678901", '<r a="x">é漢😀</r>'],
+    );
+    if (evidence.major === 17) {
+      const json = '{"text":"é漢😀","n":9007199254740993,"array":[null,true]}';
+      probe("native-json", "SELECT CONVERT(json,?) AS doc", [text(json)], [json]);
+    }
+    // Fixed fractions have no rounding ambiguity; every supported scale is observed.
+    for (let scale = 0; scale <= 7; scale++) {
+      const fraction = scale ? `.${"1234567".slice(0, scale)}` : "";
+      const time = `03:04:05${fraction}`;
+      const dateTime = `1969-12-31 ${time}`;
+      const offset = `${dateTime} -05:30`;
+      probe(
+        `temporal-scale-${scale}`,
+        `SELECT CONVERT(time(${scale}),?) AS t,CONVERT(datetime2(${scale}),?) AS dt,CONVERT(datetimeoffset(${scale}),?) AS dto`,
+        [text(time), text(dateTime), text(offset)],
+        [time, dateTime, offset],
+        4096,
+        (columns) => {
+          assert.ok(columns.every((column) => column.scale === scale));
+        },
+      );
+    }
+    for (const date of ["0001-01-01", "0099-12-31", "1969-12-31", "9999-12-31"]) {
+      const dt = `${date} 00:00:00.0000001`;
+      probe(
+        `temporal-year-${date.slice(0, 4)}`,
+        "SELECT CONVERT(date,?) AS d,CONVERT(datetime2(7),?) AS dt,CONVERT(datetimeoffset(7),?) AS dto",
+        [text(date), text(dt), text(`${dt} +00:00`)],
+        [date, dt, `${dt} +00:00`],
+      );
+    }
+    for (const offset of ["-14:00", "+14:00"]) {
+      const dt = `2026-01-02 03:04:05.1234567 ${offset}`;
+      probe(`temporal-offset-${offset}`, "SELECT CONVERT(datetimeoffset(7),?) AS dto", [text(dt)], [dt]);
+    }
+    probe(
+      "temporal-legacy-ranges",
+      "SELECT CONVERT(datetime,?) AS min,CONVERT(datetime,?) AS max,CONVERT(smalldatetime,?) AS smallmin,CONVERT(smalldatetime,?) AS smallmax",
+      [
+        text("1753-01-01 00:00:00.000"),
+        text("9999-12-31 23:59:59.997"),
+        text("1900-01-01 00:00:00"),
+        text("2079-06-06 23:59:00"),
+      ],
+      ["1753-01-01 00:00:00.000", "9999-12-31 23:59:59.997", "1900-01-01 00:00:00", "2079-06-06 23:59:00"],
+    );
+    current = "native-rowversion-command-stages";
+    const rowversion = query(
+      connection,
+      "DECLARE @t TABLE(id int,rv rowversion);INSERT INTO @t(id) VALUES(1);SELECT rv,CONVERT(binary(8),rv) AS expected FROM @t",
+    );
+    assert.equal(rowversion.rows.length, 1);
+    assert.ok(rowversion.rows[0].every((value) => Buffer.isBuffer(value) && value.length === 8));
+    assert.ok(rowversion.rows[0][0].equals(rowversion.rows[0][1]));
+    evidence.cases.push({
+      name: current,
+      status: "pass",
+      metadata: rowversion.metadata,
+      commandStages: rowversion.commandStages,
+      traces: rowversion.traces,
+    });
   }
   evidence.status = "pass";
 } catch (error) {
