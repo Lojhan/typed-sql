@@ -41,6 +41,24 @@ const bool = (nullable: boolean): Value => ({ type: scalar("BOOLEAN"), nullable 
 const same = (a: DuckDBType, b: DuckDBType) => formatDuckDBType(a) === formatDuckDBType(b);
 const small = new Set(["TINYINT", "SMALLINT", "INTEGER", "UTINYINT", "USMALLINT", "UINTEGER"]),
   wide = new Set(["BIGINT", "UBIGINT", "HUGEINT", "UHUGEINT", "BIGNUM"]);
+function decimalProperties(type: Extract<DuckDBType, { kind: "scalar" }>): { precision: number; scale: number } {
+  const widths: Readonly<Record<string, number>> = {
+    BOOLEAN: 1,
+    TINYINT: 3,
+    UTINYINT: 3,
+    SMALLINT: 5,
+    USMALLINT: 5,
+    INTEGER: 10,
+    UINTEGER: 10,
+    BIGINT: 19,
+    UBIGINT: 20,
+    HUGEINT: 38,
+    UHUGEINT: 38,
+  };
+  return type.name === "DECIMAL"
+    ? { precision: type.precision!, scale: type.scale! }
+    : { precision: widths[type.name] ?? 38, scale: 0 };
+}
 function isNumeric(type: DuckDBType): boolean {
   return (
     type.kind === "scalar" &&
@@ -57,17 +75,10 @@ export function commonDuckDBType(a: DuckDBType, b: DuckDBType): DuckDBType {
     if ([a.name, b.name].includes("DOUBLE")) return scalar("DOUBLE");
     if ([a.name, b.name].includes("FLOAT")) return scalar("FLOAT");
     if (a.name === "DECIMAL" || b.name === "DECIMAL") {
-      const shape = (x: typeof a) =>
-        x.name === "DECIMAL"
-          ? [x.precision!, x.scale!]
-          : [
-              x.name === "HUGEINT" || x.name === "UHUGEINT"
-                ? 38
-                : x.name === "BIGINT" || x.name === "UBIGINT"
-                  ? 20
-                  : 10,
-              0,
-            ];
+      const shape = (x: typeof a) => {
+        const value = decimalProperties(x);
+        return [value.precision, value.scale];
+      };
       const [ap, as] = shape(a),
         [bp, bs] = shape(b),
         scale = Math.max(as!, bs!);
@@ -199,8 +210,6 @@ export class DuckDBResolver {
         }
         const names = expr.names ?? [],
           name = names[names.length - 1] ?? "";
-        if (names.length === 1 && scope.aliases.has(duckDBAsciiFold(name)))
-          return scope.aliases.get(duckDBAsciiFold(name))!;
         const candidates = scope.fields.filter(
           (field) =>
             duckDBAsciiFold(field.name) === duckDBAsciiFold(name) &&
@@ -220,6 +229,8 @@ export class DuckDBResolver {
           });
           return found;
         }
+        if (!candidates.length && names.length === 1 && scope.aliases.has(duckDBAsciiFold(name)))
+          return scope.aliases.get(duckDBAsciiFold(name))!;
         if (
           names.length === 1 &&
           ["CURRENT_DATE", "CURRENT_TIME", "CURRENT_TIMESTAMP", "LOCALTIME", "LOCALTIMESTAMP"].includes(
@@ -280,29 +291,78 @@ export class DuckDBResolver {
           )
         )
           return bool(left.nullable || right.nullable);
-        if (expr.value === "||") return { type: scalar("VARCHAR"), nullable: left.nullable || right.nullable };
-        if (expr.value === "/") return { type: scalar("DOUBLE"), nullable: left.nullable || right.nullable };
+        if (["->", "->>"].includes(expr.value ?? "")) {
+          if (left.type.kind !== "scalar" || !["JSON", "VARCHAR"].includes(left.type.name)) {
+            this.error("JSON extraction needs JSON or VARCHAR input", expr.range, "TSQ201");
+            return unknown;
+          }
+          const element = scalar(expr.value === "->" ? "JSON" : "VARCHAR");
+          return {
+            type: right.type.kind === "list" || right.type.kind === "array" ? { kind: "list", element } : element,
+            nullable: true,
+          };
+        }
+        if (expr.value === "||") {
+          if (
+            (left.type.kind === "list" || left.type.kind === "array") &&
+            (right.type.kind === "list" || right.type.kind === "array")
+          )
+            return {
+              type: { kind: "list", element: commonDuckDBType(left.type.element, right.type.element) },
+              nullable: left.nullable || right.nullable,
+            };
+          if (
+            left.type.kind === "scalar" &&
+            right.type.kind === "scalar" &&
+            left.type.name === "BLOB" &&
+            right.type.name === "BLOB"
+          )
+            return { type: scalar("BLOB"), nullable: left.nullable || right.nullable };
+          if (left.type.kind === "scalar" && right.type.kind === "scalar")
+            return { type: scalar("VARCHAR"), nullable: left.nullable || right.nullable };
+          this.error("Incompatible concatenation operands", expr.range, "TSQ201");
+          return unknown;
+        }
+        const operators = matchDuckDBBuiltin(this.snapshot.server?.versionKey ?? "", expr.value ?? "", [
+          left.type,
+          right.type,
+        ]);
+        if (!operators.length) {
+          this.error("No qualified DuckDB operator overload matches the operands", expr.range, "TSQ201");
+          return unknown;
+        }
         const type = commonDuckDBType(left.type, right.type);
         if (
           type.kind === "scalar" &&
           type.name === "DECIMAL" &&
-          ["+", "-", "*"].includes(expr.value ?? "") &&
+          ["+", "-", "*", "%"].includes(expr.value ?? "") &&
           left.type.kind === "scalar" &&
           right.type.kind === "scalar"
         ) {
-          const l = left.type.name === "DECIMAL" ? left.type : { precision: 10, scale: 0 },
-            r = right.type.name === "DECIMAL" ? right.type : { precision: 10, scale: 0 };
-          const scale = expr.value === "*" ? l.scale! + r.scale! : Math.max(l.scale!, r.scale!),
-            precision =
-              expr.value === "*"
-                ? l.precision! + r.precision!
-                : Math.max(l.precision! - l.scale!, r.precision! - r.scale!) + scale + 1;
+          const l = decimalProperties(left.type),
+            r = decimalProperties(right.type);
+          const scale = expr.value === "*" ? l.scale + r.scale : Math.max(l.scale, r.scale);
+          if (scale > 38) {
+            this.error("DECIMAL multiplication scale exceeds DuckDB's exact maximum", expr.range, "TSQ201");
+            return unknown;
+          }
+          let precision =
+            expr.value === "*"
+              ? l.precision + r.precision
+              : Math.max(l.precision - l.scale, r.precision - r.scale) + scale + (expr.value === "%" ? 0 : 1);
+          if (expr.value === "*" && precision > 18 && Math.max(l.precision, r.precision) <= 18 && scale < 18)
+            precision = 18;
           return {
             type: { kind: "scalar", name: "DECIMAL", precision: Math.min(38, precision), scale: Math.min(38, scale) },
             nullable: left.nullable || right.nullable,
           };
         }
-        return { type, nullable: left.nullable || right.nullable };
+        const best = operators.filter((operator) => operator.score === operators[0]!.score),
+          result = best[0]?.result;
+        if (result && best.every((operator) => operator.result && same(result, operator.result)))
+          return { type: result, nullable: left.nullable || right.nullable };
+        if (expr.value === "/") return { type: scalar("DOUBLE"), nullable: left.nullable || right.nullable };
+        return { type: scalar("ANY"), nullable: true };
       }
       case "case": {
         const args = expr.args ?? [],
@@ -368,6 +428,94 @@ export class DuckDBResolver {
       }
     }
   }
+  collectionLambda(expr: Expression, scope: Scope): Value {
+    const name = expr.names?.at(-1)?.toLowerCase() ?? "",
+      args = expr.args ?? [];
+    const reduce = ["list_reduce", "array_reduce", "reduce"].includes(name),
+      filter = ["list_filter", "array_filter", "filter"].includes(name);
+    if (
+      args.length < 2 ||
+      args.length > (reduce ? 3 : 2) ||
+      !(args[1]?.kind === "lambda" || (args[1]?.kind === "binary" && args[1].value === "->"))
+    ) {
+      this.error(`${name} requires a typed collection and lambda`, expr.range, "TSQ201");
+      return unknown;
+    }
+    const collection = this.infer(args[0]!, scope),
+      lambda = args[1];
+    if (collection.type.kind !== "list" && collection.type.kind !== "array") {
+      this.error(`${name} needs a LIST or ARRAY`, expr.range, "TSQ201");
+      return unknown;
+    }
+    if (lambda.value === "->" && this.snapshot.server?.versionKey === "2.0.0") {
+      this.error("DuckDB2.0 requires lambda x: expression syntax", lambda.range, "TSQ401");
+      return unknown;
+    }
+    if (lambda.value === "->" && this.snapshot.server?.settings.lambda_syntax === "DISABLE_SINGLE_ARROW") {
+      this.error("Single-arrow lambda syntax is disabled by recorded settings", lambda.range, "TSQ401");
+      return unknown;
+    }
+    const names =
+      lambda.names ??
+      (lambda.left?.kind === "name"
+        ? [lambda.left.names?.[0] ?? ""]
+        : lambda.left?.kind === "tuple"
+          ? (lambda.left.args ?? []).map((arg) => (arg.kind === "name" && arg.names?.length === 1 ? arg.names[0]! : ""))
+          : []);
+    if (
+      names.length < (reduce ? 2 : 1) ||
+      names.length > (reduce ? 3 : 2) ||
+      names.some((name) => !name) ||
+      new Set(names.map(duckDBAsciiFold)).size !== names.length
+    ) {
+      this.error("Invalid lambda binding names or arity", lambda.range, "TSQ201");
+      return unknown;
+    }
+    const element: Value = { type: collection.type.element, nullable: true };
+    const initial = args[2] ? this.infer(args[2], scope) : undefined;
+    const accumulator = initial ? nullableUnion([element, initial]) : element;
+    const bindings = names.map(
+      (name, i): Field => ({
+        name,
+        ...(reduce
+          ? i === 0
+            ? accumulator
+            : i === 1
+              ? element
+              : { type: scalar("BIGINT"), nullable: false }
+          : i === 0
+            ? element
+            : { type: scalar("BIGINT"), nullable: false }),
+      }),
+    );
+    const aliases = new Map(scope.aliases);
+    for (const binding of bindings) aliases.delete(duckDBAsciiFold(binding.name));
+    const local: Scope = {
+      ...scope,
+      aliases,
+      fields: [
+        ...scope.fields.filter((field) => !names.some((name) => duckDBAsciiFold(name) === duckDBAsciiFold(field.name))),
+        ...bindings,
+      ],
+    };
+    const body = this.infer(lambda.right!, local, filter ? bool(true) : reduce ? accumulator : undefined);
+    if (filter && !(body.type.kind === "scalar" && (body.type.name === "BOOLEAN" || isNumeric(body.type)))) {
+      this.error("LIST filter lambda must return BOOLEAN-compatible values", lambda.range, "TSQ201");
+      return unknown;
+    }
+    if (reduce) {
+      const combined = commonDuckDBType(accumulator.type, body.type);
+      if (combined.kind === "scalar" && combined.name === "ANY") {
+        this.error("LIST reduce lambda has incompatible accumulator type", lambda.range, "TSQ201");
+        return unknown;
+      }
+      return { type: accumulator.type, nullable: true };
+    }
+    return {
+      type: { kind: "list", element: filter ? collection.type.element : body.type },
+      nullable: collection.nullable,
+    };
+  }
   call(expr: Expression, scope: Scope, expected?: Value): Value {
     const name = expr.names?.at(-1)?.toLowerCase() ?? "",
       args = expr.args ?? [];
@@ -414,6 +562,23 @@ export class DuckDBResolver {
       return unknown;
     }
 
+    if (
+      [
+        "list_transform",
+        "array_transform",
+        "list_apply",
+        "array_apply",
+        "apply",
+        "list_filter",
+        "array_filter",
+        "filter",
+        "list_reduce",
+        "array_reduce",
+        "reduce",
+      ].includes(name)
+    ) {
+      return this.collectionLambda(expr, scope);
+    }
     const values = args.filter((arg) => arg.kind !== "star").map((arg) => this.infer(arg, scope));
     const version = this.snapshot.server?.versionKey ?? "";
     const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
