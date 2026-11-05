@@ -133,7 +133,7 @@ The input is `{ id: bigint }`. The row contains `id: bigint`, `email: string`, a
 Named SQL files accept `:id` or `$id`, including repeated names. A positional file can instead use
 `$1` and be called as `findUser(1n)`. Values render as native `$N` parameters.
 
-## 8. Execute the compiled query
+## 8. Execute the query
 
 Create `src/run.ts`:
 

@@ -1,6 +1,6 @@
 # @typed-sql/duckdb
 
-DuckDB grammar, catalog snapshots, exact nested value policies and explicit native execution for typed-sql.
+Stable DuckDB grammar, catalog snapshots, exact nested value policies and explicit native execution for typed-sql.
 Applications import `sql` from this package. The official Node SDK remains an application dependency;
 root and query imports do not load it.
 
