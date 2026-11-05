@@ -36,8 +36,8 @@ const integer = (value) => {
   return result;
 };
 const flag = (value) => {
-  assert.ok([0, 1, false, true].includes(value));
-  return value === 1 || value === true;
+  assert.ok([0, 1, false, true, "0", "1"].includes(value), `Canonical native flag: ${String(value)}`);
+  return value === 1 || value === true || value === "1";
 };
 const attributes = (value) => value.extension?.attributes ?? {};
 const hash = (value) => assert.match(value ?? "", /^sha256:[a-f\d]{64}$/u);
@@ -79,7 +79,9 @@ async function nativeReject(db, operation, label, constraint = false) {
       failure.diagnostics.some((diagnostic) => diagnostic.state.startsWith("23")),
       `Native integrity-constraint SQLSTATE for ${label}`,
     );
-  assert.deepEqual(await db.queryable.all("SELECT 1 AS reusable"), [{ reusable: 1 }]);
+  const reusable = await db.queryable.all("SELECT 1 AS reusable");
+  assert.equal(reusable.length, 1);
+  assert.equal(integer(reusable[0].reusable), 1);
   return failure.diagnostics.map(({ state, native }) => ({ state, native }));
 }
 const capture = (db) => new SqlServerSchemaProvider({ client: db.queryable, includeSchemas: ["dbo"] }).introspect();
@@ -125,6 +127,7 @@ async function aliases(db, report) {
       "SELECT user_type_id,system_type_id,is_nullable,default_object_id,rule_object_id FROM sys.types WHERE user_type_id=TYPE_ID(N'dbo.catalog_alias')",
     )
   )[0];
+  report.observedType = nativeType;
   assert.ok(integer(nativeType.user_type_id) !== integer(nativeType.system_type_id));
   assert.equal(flag(nativeType.is_nullable), false);
   assert.equal(type.kind, "scalar");
@@ -135,6 +138,7 @@ async function aliases(db, report) {
   hash(attributes(type).boundDefaultHash);
   hash(attributes(type).boundRuleHash);
   const facts = await columnFacts(db, "catalog_columns");
+  report.observedColumns = facts;
   for (const native of facts) compareBindings(columns[native.name], native);
   assert.equal(columns.inherited_value.nullable, false);
   assert.equal(columns.nullable_override.nullable, true);
@@ -274,6 +278,7 @@ async function futureOnly(db, report) {
   await q("CREATE TABLE dbo.catalog_after(id int NOT NULL PRIMARY KEY,value dbo.catalog_future_alias)");
   const before = (await columnFacts(db, "catalog_before")).find((row) => row.name === "value"),
     after = (await columnFacts(db, "catalog_after")).find((row) => row.name === "value");
+  report.observedBindings = { before, after };
   assert.equal(integer(before.default_object_id), 0);
   assert.equal(integer(before.rule_object_id), 0);
   assert.ok(integer(before.type_default_id) > 0 && integer(before.type_rule_id) > 0);
@@ -326,6 +331,7 @@ async function temporal(db, report) {
   const native = await q(
     "SELECT o.name,t.object_id,t.temporal_type,t.history_table_id,p.start_column_id,p.end_column_id FROM sys.tables t JOIN sys.objects o ON o.object_id=t.object_id LEFT JOIN sys.periods p ON p.object_id=t.object_id WHERE o.name IN(N'catalog_temporal',N'catalog_history') ORDER BY o.name",
   );
+  report.observedTables = native;
   assert.equal(attributes(current).temporalType, 2);
   assert.equal(attributes(history).temporalType, 1);
   assert.equal(attributes(current).historyTableId, attributes(history).objectId);
@@ -373,7 +379,13 @@ async function temporal(db, report) {
   const nativeAsOf = await q(
     `SELECT id,status FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF ${literal(asof)} WHERE id=1`,
   );
-  assert.deepEqual(nativeAsOf, [{ id: 1n, status: "new😀" }]);
+  // The raw queryable intentionally returns counted numeric text; only compiled
+  // query execution promises the grammar's bigint decoder. Preserve the raw wire
+  // observation in the artifact and canonicalize this independent SQL oracle.
+  report.nativeAsOf = nativeAsOf;
+  assert.equal(nativeAsOf.length, 1);
+  assert.equal(BigInt(nativeAsOf[0].id), 1n);
+  assert.equal(nativeAsOf[0].status, "new😀");
   const selected = await compiled(
     snapshot,
     "SELECT id,status,valid_from,valid_to FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF :instant WHERE id=:id",
@@ -466,6 +478,7 @@ async function commerce(db, report) {
   const nativeIndex = await db.queryable.all(
     "SELECT c.name,ic.key_ordinal,ic.is_descending_key,ic.is_included_column FROM sys.indexes i JOIN sys.index_columns ic ON ic.object_id=i.object_id AND ic.index_id=i.index_id JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id WHERE i.object_id=OBJECT_ID(N'dbo.orders') AND i.name=N'orders_user_placed' ORDER BY ic.index_column_id",
   );
+  report.observedIndex = nativeIndex;
   assert.deepEqual(
     nativeIndex.filter((row) => !flag(row.is_included_column)).map((row) => [row.name, flag(row.is_descending_key)]),
     [
@@ -519,19 +532,23 @@ async function permissions(db, report) {
         "SELECT HAS_PERMS_BY_NAME(DB_NAME(),'DATABASE','VIEW DEFINITION') AS database_view,HAS_PERMS_BY_NAME('dbo.catalog_visible_function','OBJECT','VIEW DEFINITION') AS function_view",
       )
     )[0];
+    report.effectivePermissions = effective;
     assert.equal(integer(effective.database_view), 1);
     assert.equal(integer(effective.function_view), 0);
     const routine = (
       await q(
-        "SELECT CASE WHEN m.definition IS NULL THEN 1 ELSE 0 END AS unavailable FROM sys.objects o JOIN sys.sql_modules m ON m.object_id=o.object_id WHERE o.name=N'catalog_visible_function'",
+        "SELECT OBJECT_ID(N'dbo.catalog_visible_function') AS object_id,CASE WHEN OBJECT_DEFINITION(OBJECT_ID(N'dbo.catalog_visible_function')) IS NULL THEN 1 ELSE 0 END AS unavailable,CASE WHEN EXISTS(SELECT 1 FROM sys.sql_modules WHERE object_id=OBJECT_ID(N'dbo.catalog_visible_function')) THEN 1 ELSE 0 END AS module_row_visible",
       )
     )[0];
+    report.definitionVisibility = routine;
+    assert.ok(integer(routine.object_id) > 0, "EXECUTE grant preserves object visibility");
     assert.equal(integer(routine.unavailable), 1);
     const defaultFact = (await columnFacts(db, "catalog_visible")).find((row) => row.name === "value");
     assert.ok(defaultFact && integer(defaultFact.default_object_id) > 0);
     restricted = await capture(db);
     compareBindings(restricted.relations["dbo.catalog_visible"].columns.value, defaultFact);
-    const routineSnapshot = restricted.routines["dbo.catalog_visible_function"][0];
+    const routineSnapshot = restricted.routines["dbo.catalog_visible_function"]?.[0];
+    assert.ok(routineSnapshot, "Visible routine remains in the provider snapshot without its definition");
     assert.equal(attributes(routineSnapshot).definitionUnavailable, true);
     const omitted = ownerNames.filter((name) => !restricted.relations[name]);
     report.visibility = {
