@@ -72,6 +72,58 @@ try {
         );
       });
       const schema = await new SqlServerSchemaProvider({ client: db.queryable, includeSchemas: ["dbo"] }).introspect();
+      await check(`${level}: native late errors and multiple rowsets`, async () => {
+        for (const mode of ["buffered", "streamed"])
+          for (const ending of ["THROW 51111,N'qualification late error',1", "SELECT 2 AS value"]) {
+            const connection = await connectSqlServerOdbc({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+            let stream;
+            try {
+              const text = `SELECT 1 AS value; ${ending}`;
+              let yielded = 0;
+              if (mode === "buffered") await assert.rejects(connection.execute(text));
+              else {
+                stream = connection.stream(text, [], { batchSize: 1 });
+                let rejected = false;
+                while (true) {
+                  let next;
+                  try {
+                    next = await stream.next();
+                  } catch {
+                    rejected = true;
+                    break;
+                  }
+                  if (next.done) break;
+                  yielded++;
+                  assert.equal(Number(next.value.value), 1);
+                  assert.ok(yielded <= 1, "a second rowset must never be exposed");
+                }
+                assert.equal(rejected, true, "late native failure must not become successful stream completion");
+                await stream.close();
+                stream = undefined;
+              }
+              let recovery = "reused";
+              try {
+                const result = await connection.execute("SELECT 7 AS value");
+                assert.equal(Number(result.rows[0].value), 7);
+              } catch (error) {
+                assert.match(String(error), /closed or quarantined/u);
+                recovery = "quarantined";
+              }
+              evidence.cases.push({
+                name: `${level}: ${mode} ${ending.startsWith("THROW") ? "late error" : "multiple rowsets"}`,
+                status: "pass",
+                yielded,
+                recovery,
+              });
+            } finally {
+              try {
+                if (stream) await stream.close();
+              } finally {
+                await connection.close();
+              }
+            }
+          }
+      });
       await writeFile(resolve(generated, `schema-${level}.json`), JSON.stringify(schema, null, 2));
       await check(`${level}: native verification and SHOWPLAN services`, async () => {
         const pool = {
