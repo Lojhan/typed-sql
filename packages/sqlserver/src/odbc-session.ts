@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { type OdbcNative, OdbcNativeError } from "./odbc-native.js";
+import { ODBC_STATEMENT_NOTICES, type OdbcNative, OdbcNativeError } from "./odbc-native.js";
 import {
   type OdbcBoundValue,
   type OdbcColumn,
@@ -167,7 +167,7 @@ export class OdbcSession {
         statement.finished = true;
         return;
       }
-      n.check(rc, "more-results", 3, statement.handle, [5701, 5703, 8153]);
+      n.check(rc, "more-results", 3, statement.handle, ODBC_STATEMENT_NOTICES);
     }
     throw new OdbcNativeError("result-stage-limit");
   }
@@ -180,7 +180,7 @@ export class OdbcSession {
         statement.finished = true;
         return;
       }
-      n.check(rc, "more-results", 3, statement.handle, [5701, 5703, 8153]);
+      n.check(rc, "more-results", 3, statement.handle, ODBC_STATEMENT_NOTICES);
       if (n.columns(statement.handle).length) throw new OdbcNativeError("multiple-result-sets");
     }
     throw new OdbcNativeError("result-stage-limit");
@@ -214,7 +214,7 @@ export class OdbcSession {
         this.finish(statement);
         break;
       }
-      n.check(rc, "fetch", 3, statement.handle, [5701, 5703, 8153]);
+      n.check(rc, "fetch", 3, statement.handle, ODBC_STATEMENT_NOTICES);
       const row: OdbcValue[] = [];
       let bytes = 0;
       for (const [index, column] of statement.columns.entries()) {
