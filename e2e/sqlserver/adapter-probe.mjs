@@ -194,13 +194,26 @@ try {
             ],
           ];
           for (const [expression, expected] of cases) {
-            const factory = await compile(schema, `SELECT ${expression} AS value FROM dbo.widgets`);
-            assert.deepEqual(JSON.parse((await db.one(factory())).value), expected);
+            const source = `SELECT ${expression} AS value FROM dbo.widgets`;
+            const raw = await db.queryable.all(source);
+            evidence.cases.push({
+              name: `${level}: native JSON ${expression}`,
+              status: "evidence",
+              raw,
+              analysis: grammar.analyze(source, schema).columns,
+            });
+            assert.deepEqual(JSON.parse(raw[0].value), expected, expression);
+            const factory = await compile(schema, source);
+            assert.deepEqual(JSON.parse((await db.one(factory())).value), expected, expression);
           }
-          const money = await compile(
-            schema,
-            "SELECT JSON_OBJECT('money':CAST(amount AS money)) AS value FROM dbo.widgets",
-          );
+          const moneySource = "SELECT JSON_OBJECT('money':CAST(amount AS money)) AS value FROM dbo.widgets";
+          evidence.cases.push({
+            name: `${level}: native JSON money`,
+            status: "evidence",
+            raw: await db.queryable.all(moneySource),
+            analysis: grammar.analyze(moneySource, schema).columns,
+          });
+          const money = await compile(schema, moneySource);
           const value = JSON.parse((await db.one(money())).value).money;
           assert.equal(typeof value, "string");
           assert.equal(Number(value), -1.23);
@@ -209,10 +222,14 @@ try {
             "CASE WHEN active=0 THEN JSON_OBJECT('id':id) ELSE JSON_OBJECT('amount':amount) END",
             "COALESCE(JSON_OBJECT('id':id),JSON_OBJECT('amount':amount))",
           ]) {
-            const factory = await compile(
-              schema,
-              `SELECT JSON_OBJECT('nested':${expression}) AS value FROM dbo.widgets`,
-            );
+            const source = `SELECT JSON_OBJECT('nested':${expression}) AS value FROM dbo.widgets`;
+            evidence.cases.push({
+              name: `${level}: native JSON conditional ${expression}`,
+              status: "evidence",
+              raw: await db.queryable.all(source),
+              analysis: grammar.analyze(source, schema).columns,
+            });
+            const factory = await compile(schema, source);
             provenance.push({ expression, value: JSON.parse((await db.one(factory())).value) });
           }
           evidence.cases.push({ name: `${level}: conditional JSON provenance`, status: "evidence", cases: provenance });
