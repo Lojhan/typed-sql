@@ -175,7 +175,7 @@ export function analyzeSqlFiles(
     segments.push({ statement, start: schema.length });
     schema += `${statement.text};\n`;
   }
-  let environment: PlaygroundEnvironment;
+  let environment: PlaygroundEnvironment | undefined;
   try {
     environment = workspaceEnvironment(files);
   } catch (error) {

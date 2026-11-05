@@ -6,9 +6,9 @@ import type { WorkspaceFiles } from "./workspace.js";
 export { ENVIRONMENT_FILE } from "./environment-model.js";
 
 /** Read literals only. Version/settings experiments never execute application configuration. */
-export function workspaceEnvironment(files: WorkspaceFiles): PlaygroundEnvironment {
+export function workspaceEnvironment(files: WorkspaceFiles): PlaygroundEnvironment | undefined {
   const content = files[ENVIRONMENT_FILE];
-  if (content === undefined) return {};
+  if (content === undefined) return undefined;
   const source = ts.createSourceFile(ENVIRONMENT_FILE, content, ts.ScriptTarget.ES2024, true);
   const unwrap = (node: ts.Expression): ts.Expression =>
     ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isParenthesizedExpression(node)

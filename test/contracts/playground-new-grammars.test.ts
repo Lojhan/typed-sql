@@ -1,5 +1,9 @@
 import { describe, it, strict } from "poku";
-import { ENVIRONMENT_FILE, environmentSource } from "../../website/.vitepress/theme/playground/environment-model.js";
+import {
+  DEFAULT_NATIVE_ENVIRONMENTS,
+  ENVIRONMENT_FILE,
+  environmentSource,
+} from "../../website/.vitepress/theme/playground/environment-model.js";
 import { nativeCommerceFiles } from "../../website/.vitepress/theme/playground/native-commerce-example.js";
 import { DEFAULT_SCHEMAS, parsePlaygroundSchema } from "../../website/.vitepress/theme/playground/playground.js";
 import { workspaceEnvironment } from "../../website/.vitepress/theme/playground/workspace-environment.js";
@@ -109,7 +113,8 @@ await describe("native SQL Server and DuckDB playgrounds", async () => {
     await it("uses SQL Server collation evidence and DuckDB ASCII folding for schema identities", () => {
       const tables = "CREATE TABLE Users(id bigint); CREATE TABLE users(id bigint);";
       const sensitive = parsePlaygroundSchema("sqlserver", tables, false, {
-        settings: { collation: "Latin1_General_100_CS_AS" },
+        ...DEFAULT_NATIVE_ENVIRONMENTS.sqlserver,
+        settings: { ...DEFAULT_NATIVE_ENVIRONMENTS.sqlserver.settings, collation: "Latin1_General_100_CS_AS" },
       });
       strict.deepEqual(sensitive.diagnostics, []);
       strict.ok(parsePlaygroundSchema("sqlserver", tables).diagnostics.some((problem) => problem.code === "PLAY207"));
@@ -123,6 +128,16 @@ await describe("native SQL Server and DuckDB playgrounds", async () => {
       });
       strict.deepEqual(multipart.problems, []);
       strict.equal(multipart.queries[0]!.rowType, '{ "id": bigint; }');
+    });
+    await it("does not fill missing critical settings in an edited DuckDB environment", () => {
+      const files = nativeCommerceFiles("duckdb");
+      const { integer_division: _removed, ...settings } = DEFAULT_NATIVE_ENVIRONMENTS.duckdb.settings;
+      const result = service.analyze("duckdb", {
+        ...files,
+        [ENVIRONMENT_FILE]: environmentSource({ version: "2.0.0", settings }),
+      });
+      strict.ok(result.problems.some((problem) => problem.code === "TSQ402"));
+      strict.equal(result.queries.length, 0);
     });
     await it("contains invalid native type errors in schema diagnostics and preserves PostgreSQL folding", () => {
       for (const source of ["CREATE TABLE broken (id STRUCT(a));", "CREATE TABLE broken (id DECIMAL(3, 9));"]) {

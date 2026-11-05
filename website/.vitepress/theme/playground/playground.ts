@@ -448,7 +448,7 @@ export function parsePlaygroundSchema(
   dialect: PlaygroundDialect,
   schemaSource: string,
   allowEmpty = false,
-  environment: PlaygroundEnvironment = {},
+  environment?: PlaygroundEnvironment,
 ): { readonly diagnostics: readonly PlaygroundDiagnostic[]; readonly snapshot?: SchemaSnapshotV2 } {
   if (schemaSource.length > maximumSourceLength) {
     return {
