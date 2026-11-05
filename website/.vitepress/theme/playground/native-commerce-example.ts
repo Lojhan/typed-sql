@@ -5,6 +5,7 @@ import type { WorkspaceFiles } from "./workspace.js";
 /** Native SQL for the two new grammars; no PostgreSQL syntax substitution or fallback analysis. */
 export function nativeCommerceFiles(dialect: "sqlserver" | "duckdb") {
   const sqlserver = dialect === "sqlserver";
+  const databaseType = sqlserver ? "SqlServerDatabase" : "DuckDBDatabase";
   const temporal = sqlserver ? "datetime2(7)" : "TIMESTAMPTZ";
   const output = sqlserver ? "OUTPUT inserted.id, inserted.sku, inserted.price_cents" : "";
   const returning = sqlserver ? "" : "RETURNING id, sku, price_cents";
@@ -99,10 +100,23 @@ SELECT id, details, prices, dimensions, fulfillment,
        row_number() OVER (PARTITION BY active ORDER BY price_cents DESC) AS rank
 FROM products QUALIFY rank <= $limit;
 `,
-    "workflows/checkout.ts": `import type { Database } from "@typed-sql/core";
+    "workflows/batch.ts": `import type { ${databaseType} } from "@typed-sql/${dialect}/runtime";
+import { accountById } from "../queries/account.ts";
+import { catalog } from "../queries/catalog.ts";
+import { orderDocument } from "../queries/order-json.ts";
+
+// Native batches are atomic and preserve an ordered tuple of results.
+export async function loadDashboard(database: ${databaseType}) {
+  const [accounts, products, orders] = await database.batch([
+    accountById(42n), catalog(2500), orderDocument(9001n)
+  ]);
+  return { accounts, products, orders };
+}
+`,
+    "workflows/checkout.ts": `import type { ${databaseType} } from "@typed-sql/${dialect}/runtime";
 import { insertProducts } from "../queries/insert-products.ts";
 import { recordAudit } from "../queries/audit.ts";
-export async function importCatalog(database: Database) {
+export async function importCatalog(database: ${databaseType}) {
   return database.transaction(async transaction => {
     const products = await transaction.all(insertProducts([{ id: 101n, sku: "DESK-01", title: "Studio desk", priceCents: 24900 }]));
     const audit = await transaction.one(recordAudit(5001n, 42n, { source: "supplier-feed", productIds: [101], approved: true }, "2026-11-02T12:00:00.0000000Z"));
