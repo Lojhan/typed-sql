@@ -64,6 +64,8 @@ export type Expression =
       readonly distinct: boolean;
       readonly over?: Window;
       readonly withinGroup?: readonly Order[];
+      readonly jsonNullClause?: "null" | "absent";
+      readonly returningJson?: boolean;
     })
   | (Node & {
       readonly kind: "cast";
