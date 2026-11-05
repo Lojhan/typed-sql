@@ -747,6 +747,10 @@ class Resolver {
   call(expression: Expression & { kind: "call" }, scope: Scope, ctes: Ctes, expected?: Value): Value {
     const name = partsLast(expression.name).toUpperCase();
     if (expression.returningJson) this.requireVersion(17, expression.range, "Native JSON RETURNING");
+    if (name === "NEWSEQUENTIALID")
+      this.diagnostic("TSQ203", "NEWSEQUENTIALID is valid only in a DEFAULT constraint", expression.range);
+    if (name === "ISJSON" && expression.arguments.length > 1)
+      this.requireVersion(16, expression.range, "ISJSON type constraint");
     const builtin = expression.name.parts.length === 1 ? SQLSERVER_BUILTINS[name] : undefined;
     if (!builtin) {
       const candidates = Object.values(this.schema.functions ?? {}).filter(
@@ -823,8 +827,38 @@ class Resolver {
         );
       case "countBig":
         return type("bigint", false, this.policy);
-      case "integer":
-        return type("int", nullable, this.policy);
+      case "integer": {
+        const argument = native(args[name === "CHARINDEX" ? 1 : 0] ?? unknown);
+        const wide = ["LEN", "DATALENGTH", "CHARINDEX", "PATINDEX"].includes(name) && argument?.length === "max";
+        return type(wide ? "bigint" : "int", nullable, this.policy);
+      }
+      case "abs": {
+        const argument = native(first);
+        if (!argument) return unknown;
+        if (argument.name === "decimal") return type(`decimal(38,${argument.scale})`, nullable, this.policy);
+        if (["int", "smallint", "tinyint"].includes(argument.name)) return type("int", nullable, this.policy);
+        if (["money", "smallmoney"].includes(argument.name)) return type("money", nullable, this.policy);
+        if (["real", "float", "bit"].includes(argument.name)) return type("float(53)", nullable, this.policy);
+        if (argument.name === "bigint") return type("bigint", nullable, this.policy);
+        this.diagnostic("TSQ201", "ABS requires a numeric input", expression.range);
+        return unknown;
+      }
+      case "identity":
+        return type("decimal(38,0)", true, this.policy);
+      case "variant":
+        return type("sql_variant", true, this.policy);
+      case "dateTrunc":
+      case "dateBucket": {
+        const position = builtin.rule === "dateTrunc" ? 1 : 2;
+        if (args[position]?.tsType === "unknown") infer(position, type("datetime2(7)", true, this.policy));
+        const argument = expression.arguments[position];
+        if (argument?.kind === "literal" && argument.literal === "string") {
+          if (builtin.rule === "dateBucket")
+            this.diagnostic("TSQ201", "DATE_BUCKET requires a typed temporal date argument", argument.range);
+          return type("datetime2(7)", nullable, this.policy);
+        }
+        return { ...(args[position] ?? unknown), nullable };
+      }
       case "grouping":
         return type(name === "GROUPING" ? "tinyint" : "int", false, this.policy);
       case "bigint":
@@ -841,7 +875,7 @@ class Resolver {
       case "bytes":
         return type("varbinary(max)", nullable, this.policy);
       case "string":
-        return type("nvarchar(4000)", nullable, this.policy);
+        return type(name === "SOUNDEX" ? "varchar(4)" : "nvarchar(4000)", nullable, this.policy);
       case "nvarcharMax":
         for (let i = 0; i < args.length; i++)
           if (args[i]?.tsType === "unknown") infer(i, type("nvarchar(max)", true, this.policy));

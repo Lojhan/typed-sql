@@ -8,7 +8,6 @@ import type { SchemaSnapshot } from "@typed-sql/schema";
 import { parseSqlServerVersion, sqlServerVersionSupport } from "./support.js";
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";
 export const SQLSERVER_CAPABILITIES = Object.freeze({
-  syntax: true,
   apply: true,
   ctes: true,
   fullJoins: true,
@@ -18,6 +17,7 @@ export const SQLSERVER_CAPABILITIES = Object.freeze({
   pagination: true,
   recursiveCtes: true,
   setOperations: true,
+  syntax: true,
   top: true,
   windows: true,
 });
