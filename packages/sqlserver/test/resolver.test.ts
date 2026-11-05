@@ -43,6 +43,34 @@ function analyze(source: string) {
   return grammar.analyze(source, snapshot);
 }
 await describe("SQL Server native inference", async () => {
+  await it("proves repeated INSERT VALUES shapes and distinguishes output projection changes", () => {
+    const source =
+      "INSERT INTO dbo.orders(id,status,amount) OUTPUT inserted.id VALUES (@__typed_sql_1,@__typed_sql_2,@__typed_sql_3),(@__typed_sql_4,@__typed_sql_5,@__typed_sql_6)";
+    const position = source.indexOf("@__typed_sql_1");
+    const analysis = grammar.analyze(source, snapshot, undefined, {
+      repeatedFragmentRanges: [{ start: position, end: source.length }],
+    });
+    strict.deepEqual(analysis.diagnostics, []);
+    strict.equal(analysis.repeatedResultShapeStable, true);
+    strict.deepEqual(
+      analysis.columns.map((column) => column.name),
+      ["id"],
+    );
+    strict.equal(analysis.parameters.length, 6);
+  });
+  await it("resolves native colon-key JSON constructors and update FROM aliases", () => {
+    strict.deepEqual(
+      analyze("UPDATE o SET status=@__typed_sql_1 OUTPUT inserted.id FROM dbo.orders o WHERE o.id=@__typed_sql_2")
+        .diagnostics,
+      [],
+    );
+    const json = analyze("SELECT JSON_OBJECT('id':id,'name':name NULL ON NULL) AS document FROM dbo.orders");
+    strict.deepEqual(json.diagnostics, []);
+    strict.equal(json.columns[0]?.tsType, "string");
+    strict.equal(json.columns[0]?.json?.shape.kind, "object");
+    strict.ok(analyze("SELECT JSON_OBJECT('id',id) AS document FROM dbo.orders").diagnostics.length > 0);
+  });
+
   await it("preserves row names, exact decimal policy and occurrence targets", () => {
     const query = analyze(
       "SELECT o.id,o.amount,o.name FROM dbo.orders o WHERE o.id=@__typed_sql_1 AND o.status=@__typed_sql_2",

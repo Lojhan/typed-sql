@@ -9,6 +9,9 @@ import {
   type SqlServerOdbcQuery,
 } from "../src/odbc.js";
 
+import { sqlServerCatalogQueries } from "../src/provider.js";
+import { serverRow } from "./environment.js";
+
 class NativeQuery extends EventEmitter implements SqlServerOdbcQuery {
   constructor(readonly prepared = false) {
     super();
@@ -36,6 +39,8 @@ class NativeQuery extends EventEmitter implements SqlServerOdbcQuery {
   }
 }
 function setup() {
+  const environment = { ...serverRow };
+  const requested: string[] = [];
   let script: (q: NativeQuery) => void = (q) => {
     q.emit("meta", [{ name: "id" }]);
     q.emit("row", 0);
@@ -48,17 +53,40 @@ function setup() {
   const bindings: unknown[][] = [];
   const queries: NativeQuery[] = [];
   const configured: unknown[] = [];
-  const send = (prepared: boolean, values: readonly unknown[]) => {
+  const send = (prepared: boolean, values: readonly unknown[], text?: string) => {
     bindings.push([...values]);
     const q = new NativeQuery(prepared);
     queries.push(q);
-    queueMicrotask(() => script(q));
+    queueMicrotask(() => {
+      const evidenceRow =
+        text === sqlServerCatalogQueries.server
+          ? environment
+          : text === sqlServerCatalogQueries.options
+            ? { "Set Option": "dateformat", Value: "mdy" }
+            : undefined;
+      if (evidenceRow) {
+        q.emit(
+          "meta",
+          Object.keys(evidenceRow).map((name) => ({ name })),
+        );
+        q.emit("row", 0);
+        Object.values(evidenceRow).forEach((value, index) => {
+          q.emit("column", index, value);
+        });
+        q.emit("done");
+        q.emit("free");
+      } else if (text?.startsWith("SET QUOTED_IDENTIFIER")) {
+        q.emit("done");
+        q.emit("free");
+      } else script(q);
+    });
     return q;
   };
   const native: SqlServerOdbcConnection = {
     queryRaw(query, values) {
       strict.equal(query.numeric_string, true);
-      return send(false, values);
+      requested.push(query.query_str);
+      return send(false, values, query.query_str);
     },
     prepare(query, callback) {
       strict.equal(query.numeric_string, true);
@@ -94,6 +122,8 @@ function setup() {
   return {
     native,
     driver,
+    environment,
+    requested,
     bindings,
     queries,
     configured,
@@ -109,6 +139,49 @@ function setup() {
   };
 }
 await describe("SQL Server explicit ODBC adapter", async () => {
+  await it("checks actual server evidence before mutation and validates injected SQL session settings", async () => {
+    const future = setup();
+    future.environment.version = "18.0.1.1";
+    future.environment.compatibility_level = 180;
+    await strict.rejects(
+      createSqlServerOdbcDatabase({
+        connection: future.native,
+        driverImporter: async () => future.driver,
+        driverVersion: "6.2.2",
+        configureSession: true,
+      }),
+      /qualified boxed/,
+    );
+    strict.equal(
+      future.requested.some((text) => text.startsWith("SET ")),
+      false,
+    );
+    strict.equal(future.closes, 0);
+    const invalid = setup();
+    invalid.environment.arith_abort = 0;
+    await strict.rejects(
+      createSqlServerOdbcDatabase({
+        connection: invalid.native,
+        driverImporter: async () => invalid.driver,
+        driverVersion: "6.2.2",
+      }),
+      /canonical/,
+    );
+    strict.equal(
+      invalid.requested.some((text) => text.startsWith("SET ")),
+      false,
+    );
+    const valid = setup(),
+      db = await createSqlServerOdbcDatabase({
+        connection: valid.native,
+        driverImporter: async () => valid.driver,
+        driverVersion: "6.2.2",
+      });
+    strict.equal(db.serverEvidence.version, "17.0.5035.5");
+    strict.equal(Object.isFrozen(db.serverEvidence), true);
+    await db.close();
+  });
+
   await it("uses numeric strings, typed Unicode NULL and application-owned connection identity", async () => {
     const state = setup();
     const connection = adaptSqlServerOdbcConnection(state.driver, state.native);

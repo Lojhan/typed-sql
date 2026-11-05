@@ -1,0 +1,32 @@
+import { sqlServerServerEvidence } from "../src/capabilities.js";
+export const serverRow = {
+  version: "17.0.5035.5",
+  edition: "Developer Edition",
+  engine_edition: 3,
+  database_name: "commerce",
+  default_schema: "dbo",
+  compatibility_level: 170,
+  collation_name: "SQL_Latin1_General_CP1_CI_AS",
+  quoted_identifier: 1,
+  ansi_warnings: 1,
+  arith_abort: 1,
+  concat_null_on: 1,
+  date_first: 7,
+  language: "us_english",
+  can_view_definition: 1,
+};
+export const serverEvidence = sqlServerServerEvidence(serverRow.version, {
+  compatibilityLevel: 170,
+  collation: serverRow.collation_name,
+  defaultSchema: "dbo",
+  quotedIdentifier: true,
+  ansiWarnings: true,
+  arithAbort: true,
+  concatNullYieldsNull: true,
+  dateFirst: 7,
+  dateFormat: "mdy",
+  language: "us_english",
+  databaseName: "commerce",
+  edition: "Developer Edition",
+  engineEdition: 3,
+});

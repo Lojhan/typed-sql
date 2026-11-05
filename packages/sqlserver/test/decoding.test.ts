@@ -71,7 +71,7 @@ await describe("SQL Server lossless native codecs", async () => {
       ["1752-01-01T00:00:00", "datetime"],
       ["2024-01-01T00:00:00.001", "datetime"],
       ["2024-01-01T00:00:01", "smalldatetime"],
-    ])
+    ] as const)
       strict.throws(() => encode(value, type));
     strict.equal(encode("2024-01-01T00:00:00.003", "datetime"), "2024-01-01T00:00:00.003");
   });
