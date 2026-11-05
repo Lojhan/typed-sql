@@ -113,9 +113,10 @@ await describe("SQL Server fail-closed maturity and metamorphic soundness", asyn
     strict.equal(result.semantics?.operation.value, "unknown");
   });
   await it("requires qualified engine and complete session evidence even for a plain projection", () => {
+    const { server: _server, ...withoutServer } = snapshot;
     for (const schema of [
       maturitySnapshot("18.0.1000.0"),
-      { ...snapshot, server: undefined },
+      withoutServer,
       { ...snapshot, server: { ...snapshot.server, settings: { compatibilityLevel: 170 } } },
     ]) {
       const result = grammar.analyze("SELECT id FROM dbo.widgets", schema);
