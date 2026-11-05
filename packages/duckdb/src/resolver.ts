@@ -13,10 +13,12 @@ import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
   type DuckDBType,
   duckDBAsciiFold,
+  duckDBOutputType,
   duckDBTypeChildren,
   formatDuckDBType,
   parseDuckDBType,
 } from "./native-types.js";
+import { duckDBExpressionLabel } from "./parser/labels.js";
 import { tokenize } from "./parser/tokenizer.js";
 import {
   duckDBExpressionChildren,
@@ -198,7 +200,10 @@ export class DuckDBResolver {
             type: {
               kind: "scalar",
               name: "DECIMAL",
-              precision: Math.min(38, (whole?.replace(/^0+/u, "").length ?? 0) + fraction.length || 1),
+              precision: Math.min(
+                38,
+                (whole?.replace(/^[-+]/u, "").replace(/^0+/u, "").length ?? 0) + fraction.length || 1,
+              ),
               scale: fraction.length,
             },
             nullable: false,
@@ -207,7 +212,16 @@ export class DuckDBResolver {
         try {
           const value = BigInt(expr.value ?? 0);
           return {
-            type: scalar(value <= 2147483647n ? "INTEGER" : value <= 9223372036854775807n ? "BIGINT" : "HUGEINT"),
+            type: scalar(
+              value >= (this.snapshot.server?.versionKey === "1.5.6" ? -2147483647n : -2147483648n) &&
+                value <= 2147483647n
+                ? "INTEGER"
+                : value >= -9223372036854775808n && value <= 9223372036854775807n
+                  ? "BIGINT"
+                  : value >= -(1n << 127n) && value < 1n << 127n
+                    ? "HUGEINT"
+                    : "DOUBLE",
+            ),
             nullable: false,
           };
         } catch {
@@ -797,7 +811,7 @@ export class DuckDBResolver {
       this.error("sum_no_overflow is internal-only on DuckDB1.5.6", expr.range, "TSQ401");
       return unknown;
     }
-    const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
+    const builtinName = name === "count" && (!args.length || args[0]?.kind === "star") ? "count_star" : name;
     const signatures = duckDBBuiltinSignatures(version, builtinName);
     const aggregate =
       signatures.some((signature) => signature[1] === "aggregate") ||
@@ -1386,7 +1400,11 @@ export class DuckDBResolver {
         return value.fields.flatMap((field) => expand(field.type, remaining - 1, field.name));
       return [{ name, type: value, nullable: true, range: expression.range }];
     };
-    return expand(type, depth, alias ?? "unnest");
+    const label = alias ?? duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "");
+    const output = expand(type, depth, label ?? "expression");
+    if (!label && !(type.kind === "struct" && depth > 0))
+      this.error("UNNEST requires an AS alias when its native label cannot be proven", expression.range, "TSQ201");
+    return output;
   }
   project(projections: readonly Projection[], scope: Scope): Field[] {
     const output: Field[] = [];
@@ -1420,21 +1438,32 @@ export class DuckDBResolver {
         for (const field of fields) scope.aliases.set(duckDBAsciiFold(field.name), field);
         continue;
       }
-      const value = this.infer(expression, scope),
+      const value = this.infer(expression, scope);
+      let name = projection.alias;
+      if (!name && expression.kind === "name" && !expression.left) {
+        const names = expression.names ?? [],
+          candidates = scope.fields.filter(
+            (field) =>
+              duckDBAsciiFold(field.name) === duckDBAsciiFold(names.at(-1) ?? "") &&
+              (names.length !== 1 || !field.usingHidden) &&
+              (names.length === 1 || duckDBAsciiFold(field.relation ?? "") === duckDBAsciiFold(names.at(-2) ?? "")),
+          );
         name =
-          projection.alias ??
-          (expression.kind === "name" ? expression.names?.at(-1) : undefined) ??
-          (expression.kind === "call" ? expression.names?.at(-1) : undefined) ??
-          this.expressionName(expression);
+          candidates.length === 1
+            ? candidates[0]!.name
+            : scope.aliases.has(duckDBAsciiFold(names.at(-1) ?? ""))
+              ? names.at(-1)
+              : undefined;
+      }
+      name ??= duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "");
+      if (name === undefined) {
+        this.error("An explicit AS alias is required for this native expression label", expression.range, "TSQ201");
+        name = "expression";
+      }
       output.push({ ...value, name, range: expression.range });
       scope.aliases.set(duckDBAsciiFold(name), value);
     }
     return output;
-  }
-  expressionName(expr: Expression): string {
-    if (expr.kind === "literal")
-      return expr.value?.startsWith('"') ? (JSON.parse(expr.value) as string) : (expr.value ?? "expression");
-    return "expression";
   }
   query(statement: Statement, parent: Scope = emptyScope()): Field[] {
     if (["insert", "update", "delete", "merge", "create"].includes(statement.kind)) {
@@ -1707,7 +1736,7 @@ export class DuckDBResolver {
           name: field.name,
           tsType: field.tsType ?? duckDBTypeScript(field.type, this.policy),
           nullable: field.nullable,
-          databaseType: formatDuckDBType(field.type),
+          databaseType: formatDuckDBType(duckDBOutputType(field.type, this.snapshot.server?.versionKey ?? "")),
           runtimeType: field.runtimeType ?? duckDBRuntimeType(field.type, this.policy),
           range: field.range ?? statement.range,
         };

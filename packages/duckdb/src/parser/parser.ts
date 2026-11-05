@@ -153,6 +153,7 @@ export class DuckDBParser {
           const args: Expression[] = [];
           if (!this.is(":")) args.push(this.expression());
           if (this.accept(":")) {
+            if (!args.length) args.push({ kind: "literal", value: "NULL", range: this.token().range });
             args.push(this.is("]") ? { kind: "literal", value: "NULL", range: this.token().range } : this.expression());
             if (this.accept(":")) args.push(this.expression());
           }
@@ -256,7 +257,12 @@ export class DuckDBParser {
       range = token.range,
       upper = token.value.toUpperCase();
     if (token.kind === "number" || token.kind === "string" || ["NULL", "TRUE", "FALSE"].includes(upper))
-      return { kind: "literal", value: token.kind === "string" ? JSON.stringify(token.value) : upper, range };
+      return {
+        kind: "literal",
+        value: token.kind === "string" ? JSON.stringify(token.value) : upper,
+        ...(token.kind === "number" ? { literalSource: token.text } : {}),
+        range,
+      };
     if (token.text === ":" && this.token().kind === "word" && this.token().range.start === token.range.end) {
       const name = this.take().value;
       let slot = this.named.get(name);
@@ -283,8 +289,17 @@ export class DuckDBParser {
         throw new DuckDBParseError("Invalid DuckDB parameter slot", range);
       return { kind: "parameter", value, parameterRange: range, range };
     }
-    if (["NOT", "+", "-", "~", "EXISTS"].includes(upper))
-      return { kind: "unary", value: upper, left: this.expression(upper === "NOT" ? 3 : 8), range: this.range(range) };
+    if (["NOT", "+", "-", "~", "EXISTS"].includes(upper)) {
+      const left = this.expression(upper === "NOT" ? 3 : 8);
+      if (upper === "-" && left.kind === "literal" && /^\d/u.test(left.value ?? ""))
+        return {
+          ...left,
+          value: `-${left.value}`,
+          literalSource: `-${left.literalSource ?? left.value}`,
+          range: this.range(range),
+        };
+      return { kind: "unary", value: upper, left, range: this.range(range) };
+    }
     if (upper === "*") return { kind: "star", range };
     if (upper === "LAMBDA") {
       const names = this.list(() => this.identifier().value);

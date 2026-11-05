@@ -87,7 +87,9 @@ accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extr
 The provider records catalog/schema identities, search paths, relations, constraints, types,
 routines/macros, loaded extensions, engine version and semantic settings. Quoted identifiers follow
 DuckDB's ASCII case folding. Qualification and search-path evidence determine relation lookup.
-Dynamic external schemas and unsupported SQL receive diagnostics rather than fabricated columns.
+Dynamic external schemas and unsupported SQL receive diagnostics rather than fabricated columns. Unaliased expressions use
+qualified native display labels. An expression whose versioned label cannot be proven requires an
+explicit `AS` alias instead of an invented result property name.
 
 The native adapter captures actual connection evidence at construction and rechecks it under each
 operation lease. A supplied `compatibilitySnapshot` additionally checks against its recorded server

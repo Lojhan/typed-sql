@@ -257,3 +257,26 @@ export function duckDBTypeChildren(type: DuckDBType): readonly DuckDBType[] {
       return [];
   }
 }
+
+export function duckDBOutputType(type: DuckDBType, version: string): DuckDBType {
+  if (version !== "1.5.6") return type;
+  switch (type.kind) {
+    case "scalar":
+      return type.name === "NULL" ? { kind: "scalar", name: "INTEGER" } : type;
+    case "list":
+    case "array":
+      return { ...type, element: duckDBOutputType(type.element, version) };
+    case "struct":
+    case "union":
+      return {
+        ...type,
+        fields: type.fields.map((field) => ({ ...field, type: duckDBOutputType(field.type, version) })),
+      };
+    case "tuple":
+      return { ...type, elements: type.elements.map((element) => duckDBOutputType(element, version)) };
+    case "map":
+      return { ...type, key: duckDBOutputType(type.key, version), value: duckDBOutputType(type.value, version) };
+    default:
+      return type;
+  }
+}

@@ -25,6 +25,7 @@ export interface Expression {
   readonly range: SourceRange;
   readonly value?: string;
   readonly parameterRange?: SourceRange;
+  readonly literalSource?: string;
   readonly names?: readonly string[];
   readonly args?: readonly Expression[];
   readonly left?: Expression;
