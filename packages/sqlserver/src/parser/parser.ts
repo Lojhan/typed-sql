@@ -767,9 +767,36 @@ class Parser {
     this.need("(");
     const distinct = this.take("DISTINCT");
     if (!distinct) this.take("ALL");
-    const args = this.take(")") ? [] : this.list(() => this.expression());
-    if (this.previous.value !== ")" || args.length) this.need(")");
+    const builtinName = name.parts.at(-1)!.toUpperCase();
+    const json = ["JSON_OBJECT", "JSON_OBJECTAGG", "JSON_ARRAY", "JSON_ARRAYAGG"].includes(builtinName);
+    const objectJson = builtinName === "JSON_OBJECT" || builtinName === "JSON_OBJECTAGG";
+    const args: Expression[] = [];
     let withinGroup: Order[] | undefined;
+    let jsonNullClause: "null" | "absent" | undefined;
+    let returningJson = false;
+    if (!this.is(")")) {
+      do {
+        args.push(this.expression());
+        if (objectJson) {
+          this.need(":");
+          args.push(this.expression());
+        }
+      } while (this.take(","));
+      if (json && this.take("ORDER")) {
+        this.need("BY");
+        withinGroup = this.orders();
+      }
+      if (json && (this.is("NULL") || this.is("ABSENT"))) {
+        jsonNullClause = this.next().value.toUpperCase() === "NULL" ? "null" : "absent";
+        this.need("ON");
+        this.need("NULL");
+      }
+      if (json && this.take("RETURNING")) {
+        this.need("JSON");
+        returningJson = true;
+      }
+    }
+    this.need(")");
     if (this.take("WITHIN")) {
       this.need("GROUP");
       this.need("(");
@@ -786,6 +813,8 @@ class Parser {
       distinct,
       ...(over ? { over } : {}),
       ...(withinGroup ? { withinGroup } : {}),
+      ...(jsonNullClause ? { jsonNullClause } : {}),
+      ...(returningJson ? { returningJson } : {}),
       range: span(name.range, this.previous.range),
     };
   }

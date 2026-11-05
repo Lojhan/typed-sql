@@ -60,7 +60,7 @@ await describe("SQL Server native inference", async () => {
       query.parameters.map((p) => [p.index, p.tsType, p.databaseType]),
       [
         [1, "bigint", "bigint"],
-        [2, "string", "nvarchar(40)"],
+        [2, "string", "nvarchar(40) COLLATE Latin1_General_100_CI_AS"],
       ],
     );
   });
@@ -83,7 +83,7 @@ await describe("SQL Server native inference", async () => {
     strict.equal(insert.resultKind, "rows");
     strict.deepEqual(
       insert.parameters.map((p) => p.databaseType),
-      ["bigint", "nvarchar(40)", "decimal(38,10)"],
+      ["bigint", "nvarchar(40) COLLATE Latin1_General_100_CI_AS", "decimal(38,10)"],
     );
     const update = analyze(
       "UPDATE dbo.orders SET amount=@__typed_sql_1 OUTPUT inserted.amount,deleted.amount AS previous WHERE id=@__typed_sql_2",

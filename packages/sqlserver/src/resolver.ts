@@ -210,7 +210,19 @@ class Resolver {
     return unknown;
   }
   columnValue(column: ColumnSnapshot): Value {
-    const mapped = type(column.databaseType, column.nullable, this.policy);
+    const original = parseSqlServerNativeType(column.databaseType);
+    const structural = "collation" in column && typeof column.collation === "string" ? column.collation : undefined;
+    const collation =
+      structural ??
+      (typeof this.schema.server?.settings.collation === "string" ? this.schema.server.settings.collation : undefined);
+    const databaseType =
+      original &&
+      !original.collation &&
+      ["varchar", "char", "nvarchar", "nchar", "text", "ntext"].includes(original.name) &&
+      collation
+        ? `${original.text} COLLATE ${collation}`
+        : column.databaseType;
+    const mapped = type(databaseType, column.nullable, this.policy);
     const branded = brandBaseType(column.tsType);
     return {
       ...mapped,
@@ -895,7 +907,12 @@ class Resolver {
         infer(0, type("nvarchar(max)", true, this.policy));
         if (expression.arguments[1]) infer(1, type("nvarchar(4000)", false, this.policy));
         if (builtin.rule === "jsonValue") return type("nvarchar(4000)", true, this.policy);
-        const shape: JsonShape = first.json?.shape ?? { kind: "unknown" };
+        const shape: JsonShape =
+          builtin.rule === "jsonQuery" &&
+          (!expression.arguments[1] ||
+            (expression.arguments[1].kind === "literal" && expression.arguments[1].value === "$"))
+            ? (first.json?.shape ?? { kind: "unknown" })
+            : { kind: "unknown" };
         return {
           tsType: this.policy.json === "parsed" ? this.jsonType(shape) : "string",
           nullable: builtin.rule === "jsonQuery" || first.nullable,
@@ -914,7 +931,7 @@ class Resolver {
               : { kind: "unknown" },
           };
         } else {
-          const properties: Record<string, { shape: JsonShape }> = {};
+          const properties: Record<string, { shape: JsonShape; optional?: boolean }> = {};
           if (expression.arguments.length % 2)
             this.diagnostic("TSQ202", "JSON_OBJECT requires key/value pairs", expression.range);
           for (let i = 0; i < args.length; i += 2) {
@@ -928,7 +945,10 @@ class Resolver {
               continue;
             }
             Object.defineProperty(properties, String(key.value), {
-              value: { shape: this.shape(args[i + 1] ?? unknown) },
+              value: {
+                shape: this.shape(args[i + 1] ?? unknown),
+                ...(expression.jsonNullClause === "absent" && args[i + 1]?.nullable ? { optional: true } : {}),
+              },
               enumerable: true,
             });
           }
@@ -937,7 +957,7 @@ class Resolver {
         return {
           tsType: this.policy.json === "parsed" ? this.jsonType(shape) : "string",
           nullable: builtin.kind === "aggregate",
-          databaseType: "nvarchar(max)",
+          databaseType: expression.returningJson ? "json" : "nvarchar(max)",
           json: { shape, representation: this.policy.json === "parsed" ? "parsed" : "text" },
         };
       }
