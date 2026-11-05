@@ -196,7 +196,7 @@ await describe("SQL Server fail-closed maturity and metamorphic soundness", asyn
       "duplicate CTE names",
       "WITH a AS (SELECT id FROM dbo.widgets),a AS (SELECT id FROM dbo.widgets) SELECT id FROM a",
     ],
-    ["duplicate CTE columns", "WITH a(x,x) AS (SELECT id,quantity FROM dbo.widgets) SELECT 1 AS value"],
+    ["duplicate CTE columns", "WITH a(x,x) AS (SELECT id,quantity FROM dbo.widgets) SELECT 1 AS value FROM a"],
     ["CTE column width", "WITH a(x,y) AS (SELECT id FROM dbo.widgets) SELECT x FROM a"],
     [
       "recursive UNION requires ALL",
