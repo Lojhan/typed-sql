@@ -8,7 +8,8 @@ import {
   type SchemaProvider,
   type TypeSnapshot,
 } from "@typed-sql/schema";
-import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "./native-types.js";
+import { duckDBGeneratedColumns } from "./catalog/ddl.js";
+import { type DuckDBType, duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { assertDuckDBSemanticEvidence, DUCKDB_SEMANTIC_SETTINGS } from "./settings.js";
 import { type DuckDBSchemaSnapshot, duckDBRelationIdentity } from "./snapshot.js";
 import { duckDBServerEvidence, duckDBVersionSupport } from "./support.js";
@@ -46,6 +47,7 @@ interface RelationRow extends Record<string, unknown> {
   schema_name: string;
   name: string;
   kind: "table" | "view";
+  ddl: string | null;
 }
 interface FunctionRow extends Record<string, unknown> {
   database_name: string;
@@ -93,7 +95,7 @@ export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot
     );
     const features = extensionRows.map((row) => `${row.extension_name}@${row.extension_version || "builtin"}`);
     const relations = await client.all<RelationRow>(
-      "SELECT database_name,schema_name,table_name AS name,'table' AS kind FROM duckdb_tables() WHERE NOT internal UNION ALL SELECT database_name,schema_name,view_name AS name,'view' AS kind FROM duckdb_views() WHERE NOT internal ORDER BY database_name,schema_name,name",
+      "SELECT database_name,schema_name,table_name AS name,'table' AS kind,sql AS ddl FROM duckdb_tables() WHERE NOT internal UNION ALL SELECT database_name,schema_name,view_name AS name,'view' AS kind,sql AS ddl FROM duckdb_views() WHERE NOT internal ORDER BY database_name,schema_name,name",
     );
     const version2 = version.replace(/^v/u, "") === "2.0.0";
     const columns = await client.all<ColumnRow>(
@@ -160,6 +162,14 @@ export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot
         kind: "schema",
         extension: { version: "1", attributes: { catalog: relation.database_name } },
       };
+      const generatedEvidence =
+        relation.kind === "table"
+          ? typeof relation.ddl === "string"
+            ? duckDBGeneratedColumns(relation.ddl)
+            : undefined
+          : undefined;
+      if (relation.kind === "table" && !generatedEvidence)
+        throw new TypeError("DuckDB generated-column evidence is missing");
       const fields: Record<string, ColumnSnapshotV2> = {};
       for (const column of columns.filter(
         (item) =>
@@ -168,7 +178,13 @@ export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot
           item.table_name === relation.name,
       )) {
         const native = parseDuckDBType(column.data_type),
-          generated = column.is_generated === true;
+          declaration = generatedEvidence?.get(duckDBAsciiFold(column.column_name));
+        if (relation.kind === "table" && !declaration)
+          throw new TypeError("DuckDB table DDL does not attest every catalog column");
+        const generated = declaration?.generated ?? column.is_generated === true;
+        if (column.is_generated !== undefined && column.is_generated !== generated)
+          throw new TypeError("DuckDB generated metadata sources disagree");
+        const generatedExpression = declaration?.expression ?? column.generation_expression;
         fields[column.column_name] = {
           name: column.column_name,
           position: column.column_index - 1,
@@ -177,13 +193,13 @@ export class DuckDBSchemaProvider implements SchemaProvider<DuckDBSchemaSnapshot
           tsType: duckDBTypeScript(native, this.policy),
           nullable: column.is_nullable,
           nullabilitySource: "declared",
-          default: column.column_default === null ? "none" : "present",
-          ...(column.column_default === null
+          default: generated || column.column_default === null ? "none" : "present",
+          ...(generated || column.column_default === null
             ? {}
             : { defaultExpressionHash: fingerprintSchemaExpression(column.column_default) }),
           generated: generated ? "virtual" : "none",
-          ...(typeof column.generation_expression === "string"
-            ? { generatedExpressionHash: fingerprintSchemaExpression(column.generation_expression) }
+          ...(typeof generatedExpression === "string"
+            ? { generatedExpressionHash: fingerprintSchemaExpression(generatedExpression) }
             : {}),
           identity: "none",
           classification: "normal",

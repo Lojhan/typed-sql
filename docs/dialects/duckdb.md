@@ -82,12 +82,16 @@ The grammar owns DuckDB coercions and builtin overloads, analytical joins, CTEs,
 aggregates and windows, `QUALIFY`, recursive projection `UNNEST`, fixed nested shapes, collection
 lambdas, and `INSERT`/`UPDATE`/`DELETE ... RETURNING`. LIST comprehensions and STRUCT/MAP constructors
 retain their native structure. DuckDB 2.0 uses `lambda x: expression`; legacy single-arrow lambdas are
-accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extraction operators.
+accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extraction operators. Escape strings preserve native hex/octal byte
+and UTF-8 behavior. The 1.5.6 parser rejects escaped non-ASCII bytes and `\u`/`\U` forms;
+queries using these forms receive version diagnostics.
 
 The provider records catalog/schema identities, search paths, relations, constraints, types,
 routines/macros, loaded extensions, engine version and semantic settings. Quoted identifiers follow
 DuckDB's ASCII case folding. Qualification and search-path evidence determine relation lookup.
-Dynamic external schemas and unsupported SQL receive diagnostics rather than fabricated columns.
+Dynamic external schemas and unsupported SQL receive diagnostics rather than fabricated columns. Unaliased expressions use
+qualified native display labels. An expression whose versioned label cannot be proven requires an
+explicit `AS` alias instead of an invented result property name.
 
 The native adapter captures actual connection evidence at construction and rechecks it under each
 operation lease. A supplied `compatibilitySnapshot` additionally checks against its recorded server
@@ -117,6 +121,67 @@ explicitly requested through the shared observer contract.
 A path-created instance and connection are owned and closed by the adapter. Injected resources remain
 application owned unless ownership is explicitly transferred. `close()` releases owned file locks;
 applications must also close any independently retained native connections or instances.
+
+## Native vector appends
+
+The `/runtime` entrypoint exports the `duckdbAppender` capability. Obtain it with
+`requireAdapterCapability(database, duckdbAppender)` from `@typed-sql/core`, then call
+`append(rowQuery, rows, options)`. The factory returns an ordinary compiled, typed single-row
+`INSERT` with an explicit column list and one ordered parameter per column. It has no `RETURNING`,
+conflict clause, CTE or query source. Each row preserves the same SQL shape and physical targets.
+
+Rows can be synchronous or asynchronous iterables. `chunkRows` bounds native vector chunks from
+1 to 2048 rows; the default is 2048. The result and `onProgress` callback report `rows` and `chunks`.
+Progress reports data transferred to operation-owned staging, before the target transaction commits.
+The operation uses temporary staging to preserve partial or reordered columns, target defaults and
+generated columns. Native vectors preserve nested values, including active UNION members containing
+NULL. The appender closes before the final insertion commits.
+
+A root append is atomic. Inside a transaction, obtain the capability from its callback scope; it
+shares that transaction. Producer, validation, progress callback, cancellation or constraint failures
+close the producer and appender and roll back. Await every append before its transaction callback
+returns. Produce rows independently of operations on the leased connection.
+
+## Native verification and query plans
+
+The explicit `/node-api` entrypoint exports `createNodeDuckDBLiveVerifier(options)` and
+`createNodeDuckDBPlanInspector(options)`. Both accept the same connection and ownership options as
+`createNodeDuckDBDatabase`. These factories return synchronous, lazy service objects: loading a config
+and reading service metadata do not import the SDK or open a database. The first native method
+initializes the service once; concurrent calls share that initialization. Closing an unused service
+keeps it offline. Closing an active service drains admitted work and releases owned resources.
+
+```ts
+import { defineConfig } from '@typed-sql/core';
+import { duckdb } from '@typed-sql/duckdb';
+import {
+  createNodeDuckDBLiveVerifier,
+  createNodeDuckDBPlanInspector,
+} from '@typed-sql/duckdb/node-api';
+
+export default defineConfig({
+  dialect: duckdb(),
+  schema: { file: 'schema.json' },
+  outDir: 'generated',
+  verification: { live: createNodeDuckDBLiveVerifier({ path: 'app.duckdb' }) },
+  plans: { live: createNodeDuckDBPlanInspector({ path: 'app.duckdb' }) },
+});
+```
+
+An existing database exposes `liveVerifier` and `planInspector` services
+that share its connection lease and compatibility checks. Close a standalone service to release its
+owned resources; close the database to release services obtained from that database.
+
+Verification prepares and describes SQL without executing it. Native metadata does not report
+nullability, and parameter-dependent expressions can leave column or parameter metadata unavailable;
+verification reports those limits explicitly.
+
+Plan capture uses non-executing `EXPLAIN (FORMAT JSON)`, including for DML. Parameterized captures
+require transient samples and resolved native parameter targets. Nested samples use the same exact
+codecs and UNION transport as execution. The normalized inventory contains node kinds, relation
+names and available row estimates. Expressions, SQL, samples and native error text are excluded.
+The environment records optimizer settings and hashes exposed table cardinality estimates and
+catalog structure. DuckDB does not expose a comparable cost estimate through this protocol.
 
 Start with the [quickstart](../getting-started/duckdb.md), then explore
 [nested and analytical examples](../examples/duckdb.md).

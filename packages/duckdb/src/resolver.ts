@@ -8,15 +8,19 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
+import { commonTypes as common15, expressionTypes as expression15 } from "./catalog/common-1.5.6.js";
+import { commonTypes as common20, expressionTypes as expression20 } from "./catalog/common-2.0.0.js";
 import { duckDBBuiltinSignatures } from "./catalog/index.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {
   type DuckDBType,
   duckDBAsciiFold,
+  duckDBOutputType,
   duckDBTypeChildren,
   formatDuckDBType,
   parseDuckDBType,
 } from "./native-types.js";
+import { duckDBExpressionLabel } from "./parser/labels.js";
 import { tokenize } from "./parser/tokenizer.js";
 import {
   duckDBExpressionChildren,
@@ -33,6 +37,7 @@ interface Value {
   readonly nullable: boolean;
   readonly tsType?: string;
   readonly runtimeType?: RuntimeValueType;
+  readonly integerLiteralRange?: readonly [bigint, bigint];
 }
 interface Field extends Value {
   readonly range?: SourceRange;
@@ -41,6 +46,8 @@ interface Field extends Value {
   readonly schema?: string;
   readonly catalog?: string;
   readonly usingHidden?: boolean;
+  readonly insertable?: boolean | "unknown";
+  readonly updatable?: boolean | "unknown";
 }
 interface Scope {
   readonly fields: readonly Field[];
@@ -80,43 +87,70 @@ function isNumeric(type: DuckDBType): boolean {
     (small.has(type.name) || wide.has(type.name) || ["DECIMAL", "FLOAT", "DOUBLE"].includes(type.name))
   );
 }
-export function commonDuckDBType(a: DuckDBType, b: DuckDBType): DuckDBType {
+export function commonDuckDBType(
+  a: DuckDBType,
+  b: DuckDBType,
+  version = "2.0.0",
+  mode: "expression" | "set" = "expression",
+): DuckDBType {
   if (same(a, b)) return a;
   if (a.kind === "scalar" && a.name === "NULL") return b;
   if (b.kind === "scalar" && b.name === "NULL") return a;
   if (a.kind === "scalar" && a.name === "ANY") return b;
   if (b.kind === "scalar" && b.name === "ANY") return a;
-  if (isNumeric(a) && isNumeric(b) && a.kind === "scalar" && b.kind === "scalar") {
-    if ([a.name, b.name].includes("DOUBLE")) return scalar("DOUBLE");
-    if ([a.name, b.name].includes("FLOAT")) return scalar("FLOAT");
+  if (a.kind === "scalar" && b.kind === "scalar") {
     if (a.name === "DECIMAL" || b.name === "DECIMAL") {
-      const shape = (x: typeof a) => {
-        const value = decimalProperties(x);
-        return [value.precision, value.scale];
-      };
-      const [ap, as] = shape(a),
-        [bp, bs] = shape(b),
-        scale = Math.max(as!, bs!);
-      return {
-        kind: "scalar",
-        name: "DECIMAL",
-        precision: Math.min(38, Math.max(ap! - as!, bp! - bs!) + scale),
-        scale,
-      };
+      const other = a.name === "DECIMAL" ? b : a;
+      if (["FLOAT", "DOUBLE"].includes(other.name)) return other;
+      if (other.name === "BIGNUM") return mode === "set" ? other : scalar("ANY");
+      if (other.name === "BOOLEAN") return mode === "set" ? (a.name === "DECIMAL" ? a : b) : scalar("ANY");
     }
-    if (a.name === "BIGNUM" || b.name === "BIGNUM") return scalar("BIGNUM");
-    if ([a.name, b.name].includes("UHUGEINT"))
-      return a.name.startsWith("U") && b.name.startsWith("U") ? scalar("UHUGEINT") : scalar("BIGNUM");
-    if ([a.name, b.name].includes("HUGEINT")) return scalar("HUGEINT");
-    if ([a.name, b.name].includes("UBIGINT"))
-      return a.name.startsWith("U") && b.name.startsWith("U") ? scalar("UBIGINT") : scalar("HUGEINT");
-    if ([a.name, b.name].includes("BIGINT")) return scalar("BIGINT");
-    if ([a.name, b.name].includes("UINTEGER"))
-      return a.name.startsWith("U") && b.name.startsWith("U") ? scalar("UINTEGER") : scalar("BIGINT");
-    return scalar("INTEGER");
+    if (isNumeric(a) && isNumeric(b)) {
+      if (a.name === "DECIMAL" || b.name === "DECIMAL") {
+        const shape = (x: typeof a) => {
+          const value = decimalProperties(x);
+          return [value.precision, value.scale];
+        };
+        const [ap, as] = shape(a),
+          [bp, bs] = shape(b),
+          scale = Math.max(as!, bs!);
+        return {
+          kind: "scalar",
+          name: "DECIMAL",
+          precision: Math.min(38, Math.max(ap! - as!, bp! - bs!) + scale),
+          scale,
+        };
+      }
+    }
+    const key = `${a.name}|${b.name}`;
+    const matrix =
+      version === "1.5.6"
+        ? mode === "set"
+          ? common15
+          : expression15
+        : version === "2.0.0"
+          ? mode === "set"
+            ? common20
+            : expression20
+          : {};
+    const result = matrix[key];
+    return result ? parseDuckDBType(result) : scalar("ANY");
   }
   if ((a.kind === "list" || a.kind === "array") && (b.kind === "list" || b.kind === "array"))
-    return { kind: "list", element: commonDuckDBType(a.element, b.element) };
+    return a.kind === "array" && b.kind === "array" && a.length === b.length
+      ? { kind: "array", length: a.length, element: commonDuckDBType(a.element, b.element, version, mode) }
+      : { kind: "list", element: commonDuckDBType(a.element, b.element, version, mode) };
+  if (a.kind === "tuple" && b.kind === "tuple" && a.elements.length === b.elements.length)
+    return {
+      kind: "tuple",
+      elements: a.elements.map((type, i) => commonDuckDBType(type, b.elements[i]!, version, mode)),
+    };
+  if (a.kind === "map" && b.kind === "map")
+    return {
+      kind: "map",
+      key: commonDuckDBType(a.key, b.key, version, mode),
+      value: commonDuckDBType(a.value, b.value, version, mode),
+    };
   if (a.kind === "struct" && b.kind === "struct") {
     const names = [
       ...a.fields.map((x) => x.name),
@@ -131,17 +165,52 @@ export function commonDuckDBType(a: DuckDBType, b: DuckDBType): DuckDBType {
         type: commonDuckDBType(
           a.fields.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name))?.type ?? nil.type,
           b.fields.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name))?.type ?? nil.type,
+          version,
+          mode,
         ),
       })),
     };
   }
   return scalar("ANY");
 }
-function nullableUnion(values: readonly Value[]): Value {
-  return {
-    type: values.reduce((type, value) => commonDuckDBType(type, value.type), nil.type),
-    nullable: values.some((value) => value.nullable),
+function nullableUnion(values: readonly Value[], version = "2.0.0", mode: "expression" | "set" = "expression"): Value {
+  const fits = (range: readonly [bigint, bigint], type: DuckDBType): boolean => {
+    if (type.kind !== "scalar") return false;
+    const width = (
+      {
+        TINYINT: 8,
+        SMALLINT: 16,
+        INTEGER: 32,
+        BIGINT: 64,
+        HUGEINT: 128,
+        UTINYINT: 8,
+        USMALLINT: 16,
+        UINTEGER: 32,
+        UBIGINT: 64,
+        UHUGEINT: 128,
+      } as Readonly<Record<string, number>>
+    )[type.name];
+    if (!width) return false;
+    const unsigned = type.name.startsWith("U"),
+      bits = BigInt(width - (unsigned ? 0 : 1));
+    return range[0] >= (unsigned ? 0n : -(1n << bits)) && range[1] < 1n << bits;
   };
+  let combined: Value = nil;
+  for (const value of values) {
+    if (combined.type.kind === "scalar" && combined.type.name === "NULL") {
+      combined = value;
+      continue;
+    }
+    if (value.type.kind === "scalar" && value.type.name === "NULL") continue;
+    const type =
+      mode === "expression" && combined.integerLiteralRange && fits(combined.integerLiteralRange, value.type)
+        ? value.type
+        : mode === "expression" && value.integerLiteralRange && fits(value.integerLiteralRange, combined.type)
+          ? combined.type
+          : commonDuckDBType(combined.type, value.type, version, mode);
+    combined = { type, nullable: false };
+  }
+  return { type: combined.type, nullable: values.some((value) => value.nullable) };
 }
 const emptyScope = (): Scope => ({ fields: [], aliases: new Map(), ctes: new Map() });
 export class DuckDBResolver {
@@ -149,6 +218,7 @@ export class DuckDBResolver {
   readonly parameters = new Map<number, { value: Value; range: SourceRange }>();
   readonly dependencies: QueryDependency[] = [];
   private calls = 0;
+  private functionIndex: Map<string, { path: string[]; macro: boolean }[]> | undefined;
   private effect: "read" | "write" | "ddl" | "unknown" = "read";
   private volatile = false;
   private unknownVolatility = false;
@@ -157,6 +227,12 @@ export class DuckDBResolver {
     readonly snapshot: DuckDBSchemaSnapshot,
     readonly policy: DuckDBTypePolicy,
   ) {}
+  commonType(a: DuckDBType, b: DuckDBType, mode: "expression" | "set" = "expression"): DuckDBType {
+    return commonDuckDBType(a, b, this.snapshot.server?.versionKey ?? "", mode);
+  }
+  unionValues(values: readonly Value[], mode: "expression" | "set" = "expression"): Value {
+    return nullableUnion(values, this.snapshot.server?.versionKey ?? "", mode);
+  }
   error(message: string, range: SourceRange, code = "TSQ101"): void {
     this.diagnostics.push({ code, message, range, severity: "error" });
   }
@@ -196,7 +272,10 @@ export class DuckDBResolver {
             type: {
               kind: "scalar",
               name: "DECIMAL",
-              precision: Math.min(38, (whole?.replace(/^0+/u, "").length ?? 0) + fraction.length || 1),
+              precision: Math.min(
+                38,
+                (whole?.replace(/^[-+]/u, "").replace(/^0+/u, "").length ?? 0) + fraction.length || 1,
+              ),
               scale: fraction.length,
             },
             nullable: false,
@@ -205,8 +284,18 @@ export class DuckDBResolver {
         try {
           const value = BigInt(expr.value ?? 0);
           return {
-            type: scalar(value <= 2147483647n ? "INTEGER" : value <= 9223372036854775807n ? "BIGINT" : "HUGEINT"),
+            type: scalar(
+              value >= (this.snapshot.server?.versionKey === "1.5.6" ? -2147483647n : -2147483648n) &&
+                value <= 2147483647n
+                ? "INTEGER"
+                : value >= -9223372036854775808n && value <= 9223372036854775807n
+                  ? "BIGINT"
+                  : value >= -(1n << 127n) && value < 1n << 127n
+                    ? "HUGEINT"
+                    : "DOUBLE",
+            ),
             nullable: false,
+            integerLiteralRange: [value, value],
           };
         } catch {
           return unknown;
@@ -319,7 +408,7 @@ export class DuckDBResolver {
             (right.type.kind === "list" || right.type.kind === "array")
           )
             return {
-              type: { kind: "list", element: commonDuckDBType(left.type.element, right.type.element) },
+              type: { kind: "list", element: this.commonType(left.type.element, right.type.element) },
               nullable: left.nullable || right.nullable,
             };
           if (
@@ -334,15 +423,19 @@ export class DuckDBResolver {
           this.error("Incompatible concatenation operands", expr.range, "TSQ201");
           return unknown;
         }
+        const literalTarget =
+          (left.integerLiteralRange || right.integerLiteralRange) && isNumeric(left.type) && isNumeric(right.type)
+            ? this.unionValues([left, right]).type
+            : undefined;
         const operators = matchDuckDBBuiltin(this.snapshot.server?.versionKey ?? "", expr.value ?? "", [
-          left.type,
-          right.type,
+          literalTarget ?? left.type,
+          literalTarget ?? right.type,
         ]);
         if (!operators.length) {
           this.error("No qualified DuckDB operator overload matches the operands", expr.range, "TSQ201");
           return unknown;
         }
-        const type = commonDuckDBType(left.type, right.type);
+        const type = this.commonType(left.type, right.type);
         if (
           type.kind === "scalar" &&
           type.name === "DECIMAL" &&
@@ -383,11 +476,11 @@ export class DuckDBResolver {
           else arg(args[i], bool(true));
         }
         if (args.length % 2 === 0) values.push(nil);
-        return nullableUnion(values);
+        return this.unionValues(values);
       }
       case "list": {
         const args = (expr.args ?? []).map((x) => arg(x));
-        return { type: { kind: "list", element: nullableUnion(args).type }, nullable: false };
+        return { type: { kind: "list", element: this.unionValues(args).type }, nullable: false };
       }
       case "tuple":
         return { type: { kind: "tuple", elements: (expr.args ?? []).map((x) => arg(x).type) }, nullable: false };
@@ -676,7 +769,7 @@ export class DuckDBResolver {
     }
     const element: Value = { type: collection.type.element, nullable: true };
     const initial = args[2] ? this.infer(args[2], scope) : undefined;
-    const accumulator = initial ? nullableUnion([element, initial]) : element;
+    const accumulator = initial ? this.unionValues([element, initial]) : element;
     const bindings = names.map(
       (name, i): Field => ({
         name,
@@ -708,7 +801,7 @@ export class DuckDBResolver {
       return unknown;
     }
     if (reduce) {
-      const combined = commonDuckDBType(accumulator.type, body.type);
+      const combined = this.commonType(accumulator.type, body.type);
       if (combined.kind === "scalar" && combined.name === "ANY") {
         this.error("LIST reduce lambda has incompatible accumulator type", lambda.range, "TSQ201");
         return unknown;
@@ -720,11 +813,92 @@ export class DuckDBResolver {
       nullable: collection.nullable,
     };
   }
+  functionNamespaces(expr: Expression): readonly string[] | null | undefined {
+    const names = expr.names ?? [],
+      name = duckDBAsciiFold(names.at(-1) ?? "");
+    const catalog = String(this.snapshot.server?.settings.currentCatalog ?? ""),
+      schema = String(this.snapshot.server?.settings.currentSchema ?? "main");
+    const explicit = names.length > 1;
+    const paths: string[][] = [];
+    if (names.length === 3) paths.push([names[0]!, names[1]!]);
+    else if (names.length === 2) paths.push([catalog, names[0]!], ["temp", names[0]!], ["system", names[0]!]);
+    else if (names.length === 1) {
+      paths.push(["temp", "main"]);
+      let path: string[] = [];
+      for (const token of tokenize(String(this.snapshot.server?.settings.search_path ?? ""))) {
+        if (token.text === ",") {
+          if (path.length) paths.push(path.length === 1 ? [catalog, path[0]!] : path);
+          path = [];
+        } else if (token.kind === "word" || token.kind === "quoted") path.push(token.value);
+      }
+      if (path.length) paths.push(path.length === 1 ? [catalog, path[0]!] : path);
+      paths.push([catalog, schema], [catalog, "main"], ["system", "main"]);
+    }
+    const sameNamespace = (left: readonly string[], right: readonly string[]) =>
+      left.length === 2 &&
+      right.length === 2 &&
+      duckDBAsciiFold(left[0]!) === duckDBAsciiFold(right[0]!) &&
+      duckDBAsciiFold(left[1]!) === duckDBAsciiFold(right[1]!);
+    if (!this.functionIndex) {
+      const index = new Map<string, { path: string[]; macro: boolean }[]>();
+      const add = (name: string, entry: { path: string[]; macro: boolean }) => {
+        const key = duckDBAsciiFold(name),
+          values = index.get(key) ?? [];
+        values.push(entry);
+        index.set(key, values);
+      };
+      const macros = this.snapshot.formatVersion === 2 ? this.snapshot.extension?.attributes.macros : undefined;
+      if (Array.isArray(macros))
+        for (const value of macros)
+          if (
+            typeof value === "object" &&
+            value !== null &&
+            !Array.isArray(value) &&
+            typeof value.name === "string" &&
+            typeof value.catalog === "string" &&
+            typeof value.schema === "string"
+          )
+            add(value.name, { path: [value.catalog, value.schema], macro: true });
+      if (this.snapshot.formatVersion === 2)
+        for (const routine of Object.values(this.snapshot.routines).flat())
+          add(routine.name, {
+            path: [String(routine.extension?.attributes.catalog ?? catalog), routine.schema ?? "main"],
+            macro: false,
+          });
+      this.functionIndex = index;
+    }
+    const entries = [...(this.functionIndex.get(name) ?? [])];
+    const builtin =
+      duckDBBuiltinSignatures(this.snapshot.server?.versionKey ?? "", name).length > 0 ||
+      ["if", "ifnull", "nullif", "coalesce", "json_group_array", "json_group_object"].includes(name);
+    if (builtin) entries.push({ path: ["system", "main"], macro: false });
+    for (const path of paths) {
+      const selected = entries.filter((entry) => sameNamespace(entry.path, path));
+      if (!selected.length) continue;
+      if (sameNamespace(path, ["system", "main"])) return path;
+      if (selected.some((entry) => entry.macro) || builtin) {
+        this.error(
+          "A schema-owned function or macro requires proven native semantics; builtin fallback is unsafe",
+          expr.range,
+          "TSQ401",
+        );
+        return undefined;
+      }
+      return path;
+    }
+    if (explicit) {
+      this.error(`Unknown qualified DuckDB function ${names.join(".")}`, expr.range, "TSQ201");
+      return undefined;
+    }
+    return null;
+  }
   call(expr: Expression, scope: Scope, expected?: Value): Value {
     if (scope.aggregateScope && (this.aggregate(expr) || expr.window))
       return this.call(expr, scope.aggregateScope, expected);
     const name = expr.names?.at(-1)?.toLowerCase() ?? "",
       args = expr.args ?? [];
+    const namespaces = this.functionNamespaces(expr);
+    if (namespaces === undefined) return unknown;
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     for (const expression of expr.context ?? []) this.infer(expression, scope);
     if (expr.windowName && !scope.windowNames?.has(duckDBAsciiFold(expr.windowName)))
@@ -785,9 +959,17 @@ export class DuckDBResolver {
     ) {
       return this.collectionLambda(expr, scope);
     }
+    if (name === "json_object" && args.length % 2 !== 0) {
+      this.error("json_object requires key/value pairs", expr.range, "TSQ201");
+      return unknown;
+    }
     const values = args.filter((arg) => arg.kind !== "star").map((arg) => this.infer(arg, scope));
     const version = this.snapshot.server?.versionKey ?? "";
-    const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
+    if (name === "sum_no_overflow" && version !== "2.0.0") {
+      this.error("sum_no_overflow is internal-only on DuckDB1.5.6", expr.range, "TSQ401");
+      return unknown;
+    }
+    const builtinName = name === "count" && (!args.length || args[0]?.kind === "star") ? "count_star" : name;
     const signatures = duckDBBuiltinSignatures(version, builtinName);
     const aggregate =
       signatures.some((signature) => signature[1] === "aggregate") ||
@@ -816,10 +998,11 @@ export class DuckDBResolver {
       return unknown;
     }
 
+    const combination = ["list_value", "array_value"].includes(name) ? this.unionValues(values).type : undefined;
     const matches = matchDuckDBBuiltin(
       version,
       builtinName,
-      values.map((value) => value.type),
+      values.map((value) => combination ?? value.type),
     );
     this.dependencies.push({
       kind: "function",
@@ -862,14 +1045,14 @@ export class DuckDBResolver {
     )
       return bool(values.some((x) => x.nullable));
     if (["coalesce", "ifnull"].includes(name)) {
-      const type = nullableUnion(values).type;
+      const type = this.unionValues(values).type;
       for (const arg of args) if (arg.kind === "parameter") this.recordParameter(arg, { type, nullable: true });
       return { type, nullable: values.every((x) => x.nullable) };
     }
     if (name === "nullif") return { ...(values[0] ?? unknown), nullable: true };
     if (name === "if") {
       if (args[0]) this.infer(args[0], scope, bool(true));
-      return nullableUnion(values.slice(1));
+      return this.unionValues(values.slice(1));
     }
     if (["percent_rank", "cume_dist"].includes(name)) return { type: scalar("DOUBLE"), nullable: false };
     if (["grouping", "grouping_id"].includes(name)) {
@@ -962,7 +1145,7 @@ export class DuckDBResolver {
         collections.length &&
         collections.every((value) => value.type.kind === "list" || value.type.kind === "array")
       ) {
-        const type = collections.map((value) => value.type).reduce(commonDuckDBType);
+        const type = collections.map((value) => value.type).reduce((left, right) => this.commonType(left, right));
         if (type.kind === "list" || type.kind === "array")
           return { type: { kind: "list", element: type.element }, nullable: values.some((value) => value.nullable) };
       }
@@ -972,8 +1155,8 @@ export class DuckDBResolver {
       return {
         type: {
           kind: "map",
-          key: maps.map((type) => type.key).reduce(commonDuckDBType),
-          value: maps.map((type) => type.value).reduce(commonDuckDBType),
+          key: maps.map((type) => type.key).reduce((left, right) => this.commonType(left, right)),
+          value: maps.map((type) => type.value).reduce((left, right) => this.commonType(left, right)),
         },
         nullable: values.every((value) => value.nullable),
       };
@@ -984,8 +1167,8 @@ export class DuckDBResolver {
       return {
         type:
           name === "array_value"
-            ? { kind: "array", element: nullableUnion(values).type, length: values.length }
-            : { kind: "list", element: nullableUnion(values).type },
+            ? { kind: "array", element: this.unionValues(values).type, length: values.length }
+            : { kind: "list", element: this.unionValues(values).type },
         nullable: false,
       };
     if (name === "row") return { type: { kind: "tuple", elements: values.map((x) => x.type) }, nullable: false };
@@ -1116,7 +1299,7 @@ export class DuckDBResolver {
     }
     if (name === "abs") return { ...(values[0] ?? unknown) };
     if (["greatest", "least"].includes(name))
-      return { ...nullableUnion(values), nullable: values.every((value) => value.nullable) };
+      return { ...this.unionValues(values), nullable: values.every((value) => value.nullable) };
     if (
       [
         "json",
@@ -1126,19 +1309,15 @@ export class DuckDBResolver {
         "row_to_json",
         "array_to_json",
         "json_merge_patch",
-        "json_extract",
-        "json_query",
         "json_group_object",
         "json_group_array",
       ].includes(name)
     )
       return {
-        type:
-          (name === "json_extract" || name === "json_query") &&
-          (values[1]?.type.kind === "list" || values[1]?.type.kind === "array")
-            ? { kind: "list", element: scalar("JSON") }
-            : scalar("JSON"),
-        nullable: !["json_object", "json_array"].includes(name) && values.some((x) => x.nullable),
+        type: scalar("JSON"),
+        nullable:
+          ["json_group_array", "json_group_object"].includes(name) ||
+          (!["json_object", "json_array"].includes(name) && values.some((x) => x.nullable)),
       };
     if (["json_extract_string", "json_value"].includes(name))
       return {
@@ -1148,6 +1327,13 @@ export class DuckDBResolver {
             : scalar("VARCHAR"),
         nullable: true,
       };
+    if (name === "json_extract" || name === "json_query") {
+      const multiple = values[1]?.type.kind === "list" || values[1]?.type.kind === "array";
+      return {
+        type: multiple ? { kind: "list", element: scalar("JSON") } : scalar("JSON"),
+        nullable: multiple ? values.some((value) => value.nullable) : true,
+      };
+    }
     if (name === "json_valid") return bool(values.some((x) => x.nullable));
     if (["random", "pi", "sin", "cos", "tan", "sqrt", "exp", "ln", "log", "pow", "power"].includes(name))
       return { type: scalar("DOUBLE"), nullable: values.some((x) => x.nullable) };
@@ -1165,6 +1351,11 @@ export class DuckDBResolver {
       .filter(
         (routine) =>
           duckDBAsciiFold(routine.name) === duckDBAsciiFold(name) &&
+          (!namespaces ||
+            (duckDBAsciiFold(routine.schema ?? "main") === duckDBAsciiFold(namespaces[1]!) &&
+              duckDBAsciiFold(
+                String(routine.extension?.attributes.catalog ?? this.snapshot.server?.settings.currentCatalog ?? ""),
+              ) === duckDBAsciiFold(namespaces[0]!))) &&
           routine.kind !== "procedure" &&
           routine.arguments.length === values.length,
       );
@@ -1278,6 +1469,12 @@ export class DuckDBResolver {
       name: column.name,
       type: parseDuckDBType(column.databaseType),
       nullable: column.nullable,
+      ...(this.snapshot.formatVersion === 2 && this.snapshot.relations[key]?.columns[column.name]
+        ? {
+            insertable: this.snapshot.relations[key]!.columns[column.name]!.insertable,
+            updatable: this.snapshot.relations[key]!.columns[column.name]!.updatable,
+          }
+        : {}),
       tsType: column.tsType,
       relation: names.at(-1) ?? key,
       catalog:
@@ -1367,7 +1564,11 @@ export class DuckDBResolver {
         return value.fields.flatMap((field) => expand(field.type, remaining - 1, field.name));
       return [{ name, type: value, nullable: true, range: expression.range }];
     };
-    return expand(type, depth, alias ?? "unnest");
+    const label = alias ?? duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "");
+    const output = expand(type, depth, label ?? "expression");
+    if (!label && !(type.kind === "struct" && depth > 0))
+      this.error("UNNEST requires an AS alias when its native label cannot be proven", expression.range, "TSQ201");
+    return output;
   }
   project(projections: readonly Projection[], scope: Scope): Field[] {
     const output: Field[] = [];
@@ -1383,14 +1584,37 @@ export class DuckDBResolver {
         for (const name of projection.exclude ?? [])
           if (!scope.fields.some((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)))
             this.error(`Unknown EXCLUDE column ${name}`, expression.range);
+        if (
+          new Set((projection.replace ?? []).map((item) => duckDBAsciiFold(item.alias ?? ""))).size !==
+            projection.replace?.length &&
+          projection.replace
+        )
+          this.error("Duplicate REPLACE column", expression.range);
+        if (
+          this.snapshot.server?.versionKey === "1.5.6" &&
+          projection.rename &&
+          new Set(projection.rename.map((item) => duckDBAsciiFold(item.name))).size !== projection.rename.length
+        )
+          this.error("Duplicate RENAME column requires DuckDB 2.0", expression.range);
+        for (const name of (projection.replace ?? []).map((item) => item.alias ?? ""))
+          if (!fields.some((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)))
+            this.error(`Unknown star modifier column ${name}`, expression.range);
         for (const field of fields) {
+          const renamed = projection.rename?.findLast(
+            (item) => duckDBAsciiFold(item.name) === duckDBAsciiFold(field.name),
+          );
           const replacement = projection.replace?.find(
             (item) => duckDBAsciiFold(item.alias ?? "") === duckDBAsciiFold(field.name),
           );
+          if (renamed && replacement) this.error("A star column cannot have both REPLACE and RENAME", expression.range);
           output.push(
             replacement
-              ? { ...this.infer(replacement.expression, scope), name: field.name, range: replacement.expression.range }
-              : { ...field, range: expression.range },
+              ? {
+                  ...this.infer(replacement.expression, scope),
+                  name: replacement.alias!,
+                  range: replacement.expression.range,
+                }
+              : { ...field, name: renamed?.alias ?? field.name, range: expression.range },
           );
         }
         continue;
@@ -1401,21 +1625,32 @@ export class DuckDBResolver {
         for (const field of fields) scope.aliases.set(duckDBAsciiFold(field.name), field);
         continue;
       }
-      const value = this.infer(expression, scope),
+      const value = this.infer(expression, scope);
+      let name = projection.alias;
+      if (!name && expression.kind === "name" && !expression.left) {
+        const names = expression.names ?? [],
+          candidates = scope.fields.filter(
+            (field) =>
+              duckDBAsciiFold(field.name) === duckDBAsciiFold(names.at(-1) ?? "") &&
+              (names.length !== 1 || !field.usingHidden) &&
+              (names.length === 1 || duckDBAsciiFold(field.relation ?? "") === duckDBAsciiFold(names.at(-2) ?? "")),
+          );
         name =
-          projection.alias ??
-          (expression.kind === "name" ? expression.names?.at(-1) : undefined) ??
-          (expression.kind === "call" ? expression.names?.at(-1) : undefined) ??
-          this.expressionName(expression);
+          candidates.length === 1
+            ? candidates[0]!.name
+            : scope.aliases.has(duckDBAsciiFold(names.at(-1) ?? ""))
+              ? names.at(-1)
+              : undefined;
+      }
+      name ??= duckDBExpressionLabel(expression, this.snapshot.server?.versionKey ?? "");
+      if (name === undefined) {
+        this.error("An explicit AS alias is required for this native expression label", expression.range, "TSQ201");
+        name = "expression";
+      }
       output.push({ ...value, name, range: expression.range });
       scope.aliases.set(duckDBAsciiFold(name), value);
     }
     return output;
-  }
-  expressionName(expr: Expression): string {
-    if (expr.kind === "literal")
-      return expr.value?.startsWith('"') ? (JSON.parse(expr.value) as string) : (expr.value ?? "expression");
-    return "expression";
   }
   query(statement: Statement, parent: Scope = emptyScope()): Field[] {
     if (["insert", "update", "delete", "merge", "create"].includes(statement.kind)) {
@@ -1471,7 +1706,13 @@ export class DuckDBResolver {
       );
     }
     let fields: Field[] = [];
-    if (statement.target) fields.push(...this.table(statement.target, statement.range));
+    if (statement.target)
+      fields.push(
+        ...this.table(statement.target, statement.range).map((field) => ({
+          ...field,
+          ...(statement.targetAlias ? { relation: statement.targetAlias } : {}),
+        })),
+      );
     for (const relation of statement.relations) {
       const previous = [...fields],
         next = this.relation(relation, { ...scope, fields: [...parent.fields, ...fields] });
@@ -1518,7 +1759,7 @@ export class DuckDBResolver {
             name,
             type:
               relation.join === "full"
-                ? commonDuckDBType(left.type, right.type)
+                ? this.commonType(left.type, right.type)
                 : relation.join === "right"
                   ? right.type
                   : left.type,
@@ -1562,27 +1803,49 @@ export class DuckDBResolver {
 
     if (statement.kind === "insert") {
       const target = fields.length ? fields : this.table(statement.target ?? [], statement.range),
-        columns = statement.columns ?? target.map((field) => field.name);
+        columns = statement.columns ?? target.filter((field) => field.insertable !== false).map((field) => field.name);
+      if (new Set(columns.map(duckDBAsciiFold)).size !== columns.length)
+        this.error("INSERT target columns must be unique", statement.range, "TSQ202");
       for (const row of statement.values ?? []) {
         if (row.length && row.length !== columns.length)
           this.error("INSERT value count differs from target columns", statement.range, "TSQ202");
         for (let i = 0; i < row.length; i++) {
           const column = target.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(columns[i] ?? ""));
           if (!column) this.error(`Unknown INSERT column ${columns[i]}`, row[i]!.range);
-          else this.infer(row[i]!, scope, column);
+          else {
+            if (column.insertable !== undefined && column.insertable !== true)
+              this.error("INSERT column is generated or not proven insertable", row[i]!.range, "TSQ202");
+            this.infer(row[i]!, scope, column);
+          }
         }
       }
       if (statement.source) {
-        const source = this.query(statement.source, scope);
+        const source = this.query(statement.source, { ...scope, fields: parent.fields });
         if (source.length !== columns.length)
           this.error("INSERT SELECT column count differs", statement.range, "TSQ202");
       }
     }
-    for (const assignment of statement.assignments ?? []) {
+    const conflictScope: Scope = {
+      ...scope,
+      fields: [...scope.fields, ...fields.map((field) => ({ ...field, relation: "excluded", usingHidden: true }))],
+    };
+    for (const name of statement.conflictColumns ?? [])
+      if (!fields.some((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)))
+        this.error(`Unknown conflict target column ${name}`, statement.range);
+    for (const assignment of [...(statement.assignments ?? []), ...(statement.conflictAssignments ?? [])]) {
       const target = fields.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(assignment.name));
       if (!target) this.error(`Unknown UPDATE column ${assignment.name}`, statement.range);
-      else this.infer(assignment.value, scope, target);
+      else {
+        if (target.updatable !== undefined && target.updatable !== true)
+          this.error("UPDATE column is generated or not proven updatable", assignment.value.range, "TSQ202");
+        this.infer(
+          assignment.value,
+          statement.conflictAssignments?.includes(assignment) ? conflictScope : scope,
+          target,
+        );
+      }
     }
+    if (statement.conflictWhere) this.infer(statement.conflictWhere, conflictScope, bool(true));
     let output = this.project(statement.kind === "select" ? statement.projections : (statement.returning ?? []), scope);
     if (statement.where) this.infer(statement.where, scope, bool(true));
     this.validateGrouping(statement, scope);
@@ -1633,13 +1896,15 @@ export class DuckDBResolver {
         output = names.map((name) => {
           const l = output.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name)),
             r = right.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name));
-          return { name, ...nullableUnion([l ?? nil, r ?? nil]) };
+          return { name, ...this.unionValues([l ?? nil, r ?? nil], "set") };
         });
       } else {
         if (output.length !== right.length) this.error("Set operation column count differs", statement.range, "TSQ202");
-        output = output.map((field, i) => ({ ...nullableUnion([field, right[i] ?? nil]), name: field.name }));
+        output = output.map((field, i) => ({ ...this.unionValues([field, right[i] ?? nil], "set"), name: field.name }));
       }
     }
+    if ((statement.kind === "describe" || statement.kind === "summarize") && statement.source)
+      this.query(statement.source, scope);
     if (statement.kind === "describe")
       output = [
         { name: "column_name", type: scalar("VARCHAR"), nullable: false },
@@ -1665,7 +1930,10 @@ export class DuckDBResolver {
         "null_percentage",
       ].map((name) => ({
         name,
-        type: scalar(["approx_unique", "count"].includes(name) ? "BIGINT" : "VARCHAR"),
+        type:
+          name === "null_percentage"
+            ? { kind: "scalar", name: "DECIMAL", precision: 9, scale: 2 }
+            : scalar(["approx_unique", "count"].includes(name) ? "BIGINT" : "VARCHAR"),
         nullable: !["column_name", "column_type", "count"].includes(name),
       }));
     return output;
@@ -1680,7 +1948,7 @@ export class DuckDBResolver {
           name: field.name,
           tsType: field.tsType ?? duckDBTypeScript(field.type, this.policy),
           nullable: field.nullable,
-          databaseType: formatDuckDBType(field.type),
+          databaseType: formatDuckDBType(duckDBOutputType(field.type, this.snapshot.server?.versionKey ?? "")),
           runtimeType: field.runtimeType ?? duckDBRuntimeType(field.type, this.policy),
           range: field.range ?? statement.range,
         };

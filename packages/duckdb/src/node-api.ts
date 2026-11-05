@@ -1,4 +1,6 @@
 import type * as NativeSDK from "@duckdb/node-api";
+import type { LiveQueryVerifier, QueryPlanInspector } from "@typed-sql/core";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { type DuckDBType, formatDuckDBType } from "./native-types.js";
 import { DuckDBSchemaProvider, type DuckDBSchemaProviderOptions } from "./provider.js";
 import {
@@ -12,6 +14,8 @@ import {
 } from "./runtime.js";
 import { assertDuckDBSemanticEvidence, DUCKDB_SEMANTIC_SETTINGS } from "./settings.js";
 import { duckDBServerEvidence, duckDBVersionSupport } from "./support.js";
+import { defaultDuckDBTypePolicy, validateDuckDBTypePolicy } from "./type-policy.js";
+import { DUCKDB_DIALECT_VERSION } from "./version.js";
 /** An SDK import is untrusted until its required capabilities are checked at runtime. */
 export type DuckDBSDK = unknown;
 type ValidatedDuckDBSDK = Omit<typeof NativeSDK, "default">;
@@ -294,6 +298,18 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
   const sdk = validateSDK(importedSDK);
   if (!(connection instanceof sdk.DuckDBConnection))
     throw new TypeError("DuckDB connection and sdkImporter must belong to the same SDK module");
+  let tainted = false;
+  const assertUsable = () => {
+    if (tainted) throw new Error("DuckDB native connection is unusable after failed cleanup");
+  };
+  const retireNative = (close: () => void) => {
+    try {
+      close();
+    } catch (error) {
+      tainted = true;
+      throw error;
+    }
+  };
   const libraryVersion = sdk.version();
   if (duckDBVersionSupport(libraryVersion) !== "supported")
     throw new TypeError("DuckDB SDK engine is outside the qualified version policy");
@@ -301,14 +317,64 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
     identity: connection,
     libraryVersion,
     interrupt: () => connection.interrupt(),
-    close: () => connection.closeSync(),
+    close: () => retireNative(() => connection.closeSync()),
+    async createAppender(table: string) {
+      assertUsable();
+      if (typeof sdk.DuckDBDataChunk?.create !== "function")
+        throw new TypeError("DuckDB SDK has no native vector appender capability");
+      const appender = await connection.createAppender(table, "main", "temp");
+      let closed = false;
+      try {
+        const columns = Array.from({ length: appender.columnCount }, (_, i) =>
+          nativeTypeFromSDK(appender.columnType(i), sdk),
+        );
+        return {
+          columns,
+          append(rows: readonly (readonly DuckDBBinding[])[]) {
+            assertUsable();
+            if (closed) throw new Error("DuckDB appender is closed");
+            if (
+              rows.length < 1 ||
+              rows.length > 2048 ||
+              rows.some(
+                (row) =>
+                  row.length !== columns.length ||
+                  row.some((binding, i) => formatDuckDBType(binding.type) !== formatDuckDBType(columns[i]!)),
+              )
+            )
+              throw new TypeError("DuckDB native appender chunk shape differs from metadata");
+            try {
+              const chunk = sdk.DuckDBDataChunk.create(
+                columns.map((type) => sdkType(type, sdk)),
+                rows.length,
+              );
+              chunk.setRows(rows.map((row) => row.map((binding) => nativeValue(binding, sdk))));
+              appender.appendDataChunk(chunk);
+            } catch (error) {
+              throw adapterError(error);
+            }
+          },
+          close() {
+            if (closed) return;
+            closed = true;
+            retireNative(() => appender.closeSync());
+          },
+        };
+      } catch (error) {
+        try {
+          retireNative(() => appender.closeSync());
+        } catch {}
+        throw error;
+      }
+    },
     async readServerEvidence() {
+      assertUsable();
       const read = async (text: string) => {
         const result = await connection.run(text);
         try {
           return await result.getRows();
         } finally {
-          result.closeSync();
+          retireNative(() => result.closeSync());
         }
       };
       const current = (await read("SELECT version(),current_database(),current_schema()"))[0];
@@ -338,6 +404,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
       return evidence;
     },
     async prepare(text: string): Promise<DuckDBNativeStatement> {
+      assertUsable();
       if (text.includes("\0")) throw new TypeError("DuckDB SQL cannot contain NUL");
       let native: NativeSDK.DuckDBPreparedStatement;
       try {
@@ -358,7 +425,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
         );
       } catch (error) {
         try {
-          native.destroySync();
+          retireNative(() => native.destroySync());
         } catch {}
         throw error;
       }
@@ -374,7 +441,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
               }));
         } catch (error) {
           try {
-            native.destroySync();
+            retireNative(() => native.destroySync());
           } catch {}
           throw error;
         }
@@ -385,7 +452,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
         async close() {
           if (closed) return;
           closed = true;
-          native.destroySync();
+          retireNative(() => native.destroySync());
         },
         async execute(bindings: readonly DuckDBBinding[], stream = false): Promise<DuckDBNativeResult> {
           if (closed) throw new Error("DuckDB prepared statement is closed");
@@ -413,7 +480,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
                 }));
           } catch (error) {
             try {
-              result.closeSync();
+              retireNative(() => result.closeSync());
             } catch {}
             throw error;
           }
@@ -445,7 +512,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
             async close() {
               if (resultClosed) return;
               resultClosed = true;
-              result.closeSync();
+              retireNative(() => result.closeSync());
             },
           });
         },
@@ -487,8 +554,21 @@ export async function createNodeDuckDBDatabase(options: NodeDuckDBOptions = {}):
     const adapted = {
       ...base,
       async close() {
-        base.close?.();
-        if (ownsInstance) instance?.closeSync();
+        let failure: unknown,
+          failed = false;
+        try {
+          await base.close?.();
+        } catch (error) {
+          failure = error;
+          failed = true;
+        }
+        try {
+          if (ownsInstance) instance?.closeSync();
+        } catch (error) {
+          if (!failed) failure = error;
+          failed = true;
+        }
+        if (failed) throw failure;
       },
     };
     const initialEvidence = await base.readServerEvidence!();
@@ -508,8 +588,12 @@ export async function createNodeDuckDBDatabase(options: NodeDuckDBOptions = {}):
         : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),
     });
   } catch (error) {
-    if (createdConnection) connection?.closeSync();
-    if (createdInstance) instance?.closeSync();
+    try {
+      if (createdConnection) connection?.closeSync();
+    } catch {}
+    try {
+      if (createdInstance) instance?.closeSync();
+    } catch {}
     throw error;
   }
 }
@@ -532,4 +616,85 @@ export function nodeDuckDB(
       }
     },
   };
+}
+
+/** Config loading creates no SDK promise, connection, or native handle. */
+function lazyDatabase(options: NodeDuckDBOptions) {
+  const policy = validateDuckDBTypePolicy(options.typePolicy ?? defaultDuckDBTypePolicy);
+  const captured: NodeDuckDBOptions = Object.freeze({
+    ...options,
+    typePolicy: policy,
+    ...(options.configuration ? { configuration: Object.freeze({ ...options.configuration }) } : {}),
+  });
+  let closed = false;
+  let initialization: Promise<DuckDBDatabase> | undefined;
+  let closing: Promise<void> | undefined;
+  const pending = new Set<Promise<unknown>>();
+  return {
+    typePolicyHash: calculateTypePolicyHash(policy),
+    use<T>(work: (database: DuckDBDatabase) => Promise<T>): Promise<T> {
+      if (closed) return Promise.reject(new Error("DuckDB service is closed"));
+      initialization ??= Promise.resolve().then(() => {
+        if (closed) throw new Error("DuckDB service is closed");
+        return createNodeDuckDBDatabase(captured);
+      });
+      const operation = (async () => {
+        const database = await initialization;
+        if (closed) throw new Error("DuckDB service is closed");
+        return work(database);
+      })();
+      pending.add(operation);
+      void operation.then(
+        () => pending.delete(operation),
+        () => pending.delete(operation),
+      );
+      return operation;
+    },
+    close(): Promise<void> {
+      if (closing) return closing;
+      closed = true;
+      closing = (async () => {
+        await Promise.allSettled([...pending]);
+        // Database construction already retires partially created resources on failure.
+        const database = await initialization?.catch(() => undefined);
+        if (database) await database.close();
+      })();
+      return closing;
+    },
+  };
+}
+/** Lazy native prepare/describe service, directly usable in typed-sql config. */
+export function createNodeDuckDBLiveVerifier(options: NodeDuckDBOptions = {}): LiveQueryVerifier {
+  const database = lazyDatabase(options);
+  return Object.freeze({
+    dialect: "duckdb",
+    adapterVersion: DUCKDB_DIALECT_VERSION,
+    typePolicyHash: database.typePolicyHash,
+    server: () => database.use((database) => database.liveVerifier.server()),
+    verify(request: Parameters<LiveQueryVerifier["verify"]>[0]) {
+      const owned = { ...request };
+      return database.use((database) => database.liveVerifier.verify(owned));
+    },
+    close: () => database.close(),
+  });
+}
+/** Lazy non-executing structured EXPLAIN service with transient planning samples. */
+export function createNodeDuckDBPlanInspector(options: NodeDuckDBOptions = {}): QueryPlanInspector {
+  const database = lazyDatabase(options);
+  return Object.freeze({
+    dialect: "duckdb",
+    adapterVersion: DUCKDB_DIALECT_VERSION,
+    parameterMode: "samples-required",
+    environment: () => database.use((database) => database.planInspector.environment()),
+    capture(request: Parameters<QueryPlanInspector["capture"]>[0]) {
+      let owned: typeof request;
+      try {
+        owned = { ...request, ...(request.values === undefined ? {} : { values: structuredClone(request.values) }) };
+      } catch {
+        return Promise.reject(new TypeError("DuckDB planning samples must be cloneable application values"));
+      }
+      return database.use((database) => database.planInspector.capture(owned));
+    },
+    close: () => database.close(),
+  });
 }

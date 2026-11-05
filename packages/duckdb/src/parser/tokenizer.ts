@@ -30,8 +30,14 @@ export function tokenize(source: string): readonly Token[] {
     } else column++;
     return char;
   };
-  const emit = (kind: Token["kind"], start: SourceRange, value: string) => {
-    tokens.push({ kind, text: source.slice(start.start, index), value, range: { ...start, end: index } });
+  const emit = (kind: Token["kind"], start: SourceRange, value: string, modernEscapes = false) => {
+    tokens.push({
+      kind,
+      text: source.slice(start.start, index),
+      value,
+      ...(modernEscapes ? { modernEscapes } : {}),
+      range: { ...start, end: index },
+    });
     if (tokens.length > 100000) throw new DuckDBParseError("SQL token limit", start, "TSQ002");
   };
   while (index < source.length) {
@@ -80,6 +86,12 @@ export function tokenize(source: string): readonly Token[] {
       const quote = move();
       let value = "",
         closed = false;
+      let modernEscapes = false;
+      const bytes: number[] = [];
+      const flush = () => {
+        for (const byte of new TextEncoder().encode(value)) bytes.push(byte);
+        value = "";
+      };
       while (index < source.length) {
         const next = move();
         if (next === quote) {
@@ -91,12 +103,35 @@ export function tokenize(source: string): readonly Token[] {
           }
         } else if (escaped && next === "\\") {
           if (index >= source.length) break;
+          flush();
           const esc = move();
-          value += ({ n: "\n", r: "\r", t: "\t" } as Record<string, string>)[esc] ?? esc;
+          if ((esc === "x" && /^[0-9a-f]/iu.test(source[index] ?? "")) || /^[0-7]$/u.test(esc)) {
+            let digits = esc === "x" ? "" : esc;
+            const radix = esc === "x" ? 16 : 8,
+              maximum = esc === "x" ? 2 : 3;
+            while (digits.length < maximum && (radix === 16 ? /^[0-9a-f]$/iu : /^[0-7]$/u).test(source[index] ?? ""))
+              digits += move();
+            const byte = Number.parseInt(digits, radix);
+            if (byte === 0 || byte > 255) throw new DuckDBParseError("Invalid byte in escape string literal", start);
+            if (byte >= 128) modernEscapes = true;
+            bytes.push(byte);
+          } else {
+            if (esc === "u" || esc === "U") modernEscapes = true;
+            const text = ({ n: "\n", r: "\r", t: "\t", b: "\b", f: "\f" } as Record<string, string>)[esc] ?? esc;
+            for (const byte of new TextEncoder().encode(text)) bytes.push(byte);
+          }
         } else value += next;
       }
       if (!closed) throw new DuckDBParseError("Unterminated quoted token", start);
-      emit(quote === "'" ? "string" : "quoted", start, value);
+      if (escaped) {
+        flush();
+        try {
+          value = new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bytes));
+        } catch {
+          throw new DuckDBParseError("Escape string literal is not valid UTF-8", start);
+        }
+      }
+      emit(quote === "'" ? "string" : "quoted", start, value, modernEscapes);
       continue;
     }
     if (char === "?" || (char === "$" && /[\p{L}\p{N}_]/u.test(source[index + 1] ?? ""))) {

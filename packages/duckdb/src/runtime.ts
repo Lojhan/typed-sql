@@ -1,7 +1,10 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  type AdapterCapabilityResolver,
+  adapterCapabilities,
   assertExecutionCapabilities,
   assertQueryResultTransport,
+  createAdapterCapabilityResolver,
   type Database,
   type DatabaseObserver,
   type DatabaseOperationStart,
@@ -12,12 +15,14 @@ import {
   encodeQueryValues,
   executionDeadline,
   getQueryValuePlan,
+  type LiveQueryVerifier,
   observeQueryStream,
   type PreparedQueryRenderCache,
   type Query,
   type QueryBatch,
   QueryCancelledError,
   QueryCardinalityError,
+  type QueryPlanInspector,
   type QueryResults,
   type QueryStream,
   type QueryTransportProfile,
@@ -33,10 +38,16 @@ import {
   validateQueryResultStream,
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
+import { createDuckDBAppenderCapability, type DuckDBAppenderCapability, duckdbAppender } from "./bulk.js";
+
+export type { DuckDBAppenderCapability, DuckDBAppenderProgress, DuckDBAppendOptions } from "./bulk.js";
+export { duckdbAppender } from "./bulk.js";
+
 import { decodeDuckDBValue, encodeDuckDBValue } from "./codecs.js";
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { duckDBParameterTransport } from "./parameter-transport.js";
 import { duckdbRenderer } from "./query.js";
+import { createDuckDBLiveVerifier, createDuckDBPlanInspector, type DuckDBServiceTransport } from "./services.js";
 import { assertDuckDBSemanticEvidence, duckDBEvidenceDifferences } from "./settings.js";
 import { duckDBVersionSupport } from "./support.js";
 import {
@@ -66,11 +77,17 @@ export interface DuckDBNativeStatement {
   execute(bindings: readonly DuckDBBinding[], stream?: boolean): Promise<DuckDBNativeResult>;
   close(): void | Promise<void>;
 }
+export interface DuckDBNativeAppender {
+  readonly columns: readonly DuckDBType[];
+  append(rows: readonly (readonly DuckDBBinding[])[]): void | Promise<void>;
+  close(): void | Promise<void>;
+}
 export interface DuckDBConnectionLike {
   readonly identity?: object;
   readonly libraryVersion: string;
   readServerEvidence?(): Promise<DialectServerEvidence>;
   prepare(text: string): Promise<DuckDBNativeStatement>;
+  createAppender?(table: string): Promise<DuckDBNativeAppender>;
   interrupt?(): void;
   close?(): void | Promise<void>;
 }
@@ -78,6 +95,7 @@ export type DuckDBPreparedQueryFactory<Args extends readonly unknown[], Row, Par
   ...args: Args
 ) => Query<Row, Params>) & { readonly statementName: string };
 export interface DuckDBTransaction extends Database<DuckDBTransaction> {
+  readonly [adapterCapabilities]: AdapterCapabilityResolver;
   unprepare(name: string): Promise<void>;
   batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   stream<Row, Params extends readonly unknown[]>(
@@ -90,6 +108,8 @@ export interface DuckDBTransaction extends Database<DuckDBTransaction> {
   ): DuckDBPreparedQueryFactory<Args, Row, Params>;
 }
 export interface DuckDBDatabase extends DuckDBTransaction {
+  readonly liveVerifier: LiveQueryVerifier;
+  readonly planInspector: QueryPlanInspector;
   readonly evidence: { readonly libraryVersion: string; readonly typePolicyHash: string };
   readonly queryable: {
     all<Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<readonly Row[]>;
@@ -615,7 +635,93 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     };
     const all = <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
       run(query, controls, "many", (rows) => rows);
+    const appender = createDuckDBAppenderCapability({
+      prepare(query) {
+        const compiled = ready(query),
+          rendered = renderQuery(query, duckdbRenderer);
+        const values = encodeQueryValues(query, rendered.values, profile);
+        if (compiled.plan.columns.length !== 0) throw new TypeError("DuckDB appender requires a command query");
+        return {
+          text: rendered.text,
+          bindings: compiled.plan.parameters.map((parameter, i) => {
+            const type = parseDuckDBType(parameter.databaseType!);
+            return { type, value: encodeDuckDBValue(values[i], type, policy, `appender parameter ${i + 1}`) };
+          }),
+        };
+      },
+      transfer(target, initial, chunks, controls) {
+        assertExecutionCapabilities(capabilities, controls);
+        return track(scope, async () => {
+          const append = async (local: Scope) => {
+            const release = await acquire(local);
+            let appender: DuckDBNativeAppender | undefined;
+            const closeAppender = async () => {
+              const owned = appender;
+              appender = undefined;
+              if (!owned) return;
+              try {
+                await owned.close();
+              } catch (error) {
+                current.broken = true;
+                throw error;
+              }
+            };
+            const staging = `__typed_sql_append_${randomUUID().replaceAll("-", "")}`;
+            const quotedStage = duckdbRenderer.quoteIdentifier(staging);
+            const table = target.table.map(duckdbRenderer.quoteIdentifier).join(".");
+            const selected = target.columns.map(duckdbRenderer.quoteIdentifier).join(", ");
+            try {
+              ensure(local);
+              await verifyConnection();
+              if (!connection.createAppender)
+                throw new TypeError("DuckDB connection has no native appender capability");
+              await runControlledExecution(
+                controls,
+                async () => {
+                  let native: DuckDBNativeStatement | undefined;
+                  try {
+                    native = await connection.prepare(initial.text);
+                    verifyParameters(native, initial.bindings);
+                  } finally {
+                    await cleanup(undefined, native, false);
+                  }
+                  await control(`CREATE TEMP TABLE ${quotedStage} AS SELECT ${selected} FROM ${table} LIMIT 0`);
+                  appender = await connection.createAppender!(staging);
+                  if (
+                    appender.columns.length !== initial.bindings.length ||
+                    appender.columns.some(
+                      (type, i) => formatDuckDBType(type) !== formatDuckDBType(initial.bindings[i]!.type),
+                    )
+                  )
+                    throw new TypeError("DuckDB appender native column metadata differs from compiled targets");
+                  for await (const rows of chunks) await appender.append(rows);
+                  await closeAppender();
+                  await control(`INSERT INTO ${table} (${selected}) SELECT ${selected} FROM ${quotedStage}`);
+                  await control(`DROP TABLE ${quotedStage}`);
+                },
+                () => connection.interrupt?.(),
+              );
+            } finally {
+              await closeAppender().catch(() => undefined);
+              // The staging relation belongs to this transaction. A failed statement can abort
+              // native SQL dispatch; rollback removes it without issuing cleanup SQL in that state.
+              release();
+            }
+          };
+          return scope ? append(scope) : transaction(undefined, append);
+        });
+      },
+    });
+    const trackedAppender: DuckDBAppenderCapability = {
+      append: (factory, rows, controls) => {
+        ensure(scope);
+        return track(scope, () => appender.append(factory, rows, controls));
+      },
+    };
     return Object.freeze({
+      [adapterCapabilities]: createAdapterCapabilityResolver(
+        connection.createAppender ? [[duckdbAppender, trackedAppender]] : [],
+      ),
       executionCapabilities: capabilities,
       all,
       execute: all,
@@ -721,9 +827,60 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       },
     });
   };
+  const serviceTransport: DuckDBServiceTransport = {
+    async lease(work) {
+      const release = await acquire();
+      try {
+        ensure();
+        await verifyConnection();
+        return await work({
+          async server() {
+            if (!expectedEvidence) throw new TypeError("DuckDB services require native server evidence");
+            return expectedEvidence;
+          },
+          async describe(text, work) {
+            let native: DuckDBNativeStatement | undefined;
+            let failed = true;
+            try {
+              native = await connection.prepare(text);
+              const result = await work(native);
+              failed = false;
+              return result;
+            } finally {
+              await cleanup(undefined, native, failed);
+            }
+          },
+          async rows(text, bindings = []) {
+            let native: DuckDBNativeStatement | undefined, result: DuckDBNativeResult | undefined;
+            let failed = true;
+            try {
+              native = await connection.prepare(text);
+              verifyParameters(native, bindings);
+              result = await native.execute(bindings);
+              // Own rows before releasing the native result. Service queries use scalar catalog/JSON data.
+              const rows = await result.readAll();
+              const owned = rows.map((row) =>
+                row.map((value, i) =>
+                  decodeDuckDBValue(value, result!.columns[i]!.type, { ...policy, json: "string" }, "service evidence"),
+                ),
+              );
+              failed = false;
+              return owned;
+            } finally {
+              await cleanup(result, native, failed);
+            }
+          },
+        });
+      } finally {
+        release();
+      }
+    },
+  };
   const root = makeScope();
   return Object.freeze({
     ...root,
+    liveVerifier: createDuckDBLiveVerifier(serviceTransport, policy, typePolicyHash),
+    planInspector: createDuckDBPlanInspector(serviceTransport, policy),
     evidence: Object.freeze({ libraryVersion: connection.libraryVersion, typePolicyHash }),
     queryable: Object.freeze({
       async all<Row extends Record<string, unknown>>(

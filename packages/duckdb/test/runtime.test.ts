@@ -79,6 +79,52 @@ await describe("DuckDB native execution and lifecycle", async () => {
           ),
           { id: 9223372036854775807n, name: "Ada", amount: "12345678901234567890.1200" },
         );
+        const summary = await database.one(q("SUMMARIZE SELECT id FROM items"));
+        strict.equal(summary.column_name, "id");
+        strict.equal(summary.count, 1n);
+        strict.equal(summary.null_percentage, "0.00");
+        const scalars: readonly (readonly [string, unknown])[] = [
+          ["BOOLEAN", true],
+          ["TINYINT", -128],
+          ["SMALLINT", -32768],
+          ["INTEGER", -2147483648],
+          ["UTINYINT", 255],
+          ["USMALLINT", 65535],
+          ["UINTEGER", 4294967295],
+          ["BIGINT", -(1n << 63n)],
+          ["UBIGINT", (1n << 64n) - 1n],
+          ["HUGEINT", -(1n << 127n)],
+          ["UHUGEINT", (1n << 128n) - 1n],
+          ["BIGNUM", 1n << 300n],
+          ["FLOAT", 1.5],
+          ["DOUBLE", -1.5],
+          ["VARCHAR", "owned text"],
+          ["JSON", '{"x":1}'],
+          ["ENUM('a','b')", "b"],
+          ["BIT", "01001"],
+          ["UUID", "00112233-4455-6677-8899-aabbccddeeff"],
+          ["DATE", "2026-11-05"],
+          ["DATE", "infinity"],
+          ["DATE", "-infinity"],
+          ["TIME", "12:34:56.000000"],
+          ["TIMETZ", "12:34:56.000000+05:30"],
+          ["TIMESTAMP_S", "2026-11-05 12:34:56"],
+          ["TIMESTAMP_MS", "2026-11-05 12:34:56.123"],
+          ["TIMESTAMP", "2026-11-05 12:34:56.123456"],
+          ["TIMESTAMP_NS", "2026-11-05 12:34:56.123456789"],
+          ["TIMESTAMPTZ", "2026-11-05 12:34:56.123456+00"],
+          ["TIMESTAMP", "infinity"],
+          ["TIMESTAMP", "-infinity"],
+          ["INTERVAL", { months: 1, days: -2, micros: 123n }],
+          ...(version === "2.0.0"
+            ? ([
+                ["TIME_NS", "12:34:56.123456789"],
+                ["TIMESTAMPTZ_NS", "2026-11-05 12:34:56.123456789+00"],
+              ] as const)
+            : []),
+        ];
+        for (const [type, value] of scalars)
+          strict.deepEqual(await database.one(q(`SELECT $1::${type} AS value`, [value])), { value }, type);
         const nested = await database.one(
           q("SELECT $1::STRUCT(ids BIGINT[], attrs MAP(INTEGER,VARCHAR), choice UNION(n INTEGER,s VARCHAR)) AS value", [
             {
@@ -183,10 +229,14 @@ await it("preserves tagged NULL through each native container and ordered map ke
         ],
       ],
     ] as const) {
-      const row = await database.one(compiled(`SELECT $1::${target} AS value`, [input], version));
+      const prepared = database.prepare(`nested_${target}`, (input: unknown) =>
+        compiled(`SELECT $1::${target} AS value`, [input], version),
+      );
+      const row = await database.one(prepared(input));
       strict.deepEqual(row.value, input);
-      const empty = await database.one(compiled(`SELECT $1::${target} AS value`, [null], version));
+      const empty = await database.one(prepared(null));
       strict.equal(empty.value, null);
+      strict.deepEqual((await database.one(prepared(input))).value, input);
     }
     if (version === "2.0.0") {
       const target = "TUPLE(UNION(n INTEGER,s VARCHAR),VARCHAR)",

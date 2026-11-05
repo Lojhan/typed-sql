@@ -2,6 +2,7 @@ import type { SourceRange } from "@typed-sql/core";
 export interface Token {
   readonly kind: "word" | "quoted" | "string" | "number" | "parameter" | "operator" | "eof";
   readonly text: string;
+  readonly modernEscapes?: boolean;
   readonly value: string;
   readonly range: SourceRange;
 }
@@ -25,6 +26,7 @@ export interface Expression {
   readonly range: SourceRange;
   readonly value?: string;
   readonly parameterRange?: SourceRange;
+  readonly literalSource?: string;
   readonly names?: readonly string[];
   readonly args?: readonly Expression[];
   readonly left?: Expression;
@@ -43,6 +45,7 @@ export interface Projection {
   readonly alias?: string;
   readonly exclude?: readonly string[];
   readonly replace?: readonly Projection[];
+  readonly rename?: readonly { readonly name: string; readonly alias: string }[];
 }
 export interface Relation {
   readonly range: SourceRange;
@@ -92,6 +95,10 @@ export interface Statement {
     readonly right: Statement;
   };
   readonly target?: readonly string[];
+  readonly targetAlias?: string;
+  readonly conflictColumns?: readonly string[];
+  readonly conflictAssignments?: readonly { readonly name: string; readonly value: Expression }[];
+  readonly conflictWhere?: Expression;
   readonly columns?: readonly string[];
   readonly values?: readonly (readonly Expression[])[];
   readonly source?: Statement;
