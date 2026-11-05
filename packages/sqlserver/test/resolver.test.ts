@@ -54,7 +54,10 @@ await describe("SQL Server native inference", async () => {
       ],
     );
     const cast = analyze("SELECT CAST(@__typed_sql_1 AS bigint) AS id");
-    strict.equal(cast.parameters[0]?.nullable, false);
+    strict.equal(cast.parameters[0]?.nullable, true);
+    strict.equal(cast.columns[0]?.nullable, true);
+    strict.equal(analyze("SELECT CAST(NULL AS bigint) AS id").columns[0]?.nullable, true);
+    strict.equal(analyze("SELECT CAST(1 AS bigint) AS id").columns[0]?.nullable, false);
   });
 
   await it("proves repeated INSERT VALUES shapes and distinguishes output projection changes", () => {
