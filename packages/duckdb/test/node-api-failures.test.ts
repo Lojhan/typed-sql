@@ -1,0 +1,145 @@
+import * as sdk from "@duckdb/node-api";
+import { it, strict } from "poku";
+import { adaptDuckDBConnection, createNodeDuckDBDatabase, DuckDBAdapterError } from "../src/node-api.js";
+
+const failure = new Error("metadata failure");
+await it("closes newly created native handles if metadata construction fails", async () => {
+  for (const stage of ["parameters", "prepared-columns", "result-columns"]) {
+    const calls: string[] = [];
+    const result = {
+      returnType: sdk.ResultReturnType.QUERY_RESULT,
+      columnCount: 1,
+      columnName() {
+        return "value";
+      },
+      columnType() {
+        throw failure;
+      },
+      closeSync() {
+        calls.push("result");
+      },
+      async getRows() {
+        return [];
+      },
+    };
+    const statement = {
+      parameterCount: stage === "parameters" ? 1 : 0,
+      parameterTypeId() {
+        throw failure;
+      },
+      columnCount: stage === "prepared-columns" ? 1 : 0,
+      columnTypeId() {
+        return sdk.DuckDBTypeId.INTEGER;
+      },
+      columnName() {
+        return "value";
+      },
+      columnType() {
+        throw failure;
+      },
+      clearBindings() {},
+      async run() {
+        return result;
+      },
+      destroySync() {
+        calls.push("statement");
+      },
+    };
+    class Connection {
+      async extractStatements() {
+        return {
+          count: 1,
+          async prepare() {
+            return statement;
+          },
+        };
+      }
+      interrupt() {}
+      closeSync() {
+        calls.push("connection");
+      }
+    }
+    const connection = adaptDuckDBConnection(new Connection(), { ...sdk, DuckDBConnection: Connection });
+    if (stage !== "result-columns") await strict.rejects(connection.prepare("SELECT 1"), (error) => error === failure);
+    else {
+      const prepared = await connection.prepare("SELECT 1");
+      await strict.rejects(prepared.execute([]), (error) => error === failure);
+      await prepared.close();
+    }
+    strict.deepEqual(calls, stage === "result-columns" ? ["result", "statement"] : ["statement"]);
+  }
+});
+await it("quarantines native adapter state after metadata cleanup itself fails", async () => {
+  let prepared = 0;
+  class Connection {
+    async extractStatements() {
+      prepared++;
+      return {
+        count: 1,
+        async prepare() {
+          return {
+            parameterCount: 0,
+            columnCount: 1,
+            columnTypeId() {
+              return sdk.DuckDBTypeId.INTEGER;
+            },
+            columnName() {
+              throw failure;
+            },
+            destroySync() {
+              throw new Error("cleanup failed");
+            },
+          };
+        },
+      };
+    }
+    interrupt() {}
+    closeSync() {}
+  }
+  const connection = adaptDuckDBConnection(new Connection(), { ...sdk, DuckDBConnection: Connection });
+  await strict.rejects(connection.prepare("SELECT 1"), (error) => error === failure);
+  await strict.rejects(connection.prepare("SELECT 2"), /unusable/u);
+  strict.equal(prepared, 1);
+});
+await it("rejects malformed SDK capability objects and contradictory resource ownership", async () => {
+  await strict.rejects(createNodeDuckDBDatabase({ connection: {}, path: "x" }), /Inject a DuckDB connection/u);
+  await strict.rejects(createNodeDuckDBDatabase({ instance: {}, path: "x" }), /Injected DuckDB instance/u);
+  await strict.rejects(
+    createNodeDuckDBDatabase({ sdkImporter: async () => ({ ...sdk, DuckDBTypeId: null }) }),
+    /metadata/u,
+  );
+  await strict.rejects(
+    createNodeDuckDBDatabase({ sdkImporter: async () => ({ ...sdk, ResultReturnType: null }) }),
+    /metadata/u,
+  );
+  await strict.rejects(createNodeDuckDBDatabase({ ownsConnection: false }), /Cannot own/u);
+  const original = new Error("native module failed to initialize");
+  await strict.rejects(
+    createNodeDuckDBDatabase({
+      sdkImporter: async () => {
+        throw original;
+      },
+    }),
+    (error) => error === original,
+  );
+});
+await it("classifies genuine native syntax and constraint errors and then reuses the connection", async () => {
+  strict.equal(sdk.version(), "v2.0.0");
+  const database = await createNodeDuckDBDatabase();
+  try {
+    strict.deepEqual(await database.queryable.all("SELECT version() AS version"), [{ version: "v2.0.0" }]);
+    await strict.rejects(
+      database.queryable.all("SELECT missing"),
+      (error) => error instanceof DuckDBAdapterError && error.kind === "syntax",
+    );
+    await database.queryable.all("CREATE TABLE failure_keys(id INTEGER PRIMARY KEY)");
+    await database.queryable.all("INSERT INTO failure_keys VALUES(1)");
+    await strict.rejects(
+      database.queryable.all("INSERT INTO failure_keys VALUES(1)"),
+      (error) => error instanceof DuckDBAdapterError && error.kind === "constraint",
+    );
+    strict.deepEqual(await database.queryable.all("SELECT count(*) AS count FROM failure_keys"), [{ count: 1n }]);
+  } finally {
+    await database.close();
+  }
+});

@@ -294,6 +294,18 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
   const sdk = validateSDK(importedSDK);
   if (!(connection instanceof sdk.DuckDBConnection))
     throw new TypeError("DuckDB connection and sdkImporter must belong to the same SDK module");
+  let tainted = false;
+  const assertUsable = () => {
+    if (tainted) throw new Error("DuckDB native connection is unusable after failed cleanup");
+  };
+  const retireNative = (close: () => void) => {
+    try {
+      close();
+    } catch (error) {
+      tainted = true;
+      throw error;
+    }
+  };
   const libraryVersion = sdk.version();
   if (duckDBVersionSupport(libraryVersion) !== "supported")
     throw new TypeError("DuckDB SDK engine is outside the qualified version policy");
@@ -301,14 +313,15 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
     identity: connection,
     libraryVersion,
     interrupt: () => connection.interrupt(),
-    close: () => connection.closeSync(),
+    close: () => retireNative(() => connection.closeSync()),
     async readServerEvidence() {
+      assertUsable();
       const read = async (text: string) => {
         const result = await connection.run(text);
         try {
           return await result.getRows();
         } finally {
-          result.closeSync();
+          retireNative(() => result.closeSync());
         }
       };
       const current = (await read("SELECT version(),current_database(),current_schema()"))[0];
@@ -338,6 +351,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
       return evidence;
     },
     async prepare(text: string): Promise<DuckDBNativeStatement> {
+      assertUsable();
       if (text.includes("\0")) throw new TypeError("DuckDB SQL cannot contain NUL");
       let native: NativeSDK.DuckDBPreparedStatement;
       try {
@@ -358,7 +372,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
         );
       } catch (error) {
         try {
-          native.destroySync();
+          retireNative(() => native.destroySync());
         } catch {}
         throw error;
       }
@@ -374,7 +388,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
               }));
         } catch (error) {
           try {
-            native.destroySync();
+            retireNative(() => native.destroySync());
           } catch {}
           throw error;
         }
@@ -385,7 +399,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
         async close() {
           if (closed) return;
           closed = true;
-          native.destroySync();
+          retireNative(() => native.destroySync());
         },
         async execute(bindings: readonly DuckDBBinding[], stream = false): Promise<DuckDBNativeResult> {
           if (closed) throw new Error("DuckDB prepared statement is closed");
@@ -413,7 +427,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
                 }));
           } catch (error) {
             try {
-              result.closeSync();
+              retireNative(() => result.closeSync());
             } catch {}
             throw error;
           }
@@ -445,7 +459,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
             async close() {
               if (resultClosed) return;
               resultClosed = true;
-              result.closeSync();
+              retireNative(() => result.closeSync());
             },
           });
         },
@@ -487,8 +501,21 @@ export async function createNodeDuckDBDatabase(options: NodeDuckDBOptions = {}):
     const adapted = {
       ...base,
       async close() {
-        base.close?.();
-        if (ownsInstance) instance?.closeSync();
+        let failure: unknown,
+          failed = false;
+        try {
+          await base.close?.();
+        } catch (error) {
+          failure = error;
+          failed = true;
+        }
+        try {
+          if (ownsInstance) instance?.closeSync();
+        } catch (error) {
+          if (!failed) failure = error;
+          failed = true;
+        }
+        if (failed) throw failure;
       },
     };
     const initialEvidence = await base.readServerEvidence!();
@@ -508,8 +535,12 @@ export async function createNodeDuckDBDatabase(options: NodeDuckDBOptions = {}):
         : { preparedCardinalityVariantLimit: options.preparedCardinalityVariantLimit }),
     });
   } catch (error) {
-    if (createdConnection) connection?.closeSync();
-    if (createdInstance) instance?.closeSync();
+    try {
+      if (createdConnection) connection?.closeSync();
+    } catch {}
+    try {
+      if (createdInstance) instance?.closeSync();
+    } catch {}
     throw error;
   }
 }
