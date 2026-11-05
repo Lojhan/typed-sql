@@ -127,6 +127,12 @@ function resolvedColumns(
   );
 }
 
+function resolvedParameters(value: readonly ExpectedParameter[]): readonly Readonly<Record<string, unknown>>[] {
+  return value.map(({ index, tsType, nullable, databaseType }) =>
+    omitUndefined({ index, tsType, nullable, databaseType }),
+  );
+}
+
 function parameters(value: readonly ExpectedParameter[] | undefined): readonly Readonly<Record<string, unknown>>[] {
   return (value ?? []).map((parameter) => omitUndefined(parameter));
 }
@@ -236,7 +242,7 @@ export function runStaticConformanceProbe<Snapshot extends SchemaSnapshot, Polic
     try {
       const analysis = context.dialect.analyze(probe.source, context.snapshot, context.policy);
       const actualColumns = resolvedColumns(analysis.columns);
-      const actualParameters = analysis.parameters.map((parameter) => omitUndefined(parameter));
+      const actualParameters = resolvedParameters(analysis.parameters);
       const actualDiagnostics = analysis.diagnostics.map(({ code, severity, range }) => ({ code, severity, range }));
       const differences = [
         ...difference("resolve.rows", columns(outcome.rows), actualColumns),
