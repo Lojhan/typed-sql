@@ -309,7 +309,12 @@ class Resolver {
       return { ...relation, qualifiers: source.alias ? [source.alias] : relation.qualifiers };
     }
     if (source.kind === "derived") {
-      const columns = this.select(source.query, ctes, allowCorrelation ? scope : scope.outer);
+      const columns = this.select(
+        source.query,
+        ctes,
+        allowCorrelation ? scope : scope.outer,
+        source.columns.length > 0,
+      );
       if (source.columns.length && source.columns.length !== columns.length)
         this.diagnostic("TSQ203", "Derived table column alias count does not match projection", source.range);
       return {
@@ -458,10 +463,18 @@ class Resolver {
     const a = native(left),
       b = native(right);
     if (!a || !b) {
-      if (left.tsType === right.tsType) return { ...left, nullable };
       this.diagnostic("TSQ201", "Cannot prove a common SQL Server native type", range);
       return unknown;
     }
+    if (a.collation && b.collation && a.collation.toLowerCase() !== b.collation.toLowerCase()) {
+      this.diagnostic(
+        "TSQ201",
+        "Implicit text expressions have conflicting native collations; use an explicit qualified conversion",
+        range,
+      );
+      return unknown;
+    }
+    const collation = a.collation ?? b.collation;
     if (a.name === b.name) {
       if (a.name === "decimal") {
         const p = Math.max(a.precision! - a.scale!, b.precision! - b.scale!) + Math.max(a.scale!, b.scale!);
@@ -469,7 +482,11 @@ class Resolver {
       }
       if (a.length !== undefined && b.length !== undefined) {
         const length = a.length === "max" || b.length === "max" ? "max" : Math.max(a.length, b.length);
-        return type(`${a.name}(${length})`, nullable, this.policy);
+        return type(
+          `${a.name}(${length})${collation && ["char", "varchar", "nchar", "nvarchar"].includes(a.name) ? ` COLLATE ${collation}` : ""}`,
+          nullable,
+          this.policy,
+        );
       }
       return { ...left, nullable };
     }
@@ -579,9 +596,29 @@ class Resolver {
         this.diagnostic("TSQ201", "Star is valid only as a projection or COUNT argument", expression.range);
         return unknown;
       case "cast": {
-        const target = type(expression.databaseType, expression.try, this.policy);
+        const declaredTarget = parseSqlServerNativeType(expression.databaseType);
+        const targetText =
+          declaredTarget &&
+          ["char", "varchar", "nchar", "nvarchar"].includes(declaredTarget.name) &&
+          typeof this.schema.server?.settings.collation === "string"
+            ? `${declaredTarget.text} COLLATE ${this.schema.server.settings.collation}`
+            : expression.databaseType;
+        let target = type(targetText, expression.try, this.policy);
         const argument = this.scalar(this.expression(expression.argument, scope, ctes, target), expression.argument);
-        const input = native(argument)?.name,
+        const argumentType = native(argument);
+        if (
+          argumentType?.collation &&
+          declaredTarget &&
+          ["char", "varchar", "nchar", "nvarchar"].includes(declaredTarget.name)
+        )
+          target = type(`${declaredTarget.text} COLLATE ${argumentType.collation}`, expression.try, this.policy);
+        if (argument.databaseType && !argumentType)
+          this.diagnostic(
+            "TSQ201",
+            "Opaque native type conversions require explicit qualified codec evidence",
+            expression.range,
+          );
+        const input = argumentType?.name,
           destination = native(target)?.name;
         if (
           destination === "xml" &&
@@ -635,6 +672,17 @@ class Resolver {
         if (comparison.has(expression.operator)) {
           this.scalar(left, expression.left);
           this.scalar(right, expression.right);
+          const names = [native(left)?.name, native(right)?.name];
+          if (
+            names.some((name) => ["xml", "json", "image"].includes(name ?? "")) ||
+            (!["LIKE", "NOT LIKE"].includes(expression.operator) &&
+              names.some((name) => ["text", "ntext"].includes(name ?? "")))
+          )
+            this.diagnostic(
+              "TSQ201",
+              "This native SQL Server type does not support scalar comparison operators",
+              expression.range,
+            );
           this.common(left, right, expression.range);
           return { ...condition, nullable: left.nullable || right.nullable };
         }
@@ -651,7 +699,14 @@ class Resolver {
           const unicode = a.name.startsWith("n") || b.name.startsWith("n"),
             limit = unicode ? 4000 : 8000;
           const length = a.length === "max" || b.length === "max" ? "max" : Math.min(limit, a.length + b.length);
-          return type(`${unicode ? "nvarchar" : "varchar"}(${length})`, nullable, this.policy);
+          if (a.collation && b.collation && a.collation.toLowerCase() !== b.collation.toLowerCase())
+            this.diagnostic("TSQ201", "Concatenation has conflicting native collations", expression.range);
+          const collation = a.collation ?? b.collation;
+          return type(
+            `${unicode ? "nvarchar" : "varchar"}(${length})${collation ? ` COLLATE ${collation}` : ""}`,
+            nullable,
+            this.policy,
+          );
         }
         if (a && b && numericNames.has(a.name) && numericNames.has(b.name)) {
           if (["float", "real"].includes(a.name) || ["float", "real"].includes(b.name))
@@ -699,7 +754,7 @@ class Resolver {
         const values = Array.isArray(expression.values) ? expression.values : undefined;
         const compared = values
           ? values.map((value) => this.expression(value, scope, ctes, argument))
-          : this.select(expression.values as Select, ctes, scope);
+          : this.select(expression.values as Select, ctes, scope, true);
         if (!values && compared.length !== 1)
           this.diagnostic("TSQ203", "IN subquery must return one column", expression.range);
         if (expression.argument.kind === "parameter" && compared[0])
@@ -718,10 +773,10 @@ class Resolver {
         return { ...condition, nullable: value.nullable || lower.nullable || upper.nullable };
       }
       case "exists":
-        this.select(expression.query, ctes, scope);
+        this.select(expression.query, ctes, scope, true);
         return condition;
       case "subquery": {
-        const columns = this.select(expression.query, ctes, scope);
+        const columns = this.select(expression.query, ctes, scope, true);
         if (columns.length !== 1) {
           this.diagnostic("TSQ203", "Scalar subquery must return exactly one column", expression.range);
           return unknown;
@@ -772,6 +827,12 @@ class Resolver {
         return unknown;
       }
       const routine = candidates[0]!;
+      if (expression.name.parts.length < 2)
+        this.diagnostic(
+          "TSQ105",
+          "SQL Server scalar user functions require an explicit schema qualifier",
+          expression.range,
+        );
       expression.arguments.forEach((argument, index) => {
         this.expected(argument, type(routine.argumentTypes[index]!, true, this.policy), scope, ctes);
       });
@@ -846,7 +907,11 @@ class Resolver {
         if (argument.name === "decimal") return type(`decimal(38,${argument.scale})`, nullable, this.policy);
         if (["int", "smallint", "tinyint"].includes(argument.name)) return type("int", nullable, this.policy);
         if (["money", "smallmoney"].includes(argument.name)) return type("money", nullable, this.policy);
-        if (["real", "float", "bit"].includes(argument.name)) return type("float(53)", nullable, this.policy);
+        if (
+          ["real", "float", "bit"].includes(argument.name) ||
+          (name === "POWER" && ["char", "varchar", "nchar", "nvarchar"].includes(argument.name))
+        )
+          return type("float(53)", nullable, this.policy);
         if (argument.name === "bigint") return type("bigint", nullable, this.policy);
         this.diagnostic("TSQ201", "ABS requires a numeric input", expression.range);
         return unknown;
@@ -885,6 +950,31 @@ class Resolver {
       case "string":
         return type(name === "SOUNDEX" ? "varchar(4)" : "nvarchar(4000)", nullable, this.policy);
       case "nvarcharMax":
+        if (name === "STRING_AGG") {
+          if (first.tsType === "unknown") infer(0, type("nvarchar(max)", true, this.policy));
+          const input = native(args[0] ?? unknown),
+            separator = native(args[1] ?? unknown);
+          if (
+            input &&
+            ["char", "varchar"].includes(input.name) &&
+            separator &&
+            ["nchar", "nvarchar"].includes(separator.name)
+          )
+            this.diagnostic(
+              "TSQ201",
+              "STRING_AGG VARCHAR input cannot use an NVARCHAR separator",
+              expression.arguments[1]!.range,
+            );
+          const unicode = !input || !["char", "varchar"].includes(input.name),
+            length = input?.length === "max" ? "max" : unicode ? 4000 : 8000;
+          if (args[1]?.tsType === "unknown")
+            infer(1, type(`${unicode ? "nvarchar" : "varchar"}(max)`, true, this.policy));
+          return type(
+            `${unicode ? "nvarchar" : "varchar"}(${length})${input?.collation ? ` COLLATE ${input.collation}` : ""}`,
+            true,
+            this.policy,
+          );
+        }
         for (let i = 0; i < args.length; i++)
           if (args[i]?.tsType === "unknown") infer(i, type("nvarchar(max)", true, this.policy));
         return type("nvarchar(max)", builtin.kind === "aggregate" || nullable, this.policy);
@@ -1064,7 +1154,7 @@ class Resolver {
           this.diagnostic("TSQ203", "Recursive CTE requires anchor and UNION ALL member", cte.range);
           continue;
         }
-        const anchor = this.select({ ...cte.query, compounds: [] }, ctes, outer);
+        const anchor = this.select({ ...cte.query, compounds: [] }, ctes, outer, cte.columns.length > 0);
         const initial: Relation = {
           key: cte.name,
           qualifiers: [cte.name],
@@ -1075,7 +1165,7 @@ class Resolver {
           })),
         };
         ctes.set(cte.name, initial);
-        const complete = this.select(cte.query, ctes, outer);
+        const complete = this.select(cte.query, ctes, outer, cte.columns.length > 0);
         ctes.set(cte.name, {
           ...initial,
           columns: complete.map((column, index) => ({
@@ -1085,7 +1175,7 @@ class Resolver {
           })),
         });
       } else {
-        const columns = this.select(cte.query, ctes, outer);
+        const columns = this.select(cte.query, ctes, outer, cte.columns.length > 0);
         if (cte.columns.length && cte.columns.length !== columns.length)
           this.diagnostic("TSQ203", "CTE column count disagrees with its query", cte.range);
         ctes.set(cte.name, {
@@ -1097,7 +1187,7 @@ class Resolver {
     }
     return ctes;
   }
-  projection(projections: readonly Projection[], scope: Scope, ctes: Ctes): ResolvedColumn[] {
+  projection(projections: readonly Projection[], scope: Scope, ctes: Ctes, allowUnnamed = false): ResolvedColumn[] {
     const columns: ResolvedColumn[] = [];
     for (const projection of projections) {
       const expression = projection.expression;
@@ -1112,7 +1202,13 @@ class Resolver {
             if (!column.hidden) columns.push({ ...column, range: expression.range });
       } else {
         const value = this.scalar(this.expression(expression, scope, ctes), expression);
-        const name = projection.alias ?? (expression.kind === "column" ? partsLast(expression.name) : undefined);
+        const name =
+          projection.alias ??
+          (expression.kind === "column"
+            ? partsLast(expression.name)
+            : allowUnnamed
+              ? `column_${columns.length + 1}`
+              : undefined);
         if (!name) {
           this.diagnostic(
             "TSQ207",
@@ -1131,7 +1227,7 @@ class Resolver {
     }
     return columns;
   }
-  select(statement: Select, inherited: Ctes = new Map(), outer?: Scope): ResolvedColumn[] {
+  select(statement: Select, inherited: Ctes = new Map(), outer?: Scope, allowUnnamed = false): ResolvedColumn[] {
     const ctes = this.cteScope(statement.with, inherited, outer);
     const scope = this.buildScope(statement.from, statement.joins, ctes, outer);
     if (statement.where) this.predicate(statement.where, scope, ctes);
@@ -1146,9 +1242,9 @@ class Resolver {
       );
     if (statement.offset) this.expected(statement.offset, type("bigint", false, this.policy), scope, ctes);
     if (statement.fetch) this.expected(statement.fetch, type("bigint", false, this.policy), scope, ctes);
-    let columns = this.projection(statement.projections, scope, ctes);
+    let columns = this.projection(statement.projections, scope, ctes, allowUnnamed);
     for (const compound of statement.compounds) {
-      const right = this.select(compound.query, ctes, outer);
+      const right = this.select(compound.query, ctes, outer, true);
       if (columns.length !== right.length)
         this.diagnostic("TSQ203", "Set operation projections have different widths", compound.query.range);
       columns = columns.map((column, index) => ({
@@ -1299,25 +1395,13 @@ class Resolver {
       for (const order of statement.order) checkOrder(order.expression);
     }
     if (statement.forJson) {
-      const shape: JsonShape = {
-        kind: "array",
-        element: {
-          kind: "object",
-          properties: Object.fromEntries(
-            columns.map((column) => [
-              column.name,
-              { shape: this.shape(column), ...(column.nullable && !statement.includeNulls ? { optional: true } : {}) },
-            ]),
-          ),
-        },
-      };
+      // The server may stream one document across multiple NVARCHAR rows. Each row is a text chunk.
       columns = [
         {
           name: "JSON_F52E2B61-18A1-11d1-B105-00805F49916B",
-          tsType: this.policy.json === "parsed" ? this.jsonType(shape) : "string",
+          tsType: "string",
           nullable: false,
           databaseType: "nvarchar(max)",
-          json: { shape, representation: this.policy.json === "parsed" ? "parsed" : "text" },
           range: statement.range,
         },
       ];
@@ -1390,7 +1474,7 @@ class Resolver {
         });
       }
       if (statement.query) {
-        const source = this.select(statement.query, ctes);
+        const source = this.select(statement.query, ctes, undefined, true);
         if (source.length !== columns.length)
           this.diagnostic("TSQ203", "INSERT SELECT width disagrees with target columns", statement.query.range);
         source.forEach((value, index) => {

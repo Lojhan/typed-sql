@@ -5,6 +5,20 @@ import { sqlServerVersionSupport } from "../src/support.js";
 import { mapSqlServerType } from "../src/type-policy.js";
 
 await describe("SQL Server grammar-owned lexical and native foundations", async () => {
+  await it("distinguishes SQL-file named bindings from native JSON key delimiters", () => {
+    const source =
+      "SELECT JSON_OBJECT('id':id,'dynamic': :value,name:quantity,CONCAT('k','ey'): :other,:key: :mapped) AS doc FROM t WHERE id=:id OR parent_id=:id";
+    const tokens = tokenize(source, { sqlFileParameters: true });
+    strict.deepEqual(
+      tokens.filter((token) => token.kind === "parameter").map((token) => token.text),
+      [":value", ":other", ":key", ":mapped", ":id", ":id"],
+    );
+    strict.equal(tokens.filter((token) => token.kind === "punctuation" && token.value === ":").length, 5);
+    strict.deepEqual(
+      tokenize("SELECT JSON_OBJECT('id':id) AS doc").filter((token) => token.kind === "parameter"),
+      [],
+    );
+  });
   await it("parses representative T-SQL structures without another grammar's parser", () => {
     for (const source of [
       "SELECT TOP (10) WITH TIES o.id, ISNULL(o.name,N'none') AS name FROM dbo.orders AS o ORDER BY o.id",
