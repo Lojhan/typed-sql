@@ -1,4 +1,4 @@
-import { parseSchemaSnapshot, type SchemaSnapshotV1, type SchemaSnapshotV2 } from "@typed-sql/schema";
+import { parseSchemaSnapshot, type SchemaSnapshotV1, type SchemaSnapshotV2 } from "@typed-sql/schema/snapshot";
 import { assertSqlServerServerEvidence } from "./capabilities.js";
 import { parseSqlServerNativeType } from "./native-types.js";
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";

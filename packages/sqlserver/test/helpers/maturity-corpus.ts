@@ -342,10 +342,12 @@ export const MATURITY_CASES: readonly MaturityCase[] = [
     vendor: "https://learn.microsoft.com/en-us/sql/t-sql/functions/datalength-transact-sql",
   },
   {
-    id: "abs-decimal-widens",
+    id: "abs-decimal-native-precision",
     feature: "builtins",
     sql: "SELECT ABS(amount) AS value FROM dbo.widgets",
-    rows: value("string", "decimal(38,2)"),
+    // Native qualification overrides contradictory ABS documentation: run42108197287,
+    // SQL_VARIANT_PROPERTY and DMF agree for table/constant inputs on14–17/all10compat.
+    rows: value("string", "decimal(12,2)"),
     vendor: "https://learn.microsoft.com/en-us/sql/t-sql/functions/abs-transact-sql",
   },
   {
