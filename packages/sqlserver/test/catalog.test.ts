@@ -266,6 +266,8 @@ await describe("SQL Server native catalog classifications and validation", async
         is_nullable: true,
         default_object_id: 700,
         rule_object_id: 701,
+        type_default_object_id: 700,
+        type_rule_object_id: 701,
         default_expression: "CREATE DEFAULT dbo.alias_default AS 7",
         bound_rule_expression: "CREATE RULE dbo.alias_positive AS @value > 0",
       },
@@ -276,6 +278,20 @@ await describe("SQL Server native catalog classifications and validation", async
         is_identity: false,
         default_object_id: 702,
         default_expression: null,
+      },
+    ]);
+    state.data.set(query.columns, [
+      ...state.data.get(query.columns)!,
+      {
+        ...column,
+        column_id: 11,
+        column_name: "future_only_alias",
+        is_identity: false,
+        user_type_id: 500,
+        system_type_id: 127,
+        default_object_id: 0,
+        type_default_object_id: 700,
+        type_rule_object_id: 701,
       },
     ]);
     const snapshot = await new SqlServerSchemaProvider({ client: state.client }).introspect();
@@ -294,6 +310,9 @@ await describe("SQL Server native catalog classifications and validation", async
     strict.equal(typeof columns.alias_nullable?.extension?.attributes.boundRuleHash, "string");
     strict.equal(columns.hidden_default?.default, "present");
     strict.equal(columns.hidden_default?.defaultExpressionHash, undefined);
+    strict.equal(columns.future_only_alias?.default, "unknown");
+    strict.equal(columns.future_only_alias?.defaultExpressionHash, undefined);
+    strict.equal(columns.future_only_alias?.extension?.attributes.typeDefaultObjectId, 700);
     strict.doesNotMatch(JSON.stringify(snapshot), /CREATE DEFAULT|CREATE RULE/);
   });
   await it("refuses all direct mutation classes on active temporal history tables", async () => {

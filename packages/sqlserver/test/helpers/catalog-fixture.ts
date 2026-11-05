@@ -44,6 +44,8 @@ export function fixture() {
     is_persisted: false,
     generation_expression: null,
     default_expression: null,
+    type_default_object_id: 0,
+    type_rule_object_id: 0,
     default_object_id: 0,
     rule_object_id: 0,
     bound_rule_expression: null,
