@@ -714,6 +714,47 @@ await describe("live query verification", async () => {
       );
     }
   });
+  await it("keeps known mismatch precedence over unavailable physical evidence", async () => {
+    const value = fixture();
+    for (const scenario of ["count-and-name", "other-field-drift", "field-types"] as const) {
+      const result = await verifyQueryManifest({
+        manifest: value.manifest,
+        candidates: [value.candidates[0]!],
+        verifier: verifier({
+          compareDatabaseTypes(expected, actual) {
+            return scenario === "field-types" ? "unavailable" : expected === actual ? "equal" : "different";
+          },
+          async verify() {
+            return {
+              columns:
+                scenario === "count-and-name"
+                  ? [{ index: 1, name: "wrong" }]
+                  : scenario === "other-field-drift"
+                    ? [
+                        { index: 1, databaseType: "integer", tsType: "bigint" },
+                        { index: 2, tsType: "string" },
+                      ]
+                    : [
+                        { index: 1, name: "wrong", databaseType: "bigint", tsType: "string", nullable: true },
+                        { index: 2, databaseType: "text", tsType: "string" },
+                      ],
+              parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+            };
+          },
+        }),
+      });
+      const entry = result.proof.entries.find((entry) => entry.status === "mismatch");
+      if (entry?.status !== "mismatch") strict.fail(`Known mismatch lost for ${scenario}`);
+      const kinds = entry.mismatches.map((m) => m.kind);
+      for (const kind of scenario === "count-and-name"
+        ? ["column-count", "column-name"]
+        : scenario === "other-field-drift"
+          ? ["database-type"]
+          : ["column-name", "typescript-type", "nullability"])
+        strict.ok(kinds.includes(kind as (typeof kinds)[number]));
+      strict.deepEqual(entry.source, value.candidates[0]!.source);
+    }
+  });
 });
 
 void (schema satisfies SchemaSnapshot);
