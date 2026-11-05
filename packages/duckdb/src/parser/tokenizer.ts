@@ -101,7 +101,7 @@ export function tokenize(source: string): readonly Token[] {
     }
     if (char === "?" || (char === "$" && /[\p{L}\p{N}_]/u.test(source[index + 1] ?? ""))) {
       let value = move();
-      while (index < source.length && /[\p{L}\p{N}_]/u.test(source[index]!)) value += move();
+      if (value !== "?") while (index < source.length && /[\p{L}\p{N}_]/u.test(source[index]!)) value += move();
       emit("parameter", start, value);
       continue;
     }

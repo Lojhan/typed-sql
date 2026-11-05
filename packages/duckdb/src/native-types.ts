@@ -239,3 +239,21 @@ export function formatDuckDBType(type: DuckDBType): string {
       return `${type.kind.toUpperCase()}(${type.fields.map((field) => `${quote(field.name)} ${formatDuckDBType(field.type)}`).join(", ")})`;
   }
 }
+
+/** Logical children retain native shape and position without depending on SDK classes. */
+export function duckDBTypeChildren(type: DuckDBType): readonly DuckDBType[] {
+  switch (type.kind) {
+    case "list":
+    case "array":
+      return [type.element];
+    case "tuple":
+      return type.elements;
+    case "struct":
+    case "union":
+      return type.fields.map((field) => field.type);
+    case "map":
+      return [type.key, type.value];
+    default:
+      return [];
+  }
+}
