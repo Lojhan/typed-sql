@@ -13,8 +13,14 @@ export function parseSqlServerSchemaSnapshot(value: unknown): SqlServerSchemaSna
     for (const column of Object.values(table.columns)) {
       if (column.databaseType.length > 256) throw new TypeError("SQL Server native type exceeds metadata bound");
       const native = parseSqlServerNativeType(column.databaseType);
-      if (!native && !/[a-z\p{L}_][a-z\p{L}\p{N}_.[\] ]{0,255}/iu.test(column.databaseType))
+      if (!native && !isSqlServerOpaqueTypeIdentity(column.databaseType))
         throw new TypeError("Invalid opaque SQL Server type identity");
     }
   return snapshot as SqlServerSchemaSnapshot;
+}
+
+/** Opaque identities remain names, never arbitrary SQL declarations or transport casts. */
+function isSqlServerOpaqueTypeIdentity(value: string): boolean {
+  const identifier = String.raw`(?:[\p{L}_][\p{L}\p{N}_$@#]*|\[(?:[^\]\x00]|\]\])+\]|"(?:[^"\x00]|"")+")`;
+  return new RegExp(`^${identifier}(?:\\.${identifier}){0,2}$`, "u").test(value);
 }

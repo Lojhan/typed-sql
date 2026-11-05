@@ -175,7 +175,7 @@ export function encodeSqlServerParameter(
       throw new TypeError("SQL Server rowversion cannot be assigned as an ordinary value");
     if (typeof target.length === "number" && value.length > target.length)
       throw new RangeError("SQL Server binary parameter exceeds its native length");
-    return value.slice();
+    return Uint8Array.from(value);
   }
   if (target.name === "sql_variant")
     throw new TypeError("SQL Server sql_variant input requires an explicit qualified codec");
@@ -226,6 +226,6 @@ export function decodeSqlServerNativeValue(
     }
     return text;
   }
-  if (value instanceof Uint8Array) return value.slice();
+  if (value instanceof Uint8Array) return Uint8Array.from(value);
   return value;
 }

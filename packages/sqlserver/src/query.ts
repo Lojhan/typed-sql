@@ -34,6 +34,6 @@ export function normalizeSqlServerValue(value: unknown, type: RuntimeValueType):
     if (!Number.isFinite(date.getTime())) throw new TypeError("Invalid SQL Server date value");
     return date;
   }
-  if (type === "bytes" && value instanceof Uint8Array) return value.slice();
+  if (type === "bytes" && value instanceof Uint8Array) return Uint8Array.from(value);
   return value;
 }

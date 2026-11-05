@@ -74,7 +74,7 @@ export function analyzeSqlServerSemantics(statement: Statement): QuerySemantics 
       }
       if (expression.kind === "call") {
         const name = expression.name.parts.at(-1)!.toUpperCase(),
-          builtin = SQLSERVER_BUILTINS[name];
+          builtin = expression.name.parts.length === 1 ? SQLSERVER_BUILTINS[name] : undefined;
         dependencies.push({
           kind: "function",
           access: "execute",
@@ -87,6 +87,7 @@ export function analyzeSqlServerSemantics(statement: Statement): QuerySemantics 
         else if (builtin.volatility === "volatile") volatility = "volatile";
         else if (builtin.volatility === "stable" && volatility === "immutable") volatility = "stable";
         if (expression.over) capabilities.add("windows");
+        if (expression.returningJson) capabilities.add("nativeJson");
         if (builtin?.kind === "aggregate" && !expression.over) aggregate = true;
         if (name.startsWith("JSON_") || name === "OPENJSON") capabilities.add("json");
       }

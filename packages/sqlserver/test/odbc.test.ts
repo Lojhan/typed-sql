@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { EventEmitter } from "node:events";
 import { describe, it, strict } from "poku";
 import {
@@ -200,6 +201,8 @@ await describe("SQL Server explicit ODBC adapter", async () => {
       { kind: "bit", value: true },
       { kind: "double", value: 1 },
     ]);
+    const binary = state.bindings[0]?.[4] as { kind: string; value: unknown };
+    strict.equal(Buffer.isBuffer(binary.value), true);
     strict.throws(() => adaptSqlServerOdbcConnection({ ...state.driver }, state.native), /conflicting/);
   });
   await it("waits for complete native protocol and preserves late errors and truncation", async () => {
