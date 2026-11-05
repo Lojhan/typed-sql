@@ -11,7 +11,7 @@ await describe("editor grammar evidence hub", async () => {
   await it("covers owned grammars and the external grammar without homogenizing semantics", () => {
     strict.deepStrictEqual(
       grammarCases.map((item) => item.id),
-      ["postgres", "mysql", "sqlite", "synthetic"],
+      ["postgres", "mysql", "sqlite", "sqlserver", "duckdb", "synthetic"],
     );
     for (const spec of grammarCases) {
       strict.strictEqual(spec.schema.dialect, spec.id);
@@ -20,8 +20,8 @@ await describe("editor grammar evidence hub", async () => {
       strict.notStrictEqual(spec.initial.type, spec.changed.type);
       strict.notStrictEqual(spec.initial.query, spec.invalidQuery);
     }
-    strict.strictEqual(grammarCases[3]!.initial.member, "value");
-    strict.strictEqual(grammarCases[3]!.changed.member, "label");
+    strict.strictEqual(grammarCases.find((item) => item.id === "synthetic")!.initial.member, "value");
+    strict.strictEqual(grammarCases.find((item) => item.id === "synthetic")!.changed.member, "label");
   });
   await it("records schema lifecycle coverage without inventing synthetic column semantics", () => {
     strict.ok(interfaces.includes("schema-file-refresh"));

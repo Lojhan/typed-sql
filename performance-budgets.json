@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "methodology": {
     "warmups": 3,
     "samples": 20,
@@ -24,6 +24,8 @@
     "compiler.independentConditions": { "p50": 10, "p95": 25, "p99": 40 },
     "compiler.structuralLimit": { "p50": 5, "p95": 10, "p99": 20 },
     "conformance.v2StaticCorpus": { "p50": 15, "p95": 30, "p99": 50 },
+    "parser.sqlserverLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
+    "parser.duckdbLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
     "parser.ownedLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
     "parser.pathologicalTokens": { "p50": 15, "p95": 35, "p99": 60 },
     "schema.canonicalization": { "p50": 15, "p95": 35, "p99": 60 },
@@ -38,6 +40,8 @@
     "editor.projectLifecycle": { "p50": 15, "p95": 50, "p99": 100 }
   },
   "throughput": {
+    "grammar.sqlserverAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
+    "grammar.duckdbAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
     "grammar.sqliteAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
     "core.fragmentListRender": { "minimumOperationsPerSecond": 10000, "minimumJoinRatio": 0.7 },

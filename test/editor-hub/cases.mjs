@@ -39,10 +39,64 @@ const sqlCase = (id, version, types) => ({
   structural: "SELECT id ${selected ? `, name` : sql.empty} FROM users",
 });
 
+// Explicit synthetic analysis evidence: editor fixtures never connect to databases.
+function evidencedSqlCase(id, version, types, server, schema) {
+  const spec = sqlCase(id, version, types);
+  return { ...spec, schema: { ...spec.schema, server, tables: { users: { ...spec.schema.tables.users, schema } } } };
+}
+
 export const grammarCases = [
   sqlCase("postgres", "16", { id: "integer", text: "text", age: "real" }),
   sqlCase("mysql", "8.4.0", { id: "int", text: "varchar", age: "double" }),
   sqlCase("sqlite", "3.51.0", { id: "INTEGER", text: "TEXT", age: "REAL" }),
+  evidencedSqlCase(
+    "sqlserver",
+    "17.0.5035.5",
+    { id: "int", text: "nvarchar(100)", age: "real" },
+    {
+      product: "sqlserver",
+      version: "17.0.5035.5",
+      versionKey: "17",
+      features: [],
+      settings: {
+        compatibilityLevel: 170,
+        collation: "Latin1_General_100_CI_AS",
+        defaultSchema: "dbo",
+        quotedIdentifier: true,
+        ansiWarnings: true,
+        arithAbort: true,
+        concatNullOn: true,
+        dateFirst: 7,
+        dateFormat: "mdy",
+        language: "us_english",
+      },
+    },
+    "dbo",
+  ),
+  evidencedSqlCase(
+    "duckdb",
+    "2.0.0",
+    { id: "INTEGER", text: "VARCHAR", age: "DOUBLE" },
+    {
+      product: "duckdb",
+      version: "2.0.0",
+      versionKey: "2.0.0",
+      features: [],
+      settings: {
+        currentCatalog: "memory",
+        currentSchema: "main",
+        schema: "main",
+        search_path: "",
+        TimeZone: "UTC",
+        Calendar: "gregorian",
+        integer_division: "false",
+        preserve_identifier_case: "preserve_case",
+        default_null_order: "NULLS_LAST",
+        default_order: "ASCENDING",
+      },
+    },
+    "main",
+  ),
   {
     id: "synthetic",
     packageName: "@typed-sql/example-synthetic-grammar",
