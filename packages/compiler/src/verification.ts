@@ -455,7 +455,12 @@ function verificationCacheKey(value: {
   )}`;
 }
 
-function assertVerifierTypePolicy(manifest: QueryManifest, verifier: Pick<LiveQueryVerifier, "typePolicyHash">): void {
+function assertVerifierSettings(
+  manifest: QueryManifest,
+  verifier: Pick<LiveQueryVerifier, "typePolicyHash" | "compareDatabaseTypes">,
+): void {
+  if (verifier.compareDatabaseTypes !== undefined && typeof verifier.compareDatabaseTypes !== "function")
+    throw new TypeError("Verifier compareDatabaseTypes must be a function");
   if (verifier.typePolicyHash !== undefined && verifier.typePolicyHash !== manifest.typePolicyHash)
     throw new TypeError("Verifier type policy does not match the query manifest");
 }
@@ -463,7 +468,7 @@ function assertVerifierTypePolicy(manifest: QueryManifest, verifier: Pick<LiveQu
 export async function verifyQueryManifest(options: VerifyQueryManifestOptions): Promise<VerifyQueryManifestResult> {
   if (options.verifier.dialect !== options.manifest.dialect.id)
     throw new TypeError(`Verifier dialect ${options.verifier.dialect} does not match ${options.manifest.dialect.id}`);
-  assertVerifierTypePolicy(options.manifest, options.verifier);
+  assertVerifierSettings(options.manifest, options.verifier);
   const concurrency = options.concurrency ?? 4;
   if (!Number.isSafeInteger(concurrency) || concurrency < 1)
     throw new TypeError("verification concurrency must be a positive safe integer");
@@ -748,7 +753,7 @@ export function assertQueryVerificationProofCurrent(
   proof: QueryVerificationProof,
   verifier?: Pick<LiveQueryVerifier, "dialect" | "adapterVersion" | "typePolicyHash" | "compareDatabaseTypes">,
 ): void {
-  if (verifier !== undefined) assertVerifierTypePolicy(manifest, verifier);
+  if (verifier !== undefined) assertVerifierSettings(manifest, verifier);
   const manifestHash = `sha256:${sha256(serializeQueryManifest(manifest))}`;
   if (proof.manifestHash !== manifestHash) throw new TypeError("Query verification proof is stale for this manifest");
   if (proof.dialect !== manifest.dialect.id) throw new TypeError("Query verification proof dialect is stale");
