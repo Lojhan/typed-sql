@@ -43,6 +43,46 @@ function analyze(source: string) {
   return grammar.analyze(source, snapshot);
 }
 await describe("SQL Server native inference", async () => {
+  await it("matches qualified four-engine native string result dimensions", () => {
+    // Native DMF oracle run42127162293, SQL Server14–17; physical widths matter before DML execution.
+    const cases: readonly (readonly [string, string])[] = [
+      ["LOWER(status)", "nvarchar(40)"],
+      ["UPPER(status)", "nvarchar(40)"],
+      ["LTRIM(status)", "nvarchar(40)"],
+      ["RTRIM(status)", "nvarchar(40)"],
+      ["TRIM(status)", "nvarchar(40)"],
+      ["REVERSE(status)", "nvarchar(40)"],
+      ["STUFF(status,1,1,N'x')", "nvarchar(40)"],
+      ["LEFT(status,2)", "nvarchar(2)"],
+      ["RIGHT(status,2)", "nvarchar(2)"],
+      ["SUBSTRING(status,1,2)", "nvarchar(2)"],
+      ["REPLICATE(status,2)", "nvarchar(80)"],
+      ["CHAR(65)", "char(1)"],
+      ["NCHAR(65)", "nchar(1)"],
+      ["SPACE(2)", "varchar(2)"],
+      ["QUOTENAME(status)", "nvarchar(258)"],
+      ["SOUNDEX(status)", "varchar(5)"],
+      ["STR(id)", "varchar(10)"],
+      ["FORMAT(id,N'N2',N'en-US')", "nvarchar(4000)"],
+      ["REPLACE(status,N'x',N'xx')", "nvarchar(4000)"],
+      ["TRANSLATE(status,N'xy',N'ab')", "nvarchar(4000)"],
+      ["CONCAT(status,N'x')", "nvarchar(41)"],
+      ["CONCAT_WS(N',',status,N'x')", "nvarchar(42)"],
+      ["LOWER(CAST(status AS nvarchar(max)))", "nvarchar(max)"],
+      ["REPLACE(CAST(status AS nvarchar(max)),N'x',N'y')", "nvarchar(max)"],
+      ["REPLICATE(CAST(status AS nvarchar(max)),2)", "nvarchar(max)"],
+      ["CONCAT(status,CAST(status AS nvarchar(max)))", "nvarchar(max)"],
+    ];
+    for (const [expression, expected] of cases) {
+      const result = analyze(`SELECT ${expression} AS value FROM dbo.orders`);
+      strict.deepEqual(result.diagnostics, [], expression);
+      strict.equal(result.columns[0]?.databaseType?.split(" COLLATE ")[0], expected, expression);
+    }
+    for (const expression of ["LEFT(status,id)", "REPLICATE(status,-1)", "CONCAT(status,id)", "LOWER(id)"]) {
+      strict.ok(analyze(`SELECT ${expression} AS value FROM dbo.orders`).diagnostics.length > 0, expression);
+    }
+  });
+
   await it("does not treat provisional unknown parameter nullability as catalog evidence", () => {
     const result = analyze("SELECT id FROM dbo.orders WHERE id=@__typed_sql_1 AND name=@__typed_sql_2");
     strict.deepEqual(result.diagnostics, []);
@@ -58,6 +98,41 @@ await describe("SQL Server native inference", async () => {
     strict.equal(cast.columns[0]?.nullable, true);
     strict.equal(analyze("SELECT CAST(NULL AS bigint) AS id").columns[0]?.nullable, true);
     strict.equal(analyze("SELECT CAST(1 AS bigint) AS id").columns[0]?.nullable, false);
+  });
+
+  await it("retains text-family and MAX metadata while declining unqualified length coercions", () => {
+    const cases: readonly (readonly [string, string])[] = [
+      ["LOWER(CAST(status AS varchar(40)))", "varchar(40)"],
+      ["REPLACE(CAST(status AS varchar(40)),'x','y')", "varchar(8000)"],
+      ["TRANSLATE(CAST(status AS varchar(40)),'xy','ab')", "varchar(8000)"],
+      ["STRING_ESCAPE(status,'json')", "nvarchar(max)"],
+      ["CONCAT(CAST(status AS varchar(40)),'x')", "varchar(41)"],
+      ["CONCAT_WS(',',CAST(status AS varchar(40)),'x')", "varchar(42)"],
+      ["STR(id,12,2)", "varchar(12)"],
+      ["REPLACE(CAST(status AS varchar(max)),'x','y')", "varchar(max)"],
+    ];
+    for (const [expression, expected] of cases) {
+      const result = analyze(`SELECT ${expression} AS value FROM dbo.orders`);
+      strict.deepEqual(result.diagnostics, [], expression);
+      strict.equal(result.columns[0]?.databaseType?.split(" COLLATE ")[0], expected, expression);
+    }
+    for (const expression of ["SPACE(id)", "STR(id,id)", "LEFT(status,1.5)", "CONCAT(NULL,status)", "LOWER(NULL)"]) {
+      strict.ok(analyze(`SELECT ${expression} AS value FROM dbo.orders`).diagnostics.length > 0, expression);
+    }
+    for (const expression of ["CONCAT(@__typed_sql_1,N'x')", "CONCAT_WS(N',',@__typed_sql_1,N'x')"]) {
+      const result = analyze(`SELECT ${expression} AS value`);
+      strict.deepEqual(result.diagnostics, []);
+      strict.equal(result.columns[0]?.databaseType, "nvarchar(max)");
+      strict.equal(result.parameters[0]?.databaseType, "nvarchar(max)");
+    }
+    const unscoped = grammar.analyze("SELECT CONCAT('a','b') AS value", {
+      formatVersion: 1,
+      dialect: "sqlserver",
+      server,
+      tables: {},
+    });
+    strict.deepEqual(unscoped.diagnostics, []);
+    strict.equal(unscoped.columns[0]?.databaseType, "varchar(2)");
   });
 
   await it("proves repeated INSERT VALUES shapes and distinguishes output projection changes", () => {

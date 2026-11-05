@@ -1,7 +1,59 @@
+import { Buffer } from "node:buffer";
 import { describe, it, strict } from "poku";
 import { idColumn, nativeApiFixture } from "./helpers/direct-api.js";
 
 await describe("SQL Server data worker statement and retained-memory protocol", async () => {
+  await it("attests actual counted driver identity before dispatch and cleans up rejected drivers", () => {
+    const qualified = nativeApiFixture();
+    qualified.session.open();
+    strict.deepEqual(qualified.session.driverIdentity, {
+      name: "libmsodbcsql-18.7.so.1.1",
+      version: "18.07.0001",
+      odbcVersion: "03.52",
+      managerVersion: "03.52.0002.0003",
+    });
+    strict.equal(Object.isFrozen(qualified.session.driverIdentity), true);
+    qualified.session.close();
+    for (const [code, value] of [
+      [6, "libtdsodbc.so"],
+      [7, "19.00.0001"],
+      [77, "02.00"],
+      [171, "unixODBC2.3.12"],
+      [6, "bad\0driver"],
+    ] as const) {
+      const state = nativeApiFixture();
+      const original = state.native.api.SQLGetInfoW!;
+      state.native.api.SQLGetInfoW = (...args) => {
+        if (args[1] !== code) return original(...args);
+        if (!Buffer.isBuffer(args[2]) || !Array.isArray(args[4])) throw new Error("Invalid native test output");
+        Buffer.from(value, "utf16le").copy(args[2]);
+        args[4][0] = value.length * 2;
+        return 0;
+      };
+      strict.throws(() => state.session.open());
+      strict.equal(
+        state.calls.some((call) => call.name === "SQLExecDirectW"),
+        false,
+      );
+      strict.equal(state.session.connection, 0n);
+      strict.equal(state.session.env, 0n);
+    }
+    const unreadable = nativeApiFixture();
+    unreadable.failed.set("SQLGetInfoW", 1);
+    strict.throws(() => unreadable.session.open(), /driver-identity/);
+    strict.equal(unreadable.session.connection, 0n);
+    for (const length of [-1, 0, 1, 1024, 1026, 1.5]) {
+      const state = nativeApiFixture();
+      state.native.api.SQLGetInfoW = (...args) => {
+        if (!Array.isArray(args[4])) throw new Error("Invalid native test length");
+        args[4][0] = length;
+        return 0;
+      };
+      strict.throws(() => state.session.open(), /driver-identity-length/);
+      strict.equal(state.session.connection, 0n);
+    }
+  });
+
   await it("opens an ODBC3 connection and drains command stages around one complete rowset", () => {
     const state = nativeApiFixture();
     state.session.open();

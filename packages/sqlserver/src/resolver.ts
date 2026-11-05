@@ -1191,8 +1191,65 @@ class Resolver {
         return type("uniqueidentifier", nullable, this.policy);
       case "bytes":
         return type("varbinary(max)", nullable, this.policy);
-      case "string":
-        return type(name === "SOUNDEX" ? "varchar(4)" : "nvarchar(4000)", nullable, this.policy);
+      case "string": {
+        const input = native(first),
+          textInput = input && ["char", "varchar", "nchar", "nvarchar"].includes(input.name) ? input : undefined,
+          unicode = textInput?.name.startsWith("n") ?? true,
+          family = unicode ? "nvarchar" : "varchar",
+          limit = unicode ? 4000 : 8000;
+        const result = (family: string, length: number | "max", canBeNull = nullable) =>
+          type(
+            `${family}(${length})${textInput?.collation ? ` COLLATE ${textInput.collation}` : ""}`,
+            canBeNull,
+            this.policy,
+          );
+        const dimension = (index: number, fallback?: number) => {
+          const argument = expression.arguments[index];
+          const value = argument ? numericConstant(argument) : fallback;
+          if (value === undefined || !Number.isSafeInteger(value) || value < 0) {
+            this.diagnostic(
+              "TSQ203",
+              `${name} requires a qualified nonnegative constant length`,
+              argument?.range ?? expression.range,
+            );
+            return undefined;
+          }
+          return value;
+        };
+        if (name === "CHAR" || name === "NCHAR") return result(name === "CHAR" ? "char" : "nchar", 1, true);
+        if (name === "FORMAT") return result("nvarchar", 4000, true);
+        if (name === "QUOTENAME") return result("nvarchar", 258, true);
+        // Four qualified engines describe five bytes, although SOUNDEX values contain four characters.
+        if (name === "SOUNDEX") return result("varchar", 5);
+        if (name === "SPACE" || name === "STR") {
+          const width = dimension(name === "SPACE" ? 0 : 1, name === "STR" ? 10 : undefined);
+          return width === undefined ? unknown : result("varchar", Math.max(1, Math.min(8000, width)));
+        }
+        if (!textInput) {
+          this.diagnostic(
+            "TSQ201",
+            `${name} requires a qualified native text argument`,
+            expression.arguments[0]?.range ?? expression.range,
+          );
+          return unknown;
+        }
+        if (["LOWER", "UPPER", "LTRIM", "RTRIM", "TRIM", "REVERSE", "STUFF"].includes(name))
+          return result(family, textInput.length!, name === "STUFF" || nullable);
+        if (["LEFT", "RIGHT", "SUBSTRING", "REPLICATE"].includes(name)) {
+          const width = dimension(name === "SUBSTRING" ? 2 : 1);
+          if (width === undefined) return unknown;
+          const length =
+            textInput.length === "max"
+              ? "max"
+              : name === "REPLICATE"
+                ? Math.min(limit, textInput.length! * width)
+                : Math.min(textInput.length!, width);
+          return result(family, length === "max" ? length : Math.max(1, length));
+        }
+        if (name === "STRING_ESCAPE") return result("nvarchar", "max");
+        const hasUnicode = args.some((value) => native(value)?.name.startsWith("n"));
+        return result(hasUnicode ? "nvarchar" : family, textInput.length === "max" ? "max" : hasUnicode ? 4000 : limit);
+      }
       case "nvarcharMax":
         if (name === "STRING_AGG") {
           if (first.tsType === "unknown") infer(0, type("nvarchar(max)", true, this.policy));
@@ -1219,9 +1276,47 @@ class Resolver {
             this.policy,
           );
         }
+        if (args.some((value) => value.sqlNull)) {
+          this.diagnostic(
+            "TSQ201",
+            `${name} NULL-only argument dimensions require an explicit native text cast`,
+            expression.range,
+          );
+          return unknown;
+        }
         for (let i = 0; i < args.length; i++)
           if (args[i]?.tsType === "unknown") infer(i, type("nvarchar(max)", true, this.policy));
-        return type("nvarchar(max)", builtin.kind === "aggregate" || nullable, this.policy);
+        {
+          const inputs = args.map(native);
+          if (inputs.some((input) => !input || !["char", "varchar", "nchar", "nvarchar"].includes(input.name))) {
+            this.diagnostic(
+              "TSQ201",
+              `${name} requires qualified text arguments for native result dimensions`,
+              expression.range,
+            );
+            return unknown;
+          }
+          const unicode = inputs.some((input) => input!.name.startsWith("n")),
+            max = inputs.some((input) => input!.length === "max"),
+            separator = name === "CONCAT_WS" ? inputs[0]! : undefined,
+            values = separator ? inputs.slice(1) : inputs,
+            length = max
+              ? "max"
+              : Math.max(
+                  1,
+                  Math.min(
+                    unicode ? 4000 : 8000,
+                    values.reduce((sum, input) => sum + Number(input!.length), 0) +
+                      (separator ? Number(separator.length) * (values.length - 1) : 0),
+                  ),
+                ),
+            collation = inputs.find((input) => input?.collation)?.collation;
+          return type(
+            `${unicode ? "nvarchar" : "varchar"}(${length})${collation ? ` COLLATE ${collation}` : ""}`,
+            false,
+            this.policy,
+          );
+        }
       case "varcharMax":
         return type("varchar(max)", nullable, this.policy);
       case "date":

@@ -86,6 +86,17 @@ export function nativeApiFixture(overrides: Partial<OdbcWorkerOptions> = {}) {
     SQLSetConnectAttrW: () => 0,
     SQLSetStmtAttrW: () => 0,
     SQLDriverConnectW: () => 0,
+    SQLGetInfoW: (_handle, code, data, _bound, length) => {
+      const value = (
+        { 6: "libmsodbcsql-18.7.so.1.1", 7: "18.07.0001", 77: "03.52", 171: "03.52.0002.0003" } as Record<
+          string,
+          string
+        >
+      )[String(code)]!;
+      Buffer.from(value, "utf16le").copy(buffer(data));
+      output(length)[0] = value.length * 2;
+      return 0;
+    },
     SQLDisconnect: () => 0,
     SQLFreeHandle: (kind, handle) => {
       if (kind === 3) states.delete(BigInt(String(handle)));

@@ -114,8 +114,8 @@ await database.transaction(async (transaction) => {
 
 Scope batches use the current transaction. Root batches are atomic. Await every operation and
 close active streams before returning. Nested transactions are explicitly unsupported.
-Logical prepared factories retain their cache when arbitrary text results require the native
-adapter's raw transport; [physical preparation](../dialects/sqlserver.md#execution-and-physical-preparation)
+Logical prepared factories reuse native handles with fixed MAX bindings for short, long, empty
+and nullable values; [physical preparation](../dialects/sqlserver.md#execution-and-physical-preparation)
 explains the driver boundary.
 
 ## Stream with explicit cleanup
