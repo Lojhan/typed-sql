@@ -315,6 +315,55 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
     libraryVersion,
     interrupt: () => connection.interrupt(),
     close: () => retireNative(() => connection.closeSync()),
+    async createAppender(table: string) {
+      assertUsable();
+      if (typeof sdk.DuckDBDataChunk?.create !== "function")
+        throw new TypeError("DuckDB SDK has no native vector appender capability");
+      const appender = await connection.createAppender(table, "main", "temp");
+      let closed = false;
+      try {
+        const columns = Array.from({ length: appender.columnCount }, (_, i) =>
+          nativeTypeFromSDK(appender.columnType(i), sdk),
+        );
+        return {
+          columns,
+          append(rows: readonly (readonly DuckDBBinding[])[]) {
+            assertUsable();
+            if (closed) throw new Error("DuckDB appender is closed");
+            if (
+              rows.length < 1 ||
+              rows.length > 2048 ||
+              rows.some(
+                (row) =>
+                  row.length !== columns.length ||
+                  row.some((binding, i) => formatDuckDBType(binding.type) !== formatDuckDBType(columns[i]!)),
+              )
+            )
+              throw new TypeError("DuckDB native appender chunk shape differs from metadata");
+            try {
+              const chunk = sdk.DuckDBDataChunk.create(
+                columns.map((type) => sdkType(type, sdk)),
+                rows.length,
+              );
+              chunk.setRows(rows.map((row) => row.map((binding) => nativeValue(binding, sdk))));
+              appender.appendDataChunk(chunk);
+            } catch (error) {
+              throw adapterError(error);
+            }
+          },
+          close() {
+            if (closed) return;
+            closed = true;
+            retireNative(() => appender.closeSync());
+          },
+        };
+      } catch (error) {
+        try {
+          retireNative(() => appender.closeSync());
+        } catch {}
+        throw error;
+      }
+    },
     async readServerEvidence() {
       assertUsable();
       const read = async (text: string) => {

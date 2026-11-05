@@ -1,5 +1,8 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  adapterCapabilities,
+  type AdapterCapabilityResolver,
+  createAdapterCapabilityResolver,
   assertExecutionCapabilities,
   assertQueryResultTransport,
   type Database,
@@ -35,6 +38,9 @@ import {
   validateQueryResultStream,
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
+import { createDuckDBAppenderCapability, duckdbAppender, type DuckDBAppenderCapability } from "./bulk.js";
+export { duckdbAppender } from "./bulk.js";
+export type { DuckDBAppenderCapability, DuckDBAppendOptions, DuckDBAppenderProgress } from "./bulk.js";
 import { decodeDuckDBValue, encodeDuckDBValue } from "./codecs.js";
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { duckDBParameterTransport } from "./parameter-transport.js";
@@ -69,11 +75,17 @@ export interface DuckDBNativeStatement {
   execute(bindings: readonly DuckDBBinding[], stream?: boolean): Promise<DuckDBNativeResult>;
   close(): void | Promise<void>;
 }
+export interface DuckDBNativeAppender {
+  readonly columns: readonly DuckDBType[];
+  append(rows: readonly (readonly DuckDBBinding[])[]): void | Promise<void>;
+  close(): void | Promise<void>;
+}
 export interface DuckDBConnectionLike {
   readonly identity?: object;
   readonly libraryVersion: string;
   readServerEvidence?(): Promise<DialectServerEvidence>;
   prepare(text: string): Promise<DuckDBNativeStatement>;
+  createAppender?(table: string): Promise<DuckDBNativeAppender>;
   interrupt?(): void;
   close?(): void | Promise<void>;
 }
@@ -81,6 +93,7 @@ export type DuckDBPreparedQueryFactory<Args extends readonly unknown[], Row, Par
   ...args: Args
 ) => Query<Row, Params>) & { readonly statementName: string };
 export interface DuckDBTransaction extends Database<DuckDBTransaction> {
+  readonly [adapterCapabilities]: AdapterCapabilityResolver;
   unprepare(name: string): Promise<void>;
   batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   stream<Row, Params extends readonly unknown[]>(
@@ -620,7 +633,92 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     };
     const all = <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
       run(query, controls, "many", (rows) => rows);
+    const appender = createDuckDBAppenderCapability({
+      prepare(query) {
+        const compiled = ready(query),
+          rendered = renderQuery(query, duckdbRenderer);
+        const values = encodeQueryValues(query, rendered.values, profile);
+        if (compiled.plan.columns.length !== 0) throw new TypeError("DuckDB appender requires a command query");
+        return {
+          text: rendered.text,
+          bindings: compiled.plan.parameters.map((parameter, i) => {
+            const type = parseDuckDBType(parameter.databaseType!);
+            return { type, value: encodeDuckDBValue(values[i], type, policy, `appender parameter ${i + 1}`) };
+          }),
+        };
+      },
+      transfer(target, initial, chunks, controls) {
+        assertExecutionCapabilities(capabilities, controls);
+        return track(scope, async () => {
+          const append = async (local: Scope) => {
+            const release = await acquire(local);
+            let appender: DuckDBNativeAppender | undefined;
+            let failed = true;
+            const staging = `__typed_sql_append_${randomUUID().replaceAll("-", "")}`;
+            const quotedStage = duckdbRenderer.quoteIdentifier(staging);
+            const table = target.table.map(duckdbRenderer.quoteIdentifier).join(".");
+            const selected = target.columns.map(duckdbRenderer.quoteIdentifier).join(", ");
+            try {
+              ensure(local);
+              await verifyConnection();
+              if (!connection.createAppender)
+                throw new TypeError("DuckDB connection has no native appender capability");
+              await runControlledExecution(
+                controls,
+                async () => {
+                  let native: DuckDBNativeStatement | undefined;
+                  try {
+                    native = await connection.prepare(initial.text);
+                    verifyParameters(native, initial.bindings);
+                  } finally {
+                    await cleanup(undefined, native, false);
+                  }
+                  await control(`CREATE TEMP TABLE ${quotedStage} AS SELECT ${selected} FROM ${table} LIMIT 0`);
+                  appender = await connection.createAppender!(staging);
+                  if (
+                    appender.columns.length !== initial.bindings.length ||
+                    appender.columns.some(
+                      (type, i) => formatDuckDBType(type) !== formatDuckDBType(initial.bindings[i]!.type),
+                    )
+                  )
+                    throw new TypeError("DuckDB appender native column metadata differs from compiled targets");
+                  for await (const rows of chunks) await appender.append(rows);
+                  await appender.close();
+                  appender = undefined;
+                  await control(`INSERT INTO ${table} (${selected}) SELECT ${selected} FROM ${quotedStage}`);
+                  await control(`DROP TABLE ${quotedStage}`);
+                },
+                () => connection.interrupt?.(),
+              );
+              failed = false;
+            } finally {
+              let cleanupFailure: unknown;
+              try {
+                if (appender) await appender.close();
+              } catch (error) {
+                current.broken = true;
+                cleanupFailure = error;
+              }
+              // The staging relation belongs to this transaction. A failed statement can abort
+              // native SQL dispatch; rollback removes it without issuing cleanup SQL in that state.
+              release();
+              if (!failed && cleanupFailure) throw cleanupFailure;
+            }
+          };
+          return scope ? append(scope) : transaction(undefined, append);
+        });
+      },
+    });
+    const trackedAppender: DuckDBAppenderCapability = {
+      append: (factory, rows, controls) => {
+        ensure(scope);
+        return track(scope, () => appender.append(factory, rows, controls));
+      },
+    };
     return Object.freeze({
+      [adapterCapabilities]: createAdapterCapabilityResolver(
+        connection.createAppender ? [[duckdbAppender, trackedAppender]] : [],
+      ),
       executionCapabilities: capabilities,
       all,
       execute: all,

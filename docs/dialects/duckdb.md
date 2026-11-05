@@ -120,6 +120,26 @@ A path-created instance and connection are owned and closed by the adapter. Inje
 application owned unless ownership is explicitly transferred. `close()` releases owned file locks;
 applications must also close any independently retained native connections or instances.
 
+## Native vector appends
+
+The `/runtime` entrypoint exports the `duckdbAppender` capability. Obtain it with
+`requireAdapterCapability(database, duckdbAppender)` from `@typed-sql/core`, then call
+`append(rowQuery, rows, options)`. The factory returns an ordinary compiled, typed single-row
+`INSERT` with an explicit column list and one ordered parameter per column. It has no `RETURNING`,
+conflict clause, CTE or query source. Each row preserves the same SQL shape and physical targets.
+
+Rows can be synchronous or asynchronous iterables. `chunkRows` bounds native vector chunks from
+1 to 2048 rows; the default is 2048. The result and `onProgress` callback report `rows` and `chunks`.
+Progress reports data transferred to operation-owned staging, before the target transaction commits.
+The operation uses temporary staging to preserve partial or reordered columns, target defaults and
+generated columns. Native vectors preserve nested values, including active UNION members containing
+NULL. The appender closes before the final insertion commits.
+
+A root append is atomic. Inside a transaction, obtain the capability from its callback scope; it
+shares that transaction. Producer, validation, progress callback, cancellation or constraint failures
+close the producer and appender and roll back. Await every append before its transaction callback
+returns. Produce rows independently of operations on the leased connection.
+
 ## Native verification and query plans
 
 The explicit `/node-api` entrypoint exports `createNodeDuckDBLiveVerifier(options)` and
