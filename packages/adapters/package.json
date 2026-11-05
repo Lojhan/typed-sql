@@ -43,7 +43,8 @@
     "./libsql": "./dist/packages/adapters/src/libsql.js",
     "./neon-http": "./dist/packages/adapters/src/neon-http.js",
     "./neon-ws": "./dist/packages/adapters/src/neon-ws.js",
-    "./postgres-js": "./dist/packages/adapters/src/postgres-js.js"
+    "./postgres-js": "./dist/packages/adapters/src/postgres-js.js",
+    "./sqlite-wasm": "./dist/packages/adapters/src/sqlite-wasm.js"
   },
   "dependencies": {
     "@typed-sql/core": "workspace:*"
@@ -51,12 +52,13 @@
   "devDependencies": {
     "@libsql/client": "0.18.0",
     "@neondatabase/serverless": "1.2.0",
-    "postgres": "3.4.9",
-    "miniflare": "4.20260730.0",
-    "ws": "8.21.0",
-    "@types/ws": "8.18.1",
+    "@sqlite.org/sqlite-wasm": "3.54.1-build1",
+    "@typed-sql/postgres": "workspace:*",
     "@typed-sql/sqlite": "workspace:*",
-    "@typed-sql/postgres": "workspace:*"
+    "@types/ws": "8.18.1",
+    "miniflare": "4.20260730.0",
+    "postgres": "3.4.9",
+    "ws": "8.21.0"
   },
   "peerDependencies": {
     "@libsql/client": "^0.18.0",

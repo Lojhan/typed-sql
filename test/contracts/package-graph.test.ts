@@ -84,7 +84,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
     "./bun",
     "./bun-register",
   ],
-  adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js"],
+  adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js", "./sqlite-wasm"],
   ast: [".", "./toolkit"],
   core: ["."],
   opentelemetry: ["."],

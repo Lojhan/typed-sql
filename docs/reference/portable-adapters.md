@@ -1,7 +1,7 @@
 ---
 title: Portable buffered adapters
 pageType: reference
-description: Use explicit D1, libSQL, Neon, and Postgres.js adapters with compiled value plans and honest transport capabilities.
+description: Use explicit D1, libSQL, Neon, Postgres.js, and SQLite Wasm adapters with compiled value plans and honest transport capabilities.
 ---
 
 # Portable buffered adapters
@@ -22,6 +22,7 @@ frontend or SQL-file factory when you want the compiler's type policy enforced a
 | `createNeonHttpDatabase` / `neon-http` | Yes, one HTTP request | No | Noninteractive transactions |
 | `createNeonWebSocketDatabase` / `neon-ws` | Yes, reserved connection | Yes | Application owns the pool |
 | `createPostgresJsDatabase` / `postgres-js` | Yes, native transaction | Yes | Uses raw result cells |
+| `createSqliteWasmDatabase` / `sqlite-wasm` | Yes, explicit SQLite transaction | Yes | Injected official OO1 connection; application owns its VFS |
 
 All expose `execute`, `all`, `one`, and `maybeOne`. Streaming, cancellation, and deadlines are not
 provided by these wrappers. Unsupported controls fail before query dispatch. Callback scopes
@@ -101,6 +102,56 @@ its native `begin` API and raw byte results. Neither wrapper closes an injected 
 
 See the official [Neon driver configuration](https://github.com/neondatabase/serverless/blob/main/CONFIG.md)
 and [Postgres.js documentation](https://github.com/porsager/postgres).
+
+## Official SQLite Wasm
+
+Initialize `@sqlite.org/sqlite-wasm` in the application and wrap an OO1 connection. The same adapter
+works with an in-memory database or an application-configured persistent VFS in a worker. The driver
+and its Wasm assets are explicit application dependencies; the adapter does not load them.
+
+```ts
+import sqlite3InitModule from "@sqlite.org/sqlite-wasm";
+import { createSqliteWasmDatabase } from "@typed-sql/adapters/sqlite-wasm";
+import { sqliteRenderer } from "@typed-sql/sqlite/query";
+import findUser, { valuePlan } from "./find-user.sql";
+
+const sqlite3 = await sqlite3InitModule();
+const connection = new sqlite3.oo1.DB(":memory:");
+const database = createSqliteWasmDatabase(sqlite3, connection, {
+  renderer: sqliteRenderer,
+  profile: {
+    id: "sqlite-wasm",
+    dialect: "sqlite",
+    integer: "lossless",
+    jsonWire: "text",
+    typePolicyHash: valuePlan.typePolicyHash,
+  },
+  ownsConnection: true,
+});
+
+// After the application creates its schema and data:
+const user = await database.maybeOne(findUser(1n));
+await database.close();
+```
+
+INTEGER storage is read as `bigint`, including small integers. A number policy converts it only after
+checking that it is safe. REAL values remain numbers; a REAL value cannot satisfy a bigint plan.
+Bindings reject out-of-range 64-bit bigints, non-finite numbers, unsafe integer numbers and
+unserialized objects before the statement executes. Blob results are copied before finalization.
+SQLite JSON text and JSONB retain the compiled policy's text/blob representation.
+
+Each query contains exactly one SQL statement. Callback transactions hold an exclusive connection
+lease; use the provided scope for every operation until it completes. Root operations and other
+wrappers of that connection are rejected during the callback. Pending scoped failures prevent commit,
+escaped scopes are retired, and a failed rollback makes the connection unusable until it is closed.
+`batch()` is atomic. Statements are finalized on success and failure.
+
+`ownsConnection` defaults to `false`. Closing an injected wrapper leaves its connection open; closing
+an explicitly owned connection does not delete its database or release application-owned VFS pools.
+`database.evidence` records the actual library version, compile options and VFS. Pass
+`database.queryable` to `new SqliteSchemaProvider({ client: database.queryable })` from
+`@typed-sql/sqlite` to reuse its catalog and snapshot logic. The queryable shares the connection lease;
+its raw results are schema inputs, while application queries use compiled value plans.
 
 ## Verification boundaries
 
