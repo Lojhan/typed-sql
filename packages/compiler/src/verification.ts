@@ -120,6 +120,8 @@ export interface QueryVerificationProof {
   readonly verifierVersion: typeof QUERY_VERIFIER_VERSION;
   readonly adapterVersion: string;
   readonly dialect: string;
+  /** Physical type comparison was required while producing this proof. */
+  readonly nativeTypeComparison?: true;
   /** Additive binding to the schema contract and its canonical content. */
   readonly schemaFormat?: 1 | 2;
   readonly schemaHash?: string;
@@ -431,6 +433,7 @@ function normalizedServer(server: LiveQueryVerificationServer): LiveQueryVerific
 }
 
 function verificationCacheKey(value: {
+  readonly nativeTypeComparison?: true;
   readonly adapterVersion: string;
   readonly dialect: string;
   readonly manifestHash: string;
@@ -442,6 +445,7 @@ function verificationCacheKey(value: {
       canonicalize({
         verifierVersion: QUERY_VERIFIER_VERSION,
         adapterVersion: value.adapterVersion,
+        ...(value.nativeTypeComparison === true ? { nativeTypeComparison: true } : {}),
         dialect: value.dialect,
         manifestHash: value.manifestHash,
         server: normalizedServer(value.server),
@@ -566,7 +570,10 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
     }
   });
   const manifestHash = `sha256:${sha256(serializeQueryManifest(options.manifest))}`;
+  const comparisonCapability =
+    options.verifier.compareDatabaseTypes === undefined ? {} : { nativeTypeComparison: true as const };
   const cacheKey = verificationCacheKey({
+    ...comparisonCapability,
     adapterVersion: options.verifier.adapterVersion,
     dialect: options.verifier.dialect,
     manifestHash,
@@ -574,6 +581,7 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
     entries,
   });
   const proof: QueryVerificationProof = {
+    ...comparisonCapability,
     formatVersion: QUERY_VERIFICATION_FORMAT_VERSION,
     verifierVersion: QUERY_VERIFIER_VERSION,
     adapterVersion: options.verifier.adapterVersion,
@@ -658,6 +666,8 @@ export function parseQueryVerificationProof(value: unknown): QueryVerificationPr
     if (typeof value[property] !== "string" || value[property].length === 0)
       throw new TypeError(`Query verification proof ${property} must be a non-empty string`);
   }
+  if (value.nativeTypeComparison !== undefined && value.nativeTypeComparison !== true)
+    throw new TypeError("Query verification nativeTypeComparison must be true when present");
   fingerprint(value.manifestHash, "Query verification manifestHash");
   fingerprint(value.cacheKey, "Query verification cacheKey");
   if (value.schemaFormat !== undefined && value.schemaFormat !== 1 && value.schemaFormat !== 2) {
@@ -736,7 +746,7 @@ export function parseQueryVerificationProof(value: unknown): QueryVerificationPr
 export function assertQueryVerificationProofCurrent(
   manifest: QueryManifest,
   proof: QueryVerificationProof,
-  verifier?: Pick<LiveQueryVerifier, "dialect" | "adapterVersion" | "typePolicyHash">,
+  verifier?: Pick<LiveQueryVerifier, "dialect" | "adapterVersion" | "typePolicyHash" | "compareDatabaseTypes">,
 ): void {
   if (verifier !== undefined) assertVerifierTypePolicy(manifest, verifier);
   const manifestHash = `sha256:${sha256(serializeQueryManifest(manifest))}`;
@@ -753,7 +763,10 @@ export function assertQueryVerificationProofCurrent(
     (proof.dialect !== verifier.dialect || proof.adapterVersion !== verifier.adapterVersion)
   )
     throw new TypeError("Query verification proof adapter is stale");
+  if (verifier?.compareDatabaseTypes !== undefined && proof.nativeTypeComparison !== true)
+    throw new TypeError("Query verification proof native type comparison is stale");
   const expectedCacheKey = verificationCacheKey({
+    ...(proof.nativeTypeComparison === true ? { nativeTypeComparison: true } : {}),
     adapterVersion: proof.adapterVersion,
     dialect: proof.dialect,
     manifestHash,

@@ -291,6 +291,7 @@ export interface LiveQueryVerificationServer {
 /** Grammar-owned adapter over a database's native prepare/describe protocol. */
 export interface LiveQueryVerifier {
   readonly dialect: string;
+  /** Change when evidence or comparison semantics change, including physical type compatibility. */
   readonly adapterVersion: string;
   /** Identity of the effective decoding policy, when the adapter supplies policy-dependent evidence. */
   readonly typePolicyHash?: string;
