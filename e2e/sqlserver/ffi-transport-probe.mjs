@@ -246,8 +246,18 @@ try {
     connection = allocate(2, env);
     const dsn = `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=master;UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
     assert.ok(dsn.length < 32767);
-    check(api.connect(connection, null, wide(dsn), dsn.length, null, 0, [0], 0), "connect", 2, connection);
-    connected = true;
+    const connectResult = api.connect(connection, null, wide(dsn), dsn.length, null, 0, [0], 0);
+    // SUCCESS_WITH_INFO still establishes a live connection, even when a warning
+    // is rejected below. Always disconnect it before freeing the DBC handle.
+    connected = connectResult === 0 || connectResult === 1;
+    if (connectResult === 1) {
+      const records = diagnostics(2, connection);
+      evidence.connectNotices = records;
+      const contextOnly =
+        records.length > 0 &&
+        records.every((record) => record.state === "01000" && (record.native === 5701 || record.native === 5703));
+      if (!contextOnly) check(connectResult, "connect", 2, connection);
+    } else check(connectResult, "connect", 2, connection);
     const version = query(connection, "SELECT CONVERT(nvarchar(128),SERVERPROPERTY('ProductVersion')) AS version");
     assert.equal(Number(version.rows[0][0].split(".")[0]), evidence.major);
     evidence.serverVersion = version.rows[0][0];
