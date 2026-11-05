@@ -382,4 +382,19 @@ export const MATURITY_CASES: readonly MaturityCase[] = [
     rows: value("string", "decimal(12,2)"),
     vendor: VENDOR.coalesce,
   },
+
+  {
+    id: "searched-case-predicate",
+    feature: "conditionals",
+    sql: "SELECT CASE WHEN id=1 THEN quantity ELSE optional_qty END AS value FROM dbo.widgets",
+    rows: value("number", "int", true),
+    vendor: "https://learn.microsoft.com/en-us/sql/t-sql/language-elements/case-transact-sql",
+  },
+  {
+    id: "iif-predicate",
+    feature: "conditionals",
+    sql: "SELECT IIF(id=1,quantity,optional_qty) AS value FROM dbo.widgets",
+    rows: value("number", "int", true),
+    vendor: "https://learn.microsoft.com/en-us/sql/t-sql/functions/logical-functions-iif-transact-sql",
+  },
 ];
