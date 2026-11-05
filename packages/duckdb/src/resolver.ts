@@ -1,3 +1,5 @@
+import { commonTypes as common15, expressionTypes as expression15 } from "./catalog/common-1.5.6.js";
+import { commonTypes as common20, expressionTypes as expression20 } from "./catalog/common-2.0.0.js";
 import {
   type DialectAnalysis,
   defineQuerySemantics,
@@ -35,6 +37,7 @@ interface Value {
   readonly nullable: boolean;
   readonly tsType?: string;
   readonly runtimeType?: RuntimeValueType;
+  readonly integerLiteralRange?: readonly [bigint, bigint];
 }
 interface Field extends Value {
   readonly range?: SourceRange;
@@ -84,43 +87,70 @@ function isNumeric(type: DuckDBType): boolean {
     (small.has(type.name) || wide.has(type.name) || ["DECIMAL", "FLOAT", "DOUBLE"].includes(type.name))
   );
 }
-export function commonDuckDBType(a: DuckDBType, b: DuckDBType): DuckDBType {
+export function commonDuckDBType(
+  a: DuckDBType,
+  b: DuckDBType,
+  version = "2.0.0",
+  mode: "expression" | "set" = "expression",
+): DuckDBType {
   if (same(a, b)) return a;
   if (a.kind === "scalar" && a.name === "NULL") return b;
   if (b.kind === "scalar" && b.name === "NULL") return a;
   if (a.kind === "scalar" && a.name === "ANY") return b;
   if (b.kind === "scalar" && b.name === "ANY") return a;
-  if (isNumeric(a) && isNumeric(b) && a.kind === "scalar" && b.kind === "scalar") {
-    if ([a.name, b.name].includes("DOUBLE")) return scalar("DOUBLE");
-    if ([a.name, b.name].includes("FLOAT")) return scalar("FLOAT");
+  if (a.kind === "scalar" && b.kind === "scalar") {
     if (a.name === "DECIMAL" || b.name === "DECIMAL") {
-      const shape = (x: typeof a) => {
-        const value = decimalProperties(x);
-        return [value.precision, value.scale];
-      };
-      const [ap, as] = shape(a),
-        [bp, bs] = shape(b),
-        scale = Math.max(as!, bs!);
-      return {
-        kind: "scalar",
-        name: "DECIMAL",
-        precision: Math.min(38, Math.max(ap! - as!, bp! - bs!) + scale),
-        scale,
-      };
+      const other = a.name === "DECIMAL" ? b : a;
+      if (["FLOAT", "DOUBLE"].includes(other.name)) return other;
+      if (other.name === "BIGNUM") return mode === "set" ? other : scalar("ANY");
+      if (other.name === "BOOLEAN") return mode === "set" ? (a.name === "DECIMAL" ? a : b) : scalar("ANY");
     }
-    if (a.name === "BIGNUM" || b.name === "BIGNUM") return scalar("BIGNUM");
-    if ([a.name, b.name].includes("UHUGEINT"))
-      return a.name.startsWith("U") && b.name.startsWith("U") ? scalar("UHUGEINT") : scalar("BIGNUM");
-    if ([a.name, b.name].includes("HUGEINT")) return scalar("HUGEINT");
-    if ([a.name, b.name].includes("UBIGINT"))
-      return a.name.startsWith("U") && b.name.startsWith("U") ? scalar("UBIGINT") : scalar("HUGEINT");
-    if ([a.name, b.name].includes("BIGINT")) return scalar("BIGINT");
-    if ([a.name, b.name].includes("UINTEGER"))
-      return a.name.startsWith("U") && b.name.startsWith("U") ? scalar("UINTEGER") : scalar("BIGINT");
-    return scalar("INTEGER");
+    if (isNumeric(a) && isNumeric(b)) {
+      if (a.name === "DECIMAL" || b.name === "DECIMAL") {
+        const shape = (x: typeof a) => {
+          const value = decimalProperties(x);
+          return [value.precision, value.scale];
+        };
+        const [ap, as] = shape(a),
+          [bp, bs] = shape(b),
+          scale = Math.max(as!, bs!);
+        return {
+          kind: "scalar",
+          name: "DECIMAL",
+          precision: Math.min(38, Math.max(ap! - as!, bp! - bs!) + scale),
+          scale,
+        };
+      }
+    }
+    const key = `${a.name}|${b.name}`;
+    const matrix =
+      version === "1.5.6"
+        ? mode === "set"
+          ? common15
+          : expression15
+        : version === "2.0.0"
+          ? mode === "set"
+            ? common20
+            : expression20
+          : {};
+    const result = matrix[key];
+    return result ? parseDuckDBType(result) : scalar("ANY");
   }
   if ((a.kind === "list" || a.kind === "array") && (b.kind === "list" || b.kind === "array"))
-    return { kind: "list", element: commonDuckDBType(a.element, b.element) };
+    return a.kind === "array" && b.kind === "array" && a.length === b.length
+      ? { kind: "array", length: a.length, element: commonDuckDBType(a.element, b.element, version, mode) }
+      : { kind: "list", element: commonDuckDBType(a.element, b.element, version, mode) };
+  if (a.kind === "tuple" && b.kind === "tuple" && a.elements.length === b.elements.length)
+    return {
+      kind: "tuple",
+      elements: a.elements.map((type, i) => commonDuckDBType(type, b.elements[i]!, version, mode)),
+    };
+  if (a.kind === "map" && b.kind === "map")
+    return {
+      kind: "map",
+      key: commonDuckDBType(a.key, b.key, version, mode),
+      value: commonDuckDBType(a.value, b.value, version, mode),
+    };
   if (a.kind === "struct" && b.kind === "struct") {
     const names = [
       ...a.fields.map((x) => x.name),
@@ -135,17 +165,52 @@ export function commonDuckDBType(a: DuckDBType, b: DuckDBType): DuckDBType {
         type: commonDuckDBType(
           a.fields.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name))?.type ?? nil.type,
           b.fields.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name))?.type ?? nil.type,
+          version,
+          mode,
         ),
       })),
     };
   }
   return scalar("ANY");
 }
-function nullableUnion(values: readonly Value[]): Value {
-  return {
-    type: values.reduce((type, value) => commonDuckDBType(type, value.type), nil.type),
-    nullable: values.some((value) => value.nullable),
+function nullableUnion(values: readonly Value[], version = "2.0.0", mode: "expression" | "set" = "expression"): Value {
+  const fits = (range: readonly [bigint, bigint], type: DuckDBType): boolean => {
+    if (type.kind !== "scalar") return false;
+    const width = (
+      {
+        TINYINT: 8,
+        SMALLINT: 16,
+        INTEGER: 32,
+        BIGINT: 64,
+        HUGEINT: 128,
+        UTINYINT: 8,
+        USMALLINT: 16,
+        UINTEGER: 32,
+        UBIGINT: 64,
+        UHUGEINT: 128,
+      } as Readonly<Record<string, number>>
+    )[type.name];
+    if (!width) return false;
+    const unsigned = type.name.startsWith("U"),
+      bits = BigInt(width - (unsigned ? 0 : 1));
+    return range[0] >= (unsigned ? 0n : -(1n << bits)) && range[1] < 1n << bits;
   };
+  let combined: Value = nil;
+  for (const value of values) {
+    if (combined.type.kind === "scalar" && combined.type.name === "NULL") {
+      combined = value;
+      continue;
+    }
+    if (value.type.kind === "scalar" && value.type.name === "NULL") continue;
+    const type =
+      mode === "expression" && combined.integerLiteralRange && fits(combined.integerLiteralRange, value.type)
+        ? value.type
+        : mode === "expression" && value.integerLiteralRange && fits(value.integerLiteralRange, combined.type)
+          ? combined.type
+          : commonDuckDBType(combined.type, value.type, version, mode);
+    combined = { type, nullable: false };
+  }
+  return { type: combined.type, nullable: values.some((value) => value.nullable) };
 }
 const emptyScope = (): Scope => ({ fields: [], aliases: new Map(), ctes: new Map() });
 export class DuckDBResolver {
@@ -162,6 +227,12 @@ export class DuckDBResolver {
     readonly snapshot: DuckDBSchemaSnapshot,
     readonly policy: DuckDBTypePolicy,
   ) {}
+  commonType(a: DuckDBType, b: DuckDBType, mode: "expression" | "set" = "expression"): DuckDBType {
+    return commonDuckDBType(a, b, this.snapshot.server?.versionKey ?? "", mode);
+  }
+  unionValues(values: readonly Value[], mode: "expression" | "set" = "expression"): Value {
+    return nullableUnion(values, this.snapshot.server?.versionKey ?? "", mode);
+  }
   error(message: string, range: SourceRange, code = "TSQ101"): void {
     this.diagnostics.push({ code, message, range, severity: "error" });
   }
@@ -224,6 +295,7 @@ export class DuckDBResolver {
                     : "DOUBLE",
             ),
             nullable: false,
+            integerLiteralRange: [value, value],
           };
         } catch {
           return unknown;
@@ -336,7 +408,7 @@ export class DuckDBResolver {
             (right.type.kind === "list" || right.type.kind === "array")
           )
             return {
-              type: { kind: "list", element: commonDuckDBType(left.type.element, right.type.element) },
+              type: { kind: "list", element: this.commonType(left.type.element, right.type.element) },
               nullable: left.nullable || right.nullable,
             };
           if (
@@ -359,7 +431,7 @@ export class DuckDBResolver {
           this.error("No qualified DuckDB operator overload matches the operands", expr.range, "TSQ201");
           return unknown;
         }
-        const type = commonDuckDBType(left.type, right.type);
+        const type = this.commonType(left.type, right.type);
         if (
           type.kind === "scalar" &&
           type.name === "DECIMAL" &&
@@ -400,11 +472,11 @@ export class DuckDBResolver {
           else arg(args[i], bool(true));
         }
         if (args.length % 2 === 0) values.push(nil);
-        return nullableUnion(values);
+        return this.unionValues(values);
       }
       case "list": {
         const args = (expr.args ?? []).map((x) => arg(x));
-        return { type: { kind: "list", element: nullableUnion(args).type }, nullable: false };
+        return { type: { kind: "list", element: this.unionValues(args).type }, nullable: false };
       }
       case "tuple":
         return { type: { kind: "tuple", elements: (expr.args ?? []).map((x) => arg(x).type) }, nullable: false };
@@ -693,7 +765,7 @@ export class DuckDBResolver {
     }
     const element: Value = { type: collection.type.element, nullable: true };
     const initial = args[2] ? this.infer(args[2], scope) : undefined;
-    const accumulator = initial ? nullableUnion([element, initial]) : element;
+    const accumulator = initial ? this.unionValues([element, initial]) : element;
     const bindings = names.map(
       (name, i): Field => ({
         name,
@@ -725,7 +797,7 @@ export class DuckDBResolver {
       return unknown;
     }
     if (reduce) {
-      const combined = commonDuckDBType(accumulator.type, body.type);
+      const combined = this.commonType(accumulator.type, body.type);
       if (combined.kind === "scalar" && combined.name === "ANY") {
         this.error("LIST reduce lambda has incompatible accumulator type", lambda.range, "TSQ201");
         return unknown;
@@ -922,10 +994,11 @@ export class DuckDBResolver {
       return unknown;
     }
 
+    const combination = ["list_value", "array_value"].includes(name) ? this.unionValues(values).type : undefined;
     const matches = matchDuckDBBuiltin(
       version,
       builtinName,
-      values.map((value) => value.type),
+      values.map((value) => combination ?? value.type),
     );
     this.dependencies.push({
       kind: "function",
@@ -968,14 +1041,14 @@ export class DuckDBResolver {
     )
       return bool(values.some((x) => x.nullable));
     if (["coalesce", "ifnull"].includes(name)) {
-      const type = nullableUnion(values).type;
+      const type = this.unionValues(values).type;
       for (const arg of args) if (arg.kind === "parameter") this.recordParameter(arg, { type, nullable: true });
       return { type, nullable: values.every((x) => x.nullable) };
     }
     if (name === "nullif") return { ...(values[0] ?? unknown), nullable: true };
     if (name === "if") {
       if (args[0]) this.infer(args[0], scope, bool(true));
-      return nullableUnion(values.slice(1));
+      return this.unionValues(values.slice(1));
     }
     if (["percent_rank", "cume_dist"].includes(name)) return { type: scalar("DOUBLE"), nullable: false };
     if (["grouping", "grouping_id"].includes(name)) {
@@ -1068,7 +1141,7 @@ export class DuckDBResolver {
         collections.length &&
         collections.every((value) => value.type.kind === "list" || value.type.kind === "array")
       ) {
-        const type = collections.map((value) => value.type).reduce(commonDuckDBType);
+        const type = collections.map((value) => value.type).reduce((left, right) => this.commonType(left, right));
         if (type.kind === "list" || type.kind === "array")
           return { type: { kind: "list", element: type.element }, nullable: values.some((value) => value.nullable) };
       }
@@ -1078,8 +1151,8 @@ export class DuckDBResolver {
       return {
         type: {
           kind: "map",
-          key: maps.map((type) => type.key).reduce(commonDuckDBType),
-          value: maps.map((type) => type.value).reduce(commonDuckDBType),
+          key: maps.map((type) => type.key).reduce((left, right) => this.commonType(left, right)),
+          value: maps.map((type) => type.value).reduce((left, right) => this.commonType(left, right)),
         },
         nullable: values.every((value) => value.nullable),
       };
@@ -1090,8 +1163,8 @@ export class DuckDBResolver {
       return {
         type:
           name === "array_value"
-            ? { kind: "array", element: nullableUnion(values).type, length: values.length }
-            : { kind: "list", element: nullableUnion(values).type },
+            ? { kind: "array", element: this.unionValues(values).type, length: values.length }
+            : { kind: "list", element: this.unionValues(values).type },
         nullable: false,
       };
     if (name === "row") return { type: { kind: "tuple", elements: values.map((x) => x.type) }, nullable: false };
@@ -1222,7 +1295,7 @@ export class DuckDBResolver {
     }
     if (name === "abs") return { ...(values[0] ?? unknown) };
     if (["greatest", "least"].includes(name))
-      return { ...nullableUnion(values), nullable: values.every((value) => value.nullable) };
+      return { ...this.unionValues(values), nullable: values.every((value) => value.nullable) };
     if (
       [
         "json",
@@ -1682,7 +1755,7 @@ export class DuckDBResolver {
             name,
             type:
               relation.join === "full"
-                ? commonDuckDBType(left.type, right.type)
+                ? this.commonType(left.type, right.type)
                 : relation.join === "right"
                   ? right.type
                   : left.type,
@@ -1819,11 +1892,11 @@ export class DuckDBResolver {
         output = names.map((name) => {
           const l = output.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name)),
             r = right.find((x) => duckDBAsciiFold(x.name) === duckDBAsciiFold(name));
-          return { name, ...nullableUnion([l ?? nil, r ?? nil]) };
+          return { name, ...this.unionValues([l ?? nil, r ?? nil], "set") };
         });
       } else {
         if (output.length !== right.length) this.error("Set operation column count differs", statement.range, "TSQ202");
-        output = output.map((field, i) => ({ ...nullableUnion([field, right[i] ?? nil]), name: field.name }));
+        output = output.map((field, i) => ({ ...this.unionValues([field, right[i] ?? nil], "set"), name: field.name }));
       }
     }
     if (statement.kind === "describe")
