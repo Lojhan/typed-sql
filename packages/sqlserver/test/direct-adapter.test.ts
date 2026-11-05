@@ -1,7 +1,7 @@
 import { sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
-import { createSqlServerOdbcConnection, sqlServerOdbcField } from "../src/odbc.js";
+import { createSqlServerOdbcConnection, createSqlServerOdbcDatabase, sqlServerOdbcField } from "../src/odbc.js";
 import type { OdbcColumn, OdbcCommand, OdbcReply } from "../src/odbc-protocol.js";
 import { sqlServerCatalogQueries } from "../src/provider.js";
 import { createSqlServerDatabase } from "../src/runtime.js";
@@ -72,6 +72,29 @@ const query = withQueryValuePlan(sql<{ id: bigint }>`SELECT ${1n} AS id`, {
   parameters: [{ index: 1, databaseType: "bigint", type: "bigint", nullable: false }],
 });
 await describe("SQL Server direct adapter protocol composition", async () => {
+  await it("rejects invalid runtime policies and capacities before loading drivers or acquiring credentials", async () => {
+    let credentials = 0,
+      imports = 0;
+    const base = {
+      connectionString: () => {
+        credentials++;
+        return "unused";
+      },
+      driverImporter: async () => {
+        imports++;
+        throw new Error("Must not load driver");
+      },
+    };
+    for (const options of [
+      { preparedStatementLimit: 0 },
+      { preparedCardinalityVariantLimit: -1 },
+      { maximumPreparedValueBytes: Infinity },
+      { typePolicy: { ...defaultSqlServerTypePolicy, decimal: "Decimal" as const } },
+    ])
+      await strict.rejects(createSqlServerOdbcDatabase({ ...base, ...options }));
+    strict.equal(credentials, 0);
+    strict.equal(imports, 0);
+  });
   await it("preserves native metadata families and describes the actual JSON wire facade", () => {
     for (const [input, type] of [
       [column("x", "decimal", 38, 3, 10), "decimal(38,10)"],

@@ -27,6 +27,7 @@ import {
   type SqlServerNativePrepared,
   type SqlServerProtocolStream,
   validateSqlServerResultFields,
+  validateSqlServerRuntimeOptions,
   withSqlServerInitializationLease,
 } from "./runtime.js";
 import { sqlServerVersionSupport } from "./support.js";
@@ -300,6 +301,7 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
   return Object.freeze(connection);
 }
 export async function createSqlServerOdbcDatabase(options: SqlServerOdbcOptions): Promise<SqlServerDatabase> {
+  validateSqlServerRuntimeOptions(options);
   const connection = await connectSqlServerOdbc(options);
   try {
     const serverEvidence = await withSqlServerInitializationLease(connection, async () => {
