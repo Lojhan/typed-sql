@@ -83,7 +83,15 @@ function allocate(kind, parent) {
   return handle[0];
 }
 const wide = (text) => Buffer.from(`${text}\0`, "utf16le");
-const digest = (value) => (value === null ? null : createHash("sha256").update(value).digest("hex"));
+const digest = (value) => {
+  if (value === null) return null;
+  if (typeof value === "number") {
+    const bytes = Buffer.alloc(8);
+    bytes.writeDoubleLE(value);
+    return createHash("sha256").update(bytes).digest("hex");
+  }
+  return createHash("sha256").update(value).digest("hex");
+};
 function stable(bytes, allocations) {
   const pointer = koffi.alloc("uint8_t", Math.max(1, bytes.length));
   allocations.push(pointer);
@@ -120,7 +128,21 @@ function bind(statement, values, allocations) {
     );
   });
 }
-function readCell(statement, ordinal, binary, payloadBytes) {
+function readCell(statement, ordinal, binary, payloadBytes, floatType) {
+  if (floatType !== undefined) {
+    const size = floatType === 7 ? 4 : 8;
+    const bytes = Buffer.alloc(size);
+    const indicator = [0];
+    const rc = api.get(statement, ordinal, floatType, bytes, size, indicator);
+    check(rc, "get-binary-float", 3, statement);
+    const length = Number(indicator[0]);
+    const trace = [{ rc, indicator: length, target: floatType, bits: bytes.toString("hex") }];
+    if (length === -1) return { value: null, trace };
+    assert.equal(length, size, "Binary floating-point indicator disagrees with ABI");
+    const value = floatType === 7 ? bytes.readFloatLE() : bytes.readDoubleLE();
+    assert.ok(Number.isFinite(value), "Non-finite native floating-point result");
+    return { value, trace };
+  }
   const chunks = [];
   const trace = [];
   const capacity = payloadBytes + (binary ? 0 : 2);
@@ -240,7 +262,13 @@ function query(connection, text, values = [], payloadBytes = 4096, reusable) {
       if (rc === 100) break;
       check(rc, "fetch", 3, statement);
       const cells = metadata.map((column, index) =>
-        readCell(statement, index + 1, [-2, -3, -4].includes(column.type), payloadBytes),
+        readCell(
+          statement,
+          index + 1,
+          [-2, -3, -4].includes(column.type),
+          payloadBytes,
+          column.type === 7 ? 7 : [6, 8].includes(column.type) ? 8 : undefined,
+        ),
       );
       rows.push(cells.map((cell) => cell.value));
       traces.push(cells.map((cell) => cell.trace));
@@ -305,7 +333,9 @@ try {
             ? expected[index] === null
             : Buffer.isBuffer(value)
               ? Buffer.isBuffer(expected[index]) && value.equals(expected[index])
-              : value === expected[index];
+              : typeof value === "number"
+                ? Object.is(value, expected[index])
+                : value === expected[index];
         if (!exact) {
           const error = new Error("Value fidelity mismatch");
           error.evidence = {
@@ -455,6 +485,23 @@ try {
       (columns) => {
         assert.equal(columns[0].size, 38);
         assert.equal(columns[0].scale, 10);
+      },
+    );
+    // ODBC decimal text conversion is not an oracle for binary floating point.
+    // These literals round to fixed known IEEE754 values independently of the driver.
+    probe(
+      "native-binary-real-float",
+      "SELECT CONVERT(real,?) AS r,CONVERT(float(53),?) AS d,CONVERT(real,?) AS rmax,CONVERT(float(53),?) AS dsmall,CONVERT(float(53),NULL) AS absent",
+      [
+        text("1.00000011920928955078125"),
+        text("1.0000000000000002"),
+        text("3.4028234663852886e38"),
+        text("2.2250738585072014e-308"),
+      ],
+      [1 + 2 ** -23, 1.0000000000000002, Math.fround(3.4028234663852886e38), 2.2250738585072014e-308, null],
+      4096,
+      (columns) => {
+        assert.ok(columns.slice(0, 4).every((column) => [6, 7, 8].includes(column.type)));
       },
     );
     probe(
