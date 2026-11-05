@@ -82,7 +82,7 @@ jobs:
       matrix:
         include:
           - group: bundlers
-            tests: test/bundlers.test.mjs test/watch.test.mjs test/types.test.mjs
+            tests: test/bundlers.test.mjs test/watch.test.mjs test/types.test.mjs test/schema-snapshot.test.mjs
           - group: runners
             tests: test/runners.test.mjs
           - group: next
