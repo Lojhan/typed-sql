@@ -1,6 +1,5 @@
-const sdk = (await import(
-  process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "duckdb-node-15" : "@duckdb/node-api"
-)) as typeof import("@duckdb/node-api");
+const sdk =
+  process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 
 import { describe, it, strict } from "poku";
 import { decodeDuckDBValue } from "../src/codecs.js";
