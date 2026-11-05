@@ -10,7 +10,7 @@ import {
 } from "../src/odbc.js";
 
 import { sqlServerCatalogQueries } from "../src/provider.js";
-import { serverRow } from "./environment.js";
+import { serverRow } from "./helpers/environment.js";
 
 class NativeQuery extends EventEmitter implements SqlServerOdbcQuery {
   constructor(readonly prepared = false) {

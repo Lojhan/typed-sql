@@ -1,4 +1,11 @@
-import { QueryCardinalityError, type StandardSchemaV1, sql, withQueryValuePlan } from "@typed-sql/core";
+import {
+  type Database,
+  QueryCardinalityError,
+  QueryResultValidationError,
+  type StandardSchemaV1,
+  sql,
+  withQueryValuePlan,
+} from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import {
@@ -11,7 +18,7 @@ import {
 } from "../src/runtime.js";
 import { defaultSqlServerTypePolicy } from "../src/type-policy.js";
 
-import { serverEvidence } from "./environment.js";
+import { serverEvidence } from "./helpers/environment.js";
 
 const createSqlServerDatabase = (options: Omit<SqlServerDatabaseOptions, "serverEvidence">) =>
   createNativeDatabase({ ...options, serverEvidence });
@@ -88,6 +95,183 @@ class Connection implements SqlServerConnectionLike {
   }
 }
 await describe("SQL Server exact runtime boundaries and leases", async () => {
+  await it("lowers native TOP expressions while preserving string text and rejecting raw marker collisions", async () => {
+    const connection = new Connection(),
+      db = createSqlServerDatabase({ connection });
+    const query = withQueryValuePlan(
+      sql<{ id: bigint }>`SELECT TOP (${2n}) id FROM orders WHERE N'@__typed_sql_1 ?' = N'@__typed_sql_1 ?'`,
+      {
+        dialect: "sqlserver",
+        typePolicyHash: hash,
+        columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+        parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "bigint" }],
+      },
+    );
+    await db.all(query);
+    strict.equal(
+      connection.calls[0]?.sql,
+      "SELECT TOP ((CONVERT(bigint, ?))) id FROM orders WHERE N'@__typed_sql_1 ?' = N'@__typed_sql_1 ?'",
+    );
+    const raw = withQueryValuePlan(sql`SELECT @__typed_sql_1 AS id`, {
+      dialect: "sqlserver",
+      typePolicyHash: hash,
+      columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+      parameters: [],
+    });
+    await strict.rejects(db.all(raw), /compiler-owned/);
+    strict.equal(connection.calls.length, 1);
+  });
+
+  await it("provides complete transaction scopes, scoped atomic batches and stream ownership", async () => {
+    const connection = new Connection();
+    let closes = 0;
+    connection.stream = () => ({
+      fields: Promise.resolve([{ name: "id" }]),
+      connectionReusable: true,
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return { done: false, value: { id: "5" } };
+      },
+      async close() {
+        closes++;
+      },
+    });
+    const db = createSqlServerDatabase({ connection });
+    const neutral: Database<SqlServerScope> = db;
+    strict.equal(neutral, db);
+    let escaped: SqlServerScope | undefined;
+    await db.transaction(async (scope) => {
+      escaped = scope;
+      const find = scope.prepare("scoped", id);
+      const result = await scope.batch([find(1n), find(2n)] as const);
+      strict.equal(result[1][0]?.id, 2n);
+      await strict.rejects(
+        scope.transaction(async () => {}),
+        /Nested/,
+      );
+      const stream = scope.stream(id(5n));
+      strict.equal((await stream.next()).value?.id, 5n);
+      await strict.rejects(scope.all(id(6n)), /active stream/);
+      await stream.close();
+      strict.equal((await scope.one(id(6n))).id, 6n);
+    });
+    strict.equal(connection.calls.filter((call) => call.sql === "BEGIN TRANSACTION").length, 1);
+    strict.equal(connection.commits, 1);
+    strict.equal(closes, 1);
+    await strict.rejects(escaped!.batch([id(7n)]), /retired/);
+    strict.throws(() => escaped!.prepare("retired", id), /retired/);
+    await strict.rejects(
+      db.transaction(async (scope) => {
+        await scope.stream(id(1n)).next();
+      }),
+      /in-flight/,
+    );
+    strict.equal(connection.rollbacks, 1);
+    strict.equal(closes, 2);
+    strict.equal((await db.one(id(8n))).id, 8n);
+  });
+  await it("retains prepared identity across validation wrappers and reports global stream validation indexes", async () => {
+    const connection = new Connection(),
+      db = createSqlServerDatabase({ connection });
+    const schema: StandardSchemaV1<unknown, { id: bigint }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test",
+        async validate(value) {
+          const row = value as { id: bigint };
+          return row.id < 3n ? { value: row } : { issues: [{ message: "too large" }] };
+        },
+      },
+    };
+    const find = db.prepare("validated", id);
+    await db.one(sql.validateResult(find(1n), schema));
+    await db.one(sql.validateResult(find(2n), schema));
+    strict.equal(connection.prepared, 1);
+    let index = 0,
+      closed = 0;
+    connection.stream = () => ({
+      fields: Promise.resolve([{ name: "id" }]),
+      connectionReusable: true,
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        index++;
+        return { done: false, value: { id: String(index) } };
+      },
+      async close() {
+        closed++;
+      },
+    });
+    const stream = db.stream(sql.validateResult(id(1n), schema));
+    strict.equal((await stream.next()).value?.id, 1n);
+    strict.equal((await stream.next()).value?.id, 2n);
+    await strict.rejects(stream.next(), (error) => error instanceof QueryResultValidationError && error.rowIndex === 2);
+    strict.equal(closed, 1);
+    await stream.close();
+    strict.equal(closed, 1);
+  });
+  await it("closes during pending metadata without inventing a width mismatch", async () => {
+    const connection = new Connection();
+    let fields!: (value: readonly { name: string }[]) => void;
+    let closes = 0;
+    connection.stream = () => ({
+      fields: new Promise((resolve) => {
+        fields = resolve;
+      }),
+      connectionReusable: true,
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        throw new Error("must not fetch after close");
+      },
+      async close() {
+        closes++;
+        fields([]);
+      },
+    });
+    const db = createSqlServerDatabase({ connection }),
+      stream = db.stream(id(1n)),
+      next = stream.next();
+    await Promise.resolve();
+    await Promise.resolve();
+    await stream.close();
+    strict.deepEqual(await next, { done: true, value: undefined });
+    strict.equal(closes, 1);
+    strict.equal((await db.one(id(2n))).id, 2n);
+  });
+  await it("reserves the connection while closing delayed prepared handles", async () => {
+    const connection = new Connection();
+    let release!: () => void;
+    let freed = 0;
+    connection.prepare = async (text) => ({
+      execute: (values) => connection.execute(text, values),
+      async close() {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        freed++;
+      },
+    });
+    const db = createSqlServerDatabase({ connection, ownsConnection: true }),
+      sibling = createSqlServerDatabase({ connection });
+    const find = db.prepare("closing", id);
+    await db.one(find(1n));
+    const closing = db.close(),
+      second = db.close();
+    await strict.rejects(db.all(id(2n)), /closed/);
+    await strict.rejects(sibling.all(id(2n)), /leased/);
+    strict.equal(connection.closed, 0);
+    release();
+    await Promise.all([closing, second]);
+    strict.equal(freed, 1);
+    strict.equal(connection.closed, 1);
+    await strict.rejects(sibling.all(id(3n)), /unusable/);
+  });
+
   await it("awaits application result validators after native decoding", async () => {
     const connection = new Connection(),
       db = createSqlServerDatabase({ connection });
@@ -122,11 +306,11 @@ await describe("SQL Server exact runtime boundaries and leases", async () => {
     const connection = new Connection();
     const db = createSqlServerDatabase({ connection });
     strict.deepEqual(await db.one(id(9223372036854775807n)), { id: 9223372036854775807n });
-    strict.equal(connection.calls[0]?.sql, "SELECT CONVERT(bigint, ?) AS id");
+    strict.equal(connection.calls[0]?.sql, "SELECT (CONVERT(bigint, ?)) AS id");
     strict.deepEqual(connection.calls[0]?.values, ["9223372036854775807"]);
     const text = "1234567890123456789012345678.1234567890";
     strict.deepEqual(await db.one(amount(text)), { amount: text });
-    strict.equal(connection.calls[1]?.sql, "SELECT CONVERT(decimal(38,10), ?) AS amount");
+    strict.equal(connection.calls[1]?.sql, "SELECT (CONVERT(decimal(38,10), ?)) AS amount");
     await db.close();
     strict.equal(connection.closed, 0);
   });

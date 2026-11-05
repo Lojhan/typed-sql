@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   assertExecutionCapabilities,
   assertQueryResultTransport,
+  type Database,
   type DatabaseObserver,
   type DialectServerEvidence,
   databaseErrorCompletion,
@@ -10,6 +11,7 @@ import {
   type ExecutionOptions,
   encodeQueryValues,
   getQueryValuePlan,
+  observeQueryStream,
   type PreparedQueryRenderCache,
   type Query,
   type QueryBatch,
@@ -17,24 +19,29 @@ import {
   type QueryResults,
   type QueryStream,
   type QueryValuePlan,
+  queryResultValidationSource,
   registerPreparedQuery,
   renderQuery,
   type SqlRenderer,
   type StreamOptions,
   startDatabaseObservation,
   validateQueryResultRows,
+  validateQueryResultStream,
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { decodeSqlServerNativeValue, encodeSqlServerParameter, isSqlServerTemporal } from "./decoding.js";
 import { requireSqlServerNativeType } from "./native-types.js";
-import { parseStatement } from "./parser/index.js";
+import { parseStatement, walkStatement } from "./parser/index.js";
 import { normalizeSqlServerValue, sqlServerRenderer } from "./query.js";
 import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServerTypePolicy } from "./type-policy.js";
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";
 export interface SqlServerField {
   readonly name: string;
   readonly databaseType?: string;
+  readonly precision?: number;
+  readonly scale?: number;
+  readonly length?: number;
   readonly nullable?: boolean;
 }
 export interface SqlServerExecutionResult {
@@ -67,7 +74,14 @@ export interface SqlServerPreparedQueryFactory<
   (...args: Arguments): Query<Row, Params>;
   readonly statementName: string;
 }
-export interface SqlServerScope {
+export interface SqlServerScope extends Database<SqlServerScope> {
+  batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
+  prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+  ): SqlServerPreparedQueryFactory<Arguments, Row, Params>;
+  unprepare(statementName: string): Promise<void>;
+  stream<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions): QueryStream<Row>;
   readonly executionCapabilities: ExecutionCapabilities;
   all<Row, Params extends readonly unknown[]>(
     query: Query<Row, Params>,
@@ -169,6 +183,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   };
   const nativePrepared = new Map<string, { readonly name: string; readonly handle: SqlServerNativePrepared }>();
   let closed = false;
+  let closingDatabase: Promise<void> | undefined;
   function ensureOpen(lease?: object): void {
     if (closed) throw new Error("SQL Server database is closed");
     if (broken.has(connection)) throw new Error("SQL Server connection is unusable after failed cleanup");
@@ -188,7 +203,26 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       requireSqlServerNativeType(descriptor.databaseType);
     }
     const logical = renderQuery(query, sqlServerRenderer);
-    parseStatement(logical.text);
+    const parsed = parseStatement(logical.text);
+    const occurrences = new Set<number>();
+    walkStatement(parsed, {
+      expression(expression) {
+        if (expression.kind !== "parameter") return;
+        const expected = `@__typed_sql_${expression.index}`;
+        if (
+          expression.index < 1 ||
+          expression.index > plan.parameters.length ||
+          occurrences.has(expression.index) ||
+          logical.text.slice(expression.range.start, expression.range.end) !== expected
+        )
+          throw new TypeError(
+            "SQL Server parameters require compiler-owned bound value positions; raw markers and locals cannot be lowered",
+          );
+        occurrences.add(expression.index);
+      },
+    });
+    if (occurrences.size !== logical.values.length)
+      throw new TypeError("SQL Server bound value source identity disagrees with its native parameter plan");
     if (logical.values.length !== plan.parameters.length)
       throw new TypeError("SQL Server parameter plan does not match bound value occurrences");
     const logicalValues = encodeQueryValues(query, logical.values, profile);
@@ -205,14 +239,15 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
           const target = requireSqlServerNativeType(descriptor.databaseType);
           const nativeType = target.baseText ?? target.text;
           const marker = target.collation ? `? COLLATE ${target.collation}` : "?";
-          return `CONVERT(${nativeType}, ${marker}${isSqlServerTemporal(target) && !["time", "date", "datetime", "smalldatetime"].includes(target.name) ? (target.name === "datetimeoffset" ? ", 127" : ", 126") : ""})`;
+          return `(CONVERT(${nativeType}, ${marker}${isSqlServerTemporal(target) && !["time", "date", "datetime", "smalldatetime"].includes(target.name) ? (target.name === "datetimeoffset" ? ", 127" : ", 126") : ""}))`;
         },
       });
       renderers.set(plan, renderer);
     }
     const rendered = renderQuery(query, renderer);
-    const preparedName = preparedState.queries.get(query)?.statementName;
+    const preparedName = preparedState.queries.get(queryResultValidationSource(query))?.statementName;
     if (preparedName) {
+      if (!preparedState.statements.has(preparedName)) throw new Error("SQL Server prepared factory has been retired");
       for (const value of values) {
         const bytes = typeof value === "string" ? value.length * 2 : value instanceof Uint8Array ? value.byteLength : 0;
         if (bytes > maxPreparedBytes)
@@ -230,6 +265,24 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       if (names.has(field.name) || field.name !== plan.columns[index]?.name)
         throw new TypeError("SQL Server result column identities disagree with the compiled plan");
       names.add(field.name);
+      const expected = requireSqlServerNativeType(plan.columns[index]!.databaseType!);
+      if (field.databaseType) {
+        const actual = requireSqlServerNativeType(field.databaseType);
+        if (
+          actual.name !== expected.name ||
+          (field.databaseType.includes("(") &&
+            (actual.length !== expected.length ||
+              actual.precision !== expected.precision ||
+              actual.scale !== expected.scale))
+        )
+          throw new TypeError("SQL Server native result type disagrees with the compiled target");
+      }
+      if (
+        (field.precision !== undefined && field.precision !== expected.precision) ||
+        (field.scale !== undefined && field.scale !== expected.scale) ||
+        (field.length !== undefined && field.length !== expected.length)
+      )
+        throw new TypeError("SQL Server native result precision, scale or length disagrees with the compiled target");
     }
   }
   function decode<Row>(statement: PreparedExecution, result: SqlServerExecutionResult): readonly Row[] {
@@ -290,6 +343,17 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     ensureOpen(lease);
     assertExecutionCapabilities(executionCapabilities, controls);
     const statement = compile(query as unknown as Query<unknown>);
+    return allCompiled(query, statement, controls, lease, cardinality);
+  }
+  async function allCompiled<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    statement: PreparedExecution,
+    controls: ExecutionOptions = {},
+    lease?: object,
+    cardinality: "many" | "one" | "maybeOne" = "many",
+  ): Promise<readonly Row[]> {
+    ensureOpen(lease);
+    assertExecutionCapabilities(executionCapabilities, controls);
     const observation = startDatabaseObservation(options.observer, {
       kind: "query",
       dialect: "sqlserver",
@@ -318,9 +382,93 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       throw error;
     }
   }
+  function prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+    statementName: string,
+    factory: (...args: Arguments) => Query<Row, Params>,
+    lease?: object,
+  ): SqlServerPreparedQueryFactory<Arguments, Row, Params> {
+    ensureOpen(lease);
+    return registerPreparedQuery({
+      state: preparedState,
+      renderer: sqlServerRenderer,
+      statementName,
+      factory,
+      metadata: (variant) => ({ statementName, rendered: variant.rendered }),
+      capacity: { maximum: capacity, message: "SQL Server logical prepared capacity exceeded" },
+    });
+  }
+  async function unprepare(statementName: string, lease?: object): Promise<void> {
+    await leased(lease, async () => {
+      for (const [key, entry] of nativePrepared)
+        if (entry.name === statementName) {
+          try {
+            await entry.handle.close();
+          } catch (error) {
+            broken.add(connection);
+            throw error;
+          } finally {
+            nativePrepared.delete(key);
+          }
+        }
+      preparedState.statements.delete(statementName);
+    });
+  }
+  const scopeLeases = new WeakMap<SqlServerScope, object>();
+  async function batch<const Queries extends readonly unknown[]>(
+    queries: QueryBatch<Queries>,
+    lease?: object,
+  ): Promise<QueryResults<Queries>> {
+    ensureOpen(lease);
+    const list = [...queries] as Query<unknown>[];
+    const statements = list.map(compile);
+    const observation = startDatabaseObservation(options.observer, {
+      kind: "batch",
+      dialect: "sqlserver",
+      grammarVersion: SQLSERVER_DIALECT_VERSION,
+      transactionDepth: lease ? 1 : 0,
+      fingerprints: statements.map(
+        (statement) => `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
+      ),
+      size: list.length,
+    });
+    const executeBatch = async (scoped: SqlServerScope) => {
+      const results = [];
+      const owner = lease ?? scopeLeases.get(scoped);
+      if (!owner) throw new Error("SQL Server batch lost its transaction ownership lease");
+      for (const statement of statements) results.push(await allCompiled(statement.query, statement, {}, owner));
+      return results as unknown as QueryResults<Queries>;
+    };
+    try {
+      const operation = () =>
+        list.length
+          ? lease
+            ? executeBatch(scope(lease))
+            : transaction(executeBatch)
+          : Promise.resolve([] as unknown as QueryResults<Queries>);
+      const result = await (observation ? observation.run(operation) : operation());
+      observation?.end({
+        status: "success",
+        rowCount: (result as readonly unknown[][]).reduce((total, rows) => total + rows.length, 0),
+      });
+      return result;
+    } catch (error) {
+      observation?.end(databaseErrorCompletion(error), error);
+      throw error;
+    }
+  }
   function scope(lease?: object): SqlServerScope {
     return Object.freeze({
       executionCapabilities,
+      prepare: <Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+        name: string,
+        factory: (...args: Arguments) => Query<Row, Params>,
+      ) => prepare(name, factory, lease),
+      unprepare: (name: string) => unprepare(name, lease),
+      stream: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, options?: StreamOptions) =>
+        createStream(query, options, lease),
+      batch: <const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>) => batch(queries, lease),
+      transaction: <T>(_callback: (scope: SqlServerScope) => Promise<T>): Promise<T> =>
+        Promise.reject(new Error("Nested SQL Server transactions are unsupported; use the existing callback scope")),
       all: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
         all(query, controls, lease),
       execute: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>) => all(query, {}, lease),
@@ -336,6 +484,24 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   }
   async function transaction<T>(callback: (database: SqlServerScope) => Promise<T>): Promise<T> {
     ensureOpen();
+    const observation = startDatabaseObservation(options.observer, {
+      kind: "transaction",
+      dialect: "sqlserver",
+      grammarVersion: SQLSERVER_DIALECT_VERSION,
+      transactionDepth: 0,
+    });
+    try {
+      const operation = () => transactionRun(callback);
+      const result = await (observation ? observation.run(operation) : operation());
+      observation?.end({ status: "success" });
+      return result;
+    } catch (error) {
+      observation?.end(databaseErrorCompletion(error), error);
+      throw error;
+    }
+  }
+  async function transactionRun<T>(callback: (database: SqlServerScope) => Promise<T>): Promise<T> {
+    ensureOpen();
     const token = {};
     leases.set(connection, token);
     let begun = false;
@@ -344,11 +510,27 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     let failure: { error: unknown } | undefined;
     let queue = Promise.resolve();
     const pending = new Set<Promise<unknown>>();
+    const streams = new Set<QueryStream<unknown>>();
+    let activeStream: object | undefined;
+    const assertActive = () => {
+      if (!active) throw new Error("SQL Server transaction scope is retired");
+    };
+    const closeStreams = async () => {
+      await Promise.allSettled([...streams].map((stream) => stream.close()));
+    };
     const control = (text: string) => connection.execute(text, []);
     const base = scope(token);
-    const track = <T>(operation: () => Promise<T>): Promise<T> => {
+    const track = <T>(operation: () => Promise<T>, streamOwner?: object): Promise<T> => {
       if (!active) return Promise.reject(new Error("SQL Server transaction scope is retired"));
-      const result = queue.then(operation);
+      if (activeStream && activeStream !== streamOwner)
+        return Promise.reject(
+          new Error("SQL Server transaction has an active stream; close it before another request"),
+        );
+      const result = queue.then(() => {
+        if (activeStream && activeStream !== streamOwner)
+          throw new Error("SQL Server transaction has an active stream");
+        return operation();
+      });
       queue = result.then(
         () => undefined,
         (error) => {
@@ -364,6 +546,70 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     };
     const scoped: SqlServerScope = Object.freeze({
       executionCapabilities,
+      transaction: <T>(_callback: (scope: SqlServerScope) => Promise<T>): Promise<T> =>
+        Promise.reject(new Error("Nested SQL Server transactions are unsupported; use the existing callback scope")),
+      prepare: <Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
+        name: string,
+        factory: (...args: Arguments) => Query<Row, Params>,
+      ) => {
+        assertActive();
+        if (activeStream) throw new Error("SQL Server transaction has an active stream");
+        const prepared = base.prepare(name, factory);
+        const scopedFactory = (...args: Arguments) => {
+          assertActive();
+          return prepared(...args);
+        };
+        Object.defineProperty(scopedFactory, "statementName", { value: prepared.statementName, enumerable: true });
+        return scopedFactory as SqlServerPreparedQueryFactory<Arguments, Row, Params>;
+      },
+      unprepare: (name: string) => track(() => base.unprepare(name)),
+      batch: <const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>) =>
+        track(() => base.batch(queries)),
+      stream: <Row, Params extends readonly unknown[]>(
+        query: Query<Row, Params>,
+        streamOptions?: StreamOptions,
+      ): QueryStream<Row> => {
+        assertActive();
+        const owner = {};
+        const native = createStream(query, streamOptions, token, {
+          guard() {
+            assertActive();
+            if (activeStream && activeStream !== owner) throw new Error("SQL Server transaction has an active stream");
+          },
+          opened() {
+            activeStream = owner;
+          },
+          closed() {
+            if (activeStream === owner) activeStream = undefined;
+          },
+        });
+        const wrapper: QueryStream<Row> = {
+          [Symbol.asyncIterator]() {
+            return this;
+          },
+          next: () => track(() => native.next(), owner),
+          async close() {
+            try {
+              await native.close();
+            } finally {
+              streams.delete(wrapper);
+            }
+          },
+          async return() {
+            await this.close();
+            return { done: true, value: undefined };
+          },
+          async throw(error) {
+            await this.close();
+            throw error;
+          },
+          async [Symbol.asyncDispose]() {
+            await this.close();
+          },
+        };
+        streams.add(wrapper);
+        return wrapper;
+      },
       all: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
         track(() => base.all(query, controls)),
       execute: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>) => track(() => base.execute(query)),
@@ -372,6 +618,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       maybeOne: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
         track(() => base.maybeOne(query, controls)),
     });
+    scopeLeases.set(scoped, token);
     try {
       const before = await control("SELECT @@TRANCOUNT AS count, XACT_STATE() AS state");
       if (Number(before.rows[0]?.count) !== 0 || Number(before.rows[0]?.state) !== 0)
@@ -380,9 +627,10 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       await control("BEGIN TRANSACTION");
       begun = true;
       const result = await callback(scoped);
-      if (pending.size)
+      if (pending.size || activeStream)
         throw new Error("SQL Server transaction callback returned with an in-flight request; await every operation");
       active = false;
+      await closeStreams();
       await Promise.allSettled([...pending]);
       await queue;
       if (failure) throw failure.error;
@@ -394,6 +642,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       return result;
     } catch (error) {
       active = false;
+      await closeStreams();
       await Promise.allSettled([...pending]);
       await queue;
       if (begun || beginAttempted) {
@@ -409,48 +658,126 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       leases.delete(connection);
     }
   }
+  function createStream<Row, Params extends readonly unknown[]>(
+    query: Query<Row, Params>,
+    streamOptions: StreamOptions = {},
+    parentLease?: object,
+    hooks?: { guard(): void; opened(): void; closed(): void },
+  ): QueryStream<Row> {
+    const batchSize = streamOptions.batchSize ?? 100;
+    if (!Number.isSafeInteger(batchSize) || batchSize < 1)
+      throw new RangeError("SQL Server stream batchSize must be a positive safe integer");
+    const statement = compile(query as unknown as Query<unknown>);
+    let source: SqlServerProtocolStream | undefined;
+    let lease: object | undefined;
+    let done = false;
+    let opening: Promise<void> | undefined;
+    let finishing: Promise<void> | undefined;
+    let queued = Promise.resolve();
+    const release = (): Promise<void> => {
+      if (finishing) return finishing;
+      done = true;
+      finishing = (async () => {
+        try {
+          await source?.close();
+          if (source?.connectionReusable === false) broken.add(connection);
+        } catch (error) {
+          broken.add(connection);
+          throw error;
+        } finally {
+          if (lease && !parentLease) leases.delete(connection);
+          hooks?.closed();
+        }
+      })();
+      return finishing;
+    };
+    const start = async () => {
+      if (done) return;
+      if (opening) return opening;
+      opening = (async () => {
+        hooks?.guard();
+        ensureOpen(parentLease);
+        if (!connection.stream) throw new TypeError("This SQL Server connection does not implement protocol streaming");
+        lease = parentLease ?? {};
+        if (!parentLease) leases.set(connection, lease);
+        hooks?.opened();
+        try {
+          source = connection.stream(statement.text, statement.values, { batchSize });
+          const fields = await source.fields;
+          if (!done) validateFields(statement.plan, fields);
+        } catch (error) {
+          await release();
+          throw error;
+        }
+      })();
+      return opening;
+    };
+    const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
+      const result = queued.then(operation, operation);
+      queued = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    };
+    const stream: QueryStream<Row> = {
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      next() {
+        return enqueue(async () => {
+          if (done) return { done: true, value: undefined };
+          try {
+            await start();
+            if (done) return { done: true, value: undefined };
+            const result = await source!.next();
+            if (done) return { done: true, value: undefined };
+            if (result.done) {
+              await release();
+              return { done: true, value: undefined };
+            }
+            return { done: false, value: decode<Row>(statement, { rows: [result.value] })[0]! };
+          } catch (error) {
+            await release();
+            throw error;
+          }
+        });
+      },
+      return() {
+        return release().then(() => ({ done: true as const, value: undefined }));
+      },
+      throw(error) {
+        return release().then(() => {
+          throw error;
+        });
+      },
+      close() {
+        return release();
+      },
+      [Symbol.asyncDispose]() {
+        return this.close();
+      },
+    };
+    return observeQueryStream(
+      validateQueryResultStream(query, stream, `sha256:${createHash("sha256").update(statement.text).digest("hex")}`),
+      options.observer,
+      {
+        kind: "stream",
+        dialect: "sqlserver",
+        grammarVersion: SQLSERVER_DIALECT_VERSION,
+        transactionDepth: parentLease ? 1 : 0,
+        fingerprint: `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
+        prepared: !!statement.preparedName,
+      },
+    );
+  }
   const database: SqlServerDatabase = {
     serverEvidence: options.serverEvidence,
     ...scope(),
     transaction,
-    async batch(queries) {
-      ensureOpen();
-      const values = [...queries] as Query<unknown>[];
-      for (const query of values) compile(query);
-      if (!values.length) return [] as unknown as QueryResults<typeof queries>;
-      return transaction(async (scoped) => {
-        const results = [];
-        for (const query of values) results.push(await scoped.all(query));
-        return results as unknown as QueryResults<typeof queries>;
-      });
-    },
-    prepare(statementName, factory) {
-      ensureOpen();
-      return registerPreparedQuery({
-        state: preparedState,
-        renderer: sqlServerRenderer,
-        statementName,
-        factory,
-        metadata: (variant) => ({ statementName, rendered: variant.rendered }),
-        capacity: { maximum: capacity, message: "SQL Server logical prepared capacity exceeded" },
-      });
-    },
-    async unprepare(statementName) {
-      await leased(undefined, async () => {
-        for (const [key, entry] of nativePrepared)
-          if (entry.name === statementName) {
-            try {
-              await entry.handle.close();
-            } catch (error) {
-              broken.add(connection);
-              throw error;
-            } finally {
-              nativePrepared.delete(key);
-            }
-          }
-        preparedState.statements.delete(statementName);
-      });
-    },
+    batch,
+    prepare,
+    unprepare,
     queryable: Object.freeze({
       async all<Row extends Record<string, unknown>>(
         text: string,
@@ -463,135 +790,40 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         });
       },
     }),
-    stream<Row, Params extends readonly unknown[]>(
-      query: Query<Row, Params>,
-      streamOptions: StreamOptions = {},
-    ): QueryStream<Row> {
-      const batchSize = streamOptions.batchSize ?? 100;
-      if (!Number.isSafeInteger(batchSize) || batchSize < 1)
-        throw new RangeError("SQL Server stream batchSize must be a positive safe integer");
-      const statement = compile(query as unknown as Query<unknown>);
-      let source: SqlServerProtocolStream | undefined;
-      let lease: object | undefined;
-      let done = false;
-      let opening: Promise<void> | undefined;
-      let finishing: Promise<void> | undefined;
-      let queued = Promise.resolve();
-      const release = (): Promise<void> => {
-        if (finishing) return finishing;
-        done = true;
-        finishing = (async () => {
-          try {
-            await source?.close();
-            if (source?.connectionReusable === false) broken.add(connection);
-          } catch (error) {
-            broken.add(connection);
-            throw error;
-          } finally {
-            if (lease) leases.delete(connection);
-          }
-        })();
-        return finishing;
-      };
-      const start = async () => {
-        if (done) return;
-        if (opening) return opening;
-        opening = (async () => {
-          ensureOpen();
-          if (!connection.stream)
-            throw new TypeError("This SQL Server connection does not implement protocol streaming");
-          lease = {};
-          leases.set(connection, lease);
-          try {
-            source = connection.stream(statement.text, statement.values, { batchSize });
-            validateFields(statement.plan, await source.fields);
-          } catch (error) {
-            await release();
-            throw error;
-          }
-        })();
-        return opening;
-      };
-      const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
-        const result = queued.then(operation, operation);
-        queued = result.then(
-          () => undefined,
-          () => undefined,
-        );
-        return result;
-      };
-      const stream: QueryStream<Row> = {
-        [Symbol.asyncIterator]() {
-          return this;
-        },
-        next() {
-          return enqueue(async () => {
-            if (done) return { done: true, value: undefined };
-            try {
-              await start();
-              if (done) return { done: true, value: undefined };
-              const result = await source!.next();
-              if (done) return { done: true, value: undefined };
-              if (result.done) {
-                await release();
-                return { done: true, value: undefined };
-              }
-              const rows = await validateQueryResultRows(
-                query,
-                decode<Row>(statement, { rows: [result.value] }),
-                `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
-              );
-              return { done: false, value: rows[0]! };
-            } catch (error) {
-              await release();
-              throw error;
-            }
-          });
-        },
-        return() {
-          return enqueue(async () => {
-            await release();
-            return { done: true, value: undefined };
-          });
-        },
-        throw(error) {
-          return enqueue(async () => {
-            await release();
-            throw error;
-          });
-        },
-        close() {
-          return release();
-        },
-        [Symbol.asyncDispose]() {
-          return this.close();
-        },
-      };
-      return stream;
-    },
+    stream: createStream,
     async close() {
+      if (closingDatabase) return closingDatabase;
       if (closed) return;
       if (leases.has(connection))
         throw new Error("Cannot close SQL Server during an active request, transaction or stream");
-      let failure: unknown;
-      for (const entry of nativePrepared.values()) {
-        try {
-          await entry.handle.close();
-        } catch (error) {
-          failure ??= error;
-          broken.add(connection);
-        }
-      }
-      nativePrepared.clear();
+      const token = {};
+      leases.set(connection, token);
       closed = true;
-      if (options.ownsConnection && connection.close) {
+      closingDatabase = (async () => {
+        let failure: unknown;
         try {
-          await connection.close();
-        } catch (error) {
-          failure ??= error;
+          for (const entry of nativePrepared.values())
+            try {
+              await entry.handle.close();
+            } catch (error) {
+              failure ??= error;
+              broken.add(connection);
+            }
+          nativePrepared.clear();
+          if (options.ownsConnection && connection.close) {
+            broken.add(connection);
+            try {
+              await connection.close();
+            } catch (error) {
+              failure ??= error;
+            }
+          }
+          if (failure) throw failure;
+        } finally {
+          if (leases.get(connection) === token) leases.delete(connection);
         }
-      }
-      if (failure) throw failure;
+      })();
+      return closingDatabase;
     },
   };
   return Object.freeze(database);
