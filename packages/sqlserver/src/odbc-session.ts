@@ -222,13 +222,20 @@ export class OdbcSession {
         case "execute":
         case "preparedExecute":
         case "streamStart": {
-          const existing = command.kind === "preparedExecute" ? this.statements.get(command.handle) : undefined;
-          if (command.kind === "preparedExecute" && !existing) throw new OdbcNativeError("unknown-prepared-handle");
+          const existing =
+            command.kind === "preparedExecute" || (command.kind === "streamStart" && command.handle !== undefined)
+              ? this.statements.get(command.handle!)
+              : undefined;
+          if (
+            (command.kind === "preparedExecute" || (command.kind === "streamStart" && command.handle !== undefined)) &&
+            !existing
+          )
+            throw new OdbcNativeError("unknown-prepared-handle");
           let statement: Statement | undefined;
           try {
             statement = this.start("text" in command ? command.text : "", command.values, existing);
             if (command.kind === "streamStart") {
-              const handle = this.nextHandle++;
+              const handle = existing && command.kind === "streamStart" ? command.handle! : this.nextHandle++;
               this.statements.set(handle, statement);
               return { id: command.id, handle, result: { rows: [], columns: statement.columns } };
             }

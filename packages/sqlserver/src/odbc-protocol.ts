@@ -54,7 +54,12 @@ export type OdbcCommand = { readonly id: number } & (
   | { readonly kind: "prepare"; readonly text: string }
   | { readonly kind: "preparedExecute"; readonly handle: number; readonly values: readonly OdbcBoundValue[] }
   | { readonly kind: "freePrepared"; readonly handle: number }
-  | { readonly kind: "streamStart"; readonly text: string; readonly values: readonly OdbcBoundValue[] }
+  | {
+      readonly kind: "streamStart";
+      readonly text: string;
+      readonly values: readonly OdbcBoundValue[];
+      readonly handle?: number;
+    }
   | { readonly kind: "streamNext"; readonly handle: number; readonly batchSize: number }
   | { readonly kind: "streamClose"; readonly handle: number }
   | { readonly kind: "close" }
