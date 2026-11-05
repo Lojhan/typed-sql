@@ -9,6 +9,8 @@ import {
   databaseErrorCompletion,
   decodeQueryResultRows,
   type ExecutionOptions,
+  type LiveQueryVerifier,
+  type QueryPlanInspector,
   encodeQueryValues,
   executionDeadline,
   getQueryValuePlan,
@@ -45,6 +47,7 @@ import {
   isKnownDuckDBType,
   validateDuckDBTypePolicy,
 } from "./type-policy.js";
+import { createDuckDBLiveVerifier, createDuckDBPlanInspector, type DuckDBServiceTransport } from "./services.js";
 import { DUCKDB_DIALECT_VERSION } from "./version.js";
 export interface DuckDBBinding {
   readonly type: DuckDBType;
@@ -90,6 +93,8 @@ export interface DuckDBTransaction extends Database<DuckDBTransaction> {
   ): DuckDBPreparedQueryFactory<Args, Row, Params>;
 }
 export interface DuckDBDatabase extends DuckDBTransaction {
+  readonly liveVerifier: LiveQueryVerifier;
+  readonly planInspector: QueryPlanInspector;
   readonly evidence: { readonly libraryVersion: string; readonly typePolicyHash: string };
   readonly queryable: {
     all<Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<readonly Row[]>;
@@ -721,9 +726,60 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       },
     });
   };
+  const serviceTransport: DuckDBServiceTransport = {
+    async lease(work) {
+      const release = await acquire();
+      try {
+        ensure();
+        await verifyConnection();
+        return await work({
+          async server() {
+            if (!expectedEvidence) throw new TypeError("DuckDB services require native server evidence");
+            return expectedEvidence;
+          },
+          async describe(text, work) {
+            let native: DuckDBNativeStatement | undefined;
+            let failed = true;
+            try {
+              native = await connection.prepare(text);
+              const result = await work(native);
+              failed = false;
+              return result;
+            } finally {
+              await cleanup(undefined, native, failed);
+            }
+          },
+          async rows(text, bindings = []) {
+            let native: DuckDBNativeStatement | undefined, result: DuckDBNativeResult | undefined;
+            let failed = true;
+            try {
+              native = await connection.prepare(text);
+              verifyParameters(native, bindings);
+              result = await native.execute(bindings);
+              // Own rows before releasing the native result. Service queries use scalar catalog/JSON data.
+              const rows = await result.readAll();
+              const owned = rows.map((row) =>
+                row.map((value, i) =>
+                  decodeDuckDBValue(value, result!.columns[i]!.type, { ...policy, json: "string" }, "service evidence"),
+                ),
+              );
+              failed = false;
+              return owned;
+            } finally {
+              await cleanup(result, native, failed);
+            }
+          },
+        });
+      } finally {
+        release();
+      }
+    },
+  };
   const root = makeScope();
   return Object.freeze({
     ...root,
+    liveVerifier: createDuckDBLiveVerifier(serviceTransport, policy, typePolicyHash),
+    planInspector: createDuckDBPlanInspector(serviceTransport, policy),
     evidence: Object.freeze({ libraryVersion: connection.libraryVersion, typePolicyHash }),
     queryable: Object.freeze({
       async all<Row extends Record<string, unknown>>(

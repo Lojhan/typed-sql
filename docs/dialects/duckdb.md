@@ -120,5 +120,24 @@ A path-created instance and connection are owned and closed by the adapter. Inje
 application owned unless ownership is explicitly transferred. `close()` releases owned file locks;
 applications must also close any independently retained native connections or instances.
 
+## Native verification and query plans
+
+The explicit `/node-api` entrypoint exports `createNodeDuckDBLiveVerifier(options)` and
+`createNodeDuckDBPlanInspector(options)`. Both accept the same connection and ownership options as
+`createNodeDuckDBDatabase`. An existing database exposes `liveVerifier` and `planInspector` services
+that share its connection lease and compatibility checks. Close a standalone service to release its
+owned resources; close the database to release services obtained from that database.
+
+Verification prepares and describes SQL without executing it. Native metadata does not report
+nullability, and parameter-dependent expressions can leave column or parameter metadata unavailable;
+verification reports those limits explicitly.
+
+Plan capture uses non-executing `EXPLAIN (FORMAT JSON)`, including for DML. Parameterized captures
+require transient samples and resolved native parameter targets. Nested samples use the same exact
+codecs and UNION transport as execution. The normalized inventory contains node kinds, relation
+names and available row estimates. Expressions, SQL, samples and native error text are excluded.
+The environment records optimizer settings and hashes exposed table cardinality estimates and
+catalog structure. DuckDB does not expose a comparable cost estimate through this protocol.
+
 Start with the [quickstart](../getting-started/duckdb.md), then explore
 [nested and analytical examples](../examples/duckdb.md).

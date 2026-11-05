@@ -1,3 +1,4 @@
+import type { LiveQueryVerifier, QueryPlanInspector } from "@typed-sql/core";
 import type * as NativeSDK from "@duckdb/node-api";
 import { type DuckDBType, formatDuckDBType } from "./native-types.js";
 import { DuckDBSchemaProvider, type DuckDBSchemaProviderOptions } from "./provider.js";
@@ -563,4 +564,15 @@ export function nodeDuckDB(
       }
     },
   };
+}
+
+/** Native prepare/describe only; closes the database resources created by this service. */
+export async function createNodeDuckDBLiveVerifier(options: NodeDuckDBOptions = {}): Promise<LiveQueryVerifier> {
+  const database = await createNodeDuckDBDatabase(options);
+  return Object.freeze({ ...database.liveVerifier, close: () => database.close() });
+}
+/** Native non-executing structured EXPLAIN with transient application planning samples. */
+export async function createNodeDuckDBPlanInspector(options: NodeDuckDBOptions = {}): Promise<QueryPlanInspector> {
+  const database = await createNodeDuckDBDatabase(options);
+  return Object.freeze({ ...database.planInspector, close: () => database.close() });
 }
