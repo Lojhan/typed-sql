@@ -56,7 +56,9 @@ installations. Native Linux x64 engine results do not qualify an emulated SQL Se
 
 The default policy maps `bigint` to `bigint`, decimal and money values to decimal strings,
 temporal values to strings, binary values to `Uint8Array`, and JSON storage to strings.
-Ordinary integer and floating types map to `number`; `bit` maps to `boolean`. CLR, spatial,
+Ordinary integer and floating types map to `number`; `bit` maps to `boolean`.
+The shared number policy rejects nonfinite values and integer-valued numbers outside JavaScript's
+safe integer range, including floating values of that magnitude. CLR, spatial,
 `sql_variant` and otherwise unproven types remain `unknown`.
 
 Decimal validation preserves precision and scale without passing through `number`.

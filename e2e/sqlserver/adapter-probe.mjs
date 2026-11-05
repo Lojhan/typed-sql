@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { compileSqlFile } from "@typed-sql/compiler";
 import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
 import { createSqlServerMsnodesqlv8Database } from "@typed-sql/sqlserver/msnodesqlv8";
-import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
+import { connectSqlServerOdbc, createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
 import { sql } from "@typed-sql/sqlserver/query";
 import { createSqlServerLiveVerifier, createSqlServerPlanInspector } from "@typed-sql/sqlserver/runtime";
 import native from "msnodesqlv8";
@@ -273,6 +273,36 @@ try {
       await check(`${level}: compiled named INSERT OUTPUT and repeated SELECT`, async () => {
         assert.deepEqual(await db.one(insert(row)), row);
         assert.deepEqual(await db.one(find({ id: row.id })), row);
+      });
+      await check(`${level}: native cancellation, deadline and settled cleanup`, async () => {
+        for (const mode of ["abort", "deadline", "prepared-abort", "pre-abort"]) {
+          const connection = await connectSqlServerOdbc({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+          let prepared;
+          let timer;
+          try {
+            const controller = new AbortController();
+            const text = "WAITFOR DELAY '00:00:10'; SELECT 1 AS value";
+            if (mode === "prepared-abort") prepared = await connection.prepare(text);
+            if (mode === "pre-abort") controller.abort();
+            else if (mode !== "deadline") timer = setTimeout(() => controller.abort(), 100);
+            const controls = mode === "deadline" ? { deadline: Date.now() + 100 } : { signal: controller.signal };
+            const started = Date.now();
+            await assert.rejects(prepared ? prepared.execute([], controls) : connection.execute(text, [], controls));
+            assert.ok(Date.now() - started < 4000, `${mode} must interrupt the ten-second native call`);
+            evidence.cases.push({
+              name: `${level}: ${mode} native cancellation`,
+              status: "pass",
+              durationMs: Date.now() - started,
+            });
+          } finally {
+            clearTimeout(timer);
+            try {
+              if (prepared) await prepared.close();
+            } finally {
+              await connection.close();
+            }
+          }
+        }
       });
       await check(`${level}: native prepared statement`, async () => {
         const prepared = db.prepare(`find-${level}`, find);
