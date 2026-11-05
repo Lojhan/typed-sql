@@ -2,6 +2,8 @@ import { describe, it, strict } from "poku";
 import { grammar, MATURITY_CASES, maturitySnapshot, snapshot } from "./helpers/maturity-corpus.js";
 
 const invalidCases = [
+  ["MIN bit rejected", "SELECT MIN(active) AS value FROM dbo.widgets", "MIN(active)"],
+  ["MAX bit rejected", "SELECT MAX(active) AS value FROM dbo.widgets", "MAX(active)"],
   ["NULL is not predicate", "SELECT id FROM dbo.widgets WHERE NULL", "NULL"],
   ["CASE NULL is not condition", "SELECT CASE WHEN NULL THEN 1 ELSE 0 END AS value FROM dbo.widgets", "NULL"],
   ["predicate cannot project as BIT", "SELECT (id=1) AS matched FROM dbo.widgets", "id=1"],
@@ -159,4 +161,83 @@ await describe("SQL Server fail-closed maturity and metamorphic soundness", asyn
       }
     }
   });
+  // https://learn.microsoft.com/en-us/sql/t-sql/statements/create-function-transact-sql#remarks
+  await it("does not turn an unqualified scalar UDF name into a SQL Server builtin", () => {
+    const schema = {
+      ...snapshot,
+      functions: {
+        make: {
+          name: "make",
+          schema: "dbo",
+          argumentTypes: ["int"],
+          databaseReturnType: "bigint",
+          returnType: "bigint",
+          nullable: false,
+        },
+      },
+    };
+    const valid = grammar.analyze("SELECT dbo.make(quantity) AS value FROM dbo.widgets", schema);
+    strict.deepEqual(valid.diagnostics, []);
+    strict.equal(valid.columns[0]?.tsType, "bigint");
+    const unqualified = grammar.analyze("SELECT make(quantity) AS value FROM dbo.widgets", schema);
+    strict.ok(unqualified.diagnostics.some((d) => d.severity === "error"));
+    strict.equal(unqualified.semantics?.operation.value, "unknown");
+  });
+
+  // Vendor rules: recursive/derived names and member types, OVER frame boundaries,
+  // TOP/OFFSET/FETCH limits and OPENJSON AS JSON targets are engine constraints.
+  // https://learn.microsoft.com/en-us/sql/t-sql/queries/with-common-table-expression-transact-sql
+  // https://learn.microsoft.com/en-us/sql/t-sql/queries/select-over-clause-transact-sql
+  // https://learn.microsoft.com/en-us/sql/t-sql/queries/top-transact-sql
+  // https://learn.microsoft.com/en-us/sql/t-sql/queries/select-order-by-clause-transact-sql
+  // https://learn.microsoft.com/en-us/sql/t-sql/functions/openjson-transact-sql
+  for (const [name, source] of [
+    [
+      "duplicate CTE names",
+      "WITH a AS (SELECT id FROM dbo.widgets),a AS (SELECT id FROM dbo.widgets) SELECT id FROM a",
+    ],
+    ["duplicate CTE columns", "WITH a(x,x) AS (SELECT id,quantity FROM dbo.widgets) SELECT 1 AS value"],
+    ["CTE column width", "WITH a(x,y) AS (SELECT id FROM dbo.widgets) SELECT x FROM a"],
+    [
+      "recursive UNION requires ALL",
+      "WITH a(n) AS (SELECT CAST(1 AS int) AS n UNION SELECT n+1 AS n FROM a WHERE n<3) SELECT n FROM a",
+    ],
+    [
+      "recursive member type equality",
+      "WITH a(n) AS (SELECT CAST(1 AS int) AS n UNION ALL SELECT CAST(n+1 AS bigint) AS n FROM a WHERE n<3) SELECT n FROM a",
+    ],
+    ["duplicate derived column aliases", "SELECT 1 AS value FROM (SELECT id,quantity FROM dbo.widgets) d(x,x)"],
+    ["derived column width", "SELECT d.x FROM (SELECT id FROM dbo.widgets) d(x,y)"],
+    ["non-lateral derived correlation", "SELECT w.id FROM dbo.widgets w CROSS JOIN (SELECT w.id AS id) d"],
+    ["scalar subquery width", "SELECT (SELECT id,amount FROM dbo.children) AS value FROM dbo.widgets"],
+    ["IN subquery width", "SELECT id FROM dbo.widgets WHERE id IN (SELECT id,amount FROM dbo.children)"],
+    ["nested aggregate", "SELECT SUM(MAX(quantity)) AS value FROM dbo.widgets"],
+    ["ROW_NUMBER missing ORDER BY", "SELECT ROW_NUMBER() OVER () AS value FROM dbo.widgets"],
+    [
+      "RANGE does not accept numeric PRECEDING",
+      "SELECT SUM(quantity) OVER (ORDER BY id RANGE 1 PRECEDING) AS value FROM dbo.widgets",
+    ],
+    ["negative ROWS offset", "SELECT SUM(quantity) OVER (ORDER BY id ROWS -1 PRECEDING) AS value FROM dbo.widgets"],
+    [
+      "reversed ROWS frame",
+      "SELECT SUM(quantity) OVER (ORDER BY id ROWS BETWEEN 1 FOLLOWING AND 1 PRECEDING) AS value FROM dbo.widgets",
+    ],
+    ["negative TOP", "SELECT TOP (-1) id FROM dbo.widgets"],
+    ["TOP PERCENT maximum", "SELECT TOP (101) PERCENT id FROM dbo.widgets"],
+    ["negative OFFSET", "SELECT id FROM dbo.widgets ORDER BY id OFFSET -1 ROWS"],
+    ["zero FETCH", "SELECT id FROM dbo.widgets ORDER BY id OFFSET 0 ROWS FETCH NEXT 0 ROWS ONLY"],
+    ["OPENJSON needs input", "SELECT j.[key] FROM OPENJSON() j"],
+    ["OPENJSON AS JSON requires nvarchar max", "SELECT j.items FROM OPENJSON(N'{}') WITH(items int AS JSON) j"],
+    ["STRING_SPLIT ordinal is literal", "SELECT value FROM STRING_SPLIT('a,b',',',@__typed_sql_1)"],
+    ["unknown table function", "SELECT x.value FROM dbo.unknown_table(1) x"],
+    ["unsupported datepart", "SELECT DATEADD(moon,1,CAST('2026-01-01' AS date)) AS value"],
+  ] as const) {
+    await it(`rejects ${name} without optimistic semantics`, () => {
+      const result = grammar.analyze(source, snapshot);
+      if (!result.diagnostics.some((d) => d.severity === "error")) strict.fail(`${name} accepted: ${source}`);
+      strict.equal(result.semantics?.operation.value, "unknown");
+      for (const diagnostic of result.diagnostics)
+        strict.ok(diagnostic.range.start >= 0 && diagnostic.range.end <= source.length);
+    });
+  }
 });
