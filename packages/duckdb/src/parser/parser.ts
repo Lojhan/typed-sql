@@ -174,9 +174,20 @@ export class DuckDBParser {
           continue;
         }
         if (this.accept("OVER")) {
-          if (this.accept("(")) this.windowSpec();
-          else this.identifier();
-          left = { ...left, window: true, range: this.range(start) };
+          let context: readonly Expression[] = [],
+            windowName: string | undefined;
+          if (this.accept("(")) {
+            const specification = this.windowSpec();
+            context = specification.expressions;
+            windowName = specification.base;
+          } else windowName = this.identifier().value;
+          left = {
+            ...left,
+            window: true,
+            context: [...(left.context ?? []), ...context],
+            ...(windowName ? { windowName } : {}),
+            range: this.range(start),
+          };
           continue;
         }
         let op = this.token().value.toUpperCase();
@@ -353,7 +364,8 @@ export class DuckDBParser {
     if (this.accept("(")) {
       const distinct = this.accept("DISTINCT"),
         args: Expression[] = [],
-        argumentNames: (string | undefined)[] = [];
+        argumentNames: (string | undefined)[] = [],
+        context: Expression[] = [];
       if (!this.accept(")")) {
         do {
           let name: string | undefined;
@@ -365,12 +377,12 @@ export class DuckDBParser {
           args.push(this.expression());
           if (this.accept("ORDER")) {
             this.expect("BY");
-            this.list(() => this.ordered());
+            context.push(...this.list(() => this.ordered()));
           }
         } while (this.accept(",") && !this.is(")"));
         this.expect(")");
       }
-      return { kind: "call", names, args, argumentNames, distinct, range: this.range(range) };
+      return { kind: "call", names, args, argumentNames, distinct, context, range: this.range(range) };
     }
     return { kind: "name", names, range: this.range(range) };
   }
@@ -416,7 +428,9 @@ export class DuckDBParser {
     }
     return value;
   }
-  windowSpec(): void {
+  windowSpec(): { expressions: Expression[]; base?: string } {
+    const expressions: Expression[] = [];
+    let base: string | undefined;
     if (
       this.token().kind === "word" &&
       !this.is("PARTITION") &&
@@ -425,14 +439,14 @@ export class DuckDBParser {
       !this.is("RANGE") &&
       !this.is("GROUPS")
     )
-      this.identifier();
+      base = this.identifier().value;
     if (this.accept("PARTITION")) {
       this.expect("BY");
-      this.list(() => this.expression());
+      expressions.push(...this.list(() => this.expression()));
     }
     if (this.accept("ORDER")) {
       this.expect("BY");
-      this.list(() => this.ordered());
+      expressions.push(...this.list(() => this.ordered()));
     }
     if (this.accept("ROWS") || this.accept("RANGE") || this.accept("GROUPS")) {
       const bound = () => {
@@ -440,7 +454,7 @@ export class DuckDBParser {
           if (!this.accept("PRECEDING")) this.expect("FOLLOWING");
         } else if (this.accept("CURRENT")) this.expect("ROW");
         else {
-          this.expression();
+          expressions.push(this.expression());
           if (!this.accept("PRECEDING")) this.expect("FOLLOWING");
         }
       };
@@ -458,6 +472,7 @@ export class DuckDBParser {
       }
     }
     this.expect(")");
+    return { expressions, ...(base ? { base } : {}) };
   }
   projections(): Projection[] {
     return this.list(() => {
@@ -699,20 +714,19 @@ export class DuckDBParser {
   select(start: SourceRange, ctes: readonly CommonTable[]): Statement {
     const fromFirst = this.accept("FROM"),
       initialRelations = fromFirst ? this.relations() : undefined;
-    let distinct = false;
-    if (!fromFirst || this.accept("SELECT")) {
+    const explicitSelect = fromFirst ? this.accept("SELECT") : true;
+    let distinct = false,
+      distinctOn: Expression[] | undefined;
+    if (explicitSelect) {
       if (!fromFirst) this.expect("SELECT");
       distinct = this.accept("DISTINCT");
       if (!distinct) this.accept("ALL");
       if (distinct && this.accept("ON")) {
         this.expect("(");
-        this.list(() => this.expression(), ")");
+        distinctOn = this.list(() => this.expression(), ")");
       }
     }
-    const projections =
-      fromFirst && this.tokens[this.index - 1]?.value.toUpperCase() !== "SELECT"
-        ? [{ expression: { kind: "star" as const, range: start } }]
-        : this.projections();
+    const projections = explicitSelect ? this.projections() : [{ expression: { kind: "star" as const, range: start } }];
     const relations = initialRelations ?? (this.accept("FROM") ? this.relations() : []),
       where = this.accept("WHERE") ? this.expression() : undefined;
     let group: Expression[] | undefined,
@@ -723,14 +737,14 @@ export class DuckDBParser {
       else group = this.list(() => this.expression());
     }
     const having = this.accept("HAVING") ? this.expression() : undefined;
-    if (this.accept("WINDOW"))
-      this.list(() => {
-        this.identifier();
-        this.expect("AS");
-        this.expect("(");
-        this.windowSpec();
-        return true;
-      });
+    const windows = this.accept("WINDOW")
+      ? this.list(() => {
+          const name = this.identifier().value;
+          this.expect("AS");
+          this.expect("(");
+          return { name, ...this.windowSpec() };
+        })
+      : undefined;
     const qualify = this.accept("QUALIFY") ? this.expression() : undefined;
     let order: Expression[] | undefined;
     if (this.accept("ORDER")) {
@@ -778,6 +792,8 @@ export class DuckDBParser {
       ...(limit ? { limit } : {}),
       ...(offset ? { offset } : {}),
       ...(distinct ? { distinct } : {}),
+      ...(distinctOn ? { distinctOn } : {}),
+      ...(windows ? { windows } : {}),
       ...(set ? { set } : {}),
     };
   }

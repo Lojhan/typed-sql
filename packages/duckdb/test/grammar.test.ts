@@ -98,3 +98,23 @@ await it("rejects semantic settings that change proven typing rules", () => {
   const incompatible = { ...snapshot, server: duckDBServerEvidence("2.0.0", [], { integer_division: "true" }) };
   strict.equal(duckdb().analyze("SELECT 4/2 AS value", incompatible).diagnostics[0]?.code, "TSQ402");
 });
+await it("retains DISTINCT/aggregate/window dependencies and FROM-first projections", () => {
+  for (const query of [
+    "SELECT row_number() OVER(PARTITION BY missing ORDER BY id) AS rank FROM users",
+    "SELECT list(id ORDER BY missing) AS ids FROM users",
+    "SELECT DISTINCT ON(missing) id FROM users",
+    "SELECT row_number() OVER missing AS rank FROM users",
+    "SELECT row_number() AS rank FROM users",
+    "SELECT coalesce() AS value",
+    "SELECT struct_pack(1) AS value",
+    "SELECT array_value() AS value",
+  ])
+    strict.ok(duckdb().analyze(query, snapshot).diagnostics.length, query);
+  for (const query of [
+    "FROM users SELECT DISTINCT id",
+    "SELECT id AS value FROM users WHERE value>1",
+    "SELECT id,row_number() OVER w AS rank FROM users WINDOW w AS(PARTITION BY team_id ORDER BY id) QUALIFY rank=1",
+    "SELECT list(id ORDER BY email) AS ids FROM users",
+  ])
+    strict.deepEqual(duckdb().analyze(query, snapshot).diagnostics, [], query);
+});
