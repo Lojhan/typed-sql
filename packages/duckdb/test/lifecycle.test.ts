@@ -356,3 +356,61 @@ await it("snapshots native bytes synchronously before yielding to the operation 
   strict.deepEqual(captured, [Uint8Array.of(1, 2, 3)]);
   await database.close();
 });
+await it("quarantines shared state when native appender finalization fails before insertion", async () => {
+  const { requireAdapterCapability } = await import("@typed-sql/core");
+  const { duckdbAppender } = await import("../src/runtime.js");
+  const failure = new Error("appender close failed"),
+    commands: string[] = [];
+  let closes = 0;
+  const connection = {
+    libraryVersion: "2.0.0",
+    async createAppender() {
+      return {
+        columns: [{ kind: "scalar" as const, name: "INTEGER" }],
+        append() {},
+        close() {
+          closes++;
+          throw failure;
+        },
+      };
+    },
+    async prepare(text: string) {
+      commands.push(text);
+      return {
+        parameters: text.startsWith("INSERT INTO target") ? [{ kind: "scalar" as const, name: "INTEGER" }] : [],
+        async execute() {
+          return {
+            columns: [],
+            async readAll() {
+              return [];
+            },
+            close() {},
+          };
+        },
+        close() {},
+      };
+    },
+  };
+  const first = createDuckDBDatabase({ connection }),
+    sibling = createDuckDBDatabase({ connection });
+  const insert = () =>
+    withQueryValuePlan(sql`INSERT INTO target(id) VALUES(${1})`, {
+      dialect: "duckdb",
+      typePolicyHash: calculateTypePolicyHash(defaultDuckDBTypePolicy),
+      columns: [],
+      parameters: [{ index: 1, type: "number", nullable: false, databaseType: "INTEGER" }],
+    });
+  await strict.rejects(
+    requireAdapterCapability(first, duckdbAppender).append(insert, [1]),
+    (error) => error === failure,
+  );
+  strict.equal(closes, 1);
+  strict.equal(
+    commands.some((command) => command.startsWith('INSERT INTO "target"')),
+    false,
+  );
+  strict.ok(commands.includes("ROLLBACK"));
+  await strict.rejects(sibling.all(query), /unusable/u);
+  await first.close();
+  await sibling.close();
+});

@@ -1,5 +1,5 @@
-import type { LiveQueryVerifier, QueryPlanInspector } from "@typed-sql/core";
 import type * as NativeSDK from "@duckdb/node-api";
+import type { LiveQueryVerifier, QueryPlanInspector } from "@typed-sql/core";
 import { type DuckDBType, formatDuckDBType } from "./native-types.js";
 import { DuckDBSchemaProvider, type DuckDBSchemaProviderOptions } from "./provider.js";
 import {

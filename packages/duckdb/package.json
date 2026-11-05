@@ -40,10 +40,11 @@
     "./browser": "./dist/packages/duckdb/src/browser.js"
   },
   "scripts": {
-    "test": "poku test --reporter=compact --enforce",
+    "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
     "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
-    "catalog:check": "node scripts/generate-catalog.mjs --check",
-    "typecheck:test": "tsc -p tsconfig.test.json"
+    "catalog:check": "node scripts/generate-catalog.mjs --check && node scripts/generate-common-types.mjs --check",
+    "typecheck:test": "tsc -p tsconfig.test.json",
+    "coverage": "pnpm test"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

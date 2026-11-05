@@ -1,6 +1,7 @@
-import { writeFile, readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
 const legacy = process.env.TYPED_SQL_DUCKDB_SDK === "15";
 const sdk = await import(legacy ? "duckdb-node-15" : "@duckdb/node-api");
 const version = legacy ? "1.5.6" : "2.0.0";

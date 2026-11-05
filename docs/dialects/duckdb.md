@@ -82,7 +82,9 @@ The grammar owns DuckDB coercions and builtin overloads, analytical joins, CTEs,
 aggregates and windows, `QUALIFY`, recursive projection `UNNEST`, fixed nested shapes, collection
 lambdas, and `INSERT`/`UPDATE`/`DELETE ... RETURNING`. LIST comprehensions and STRUCT/MAP constructors
 retain their native structure. DuckDB 2.0 uses `lambda x: expression`; legacy single-arrow lambdas are
-accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extraction operators.
+accepted only for compatible 1.5.6 settings. Native JSON arrows remain JSON extraction operators. Escape strings preserve native hex/octal byte
+and UTF-8 behavior. The 1.5.6 parser rejects escaped non-ASCII bytes and `\u`/`\U` forms;
+queries using these forms receive version diagnostics.
 
 The provider records catalog/schema identities, search paths, relations, constraints, types,
 routines/macros, loaded extensions, engine version and semantic settings. Quoted identifiers follow

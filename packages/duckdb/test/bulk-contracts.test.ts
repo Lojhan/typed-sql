@@ -1,6 +1,7 @@
 import { type Query, sql } from "@typed-sql/core";
 import { it, strict } from "poku";
 import { createDuckDBAppenderCapability } from "../src/bulk.js";
+
 await it("enforces the typed appender statement contract and producer cleanup", async () => {
   let text = "INSERT INTO target(id) VALUES($1)",
     transfers = 0,

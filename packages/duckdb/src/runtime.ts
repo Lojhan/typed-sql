@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
-  adapterCapabilities,
   type AdapterCapabilityResolver,
-  createAdapterCapabilityResolver,
+  adapterCapabilities,
   assertExecutionCapabilities,
   assertQueryResultTransport,
+  createAdapterCapabilityResolver,
   type Database,
   type DatabaseObserver,
   type DatabaseOperationStart,
@@ -12,17 +12,17 @@ import {
   databaseErrorCompletion,
   decodeQueryResultRows,
   type ExecutionOptions,
-  type LiveQueryVerifier,
-  type QueryPlanInspector,
   encodeQueryValues,
   executionDeadline,
   getQueryValuePlan,
+  type LiveQueryVerifier,
   observeQueryStream,
   type PreparedQueryRenderCache,
   type Query,
   type QueryBatch,
   QueryCancelledError,
   QueryCardinalityError,
+  type QueryPlanInspector,
   type QueryResults,
   type QueryStream,
   type QueryTransportProfile,
@@ -38,13 +38,16 @@ import {
   validateQueryResultStream,
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
-import { createDuckDBAppenderCapability, duckdbAppender, type DuckDBAppenderCapability } from "./bulk.js";
+import { createDuckDBAppenderCapability, type DuckDBAppenderCapability, duckdbAppender } from "./bulk.js";
+
+export type { DuckDBAppenderCapability, DuckDBAppenderProgress, DuckDBAppendOptions } from "./bulk.js";
 export { duckdbAppender } from "./bulk.js";
-export type { DuckDBAppenderCapability, DuckDBAppendOptions, DuckDBAppenderProgress } from "./bulk.js";
+
 import { decodeDuckDBValue, encodeDuckDBValue } from "./codecs.js";
 import { type DuckDBType, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { duckDBParameterTransport } from "./parameter-transport.js";
 import { duckdbRenderer } from "./query.js";
+import { createDuckDBLiveVerifier, createDuckDBPlanInspector, type DuckDBServiceTransport } from "./services.js";
 import { assertDuckDBSemanticEvidence, duckDBEvidenceDifferences } from "./settings.js";
 import { duckDBVersionSupport } from "./support.js";
 import {
@@ -53,7 +56,6 @@ import {
   isKnownDuckDBType,
   validateDuckDBTypePolicy,
 } from "./type-policy.js";
-import { createDuckDBLiveVerifier, createDuckDBPlanInspector, type DuckDBServiceTransport } from "./services.js";
 import { DUCKDB_DIALECT_VERSION } from "./version.js";
 export interface DuckDBBinding {
   readonly type: DuckDBType;
@@ -653,7 +655,17 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           const append = async (local: Scope) => {
             const release = await acquire(local);
             let appender: DuckDBNativeAppender | undefined;
-            let failed = true;
+            const closeAppender = async () => {
+              const owned = appender;
+              appender = undefined;
+              if (!owned) return;
+              try {
+                await owned.close();
+              } catch (error) {
+                current.broken = true;
+                throw error;
+              }
+            };
             const staging = `__typed_sql_append_${randomUUID().replaceAll("-", "")}`;
             const quotedStage = duckdbRenderer.quoteIdentifier(staging);
             const table = target.table.map(duckdbRenderer.quoteIdentifier).join(".");
@@ -683,26 +695,17 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
                   )
                     throw new TypeError("DuckDB appender native column metadata differs from compiled targets");
                   for await (const rows of chunks) await appender.append(rows);
-                  await appender.close();
-                  appender = undefined;
+                  await closeAppender();
                   await control(`INSERT INTO ${table} (${selected}) SELECT ${selected} FROM ${quotedStage}`);
                   await control(`DROP TABLE ${quotedStage}`);
                 },
                 () => connection.interrupt?.(),
               );
-              failed = false;
             } finally {
-              let cleanupFailure: unknown;
-              try {
-                if (appender) await appender.close();
-              } catch (error) {
-                current.broken = true;
-                cleanupFailure = error;
-              }
+              await closeAppender().catch(() => undefined);
               // The staging relation belongs to this transaction. A failed statement can abort
               // native SQL dispatch; rollback removes it without issuing cleanup SQL in that state.
               release();
-              if (!failed && cleanupFailure) throw cleanupFailure;
             }
           };
           return scope ? append(scope) : transaction(undefined, append);

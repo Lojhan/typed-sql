@@ -97,6 +97,8 @@ await it(`qualifies analytical result shapes on actual DuckDB${version}`, async 
       "SELECT ID+1 FROM users",
       "WITH RECURSIVE n(x) AS(SELECT 1::INTEGER UNION ALL SELECT (x+1)::BIGINT FROM n WHERE x<3) SELECT x FROM n",
       "SELECT t.id AS left_id,u.id AS right_id,id AS merged_id FROM users AS t FULL JOIN users AS u USING(id)",
+      "SELECT id,u.email AS left_email,t.email AS right_email FROM users u RIGHT JOIN users t USING(id)",
+      "SELECT id,u.email AS left_email,t.email AS right_email FROM users u LEFT JOIN users t USING(id)",
 
       "SELECT team_id,count(*) AS count FROM users GROUP BY team_id HAVING count>0 ORDER BY team_id",
       "SELECT team_id,count(*) AS count FROM users GROUP BY ROLLUP(team_id)",

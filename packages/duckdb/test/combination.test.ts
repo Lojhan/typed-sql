@@ -3,6 +3,7 @@ import { duckdb } from "../src/browser.js";
 import { formatDuckDBType } from "../src/native-types.js";
 import { duckDBTypeFromSDK } from "../src/node-api.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
+
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 const version = process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "1.5.6" : "2.0.0";
@@ -50,7 +51,7 @@ await it(`qualifies expression and set-operation combination types on genuine ${
     ...(version === "2.0.0" ? ["TIME_NS", "TIMESTAMPTZ_NS"] : []),
   ];
   const verify = async (query: string) => {
-    let native;
+    let native: Awaited<ReturnType<typeof connection.prepare>>;
     try {
       native = await connection.prepare(query);
     } catch {

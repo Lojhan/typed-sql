@@ -1,5 +1,3 @@
-import { commonTypes as common15, expressionTypes as expression15 } from "./catalog/common-1.5.6.js";
-import { commonTypes as common20, expressionTypes as expression20 } from "./catalog/common-2.0.0.js";
 import {
   type DialectAnalysis,
   defineQuerySemantics,
@@ -10,6 +8,8 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
+import { commonTypes as common15, expressionTypes as expression15 } from "./catalog/common-1.5.6.js";
+import { commonTypes as common20, expressionTypes as expression20 } from "./catalog/common-2.0.0.js";
 import { duckDBBuiltinSignatures } from "./catalog/index.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import {

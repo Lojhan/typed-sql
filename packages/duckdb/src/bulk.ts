@@ -1,7 +1,7 @@
 import {
   defineAdapterCapability,
-  executionDeadline,
   type ExecutionOptions,
+  executionDeadline,
   type Query,
   QueryCancelledError,
 } from "@typed-sql/core";
@@ -87,12 +87,10 @@ export function createDuckDBAppenderCapability(transport: DuckDBAppenderTranspor
         for await (const row of rows) yield row;
       })();
       let first: IteratorResult<Input>;
-      let failed = true;
       try {
         first = await iterator.next();
         check();
         if (first.done) {
-          failed = false;
           return Object.freeze(progress);
         }
         const initial = transport.prepare(rowQuery(first.value) as unknown as Query<unknown>),
@@ -132,14 +130,11 @@ export function createDuckDBAppenderCapability(transport: DuckDBAppenderTranspor
         })();
         await transport.transfer(destination, initial, chunks, options);
         if (!consumed) throw new Error("DuckDB appender did not consume its row source");
-        failed = false;
         return Object.freeze(progress);
       } finally {
-        try {
-          await iterator.return(undefined);
-        } catch (error) {
-          if (!failed) throw error;
-        }
+        // Iteration already propagates normal producer finalization failures. If transfer
+        // stops early, retire the source while preserving the original failure.
+        await iterator.return(undefined).catch(() => undefined);
       }
     },
   });

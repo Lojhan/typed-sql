@@ -1,7 +1,8 @@
 import { it, strict } from "poku";
 import { createDuckDBLiveVerifier, createDuckDBPlanInspector, type DuckDBServiceSession } from "../src/services.js";
-import { defaultDuckDBTypePolicy } from "../src/type-policy.js";
 import { duckDBServerEvidence } from "../src/support.js";
+import { defaultDuckDBTypePolicy } from "../src/type-policy.js";
+
 const fingerprint = `sha256:${"a".repeat(64)}`;
 await it("rejects malformed native plan evidence without leaking native content", async () => {
   let response: readonly (readonly unknown[])[] = [],

@@ -2,6 +2,7 @@ import { it, strict } from "poku";
 import { duckdb } from "../src/browser.js";
 import { parseDuckDBStatement } from "../src/parser/parser.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
+
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 const version = process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "1.5.6" : "2.0.0";
@@ -27,7 +28,7 @@ await it(`matches escape/dollar strings and UTF-16 marker ranges on genuine ${ve
       String.raw`E'\101'`,
       String.raw`E'\x'`,
       String.raw`E'it\'s'`,
-      String.raw`E'it''s😀'`,
+      "E'it''s😀'",
       "$$it's :not $1 ?$$",
       "$tag$😀 $1$tag$",
     ]) {

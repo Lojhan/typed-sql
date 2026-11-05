@@ -4,6 +4,7 @@ import { assertDuckDBSemanticEvidence, duckDBEvidenceDifferences } from "../src/
 import { duckDBServerEvidence } from "../src/support.js";
 import { duckDBRuntimeValueType, duckDBTypeIdentity } from "../src/type-policy.js";
 import { fixtureEvidence } from "./helpers/evidence.js";
+
 await it("requires critical semantic evidence and compares every recorded identity", () => {
   assertDuckDBSemanticEvidence(duckDBServerEvidence("2.0.0"), false);
   for (const evidence of [

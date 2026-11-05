@@ -5,6 +5,7 @@ import { duckdb, typePolicy } from "../src/index.js";
 import { formatDuckDBType } from "../src/native-types.js";
 import { createNodeDuckDBDatabase, duckDBTypeFromSDK } from "../src/node-api.js";
 import { DuckDBSchemaProvider } from "../src/provider.js";
+
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 const version = process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "1.5.6" : "2.0.0";

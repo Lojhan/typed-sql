@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import type {
   DialectServerEvidence,
-  LiveQueryVerifier,
   LiveQueryVerificationEvidence,
   LiveQueryVerificationRequest,
+  LiveQueryVerifier,
   QueryPlanCaptureRequest,
   QueryPlanEvidence,
   QueryPlanInspector,
@@ -14,7 +14,7 @@ import { formatDuckDBType } from "./native-types.js";
 import { duckDBParameterTransport } from "./parameter-transport.js";
 import { duckDBParameterOccurrences, parseDuckDBStatement } from "./parser/parser.js";
 import type { DuckDBBinding, DuckDBNativeStatement } from "./runtime.js";
-import { type DuckDBTypePolicy, isKnownDuckDBType, duckDBTypeScript } from "./type-policy.js";
+import { type DuckDBTypePolicy, duckDBTypeScript, isKnownDuckDBType } from "./type-policy.js";
 import { DUCKDB_DIALECT_VERSION } from "./version.js";
 
 /** Operations share the owning database's lease, compatibility evidence and cleanup quarantine. */
