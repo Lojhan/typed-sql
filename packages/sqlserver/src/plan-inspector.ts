@@ -54,6 +54,13 @@ function identifier(value: string | undefined): string | undefined {
   if (!name || name.includes("\0")) throw new TypeError("Invalid SHOWPLAN identifier");
   return name;
 }
+function invalidXmlCharacters(text: string): boolean {
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if ((code < 32 && code !== 9 && code !== 10 && code !== 13) || code === 0xfffe || code === 0xffff) return true;
+  }
+  return false;
+}
 /** Bounded, non-expanding XML reader: DTDs/entities/CDATA are rejected, expressions are never retained. */
 export function normalizeSqlServerShowplan(xml: unknown): QueryPlanEvidence {
   if (
@@ -61,7 +68,7 @@ export function normalizeSqlServerShowplan(xml: unknown): QueryPlanEvidence {
     !xml ||
     xml.length > 8 * 1024 * 1024 ||
     !xml.isWellFormed() ||
-    /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(xml)
+    invalidXmlCharacters(xml)
   )
     throw new TypeError("Unsupported SQL Server SHOWPLAN XML");
   const source = xml.replace(/^\uFEFF/u, "");
