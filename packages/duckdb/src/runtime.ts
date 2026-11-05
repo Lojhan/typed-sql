@@ -257,7 +257,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
   };
   const track = <T>(scope: Scope | undefined, operation: () => Promise<T>): Promise<T> => {
     if (scope && !scope.open) return Promise.reject(new Error("DuckDB transaction scope has completed"));
-    const pending = Promise.resolve().then(operation);
+    let pending: Promise<T>;
+    try {
+      pending = operation();
+    } catch (error) {
+      pending = Promise.reject(error);
+    }
     if (scope) {
       scope.pending.add(pending);
       void pending
@@ -594,24 +599,30 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     }
   };
   const makeScope = (scope?: Scope): DuckDBTransaction => {
+    const run = <Row, Params extends readonly unknown[], Output>(
+      query: Query<Row, Params>,
+      controls: ExecutionOptions | undefined,
+      cardinality: "many" | "one" | "maybeOne",
+      mapRows: (rows: readonly Row[]) => Output,
+    ): Promise<Output> => {
+      let statement: Ready;
+      try {
+        statement = ready(query as unknown as Query<unknown>);
+      } catch (error) {
+        return track<Output>(scope, () => Promise.reject(error));
+      }
+      return track(scope, async () => mapRows(await operation<Row>(statement, scope, controls, cardinality)));
+    };
     const all = <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
-      track(scope, () => operation<Row>(ready(query as unknown as Query<unknown>), scope, controls));
+      run(query, controls, "many", (rows) => rows);
     return Object.freeze({
       executionCapabilities: capabilities,
       all,
       execute: all,
       one: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
-        track(scope, async () => {
-          const rows = await operation<Row>(ready(query as unknown as Query<unknown>), scope, controls, "one");
-          if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
-          return rows[0]!;
-        }),
+        run(query, controls, "one", (rows) => rows[0]!),
       maybeOne: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
-        track(scope, async () => {
-          const rows = await operation<Row>(ready(query as unknown as Query<unknown>), scope, controls, "maybeOne");
-          if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
-          return rows[0];
-        }),
+        run(query, controls, "maybeOne", (rows) => rows[0]),
       transaction<T>(callback: (database: DuckDBTransaction) => Promise<T>): Promise<T> {
         return observe(
           {
@@ -630,7 +641,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         try {
           statements = Array.from(queries, (query) => ready(query as Query<unknown>));
         } catch (error) {
-          return Promise.reject(error);
+          return track(scope, () => Promise.reject(error));
         }
         return track(scope, () =>
           observe(
