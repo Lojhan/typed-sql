@@ -9,7 +9,7 @@ import { parseDuckDBStatement } from "./parser/parser.js";
 import { DuckDBParseError, tokenize } from "./parser/tokenizer.js";
 import { resolveDuckDBStatement } from "./resolver.js";
 import { type DuckDBSchemaSnapshot, parseDuckDBSchemaSnapshot } from "./snapshot.js";
-import { DUCKDB_CAPABILITIES, resolveDuckDBCapabilities } from "./support.js";
+import { DUCKDB_CAPABILITIES, duckDBVersionSupport, resolveDuckDBCapabilities } from "./support.js";
 import {
   type DuckDBTypePolicy,
   defaultDuckDBTypePolicy,
@@ -60,6 +60,13 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
       _context: DialectAnalysisContext = {},
     ) {
       try {
+        const engineVersion = snapshot.server?.versionKey ?? snapshot.version ?? "missing";
+        if (snapshot.server?.product !== "duckdb" || duckDBVersionSupport(engineVersion) !== "supported")
+          throw new DuckDBParseError(
+            "Exact DuckDB analysis requires a qualified engine snapshot; this target is conservative",
+            { start: 0, end: source.length, line: 1, column: 1 },
+            "TSQ402",
+          );
         if (
           snapshot.server?.versionKey !== "2.0.0" &&
           tokenize(source).some((token) => token.kind === "quoted" && token.text.startsWith("`"))

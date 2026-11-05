@@ -68,3 +68,28 @@ await describe("DuckDB owned grammar analysis", async () => {
     }
   });
 });
+await it("fails closed on unqualified engine evidence and retains branded parameter contracts", () => {
+  const future = { ...snapshot, server: duckDBServerEvidence("2.1.0") };
+  strict.equal(duckdb().analyze("SELECT id FROM users", future).diagnostics[0]?.code, "TSQ402");
+  const branded: DuckDBSchemaSnapshot = {
+    ...snapshot,
+    tables: {
+      users: {
+        name: "users",
+        schema: "main",
+        columns: {
+          id: {
+            name: "id",
+            databaseType: "BIGINT",
+            nullable: false,
+            tsType: 'import("@typed-sql/core").Brand<bigint, "UserId">',
+          },
+        },
+      },
+    },
+  };
+  const result = duckdb().analyze("SELECT id FROM users WHERE id=$1", branded);
+  strict.deepEqual(result.diagnostics, []);
+  strict.equal(result.columns[0]?.tsType, result.parameters[0]?.tsType);
+  strict.equal(result.columns[0]?.range.start, 7);
+});
