@@ -24,6 +24,8 @@ export interface SqlServerOdbcMetadata {
   readonly nullable?: boolean;
   readonly sqlType?: string;
   readonly size?: number;
+  readonly precision?: number;
+  readonly scale?: number;
 }
 export interface SqlServerOdbcQuery {
   on(event: string, handler: (...args: unknown[]) => void): unknown;
@@ -82,6 +84,8 @@ interface NativeRequest {
 function field(value: SqlServerOdbcMetadata): SqlServerField {
   return {
     name: value.name,
+    ...(value.precision === undefined ? {} : { precision: value.precision }),
+    ...(value.scale === undefined ? {} : { scale: value.scale }),
     ...(value.sqlType ? { databaseType: value.sqlType } : {}),
     ...(typeof value.nullable === "boolean" ? { nullable: value.nullable } : {}),
   };

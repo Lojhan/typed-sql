@@ -1,4 +1,4 @@
-import { sqlServerServerEvidence } from "../src/capabilities.js";
+import { sqlServerServerEvidence } from "../../src/capabilities.js";
 export const serverRow = {
   version: "17.0.5035.5",
   edition: "Developer Edition",
