@@ -17,8 +17,9 @@ import {
 } from "./odbc-protocol.js";
 import { OdbcSession } from "./odbc-session.js";
 export function cancelOdbcEpoch(options: OdbcWorkerOptions, epoch: number, functions?: OdbcFunctions): void {
-  const koffi = requireSqlServerKoffi(createRequire(import.meta.url)(options.modulePath)),
-    api = functions ?? loadOdbcFunctions(koffi, options.libraryPath),
+  const api =
+      functions ??
+      loadOdbcFunctions(requireSqlServerKoffi(createRequire(import.meta.url)(options.modulePath)), options.libraryPath),
     { words, handle } = odbcState(options.shared);
   try {
     while (Atomics.load(words, S.epoch) === epoch && Atomics.load(words, S.phase) === ODBC_PHASE.native) {
@@ -36,6 +37,22 @@ export function cancelOdbcEpoch(options: OdbcWorkerOptions, epoch: number, funct
   } finally {
     Atomics.store(words, S.ack, epoch);
     Atomics.notify(words, S.ack);
+  }
+}
+export function acknowledgeOdbcCancellation(
+  options: OdbcWorkerOptions,
+  epoch: number,
+  notify: (message: { ack: number; failed?: true }) => void,
+  functions?: OdbcFunctions,
+): void {
+  try {
+    cancelOdbcEpoch(options, epoch, functions);
+    notify({ ack: epoch });
+  } catch {
+    const { words } = odbcState(options.shared);
+    Atomics.store(words, S.controlFailure, 1);
+    Atomics.notify(words, S.ack);
+    notify({ ack: epoch, failed: true });
   }
 }
 export function odbcWorkerFailure(error: unknown): NonNullable<OdbcReply["error"]> {
@@ -57,13 +74,7 @@ if (!isMainThread && parentPort) {
           port.close();
           return;
         }
-        try {
-          cancelOdbcEpoch(data.options, message.epoch!, api);
-        } catch {
-          const { words } = odbcState(data.options.shared);
-          Atomics.store(words, S.controlFailure, 1);
-          Atomics.notify(words, S.ack);
-        }
+        acknowledgeOdbcCancellation(data.options, message.epoch!, (message) => port.postMessage(message), api);
       });
       port.postMessage({ ready: true });
     } else {

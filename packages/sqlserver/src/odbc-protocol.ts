@@ -28,7 +28,11 @@ export interface OdbcColumn {
   readonly scale: number;
   readonly nullable: boolean;
 }
-export type OdbcValue = string | null | Uint8Array;
+export type OdbcBoundValue = string | null | Uint8Array;
+export type OdbcValue = OdbcBoundValue | number;
+export function odbcValueBytes(value: OdbcValue): number {
+  return typeof value === "number" ? 8 : typeof value === "string" ? value.length * 2 : (value?.byteLength ?? 0);
+}
 export interface OdbcResult {
   readonly rows: readonly (readonly OdbcValue[])[];
   readonly columns: readonly OdbcColumn[];
@@ -46,11 +50,11 @@ export interface OdbcWorkerOptions {
   readonly chunkBytes: number;
 }
 export type OdbcCommand = { readonly id: number } & (
-  | { readonly kind: "execute"; readonly text: string; readonly values: readonly OdbcValue[] }
+  | { readonly kind: "execute"; readonly text: string; readonly values: readonly OdbcBoundValue[] }
   | { readonly kind: "prepare"; readonly text: string }
-  | { readonly kind: "preparedExecute"; readonly handle: number; readonly values: readonly OdbcValue[] }
+  | { readonly kind: "preparedExecute"; readonly handle: number; readonly values: readonly OdbcBoundValue[] }
   | { readonly kind: "freePrepared"; readonly handle: number }
-  | { readonly kind: "streamStart"; readonly text: string; readonly values: readonly OdbcValue[] }
+  | { readonly kind: "streamStart"; readonly text: string; readonly values: readonly OdbcBoundValue[] }
   | { readonly kind: "streamNext"; readonly handle: number; readonly batchSize: number }
   | { readonly kind: "streamClose"; readonly handle: number }
   | { readonly kind: "close" }
