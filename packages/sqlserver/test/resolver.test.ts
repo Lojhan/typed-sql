@@ -78,7 +78,7 @@ await describe("SQL Server native inference", async () => {
       strict.deepEqual(result.diagnostics, [], expression);
       strict.equal(result.columns[0]?.databaseType?.split(" COLLATE ")[0], expected, expression);
     }
-    for (const expression of ["LEFT(status,id)", "REPLICATE(status,-1)", "CONCAT(status,id)", "LOWER(id)"]) {
+    for (const expression of ["LEFT(status,1.5)", "REPLICATE(status,-1)", "CONCAT(status,id)", "LOWER(id)"]) {
       strict.ok(analyze(`SELECT ${expression} AS value FROM dbo.orders`).diagnostics.length > 0, expression);
     }
   });
@@ -116,7 +116,13 @@ await describe("SQL Server native inference", async () => {
       strict.deepEqual(result.diagnostics, [], expression);
       strict.equal(result.columns[0]?.databaseType?.split(" COLLATE ")[0], expected, expression);
     }
-    for (const expression of ["SPACE(id)", "STR(id,id)", "LEFT(status,1.5)", "CONCAT(NULL,status)", "LOWER(NULL)"]) {
+    for (const expression of [
+      "SPACE(status)",
+      "STR(id,status)",
+      "LEFT(status,1.5)",
+      "CONCAT(NULL,status)",
+      "LOWER(NULL)",
+    ]) {
       strict.ok(analyze(`SELECT ${expression} AS value FROM dbo.orders`).diagnostics.length > 0, expression);
     }
     for (const expression of ["CONCAT(@__typed_sql_1,N'x')", "CONCAT_WS(N',',@__typed_sql_1,N'x')"]) {
@@ -133,6 +139,51 @@ await describe("SQL Server native inference", async () => {
     });
     strict.deepEqual(unscoped.diagnostics, []);
     strict.equal(unscoped.columns[0]?.databaseType, "varchar(2)");
+  });
+
+  await it("qualifies native dynamic string lengths and preserves ordered integer parameters", () => {
+    // DMF oracle42129795674, boxed SQL Server14–17 with all qualified compatibility levels.
+    for (const [expression, expected, count] of [
+      ["LEFT(status,@__typed_sql_1)", "nvarchar(40)", 1],
+      ["RIGHT(status,@__typed_sql_1)", "nvarchar(40)", 1],
+      ["SUBSTRING(status,@__typed_sql_1,@__typed_sql_2)", "nvarchar(40)", 2],
+      ["REPLICATE(status,@__typed_sql_1)", "nvarchar(4000)", 1],
+      ["SPACE(@__typed_sql_1)", "varchar(8000)", 1],
+      ["STR(id,@__typed_sql_1,@__typed_sql_2)", "varchar(8000)", 2],
+    ] as const) {
+      const result = analyze(`SELECT ${expression} AS value FROM dbo.orders`);
+      strict.deepEqual(result.diagnostics, [], expression);
+      strict.equal(result.columns[0]?.databaseType?.split(" COLLATE ")[0], expected, expression);
+      strict.equal(result.columns[0]?.nullable, true, expression);
+      strict.deepEqual(
+        result.parameters.map((parameter) => [
+          parameter.index,
+          parameter.tsType,
+          parameter.databaseType,
+          parameter.nullable,
+        ]),
+        Array.from({ length: count }, (_, index) => [index + 1, "number", "int", true]),
+        expression,
+      );
+    }
+    for (const functionName of ["LEN", "DATALENGTH", "PATINDEX", "CHARINDEX"]) {
+      const input = "CAST(status AS nvarchar(max))";
+      const expression = ["PATINDEX", "CHARINDEX"].includes(functionName)
+        ? `${functionName}(N'%s%',${input})`
+        : `${functionName}(${input})`;
+      const result = analyze(`SELECT ${expression} AS value FROM dbo.orders`);
+      strict.deepEqual(result.diagnostics, []);
+      strict.equal(result.columns[0]?.databaseType, "bigint");
+    }
+    for (const expression of [
+      "LEFT(CAST(status AS nvarchar(max)),2)",
+      "RIGHT(CAST(status AS nvarchar(max)),2)",
+      "SUBSTRING(CAST(status AS nvarchar(max)),1,2)",
+    ])
+      strict.equal(
+        analyze(`SELECT ${expression} AS value FROM dbo.orders`).columns[0]?.databaseType?.split(" COLLATE ")[0],
+        "nvarchar(max)",
+      );
   });
 
   await it("preserves possible native NULLs from nonnullable builtin arguments", () => {
