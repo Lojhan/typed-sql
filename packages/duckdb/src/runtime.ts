@@ -4,12 +4,15 @@ import {
   assertQueryResultTransport,
   type Database,
   type DatabaseObserver,
+  type DatabaseOperationStart,
   type DialectServerEvidence,
+  databaseErrorCompletion,
   decodeQueryResultRows,
   type ExecutionOptions,
   encodeQueryValues,
   executionDeadline,
   getQueryValuePlan,
+  observeQueryStream,
   type PreparedQueryRenderCache,
   type Query,
   type QueryBatch,
@@ -125,6 +128,7 @@ interface Scope {
   readonly pending: Set<Promise<unknown>>;
   readonly failures: unknown[];
   readonly streams: Set<QueryStream<unknown>>;
+  readonly activeStreams: Set<QueryStream<unknown>>;
 }
 interface Ready {
   readonly query: Query<unknown>;
@@ -311,6 +315,22 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       if (differences.length) throw new TypeError(`DuckDB runtime evidence differs (${differences.join(", ")})`);
     } else expectedEvidence = actual;
   };
+  const fingerprint = (query: Query<unknown>) =>
+    `sha256:${createHash("sha256")
+      .update(`duckdb\0${DUCKDB_DIALECT_VERSION}\0${renderQuery(query, duckdbRenderer).text}`)
+      .digest("hex")}`;
+  const observe = async <T>(start: DatabaseOperationStart, operation: () => Promise<T>): Promise<T> => {
+    const observation = startDatabaseObservation(options.observer, start);
+    if (!observation) return operation();
+    try {
+      const result = await observation.run(operation);
+      observation.end({ status: "success" });
+      return result;
+    } catch (error) {
+      observation.end(databaseErrorCompletion(error), error);
+      throw error;
+    }
+  };
   const operation = async <Row>(
     statement: Ready,
     scope: Scope | undefined,
@@ -321,13 +341,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     const release = await acquire(scope);
     let handle: Awaited<ReturnType<typeof prepared>> | undefined, result: DuckDBNativeResult | undefined;
     let failed = true;
-    const fingerprint = `sha256:${createHash("sha256").update(`duckdb\0${DUCKDB_DIALECT_VERSION}\0${statement.text}`).digest("hex")}`;
     const observation = startDatabaseObservation(options.observer, {
       kind: "query",
       dialect: "duckdb",
       grammarVersion: DUCKDB_DIALECT_VERSION,
       transactionDepth: scope ? 1 : 0,
-      fingerprint,
+      fingerprint: fingerprint(statement.query),
       cardinality,
       prepared: registered.queries.has(queryResultValidationSource(statement.query)),
     });
@@ -364,13 +383,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       observation?.end({ status: "success", rowCount: rows.length });
       return rows;
     } catch (error) {
-      observation?.end(
-        {
-          status: error instanceof Error && error.name === "QueryCancelledError" ? "cancelled" : "error",
-          errorType: error instanceof Error ? error.name : typeof error,
-        },
-        error,
-      );
+      observation?.end(databaseErrorCompletion(error), error);
       throw error;
     } finally {
       try {
@@ -403,6 +416,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       throw new RangeError("Stream batchSize must be a positive safe integer");
     if (scope && !scope.open) throw new Error("DuckDB transaction scope has completed");
     const generator = (async function* () {
+      if (scope && !scope.open) throw new Error("DuckDB transaction scope has completed");
       const release = await acquire(scope);
       let handle: Awaited<ReturnType<typeof prepared>> | undefined, result: DuckDBNativeResult | undefined;
       let failed = false;
@@ -449,22 +463,28 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         }
       }
     })();
+    let exposed: QueryStream<Row>;
+    const retire = () => {
+      scope?.streams.delete(exposed as QueryStream<unknown>);
+      scope?.activeStreams.delete(exposed as QueryStream<unknown>);
+    };
     const result: QueryStream<Row> = {
       next: async () => {
+        scope?.activeStreams.add(exposed as QueryStream<unknown>);
         const next = await generator.next();
-        if (next.done) scope?.streams.delete(result as QueryStream<unknown>);
+        if (next.done) retire();
         return next;
       },
       return: async () => {
         await generator.return(undefined);
-        scope?.streams.delete(result as QueryStream<unknown>);
+        retire();
         return { done: true, value: undefined };
       },
       throw: async (error?: unknown) => {
         try {
           return await generator.throw(error);
         } finally {
-          scope?.streams.delete(result as QueryStream<unknown>);
+          retire();
         }
       },
       [Symbol.asyncIterator]() {
@@ -472,16 +492,14 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       },
       close: async () => {
         await generator.return(undefined);
-        scope?.streams.delete(result as QueryStream<unknown>);
+        retire();
       },
       [Symbol.asyncDispose]: async () => {
         await generator.return(undefined);
-        scope?.streams.delete(result as QueryStream<unknown>);
+        retire();
       },
     };
-    scope?.streams.add(result as QueryStream<unknown>);
     const validated = validateQueryResultStream(query, result, "duckdb-native");
-    if (validated === result) return result;
     const tracked: QueryStream<Row> = {
       ...validated,
       next() {
@@ -497,7 +515,16 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         return this;
       },
     };
-    return tracked;
+    exposed = observeQueryStream(validated === result ? result : tracked, options.observer, {
+      kind: "stream",
+      dialect: "duckdb",
+      grammarVersion: DUCKDB_DIALECT_VERSION,
+      transactionDepth: scope ? 1 : 0,
+      fingerprint: fingerprint(statement.query),
+      prepared: registered.queries.has(queryResultValidationSource(query)),
+    });
+    scope?.streams.add(exposed as QueryStream<unknown>);
+    return exposed;
   };
   const transaction = async <T>(scope: Scope | undefined, callback: (local: Scope) => Promise<T>): Promise<T> => {
     if (scope) throw new TypeError("DuckDB nested transactions are not supported");
@@ -511,6 +538,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         pending: new Set(),
         failures: [],
         streams: new Set(),
+        activeStreams: new Set(),
       };
     let begun = false;
     try {
@@ -520,7 +548,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       begun = true;
       await control("BEGIN TRANSACTION");
       const value = await callback(local);
-      const unfinished = local.pending.size > 0 || local.streams.size > 0;
+      const unfinished = local.pending.size > 0 || local.activeStreams.size > 0;
       local.open = false;
       for (const item of [...local.streams]) await item.close();
       await Promise.allSettled([...local.pending]);
@@ -565,7 +593,15 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           return rows[0];
         }),
       transaction<T>(callback: (database: DuckDBTransaction) => Promise<T>): Promise<T> {
-        return transaction(scope, (local) => callback(makeScope(local)));
+        return observe(
+          {
+            kind: "transaction",
+            dialect: "duckdb",
+            grammarVersion: DUCKDB_DIALECT_VERSION,
+            transactionDepth: scope ? 2 : 1,
+          },
+          () => transaction(scope, (local) => callback(makeScope(local))),
+        );
       },
       batch: <const Queries extends readonly unknown[]>(
         queries: QueryBatch<Queries>,
@@ -576,14 +612,26 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         } catch (error) {
           return Promise.reject(error);
         }
-        return track(scope, async () => {
-          const run = async (local: Scope) => {
-            const results = [];
-            for (const statement of statements) results.push(await operation(statement, local));
-            return results as QueryResults<Queries>;
-          };
-          return scope ? run(scope) : transaction(undefined, run);
-        });
+        return track(scope, () =>
+          observe(
+            {
+              kind: "batch",
+              dialect: "duckdb",
+              grammarVersion: DUCKDB_DIALECT_VERSION,
+              transactionDepth: scope ? 1 : 0,
+              size: statements.length,
+              fingerprints: statements.map((statement) => fingerprint(statement.query)),
+            },
+            async () => {
+              const run = async (local: Scope) => {
+                const results = [];
+                for (const statement of statements) results.push(await operation(statement, local));
+                return results as QueryResults<Queries>;
+              };
+              return scope ? run(scope) : transaction(undefined, run);
+            },
+          ),
+        );
       },
       stream<Row, Params extends readonly unknown[]>(
         query: Query<Row, Params>,

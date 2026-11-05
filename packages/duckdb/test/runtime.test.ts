@@ -382,12 +382,15 @@ await it("preserves native prepared cache identity through attached result valid
     const factory = database.prepare("validated", () =>
       compiled<{ value: number }>("SELECT 1 AS value", [], sdk.version().slice(1)),
     );
-    const schema = {
+    const schema: import("@typed-sql/core").StandardSchemaV1<{ value: number }, { value: number }> = {
       "~standard": {
         version: 1 as const,
         vendor: "test",
         validate(value: unknown) {
-          return { value };
+          const row = value as { value: unknown };
+          return typeof row.value === "number"
+            ? { value: { value: row.value } }
+            : { issues: [{ message: "number required" }] };
         },
       },
     };
