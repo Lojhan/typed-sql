@@ -24,6 +24,7 @@ const projections: Readonly<Record<string, readonly string[]>> = {
 };
 function expectedRows(test: MaturityCase) {
   const texts =
+    test.projectionTexts ??
     projections[test.id] ??
     (test.rows[0]?.name === "value"
       ? [test.sql.slice("SELECT ".length, test.sql.lastIndexOf(" AS value") + " AS value".length)]
@@ -287,5 +288,84 @@ await describe("SQL Server vendor-backed conformance-v2 maturity corpus", async 
         ["number", true, "decimal(38,2)"],
       ],
     );
+  });
+  await it("preserves parsed JSON constructor structure and leaves stored JSON shapes unknown", () => {
+    const policy = { ...grammar.defaultTypePolicy, json: "parsed" as const };
+    const result = grammar.analyze(
+      "SELECT JSON_OBJECT('id':id,'maybe':optional_qty NULL ON NULL) AS value FROM dbo.widgets",
+      snapshot,
+      policy,
+    );
+    strict.deepEqual(result.diagnostics, []);
+    strict.equal(result.columns[0]?.tsType, '{ "id": number; "maybe": number | null; }');
+    strict.equal(result.columns[0]?.nullable, false);
+    strict.equal(result.columns[0]?.json?.representation, "parsed");
+    const absent = grammar.analyze(
+      "SELECT JSON_OBJECT('id':id,'maybe':optional_qty ABSENT ON NULL) AS value FROM dbo.widgets",
+      snapshot,
+      policy,
+    );
+    strict.deepEqual(absent.diagnostics, []);
+    const shape = absent.columns[0]?.json?.shape;
+    strict.equal(shape?.kind, "object");
+    if (shape?.kind === "object") strict.equal(shape.properties.maybe?.optional, true);
+    const stored = grammar.analyze("SELECT JSON_QUERY(document,'$.items') AS value FROM dbo.widgets", snapshot, policy);
+    strict.deepEqual(stored.diagnostics, []);
+    strict.equal(stored.columns[0]?.tsType, "JsonValue");
+    strict.equal(stored.columns[0]?.nullable, true);
+  });
+  await it("keeps schema-qualified user routines separate from builtin aggregate semantics", () => {
+    const functions = {
+      custom_sum: {
+        name: "sum",
+        schema: "custom",
+        argumentTypes: ["int"],
+        databaseReturnType: "bigint",
+        returnType: "bigint",
+        nullable: false,
+      },
+    };
+    const schema = { ...snapshot, functions };
+    const source = "SELECT custom.sum(quantity) AS value FROM dbo.widgets";
+    const result = grammar.analyze(source, schema);
+    strict.deepEqual(result.diagnostics, []);
+    strict.equal(result.columns[0]?.tsType, "bigint");
+    strict.equal(result.columns[0]?.databaseType, "bigint");
+    strict.equal(result.semantics?.cardinality.maximum, "many");
+  });
+  await it("records real write targets and OUTPUT INTO destinations in dependency semantics", () => {
+    const update = grammar.analyze(
+      "UPDATE w SET quantity=quantity+1 OUTPUT inserted.id FROM dbo.widgets w JOIN dbo.children c ON c.parent_id=w.id",
+      snapshot,
+    );
+    strict.deepEqual(update.diagnostics, []);
+    const writes = update.semantics?.dependencies.filter((d) => d.kind === "relation" && d.access === "write");
+    strict.ok(writes?.some((d) => d.name === "widgets" && d.schema === "dbo"));
+    strict.ok(!writes?.some((d) => d.name === "w"));
+    const captured = grammar.analyze(
+      "UPDATE dbo.widgets SET quantity=1 OUTPUT inserted.id AS id,inserted.id AS parent_id,inserted.amount AS amount INTO dbo.children(id,parent_id,amount)",
+      snapshot,
+    );
+    strict.deepEqual(captured.diagnostics, []);
+    strict.equal(captured.resultKind, "command");
+    strict.deepEqual(captured.columns, []);
+    strict.equal(captured.semantics?.cardinality.maximum, 0);
+    strict.deepEqual(
+      captured.semantics?.dependencies
+        .filter((d) => d.kind === "relation" && d.access === "write")
+        .map((d) => [d.schema, d.name])
+        .sort(),
+      [
+        ["dbo", "children"],
+        ["dbo", "widgets"],
+      ],
+    );
+  });
+  await it("does not present a CTE name as a resolved persistent relation dependency", () => {
+    const result = grammar.analyze("WITH selected AS (SELECT id FROM dbo.widgets) SELECT id FROM selected", snapshot);
+    strict.deepEqual(result.diagnostics, []);
+    const relations = result.semantics?.dependencies.filter((d) => d.kind === "relation" && d.certainty === "resolved");
+    strict.ok(relations?.some((d) => d.name === "widgets"));
+    strict.ok(!relations?.some((d) => d.name === "selected"));
   });
 });
