@@ -182,6 +182,45 @@ try {
           "Native describe and static inference disagree",
         );
       };
+      if (major >= 16)
+        await check(`${level}: native JSON serialization and fragment provenance`, async () => {
+          const cases = [
+            ["JSON_OBJECT('amount':amount,'id':id,'flag':active)", { amount: -1.23, id: 1, flag: false }],
+            ["JSON_OBJECT('nested':JSON_OBJECT('id':id),'text':document)", { nested: { id: 1 }, text: "{}" }],
+            ["JSON_OBJECT('nested':JSON_QUERY(document))", { nested: {} }],
+            [
+              "JSON_OBJECT('bytes':CAST(0x00FF AS varbinary(2)),'time':CAST('12:34:56.1234567' AS time(7)),'date':CAST('2026-01-01' AS date))",
+              { bytes: "AP8=", time: "12:34:56.1234567", date: "2026-01-01" },
+            ],
+          ];
+          for (const [expression, expected] of cases) {
+            const factory = await compile(schema, `SELECT ${expression} AS value FROM dbo.widgets`);
+            assert.deepEqual(JSON.parse((await db.one(factory())).value), expected);
+          }
+          const money = await compile(
+            schema,
+            "SELECT JSON_OBJECT('money':CAST(amount AS money)) AS value FROM dbo.widgets",
+          );
+          const value = JSON.parse((await db.one(money())).value).money;
+          assert.equal(typeof value, "string");
+          assert.equal(Number(value), -1.23);
+          const provenance = [];
+          for (const expression of [
+            "CASE WHEN active=0 THEN JSON_OBJECT('id':id) ELSE JSON_OBJECT('amount':amount) END",
+            "COALESCE(JSON_OBJECT('id':id),JSON_OBJECT('amount':amount))",
+          ]) {
+            const factory = await compile(
+              schema,
+              `SELECT JSON_OBJECT('nested':${expression}) AS value FROM dbo.widgets`,
+            );
+            provenance.push({ expression, value: JSON.parse((await db.one(factory())).value) });
+          }
+          evidence.cases.push({ name: `${level}: conditional JSON provenance`, status: "evidence", cases: provenance });
+          if (major >= 17) {
+            const factory = await compile(schema, `SELECT CAST(N'{"id":1}' AS json) AS value`);
+            assert.deepEqual(JSON.parse((await db.one(factory())).value), { id: 1 });
+          }
+        });
       await check(`${level}: independent native prepared zero termination`, async () => {
         const connection = await native.promises.open({ conn_str: dsn(`typed_sql_adapter_${level}`) });
         const cases = [];
