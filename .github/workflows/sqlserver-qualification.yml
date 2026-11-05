@@ -76,6 +76,13 @@ jobs:
           TYPED_SQL_SQLSERVER_ARTIFACT: ${{ github.workspace }}/artifacts/sqlserver/transport-${{ matrix.major }}.json
       - name: Build public SQL Server and compiler entrypoints
         run: pnpm exec tsc -b packages/sqlserver packages/compiler
+      - name: Qualify exact direct ODBC FFI prototype
+        working-directory: e2e/sqlserver
+        run: |
+          mkdir -p ../../artifacts/sqlserver
+          node --expose-gc ffi-transport-probe.mjs > "../../artifacts/sqlserver/ffi-${TYPED_SQL_SQLSERVER_MAJOR}.json"
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
       - name: Check application-owned native SDK types
         run: pnpm exec tsc --ignoreConfig --strict --noEmit --module NodeNext --moduleResolution NodeNext --target ES2024 --skipLibCheck e2e/sqlserver/type-proof.ts
       - name: Qualify the public native adapter and introspection provider
