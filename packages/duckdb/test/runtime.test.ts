@@ -280,6 +280,15 @@ await it("checks leased semantic settings and prepared DML metadata before dispa
     });
     await strict.rejects(database.all(wrong), /metadata differs/u);
     strict.deepEqual(await raw("SELECT count(*) FROM metadata_guard"), [[0n]]);
+    await raw("CREATE TABLE parameter_guard(id INTEGER)");
+    const staleParameter = withQueryValuePlan(sql`INSERT INTO parameter_guard VALUES(${1n})`, {
+      dialect: "duckdb",
+      typePolicyHash: calculateTypePolicyHash(typePolicy),
+      columns: [],
+      parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "BIGINT" }],
+    });
+    await strict.rejects(database.all(staleParameter), /parameter 1 metadata differs/u);
+    strict.deepEqual(await raw("SELECT count(*) FROM parameter_guard"), [[0n]]);
   } finally {
     await database.close();
     connection.closeSync();

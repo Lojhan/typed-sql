@@ -62,6 +62,7 @@ export interface DuckDBNativeResult {
 }
 export interface DuckDBNativeStatement {
   readonly columns?: readonly DuckDBNativeColumn[];
+  readonly parameters?: readonly (DuckDBType | undefined)[];
   execute(bindings: readonly DuckDBBinding[], stream?: boolean): Promise<DuckDBNativeResult>;
   close(): void | Promise<void>;
 }
@@ -331,6 +332,16 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       throw error;
     }
   };
+  const verifyParameters = (native: DuckDBNativeStatement, bindings: readonly DuckDBBinding[]) => {
+    if (!native.parameters) return;
+    if (native.parameters.length !== bindings.length)
+      throw new TypeError("DuckDB native parameter count differs from the compiled value plan");
+    for (let i = 0; i < bindings.length; i++) {
+      const expected = native.parameters[i];
+      if (expected && isKnownDuckDBType(expected) && formatDuckDBType(expected) !== formatDuckDBType(bindings[i]!.type))
+        throw new TypeError(`DuckDB native parameter ${i + 1} metadata differs from the compiled physical value plan`);
+    }
+  };
   const operation = async <Row>(
     statement: Ready,
     scope: Scope | undefined,
@@ -358,6 +369,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           controls,
           async () => {
             handle = await prepared(statement);
+            verifyParameters(handle.statement, statement.bindings);
             if (handle.statement.columns && statement.plan.columns.length)
               columns({ columns: handle.statement.columns }, statement.plan);
             if (controls.signal?.aborted) throw new QueryCancelledError("signal");
@@ -424,6 +436,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         ensure(scope);
         await verifyConnection();
         handle = await prepared(statement);
+        verifyParameters(handle.statement, statement.bindings);
         if (handle.statement.columns && statement.plan.columns.length)
           columns({ columns: handle.statement.columns }, statement.plan);
         result = await runControlledExecution(
