@@ -1,0 +1,12 @@
+{
+  "name": "@typed-sql/e2e-sqlserver",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "qualify:transport": "node transport-probe.mjs"
+  },
+  "devDependencies": {
+    "msnodesqlv8": "6.2.2"
+  }
+}
