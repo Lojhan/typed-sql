@@ -118,3 +118,25 @@ await it("retains DISTINCT/aggregate/window dependencies and FROM-first projecti
   ])
     strict.deepEqual(duckdb().analyze(query, snapshot).diagnostics, [], query);
 });
+await it("binds lambda variables, nested closures and versioned arrow syntax", () => {
+  for (const query of [
+    "SELECT list_transform([1,2],lambda x:x+1) AS values",
+    "SELECT [x*2 FOR x IN [1,2,3] IF x>1] AS values",
+    "SELECT list_transform([1],lambda x:x+team_id) AS values FROM users",
+    "SELECT MAP {'a':1,'b':2} AS value",
+  ])
+    strict.deepEqual(duckdb().analyze(query, snapshot).diagnostics, [], query);
+  for (const query of [
+    "SELECT list_transform([1],lambda x:missing) AS value",
+    "SELECT list_transform([1],lambda x,y,z:x) AS value",
+    "SELECT list_filter([1],lambda x:MAP {'a':1}) AS value",
+    "SELECT list_transform([1],x -> x+1) AS value",
+    "SELECT MAP {'a':1}+1 AS value",
+  ])
+    strict.ok(duckdb().analyze(query, snapshot).diagnostics.length, query);
+  const legacy = { ...snapshot, server: duckDBServerEvidence("1.5.6") };
+  strict.deepEqual(duckdb().analyze("SELECT list_transform([1],x -> x+1) AS value", legacy).diagnostics, []);
+  const collision = duckdb().analyze("SELECT id::VARCHAR AS id FROM users WHERE id=$1", snapshot);
+  strict.deepEqual(collision.diagnostics, []);
+  strict.equal(collision.parameters[0]?.tsType, "bigint");
+});

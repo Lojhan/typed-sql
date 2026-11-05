@@ -239,7 +239,7 @@ export class DuckDBParser {
         }
         const right = this.expression(power + (op === "**" ? 0 : 1));
         left = {
-          kind: op === "->" ? "lambda" : "binary",
+          kind: "binary",
           value: negate ? `NOT ${op}` : op,
           left,
           right,
@@ -277,6 +277,34 @@ export class DuckDBParser {
     if (["NOT", "+", "-", "~", "EXISTS"].includes(upper))
       return { kind: "unary", value: upper, left: this.expression(upper === "NOT" ? 3 : 8), range: this.range(range) };
     if (upper === "*") return { kind: "star", range };
+    if (upper === "LAMBDA") {
+      const names = this.list(() => this.identifier().value);
+      this.expect(":");
+      const right = this.expression();
+      return { kind: "lambda", value: "lambda", names, right, range: this.range(range) };
+    }
+    if (upper === "MAP" && this.accept("{")) {
+      const keys: Expression[] = [],
+        values: Expression[] = [];
+      if (!this.accept("}")) {
+        do {
+          keys.push(this.expression());
+          this.expect(":");
+          values.push(this.expression());
+        } while (this.accept(",") && !this.is("}"));
+        this.expect("}");
+      }
+      return {
+        kind: "call",
+        names: ["map"],
+        args: [
+          { kind: "list", args: keys, range: this.range(range) },
+          { kind: "list", args: values, range: this.range(range) },
+        ],
+        range: this.range(range),
+      };
+    }
+
     if (upper === "(") {
       if (this.is("SELECT") || this.is("WITH") || this.is("FROM")) {
         const query = this.statement();
@@ -288,7 +316,32 @@ export class DuckDBParser {
       return { kind: "tuple", args, range: this.range(range) };
     }
     if (upper === "[") {
-      const args = this.list(() => this.expression(), "]");
+      if (this.accept("]")) return { kind: "list", args: [], range: this.range(range) };
+      const first = this.expression();
+      if (this.accept("FOR")) {
+        const name = this.identifier().value;
+        this.expect("IN");
+        let source = this.expression();
+        if (this.accept("IF")) {
+          const right = this.expression();
+          source = {
+            kind: "call",
+            names: ["list_filter"],
+            args: [source, { kind: "lambda", value: "lambda", names: [name], right, range: this.range(range) }],
+            range: this.range(range),
+          };
+        }
+        this.expect("]");
+        return {
+          kind: "call",
+          names: ["list_transform"],
+          args: [source, { kind: "lambda", value: "lambda", names: [name], right: first, range: this.range(range) }],
+          range: this.range(range),
+        };
+      }
+      const args = [first];
+      while (this.accept(",") && !this.is("]")) args.push(this.expression());
+      this.expect("]");
       return { kind: "list", args, range: this.range(range) };
     }
     if (upper === "{") {

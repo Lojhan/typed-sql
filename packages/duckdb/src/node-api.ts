@@ -349,6 +349,19 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
       }
       let closed = false;
       // Parameter-dependent expressions remain INVALID until execution in both qualified engines.
+      let parameters: readonly (DuckDBType | undefined)[];
+      try {
+        parameters = Array.from({ length: native.parameterCount }, (_, i) =>
+          native.parameterTypeId(i + 1) === sdk.DuckDBTypeId.INVALID
+            ? undefined
+            : nativeTypeFromSDK(native.parameterType(i + 1), sdk),
+        );
+      } catch (error) {
+        try {
+          native.destroySync();
+        } catch {}
+        throw error;
+      }
       const metadata = (() => {
         try {
           return Array.from({ length: native.columnCount }, (_, i) => native.columnTypeId(i)).some(
@@ -368,6 +381,7 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
       })();
       return Object.freeze({
         ...(metadata ? { columns: metadata } : {}),
+        parameters,
         async close() {
           if (closed) return;
           closed = true;
