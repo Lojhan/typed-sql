@@ -1136,7 +1136,7 @@ class Resolver {
       case "countBig":
         return type("bigint", false, this.policy);
       case "integer": {
-        const argument = native(args[name === "CHARINDEX" ? 1 : 0] ?? unknown);
+        const argument = native(args[["CHARINDEX", "PATINDEX"].includes(name) ? 1 : 0] ?? unknown);
         const wide = ["LEN", "DATALENGTH", "CHARINDEX", "PATINDEX"].includes(name) && argument?.length === "max";
         return type(wide ? "bigint" : "int", nullable, this.policy);
       }
@@ -1206,10 +1206,15 @@ class Resolver {
         const dimension = (index: number, fallback?: number) => {
           const argument = expression.arguments[index];
           const value = argument ? numericConstant(argument) : fallback;
+          if (argument && value === undefined && argument.kind !== "literal") {
+            infer(index, type("int", true, this.policy));
+            const target = native(args[index] ?? unknown);
+            if (target && ["tinyint", "smallint", "int", "bigint"].includes(target.name)) return "dynamic";
+          }
           if (value === undefined || !Number.isSafeInteger(value) || value < 0) {
             this.diagnostic(
               "TSQ203",
-              `${name} requires a qualified nonnegative constant length`,
+              `${name} requires an integral length with qualified native result dimensions`,
               argument?.range ?? expression.range,
             );
             return undefined;
@@ -1223,9 +1228,14 @@ class Resolver {
         if (name === "SOUNDEX") return result("varchar", 5);
         if (name === "SPACE" || name === "STR") {
           const width = dimension(name === "SPACE" ? 0 : 1, name === "STR" ? 10 : undefined);
+          if (name === "STR" && expression.arguments[2]) infer(2, type("int", true, this.policy));
           return width === undefined
             ? unknown
-            : result("varchar", Math.max(1, Math.min(8000, width)), name === "STR" || nullable);
+            : result(
+                "varchar",
+                width === "dynamic" ? 8000 : Math.max(1, Math.min(8000, width)),
+                name === "STR" || width === "dynamic" || nullable,
+              );
         }
         if (!textInput) {
           this.diagnostic(
@@ -1238,15 +1248,24 @@ class Resolver {
         if (["LOWER", "UPPER", "LTRIM", "RTRIM", "TRIM", "REVERSE", "STUFF"].includes(name))
           return result(family, textInput.length!, name === "STUFF" || nullable);
         if (["LEFT", "RIGHT", "SUBSTRING", "REPLICATE"].includes(name)) {
+          if (name === "SUBSTRING") infer(1, type("int", true, this.policy));
           const width = dimension(name === "SUBSTRING" ? 2 : 1);
           if (width === undefined) return unknown;
           const length =
             textInput.length === "max"
               ? "max"
               : name === "REPLICATE"
-                ? Math.min(limit, textInput.length! * width)
-                : Math.min(textInput.length!, width);
-          return result(family, length === "max" ? length : Math.max(1, length));
+                ? width === "dynamic"
+                  ? limit
+                  : Math.min(limit, textInput.length! * width)
+                : width === "dynamic"
+                  ? textInput.length!
+                  : Math.min(textInput.length!, width);
+          return result(
+            family,
+            length === "max" ? length : Math.max(1, length),
+            nullable || (name === "REPLICATE" && width === "dynamic"),
+          );
         }
         if (name === "STRING_ESCAPE") return result("nvarchar", "max");
         const hasUnicode = args.some((value) => native(value)?.name.startsWith("n"));

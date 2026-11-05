@@ -1,8 +1,40 @@
 import { describe, it, strict } from "poku";
 import { type OdbcCommand, ODBC_STATE as S } from "../src/odbc-protocol.js";
-import { directPortFixture as fixture } from "./helpers/direct-ports.js";
+import { SqlServerOdbcTransport } from "../src/odbc-transport.js";
+import { directPortFixture as fixture, Port } from "./helpers/direct-ports.js";
 
 await describe("SQL Server direct ODBC parent worker ownership", async () => {
+  await it("closes and unreferences the control lane when data-worker construction throws", async () => {
+    const base = fixture();
+    await base.transport.ready;
+    await base.transport.close();
+    for (const postFailure of [false, true]) {
+      const control = new Port();
+      if (postFailure)
+        control.handler = () => {
+          throw new Error("secret native path");
+        };
+      strict.throws(
+        () =>
+          new SqlServerOdbcTransport(base.transport.options, (_url, role) => {
+            if (role === "control") return control;
+            throw new Error("secret native path");
+          }),
+        (error) => error instanceof Error && /initialization/.test(error.message) && !error.message.includes("secret"),
+      );
+      strict.deepEqual(control.messages, [{ kind: "close" }]);
+      strict.equal(control.unrefs, 1);
+      strict.doesNotThrow(() => control.emit("error", new Error("late control startup failure")));
+    }
+    strict.throws(
+      () =>
+        new SqlServerOdbcTransport(base.transport.options, () => {
+          throw new Error("secret native path");
+        }),
+      (error) => error instanceof Error && /initialization/.test(error.message) && !error.message.includes("secret"),
+    );
+  });
+
   await it("serializes requests, ignores stale replies and sends native cleanup after quarantine", async () => {
     const state = fixture();
     await state.transport.ready;
