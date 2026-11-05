@@ -381,10 +381,13 @@ await describe("public documentation", async () => {
       "What just happened?",
     ];
 
-    for (const dialect of ["postgresql", "mysql", "sqlite"]) {
+    for (const dialect of ["postgresql", "mysql", "sqlite", "duckdb"]) {
       const markdown = withoutFencedCode(await text(`docs/getting-started/${dialect}.md`));
       const headings = [...markdown.matchAll(/^##\s+(.+?)\s*#*\s*$/gmu)].map((match) => match[1]);
-      strict.deepStrictEqual(headings, expectedHeadings, `${dialect} quickstart differs from the shared path`);
+      const expected = expectedHeadings.map((heading) =>
+        dialect === "duckdb" && heading === "3. Create the commerce schema" ? "3. Create the database" : heading,
+      );
+      strict.deepStrictEqual(headings, expected, `${dialect} quickstart differs from the shared path`);
     }
   });
 
@@ -435,6 +438,8 @@ await describe("public documentation", async () => {
       ["@typed-sql/postgres", "docs/dialects/postgresql.md"],
       ["@typed-sql/mysql", "docs/dialects/mysql.md"],
       ["@typed-sql/sqlite", "docs/dialects/sqlite.md"],
+      ["@typed-sql/duckdb", "docs/dialects/duckdb.md"],
+      ["@typed-sql/sqlserver", "docs/dialects/sqlserver.md"],
     ] as const) {
       const packageDirectory = packageName.slice("@typed-sql/".length);
       const packageJson = JSON.parse(await text(`packages/${packageDirectory}/package.json`)) as {

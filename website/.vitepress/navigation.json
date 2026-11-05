@@ -67,6 +67,12 @@
           "pageType": "tutorial"
         },
         {
+          "text": "DuckDB quickstart",
+          "link": "/getting-started/duckdb",
+          "file": "docs/getting-started/duckdb.md",
+          "pageType": "tutorial"
+        },
+        {
           "text": "Choose packages",
           "link": "/getting-started/installation",
           "file": "docs/getting-started/installation.md",
@@ -315,6 +321,12 @@
           "pageType": "tutorial"
         },
         {
+          "text": "DuckDB",
+          "link": "/examples/duckdb",
+          "file": "docs/examples/duckdb.md",
+          "pageType": "tutorial"
+        },
+        {
           "text": "PostgreSQL + SQLite",
           "link": "/examples/multi-database",
           "file": "docs/examples/multi-database.md",
@@ -353,6 +365,22 @@
           "file": "docs/dialects/sqlite.md",
           "pageType": "reference",
           "packageName": "@typed-sql/sqlite",
+          "status": "stable"
+        },
+        {
+          "text": "DuckDB",
+          "link": "/dialects/duckdb",
+          "file": "docs/dialects/duckdb.md",
+          "pageType": "reference",
+          "packageName": "@typed-sql/duckdb",
+          "status": "stable"
+        },
+        {
+          "text": "SQL Server",
+          "link": "/dialects/sqlserver",
+          "file": "docs/dialects/sqlserver.md",
+          "pageType": "reference",
+          "packageName": "@typed-sql/sqlserver",
           "status": "stable"
         }
       ]
