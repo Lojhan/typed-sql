@@ -412,4 +412,130 @@ await describe("SQL Server native verification services", async () => {
     strict.equal(harness.released, 1);
     await verifier.close();
   });
+  await it("retires resources on release, discard and owned-pool cleanup failures", async () => {
+    for (const failure of ["release", "discard", "pool"]) {
+      const harness = new ServiceHarness();
+      let releases = 0,
+        discards = 0;
+      const session = await harness.acquire();
+      const pool = {
+        acquire: async () => ({
+          ...session,
+          release: async () => {
+            releases++;
+            if (failure === "release") throw new Error("private-secret");
+          },
+          discard: async () => {
+            discards++;
+            if (failure === "discard") throw new Error("private-secret");
+          },
+        }),
+        close: async () => {
+          if (failure === "pool") throw new Error("private-secret");
+        },
+      };
+      if (failure === "discard") harness.fail = sqlServerVerificationQueries.columns;
+      const verifier = createSqlServerLiveVerifier({ pool, ownsPool: true });
+      const pending = verifier.verify({ fingerprint, sql: "SELECT amount FROM dbo.widgets", operation: "read" });
+      if (failure === "pool") {
+        await pending;
+        await strict.rejects(verifier.close(), /pool close failed/u);
+        strict.equal(releases, 1);
+      } else {
+        await strict.rejects(
+          pending,
+          (error: unknown) => error instanceof Error && !error.message.includes("private-secret"),
+        );
+        strict.equal(discards, 1);
+        await verifier.close();
+      }
+      await strict.rejects(verifier.server(), /closed/u);
+    }
+    strict.throws(() =>
+      createSqlServerLiveVerifier({
+        pool: {
+          acquire: async () => {
+            throw new Error();
+          },
+        },
+        ownsPool: true,
+      }),
+    );
+  });
+  await it("requires complete visible native descriptors rather than filling missing evidence", async () => {
+    for (const metadata of [
+      [],
+      [{ is_hidden: true, column_ordinal: 1, name: "hidden", system_type_name: "int", is_nullable: 0 }],
+      [{ is_hidden: 0, column_ordinal: 1, name: "variant", system_type_name: "sql_variant", is_nullable: 0 }],
+      [{ is_hidden: 0, column_ordinal: 1, name: "x", system_type_name: "int", is_nullable: "unknown" }],
+      [{ is_hidden: 0, column_ordinal: 1, name: "x", system_type_name: "int", is_nullable: 0, error_type: 4 }],
+    ]) {
+      const pool = new ServiceHarness();
+      pool.columns = metadata;
+      const verifier = createSqlServerLiveVerifier({ pool });
+      await strict.rejects(verifier.verify({ fingerprint, sql: "SELECT amount FROM dbo.widgets", operation: "read" }));
+      strict.equal(pool.discarded, 1);
+      await verifier.close();
+    }
+    const pool = new ServiceHarness();
+    pool.columns = [
+      {
+        is_hidden: false,
+        column_ordinal: "1",
+        name: "title",
+        system_type_name: "nvarchar(40)",
+        collation_name: "Latin1_General_100_CI_AS",
+        is_nullable: "0",
+      },
+    ];
+    const verifier = createSqlServerLiveVerifier({ pool });
+    const result = await verifier.verify({
+      fingerprint,
+      sql: "SELECT code AS title FROM dbo.widgets",
+      operation: "read",
+    });
+    strict.equal(result.columns[0]?.databaseType, "nvarchar(40) COLLATE Latin1_General_100_CI_AS");
+    strict.equal(result.columns[0]?.nullable, false);
+    await verifier.close();
+  });
+  await it("accepts bounded native numeric entities and omits unavailable plan estimates", () => {
+    const constant = showplan
+      .replace(/<RelOp\b[\s\S]*<\/RelOp>/u, '<RelOp PhysicalOp="Constant Scan"/>')
+      .replace(' StatementSubTreeCost="0.02"', "");
+    strict.deepEqual(normalizeSqlServerShowplan(constant), { nodes: [{ kind: "Constant Scan" }] });
+    const named = showplan
+      .replace('Table="[widgets]"', 'Table="&#91;widgets&#93;"')
+      .replace('Schema="[dbo]"', "Schema='[dbo]'");
+    strict.equal(normalizeSqlServerShowplan(named).nodes[0]?.relation, "dbo.widgets");
+    for (const source of [
+      showplan.replace("[widgets]", "[&#x0;]"),
+      showplan.replace("[widgets]", "[&#x110000;]"),
+      showplan.replace("[widgets]", "[&#xd800;]"),
+      showplan.replace("[widgets]", "unquoted"),
+      showplan.replace('xmlns="http://schemas.microsoft.com/sqlserver/2004/07/showplan"', 'xmlns="private"'),
+      showplan.replace('PhysicalOp="Index Seek"', 'PhysicalOp="Index Seek" invalid'),
+      showplan.replace('StatementType="SELECT"', 'StatementType="UPDATE"'),
+    ])
+      strict.throws(() => normalizeSqlServerShowplan(source));
+  });
+  await it("rejects optimizer evidence that cannot produce a stable redacted environment", async () => {
+    for (const invalid of ["settings", "session", "statistics"] as const) {
+      const pool = new ServiceHarness(),
+        original = pool.query.bind(pool);
+      pool.query = async (sql, values = []) =>
+        sql === sqlServerPlanQueries[invalid]
+          ? [{ name: "invalid setting", value: null, options: "secret", object_id: { secret: true } }]
+          : original(sql, values);
+      const inspector = createSqlServerPlanInspector({ pool });
+      await strict.rejects(inspector.environment());
+      strict.equal(pool.discarded, 1);
+      await inspector.close();
+    }
+    const pool = new ServiceHarness(),
+      inspector = createSqlServerPlanInspector({ pool });
+    await inspector.environment();
+    pool.version = "17.0.9999.0";
+    await strict.rejects(inspector.environment());
+    await inspector.close();
+  });
 });
