@@ -12,10 +12,12 @@ import {
   type SqlServerOdbcConnection,
   type SqlServerOdbcDriver,
   type SqlServerOdbcQuery,
+  sqlServerOdbc,
 } from "../src/odbc.js";
 import { sqlServerCatalogQueries } from "../src/provider.js";
 import { sql, withQueryValuePlan } from "../src/query.js";
 import { defaultSqlServerTypePolicy } from "../src/type-policy.js";
+import { fixture } from "./helpers/catalog-fixture.js";
 import { serverRow } from "./helpers/environment.js";
 
 class NativeQuery extends EventEmitter implements SqlServerOdbcQuery {
@@ -47,7 +49,7 @@ class NativeQuery extends EventEmitter implements SqlServerOdbcQuery {
 function setup() {
   const environment = { ...serverRow };
   const requested: string[] = [];
-  let script: (q: NativeQuery) => void = (q) => {
+  let script: (q: NativeQuery, text?: string) => void = (q) => {
     q.emit("meta", [{ name: "id" }]);
     q.emit("row", 0);
     q.emit("column", 0, "9223372036854775807");
@@ -84,7 +86,7 @@ function setup() {
       } else if (text?.startsWith("SET QUOTED_IDENTIFIER")) {
         q.emit("done");
         q.emit("free");
-      } else script(q);
+      } else script(q, text);
     });
     return q;
   };
@@ -417,5 +419,152 @@ await describe("SQL Server explicit ODBC adapter", async () => {
     });
     await owned.close();
     strict.equal(state.closes, 1);
+  });
+  await it("quarantines every entrypoint after a broken stream and frees prepared handles safely", async () => {
+    const state = setup(),
+      connection = adaptSqlServerOdbcConnection(state.driver, state.native);
+    const handle = await connection.prepare!("SELECT 1");
+    state.script = (q) => {
+      q.emit("error", { sqlstate: "08S01" });
+      q.emit("done");
+      q.emit("free");
+    };
+    const stream = connection.stream!("SELECT 1", [], { batchSize: 1 });
+    strict.equal(stream[Symbol.asyncIterator](), stream);
+    await strict.rejects(() => stream.next());
+    strict.equal(stream.connectionReusable, false);
+    await stream.return!();
+    await stream.close();
+    await strict.rejects(() => connection.execute("SELECT 1"), /quarantined/);
+    await strict.rejects(() => handle.execute([]), /quarantined/);
+    await strict.rejects(() => connection.prepare!("SELECT 1"), /quarantined/);
+    strict.throws(() => connection.stream!("SELECT 1", [], { batchSize: 1 }), /quarantined/);
+    await handle.close();
+  });
+  await it("serializes physical prepared handles and propagates failed free without reusing the native session", async () => {
+    const state = setup(),
+      connection = adaptSqlServerOdbcConnection(state.driver, state.native);
+    state.script = () => {};
+    const handle = await connection.prepare!("SELECT ? AS id"),
+      running = handle.execute(["1"]);
+    await strict.rejects(() => handle.execute(["2"]), /busy/);
+    await strict.rejects(() => handle.close(), /active/);
+    const q = state.queries.at(-1)!;
+    q.emit("done");
+    await running;
+    await handle.close();
+    await strict.rejects(() => handle.execute([]), /closed/);
+    const failed = setup();
+    failed.native.prepare = (_query, callback) =>
+      callback(null, {
+        preparedQuery: () => new NativeQuery(true),
+        getMeta: () => [],
+        free: (callback) => callback(new Error("native free failed")),
+      });
+    const failedConnection = adaptSqlServerOdbcConnection(failed.driver, failed.native),
+      failedHandle = await failedConnection.prepare!("SELECT 1");
+    await strict.rejects(() => failedHandle.close(), /native free failed/);
+    await strict.rejects(() => failedConnection.execute("SELECT 1"), /quarantined/);
+  });
+  await it("cancels in-flight raw and prepared requests and waits for terminal cleanup", async () => {
+    for (const prepared of [false, true]) {
+      const state = setup(),
+        connection = adaptSqlServerOdbcConnection(state.driver, state.native),
+        controller = new AbortController();
+      state.script = () => {};
+      const handle = prepared ? await connection.prepare!("SELECT 1") : undefined;
+      const pending = handle
+        ? handle.execute([], { signal: controller.signal })
+        : connection.execute("SELECT 1", [], { signal: controller.signal });
+      controller.abort("caller closed");
+      await strict.rejects(pending, (error) => (error as { code?: unknown }).code === "TSQL_CANCELLED");
+      strict.equal(state.queries[0]?.cancelled, 1);
+      await handle?.close();
+    }
+    const state = setup(),
+      connection = adaptSqlServerOdbcConnection(state.driver, state.native);
+    state.script = () => {};
+    const stream = connection.stream!("SELECT 1", [], { batchSize: 1 }),
+      waiting = stream.next();
+    await stream.return!();
+    strict.deepEqual(await waiting, { done: true, value: undefined });
+    strict.equal(state.queries[0]?.cancelled, 1);
+  });
+  await it("rejects malformed metadata, indexes and premature free while retaining harmless native info", async () => {
+    for (const emit of [
+      (q: NativeQuery) => q.emit("meta", {}),
+      (q: NativeQuery) => {
+        q.emit("meta", [{ name: "id" }]);
+        q.emit("column", -1, 1);
+      },
+      (q: NativeQuery) => q.emit("free"),
+    ]) {
+      const state = setup();
+      state.script = (q) => {
+        emit(q);
+        if (!q.listenerCount("free")) return;
+        q.emit("done");
+        q.emit("free");
+      };
+      await strict.rejects(() => adaptSqlServerOdbcConnection(state.driver, state.native).execute("SELECT 1"));
+    }
+    const state = setup();
+    state.script = (q) => {
+      q.emit("info", null);
+      q.emit("info", { sqlstate: "01000", message: "notice" });
+      q.emit("done");
+      q.emit("free");
+    };
+    const result = await adaptSqlServerOdbcConnection(state.driver, state.native).execute("SELECT 1");
+    strict.deepEqual(result.warnings, [{}, { code: "01000", message: "notice" }]);
+  });
+  await it("owns lazy explicit introspection loading and closes after catalog failures", async () => {
+    const state = setup(),
+      catalog = fixture();
+    state.script = (q, text) => {
+      const rows = catalog.data.get(text!);
+      if (!rows) throw new Error("unexpected catalog query");
+      const names = Object.keys(rows[0] ?? {});
+      q.emit(
+        "meta",
+        names.map((name) => ({ name })),
+      );
+      for (const row of rows) {
+        q.emit("row", 0);
+        names.forEach((name, index) => {
+          q.emit("column", index, row[name]);
+        });
+      }
+      q.emit("done");
+      q.emit("free");
+    };
+    const provider = sqlServerOdbc({
+      connection: state.native,
+      ownsConnection: true,
+      driverImporter: async () => state.driver,
+      driverVersion: "6.2.2",
+      includeSchemas: ["dbo"],
+      typePolicy: defaultSqlServerTypePolicy,
+    });
+    strict.equal(state.requested.length, 0);
+    strict.equal((await provider.introspect({})).dialect, "sqlserver");
+    strict.equal(state.closes, 1);
+    const failed = setup();
+    failed.script = (q) => {
+      q.emit("error", new Error("catalog denied"));
+      q.emit("done");
+      q.emit("free");
+    };
+    await strict.rejects(
+      () =>
+        sqlServerOdbc({
+          connection: failed.native,
+          ownsConnection: true,
+          driverImporter: async () => failed.driver,
+          driverVersion: "6.2.2",
+        }).introspect({}),
+      /catalog denied/,
+    );
+    strict.equal(failed.closes, 1);
   });
 });

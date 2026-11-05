@@ -367,7 +367,14 @@ export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: 
           if (closed) return;
           if (running) throw new Error("Cannot free an active SQL Server prepared statement");
           closed = true;
-          await new Promise<void>((resolve, reject) => statement.free((error) => (error ? reject(error) : resolve())));
+          try {
+            await new Promise<void>((resolve, reject) =>
+              statement.free((error) => (error ? reject(error) : resolve())),
+            );
+          } catch (error) {
+            reusable = false;
+            throw error;
+          }
         },
       });
     },
@@ -393,12 +400,14 @@ export function adaptSqlServerOdbcConnection(driverValue: unknown, nativeValue: 
       );
       void operation.completion.then(
         () => {
+          if (!operation.state.reusable) reusable = false;
           complete = true;
           wake?.();
           wake = undefined;
         },
         (failure) => {
-          error = failure;
+          if (!operation.state.reusable) reusable = false;
+          error = closing ? undefined : failure;
           complete = true;
           queue.length = 0;
           wake?.();
