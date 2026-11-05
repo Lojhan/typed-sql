@@ -89,7 +89,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   core: ["."],
   opentelemetry: ["."],
   config: ["."],
-  schema: ["."],
+  schema: [".", "./snapshot"],
   postgres: [".", "./runtime", "./pg", "./query"],
   mysql: [".", "./runtime", "./mysql2", "./query"],
   compiler: ["."],
