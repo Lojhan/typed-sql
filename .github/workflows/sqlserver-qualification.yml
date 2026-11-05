@@ -1,0 +1,85 @@
+name: SQL Server qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sqlserver-qualification.yml'
+      - 'scripts/install-sqlserver-odbc.sh'
+      - 'e2e/sqlserver/**'
+      - 'packages/sqlserver/**'
+      - 'packages/core/**'
+      - 'packages/compiler/**'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sqlserver-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-transport:
+    name: native-transport (${{ matrix.major }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - major: 14
+            build: 14.0.3560.2
+            image: mcr.microsoft.com/mssql/server:2017-CU31-GDR19-ubuntu-18.04@sha256:aeef07e21e24e51fdbf06d6f0c3c742b50c6cb59bb9c6209c53b27513d95f50b
+          - major: 15
+            build: 15.0.4500.2
+            image: mcr.microsoft.com/mssql/server:2019-CU32-GDR12-ubuntu-20.04@sha256:07d7dedecdbfcf6776035dc5eefb5bfd9aa1804b2f6b99f7dedb397d8a599069
+          - major: 16
+            build: 16.0.4305.5
+            image: mcr.microsoft.com/mssql/server:2022-CU27-GDR1-ubuntu-22.04@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
+          - major: 17
+            build: 17.0.5035.5
+            image: mcr.microsoft.com/mssql/server:2025-CU10-ubuntu-24.04@sha256:245f6b1c8903edae52cb20fa31419cefcde1a49938bb8c3447099011fc871ca3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+      - name: Install pinned Microsoft ODBC 18 and unixODBC
+        run: bash scripts/install-sqlserver-odbc.sh
+      - run: pnpm install --frozen-lockfile
+      - name: Generate disposable credentials
+        run: |
+          node --input-type=module <<'JS'
+          import {randomBytes} from 'node:crypto';
+          import {appendFileSync} from 'node:fs';
+          const value=`Tsq!${randomBytes(24).toString('hex')}Aa9`;
+          console.log(`::add-mask::${value}`);
+          appendFileSync(process.env.GITHUB_ENV,`TYPED_SQL_SQLSERVER_PASSWORD=${value}\n`);
+          JS
+      - name: Start pinned native SQL Server
+        env:
+          TYPED_SQL_SQLSERVER_IMAGE: ${{ matrix.image }}
+        run: |
+          docker run --detach --name typed-sql-qualification --publish 127.0.0.1:1433:1433 --env ACCEPT_EULA=Y --env MSSQL_PID=Developer --env MSSQL_SA_PASSWORD="$TYPED_SQL_SQLSERVER_PASSWORD" "$TYPED_SQL_SQLSERVER_IMAGE"
+      - name: Qualify exact input and output policies
+        run: pnpm --filter @typed-sql/e2e-sqlserver qualify:transport
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+          TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
+          TYPED_SQL_SQLSERVER_IMAGE: ${{ matrix.image }}
+          TYPED_SQL_ODBC_VERSION: 18.7.1.1-1
+          TYPED_SQL_SQLSERVER_ARTIFACT: ${{ github.workspace }}/artifacts/sqlserver/transport-${{ matrix.major }}.json
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sqlserver-transport-${{ matrix.major }}-${{ github.run_attempt }}
+          path: artifacts/sqlserver
+          if-no-files-found: warn
+          retention-days: 14
+      - if: always()
+        run: docker rm --force typed-sql-qualification
