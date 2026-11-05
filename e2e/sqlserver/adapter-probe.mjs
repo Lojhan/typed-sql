@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { compileSqlFile } from "@typed-sql/compiler";
 import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
 import { createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
@@ -260,6 +262,41 @@ try {
         assert.deepEqual(await db.one(sql.validateResult(find({ id: row.id }), validator)), row);
         assert.equal(calls, 1);
       });
+      await check(
+        `${level}: isolated VARCHAR conversion fidelity`,
+        async () => {
+          for (const encoding of major >= 15 ? ["legacy", "utf8"] : ["legacy"]) {
+            let failure;
+            try {
+              await promisify(execFile)(
+                process.execPath,
+                [fileURLToPath(new URL("varchar-fidelity.mjs", import.meta.url)), String(level), encoding],
+                { timeout: 45000, maxBuffer: 65536 },
+              );
+            } catch (error) {
+              failure = {
+                message: String(error).replaceAll(password, "[redacted]"),
+                signal: error.signal,
+                code: error.code,
+              };
+            }
+            const path = resolve(`../../artifacts/sqlserver/varchar-${major}-${level}-${encoding}.json`);
+            const report = JSON.parse(await readFile(path, "utf8"));
+            evidence.cases.push({
+              name: `${level}: VARCHAR ${encoding}`,
+              status: "evidence",
+              ...report,
+              ...(failure ? { failure } : {}),
+            });
+            assert.equal(failure, undefined, "Native VARCHAR conversion must not crash or hang");
+            assert.ok(
+              report.cases.every((item) => item.state === "completed" && item.exact),
+              "Native VARCHAR conversion loses text",
+            );
+          }
+        },
+        { continueOnFailure: true },
+      );
     } finally {
       await db.close();
     }
