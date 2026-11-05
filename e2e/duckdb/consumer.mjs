@@ -7,6 +7,7 @@ import { compileSqlFile } from "@typed-sql/compiler";
 import { DuckDBSchemaProvider, duckdb } from "@typed-sql/duckdb";
 import { createNodeDuckDBDatabase } from "@typed-sql/duckdb/node-api";
 import { sql } from "@typed-sql/duckdb/query";
+import { advanced } from "./advanced.mjs";
 
 assert.equal(sdk.version(), process.env.TYPED_SQL_DUCKDB_EXPECTED_ENGINE);
 const path = resolve("persistent.duckdb");
@@ -38,6 +39,9 @@ const row = {
 try {
   await db.queryable.all(
     "CREATE TABLE records(id BIGINT PRIMARY KEY,amount DECIMAL(38,10) NOT NULL,profile STRUCT(label VARCHAR,ids BIGINT[],attrs MAP(INTEGER,VARCHAR),choice UNION(n BIGINT,s VARCHAR)) NOT NULL,coordinates INTEGER[3] NOT NULL,bytes BLOB NOT NULL)",
+  );
+  await db.queryable.all(
+    "CREATE TABLE ingest(id BIGINT PRIMARY KEY,doubled BIGINT GENERATED ALWAYS AS(id*2),label VARCHAR DEFAULT 'default',profile STRUCT(label VARCHAR,ids BIGINT[],attrs MAP(INTEGER,VARCHAR),choice UNION(n BIGINT,s VARCHAR)))",
   );
   const snapshot = await new DuckDBSchemaProvider({ client: db.queryable }).introspect();
   assert.equal(snapshot.server.version, sdk.version());
@@ -111,6 +115,7 @@ insert(row);
 insert({...row,coordinates:[1,2]});
 `,
   );
+  await advanced(db, compile, snapshot, grammar, row, sdk.version());
   await db.close();
   db = await createNodeDuckDBDatabase({ path });
   assert.deepEqual(await db.one(find({ id: row.id })), row);
