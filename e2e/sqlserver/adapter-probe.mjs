@@ -186,14 +186,26 @@ try {
           id: `native-string:${expression}`,
           sql: `SELECT ${expression} AS value FROM dbo.widgets`,
         }));
-        for (const test of [...MATURITY_CASES, ...stringCases]) {
+        const dynamicStringCases = [
+          "LEFT(code,@__typed_sql_1)",
+          "RIGHT(code,@__typed_sql_1)",
+          "SUBSTRING(code,@__typed_sql_1,@__typed_sql_2)",
+          "REPLICATE(code,@__typed_sql_1)",
+          "SPACE(@__typed_sql_1)",
+          "STR(quantity,@__typed_sql_1,@__typed_sql_2)",
+        ].map((expression) => ({
+          id: `native-dynamic-string:${expression}`,
+          sql: `SELECT ${expression} AS value FROM dbo.widgets`,
+          declarations: "@__typed_sql_1 int,@__typed_sql_2 int",
+        }));
+        for (const test of [...MATURITY_CASES, ...stringCases, ...dynamicStringCases]) {
           const analysis = grammar.analyze(test.sql, schema);
           const diagnostics = analysis.diagnostics.filter((item) => item.severity === "error");
           let metadata, failure;
           try {
             metadata = await db.queryable.all(
-              "SELECT name,system_type_name,is_nullable,error_number,error_message FROM sys.dm_exec_describe_first_result_set(?,NULL,0) WHERE is_hidden=0 OR error_number IS NOT NULL ORDER BY column_ordinal",
-              [test.sql],
+              "SELECT name,system_type_name,is_nullable,error_number,error_message FROM sys.dm_exec_describe_first_result_set(?,?,0) WHERE is_hidden=0 OR error_number IS NOT NULL ORDER BY column_ordinal",
+              [test.sql, test.declarations ?? null],
             );
             const error = metadata.find((row) => row.error_number !== null && row.error_number !== undefined);
             if (error) failure = String(error.error_message);
@@ -397,6 +409,20 @@ try {
           cases.push({ expression, metadata, analysis: grammar.analyze(source, schema) });
         }
         evidence.cases.push({ name: `${level}: native dynamic string dimensions`, status: "evidence", cases });
+      });
+      await check(`${level}: compiled named string dimensions`, async () => {
+        for (const [expression, values, expected] of [
+          ["LEFT(code,:length)", { length: 2 }, "sa"],
+          ["RIGHT(code,:length)", { length: 2 }, "le"],
+          ["SUBSTRING(code,:start,:length)", { start: 2, length: 3 }, "amp"],
+          ["REPLICATE(code,:count)", { count: 2 }, "samplesample"],
+          ["SPACE(:count)", { count: 2 }, "  "],
+          ["SPACE(:count)", { count: null }, null],
+          ["STR(quantity,:length,:digits)", { length: 12, digits: 2 }, "       -7.00"],
+        ]) {
+          const factory = await compile(schema, `SELECT ${expression} AS value FROM dbo.widgets`);
+          assert.equal((await db.one(factory(values))).value, expected, expression);
+        }
       });
       const row = {
         id: 9223372036854775807n,
