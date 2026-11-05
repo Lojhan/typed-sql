@@ -567,4 +567,27 @@ await describe("SQL Server explicit ODBC adapter", async () => {
     );
     strict.equal(failed.closes, 1);
   });
+  await it("rechecks actual default-adapter session facts before each typed request", async () => {
+    const state = setup(),
+      db = await createSqlServerOdbcDatabase({
+        connection: state.native,
+        driverImporter: async () => state.driver,
+        driverVersion: "6.2.2",
+      });
+    const query = withQueryValuePlan(sql<{ id: bigint }>`SELECT ${1n} AS id`, {
+      dialect: "sqlserver",
+      typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+      columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+      parameters: [{ index: 1, type: "bigint", nullable: false, databaseType: "bigint" }],
+    });
+    await db.one(query);
+    const typedCount = state.requested.filter((text) => text.startsWith("SELECT (CONVERT")).length;
+    state.environment.compatibility_level = 160;
+    await strict.rejects(() => db.one(query), /evidence changed/);
+    strict.equal(state.requested.filter((text) => text.startsWith("SELECT (CONVERT")).length, typedCount);
+    await db.queryable.all("SET SHOWPLAN_XML OFF");
+    state.environment.compatibility_level = 170;
+    await db.one(query);
+    await db.close();
+  });
 });

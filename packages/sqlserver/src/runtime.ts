@@ -7,6 +7,7 @@ import {
   type DialectServerEvidence,
   databaseErrorCompletion,
   decodeQueryResultRows,
+  defineDialectServerEvidence,
   type ExecutionCapabilities,
   type ExecutionOptions,
   encodeQueryValues,
@@ -60,6 +61,8 @@ export interface SqlServerProtocolStream extends AsyncIterableIterator<Readonly<
   close(): Promise<void>;
 }
 export interface SqlServerConnectionLike {
+  /** Read actual session facts using the unlocked native protocol; called while the runtime owns its lease. */
+  readServerEvidence?(): Promise<DialectServerEvidence>;
   execute(sql: string, values?: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   prepare?(sql: string): Promise<SqlServerNativePrepared>;
   /** Reject native transport limitations before a query with possible side effects is dispatched. */
@@ -155,6 +158,43 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   const { connection } = options;
   if (!options.serverEvidence) throw new TypeError("SQL Server runtime requires actual connection server evidence");
   assertSqlServerRuntimeEvidence(options.serverEvidence);
+  const serverEvidence = defineDialectServerEvidence({
+    ...options.serverEvidence,
+    features: [...options.serverEvidence.features],
+    settings: { ...options.serverEvidence.settings },
+  });
+  const evidenceIdentity = (evidence: DialectServerEvidence) =>
+    JSON.stringify([
+      evidence.product,
+      evidence.version,
+      evidence.versionKey,
+      ...[
+        "compatibilityLevel",
+        "collation",
+        "defaultSchema",
+        "databaseName",
+        "engineEdition",
+        "edition",
+        "previewFeatures",
+        "quotedIdentifier",
+        "ansiWarnings",
+        "arithAbort",
+        "concatNullOn",
+        "dateFirst",
+        "dateFormat",
+        "language",
+      ].map((key) => evidence.settings[key]),
+    ]);
+  const expectedEvidence = evidenceIdentity(serverEvidence);
+  const validateSession = async () => {
+    if (!connection.readServerEvidence) return;
+    const actual = await connection.readServerEvidence();
+    assertSqlServerRuntimeEvidence(actual);
+    if (evidenceIdentity(actual) !== expectedEvidence)
+      throw new TypeError(
+        "SQL Server native session evidence changed; recreate the database after intentional database or settings changes",
+      );
+  };
   if (leases.has(connection)) throw new Error("SQL Server wrappers require an idle connection");
   const policy = validateSqlServerTypePolicy(options.typePolicy ?? defaultSqlServerTypePolicy);
   const policyHash = options.typePolicyHash ?? calculateTypePolicyHash(policy);
@@ -330,12 +370,16 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     }
     return prepared.handle.execute(statement.values, controls);
   }
-  async function leased<T>(lease: object | undefined, operation: () => Promise<T>): Promise<T> {
+  async function leased<T>(lease: object | undefined, operation: () => Promise<T>, typed = false): Promise<T> {
     ensureOpen(lease);
-    if (lease) return operation();
+    if (lease) {
+      if (typed) await validateSession();
+      return operation();
+    }
     const token = {};
     leases.set(connection, token);
     try {
+      if (typed) await validateSession();
       return await operation();
     } finally {
       leases.delete(connection);
@@ -372,12 +416,15 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     });
     try {
       const operation = () =>
-        leased(lease, async () =>
-          validateQueryResultRows(
-            query,
-            decode<Row>(statement, await execute(statement, controls)),
-            `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
-          ),
+        leased(
+          lease,
+          async () =>
+            validateQueryResultRows(
+              query,
+              decode<Row>(statement, await execute(statement, controls)),
+              `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
+            ),
+          true,
         );
       const rows = await (observation ? observation.run(operation) : operation());
       if (cardinality === "one" && rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
@@ -627,6 +674,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     });
     scopeLeases.set(scoped, token);
     try {
+      await validateSession();
       const before = await control("SELECT @@TRANCOUNT AS count, XACT_STATE() AS state");
       if (Number(before.rows[0]?.count) !== 0 || Number(before.rows[0]?.state) !== 0)
         throw new Error("SQL Server transactions require an idle connection");
@@ -709,6 +757,8 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         if (!parentLease) leases.set(connection, lease);
         hooks?.opened();
         try {
+          await validateSession();
+          if (done) return;
           source = connection.stream(statement.text, statement.values, { batchSize });
           const fields = await source.fields;
           if (!done) validateFields(statement.plan, fields);
@@ -779,7 +829,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     );
   }
   const database: SqlServerDatabase = {
-    serverEvidence: options.serverEvidence,
+    serverEvidence,
     ...scope(),
     transaction,
     batch,

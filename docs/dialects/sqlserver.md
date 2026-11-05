@@ -81,6 +81,12 @@ const database = await createSqlServerOdbcDatabase({
 ```
 
 The factory reads the actual engine, product, database compatibility level and session settings.
+Before each typed dispatch, the native adapter rereads these facts while holding the same execution
+lease. Changed database, compatibility level, collation, default schema or critical session settings
+reject the request before its SQL executes. Recreate the wrapper after intentional changes. The
+raw catalog/setup queryable bypasses this typed check so session repair and metadata tools can
+operate without recursive lease acquisition. Application-supplied neutral connections can provide
+`readServerEvidence()` for the same checks, or attest their own session through `serverEvidence`.
 Owned sessions establish `QUOTED_IDENTIFIER`, `ANSI_WARNINGS`, `ARITHABORT` and
 `CONCAT_NULL_YIELDS_NULL` as enabled, with `us_english`, `DATEFORMAT mdy` and `DATEFIRST 7`.
 Injected connections are validated without changing SQL session semantics unless
