@@ -44,6 +44,43 @@ const hash = (value) => assert.match(value ?? "", /^sha256:[a-f\d]{64}$/u);
 const quote = (value) => `[${value.replaceAll("]", "]]")}]`;
 const literal = (value) => `N'${value.replaceAll("'", "''")}'`;
 const redact = (error) => String(error).replaceAll(password, "[redacted]");
+// datetime2(7) stays decimal text throughout. One tick is100ns; no JS Date or
+// millisecond arithmetic participates in a native temporal boundary oracle.
+function canonicalInstant(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,7}))?$/u.exec(value);
+  assert.ok(match, `Native ISO datetime2(7): ${String(value)}`);
+  return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}.${(match[7] ?? "").padEnd(7, "0")}`;
+}
+function oneTickBefore(value) {
+  const canonical = canonicalInstant(value);
+  let [year, month, day] = canonical.slice(0, 10).split("-").map(Number);
+  const [hour, minute, second] = canonical.slice(11, 19).split(":").map(BigInt);
+  let ticks = ((hour * 60n + minute) * 60n + second) * 10000000n + BigInt(canonical.slice(20));
+  if (ticks === 0n) {
+    ticks = 864000000000n;
+    day--;
+    if (day === 0) {
+      month--;
+      if (month === 0) {
+        month = 12;
+        year--;
+      }
+      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      day = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+    }
+  }
+  assert.ok(year >= 1, "Native temporal boundary must permit a preceding tick");
+  ticks--;
+  const seconds = ticks / 10000000n;
+  const pad = (part, width = 2) => String(part).padStart(width, "0");
+  return `${pad(year, 4)}-${pad(month)}-${pad(day)}T${pad(seconds / 3600n)}:${pad((seconds / 60n) % 60n)}:${pad(seconds % 60n)}.${pad(ticks % 10000000n, 7)}`;
+}
+// Guard the arithmetic used by the independent oracle, including date rollovers.
+assert.equal(oneTickBefore("2024-03-01T00:00:00.0000000"), "2024-02-29T23:59:59.9999999");
+assert.equal(oneTickBefore("2025-01-01T00:00:00.0000000"), "2024-12-31T23:59:59.9999999");
+assert.equal(oneTickBefore("2100-03-01T00:00:00.0000000"), "2100-02-28T23:59:59.9999999");
+assert.equal(oneTickBefore("2026-01-02T03:04:05.1234567"), "2026-01-02T03:04:05.1234566");
+
 async function compiled(snapshot, source) {
   const result = compileSqlFile({ dialect: grammar, schema: snapshot, source });
   assert.deepEqual(result.diagnostics, [], `Compiled SQL: ${source}`);
@@ -388,7 +425,7 @@ async function temporal(db, report) {
     grammar.analyze("SELECT * FROM dbo.catalog_temporal", snapshot).columns.map((column) => column.name),
     ["id", "status"],
   );
-  const asof = (await q("SELECT CONVERT(varchar(33),SYSUTCDATETIME(),126) AS instant"))[0].instant;
+  const asof = canonicalInstant((await q("SELECT CONVERT(varchar(33),SYSUTCDATETIME(),126) AS instant"))[0].instant);
   assert.match(asof, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,7})?$/u);
   await q("WAITFOR DELAY '00:00:00.020'");
   const update = await compiled(
@@ -406,6 +443,67 @@ async function temporal(db, report) {
   assert.equal(nativeAsOf.length, 1);
   assert.equal(BigInt(nativeAsOf[0].id), 1n);
   assert.equal(nativeAsOf[0].status, "new😀");
+  const currentBoundary = canonicalInstant(
+    (await q("SELECT CONVERT(varchar(33),valid_from,126) AS instant FROM dbo.catalog_temporal WHERE id=1"))[0].instant,
+  );
+  const immediatelyBefore = oneTickBefore(currentBoundary);
+  const actualDateFormat = async () => {
+    const options = await q("DBCC USEROPTIONS WITH NO_INFOMSGS");
+    const row = options.find(
+      (option) => String(option.SetOption ?? option.set_option ?? option["Set Option"]).toLowerCase() === "dateformat",
+    );
+    assert.ok(row, "Native session reports its actual DATEFORMAT");
+    return String(row.Value ?? row.value).toLowerCase();
+  };
+  const baselineDateFormat = await actualDateFormat();
+  report.rawTemporalBoundary = { currentBoundary, immediatelyBefore, baselineDateFormat, probes: [] };
+  assert.equal(baselineDateFormat, "mdy");
+  try {
+    for (const dateFormat of ["mdy", "dmy"]) {
+      if (dateFormat === "dmy") await q("SET DATEFORMAT dmy");
+      assert.equal(await actualDateFormat(), dateFormat);
+      for (const [instant, status] of [
+        [currentBoundary, "changed"],
+        [immediatelyBefore, "new😀"],
+      ]) {
+        const observed = { dateFormat, instant, expectedStatus: status };
+        report.rawTemporalBoundary.probes.push(observed);
+        try {
+          observed.literal = await q(
+            `SELECT id,status FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF ${literal(instant)} WHERE id=1`,
+          );
+          assert.equal(observed.literal.length, 1);
+          assert.equal(BigInt(observed.literal[0].id), 1n);
+          assert.equal(observed.literal[0].status, status);
+          // Plain strings use the direct adapter's ordinary NVARCHAR(MAX) bind.
+          // No typed query plan or CONVERT wrapper is supplied to this raw oracle.
+          observed.bareParameter = await db.queryable.all(
+            "SELECT id,status FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF ? WHERE id=1",
+            [instant],
+          );
+          assert.equal(observed.bareParameter.length, 1);
+          assert.equal(BigInt(observed.bareParameter[0].id), 1n);
+          assert.equal(observed.bareParameter[0].status, status);
+        } catch (error) {
+          observed.error = redact(error);
+          observed.diagnostics = error?.diagnostics;
+          report.counterexamples ??= [];
+          report.counterexamples.push({
+            name: "raw bare-parameter temporal boundary",
+            dateFormat,
+            instant,
+            error: redact(error),
+            diagnostics: error?.diagnostics,
+          });
+          failures.push(`${report.compatibilityLevel}: raw AS OF boundary ${dateFormat} ${instant}`);
+        }
+      }
+    }
+  } finally {
+    await q("SET DATEFORMAT mdy");
+    assert.equal(await actualDateFormat(), baselineDateFormat);
+    report.rawTemporalBoundary.restoredDateFormat = baselineDateFormat;
+  }
   const selected = await compiled(
     snapshot,
     "SELECT id,status,valid_from,valid_to FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF :instant WHERE id=:id",
@@ -419,9 +517,12 @@ async function temporal(db, report) {
   } catch (error) {
     // Preserve later history/write/detach observations even if contextual parameter
     // lowering exposes a native counterexample. The probe still fails overall.
-    report.counterexamples = [
-      { name: "compiled FOR SYSTEM_TIME AS OF parameter", error: redact(error), diagnostics: error?.diagnostics },
-    ];
+    report.counterexamples ??= [];
+    report.counterexamples.push({
+      name: "compiled FOR SYSTEM_TIME AS OF parameter",
+      error: redact(error),
+      diagnostics: error?.diagnostics,
+    });
     failures.push(`${report.compatibilityLevel}: compiled FOR SYSTEM_TIME AS OF parameter`);
   }
   const activeFailures = [];
