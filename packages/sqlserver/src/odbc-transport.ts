@@ -37,8 +37,26 @@ export class SqlServerOdbcTransport {
     this.state = odbcState(options.shared);
     const sibling = new URL("./odbc-worker.js", import.meta.url),
       url = existsSync(sibling) ? sibling : new URL("../dist/packages/sqlserver/src/odbc-worker.js", import.meta.url);
-    this.control = factory(url, "control", options);
-    this.data = factory(url, "data", options);
+    try {
+      this.control = factory(url, "control", options);
+    } catch {
+      throw new Error("SQL Server ODBC worker initialization failed");
+    }
+    try {
+      this.data = factory(url, "data", options);
+    } catch {
+      this.closed = true;
+      this.reusable = false;
+      // The first worker may still be loading FFI. Queue graceful close; never terminate native code.
+      this.control.on("error", () => {});
+      try {
+        this.control.postMessage({ kind: "close" });
+      } catch {}
+      try {
+        this.control.unref();
+      } catch {}
+      throw new Error("SQL Server ODBC worker initialization failed");
+    }
     const start = (worker: OdbcWorkerPort) =>
       new Promise<void>((resolve, reject) => {
         const listener = (message: { ready?: boolean; error?: unknown }) => {
