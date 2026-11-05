@@ -11,10 +11,28 @@ import {
   type DuckDBNativeStatement,
 } from "./runtime.js";
 import { duckDBVersionSupport } from "./support.js";
-export type DuckDBSDK = typeof NativeSDK;
+export type DuckDBSDK = Omit<typeof NativeSDK, "default">;
 export type DuckDBSDKImporter = () => Promise<DuckDBSDK>;
 const packageName = "@duckdb/node-api";
-const loadSDK: DuckDBSDKImporter = async () => import(packageName) as Promise<DuckDBSDK>;
+const loadSDK: DuckDBSDKImporter = async () => {
+  try {
+    return (await import(packageName)) as DuckDBSDK;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ERR_MODULE_NOT_FOUND" &&
+      error instanceof Error &&
+      /^Cannot find package ['"]@duckdb\/node-api['"]/u.test(error.message)
+    )
+      throw new Error(
+        "Install the application-owned DuckDB driver with pnpm add @duckdb/node-api before using @typed-sql/duckdb/node-api",
+        { cause: error },
+      );
+    throw error;
+  }
+};
 export interface NodeDuckDBOptions extends Omit<DuckDBDatabaseOptions, "connection"> {
   readonly connection?: NativeSDK.DuckDBConnection;
   readonly instance?: NativeSDK.DuckDBInstance;
