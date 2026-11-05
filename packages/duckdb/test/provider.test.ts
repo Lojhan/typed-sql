@@ -43,7 +43,7 @@ await describe("DuckDB native catalog evidence", async () => {
         strict.equal(snapshot.formatVersion, 2);
         strict.equal(snapshot.server?.versionKey, driver.version().slice(1));
         const users = Object.values(snapshot.tables).find((table) => table.name === "users");
-        strict.ok(users);
+        if (users === undefined) throw new Error("users catalog table missing");
         strict.equal(users.columns.id?.tsType, "bigint");
         strict.equal(users.columns.email?.nullable, false);
         strict.match(users.columns.nested!.tsType, /readonly "attrs"/u);
