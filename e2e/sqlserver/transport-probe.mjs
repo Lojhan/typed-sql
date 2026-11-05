@@ -230,6 +230,43 @@ try {
         await prepared.promises.free();
       }
     });
+    await run(`compat-${level}.prepared-max-results`, async () => {
+      connection.setMaxPreparedColumnSize(64);
+      let prepared;
+      try {
+        prepared = await new Promise((resolve, reject) =>
+          connection.prepare(
+            {
+              query_str:
+                "SELECT REPLICATE(CONVERT(nvarchar(max),N'é😀'),5000) AS textValue, CONVERT(varbinary(max),REPLICATE(CONVERT(varchar(max),'abcdef'),5000)) AS binaryValue",
+              numeric_string: true,
+              max_prepared_column_size: 64,
+            },
+            (error, value) => (error ? reject(error) : resolve(value)),
+          ),
+        );
+        const result = await prepared.promises.query([]);
+        const row = result.first[0];
+        const textExact = row.textValue === "é😀".repeat(5000);
+        const binaryExact = Buffer.from(row.binaryValue).equals(Buffer.from("abcdef".repeat(5000)));
+        return {
+          outcome: "success",
+          textExact,
+          binaryExact,
+          textLength: row.textValue.length,
+          binaryLength: row.binaryValue.length,
+          warnings: result.info,
+          metadata: prepared.getMeta(),
+          silentTruncation: (!textExact || !binaryExact) && result.info.length === 0,
+        };
+      } catch (error) {
+        return { outcome: "detected-error", error: safeError(error) };
+      } finally {
+        await prepared?.promises.free();
+        connection.setMaxPreparedColumnSize(1024 * 1024);
+        assert.equal(Number((await one("SELECT 1 AS recovered")).recovered), 1);
+      }
+    });
     await run(`compat-${level}.collation-inputs`, async () => {
       const legacy = await one(
         "SELECT CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS) AS value, DATALENGTH(CONVERT(varchar(8),? COLLATE Latin1_General_100_CI_AS)) AS bytes",
