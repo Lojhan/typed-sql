@@ -617,7 +617,13 @@ function hasNestedJsonInput(type: RuntimeValueType): boolean {
   return (
     typeof type === "object" &&
     ("json" in type ||
-      ("array" in type ? hasNestedJsonInput(type.array) : "union" in type && type.union.some(hasNestedJsonInput)))
+      ("array" in type
+        ? hasNestedJsonInput(type.array)
+        : "object" in type
+          ? Object.values(type.object).some((field) => hasNestedJsonInput(field.type))
+          : "tuple" in type
+            ? type.tuple.some((field) => hasNestedJsonInput(field.type))
+            : "union" in type && type.union.some(hasNestedJsonInput)))
   );
 }
 
@@ -627,8 +633,21 @@ function nestedInputType(type: RuntimeValueType, typeModule: string): string {
     const shape = jsonShapeType(type.json.shape);
     return `${type.json.representation === "text" ? "string" : shape} | import(${JSON.stringify(typeModule)}).JsonInput<${shape}>`;
   }
-  if ("array" in type)
-    return `readonly (${nestedInputType(type.array, typeModule)}${type.elementNullable === false ? "" : " | null"})[]`;
+  if ("array" in type) {
+    const element = `${nestedInputType(type.array, typeModule)}${type.elementNullable === false ? "" : " | null"}`;
+    return type.length !== undefined && type.length <= 128
+      ? `readonly [${Array.from({ length: type.length }, () => element).join(", ")}]`
+      : `readonly (${element})[]`;
+  }
+  if ("object" in type)
+    return `{ ${Object.entries(type.object)
+      .map(
+        ([key, field]) =>
+          `readonly ${JSON.stringify(key)}: ${nestedInputType(field.type, typeModule)}${field.nullable ? " | null" : ""};`,
+      )
+      .join(" ")} }`;
+  if ("tuple" in type)
+    return `readonly [${type.tuple.map((field) => `${nestedInputType(field.type, typeModule)}${field.nullable ? " | null" : ""}`).join(", ")}]`;
   if ("union" in type) return type.union.map((member) => `(${nestedInputType(member, typeModule)})`).join(" | ");
   return JSON.stringify(type.literal);
 }
@@ -645,7 +664,6 @@ export function parameterTypeLiteral(
     if (
       parameter.runtimeType !== undefined &&
       typeof parameter.runtimeType === "object" &&
-      "array" in parameter.runtimeType &&
       hasNestedJsonInput(parameter.runtimeType)
     )
       return `${nestedInputType(parameter.runtimeType, typeModule)}${parameter.nullable ? " | null" : ""}`;

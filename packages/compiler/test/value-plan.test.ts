@@ -32,8 +32,8 @@ await describe("executable compiler value metadata", async () => {
       strict.deepEqual(plan, compiled.queries[0]?.valuePlan);
       strict.equal(plan.dialect, "postgres");
       strict.equal(plan.typePolicyHash, calculateTypePolicyHash(base.defaultTypePolicy));
-      strict.deepEqual(plan.columns, [{ type: "number", nullable: false, name: "id" }]);
-      strict.deepEqual(plan.parameters, [{ type: "number", nullable: false, index: 1 }]);
+      strict.deepEqual(plan.columns, [{ type: "number", nullable: false, databaseType: "integer", name: "id" }]);
+      strict.deepEqual(plan.parameters, [{ type: "number", nullable: false, databaseType: "integer", index: 1 }]);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
@@ -47,7 +47,7 @@ await describe("executable compiler value metadata", async () => {
     );
     strict.deepEqual(result.parameters, [
       { index: 1, type: "unknown", nullable: true },
-      { index: 2, type: "number", nullable: false },
+      { index: 2, type: "number", nullable: false, databaseType: "integer" },
       { index: 3, type: "unknown", nullable: true },
     ]);
     strict.throws(

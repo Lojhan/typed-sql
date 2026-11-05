@@ -11,6 +11,12 @@ import { explicitJsonParameterIndexes, type Query } from "./query.js";
 import type { QueryValuePlanSelector } from "./query-value-plan-selection.js";
 import { mapQueryResultStream, queryResultValidationSource } from "./result-validation.js";
 
+/** One required native object field or positional tuple slot. SQL NULL is independent of its type. */
+export interface RuntimeValueField {
+  readonly type: RuntimeValueType;
+  readonly nullable: boolean;
+}
+
 /** Logical JavaScript values selected by a grammar's type policy. */
 export type RuntimeValueType =
   | "never"
@@ -23,10 +29,14 @@ export type RuntimeValueType =
   | "bytes"
   | { readonly json: JsonValueDescriptor }
   | { readonly literal: string | number | boolean }
-  | { readonly array: RuntimeValueType; readonly elementNullable?: boolean }
+  | { readonly array: RuntimeValueType; readonly elementNullable?: boolean; readonly length?: number }
+  | { readonly object: Readonly<Record<string, RuntimeValueField>> }
+  | { readonly tuple: readonly RuntimeValueField[] }
   | { readonly union: readonly RuntimeValueType[] };
 
 export interface QueryValueDescriptor {
+  /** Opaque grammar-owned physical target. This text is metadata, never trusted executable SQL. */
+  readonly databaseType?: string;
   /** Parameter-only permission for explicit JSON text without excluding native document inputs. */
   readonly acceptsJsonInput?: true;
   readonly scalarJsonShape?: JsonShape;
@@ -71,6 +81,55 @@ const normalizedShapeNodes = new WeakMap<JsonShape, number>();
 
 interface PlanBudget {
   remaining: number;
+  text?: number;
+}
+
+/** Inspect own data without executing getters or accepting inherited schema evidence. */
+function dataObject(value: unknown): Record<string, unknown> {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
+  )
+    throw new TypeError("Runtime value metadata requires a plain object");
+  if (Object.getOwnPropertySymbols(value).length)
+    throw new TypeError("Runtime value metadata cannot contain symbol keys");
+  for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value)))
+    if (!("value" in descriptor) || !descriptor.enumerable)
+      throw new TypeError("Runtime value metadata cannot contain accessors or hidden properties");
+  return value as Record<string, unknown>;
+}
+
+function dataArray(value: unknown): readonly unknown[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype)
+    throw new TypeError("Runtime value metadata requires an array");
+  if (value.length > 262_144) throw new TypeError("Runtime value array expansion limit");
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  for (let index = 0; index < value.length; index++)
+    if (!descriptors[index] || !("value" in descriptors[index]!))
+      throw new TypeError("Runtime value metadata arrays require own data entries");
+  if (Reflect.ownKeys(descriptors).length !== value.length + 1)
+    throw new TypeError("Unexpected runtime value metadata array properties");
+  return value;
+}
+
+function allowedKeys(value: Record<string, unknown>, keys: readonly string[]): void {
+  if (Object.keys(value).some((key) => !keys.includes(key))) throw new TypeError("Invalid runtime value type");
+}
+
+function chargeText(value: string, budget: PlanBudget, maximum: number): string {
+  if (value.length > maximum || value.includes("\0")) throw new TypeError("Runtime value metadata text limit");
+  budget.text = (budget.text ?? 1_048_576) - value.length;
+  if (budget.text < 0) throw new TypeError("Runtime value metadata text limit");
+  return value;
+}
+
+function inspectShape(value: unknown, budget = { remaining: 8192 }, depth = 0): void {
+  if (--budget.remaining < 0 || depth > 128) throw new TypeError("Runtime value shape expansion limit");
+  if (typeof value !== "object" || value === null) return;
+  const values = Array.isArray(value) ? dataArray(value) : Object.values(dataObject(value));
+  for (const child of values) inspectShape(child, budget, depth + 1);
 }
 
 function copyType(
@@ -86,28 +145,76 @@ function copyType(
     ["never", "unknown", "string", "number", "bigint", "boolean", "date", "bytes"].includes(type)
   )
     return type;
-  if (typeof type === "object" && type !== null && "json" in type)
-    return Object.freeze({ json: copyDescriptor({ type: "unknown", nullable: false, json: type.json }, budget).json! });
-  if (
-    typeof type === "object" &&
-    type !== null &&
-    "literal" in type &&
-    ["string", "number", "boolean"].includes(typeof type.literal) &&
-    (typeof type.literal !== "number" || Number.isFinite(type.literal))
-  )
-    return Object.freeze({ literal: type.literal });
-  if (typeof type === "object" && type !== null && "array" in type) {
-    if (type.elementNullable !== undefined && typeof type.elementNullable !== "boolean")
-      throw new TypeError("Invalid array element nullability");
+  const source = dataObject(type);
+  if (Object.hasOwn(source, "json")) {
+    allowedKeys(source, ["json"]);
     return Object.freeze({
-      array: copyType(type.array, budget, depth + 1, local),
-      ...(type.elementNullable === undefined ? {} : { elementNullable: type.elementNullable }),
+      json: copyDescriptor({ type: "unknown", nullable: false, json: source.json as JsonValueDescriptor }, budget)
+        .json!,
     });
   }
-  if (typeof type === "object" && type !== null && "union" in type && type.union.length > 0 && type.union.length <= 32)
+  if (Object.hasOwn(source, "literal")) {
+    allowedKeys(source, ["literal"]);
+    const literal = source.literal;
+    if (
+      !["string", "number", "boolean"].includes(typeof literal) ||
+      (typeof literal === "number" && !Number.isFinite(literal))
+    )
+      throw new TypeError("Invalid runtime value type");
+    if (typeof literal === "string") chargeText(literal, budget, 16_384);
+    return Object.freeze({ literal: literal as string | number | boolean });
+  }
+  if (Object.hasOwn(source, "array")) {
+    allowedKeys(source, ["array", "elementNullable", "length"]);
+    if (source.elementNullable !== undefined && typeof source.elementNullable !== "boolean")
+      throw new TypeError("Invalid array element nullability");
+    if (
+      source.length !== undefined &&
+      (!Number.isSafeInteger(source.length) || (source.length as number) < 0 || (source.length as number) > 262_144)
+    )
+      throw new TypeError("Invalid runtime array length");
     return Object.freeze({
-      union: Object.freeze(type.union.map((member) => copyType(member, budget, depth + 1, local))),
+      array: copyType(source.array as RuntimeValueType, budget, depth + 1, local),
+      ...(source.elementNullable === undefined ? {} : { elementNullable: source.elementNullable as boolean }),
+      ...(source.length === undefined ? {} : { length: source.length as number }),
     });
+  }
+  const copyField = (value: unknown): RuntimeValueField => {
+    if (--budget.remaining < 0 || --local.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
+    const field = dataObject(value);
+    allowedKeys(field, ["type", "nullable"]);
+    if (!Object.hasOwn(field, "type") || !Object.hasOwn(field, "nullable") || typeof field.nullable !== "boolean")
+      throw new TypeError("Invalid runtime field nullability");
+    return Object.freeze({
+      type: copyType(field.type as RuntimeValueType, budget, depth + 1, local),
+      nullable: field.nullable,
+    });
+  };
+  if (Object.hasOwn(source, "object")) {
+    allowedKeys(source, ["object"]);
+    const fields = dataObject(source.object);
+    return Object.freeze({
+      object: Object.freeze(
+        Object.fromEntries(
+          Object.keys(fields)
+            .sort()
+            .map((key) => [chargeText(key, budget, 16_384), copyField(fields[key])]),
+        ),
+      ),
+    });
+  }
+  if (Object.hasOwn(source, "tuple")) {
+    allowedKeys(source, ["tuple"]);
+    return Object.freeze({ tuple: Object.freeze(dataArray(source.tuple).map(copyField)) });
+  }
+  if (Object.hasOwn(source, "union")) {
+    allowedKeys(source, ["union"]);
+    const members = dataArray(source.union);
+    if (members.length > 0 && members.length <= 32)
+      return Object.freeze({
+        union: Object.freeze(members.map((member) => copyType(member as RuntimeValueType, budget, depth + 1, local))),
+      });
+  }
   throw new TypeError("Invalid runtime value type");
 }
 
@@ -118,6 +225,7 @@ function copyShape(shape: JsonShape, budget: PlanBudget): JsonShape {
     if (budget.remaining < 0) throw new TypeError("Runtime value plan expansion limit");
     return shape;
   }
+  inspectShape(shape);
   const normalized = parseJsonShape(shape);
   const remaining = budget.remaining;
   const visit = (item: JsonShape): void => {
@@ -143,8 +251,13 @@ function copyShape(shape: JsonShape, budget: PlanBudget): JsonShape {
 }
 
 function copyDescriptor(value: QueryValueDescriptor, budget: PlanBudget): QueryValueDescriptor {
-  if (typeof value.nullable !== "boolean") throw new TypeError("Invalid runtime nullability");
+  dataObject(value);
+  if (!Object.hasOwn(value, "type") || !Object.hasOwn(value, "nullable") || typeof value.nullable !== "boolean")
+    throw new TypeError("Invalid runtime nullability");
   const json = value.json;
+  if (json !== undefined) dataObject(json);
+  if (value.databaseType !== undefined && (typeof value.databaseType !== "string" || !value.databaseType.length))
+    throw new TypeError("Invalid runtime database type");
   if (json !== undefined && value.scalarJsonShape !== undefined)
     throw new TypeError("A value cannot be both serialized JSON and a native JSON scalar");
   if (json !== undefined && !["parsed", "text", "binary"].includes(json.representation))
@@ -152,6 +265,7 @@ function copyDescriptor(value: QueryValueDescriptor, budget: PlanBudget): QueryV
   return Object.freeze({
     type: copyType(value.type, budget),
     nullable: value.nullable,
+    ...(value.databaseType === undefined ? {} : { databaseType: chargeText(value.databaseType, budget, 4096) }),
     ...(value.acceptsJsonInput === true ? { acceptsJsonInput: true as const } : {}),
     ...(value.scalarJsonShape === undefined ? {} : { scalarJsonShape: copyShape(value.scalarJsonShape, budget) }),
     ...(json === undefined
@@ -171,7 +285,9 @@ const preparedPlans = new WeakSet<QueryValuePlan>();
 /** Normalize static build metadata once; the returned plan is safe to reuse across calls. */
 export function defineQueryValuePlan(plan: QueryValuePlan): QueryValuePlan {
   if (preparedPlans.has(plan)) return plan;
+  dataObject(plan);
   if (
+    !["dialect", "typePolicyHash", "columns", "parameters"].every((key) => Object.hasOwn(plan, key)) ||
     typeof plan.dialect !== "string" ||
     !plan.dialect ||
     typeof plan.typePolicyHash !== "string" ||
@@ -185,15 +301,20 @@ export function defineQueryValuePlan(plan: QueryValuePlan): QueryValuePlan {
     plan.parameters.length > 65_535
   )
     throw new TypeError("Runtime value plan descriptor count limit");
-  const budget: PlanBudget = { remaining: 262_144 };
+  dataArray(plan.columns);
+  dataArray(plan.parameters);
+  const budget: PlanBudget = { remaining: 262_144, text: 1_048_576 };
   const names = new Set<string>();
   const columns = plan.columns.map((column) => {
+    dataObject(column);
     if (typeof column.name !== "string" || names.has(column.name))
       throw new TypeError("Invalid or duplicate result column name");
+    chargeText(column.name, budget, 16_384);
     names.add(column.name);
     return Object.freeze({ ...copyDescriptor(column, budget), name: column.name });
   });
   const parameters = plan.parameters.map((parameter, position) => {
+    dataObject(parameter);
     if (parameter.index !== position + 1) throw new TypeError("Query parameters must be ordered and contiguous");
     return Object.freeze({ ...copyDescriptor(parameter, budget), index: parameter.index });
   });
@@ -247,15 +368,12 @@ export function getQueryValuePlan<Row, Params extends readonly unknown[]>(
 }
 
 function hasBigint(type: RuntimeValueType): boolean {
-  return typeof type === "object"
-    ? "json" in type
-      ? false
-      : "literal" in type
-        ? false
-        : "array" in type
-          ? hasBigint(type.array)
-          : type.union.some(hasBigint)
-    : type === "bigint";
+  if (typeof type === "string") return type === "bigint";
+  if ("json" in type || "literal" in type) return false;
+  if ("array" in type) return hasBigint(type.array);
+  if ("object" in type) return Object.values(type.object).some((field) => hasBigint(field.type));
+  if ("tuple" in type) return type.tuple.some((field) => hasBigint(field.type));
+  return type.union.some(hasBigint);
 }
 
 function ambiguousParsedJson(type: RuntimeValueType, nullable: boolean, json?: JsonValueDescriptor): boolean {
@@ -268,6 +386,9 @@ function ambiguousParsedJson(type: RuntimeValueType, nullable: boolean, json?: J
   if (typeof type === "string" || "literal" in type) return false;
   if ("json" in type) return ambiguousParsedJson("unknown", nullable, type.json);
   if ("array" in type) return ambiguousParsedJson(type.array, type.elementNullable !== false);
+  if ("object" in type)
+    return Object.values(type.object).some((field) => ambiguousParsedJson(field.type, field.nullable));
+  if ("tuple" in type) return type.tuple.some((field) => ambiguousParsedJson(field.type, field.nullable));
   return type.union.some((member) => ambiguousParsedJson(member, nullable));
 }
 
@@ -294,13 +415,36 @@ export function assertQueryResultTransport<Row, Params extends readonly unknown[
     throw new QueryValueError("plan", "parsed transport cannot distinguish SQL NULL from JSON null for this contract");
 }
 
+interface ValueBudget {
+  remaining: number;
+}
+
+function valueObject(value: unknown, location: string): Record<string, unknown> {
+  try {
+    return dataObject(value);
+  } catch {
+    throw new QueryValueError(location, "expected a plain object with own data properties");
+  }
+}
+
+function valueArray(value: unknown, location: string): readonly unknown[] {
+  try {
+    return dataArray(value);
+  } catch {
+    throw new QueryValueError(location, "expected an array with own data entries within the expansion limit");
+  }
+}
+
 function scalar(
   value: unknown,
   type: RuntimeValueType,
   location: string,
   profile?: QueryTransportProfile,
   encoding = false,
+  budget: ValueBudget = { remaining: 262_144 },
+  owned = false,
 ): unknown {
+  if (--budget.remaining < 0) throw new QueryValueError(location, "native value expansion limit");
   if (typeof type === "object") {
     if ("json" in type) {
       if (profile === undefined) throw new QueryValueError(location, "missing JSON transport profile");
@@ -316,30 +460,58 @@ function scalar(
     if ("union" in type) {
       for (const member of type.union) {
         try {
-          return scalar(value, member, location, profile, encoding);
+          return scalar(value, member, location, profile, encoding, budget, owned);
         } catch (error) {
           if (!(error instanceof QueryValueError)) throw error;
         }
       }
       throw new QueryValueError(location, "value does not match any union member");
     }
-    if (!Array.isArray(value)) throw new QueryValueError(location, "expected array");
-    return value.map((item, index) => {
+    const fieldValue = (item: unknown, field: RuntimeValueField, path: string): unknown => {
+      if (item === null) {
+        if (field.nullable) return null;
+        if (!encoding && typeof field.type === "object" && "json" in field.type && profile?.jsonWire === "parsed")
+          return scalar(item, field.type, path, profile, false, budget, true);
+        throw new QueryValueError(path, "unexpected NULL field");
+      }
+      return scalar(item, field.type, path, profile, encoding, budget, true);
+    };
+    if ("object" in type) {
+      const source = valueObject(value, location);
+      const names = Object.keys(type.object);
+      if (
+        Object.getOwnPropertyNames(source).length !== names.length ||
+        names.some((name) => !Object.hasOwn(source, name))
+      )
+        throw new QueryValueError(location, "object fields differ from the native contract");
+      return Object.fromEntries(
+        names.map((name) => [name, fieldValue(source[name], type.object[name]!, `${location}.${name}`)]),
+      );
+    }
+    const items = valueArray(value, location);
+    if ("tuple" in type) {
+      if (items.length !== type.tuple.length)
+        throw new QueryValueError(location, "tuple length differs from the native contract");
+      return items.map((item, index) => fieldValue(item, type.tuple[index]!, `${location}[${index}]`));
+    }
+    if (type.length !== undefined && items.length !== type.length)
+      throw new QueryValueError(location, "array length differs from the native contract");
+    return items.map((item, index) => {
       if (item === null) {
         if (type.elementNullable === false) {
           if (!encoding && typeof type.array === "object" && "json" in type.array && profile?.jsonWire === "parsed")
-            return scalar(item, type.array, `${location}[${index}]`, profile, false);
+            return scalar(item, type.array, `${location}[${index}]`, profile, false, budget, owned);
           throw new QueryValueError(`${location}[${index}]`, "unexpected NULL array element");
         }
         return null;
       }
-      return scalar(item, type.array, `${location}[${index}]`, profile, encoding);
+      return scalar(item, type.array, `${location}[${index}]`, profile, encoding, budget, owned);
     });
   }
   const valid =
     type === "unknown" ||
     (type === "date"
-      ? value instanceof Date && Number.isFinite(value.getTime())
+      ? value instanceof Date && Number.isFinite(Date.prototype.getTime.call(value))
       : type === "bytes"
         ? value instanceof Uint8Array
         : typeof value === type);
@@ -349,6 +521,8 @@ function scalar(
       (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value))))
   )
     throw new QueryValueError(location, `expected ${type}`);
+  if (owned && type === "bytes") return new Uint8Array(value as Uint8Array);
+  if (owned && type === "date") return new Date(Date.prototype.getTime.call(value));
   return value;
 }
 
@@ -433,12 +607,11 @@ function decodeRow(
   profile: QueryTransportProfile,
   rowIndex: number,
 ): Record<string, unknown> {
-  if (typeof row !== "object" || row === null || Array.isArray(row))
-    throw new QueryValueError(`row ${rowIndex}`, "expected a result object");
+  const source = valueObject(row, `row ${rowIndex}`);
   const result: Record<string, unknown> = {};
   for (const column of plan.columns) {
-    if (!Object.hasOwn(row, column.name)) throw new QueryValueError(column.name, "missing result column");
-    const value = decode((row as Record<string, unknown>)[column.name], column, profile, column.name);
+    if (!Object.hasOwn(source, column.name)) throw new QueryValueError(column.name, "missing result column");
+    const value = decode(source[column.name], column, profile, column.name);
     if (column.name === "__proto__")
       Object.defineProperty(result, column.name, { value, enumerable: true, writable: true, configurable: true });
     else result[column.name] = value;
