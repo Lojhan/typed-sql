@@ -359,7 +359,7 @@ class Resolver {
     }
     const name = partsLast(source.call.name).toUpperCase();
     let columns: Relation["columns"] = [];
-    if (name === "OPENJSON") {
+    if (source.call.name.parts.length === 1 && name === "OPENJSON") {
       if (source.call.arguments.length < 1 || source.call.arguments.length > 2)
         this.diagnostic("TSQ202", "OPENJSON expects one document and optional path", source.call.range);
       const input = source.call.arguments[0];
@@ -391,7 +391,7 @@ class Resolver {
             { name: "value", ...type("nvarchar(max)", true, this.policy) },
             { name: "type", ...type("int", false, this.policy) },
           ];
-    } else if (name === "STRING_SPLIT") {
+    } else if (source.call.name.parts.length === 1 && name === "STRING_SPLIT") {
       if (source.call.arguments.length < 2 || source.call.arguments.length > 3)
         this.diagnostic(
           "TSQ202",
@@ -424,7 +424,18 @@ class Resolver {
         this.schema.formatVersion === 2
           ? Object.values(this.schema.routines)
               .flat()
-              .filter((r) => this.same(r.name, partsLast(source.call.name)) && r.result.kind === "table")
+              .filter(
+                (r) =>
+                  this.same(r.name, partsLast(source.call.name)) &&
+                  r.kind === "function" &&
+                  r.result.kind === "table" &&
+                  this.same(
+                    r.schema ?? "dbo",
+                    source.call.name.parts.at(-2) ?? String(this.schema.server?.settings.defaultSchema ?? "dbo"),
+                  ) &&
+                  r.arguments.length === source.call.arguments.length &&
+                  r.arguments.every((argument) => argument.mode === "in"),
+              )
           : [];
       const routine = routines.length === 1 ? routines[0] : undefined;
       if (!routine) {
@@ -926,9 +937,9 @@ class Resolver {
   call(expression: Expression & { kind: "call" }, scope: Scope, ctes: Ctes, expected?: Value): Value {
     const name = partsLast(expression.name).toUpperCase();
     if (expression.returningJson) this.requireVersion(17, expression.range, "Native JSON RETURNING");
-    if (name === "NEWSEQUENTIALID")
+    if (expression.name.parts.length === 1 && name === "NEWSEQUENTIALID")
       this.diagnostic("TSQ203", "NEWSEQUENTIALID is valid only in a DEFAULT constraint", expression.range);
-    if (name === "ISJSON" && expression.arguments.length > 1)
+    if (expression.name.parts.length === 1 && name === "ISJSON" && expression.arguments.length > 1)
       this.requireVersion(16, expression.range, "ISJSON type constraint");
     const builtin = expression.name.parts.length === 1 ? SQLSERVER_BUILTINS[name] : undefined;
     if (!builtin) {
@@ -1068,6 +1079,30 @@ class Resolver {
     };
     const first = args[0] ?? unknown,
       nullable = builtin.nullable && args.some((value) => value.nullable);
+    if (["PERCENTILE_DISC", "PERCENTILE_CONT"].includes(name)) {
+      const percentile = expression.arguments[0];
+      const value =
+        percentile?.kind === "literal" && percentile.literal === "number" ? Number(percentile.value) : undefined;
+      if (value === undefined || !Number.isFinite(value) || value < 0 || value > 1)
+        this.diagnostic(
+          "TSQ203",
+          "Percentiles require a numeric literal between zero and one",
+          percentile?.range ?? expression.range,
+        );
+      if (expression.withinGroup?.length !== 1)
+        this.diagnostic("TSQ203", "Percentiles require exactly one WITHIN GROUP ordering expression", expression.range);
+      if (expression.over?.order.length)
+        this.diagnostic("TSQ203", "Percentiles do not accept ORDER BY inside OVER", expression.over.range);
+      const ordering = expression.withinGroup?.[0]?.expression;
+      const result = ordering ? this.scalar(this.expression(ordering, scope, ctes), ordering) : unknown;
+      if (name === "PERCENTILE_CONT" && !numericNames.has(native(result)?.name ?? ""))
+        this.diagnostic(
+          "TSQ201",
+          "PERCENTILE_CONT requires numeric ordering values",
+          ordering?.range ?? expression.range,
+        );
+      return name === "PERCENTILE_DISC" ? { ...result, nullable: true } : type("float(53)", true, this.policy);
+    }
     switch (builtin.rule) {
       case "count":
         return type(

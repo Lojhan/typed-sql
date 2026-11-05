@@ -62,7 +62,16 @@ export function sqlserver(
           ? unknownQuerySemantics(statement.range, "SQL Server analysis reported an error")
           : analyzeSqlServerSemantics(statement, snapshot);
         let repeatedResultShapeStable = true;
-        for (const range of context.repeatedFragmentRanges ?? [])
+        for (const range of context.repeatedFragmentRanges ?? []) {
+          // A repeated JOIN/CTE source can change SELECT * width even if its scalar expressions
+          // do not overlap a projection. Only complete predicate-contained ranges have this proof.
+          if (
+            statement.kind === "select" &&
+            ![statement.where, statement.having, ...statement.joins.map((join) => join.on)].some(
+              (predicate) => predicate && range.start >= predicate.range.start && range.end <= predicate.range.end,
+            )
+          )
+            repeatedResultShapeStable = false;
           walkStatement(statement, {
             expression: (expression) => {
               if (
@@ -73,6 +82,7 @@ export function sqlserver(
                 repeatedResultShapeStable = false;
             },
           });
+        }
         const states = resolveSqlServerCapabilities(snapshot);
         const conservative = states.syntax?.level === "conservative";
         return applyDialectCapabilityStates(

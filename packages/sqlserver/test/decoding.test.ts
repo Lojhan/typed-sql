@@ -95,4 +95,91 @@ await describe("SQL Server lossless native codecs", async () => {
     strict.equal(encodeSqlServerParameter(null, descriptor("bigint", true), policy), null);
     strict.throws(() => encodeSqlServerParameter("1", { nullable: false, type: "string" }, policy), /metadata/);
   });
+  await it("checks native temporal augmentation and actual calendar bounds before formatting", () => {
+    const type = requireSqlServerNativeType("datetime2(7)");
+    for (const value of [null, "2024-01-01", new Date(NaN), new Date("0000-01-01"), new Date("+010000-01-01")])
+      strict.throws(() => formatSqlServerNativeDate(value, type), /valid in-range/);
+    for (const nanosecondsDelta of [undefined, NaN, -0.001, 0.001, 0.00000015]) {
+      const value = Object.assign(new Date("2024-01-01T00:00:00Z"), { nanosecondsDelta });
+      strict.throws(() => formatSqlServerNativeDate(value, type), /fraction|100ns/);
+    }
+    const legacy = Object.assign(new Date("2024-01-01T00:00:00.007Z"), { nanosecondsDelta: 0 });
+    strict.equal(formatSqlServerNativeDate(legacy, requireSqlServerNativeType("datetime")), "2024-01-01T00:00:00.007");
+    const minute = Object.assign(new Date("2024-01-01T00:00:00Z"), { nanosecondsDelta: 0 });
+    strict.equal(formatSqlServerNativeDate(minute, requireSqlServerNativeType("smalldatetime")), "2024-01-01T00:00:00");
+  });
+  await it("rejects unrepresentable temporal text and accepts exact trailing-zero precision", () => {
+    for (const [value, type] of [
+      ["0".repeat(65), "date"],
+      ["2024/01/01", "date"],
+      ["2024-13-01", "date"],
+      ["2024-01-01T00:60:00", "datetime2"],
+      ["23:59:60", "time"],
+      ["0001-01-01T00:00:00+14:00", "datetimeoffset"],
+      ["9999-12-31T23:59:59-14:00", "datetimeoffset"],
+      ["2024-01-01T00:00:00+15:00", "datetimeoffset"],
+      ["2024-01-01T00:00:00+00:60", "datetimeoffset"],
+      ["1899-12-31T00:00:00", "smalldatetime"],
+      ["2079-06-07T00:00:00", "smalldatetime"],
+    ] as const)
+      strict.throws(() => encode(value, type));
+    strict.equal(encode("12:34:56.1200000", "time(2)"), "12:34:56.12");
+    strict.equal(encode("2024-01-01T00:00:00Z", "datetimeoffset(0)"), "2024-01-01T00:00:00Z");
+    strict.equal(encode("2024-01-01T00:00:00.123-03:30", "datetimeoffset(3)"), "2024-01-01T00:00:00.123-03:30");
+  });
+  await it("implements explicit Date and Decimal policies without weakening the default exact codecs", () => {
+    const date = new Date("2024-01-02T03:04:05.123Z"),
+      datePolicy = { ...policy, temporal: "Date" as const };
+    for (const [type, expected] of [
+      ["date", "2024-01-02"],
+      ["time(3)", "03:04:05.123"],
+      ["datetime2(3)", "2024-01-02T03:04:05.123"],
+      ["datetimeoffset(3)", "2024-01-02T03:04:05.123Z"],
+    ] as const)
+      strict.equal(encodeSqlServerParameter(date, descriptor(type), datePolicy), expected);
+    const copy = decodeSqlServerNativeValue(date, descriptor("datetime2"), datePolicy);
+    strict.notEqual(copy, date);
+    strict.deepEqual(copy, date);
+    strict.throws(() => decodeSqlServerNativeValue("2024-01-01", descriptor("date"), datePolicy), /return Date/);
+    strict.throws(() => encode(date, "datetime2"), /policy/);
+    const decimalPolicy = { ...policy, decimal: "Decimal" as const };
+    strict.equal(
+      encodeSqlServerParameter({ value: "1.25" }, descriptor("decimal(5,2)"), decimalPolicy, () => "1.25"),
+      "1.25",
+    );
+    strict.deepEqual(
+      decodeSqlServerNativeValue("1.25", descriptor("decimal(5,2)"), decimalPolicy, (value) => ({ value })),
+      { value: "1.25" },
+    );
+    strict.throws(() => decodeSqlServerNativeValue("1.25", descriptor("decimal(5,2)"), decimalPolicy), /codec/);
+    const numeric = { ...policy, decimal: "number" as const };
+    strict.equal(encodeSqlServerParameter(1.25, descriptor("decimal(5,2)"), numeric), "1.25");
+    strict.equal(decodeSqlServerNativeValue("1.25", descriptor("decimal(5,2)"), numeric), 1.25);
+    strict.throws(
+      () => decodeSqlServerNativeValue("99999999999999999999999999999999999999", descriptor("decimal(38,0)"), numeric),
+      /number policy/,
+    );
+  });
+  await it("keeps primitive type errors and missing result metadata fail closed", () => {
+    strict.equal(encode(true, "bit"), true);
+    strict.equal(encode(1.5, "real"), 1.5);
+    strict.equal(encode(42n, "int"), "42");
+    strict.equal(
+      encode("A0B1C2D3-E4F5-1234-ABCD-0123456789AB", "uniqueidentifier"),
+      "A0B1C2D3-E4F5-1234-ABCD-0123456789AB",
+    );
+    for (const [value, type] of [
+      ["yes", "bit"],
+      [1, "nvarchar(4)"],
+      ["bytes", "varbinary(4)"],
+      [1, "sql_variant"],
+      [1.2, "int"],
+      [1.25, "decimal(5,2)"],
+      [Number.MAX_SAFE_INTEGER + 1, "float"],
+    ] as const)
+      strict.throws(() => encode(value, type));
+    strict.throws(() => decodeSqlServerNativeValue(1, { type: "number", nullable: false }, policy), /metadata/);
+    strict.equal(decodeSqlServerNativeValue(null, descriptor("date", true), policy), null);
+    strict.equal(decodeSqlServerNativeValue("text", descriptor("nvarchar(4)"), policy), "text");
+  });
 });
