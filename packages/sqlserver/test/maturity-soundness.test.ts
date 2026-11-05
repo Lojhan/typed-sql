@@ -2,6 +2,15 @@ import { describe, it, strict } from "poku";
 import { grammar, MATURITY_CASES, maturitySnapshot, snapshot } from "./helpers/maturity-corpus.js";
 
 const invalidCases = [
+  ["NULL is not predicate", "SELECT id FROM dbo.widgets WHERE NULL", "NULL"],
+  ["CASE NULL is not condition", "SELECT CASE WHEN NULL THEN 1 ELSE 0 END AS value FROM dbo.widgets", "NULL"],
+  ["predicate cannot project as BIT", "SELECT (id=1) AS matched FROM dbo.widgets", "id=1"],
+  ["EXISTS cannot project as scalar", "SELECT EXISTS(SELECT 1 AS n) AS matched FROM dbo.widgets", "EXISTS"],
+  ["predicate cannot cast to BIT", "SELECT CAST(id=1 AS bit) AS matched FROM dbo.widgets", "id=1"],
+  ["predicate cannot be COALESCE argument", "SELECT COALESCE(id=1,1) AS value FROM dbo.widgets", "id=1"],
+  ["predicate cannot be arithmetic operand", "SELECT 1+(id=1) AS value FROM dbo.widgets", "id=1"],
+  ["predicate cannot be assignment value", "UPDATE dbo.widgets SET active=id=1", "id=1"],
+
   ["missing column", "SELECT missing FROM dbo.widgets", "missing"],
   ["ambiguous unqualified name", "SELECT id FROM dbo.widgets w JOIN dbo.children c ON c.parent_id=w.id", "id"],
   ["ungrouped projection", "SELECT code FROM dbo.widgets GROUP BY quantity", "code"],
