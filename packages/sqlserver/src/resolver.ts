@@ -28,6 +28,7 @@ interface Value {
   readonly databaseType?: string;
   readonly runtimeType?: RuntimeValueType;
   readonly hidden?: boolean;
+  readonly predicate?: true;
   readonly json?: JsonValueDescriptor;
 }
 interface Relation {
@@ -43,6 +44,7 @@ interface Scope {
 type Ctes = ReadonlyMap<string, Relation>;
 const unknown: Value = Object.freeze({ tsType: "unknown", nullable: true });
 const bool: Value = Object.freeze({ tsType: "boolean", nullable: false, databaseType: "bit" });
+const condition: Value = Object.freeze({ ...bool, predicate: true });
 const numericNames = new Set([
   "tinyint",
   "smallint",
@@ -158,8 +160,13 @@ class Resolver {
   diagnostic(code: string, message: string, range: SourceRange): void {
     this.diagnostics.push({ code, message, range, severity: "error" });
   }
+  scalar(value: Value, expression: Expression): Value {
+    if (value.predicate)
+      this.diagnostic("TSQ201", "T-SQL conditions cannot be used as scalar values; use CASE or IIF", expression.range);
+    return value;
+  }
   expected(expression: Expression, expected: Value, scope: Scope, ctes: Ctes): Value {
-    return this.expression(expression, scope, ctes, expected);
+    return this.scalar(this.expression(expression, scope, ctes, expected), expression);
   }
   parameter(expression: Expression & { kind: "parameter" }, expected?: Value): Value {
     if (this.#parameterFailures.has(expression.index)) return unknown;
@@ -383,7 +390,10 @@ class Resolver {
       } else {
         source.call.arguments.forEach((argument, index) => {
           const target = routine.arguments[index];
-          this.expression(argument, scope, ctes, target ? type(target.databaseType, true, this.policy) : undefined);
+          this.scalar(
+            this.expression(argument, scope, ctes, target ? type(target.databaseType, true, this.policy) : undefined),
+            argument,
+          );
         });
         if (routine.result.kind === "table")
           columns = Object.values(routine.result.columns).map((column) => ({
@@ -432,23 +442,15 @@ class Resolver {
     }
     return { relations, ...(outer ? { outer } : {}) };
   }
-  predicate(expression: Expression, scope: Scope, ctes: Ctes): void {
+  predicate(expression: Expression, scope: Scope, ctes: Ctes): Value {
     const value = this.expression(expression, scope, ctes);
-    if (
-      value.tsType !== "unknown" &&
-      !(
-        expression.kind === "binary" &&
-        (comparison.has(expression.operator) || ["AND", "OR"].includes(expression.operator))
-      ) &&
-      !["isnull", "in", "between", "exists"].includes(expression.kind) &&
-      !(expression.kind === "unary" && expression.operator === "NOT") &&
-      !(expression.kind === "call" && partsLast(expression.name).toUpperCase() === "REGEXP_LIKE")
-    )
+    if (!value.predicate)
       this.diagnostic(
         "TSQ201",
         "T-SQL predicates require comparisons or Boolean conditions; BIT is not a predicate",
         expression.range,
       );
+    return value;
   }
   common(left: Value, right: Value, range: SourceRange, nullable = left.nullable || right.nullable): Value {
     if (left.tsType === "unknown" && left.databaseType === undefined) return { ...right, nullable };
@@ -578,7 +580,7 @@ class Resolver {
         return unknown;
       case "cast": {
         const target = type(expression.databaseType, expression.try, this.policy);
-        const argument = this.expression(expression.argument, scope, ctes, target);
+        const argument = this.scalar(this.expression(expression.argument, scope, ctes, target), expression.argument);
         const input = native(argument)?.name,
           destination = native(target)?.name;
         if (
@@ -611,7 +613,7 @@ class Resolver {
         const value = this.expression(expression.argument, scope, ctes, expected);
         if (expression.operator === "NOT") {
           this.predicate(expression.argument, scope, ctes);
-          return { ...bool, nullable: value.nullable };
+          return { ...condition, nullable: value.nullable };
         }
         const name = native(value)?.name;
         if (name && !numericNames.has(name))
@@ -620,9 +622,9 @@ class Resolver {
       }
       case "binary": {
         if (expression.operator === "AND" || expression.operator === "OR") {
-          this.predicate(expression.left, scope, ctes);
-          this.predicate(expression.right, scope, ctes);
-          return bool;
+          const left = this.predicate(expression.left, scope, ctes);
+          const right = this.predicate(expression.right, scope, ctes);
+          return { ...condition, nullable: left.nullable || right.nullable };
         }
         let left = this.expression(expression.left, scope, ctes),
           right = this.expression(expression.right, scope, ctes);
@@ -631,8 +633,10 @@ class Resolver {
         if (expression.right.kind === "parameter" && left.tsType !== "unknown")
           right = this.expected(expression.right, left, scope, ctes);
         if (comparison.has(expression.operator)) {
+          this.scalar(left, expression.left);
+          this.scalar(right, expression.right);
           this.common(left, right, expression.range);
-          return { ...bool, nullable: left.nullable || right.nullable };
+          return { ...condition, nullable: left.nullable || right.nullable };
         }
         const a = native(left),
           b = native(right);
@@ -688,8 +692,8 @@ class Resolver {
         return unknown;
       }
       case "isnull":
-        this.expression(expression.argument, scope, ctes);
-        return bool;
+        this.scalar(this.expression(expression.argument, scope, ctes), expression.argument);
+        return condition;
       case "in": {
         let argument = this.expression(expression.argument, scope, ctes);
         const values = Array.isArray(expression.values) ? expression.values : undefined;
@@ -701,7 +705,7 @@ class Resolver {
         if (expression.argument.kind === "parameter" && compared[0])
           argument = this.expected(expression.argument, compared[0], scope, ctes);
         for (const value of compared) this.common(argument, value, expression.range);
-        return { ...bool, nullable: argument.nullable || compared.some((value) => value.nullable) };
+        return { ...condition, nullable: argument.nullable || compared.some((value) => value.nullable) };
       }
       case "between": {
         let value = this.expression(expression.argument, scope, ctes);
@@ -711,11 +715,11 @@ class Resolver {
           value = this.expected(expression.argument, lower, scope, ctes);
         this.common(value, lower, expression.range);
         this.common(value, upper, expression.range);
-        return { ...bool, nullable: value.nullable || lower.nullable || upper.nullable };
+        return { ...condition, nullable: value.nullable || lower.nullable || upper.nullable };
       }
       case "exists":
         this.select(expression.query, ctes, scope);
-        return bool;
+        return condition;
       case "subquery": {
         const columns = this.select(expression.query, ctes, scope);
         if (columns.length !== 1) {
@@ -725,17 +729,20 @@ class Resolver {
         return { ...columns[0]!, nullable: true };
       }
       case "case": {
-        if (expression.operand) this.expression(expression.operand, scope, ctes);
+        if (expression.operand) this.scalar(this.expression(expression.operand, scope, ctes), expression.operand);
         let result: Value | undefined;
         for (const arm of expression.arms) {
           if (expression.operand)
             this.expression(arm.when, scope, ctes, this.expression(expression.operand, scope, ctes));
           else this.predicate(arm.when, scope, ctes);
-          const branch = this.expression(arm.then, scope, ctes, expected);
+          const branch = this.scalar(this.expression(arm.then, scope, ctes, expected), arm.then);
           result = result ? this.common(result, branch, expression.range) : branch;
         }
         if (expression.otherwise) {
-          const branch = this.expression(expression.otherwise, scope, ctes, expected);
+          const branch = this.scalar(
+            this.expression(expression.otherwise, scope, ctes, expected),
+            expression.otherwise,
+          );
           result = result ? this.common(result, branch, expression.range) : branch;
         }
         return { ...(result ?? unknown), nullable: !expression.otherwise || result?.nullable === true };
@@ -810,7 +817,8 @@ class Resolver {
       }
       if (argument.kind === "star" && ["COUNT", "COUNT_BIG", "CHECKSUM", "BINARY_CHECKSUM"].includes(name))
         return type("int", false, this.policy);
-      return this.expression(argument, scope, ctes);
+      const value = this.expression(argument, scope, ctes);
+      return name === "IIF" && index === 0 ? value : this.scalar(value, argument);
     });
     const infer = (index: number, target: Value) => {
       const argument = expression.arguments[index];
@@ -869,7 +877,7 @@ class Resolver {
       case "real":
         return type("real", nullable, this.policy);
       case "bit":
-        return { ...bool, nullable };
+        return { ...(name === "REGEXP_LIKE" ? condition : bool), nullable };
       case "uuid":
         return type("uniqueidentifier", nullable, this.policy);
       case "bytes":
@@ -1103,7 +1111,7 @@ class Resolver {
           for (const column of relation.columns)
             if (!column.hidden) columns.push({ ...column, range: expression.range });
       } else {
-        const value = this.expression(expression, scope, ctes);
+        const value = this.scalar(this.expression(expression, scope, ctes), expression);
         const name = projection.alias ?? (expression.kind === "column" ? partsLast(expression.name) : undefined);
         if (!name) {
           this.diagnostic(
@@ -1127,7 +1135,7 @@ class Resolver {
     const ctes = this.cteScope(statement.with, inherited, outer);
     const scope = this.buildScope(statement.from, statement.joins, ctes, outer);
     if (statement.where) this.predicate(statement.where, scope, ctes);
-    for (const group of statement.group) this.expression(group, scope, ctes);
+    for (const group of statement.group) this.scalar(this.expression(group, scope, ctes), group);
     if (statement.having) this.predicate(statement.having, scope, ctes);
     if (statement.top)
       this.expected(
@@ -1156,8 +1164,8 @@ class Resolver {
         orderExpression.name.parts.length === 1 &&
         columns.some((column) => this.same(column.name, partsLast(orderExpression.name)))
       )
-        this.expression(order.expression, outputScope, ctes);
-      else this.expression(order.expression, scope, ctes);
+        this.scalar(this.expression(order.expression, outputScope, ctes), order.expression);
+      else this.scalar(this.expression(order.expression, scope, ctes), order.expression);
     }
     const expressionKinds = new Set([
       "parameter",
@@ -1378,7 +1386,7 @@ class Resolver {
         if (row.length !== columns.length)
           this.diagnostic("TSQ203", "INSERT value count disagrees with target columns", statement.range);
         row.forEach((expression, index) => {
-          this.expression(expression, { relations: [] }, ctes, columns[index]);
+          this.scalar(this.expression(expression, { relations: [] }, ctes, columns[index]), expression);
         });
       }
       if (statement.query) {
@@ -1399,7 +1407,7 @@ class Resolver {
             this.diagnostic("TSQ101", `Unknown UPDATE target ${assignment.column.parts.join(".")}`, assignment.range);
           if (column && target.catalog?.columns[column.name]?.updatable === false)
             this.diagnostic("TSQ203", `Column ${column.name} is not updatable`, assignment.column.range);
-          this.expression(assignment.value, scope, ctes, column);
+          this.scalar(this.expression(assignment.value, scope, ctes, column), assignment.value);
         }
     }
     return this.output(statement.output, target, scope, ctes, statement.kind);
