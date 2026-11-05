@@ -1,14 +1,20 @@
-import { QueryCardinalityError, sql, withQueryValuePlan } from "@typed-sql/core";
+import { QueryCardinalityError, type StandardSchemaV1, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import {
-  createSqlServerDatabase,
+  createSqlServerDatabase as createNativeDatabase,
   type SqlServerConnectionLike,
+  type SqlServerDatabaseOptions,
   type SqlServerExecutionResult,
+  type SqlServerProtocolStream,
   type SqlServerScope,
 } from "../src/runtime.js";
 import { defaultSqlServerTypePolicy } from "../src/type-policy.js";
 
+import { serverEvidence } from "./environment.js";
+
+const createSqlServerDatabase = (options: Omit<SqlServerDatabaseOptions, "serverEvidence">) =>
+  createNativeDatabase({ ...options, serverEvidence });
 const hash = calculateTypePolicyHash(defaultSqlServerTypePolicy);
 const id = (value: bigint) =>
   withQueryValuePlan(sql<{ id: bigint }>`SELECT ${value} AS id`, {
@@ -25,6 +31,11 @@ const amount = (value: string) =>
     parameters: [{ index: 1, type: "string", nullable: false, databaseType: "decimal(38,10)" }],
   });
 class Connection implements SqlServerConnectionLike {
+  stream?: (
+    sql: string,
+    values: readonly unknown[],
+    options: { readonly batchSize: number },
+  ) => SqlServerProtocolStream;
   readonly calls: { sql: string; values: readonly unknown[] }[] = [];
   count = 0;
   commits = 0;
@@ -77,6 +88,36 @@ class Connection implements SqlServerConnectionLike {
   }
 }
 await describe("SQL Server exact runtime boundaries and leases", async () => {
+  await it("awaits application result validators after native decoding", async () => {
+    const connection = new Connection(),
+      db = createSqlServerDatabase({ connection });
+    let calls = 0;
+    const schema: StandardSchemaV1<unknown, { id: bigint }> = {
+      "~standard": {
+        version: 1,
+        vendor: "test",
+        async validate(value) {
+          await Promise.resolve();
+          calls++;
+          const row = value as { id: unknown };
+          return typeof row.id === "bigint"
+            ? { value: { id: row.id + 1n } }
+            : { issues: [{ message: "id must be bigint" }] };
+        },
+      },
+    };
+    strict.deepEqual(await db.one(sql.validateResult(id(1n), schema)), { id: 2n });
+    strict.equal(calls, 1);
+    await strict.rejects(
+      db.transaction(async (scoped) => {
+        void scoped.all(id(2n));
+      }),
+      /in-flight/,
+    );
+    strict.equal(connection.rollbacks, 1);
+    strict.equal(connection.commits, 0);
+  });
+
   await it("lowers only bound segments, copies native target evidence and preserves exact values", async () => {
     const connection = new Connection();
     const db = createSqlServerDatabase({ connection });
@@ -149,7 +190,7 @@ await describe("SQL Server exact runtime boundaries and leases", async () => {
       db.transaction(async (scoped) => {
         void scoped.all(id(13n));
       }),
-      /native execution failed/,
+      /in-flight|native execution failed/,
     );
     strict.equal(connection.rollbacks, 1);
     await strict.rejects(db.batch([id(1n), id(13n)]), /native execution failed/);

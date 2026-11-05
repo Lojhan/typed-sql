@@ -10,7 +10,7 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
-import type { ColumnSnapshot, SchemaSnapshot } from "@typed-sql/schema";
+import type { ColumnSnapshot, RelationSnapshot, SchemaSnapshot } from "@typed-sql/schema";
 import { SQLSERVER_BUILTINS, SQLSERVER_DATEPARTS } from "./catalog/index.js";
 import { parseSqlServerNativeType, type SqlServerNativeType } from "./native-types.js";
 import type { Cte, Expression, Join, Name, Output, Projection, Select, Source, Statement } from "./parser/index.js";
@@ -27,9 +27,11 @@ interface Value {
   readonly nullable: boolean;
   readonly databaseType?: string;
   readonly runtimeType?: RuntimeValueType;
+  readonly hidden?: boolean;
   readonly json?: JsonValueDescriptor;
 }
 interface Relation {
+  readonly catalog?: RelationSnapshot;
   readonly qualifiers: readonly string[];
   readonly columns: readonly (Value & { readonly name: string })[];
   readonly key: string;
@@ -223,6 +225,14 @@ class Resolver {
         ? `${original.text} COLLATE ${collation}`
         : column.databaseType;
     const mapped = type(databaseType, column.nullable, this.policy);
+    if (
+      "extension" in column &&
+      column.extension &&
+      typeof column.extension === "object" &&
+      "attributes" in column.extension &&
+      (column.extension.attributes as Record<string, unknown>).encrypted === true
+    )
+      return { ...unknown, tsType: this.policy.unknown };
     const branded = brandBaseType(column.tsType);
     return {
       ...mapped,
@@ -269,14 +279,20 @@ class Resolver {
       return { qualifiers: [], columns: [], key: name.parts.join(".") };
     }
     const [key, table] = matches[0]!;
+    const catalog = this.schema.formatVersion === 2 ? this.schema.relations[key] : undefined;
     return {
       key,
+      ...(catalog ? { catalog } : {}),
       qualifiers: [
         table.name,
         `${table.schema ?? "dbo"}.${table.name}`,
         ...(name.parts.length === 3 ? [name.parts.join(".")] : []),
       ],
-      columns: Object.values(table.columns).map((column) => ({ ...this.columnValue(column), name: column.name })),
+      columns: Object.values(catalog?.columns ?? table.columns).map((column) => ({
+        ...this.columnValue(column),
+        name: column.name,
+        ...("classification" in column && column.classification === "hidden" ? { hidden: true } : {}),
+      })),
     };
   }
   source(source: Source, scope: Scope, ctes: Ctes, allowCorrelation: boolean): Relation {
@@ -1024,7 +1040,8 @@ class Resolver {
         );
         if (!relations.length) this.diagnostic("TSQ100", "Projection star has no matching relation", expression.range);
         for (const relation of relations)
-          for (const column of relation.columns) columns.push({ ...column, range: expression.range });
+          for (const column of relation.columns)
+            if (!column.hidden) columns.push({ ...column, range: expression.range });
       } else {
         const value = this.expression(expression, scope, ctes);
         const name = projection.alias ?? (expression.kind === "column" ? partsLast(expression.name) : undefined);
@@ -1161,25 +1178,43 @@ class Resolver {
   statement(statement: Statement): ResolvedColumn[] {
     if (statement.kind === "select") return this.select(statement);
     const ctes = this.cteScope(statement.with, new Map());
-    let target = this.relation(statement.target, ctes);
-    let scope: Scope = { relations: [target] };
+    let scope: Scope;
+    let target: Relation;
     if (statement.kind !== "insert" && statement.from) {
       scope = this.buildScope(statement.from, statement.joins, ctes);
-      if (statement.target.parts.length === 1) {
-        const alias = scope.relations.find((relation) =>
-          relation.qualifiers.some((name) => this.same(name, partsLast(statement.target))),
-        );
-        if (alias) target = alias;
-      }
+      const alias =
+        statement.target.parts.length === 1
+          ? scope.relations.find((relation) =>
+              relation.qualifiers.some((name) => this.same(name, partsLast(statement.target))),
+            )
+          : undefined;
+      target = alias ?? this.relation(statement.target, ctes);
+    } else {
+      target = this.relation(statement.target, ctes);
+      scope = { relations: [target] };
     }
+    if (statement.output && !statement.output.into && target.catalog?.capabilities?.outputWithoutInto === false)
+      this.diagnostic(
+        "TSQ203",
+        "OUTPUT without INTO is unavailable for a target with enabled triggers",
+        statement.output.range,
+      );
     if (statement.kind === "insert") {
       const columns = statement.columns.length
         ? statement.columns.map((name) => target.columns.find((column) => this.same(column.name, name)))
-        : target.columns;
+        : target.columns.filter(
+            (column) =>
+              !column.hidden &&
+              target.catalog?.columns[column.name]?.identity !== "always" &&
+              (!target.catalog || target.catalog.columns[column.name]?.generated === "none"),
+          );
       if (statement.columns.some((_name, index) => !columns[index]))
         this.diagnostic("TSQ101", "INSERT contains an unknown target column", statement.target.range);
       if (new Set(statement.columns.map((name) => this.key(name))).size !== statement.columns.length)
         this.diagnostic("TSQ203", "INSERT column list contains duplicates", statement.range);
+      for (const column of columns)
+        if (column && target.catalog?.columns[column.name]?.insertable === false)
+          this.diagnostic("TSQ203", `Column ${column.name} is not insertable`, statement.target.range);
       for (const row of statement.values) {
         if (row.length !== columns.length)
           this.diagnostic("TSQ203", "INSERT value count disagrees with target columns", statement.range);
@@ -1203,6 +1238,8 @@ class Resolver {
           const column = target.columns.find((value) => this.same(value.name, partsLast(assignment.column)));
           if (!column)
             this.diagnostic("TSQ101", `Unknown UPDATE target ${assignment.column.parts.join(".")}`, assignment.range);
+          if (column && target.catalog?.columns[column.name]?.updatable === false)
+            this.diagnostic("TSQ203", `Column ${column.name} is not updatable`, assignment.column.range);
           this.expression(assignment.value, scope, ctes, column);
         }
     }

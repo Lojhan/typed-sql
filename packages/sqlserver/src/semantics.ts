@@ -15,7 +15,7 @@ export function analyzeSqlServerSemantics(statement: Statement): QuerySemantics 
     },
   ];
   const dependencies: QueryDependency[] = [];
-  const capabilities = new Set<string>();
+  const capabilities = new Set<string>(["syntax"]);
   let volatility: "immutable" | "stable" | "volatile" | "unknown" = "immutable";
   let locking: "none" | "row" | "table" | "unknown" = "none";
   let session = false,

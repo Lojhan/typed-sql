@@ -41,7 +41,8 @@
     ".": "./dist/packages/sqlserver/src/index.js",
     "./query": "./dist/packages/sqlserver/src/query.js",
     "./runtime": "./dist/packages/sqlserver/src/runtime.js",
-    "./odbc": "./dist/packages/sqlserver/src/odbc.js"
+    "./odbc": "./dist/packages/sqlserver/src/odbc.js",
+    "./browser": "./dist/packages/sqlserver/src/browser.js"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

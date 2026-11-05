@@ -1,5 +1,12 @@
 import { createRequire } from "node:module";
 import { type ExecutionOptions, runControlledExecution } from "@typed-sql/core";
+import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
+import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
+import {
+  readSqlServerServerEvidence,
+  SqlServerSchemaProvider,
+  type SqlServerSchemaProviderOptions,
+} from "./provider.js";
 import {
   createSqlServerDatabase,
   type SqlServerConnectionLike,
@@ -9,7 +16,9 @@ import {
   type SqlServerField,
   type SqlServerNativePrepared,
   type SqlServerProtocolStream,
+  withSqlServerInitializationLease,
 } from "./runtime.js";
+import { sqlServerVersionSupport } from "./support.js";
 export interface SqlServerOdbcMetadata {
   readonly name: string;
   readonly nullable?: boolean;
@@ -52,7 +61,8 @@ export interface SqlServerOdbcDriver {
   Double(value: number): unknown;
   Bit(value: boolean): unknown;
 }
-export interface SqlServerOdbcOptions extends Omit<SqlServerDatabaseOptions, "connection" | "ownsConnection"> {
+export interface SqlServerOdbcOptions
+  extends Omit<SqlServerDatabaseOptions, "connection" | "ownsConnection" | "serverEvidence"> {
   readonly connectionString?: string | (() => string | Promise<string>);
   readonly connection?: SqlServerOdbcConnection;
   readonly ownsConnection?: boolean;
@@ -60,6 +70,8 @@ export interface SqlServerOdbcOptions extends Omit<SqlServerDatabaseOptions, "co
   /** Explicit native loading seam; applications normally install msnodesqlv8 and omit this. */
   readonly driverImporter?: () => Promise<SqlServerOdbcDriver>;
   readonly driverVersion?: string;
+  /** Owned sessions are configured by default; injected sessions are only validated unless explicitly enabled. */
+  readonly configureSession?: boolean;
 }
 interface NativeRequest {
   readonly query: SqlServerOdbcQuery;
@@ -262,6 +274,7 @@ export function adaptSqlServerOdbcConnection(
         running = false;
       return Object.freeze({
         async execute(values: readonly unknown[], controls: ExecutionOptions = {}) {
+          if (!reusable) throw new Error("Native SQL Server connection is quarantined");
           if (closed || running) throw new Error("Native SQL Server prepared statement is closed or busy");
           running = true;
           let operation: NativeRequest | undefined;
@@ -290,6 +303,7 @@ export function adaptSqlServerOdbcConnection(
       });
     },
     stream(text: string, values: readonly unknown[], options: { readonly batchSize: number }): SqlServerProtocolStream {
+      if (!reusable) throw new Error("Native SQL Server connection is quarantined");
       const queue: Readonly<Record<string, unknown>>[] = [];
       let wake: (() => void) | undefined;
       let error: unknown,
@@ -411,18 +425,62 @@ export async function createSqlServerOdbcDatabase(options: SqlServerOdbcOptions)
     const configured = configuredPreparedLimits.get(native);
     if (configured !== undefined && configured !== maximum)
       throw new TypeError("An ODBC connection cannot use conflicting prepared buffer limits");
-    const database = createSqlServerDatabase({
-      ...options,
-      connection: adaptSqlServerOdbcConnection(driver, native),
-      ownsConnection: owns,
+    const connection = adaptSqlServerOdbcConnection(driver, native);
+    const serverEvidence = await withSqlServerInitializationLease(connection, async () => {
+      native.setUseUTC(true);
+      native.setUseNumericString(true);
+      native.setMaxPreparedColumnSize(maximum);
+      configuredPreparedLimits.set(native, maximum);
+      const client = {
+        async all<Row extends Record<string, unknown>>(text: string): Promise<readonly Row[]> {
+          return (await connection.execute(text)).rows as readonly Row[];
+        },
+      };
+      let { server } = await readSqlServerServerEvidence(client);
+      if (
+        typeof server.settings.compatibilityLevel !== "number" ||
+        sqlServerVersionSupport(server.version, server.settings.compatibilityLevel) !== "supported" ||
+        ![1, 2, 3, 4].includes(Number(server.settings.engineEdition))
+      )
+        throw new TypeError(
+          "SQL Server native runtime requires a qualified boxed server build and compatibility level",
+        );
+      if (options.configureSession === true || (!options.connection && options.configureSession !== false)) {
+        await connection.execute(
+          "SET QUOTED_IDENTIFIER ON; SET ANSI_WARNINGS ON; SET ARITHABORT ON; SET CONCAT_NULL_YIELDS_NULL ON; SET LANGUAGE us_english; SET DATEFORMAT mdy; SET DATEFIRST 7",
+        );
+        server = (await readSqlServerServerEvidence(client)).server;
+      }
+      assertSqlServerRuntimeEvidence(server);
+      return server;
     });
-    native.setUseUTC(true);
-    native.setUseNumericString(true);
-    native.setMaxPreparedColumnSize(maximum);
-    configuredPreparedLimits.set(native, maximum);
-    return database;
+    return createSqlServerDatabase({ ...options, connection, ownsConnection: owns, serverEvidence });
   } catch (error) {
     if (owns) await native.promises.close().catch(() => {});
     throw error;
   }
+}
+
+export interface SqlServerOdbcSchemaProviderOptions extends SqlServerOdbcOptions {
+  readonly includeSchemas?: SqlServerSchemaProviderOptions["includeSchemas"];
+}
+/** Lazily load the explicit native driver only when introspection is requested. */
+export function sqlServerOdbc(options: SqlServerOdbcSchemaProviderOptions = {}): SchemaProvider<SchemaSnapshotV2> {
+  return {
+    async introspect(input) {
+      const database = await createSqlServerOdbcDatabase({
+        ...options,
+        ...(!options.connectionString && input.url ? { connectionString: input.url } : {}),
+      });
+      try {
+        return await new SqlServerSchemaProvider({
+          client: database.queryable,
+          ...(options.includeSchemas ? { includeSchemas: options.includeSchemas } : {}),
+          ...(options.typePolicy ? { typePolicy: options.typePolicy } : {}),
+        }).introspect(input);
+      } finally {
+        await database.close();
+      }
+    },
+  };
 }
