@@ -1,3 +1,6 @@
+import { parseDuckDBType } from "../src/native-types.js";
+import { duckDBRuntimeType } from "../src/type-policy.js";
+
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 
@@ -317,6 +320,46 @@ await it("rolls back successful unfinished requests and partially consumed scope
     await strict.rejects(stream.next(), /cancelled/u);
     await stream.close();
     strict.equal((await database.one(compiled("SELECT 1 AS value", [], version))).value, 1);
+  } finally {
+    await database.close();
+  }
+});
+
+await it("preserves unspellable 1.5 unnamed tuples through typed NULL transport witnesses", async () => {
+  const database = await createNodeDuckDBDatabase({ sdkImporter: async () => sdk });
+  const union = "UNION(n INTEGER,s VARCHAR)",
+    tuple = `TUPLE(${union},VARCHAR)`;
+  const cases: readonly (readonly [string, unknown])[] = [
+    [tuple, [{ tag: "n", value: null }, null]],
+    [tuple, null],
+    [`${tuple}[2]`, [[{ tag: "n", value: null }, null], null]],
+    [`${tuple}[2]`, null],
+    [`${tuple}[]`, [[{ tag: "s", value: "a" }, null], null]],
+    [`UNION(t ${tuple},n INTEGER)`, { tag: "t", value: [{ tag: "n", value: null }, null] }],
+    [`UNION(t ${tuple},n INTEGER)`, { tag: "t", value: null }],
+    [
+      `MAP(${tuple},${tuple}[2])`,
+      [
+        [
+          [{ tag: "n", value: null }, null],
+          [[{ tag: "s", value: null }, null], null],
+        ],
+      ],
+    ],
+    [`STRUCT(all_null ${tuple}, data ${tuple}[2])`, { all_null: null, data: null }],
+  ];
+  try {
+    strict.equal(sdk.version(), process.env.TYPED_SQL_DUCKDB_SDK === "15" ? "v1.5.6" : "v2.0.0");
+    for (const [target, input] of cases) {
+      const type = duckDBRuntimeType(parseDuckDBType(target));
+      const query = withQueryValuePlan(sql<{ value: unknown }>`SELECT ${sql.value(input)} AS value`, {
+        dialect: "duckdb",
+        typePolicyHash: calculateTypePolicyHash(typePolicy),
+        parameters: [{ index: 1, type, nullable: true, databaseType: target }],
+        columns: [{ name: "value", type, nullable: true, databaseType: target }],
+      });
+      strict.deepEqual((await database.one(query)).value, input, target);
+    }
   } finally {
     await database.close();
   }

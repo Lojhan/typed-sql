@@ -185,6 +185,9 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       if (!parameter.databaseType) throw new TypeError("DuckDB requires physical target metadata for every parameter");
       return duckDBParameterTransport(parseDuckDBType(parameter.databaseType));
     });
+    const physicalTargets = transports.map((transport) => formatDuckDBType(transport.wireType));
+    if (physicalTargets.reduce((bytes, text) => bytes + new TextEncoder().encode(text).byteLength, 0) > 1048576)
+      throw new RangeError("DuckDB aggregate physical type text limit");
     const physicalRendered = renderQuery(query, {
       ...duckdbRenderer,
       placeholder(index) {
@@ -204,7 +207,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       if (!column.databaseType || !isKnownDuckDBType(parseDuckDBType(column.databaseType)))
         throw new TypeError("DuckDB requires a known physical result type");
     }
-    const physicalKey = JSON.stringify(plan.parameters.map((x) => x.databaseType)) + "\0" + typePolicyHash;
+    const physicalKey = JSON.stringify({
+      lowering: "typed-null-witness-v1",
+      original: plan.parameters.map((x) => x.databaseType),
+      physical: physicalTargets,
+      policy: typePolicyHash,
+    });
     return { query, text: physicalRendered.text, bindings, plan, physicalKey };
   };
   const columns = (result: Pick<DuckDBNativeResult, "columns">, plan?: QueryValuePlan) => {
