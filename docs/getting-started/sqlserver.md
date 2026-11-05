@@ -11,7 +11,7 @@ This tutorial uses the stable grammar, compiler and Node integration. Applicatio
 
 ## 1. Prepare the connection
 
-Use Node.js 24.11.1 or newer, Microsoft ODBC Driver 18, and a boxed SQL Server 2017–2025 database.
+Use Linux x64, Node.js 24.11.1 or newer, Microsoft ODBC Driver 18, unixODBC, and a boxed SQL Server 2017–2025 database.
 Create an empty database named `app` and use a login with schema creation and `VIEW DEFINITION`
 permissions. [Compatibility](../dialects/sqlserver.md#compatibility) distinguishes supported
 families from exact tested builds.
@@ -28,7 +28,7 @@ export SQLSERVER_CONNECTION_STRING='Driver={ODBC Driver 18 for SQL Server};Serve
 mkdir typed-sql-sqlserver && cd typed-sql-sqlserver
 pnpm init
 pnpm pkg set type=module
-pnpm add @typed-sql/core @typed-sql/sqlserver msnodesqlv8
+pnpm add @typed-sql/core @typed-sql/sqlserver koffi
 pnpm add -D @typed-sql/cli @typed-sql/build esbuild typescript @types/node
 mkdir src
 ```
@@ -60,15 +60,15 @@ Create `src/setup.ts`:
 
 ```ts
 import { readFile } from "node:fs/promises";
-import native from "msnodesqlv8";
+import { connectSqlServerOdbc } from "@typed-sql/sqlserver/odbc";
 
-const connection = await native.promises.open({
-  conn_str: process.env.SQLSERVER_CONNECTION_STRING!,
+const connection = await connectSqlServerOdbc({
+  connectionString: () => process.env.SQLSERVER_CONNECTION_STRING!,
 });
 try {
-  await connection.promises.query(await readFile("schema.sql", "utf8"));
+  await connection.execute(await readFile("schema.sql", "utf8"));
 } finally {
-  await connection.promises.close();
+  await connection.close?.();
 }
 ```
 

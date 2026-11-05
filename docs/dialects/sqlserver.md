@@ -8,7 +8,8 @@ description: SQL Server grammar, compatibility levels, catalog snapshots, exact 
 
 `@typed-sql/sqlserver` is a stable grammar package. It owns T-SQL parsing, inference, native type policies and catalog snapshots.
 Applications import `sql` from this package. The explicit `@typed-sql/sqlserver/odbc` entrypoint
-loads the application's `msnodesqlv8` installation and Microsoft ODBC Driver 18.
+loads the application's Koffi installation and uses Microsoft ODBC Driver 18 through unixODBC.
+Native execution is qualified on Linux x64; grammar analysis and the browser entrypoint remain portable.
 
 ## Public entrypoints
 
@@ -16,8 +17,9 @@ loads the application's `msnodesqlv8` installation and Microsoft ODBC Driver 18.
 | --- | --- |
 | `@typed-sql/sqlserver/query` | Portable `sql`, renderer, compiler value plans and query types. |
 | `@typed-sql/sqlserver` | Grammar factory, policies, analysis and injected catalog provider. |
-| `@typed-sql/sqlserver/runtime` | Driver-neutral execution, codecs and connection ownership. |
-| `@typed-sql/sqlserver/odbc` | Explicit application-owned native driver loading, execution and introspection. |
+| `@typed-sql/sqlserver/runtime` | Driver-neutral execution, live verification, plan inspection and connection ownership. |
+| `@typed-sql/sqlserver/odbc` | Exact application-owned direct ODBC execution and introspection. |
+| `@typed-sql/sqlserver/msnodesqlv8` | Explicit compatibility adapter with restricted text transport. |
 | `@typed-sql/sqlserver/browser` | Grammar surface without native adapters or catalog provider exports. |
 
 ## Compatibility
@@ -38,23 +40,28 @@ and do not satisfy the boxed SQL Server contract.
 
 | Execution adapter | Application dependency | Accepted driver range | Exact native transport tested |
 | --- | --- | --- | --- |
-| `@typed-sql/sqlserver/odbc` | `msnodesqlv8` | >=6.2.2, <7 | 6.2.2, ODBC 18.7.1.1, unixODBC 2.3.12, Linux x64 |
+| `@typed-sql/sqlserver/odbc` | `koffi` | 3.3.7 | Koffi 3.3.7, ODBC 18.7.1.1, unixODBC 2.3.12, Node 24.22.2, Linux x64 |
+| `@typed-sql/sqlserver/msnodesqlv8` | `msnodesqlv8` | >=6.2.2, <7 | 6.2.2 on Linux x64; unsupported text families reject |
 | `@typed-sql/sqlserver/runtime` | Your connection implementation | Explicit qualified connection protocol | Protocol tests |
 
 Install drivers explicitly:
 
 ```sh
-pnpm add @typed-sql/sqlserver msnodesqlv8
+pnpm add @typed-sql/sqlserver koffi
 ```
 
 Microsoft ODBC Driver 18 and the native driver's platform prerequisites are separate system
-installations. Native Linux x64 engine results do not qualify an emulated SQL Server container.
+installations. Before issuing SQL, the direct adapter reads and validates the actual native driver
+identity: Microsoft ODBC Driver 18 is accepted, with 18.7.1.1 tested. An ODBC connection string
+that selects a different driver does not satisfy this contract. Native Linux x64 engine results do not qualify an emulated SQL Server container.
 
 ## Exact values
 
 The default policy maps `bigint` to `bigint`, decimal and money values to decimal strings,
 temporal values to strings, binary values to `Uint8Array`, and JSON storage to strings.
-Ordinary integer and floating types map to `number`; `bit` maps to `boolean`. CLR, spatial,
+Ordinary integer and floating types map to `number`; `bit` maps to `boolean`. Typed number plans
+require finite values and reject integer-valued numbers outside JavaScript's safe integer range,
+including very large floating values. CLR, spatial,
 `sql_variant` and otherwise unproven types remain `unknown`.
 
 Decimal validation preserves precision and scale without passing through `number`.
@@ -91,27 +98,51 @@ Cancellation and deadlines cover the native evidence reads as well as applicatio
 Pre-aborted and expired requests issue neither private evidence SQL nor application SQL.
 Owned sessions establish `QUOTED_IDENTIFIER`, `ANSI_WARNINGS`, `ARITHABORT` and
 `CONCAT_NULL_YIELDS_NULL` as enabled, with `us_english`, `DATEFORMAT mdy` and `DATEFIRST 7`.
-Injected connections are validated without changing SQL session semantics unless
-`configureSession: true` is explicit. Closing a wrapper frees its prepared handles; an injected
-connection remains application-owned unless `ownsConnection: true` is explicit.
+Use `configureSession: false` to validate the existing session instead of changing it. The direct factory
+owns its connection and worker lanes; closing the database frees its prepared handles and closes
+the native session. For an injected protocol connection, use `createSqlServerDatabase` from
+`/runtime` and choose `ownsConnection` explicitly.
 
-`database.prepare(name, factory)` caches logical rendering and value plans. The ODBC adapter
-uses physical native preparation only when its result transport is qualified. The pinned native
-driver removes a genuine trailing NUL from prepared text results. Statements returning arbitrary
-text, XML or JSON therefore select raw transport **before dispatch** when the raw result family is qualified.
-The SDK also corrupts some large `varchar(max)` and legacy `text` values while converting
-unknown-length ODBC chunks. Compiled queries returning `varchar(max)`, `text` or unqualified
-legacy `ntext` fail before dispatch, including DML `OUTPUT`. Raw queryable requests reject
-those native metadata families before exposing rows; a raw request may already have executed
-side effects before its metadata arrives. Bounded `varchar(n)` and Unicode `nvarchar(max)` use
-the separately qualified raw paths. This choice preserves
-`OUTPUT`, ordering and side effects: the adapter neither rewrites projections nor retries an
-already executed statement. Numeric, temporal and binary results can use native preparation.
-An application-provided neutral adapter can declare its own `supportsPreparedPlan` capability.
+`database.prepare(name, factory)` caches logical rendering, value plans and physical prepared
+handles. Unicode inputs keep an `NVARCHAR(MAX)` binding independent of value length; grammar-owned
+typed conversions select each actual SQL target. Empty values, SQL `NULL`, embedded NULs and
+trailing NULs remain distinct. Result collection uses explicit ODBC byte counts, including across
+large text and surrogate boundaries. REAL and FLOAT results use binary C floating types rather
+than decimal display text.
 
-`maximumPreparedValueBytes` bounds the encoded parameter transport for logical prepared queries;
-it defaults to 1 MiB. Oversized inputs fail before dispatch. Native prepared result buffer failures
-propagate as errors, and handles are cleaned up before a connection is reused.
+Typed buffered and streamed statements validate prepared result metadata before execution when
+the driver makes it available. Width, names, native families, precision and scale are checked;
+result decoding and validators still run on the actual values. SQL Server's native JSON type can
+appear as an unlimited VARCHAR text wire in ODBC. The adapter retains that physical description,
+accepts it only for qualified logical JSON plans, and validates the JSON text before returning it.
+It does not rename a VARCHAR result to pretend it proves a native JSON type.
+
+Cancellation and deadlines cover metadata reads, preparation and execution. A separate control
+worker requests cancellation, and the execution lease remains held until native calls and cleanup
+settle. Cancellation does not retry an executed statement. Failed or uncertain cleanup quarantines
+the connection. Explicitly close streams so native cursors and their leases can be released.
+
+`maximumPreparedValueBytes` bounds logical prepared inputs and defaults to 1 MiB. Direct transport
+also has configurable limits: `maximumCellBytes` defaults to 16 MiB, `maximumResultBytes` to 64 MiB,
+`maximumRows` to 100,000 and `chunkBytes` to 4,096. Result limits count payload bytes; native buffers,
+JavaScript values and worker message copies add bounded overhead. `connectionTimeoutSeconds`
+defaults to 15 and `queryTimeoutSeconds` to 30. Rejecting an oversized result does not retry SQL.
+
+### msnodesqlv8 compatibility
+
+Import this adapter explicitly when its supported transport matches your application:
+
+```ts
+import { createSqlServerMsnodesqlv8Database } from "@typed-sql/sqlserver/msnodesqlv8";
+```
+
+Its SDK removes genuine trailing NULs from prepared text, so arbitrary text, XML and JSON results
+select a qualified raw path before dispatch. Raw large VARCHAR and legacy TEXT collection can
+also corrupt values. Compiled results returning `varchar(max)`, `text` or unqualified `ntext`
+reject before dispatch, including DML `OUTPUT`. Raw queryable requests reject those metadata
+families before exposing rows, after any SQL side effects have already occurred. Bounded VARCHAR
+and separately qualified raw NVARCHAR(MAX) paths remain available. Controlled logical prepared
+queries use raw execution because the SDK's preparation RPC does not expose cancellation here.
 
 Transactions provide buffered queries, prepared factories, atomic batches and explicitly closeable
 streams through the callback scope. Scope batches reuse the existing transaction. Root batches
