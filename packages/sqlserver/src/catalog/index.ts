@@ -35,7 +35,12 @@ export type SqlServerBuiltinRule =
   | "leastGreatest"
   | "iif"
   | "choose"
-  | "grouping";
+  | "grouping"
+  | "abs"
+  | "variant"
+  | "identity"
+  | "dateTrunc"
+  | "dateBucket";
 export interface SqlServerBuiltin {
   readonly name: string;
   readonly minimumArguments: number;
@@ -78,7 +83,8 @@ add("STDEV STDEVP VAR VARP", "float", 1, 1, { kind: "aggregate" });
 add("STRING_AGG", "nvarcharMax", 2, 2, { kind: "aggregate", since: 14 });
 add("CHECKSUM_AGG", "integer", 1, 1, { kind: "aggregate" });
 add("GROUPING GROUPING_ID", "grouping", 1, 32, { nullable: false });
-add("ROW_NUMBER RANK DENSE_RANK NTILE", "bigint", 0, 1, { kind: "window", nullable: false });
+add("ROW_NUMBER RANK DENSE_RANK", "bigint", 0, 0, { kind: "window", nullable: false });
+add("NTILE", "bigint", 1, 1, { kind: "window", nullable: false });
 add("PERCENT_RANK CUME_DIST", "float", 0, 0, { kind: "window", nullable: false });
 add("LAG LEAD", "nullableSame", 1, 3, { kind: "window" });
 add("FIRST_VALUE LAST_VALUE", "nullableSame", 1, 1, { kind: "window" });
@@ -88,20 +94,30 @@ add("ISNULL", "isnull", 2);
 add("NULLIF", "nullableSame", 2);
 add("IIF", "iif", 3);
 add("CHOOSE", "choose", 2, 256);
-add("ABS CEILING FLOOR ROUND SIGN", "same", 1, 3);
-add("SQUARE SQRT EXP LOG LOG10 POWER COS SIN TAN COT ACOS ASIN ATAN ATN2 DEGREES RADIANS", "float", 1, 2);
+add("ABS", "abs", 1);
+add("CEILING FLOOR SIGN", "same", 1);
+add("ROUND", "same", 2, 3);
+add("SQUARE SQRT EXP LOG10 COS SIN TAN COT ACOS ASIN ATAN DEGREES RADIANS", "float", 1);
+add("LOG", "float", 1, 2);
+add("ATN2 POWER", "float", 2);
 add("PI", "float", 0, 0, { nullable: false });
 add("RAND", "float", 0, 1, { nullable: false, volatility: "volatile" });
-add("LEN DATALENGTH ASCII UNICODE CHARINDEX PATINDEX DIFFERENCE SOUNDEX", "integer", 1, 3);
+add("LEN DATALENGTH ASCII UNICODE", "integer", 1);
+add("CHARINDEX", "integer", 2, 3);
+add("PATINDEX DIFFERENCE", "integer", 2);
+add("SOUNDEX", "string", 1);
 add("CHAR NCHAR", "string", 1);
-add(
-  "LEFT RIGHT SUBSTRING STUFF REPLACE TRANSLATE REPLICATE SPACE LOWER UPPER LTRIM RTRIM TRIM REVERSE QUOTENAME FORMAT STR STRING_ESCAPE",
-  "string",
-  1,
-  4,
-);
+add("LEFT RIGHT REPLICATE STRING_ESCAPE", "string", 2);
+add("SUBSTRING REPLACE TRANSLATE", "string", 3);
+add("STUFF", "string", 4);
+add("SPACE LOWER UPPER REVERSE", "string", 1);
+add("LTRIM RTRIM TRIM QUOTENAME", "string", 1, 2);
+add("FORMAT", "string", 2, 3);
+add("STR", "string", 1, 3);
 add("CONCAT CONCAT_WS", "nvarcharMax", 2, 256, { nullable: false });
-add("ISDATE ISNUMERIC ISJSON JSON_PATH_EXISTS", "integer", 1, 2, { nullable: false });
+add("ISDATE ISNUMERIC", "integer", 1, 1, { nullable: false });
+add("ISJSON", "integer", 1, 2, { nullable: false });
+add("JSON_PATH_EXISTS", "integer", 2, 2, { nullable: false, since: 16 });
 add("GETDATE CURRENT_TIMESTAMP GETUTCDATE", "datetime", 0, 0, { nullable: false, volatility: "stable" });
 add("SYSDATETIME SYSUTCDATETIME", "datetime2", 0, 0, { nullable: false, volatility: "stable" });
 add("SYSDATETIMEOFFSET", "datetimeoffset", 0, 0, { nullable: false, volatility: "stable" });
@@ -116,24 +132,28 @@ add("DATETIMEFROMPARTS", "datetime", 7);
 add("DATETIME2FROMPARTS", "datetime2", 8);
 add("DATETIMEOFFSETFROMPARTS", "datetimeoffset", 10);
 add("EOMONTH", "date", 1, 2);
-add("DATETRUNC DATE_BUCKET", "same", 2, 4, { since: 16 });
+add("DATETRUNC", "dateTrunc", 2, 2, { since: 16 });
+add("DATE_BUCKET", "dateBucket", 3, 4, { since: 16 });
 add("SWITCHOFFSET TODATETIMEOFFSET", "datetimeoffset", 2);
 add("NEWID NEWSEQUENTIALID", "uuid", 0, 0, { nullable: false, volatility: "volatile" });
-add("SCOPE_IDENTITY IDENT_CURRENT IDENTITY", "same", 0, 3, { volatility: "volatile" });
+add("SCOPE_IDENTITY", "identity", 0, 0, { volatility: "volatile" });
+add("IDENT_CURRENT", "identity", 1, 1, { volatility: "volatile" });
 add("CHECKSUM BINARY_CHECKSUM", "integer", 1, 256);
 add("HASHBYTES", "bytes", 2);
 add("COMPRESS DECOMPRESS", "bytes", 1);
-add("OBJECT_ID SCHEMA_ID DB_ID COL_LENGTH COLUMNPROPERTY OBJECTPROPERTY OBJECTPROPERTYEX", "integer", 0, 3, {
+add("OBJECT_ID", "integer", 1, 2, { volatility: "stable" });
+add("SCHEMA_ID DB_ID", "integer", 0, 1, { volatility: "stable" });
+add("COL_LENGTH OBJECTPROPERTY", "integer", 2, 2, { volatility: "stable" });
+add("COLUMNPROPERTY", "integer", 3, 3, { volatility: "stable" });
+add("OBJECT_NAME", "string", 1, 2, { volatility: "stable" });
+add("SCHEMA_NAME DB_NAME USER_NAME SUSER_NAME SUSER_SNAME", "string", 0, 1, { volatility: "stable" });
+add("COL_NAME", "string", 2, 2, { volatility: "stable" });
+add("TYPE_NAME", "string", 1, 1, { volatility: "stable" });
+add("CURRENT_USER SESSION_USER SYSTEM_USER USER HOST_NAME APP_NAME ORIGINAL_LOGIN", "string", 0, 0, {
   volatility: "stable",
 });
-add(
-  "OBJECT_NAME SCHEMA_NAME DB_NAME COL_NAME TYPE_NAME USER_NAME SUSER_NAME SUSER_SNAME CURRENT_USER SESSION_USER SYSTEM_USER USER HOST_NAME APP_NAME ORIGINAL_LOGIN",
-  "string",
-  0,
-  3,
-  { volatility: "stable" },
-);
-add("SESSION_CONTEXT SERVERPROPERTY DATABASEPROPERTYEX SQL_VARIANT_PROPERTY", "same", 1, 2, { volatility: "stable" });
+add("SESSION_CONTEXT SERVERPROPERTY", "variant", 1, 1, { volatility: "stable" });
+add("DATABASEPROPERTYEX SQL_VARIANT_PROPERTY OBJECTPROPERTYEX", "variant", 2, 2, { volatility: "stable" });
 add("JSON_VALUE", "jsonValue", 2);
 add("JSON_QUERY", "jsonQuery", 1, 2);
 add("JSON_MODIFY", "jsonModify", 3);
