@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "qualify:transport": "node transport-probe.mjs",
-    "qualify:adapter": "node adapter-probe.mjs"
+    "qualify:adapter": "node --import tsx adapter-probe.mjs"
   },
   "devDependencies": {
     "msnodesqlv8": "6.2.2",
+    "tsx": "4.23.15",
     "@typed-sql/sqlserver": "workspace:*",
     "@typed-sql/compiler": "workspace:*"
   }
