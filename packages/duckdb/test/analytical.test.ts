@@ -18,6 +18,9 @@ await it(`qualifies analytical result shapes on actual DuckDB${version}`, async 
     await database.queryable.all("INSERT INTO users VALUES(1,'a',1),(2,'b',1),(3,'c',NULL)");
     const snapshot = await new DuckDBSchemaProvider({ client: database.queryable }).introspect();
     const queries = [
+      "WITH RECURSIVE n(x) AS(SELECT 1::INTEGER UNION ALL SELECT (x+1)::BIGINT FROM n WHERE x<3) SELECT x FROM n",
+      "SELECT t.id AS left_id,u.id AS right_id,id AS merged_id FROM users AS t FULL JOIN users AS u USING(id)",
+
       "SELECT team_id,count(*) AS count FROM users GROUP BY team_id HAVING count>0 ORDER BY team_id",
       "SELECT team_id,count(*) AS count FROM users GROUP BY ROLLUP(team_id)",
       "SELECT email,count(*) AS count FROM users GROUP BY ROLLUP(email)",

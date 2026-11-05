@@ -10,7 +10,13 @@ import {
 } from "@typed-sql/core";
 import { duckDBBuiltinSignatures } from "./catalog/index.js";
 import { matchDuckDBBuiltin } from "./catalog/resolution.js";
-import { type DuckDBType, duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
+import {
+  type DuckDBType,
+  duckDBAsciiFold,
+  duckDBTypeChildren,
+  formatDuckDBType,
+  parseDuckDBType,
+} from "./native-types.js";
 import { tokenize } from "./parser/tokenizer.js";
 import {
   duckDBExpressionChildren,
@@ -270,22 +276,13 @@ export class DuckDBResolver {
       }
       case "cast": {
         const type = parseDuckDBType(expr.nativeType!);
-        if (this.snapshot.server?.versionKey !== "2.0.0" && /\bTUPLE\s*\(/iu.test(expr.nativeType!)) {
-          this.error(
-            "TUPLE SQL type syntax requires DuckDB2.0; 1.5 unnamed tuple metadata is supported",
-            expr.range,
-            "TSQ401",
-          );
-          return unknown;
-        }
-
+        const newSyntax = (value: DuckDBType): boolean =>
+          value.kind === "tuple" ||
+          (value.kind === "scalar" && ["TIME_NS", "TIMESTAMPTZ_NS"].includes(value.name)) ||
+          duckDBTypeChildren(value).some(newSyntax);
+        if (this.snapshot.server?.versionKey !== "2.0.0" && newSyntax(type))
+          this.error("TUPLE/TIME_NS/TIMESTAMPTZ_NS SQL type syntax requires DuckDB2.0", expr.range, "TSQ401");
         arg(expr.left, { type, nullable: true });
-        if (
-          type.kind === "scalar" &&
-          ["TIMESTAMPTZ_NS", "TIME_NS"].includes(type.name) &&
-          this.snapshot.server?.versionKey !== "2.0.0"
-        )
-          this.error(`${type.name} requires DuckDB2.0`, expr.range, "TSQ401");
         return { type, nullable: expr.value === "TRY_CAST" || arg(expr.left).nullable };
       }
       case "unary": {
@@ -824,6 +821,22 @@ export class DuckDBResolver {
       builtinName,
       values.map((value) => value.type),
     );
+    this.dependencies.push({
+      kind: "function",
+      access: "execute",
+      name,
+      certainty: signatures.length ? "resolved" : "syntactic",
+      range: expr.range,
+    });
+    if (name === "nextval") {
+      this.effect = "write";
+      this.sessionAffinity = true;
+      this.volatile = true;
+    } else if (name === "currval") this.sessionAffinity = true;
+    else if (matches.some((match) => match.signature[6] === true)) {
+      this.volatile = true;
+      if (this.effect === "read") this.effect = "unknown";
+    }
     if (signatures.length && !matches.length) {
       this.error(
         `No qualified DuckDB overload matches ${name}(${values.map((value) => formatDuckDBType(value.type)).join(", ")})`,
@@ -1307,7 +1320,7 @@ export class DuckDBResolver {
       } else this.error(`Unknown table function ${name}`, relation.range, "TSQ201");
     } else this.error("Dynamic relation schema is not supported", relation.range, "TSQ401");
     if (relation.ordinality) fields = [...fields, { name: "ordinality", type: scalar("BIGINT"), nullable: false }];
-    if (relation.columns && relation.columns.length !== fields.length)
+    if (relation.columns && (relation.columns.length > fields.length || !relation.columns.length))
       this.error("Relation alias column count differs", relation.range, "TSQ201");
     return fields.map((field, i) => ({
       ...field,
@@ -1420,7 +1433,11 @@ export class DuckDBResolver {
 
     const ctes = new Map(parent.ctes);
     let scope: Scope = { fields: [...parent.fields], aliases: new Map(), ctes };
+    const localCTEs = new Set<string>();
     for (const cte of statement.ctes) {
+      if (localCTEs.has(duckDBAsciiFold(cte.name))) this.error("Duplicate CTE name", cte.query.range, "TSQ201");
+      localCTEs.add(duckDBAsciiFold(cte.name));
+      let anchorFields: readonly Field[] | undefined;
       if (
         ["insert", "update", "delete", "merge"].includes(cte.query.kind) &&
         this.snapshot.server?.versionKey !== "2.0.0"
@@ -1430,6 +1447,7 @@ export class DuckDBResolver {
       if (cte.recursive) {
         const anchor = cte.query.set ? { ...cte.query, set: undefined } : cte.query;
         const initial = this.query(anchor as Statement, { ...scope, ctes });
+        anchorFields = initial;
         ctes.set(
           duckDBAsciiFold(cte.name),
           initial.map((field, i) => ({ ...field, name: cte.columns?.[i] ?? field.name, nullable: true })),
@@ -1440,6 +1458,12 @@ export class DuckDBResolver {
         duckDBAsciiFold(cte.name),
         fields.map((field, i) => ({
           ...field,
+          ...(anchorFields?.[i]
+            ? {
+                type: anchorFields[i]!.type,
+                tsType: anchorFields[i]!.tsType ?? duckDBTypeScript(anchorFields[i]!.type, this.policy),
+              }
+            : {}),
           name: cte.columns?.[i] ?? field.name,
           relation: cte.name,
           nullable: cte.recursive || field.nullable,
