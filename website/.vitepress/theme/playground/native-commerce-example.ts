@@ -1,5 +1,5 @@
 import { COMMERCE_SCHEMAS } from "../../../../examples/shared/commerce-schema.js";
-import { ENVIRONMENT_FILE, environmentSource } from "./environment-model.js";
+import { DEFAULT_NATIVE_ENVIRONMENTS, ENVIRONMENT_FILE, environmentSource } from "./environment-model.js";
 import type { WorkspaceFiles } from "./workspace.js";
 
 /** Native SQL for the two new grammars; no PostgreSQL syntax substitution or fallback analysis. */
@@ -11,9 +11,7 @@ export function nativeCommerceFiles(dialect: "sqlserver" | "duckdb") {
   const returning = sqlserver ? "" : "RETURNING id, sku, price_cents";
   const files: WorkspaceFiles = {
     "schema/tables.sql": COMMERCE_SCHEMAS[dialect],
-    [ENVIRONMENT_FILE]: environmentSource(
-      sqlserver ? { version: "17.0.5035.5", settings: { compatibilityLevel: 170 } } : { version: "2.0.0" },
-    ),
+    [ENVIRONMENT_FILE]: environmentSource(DEFAULT_NATIVE_ENVIRONMENTS[dialect]),
     "queries/account.ts": `import { sql } from "@typed-sql/${dialect}";
 
 export const accountById = (id: bigint) => sql\`

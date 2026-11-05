@@ -17,6 +17,7 @@ assert.equal(process.arch, "x64", "Native SQL Server evidence requires x86-64");
 const dsn = (database) =>
   `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=${database};UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
 const evidence = { formatVersion: 1, major, cases: [] };
+const qualificationFailures = [];
 const output = resolve(`../../artifacts/sqlserver/adapter-${major}.json`);
 const generated = await mkdtemp(new URL(".adapter-generated-", import.meta.url));
 const grammar = sqlserver();
@@ -28,14 +29,15 @@ async function compile(schema, source) {
   await writeFile(path, result.runtime);
   return (await import(pathToFileURL(path).href)).default;
 }
-async function check(name, operation) {
+async function check(name, operation, { continueOnFailure = false } = {}) {
   const started = Date.now();
   try {
     await operation();
     evidence.cases.push({ name, status: "pass", durationMs: Date.now() - started });
   } catch (error) {
     evidence.cases.push({ name, status: "fail", error: String(error).replaceAll(password, "[redacted]") });
-    throw error;
+    if (continueOnFailure) qualificationFailures.push(name);
+    else throw error;
   }
 }
 
@@ -61,6 +63,9 @@ try {
           "CREATE TABLE dbo.adapter_values (id bigint NOT NULL PRIMARY KEY, amount decimal(38,10) NOT NULL, label nvarchar(max) NOT NULL, active bit NOT NULL, bytes varbinary(max) NOT NULL, happened datetime2(7) NOT NULL)",
         );
         for (const statement of DDL) await db.queryable.all(statement);
+        await db.queryable.all(
+          "INSERT INTO dbo.widgets(id,code,quantity,tiny,amount,adjustment,document,active) VALUES (1,N'sample',-7,1,-1.23,0.001,N'{}',0)",
+        );
       });
       const schema = await new SqlServerSchemaProvider({ client: db.queryable, includeSchemas: ["dbo"] }).introspect();
       await writeFile(resolve(generated, `schema-${level}.json`), JSON.stringify(schema, null, 2));
@@ -167,7 +172,31 @@ try {
           cases,
         });
       });
-      await check(`${level}: vendor corpus native result metadata`, qualifyCorpus);
+      await check(`${level}: independent native numeric promotion evidence`, async () => {
+        const promotions = [];
+        for (const fn of ["ABS", "CEILING", "FLOOR", "POWER", "SIGN", "DEGREES", "RADIANS"]) {
+          for (const type of ["decimal(12,2)", "int", "smallint", "money", "bit", "real"]) {
+            const expression = `${fn}(CAST(1 AS ${type})${fn === "POWER" ? ",2" : ""})`;
+            try {
+              const [metadata] = await db.queryable.all(
+                `SELECT SQL_VARIANT_PROPERTY(${expression},'BaseType') AS type,SQL_VARIANT_PROPERTY(${expression},'Precision') AS precision,SQL_VARIANT_PROPERTY(${expression},'Scale') AS scale`,
+              );
+              promotions.push({ fn, input: type, ...metadata });
+            } catch (error) {
+              promotions.push({ fn, input: type, rejected: String(error).replaceAll(password, "[redacted]") });
+            }
+          }
+          const expression = `${fn}(amount${fn === "POWER" ? ",2" : ""})`;
+          const [metadata] = await db.queryable.all(
+            `SELECT SQL_VARIANT_PROPERTY(${expression},'BaseType') AS type,SQL_VARIANT_PROPERTY(${expression},'Precision') AS precision,SQL_VARIANT_PROPERTY(${expression},'Scale') AS scale FROM dbo.widgets`,
+          );
+          promotions.push({ fn, input: "nonconstant table decimal(12,2)", ...metadata });
+        }
+        evidence.cases.push({ name: `${level}: numeric metadata`, status: "evidence", promotions });
+      });
+      // Keep qualifying the runtime after a metadata disagreement, then fail the
+      // overall gate. A failing oracle must never hide later transport evidence.
+      await check(`${level}: vendor corpus native result metadata`, qualifyCorpus, { continueOnFailure: true });
       const row = {
         id: 9223372036854775807n,
         amount: "1234567890123456789012345678.1234567890",
@@ -231,27 +260,11 @@ try {
         assert.deepEqual(await db.one(sql.validateResult(find({ id: row.id }), validator)), row);
         assert.equal(calls, 1);
       });
-      await check(`${level}: independent native numeric promotion evidence`, async () => {
-        const promotions = [];
-        for (const fn of ["ABS", "CEILING", "FLOOR", "POWER", "SIGN", "DEGREES", "RADIANS"]) {
-          for (const type of ["decimal(12,2)", "int", "smallint", "money", "bit", "real"]) {
-            const expression = `${fn}(CAST(1 AS ${type})${fn === "POWER" ? ",2" : ""})`;
-            try {
-              const [metadata] = await db.queryable.all(
-                `SELECT SQL_VARIANT_PROPERTY(${expression},'BaseType') AS type,SQL_VARIANT_PROPERTY(${expression},'Precision') AS precision,SQL_VARIANT_PROPERTY(${expression},'Scale') AS scale`,
-              );
-              promotions.push({ fn, input: type, ...metadata });
-            } catch (error) {
-              promotions.push({ fn, input: type, rejected: String(error).replaceAll(password, "[redacted]") });
-            }
-          }
-        }
-        evidence.cases.push({ name: `${level}: numeric metadata`, status: "evidence", promotions });
-      });
     } finally {
       await db.close();
     }
   }
+  assert.deepEqual(qualificationFailures, [], "Native qualification has unresolved metadata disagreements");
 } finally {
   await mkdir(resolve(output, ".."), { recursive: true });
   await writeFile(output, JSON.stringify(evidence, null, 2));

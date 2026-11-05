@@ -55,6 +55,8 @@ import {
   sqlserver,
 } from "../../../../packages/sqlserver/src/browser.js";
 
+import { DEFAULT_NATIVE_ENVIRONMENTS } from "./environment-model.js";
+
 export type PlaygroundDialect = "postgres" | "mysql" | "sqlite" | "sqlserver" | "duckdb";
 export interface PlaygroundEnvironment {
   readonly version?: string;
@@ -235,39 +237,18 @@ const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Obj
       if (/_AI(?:_|$)/iu.test(collation)) result = result.normalize("NFD").replace(/\p{M}/gu, "");
       return result;
     },
-    server: (environment = {}) =>
-      sqlServerServerEvidence(environment.version ?? "17.0.5035.5", {
-        compatibilityLevel: 170,
-        collation: "Latin1_General_100_CI_AS",
-        defaultSchema: "dbo",
-        quotedIdentifier: true,
-        ansiWarnings: true,
-        arithAbort: true,
-        concatNullYieldsNull: true,
-        dateFirst: 7,
-        dateFormat: "mdy",
-        language: "us_english",
-        ...environment.settings,
-      } as SqlServerServerSettings),
+    server: (environment = DEFAULT_NATIVE_ENVIRONMENTS.sqlserver) =>
+      sqlServerServerEvidence(
+        environment.version ?? "unknown",
+        (environment.settings ?? {}) as unknown as SqlServerServerSettings,
+      ),
     mapType: (databaseType) => mapSqlServerType(databaseType),
   }),
   duckdb: publicRuntime(duckdb(), {
     defaultNamespace: "main",
     fold: duckDBAsciiFold,
-    server: (environment = {}) =>
-      duckDBServerEvidence(environment.version ?? "2.0.0", [], {
-        currentCatalog: "memory",
-        currentSchema: "main",
-        schema: "main",
-        search_path: "",
-        TimeZone: "UTC",
-        Calendar: "gregorian",
-        preserve_identifier_case: "preserve_case",
-        default_null_order: "NULLS_LAST",
-        default_order: "ASCENDING",
-        old_implicit_casting: false,
-        ...environment.settings,
-      }),
+    server: (environment = DEFAULT_NATIVE_ENVIRONMENTS.duckdb) =>
+      duckDBServerEvidence(environment.version ?? "unknown", [], environment.settings ?? {}),
     normalizeType(databaseType, snapshot) {
       const declared = Object.entries(snapshot.types).find(
         ([key, type]) =>
