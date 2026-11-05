@@ -220,7 +220,7 @@ await describe("SQL asset artifact workflows", async () => {
 
   await it("discovers imported SQL sources without collecting unrelated migrations or string lookalikes", async () => {
     const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-    const directory = await mkdtemp(join(workspace, "artifacts/sql-discovery-"));
+    const directory = await mkdtemp(join(workspace, ".typed-sql-sql-discovery-"));
     try {
       await mkdir(join(directory, "src"));
       await writeFile(

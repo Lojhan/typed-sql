@@ -37,6 +37,17 @@ export interface CompileSqlFileResult {
   readonly runtime: string;
 }
 
+/** JSON literals remain data even when a generated module is embedded in an HTML script. */
+function codeLiteral(value: unknown): string {
+  const json = JSON.stringify(value);
+  if (json === undefined) throw new TypeError("Generated SQL modules require JSON-serializable literals");
+  return json
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029");
+}
+
 /** Uses the selected grammar for SQL semantics and placeholder lexing. */
 export function compileSqlFile(options: CompileSqlFileOptions): CompileSqlFileResult {
   const { source: content, dialect, typePolicy, schema } = options;
@@ -191,7 +202,9 @@ export function compileSqlFile(options: CompileSqlFileOptions): CompileSqlFileRe
   const failed = diagnostics.some((item) => item.severity === "error");
   const row = analysis?.resultKind === "command" ? "never" : rowTypeLiteral(analysis?.columns ?? []);
   const parameters = parameterTypeLiteral(count, logicalParameters, dialect.runtimeSqlModule);
-  const namedType = `{ ${logicalParameters.map((parameter, index) => `${JSON.stringify(names[index])}: ${parameterTypeLiteral(1, [{ ...parameter, index: 1 }], dialect.runtimeSqlModule).slice("readonly [".length, -1)}`).join("; ")} }`;
+  const namedType = named
+    ? `{ ${logicalParameters.map((parameter, index) => `${codeLiteral(names[index])}: ${parameterTypeLiteral(1, [{ ...parameter, index: 1 }], dialect.runtimeSqlModule).slice("readonly [".length, -1)}`).join("; ")} }`
+    : "";
   const args = named ? `(parameters: ${namedType})` : `(...values: ${parameters})`;
   const executableParameters = parameterTypeLiteral(
     bindings.length,
@@ -201,27 +214,27 @@ export function compileSqlFile(options: CompileSqlFileOptions): CompileSqlFileRe
   const type = failed ? "never" : `${args} => Query<${row}, ${executableParameters}>`;
   const text = failed
     ? "declare const query: never; export default query;"
-    : `import type { Query, QueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
+    : `import type { Query, QueryValuePlan } from ${codeLiteral(dialect.runtimeSqlModule)};\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
   const runtime = failed
-    ? `export default undefined;\nthrow new SyntaxError(${JSON.stringify(
+    ? `export default undefined;\nthrow new SyntaxError(${codeLiteral(
         diagnostics
           .filter((item) => item.severity === "error")
           .map((item) => `${item.code} (${item.range.line}:${item.range.column}): ${item.message}`)
           .join("\n"),
       )});\n`
-    : `import { sql } from ${JSON.stringify(dialect.runtimeSqlModule ?? dialect.sqlModule)};
-import { defineQueryValuePlan, withQueryValuePlan } from ${JSON.stringify(dialect.runtimeSqlModule)};
-export const valuePlan = defineQueryValuePlan(${JSON.stringify(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy, bindings.length))});
-const parts = ${JSON.stringify(parts)}.map((text) => sql.raw(text));
+    : `import { sql } from ${codeLiteral(dialect.runtimeSqlModule ?? dialect.sqlModule)};
+import { defineQueryValuePlan, withQueryValuePlan } from ${codeLiteral(dialect.runtimeSqlModule)};
+export const valuePlan = defineQueryValuePlan(${codeLiteral(analysis === undefined ? undefined : buildQueryValuePlan(dialect, analysis, policy, bindings.length))});
+const parts = ${codeLiteral(parts)}.map((text) => sql.raw(text));
 export default function query(${named ? "parameters" : "...values"}) {
   ${
     named
-      ? `if (parameters === null || typeof parameters !== "object" || Array.isArray(parameters) || ${JSON.stringify(names)}.some((name) => !Object.hasOwn(parameters, name)) || Object.keys(parameters).some((name) => !${JSON.stringify(names)}.includes(name))) throw new TypeError("SQL file expects exactly its named parameters");
-  const values = ${JSON.stringify(names)}.map((name) => parameters[name]);`
+      ? `if (parameters === null || typeof parameters !== "object" || Array.isArray(parameters) || ${codeLiteral(names)}.some((name) => !Object.hasOwn(parameters, name)) || Object.keys(parameters).some((name) => !${codeLiteral(names)}.includes(name))) throw new TypeError("SQL file expects exactly its named parameters");
+  const values = ${codeLiteral(names)}.map((name) => parameters[name]);`
       : ""
   }
   if (values.length !== ${count}) throw new TypeError("SQL file expects ${count} positional parameters");
-  const fragments = parts.flatMap((part, index) => index === 0 ? [part] : [sql.value(values[${JSON.stringify(bindings)}[index - 1]]), part]);
+  const fragments = parts.flatMap((part, index) => index === 0 ? [part] : [sql.value(values[${codeLiteral(bindings)}[index - 1]]), part]);
   return withQueryValuePlan(sql\`\${sql.join(fragments, sql.empty)}\`, valuePlan);
 }
 `;

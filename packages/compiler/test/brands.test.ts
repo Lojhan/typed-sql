@@ -19,7 +19,7 @@ import {
 await describe("branded scalar query contracts", async () => {
   await it("retains brands through rows, parameters and projections with primitive wire plans in every grammar", async () => {
     const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-    const directory = await mkdtemp(join(workspace, "artifacts/brand-consumer-"));
+    const directory = await mkdtemp(join(workspace, ".typed-sql-brand-consumer-"));
     try {
       for (const dialect of [postgres(), mysql(), sqlite()] as readonly DialectPlugin[]) {
         const schema = withSchemaBrands(

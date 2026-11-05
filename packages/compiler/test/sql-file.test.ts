@@ -136,6 +136,39 @@ await describe("stable SQL module compiler", async () => {
     strict.throws(() => named(null), /named parameters/u);
   });
 
+  await it("keeps hostile SQL text and metadata as data in script-safe generated modules", async () => {
+    const payload = '</script><script>globalThis.__typedSqlInjected = true</script>"`\\\n\u2028\u2029';
+    const column = "value</script><script>globalThis.__typedSqlInjected = true</script>\u2028\u2029";
+    const source = `SELECT '${payload}' AS "${column}", :id::bigint AS id`;
+    const result = compileSqlFile({ dialect, schema, source });
+    strict.deepStrictEqual(result.diagnostics, []);
+    strict.ok(!/[<\u2028\u2029]/u.test(result.runtime));
+    strict.ok(result.runtime.includes("\\u003c/script\\u003e"));
+    const runtime = result.runtime.replaceAll(
+      JSON.stringify(dialect.runtimeSqlModule),
+      JSON.stringify(import.meta.resolve(dialect.runtimeSqlModule!)),
+    );
+    strict.strictEqual(Reflect.has(globalThis, "__typedSqlInjected"), false);
+    const module = await import(`data:text/javascript;base64,${Buffer.from(runtime).toString("base64")}`);
+    const rendered = renderQuery(module.default({ id: 7n }), postgresRenderer);
+    strict.strictEqual(rendered.text, source.replace(":id", "$1"));
+    strict.deepStrictEqual(rendered.values, [7n]);
+    strict.strictEqual(module.valuePlan.columns[0].name, column);
+    strict.strictEqual(Reflect.has(globalThis, "__typedSqlInjected"), false);
+
+    const invalid = compileSqlFile({
+      dialect,
+      schema,
+      source: 'SELECT missing FROM "absent</script><script>injected</script>"',
+    });
+    strict.ok(invalid.diagnostics.length > 0);
+    strict.ok(!/[<\u2028\u2029]/u.test(invalid.runtime));
+    await strict.rejects(
+      import(`data:text/javascript;base64,${Buffer.from(invalid.runtime).toString("base64")}`),
+      (error: unknown) => error instanceof SyntaxError && error.message.includes("absent</script>"),
+    );
+  });
+
   await it("rejects inconsistent third-party grammar binding contracts and preserves source offsets", () => {
     const source = "SELECT $1 AS value";
     const placeholder = source.indexOf("$1");
