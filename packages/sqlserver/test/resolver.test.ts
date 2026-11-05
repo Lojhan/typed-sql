@@ -135,6 +135,28 @@ await describe("SQL Server native inference", async () => {
     strict.equal(unscoped.columns[0]?.databaseType, "varchar(2)");
   });
 
+  await it("preserves possible native NULLs from nonnullable builtin arguments", () => {
+    for (const expression of [
+      "CHAR(999)",
+      "NCHAR(-1)",
+      "STUFF(status,0,1,N'x')",
+      "QUOTENAME(REPLICATE(N'x',129))",
+      "FORMAT(1,N'invalidformat')",
+      "STR(id,0)",
+    ]) {
+      const result = analyze(`SELECT ${expression} AS value FROM dbo.orders`);
+      strict.deepEqual(result.diagnostics, [], expression);
+      strict.equal(result.columns[0]?.nullable, true, expression);
+    }
+    for (const expression of ["SPACE(-1)", "REPLICATE(N'x',-1)"]) {
+      const result = analyze(`SELECT ${expression} AS value`);
+      strict.ok(result.diagnostics.length > 0, expression);
+      strict.equal(result.columns[0]?.tsType, "unknown");
+    }
+    strict.equal(analyze("SELECT CONCAT_WS(name,status,N'x') AS value FROM dbo.orders").columns[0]?.nullable, true);
+    strict.equal(analyze("SELECT CONCAT(name,status) AS value FROM dbo.orders").columns[0]?.nullable, false);
+  });
+
   await it("proves repeated INSERT VALUES shapes and distinguishes output projection changes", () => {
     const source =
       "INSERT INTO dbo.orders(id,status,amount) OUTPUT inserted.id VALUES (@__typed_sql_1,@__typed_sql_2,@__typed_sql_3),(@__typed_sql_4,@__typed_sql_5,@__typed_sql_6)";
