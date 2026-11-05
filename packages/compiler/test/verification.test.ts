@@ -627,6 +627,93 @@ await describe("live query verification", async () => {
     };
     strict.throws(() => assertQueryVerificationProofCurrent(value.manifest, edited), /cache key/u);
   });
+  await it("checks grammar-owned physical identity even when JavaScript types match", async () => {
+    const value = fixture();
+    const original = value.candidates[0]!;
+    const candidate = {
+      ...original,
+      columns: original.columns.map((column, index) =>
+        index === 1 ? { ...column, databaseType: "decimal(12,2)", tsType: "string" } : column,
+      ),
+    };
+    for (const comparison of ["equal", "different", "unavailable", "throw", "invalid"] as const) {
+      const calls: readonly string[][] = [];
+      const native = verifier({
+        compareDatabaseTypes(expected, actual, target) {
+          (calls as string[][]).push([expected, actual, target]);
+          if (expected === "decimal(12,2)") {
+            if (comparison === "throw") throw new Error("SELECT recognizable-secret FROM private_table");
+            if (comparison === "invalid") return "invalid" as "equal";
+            return comparison;
+          }
+          return "equal";
+        },
+        async verify() {
+          return {
+            columns: [
+              { index: 1, databaseType: "bigint", tsType: "bigint" },
+              { index: 2, databaseType: "decimal(12,4)", tsType: "string" },
+            ],
+            parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+          };
+        },
+      });
+      const result = await verifyQueryManifest({ manifest: value.manifest, candidates: [candidate], verifier: native });
+      const entry = result.proof.entries.find(
+        (entry) => entry.queryId === candidate.queryId && entry.variantFingerprint === candidate.variantFingerprint,
+      )!;
+      strict.equal(
+        entry.status,
+        comparison === "equal"
+          ? "verified"
+          : comparison === "different"
+            ? "mismatch"
+            : comparison === "unavailable"
+              ? "skipped"
+              : "error",
+      );
+      strict.deepEqual(entry.source, candidate.source);
+      strict.equal(entry.variantFingerprint, candidate.variantFingerprint);
+      strict.ok(calls.some((call) => call[0] === "decimal(12,2)" && call[1] === "decimal(12,4)"));
+      if (entry.status === "mismatch")
+        strict.ok(entry.mismatches.some((m) => m.kind === "database-type" && m.target === "column" && m.index === 2));
+      strict.ok(!serializeQueryVerificationProof(result.proof).includes("recognizable-secret"));
+    }
+  });
+  await it("does not certify missing physical fields for an opted-in verifier", async () => {
+    const value = fixture();
+    for (const missing of ["expected", "actual"] as const) {
+      const original = value.candidates[0]!;
+      const columns = original.columns.map((column, index) => {
+        if (index !== 1 || missing !== "expected") return column;
+        const { databaseType: _databaseType, ...rest } = column;
+        return rest;
+      });
+      const result = await verifyQueryManifest({
+        manifest: value.manifest,
+        candidates: [{ ...original, columns }],
+        verifier: verifier({
+          compareDatabaseTypes: () => "equal",
+          async verify() {
+            return {
+              columns: [
+                { index: 1, databaseType: "bigint", tsType: "bigint" },
+                { index: 2, ...(missing === "actual" ? {} : { databaseType: "text" }), tsType: "string" },
+              ],
+              parameters: [{ index: 1, databaseType: "bigint", tsType: "bigint" }],
+            };
+          },
+        }),
+      });
+      strict.equal(result.verified, 0);
+      strict.equal(result.failed, 0);
+      strict.ok(
+        result.proof.entries.some(
+          (entry) => entry.status === "skipped" && entry.reason === "native-metadata-unavailable",
+        ),
+      );
+    }
+  });
 });
 
 void (schema satisfies SchemaSnapshot);

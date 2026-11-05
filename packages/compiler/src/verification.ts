@@ -319,7 +319,8 @@ function compareField(
   target: "column" | "parameter",
   expected: QueryVerificationExpectedField,
   actual: LiveQueryVerificationField,
-): readonly QueryVerificationMismatch[] {
+  verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
+): readonly QueryVerificationMismatch[] | "unavailable" {
   const mismatches: QueryVerificationMismatch[] = [];
   const add = (kind: QueryVerificationMismatchKind, expectedValue: string, actualValue: string) =>
     mismatches.push({ kind, target, index: expected.index, expected: expectedValue, actual: actualValue });
@@ -331,6 +332,13 @@ function compareField(
   ) {
     add("column-name", expected.name, actual.name);
   }
+  if (verifier.compareDatabaseTypes !== undefined) {
+    if (expected.databaseType === undefined || actual.databaseType === undefined) return "unavailable";
+    const comparison = verifier.compareDatabaseTypes(expected.databaseType, actual.databaseType, target);
+    if (comparison === "unavailable") return "unavailable";
+    if (comparison === "different") add("database-type", expected.databaseType, actual.databaseType);
+    else if (comparison !== "equal") throw new TypeError("Invalid native database type comparison");
+  }
   if (expected.tsType !== "unknown" && actual.tsType !== undefined) {
     const expectedWireType = brandBaseType(expected.tsType) ?? expected.tsType;
     if (
@@ -340,6 +348,7 @@ function compareField(
       add("typescript-type", expected.tsType, actual.tsType);
     }
   } else if (
+    verifier.compareDatabaseTypes === undefined &&
     expected.databaseType !== undefined &&
     actual.databaseType !== undefined &&
     normalizedType(expected.databaseType) !== normalizedType(actual.databaseType)
@@ -355,7 +364,8 @@ function compareField(
 function compareEvidence(
   candidate: QueryVerificationCandidate,
   evidence: LiveQueryVerificationEvidence,
-): readonly QueryVerificationMismatch[] {
+  verifier: Pick<LiveQueryVerifier, "compareDatabaseTypes">,
+): readonly QueryVerificationMismatch[] | "unavailable" {
   const mismatches: QueryVerificationMismatch[] = [];
   if (candidate.columns.length !== evidence.columns.length) {
     mismatches.push({
@@ -374,10 +384,14 @@ function compareEvidence(
     });
   }
   for (let index = 0; index < Math.min(candidate.columns.length, evidence.columns.length); index += 1) {
-    mismatches.push(...compareField("column", candidate.columns[index]!, evidence.columns[index]!));
+    const fields = compareField("column", candidate.columns[index]!, evidence.columns[index]!, verifier);
+    if (fields === "unavailable") return fields;
+    mismatches.push(...fields);
   }
   for (let index = 0; index < Math.min(candidate.parameters.length, evidence.parameters.length); index += 1) {
-    mismatches.push(...compareField("parameter", candidate.parameters[index]!, evidence.parameters[index]!));
+    const fields = compareField("parameter", candidate.parameters[index]!, evidence.parameters[index]!, verifier);
+    if (fields === "unavailable") return fields;
+    mismatches.push(...fields);
   }
   return mismatches;
 }
@@ -509,7 +523,16 @@ export async function verifyQueryManifest(options: VerifyQueryManifestOptions): 
         columns: native.columns.map((field) => ({ ...field })),
         parameters: native.parameters.map((field) => ({ ...field })),
       };
-      const mismatches = compareEvidence(item, evidence);
+      const mismatches = compareEvidence(item, evidence, options.verifier);
+      if (mismatches === "unavailable")
+        return {
+          queryId: item.queryId,
+          variantFingerprint: item.variantFingerprint,
+          source: item.source,
+          status: "skipped",
+          code: "TSQ501",
+          reason: "native-metadata-unavailable",
+        };
       return mismatches.length === 0
         ? {
             queryId: item.queryId,

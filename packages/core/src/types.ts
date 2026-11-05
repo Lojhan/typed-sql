@@ -264,7 +264,7 @@ export interface LiveQueryVerificationField {
   readonly name?: string;
   readonly databaseType?: string;
   readonly tsType?: string;
-  /** `undefined` means that the native protocol does not expose nullability. */
+  /** `undefined` means that the native protocol cannot attest precise nullability. */
   readonly nullable?: boolean;
 }
 
@@ -294,6 +294,12 @@ export interface LiveQueryVerifier {
   readonly adapterVersion: string;
   /** Identity of the effective decoding policy, when the adapter supplies policy-dependent evidence. */
   readonly typePolicyHash?: string;
+  /** Optional grammar-owned physical compatibility check, independent of JavaScript type equality. */
+  compareDatabaseTypes?(
+    expected: string,
+    actual: string,
+    target: "column" | "parameter",
+  ): "equal" | "different" | "unavailable";
   server(): Promise<LiveQueryVerificationServer>;
   verify(request: LiveQueryVerificationRequest): Promise<LiveQueryVerificationEvidence>;
   close(): Promise<void>;
