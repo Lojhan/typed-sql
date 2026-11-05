@@ -78,6 +78,7 @@ export type DuckDBPreparedQueryFactory<Args extends readonly unknown[], Row, Par
   ...args: Args
 ) => Query<Row, Params>) & { readonly statementName: string };
 export interface DuckDBTransaction extends Database<DuckDBTransaction> {
+  unprepare(name: string): Promise<void>;
   batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   stream<Row, Params extends readonly unknown[]>(
     query: Query<Row, Params>,
@@ -171,9 +172,13 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
   const registered = {
     variantCapacity,
     statements: new Map<string, { variants: PreparedQueryRenderCache }>(),
-    queries: new WeakMap<object, { statementName: string; rendered: { text: string; values: readonly unknown[] } }>(),
+    queries: new WeakMap<
+      object,
+      { owner: object; statementName: string; rendered: { text: string; values: readonly unknown[] } }
+    >(),
   };
   const nativePrepared = new Map<string, DuckDBNativeStatement>();
+  const preparedOwners = new Map<string, object>();
   const ensure = (scope?: Scope) => {
     if (closed || current.dead) throw new Error("DuckDB database is closed");
     if (current.broken) throw new Error("DuckDB connection is unusable after failed cleanup");
@@ -266,6 +271,8 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
   const prepared = async (statement: Ready): Promise<{ statement: DuckDBNativeStatement; owned: boolean }> => {
     const registration = registered.queries.get(queryResultValidationSource(statement.query));
     if (!registration) return { statement: await connection.prepare(statement.text), owned: true };
+    if (preparedOwners.get(registration.statementName) !== registration.owner)
+      throw new Error("DuckDB prepared factory has been retired");
     const cacheKey = `${registration.statementName}\0${statement.text}\0${statement.physicalKey}`;
     let native = nativePrepared.get(cacheKey);
     if (native) {
@@ -657,13 +664,48 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         factory: (...args: Args) => Query<Row, Params>,
       ) {
         ensure(scope);
-        return registerPreparedQuery({
+        const owner = {};
+        const preparedFactory = registerPreparedQuery({
           state: registered,
           renderer: duckdbRenderer,
           statementName: name,
           factory,
-          metadata: (variant) => ({ statementName: name, rendered: variant.rendered }),
+          metadata: (variant) => ({ owner, statementName: name, rendered: variant.rendered }),
           capacity: { maximum: 128, message: "DuckDB prepared factory limit" },
+        });
+        preparedOwners.set(name, owner);
+        const owned = (...args: Args) => {
+          ensure(scope);
+          if (preparedOwners.get(name) !== owner) throw new Error("DuckDB prepared factory has been retired");
+          return preparedFactory(...args);
+        };
+        return Object.freeze(Object.assign(owned, { statementName: name }));
+      },
+      unprepare(name: string): Promise<void> {
+        return track(scope, async () => {
+          if (typeof name !== "string" || !name || name.includes("\0"))
+            throw new TypeError("Invalid DuckDB prepared statement name");
+          const release = await acquire(scope);
+          try {
+            ensure(scope);
+            registered.statements.delete(name);
+            preparedOwners.delete(name);
+            let failure: unknown,
+              failed = false;
+            for (const [key, handle] of nativePrepared)
+              if (key.startsWith(`${name}\0`)) {
+                nativePrepared.delete(key);
+                try {
+                  await cleanup(undefined, handle, false);
+                } catch (error) {
+                  if (!failed) failure = error;
+                  failed = true;
+                }
+              }
+            if (failed) throw failure;
+          } finally {
+            release();
+          }
         });
       },
     });
@@ -724,6 +766,8 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         };
         for (const handle of nativePrepared.values()) await retire(() => handle.close());
         nativePrepared.clear();
+        registered.statements.clear();
+        preparedOwners.clear();
         if (options.ownsConnection) {
           await retire(() => connection.close?.());
           current.dead = true;
