@@ -29,6 +29,12 @@
       "path": "./packages/sqlite"
     },
     {
+      "path": "./packages/sqlserver"
+    },
+    {
+      "path": "./packages/duckdb"
+    },
+    {
       "path": "./packages/compiler"
     },
     {
