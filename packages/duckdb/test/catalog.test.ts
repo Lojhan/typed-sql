@@ -1,7 +1,8 @@
 import { it, strict } from "poku";
-import { duckDBBuiltinCatalog, duckDBServerEvidence, duckdb } from "../src/index.js";
+import { duckDBBuiltinCatalog, duckdb } from "../src/index.js";
 import { formatDuckDBType } from "../src/native-types.js";
 import { duckDBTypeFromSDK } from "../src/node-api.js";
+import { fixtureEvidence } from "./helpers/evidence.js";
 
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
@@ -14,7 +15,7 @@ await it(`qualifies builtin shapes and invalid overloads against actual DuckDB${
   const snapshot: import("../src/snapshot.js").DuckDBSchemaSnapshot = {
     formatVersion: 1 as const,
     dialect: "duckdb",
-    server: duckDBServerEvidence(version),
+    server: fixtureEvidence(version),
     tables: {},
   };
   const expressions = [
