@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { describe, it, strict } from "poku";
 import {
   decodeSqlServerNativeValue,
@@ -76,6 +77,12 @@ await describe("SQL Server lossless native codecs", async () => {
     strict.equal(encode("2024-01-01T00:00:00.003", "datetime"), "2024-01-01T00:00:00.003");
   });
   await it("copies binary buffers and rejects missing or incompatible metadata", () => {
+    const nativeBuffer = Buffer.from([0, 255]);
+    const decoded = decodeSqlServerNativeValue(nativeBuffer, descriptor("varbinary(max)"), policy) as Uint8Array;
+    const encoded = encode(nativeBuffer, "varbinary(max)") as Uint8Array;
+    nativeBuffer[0] = 42;
+    strict.deepEqual([...decoded], [0, 255]);
+    strict.deepEqual([...encoded], [0, 255]);
     const original = Uint8Array.of(0, 255),
       copy = encode(original, "varbinary(max)") as Uint8Array;
     original[0] = 42;

@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { createRequire } from "node:module";
 import { type ExecutionOptions, runControlledExecution } from "@typed-sql/core";
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
@@ -226,7 +227,7 @@ function nativeBindings(driver: SqlServerOdbcDriver, values: readonly unknown[])
     )
       return driver.Double(value);
     if (typeof value === "bigint") return driver.NVarChar(value.toString());
-    if (value instanceof Uint8Array) return driver.VarBinary(value.slice());
+    if (value instanceof Uint8Array) return driver.VarBinary(Buffer.from(value));
     throw new TypeError("Unsupported raw ODBC binding");
   });
 }
