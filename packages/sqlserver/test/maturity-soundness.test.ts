@@ -240,4 +240,18 @@ await describe("SQL Server fail-closed maturity and metamorphic soundness", asyn
         strict.ok(diagnostic.range.start >= 0 && diagnostic.range.end <= source.length);
     });
   }
+  await it("declines ambiguous or dynamic JSON object shapes without throwing", () => {
+    for (const source of [
+      "SELECT JSON_OBJECT('same':id,'same':quantity) AS value FROM dbo.widgets",
+      "SELECT JSON_OBJECT(code:id) AS value FROM dbo.widgets",
+    ]) {
+      const result = grammar.analyze(source, snapshot, { ...grammar.defaultTypePolicy, json: "parsed" });
+      strict.ok(
+        result.diagnostics.some((d) => d.severity === "error") ||
+          result.columns[0]?.tsType === "JsonValue" ||
+          result.columns[0]?.tsType === "unknown",
+      );
+      strict.ok(result.columns.every((c) => !/\bany\b/u.test(c.tsType)));
+    }
+  });
 });
