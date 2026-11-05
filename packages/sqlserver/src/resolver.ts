@@ -14,7 +14,7 @@ import type { ColumnSnapshot, RelationSnapshot, SchemaSnapshot } from "@typed-sq
 import { SQLSERVER_BUILTINS, SQLSERVER_DATEPARTS } from "./catalog/index.js";
 import { parseSqlServerNativeType, type SqlServerNativeType } from "./native-types.js";
 import type { Cte, Expression, Join, Name, Output, Projection, Select, Source, Statement } from "./parser/index.js";
-import { walkStatement } from "./parser/index.js";
+import { walkExpression, walkStatement } from "./parser/index.js";
 import {
   defaultSqlServerTypePolicy,
   mapSqlServerType,
@@ -121,12 +121,30 @@ function decimalDimensions(value: SqlServerNativeType): readonly [number, number
       return [38, 0];
   }
 }
-function decimalType(precision: number, scale: number, nullable: boolean, policy: SqlServerTypePolicy): Value {
+function decimalType(
+  precision: number,
+  scale: number,
+  nullable: boolean,
+  policy: SqlServerTypePolicy,
+  product = false,
+): Value {
   if (precision > 38) {
-    scale = Math.max(0, scale - (precision - 38));
+    const integral = precision - scale;
+    scale = product && integral >= 32 ? Math.min(scale, 6) : Math.max(0, scale - (precision - 38));
     precision = 38;
   }
   return type(`decimal(${Math.max(1, precision)},${Math.max(0, Math.min(scale, precision))})`, nullable, policy);
+}
+function numericConstant(expression: Expression): number | undefined {
+  if (expression.kind === "literal" && expression.literal === "number") {
+    const value = Number(expression.value);
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (expression.kind === "unary" && ["+", "-"].includes(expression.operator)) {
+    const value = numericConstant(expression.argument);
+    return value === undefined ? undefined : expression.operator === "-" ? -value : value;
+  }
+  return undefined;
 }
 export interface ResolveSqlServerOptions {
   readonly typePolicy?: SqlServerTypePolicy;
@@ -309,6 +327,8 @@ class Resolver {
       return { ...relation, qualifiers: source.alias ? [source.alias] : relation.qualifiers };
     }
     if (source.kind === "derived") {
+      if (new Set(source.columns.map((name) => this.key(name))).size !== source.columns.length)
+        this.diagnostic("TSQ203", "Derived table column aliases must be unique", source.range);
       const columns = this.select(
         source.query,
         ctes,
@@ -335,6 +355,9 @@ class Resolver {
       const level = this.schema.server?.settings.compatibilityLevel;
       if (typeof level === "number" && level < 130)
         this.diagnostic("TSQ401", "OPENJSON requires compatibility level 130 or later", source.range);
+      for (const field of source.shape ?? [])
+        if (field.json && parseSqlServerNativeType(field.databaseType)?.text !== "nvarchar(max)")
+          this.diagnostic("TSQ201", "OPENJSON AS JSON columns require nvarchar(max)", source.range);
       columns = source.shape
         ? source.shape.map((field) => ({
             name: field.name,
@@ -557,7 +580,13 @@ class Resolver {
         if (expression.literal === "binary")
           return type(`varbinary(${Math.max(1, Math.ceil(String(expression.value).length / 2))})`, false, this.policy);
         const text = String(expression.value);
-        if (/[eE]/u.test(text)) return type("float(53)", false, this.policy);
+        if (/[eE]/u.test(text)) {
+          if (!Number.isFinite(Number(text))) {
+            this.diagnostic("TSQ201", "Numeric literal exceeds finite SQL Server floating range", expression.range);
+            return unknown;
+          }
+          return type("float(53)", false, this.policy);
+        }
         if (text.includes(".")) {
           const [integral, fraction = ""] = text.split(".");
           const precision = Math.max(1, integral!.replace(/^0+/u, "").length + fraction.length);
@@ -566,6 +595,10 @@ class Resolver {
             return unknown;
           }
           return decimalType(precision, fraction.length, false, this.policy);
+        }
+        if (text.replace(/^0+/u, "").length > 38) {
+          this.diagnostic("TSQ201", "Integer literal exceeds SQL Server decimal precision", expression.range);
+          return unknown;
         }
         const integer = BigInt(text);
         return integer <= 2147483647n
@@ -724,10 +757,10 @@ class Resolver {
                   this.policy,
                 );
               case "*":
-                return decimalType(ap + bp + 1, as + bs, nullable, this.policy);
+                return decimalType(ap + bp + 1, as + bs, nullable, this.policy, true);
               case "/": {
                 const scale = Math.max(6, as + bp + 1);
-                return decimalType(ap - as + bs + scale, scale, nullable, this.policy);
+                return decimalType(ap - as + bs + scale, scale, nullable, this.policy, true);
               }
               case "%":
                 return decimalType(
@@ -852,7 +885,71 @@ class Resolver {
     if (builtin.since) this.requireVersion(builtin.since, expression.range, name, builtin.compatibility);
     if (builtin.kind === "window" && !expression.over)
       this.diagnostic("TSQ203", `${name} requires OVER`, expression.range);
+    if (builtin.kind === "aggregate" && !expression.over)
+      for (const argument of expression.arguments)
+        walkExpression(argument, {
+          expression: (value) => {
+            if (
+              value.kind === "subquery" ||
+              value.kind === "exists" ||
+              (value.kind === "call" &&
+                value.name.parts.length === 1 &&
+                (SQLSERVER_BUILTINS[partsLast(value.name).toUpperCase()]?.kind === "aggregate" || value.over))
+            )
+              this.diagnostic(
+                "TSQ203",
+                "An aggregate argument cannot contain an aggregate, window function or subquery",
+                value.range,
+              );
+          },
+        });
     if (expression.over) {
+      if (
+        builtin.kind === "window" &&
+        !["PERCENTILE_CONT", "PERCENTILE_DISC"].includes(name) &&
+        !expression.over.order.length
+      )
+        this.diagnostic("TSQ203", `${name} requires ORDER BY within OVER`, expression.over.range);
+      if (expression.over.frame) {
+        const frame = expression.over.frame;
+        if (!expression.over.order.length)
+          this.diagnostic("TSQ203", "Window frames require ORDER BY", expression.over.range);
+        if (builtin.kind === "window" && !["FIRST_VALUE", "LAST_VALUE"].includes(name))
+          this.diagnostic("TSQ203", `${name} does not accept a window frame`, expression.over.range);
+        const position = (boundary: typeof frame.start): number | undefined =>
+          boundary.kind === "current"
+            ? 0
+            : boundary.unbounded
+              ? boundary.kind === "preceding"
+                ? -Infinity
+                : Infinity
+              : numericConstant(boundary.offset!) === undefined
+                ? undefined
+                : (boundary.kind === "preceding" ? -1 : 1) * numericConstant(boundary.offset!)!;
+        for (const boundary of [frame.start, frame.end])
+          if (boundary?.offset) {
+            const value = numericConstant(boundary.offset);
+            if (frame.kind === "range")
+              this.diagnostic("TSQ203", "RANGE does not support numeric PRECEDING/FOLLOWING offsets", boundary.range);
+            if (value === undefined || !Number.isSafeInteger(value) || value < 0)
+              this.diagnostic("TSQ203", "ROWS frame offsets require nonnegative integer literals", boundary.range);
+          }
+        const first = position(frame.start),
+          last = frame.end ? position(frame.end) : 0;
+        if (
+          (frame.start.unbounded && frame.start.kind === "following") ||
+          (frame.end?.unbounded && frame.end.kind === "preceding") ||
+          (first !== undefined && last !== undefined && first > last)
+        )
+          this.diagnostic(
+            "TSQ203",
+            "Window frame boundaries are reversed or unbounded in an invalid direction",
+            expression.over.range,
+          );
+      }
+      if (expression.distinct) this.diagnostic("TSQ203", "Window aggregates do not support DISTINCT", expression.range);
+      if (["STRING_AGG", "JSON_ARRAYAGG", "JSON_OBJECTAGG"].includes(name))
+        this.diagnostic("TSQ203", `${name} does not support OVER`, expression.range);
       for (const value of expression.over.partition) this.expression(value, scope, ctes);
       for (const order of expression.over.order) this.expression(order.expression, scope, ctes);
       for (const boundary of [expression.over.frame?.start, expression.over.frame?.end])
@@ -991,6 +1088,8 @@ class Resolver {
       case "same":
         return { ...first, nullable };
       case "nullableSame":
+        if (["MIN", "MAX"].includes(name) && native(first)?.name === "bit")
+          this.diagnostic("TSQ201", `${name} does not accept BIT`, expression.range);
         if (args.length > 1 && first.tsType !== "unknown") infer(1, first);
         return { ...first, nullable: true };
       case "sum":
@@ -1140,6 +1239,8 @@ class Resolver {
   cteScope(withClauses: readonly Cte[], inherited: Ctes, outer?: Scope): Ctes {
     const ctes = new Map(inherited);
     for (const cte of withClauses) {
+      if (new Set(cte.columns.map((name) => this.key(name))).size !== cte.columns.length)
+        this.diagnostic("TSQ203", "CTE column names must be unique", cte.range);
       if ([...ctes.keys()].some((name) => this.same(name, cte.name)))
         this.diagnostic("TSQ102", `Duplicate CTE ${cte.name}`, cte.range);
       let recursive = false;
@@ -1154,7 +1255,29 @@ class Resolver {
           this.diagnostic("TSQ203", "Recursive CTE requires anchor and UNION ALL member", cte.range);
           continue;
         }
-        const anchor = this.select({ ...cte.query, compounds: [] }, ctes, outer, cte.columns.length > 0);
+        const references = (query: Select): boolean => {
+          let found = false;
+          walkStatement(query, {
+            source: (source) => {
+              if (
+                source.kind === "table" &&
+                source.name.parts.length === 1 &&
+                this.same(source.name.parts[0]!, cte.name)
+              )
+                found = true;
+            },
+          });
+          return found;
+        };
+        const firstMember = cte.query.compounds.findIndex((compound) => references(compound.query));
+        const anchor = this.select(
+          { ...cte.query, compounds: cte.query.compounds.slice(0, Math.max(0, firstMember)) },
+          ctes,
+          outer,
+          cte.columns.length > 0,
+        );
+        if (cte.columns.length && cte.columns.length !== anchor.length)
+          this.diagnostic("TSQ203", "CTE column count disagrees with anchor", cte.range);
         const initial: Relation = {
           key: cte.name,
           qualifiers: [cte.name],
@@ -1165,15 +1288,74 @@ class Resolver {
           })),
         };
         ctes.set(cte.name, initial);
-        const complete = this.select(cte.query, ctes, outer, cte.columns.length > 0);
-        ctes.set(cte.name, {
-          ...initial,
-          columns: complete.map((column, index) => ({
-            ...column,
-            name: cte.columns[index] ?? column.name,
-            nullable: true,
-          })),
-        });
+        if (firstMember < 0)
+          this.diagnostic(
+            "TSQ203",
+            "Recursive CTE requires a nonrecursive anchor before its recursive member",
+            cte.range,
+          );
+        for (const compound of cte.query.compounds.slice(Math.max(0, firstMember))) {
+          if (compound.operator !== "union" || !compound.all || !references(compound.query))
+            this.diagnostic("TSQ203", "Recursive members must follow anchors using UNION ALL", compound.query.range);
+          const member = this.select(compound.query, ctes, outer, cte.columns.length > 0);
+          if (
+            member.length !== anchor.length ||
+            member.some((column, index) => column.databaseType !== anchor[index]?.databaseType)
+          )
+            this.diagnostic(
+              "TSQ201",
+              "Recursive member native types must match the anchor exactly",
+              compound.query.range,
+            );
+          let selfCount = 0;
+          walkStatement(compound.query, {
+            statement: (query) => {
+              if (
+                query.kind === "select" &&
+                (query.distinct ||
+                  query.group.length ||
+                  query.having ||
+                  query.top ||
+                  query.joins.some((join) => ["left", "right", "full", "outer-apply"].includes(join.kind)))
+              )
+                this.diagnostic(
+                  "TSQ203",
+                  "Recursive members cannot use DISTINCT, grouping, TOP or outer joins",
+                  query.range,
+                );
+            },
+            source: (source) => {
+              if (
+                source.kind === "table" &&
+                source.name.parts.length === 1 &&
+                this.same(source.name.parts[0]!, cte.name)
+              )
+                selfCount++;
+            },
+            expression: (value) => {
+              if (
+                value.kind === "subquery" ||
+                value.kind === "exists" ||
+                (value.kind === "call" &&
+                  value.name.parts.length === 1 &&
+                  SQLSERVER_BUILTINS[partsLast(value.name).toUpperCase()]?.kind === "aggregate" &&
+                  !value.over)
+              )
+                this.diagnostic(
+                  "TSQ203",
+                  "Recursive members cannot contain subqueries or scalar aggregation",
+                  value.range,
+                );
+            },
+          });
+          if (selfCount !== 1)
+            this.diagnostic(
+              "TSQ203",
+              "Recursive members require exactly one recursive table reference",
+              compound.query.range,
+            );
+        }
+        ctes.set(cte.name, initial);
       } else {
         const columns = this.select(cte.query, ctes, outer, cte.columns.length > 0);
         if (cte.columns.length && cte.columns.length !== columns.length)
@@ -1222,7 +1404,8 @@ class Resolver {
     }
     const seen = new Set<string>();
     for (const column of columns) {
-      if (seen.has(column.name)) this.diagnostic("TSQ207", `Duplicate result column ${column.name}`, column.range);
+      if (!allowUnnamed && seen.has(column.name))
+        this.diagnostic("TSQ207", `Duplicate result column ${column.name}`, column.range);
       seen.add(column.name);
     }
     return columns;
@@ -1240,8 +1423,27 @@ class Resolver {
         scope,
         ctes,
       );
-    if (statement.offset) this.expected(statement.offset, type("bigint", false, this.policy), scope, ctes);
-    if (statement.fetch) this.expected(statement.fetch, type("bigint", false, this.policy), scope, ctes);
+    if (statement.top) {
+      const value = numericConstant(statement.top.count);
+      if (value !== undefined && (value < 0 || (statement.top.percent && value > 100)))
+        this.diagnostic(
+          "TSQ203",
+          "TOP requires a nonnegative count or a percentage from zero to one hundred",
+          statement.top.range,
+        );
+    }
+    if (statement.offset) {
+      this.expected(statement.offset, type("bigint", false, this.policy), scope, ctes);
+      const value = numericConstant(statement.offset);
+      if (value !== undefined && value < 0)
+        this.diagnostic("TSQ203", "OFFSET must be nonnegative", statement.offset.range);
+    }
+    if (statement.fetch) {
+      this.expected(statement.fetch, type("bigint", false, this.policy), scope, ctes);
+      const value = numericConstant(statement.fetch);
+      if (value !== undefined && value < 1)
+        this.diagnostic("TSQ203", "FETCH must be greater than zero", statement.fetch.range);
+    }
     let columns = this.projection(statement.projections, scope, ctes, allowUnnamed);
     for (const compound of statement.compounds) {
       const right = this.select(compound.query, ctes, outer, true);

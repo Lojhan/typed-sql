@@ -60,7 +60,7 @@ export function sqlserver(
         });
         const semantics = analysis.diagnostics.some((d) => d.severity === "error")
           ? unknownQuerySemantics(statement.range, "SQL Server analysis reported an error")
-          : analyzeSqlServerSemantics(statement);
+          : analyzeSqlServerSemantics(statement, snapshot);
         let repeatedResultShapeStable = true;
         for (const range of context.repeatedFragmentRanges ?? [])
           walkStatement(statement, {
