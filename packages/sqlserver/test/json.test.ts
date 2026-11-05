@@ -15,7 +15,8 @@ function property(shape: JsonShape | undefined, key: string): JsonShape | undefi
   return shape?.kind === "object" ? shape.properties[key]?.shape : undefined;
 }
 
-// JSON serialization uses the native SQL value, independent of the application's scalar codecs.
+// Constructors serialize native SQL values independently of scalar application codecs.
+// Money constructor NUMBER evidence: native run42126193484 (SQL17compat140), unlike FOR JSON conversion docs.
 // https://learn.microsoft.com/en-us/sql/relational-databases/json/how-for-json-converts-sql-server-data-types-to-json-data-types-sql-server
 await describe("SQL Server JSON serialization and fragment provenance", async () => {
   await it("uses native numeric JSON values under exact string decimal and bigint policies", () => {
@@ -24,11 +25,12 @@ await describe("SQL Server JSON serialization and fragment provenance", async ()
     for (const name of ["amount", "id"]) strict.deepEqual(property(result.json?.shape, name), { kind: "number" });
     strict.deepEqual(property(result.json?.shape, "flag"), { kind: "boolean" });
   });
-  await it("serializes money, bytes and high precision temporal values as JSON strings", () => {
+  await it("serializes money as a JSON number and bytes/temporal values as JSON strings", () => {
     const result = analyze(
       "JSON_OBJECT('money':CAST(amount AS money),'bytes':CAST(0x00FF AS varbinary(2)),'time':CAST('12:34:56.1234567' AS time(7)),'date':CAST('2026-01-01' AS date))",
     );
-    for (const key of ["money", "bytes", "time", "date"])
+    strict.deepEqual(property(result.json?.shape, "money"), { kind: "number" });
+    for (const key of ["bytes", "time", "date"])
       strict.deepEqual(property(result.json?.shape, key), { kind: "string" });
   });
   await it("embeds direct constructor objects while ordinary text remains escaped text", () => {
