@@ -210,7 +210,7 @@ class Resolver {
       const result = {
         index: expression.index,
         ...candidate,
-        nullable: candidate.nullable || current?.nullable === true,
+        nullable: candidate.nullable || (current?.tsType !== "unknown" && current?.nullable === true),
         runtimeType: runtime(candidate, this.policy),
       };
       this.parameters.set(expression.index, result);

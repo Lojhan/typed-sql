@@ -6,7 +6,7 @@ description: SQL Server grammar, compatibility levels, catalog snapshots, exact 
 
 # SQL Server
 
-`@typed-sql/sqlserver` owns T-SQL parsing, inference, native type policies and catalog snapshots.
+`@typed-sql/sqlserver` is a stable grammar package. It owns T-SQL parsing, inference, native type policies and catalog snapshots.
 Applications import `sql` from this package. The explicit `@typed-sql/sqlserver/odbc` entrypoint
 loads the application's `msnodesqlv8` installation and Microsoft ODBC Driver 18.
 
