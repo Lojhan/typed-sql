@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="372" viewBox="0 0 1000 372" role="img" aria-labelledby="title description">
+<title id="title">One named argument. Every occurrence bound.</title><desc id="description">A repeated userId binds two bigint values. Passing a string produces TS2322; correcting it to bigint clears the diagnostic.</desc>
+<style>
+svg{--bg:#0b1b22;--bar:#10242d;--line:#29404b;--ink:#d9e7ed;--muted:#8099a6;--accent:#60d4e1;--purple:#c69bed;--blue:#8ec7fa;--green:#b4ce94;--gold:#e3bc78;--error:#ff8796;--tint:#173940;--ok:#8fd6b0;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+@media(prefers-color-scheme:light){svg{--bg:#f9fbfd;--bar:#edf3f7;--line:#cfdee7;--ink:#213848;--muted:#61798a;--accent:#007887;--purple:#7f3e9c;--blue:#155d9d;--green:#426527;--gold:#885c12;--error:#bc2949;--tint:#e0f1f3;--ok:#19754d}}
+text{white-space:pre}.code{fill:var(--ink)}.line-number{fill:var(--muted);font-size:12px;text-anchor:end}.label{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;fill:var(--muted)}.heading{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;font-weight:600;fill:var(--ink)}.sql{fill:var(--accent)}.keyword{fill:var(--purple)}.string{fill:var(--green)}.value{fill:var(--gold)}.type{fill:var(--blue)}.scene{opacity:0}.scene-0{opacity:1}.hidden{display:none}.reveal{transform-box:fill-box;transform-origin:left center}.typing-caret{animation-timing-function:steps(1)}.progress{transform-origin:0 0;animation:progress 13.200000000000001s linear infinite}@keyframes progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes scene-0{0%{opacity:1}33.3258%{opacity:1}33.3333%{opacity:0}100%{opacity:0}} .scene-0{animation:scene-0 13.200000000000001s steps(1) infinite}
+@keyframes hover-0{0%{opacity:0}15.1439%{opacity:0}15.1515%{opacity:1}32.1894%{opacity:1}32.1970%{opacity:0}100%{opacity:0}} .hover-0{animation:hover-0 13.200000000000001s steps(1) infinite}
+@keyframes pointer-0{0%,9.0909%{transform:translate(520px,312px)}14.7727%,100%{transform:translate(182.8px,133px)}}.pointer-0{animation:pointer-0 13.200000000000001s cubic-bezier(.2,.7,.3,1) infinite}
+@keyframes scene-1{0%{opacity:0}33.3258%{opacity:0}33.3333%{opacity:1}66.6591%{opacity:1}66.6667%{opacity:0}100%{opacity:0}} .scene-1{animation:scene-1 13.200000000000001s steps(1) infinite}
+@keyframes resolved-1{0%{opacity:0}42.0379%{opacity:0}42.0455%{opacity:1}66.6591%{opacity:1}66.6667%{opacity:0}100%{opacity:0}} .resolved-1{animation:resolved-1 13.200000000000001s steps(1) infinite}
+@keyframes checking-1{0%{opacity:0}33.3258%{opacity:0}33.3333%{opacity:1}42.0379%{opacity:1}42.0455%{opacity:0}100%{opacity:0}} .checking-1{animation:checking-1 13.200000000000001s steps(1) infinite}
+@keyframes reveal-1{0%,34.4697%{transform:scaleX(0)}40.9091%,100%{transform:scaleX(1)}}.reveal-1{animation:reveal-1 13.200000000000001s steps(4,end) infinite}
+@keyframes suffix-1{0%,34.4697%{transform:translateX(-31.2px)}40.9091%,100%{transform:translateX(0)}}.suffix-1{animation:suffix-1 13.200000000000001s steps(4,end) infinite}
+@keyframes caret-1{0%,34.4697%{transform:translateX(0)}40.9091%,100%{transform:translateX(31.2px)}}.caret-1{animation:caret-1 13.200000000000001s steps(4,end) infinite}
+@keyframes hover-1{0%{opacity:0}48.4773%{opacity:0}48.4848%{opacity:1}65.5227%{opacity:1}65.5303%{opacity:0}100%{opacity:0}} .hover-1{animation:hover-1 13.200000000000001s steps(1) infinite}
+@keyframes pointer-1{0%,42.4242%{transform:translate(520px,312px)}48.1061%,100%{transform:translate(237.4px,156px)}}.pointer-1{animation:pointer-1 13.200000000000001s cubic-bezier(.2,.7,.3,1) infinite}
+@keyframes scene-2{0%{opacity:0}66.6591%{opacity:0}66.6667%{opacity:1}99.9924%{opacity:1}100.0000%{opacity:0}100%{opacity:0}} .scene-2{animation:scene-2 13.200000000000001s steps(1) infinite}
+@keyframes resolved-2{0%{opacity:0}75.3712%{opacity:0}75.3788%{opacity:1}99.9924%{opacity:1}100.0000%{opacity:0}100%{opacity:0}} .resolved-2{animation:resolved-2 13.200000000000001s steps(1) infinite}
+@keyframes checking-2{0%{opacity:0}66.6591%{opacity:0}66.6667%{opacity:1}75.3712%{opacity:1}75.3788%{opacity:0}100%{opacity:0}} .checking-2{animation:checking-2 13.200000000000001s steps(1) infinite}
+@keyframes reveal-2{0%,67.8030%{transform:scaleX(0)}74.2424%,100%{transform:scaleX(1)}}.reveal-2{animation:reveal-2 13.200000000000001s steps(3,end) infinite}
+@keyframes suffix-2{0%,67.8030%{transform:translateX(-23.4px)}74.2424%,100%{transform:translateX(0)}}.suffix-2{animation:suffix-2 13.200000000000001s steps(3,end) infinite}
+@keyframes caret-2{0%,67.8030%{transform:translateX(0)}74.2424%,100%{transform:translateX(23.4px)}}.caret-2{animation:caret-2 13.200000000000001s steps(3,end) infinite}
+@keyframes hover-2{0%{opacity:0}81.8106%{opacity:0}81.8182%{opacity:1}98.8561%{opacity:1}98.8636%{opacity:0}100%{opacity:0}} .hover-2{animation:hover-2 13.200000000000001s steps(1) infinite}
+@keyframes pointer-2{0%,75.7576%{transform:translate(520px,312px)}81.4394%,100%{transform:translate(104.8px,156px)}}.pointer-2{animation:pointer-2 13.200000000000001s cubic-bezier(.2,.7,.3,1) infinite}
+@media(prefers-reduced-motion:reduce){.scene{animation:none!important;opacity:0}.scene.final{opacity:1}.motion,.progress,.resolved{animation:none!important;transform:none!important}.typing-caret,.pointer,.hover,.checking{display:none!important}.resolved{opacity:1!important}}
+</style>
+<rect x=".5" y=".5" width="999" height="371" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+<path d="M12 1H988Q999 1 999 12V42H1V12Q1 1 12 1" fill="var(--bar)"/>
+<text x="20" y="26" class="heading">PostgreSQL</text><text x="120" y="26" class="label">/ One named argument. Every occurrence bound.</text>
+<path d="M590 42V339M1 76H999M1 339H999" stroke="var(--line)" fill="none"/>
+<text x="610" y="64" class="heading">Inferred types</text>
+<g class="scene scene-0">
+<text x="18" y="64" class="heading">orders.sql</text><path d="M10 75h160" stroke="var(--accent)" stroke-width="2"/><text x="198" y="64" class="label">app.ts</text>
+
+<rect x="38" y="112" width="540" height="23" rx="3" fill="var(--tint)"/>
+<text x="22" y="106" class="line-number">1</text><text x="46" y="106" class="code" font-size="13"><tspan class="sql">SELECT</tspan> id, user_id <tspan class="sql">FROM</tspan> orders</text>
+<text x="22" y="129" class="line-number">2</text><text x="46" y="129" class="code" font-size="13"><tspan class="sql">WHERE</tspan> user_id = <tspan class="value">:userId</tspan></text>
+<text x="22" y="152" class="line-number">3</text><text x="46" y="152" class="code" font-size="13">   <tspan class="sql">OR</tspan> user_id = <tspan class="value">:userId</tspan>;</text>
+<g class=" resolved"><text x="610" y="103" class="label">Result row · orders.sql</text><text x="610" y="128" class="code" font-size="14">{ <tspan class="string">&quot;id&quot;</tspan>: <tspan class="type">bigint</tspan>; <tspan class="string">&quot;user_id&quot;</tspan>: <tspan class="type">bigint</tspan>; }</text>
+<text x="610" y="173" class="label">Bound parameters</text><text x="610" y="198" class="code" font-size="13"><tspan class="keyword">readonly</tspan> [<tspan class="type">bigint</tspan>, <tspan class="type">bigint</tspan>]</text>
+<circle cx="18" cy="356" r="3" fill="var(--ok)"/>
+<text x="30" y="360" class="label">One userId property → two bound values</text></g>
+<g class="hidden checking"><text x="610" y="103" class="label">Checking the edit…</text><text x="18" y="360" class="label">Analyzing…</text></g>
+<g class="pointer-0 pointer motion"><path d="M0 0L2 20L7 15L12 24L16 22L11 13L18 12Z" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/></g>
+<g class="hover-0 hover"><path d="M170.8 133h54.6" stroke="var(--accent)"/>
+<rect x="54" y="149" width="510" height="75" rx="7" fill="var(--bar)" stroke="var(--line)"/>
+<text x="68" y="171" class="label">Named parameter · userId</text>
+<text x="68" y="195" class="code" font-size="13"><tspan class="type">bigint</tspan></text></g>
+</g>
+<g class="scene scene-1">
+<text x="18" y="64" class="label">orders.sql</text><text x="198" y="64" class="heading">app.ts</text><path d="M190 75h160" stroke="var(--accent)" stroke-width="2"/>
+
+<rect x="38" y="135" width="540" height="23" rx="3" fill="var(--tint)"/>
+<text x="22" y="106" class="line-number">1</text><text x="46" y="106" class="code" font-size="13"><tspan class="keyword">import</tspan> orders <tspan class="keyword">from</tspan> <tspan class="string">&quot;./orders.sql&quot;</tspan>;</text>
+<text x="22" y="129" class="line-number">2</text><text x="46" y="129" class="code" font-size="13"></text>
+<text x="22" y="152" class="line-number">3</text><text x="46" y="152" class="code" font-size="13"><tspan class="keyword">const</tspan> query = orders({ userId: </text>
+<defs><clipPath id="typing-1"><rect width="32.2" height="23" class="reveal-1 reveal motion"/></clipPath></defs>
+<g transform="translate(287.79999999999995 135)"><g clip-path="url(#typing-1)"><text x="0" y="17" class="code" font-size="13"><tspan class="string">&quot;42&quot;</tspan></text></g><rect x="0" y="1" width="1.5" height="20" fill="var(--accent)" class="caret-1 typing-caret motion"/></g>
+<g class="suffix-1 typing-suffix motion"><text x="318.99999999999994" y="152" class="code" font-size="13"> });</text></g>
+<g class="resolved-1 resolved"><text x="610" y="103" class="label">Result row · orders.sql</text><text x="610" y="128" class="code" font-size="14">{ <tspan class="string">&quot;id&quot;</tspan>: <tspan class="type">bigint</tspan>; <tspan class="string">&quot;user_id&quot;</tspan>: <tspan class="type">bigint</tspan>; }</text>
+<text x="610" y="173" class="label">Bound parameters</text><text x="610" y="198" class="code" font-size="13"><tspan class="keyword">readonly</tspan> [<tspan class="type">bigint</tspan>, <tspan class="type">bigint</tspan>]</text>
+<circle cx="18" cy="356" r="3" fill="var(--error)"/>
+<text x="30" y="360" class="label" style="fill:var(--error)">TS2322 · Type 'string' is not assignable to type 'bigint'.</text></g>
+<g class="checking-1 checking"><text x="610" y="103" class="label">Checking the edit…</text><text x="18" y="360" class="label">Analyzing…</text></g>
+<g class="pointer-1 pointer motion"><path d="M0 0L2 20L7 15L12 24L16 22L11 13L18 12Z" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/></g>
+<g class="hover-1 hover"><path d="M225.4 156h46.8" stroke="var(--accent)"/>
+<rect x="54" y="172" width="510" height="75" rx="7" fill="var(--bar)" stroke="var(--line)"/>
+<text x="68" y="194" class="label">Expected argument · userId</text>
+<text x="68" y="218" class="code" font-size="13"><tspan class="type">bigint</tspan></text></g>
+</g>
+<g class="scene scene-2 final">
+<text x="18" y="64" class="label">orders.sql</text><text x="198" y="64" class="heading">app.ts</text><path d="M190 75h160" stroke="var(--accent)" stroke-width="2"/>
+
+<rect x="38" y="135" width="540" height="23" rx="3" fill="var(--tint)"/>
+<text x="22" y="106" class="line-number">1</text><text x="46" y="106" class="code" font-size="13"><tspan class="keyword">import</tspan> orders <tspan class="keyword">from</tspan> <tspan class="string">&quot;./orders.sql&quot;</tspan>;</text>
+<text x="22" y="129" class="line-number">2</text><text x="46" y="129" class="code" font-size="13"></text>
+<text x="22" y="152" class="line-number">3</text><text x="46" y="152" class="code" font-size="13"><tspan class="keyword">const</tspan> query = orders({ userId: </text>
+<defs><clipPath id="typing-2"><rect width="24.4" height="23" class="reveal-2 reveal motion"/></clipPath></defs>
+<g transform="translate(287.79999999999995 135)"><g clip-path="url(#typing-2)"><text x="0" y="17" class="code" font-size="13"><tspan class="value">42n</tspan></text></g><rect x="0" y="1" width="1.5" height="20" fill="var(--accent)" class="caret-2 typing-caret motion"/></g>
+<g class="suffix-2 typing-suffix motion"><text x="311.19999999999993" y="152" class="code" font-size="13"> });</text></g>
+<g class="resolved-2 resolved"><text x="610" y="103" class="label">Result row · orders.sql</text><text x="610" y="128" class="code" font-size="14">{ <tspan class="string">&quot;id&quot;</tspan>: <tspan class="type">bigint</tspan>; <tspan class="string">&quot;user_id&quot;</tspan>: <tspan class="type">bigint</tspan>; }</text>
+<text x="610" y="173" class="label">Bound parameters</text><text x="610" y="198" class="code" font-size="13"><tspan class="keyword">readonly</tspan> [<tspan class="type">bigint</tspan>, <tspan class="type">bigint</tspan>]</text>
+<circle cx="18" cy="356" r="3" fill="var(--ok)"/>
+<text x="30" y="360" class="label">Corrected to bigint · no problems</text></g>
+<g class="checking-2 checking"><text x="610" y="103" class="label">Checking the edit…</text><text x="18" y="360" class="label">Analyzing…</text></g>
+<g class="pointer-2 pointer motion"><path d="M0 0L2 20L7 15L12 24L16 22L11 13L18 12Z" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/></g>
+<g class="hover-2 hover"><path d="M92.8 156h39" stroke="var(--accent)"/>
+<rect x="54" y="172" width="510" height="75" rx="7" fill="var(--bar)" stroke="var(--line)"/>
+<text x="68" y="194" class="label">const query · Query parameters</text>
+<text x="68" y="218" class="code" font-size="13"><tspan class="keyword">readonly</tspan> [<tspan class="type">bigint</tspan>, <tspan class="type">bigint</tspan>]</text></g>
+</g>
+<rect x="1" y="370" width="998" height="1.5" fill="var(--accent)" class="progress"/>
+</svg>
