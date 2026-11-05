@@ -37,7 +37,8 @@
     "coverage": "pnpm test"
   },
   "exports": {
-    ".": "./dist/packages/schema/src/index.js"
+    ".": "./dist/packages/schema/src/index.js",
+    "./snapshot": "./dist/packages/schema/src/snapshot.js"
   },
   "dependencies": {
     "@typed-sql/core": "workspace:*"
