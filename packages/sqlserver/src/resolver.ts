@@ -621,7 +621,7 @@ class Resolver {
             ? { kind: "string" }
             : { kind: "unknown" };
     } else if (name === "json") shape = { kind: "unknown" };
-    else if (name && numericNames.has(name) && !["money", "smallmoney"].includes(name)) shape = { kind: "number" };
+    else if (name && numericNames.has(name)) shape = { kind: "number" };
     else if (name === "bit") shape = { kind: "boolean" };
     else if (
       name &&
@@ -637,8 +637,6 @@ class Resolver {
         "image",
         "rowversion",
         "uniqueidentifier",
-        "money",
-        "smallmoney",
         "char",
         "varchar",
         "nchar",
