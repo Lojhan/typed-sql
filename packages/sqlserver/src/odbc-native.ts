@@ -11,6 +11,10 @@ import {
   ODBC_STATE as S,
 } from "./odbc-protocol.js";
 
+// Microsoft severity10 binding notices; all records must still carry the qualified informational SQLSTATE.
+// https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-15000-to-15999
+export const ODBC_STATEMENT_NOTICES = Object.freeze([5701, 5703, 8153, 15511, 15512, 15513, 15514, 15515, 15516]);
+
 interface NativeLibrary {
   func(name: string, result: string, arguments_: readonly unknown[]): unknown;
 }
@@ -197,7 +201,7 @@ export class OdbcNative {
   invoke(name: string, handle: bigint, stage: string, ...args: unknown[]): number {
     const rc = this.call(name, handle, ...args);
     this.assertActive();
-    this.check(rc, stage, 3, handle, [5701, 5703, 8153]);
+    this.check(rc, stage, 3, handle, ODBC_STATEMENT_NOTICES);
     return rc;
   }
   wide(text: string): Buffer {

@@ -71,6 +71,53 @@ await describe("SQL Server data worker statement and retained-memory protocol", 
     state.session.close();
     strict.equal(state.calls.filter((call) => call.name === "SQLDisconnect").length, 1);
   });
+  await it("accepts only proven successful legacy binding notices without tolerating truncation or errors", () => {
+    // Vendor severity10 messages15511..15516 describe successful default/rule binding only.
+    for (const message of [15511, 15512, 15513, 15514, 15515, 15516]) {
+      const state = nativeApiFixture();
+      state.session.open();
+      state.setDiagnostic("01000", message);
+      const execute = state.native.api.SQLExecDirectW!;
+      state.native.api.SQLExecDirectW = (...args) => {
+        execute(...args);
+        return 1;
+      };
+      strict.deepEqual(
+        state.session.command({ id: 1, kind: "execute", text: "EXEC trusted binding setup", values: [] }).result?.rows,
+        [["1"]],
+      );
+      state.session.close();
+    }
+    for (const [stateCode, message, rc] of [
+      ["01004", 15512, 1],
+      ["01000", 15517, 1],
+      ["01000", 50000, 1],
+      ["01000", 15512, -1],
+    ] as const) {
+      const state = nativeApiFixture();
+      state.session.open();
+      state.setDiagnostic(stateCode, message);
+      state.native.api.SQLExecDirectW = () => rc;
+      strict.throws(
+        () => state.session.command({ id: 1, kind: "execute", text: "EXEC rejected warning", values: [] }),
+        /execute/,
+      );
+      state.session.close();
+    }
+    const mixed = nativeApiFixture();
+    mixed.session.open();
+    mixed.native.api.SQLExecDirectW = () => 1;
+    mixed.native.diagnostics = () => [
+      { state: "01000", native: 15512 },
+      { state: "01004", native: 0 },
+    ];
+    strict.throws(
+      () => mixed.session.command({ id: 1, kind: "execute", text: "EXEC mixed warning", values: [] }),
+      /execute/,
+    );
+    mixed.session.close();
+  });
+
   await it("preserves the original native failure while quarantining failed cleanup", () => {
     for (const [failedCall, stage, kind] of [
       ["SQLSetStmtAttrW", "query-timeout", "execute"],

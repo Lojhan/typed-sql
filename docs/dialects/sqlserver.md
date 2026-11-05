@@ -124,8 +124,9 @@ the connection. Explicitly close streams so native cursors and their leases can 
 
 `maximumPreparedValueBytes` bounds logical prepared inputs and defaults to 1 MiB. Direct transport
 also has configurable limits: `maximumCellBytes` defaults to 16 MiB, `maximumResultBytes` to 64 MiB,
-`maximumRows` to 100,000 and `chunkBytes` to 4,096. Result limits count payload bytes; native buffers,
-JavaScript values and worker message copies add bounded overhead. `connectionTimeoutSeconds`
+`maximumRows` to 100,000 and `chunkBytes` to 4,096. The byte limit applies to a buffered result or
+one stream fetch batch; the row limit applies across the statement. Limits count payload bytes;
+native buffers, JavaScript values and worker message copies add bounded overhead. `connectionTimeoutSeconds`
 defaults to 15 and `queryTimeoutSeconds` to 30. Rejecting an oversized result does not retry SQL.
 
 ### msnodesqlv8 compatibility
