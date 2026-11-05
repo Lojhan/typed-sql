@@ -40,7 +40,9 @@
   },
   "scripts": {
     "test": "poku test --reporter=compact --enforce",
-    "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce"
+    "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
+    "catalog:check": "node scripts/generate-catalog.mjs --check",
+    "typecheck:test": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "@typed-sql/ast": "workspace:*",

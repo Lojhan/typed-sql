@@ -8,6 +8,8 @@ import {
   type SourceRange,
   type SqlDiagnostic,
 } from "@typed-sql/core";
+import { duckDBBuiltinSignatures } from "./catalog/index.js";
+import { matchDuckDBBuiltin } from "./catalog/resolution.js";
 import { type DuckDBType, duckDBAsciiFold, formatDuckDBType, parseDuckDBType } from "./native-types.js";
 import { tokenize } from "./parser/tokenizer.js";
 import type { Expression, Projection, Relation, Statement } from "./parser/types.js";
@@ -242,6 +244,15 @@ export class DuckDBResolver {
       }
       case "cast": {
         const type = parseDuckDBType(expr.nativeType!);
+        if (this.snapshot.server?.versionKey !== "2.0.0" && /\bTUPLE\s*\(/iu.test(expr.nativeType!)) {
+          this.error(
+            "TUPLE SQL type syntax requires DuckDB2.0; 1.5 unnamed tuple metadata is supported",
+            expr.range,
+            "TSQ401",
+          );
+          return unknown;
+        }
+
         arg(expr.left, { type, nullable: true });
         if (
           type.kind === "scalar" &&
@@ -361,6 +372,23 @@ export class DuckDBResolver {
       args = expr.args ?? [];
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
     const values = args.filter((arg) => arg.kind !== "star").map((arg) => this.infer(arg, scope));
+    const version = this.snapshot.server?.versionKey ?? "";
+    const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
+    const signatures = duckDBBuiltinSignatures(version, builtinName);
+    const matches = matchDuckDBBuiltin(
+      version,
+      builtinName,
+      values.map((value) => value.type),
+    );
+    if (signatures.length && !matches.length) {
+      this.error(
+        `No qualified DuckDB overload matches ${name}(${values.map((value) => formatDuckDBType(value.type)).join(", ")})`,
+        expr.range,
+        "TSQ201",
+      );
+      return unknown;
+    }
+
     if (
       [
         "between",
@@ -386,7 +414,8 @@ export class DuckDBResolver {
       if (args[0]) this.infer(args[0], scope, bool(true));
       return nullableUnion(values.slice(1));
     }
-    if (["count", "count_star", "count_if", "row_number", "rank", "dense_rank", "ntile"].includes(name))
+    if (name === "count_if") return { type: scalar("HUGEINT"), nullable: true };
+    if (["count", "count_star", "row_number", "rank", "dense_rank", "ntile"].includes(name))
       return { type: scalar("BIGINT"), nullable: false };
     if (["sum", "sum_no_overflow"].includes(name)) {
       const type = values[0]?.type;
@@ -394,12 +423,34 @@ export class DuckDBResolver {
         return { type: { ...type, precision: 38 }, nullable: true };
       return {
         type:
-          type && isNumeric(type) && type.kind === "scalar" && !["FLOAT", "DOUBLE"].includes(type.name)
-            ? scalar("HUGEINT")
-            : scalar("DOUBLE"),
+          type?.kind === "scalar" && type.name === "BIGNUM"
+            ? scalar("BIGNUM")
+            : type?.kind === "scalar" && type.name === "BOOLEAN"
+              ? scalar("HUGEINT")
+              : type &&
+                  isNumeric(type) &&
+                  type.kind === "scalar" &&
+                  !["FLOAT", "DOUBLE", "UHUGEINT"].includes(type.name)
+                ? scalar("HUGEINT")
+                : scalar("DOUBLE"),
         nullable: true,
       };
     }
+    if (["median", "quantile_cont", "quantile_disc"].includes(name)) {
+      const input = values[0]?.type ?? unknown.type;
+      const type =
+        name === "quantile_disc"
+          ? input
+          : input.kind === "scalar" && input.name === "DATE"
+            ? scalar("TIMESTAMP")
+            : isNumeric(input) && !(input.kind === "scalar" && input.name === "DECIMAL")
+              ? scalar("DOUBLE")
+              : input;
+      const multiple = values[1]?.type.kind === "list" || values[1]?.type.kind === "array";
+      return { type: multiple ? { kind: "list", element: type } : type, nullable: true };
+    }
+    if (["avg", "mean"].includes(name) && values[0]?.type.kind === "scalar" && values[0].type.name === "INTERVAL")
+      return { type: scalar("INTERVAL"), nullable: true };
     if (
       [
         "avg",
@@ -420,6 +471,8 @@ export class DuckDBResolver {
       ].includes(name)
     )
       return { type: scalar("DOUBLE"), nullable: true };
+    if (["min", "max"].includes(name) && values.length === 2)
+      return { type: { kind: "list", element: values[0]!.type }, nullable: true };
     if (
       [
         "min",
@@ -436,6 +489,32 @@ export class DuckDBResolver {
       ].includes(name)
     )
       return { ...(values[0] ?? unknown), nullable: true };
+    if (
+      ["list_sort", "array_sort", "list_reverse_sort", "array_reverse_sort", "list_concat", "array_concat"].includes(
+        name,
+      )
+    ) {
+      const collections = values.filter((value) => value.type.kind === "list" || value.type.kind === "array");
+      if (
+        collections.length &&
+        collections.every((value) => value.type.kind === "list" || value.type.kind === "array")
+      ) {
+        const type = collections.map((value) => value.type).reduce(commonDuckDBType);
+        if (type.kind === "list" || type.kind === "array")
+          return { type: { kind: "list", element: type.element }, nullable: values.some((value) => value.nullable) };
+      }
+    }
+    if (name === "map_concat" && values.length && values.every((value) => value.type.kind === "map")) {
+      const maps = values.map((value) => value.type).filter((type) => type.kind === "map");
+      return {
+        type: {
+          kind: "map",
+          key: maps.map((type) => type.key).reduce(commonDuckDBType),
+          value: maps.map((type) => type.value).reduce(commonDuckDBType),
+        },
+        nullable: values.every((value) => value.nullable),
+      };
+    }
     if (name === "list" || name === "array_agg")
       return { type: { kind: "list", element: values[0]?.type ?? scalar("ANY") }, nullable: true };
     if (name === "list_value" || name === "array_value")
@@ -522,6 +601,7 @@ export class DuckDBResolver {
       this.error("UNNEST needs a known list/array or projection struct", expr.range, "TSQ201");
       return unknown;
     }
+    if (name === "cardinality") return { type: scalar("UBIGINT"), nullable: values.some((value) => value.nullable) };
     if (
       [
         "length",
@@ -562,8 +642,18 @@ export class DuckDBResolver {
           ? false
           : values.some((x) => x.nullable) || ["string_agg", "group_concat", "listagg"].includes(name),
       };
-    if (["abs", "ceil", "ceiling", "floor", "round", "trunc", "greatest", "least"].includes(name))
-      return nullableUnion(values);
+    if (["ceil", "ceiling", "floor", "round", "trunc"].includes(name)) {
+      const type = values[0]?.type;
+      if (type?.kind === "scalar" && type.name === "DECIMAL") {
+        const precision = args[1]?.kind === "literal" ? Number(args[1].value) : args[1] ? type.scale! : 0;
+        const scale = ["ceil", "ceiling", "floor"].includes(name) ? 0 : Math.max(0, Math.min(type.scale!, precision));
+        return { type: { ...type, scale }, nullable: values.some((value) => value.nullable) };
+      }
+      if (matches[0]?.result) return { type: matches[0].result, nullable: values.some((value) => value.nullable) };
+    }
+    if (name === "abs") return { ...(values[0] ?? unknown) };
+    if (["greatest", "least"].includes(name))
+      return { ...nullableUnion(values), nullable: values.every((value) => value.nullable) };
     if (
       [
         "json",
@@ -580,15 +670,33 @@ export class DuckDBResolver {
       ].includes(name)
     )
       return {
-        type: scalar("JSON"),
+        type:
+          (name === "json_extract" || name === "json_query") &&
+          (values[1]?.type.kind === "list" || values[1]?.type.kind === "array")
+            ? { kind: "list", element: scalar("JSON") }
+            : scalar("JSON"),
         nullable: !["json_object", "json_array"].includes(name) && values.some((x) => x.nullable),
       };
-    if (["json_extract_string", "json_value"].includes(name)) return { type: scalar("VARCHAR"), nullable: true };
+    if (["json_extract_string", "json_value"].includes(name))
+      return {
+        type:
+          values[1]?.type.kind === "list" || values[1]?.type.kind === "array"
+            ? { kind: "list", element: scalar("VARCHAR") }
+            : scalar("VARCHAR"),
+        nullable: true,
+      };
     if (name === "json_valid") return bool(values.some((x) => x.nullable));
     if (["random", "pi", "sin", "cos", "tan", "sqrt", "exp", "ln", "log", "pow", "power"].includes(name))
       return { type: scalar("DOUBLE"), nullable: values.some((x) => x.nullable) };
     if (name === "nextval" || name === "currval") return { type: scalar("BIGINT"), nullable: false };
     if (name === "generate_subscripts") return { type: scalar("BIGINT"), nullable: values.some((x) => x.nullable) };
+    if (matches.length) {
+      const best = matches.filter((match) => match.score === matches[0]!.score);
+      const result = best[0]?.result;
+      if (result && best.every((match) => match.result && same(match.result, result))) {
+        return { type: result, nullable: true };
+      }
+    }
     const candidates = Object.values(this.snapshot.formatVersion === 2 ? this.snapshot.routines : {})
       .flat()
       .filter(
