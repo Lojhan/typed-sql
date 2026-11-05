@@ -1,0 +1,51 @@
+# Direct ODBC transport prerequisite
+
+Status: real synchronous qualification prototype implemented; native SQL Server evidence is pending. This is an internal study, not a supported adapter or an application API. Application-owned dependency: `koffi@3.3.7`, with Microsoft ODBC Driver 18 and unixODBC installed separately. No driver dependency enters the grammar's browser or analysis graph.
+
+## Why the current SDK is insufficient
+
+Qualification run 42110127221 found long `varchar(max)` corruption through raw msnodesqlv8 calls (observed lengths 39,999 or 49,152). Earlier probes also found prepared text loses trailing NUL and empty binary bindings become NULL. Choosing raw execution solved only the prepared text issue; it cannot establish exact transport across all advertised types. IBM node-odbc 2.6's native result conversion uses floating decimal conversion and sentinel string lengths, so it is not an exact replacement. Post-decoding cannot reconstruct lost digits, NULs, or bytes.
+
+The proposed seam is the existing application-owned SQL Server connection protocol backed directly by standard ODBC, not a new neutral compiler transport contract. The prototype owns no production adapter changes.
+
+## Executable prototype
+
+`e2e/sqlserver/ffi-transport-probe.mjs` calls the real driver manager through Koffi. Run from an environment resolving the application-owned dependency:
+
+```sh
+TYPED_SQL_SQLSERVER_MAJOR=17 TYPED_SQL_SQLSERVER_PASSWORD=... node --expose-gc e2e/sqlserver/ffi-transport-probe.mjs
+```
+
+It connects to the disposable local `master` database using the same Driver 18 / encrypted / trust-server-certificate settings as existing native probes. Only the disposable CI password is accepted, with DSN delimiters rejected. The password, connection string, SQL, native diagnostic messages, error stacks, and value contents are never emitted. JSON stdout contains server version, native metadata, value lengths and SHA-256, return codes, SQLSTATE/native codes on errors, and every chunk's explicit indicator. Exit status is nonzero on a fidelity or cleanup failure. Optional `TYPED_SQL_KOFFI_MODULE` selects an absolute installed dependency for isolated research. `TYPED_SQL_ODBC_LIBRARY` overrides the default `libodbc.so.2` for local ABI checks.
+
+The implemented lifecycle allocates ODBC 3 ENV, DBC and STMT handles, connects using `SQLDriverConnectW`, executes both `SQLExecDirectW` and `SQLPrepareW`/`SQLBindParameter`/`SQLExecute`, describes every column using `SQLDescribeColW`, fetches row-by-row and column-by-column using `SQLGetData`, checks `SQLMoreResults`, and frees statements before binding memory. It disconnects and frees connection/environment handles even after failures. Unexpected warnings, extra result sets, invalid lengths, row/cell budgets and failed cleanup fail qualification.
+
+The corpus covers direct and prepared long MAX text; UTF-8 VARCHAR on SQL Server 15–17; NVARCHAR with astral characters and chunk boundaries of 4,096, 4,094 and 6 payload bytes; 40,000 NUL characters; embedded/trailing NUL; NULL versus empty text; NULL versus empty binary; 40,001 binary bytes containing all byte values; 38-digit decimal with ten fractional digits; signed bigint extremes; datetime2(7) and datetimeoffset(7). Native decimal precision and scale are asserted. SQL Server 14 has no UTF-8 collation, so UTF-8 cases are explicitly restricted to 15+; ASCII/NUL VARCHAR still executes on 14. This does not claim arbitrary Unicode is representable in legacy VARCHAR code pages.
+
+## ABI and retained memory
+
+ODBC [SQLBindParameter](https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlbindparameter-function?view=sql-server-ver17) retains input and length pointers. Koffi's [output parameter documentation](https://koffi.dev/output) distinguishes call-duration Buffer pointers from stable `koffi.alloc` allocations. The prototype allocates native backing memory and native SQLLEN indicators, explicitly encodes bytes, retains them through GC, execute and full result draining, and frees only after successful statement destruction. If statement destruction fails, backing allocations remain deliberately retained until the dedicated process exits; freeing would create dangling pointers.
+
+Declarations use exact-width small/integer types and pointer-width `intptr`/`uintptr` for SQLLEN/SQLULEN. SQLWCHAR is an explicit two-byte uint16, never platform `wchar_t` (four bytes on common Unix systems). The native qualification path requires little-endian Linux x64 with eight-byte pointers. The local macOS ARM64 driver-manager ABI-only smoke verifies FFI declarations and ENV allocation/free, not driver connectivity or SQL Server support. Other platforms, 32-bit drivers, Windows calling conventions and alternate driver-manager builds remain unqualified.
+
+All wide SQL and connection input functions receive explicit UTF-16 code-unit lengths. Bound text uses SQL_C_WCHAR with SQL_WLONGVARCHAR, a byte indicator excluding the terminator and a native two-byte terminator allocation. Binary uses SQL_C_BINARY/SQL_LONGVARBINARY and explicit byte lengths. NULL uses SQL_NULL_DATA; empty data uses indicator zero and a distinct non-null allocation. Exact numeric and temporal parameters are Unicode strings passed through explicit native CONVERT targets; no JavaScript floating-point stage participates.
+
+## Result lengths and conversion
+
+The [SQLGetData specification](https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetdata-function?view=sql-server-ver17) defines byte lengths after conversion, decreasing remaining lengths across calls and a concrete length on the final call. Intermediate calls may report SQL_NO_TOTAL. Fetching text as SQL_C_WCHAR lets Microsoft's driver convert legacy and UTF-8 VARCHAR into UTF-16; no host ANSI or guessed UTF-8 result decoding is used. Numeric and temporal results are requested as wide strings; binary results remain bytes.
+
+For a truncated call, only SQL_SUCCESS_WITH_INFO plus SQLSTATE 01004 is accepted. A text buffer reserves two bytes for its terminator, and the payload copies `BufferLength - 2`; binary copies `BufferLength`. The final SQL_SUCCESS requires a nonnegative bounded indicator and copies exactly that many bytes. No string sentinel scan is used. UTF-16 byte chunks are concatenated before decoding, preserving split surrogate pairs and embedded NULs. NULL, empty string and empty bytes remain distinct. The native astral/boundary probes must validate the actual Microsoft's driver behavior, including any conversion boundary that does not fill an intermediate payload; a passing ABI smoke is insufficient. Conversion warnings such as fractional truncation must never be accepted as successful exact values.
+
+## Production requirements before adapter replacement
+
+The prototype is intentionally synchronous and unsuitable for an application event loop. Koffi's [asynchronous call API](https://koffi.dev/load#asynchronous-calls) runs native calls on worker threads. A production implementation must use asynchronous wrappers with stable argument and output allocations until callbacks have completed, serialize each connection's ordinary operations, bound queue/concurrency and total retained memory, and avoid unloading the library with live handles or calls.
+
+Cancellation needs a separate control lane. ODBC's [multithreading rules](https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/multithreading?view=sql-server-ver17) permit another thread to request cancellation but do not guarantee the operation is interrupted. [SQLCancelHandle](https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcancelhandle-function?view=sql-server-ver17) can map statement cancellation to SQLCancel; production must qualify the installed driver's support. A cancellation request is not completion: preserve statement/binding memory until the executing call acknowledges completion; then drain or retire/discard uncertain connections. Never free or reuse a statement while worker execution or cancellation can still reference it. Saturating Koffi's worker pool must not starve cancellation indefinitely; a separate control worker or reserved capacity needs explicit proof.
+
+Production acceptance also requires exact metadata and session attestation; SQLMoreResults/OUTPUT row-count handling; prepared rebind/reset/cache lifetimes; backpressure and lazy stream decoding; transaction scope and atomic batch behavior; bounded diagnostic collection; timeout/cancel cleanup; connection close racing queued, prepared and streaming operations; driver errors and cancellation during each native stage; no retry after a potentially executed write; and application-owned library lifetime. Existing runtime validation, observation, quarantine and compiler-value-plan tests must remain green without weakening their contracts.
+
+## Evidence and decision gate
+
+Local evidence: Node 24.10.0 + Koffi 3.3.7, macOS ARM64 + Homebrew unixODBC, FFI declaration loading and actual ODBC 3 ENV allocation/free pass; stable native byte allocation/encode/decode/free preserves embedded zero bytes. `node --check` passes. These checks establish only local ABI mechanics.
+
+Required native evidence: run the prototype against every qualified SQL Server 14–17 engine on Linux x64, archive full redacted chunk traces and exact assertions, and compare actual reported major versions. Follow with production async cancellation/resource probes and complete runtime suites. Do not claim a replacement adapter is supported based only on this synchronous prototype. If any boundary produces an unexpected indicator or incomplete converted chunk, retain the failure evidence and redesign collection before production implementation.
