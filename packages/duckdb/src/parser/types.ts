@@ -32,6 +32,8 @@ export interface Expression {
   readonly query?: Statement;
   readonly filter?: Expression;
   readonly window?: boolean;
+  readonly context?: readonly Expression[];
+  readonly windowName?: string;
   readonly distinct?: boolean;
   readonly argumentNames?: readonly (string | undefined)[];
 }
@@ -75,6 +77,12 @@ export interface Statement {
   readonly limit?: Expression;
   readonly offset?: Expression;
   readonly distinct?: boolean;
+  readonly distinctOn?: readonly Expression[];
+  readonly windows?: readonly {
+    readonly name: string;
+    readonly expressions: readonly Expression[];
+    readonly base?: string;
+  }[];
   readonly set?: {
     readonly operation: "UNION" | "INTERSECT" | "EXCEPT";
     readonly byName: boolean;

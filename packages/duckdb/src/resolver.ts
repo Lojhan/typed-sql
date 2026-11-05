@@ -32,6 +32,7 @@ interface Scope {
   readonly fields: readonly Field[];
   readonly aliases: Map<string, Value>;
   readonly ctes: Map<string, readonly Field[]>;
+  readonly windowNames?: ReadonlySet<string>;
 }
 const scalar = (name: string): DuckDBType => ({ kind: "scalar", name }),
   unknown: Value = { type: scalar("ANY"), nullable: true },
@@ -371,6 +372,48 @@ export class DuckDBResolver {
     const name = expr.names?.at(-1)?.toLowerCase() ?? "",
       args = expr.args ?? [];
     if (expr.filter) this.infer(expr.filter, scope, bool(true));
+    for (const expression of expr.context ?? []) this.infer(expression, scope);
+    if (expr.windowName && !scope.windowNames?.has(duckDBAsciiFold(expr.windowName)))
+      this.error(`Unknown named window ${expr.windowName}`, expr.range, "TSQ101");
+    if (
+      [
+        "row_number",
+        "rank",
+        "dense_rank",
+        "percent_rank",
+        "cume_dist",
+        "ntile",
+        "lag",
+        "lead",
+        "first_value",
+        "last_value",
+        "nth_value",
+      ].includes(name) &&
+      !expr.window
+    ) {
+      this.error(`${name} requires an OVER window clause`, expr.range, "TSQ201");
+      return unknown;
+    }
+    const arity: Readonly<Record<string, number>> = {
+      if: 3,
+      ifnull: 2,
+      nullif: 2,
+      json: 1,
+      json_group_array: 1,
+      json_group_object: 2,
+    };
+    if (
+      (arity[name] !== undefined && args.length !== arity[name]) ||
+      (["coalesce", "array_value", "struct_pack"].includes(name) && !args.length)
+    ) {
+      this.error(`Invalid ${name} argument count`, expr.range, "TSQ201");
+      return unknown;
+    }
+    if (name === "struct_pack" && args.some((_, i) => !expr.argumentNames?.[i])) {
+      this.error("struct_pack requires named fields", expr.range, "TSQ201");
+      return unknown;
+    }
+
     const values = args.filter((arg) => arg.kind !== "star").map((arg) => this.infer(arg, scope));
     const version = this.snapshot.server?.versionKey ?? "";
     const builtinName = name === "count" && args[0]?.kind === "star" ? "count_star" : name;
@@ -919,7 +962,17 @@ export class DuckDBResolver {
         }
       }
     }
-    scope = { ...scope, fields: [...parent.fields, ...fields] };
+    scope = {
+      ...scope,
+      fields: [...parent.fields, ...fields],
+      windowNames: new Set((statement.windows ?? []).map((window) => duckDBAsciiFold(window.name))),
+    };
+    for (const window of statement.windows ?? []) {
+      if (window.base && !scope.windowNames?.has(duckDBAsciiFold(window.base)))
+        this.error(`Unknown named window ${window.base}`, statement.range, "TSQ101");
+      for (const expression of window.expressions) this.infer(expression, scope);
+    }
+
     if (statement.kind === "insert") {
       const target = fields.length ? fields : this.table(statement.target ?? [], statement.range),
         columns = statement.columns ?? target.map((field) => field.name);
@@ -943,10 +996,11 @@ export class DuckDBResolver {
       if (!target) this.error(`Unknown UPDATE column ${assignment.name}`, statement.range);
       else this.infer(assignment.value, scope, target);
     }
-    if (statement.where) this.infer(statement.where, scope, bool(true));
     let output = this.project(statement.kind === "select" ? statement.projections : (statement.returning ?? []), scope);
+    if (statement.where) this.infer(statement.where, scope, bool(true));
     for (const expression of [
       ...(statement.group ?? []),
+      ...(statement.distinctOn ?? []),
       ...(statement.order ?? []),
       ...(statement.having ? [statement.having] : []),
       ...(statement.qualify ? [statement.qualify] : []),
