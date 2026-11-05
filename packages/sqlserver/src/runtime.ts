@@ -76,7 +76,11 @@ export interface SqlServerConnectionLike {
   assertPlanSupported?(plan: QueryValuePlan): void;
   /** Native transports may decline a physical plan before dispatch; logical preparation then uses exact raw execution. */
   supportsPreparedPlan?(plan: QueryValuePlan): boolean;
-  stream?(sql: string, values: readonly unknown[], options: { readonly batchSize: number }): SqlServerProtocolStream;
+  stream?(
+    sql: string,
+    values: readonly unknown[],
+    options: { readonly batchSize: number; readonly valuePlan?: QueryValuePlan },
+  ): SqlServerProtocolStream;
   readonly executionCapabilities?: ExecutionCapabilities;
   close?(): Promise<void>;
 }
@@ -832,7 +836,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
           attesting = validateSession({ signal: attestationControls.signal });
           await attesting;
           if (done) return;
-          source = connection.stream(statement.text, statement.values, { batchSize });
+          source = connection.stream(statement.text, statement.values, { batchSize, valuePlan: statement.plan });
           const fields = await source.fields;
           if (!done) validateFields(statement.plan, fields);
         } catch (error) {

@@ -26,6 +26,7 @@ import {
   type SqlServerField,
   type SqlServerNativePrepared,
   type SqlServerProtocolStream,
+  validateSqlServerResultFields,
   withSqlServerInitializationLease,
 } from "./runtime.js";
 import { sqlServerVersionSupport } from "./support.js";
@@ -140,18 +141,25 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
     chunkBytes: chunk,
   });
   await transport.ready;
+  return createSqlServerOdbcConnection(transport);
+}
+/** Internal protocol composition seam; public entrypoints expose only the factory. */
+export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport): SqlServerConnectionLike {
+  let observedVersion: string | undefined;
   const connection: SqlServerConnectionLike = {
     executionCapabilities: { cancellation: true, deadlines: true },
     validatePreparedMetadata: true,
     preparedControls: true,
     async readServerEvidence(controls = {}) {
-      return (
+      const evidence = (
         await readSqlServerServerEvidence({
           async all<Row extends Record<string, unknown>>(text: string) {
             return (await connection.execute(text, [], controls)).rows as readonly Row[];
           },
         })
       ).server;
+      observedVersion = evidence.versionKey;
+      return evidence;
     },
     async execute(text, values = [], controls = {}) {
       const result = await transport.request(
@@ -202,12 +210,29 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
       let queue: readonly Readonly<Record<string, unknown>>[] = [];
       let queueIndex = 0;
       const input = bindings(values, transport.options.maximumResultBytes);
-      active = transport.request({ kind: "streamStart", text, values: input }, { signal: cancellation.signal });
-      const opening = active.then((reply) => {
+      const opening = (async () => {
+        if (streamOptions.valuePlan) {
+          active = transport.request({ kind: "prepare", text }, { signal: cancellation.signal });
+          const prepared = await active;
+          handle = prepared.handle!;
+          transport.cursor = handle;
+          if (prepared.result)
+            validateSqlServerResultFields(
+              streamOptions.valuePlan,
+              prepared.result.columns.map(sqlServerOdbcField),
+              observedVersion === "17",
+            );
+        }
+        active = transport.request(
+          { kind: "streamStart", text, values: input, ...(handle === undefined ? {} : { handle }) },
+          { signal: cancellation.signal },
+          handle,
+        );
+        const reply = await active;
         handle = reply.handle!;
         transport.cursor = handle;
         return reply.result!.columns.map(sqlServerOdbcField);
-      });
+      })();
       const stream: SqlServerProtocolStream = {
         fields: opening,
         get connectionReusable() {
