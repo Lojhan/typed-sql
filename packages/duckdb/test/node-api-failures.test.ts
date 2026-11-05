@@ -143,3 +143,98 @@ await it("classifies genuine native syntax and constraint errors and then reuses
     await database.close();
   }
 });
+await it("rejects untrusted SDK metadata and classifies native protocol failures", async () => {
+  const { duckDBTypeFromSDK } = await import("../src/node-api.js");
+  for (const value of [undefined, null, {}, { typeId: "INTEGER" }])
+    strict.throws(() => duckDBTypeFromSDK(value, sdk), /identifier/u);
+  for (const imported of [
+    null,
+    1,
+    {},
+    { ...sdk, ENUM: undefined },
+    { ...sdk, DuckDBTypeId: undefined },
+    { ...sdk, ResultReturnType: false },
+  ])
+    await strict.rejects(createNodeDuckDBDatabase({ sdkImporter: async () => imported }), /SDK|metadata/u);
+  for (const [message, kind] of [
+    ["transactioncontext conflict", "conflict"],
+    ["connection disconnected", "connection"],
+    ["unexpected native error", "driver"],
+  ] as const) {
+    class Connection {
+      async extractStatements() {
+        throw new Error(message);
+      }
+      closeSync() {}
+    }
+    const connection = adaptDuckDBConnection(new Connection(), { ...sdk, DuckDBConnection: Connection });
+    await strict.rejects(
+      connection.prepare("SELECT 1"),
+      (error) => error instanceof DuckDBAdapterError && error.kind === kind && error.cause instanceof Error,
+    );
+    await strict.rejects(connection.prepare("SELECT \0"), /NUL/u);
+  }
+});
+await it("cleans up vector appenders on metadata faults and rejects unsafe chunk shapes", async () => {
+  for (const stage of ["metadata", "append", "close"] as const) {
+    let closes = 0,
+      writes = 0;
+    class Connection {
+      async createAppender() {
+        return {
+          columnCount: 1,
+          columnType() {
+            if (stage === "metadata") throw failure;
+            return sdk.INTEGER;
+          },
+          appendDataChunk() {
+            writes++;
+            if (stage === "append") throw failure;
+          },
+          closeSync() {
+            closes++;
+            if (stage === "close") throw failure;
+          },
+        };
+      }
+      async extractStatements() {
+        throw new Error("should not prepare");
+      }
+      closeSync() {}
+    }
+    const connection = adaptDuckDBConnection(new Connection(), { ...sdk, DuckDBConnection: Connection });
+    if (stage === "metadata") await strict.rejects(connection.createAppender!("stage"), (error) => error === failure);
+    else {
+      const appender = await connection.createAppender!("stage");
+      for (const rows of [[], [[]], [[{ type: { kind: "scalar" as const, name: "VARCHAR" }, value: "bad" }]]])
+        strict.throws(() => appender.append(rows), /shape/u);
+      if (stage === "append")
+        strict.throws(
+          () => appender.append([[{ type: { kind: "scalar", name: "INTEGER" }, value: 1 }]]),
+          (error) => error instanceof DuckDBAdapterError && error.kind === "driver",
+        );
+      else appender.append([[{ type: { kind: "scalar", name: "INTEGER" }, value: 1 }]]);
+      if (stage === "close")
+        strict.throws(
+          () => appender.close(),
+          (error) => error === failure,
+        );
+      else appender.close();
+      appender.close();
+      strict.throws(
+        () => appender.append([[{ type: { kind: "scalar", name: "INTEGER" }, value: 1 }]]),
+        /closed|unusable/u,
+      );
+      strict.equal(writes, 1);
+      if (stage === "close") await strict.rejects(connection.prepare("SELECT 1"), /unusable/u);
+    }
+    strict.equal(closes, 1);
+  }
+  class Connection {}
+  const unsupported = adaptDuckDBConnection(new Connection(), {
+    ...sdk,
+    DuckDBConnection: Connection,
+    DuckDBDataChunk: undefined,
+  });
+  await strict.rejects(unsupported.createAppender!("stage"), /vector appender/u);
+});
