@@ -125,6 +125,12 @@ await describe("native grammar feature-ledger evidence", async () => {
     }
     strict.deepEqual(optimistic, [], "Unsupported syntax cannot receive an optimistic type");
   });
+  await it("separates VARIANT capability diagnostics from conservative cast analysis", () => {
+    const dialect = duckdb();
+    strict.equal(dialect.resolveCapabilities!(duckSnapshot).variant?.diagnostic, "TSQ401");
+    const analysis = dialect.analyze("SELECT CAST(1 AS VARIANT) AS value", duckSnapshot);
+    strict.ok(analysis.diagnostics.length > 0 || analysis.columns[0]?.tsType === "unknown");
+  });
   await it("retains conservative unknown functions and rejects procedural batches", () => {
     for (const { dialect, snapshot } of grammars) {
       const future = dialect.analyze("SELECT future_unregistered_function(id) AS value FROM users", snapshot);

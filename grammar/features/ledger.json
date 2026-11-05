@@ -1041,7 +1041,8 @@
             "Calendar gregorian and integer_division false",
             "engine 1.5.6 or 2.0.0 with qualified semantic settings",
             "preserve_identifier_case recorded; old_implicit_casting false on 1.5"
-          ]
+          ],
+          "notes": "Typed string form INTERVAL '1 day' is qualified; postfix interval field qualifiers are not implemented."
         },
         "mysql": {
           "level": "unsupported",
@@ -2900,7 +2901,8 @@
             "Calendar gregorian and integer_division false",
             "engine 1.5.6 or 2.0.0 with qualified semantic settings",
             "preserve_identifier_case recorded; old_implicit_casting false on 1.5"
-          ]
+          ],
+          "notes": "Known-shape range, generate_series and UNNEST relations are qualified; arbitrary and external table functions diagnose."
         },
         "mysql": {
           "level": "unsupported",
@@ -6209,7 +6211,7 @@
             "packages/conformance/test/native-feature-ledger.test.ts",
             "packages/duckdb/test/native-types.test.ts"
           ],
-          "notes": "No qualified VARIANT analysis/binding/decoding codec is advertised.",
+          "notes": "The capability state reports TSQ401. Static VARIANT casts remain unknown, while native runtime physical-type validation rejects the unqualified codec before dispatch.",
           "diagnostic": "TSQ401"
         },
         "mysql": {
