@@ -8,6 +8,7 @@ import type { SchemaSnapshot } from "@typed-sql/schema";
 import { parseSqlServerVersion, sqlServerVersionSupport } from "./support.js";
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";
 export const SQLSERVER_CAPABILITIES = Object.freeze({
+  syntax: true,
   apply: true,
   ctes: true,
   fullJoins: true,
@@ -131,7 +132,10 @@ export function resolveSqlServerCapabilities(snapshot: SchemaSnapshot): DialectC
         settings?.quotedIdentifier === true &&
         settings?.ansiWarnings === true &&
         settings?.arithAbort === true &&
-        settings?.concatNullOn === true;
+        settings?.concatNullOn === true &&
+        settings?.dateFirst === 7 &&
+        settings?.dateFormat === "mdy" &&
+        settings?.language === "us_english";
       return [
         name,
         {
@@ -160,4 +164,30 @@ export function resolveSqlServerCapabilities(snapshot: SchemaSnapshot): DialectC
     }),
   );
   return defineDialectCapabilityStates(states, Object.keys(SQLSERVER_CAPABILITIES));
+}
+
+/** Native adapters attest the actual leased connection; schema files are not runtime dependencies. */
+export function assertSqlServerRuntimeEvidence(server: DialectServerEvidence): void {
+  assertSqlServerServerEvidence(server);
+  const settings = server.settings;
+  if (
+    typeof settings.compatibilityLevel !== "number" ||
+    sqlServerVersionSupport(server.version, settings.compatibilityLevel) !== "supported" ||
+    ![1, 2, 3, 4].includes(Number(settings.engineEdition))
+  )
+    throw new TypeError("SQL Server runtime requires a qualified boxed server build and compatibility level");
+  if (
+    settings.quotedIdentifier !== true ||
+    settings.ansiWarnings !== true ||
+    settings.arithAbort !== true ||
+    settings.concatNullOn !== true ||
+    settings.dateFirst !== 7 ||
+    settings.dateFormat !== "mdy" ||
+    settings.language !== "us_english" ||
+    typeof settings.collation !== "string" ||
+    typeof settings.defaultSchema !== "string"
+  )
+    throw new TypeError(
+      "SQL Server runtime requires canonical quoted/ANSI/arithmetic/concatenation settings, DATEFIRST 7, DATEFORMAT mdy and us_english",
+    );
 }

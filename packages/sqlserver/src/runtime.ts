@@ -3,6 +3,7 @@ import {
   assertExecutionCapabilities,
   assertQueryResultTransport,
   type DatabaseObserver,
+  type DialectServerEvidence,
   databaseErrorCompletion,
   decodeQueryResultRows,
   type ExecutionCapabilities,
@@ -21,8 +22,10 @@ import {
   type SqlRenderer,
   type StreamOptions,
   startDatabaseObservation,
+  validateQueryResultRows,
 } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
+import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { decodeSqlServerNativeValue, encodeSqlServerParameter, isSqlServerTemporal } from "./decoding.js";
 import { requireSqlServerNativeType } from "./native-types.js";
 import { parseStatement } from "./parser/index.js";
@@ -78,6 +81,7 @@ export interface SqlServerScope {
   ): Promise<Row | undefined>;
 }
 export interface SqlServerDatabase extends SqlServerScope {
+  readonly serverEvidence: DialectServerEvidence;
   batch<const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>>;
   transaction<T>(callback: (database: SqlServerScope) => Promise<T>): Promise<T>;
   prepare<Arguments extends readonly unknown[], Row, Params extends readonly unknown[]>(
@@ -93,6 +97,8 @@ export interface SqlServerDatabase extends SqlServerScope {
 }
 export interface SqlServerDatabaseOptions {
   readonly connection: SqlServerConnectionLike;
+  /** Actual-session evidence attested by the application-owned neutral adapter. */
+  readonly serverEvidence: DialectServerEvidence;
   readonly ownsConnection?: boolean;
   readonly typePolicy?: SqlServerTypePolicy;
   readonly typePolicyHash?: string;
@@ -112,8 +118,25 @@ interface PreparedExecution {
 }
 const leases = new WeakMap<SqlServerConnectionLike, object>();
 const broken = new WeakSet<SqlServerConnectionLike>();
+/** Package adapter initialization shares the same ownership lease as execution and transactions. */
+export async function withSqlServerInitializationLease<T>(
+  connection: SqlServerConnectionLike,
+  initialize: () => Promise<T>,
+): Promise<T> {
+  if (leases.has(connection) || broken.has(connection))
+    throw new Error("SQL Server initialization requires an idle usable connection");
+  const lease = {};
+  leases.set(connection, lease);
+  try {
+    return await initialize();
+  } finally {
+    if (leases.get(connection) === lease) leases.delete(connection);
+  }
+}
 export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlServerDatabase {
   const { connection } = options;
+  if (!options.serverEvidence) throw new TypeError("SQL Server runtime requires actual connection server evidence");
+  assertSqlServerRuntimeEvidence(options.serverEvidence);
   if (leases.has(connection)) throw new Error("SQL Server wrappers require an idle connection");
   const policy = validateSqlServerTypePolicy(options.typePolicy ?? defaultSqlServerTypePolicy);
   const policyHash = options.typePolicyHash ?? calculateTypePolicyHash(policy);
@@ -262,6 +285,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     query: Query<Row, Params>,
     controls: ExecutionOptions = {},
     lease?: object,
+    cardinality: "many" | "one" | "maybeOne" = "many",
   ): Promise<readonly Row[]> {
     ensureOpen(lease);
     assertExecutionCapabilities(executionCapabilities, controls);
@@ -272,12 +296,21 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       grammarVersion: SQLSERVER_DIALECT_VERSION,
       transactionDepth: lease ? 1 : 0,
       fingerprint: `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
-      cardinality: "many",
+      cardinality,
       prepared: !!statement.preparedName,
     });
     try {
-      const operation = () => leased(lease, async () => decode<Row>(statement, await execute(statement, controls)));
+      const operation = () =>
+        leased(lease, async () =>
+          validateQueryResultRows(
+            query,
+            decode<Row>(statement, await execute(statement, controls)),
+            `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
+          ),
+        );
       const rows = await (observation ? observation.run(operation) : operation());
+      if (cardinality === "one" && rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+      if (cardinality === "maybeOne" && rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
       observation?.end({ status: "success", rowCount: rows.length });
       return rows;
     } catch (error) {
@@ -292,13 +325,11 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
         all(query, controls, lease),
       execute: <Row, Params extends readonly unknown[]>(query: Query<Row, Params>) => all(query, {}, lease),
       async one<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) {
-        const rows = await all(query, controls, lease);
-        if (rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+        const rows = await all(query, controls, lease, "one");
         return rows[0]!;
       },
       async maybeOne<Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) {
-        const rows = await all(query, controls, lease);
-        if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
+        const rows = await all(query, controls, lease, "maybeOne");
         return rows[0];
       },
     });
@@ -349,6 +380,8 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       await control("BEGIN TRANSACTION");
       begun = true;
       const result = await callback(scoped);
+      if (pending.size)
+        throw new Error("SQL Server transaction callback returned with an in-flight request; await every operation");
       active = false;
       await Promise.allSettled([...pending]);
       await queue;
@@ -377,6 +410,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     }
   }
   const database: SqlServerDatabase = {
+    serverEvidence: options.serverEvidence,
     ...scope(),
     transaction,
     async batch(queries) {
@@ -502,7 +536,12 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
                 await release();
                 return { done: true, value: undefined };
               }
-              return { done: false, value: decode<Row>(statement, { rows: [result.value] })[0]! };
+              const rows = await validateQueryResultRows(
+                query,
+                decode<Row>(statement, { rows: [result.value] }),
+                `sha256:${createHash("sha256").update(statement.text).digest("hex")}`,
+              );
+              return { done: false, value: rows[0]! };
             } catch (error) {
               await release();
               throw error;
