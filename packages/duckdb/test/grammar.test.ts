@@ -140,3 +140,22 @@ await it("binds lambda variables, nested closures and versioned arrow syntax", (
   strict.deepEqual(collision.diagnostics, []);
   strict.equal(collision.parameters[0]?.tsType, "bigint");
 });
+await it("recognizes canonical named binds in expressions without consuming native colons", () => {
+  const source = "SELECT {'id':id,'param': :input} AS document FROM users WHERE id=:id OR id=:id /* :comment */";
+  const parameters = duckdb().parameterOccurrences!(source, snapshot);
+  strict.deepEqual(
+    parameters.map((parameter) => parameter.name),
+    ["input", "id", "id"],
+  );
+  strict.deepEqual(
+    parameters.map((parameter) => source.slice(parameter.range.start, parameter.range.end)),
+    [":input", ":id", ":id"],
+  );
+  strict.deepEqual(duckdb().analyze("SELECT id FROM users WHERE id=:id", snapshot).diagnostics, []);
+  strict.deepEqual(
+    duckdb().parameterOccurrences!("SELECT MAP {'key': :value}, [1,2][:finish], $$:string$$", snapshot).map(
+      (parameter) => parameter.name,
+    ),
+    ["value"],
+  );
+});

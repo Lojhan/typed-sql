@@ -27,6 +27,8 @@ interface Field extends Value {
   readonly name: string;
   readonly relation?: string;
   readonly schema?: string;
+  readonly catalog?: string;
+  readonly usingHidden?: boolean;
 }
 interface Scope {
   readonly fields: readonly Field[];
@@ -213,6 +215,9 @@ export class DuckDBResolver {
         const candidates = scope.fields.filter(
           (field) =>
             duckDBAsciiFold(field.name) === duckDBAsciiFold(name) &&
+            (names.length !== 1 || !field.usingHidden) &&
+            (names.length < 3 || duckDBAsciiFold(field.schema ?? "") === duckDBAsciiFold(names[names.length - 3]!)) &&
+            (names.length < 4 || duckDBAsciiFold(field.catalog ?? "") === duckDBAsciiFold(names[names.length - 4]!)) &&
             (names.length === 1 ||
               duckDBAsciiFold(field.relation ?? "") === duckDBAsciiFold(names[names.length - 2] ?? "")),
         );
@@ -937,25 +942,67 @@ export class DuckDBResolver {
     return unknown;
   }
   table(names: readonly string[], range: SourceRange): readonly Field[] {
-    const candidates = Object.entries(this.snapshot.tables).filter(([key, table]) => {
+    const currentCatalog = String(this.snapshot.server?.settings.currentCatalog ?? ""),
+      currentSchema = String(this.snapshot.server?.settings.currentSchema ?? "main");
+    const entries = Object.entries(this.snapshot.tables).map(([key, table]) => {
       const parts = tokenize(key)
         .filter((token) => token.kind === "word" || token.kind === "quoted")
         .map((token) => token.value);
-      const actual =
-        parts.length >= 3
-          ? parts
-          : [
-              ...(this.snapshot.server?.settings.currentCatalog
-                ? [String(this.snapshot.server.settings.currentCatalog)]
-                : []),
-              table.schema ?? "main",
-              table.name,
-            ];
-      return (
-        names.length <= actual.length &&
-        names.every((name, i) => duckDBAsciiFold(name) === duckDBAsciiFold(actual[actual.length - names.length + i]!))
-      );
+      return {
+        key,
+        table,
+        catalog: parts.length >= 3 ? parts[parts.length - 3]! : currentCatalog,
+        schema: parts.length >= 2 ? parts[parts.length - 2]! : (table.schema ?? "main"),
+        name: table.name,
+      };
     });
+    const equal = (a: string, b: string) => duckDBAsciiFold(a) === duckDBAsciiFold(b);
+    let matches = entries.filter((entry) => equal(entry.name, names.at(-1) ?? ""));
+    if (names.length >= 3)
+      matches = matches.filter(
+        (entry) => names.length === 3 && equal(entry.catalog, names[0]!) && equal(entry.schema, names[1]!),
+      );
+    else if (names.length === 2)
+      matches = matches.filter(
+        (entry) =>
+          (equal(entry.catalog, currentCatalog) && equal(entry.schema, names[0]!)) ||
+          (equal(entry.catalog, names[0]!) && equal(entry.schema, "main")),
+      );
+    else {
+      const paths: readonly string[][] = (() => {
+        const tokens = tokenize(String(this.snapshot.server?.settings.search_path ?? "")),
+          result: string[][] = [];
+        let path: string[] = [];
+        for (const token of tokens) {
+          if (token.text === ",") {
+            if (path.length) result.push(path);
+            path = [];
+          } else if (token.kind === "word" || token.kind === "quoted") path.push(token.value);
+        }
+        if (path.length) result.push(path);
+        return [
+          ["temp", "main"],
+          ...result.map((parts) => (parts.length === 1 ? [currentCatalog, parts[0]!] : parts)),
+          [currentCatalog, currentSchema],
+          [currentCatalog, "main"],
+          ["system", "main"],
+        ];
+      })();
+      for (const [catalog, schema] of paths) {
+        const selected = matches.filter((entry) => equal(entry.catalog, catalog!) && equal(entry.schema, schema!));
+        if (selected.length) {
+          matches = selected;
+          break;
+        }
+      }
+      if (
+        !matches.some((entry) =>
+          paths.some(([catalog, schema]) => equal(entry.catalog, catalog!) && equal(entry.schema, schema!)),
+        )
+      )
+        matches = [];
+    }
+    const candidates = matches.map((entry) => [entry.key, entry.table] as const);
     if (candidates.length !== 1) {
       this.error(
         candidates.length ? `Ambiguous relation ${names.join(".")}` : `Unknown relation ${names.join(".")}`,
@@ -979,6 +1026,10 @@ export class DuckDBResolver {
       nullable: column.nullable,
       tsType: column.tsType,
       relation: names.at(-1) ?? key,
+      catalog:
+        tokenize(key).filter((token) => token.kind === "word" || token.kind === "quoted").length >= 3
+          ? tokenize(key).filter((token) => token.kind === "word" || token.kind === "quoted")[0]!.value
+          : String(this.snapshot.server?.settings.currentCatalog ?? ""),
       ...(table.schema ? { schema: table.schema } : {}),
     }));
   }
@@ -1003,6 +1054,8 @@ export class DuckDBResolver {
           this.infer(arg, scope, { type: scalar("BIGINT"), nullable: false });
         fields = [{ name: name, type: scalar("BIGINT"), nullable: false }];
       } else if (name === "unnest") {
+        if (relation.expression.args?.length !== 1)
+          this.error("UNNEST table function accepts exactly one LIST/ARRAY argument", relation.range, "TSQ201");
         const value = this.infer(
           relation.expression.args?.[0] ?? { kind: "literal", value: "NULL", range: relation.range },
           scope,
@@ -1012,14 +1065,55 @@ export class DuckDBResolver {
         else this.error("UNNEST table function needs a known list or array", relation.range, "TSQ201");
       } else this.error(`Unknown table function ${name}`, relation.range, "TSQ201");
     } else this.error("Dynamic relation schema is not supported", relation.range, "TSQ401");
+    if (relation.ordinality) fields = [...fields, { name: "ordinality", type: scalar("BIGINT"), nullable: false }];
     if (relation.columns && relation.columns.length !== fields.length)
       this.error("Relation alias column count differs", relation.range, "TSQ201");
     return fields.map((field, i) => ({
       ...field,
       name: relation.columns?.[i] ?? field.name,
       ...(relation.alias ? { relation: relation.alias } : {}),
-      nullable: field.nullable || ["left", "full", "positional"].includes(relation.join ?? ""),
+      nullable: field.nullable || ["left", "asof-left", "full", "positional"].includes(relation.join ?? ""),
     }));
+  }
+  unnestProjection(expression: Expression, scope: Scope, alias?: string): Field[] {
+    const args = expression.args ?? [];
+    if (args.length < 1 || args.length > 2) {
+      this.error("UNNEST supports one value and at most one static option", expression.range, "TSQ201");
+      return [];
+    }
+    let depth = 1;
+    if (args[1]) {
+      const option = expression.argumentNames?.[1]?.toLowerCase(),
+        value = args[1];
+      if (option === "recursive" && value.kind === "literal" && ["TRUE", "FALSE"].includes(value.value ?? ""))
+        depth = value.value === "TRUE" ? 64 : 1;
+      else if (
+        option === "max_depth" &&
+        value.kind === "literal" &&
+        /^[1-9]\d*$/u.test(value.value ?? "") &&
+        Number(value.value) <= 64
+      )
+        depth = Number(value.value);
+      else {
+        this.error("UNNEST requires a static recursive BOOLEAN or bounded positive max_depth", value.range, "TSQ401");
+        return [];
+      }
+    }
+    let type = this.infer(args[0]!, scope).type;
+    if (type.kind !== "list" && type.kind !== "array" && type.kind !== "struct") {
+      this.error("UNNEST needs a known LIST, ARRAY or STRUCT", expression.range, "TSQ201");
+      return [];
+    }
+    while (depth > 0 && (type.kind === "list" || type.kind === "array")) {
+      type = type.element;
+      depth--;
+    }
+    const expand = (value: DuckDBType, remaining: number, name: string): Field[] => {
+      if (remaining > 0 && value.kind === "struct")
+        return value.fields.flatMap((field) => expand(field.type, remaining - 1, field.name));
+      return [{ name, type: value, nullable: true, range: expression.range }];
+    };
+    return expand(type, depth, alias ?? "unnest");
   }
   project(projections: readonly Projection[], scope: Scope): Field[] {
     const output: Field[] = [];
@@ -1029,7 +1123,7 @@ export class DuckDBResolver {
         const qualifier = expression.left?.kind === "name" ? expression.left.names?.at(-1) : undefined;
         const fields = scope.fields.filter(
           (field) =>
-            (!qualifier || duckDBAsciiFold(field.relation ?? "") === duckDBAsciiFold(qualifier)) &&
+            (qualifier ? duckDBAsciiFold(field.relation ?? "") === duckDBAsciiFold(qualifier) : !field.usingHidden) &&
             !projection.exclude?.some((name) => duckDBAsciiFold(name) === duckDBAsciiFold(field.name)),
         );
         for (const name of projection.exclude ?? [])
@@ -1039,19 +1133,19 @@ export class DuckDBResolver {
           const replacement = projection.replace?.find(
             (item) => duckDBAsciiFold(item.alias ?? "") === duckDBAsciiFold(field.name),
           );
-          output.push(replacement ? { ...this.infer(replacement.expression, scope), name: field.name } : field);
+          output.push(
+            replacement
+              ? { ...this.infer(replacement.expression, scope), name: field.name, range: replacement.expression.range }
+              : { ...field, range: expression.range },
+          );
         }
         continue;
       }
       if (expression.kind === "call" && expression.names?.at(-1)?.toLowerCase() === "unnest") {
-        const value = this.infer(
-          expression.args?.[0] ?? { kind: "literal", value: "NULL", range: expression.range },
-          scope,
-        );
-        if (value.type.kind === "struct") {
-          for (const field of value.type.fields) output.push({ name: field.name, type: field.type, nullable: true });
-          continue;
-        }
+        const fields = this.unnestProjection(expression, scope, projection.alias);
+        output.push(...fields);
+        for (const field of fields) scope.aliases.set(duckDBAsciiFold(field.name), field);
+        continue;
       }
       const value = this.infer(expression, scope),
         name =
@@ -1109,20 +1203,47 @@ export class DuckDBResolver {
             .map((field) => field.name)
             .filter((name) => next.some((field) => duckDBAsciiFold(name) === duckDBAsciiFold(field.name)));
         for (const name of names) {
-          const left = previous.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name)),
+          const left = previous.find(
+              (field) => !field.usingHidden && duckDBAsciiFold(field.name) === duckDBAsciiFold(name),
+            ),
             right = next.find((field) => duckDBAsciiFold(field.name) === duckDBAsciiFold(name));
           if (!left || !right) {
             this.error(`USING column ${name} is missing`, relation.range);
             continue;
           }
-          let seen = false;
-          fields = fields.filter((field) => {
-            if (duckDBAsciiFold(field.name) !== duckDBAsciiFold(name)) return true;
-            if (!seen) {
-              seen = true;
-              return true;
+          if (relation.join === "semi" || relation.join === "anti") continue;
+          const merged: Field = {
+            ...(relation.join === "right" ? right : left),
+            name,
+            type:
+              relation.join === "full"
+                ? commonDuckDBType(left.type, right.type)
+                : relation.join === "right"
+                  ? right.type
+                  : left.type,
+            nullable:
+              relation.join === "full"
+                ? left.nullable || right.nullable
+                : relation.join === "right"
+                  ? right.nullable
+                  : left.nullable,
+          };
+          const {
+            relation: _relation,
+            schema: _schema,
+            catalog: _catalog,
+            tsType: _tsType,
+            runtimeType: _runtimeType,
+            ...unqualified
+          } = merged;
+          let inserted = false;
+          fields = fields.flatMap((field) => {
+            if (duckDBAsciiFold(field.name) !== duckDBAsciiFold(name)) return [field];
+            if (!inserted) {
+              inserted = true;
+              return [unqualified, { ...field, usingHidden: true }];
             }
-            return false;
+            return [{ ...field, usingHidden: true }];
           });
         }
       }

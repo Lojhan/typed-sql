@@ -5,7 +5,7 @@ import {
   type DialectPlugin,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { parseDuckDBStatement } from "./parser/parser.js";
+import { duckDBParameterOccurrences, parseDuckDBStatement } from "./parser/parser.js";
 import { DuckDBParseError, tokenize } from "./parser/tokenizer.js";
 import { resolveDuckDBStatement } from "./resolver.js";
 import { assertDuckDBSemanticEvidence } from "./settings.js";
@@ -41,19 +41,7 @@ export function duckdb(options: DuckDBDialectOptions = {}): DialectPlugin<DuckDB
     quoteIdentifier(name: string) {
       return `"${name.replaceAll('"', '""')}"`;
     },
-    parameterOccurrences(source: string) {
-      let index = 0;
-      return tokenize(source)
-        .filter((token) => token.kind === "parameter")
-        .map((token) => {
-          const named = /^[$:][A-Za-z_]/u.test(token.text);
-          return {
-            index: named ? 0 : token.text === "?" ? ++index : Number(token.text.slice(1)),
-            ...(named ? { name: token.text.slice(1) } : {}),
-            range: token.range,
-          };
-        });
-    },
+    parameterOccurrences: duckDBParameterOccurrences,
     analyze(
       source: string,
       snapshot: DuckDBSchemaSnapshot,

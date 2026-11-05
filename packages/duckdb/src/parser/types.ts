@@ -50,11 +50,12 @@ export interface Relation {
   readonly query?: Statement;
   readonly alias?: string;
   readonly columns?: readonly string[];
-  readonly join?: "inner" | "left" | "right" | "full" | "cross" | "semi" | "anti" | "asof" | "positional";
+  readonly join?: "inner" | "left" | "right" | "full" | "cross" | "semi" | "anti" | "asof" | "asof-left" | "positional";
   readonly condition?: Expression;
   readonly using?: readonly string[];
   readonly natural?: boolean;
   readonly lateral?: boolean;
+  readonly ordinality?: boolean;
 }
 export interface CommonTable {
   readonly name: string;

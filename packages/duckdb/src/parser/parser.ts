@@ -257,6 +257,15 @@ export class DuckDBParser {
       upper = token.value.toUpperCase();
     if (token.kind === "number" || token.kind === "string" || ["NULL", "TRUE", "FALSE"].includes(upper))
       return { kind: "literal", value: token.kind === "string" ? JSON.stringify(token.value) : upper, range };
+    if (token.text === ":" && this.token().kind === "word" && this.token().range.start === token.range.end) {
+      const name = this.take().value;
+      let slot = this.named.get(name);
+      if (slot === undefined) {
+        slot = this.named.size + 1;
+        this.named.set(name, slot);
+      }
+      return { kind: "parameter", value: String(slot), range: this.range(range) };
+    }
     if (token.kind === "parameter") {
       let value: string;
       if (token.value === "?") value = String(++this.anonymous);
@@ -575,6 +584,8 @@ export class DuckDBParser {
       if (candidate.kind === "name" && !candidate.left) name = candidate.names;
       else expression = candidate;
     }
+    const ordinality = this.accept("WITH");
+    if (ordinality) this.expect("ORDINALITY");
     let alias: string | undefined, columns: readonly string[] | undefined;
     if (this.accept("AS")) alias = this.identifier().value;
     else if (
@@ -587,6 +598,7 @@ export class DuckDBParser {
     return {
       range: this.range(start),
       ...(lateral ? { lateral } : {}),
+      ...(ordinality ? { ordinality } : {}),
       ...(name ? { name } : {}),
       ...(expression ? { expression } : {}),
       ...(query ? { query } : {}),
@@ -603,12 +615,19 @@ export class DuckDBParser {
       }
       if (!joinWords.has(this.token().value.toUpperCase())) break;
       const natural = this.accept("NATURAL");
+      let asof = this.accept("ASOF");
       let kind: NonNullable<Relation["join"]> = "inner";
       for (const word of ["INNER", "LEFT", "RIGHT", "FULL", "CROSS", "SEMI", "ANTI", "ASOF", "POSITIONAL"] as const) {
         if (this.accept(word)) {
           kind = word.toLowerCase() as NonNullable<Relation["join"]>;
           break;
         }
+      }
+      asof = this.accept("ASOF") || asof;
+      if (asof) {
+        if (kind !== "inner" && kind !== "left")
+          throw new DuckDBParseError("ASOF supports INNER or LEFT JOIN", this.token().range, "TSQ201");
+        kind = kind === "left" ? "asof-left" : "asof";
       }
       this.accept("OUTER");
       this.accept("JOIN") || kind === "positional" || this.expect("JOIN");
@@ -858,4 +877,33 @@ export function parseDuckDBStatement(source: string): Statement {
   if (parser.token().kind !== "eof")
     throw new DuckDBParseError("Unexpected SQL suffix or multiple statements", parser.token().range, "TSQ401");
   return statement;
+}
+
+/** Named frontend markers are contextual syntax: a STRUCT separator or slice colon is never a bind. */
+export function duckDBParameterOccurrences(source: string) {
+  const statement = parseDuckDBStatement(source),
+    parameters: Expression[] = [];
+  const visit = (value: unknown): void => {
+    if (!value || typeof value !== "object") return;
+    if ("kind" in value && value.kind === "parameter") {
+      parameters.push(value as Expression);
+      return;
+    }
+    for (const item of Object.values(value)) {
+      if (Array.isArray(item)) for (const child of item) visit(child);
+      else visit(item);
+    }
+  };
+  visit(statement);
+  return parameters
+    .sort((a, b) => a.range.start - b.range.start)
+    .map((parameter) => {
+      const text = source.slice(parameter.range.start, parameter.range.end),
+        named = /^[$:][\p{L}_]/u.test(text);
+      return {
+        index: named ? 0 : Number(parameter.value),
+        ...(named ? { name: text.slice(1) } : {}),
+        range: parameter.range,
+      };
+    });
 }
