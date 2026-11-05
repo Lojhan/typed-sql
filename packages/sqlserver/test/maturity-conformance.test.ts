@@ -90,9 +90,9 @@ await describe("SQL Server vendor-backed conformance-v2 maturity corpus", async 
     strict.deepEqual(
       result.parameters.map((p) => [p.index, p.tsType, p.databaseType, p.nullable]),
       [
-        [1, "bigint", "bigint", true],
-        [2, "number", "int", true],
-        [3, "string", "nvarchar(40) COLLATE Latin1_General_100_CI_AS", true],
+        [1, "bigint", "bigint", false],
+        [2, "number", "int", false],
+        [3, "string", "nvarchar(40) COLLATE Latin1_General_100_CI_AS", false],
       ],
     );
     strict.deepEqual(
@@ -382,5 +382,29 @@ await describe("SQL Server vendor-backed conformance-v2 maturity corpus", async 
       strict.deepEqual(Object.keys(shape.properties), ["__proto__", "constructor"]);
       strict.equal(Object.hasOwn(shape.properties, "__proto__"), true);
     }
+  });
+  await it("keeps proven NOT NULL targets precise while nullable columns and casts accept NULL", () => {
+    const result = grammar.analyze(
+      "SELECT id FROM dbo.widgets WHERE parent_id=@__typed_sql_1 AND optional_qty=@__typed_sql_2",
+      snapshot,
+    );
+    strict.deepEqual(result.diagnostics, []);
+    strict.deepEqual(
+      result.parameters.map((p) => [p.index, p.tsType, p.nullable]),
+      [
+        [1, "bigint", true],
+        [2, "number", true],
+      ],
+    );
+    const repeated = grammar.analyze(
+      "SELECT id FROM dbo.widgets WHERE id=@__typed_sql_1 OR parent_id=@__typed_sql_1",
+      snapshot,
+    );
+    strict.deepEqual(repeated.diagnostics, []);
+    strict.equal(repeated.parameters[0]?.nullable, true);
+    const cast = grammar.analyze("SELECT CAST(@__typed_sql_1 AS int) AS value", snapshot);
+    strict.deepEqual(cast.diagnostics, []);
+    strict.equal(cast.parameters[0]?.nullable, true);
+    strict.equal(cast.columns[0]?.nullable, true);
   });
 });
