@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import {
   adaptSqlServerOdbcConnection,
@@ -12,8 +13,9 @@ import {
   type SqlServerOdbcDriver,
   type SqlServerOdbcQuery,
 } from "../src/odbc.js";
-
 import { sqlServerCatalogQueries } from "../src/provider.js";
+import { sql, withQueryValuePlan } from "../src/query.js";
+import { defaultSqlServerTypePolicy } from "../src/type-policy.js";
 import { serverRow } from "./helpers/environment.js";
 
 class NativeQuery extends EventEmitter implements SqlServerOdbcQuery {
@@ -143,6 +145,39 @@ function setup() {
   };
 }
 await describe("SQL Server explicit ODBC adapter", async () => {
+  await it("chooses exact raw transport for logically prepared arbitrary text before any dispatch", async () => {
+    const state = setup(),
+      text = "embedded\0data\0";
+    state.script = (q) => {
+      q.emit("meta", [{ name: "label", sqlType: "nvarchar" }]);
+      q.emit("row", 0);
+      q.emit("column", 0, q.prepared ? text.slice(0, -1) : text);
+      q.emit("done");
+      if (!q.prepared) q.emit("free");
+    };
+    const db = await createSqlServerOdbcDatabase({
+      connection: state.native,
+      driverImporter: async () => state.driver,
+      driverVersion: "6.2.2",
+    });
+    const query = () =>
+      withQueryValuePlan(sql<{ label: string }>`SELECT ${text} AS label`, {
+        dialect: "sqlserver",
+        typePolicyHash: calculateTypePolicyHash(defaultSqlServerTypePolicy),
+        columns: [{ name: "label", type: "string", nullable: false, databaseType: "nvarchar(max)" }],
+        parameters: [{ index: 1, type: "string", nullable: false, databaseType: "nvarchar(max)" }],
+      });
+    const find = db.prepare("exact-text", query);
+    strict.deepEqual(await db.one(find()), { label: text });
+    strict.deepEqual(await db.one(find()), { label: text });
+    strict.equal(
+      state.queries.some((q) => q.prepared),
+      false,
+    );
+    strict.equal(state.requested.filter((sql) => sql.includes("AS label")).length, 2);
+    await db.close();
+  });
+
   await it("resolves the default SDK from the application rather than the grammar package", async () => {
     const directory = await mkdtemp(join(tmpdir(), "typed-sql-odbc-loader-")),
       cwd = process.cwd();
@@ -215,6 +250,7 @@ await describe("SQL Server explicit ODBC adapter", async () => {
     const state = setup();
     const connection = adaptSqlServerOdbcConnection(state.driver, state.native);
     strict.equal(adaptSqlServerOdbcConnection(state.driver, state.native), connection);
+    await strict.rejects(connection.execute("SELECT ? AS id", [new Uint8Array()]), /typed hex/);
     const result = await connection.execute("SELECT ? AS id", [
       null,
       "9223372036854775807",

@@ -175,7 +175,9 @@ export function encodeSqlServerParameter(
       throw new TypeError("SQL Server rowversion cannot be assigned as an ordinary value");
     if (typeof target.length === "number" && value.length > target.length)
       throw new RangeError("SQL Server binary parameter exceeds its native length");
-    return Uint8Array.from(value);
+    let hex = "";
+    for (const byte of value) hex += byte.toString(16).padStart(2, "0").toUpperCase();
+    return hex;
   }
   if (target.name === "sql_variant")
     throw new TypeError("SQL Server sql_variant input requires an explicit qualified codec");
