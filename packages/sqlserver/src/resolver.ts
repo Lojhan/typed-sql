@@ -1223,7 +1223,9 @@ class Resolver {
         if (name === "SOUNDEX") return result("varchar", 5);
         if (name === "SPACE" || name === "STR") {
           const width = dimension(name === "SPACE" ? 0 : 1, name === "STR" ? 10 : undefined);
-          return width === undefined ? unknown : result("varchar", Math.max(1, Math.min(8000, width)));
+          return width === undefined
+            ? unknown
+            : result("varchar", Math.max(1, Math.min(8000, width)), name === "STR" || nullable);
         }
         if (!textInput) {
           this.diagnostic(
@@ -1313,7 +1315,7 @@ class Resolver {
             collation = inputs.find((input) => input?.collation)?.collation;
           return type(
             `${unicode ? "nvarchar" : "varchar"}(${length})${collation ? ` COLLATE ${collation}` : ""}`,
-            false,
+            name === "CONCAT_WS" && Boolean(args[0]?.nullable),
             this.policy,
           );
         }
