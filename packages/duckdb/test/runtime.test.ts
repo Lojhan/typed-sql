@@ -8,8 +8,8 @@ import { type Query, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import { duckDBServerEvidence, duckdb, typePolicy } from "../src/index.js";
-import { createNodeDuckDBDatabase } from "../src/node-api.js";
-import type { DuckDBDatabase } from "../src/runtime.js";
+import { adaptDuckDBConnection, createNodeDuckDBDatabase } from "../src/node-api.js";
+import { createDuckDBDatabase, type DuckDBDatabase } from "../src/runtime.js";
 import type { DuckDBSchemaSnapshot } from "../src/snapshot.js";
 
 const snapshot = (version: string): DuckDBSchemaSnapshot => ({
@@ -362,5 +362,41 @@ await it("preserves unspellable 1.5 unnamed tuples through typed NULL transport 
     }
   } finally {
     await database.close();
+  }
+});
+await it("preserves native prepared cache identity through attached result validators", async () => {
+  const instance = await sdk.DuckDBInstance.create(),
+    connection = await instance.connect();
+  const adapted = adaptDuckDBConnection(connection, sdk);
+  let prepares = 0;
+  const database = createDuckDBDatabase({
+    connection: {
+      ...adapted,
+      async prepare(text) {
+        prepares++;
+        return adapted.prepare(text);
+      },
+    },
+  });
+  try {
+    const factory = database.prepare("validated", () =>
+      compiled<{ value: number }>("SELECT 1 AS value", [], sdk.version().slice(1)),
+    );
+    const schema = {
+      "~standard": {
+        version: 1 as const,
+        vendor: "test",
+        validate(value: unknown) {
+          return { value };
+        },
+      },
+    };
+    strict.deepEqual(await database.one(sql.validateResult(factory(), schema)), { value: 1 });
+    strict.deepEqual(await database.one(sql.validateResult(factory(), schema)), { value: 1 });
+    strict.equal(prepares, 1);
+  } finally {
+    await database.close();
+    connection.closeSync();
+    instance.closeSync();
   }
 });

@@ -4,12 +4,14 @@ import { it, strict } from "poku";
 import { createDuckDBDatabase, type DuckDBNativeResult } from "../src/runtime.js";
 import { defaultDuckDBTypePolicy } from "../src/type-policy.js";
 
-const query = withQueryValuePlan(sql<{ value: number }>`SELECT 1 AS value`, {
-  dialect: "duckdb",
-  typePolicyHash: calculateTypePolicyHash(defaultDuckDBTypePolicy),
-  parameters: [],
-  columns: [{ name: "value", type: "number", nullable: false, databaseType: "INTEGER" }],
-});
+const makeQuery = () =>
+  withQueryValuePlan(sql<{ value: number }>`SELECT 1 AS value`, {
+    dialect: "duckdb",
+    typePolicyHash: calculateTypePolicyHash(defaultDuckDBTypePolicy),
+    parameters: [],
+    columns: [{ name: "value", type: "number", nullable: false, databaseType: "INTEGER" }],
+  });
+const query = makeQuery();
 for (const mode of ["query", "catalog", "stream", "control"] as const) {
   await it(`closes both resources and releases the lease after ${mode} cleanup fails`, async () => {
     const calls: string[] = [],
@@ -160,4 +162,98 @@ await it("drains successful inflight work before reporting transaction misuse an
     false,
   );
   await database.close();
+});
+await it("validates streamed rows lazily with one global index across native chunks", async () => {
+  const validated: number[] = [],
+    closes: string[] = [];
+  const database = createDuckDBDatabase({
+    connection: {
+      libraryVersion: "2.0.0",
+      async prepare() {
+        return {
+          async execute() {
+            return {
+              columns: [{ name: "value", type: { kind: "scalar", name: "INTEGER" } }],
+              async readAll() {
+                return [];
+              },
+              async *chunks() {
+                yield [[1], [2]];
+                yield [[3], [4]];
+              },
+              close() {
+                closes.push("result");
+              },
+            };
+          },
+          close() {
+            closes.push("statement");
+          },
+        };
+      },
+    },
+  });
+  const checked = sql.validateResult(query, {
+    "~standard": {
+      version: 1,
+      vendor: "test",
+      validate(value: unknown) {
+        const item = value as { value: number };
+        validated.push(item.value);
+        return item.value === 3 ? { issues: [{ message: "third row rejected" }] } : { value: item };
+      },
+    },
+  });
+  const stream = database.stream(checked);
+  strict.deepEqual(validated, []);
+  strict.deepEqual((await stream.next()).value, { value: 1 });
+  strict.deepEqual(validated, [1]);
+  strict.deepEqual((await stream.next()).value, { value: 2 });
+  strict.deepEqual(validated, [1, 2]);
+  await strict.rejects(
+    stream.next(),
+    (error) => typeof error === "object" && error !== null && "rowIndex" in error && error.rowIndex === 2,
+  );
+  strict.deepEqual(validated, [1, 2, 3]);
+  strict.deepEqual(closes, ["result", "statement"]);
+  await database.close();
+});
+await it("retires every cached handle and owned connection after one close failure", async () => {
+  const closes: string[] = [],
+    failure = new Error("first cached statement close failed");
+  let prepares = 0;
+  const connection = {
+    libraryVersion: "2.0.0",
+    async prepare() {
+      const id = ++prepares;
+      return {
+        async execute() {
+          return {
+            columns: [{ name: "value", type: { kind: "scalar" as const, name: "INTEGER" } }],
+            async readAll() {
+              return [[1]];
+            },
+            close() {},
+          };
+        },
+        close() {
+          closes.push(`statement:${id}`);
+          if (id === 1) throw failure;
+        },
+      };
+    },
+    close() {
+      closes.push("connection");
+    },
+  };
+  const database = createDuckDBDatabase({ connection, ownsConnection: true }),
+    sibling = createDuckDBDatabase({ connection });
+  await database.all(database.prepare("first", () => query)());
+  await database.all(database.prepare("second", makeQuery)());
+  await strict.rejects(database.close(), (error) => error === failure);
+  strict.deepEqual(closes, ["statement:1", "statement:2", "connection"]);
+  await strict.rejects(sibling.all(query), /closed|unusable/u);
+  strict.equal(prepares, 2);
+  await database.close();
+  await sibling.close();
 });
