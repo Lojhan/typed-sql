@@ -110,4 +110,10 @@ await describe("SQL Server grammar-owned lexical and native foundations", async 
     strict.deepEqual(requireSqlServerNativeType("sql_variant"), { name: "sql_variant", text: "sql_variant" });
     strict.equal(mapSqlServerType("sql_variant"), "unknown");
   });
+  // https://learn.microsoft.com/en-us/sql/t-sql/data-types/float-and-real-transact-sql
+  await it("canonicalizes FLOAT precision buckets to their physical REAL or FLOAT53 types", () => {
+    for (const precision of [1, 10, 24]) strict.equal(requireSqlServerNativeType(`float(${precision})`).text, "real");
+    for (const precision of [25, 40, 53])
+      strict.equal(requireSqlServerNativeType(`float(${precision})`).text, "float(53)");
+  });
 });

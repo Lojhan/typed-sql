@@ -68,7 +68,10 @@ export interface SqlServerConnectionLike {
   /** Read actual facts using the unlocked native protocol under the runtime lease; honor the supplied cancellation/deadline controls. */
   readServerEvidence?(options?: ExecutionOptions): Promise<DialectServerEvidence>;
   execute(sql: string, values?: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
-  prepare?(sql: string): Promise<SqlServerNativePrepared>;
+  prepare?(sql: string, controls?: ExecutionOptions): Promise<SqlServerNativePrepared>;
+  /** Qualify available prepared result metadata before an unprepared typed statement executes. */
+  readonly validatePreparedMetadata?: boolean;
+  readonly preparedControls?: boolean;
   /** Reject native transport limitations before a query with possible side effects is dispatched. */
   assertPlanSupported?(plan: QueryValuePlan): void;
   /** Native transports may decline a physical plan before dispatch; logical preparation then uses exact raw execution. */
@@ -158,6 +161,48 @@ export async function withSqlServerInitializationLease<T>(
     if (leases.get(connection) === lease) leases.delete(connection);
   }
 }
+export function validateSqlServerResultFields(
+  plan: QueryValuePlan,
+  fields: readonly SqlServerField[] | undefined,
+  allowJsonTextWire = false,
+): void {
+  if (!fields) return;
+  if (fields.length !== plan.columns.length)
+    throw new TypeError("SQL Server result metadata width disagrees with the compiled plan");
+  const names = new Set<string>();
+  for (const [index, field] of fields.entries()) {
+    if (names.has(field.name) || field.name !== plan.columns[index]?.name)
+      throw new TypeError("SQL Server result column identities disagree with the compiled plan");
+    names.add(field.name);
+    const expected = requireSqlServerNativeType(plan.columns[index]!.databaseType!);
+    if (field.databaseType) {
+      const actual = requireSqlServerNativeType(field.databaseType);
+      const jsonTextWire =
+        allowJsonTextWire &&
+        expected.name === "json" &&
+        actual.name === "varchar" &&
+        field.wireType === "odbc-varchar-unlimited-text";
+      if (
+        !jsonTextWire &&
+        (actual.name !== expected.name ||
+          (field.databaseType.includes("(") &&
+            (actual.length !== expected.length ||
+              actual.precision !== expected.precision ||
+              actual.scale !== expected.scale)))
+      )
+        throw new TypeError("SQL Server native result type disagrees with the compiled target");
+    }
+    if (
+      (field.precision !== undefined && field.precision !== expected.precision) ||
+      (field.scale !== undefined && field.scale !== expected.scale) ||
+      (field.length !== undefined &&
+        field.length !== expected.length &&
+        !(allowJsonTextWire && expected.name === "json" && field.wireType === "odbc-varchar-unlimited-text"))
+    )
+      throw new TypeError("SQL Server native result precision, scale or length disagrees with the compiled target");
+  }
+}
+
 export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlServerDatabase {
   const { connection } = options;
   if (!options.serverEvidence) throw new TypeError("SQL Server runtime requires actual connection server evidence");
@@ -313,40 +358,8 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     }
     return { query, plan, text: rendered.text, values, ...(preparedName ? { preparedName } : {}) };
   }
-  function validateFields(plan: QueryValuePlan, fields: readonly SqlServerField[] | undefined): void {
-    if (!fields) return;
-    if (fields.length !== plan.columns.length)
-      throw new TypeError("SQL Server result metadata width disagrees with the compiled plan");
-    const names = new Set<string>();
-    for (const [index, field] of fields.entries()) {
-      if (names.has(field.name) || field.name !== plan.columns[index]?.name)
-        throw new TypeError("SQL Server result column identities disagree with the compiled plan");
-      names.add(field.name);
-      const expected = requireSqlServerNativeType(plan.columns[index]!.databaseType!);
-      if (field.databaseType) {
-        const actual = requireSqlServerNativeType(field.databaseType);
-        const jsonTextWire =
-          expected.name === "json" && actual.name === "varchar" && field.wireType === "odbc-varchar-unlimited-text";
-        if (
-          !jsonTextWire &&
-          (actual.name !== expected.name ||
-            (field.databaseType.includes("(") &&
-              (actual.length !== expected.length ||
-                actual.precision !== expected.precision ||
-                actual.scale !== expected.scale)))
-        )
-          throw new TypeError("SQL Server native result type disagrees with the compiled target");
-      }
-      if (
-        (field.precision !== undefined && field.precision !== expected.precision) ||
-        (field.scale !== undefined && field.scale !== expected.scale) ||
-        (field.length !== undefined &&
-          field.length !== expected.length &&
-          !(expected.name === "json" && field.wireType === "odbc-varchar-unlimited-text"))
-      )
-        throw new TypeError("SQL Server native result precision, scale or length disagrees with the compiled target");
-    }
-  }
+  const validateFields = (plan: QueryValuePlan, fields: readonly SqlServerField[] | undefined) =>
+    validateSqlServerResultFields(plan, fields, serverEvidence.versionKey === "17");
   function decode<Row>(statement: PreparedExecution, result: SqlServerExecutionResult): readonly Row[] {
     if (result.resultSets !== undefined && result.resultSets > (statement.plan.columns.length ? 1 : 0))
       throw new TypeError("SQL Server returned multiple or unexpected result sets");
@@ -369,6 +382,27 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   ): Promise<SqlServerExecutionResult> {
     assertExecutionCapabilities(executionCapabilities, controls);
     assertControlsActive(controls);
+    if ((controls.signal !== undefined || controls.deadline !== undefined) && connection.preparedControls === false)
+      return connection.execute(statement.text, statement.values, controls);
+    if (!statement.preparedName && connection.validatePreparedMetadata && connection.prepare) {
+      const handle = await connection.prepare(statement.text, controls);
+      let result: SqlServerExecutionResult | undefined, failure: { error: unknown } | undefined;
+      try {
+        validateFields(statement.plan, handle.fields);
+        assertControlsActive(controls);
+        result = await handle.execute(statement.values, controls);
+      } catch (error) {
+        failure = { error };
+      }
+      try {
+        await handle.close();
+      } catch (error) {
+        broken.add(connection);
+        failure ??= { error };
+      }
+      if (failure) throw failure.error;
+      return result!;
+    }
     if (!statement.preparedName || connection.supportsPreparedPlan?.(statement.plan) === false)
       return connection.execute(statement.text, statement.values, controls);
     if (!connection.prepare)
@@ -382,11 +416,15 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     let prepared = nativePrepared.get(key);
     if (!prepared) {
       if (nativePrepared.size >= capacity) throw new RangeError("SQL Server native prepared cache capacity exceeded");
-      prepared = { name: statement.preparedName, handle: await connection.prepare(statement.text) };
+      prepared = { name: statement.preparedName, handle: await connection.prepare(statement.text, controls) };
       try {
         validateFields(statement.plan, prepared.handle.fields);
       } catch (error) {
-        await prepared.handle.close();
+        try {
+          await prepared.handle.close();
+        } catch {
+          broken.add(connection);
+        }
         throw error;
       }
       nativePrepared.set(key, prepared);
