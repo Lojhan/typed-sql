@@ -1,11 +1,12 @@
 import { parameterTypeLiteral, rowTypeLiteral } from "@typed-sql/core";
 import { analyzeSqlFile } from "../../../../packages/compiler/src/sql-file-analysis.js";
 import type { RoutineSnapshot, SchemaSnapshotV2 } from "../../../../packages/schema/src/model.js";
-import { browserDialectRuntime } from "./dialect-browser-runtime.js";
+import { browserDialectRuntime, type PlaygroundEnvironment } from "./dialect-browser-runtime.js";
 import { type PlaygroundDialect, parsePlaygroundSchema } from "./playground.js";
 import type { WorkspaceProblem, WorkspaceQuery } from "./semantic-service.js";
 import type { WorkspaceFiles } from "./workspace.js";
 import { applyWorkspaceBrands, BRANDS_FILE } from "./workspace-brands.js";
+import { ENVIRONMENT_FILE, workspaceEnvironment } from "./workspace-environment.js";
 
 export interface SqlStatement {
   readonly file: string;
@@ -69,8 +70,8 @@ export function splitSql(source: string, file: string, delimiter = ";"): SqlStat
       index += 1;
       continue;
     }
-    if (char === "'" || char === '"' || char === "`") {
-      quote = char;
+    if (char === "'" || char === '"' || char === "`" || char === "[") {
+      quote = char === "[" ? "]" : char;
       continue;
     }
     if (char === "$") {
@@ -174,8 +175,37 @@ export function analyzeSqlFiles(
     segments.push({ statement, start: schema.length });
     schema += `${statement.text};\n`;
   }
-  const parsed = parsePlaygroundSchema(dialect, schema, true);
+  let environment: PlaygroundEnvironment;
+  try {
+    environment = workspaceEnvironment(files);
+  } catch (error) {
+    problems.push(
+      workspaceProblem(
+        files,
+        ENVIRONMENT_FILE,
+        0,
+        files[ENVIRONMENT_FILE]?.length ?? 1,
+        "PLAY209",
+        error instanceof Error ? error.message : "Invalid engine settings.",
+      ),
+    );
+    return { queries: [], modules: {}, problems };
+  }
+  const parsed = parsePlaygroundSchema(dialect, schema, true, environment);
   for (const diagnostic of parsed.diagnostics) {
+    if (diagnostic.code === "PLAY209") {
+      problems.push(
+        workspaceProblem(
+          files,
+          ENVIRONMENT_FILE,
+          0,
+          files[ENVIRONMENT_FILE]?.length ?? 1,
+          diagnostic.code,
+          diagnostic.message,
+        ),
+      );
+      continue;
+    }
     let offset =
       schema
         .split("\n")

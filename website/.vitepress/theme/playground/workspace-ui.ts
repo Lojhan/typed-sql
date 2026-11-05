@@ -1,3 +1,4 @@
+import { ENVIRONMENT_FILE } from "./environment-model.js";
 import type { PlaygroundDialect } from "./playground.js";
 import { WORKSPACE_LIMITS, type WorkspaceFiles } from "./workspace.js";
 
@@ -28,6 +29,7 @@ export function workspaceConfigSource(dialect: PlaygroundDialect, files: Workspa
       sqlFiles: paths.filter((path) => path.endsWith(".sql")),
       typescriptFiles: paths.filter((path) => path.endsWith(".ts")),
       typePolicy: "grammar defaults",
+      engineSettings: files[ENVIRONMENT_FILE] === undefined ? "grammar defaults" : ENVIRONMENT_FILE,
       compilerOptions: BROWSER_COMPILER_SETTINGS,
       limits: WORKSPACE_LIMITS,
     },

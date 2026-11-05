@@ -1,4 +1,6 @@
 import { COMMERCE_SCHEMAS } from "../../../../examples/shared/commerce-schema.js";
+import type { PlaygroundDialect } from "./dialect-browser-runtime.js";
+import { nativeCommerceFiles } from "./native-commerce-example.js";
 import type { WorkspaceFiles } from "./workspace.js";
 
 // Shared commerce scenarios used by the documentation and default playground workspace.
@@ -187,8 +189,9 @@ type RevenueParameters = QueryParameters<typeof revenue>;
 
 /** Keep the same application model and scenarios while respecting each grammar's native contracts. */
 export function commerceFiles(
-  dialect: "postgres" | "mysql" | "sqlite",
+  dialect: PlaygroundDialect,
 ): WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string> {
+  if (dialect === "sqlserver" || dialect === "duckdb") return nativeCommerceFiles(dialect);
   const files: WorkspaceFiles = Object.fromEntries(
     Object.entries(COMMERCE_FILES).map(([path, source]) => [
       path,

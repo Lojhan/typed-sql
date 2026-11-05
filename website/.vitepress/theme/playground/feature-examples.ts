@@ -4,7 +4,9 @@ import type { WorkspaceFiles } from "./workspace.js";
 /** The same commerce queries demonstrate bindings and application identities in every grammar. */
 export function featureExampleFiles(dialect: PlaygroundDialect, lesson: "bindings" | "brands", schema: string) {
   const branded = lesson === "brands";
-  const positional = dialect === "postgres" ? "email <> $2 AND (id = $1 OR id = $1)" : "email <> ? AND id = ?";
+  const indexed = dialect === "postgres" || dialect === "duckdb";
+  const named = dialect === "sqlserver" ? "@userId" : dialect === "duckdb" ? "$userId" : ":userId";
+  const positional = indexed ? "email <> $2 AND (id = $1 OR id = $1)" : "email <> ? AND id = ?";
   const files = {
     "schema/tables.sql": schema,
     "queries/account.ts": `import { sql } from "@typed-sql/${dialect}";
@@ -15,7 +17,7 @@ export const accountById = (id: ${branded ? 'Brand<bigint, "UserId">' : "bigint"
 `,
     "queries/orders.sql": `-- name: ordersByCustomer
 SELECT id, user_id, status FROM orders
-WHERE user_id = :userId OR user_id = :userId;
+WHERE user_id = ${named} OR user_id = ${named};
 `,
     "queries/account-positional.sql": `-- name: accountByPosition
 SELECT id, email FROM users WHERE ${positional};
@@ -30,8 +32,8 @@ ${branded ? '// Establish identities only after validating external input.\ncons
 // Hover the imported factory: one object property binds both SQL occurrences.
 const orders = ordersByCustomer({ userId });
 const account = accountById(userId);
-${dialect === "postgres" ? "// Numeric argument order stays [id, email] despite $2 appearing first." : "// Question-mark arguments follow their occurrence order in SQL."}
-const positional = accountByPosition(${dialect === "postgres" ? 'userId, "excluded@example.com"' : '"excluded@example.com", userId'});
+${indexed ? "// Numeric argument order stays [id, email] despite $2 appearing first." : "// Question-mark arguments follow their occurrence order in SQL."}
+const positional = accountByPosition(${indexed ? 'userId, "excluded@example.com"' : '"excluded@example.com", userId'});
 
 type Order = QueryRow<typeof orders>;
 type BoundOccurrences = QueryParameters<typeof orders>;

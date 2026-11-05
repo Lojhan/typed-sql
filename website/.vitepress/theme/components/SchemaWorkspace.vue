@@ -160,7 +160,7 @@ export default defineComponent({
           </template>
           <template v-else-if="changed">Ready to apply</template>
           <template v-else>Saved locally in this browser</template>
-          <small>Supports CREATE TABLE and PostgreSQL CREATE TYPE … AS ENUM.</small>
+          <small>Supports bounded CREATE TABLE declarations, native column types, and PostgreSQL or DuckDB enum declarations.</small>
         </p>
         <div class="ts-schema-workspace__actions">
           <button type="button" @click="restoreDefault">Restore default</button>

@@ -1,10 +1,20 @@
 import {
   applyDialectCapabilityStates,
   type DialectAnalysis,
+  type DialectPlugin,
+  type DialectServerEvidence,
+  type SchemaSnapshot,
   type SourceRange,
   unknownQuerySemantics,
 } from "@typed-sql/core";
-import { resolveMySqlCapabilities } from "../../../../packages/mysql/src/capabilities.js";
+import {
+  duckDBAsciiFold,
+  duckDBServerEvidence,
+  duckdb,
+  formatDuckDBType,
+  mapDuckDBType,
+} from "../../../../packages/duckdb/src/index.js";
+import { mySqlServerEvidence, resolveMySqlCapabilities } from "../../../../packages/mysql/src/capabilities.js";
 import type { MySqlSchemaSnapshot } from "../../../../packages/mysql/src/index.js";
 import {
   SqlParseError as MySqlParseError,
@@ -15,7 +25,7 @@ import { resolveMySqlStatement } from "../../../../packages/mysql/src/resolver.j
 import { analyzeMySqlSemantics } from "../../../../packages/mysql/src/semantics.js";
 import { defaultMySqlTypePolicy, mapMySqlType } from "../../../../packages/mysql/src/type-policy.js";
 import { MYSQL_DIALECT_VERSION } from "../../../../packages/mysql/src/version.js";
-import { resolvePostgresCapabilities } from "../../../../packages/postgres/src/capabilities.js";
+import { postgresServerEvidence, resolvePostgresCapabilities } from "../../../../packages/postgres/src/capabilities.js";
 import type { PostgresSchemaSnapshot } from "../../../../packages/postgres/src/index.js";
 import {
   SqlParseError as PostgresParseError,
@@ -27,7 +37,7 @@ import { analyzePostgresSemantics } from "../../../../packages/postgres/src/sema
 import { defaultPostgresTypePolicy, mapPostgresType } from "../../../../packages/postgres/src/type-policy.js";
 import { POSTGRES_DIALECT_VERSION } from "../../../../packages/postgres/src/version.js";
 import type { SchemaSnapshotV2 } from "../../../../packages/schema/src/model.js";
-import { resolveSqliteCapabilities } from "../../../../packages/sqlite/src/capabilities.js";
+import { resolveSqliteCapabilities, sqliteServerEvidence } from "../../../../packages/sqlite/src/capabilities.js";
 import {
   parseStatement as parseSqliteStatement,
   SqlParseError as SqliteParseError,
@@ -38,11 +48,25 @@ import { analyzeSqliteSemantics } from "../../../../packages/sqlite/src/semantic
 import type { SqliteSchemaSnapshot } from "../../../../packages/sqlite/src/snapshot.js";
 import { defaultSqliteTypePolicy, mapSqliteType } from "../../../../packages/sqlite/src/type-policy.js";
 import { SQLITE_DIALECT_VERSION } from "../../../../packages/sqlite/src/version.js";
+import {
+  mapSqlServerType,
+  type SqlServerServerSettings,
+  sqlServerServerEvidence,
+  sqlserver,
+} from "../../../../packages/sqlserver/src/index.js";
 
-export type PlaygroundDialect = "postgres" | "mysql" | "sqlite";
+export type PlaygroundDialect = "postgres" | "mysql" | "sqlite" | "sqlserver" | "duckdb";
+export interface PlaygroundEnvironment {
+  readonly version?: string;
+  readonly settings?: Readonly<Record<string, string | boolean | number>>;
+}
 
 export interface BrowserDialectRuntime {
   readonly dialectVersion: string;
+  readonly defaultNamespace: string;
+  readonly server: (environment?: PlaygroundEnvironment) => DialectServerEvidence;
+  readonly fold: (name: string, snapshot?: BrowserSchemaSnapshot) => string;
+  readonly normalizeType?: (databaseType: string, snapshot: BrowserSchemaSnapshot) => string;
   readonly module: `@typed-sql/${PlaygroundDialect}`;
   readonly placeholder: (index: number) => string;
   readonly parameterOccurrences: (
@@ -87,8 +111,31 @@ function fileParameters(
     }));
 }
 
+function publicRuntime<Snapshot extends SchemaSnapshot, Policy>(
+  plugin: DialectPlugin<Snapshot, Policy>,
+  options: Pick<BrowserDialectRuntime, "mapType" | "server" | "defaultNamespace" | "fold" | "normalizeType">,
+): BrowserDialectRuntime {
+  return {
+    dialectVersion: plugin.grammarVersion,
+    module: plugin.sqlModule as BrowserDialectRuntime["module"],
+    placeholder: plugin.placeholder,
+    parameterOccurrences: (source, snapshot) => plugin.parameterOccurrences!(source, snapshot as unknown as Snapshot),
+    analyze: (source, snapshot) =>
+      plugin.analyze(source, snapshot as unknown as Snapshot, plugin.defaultTypePolicy, { runtimeValidation: true }),
+    ...options,
+  };
+}
+
 const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Object.freeze({
   postgres: {
+    defaultNamespace: "public",
+    fold: (name) => name,
+    server: (environment = {}) =>
+      postgresServerEvidence(environment.version ?? "18.4", [], {
+        standardConformingStrings: "on",
+        visibilityScope: "current-role",
+        ...environment.settings,
+      }),
     dialectVersion: POSTGRES_DIALECT_VERSION,
     module: "@typed-sql/postgres",
     placeholder: (index) => `$${index}`,
@@ -115,6 +162,9 @@ const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Obj
     },
   },
   mysql: {
+    defaultNamespace: "app",
+    fold: (name) => name.toLowerCase(),
+    server: (environment = {}) => mySqlServerEvidence(environment.version ?? "9.7.0", environment.settings),
     dialectVersion: MYSQL_DIALECT_VERSION,
     module: "@typed-sql/mysql",
     placeholder: () => "?",
@@ -147,6 +197,13 @@ const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Obj
     },
   },
   sqlite: {
+    defaultNamespace: "main",
+    fold: (name) => name.toLowerCase(),
+    server: (environment = {}) => {
+      if (environment.settings && Object.keys(environment.settings).length)
+        throw new TypeError("SQLite playground engine evidence accepts a version only.");
+      return sqliteServerEvidence(environment.version ?? "3.54.1");
+    },
     dialectVersion: SQLITE_DIALECT_VERSION,
     module: "@typed-sql/sqlite",
     placeholder: () => "?",
@@ -170,6 +227,59 @@ const runtimes: Readonly<Record<PlaygroundDialect, BrowserDialectRuntime>> = Obj
       }
     },
   },
+  sqlserver: publicRuntime(sqlserver(), {
+    defaultNamespace: "dbo",
+    fold(name, snapshot) {
+      const collation = String(snapshot?.server.settings.collation ?? "Latin1_General_100_CI_AS");
+      let result = /_CI_/iu.test(collation) ? name.toLowerCase() : name;
+      if (/_AI(?:_|$)/iu.test(collation)) result = result.normalize("NFD").replace(/\p{M}/gu, "");
+      return result;
+    },
+    server: (environment = {}) =>
+      sqlServerServerEvidence(environment.version ?? "17.0.5035.5", {
+        compatibilityLevel: 170,
+        collation: "Latin1_General_100_CI_AS",
+        defaultSchema: "dbo",
+        quotedIdentifier: true,
+        ansiWarnings: true,
+        arithAbort: true,
+        concatNullYieldsNull: true,
+        dateFirst: 7,
+        dateFormat: "mdy",
+        language: "us_english",
+        ...environment.settings,
+      } as SqlServerServerSettings),
+    mapType: (databaseType) => mapSqlServerType(databaseType),
+  }),
+  duckdb: publicRuntime(duckdb(), {
+    defaultNamespace: "main",
+    fold: duckDBAsciiFold,
+    server: (environment = {}) =>
+      duckDBServerEvidence(environment.version ?? "2.0.0", [], {
+        currentCatalog: "memory",
+        currentSchema: "main",
+        schema: "main",
+        search_path: "",
+        TimeZone: "UTC",
+        Calendar: "gregorian",
+        preserve_identifier_case: "preserve_case",
+        default_null_order: "NULLS_LAST",
+        default_order: "ASCENDING",
+        old_implicit_casting: false,
+        ...environment.settings,
+      }),
+    normalizeType(databaseType, snapshot) {
+      const declared = Object.entries(snapshot.types).find(
+        ([key, type]) =>
+          duckDBAsciiFold(key) === duckDBAsciiFold(databaseType) ||
+          duckDBAsciiFold(type.name) === duckDBAsciiFold(databaseType),
+      );
+      return declared?.[1].kind === "enum"
+        ? formatDuckDBType({ kind: "enum", values: declared[1].labels })
+        : databaseType;
+    },
+    mapType: (databaseType) => mapDuckDBType(databaseType),
+  }),
 });
 
 export function browserDialectRuntime(dialect: PlaygroundDialect): BrowserDialectRuntime {
