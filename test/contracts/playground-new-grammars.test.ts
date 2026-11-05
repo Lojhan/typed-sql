@@ -30,6 +30,26 @@ await describe("native SQL Server and DuckDB playgrounds", async () => {
         strict.ok(invalid);
         strict.ok(broken["app.ts"].slice(invalid!.from, invalid!.to).includes('"42"'));
       });
+      await it(`${dialect} preserves actual native adapter batch tuples and transaction results`, () => {
+        const files = nativeCommerceFiles(dialect);
+        const result = service.analyze(dialect, files);
+        strict.deepEqual(result.problems, []);
+        const batch = result.hovers["workflows/batch.ts"]!.find(
+          ({ from }) => from === files["workflows/batch.ts"]!.indexOf("loadDashboard"),
+        );
+        strict.ok(batch);
+        strict.match(batch!.content, /accounts: readonly/u);
+        strict.match(batch!.content, /products: readonly/u);
+        strict.match(batch!.content, /orders: readonly/u);
+        strict.doesNotMatch(batch!.content, /\b(?:any|unknown)\b/u);
+        const transaction = result.hovers["workflows/checkout.ts"]!.find(
+          ({ from }) => from === files["workflows/checkout.ts"]!.indexOf("importCatalog"),
+        );
+        strict.ok(transaction);
+        strict.match(transaction!.content, /products: readonly/u);
+        strict.match(transaction!.content, /audit: \{/u);
+        strict.doesNotMatch(transaction!.content, /\b(?:any|unknown)\b/u);
+      });
       await it(`${dialect} completes inferred row members through the editor worker`, () => {
         const files = nativeCommerceFiles(dialect);
         files["app.ts"] += "\nconst first = null as unknown as Account; first.";

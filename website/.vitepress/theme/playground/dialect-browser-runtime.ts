@@ -53,7 +53,7 @@ import {
   type SqlServerServerSettings,
   sqlServerServerEvidence,
   sqlserver,
-} from "../../../../packages/sqlserver/src/index.js";
+} from "../../../../packages/sqlserver/src/browser.js";
 
 export type PlaygroundDialect = "postgres" | "mysql" | "sqlite" | "sqlserver" | "duckdb";
 export interface PlaygroundEnvironment {
