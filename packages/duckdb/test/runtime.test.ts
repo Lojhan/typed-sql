@@ -283,3 +283,41 @@ await it("checks leased semantic settings and prepared DML metadata before dispa
     instance.closeSync();
   }
 });
+await it("rolls back successful unfinished requests and partially consumed scoped streams", async () => {
+  const database = await createNodeDuckDBDatabase({ sdkImporter: async () => sdk }),
+    version = sdk.version().slice(1);
+  try {
+    await database.queryable.all(
+      "CREATE TABLE items(id BIGINT PRIMARY KEY,name VARCHAR NOT NULL,amount DECIMAL(38,4))",
+    );
+    await strict.rejects(
+      database.transaction(async (tx) => {
+        void tx.all(compiled("INSERT INTO items VALUES($1,$2,$3)", [7n, "unfinished", null], version));
+      }),
+      /unfinished operations/u,
+    );
+    strict.equal(await database.maybeOne(compiled("SELECT id FROM items WHERE id=$1", [7n], version)), undefined);
+    await strict.rejects(
+      database.transaction(async (tx) => {
+        await tx.all(compiled("INSERT INTO items VALUES($1,$2,$3)", [8n, "stream", null], version));
+        const stream = tx.stream(compiled("SELECT range FROM range(10000)", [], version));
+        strict.equal((await stream.next()).done, false);
+      }),
+      /unfinished operations/u,
+    );
+    strict.equal(await database.maybeOne(compiled("SELECT id FROM items WHERE id=$1", [8n], version)), undefined);
+    const queries = [compiled("SELECT 11 AS value", [], version)];
+    const batch = database.batch(queries);
+    queries[0] = compiled("SELECT 22 AS value", [], version);
+    strict.deepEqual(await batch, [[{ value: 11 }]]);
+    const controller = new AbortController(),
+      stream = database.stream(compiled("SELECT range FROM range(10000)", [], version), { signal: controller.signal });
+    strict.equal((await stream.next()).done, false);
+    controller.abort();
+    await strict.rejects(stream.next(), /cancelled/u);
+    await stream.close();
+    strict.equal((await database.one(compiled("SELECT 1 AS value", [], version))).value, 1);
+  } finally {
+    await database.close();
+  }
+});

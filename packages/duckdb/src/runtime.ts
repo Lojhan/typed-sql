@@ -262,7 +262,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       const oldest = nativePrepared.keys().next().value as string,
         handle = nativePrepared.get(oldest)!;
       nativePrepared.delete(oldest);
-      await handle.close();
+      await cleanup(undefined, handle, false);
     }
     native = await connection.prepare(statement.text);
     nativePrepared.set(cacheKey, native);
@@ -343,6 +343,8 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           () => connection.interrupt?.(),
         );
       const rows = await (observation ? observation.run(run) : run());
+      if (cardinality === "one" && rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
+      if (cardinality === "maybeOne" && rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
       const finishedResult = result,
         finishedStatement = handle?.owned ? handle.statement : undefined;
       result = undefined;
@@ -425,7 +427,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
             },
             () => connection.interrupt?.(),
           );
-          for (const row of rows) yield row as Row;
+          for (const row of rows) {
+            if (controls.signal?.aborted) throw new QueryCancelledError("signal");
+            const due = executionDeadline(controls);
+            if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
+            yield row as Row;
+          }
         }
       } catch (error) {
         failed = true;
@@ -440,7 +447,11 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       }
     })();
     const result: QueryStream<Row> = {
-      next: () => generator.next(),
+      next: async () => {
+        const next = await generator.next();
+        if (next.done) scope?.streams.delete(result as QueryStream<unknown>);
+        return next;
+      },
       return: async () => {
         await generator.return(undefined);
         scope?.streams.delete(result as QueryStream<unknown>);
@@ -468,6 +479,52 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     scope?.streams.add(result as QueryStream<unknown>);
     return result;
   };
+  const transaction = async <T>(scope: Scope | undefined, callback: (local: Scope) => Promise<T>): Promise<T> => {
+    if (scope) throw new TypeError("DuckDB nested transactions are not supported");
+    ensure();
+    const release = await current.queue.acquire(),
+      owner = {},
+      local: Scope = {
+        owner,
+        queue: new Queue(),
+        open: true,
+        pending: new Set(),
+        failures: [],
+        streams: new Set(),
+      };
+    let begun = false;
+    try {
+      ensure();
+      current.transaction = owner;
+      await verifyConnection();
+      begun = true;
+      await control("BEGIN TRANSACTION");
+      const value = await callback(local);
+      const unfinished = local.pending.size > 0 || local.streams.size > 0;
+      local.open = false;
+      for (const item of [...local.streams]) await item.close();
+      await Promise.allSettled([...local.pending]);
+      if (local.failures.length) throw local.failures[0];
+      if (unfinished) throw new Error("DuckDB transaction callback returned with unfinished operations or streams");
+      await control("COMMIT");
+      begun = false;
+      return value;
+    } catch (error) {
+      local.open = false;
+      for (const item of [...local.streams]) await item.close().catch(() => undefined);
+      await Promise.allSettled([...local.pending]);
+      if (begun)
+        try {
+          await control("ROLLBACK");
+        } catch {
+          current.broken = true;
+        }
+      throw error;
+    } finally {
+      delete current.transaction;
+      release();
+    }
+  };
   const makeScope = (scope?: Scope): DuckDBTransaction => {
     const all = <Row, Params extends readonly unknown[]>(query: Query<Row, Params>, controls?: ExecutionOptions) =>
       track(scope, () => operation<Row>(ready(query as unknown as Query<unknown>), scope, controls));
@@ -487,64 +544,27 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
           if (rows.length > 1) throw new QueryCardinalityError("maybeOne", rows.length);
           return rows[0];
         }),
-      async transaction<T>(callback: (database: DuckDBTransaction) => Promise<T>): Promise<T> {
-        if (scope) throw new TypeError("DuckDB nested transactions are not supported");
-        ensure();
-        const release = await current.queue.acquire(),
-          owner = {},
-          local: Scope = {
-            owner,
-            queue: new Queue(),
-            open: true,
-            pending: new Set(),
-            failures: [],
-            streams: new Set(),
-          };
-        let begun = false;
-        try {
-          ensure();
-          current.transaction = owner;
-          await verifyConnection();
-          await control("BEGIN TRANSACTION");
-          begun = true;
-          const value = await callback(makeScope(local));
-          local.open = false;
-          for (const item of [...local.streams]) await item.close();
-          await Promise.allSettled([...local.pending]);
-          if (local.failures.length) throw local.failures[0];
-          await control("COMMIT");
-          begun = false;
-          return value;
-        } catch (error) {
-          local.open = false;
-          for (const item of [...local.streams]) await item.close().catch(() => undefined);
-          await Promise.allSettled([...local.pending]);
-          if (begun)
-            try {
-              await control("ROLLBACK");
-            } catch {
-              current.broken = true;
-            }
-          throw error;
-        } finally {
-          delete current.transaction;
-          release();
-        }
+      transaction<T>(callback: (database: DuckDBTransaction) => Promise<T>): Promise<T> {
+        return transaction(scope, (local) => callback(makeScope(local)));
       },
-      batch: <const Queries extends readonly unknown[]>(queries: QueryBatch<Queries>): Promise<QueryResults<Queries>> =>
-        track(scope, async () => {
-          const statements = queries.map((query) => ready(query as Query<unknown>));
-          if (scope) {
+      batch: <const Queries extends readonly unknown[]>(
+        queries: QueryBatch<Queries>,
+      ): Promise<QueryResults<Queries>> => {
+        let statements: readonly Ready[];
+        try {
+          statements = Array.from(queries, (query) => ready(query as Query<unknown>));
+        } catch (error) {
+          return Promise.reject(error);
+        }
+        return track(scope, async () => {
+          const run = async (local: Scope) => {
             const results = [];
-            for (const statement of statements) results.push(await operation(statement, scope));
+            for (const statement of statements) results.push(await operation(statement, local));
             return results as QueryResults<Queries>;
-          }
-          return makeScope().transaction(async (transaction) => {
-            const results = [];
-            for (const query of queries) results.push(await transaction.all(query as Query<unknown>));
-            return results as QueryResults<Queries>;
-          });
-        }),
+          };
+          return scope ? run(scope) : transaction(undefined, run);
+        });
+      },
       stream<Row, Params extends readonly unknown[]>(
         query: Query<Row, Params>,
         controls?: StreamOptions & ExecutionOptions,

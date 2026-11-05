@@ -54,7 +54,10 @@ for (const mode of ["query", "catalog", "stream", "control"] as const) {
         database.transaction(async () => undefined),
         (error) => error === failure,
       );
-    strict.deepEqual(calls, ["result", "statement"]);
+    strict.deepEqual(
+      calls,
+      mode === "control" ? ["result", "statement", "result", "statement"] : ["result", "statement"],
+    );
     await strict.rejects(database.all(query), /unusable after failed cleanup/u);
     await database.close();
   });
@@ -89,5 +92,72 @@ await it("preserves an execution failure while attempting all cleanup", async ()
   });
   await strict.rejects(database.all(query), (error) => error === original);
   strict.deepEqual(calls, ["result", "statement"]);
+  await database.close();
+});
+await it("drains successful inflight work before reporting transaction misuse and rolling back", async () => {
+  const calls: string[] = [];
+  let release!: () => void, started!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+    dispatched = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+  const database = createDuckDBDatabase({
+    connection: {
+      libraryVersion: "2.0.0",
+      async prepare(text) {
+        calls.push(`prepare:${text}`);
+        return {
+          async execute() {
+            calls.push(`execute:${text}`);
+            const user = text.startsWith("SELECT");
+            return {
+              columns: user ? [{ name: "value", type: { kind: "scalar", name: "INTEGER" } }] : [],
+              async readAll() {
+                if (user) {
+                  started();
+                  await blocked;
+                }
+                return user ? [[1]] : [];
+              },
+              close() {
+                calls.push(`result:${text}`);
+              },
+            };
+          },
+          close() {
+            calls.push(`statement:${text}`);
+          },
+        };
+      },
+    },
+  });
+  let settled = false;
+  const pending = database.transaction(async (tx) => {
+    void tx.all(query);
+  });
+  void pending.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  await dispatched;
+  strict.equal(settled, false);
+  strict.equal(
+    calls.some((call) => call.includes("ROLLBACK")),
+    false,
+  );
+  release();
+  await strict.rejects(pending, /unfinished operations/u);
+  strict.equal(calls.filter((call) => call === "execute:BEGIN TRANSACTION").length, 1);
+  strict.equal(calls.filter((call) => call === "execute:ROLLBACK").length, 1);
+  strict.equal(
+    calls.some((call) => call.includes("COMMIT")),
+    false,
+  );
   await database.close();
 });
