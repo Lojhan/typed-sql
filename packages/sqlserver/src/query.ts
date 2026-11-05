@@ -37,3 +37,8 @@ export function normalizeSqlServerValue(value: unknown, type: RuntimeValueType):
   if (type === "bytes" && value instanceof Uint8Array) return Uint8Array.from(value);
   return value;
 }
+
+export type { JsonInput, Query, QueryValuePlan } from "@typed-sql/core";
+export { defineQueryValuePlan, defineQueryValuePlanSelector, withQueryValuePlan } from "@typed-sql/core";
+/** Portable renderer used by compiler-generated conditional and repeated-fragment selectors. */
+export { sqlServerRenderer as renderer };
