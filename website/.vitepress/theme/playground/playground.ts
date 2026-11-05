@@ -1,4 +1,4 @@
-import { parameterTypeLiteral, rowTypeLiteral, type SourceRange } from "@typed-sql/core";
+import { type DialectServerEvidence, parameterTypeLiteral, rowTypeLiteral, type SourceRange } from "@typed-sql/core";
 import { expandRepeatedFragments } from "../../../../packages/compiler/src/repeated-fragments.js";
 import { extractDynamicQueries, extractStaticQueries, mapSqlRange } from "../../../../packages/compiler/src/scanner.js";
 import type {
@@ -7,7 +7,11 @@ import type {
   TableSnapshot,
   TypeSnapshot,
 } from "../../../../packages/schema/src/model.js";
-import { browserDialectRuntime, type PlaygroundDialect } from "./dialect-browser-runtime.js";
+import {
+  browserDialectRuntime,
+  type PlaygroundDialect,
+  type PlaygroundEnvironment,
+} from "./dialect-browser-runtime.js";
 import { PLAYGROUND_DIALECT_LABELS } from "./schema-catalog.js";
 
 export type { PlaygroundDialect } from "./schema-catalog.js";
@@ -50,6 +54,7 @@ interface SourcePart {
 interface ParsedName {
   readonly name: string;
   readonly schema?: string;
+  readonly catalog?: string;
 }
 
 interface PendingColumn {
@@ -57,8 +62,10 @@ interface PendingColumn {
   readonly databaseType: string;
   readonly nullable: boolean;
   readonly hasDefault: boolean;
+  readonly identity?: boolean;
   readonly primaryKey: boolean;
   readonly position: number;
+  readonly sourceStart: number;
 }
 
 const maximumSourceLength = 40_000;
@@ -91,7 +98,7 @@ function diagnostic(
 function maskComments(source: string): string {
   const output = source.split("");
   let index = 0;
-  let quote: "'" | '"' | "`" | undefined;
+  let quote: "'" | '"' | "`" | "]" | undefined;
   while (index < output.length) {
     const char = output[index];
     if (quote !== undefined) {
@@ -100,8 +107,8 @@ function maskComments(source: string): string {
         quote = undefined;
         index += 1;
       } else index += 1;
-    } else if (char === "'" || char === '"' || char === "`") {
-      quote = char;
+    } else if (char === "'" || char === '"' || char === "`" || char === "[") {
+      quote = char === "[" ? "]" : char;
       index += 1;
     } else if (char === "-" && output[index + 1] === "-") {
       while (index < output.length && output[index] !== "\n") {
@@ -130,13 +137,13 @@ function splitTopLevel(source: string, delimiter: "," | ";", baseOffset = 0): re
   const parts: SourcePart[] = [];
   let depth = 0;
   let start = 0;
-  let quote: "'" | '"' | "`" | undefined;
+  let quote: "'" | '"' | "`" | "]" | undefined;
   for (let index = 0; index < source.length; index += 1) {
     const char = source[index];
     if (quote !== undefined) {
       if (char === quote && source[index + 1] === quote) index += 1;
       else if (char === quote) quote = undefined;
-    } else if (char === "'" || char === '"' || char === "`") quote = char;
+    } else if (char === "'" || char === '"' || char === "`" || char === "[") quote = char === "[" ? "]" : char;
     else if (char === "(") depth += 1;
     else if (char === ")") depth = Math.max(0, depth - 1);
     else if (char === delimiter && depth === 0) {
@@ -148,28 +155,71 @@ function splitTopLevel(source: string, delimiter: "," | ";", baseOffset = 0): re
   return parts.filter(({ text }) => text.trim().length > 0);
 }
 
-function identifierParts(value: string): readonly string[] | undefined {
-  const raw = value.split(".");
-  if (raw.length < 1 || raw.length > 2) return undefined;
-  const parts = raw.map((part) => {
-    const trimmed = part.trim();
-    if (/^"(?:[^"]|"")+"$/u.test(trimmed)) return trimmed.slice(1, -1).replaceAll('""', '"');
-    if (/^`(?:[^`]|``)+`$/u.test(trimmed)) return trimmed.slice(1, -1).replaceAll("``", "`");
-    return /^[A-Za-z_][\w$]*$/u.test(trimmed) ? trimmed.toLowerCase() : undefined;
-  });
-  return parts.some((part) => part === undefined) ? undefined : (parts as readonly string[]);
+function identifierPrefix(
+  source: string,
+  dialect?: PlaygroundDialect,
+): { parts: string[]; length: number } | undefined {
+  const parts: string[] = [];
+  let index = 0;
+  while (parts.length < 3) {
+    while (/\s/u.test(source[index] ?? "") && index < source.length) index++;
+    let value = "";
+    const char = source[index];
+    if (char === '"' || char === "`" || char === "[") {
+      const close = char === "[" ? "]" : char;
+      index++;
+      let closed = false;
+      while (index < source.length) {
+        if (source[index] === close) {
+          if (source[index + 1] === close) {
+            value += close;
+            index += 2;
+          } else {
+            index++;
+            closed = true;
+            break;
+          }
+        } else value += source[index++]!;
+      }
+      if (!closed) return undefined;
+    } else {
+      const match = /^[\p{L}_][\p{L}\p{N}_$]*/u.exec(source.slice(index));
+      if (!match) return undefined;
+      value = match[0];
+      index += value.length;
+      if (dialect === "postgres") value = value.toLowerCase();
+    }
+    if (!value) return undefined;
+    parts.push(value);
+    while (/\s/u.test(source[index] ?? "") && index < source.length) index++;
+    if (source[index] !== ".") return { parts, length: index };
+    index++;
+  }
+  return undefined;
 }
 
-function parsedName(value: string): ParsedName | undefined {
-  const parts = identifierParts(value);
-  if (parts === undefined) return undefined;
-  return parts.length === 1 ? { name: parts[0]! } : { schema: parts[0]!, name: parts[1]! };
+function identifierParts(value: string, dialect?: PlaygroundDialect): readonly string[] | undefined {
+  const result = identifierPrefix(value, dialect);
+  return result && result.length === value.length ? result.parts : undefined;
 }
 
-function schemaObjectKey(dialect: PlaygroundDialect, identity: ParsedName): string {
-  const namespace = identity.schema ?? (dialect === "postgres" ? "public" : dialect === "mysql" ? "app" : "main");
-  const key = `${namespace}.${identity.name}`;
-  return dialect === "postgres" ? key : key.toLowerCase();
+function parsedName(value: string, dialect?: PlaygroundDialect): ParsedName | undefined {
+  const parts = identifierParts(value, dialect);
+  if (!parts) return undefined;
+  return {
+    name: parts.at(-1)!,
+    ...(parts.length > 1 ? { schema: parts.at(-2)! } : {}),
+    ...(parts.length > 2 ? { catalog: parts[0]! } : {}),
+  };
+}
+
+function schemaObjectKey(dialect: PlaygroundDialect, identity: ParsedName, snapshot?: SchemaSnapshotV2): string {
+  const runtime = browserDialectRuntime(dialect);
+  return [identity.catalog, identity.schema ?? runtime.defaultNamespace, identity.name]
+    .filter((part) => part !== undefined)
+    .map((part) => runtime.fold(part!, snapshot))
+    .map((part) => JSON.stringify(part))
+    .join(".");
 }
 
 function balancedGroupLength(source: string): number | undefined {
@@ -183,7 +233,7 @@ function balancedGroupLength(source: string): number | undefined {
         if (source[index + 1] === quote) index += 1;
         else quote = "";
       }
-    } else if (char === "'" || char === '"' || char === "`") quote = char;
+    } else if (char === "'" || char === '"' || char === "`" || char === "[") quote = char === "[" ? "]" : char;
     else if (char === "(") depth += 1;
     else if (char === ")" && --depth === 0) return index + 1;
   }
@@ -193,12 +243,13 @@ function balancedGroupLength(source: string): number | undefined {
 function columnAttributes(
   source: string,
   dialect: PlaygroundDialect,
-): { nullable: boolean; hasDefault: boolean; primaryKey: boolean } | undefined {
+): { nullable: boolean; hasDefault: boolean; primaryKey: boolean; identity?: boolean } | undefined {
   let remaining = source.trim();
   let nullable = true;
   let explicitNullability: boolean | undefined;
   let hasDefault = false;
   let primaryKey = false;
+  let identity = false;
   while (remaining) {
     const nullability = /^(NOT\s+NULL|NULL)\b/iu.exec(remaining);
     if (nullability) {
@@ -220,6 +271,30 @@ function columnAttributes(
       remaining = remaining.slice(simple[0].length).trim();
       continue;
     }
+    const sqlServerIdentity =
+      dialect === "sqlserver" ? /^IDENTITY\s*(?:\(\s*[+-]?\d+\s*,\s*[+-]?\d+\s*\))?/iu.exec(remaining) : undefined;
+    if (sqlServerIdentity) {
+      if (identity) return undefined;
+      identity = true;
+      hasDefault = true;
+      remaining = remaining.slice(sqlServerIdentity[0].length).trim();
+      continue;
+    }
+    const namedConstraint = /^CONSTRAINT\s+(?:\[(?:[^\]]|\]\])+\]|"(?:[^"]|"")+"|[A-Za-z_][\w$]*)\s+/iu.exec(remaining);
+    if (namedConstraint) {
+      remaining = remaining.slice(namedConstraint[0].length);
+      continue;
+    }
+    const nativeDefault =
+      dialect === "sqlserver"
+        ? /^DEFAULT\s+(?:SYSUTCDATETIME|GETUTCDATE|SYSDATETIME|GETDATE)\s*\(\s*\)/iu.exec(remaining)
+        : undefined;
+    if (nativeDefault) {
+      if (hasDefault) return undefined;
+      hasDefault = true;
+      remaining = remaining.slice(nativeDefault[0].length).trim();
+      continue;
+    }
     const generated = /^GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/iu.exec(remaining);
     if (generated) {
       hasDefault = true;
@@ -234,7 +309,7 @@ function columnAttributes(
       continue;
     }
     const defaultValue =
-      /^DEFAULT\s+('(?:''|[^'])*'|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?|NULL\b|TRUE\b|FALSE\b|CURRENT_TIMESTAMP\b(?:\(\d+\))?|CURRENT_DATE\b|CURRENT_TIME\b(?:\(\d+\))?)/iu.exec(
+      /^DEFAULT\s+(N?'(?:''|[^'])*'|[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?|NULL\b|TRUE\b|FALSE\b|CURRENT_TIMESTAMP\b(?:\(\d+\))?|CURRENT_DATE\b|CURRENT_TIME\b(?:\(\d+\))?)/iu.exec(
         remaining,
       );
     if (defaultValue) {
@@ -276,7 +351,7 @@ function columnAttributes(
     }
     return undefined;
   }
-  return { nullable, hasDefault, primaryKey };
+  return { nullable, hasDefault, primaryKey, ...(identity ? { identity: true } : {}) };
 }
 
 function columnTypeLength(source: string): number | undefined {
@@ -289,14 +364,14 @@ function columnTypeLength(source: string): number | undefined {
         if (source[index + 1] === quote) index += 1;
         else quote = "";
       }
-    } else if (char === "'" || char === '"' || char === "`") quote = char;
+    } else if (char === "'" || char === '"' || char === "`" || char === "[") quote = char === "[" ? "]" : char;
     else if (char === "(") depth += 1;
     else if (char === ")") {
       if (--depth < 0) return undefined;
     } else if (
       depth === 0 &&
       /\s/u.test(char) &&
-      /^\s+(?:NOT\s+NULL|NULL|DEFAULT|PRIMARY\s+KEY|UNIQUE|REFERENCES|CHECK|GENERATED|COLLATE|AUTO_INCREMENT)\b/iu.test(
+      /^\s+(?:NOT\s+NULL|NULL|DEFAULT|PRIMARY\s+KEY|UNIQUE|REFERENCES|CHECK|GENERATED|COLLATE|AUTO_INCREMENT|IDENTITY|CONSTRAINT)\b/iu.test(
         source.slice(index),
       )
     )
@@ -348,22 +423,17 @@ function enumLabels(value: string): readonly string[] | undefined {
 }
 
 function parseColumn(part: SourcePart, position: number, dialect: PlaygroundDialect): PendingColumn | undefined {
-  const match = /^\s*("(?:[^"]|"")+"|`(?:[^`]|``)+`|[A-Za-z_][\w$]*)\s+([\s\S]+?)\s*$/u.exec(part.text);
-  if (match === null) return undefined;
-  const name = identifierParts(match[1]!);
-  if (name?.length !== 1) return undefined;
-  const definition = match[2]!;
+  const input = part.text.trim();
+  const identifier = identifierPrefix(input, dialect);
+  if (identifier?.parts.length !== 1) return undefined;
+  const definition = input.slice(identifier.length).trim();
   const typeLength = columnTypeLength(definition);
   const databaseType = typeLength === undefined ? undefined : definition.slice(0, typeLength).trim();
-  if (databaseType === undefined || databaseType.length === 0) return undefined;
+  if (!databaseType) return undefined;
   const attributes = columnAttributes(definition.slice(typeLength), dialect);
-  if (attributes === undefined) return undefined;
-  return {
-    name: name[0]!,
-    databaseType,
-    ...attributes,
-    position,
-  };
+  return attributes
+    ? { name: identifier.parts[0]!, databaseType, ...attributes, position, sourceStart: part.start }
+    : undefined;
 }
 
 function queryBinding(source: string, range: SourceRange, index: number): string {
@@ -378,6 +448,7 @@ export function parsePlaygroundSchema(
   dialect: PlaygroundDialect,
   schemaSource: string,
   allowEmpty = false,
+  environment: PlaygroundEnvironment = {},
 ): { readonly diagnostics: readonly PlaygroundDiagnostic[]; readonly snapshot?: SchemaSnapshotV2 } {
   if (schemaSource.length > maximumSourceLength) {
     return {
@@ -387,6 +458,22 @@ export function parsePlaygroundSchema(
     };
   }
   const runtime = browserDialectRuntime(dialect);
+  let server: DialectServerEvidence;
+  try {
+    server = runtime.server(environment);
+  } catch (error) {
+    return {
+      diagnostics: [
+        diagnostic(
+          schemaSource,
+          "schema.sql",
+          "PLAY209",
+          error instanceof Error ? error.message : "Invalid engine settings.",
+        ),
+      ],
+    };
+  }
+  const evidence = { server } as SchemaSnapshotV2;
   const statements = splitTopLevel(maskComments(schemaSource), ";");
   const diagnostics: PlaygroundDiagnostic[] = [];
   const types: Record<string, TypeSnapshot> = {};
@@ -402,19 +489,19 @@ export function parsePlaygroundSchema(
     const text = statement.text.trim();
     const enumMatch = /^CREATE\s+TYPE\s+([^\s]+)\s+AS\s+ENUM\s*\(([\s\S]*)\)$/iu.exec(text);
     if (enumMatch === null) continue;
-    if (dialect !== "postgres") {
+    if (dialect !== "postgres" && dialect !== "duckdb") {
       diagnostics.push(
         diagnostic(
           schemaSource,
           "schema.sql",
           "PLAY002",
-          "Standalone enum types are only available in the PostgreSQL workspace.",
+          "Standalone enum types are available in the PostgreSQL and DuckDB workspaces.",
           statement.start,
         ),
       );
       continue;
     }
-    const identity = parsedName(enumMatch[1]!);
+    const identity = parsedName(enumMatch[1]!, dialect);
     const labels = enumLabels(enumMatch[2]!);
     if (identity === undefined || labels === undefined) {
       diagnostics.push(
@@ -429,7 +516,7 @@ export function parsePlaygroundSchema(
       continue;
     }
     const key = identity.schema === undefined ? identity.name : `${identity.schema}.${identity.name}`;
-    const canonicalKey = schemaObjectKey(dialect, identity);
+    const canonicalKey = schemaObjectKey(dialect, identity, evidence);
     if (declaredTypes.has(canonicalKey)) {
       diagnostics.push(
         diagnostic(
@@ -457,11 +544,19 @@ export function parsePlaygroundSchema(
   for (const statement of statements) {
     const text = statement.text.trim();
     if (/^CREATE\s+TYPE\b/iu.test(text) || (dialect === "sqlite" && /^PRAGMA\b/iu.test(text))) continue;
+    const tablePrefix = /^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?/iu.exec(text);
+    const identifier = tablePrefix ? identifierPrefix(text.slice(tablePrefix[0].length)) : undefined;
     const tableMatch =
-      /^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s(]+)\s*\(([\s\S]*)\)\s*(STRICT)?(?:\s*,?\s*WITHOUT\s+ROWID)?$/iu.exec(
-        text,
-      );
-    if (tableMatch === null) {
+      tablePrefix && identifier
+        ? [
+            text,
+            text.slice(tablePrefix[0].length, tablePrefix[0].length + identifier.length).trim(),
+            ...(/^\(([\s\S]*)\)\s*(STRICT)?(?:\s*,?\s*WITHOUT\s+ROWID)?$/iu
+              .exec(text.slice(tablePrefix[0].length + identifier.length))
+              ?.slice(1) ?? []),
+          ]
+        : undefined;
+    if (!tableMatch || tableMatch[2] === undefined) {
       diagnostics.push(
         diagnostic(
           schemaSource,
@@ -473,12 +568,12 @@ export function parsePlaygroundSchema(
       );
       continue;
     }
-    const identity = parsedName(tableMatch[1]!);
+    const identity = parsedName(tableMatch[1]!, dialect);
     if (identity === undefined) {
       diagnostics.push(diagnostic(schemaSource, "schema.sql", "PLAY005", "Invalid table name.", statement.start));
       continue;
     }
-    const canonicalKey = schemaObjectKey(dialect, identity);
+    const canonicalKey = schemaObjectKey(dialect, identity, evidence);
     if (declaredTables.has(canonicalKey)) {
       diagnostics.push(
         diagnostic(
@@ -522,19 +617,7 @@ export function parsePlaygroundSchema(
   }
   if (diagnostics.length > 0) return { diagnostics };
 
-  const server =
-    dialect === "postgres"
-      ? {
-          product: "postgres",
-          version: "18.4",
-          versionKey: "18",
-          features: [],
-          settings: { standardConformingStrings: "on", visibilityScope: "current-role" },
-        }
-      : dialect === "mysql"
-        ? { product: "mysql", version: "9.7.0", versionKey: "9.7.0", features: [], settings: {} }
-        : { product: "sqlite", version: "3.54.1", versionKey: "3.54.1", features: [], settings: {} };
-  const namespace = dialect === "postgres" ? "public" : dialect === "mysql" ? "app" : "main";
+  const namespace = String(server.settings.defaultSchema ?? server.settings.currentSchema ?? runtime.defaultNamespace);
   const snapshotBase: SchemaSnapshotV2 = {
     formatVersion: 2,
     dialect,
@@ -551,6 +634,27 @@ export function parsePlaygroundSchema(
     domains: {},
     functions: {},
   };
+  // Native type parsers reject malformed nested types. Keep these errors in the
+  // schema editor rather than rejecting the worker request or retaining stale types.
+  for (const { columns, strict } of pendingRelations) {
+    for (const column of columns) {
+      try {
+        const databaseType = runtime.normalizeType?.(column.databaseType, snapshotBase) ?? column.databaseType;
+        runtime.mapType(databaseType, snapshotBase, strict);
+      } catch (error) {
+        diagnostics.push(
+          diagnostic(
+            schemaSource,
+            "schema.sql",
+            "PLAY006",
+            error instanceof Error ? error.message : "Invalid native column type.",
+            column.sourceStart,
+          ),
+        );
+      }
+    }
+  }
+  if (diagnostics.length > 0) return { diagnostics };
   const relations: Record<string, RelationSnapshot> = Object.fromEntries(
     pendingRelations.map(({ identity, columns, strict }) => {
       const relationSchema = identity.schema ?? namespace;
@@ -564,15 +668,21 @@ export function parsePlaygroundSchema(
             {
               name: column.name,
               position: column.position,
-              databaseType: column.databaseType,
-              typeIdentity: column.databaseType.toLowerCase(),
-              tsType: runtime.mapType(column.databaseType, snapshotBase, strict),
+              databaseType: runtime.normalizeType?.(column.databaseType, snapshotBase) ?? column.databaseType,
+              typeIdentity:
+                runtime.normalizeType?.(column.databaseType, snapshotBase) ?? column.databaseType.toLowerCase(),
+              tsType: runtime.mapType(
+                runtime.normalizeType?.(column.databaseType, snapshotBase) ?? column.databaseType,
+                snapshotBase,
+                strict,
+              ),
               nullable: column.nullable,
               nullabilitySource: "declared",
               default: column.hasDefault ? "present" : "none",
               generated: "none",
-              identity:
-                column.primaryKey && dialect === "sqlite" && column.databaseType.toUpperCase() === "INTEGER"
+              identity: column.identity
+                ? "by-default"
+                : column.primaryKey && dialect === "sqlite" && column.databaseType.toUpperCase() === "INTEGER"
                   ? "by-default"
                   : "none",
               classification:
@@ -588,7 +698,13 @@ export function parsePlaygroundSchema(
         indexes: [],
         capabilities: { evidenceComplete: false, ...(dialect === "sqlite" ? { strict, withoutRowid: false } : {}) },
       };
-      return [identity.schema === undefined ? identity.name : `${identity.schema}.${identity.name}`, relation];
+      const key =
+        dialect === "duckdb" && identity.catalog
+          ? [identity.catalog, relationSchema, identity.name].map((name) => `"${name.replaceAll('"', '""')}"`).join(".")
+          : identity.schema === undefined
+            ? identity.name
+            : `${identity.schema}.${identity.name}`;
+      return [key, relation];
     }),
   );
   const tables: Record<string, TableSnapshot> = Object.fromEntries(

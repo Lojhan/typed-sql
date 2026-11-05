@@ -17,7 +17,10 @@ await describe("playground TypeScript workspace", async () => {
         const result = workspace.analyze(dialect, files);
         strict.deepStrictEqual(result.problems, []);
         strict.match(result.queries[0]!.rowType, /"id": bigint/u);
-        strict.strictEqual(result.queries[0]!.parameterType, "readonly [bigint]");
+        strict.strictEqual(
+          result.queries[0]!.parameterType,
+          dialect === "sqlserver" ? "readonly [bigint | null]" : "readonly [bigint]",
+        );
         const hovers = result.hovers["app.ts"]!;
         const imported = hovers.find(({ from }) => from === files["app.ts"].indexOf("accountById"));
         strict.match(imported!.content, /bigint/u);
@@ -73,10 +76,13 @@ await describe("playground TypeScript workspace", async () => {
         strict.match(imported!.content, /id: bigint/u);
         strict.match(imported!.content, /email: string/u);
         const standalone = result.queries.find(({ file }) => file === "queries/account.sql")!;
-        strict.strictEqual(standalone.parameterType, "readonly [bigint]");
+        strict.strictEqual(
+          standalone.parameterType,
+          dialect === "sqlserver" ? "readonly [bigint | null]" : "readonly [bigint]",
+        );
         const summary = result.queries.find(({ file }) => file === "queries/summary.ts")!;
         strict.match(summary.rowType, /"label": string/u);
-        if (dialect !== "sqlite") strict.match(summary.rowType, /string \| null/u);
+        if (dialect === "postgres" || dialect === "mysql") strict.match(summary.rowType, /string \| null/u);
         files["app.ts"] = files["app.ts"].replace("42n", '"42"');
         const invalid = workspace.analyze(dialect, files);
         strict.ok(invalid.problems.some(({ file, message }) => file === "app.ts" && /string.*bigint/u.test(message)));

@@ -2,7 +2,7 @@
 import { autocompletion, type CompletionContext, completionKeymap, pickedCompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
-import { MySQL, PostgreSQL, SQLite, sql } from "@codemirror/lang-sql";
+import { sql } from "@codemirror/lang-sql";
 import { bracketMatching, defaultHighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { type Diagnostic, lintGutter, lintKeymap, setDiagnostics } from "@codemirror/lint";
 import { Compartment, EditorState, StateEffect, StateField } from "@codemirror/state";
@@ -27,6 +27,9 @@ import type {
   EditorCompletionEdits,
   EditorResponse,
 } from "../playground/editor-protocol.js";
+
+import type { PlaygroundDialect } from "../playground/schema-catalog.js";
+import { codeMirrorSqlDialect } from "../playground/type-highlighting.js";
 
 export interface CodeEditorDiagnostic {
   readonly from: number;
@@ -54,7 +57,7 @@ export default defineComponent({
     interact: { type: Function as PropType<(request: EditorAction) => Promise<EditorResponse>>, default: undefined },
     modelValue: { type: String, required: true },
     language: { type: String as PropType<"sql" | "typescript">, required: true },
-    sqlDialect: { type: String as PropType<"postgres" | "mysql" | "sqlite">, default: "postgres" },
+    sqlDialect: { type: String as PropType<PlaygroundDialect>, default: "postgres" },
     readonly: { type: Boolean, default: false },
     ariaLabel: { type: String, required: true },
     invalid: { type: Boolean, default: false },
@@ -136,7 +139,7 @@ export default defineComponent({
 
     const languageExtension = () => {
       if (props.language !== "sql") return javascript({ typescript: true });
-      const dialect = props.sqlDialect === "mysql" ? MySQL : props.sqlDialect === "sqlite" ? SQLite : PostgreSQL;
+      const dialect = codeMirrorSqlDialect(props.sqlDialect);
       return sql({ dialect });
     };
     const editableExtension = () => [EditorState.readOnly.of(props.readonly), EditorView.editable.of(!props.readonly)];

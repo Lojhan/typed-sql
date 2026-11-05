@@ -1,7 +1,12 @@
 import { typescriptLanguage } from "@codemirror/lang-javascript";
-import { MySQL, PostgreSQL, SQLite } from "@codemirror/lang-sql";
+import { MSSQL, MySQL, PostgreSQL, SQLite, StandardSQL } from "@codemirror/lang-sql";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
 import type { PlaygroundDialect } from "./playground.js";
+
+/** Highlighting only; semantic analysis always uses the selected grammar package. */
+export function codeMirrorSqlDialect(dialect: PlaygroundDialect) {
+  return { postgres: PostgreSQL, mysql: MySQL, sqlite: SQLite, sqlserver: MSSQL, duckdb: StandardSQL }[dialect];
+}
 
 export interface TypeScriptToken {
   readonly text: string;
@@ -19,7 +24,7 @@ export function highlightSource(
 ): readonly TypeScriptToken[] {
   const tokens: TypeScriptToken[] = [];
   let cursor = 0;
-  const sqlDialect = dialect === "mysql" ? MySQL : dialect === "sqlite" ? SQLite : PostgreSQL;
+  const sqlDialect = codeMirrorSqlDialect(dialect);
   const parser = language === "sql" ? sqlDialect.language.parser : typescriptLanguage.parser;
   highlightTree(parser.parse(source), classHighlighter, (from, to, className) => {
     if (from > cursor) tokens.push({ text: source.slice(cursor, from), className: "" });

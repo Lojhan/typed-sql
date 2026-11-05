@@ -99,9 +99,9 @@ export function lessonFiles(
   return {
     ...(lesson === "workspace"
       ? {
-          "queries/account.sql": `-- name: accountById\nSELECT id, email, status\nFROM ${table}\nWHERE id = ${dialect === "postgres" ? "$1" : "?"};\n`,
-          "queries/summary.ts": `import { sql } from "@typed-sql/${dialect}";\n\nexport const accountSummary = sql\`SELECT id, ${dialect === "sqlite" ? "lower(email)" : "display_email(email)"} AS label FROM ${table}\`;\n`,
-          ...(dialect === "sqlite"
+          "queries/account.sql": `-- name: accountById\nSELECT id, email, status\nFROM ${table}\nWHERE id = ${dialect === "postgres" || dialect === "duckdb" ? "$1" : "?"};\n`,
+          "queries/summary.ts": `import { sql } from "@typed-sql/${dialect}";\n\nexport const accountSummary = sql\`SELECT id, ${dialect === "sqlite" || dialect === "sqlserver" || dialect === "duckdb" ? "lower(email)" : "display_email(email)"} AS label FROM ${table}\`;\n`,
+          ...(["sqlite", "sqlserver", "duckdb"].includes(dialect)
             ? {}
             : {
                 "schema/functions.sql":
