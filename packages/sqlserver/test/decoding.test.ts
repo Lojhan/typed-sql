@@ -140,7 +140,10 @@ await describe("SQL Server lossless native codecs", async () => {
     const copy = decodeSqlServerNativeValue(date, descriptor("datetime2"), datePolicy);
     strict.notEqual(copy, date);
     strict.deepEqual(copy, date);
-    strict.throws(() => decodeSqlServerNativeValue("2024-01-01", descriptor("date"), datePolicy), /return Date/);
+    strict.deepEqual(
+      decodeSqlServerNativeValue("2024-01-01", descriptor("date"), datePolicy),
+      new Date("2024-01-01T00:00:00Z"),
+    );
     strict.throws(() => encode(date, "datetime2"), /policy/);
     const decimalPolicy = { ...policy, decimal: "Decimal" as const };
     strict.equal(

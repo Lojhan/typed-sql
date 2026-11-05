@@ -41,10 +41,11 @@ import { defaultSqlServerTypePolicy, type SqlServerTypePolicy, validateSqlServer
 import { SQLSERVER_DIALECT_VERSION } from "./version.js";
 export interface SqlServerField {
   readonly name: string;
+  readonly wireType?: "odbc-varchar-unlimited-text";
   readonly databaseType?: string;
   readonly precision?: number;
   readonly scale?: number;
-  readonly length?: number;
+  readonly length?: number | "max";
   readonly nullable?: boolean;
 }
 export interface SqlServerExecutionResult {
@@ -54,6 +55,7 @@ export interface SqlServerExecutionResult {
   readonly warnings?: readonly { readonly code?: string; readonly message?: string }[];
 }
 export interface SqlServerNativePrepared {
+  readonly fields?: readonly SqlServerField[];
   execute(values: readonly unknown[], controls?: ExecutionOptions): Promise<SqlServerExecutionResult>;
   close(): Promise<void>;
 }
@@ -323,19 +325,24 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
       const expected = requireSqlServerNativeType(plan.columns[index]!.databaseType!);
       if (field.databaseType) {
         const actual = requireSqlServerNativeType(field.databaseType);
+        const jsonTextWire =
+          expected.name === "json" && actual.name === "varchar" && field.wireType === "odbc-varchar-unlimited-text";
         if (
-          actual.name !== expected.name ||
-          (field.databaseType.includes("(") &&
-            (actual.length !== expected.length ||
-              actual.precision !== expected.precision ||
-              actual.scale !== expected.scale))
+          !jsonTextWire &&
+          (actual.name !== expected.name ||
+            (field.databaseType.includes("(") &&
+              (actual.length !== expected.length ||
+                actual.precision !== expected.precision ||
+                actual.scale !== expected.scale)))
         )
           throw new TypeError("SQL Server native result type disagrees with the compiled target");
       }
       if (
         (field.precision !== undefined && field.precision !== expected.precision) ||
         (field.scale !== undefined && field.scale !== expected.scale) ||
-        (field.length !== undefined && field.length !== expected.length)
+        (field.length !== undefined &&
+          field.length !== expected.length &&
+          !(expected.name === "json" && field.wireType === "odbc-varchar-unlimited-text"))
       )
         throw new TypeError("SQL Server native result precision, scale or length disagrees with the compiled target");
     }
@@ -376,6 +383,12 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     if (!prepared) {
       if (nativePrepared.size >= capacity) throw new RangeError("SQL Server native prepared cache capacity exceeded");
       prepared = { name: statement.preparedName, handle: await connection.prepare(statement.text) };
+      try {
+        validateFields(statement.plan, prepared.handle.fields);
+      } catch (error) {
+        await prepared.handle.close();
+        throw error;
+      }
       nativePrepared.set(key, prepared);
     }
     assertControlsActive(controls);

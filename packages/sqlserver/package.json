@@ -42,6 +42,7 @@
     "./query": "./dist/packages/sqlserver/src/query.js",
     "./runtime": "./dist/packages/sqlserver/src/runtime.js",
     "./odbc": "./dist/packages/sqlserver/src/odbc.js",
+    "./msnodesqlv8": "./dist/packages/sqlserver/src/msnodesqlv8.js",
     "./browser": "./dist/packages/sqlserver/src/browser.js"
   },
   "dependencies": {

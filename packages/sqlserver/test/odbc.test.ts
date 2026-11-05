@@ -13,7 +13,7 @@ import {
   type SqlServerOdbcDriver,
   type SqlServerOdbcQuery,
   sqlServerOdbc,
-} from "../src/odbc.js";
+} from "../src/msnodesqlv8.js";
 import { sqlServerCatalogQueries } from "../src/provider.js";
 import { sql, withQueryValuePlan } from "../src/query.js";
 import { defaultSqlServerTypePolicy } from "../src/type-policy.js";
