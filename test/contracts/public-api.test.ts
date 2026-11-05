@@ -1303,6 +1303,11 @@ const expectedRuntimeExports = {
 } as const;
 
 await describe("stable public API", async () => {
+  await it("shares codec bindings between the root and portable snapshot entrypoints", () => {
+    strict.equal(schemaApi.parseSchemaSnapshot, schemaSnapshotApi.parseSchemaSnapshot);
+    strict.equal(schemaApi.migrateSchemaSnapshot, schemaSnapshotApi.migrateSchemaSnapshot);
+    strict.equal(schemaApi.defineSchemaSnapshotV2, schemaSnapshotApi.defineSchemaSnapshotV2);
+  });
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
       sqlserver: Object.keys(sqlserverApi).sort(),
