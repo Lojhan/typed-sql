@@ -9,9 +9,24 @@ import {
   syntaxHighlighting,
 } from "@codemirror/language";
 import { openSearchPanel, search, searchKeymap } from "@codemirror/search";
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  type EditorDiagnostic,
+  type EditorLanguageCommand,
+  type LanguageDiagnostic,
+  type LanguageLocation,
+  type LanguageRange,
+  type LanguageSettings,
+  languageExtensions,
+  refreshEditorLanguage,
+  runEditorLanguageCommand,
+} from "./editor-language.js";
+import { offsets } from "./editor-language-model.js";
+import "./editor-language.css";
+
+export type { EditorDiagnostic, LanguageDiagnostic, LanguageLocation, LanguageRange } from "./editor-language.js";
 
 const syntaxColors: Record<string, string> = {
   "#404740": "var(--muted)",
@@ -41,10 +56,14 @@ export function findInEditor(session: string) {
   const view = activeEditors.get(session);
   return view ? openSearchPanel(view) : false;
 }
-const sessions = new Map<string, { state: EditorState; scroll: number }>();
+export function editorLanguageCommand(session: string, command: EditorLanguageCommand): boolean {
+  const view = activeEditors.get(session);
+  return view ? runEditorLanguageCommand(view, command) : false;
+}
+const sessions = new Map<string, { state: EditorState; scroll: number; readOnly: Compartment }>();
 const sessionCallbacks = new Map<
   string,
-  { onChange: (value: string) => void; onSave: () => void; onRun: () => void }
+  LanguageSettings & { onChange: (value: string) => void; onSave: () => void; onRun: () => void }
 >();
 export function Editor({
   source,
@@ -53,6 +72,16 @@ export function Editor({
   onChange,
   onSave,
   onRun,
+  revision = "",
+  readOnly = false,
+  active = false,
+  languageEnabled = true,
+  reveal,
+  diagnostics = [],
+  onNavigate,
+  onFormat,
+  onLanguageStatus,
+  onDiagnostics,
 }: {
   source: string;
   file: string;
@@ -60,17 +89,49 @@ export function Editor({
   onChange: (value: string) => void;
   onSave: () => void;
   onRun: () => void;
+  revision?: string;
+  readOnly?: boolean;
+  active?: boolean;
+  languageEnabled?: boolean;
+  reveal?: LanguageRange;
+  diagnostics?: readonly EditorDiagnostic[];
+  onNavigate?: (location: LanguageLocation) => void;
+  onFormat?: () => void;
+  onLanguageStatus?: (message: string) => void;
+  onDiagnostics?: (source: string, diagnostics: readonly LanguageDiagnostic[]) => void;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const callbacks = useRef({ onChange, onSave, onRun });
-  callbacks.current = { onChange, onSave, onRun };
+  const [languageMessage, setLanguageMessage] = useState("");
+  const readOnlyConfiguration = useRef<Compartment | null>(null);
+  const settings: LanguageSettings & { onChange: (value: string) => void; onSave: () => void; onRun: () => void } = {
+    file,
+    revision,
+    readOnly,
+    enabled: languageEnabled,
+    diagnostics,
+    onChange,
+    onSave,
+    onRun,
+    ...(onNavigate ? { onNavigate } : {}),
+    ...(onFormat ? { onFormat } : {}),
+    ...(onDiagnostics ? { onDiagnostics } : {}),
+    onLanguageStatus: (message) => {
+      setLanguageMessage(message);
+      onLanguageStatus?.(message);
+    },
+  };
+  const callbacks = useRef(settings);
+  callbacks.current = settings;
   sessionCallbacks.set(session, callbacks.current);
   const initial = useRef(source);
   initial.current = source;
   useEffect(() => {
     if (!element.current) return;
     const saved = sessions.get(session);
+    sessions.delete(session);
+    const readOnlySetting = saved?.readOnly ?? new Compartment();
+    readOnlyConfiguration.current = readOnlySetting;
     const current = new EditorView({
       parent: element.current,
       state:
@@ -78,7 +139,12 @@ export function Editor({
         EditorState.create({
           doc: initial.current,
           extensions: [
+            readOnlySetting.of([
+              EditorState.readOnly.of(callbacks.current.readOnly),
+              EditorView.editable.of(!callbacks.current.readOnly),
+            ]),
             lineNumbers(),
+            languageExtensions(() => sessionCallbacks.get(session) ?? callbacks.current),
             highlightActiveLine(),
             drawSelection(),
             history(),
@@ -170,7 +236,7 @@ export function Editor({
     return () => {
       observer.disconnect();
       activeEditors.delete(session);
-      sessions.set(session, { state: current.state, scroll: current.scrollDOM.scrollTop });
+      sessions.set(session, { state: current.state, scroll: current.scrollDOM.scrollTop, readOnly: readOnlySetting });
       while (sessions.size > 32) {
         const oldest = sessions.keys().next().value!;
         sessions.delete(oldest);
@@ -184,6 +250,7 @@ export function Editor({
       } catch {}
       current.destroy();
       view.current = null;
+      readOnlyConfiguration.current = null;
     };
   }, [file, session]);
   useEffect(() => {
@@ -191,5 +258,44 @@ export function Editor({
     if (current && current.state.doc.toString() !== source)
       current.dispatch({ changes: { from: 0, to: current.state.doc.length, insert: source } });
   }, [source]);
-  return <div className="editor-mount" ref={element} />;
+  useEffect(() => {
+    const current = activeEditors.get(session);
+    if (current && readOnlyConfiguration.current)
+      current.dispatch({
+        effects: readOnlyConfiguration.current.reconfigure([
+          EditorState.readOnly.of(readOnly),
+          EditorView.editable.of(!readOnly),
+        ]),
+      });
+  }, [readOnly, session]);
+  const diagnosticsKey = JSON.stringify(diagnostics);
+  useEffect(() => {
+    activeEditors
+      .get(session)
+      ?.dispatch({ effects: refreshEditorLanguage({ revision, diagnosticsKey, enabled: languageEnabled }) });
+  }, [revision, diagnosticsKey, languageEnabled, session]);
+  useEffect(() => {
+    if (active) activeEditors.get(session)?.focus();
+  }, [active, session]);
+  useEffect(() => {
+    const current = activeEditors.get(session);
+    if (!current || !reveal) return;
+    const range = offsets(current.state.doc.toString(), reveal);
+    if (!range) return;
+    current.dispatch({
+      selection: EditorSelection.range(range.from, range.to),
+      effects: EditorView.scrollIntoView(range.from, { y: "center" }),
+    });
+    current.focus();
+  }, [reveal, session]);
+  return (
+    <div className="editor-mount">
+      <div className="editor-language-mount" ref={element} />
+      {languageMessage ? (
+        <div className="editor-language-status" role="status">
+          {languageMessage}
+        </div>
+      ) : null}
+    </div>
+  );
 }

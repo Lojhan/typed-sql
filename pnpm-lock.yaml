@@ -534,6 +534,9 @@ importers:
 
   packages/language-server:
     dependencies:
+      '@typed-sql/compiler':
+        specifier: workspace:*
+        version: link:../compiler
       '@typed-sql/config':
         specifier: workspace:*
         version: link:../config

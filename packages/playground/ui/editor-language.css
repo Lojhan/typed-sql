@@ -1,0 +1,143 @@
+.editor-mount {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.editor-language-mount {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.editor-language-status {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  max-width: min(520px, calc(100% - 16px));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  z-index: 20;
+  box-shadow: 0 2px 8px #0002;
+}
+.editor-language-documentation {
+  max-width: min(620px, calc(100vw - 24px));
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--panel);
+  font:
+    12px / 1.6 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.editor-language-documentation pre {
+  margin: 0 0 6px;
+  font:
+    12px / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.cm-tooltip {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 4px 18px #0003;
+}
+.cm-tooltip.cm-tooltip-autocomplete {
+  max-width: min(620px, calc(100vw - 24px));
+}
+.cm-tooltip-autocomplete > ul {
+  font:
+    12px / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+  max-height: min(280px, 40vh);
+}
+.cm-tooltip-autocomplete > ul > li {
+  padding: 3px 8px;
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--selected);
+  color: var(--text);
+}
+.cm-completionDetail {
+  color: var(--muted);
+  margin-left: 12px;
+  font-size: 11px;
+}
+.cm-tooltip-lint {
+  max-width: min(620px, calc(100vw - 24px));
+  font:
+    12px / 1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+.cm-diagnostic {
+  padding: 6px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cm-diagnosticSource {
+  color: var(--muted);
+}
+.cm-gutter-lint {
+  width: 14px;
+}
+.cm-lintRange-error {
+  text-decoration-color: var(--danger);
+}
+.editor-context-menu {
+  position: fixed;
+  z-index: 150;
+  min-width: 220px;
+  max-width: min(620px, calc(100vw - 8px));
+  max-height: calc(100dvh - 8px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 5px 24px #0004;
+  font:
+    12px / 1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+.editor-context-menu > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+  min-height: 28px;
+  padding: 5px 8px;
+  text-align: left;
+  white-space: normal;
+}
+.editor-context-menu > button:hover,
+.editor-context-menu > button:focus-visible {
+  background: var(--hover);
+}
+.editor-context-menu kbd {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+}
+.editor-context-menu button:disabled:hover {
+  background: transparent;
+}
