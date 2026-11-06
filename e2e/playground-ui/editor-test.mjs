@@ -56,7 +56,7 @@ async function point(line, word) {
 try {
   evidence.sourceHead = (await command(process.cwd(), "git", ["rev-parse", "HEAD"])).output.trim();
   fixture = await consumer(
-    ["playwright", "typescript", "@types/node"],
+    ["playwright", "typescript", "@types/node", "@biomejs/biome"],
     ["@typed-sql/playground", "@typed-sql/postgres", "@typed-sql/language-server"],
   );
   await mkdir(join(fixture.directory, ".git"));
@@ -69,6 +69,13 @@ try {
         formatVersion: 1,
         dialect: "postgres",
         tables: {
+          "public.crlf_identity": {
+            name: "crlf_identity",
+            schema: "public",
+            columns: {
+              "crlf\r\ncolumn": { name: "crlf\r\ncolumn", databaseType: "text", tsType: "string", nullable: false },
+            },
+          },
           "public.accounts": {
             name: "accounts",
             schema: "public",
@@ -108,6 +115,36 @@ try {
     "import { user } from './helper.js';\nconst profile = { name: 'Ada', age: 42 };\nprofile.name;\nconsole.log(user.name);\n";
   const sql = "select id, name from public.accounts;\n";
   await writeFile(join(root, "playground/query.ts"), ts);
+  const gutterSource = [
+    "import { sql } from '@typed-sql/postgres';",
+    "export const invalid: string = function example() {",
+    "  return 1;",
+    "};",
+    "",
+    "export const warning = { value: sql`select WORKSPACE_UNKNOWN_FUNCTION('test') as value`,",
+    "  enabled: true,",
+    "};",
+    ...Array.from({ length: 120 }, (_, index) => `// gutter width fixture ${index}`),
+    "",
+  ].join("\n");
+  await writeFile(join(root, "playground/gutter.ts"), gutterSource);
+  const semanticCrlf = 'select "crlf\r\ncolumn" from public.crlf_identity;\r\n';
+  await writeFile(join(root, "playground/semantic-crlf.sql"), semanticCrlf);
+  const crlfDiagnostic =
+    "select '😀' as emoji,\r\n  WORKSPACE_UNKNOWN_FUNCTION('test') as value\r\nfrom public.accounts;\r\n";
+  await writeFile(join(root, "playground/crlf-diagnostic.sql"), crlfDiagnostic);
+  await writeFile(join(root, "playground/crlf.ts"), "export const crlf = 1;\r\n");
+  await mkdir(join(root, "playground/formatted"));
+  await writeFile(
+    join(root, "playground/formatted/biome.json"),
+    JSON.stringify({ formatter: { indentStyle: "space", indentWidth: 2, lineEnding: "crlf" } }),
+  );
+  const unformattedEol = "export const formatted={id:1};\n";
+  const formattedEol = "export const formatted = { id: 1 };\r\n";
+  const originalEolOnly = "export const eolOnly = { id: 1 };\n";
+  await writeFile(join(root, "playground/formatted/text.ts"), unformattedEol);
+  await writeFile(join(root, "playground/formatted/eol-only.ts"), originalEolOnly);
+
   const js = `// @ts-check
 ${ts}`;
   await writeFile(join(root, "playground/javascript.js"), js);
@@ -547,6 +584,212 @@ ${ts}`;
   check(
     "late hover responses are rejected when an imported working copy changes while the current source stays unchanged",
   );
+  // Collapse the temporary split, preserving the saved helper before inspecting gutter geometry.
+  await rightEditor.press("ControlOrMeta+w");
+  await unsaved.getByRole("button", { name: "Discard", exact: true }).click();
+  await unsaved.waitFor({ state: "detached" });
+  await page.keyboard.press("ControlOrMeta+w");
+  await page.waitForFunction(() => document.querySelectorAll(".editor-pane").length === 1);
+  await invoke("playground/gutter.ts");
+  const gutters = page.locator(".cm-gutters");
+  await gutters.locator(".cm-lint-marker-error").waitFor();
+  await gutters.locator(".cm-lint-marker-warning").waitFor();
+  const measureGutters = () =>
+    gutters.evaluate((element) => {
+      const rect = (node) => {
+        const box = node.getBoundingClientRect();
+        return {
+          left: box.left,
+          right: box.right,
+          top: box.top,
+          bottom: box.bottom,
+          width: box.width,
+          height: box.height,
+        };
+      };
+      const lint = element.querySelector(".cm-gutter-lint");
+      const numbers = element.querySelector(".cm-lineNumbers");
+      const fold = element.querySelector(".cm-foldGutter");
+      return {
+        lint: rect(lint),
+        numbers: rect(numbers),
+        fold: rect(fold),
+        markers: [...lint.querySelectorAll(".cm-lint-marker")].map((marker) => {
+          const cell = marker.closest(".cm-gutterElement");
+          const cellRect = rect(cell);
+          const center = (cellRect.top + cellRect.bottom) / 2;
+          const number = [...numbers.querySelectorAll(".cm-gutterElement")].find((node) => {
+            const box = rect(node);
+            return box.height > 0 && Math.abs((box.top + box.bottom) / 2 - center) < 1;
+          });
+          const folding = [...fold.querySelectorAll(".cm-gutterElement")].find((node) => {
+            const box = rect(node);
+            return box.height > 0 && Math.abs((box.top + box.bottom) / 2 - center) < 1;
+          });
+          const text = document.createRange();
+          text.selectNodeContents(number);
+          return {
+            kind: marker.className,
+            cell: cellRect,
+            glyph: rect(marker),
+            number: rect(number),
+            numberText: rect(text),
+            numberLabel: number.textContent,
+            foldCell: rect(folding),
+            foldGlyph: rect(folding.querySelector("svg")),
+          };
+        }),
+      };
+    });
+  for (const mode of ["light", "dark"]) {
+    await page.getByRole("button", { name: "Color theme", exact: true }).click();
+    await page
+      .getByRole("menuitemradio", { name: `${mode[0].toUpperCase() + mode.slice(1)} theme`, exact: true })
+      .click();
+    const geometry = await measureGutters();
+    assert.equal(geometry.lint.width, 20);
+    assert.ok(geometry.numbers.width >= 36);
+    assert.equal(geometry.fold.width, 20);
+    assert.ok(
+      geometry.lint.right <= geometry.numbers.left + 0.5 && geometry.numbers.right <= geometry.fold.left + 0.5,
+      "Diagnostic, number and fold gutters reserve separate lanes",
+    );
+    assert.ok(
+      geometry.markers.some((marker) => marker.kind.includes("error")) &&
+        geometry.markers.some((marker) => marker.kind.includes("warning")),
+    );
+    for (const marker of geometry.markers) {
+      assert.equal(marker.glyph.width, 12);
+      assert.equal(marker.glyph.height, 12);
+      assert.equal(marker.foldGlyph.width, 12);
+      assert.equal(marker.foldGlyph.height, 12);
+      assert.ok(marker.glyph.left >= geometry.lint.left && marker.glyph.right <= geometry.lint.right);
+      assert.ok(marker.foldGlyph.left >= geometry.fold.left && marker.foldGlyph.right <= geometry.fold.right);
+      assert.ok(
+        marker.numberText.left >= geometry.numbers.left + 5 && marker.numberText.right <= geometry.numbers.right - 6,
+      );
+      const center = (marker.cell.top + marker.cell.bottom) / 2;
+      for (const box of [marker.glyph, marker.foldGlyph, marker.numberText])
+        assert.ok(
+          Math.abs((box.top + box.bottom) / 2 - center) <= 2,
+          "Glyphs and line numbers share the same row center",
+        );
+    }
+    await shot(gutters, `gutters-${mode}`);
+    check(
+      `dedicated gutter lanes contain and align error/warning, line-number and SVG fold markers in ${mode}`,
+      geometry,
+    );
+  }
+  await gutters.locator(".cm-lint-marker-error").hover();
+  await page.locator(".cm-tooltip-lint").waitFor();
+  assert.match(await page.locator(".cm-tooltip-lint").textContent(), /string/u);
+  await page.mouse.move(2, 2);
+  await gutters.locator('.editor-fold-marker[title="Fold line"]:visible').first().click();
+  await page.locator(".cm-foldPlaceholder").waitFor();
+  await gutters.locator('.editor-fold-marker[title="Unfold line"]:visible').first().click();
+  await page.locator(".cm-foldPlaceholder").waitFor({ state: "detached" });
+  check("separate diagnostic and fold gutters preserve marker hover plus fold/unfold clicks");
+  await invoke(">Disable trusted project execution", "Disable trusted project execution");
+  const staticCrlf = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/analyze") &&
+      response.request().postDataJSON()?.file === "playground/crlf-diagnostic.sql",
+  );
+  await invoke("playground/crlf-diagnostic.sql");
+  const staticEvidence = await (await staticCrlf).json();
+  assert.ok(staticEvidence.diagnostics.some((item) => item.code === "TSQ202" && Number.isInteger(item.range.start)));
+  const staticRange = page.locator(".cm-lintRange-warning");
+  await staticRange.waitFor();
+  assert.match(await staticRange.textContent(), /^WORKSPACE_UNKNOWN_FUNCTION/u);
+  assert.equal(await page.locator('.pane-tab button[title="playground/crlf-diagnostic.sql"] .dirty-mark').count(), 0);
+  assert.equal(await readFile(join(root, "playground/crlf-diagnostic.sql"), "utf8"), crlfDiagnostic);
+  await shot(page.locator(".document-editor"), "compiler-only-crlf-range");
+  check("compiler-only diagnostics on unopened CRLF/Unicode source map to the actual displayed token without an edit");
+  await invoke(">Enable trusted project execution", "Enable trusted project execution");
+  await trust.getByRole("button", { name: "Enable for this session", exact: true }).click();
+  await trust.waitFor({ state: "detached" });
+  const semanticRequest = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/editor") &&
+      response.request().postDataJSON()?.file === "playground/semantic-crlf.sql" &&
+      response.request().postDataJSON()?.method === "diagnostics",
+  );
+  await invoke("playground/semantic-crlf.sql");
+  const semanticResponse = await semanticRequest;
+  assert.equal(semanticResponse.request().postDataJSON().source, semanticCrlf);
+  const semanticResult = await semanticResponse.json();
+  assert.equal(semanticResult.status.state, "ready");
+  assert.deepEqual(semanticResult.diagnostics, []);
+  const semanticPoint = await point(0, "crlf");
+  await page.mouse.move(semanticPoint.x, semanticPoint.y);
+  await hover.waitFor();
+  assert.match(await hover.textContent(), /string/u);
+  await editor.press("Escape");
+  assert.equal(await readFile(join(root, "playground/semantic-crlf.sql"), "utf8"), semanticCrlf);
+  check(
+    "native SQL analysis preserves raw CRLF inside quoted schema identifiers while rendering normalized coordinates",
+  );
+  await invoke("playground/crlf.ts");
+  assert.equal(await page.locator('.pane-tab button[title="playground/crlf.ts"] .dirty-mark').count(), 0);
+  await editor.press("ControlOrMeta+End");
+  await editor.pressSequentially("// kept");
+  await editor.press("Enter");
+  const savedCrlf = page.waitForResponse((response) => response.url().endsWith("/api/save"));
+  await editor.press("ControlOrMeta+s");
+  await savedCrlf;
+  assert.equal(await readFile(join(root, "playground/crlf.ts"), "utf8"), "export const crlf = 1;\r\n// kept\r\n");
+  const reloadedCrlf = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/file") && response.request().postDataJSON()?.file === "playground/crlf.ts",
+  );
+  await invoke(">Reload active file from disk", "Reload active file from disk");
+  await reloadedCrlf;
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.equal(await page.locator('.pane-tab button[title="playground/crlf.ts"] .dirty-mark').count(), 0);
+  check("typing and saving preserve original CRLF and reload does not create a dirty buffer");
+  await invoke("playground/formatted/text.ts");
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("formatted={id:1}"));
+  const textFormat = page.waitForResponse((response) => response.url().endsWith("/api/format"));
+  await page.keyboard.press("Alt+Shift+f");
+  const formatResponse = await textFormat;
+  assert.equal(formatResponse.status(), 200);
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("formatted = {"));
+  await editor.press("ControlOrMeta+z");
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("formatted={"));
+  assert.equal(
+    await page.locator('.pane-tab button[title="playground/formatted/text.ts"] .dirty-mark').count(),
+    0,
+    "Undo restores text and LF source together",
+  );
+  await editor.press("ControlOrMeta+Shift+z");
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("formatted = {"));
+  const formattedSave = page.waitForResponse((response) => response.url().endsWith("/api/save"));
+  await editor.press("ControlOrMeta+s");
+  await formattedSave;
+  assert.equal(await readFile(join(root, "playground/formatted/text.ts"), "utf8"), formattedEol);
+  check("actual repo-configured text formatting preserves CRLF output and undoes/redoes text plus EOL atomically");
+  await invoke("playground/formatted/eol-only.ts");
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("eolOnly = { id: 1 }"));
+  const onlyFormat = page.waitForResponse((response) => response.url().endsWith("/api/format"));
+  await page.keyboard.press("Alt+Shift+f");
+  assert.equal((await onlyFormat).status(), 200);
+  await page.locator('.pane-tab button[title="playground/formatted/eol-only.ts"] .dirty-mark').waitFor();
+  await editor.press("ControlOrMeta+z");
+  await page
+    .locator('.pane-tab button[title="playground/formatted/eol-only.ts"] .dirty-mark')
+    .waitFor({ state: "detached" });
+  await editor.press("ControlOrMeta+Shift+z");
+  await page.locator('.pane-tab button[title="playground/formatted/eol-only.ts"] .dirty-mark').waitFor();
+  const onlySave = page.waitForResponse((response) => response.url().endsWith("/api/save"));
+  await editor.press("ControlOrMeta+s");
+  await onlySave;
+  assert.equal(
+    await readFile(join(root, "playground/formatted/eol-only.ts"), "utf8"),
+    originalEolOnly.replaceAll("\n", "\r\n"),
+  );
+  check("EOL-only formatting is undoable and redo/save retain the formatter's configured CRLF bytes");
+
   assert.deepEqual(evidence.errors, [], "Browser has no runtime exceptions");
   assert.equal(
     await readFile(join(root, "playground/query.sql"), "utf8"),

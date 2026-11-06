@@ -13,6 +13,12 @@ import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef, useState } from "react";
 import {
+  editorDocumentExtensions,
+  emitsEditorDocumentChange,
+  externalDocumentTransaction,
+  serializeEditorDocument,
+} from "./editor-document.js";
+import {
   type EditorDiagnostic,
   type EditorLanguageCommand,
   type LanguageDiagnostic,
@@ -24,7 +30,7 @@ import {
   runEditorLanguageCommand,
   type WorkingCopy,
 } from "./editor-language.js";
-import { canonicalWorkingCopies, offsets } from "./editor-language-model.js";
+import { canonicalWorkingCopies, documentDiagnosticRefreshKey, offsets } from "./editor-language-model.js";
 import "./editor-language.css";
 
 export type {
@@ -57,6 +63,27 @@ const workspaceHighlightStyle = HighlightStyle.define(
     ...(spec.color ? { color: syntaxColors[String(spec.color)] ?? spec.color } : {}),
   })),
 );
+
+function foldMarker(open: boolean): HTMLElement {
+  const marker = document.createElement("span");
+  marker.className = "editor-fold-marker";
+  marker.title = open ? "Fold line" : "Unfold line";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", open ? "m4 6 4 4 4-4" : "m6 4 4 4-4 4");
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "1.5");
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  svg.append(path);
+  marker.append(svg);
+  return marker;
+}
 
 const activeEditors = new Map<string, EditorView>();
 export function findInEditor(session: string) {
@@ -150,18 +177,19 @@ export function Editor({
         EditorState.create({
           doc: initial.current,
           extensions: [
+            editorDocumentExtensions(initial.current),
             readOnlySetting.of([
               EditorState.readOnly.of(callbacks.current.readOnly),
               EditorView.editable.of(!callbacks.current.readOnly),
             ]),
-            lineNumbers(),
             languageExtensions(() => sessionCallbacks.get(session) ?? callbacks.current),
+            lineNumbers(),
             highlightActiveLine(),
             drawSelection(),
             history(),
             search({ top: true }),
             bracketMatching(),
-            foldGutter(),
+            foldGutter({ markerDOM: foldMarker }),
             syntaxHighlighting(workspaceHighlightStyle),
             file.endsWith(".sql")
               ? sql()
@@ -192,7 +220,8 @@ export function Editor({
               indentWithTab,
             ]),
             EditorView.updateListener.of((update) => {
-              if (update.docChanged) sessionCallbacks.get(session)?.onChange(update.state.doc.toString());
+              if (update.transactions.some(emitsEditorDocumentChange))
+                sessionCallbacks.get(session)?.onChange(serializeEditorDocument(update.state));
             }),
             EditorView.theme({
               "&": {
@@ -271,11 +300,11 @@ export function Editor({
     };
   }, [file, session]);
   useEffect(() => {
-    const current = view.current;
-    const normalized = source.replace(/\r\n?/gu, "\n");
-    if (current && current.state.doc.toString() !== normalized)
-      current.dispatch({ changes: { from: 0, to: current.state.doc.length, insert: normalized } });
-  }, [source]);
+    const current = activeEditors.get(session);
+    if (!current) return;
+    const transaction = externalDocumentTransaction(current.state, source);
+    if (transaction) current.dispatch(transaction);
+  }, [source, session]);
   useEffect(() => {
     const current = activeEditors.get(session);
     if (current && readOnlyConfiguration.current)
@@ -286,7 +315,7 @@ export function Editor({
         ]),
       });
   }, [readOnly, session]);
-  const diagnosticsKey = JSON.stringify(diagnostics);
+  const diagnosticsKey = documentDiagnosticRefreshKey(diagnostics);
   const workingCopyKey = JSON.stringify(canonicalWorkingCopies(workingCopies, file));
   useEffect(() => {
     activeEditors.get(session)?.dispatch({

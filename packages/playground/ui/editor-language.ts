@@ -23,9 +23,11 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { token } from "./api.js";
+import { changesEditorLineSeparator, serializeEditorDocument } from "./editor-document.js";
 import {
   canonicalWorkingCopies,
   completionItems,
+  createEditorSourceMap,
   displayDocumentation,
   type LanguageCompletion,
   type LanguageDiagnostic,
@@ -49,6 +51,7 @@ export interface EditorDiagnostic {
   origin?: string;
   engine?: string;
   sourceRevision?: string;
+  sourceText?: string;
 }
 export interface LanguageSettings {
   file: string;
@@ -157,11 +160,16 @@ async function hash(source: string): Promise<string> {
 }
 export function languageExtensions(settings: () => LanguageSettings): Extension {
   const workingKey = () => JSON.stringify(canonicalWorkingCopies(settings().workingCopies, settings().file));
-  const epoch = StateField.define<string>({
-    create: () => `${settings().revision}:${settings().enabled}:${workingKey()}`,
+  const epoch = StateField.define<{ context: string; generation: number }>({
+    create: () => ({ context: `${settings().revision}:${settings().enabled}:${workingKey()}`, generation: 0 }),
     update: (current, transaction) => {
       const effect = transaction.effects.find((effect) => effect.is(refresh));
-      return effect ? `${effect.value.revision}:${effect.value.enabled}:${effect.value.workingCopyKey}` : current;
+      const context = effect
+        ? `${effect.value.revision}:${effect.value.enabled}:${effect.value.workingCopyKey}`
+        : current.context;
+      return context !== current.context || changesEditorLineSeparator(transaction)
+        ? { context, generation: current.generation + 1 }
+        : current;
     },
   });
   class LanguageView {
@@ -223,7 +231,15 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.unavailable = false;
         if (!enabled) this.publish(this.view.state.doc.toString(), []);
       }
-      if (update.docChanged) {
+      const eolChanged = update.transactions.some(changesEditorLineSeparator);
+      if (update.docChanged || eolChanged) {
+        if (eolChanged)
+          queueMicrotask(() => {
+            if (!this.disposed) {
+              closeCompletion(this.view);
+              this.view.dispatch({ effects: closeHoverTooltips });
+            }
+          });
         this.serverDiagnostics = [];
         this.publish(update.state.doc.toString(), []);
         this.closeMenu?.();
@@ -243,7 +259,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     private current(source: string, revision: string, context = workingKey()) {
       return (
         !this.disposed &&
-        this.view.state.doc.toString() === source &&
+        serializeEditorDocument(this.view.state) === source &&
         settings().revision === revision &&
         workingKey() === context
       );
@@ -266,13 +282,14 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         return undefined;
       }
       if (!current.revision || (this.unavailable && !explicit)) return undefined;
-      const source = this.view.state.doc.toString();
+      const source = serializeEditorDocument(this.view.state);
+      const rendered = this.view.state.doc.toString();
       const revision = current.revision;
       const workingCopies = canonicalWorkingCopies(current.workingCopies, current.file);
       const context = JSON.stringify(workingCopies);
       const body = JSON.stringify({ method, file: current.file, source, revision, workingCopies, ...extra });
       if (new TextEncoder().encode(body).byteLength > 1024 * 1024) {
-        this.publish(source, []);
+        this.publish(rendered, []);
         this.status("Editor context exceeds 1 MiB. Save some working files before requesting more editor information.");
         return undefined;
       }
@@ -294,7 +311,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         if (!this.current(source, revision, context)) return undefined;
         if (!response.ok) {
           this.unavailable = response.status === 403 || response.status === 404 || response.status === 503;
-          this.publish(source, []);
+          this.publish(rendered, []);
           if (explicit) this.status(result.error?.message ?? "Editor language service is unavailable.");
           return undefined;
         }
@@ -313,12 +330,12 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           return undefined;
         this.unavailable = value.status.state !== "ready";
         if (value.status.state !== "ready") {
-          this.publish(source, []);
+          this.publish(rendered, []);
           if (explicit) this.status(value.status.message ?? "Editor language service is unavailable.");
           return undefined;
         }
         this.serverDiagnostics = Array.isArray(value.diagnostics) ? value.diagnostics : [];
-        this.publish(source, this.serverDiagnostics);
+        this.publish(rendered, this.serverDiagnostics);
         this.status("");
         return value;
       } catch (error) {
@@ -336,21 +353,20 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.requests.delete(controller);
       }
     }
-    private fallback(source: string, sourceHash: string): InlineDiagnostic[] {
+    private async fallback(source: string, sourceHash: string): Promise<InlineDiagnostic[]> {
       const result: InlineDiagnostic[] = [];
+      const maps = new Map<string, ReturnType<typeof createEditorSourceMap>>();
+      const hashes = new Map<string, Promise<string>>([[source, Promise.resolve(sourceHash)]]);
       for (const item of settings().diagnostics) {
-        if (item.sourceRevision && item.sourceRevision !== sourceHash) continue;
-        const range =
-          Number.isInteger(item.range.start) &&
-          Number.isInteger(item.range.end) &&
-          item.range.start! >= 0 &&
-          item.range.end! >= item.range.start! &&
-          item.range.end! <= source.length
-            ? { from: item.range.start!, to: item.range.end! }
-            : offsets(source, {
-                start: { line: item.range.line - 1, character: item.range.column - 1 },
-                end: { line: item.range.line - 1, character: item.range.column - 1 },
-              });
+        const original = item.sourceText ?? source;
+        if (!maps.has(original)) maps.set(original, createEditorSourceMap(original, source));
+        const mapping = maps.get(original);
+        if (!mapping) continue;
+        if (item.sourceRevision) {
+          if (!hashes.has(original)) hashes.set(original, hash(original));
+          if (item.sourceRevision !== (await hashes.get(original))) continue;
+        }
+        const range = mapping.range(item.range);
         if (range)
           result.push({
             ...range,
@@ -369,8 +385,15 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       if (this.disposed) return;
       const source = this.view.state.doc.toString();
       const context = workingKey();
+      const rawSource = serializeEditorDocument(this.view.state);
       const response = await this.request("diagnostics");
-      if (this.disposed || this.view.state.doc.toString() !== source || workingKey() !== context) return;
+      if (
+        this.disposed ||
+        this.view.state.doc.toString() !== source ||
+        serializeEditorDocument(this.view.state) !== rawSource ||
+        workingKey() !== context
+      )
+        return;
       const diagnostics: InlineDiagnostic[] = response
         ? (response.diagnostics ?? []).flatMap((item) => {
             const range = offsets(source, item.range);
@@ -396,13 +419,22 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           })
         : [];
       const displayedHash = await hash(source);
-      if (this.disposed || this.view.state.doc.toString() !== source || workingKey() !== context) return;
-      this.view.dispatch(
-        setDiagnostics(
-          this.view.state,
-          mergeDocumentDiagnostics([...diagnostics, ...this.fallback(source, displayedHash)]),
-        ),
-      );
+      if (
+        this.disposed ||
+        this.view.state.doc.toString() !== source ||
+        serializeEditorDocument(this.view.state) !== rawSource ||
+        workingKey() !== context
+      )
+        return;
+      const fallback = await this.fallback(source, displayedHash);
+      if (
+        this.disposed ||
+        this.view.state.doc.toString() !== source ||
+        serializeEditorDocument(this.view.state) !== rawSource ||
+        workingKey() !== context
+      )
+        return;
+      this.view.dispatch(setDiagnostics(this.view.state, mergeDocumentDiagnostics([...diagnostics, ...fallback])));
     }
     async hover(pos: number, explicit = false): Promise<{ contents: unknown; from: number; to: number } | undefined> {
       const source = this.view.state.doc.toString();
@@ -451,6 +483,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     async completions(context: CompletionContext): Promise<CompletionResult | null> {
       const source = context.state.doc.toString();
       const projectContext = workingKey();
+      const rawSource = serializeEditorDocument(context.state);
       const word = context.matchBefore(/[\p{L}\p{N}_$]*$/u);
       if (!context.explicit && !word?.text && !/[.\s]$/u.test(source.slice(0, context.pos))) return null;
       const response = await this.request(
@@ -464,7 +497,13 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         },
         context.explicit,
       );
-      if (!response || context.aborted || this.view.state.doc.toString() !== source) return null;
+      if (
+        !response ||
+        context.aborted ||
+        this.view.state.doc.toString() !== source ||
+        serializeEditorDocument(this.view.state) !== rawSource
+      )
+        return null;
       const options = completionItems(response.result).map(
         (item): Completion => ({
           label: item.filterText ?? item.label,
@@ -481,7 +520,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
             return documentation(data.documentation ?? data.detail ?? "");
           },
           apply: (view, completion, from, to) =>
-            void this.applyCompletion(item, source, projectContext, view, completion, from, to),
+            void this.applyCompletion(item, source, rawSource, projectContext, view, completion, from, to),
         }),
       );
       return { from: word?.from ?? context.pos, to: context.pos, options, filter: true };
@@ -489,15 +528,22 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     private async applyCompletion(
       item: LanguageCompletion,
       source: string,
+      rawSource: string,
       context: string,
       view: EditorView,
       completion: Completion,
       from: number,
       to: number,
     ) {
-      if (workingKey() !== context) return;
+      if (workingKey() !== context || serializeEditorDocument(view.state) !== rawSource) return;
       const response = await this.request("completionResolve", { item });
-      if (this.disposed || view.state.doc.toString() !== source || workingKey() !== context) return;
+      if (
+        this.disposed ||
+        view.state.doc.toString() !== source ||
+        serializeEditorDocument(view.state) !== rawSource ||
+        workingKey() !== context
+      )
+        return;
       const value =
         response?.result && typeof response.result === "object"
           ? ({ ...item, ...response.result } as LanguageCompletion)
@@ -538,6 +584,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     }
     async actions(pos: number) {
       const source = this.view.state.doc.toString();
+      const rawSource = serializeEditorDocument(this.view.state);
       const context = workingKey();
       const position = positionAt(source, pos);
       const response = await this.request(
@@ -567,7 +614,13 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
               ? "This action requires an unsupported language-server command."
               : undefined),
           run: () => {
-            if (this.view.state.doc.toString() !== source || workingKey() !== context || !response.uri) return;
+            if (
+              this.view.state.doc.toString() !== source ||
+              serializeEditorDocument(this.view.state) !== rawSource ||
+              workingKey() !== context ||
+              !response.uri
+            )
+              return;
             const byUri = new Map(Object.entries(action.edit?.changes ?? {}));
             for (const change of action.edit?.documentChanges ?? []) {
               if (

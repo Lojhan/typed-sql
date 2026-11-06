@@ -2,12 +2,16 @@ import { describe, it, strict } from "poku";
 import {
   canonicalWorkingCopies,
   completionItems,
+  createEditorSourceMap,
   type DocumentDiagnostic,
   displayDocumentation,
+  documentDiagnosticRefreshKey,
   mergeDocumentDiagnostics,
+  normalizeEditorSource,
   offsetAt,
   offsets,
   positionAt,
+  preferredLineSeparator,
   textChanges,
 } from "../ui/editor-language-model.js";
 
@@ -110,6 +114,48 @@ await describe("editor language protocol source mapping", async () => {
     strict.equal(
       mergeDocumentDiagnostics([{ ...host, message: "TSQ2020: distinct content" }])[0]?.message,
       "TSQ2020: distinct content",
+    );
+  });
+  await it("maps original UTF-16 spans into normalized display text without accepting changed content", () => {
+    const original = "select '😀' as emoji,\r\n  missing\r\nfrom accounts;\rlast";
+    const displayed = normalizeEditorSource(original);
+    const mapping = createEditorSourceMap(original, displayed);
+    if (!mapping) throw new Error("Expected matching normalized source");
+    const start = original.indexOf("missing");
+    strict.deepEqual(mapping.range({ line: 2, column: 3, start, end: start + 7 }), {
+      from: displayed.indexOf("missing"),
+      to: displayed.indexOf("missing") + 7,
+    });
+    for (let offset = 0; offset <= original.length; offset++)
+      strict.equal(mapping.offset(offset), normalizeEditorSource(original.slice(0, offset)).length);
+    strict.deepEqual(mapping.range({ line: 2, column: 3 }), {
+      from: displayed.indexOf("missing"),
+      to: displayed.indexOf("missing"),
+    });
+    strict.equal(mapping.offset(-1), undefined);
+    strict.equal(mapping.offset(original.length + 1), undefined);
+    strict.equal(mapping.range({ line: 1, column: 1, start: 20, end: 10 }), undefined);
+    strict.equal(createEditorSourceMap(original, `${displayed} changed`), undefined);
+    strict.equal(preferredLineSeparator(original), "\r\n");
+    strict.equal(preferredLineSeparator("first\rlast"), "\r");
+    strict.equal(preferredLineSeparator("one line"), "\n");
+  });
+  await it("retains complete diagnostic source identities only once in refresh metadata", () => {
+    const sourceText = "content\r\n".repeat(1000);
+    const diagnostics = Array.from({ length: 20 }, (_, index) => ({
+      code: "TSQ202",
+      severity: "warning",
+      message: "Unknown function",
+      range: { line: index + 1, column: 1 },
+      sourceText,
+    }));
+    const key = documentDiagnosticRefreshKey(diagnostics);
+    strict.ok(key.length < sourceText.length * 3, "A repeated source buffer must not be serialized for every finding");
+    strict.notEqual(
+      key,
+      documentDiagnosticRefreshKey(
+        diagnostics.map((diagnostic) => ({ ...diagnostic, sourceText: normalizeEditorSource(sourceText) })),
+      ),
     );
   });
   await it("canonicalizes only other dirty buffers with a deterministic transport identity", () => {

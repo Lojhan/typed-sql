@@ -95,8 +95,54 @@
 :root[data-theme] .cm-diagnosticSource {
   color: var(--muted);
 }
-:root[data-theme] .cm-gutter-lint {
-  width: 14px;
+:root[data-theme] .cm-gutter.cm-gutter-lint,
+:root[data-theme] .cm-gutter.cm-foldGutter {
+  width: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+}
+:root[data-theme] .cm-gutter-lint .cm-gutterElement,
+:root[data-theme] .cm-foldGutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 20px;
+  padding: 0;
+}
+:root[data-theme] .cm-gutter-lint .cm-lint-marker {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+}
+:root[data-theme] .cm-gutter.cm-lineNumbers {
+  min-width: 36px;
+  flex-shrink: 0;
+}
+:root[data-theme] .cm-lineNumbers .cm-gutterElement {
+  box-sizing: border-box;
+  min-width: 36px;
+  padding: 0 7px 0 6px;
+  text-align: right;
+}
+.editor-fold-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 100%;
+  color: var(--muted);
+}
+.editor-fold-marker svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+:root[data-theme] .cm-foldGutter .cm-gutterElement:hover {
+  background: var(--hover);
 }
 :root[data-theme] .cm-lintRange-error {
   text-decoration-color: var(--danger);

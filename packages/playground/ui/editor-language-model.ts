@@ -221,3 +221,74 @@ export function mergeDocumentDiagnostics<T extends DocumentDiagnostic>(diagnosti
   }
   return result;
 }
+
+export function normalizeEditorSource(source: string): string {
+  return source.replace(/\r\n?/gu, "\n");
+}
+export interface EditorSourceRange {
+  line: number;
+  column: number;
+  start?: number;
+  end?: number;
+}
+/** Normalize display newlines only after proving that the complete text otherwise matches. */
+export function createEditorSourceMap(
+  original: string,
+  rendered: string,
+):
+  | {
+      offset: (originalOffset: number) => number | undefined;
+      range: (range: EditorSourceRange) => { from: number; to: number } | undefined;
+    }
+  | undefined {
+  if (normalizeEditorSource(original) !== rendered) return undefined;
+  const removed: number[] = [];
+  for (let index = 1; index < original.length; index++)
+    if (original.charCodeAt(index - 1) === 13 && original.charCodeAt(index) === 10) removed.push(index);
+  const offset = (value: number): number | undefined => {
+    if (!Number.isInteger(value) || value < 0 || value > original.length) return undefined;
+    let lower = 0;
+    let upper = removed.length;
+    while (lower < upper) {
+      const middle = (lower + upper) >>> 1;
+      if (removed[middle]! < value) lower = middle + 1;
+      else upper = middle;
+    }
+    return value - lower;
+  };
+  return {
+    offset,
+    range: (range) => {
+      if (range.start !== undefined || range.end !== undefined) {
+        if (range.start === undefined || range.end === undefined) return undefined;
+        const from = offset(range.start);
+        const to = offset(range.end);
+        return from !== undefined && to !== undefined && to >= from ? { from, to } : undefined;
+      }
+      const point = offsetAt(rendered, { line: range.line - 1, character: range.column - 1 });
+      return point === undefined ? undefined : { from: point, to: point };
+    },
+  };
+}
+/** Keep complete source identities in refresh dependencies without repeating the file for every finding. */
+export function documentDiagnosticRefreshKey<T extends DocumentDiagnostic & { sourceText?: string }>(
+  diagnostics: readonly T[],
+): string {
+  const sources: string[] = [];
+  const indexes = new Map<string, number>();
+  const items = diagnostics.map(({ sourceText, ...diagnostic }) => {
+    if (sourceText === undefined) return diagnostic;
+    let index = indexes.get(sourceText);
+    if (index === undefined) {
+      index = sources.length;
+      sources.push(sourceText);
+      indexes.set(sourceText, index);
+    }
+    return { ...diagnostic, sourceTextIndex: index };
+  });
+  return JSON.stringify({ sources, items });
+}
+
+export function preferredLineSeparator(source: string, fallback: "\r\n" | "\r" | "\n" = "\n"): "\r\n" | "\r" | "\n" {
+  return (/\r\n|\r|\n/u.exec(source)?.[0] as "\r\n" | "\r" | "\n" | undefined) ?? fallback;
+}
