@@ -64,6 +64,17 @@ async function fixture(
   }
 }
 await describe("local ACP agents and reviewed repository tools", async () => {
+  await it("keeps user storage outside the project when XDG_CONFIG_HOME is relative or missing", () => {
+    const home = join(tmpdir(), "agent-home-fixture");
+    const absolute = join(tmpdir(), "agent-xdg-fixture");
+    const fallback = join(home, ".config", "typed-sql", "playground");
+    strict.equal(agentConfigurationDirectory(undefined, home), fallback);
+    strict.equal(agentConfigurationDirectory("", home), fallback);
+    strict.equal(agentConfigurationDirectory("relative-config", home), fallback);
+    strict.equal(agentConfigurationDirectory("./repo-settings", home), fallback);
+    strict.equal(agentConfigurationDirectory(absolute, home), join(absolute, "typed-sql", "playground"));
+  });
+
   await it("persists private user profiles and per-project conversations without exposing command arguments", async () =>
     fixture(async (root, agents, files) => {
       const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;

@@ -257,6 +257,12 @@ export interface AgentRoutesOptions {
   readonly timeoutMs?: number;
 }
 
+/** XDG requires an absolute base; invalid relative values must not write user settings into a project. */
+export function agentConfigurationDirectory(xdgConfigHome: string | undefined, userHome: string): string {
+  const base = xdgConfigHome && isAbsolute(xdgConfigHome) ? xdgConfigHome : join(userHome, ".config");
+  return join(base, "typed-sql", "playground");
+}
+
 /** User-owned ACP profiles and project-scoped conversations; importing never starts an agent. */
 export class AgentRoutes {
   readonly configurationPath: string;
@@ -271,8 +277,7 @@ export class AgentRoutes {
   private ready: Promise<void>;
   constructor(private readonly options: AgentRoutesOptions) {
     const configDirectory =
-      options.configDirectory ??
-      join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "typed-sql", "playground");
+      options.configDirectory ?? agentConfigurationDirectory(process.env.XDG_CONFIG_HOME, homedir());
     this.storage = configDirectory;
     this.configurationPath = join(configDirectory, "agents.json");
     this.projectId = createHash("sha256").update(options.files.root).digest("hex");
