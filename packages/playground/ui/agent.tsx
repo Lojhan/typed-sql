@@ -91,9 +91,10 @@ export function AgentPanel({
       clearInterval(interval);
     };
   }, [conversation?.id, conversation?.status, conversation]);
+  const lastMessage = conversation?.messages.at(-1)?.text;
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "nearest" });
-  }, []);
+    if (lastMessage) end.current?.scrollIntoView({ block: "nearest" });
+  }, [lastMessage]);
   const perform = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError("");

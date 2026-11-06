@@ -112,7 +112,7 @@ p {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-width: 760px;
+  min-width: 0;
 }
 .workspace-toolbar {
   height: 40px;
@@ -1958,4 +1958,53 @@ select {
 }
 :root[data-theme="dark"] .comparison-provenance > span:first-child {
   color: var(--text);
+}
+
+.pane-tabbar {
+  min-height: var(--tab-height);
+  flex-shrink: 0;
+}
+.bottom-tabs,
+.result-pager,
+.result-filter,
+.document-toolbar,
+.agent-toolbar,
+.tool-toolbar {
+  flex-shrink: 0;
+}
+.workspace-toolbar > strong {
+  max-width: clamp(80px, 20vw, 260px);
+  flex-shrink: 1;
+  min-width: 0;
+}
+.connection-controls {
+  flex: none;
+}
+@media (max-width: 900px) {
+  .workspace-toolbar {
+    gap: 3px;
+    padding: 0 6px;
+  }
+  .workspace-toolbar > strong {
+    max-width: 120px;
+    margin-right: 3px;
+  }
+  .workspace-toolbar > button {
+    padding: 4px 6px;
+  }
+  .connection-controls {
+    gap: 4px;
+  }
+  .connection-controls > .muted {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .workspace-toolbar > strong,
+  .toolbar-divider {
+    display: none;
+  }
+  .workspace-toolbar .connection-controls {
+    overflow: hidden;
+  }
 }
