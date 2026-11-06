@@ -118,6 +118,19 @@ versions, so there is no npm driver dependency.
 
 [Continue with the SQLite quickstart](./sqlite.md).
 
+## DuckDB
+
+```sh
+pnpm add @typed-sql/core @typed-sql/duckdb @duckdb/node-api
+pnpm add -D @typed-sql/cli typescript @types/node
+```
+
+Application code imports `sql` from `@typed-sql/duckdb`. The explicit
+`@typed-sql/duckdb/node-api` adapter loads the application's SDK. Engine and SDK versions
+are paired in the [compatibility matrix](../dialects/duckdb.md#engine-and-driver-compatibility).
+
+[Continue with the DuckDB quickstart](./duckdb.md).
+
 ## Optional packages
 
 Add these only when their capability is used:

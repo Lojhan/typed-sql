@@ -50,13 +50,16 @@ The report excludes setting values, schema expressions, source text, credentials
 | SQLite | SQLite 3.39.0–3.54.1 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.54.1, every supported Node line's bundled library, with exact 3.54.1 release coverage |
 | `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |
 
+| [DuckDB](../dialects/duckdb.md) | Exact engine targets 1.5.6 and 2.0.0; intermediate and future versions are conservative | Both genuine native engines, each in a separate process |
+| `@duckdb/node-api` | Application-owned official Node SDK loaded by `@typed-sql/duckdb/node-api` | 1.5.6-r.2 with engine 1.5.6; 2.0.0-r.1 with engine 2.0.0 |
+
 Driver configurations that change decoded value shapes can violate static types. The adapters own or reject those settings as documented in [Database type mappings](./type-mappings.md).
 
 ## Package stability
 
 | Surface | Status |
 | --- | --- |
-| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `cli`, `adapters`, `build` | Stable package contract |
+| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `duckdb`, `cli`, `adapters`, `build` | Stable package contract |
 | `ts-bridge`, `language-server` | Experimental while their preview contracts are exercised |
 | VS Code and Zed integrations | Experimental distribution |
 

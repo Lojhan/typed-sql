@@ -49,7 +49,7 @@
     "editor:zed:fixtures": "node test/editor-hub/prepare-zed.mjs",
     "editor:zed:build": "node scripts/build-zed-artifact.mjs",
     "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
-    "test:soundness": "poku packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/sqlite/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
+    "test:soundness": "poku packages/duckdb/test/soundness.test.ts packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/sqlite/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "performance": "pnpm build && pnpm performance:gate",
     "performance:gate": "node --expose-gc scripts/performance-gate.mjs",
     "release:artifacts": "pnpm build && node scripts/verify-release-artifacts.mjs --output artifacts/release/artifacts.json && pnpm test:pack",
@@ -64,7 +64,7 @@
     "release:stable": "pnpm release:assert stable && node scripts/publish-prerelease.mjs stable",
     "release:rehearse": "node scripts/rehearse-stable-release.mjs",
     "release:check": "pnpm verify && pnpm --filter @typed-sql/e2e-packed e2e && pnpm audit --audit-level high",
-    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/opentelemetry coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage && pnpm --filter @typed-sql/sqlite coverage",
+    "coverage": "pnpm --filter @typed-sql/core coverage && pnpm --filter @typed-sql/ast coverage && pnpm --filter @typed-sql/schema coverage && pnpm --filter @typed-sql/config coverage && pnpm --filter @typed-sql/compiler coverage && pnpm --filter @typed-sql/conformance coverage && pnpm --filter @typed-sql/opentelemetry coverage && pnpm --filter @typed-sql/postgres coverage && pnpm --filter @typed-sql/mysql coverage && pnpm --filter @typed-sql/sqlite coverage && pnpm --filter @typed-sql/duckdb coverage",
     "test:watch": "poku --config=poku.config.js --watch",
     "typecheck": "node scripts/require-typescript-7.mjs && tsc -b --pretty false",
     "version-packages": "node scripts/version-packages.mjs",
@@ -73,7 +73,8 @@
     "e2e:build": "pnpm typecheck && pnpm --filter @typed-sql/e2e-build e2e",
     "docs:demos": "node --import tsx scripts/generate-readme-demos.ts",
     "docs:demos:check": "node --import tsx scripts/generate-readme-demos.ts --check",
-    "e2e:sqlite-wasm": "pnpm typecheck && node --import tsx e2e/sqlite-wasm/test.mjs"
+    "e2e:sqlite-wasm": "pnpm typecheck && node --import tsx e2e/sqlite-wasm/test.mjs",
+    "e2e:duckdb": "pnpm typecheck && pnpm --filter @typed-sql/e2e-duckdb e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
