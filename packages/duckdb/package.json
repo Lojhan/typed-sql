@@ -1,6 +1,6 @@
 {
   "name": "@typed-sql/duckdb",
-  "version": "2.5.0-rc.0",
+  "version": "2.5.0",
   "description": "DuckDB grammar, schema introspection, exact type policies, and explicit application-owned native integration for typed-sql.",
   "license": "MIT",
   "author": "Lojhan",
