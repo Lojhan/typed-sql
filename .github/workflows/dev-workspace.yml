@@ -54,3 +54,20 @@ jobs:
           pnpm --filter @typed-sql/playground build:ui
       - name: Verify project files, protected host, TS/SQL runs and PostgreSQL adapter
         run: pnpm --filter @typed-sql/playground test
+      - name: Install pinned Chromium for visual behavior regression checks
+        if: matrix.node == '24.11.1'
+        run: pnpm dlx playwright@1.64.1 install --with-deps chromium
+      - name: Verify packed workspace in a real browser
+        if: matrix.node == '24.11.1'
+        env:
+          TYPED_SQL_BROWSER_INSTALLED: '1'
+        run: |
+          pnpm exec tsc -b packages/sqlite
+          node --import tsx e2e/playground-ui/test.mjs
+      - name: Retain browser evidence and component screenshots
+        if: always() && matrix.node == '24.11.1'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playground-ui-browser
+          path: artifacts/playground-ui/browser
+          if-no-files-found: error
