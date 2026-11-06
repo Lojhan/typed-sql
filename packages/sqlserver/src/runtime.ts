@@ -293,7 +293,7 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
   const executionCapabilities = Object.freeze(
     connection.executionCapabilities ?? { cancellation: false, deadlines: false },
   );
-  const renderers = new WeakMap<QueryValuePlan, SqlRenderer>();
+  const renderers = new WeakMap<QueryValuePlan, { readonly context: string; readonly renderer: SqlRenderer }>();
   const preparedState = {
     variantCapacity,
     statements: new Map<string, { readonly variants: PreparedQueryRenderCache }>(),
@@ -326,8 +326,20 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     connection.assertPlanSupported?.(plan);
     const logical = renderQuery(query, sqlServerRenderer);
     const parsed = parseStatement(logical.text);
-    const occurrences = new Set<number>();
+    const occurrences = new Set<number>(),
+      temporalParameters = new Set<number>();
     walkStatement(parsed, {
+      source(source) {
+        if (source.kind !== "table" || !source.systemTime) return;
+        const operand = source.systemTime;
+        if (operand.kind === "parameter") {
+          const target = plan.parameters[operand.index - 1]?.databaseType;
+          if (!target || requireSqlServerNativeType(target).text !== "datetime2(7)")
+            throw new TypeError("SQL Server temporal AS OF parameters require a qualified datetime2(7) target");
+          temporalParameters.add(operand.index);
+        } else if (operand.kind !== "literal" || operand.literal !== "string")
+          throw new TypeError("SQL Server temporal AS OF requires a literal or compiler-owned bound variable");
+      },
       expression(expression) {
         if (expression.kind !== "parameter") return;
         const expected = `@__typed_sql_${expression.index}`;
@@ -351,7 +363,9 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
     const values = logicalValues.map((value, index) =>
       encodeSqlServerParameter(value, plan.parameters[index]!, policy, options.decimal?.encode),
     );
-    let renderer = renderers.get(plan);
+    const context = [...temporalParameters].sort((a, b) => a - b).join(","),
+      cached = renderers.get(plan);
+    let renderer = cached?.context === context ? cached.renderer : undefined;
     if (!renderer) {
       renderer = Object.freeze({
         quoteIdentifier: sqlServerRenderer.quoteIdentifier,
@@ -359,13 +373,16 @@ export function createSqlServerDatabase(options: SqlServerDatabaseOptions): SqlS
           const descriptor = plan!.parameters[index - 1];
           if (!descriptor?.databaseType) throw new TypeError("Missing native SQL Server bound target");
           const target = requireSqlServerNativeType(descriptor.databaseType);
+          // AS OF accepts a variable, not CONVERT. Only the proven AST occurrence uses the
+          // qualified NVARCHAR(MAX) ISO7 input path; identical values elsewhere retain conversion.
+          if (temporalParameters.has(index)) return "?";
           const binary = ["binary", "varbinary", "image"].includes(target.name);
           const nativeType = target.name === "image" ? "varbinary(max)" : (target.baseText ?? target.text);
           const marker = target.collation ? `? COLLATE ${target.collation}` : "?";
           return `(CONVERT(${nativeType}, ${marker}${binary ? ", 2" : isSqlServerTemporal(target) && !["time", "date", "datetime", "smalldatetime"].includes(target.name) ? (target.name === "datetimeoffset" ? ", 127" : ", 126") : ""}))`;
         },
       });
-      renderers.set(plan, renderer);
+      renderers.set(plan, { context, renderer });
     }
     const rendered = renderQuery(query, renderer);
     const preparedName = preparedState.queries.get(queryResultValidationSource(query))?.statementName;

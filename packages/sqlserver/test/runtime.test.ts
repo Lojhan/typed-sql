@@ -1,5 +1,6 @@
 import {
   type Database,
+  getQueryValuePlan,
   QueryCardinalityError,
   QueryResultValidationError,
   type StandardSchemaV1,
@@ -96,6 +97,66 @@ class Connection implements SqlServerConnectionLike {
   }
 }
 await describe("SQL Server exact runtime boundaries and leases", async () => {
+  await it("lowers only attested AS OF occurrences and separates renderer contexts for one value plan", async () => {
+    const point = "2024-01-01T00:00:00.1234567",
+      connection = new Connection();
+    connection.rows = [{ id: "1" }];
+    const db = createSqlServerDatabase({ connection });
+    const parameters = [
+      { index: 1, type: "string" as const, nullable: false, databaseType: "datetime2(7)" },
+      { index: 2, type: "string" as const, nullable: false, databaseType: "datetime2(7)" },
+    ];
+    const base = withQueryValuePlan(
+      sql<{ id: bigint }>`SELECT id FROM dbo.history FOR SYSTEM_TIME AS OF ${point} WHERE stamp=${point}`,
+      {
+        dialect: "sqlserver",
+        typePolicyHash: hash,
+        columns: [{ name: "id", type: "bigint", nullable: false, databaseType: "bigint" }],
+        parameters,
+      },
+    );
+    const plan = getQueryValuePlan(base)!;
+    const ordinary = withQueryValuePlan(
+      sql<{ id: bigint }>`SELECT id FROM dbo.history WHERE stamp=${point} AND stamp=${point}`,
+      plan,
+    );
+    const reversed = withQueryValuePlan(
+      sql<{
+        id: bigint;
+      }>`SELECT id FROM dbo.history WHERE stamp=${point} AND id IN (SELECT id FROM dbo.history FOR SYSTEM_TIME AS OF ${point})`,
+      plan,
+    );
+    for (const query of [base, ordinary, reversed, base]) await db.all(query);
+    strict.equal(
+      connection.calls[0]?.sql,
+      "SELECT id FROM dbo.history FOR SYSTEM_TIME AS OF ? WHERE stamp=(CONVERT(datetime2(7), ?, 126))",
+    );
+    strict.equal(
+      connection.calls[1]?.sql,
+      "SELECT id FROM dbo.history WHERE stamp=(CONVERT(datetime2(7), ?, 126)) AND stamp=(CONVERT(datetime2(7), ?, 126))",
+    );
+    strict.equal(
+      connection.calls[2]?.sql,
+      "SELECT id FROM dbo.history WHERE stamp=(CONVERT(datetime2(7), ?, 126)) AND id IN (SELECT id FROM dbo.history FOR SYSTEM_TIME AS OF ?)",
+    );
+    strict.equal(connection.calls[3]?.sql, connection.calls[0]?.sql);
+    for (const call of connection.calls) strict.deepEqual(call.values, [point, point]);
+    const invalid = withQueryValuePlan(
+      sql<{
+        id: bigint;
+      }>`SELECT id FROM dbo.history FOR SYSTEM_TIME AS OF CONVERT(datetime2(7),${point},126) WHERE stamp=${point}`,
+      plan,
+    );
+    const wrongTarget = withQueryValuePlan(
+      sql<{ id: bigint }>`SELECT id FROM dbo.history FOR SYSTEM_TIME AS OF ${point} WHERE stamp=${point}`,
+      { ...plan, parameters: [{ ...parameters[0]!, databaseType: "datetimeoffset(7)" }, parameters[1]!] },
+    );
+    const before = connection.calls.length;
+    await strict.rejects(db.all(invalid), /AS OF requires/);
+    await strict.rejects(db.all(wrongTarget), /datetime2/);
+    strict.equal(connection.calls.length, before);
+    await db.close();
+  });
   await it("binds empty and nonempty binary through one stable typed hex renderer", async () => {
     const calls: { text: string; values: readonly unknown[] }[] = [];
     const connection: SqlServerConnectionLike = {
