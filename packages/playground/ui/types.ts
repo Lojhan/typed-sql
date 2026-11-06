@@ -78,7 +78,7 @@ export interface Analysis {
     parameterType: string;
     sql?: string;
     parameterCount?: number;
-    parameters?: { index: number; tsType: string; nullable: boolean; databaseType?: string }[];
+    parameters?: { index: number; name?: string; tsType: string; nullable: boolean; databaseType?: string }[];
   }[];
   exports: string[];
 }

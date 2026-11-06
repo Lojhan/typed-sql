@@ -104,6 +104,8 @@ Save and Save As write real project files. Revision conflicts are reported rathe
 
 Each run gets a fresh process and captured local ESM graph with source maps. Static imports, inline SQL and literal `.sql` imports are supported. Dynamic project imports, CommonJS files and `require()` receive an explicit unsupported-graph diagnostic. Installed external dependencies remain trusted and are checked by entry/package identity; this is not a hermetic build of arbitrary package side effects.
 
+For a TypeScript file that imports a `.sql` file, select the SQL file, save it, then choose **Generate TS types**. The explicit action writes its compiler-only `.d.sql.ts` declaration inside the allowed write root. Regenerate after SQL changes, or use the application's existing [build integration](../integrations/index.md) to maintain declarations. Application-owned declarations are never overwritten. A missing/stale declaration blocks the TypeScript run; it is not bypassed with an untyped import.
+
 For multiple named outputs:
 
 ```ts

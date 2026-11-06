@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { SchemaBoard } from "./board";
 import { Editor } from "./editor";
+import { Modal } from "./modal";
 import { ResultPanel } from "./results";
 import type { Analysis, State, Table, Value } from "./types";
 import "./style.css";
@@ -431,6 +432,25 @@ function App() {
                       >
                         Save as
                       </button>
+                      {file.endsWith(".sql") ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            void action(async () => {
+                              const saved = await save();
+                              if (!saved) return;
+                              const output = await api<{ file: string }>("sql-types", { file, revision: saved });
+                              await refresh();
+                              setNotice(
+                                `Generated ${output.file}. Import the SQL file from TypeScript; regenerate after SQL edits.`,
+                              );
+                            })
+                          }
+                        >
+                          Generate TS types
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   {file ? (
@@ -626,7 +646,7 @@ function App() {
                       return (
                         <label className="parameter-input" key={index}>
                           <span>
-                            ${index} <code>{param?.tsType ?? "unknown"}</code>
+                            {param?.name ?? `$${index}`} <code>{param?.tsType ?? "unknown"}</code>
                           </span>
                           <input
                             aria-label={`Parameter ${index}`}
@@ -740,76 +760,70 @@ function App() {
         </span>
       </footer>
       {showTrust ? (
-        <div className="modal-backdrop">
-          <section className="create-dialog" role="dialog" aria-modal="true" aria-labelledby="trust-title">
-            <span className="eyebrow">LOCAL PROJECT EXECUTION</span>
-            <h2 id="trust-title">Run code you trust.</h2>
-            <p>
-              TypeScript files and their imports run with your local process permissions. They can read files, access
-              environment variables, use the network, or open their own database connections.
-            </p>
-            <p>
-              Managed read-only and cancellation apply to the supplied database helper. They cannot restrict private
-              clients or undo external effects.
-            </p>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setShowTrust(false)}>
-                Keep disabled
-              </button>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() =>
-                  void action(async () => {
-                    await api("trust", { enable: true });
-                    await refresh();
-                    setShowTrust(false);
-                    setNotice("Project execution enabled for this session. Press Run to execute.");
-                  })
-                }
-              >
-                Enable for this session
-              </button>
-            </div>
-          </section>
-        </div>
+        <Modal className="create-dialog" label="Enable trusted project execution" onClose={() => setShowTrust(false)}>
+          <span className="eyebrow">LOCAL PROJECT EXECUTION</span>
+          <h2 id="trust-title">Run code you trust.</h2>
+          <p>
+            TypeScript files and their imports run with your local process permissions. They can read files, access
+            environment variables, use the network, or open their own database connections.
+          </p>
+          <p>
+            Managed read-only and cancellation apply to the supplied database helper. They cannot restrict private
+            clients or undo external effects.
+          </p>
+          <div className="dialog-actions">
+            <button type="button" onClick={() => setShowTrust(false)}>
+              Keep disabled
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() =>
+                void action(async () => {
+                  await api("trust", { enable: true });
+                  await refresh();
+                  setShowTrust(false);
+                  setNotice("Project execution enabled for this session. Press Run to execute.");
+                })
+              }
+            >
+              Enable for this session
+            </button>
+          </div>
+        </Modal>
       ) : null}
       {create ? (
-        <div className="modal-backdrop">
-          <section className="create-dialog" role="dialog" aria-modal="true" aria-labelledby="create-title">
-            <span className="eyebrow">PROJECT FILE</span>
-            <h2 id="create-title">{create.table ? `Query ${create.table.name}` : "Create a query file"}</h2>
-            <p>
-              {create.table
-                ? "Generate explicit qualified SQL and a managed database helper in your project."
-                : "Use .ts for project code or .sql for a bound SQL statement."}
-            </p>
-            <label className="form-label">
-              Project-relative path
-              <input value={create.path} onChange={(event) => setCreate({ ...create, path: event.target.value })} />
-            </label>
-            <pre className="template-preview">
-              {create.table
-                ? `select ${create.table.columns
-                    .slice(0, 4)
-                    .map((c) => c.name)
-                    .join(
-                      ", ",
-                    )}\nfrom ${create.table.namespace ? `${create.table.namespace}.` : ""}${create.table.name}`
-                : create.path.endsWith(".sql")
-                  ? "-- Write a parameterized SQL statement here."
-                  : "export async function run() {\n  return [];\n}"}
-            </pre>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setCreate(null)}>
-                Cancel
-              </button>
-              <button type="button" className="primary-button" disabled={busy} onClick={() => void action(newFile)}>
-                Create file
-              </button>
-            </div>
-          </section>
-        </div>
+        <Modal className="create-dialog" label="Create a query file" onClose={() => setCreate(null)}>
+          <span className="eyebrow">PROJECT FILE</span>
+          <h2 id="create-title">{create.table ? `Query ${create.table.name}` : "Create a query file"}</h2>
+          <p>
+            {create.table
+              ? "Generate explicit qualified SQL and a managed database helper in your project."
+              : "Use .ts for project code or .sql for a bound SQL statement."}
+          </p>
+          <label className="form-label">
+            Project-relative path
+            <input value={create.path} onChange={(event) => setCreate({ ...create, path: event.target.value })} />
+          </label>
+          <pre className="template-preview">
+            {create.table
+              ? `select ${create.table.columns
+                  .slice(0, 4)
+                  .map((c) => c.name)
+                  .join(", ")}\nfrom ${create.table.namespace ? `${create.table.namespace}.` : ""}${create.table.name}`
+              : create.path.endsWith(".sql")
+                ? "-- Write a parameterized SQL statement here."
+                : "export async function run() {\n  return [];\n}"}
+          </pre>
+          <div className="dialog-actions">
+            <button type="button" onClick={() => setCreate(null)}>
+              Cancel
+            </button>
+            <button type="button" className="primary-button" disabled={busy} onClick={() => void action(newFile)}>
+              Create file
+            </button>
+          </div>
+        </Modal>
       ) : null}
     </div>
   );

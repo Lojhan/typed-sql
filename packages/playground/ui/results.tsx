@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Modal } from "./modal";
 import type { Run, Value } from "./types";
 
 function object(value: Value): Map<string, Value> | null {
@@ -14,7 +15,9 @@ export function valueText(value: Value): string {
   if (value.kind === "bigint") return `${value.value}n`;
   return value.value;
 }
-function grid(value: Value): { columns: string[]; rows: Value[][]; truncated: boolean } | null {
+function grid(
+  value: Value,
+): { columns: string[]; rows: Value[][]; truncated: boolean; command?: string; affectedRows?: number } | null {
   const data = object(value);
   const columns = data?.get("columns");
   const rows = data?.get("rows");
@@ -33,6 +36,8 @@ function grid(value: Value): { columns: string[]; rows: Value[][]; truncated: bo
       }),
       rows: rows.items.map((row) => (row && typeof row === "object" && row.kind === "array" ? row.items : [])),
       truncated: data?.get("truncated") === true,
+      ...(typeof data?.get("command") === "string" ? { command: data.get("command") as string } : {}),
+      ...(typeof data?.get("affectedRows") === "number" ? { affectedRows: data.get("affectedRows") as number } : {}),
     };
   if (value && typeof value === "object" && value.kind === "array" && value.items.every((row) => object(row))) {
     const names = [...new Set(value.items.flatMap((row) => [...object(row)!.keys()]))];
@@ -189,6 +194,12 @@ export function ResultPanel({
           <div className="result-tools">
             <div>
               <b>{rows.length}</b> fetched rows{" "}
+              {data?.command ? (
+                <span>
+                  · {data.command}
+                  {data.affectedRows === undefined ? "" : ` · ${data.affectedRows} affected`}
+                </span>
+              ) : null}{" "}
               <span>
                 · {result.provenance === "managed" ? "managed target verified" : "database target not verified"}
               </span>
@@ -296,20 +307,18 @@ export function ResultPanel({
         </div>
       )}
       {inspect !== undefined ? (
-        <div className="modal-backdrop">
-          <section className="value-dialog" role="dialog" aria-modal="true" aria-label="Inspect value">
-            <header>
-              <strong>Value inspector</strong>
-              <button type="button" onClick={() => setInspect(undefined)}>
-                Close
-              </button>
-            </header>
-            <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>
-            <button type="button" onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>
-              Copy value
+        <Modal className="value-dialog" label="Inspect value" onClose={() => setInspect(undefined)}>
+          <header>
+            <strong>Value inspector</strong>
+            <button type="button" onClick={() => setInspect(undefined)}>
+              Close
             </button>
-          </section>
-        </div>
+          </header>
+          <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>
+          <button type="button" onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>
+            Copy value
+          </button>
+        </Modal>
       ) : null}
     </section>
   );

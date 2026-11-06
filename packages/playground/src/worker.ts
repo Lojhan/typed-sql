@@ -84,6 +84,12 @@ async function run(request: WorkerRequest): Promise<void> {
         !("identity" in candidate)
       )
         throw new WorkspaceError("EXECUTION", "Configured target does not implement the playground service contract");
+      if (
+        !["identity", "query", "database", "close"].every(
+          (method) => typeof Reflect.get(candidate, method) === "function",
+        )
+      )
+        throw new WorkspaceError("TARGET", "Target service methods must be callable");
       target = candidate as PlaygroundTarget;
       const identity = await target.identity();
       if (selected.expected?.database !== undefined && selected.expected.database !== identity.database)

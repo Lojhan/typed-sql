@@ -170,3 +170,86 @@ await describe("captured project execution", async () => {
       }
     }));
 });
+
+await describe("SQL imports and bounded worker lifetime", async () => {
+  await it("executes imported SQL with generated declarations and blocks stale declaration evidence", async () =>
+    fixture(async (directory) => {
+      const sql = "select id, name from public.accounts where id=:accountId";
+      await writeFile(join(directory, "playground/accounts.sql"), sql);
+      const source =
+        "import account from './accounts.sql';\nimport {databaseForRun} from '@typed-sql/playground/runtime';\nexport async function run(){return databaseForRun().all(account({accountId:42}));}\n";
+      await writeFile(join(directory, "playground/imported.ts"), source);
+      const loaded = await loadConfig({ file: join(directory, "typed-sql.config.mjs") });
+      const manager = new RunManager(
+        loaded,
+        new WorkspaceFiles(directory, ["playground"], ["playground"]),
+        limits,
+        "local",
+        join(directory, "tsconfig.json"),
+      );
+      manager.trusted = true;
+      try {
+        const missing = manager.start({
+          requestId: "missing-sql-declaration",
+          file: "playground/imported.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        strict.equal((await settled(manager, missing.id)).error?.code, "SQL_DECLARATION");
+        const { compileSqlFile } = await import("@typed-sql/compiler");
+        const schema = loaded.config.dialect.validateSnapshot(
+          JSON.parse(await (await import("node:fs/promises")).readFile(join(directory, "schema.json"), "utf8")),
+        );
+        const declaration = compileSqlFile({ source: sql, dialect: loaded.config.dialect, schema });
+        await writeFile(join(directory, "playground/accounts.d.sql.ts"), declaration.text);
+        const run = manager.start({
+          requestId: "imported-sql-execution",
+          file: "playground/imported.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        const result = await settled(manager, run.id);
+        strict.equal(result.status, "succeeded", JSON.stringify(result));
+        strict.match(JSON.stringify(result.results), /42/);
+        await writeFile(
+          join(directory, "playground/accounts.sql"),
+          "select id from public.accounts where id=:accountId",
+        );
+        const stale = manager.start({
+          requestId: "stale-sql-declaration",
+          file: "playground/imported.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        strict.equal((await settled(manager, stale.id)).error?.code, "SQL_DECLARATION_STALE");
+      } finally {
+        await manager.close();
+      }
+    }));
+  await it("terminates runaway trusted code and keeps cancellation outcome honest", async () =>
+    fixture(async (directory) => {
+      const source = "export async function run(){while(true){} return [];}";
+      await writeFile(join(directory, "playground/runaway.ts"), source);
+      const manager = new RunManager(
+        await loadConfig({ file: join(directory, "typed-sql.config.mjs") }),
+        new WorkspaceFiles(directory, ["playground"], ["playground"]),
+        { ...limits, timeoutMs: 3000 },
+        "local",
+        join(directory, "tsconfig.json"),
+      );
+      manager.trusted = true;
+      try {
+        const run = manager.start({
+          requestId: "runaway-trusted-source",
+          file: "playground/runaway.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        const result = await settled(manager, run.id);
+        strict.equal(result.status, "outcome-unknown", JSON.stringify(result));
+        strict.ok(result.finishedAt);
+      } finally {
+        await manager.close();
+      }
+    }));
+});
