@@ -239,6 +239,25 @@ await describe("SQL Server scalar, source and syntax boundaries", async () => {
     );
     strict.deepEqual(temporal.diagnostics, []);
     strict.equal(temporal.parameters[0]?.databaseType, "datetime2(7)");
+    strict.deepEqual(
+      grammar.analyze("SELECT id FROM dbo.widgets FOR SYSTEM_TIME AS OF '2024-01-01T00:00:00.0000000'", temporalSchema)
+        .diagnostics,
+      [],
+    );
+    for (const operand of [
+      "CONVERT(datetime2(7),@__typed_sql_1,126)",
+      "SYSDATETIME()",
+      "CAST('2024-01-01' AS datetime2(7))",
+      "1",
+    ]) {
+      const source = `SELECT id FROM dbo.widgets FOR SYSTEM_TIME AS OF ${operand}`;
+      const result = grammar.analyze(source, temporalSchema);
+      const diagnostic = result.diagnostics.find(
+        (value) => value.code === "TSQ203" && value.message.includes("datetime literal or variable"),
+      );
+      strict.ok(diagnostic, operand);
+      strict.deepEqual([diagnostic?.range?.start, diagnostic?.range?.end], [source.indexOf(operand), source.length]);
+    }
     for (const source of [
       "SELECT DISTINCT id FROM dbo.widgets ORDER BY id+1",
       "SELECT DISTINCT w.* FROM dbo.widgets w ORDER BY w.id",

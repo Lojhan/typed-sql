@@ -195,6 +195,9 @@ class Resolver {
       this.diagnostic("TSQ201", "T-SQL conditions cannot be used as scalar values; use CASE or IIF", expression.range);
     return value;
   }
+  comparisonTarget(value: Value): Value {
+    return native(value)?.name === "rowversion" ? type("binary(8)", value.nullable, this.policy) : value;
+  }
   expected(expression: Expression, expected: Value, scope: Scope, ctes: Ctes): Value {
     return this.scalar(this.expression(expression, scope, ctes, expected), expression);
   }
@@ -349,6 +352,15 @@ class Resolver {
     if (source.kind === "table") {
       const relation = this.relation(source.name, ctes);
       if (source.systemTime) {
+        if (
+          source.systemTime.kind !== "parameter" &&
+          !(source.systemTime.kind === "literal" && source.systemTime.literal === "string")
+        )
+          this.diagnostic(
+            "TSQ203",
+            "FOR SYSTEM_TIME AS OF requires a datetime literal or variable, not a scalar expression",
+            source.systemTime.range,
+          );
         this.expected(source.systemTime, type("datetime2(7)", false, this.policy), scope, ctes);
         if (relation.catalog?.extension?.attributes?.temporalType !== 2)
           this.diagnostic("TSQ203", "FOR SYSTEM_TIME requires qualified system-versioned table evidence", source.range);
@@ -805,6 +817,10 @@ class Resolver {
         }
         let left = this.expression(expression.left, scope, ctes),
           right = this.expression(expression.right, scope, ctes);
+        if (comparison.has(expression.operator)) {
+          left = this.comparisonTarget(left);
+          right = this.comparisonTarget(right);
+        }
         if (expression.left.kind === "parameter" && right.tsType !== "unknown")
           left = this.expected(expression.left, right, scope, ctes);
         if (expression.right.kind === "parameter" && left.tsType !== "unknown")
@@ -890,11 +906,11 @@ class Resolver {
         this.scalar(this.expression(expression.argument, scope, ctes), expression.argument);
         return condition;
       case "in": {
-        let argument = this.expression(expression.argument, scope, ctes);
+        let argument = this.comparisonTarget(this.expression(expression.argument, scope, ctes));
         const values = Array.isArray(expression.values) ? expression.values : undefined;
         const compared = values
-          ? values.map((value) => this.expression(value, scope, ctes, argument))
-          : this.select(expression.values as Select, ctes, scope, true);
+          ? values.map((value) => this.comparisonTarget(this.expression(value, scope, ctes, argument)))
+          : this.select(expression.values as Select, ctes, scope, true).map((value) => this.comparisonTarget(value));
         if (!values && compared.length !== 1)
           this.diagnostic("TSQ203", "IN subquery must return one column", expression.range);
         if (expression.argument.kind === "parameter" && compared[0])
@@ -903,9 +919,9 @@ class Resolver {
         return { ...condition, nullable: argument.nullable || compared.some((value) => value.nullable) };
       }
       case "between": {
-        let value = this.expression(expression.argument, scope, ctes);
-        const lower = this.expression(expression.lower, scope, ctes, value),
-          upper = this.expression(expression.upper, scope, ctes, value);
+        let value = this.comparisonTarget(this.expression(expression.argument, scope, ctes));
+        const lower = this.comparisonTarget(this.expression(expression.lower, scope, ctes, value)),
+          upper = this.comparisonTarget(this.expression(expression.upper, scope, ctes, value));
         if (expression.argument.kind === "parameter" && lower.tsType !== "unknown")
           value = this.expected(expression.argument, lower, scope, ctes);
         this.common(value, lower, expression.range);
@@ -1946,6 +1962,7 @@ class Resolver {
         : destination.columns.filter(
             (column) =>
               !column.hidden &&
+              native(column)?.name !== "rowversion" &&
               destination.catalog?.columns[column.name]?.identity !== "always" &&
               (!destination.catalog || destination.catalog.columns[column.name]?.generated === "none"),
           );
@@ -1956,7 +1973,7 @@ class Resolver {
       for (const [index, target] of targets.entries()) {
         if (!target) this.diagnostic("TSQ101", "OUTPUT INTO contains an unknown target column", output.range);
         else {
-          if (destination.catalog?.columns[target.name]?.insertable === false)
+          if (native(target)?.name === "rowversion" || destination.catalog?.columns[target.name]?.insertable === false)
             this.diagnostic("TSQ203", `OUTPUT INTO target ${target.name} is not insertable`, output.range);
           if (columns[index]) this.common(columns[index]!, target, output.range);
         }
@@ -2005,6 +2022,7 @@ class Resolver {
         : target.columns.filter(
             (column) =>
               !column.hidden &&
+              native(column)?.name !== "rowversion" &&
               target.catalog?.columns[column.name]?.identity !== "always" &&
               (!target.catalog || target.catalog.columns[column.name]?.generated === "none"),
           );
@@ -2013,7 +2031,10 @@ class Resolver {
       if (new Set(statement.columns.map((name) => this.key(name))).size !== statement.columns.length)
         this.diagnostic("TSQ203", "INSERT column list contains duplicates", statement.range);
       for (const column of columns)
-        if (column && target.catalog?.columns[column.name]?.insertable === false)
+        if (
+          column &&
+          (native(column)?.name === "rowversion" || target.catalog?.columns[column.name]?.insertable === false)
+        )
           this.diagnostic("TSQ203", `Column ${column.name} is not insertable`, statement.target.range);
       for (const row of statement.values) {
         if (row.length !== columns.length)
@@ -2038,7 +2059,10 @@ class Resolver {
           const column = target.columns.find((value) => this.same(value.name, partsLast(assignment.column)));
           if (!column)
             this.diagnostic("TSQ101", `Unknown UPDATE target ${assignment.column.parts.join(".")}`, assignment.range);
-          if (column && target.catalog?.columns[column.name]?.updatable === false)
+          if (
+            column &&
+            (native(column)?.name === "rowversion" || target.catalog?.columns[column.name]?.updatable === false)
+          )
             this.diagnostic("TSQ203", `Column ${column.name} is not updatable`, assignment.column.range);
           this.scalar(this.expression(assignment.value, scope, ctes, column), assignment.value);
         }

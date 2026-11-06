@@ -76,6 +76,10 @@ therefore remain empty binary, and `null` remains SQL `NULL`. Binary results are
 independently owned byte arrays. Text parameters enforce native lengths, including UTF-8 byte
 limits and Windows-1252 representability when those collations are known. Unproven VARCHAR
 collations accept ASCII parameters conservatively.
+Rowversion results remain `Uint8Array`. Comparison parameters use `binary(8)`, so they can be bound
+without assigning a generated rowversion value. Oversized inputs reject before SQL; shorter fixed
+binary inputs retain SQL Server's padding semantics. Rowversion columns cannot be assigned in
+`INSERT`, `UPDATE` or `OUTPUT INTO`.
 
 ## Execution and physical preparation
 
