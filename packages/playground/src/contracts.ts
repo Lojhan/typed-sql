@@ -12,9 +12,13 @@ export interface PlaygroundQueryRequest {
   readonly values: readonly unknown[];
   readonly readOnly: boolean;
   readonly maxRows: number;
+  readonly pageSize?: number;
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
   readonly maxResultBytes?: number;
+  /** Incremental native-cursor delivery. Awaiting this callback applies database backpressure. */
+  readonly cursorIdleMs?: number;
+  readonly onRows?: (batch: PlaygroundQueryResult) => Promise<void>;
 }
 
 export interface PlaygroundColumn {
@@ -32,12 +36,15 @@ export interface PlaygroundQueryResult {
 
 /** An explicit, lazy, server-side service. Main package imports no driver. */
 export interface PlaygroundTarget {
+  /** Native incremental delivery with callback backpressure, rather than eager collection. */
+  readonly rowStreaming?: boolean;
   identity(): Promise<PlaygroundIdentity>;
   query(request: PlaygroundQueryRequest): Promise<PlaygroundQueryResult>;
   /** Application-shaped execution; only managed calls inherit run cancellation/limits. */
   database(options: {
     readonly readOnly: boolean;
     readonly maxRows: number;
+    readonly pageSize?: number;
     readonly timeoutMs: number;
     readonly signal: AbortSignal;
     readonly maxResultBytes?: number;
@@ -48,7 +55,10 @@ export interface PlaygroundTarget {
 
 export interface PlaygroundLimits {
   readonly timeoutMs: number;
-  readonly maxRows: number;
+  readonly maxRows?: number;
+  readonly pageSize?: number;
+  readonly maxSpoolBytes?: number;
+  readonly cursorIdleMs?: number;
   readonly maxResultBytes: number;
   readonly maxConsoleBytes: number;
 }

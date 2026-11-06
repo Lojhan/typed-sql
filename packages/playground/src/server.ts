@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeSource } from "@typed-sql/compiler";
 import { loadConfig } from "@typed-sql/config";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { AgentRoutes } from "./agents.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
 import { contentHash, WorkspaceError, WorkspaceFiles } from "./files.js";
@@ -87,7 +88,10 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   );
   const limits: PlaygroundLimits = {
     timeoutMs: positive(settings?.limits?.timeoutMs, 30_000, 120_000),
-    maxRows: positive(settings?.limits?.maxRows, 500, 100_000),
+    ...(settings?.limits?.maxRows === undefined ? {} : { maxRows: positive(settings.limits.maxRows, 200, 100_000) }),
+    pageSize: positive(settings?.limits?.pageSize, 200, 1000),
+    maxSpoolBytes: positive(settings?.limits?.maxSpoolBytes, 512 * 1024 * 1024, 2 * 1024 * 1024 * 1024),
+    cursorIdleMs: positive(settings?.limits?.cursorIdleMs, 30_000, 120_000),
     maxResultBytes: positive(settings?.limits?.maxResultBytes, 5 * 1024 * 1024, 100 * 1024 * 1024),
     maxConsoleBytes: positive(settings?.limits?.maxConsoleBytes, 1024 * 1024, 10 * 1024 * 1024),
   };
@@ -119,6 +123,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     state: selected ? "configured" : "offline",
   };
   const manager = new RunManager(loaded, files, limits, options.target, project);
+  let agents: AgentRoutes | undefined;
   manager.expectedSchemaHash = savedSchemaHash;
   const token = randomBytes(32).toString("base64url");
   const assets = await assetDirectory();
@@ -201,11 +206,29 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
         !timingSafeEqual(Buffer.from(supplied), Buffer.from(token))
       )
         throw new WorkspaceError("SESSION", "Playground session authorization is required", 403);
+      if (url.pathname === "/api/agents" || url.pathname.startsWith("/api/agents/")) {
+        const method = ["/api/agents", "/api/agents/conversation"].includes(url.pathname) ? "GET" : "POST";
+        if (request.method !== method) throw new WorkspaceError("METHOD", "Method not allowed", 405);
+        agents ??= new AgentRoutes({ files, trusted: () => manager.trusted });
+        const result = await agents.handle(url, request.method === "POST" ? await payload(request) : undefined);
+        if (result === undefined) throw new WorkspaceError("NOT_FOUND", "Not found", 404);
+        json(response, result);
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/results") {
+        const pageText = url.searchParams.get("page") ?? "0";
+        if (!/^\d+$/u.test(pageText)) throw new WorkspaceError("PAGE", "Invalid page", 400);
+        json(
+          response,
+          await manager.page(url.searchParams.get("run") ?? "", url.searchParams.get("result") ?? "", Number(pageText)),
+        );
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/state") {
         const schemaHash = calculateSchemaHash(schema);
         const inventory = await files.list();
         const runList = manager.list();
-        const etag = `"${contentHash(JSON.stringify({ schemaHash, inventory, connection, trusted: manager.trusted, runs: runList.map((run) => [run.id, run.status, run.results.length, run.logs.length, run.error, run.finishedAt]) }))}"`;
+        const etag = `"${contentHash(JSON.stringify({ schemaHash, inventory, connection, trusted: manager.trusted, runs: runList.map((run) => [run.id, run.status, run.results.map((result) => result.paging ?? null), run.logs.length, run.error, run.finishedAt]) }))}"`;
         response.setHeader("ETag", etag);
         if (request.headers["if-none-match"] === etag) {
           response.writeHead(304);
@@ -241,7 +264,9 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           limits,
           runs: runList.map((run) => ({
             ...run,
-            ...(cursors.get(run.id) === run.results.length ? { results: undefined } : {}),
+            ...(cursors.get(run.id) === run.results.length && !run.results.some((result) => result.paging)
+              ? { results: undefined }
+              : {}),
           })),
         });
         return;
@@ -249,6 +274,9 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (request.method !== "POST") throw new WorkspaceError("METHOD", "Method not allowed", 405);
       const body = await payload(request);
       switch (url.pathname) {
+        case "/api/results/close":
+          json(response, manager.closeResult(text(body.run, "run"), text(body.result, "result")));
+          return;
         case "/api/file": {
           const file = text(body.file, "file");
           const contents = await files.read(file);
@@ -464,6 +492,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     token,
     url: `${origin}/#session=${token}`,
     close: async () => {
+      await agents?.close();
       await manager.close();
       server.closeAllConnections();
       await new Promise<void>((resolvePromise, reject) =>

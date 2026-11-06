@@ -1,7 +1,9 @@
 import type { PlaygroundLimits } from "./contracts.js";
+import type { ResultPaging } from "./result-store.js";
 import { decodeValue, type WireValue } from "./values.js";
 
 export interface WorkerRequest {
+  readonly resultDirectory: string;
   readonly config: string;
   readonly target?: string;
   readonly entry: string;
@@ -20,9 +22,11 @@ export type WorkerEvent =
       readonly name: string;
       readonly value: WireValue;
       readonly truncated: boolean;
+      readonly paging?: ResultPaging;
       readonly provenance: "managed" | "unverified";
       readonly target?: unknown;
     }
+  | { readonly type: "cursor-wait" | "cursor-fetch"; readonly id: string }
   | { readonly type: "error"; readonly message: string; readonly code: string }
   | { readonly type: "local-error"; readonly message: string }
   | { readonly type: "done" };
@@ -34,6 +38,12 @@ export function validateWorkerEvent(value: unknown, maximumBytes: number): Worke
     throw new RangeError("Worker event exceeds result limits");
   const event = value as Record<string, unknown>;
   if (event.type === "done") return { type: "done" };
+  if (
+    ["cursor-wait", "cursor-fetch"].includes(String(event.type)) &&
+    typeof event.id === "string" &&
+    /^[a-f0-9-]{36}$/u.test(event.id)
+  )
+    return value as WorkerEvent;
   if (
     event.type === "error" &&
     typeof event.code === "string" &&
@@ -52,6 +62,18 @@ export function validateWorkerEvent(value: unknown, maximumBytes: number): Worke
     ["managed", "unverified"].includes(String(event.provenance)) &&
     Object.hasOwn(event, "value")
   ) {
+    if (event.paging !== undefined) {
+      const p = event.paging as ResultPaging;
+      if (
+        !p ||
+        !/^[a-f0-9-]{36}$/u.test(p.id) ||
+        ![p.rowCount, p.pageCount, p.pageSize].every((n) => Number.isSafeInteger(n) && n >= 0) ||
+        p.pageSize < 1 ||
+        typeof p.complete !== "boolean" ||
+        !["database-cursor", "database-spool", "materialized"].includes(p.source)
+      )
+        throw new TypeError("Invalid result paging metadata");
+    }
     // Check containers before passing any nested data into the browser.
     decodeValue(event.value as WireValue);
     if (event.target !== undefined) {

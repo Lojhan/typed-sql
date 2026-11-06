@@ -6,8 +6,9 @@ import type { Database } from "@typed-sql/core";
 import { register } from "tsx/esm/api";
 import type { PlaygroundTarget } from "./contracts.js";
 import { contentHash, WorkspaceError } from "./files.js";
+import { ResultSpool } from "./result-store.js";
 import { installRunRuntime } from "./runtime.js";
-import { decodeValue, encodeValue } from "./values.js";
+import { decodeValue } from "./values.js";
 import type { WorkerEvent, WorkerRequest } from "./worker-protocol.js";
 
 const send = (event: WorkerEvent) => {
@@ -15,9 +16,15 @@ const send = (event: WorkerEvent) => {
 };
 const controller = new AbortController();
 let initialized = false;
+let pull: { id: string; resume: () => void } | undefined;
 process.on("message", (message: unknown) => {
   if (message && typeof message === "object" && "cancel" in message) {
     controller.abort();
+    return;
+  }
+  if (message && typeof message === "object" && "pull" in message) {
+    const waiting = pull;
+    if (waiting && message.pull === waiting.id) waiting.resume();
     return;
   }
   if (initialized) return;
@@ -31,7 +38,8 @@ async function run(request: WorkerRequest): Promise<void> {
   let target: PlaygroundTarget | undefined;
   let uninstall: (() => void) | undefined;
   let count = 0;
-  let totalBytes = 0;
+  const resultBudget = { bytes: 0 };
+
   const pending = new Set<Promise<unknown>>();
   const wrapDatabase = (database: Database): Database =>
     new Proxy(database, {
@@ -98,20 +106,33 @@ async function run(request: WorkerRequest): Promise<void> {
     const identity = await target?.identity();
     const emit = (name: string, value: unknown, provenance: "managed" | "unverified" = "unverified") => {
       if (++count > 10) throw new WorkspaceError("EXECUTION", "A run can emit at most 10 result sets");
-      let truncated = false;
-      if (Array.isArray(value) && value.length > request.limits.maxRows) {
-        value = value.slice(0, request.limits.maxRows);
-        truncated = true;
-      }
-      const encoded = encodeValue(value, { maxBytes: request.limits.maxResultBytes - totalBytes });
-      totalBytes += Buffer.byteLength(JSON.stringify(encoded));
-      if (totalBytes > request.limits.maxResultBytes)
-        throw new WorkspaceError("EXECUTION", "Result payload exceeds the configured byte limit; narrow the query");
+      const spool = new ResultSpool(
+        request.resultDirectory,
+        request.limits.pageSize ?? 200,
+        request.limits.maxResultBytes,
+        "materialized",
+        request.limits.maxSpoolBytes,
+        resultBudget,
+      );
+      const object =
+        value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+      const allRows = Array.isArray(value) ? value : Array.isArray(object?.rows) ? object.rows : undefined;
+      const limited =
+        allRows !== undefined && request.limits.maxRows !== undefined && allRows.length > request.limits.maxRows;
+      const rows = limited ? allRows!.slice(0, request.limits.maxRows) : allRows;
+      if (rows) {
+        for (let offset = 0; offset < rows.length; offset += spool.pageSize) {
+          const page = rows.slice(offset, offset + spool.pageSize);
+          spool.append(Array.isArray(value) ? page : { ...object, rows: page }, page.length);
+        }
+        if (!rows.length) spool.append(value, 0);
+      } else spool.append(value, 1);
       send({
         type: "result",
         name: name.slice(0, 160),
-        value: encoded,
-        truncated,
+        value: spool.first!,
+        truncated: limited,
+        paging: spool.metadata(!limited),
         provenance,
         ...(provenance === "managed" && identity ? { target: identity } : {}),
       });
@@ -119,22 +140,94 @@ async function run(request: WorkerRequest): Promise<void> {
     if (request.mode === "sql") {
       if (!target || request.sql === undefined)
         throw new WorkspaceError("EXECUTION", "SQL execution requires a configured connected target");
+      const spool = new ResultSpool(
+        request.resultDirectory,
+        request.limits.pageSize ?? 200,
+        request.limits.maxResultBytes,
+        request.readOnly && target.rowStreaming === true ? "database-cursor" : "database-spool",
+        request.limits.maxSpoolBytes,
+        resultBudget,
+      );
+      let limited = false;
+      const publish = (complete: boolean) =>
+        send({
+          type: "result",
+          name: "Query result",
+          value: spool.first!,
+          truncated: limited,
+          paging: spool.metadata(complete),
+          provenance: "managed",
+          ...(identity ? { target: identity } : {}),
+        });
       const result = await target.query({
         text: request.sql,
         values: (request.values ?? []).map(decodeValue),
         readOnly: request.readOnly,
-        maxRows: request.limits.maxRows,
+        maxRows: request.limits.maxRows ?? Number.MAX_SAFE_INTEGER,
+        pageSize: request.limits.pageSize ?? 200,
         maxResultBytes: request.limits.maxResultBytes,
         timeoutMs: request.limits.timeoutMs,
         signal: controller.signal,
+        cursorIdleMs: request.limits.cursorIdleMs ?? 30_000,
+        onRows: async (batch) => {
+          limited ||= batch.truncated;
+          spool.append(batch, batch.rows.length);
+          if (
+            request.readOnly &&
+            target!.rowStreaming === true &&
+            !limited &&
+            batch.rows.length === (request.limits.pageSize ?? 200)
+          ) {
+            // Install demand before publishing so a fast browser request cannot miss its wakeup.
+            await new Promise<void>((resolve, reject) => {
+              let timer: ReturnType<typeof setTimeout>;
+              const cleanup = () => {
+                clearTimeout(timer);
+                controller.signal.removeEventListener("abort", aborted);
+                pull = undefined;
+              };
+              const aborted = () => {
+                cleanup();
+                reject(
+                  new WorkspaceError(
+                    "CURSOR_CLOSED",
+                    "Cursor closed; captured pages are retained as incomplete evidence",
+                  ),
+                );
+              };
+              timer = setTimeout(() => controller.abort(), request.limits.cursorIdleMs ?? 30_000);
+              timer.unref();
+              pull = {
+                id: spool.id,
+                resume: () => {
+                  cleanup();
+                  send({ type: "cursor-fetch", id: spool.id });
+                  resolve();
+                },
+              };
+              controller.signal.addEventListener("abort", aborted, { once: true });
+              if (controller.signal.aborted) aborted();
+              else {
+                send({ type: "cursor-wait", id: spool.id });
+                publish(false);
+              }
+            });
+          }
+        },
       });
-      emit("Query result", result, "managed");
+      if (!spool.pageCount) spool.append(result, result.rows.length);
+      // Command metadata is authoritative only after execution and commit have completed.
+      const first = decodeValue(spool.first!) as Record<string, unknown>;
+      spool.finalizeFirst({ ...result, rows: first.rows });
+      limited ||= result.truncated;
+      publish(!limited);
     } else {
       const database = target
         ? wrapDatabase(
             await target.database({
               readOnly: request.readOnly,
-              maxRows: request.limits.maxRows,
+              maxRows: request.limits.maxRows ?? Number.MAX_SAFE_INTEGER,
+              pageSize: request.limits.pageSize ?? 200,
               maxResultBytes: request.limits.maxResultBytes,
               timeoutMs: request.limits.timeoutMs,
               signal: controller.signal,

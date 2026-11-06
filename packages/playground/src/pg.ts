@@ -67,14 +67,23 @@ interface CursorConstructor {
   ): NativeCursor;
 }
 
-type RunOptions = Pick<PlaygroundQueryRequest, "readOnly" | "maxRows" | "timeoutMs" | "signal" | "maxResultBytes">;
+type RunOptions = Pick<
+  PlaygroundQueryRequest,
+  "readOnly" | "maxRows" | "timeoutMs" | "signal" | "maxResultBytes" | "pageSize"
+>;
 const driverPackage = "pg";
 const cursorPackage = "pg-cursor";
 const defaultMaximumBytes = 5 * 1024 * 1024;
 
 function validateLimits(options: RunOptions): void {
-  if (!Number.isSafeInteger(options.maxRows) || options.maxRows < 1 || options.maxRows > 100_000) {
-    throw new RangeError("Managed PostgreSQL maxRows must be an integer between 1 and 100000");
+  if (!Number.isSafeInteger(options.maxRows) || options.maxRows < 1 || options.maxRows > Number.MAX_SAFE_INTEGER) {
+    throw new RangeError("Managed PostgreSQL maxRows must be an integer between 1 and Number.MAX_SAFE_INTEGER");
+  }
+  if (
+    options.pageSize !== undefined &&
+    (!Number.isSafeInteger(options.pageSize) || options.pageSize < 1 || options.pageSize > 1000)
+  ) {
+    throw new RangeError("Managed PostgreSQL pageSize must be an integer between 1 and 1000");
   }
   if (!Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 120_000) {
     throw new RangeError("Managed PostgreSQL timeoutMs must be an integer between 1 and 120000");
@@ -245,6 +254,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     limits: RunOptions,
     queryParsers?: ReturnType<typeof createPostgresTypeParsers>,
     disposed: () => boolean = () => false,
+    onRows?: PlaygroundQueryRequest["onRows"],
   ): Promise<PlaygroundQueryResult> {
     validateStatement(text, limits.readOnly);
     const { Cursor, parsers } = await load();
@@ -255,10 +265,11 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     let metadata: CursorResult | undefined;
     const rows: unknown[][] = [];
     let bytes = 0;
+    let delivered = 0;
     let truncated = false;
     try {
       while (!truncated) {
-        const count = Math.min(64, limits.maxRows + 1 - rows.length);
+        const count = Math.min(1000, limits.pageSize ?? Math.min(limits.maxRows, 200));
         const batch = await new Promise<unknown[][]>((resolve, reject) => {
           cursor.read(count, (error, resultRows, result) => {
             if (error !== null) {
@@ -269,14 +280,41 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
             resolve(resultRows);
           });
         });
-        for (const row of batch) {
-          bytes += rowBytes(row);
-          if (rows.length >= limits.maxRows || bytes > (limits.maxResultBytes ?? defaultMaximumBytes)) {
-            truncated = true;
-            break;
+        if (onRows) {
+          // The consumer controls demand; PostgreSQL does not fetch the next batch until it resolves.
+          const size = batch.reduce((total, row) => total + rowBytes(row), 0);
+          if (size > (limits.maxResultBytes ?? defaultMaximumBytes))
+            throw new PlaygroundPgError(
+              "TSQL_PLAYGROUND_PAGE_LIMIT",
+              "A result page exceeds the configured byte budget; reduce the page size",
+            );
+          const remaining = limits.maxRows - delivered;
+          const selected = batch.slice(0, remaining);
+          if (selected.length !== batch.length) truncated = true;
+          delivered += selected.length;
+          if (selected.length)
+            await onRows({
+              columns: (metadata?.fields ?? []).map((field) => ({
+                name: field.name,
+                databaseType: `oid:${field.dataTypeID}`,
+              })),
+              rows: selected,
+              truncated,
+            });
+        } else
+          for (const row of batch) {
+            bytes += rowBytes(row);
+            if (bytes > (limits.maxResultBytes ?? defaultMaximumBytes))
+              throw new PlaygroundPgError(
+                "TSQL_PLAYGROUND_RESULT_LIMIT",
+                "Materialized application query exceeds the configured byte budget; use raw SQL paging or narrow the query",
+              );
+            if (rows.length >= limits.maxRows) {
+              truncated = true;
+              break;
+            }
+            rows.push(row);
           }
-          rows.push(row);
-        }
         if (batch.length < count) break;
       }
     } finally {
@@ -287,17 +325,25 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
       rows,
       truncated,
       ...(metadata?.command ? { command: metadata.command } : {}),
-      ...(metadata?.rowCount === null || metadata?.rowCount === undefined ? {} : { affectedRows: metadata.rowCount }),
+      ...(metadata?.rowCount === null || metadata?.rowCount === undefined || metadata.command === "SELECT"
+        ? {}
+        : { affectedRows: metadata.rowCount }),
     };
   }
 
-  async function lease(limits: RunOptions): Promise<{
+  async function lease(
+    limits: RunOptions,
+    streaming = false,
+  ): Promise<{
     client: PoolClient;
+    signal: AbortSignal;
     finish: (commit: boolean) => Promise<boolean>;
     assertActive: () => void;
     disposed: () => boolean;
     abort: () => void;
     cancellationReason: () => "signal" | "deadline" | undefined;
+    pauseDeadline: () => void;
+    resumeDeadline: () => void;
     run: <T>(operation: () => Promise<T>) => Promise<T>;
   }> {
     validateLimits(limits);
@@ -320,10 +366,11 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     let cancellationFallback: ReturnType<typeof setTimeout> | undefined;
     const abort = () => controller.abort();
     limits.signal.addEventListener("abort", abort, { once: true });
-    const timer = setTimeout(() => {
+    const expire = () => {
       deadlineExpired = true;
       controller.abort();
-    }, limits.timeoutMs);
+    };
+    let timer = setTimeout(expire, limits.timeoutMs);
     timer.unref();
     let pid: number | undefined;
     const cancel = () => {
@@ -379,7 +426,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
       pid = identity.rows[0]!.pid;
       await client.query(limits.readOnly ? "BEGIN READ ONLY" : "BEGIN READ WRITE");
       await client.query("select set_config('statement_timeout', $1, true), set_config('lock_timeout', $1, true)", [
-        `${limits.timeoutMs}ms`,
+        streaming ? "0" : `${limits.timeoutMs}ms`,
       ]);
       // Establish a snapshot before author SQL so SET TRANSACTION cannot change read-only/isolation policy.
       await client.query("select 1");
@@ -387,6 +434,13 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
       const leased = client;
       return {
         client: leased,
+        signal: controller.signal,
+        pauseDeadline: () => clearTimeout(timer),
+        resumeDeadline: () => {
+          clearTimeout(timer);
+          timer = setTimeout(expire, limits.timeoutMs);
+          timer.unref();
+        },
         assertActive,
         disposed: () => released || fatalError !== undefined,
         abort: () => controller.abort(),
@@ -455,11 +509,44 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     validateLimits(request);
     let session: Awaited<ReturnType<typeof lease>> | undefined;
     let finished = false;
+    let consumerError: unknown;
     try {
       validateStatement(request.text, request.readOnly);
-      session = await lease(request);
+      session = await lease(request, request.onRows !== undefined);
       const result = await session.run(() =>
-        fetch(session!.client, request.text, request.values, request, parsers, session!.disposed),
+        fetch(
+          session!.client,
+          request.text,
+          request.values,
+          request,
+          parsers,
+          session!.disposed,
+          request.onRows
+            ? async (batch) => {
+                session!.pauseDeadline();
+                let aborted: (() => void) | undefined;
+                const idleTimer = setTimeout(() => session!.abort(), request.cursorIdleMs ?? 30_000);
+                idleTimer.unref();
+                try {
+                  await Promise.race([
+                    Promise.resolve().then(() => request.onRows!(batch)),
+                    new Promise<never>((_resolve, reject) => {
+                      aborted = () => reject(new QueryCancelledError(session!.cancellationReason() ?? "signal"));
+                      session!.signal.addEventListener("abort", aborted, { once: true });
+                      if (session!.signal.aborted) aborted();
+                    }),
+                  ]);
+                } catch (error) {
+                  consumerError = error;
+                  throw error;
+                } finally {
+                  clearTimeout(idleTimer);
+                  if (aborted) session!.signal.removeEventListener("abort", aborted);
+                  session!.resumeDeadline();
+                }
+              }
+            : undefined,
+        ),
       );
       session.assertActive();
       finished = true;
@@ -476,11 +563,13 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
           session === undefined || rolledBack,
         );
       }
+      if (consumerError !== undefined) throw consumerError;
       throw normalize(error, request.readOnly);
     }
   }
 
   return {
+    rowStreaming: true,
     async identity() {
       const { pool } = await load();
       try {

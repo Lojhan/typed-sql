@@ -15,7 +15,7 @@ import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits } from "./contracts.js";
 import { contentHash, WorkspaceError, type WorkspaceFiles } from "./files.js";
 import { analyzeSql, bindSql } from "./sql.js";
-import type { WireValue } from "./values.js";
+import { decodeValue, type WireValue } from "./values.js";
 import { validateWorkerEvent, type WorkerEvent, type WorkerRequest } from "./worker-protocol.js";
 
 export interface RunRequest {
@@ -34,6 +34,16 @@ export interface RunRecord {
   readonly mode: string;
   readonly target: string | null;
   readonly startedAt: string;
+  readonly parameterFingerprint: string;
+  readonly parameterCount: number;
+  readonly timings: {
+    checkMs: number | null;
+    buildMs: number | null;
+    workerMs: number | null;
+    databaseMs: null;
+    fetchMs: null;
+    totalMs: number | null;
+  };
   schemaHash: string | null;
   readonly typePolicyHash: string;
   finishedAt?: string;
@@ -81,6 +91,8 @@ export async function callableExports(source: string): Promise<readonly string[]
 
 export class RunManager {
   readonly records = new Map<string, RunRecord>();
+  private readonly resultWaiters = new Set<() => void>();
+  private readonly resultDirectories = new Map<string, string>();
   private readonly requests = new Map<string, { fingerprint: string; recordId: string }>();
   private active: { record: RunRecord; controller: AbortController; child?: ChildProcess } | undefined;
   trusted = false;
@@ -147,6 +159,9 @@ export class RunManager {
       mode: request.mode,
       target: this.target ?? null,
       startedAt: new Date().toISOString(),
+      parameterFingerprint: contentHash(JSON.stringify(request.values ?? [])),
+      parameterCount: request.values?.length ?? 0,
+      timings: { checkMs: null, buildMs: null, workerMs: null, databaseMs: null, fetchMs: null, totalMs: null },
       schemaHash: this.expectedSchemaHash ?? null,
       typePolicyHash: calculateTypePolicyHash(
         this.loaded.config.typePolicy ?? this.loaded.config.dialect.defaultTypePolicy,
@@ -157,9 +172,16 @@ export class RunManager {
     };
     this.records.set(record.id, record);
     this.requests.set(request.requestId, { fingerprint, recordId: record.id });
-    while (this.records.size > 10) this.records.delete(this.records.keys().next().value!);
+    while (this.records.size > 10) {
+      const oldest = this.records.keys().next().value!;
+      this.records.delete(oldest);
+      const directory = this.resultDirectories.get(oldest);
+      this.resultDirectories.delete(oldest);
+      if (directory) void rm(directory, { recursive: true, force: true });
+    }
     const active = { record, controller: new AbortController() };
     this.active = active;
+    const startTime = performance.now();
     void this.execute(request, active)
       .catch((error) => {
         record.status = "failed";
@@ -174,7 +196,9 @@ export class RunManager {
       })
       .finally(() => {
         record.finishedAt = new Date().toISOString();
+        record.timings.totalMs = performance.now() - startTime;
         if (this.active === active) this.active = undefined;
+        for (const waiter of this.resultWaiters) waiter();
       });
     return record;
   }
@@ -189,9 +213,70 @@ export class RunManager {
     timer.unref();
     return active.record;
   }
+  async page(run: string, result: string, page: number): Promise<unknown> {
+    if (!Number.isSafeInteger(page) || page < 0)
+      throw new WorkspaceError("PAGE", "Page must be a nonnegative integer", 400);
+    const record = this.records.get(run);
+    if (!record) throw new WorkspaceError("RUN_EXPIRED", "Captured run has expired", 410);
+    const find = () => record.results.find((event) => event.paging?.id === result);
+    let event = find();
+    if (!event?.paging) throw new WorkspaceError("RESULT_MISSING", "Captured result does not exist", 404);
+    if (page > event.paging.pageCount) throw new WorkspaceError("PAGE", "Fetch pages in order", 416);
+    if (page === event.paging.pageCount && !event.paging.complete && this.active?.record === record) {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new WorkspaceError("PAGE_TIMEOUT", "Cursor page did not arrive", 408));
+        }, this.limits.timeoutMs + 5000);
+        const cleanup = () => {
+          clearTimeout(timer);
+          this.resultWaiters.delete(changed);
+        };
+        const changed = () => {
+          const next = find()?.paging;
+          if (!next || page < next.pageCount || next.complete || !["running", "cancelling"].includes(record.status)) {
+            cleanup();
+            resolve();
+          }
+        };
+        this.resultWaiters.add(changed);
+        this.active?.child?.send({ pull: result });
+      });
+      event = find()!;
+    }
+    const paging = event.paging!;
+    if (page >= paging.pageCount) return { value: null, hasPage: false, page, nextPage: null, ...paging };
+    const directory = this.resultDirectories.get(run);
+    if (!directory) throw new WorkspaceError("RUN_EXPIRED", "Captured pages have expired", 410);
+    let value: WireValue;
+    try {
+      value = JSON.parse(await readFile(join(directory, result, `${page}.json`), "utf8")) as WireValue;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT")
+        throw new WorkspaceError("RUN_EXPIRED", "Captured pages have expired", 410);
+      throw error;
+    }
+    decodeValue(value);
+    return {
+      value,
+      hasPage: true,
+      page,
+      nextPage: page + 1 < paging.pageCount || !paging.complete ? page + 1 : null,
+      ...paging,
+    };
+  }
+  closeResult(run: string, result: string): RunRecord {
+    const record = this.records.get(run);
+    if (!record?.results.some((event) => event.paging?.id === result))
+      throw new WorkspaceError("RESULT_MISSING", "Captured result does not exist", 404);
+    return this.cancel(run);
+  }
   async close(): Promise<void> {
     const active = this.active;
-    if (!active) return;
+    if (!active) {
+      await Promise.all([...this.resultDirectories.values()].map((path) => rm(path, { recursive: true, force: true })));
+      return;
+    }
     this.cancel(active.record.id);
     await new Promise<void>((resolve) => {
       if (!active.child) {
@@ -205,12 +290,14 @@ export class RunManager {
       }, 2500);
       timer.unref();
     });
+    await Promise.all([...this.resultDirectories.values()].map((path) => rm(path, { recursive: true, force: true })));
   }
   private async execute(
     request: RunRequest,
     active: { record: RunRecord; controller: AbortController; child?: ChildProcess },
   ): Promise<void> {
     const { record, controller } = active;
+    const preflightStarted = performance.now();
     const source = await this.files.read(request.file);
     if (source.revision !== request.revision)
       throw new WorkspaceError("STALE_SOURCE", "File changed since the Run action; reload or save and run again", 409);
@@ -327,8 +414,11 @@ export class RunManager {
         if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
       }
     }
+    record.timings.checkMs = performance.now() - preflightStarted;
+    const buildStarted = performance.now();
     const runDirectory = join(await realpath(this.loaded.directory), ".typed-sql", "playground", "runs", record.id);
     await mkdir(runDirectory, { recursive: true, mode: 0o700 });
+    this.resultDirectories.set(record.id, runDirectory);
     const entry = join(runDirectory, "entry.mjs");
     try {
       if (request.mode !== "sql") {
@@ -480,6 +570,8 @@ export class RunManager {
       const worker = fileURLToPath(
         new URL(import.meta.url.endsWith(".ts") ? "./worker.ts" : "./worker.js", import.meta.url),
       );
+      record.timings.buildMs = performance.now() - buildStarted;
+      const workerStarted = performance.now();
       const child = fork(worker, [], {
         cwd: this.loaded.directory,
         stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -491,13 +583,19 @@ export class RunManager {
       });
       active.child = child;
       record.status = "running";
-      const deadline = setTimeout(() => {
+      const expire = () => {
         controller.abort();
         if (child.connected) child.send({ cancel: true });
         setTimeout(() => child.kill("SIGKILL"), 2000).unref();
         record.status = "cancelling";
-      }, this.limits.timeoutMs);
-      deadline.unref();
+      };
+      let deadline: ReturnType<typeof setTimeout> | undefined;
+      const armDeadline = (milliseconds: number) => {
+        clearTimeout(deadline);
+        deadline = setTimeout(expire, milliseconds);
+        deadline.unref();
+      };
+      armDeadline(this.limits.timeoutMs);
       let completed = false;
       let workerError = false;
       const appendLog = (data: Buffer) => {
@@ -517,26 +615,38 @@ export class RunManager {
           child.kill();
           return;
         }
-        if (event.type === "local-error") {
+        if (event.type === "cursor-wait" || event.type === "cursor-fetch") {
+          if (request.mode !== "sql" || request.readOnly === false) {
+            workerError = true;
+            record.error = { code: "WORKER_PROTOCOL", message: "Cursor lifecycle is only valid for raw read-only SQL" };
+            controller.abort();
+            child.kill();
+            return;
+          }
+          // A partial result never disables execution limits. Cursor idle gets its own bounded watchdog.
+          armDeadline(
+            event.type === "cursor-wait" ? (this.limits.cursorIdleMs ?? 30_000) + 2000 : this.limits.timeoutMs,
+          );
+        } else if (event.type === "local-error") {
           process.stderr.write(`Playground worker: ${event.message}\n`);
         } else if (event.type === "result") {
-          if (
-            record.results.length < 10 &&
-            Buffer.byteLength(JSON.stringify([...record.results, event])) <= this.limits.maxResultBytes
-          )
-            record.results.push(event);
+          const index = record.results.findIndex((existing) => event.paging && existing.paging?.id === event.paging.id);
+          if (index >= 0) record.results[index] = event;
+          else if (record.results.length < 10) record.results.push(event);
           else {
             workerError = true;
-            record.error = { code: "RESULT_LIMIT", message: "Result transport limit reached" };
+            record.error = { code: "RESULT_LIMIT", message: "Result set limit reached" };
             controller.abort();
             child.kill();
           }
+          for (const waiter of this.resultWaiters) waiter();
         } else if (event.type === "error") {
           workerError = true;
           record.error = { code: event.code, message: event.message };
         } else if (event.type === "done") completed = true;
       });
       const payload: WorkerRequest = {
+        resultDirectory: runDirectory,
         config: this.loaded.file,
         ...(this.target ? { target: this.target } : {}),
         entry,
@@ -554,6 +664,7 @@ export class RunManager {
         child.once("exit", () => resolvePromise());
       });
       clearTimeout(deadline);
+      record.timings.workerMs = performance.now() - workerStarted;
       record.status =
         record.error?.code === "OUTCOME_UNKNOWN"
           ? "outcome-unknown"
@@ -569,7 +680,8 @@ export class RunManager {
       if (record.status === "failed" && !record.error)
         record.error = { code: "WORKER_EXIT", message: "Worker exited before confirming completion" };
     } finally {
-      await rm(runDirectory, { recursive: true, force: true });
+      await rm(entry, { force: true });
+      for (const waiter of this.resultWaiters) waiter();
     }
   }
 }

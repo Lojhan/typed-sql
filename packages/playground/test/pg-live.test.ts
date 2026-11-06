@@ -52,9 +52,102 @@ try {
       strict.equal(result.truncated, true);
       const parameterized = await run("select $1::text as value", { values: ["x'; drop table anything; --"] });
       strict.equal(parameterized.rows[0]?.[0], "x'; drop table anything; --");
-      const bytes = await run("select repeat('x', 1000) as payload", { maxResultBytes: 10 });
-      strict.equal(bytes.truncated, true);
-      strict.deepEqual(bytes.rows, []);
+      await strict.rejects(() => run("select repeat('x', 1000) as payload", { maxResultBytes: 10 }), /byte budget/);
+    });
+
+    await it("streams more than 500 rows on demand without duplicates and suspends execution deadlines while idle", async () => {
+      const rows: number[] = [];
+      let pages = 0;
+      let first: (() => void) | undefined;
+      let resume: (() => void) | undefined;
+      const ready = new Promise<void>((resolve) => {
+        first = resolve;
+      });
+      const demand = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      const operation = target.query({
+        text: "select generate_series(1, 1203)::integer as id",
+        values: [],
+        readOnly: true,
+        maxRows: Number.MAX_SAFE_INTEGER,
+        pageSize: 137,
+        timeoutMs: 200,
+        signal: new AbortController().signal,
+        onRows: async (batch) => {
+          pages++;
+          rows.push(...batch.rows.map((row) => row[0] as number));
+          if (pages === 1) {
+            first!();
+            await demand;
+          }
+        },
+      });
+      await ready;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      strict.equal(pages, 1, "no cursor pull before demand");
+      strict.equal(rows.length, 137);
+      resume!();
+      const result = await operation;
+      strict.deepEqual(
+        rows,
+        Array.from({ length: 1203 }, (_, i) => i + 1),
+      );
+      strict.deepEqual(result.rows, [], "streamed result does not accumulate rows in adapter memory");
+      strict.equal(result.truncated, false);
+      strict.equal(result.affectedRows, undefined, "SELECT count is not affected rows");
+    });
+
+    await it("closes an idle cursor on cancellation and releases its connection for another query", async () => {
+      const controller = new AbortController();
+      let started: (() => void) | undefined;
+      const ready = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const operation = target.query({
+        text: "select generate_series(1, 2000)",
+        values: [],
+        readOnly: true,
+        maxRows: Number.MAX_SAFE_INTEGER,
+        pageSize: 100,
+        timeoutMs: 1000,
+        signal: controller.signal,
+        onRows: async () => {
+          started!();
+          await new Promise<void>((_resolve, reject) =>
+            controller.signal.addEventListener("abort", () => reject(new Error("closed")), { once: true }),
+          );
+        },
+      });
+      await ready;
+      controller.abort();
+      await strict.rejects(operation, (error: unknown) => error instanceof PlaygroundPgCancellationError);
+      strict.equal((await run("select 42::integer as value")).rows[0]?.[0], 42);
+    });
+
+    await it("aborts even when a public streaming consumer ignores its signal forever", async () => {
+      const controller = new AbortController();
+      let first: (() => void) | undefined;
+      const ready = new Promise<void>((resolve) => {
+        first = resolve;
+      });
+      const operation = target.query({
+        text: "select generate_series(1,2000)",
+        values: [],
+        readOnly: true,
+        maxRows: Number.MAX_SAFE_INTEGER,
+        pageSize: 100,
+        timeoutMs: 1000,
+        signal: controller.signal,
+        onRows: async () => {
+          first!();
+          await new Promise<void>(() => {});
+        },
+      });
+      await ready;
+      controller.abort();
+      await strict.rejects(operation, (error: unknown) => error instanceof PlaygroundPgCancellationError);
+      strict.equal((await run("select 7::integer as id")).rows[0]?.[0], 7);
     });
 
     await it("rejects multiple statements through the extended protocol", async () => {
