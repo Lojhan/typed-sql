@@ -653,17 +653,18 @@ export class RunManager {
         } else if (event.type === "error") {
           workerError = true;
           record.error = { code: event.code, message: event.message };
-          if (event.database)
-            record.diagnostics.push(
-              databaseDiagnostic(event.database, {
-                file: record.file,
-                sourceRevision: record.sourceRevision,
-                mode: request.mode,
-                source: source.source,
-                ...(sql === undefined ? {} : { sql }),
-                ...(sqlOffsets === undefined ? {} : { offsets: sqlOffsets }),
-              }),
-            );
+          record.diagnostics = event.database
+            ? [
+                databaseDiagnostic(event.database, {
+                  file: record.file,
+                  sourceRevision: record.sourceRevision,
+                  mode: request.mode,
+                  source: source.source,
+                  ...(sql === undefined ? {} : { sql }),
+                  ...(sqlOffsets === undefined ? {} : { offsets: sqlOffsets }),
+                }),
+              ]
+            : [];
         } else if (event.type === "done") completed = true;
       });
       const payload: WorkerRequest = {
