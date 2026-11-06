@@ -379,6 +379,13 @@ export class RunManager {
         entryFile: await this.files.path(request.file),
         includeSqlAssets: true,
         typeScriptTimeoutMs: this.limits.timeoutMs,
+      }).catch((error: unknown) => {
+        if (error instanceof Error && /\bTS6504\b/u.test(error.message))
+          throw new WorkspaceError(
+            "TYPECHECK",
+            "The selected project does not enable JavaScript files. Configure allowJs in its tsconfig to check and run JavaScript; the workspace does not override project settings.",
+          );
+        throw error;
       });
       for (const sqlFile of reachable.filter((path) => path.endsWith(".sql"))) {
         const sqlSource = await readFile(sqlFile, "utf8");
