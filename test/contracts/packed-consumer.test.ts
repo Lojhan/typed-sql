@@ -487,6 +487,7 @@ await describe("packed public packages", async () => {
         import { loadSqlServerOdbcDriver } from "@typed-sql/sqlserver/odbc";
         import "@typed-sql/sqlserver/runtime";
         import "@typed-sql/sqlserver/msnodesqlv8";
+        import "@typed-sql/sqlserver/browser";
         import { duckdb } from "@typed-sql/duckdb";
         import "@typed-sql/duckdb/node-api";
         import "@typed-sql/duckdb/runtime";
@@ -504,12 +505,13 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
-        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "koffi", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-bindings"]) {
+        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "mssql", "tedious", "koffi", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-bindings"]) {
           try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
           catch (error) { if (error.message === driver + " was installed transitively") throw error; }
         }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
+        if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
         if (sqlserver().id !== "sqlserver" || duckdb().id !== "duckdb") throw new Error("native grammar import failed");
