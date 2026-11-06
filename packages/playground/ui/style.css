@@ -2291,8 +2291,11 @@ select {
   border: 0;
   outline: none;
   background: transparent;
-  width: 100%;
-  padding: 0;
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  height: 30px;
+  padding: 4px 8px;
   font-size: 14px;
 }
 .palette-search kbd,
