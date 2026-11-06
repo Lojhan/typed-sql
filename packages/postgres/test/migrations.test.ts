@@ -196,6 +196,38 @@ await describe("PostgreSQL migration adapter without an installed driver", async
       await session.close();
     }
   });
+  await it("restores catalog context after observation errors and marks failed restoration unusable", async () => {
+    const { client, target } = fixture();
+    const session = await target.connect();
+    try {
+      await session.lock(20);
+      await session.begin();
+      client.failure = /with namespaces as/;
+      await strict.rejects(session.capture(), /SQLSTATE/);
+      strict.ok(client.queries.includes("rollback to savepoint typed_sql_catalog_context"));
+      strict.ok(client.queries.includes("release savepoint typed_sql_catalog_context"));
+      client.failure = undefined;
+      await session.execute({ text: "select 1", values: [] });
+      await session.rollback();
+      client.failure = /with namespaces as/;
+      await strict.rejects(session.capture(), /SQLSTATE/);
+      strict.equal(client.queries.at(-1), "rollback");
+      client.failure = undefined;
+    } finally {
+      await session.close();
+    }
+    const broken = fixture();
+    const lost = await broken.target.connect();
+    await lost.lock(20);
+    await lost.begin();
+    broken.client.failure = /rollback to savepoint/;
+    await strict.rejects(
+      lost.capture(),
+      (error: unknown) => error instanceof MigrationError && error.code === "MIGRATION_CATALOG_CONTEXT",
+    );
+    await strict.rejects(lost.close(), /restore its session context/);
+    strict.equal(broken.client.released, true);
+  });
 
   await it("isolates assertion errors with savepoints and discards failed cleanup connections", async () => {
     const { client, target } = fixture();

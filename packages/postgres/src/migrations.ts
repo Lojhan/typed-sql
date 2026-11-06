@@ -414,6 +414,50 @@ class PgMigrationSession implements MigrationSession {
   }
 
   async capture(): Promise<CatalogEvidence> {
+    // PostgreSQL deparsers render defaults, types and definitions through session
+    // settings. Normalize only this observation, without changing migration SQL.
+    // Rolling back a savepoint restores settings and preserves preceding DDL.
+    const nested = this.#transaction;
+    await this.#query(
+      nested ? "savepoint typed_sql_catalog_context" : "begin isolation level repeatable read read only",
+    );
+    let captured: CatalogEvidence | undefined;
+    let captureFailed = false;
+    let captureError: unknown;
+    try {
+      await this.#query(`select
+        pg_catalog.set_config('search_path','pg_catalog',true),
+        pg_catalog.set_config('TimeZone','UTC',true),
+        pg_catalog.set_config('DateStyle','ISO, YMD',true),
+        pg_catalog.set_config('IntervalStyle','postgres',true),
+        pg_catalog.set_config('extra_float_digits','3',true),
+        pg_catalog.set_config('standard_conforming_strings','on',true)
+      `);
+      captured = await this.#captureCatalog();
+    } catch (error) {
+      captureFailed = true;
+      captureError = error;
+    }
+    try {
+      if (nested) {
+        await this.#query("rollback to savepoint typed_sql_catalog_context");
+        await this.#query("release savepoint typed_sql_catalog_context");
+      } else await this.#query("rollback");
+    } catch (error) {
+      const failure = new MigrationError(
+        "MIGRATION_CATALOG_CONTEXT",
+        "Catalog observation could not restore its session context. The connection is unusable; inspect migration state before continuing.",
+        4,
+      );
+      Object.defineProperty(failure, "cause", { value: error });
+      this.#fatal = failure;
+      throw failure;
+    }
+    if (captureFailed) throw captureError;
+    return captured!;
+  }
+
+  async #captureCatalog(): Promise<CatalogEvidence> {
     const environmentResult = await this.#query<{ environment: Record<string, JsonValue> }>(`
       select pg_catalog.jsonb_build_object(
         'encoding',pg_catalog.pg_encoding_to_char(d.encoding),

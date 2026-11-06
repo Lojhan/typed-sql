@@ -24,6 +24,41 @@ const target = createPgMigrationTarget({
 try {
   await admin.query(`create schema "${schema}"`);
   await describe("live PostgreSQL migration session", async () => {
+    await it("normalizes deparsed defaults without changing caller settings or hiding preceding DDL", async () => {
+      const session = await target.connect();
+      try {
+        await session.lock(1000);
+        await session.execute({
+          text: "set timezone = 'Pacific/Honolulu'; set datestyle = 'SQL, DMY'; set intervalstyle = 'iso_8601'; set extra_float_digits=0; set standard_conforming_strings=off",
+          values: [],
+        });
+        const settingsSql =
+          "select current_setting('TimeZone') as timezone,current_setting('DateStyle') as datestyle,current_setting('IntervalStyle') as intervalstyle,current_setting('extra_float_digits') as floats,current_setting('standard_conforming_strings') as strings,current_setting('search_path') as path";
+        const before = (await session.execute({ text: settingsSql, values: [] }))[0];
+        await session.begin();
+        await session.execute({
+          text: `create table "${schema}".deparser_defaults(value timestamptz default '2026-01-01 00:00:00+00'::timestamptz,span interval default '1 day 02:03:04'::interval)`,
+          values: [],
+        });
+        const honolulu = await session.capture();
+        strict.ok(honolulu.objects[migrationCatalogKey("column", schema, "deparser_defaults", "value")]);
+        strict.deepEqual((await session.execute({ text: settingsSql, values: [] }))[0], before);
+        await session.execute({
+          text: "set local timezone='UTC'; set local datestyle='ISO, YMD'; set local intervalstyle='postgres'; set local extra_float_digits=3; set local standard_conforming_strings=on",
+          values: [],
+        });
+        const utc = await session.capture();
+        strict.deepEqual(honolulu, utc);
+        await session.rollback();
+        strict.deepEqual((await session.execute({ text: settingsSql, values: [] }))[0], before);
+        await session.capture();
+        strict.deepEqual((await session.execute({ text: settingsSql, values: [] }))[0], before);
+      } finally {
+        await session.rollback();
+        await session.unlock();
+        await session.close();
+      }
+    });
     await it("captures actual persistent database defaults independently of transient session SET", async () => {
       const session = await target.connect();
       try {
