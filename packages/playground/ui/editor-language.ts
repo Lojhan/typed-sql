@@ -8,11 +8,20 @@ import {
   snippet,
   startCompletion,
 } from "@codemirror/autocomplete";
-import { selectAll } from "@codemirror/commands";
+import { redo, redoDepth, selectAll, undo, undoDepth } from "@codemirror/commands";
 import { type Diagnostic, lintGutter, lintKeymap, setDiagnostics } from "@codemirror/lint";
 import { openSearchPanel } from "@codemirror/search";
 import { EditorSelection, type Extension, StateEffect } from "@codemirror/state";
-import { activateHover, EditorView, hoverTooltip, keymap, ViewPlugin, type ViewUpdate } from "@codemirror/view";
+import {
+  activateHover,
+  closeHoverTooltips,
+  EditorView,
+  hasHoverTooltips,
+  hoverTooltip,
+  keymap,
+  ViewPlugin,
+  type ViewUpdate,
+} from "@codemirror/view";
 import { token } from "./api.js";
 import {
   completionItems,
@@ -88,7 +97,20 @@ function documentation(value: unknown): HTMLElement {
     if (!block.trim()) continue;
     const code = /^```[^\n]*\n([\s\S]*?)```$/u.exec(block);
     const child = document.createElement(code ? "pre" : "div");
-    child.textContent = code?.[1] ?? block;
+    if (code) child.textContent = code[1] ?? "";
+    else {
+      for (const part of block.split(/(\*\*[^*]+\*\*|`[^`]+`)/gu)) {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          const strong = document.createElement("strong");
+          strong.textContent = part.slice(2, -2);
+          child.append(strong);
+        } else if (part.startsWith("`") && part.endsWith("`")) {
+          const inline = document.createElement("code");
+          inline.textContent = part.slice(1, -1);
+          child.append(inline);
+        } else child.append(document.createTextNode(part));
+      }
+    }
     container.append(child);
   }
   return container;
@@ -439,7 +461,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         const changes = view.state.changes([...extras, { ...primary, insert }]);
         view.dispatch({
           changes,
-          selection: EditorSelection.cursor(changes.mapPos(primary.from, -1) + insert.length),
+          selection: EditorSelection.cursor(changes.mapPos(primary.to, 1)),
           userEvent: "input.complete",
         });
       }
@@ -572,6 +594,40 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       dismissOpenMenu = close;
       menu.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
     }
+    private async clipboard(action: "cut" | "paste") {
+      if (settings().readOnly) return;
+      const source = this.view.state.doc.toString();
+      const selection = this.view.state.selection.main;
+      try {
+        const insert = action === "paste" ? await navigator.clipboard.readText() : "";
+        if (action === "cut") await navigator.clipboard.writeText(source.slice(selection.from, selection.to));
+        if (
+          this.disposed ||
+          this.view.state.doc.toString() !== source ||
+          !this.view.state.selection.main.eq(selection)
+        ) {
+          this.status("The source or selection changed; no clipboard edit was applied.");
+          return;
+        }
+        if (
+          new TextEncoder().encode(source.slice(0, selection.from) + insert + source.slice(selection.to)).byteLength >
+          512 * 1024
+        ) {
+          this.status("Clipboard content would exceed the 512 KiB editor limit.");
+          return;
+        }
+        this.view.dispatch({
+          changes: { from: selection.from, to: selection.to, insert },
+          selection: EditorSelection.cursor(selection.from + insert.length),
+          userEvent: action === "paste" ? "input.paste" : "delete.cut",
+        });
+        this.view.focus();
+      } catch {
+        this.status(
+          "Clipboard access was blocked by the browser. Use the keyboard shortcut or grant clipboard access.",
+        );
+      }
+    }
     context(event: MouseEvent) {
       const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
       if (pos === null) return false;
@@ -603,6 +659,40 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           },
         },
         {
+          label: "Undo",
+          shortcut: "Ctrl/⌘Z",
+          disabled: settings().readOnly || !undoDepth(this.view.state) ? "No editable undo history." : undefined,
+          run: () => {
+            undo(this.view);
+          },
+        },
+        {
+          label: "Redo",
+          shortcut: "Ctrl/⌘⇧Z",
+          disabled: settings().readOnly || !redoDepth(this.view.state) ? "No editable redo history." : undefined,
+          run: () => {
+            redo(this.view);
+          },
+        },
+        {
+          label: "Cut selection",
+          shortcut: "Ctrl/⌘X",
+          disabled:
+            settings().readOnly || this.view.state.selection.main.empty
+              ? "Select editable source text first."
+              : undefined,
+          run: () => void this.clipboard("cut"),
+        },
+        {
+          label: "Paste",
+          shortcut: "Ctrl/⌘V",
+          disabled:
+            settings().readOnly || !navigator.clipboard?.readText
+              ? "Clipboard paste is unavailable for this view."
+              : undefined,
+          run: () => void this.clipboard("paste"),
+        },
+        {
           label: "Select all",
           shortcut: "Ctrl/⌘A",
           run: () => {
@@ -611,7 +701,11 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         },
         {
           label: "Copy selection",
-          disabled: this.view.state.selection.main.empty ? "Select source text first." : undefined,
+          disabled: !navigator.clipboard?.writeText
+            ? "Clipboard copy is unavailable in this browser."
+            : this.view.state.selection.main.empty
+              ? "Select source text first."
+              : undefined,
           run: () => {
             void navigator.clipboard
               .writeText(
@@ -633,6 +727,15 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       defaultKeymap: false,
     }),
     keymap.of([
+      {
+        key: "Escape",
+        run: (view) => {
+          if (closeCompletion(view)) return true;
+          if (!hasHoverTooltips(view.state)) return false;
+          view.dispatch({ effects: closeHoverTooltips });
+          return true;
+        },
+      },
       { key: "Ctrl-Space", run: startCompletion },
       { key: "Meta-Space", run: startCompletion },
       {

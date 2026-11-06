@@ -128,6 +128,7 @@ export function Editor({
   initial.current = source;
   useEffect(() => {
     if (!element.current) return;
+    callbacks.current.onLanguageStatus?.("");
     const saved = sessions.get(session);
     sessions.delete(session);
     const readOnlySetting = saved?.readOnly ?? new Compartment();
@@ -152,7 +153,9 @@ export function Editor({
             bracketMatching(),
             foldGutter(),
             syntaxHighlighting(workspaceHighlightStyle),
-            file.endsWith(".sql") ? sql() : javascript({ typescript: true }),
+            file.endsWith(".sql")
+              ? sql()
+              : javascript({ typescript: /\.(?:[cm]?ts|tsx)$/u.test(file), jsx: /\.[jt]sx$/u.test(file) }),
             EditorView.contentAttributes.of({ "aria-label": "Query source editor", spellcheck: "false" }),
             keymap.of([
               {

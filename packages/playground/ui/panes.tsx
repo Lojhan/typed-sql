@@ -1,5 +1,5 @@
 import { type DragEvent, type ReactNode, useRef, useState } from "react";
-import { Icon } from "./icon";
+import { fileIcon, Icon } from "./icon";
 import { type Edge, FILE_MIME, isTool, type Layout, type Pane, title } from "./layout";
 export function Resize({
   axis,
@@ -159,9 +159,7 @@ export function PaneLayout(props: Props) {
                         ? "compare"
                         : tab === "@agent"
                           ? "agent"
-                          : tab.endsWith(".sql")
-                            ? "file-sql"
-                            : "file-ts"
+                          : fileIcon(tab)
                   }
                 />
                 {title(tab)}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { matchCommand } from "./command-model.js";
-import { Icon, type IconName } from "./icon.js";
+import { fileIcon, Icon, type IconName } from "./icon.js";
 import { Modal } from "./modal.js";
 export interface PaletteCommand {
   id: string;
@@ -31,7 +31,7 @@ export function CommandPalette({
         ? files.map((file) => ({
             id: `file:${file}`,
             label: file,
-            icon: (file.endsWith(".sql") ? "file-sql" : "file-ts") as IconName,
+            icon: fileIcon(file),
             group: "Files",
             shortcut: "",
             run: () => onFile(file),

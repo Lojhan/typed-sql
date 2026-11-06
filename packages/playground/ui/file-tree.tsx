@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./icon";
+import { fileIcon, Icon } from "./icon";
 import { FILE_MIME, fileTree, type TreeNode } from "./layout";
 
 interface Draft {
@@ -91,7 +91,7 @@ export function WorkspaceFileTree({
       <li className="tree-draft" key="draft">
         <div className="tree-row" style={{ paddingLeft: 8 + depth * 14 }}>
           <span />
-          <Icon name={draft.folder ? "folder" : draft.name.endsWith(".sql") ? "file-sql" : "file-ts"} />
+          <Icon name={draft.folder ? "folder" : fileIcon(draft.name)} />
           <input
             ref={input}
             aria-label={draft.folder ? "New folder name" : "New file name"}
@@ -153,7 +153,7 @@ export function WorkspaceFileTree({
               }}
             >
               <span />
-              <Icon name={node.path.endsWith(".sql") ? "file-sql" : "file-ts"} />
+              <Icon name={fileIcon(node.path)} />
               <span className="tree-name">{node.name}</span>
             </button>
           ) : (

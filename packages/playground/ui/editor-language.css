@@ -48,36 +48,38 @@
   color: var(--text);
   white-space: pre-wrap;
 }
-.cm-tooltip {
+:root[data-theme] .cm-tooltip {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel);
   color: var(--text);
   box-shadow: 0 4px 18px #0003;
 }
-.cm-tooltip.cm-tooltip-autocomplete {
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete {
   max-width: min(620px, calc(100vw - 24px));
 }
-.cm-tooltip-autocomplete > ul {
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete > ul {
   font:
     12px / 1.6 "SFMono-Regular",
     Consolas,
     monospace;
   max-height: min(280px, 40vh);
 }
-.cm-tooltip-autocomplete > ul > li {
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete > ul > li {
   padding: 3px 8px;
+  color: var(--text);
+  background: var(--panel);
 }
-.cm-tooltip-autocomplete > ul > li[aria-selected] {
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
   background: var(--selected);
   color: var(--text);
 }
-.cm-completionDetail {
+:root[data-theme] .cm-completionDetail {
   color: var(--muted);
   margin-left: 12px;
   font-size: 11px;
 }
-.cm-tooltip-lint {
+:root[data-theme] .cm-tooltip.cm-tooltip-lint {
   max-width: min(620px, calc(100vw - 24px));
   font:
     12px / 1.5 -apple-system,
@@ -85,18 +87,18 @@
     "Segoe UI",
     sans-serif;
 }
-.cm-diagnostic {
+:root[data-theme] .cm-diagnostic {
   padding: 6px 10px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.cm-diagnosticSource {
+:root[data-theme] .cm-diagnosticSource {
   color: var(--muted);
 }
-.cm-gutter-lint {
+:root[data-theme] .cm-gutter-lint {
   width: 14px;
 }
-.cm-lintRange-error {
+:root[data-theme] .cm-lintRange-error {
   text-decoration-color: var(--danger);
 }
 .editor-context-menu {
@@ -140,4 +142,19 @@
 }
 .editor-context-menu button:disabled:hover {
   background: transparent;
+}
+
+:root[data-theme="light"] {
+  --file-js: #84681c;
+}
+:root[data-theme="dark"] {
+  --file-js: #d6bd67;
+}
+:root[data-theme] .file-tree .icon-file-js,
+:root[data-theme] .pane-tab .icon-file-js,
+:root[data-theme] .palette-options .icon-file-js {
+  color: var(--file-js);
+}
+:root[data-theme] .icon-file-json {
+  color: var(--muted);
 }

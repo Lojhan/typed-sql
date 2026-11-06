@@ -1,6 +1,8 @@
 export type IconName =
   | "folder"
   | "file-ts"
+  | "file-js"
+  | "file-json"
   | "file-sql"
   | "chevron"
   | "new-file"
@@ -23,6 +25,12 @@ export type IconName =
   | "check"
   | "warning"
   | "lock";
+export function fileIcon(file: string): IconName {
+  if (file.endsWith(".sql")) return "file-sql";
+  if (/\.(?:[cm]?js|jsx)$/u.test(file)) return "file-js";
+  if (/\.jsonc?$/u.test(file)) return "file-json";
+  return "file-ts";
+}
 /** Same 16px geometry as the documentation editor's EditorIcon. */
 export function Icon({ name }: { name: IconName }) {
   const paths: Partial<Record<IconName, string>> = {
@@ -52,7 +60,7 @@ export function Icon({ name }: { name: IconName }) {
   };
   return (
     <svg className={`editor-icon icon-${name}`} viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      {name === "file-ts" ? (
+      {["file-ts", "file-js", "file-json"].includes(name) ? (
         <>
           <rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="currentColor" opacity=".13" />
           <text
@@ -64,7 +72,7 @@ export function Icon({ name }: { name: IconName }) {
             fontSize="8"
             fontWeight="600"
           >
-            TS
+            {name === "file-js" ? "JS" : name === "file-json" ? "{}" : "TS"}
           </text>
         </>
       ) : name === "file-sql" ? (
