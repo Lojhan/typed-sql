@@ -339,7 +339,8 @@ ${ts}`;
   await hover.waitFor({ state: "detached" });
   await page.mouse.click(menuPoint.x, menuPoint.y, { button: "right" });
   await menu.waitFor();
-  await page.mouse.click(2, 2);
+  // Dismiss outside the menu without toggling the full-row Files disclosure.
+  await page.locator(".document-path").click();
   await menu.waitFor({ state: "detached" });
   check("editor context actions are keyboard reachable and close on Escape/outside click");
   await invoke("playground/query.sql");
