@@ -404,6 +404,9 @@ export interface PlaygroundConfiguration {
   readonly limits?: {
     readonly timeoutMs?: number;
     readonly maxRows?: number;
+    readonly pageSize?: number;
+    readonly maxSpoolBytes?: number;
+    readonly cursorIdleMs?: number;
     readonly maxResultBytes?: number;
     readonly maxConsoleBytes?: number;
   };

@@ -33,7 +33,11 @@ export function validatePlaygroundConfiguration(value: unknown): asserts value i
     throw new WorkspaceError("CONFIG", "playground.scratchDirectory must be a nonempty path");
   if (config.limits !== undefined) {
     const limits = object(config.limits, "playground.limits");
-    keys(limits, ["timeoutMs", "maxRows", "maxResultBytes", "maxConsoleBytes"], "playground.limits");
+    keys(
+      limits,
+      ["timeoutMs", "maxRows", "pageSize", "maxSpoolBytes", "cursorIdleMs", "maxResultBytes", "maxConsoleBytes"],
+      "playground.limits",
+    );
     for (const [name, limit] of Object.entries(limits))
       if (typeof limit !== "number" || !Number.isSafeInteger(limit) || limit < 1)
         throw new WorkspaceError("CONFIG", `playground.limits.${name} must be a positive integer`);
