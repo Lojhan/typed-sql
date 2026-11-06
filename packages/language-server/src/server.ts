@@ -32,6 +32,13 @@ import { ResolveContexts, resolveMethodFor } from "./resolve-context.js";
 import { projectSemanticTokens, SemanticTokenResults } from "./semantic-tokens.js";
 import { UriMap } from "./uri-map.js";
 
+function languageIdForFile(file: string): string {
+  if (file.endsWith(".sql")) return "sql";
+  if (file.endsWith(".jsx")) return "javascriptreact";
+  if (/\.[cm]?js$/u.test(file)) return "javascript";
+  return file.endsWith(".tsx") ? "typescriptreact" : "typescript";
+}
+
 interface Position {
   readonly line: number;
   readonly character: number;
@@ -603,7 +610,7 @@ async function preloadWorkspaceDocuments(): Promise<void> {
       const uri = pathToFileURL(fileName).href;
       if (documents.has(uri) || virtualDocuments.has(uri)) continue;
       const text = await readFile(fileName, "utf8");
-      const original = TextDocument.create(uri, /\.tsx$/u.test(fileName) ? "typescriptreact" : "typescript", 0, text);
+      const original = TextDocument.create(uri, languageIdForFile(fileName), 0, text);
       const state = await createState(original);
       if (documents.has(uri) || virtualDocuments.has(uri)) continue;
       if (state.analysis?.queries.length === 0 || state.analysis === undefined) continue;
@@ -998,7 +1005,7 @@ client.onNotification("textDocument/didClose", (rawParams) => {
       const text = await readFile(fileName, "utf8");
       const original = TextDocument.create(
         params.textDocument.uri,
-        previous?.original.languageId ?? "typescript",
+        previous?.original.languageId ?? languageIdForFile(fileName),
         0,
         text,
       );

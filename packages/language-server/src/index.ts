@@ -581,7 +581,7 @@ export class TypedSqlLanguageService {
         const path = join(directory, entry.name);
         if (entry.isDirectory()) {
           if (!excluded.has(entry.name) && entry.name !== "generated") await visit(path);
-        } else if (entry.isFile() && (/\.tsx?$/u.test(entry.name) || /\.[cm]ts$/u.test(entry.name))) files.push(path);
+        } else if (entry.isFile() && /\.(?:[cm]?[jt]s|[jt]sx)$/u.test(entry.name)) files.push(path);
       }
     };
     for (const root of roots) await visit(root);

@@ -72,6 +72,17 @@ async function packageRoot(root: string, name: string): Promise<string | undefin
   }
   return undefined;
 }
+interface WorkingCopy {
+  readonly file: string;
+  readonly source: string;
+  readonly revision: string;
+}
+function languageId(file: string): string {
+  if (file.endsWith(".sql")) return "sql";
+  if (file.endsWith(".jsx")) return "javascriptreact";
+  if (/\.[cm]?js$/u.test(file)) return "javascript";
+  return file.endsWith(".tsx") ? "typescriptreact" : "typescript";
+}
 export interface EditorRoutesOptions {
   readonly files: WorkspaceFiles;
   readonly configFile: string;
@@ -90,6 +101,8 @@ export class EditorRoutes {
   private readonly documents = new Map<string, { hash: string; version: number }>();
   private readonly latest = new Map<string, string>();
   private readonly queues = new Map<string, Promise<unknown>>();
+  private globalQueue: Promise<unknown> = Promise.resolve();
+  private readonly dirtyDocuments = new Set<string>();
   private readonly definitions = new Map<string, { path: string; uri: string; file: string; revision: string }>();
   private schemaStamp: string | undefined;
   private stopped = false;
@@ -105,6 +118,7 @@ export class EditorRoutes {
       this.starting = undefined;
       this.initialization = undefined;
       this.documents.clear();
+      this.dirtyDocuments.clear();
       this.retryFailure = true;
       this.retryAt = Date.now() + 1000;
       throw new WorkspaceError("EDITOR_SERVER", "Language server stopped; retry after it restarts", 503);
@@ -171,6 +185,7 @@ export class EditorRoutes {
       this.client = undefined;
       this.starting = undefined;
       this.documents.clear();
+      this.dirtyDocuments.clear();
       this.retryAt = Date.now() + 1000;
       this.retryFailure = true;
       throw error;
@@ -191,29 +206,85 @@ export class EditorRoutes {
       Buffer.byteLength(body.source) > 512 * 1024
     )
       throw new WorkspaceError("EDITOR_INPUT", "Expected a bounded source, file, revision, and supported method");
-    if (JSON.stringify(body).length > 1024 * 1024)
-      throw new WorkspaceError("EDITOR_LIMIT", "Editor request exceeds its limit");
+    if (Buffer.byteLength(JSON.stringify(body)) > 1024 * 1024)
+      throw new WorkspaceError(
+        "EDITOR_LIMIT",
+        "The complete editor context exceeds 1 MiB. Save some working copies and retry",
+      );
     const file = body.file;
     const source = body.source;
     const revision = body.revision;
     const sourceHash = contentHash(source);
+    const copies: WorkingCopy[] = [];
+    if (body.workingCopies !== undefined && !Array.isArray(body.workingCopies))
+      throw new WorkspaceError("EDITOR_CONTEXT", "Working copies must be a complete array");
+    const seen = new Set<string>([file]);
+    for (const copy of (body.workingCopies ?? []) as unknown[]) {
+      if (
+        !object(copy) ||
+        typeof copy.file !== "string" ||
+        typeof copy.source !== "string" ||
+        typeof copy.revision !== "string" ||
+        seen.has(copy.file) ||
+        Buffer.byteLength(copy.source) > 512 * 1024
+      )
+        throw new WorkspaceError(
+          "EDITOR_CONTEXT",
+          "Working copies require unique other files, bounded sources, and saved revisions",
+        );
+      seen.add(copy.file);
+      copies.push({ file: copy.file, source: copy.source, revision: copy.revision });
+    }
+    if (copies.length > 63)
+      throw new WorkspaceError(
+        "EDITOR_LIMIT",
+        "Keep at most 63 other dirty working copies open for editor intelligence",
+      );
+    copies.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+    const workingCopyHash = contentHash(JSON.stringify(copies));
+    const contextKey = `${sourceHash}:${workingCopyHash}`;
+
     if (this.pendingRequests >= 64) throw new WorkspaceError("EDITOR_BUSY", "Too many editor requests", 429);
     this.pendingRequests += 1;
-    this.latest.set(file, sourceHash);
-    const previous = this.queues.get(file) ?? Promise.resolve();
+    this.latest.set(file, contextKey);
+    const previous = this.globalQueue;
     const operation = previous
       .catch(() => undefined)
       .then(async () => {
         const path = await this.options.files.path(file);
         const uri = pathToFileURL(path).href;
         const assertCurrent = async () => {
-          if (this.latest.get(file) !== sourceHash || (await this.options.files.read(file)).revision !== revision)
+          if (this.latest.get(file) !== contextKey || (await this.options.files.read(file)).revision !== revision)
             throw new WorkspaceError("EDITOR_STALE", "Source changed; request fresh editor information", 409);
         };
+        const assertCopies = async () => {
+          const paths = new Set([await realpath(path)]);
+          for (const copy of copies) {
+            const copyPath = await realpath(await this.options.files.path(copy.file));
+            if (paths.has(copyPath))
+              throw new WorkspaceError("EDITOR_CONTEXT", "Working copies must identify unique other project files");
+            paths.add(copyPath);
+            if ((await this.options.files.read(copy.file)).revision !== copy.revision)
+              throw new WorkspaceError(
+                "EDITOR_STALE",
+                "A working copy changed on disk; reload it before requesting editor information",
+                409,
+              );
+          }
+        };
+        await assertCopies();
         await assertCurrent();
         const identity = this.options.identity?.();
         const stamp = contentHash(await boundedRead(await realpath(this.options.schemaFile), 16 * 1024 * 1024));
-        const base = { file, revision, uri, sourceHash, schemaIdentity: identity, projectSnapshotHash: stamp };
+        const base = {
+          file,
+          revision,
+          uri,
+          sourceHash,
+          workingCopyHash,
+          schemaIdentity: identity,
+          projectSnapshotHash: stamp,
+        };
         let initialization: Record<string, unknown> | undefined;
         try {
           initialization = await this.start();
@@ -249,33 +320,28 @@ export class EditorRoutes {
           });
         }
         this.schemaStamp = stamp;
-        let document = this.documents.get(file);
-        if (document === undefined) {
-          if (this.documents.size >= 64) {
-            const oldest = this.documents.keys().next().value!;
-            client.notify("textDocument/didClose", {
-              textDocument: { uri: pathToFileURL(await this.options.files.path(oldest)).href },
-            });
-            this.documents.delete(oldest);
-          }
-          document = { hash: sourceHash, version: 1 };
-          this.documents.set(file, document);
-          client.notify("textDocument/didOpen", {
-            textDocument: {
-              uri,
-              languageId: file.endsWith(".sql") ? "sql" : "typescript",
-              version: document.version,
-              text: source,
-            },
-          });
-        } else if (document.hash !== sourceHash) {
-          document = { hash: sourceHash, version: document.version + 1 };
-          this.documents.set(file, document);
-          client.notify("textDocument/didChange", {
-            textDocument: { uri, version: document.version },
-            contentChanges: [{ text: source }],
-          });
+        const protectedFiles = new Set([file, ...copies.map((copy) => copy.file)]);
+        const desiredDirty = new Set(copies.map((copy) => copy.file));
+        if (sourceHash !== revision) desiredDirty.add(file);
+        for (const old of this.dirtyDocuments) {
+          if (desiredDirty.has(old)) continue;
+          const oldUri = pathToFileURL(resolve(this.options.files.root, old)).href;
+          client.notify("textDocument/didClose", { textDocument: { uri: oldUri } });
+          this.documents.delete(old);
+          this.dirtyDocuments.delete(old);
+          // Await the document queue, including restoring its saved disk source.
+          await client.request("textDocument/diagnostic", { textDocument: { uri: oldUri } });
         }
+        for (const copy of copies) {
+          const copyUri = await this.syncDocument(copy, protectedFiles);
+          this.dirtyDocuments.add(copy.file);
+          // The target may import this document. Commit its overlay before querying the target.
+          await client.request("textDocument/diagnostic", { textDocument: { uri: copyUri } });
+        }
+        await this.syncDocument({ file, source, revision }, protectedFiles);
+        if (sourceHash !== revision) this.dirtyDocuments.add(file);
+        else this.dirtyDocuments.delete(file);
+        const document = this.documents.get(file)!;
         const params: Record<string, unknown> = { textDocument: { uri } };
         if (["hover", "completion", "definition"].includes(body.method as string)) {
           if (
@@ -303,6 +369,7 @@ export class EditorRoutes {
             body.method === "completionResolve" ? body.item : params,
           );
         await assertCurrent();
+        await assertCopies();
         const now = contentHash(await boundedRead(await realpath(this.options.schemaFile), 16 * 1024 * 1024));
         if (now !== stamp || JSON.stringify(this.options.identity?.()) !== JSON.stringify(identity))
           throw new WorkspaceError("EDITOR_STALE", "Schema changed; request fresh editor information", 409);
@@ -320,6 +387,7 @@ export class EditorRoutes {
           },
         };
       });
+    this.globalQueue = operation;
     this.queues.set(file, operation);
     try {
       return await operation;
@@ -330,6 +398,37 @@ export class EditorRoutes {
         this.latest.delete(file);
       }
     }
+  }
+  private async syncDocument(copy: WorkingCopy, protectedFiles: ReadonlySet<string>): Promise<string> {
+    const client = this.client!;
+    const uri = pathToFileURL(await this.options.files.path(copy.file)).href;
+    const hash = contentHash(copy.source);
+    let document = this.documents.get(copy.file);
+    if (document === undefined) {
+      if (this.documents.size >= 64) {
+        const oldest = [...this.documents.keys()].find((file) => !protectedFiles.has(file));
+        if (oldest === undefined)
+          throw new WorkspaceError("EDITOR_LIMIT", "The complete working-copy context exceeds the open document limit");
+        client.notify("textDocument/didClose", {
+          textDocument: { uri: pathToFileURL(resolve(this.options.files.root, oldest)).href },
+        });
+        this.documents.delete(oldest);
+        this.dirtyDocuments.delete(oldest);
+      }
+      document = { hash, version: 1 };
+      this.documents.set(copy.file, document);
+      client.notify("textDocument/didOpen", {
+        textDocument: { uri, languageId: languageId(copy.file), version: document.version, text: copy.source },
+      });
+    } else if (document.hash !== hash) {
+      document = { hash, version: document.version + 1 };
+      this.documents.set(copy.file, document);
+      client.notify("textDocument/didChange", {
+        textDocument: { uri, version: document.version },
+        contentChanges: [{ text: copy.source }],
+      });
+    }
+    return uri;
   }
   private async authorizedDefinition(uri: string): Promise<{ path: string; file: string } | undefined> {
     if (!uri.startsWith("file:")) return undefined;
@@ -410,5 +509,6 @@ export class EditorRoutes {
     await this.starting?.catch(() => undefined);
     this.definitions.clear();
     this.documents.clear();
+    this.dirtyDocuments.clear();
   }
 }
