@@ -872,36 +872,81 @@ body.is-resizing iframe {
   margin-left: auto;
 }
 .schema-canvas {
+  display: flex;
+  flex-direction: column;
   position: relative;
   flex: 1;
   min-height: 0;
   background: var(--editor);
 }
 .canvas-toolbar {
-  position: absolute;
-  z-index: 5;
-  top: 13px;
-  left: 14px;
-  right: 14px;
   display: flex;
-  justify-content: space-between;
-  pointer-events: none;
-  font-size: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 5px 8px;
+  flex: none;
+  min-height: 36px;
+  border-bottom: 1px solid var(--border);
+  background: var(--editor);
   color: var(--muted);
+  font-size: 11px;
+}
+.canvas-toolbar > span {
+  margin-right: auto;
+  white-space: nowrap;
 }
 .canvas-toolbar > div {
   display: flex;
   gap: 4px;
-  pointer-events: auto;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 .canvas-toolbar button {
-  font-size: 10px;
+  height: 26px;
+  font-size: 11px;
+  padding: 3px 7px;
   border: 1px solid var(--border);
   background: var(--panel);
 }
-.canvas-toolbar > span {
-  padding: 5px 7px;
-  background: #f7fafce0;
+.canvas-toolbar button[aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--accent);
+}
+.canvas-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.schema-canvas .canvas-viewport > .react-flow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.schema-tab > .tool-toolbar {
+  height: 33px;
+  min-height: 33px;
+  gap: 8px;
+  padding: 0 9px;
+}
+.schema-tab > .tool-toolbar input {
+  flex: 1;
+  min-width: 60px;
+  width: auto;
+  max-width: 220px;
+}
+.schema-tab > .tool-toolbar > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.schema-tab > .tool-toolbar button {
+  flex: none;
+  margin-left: auto;
+  height: 26px;
 }
 .table-node {
   width: 285px;
@@ -990,22 +1035,42 @@ body.is-resizing iframe {
   background: #7f9eb2;
   border: 1px solid white;
 }
-.react-flow__controls {
+.schema-canvas .react-flow__controls {
   border: 1px solid var(--border);
   border-radius: 4px;
   box-shadow: none;
+  overflow: hidden;
+  margin: 8px;
 }
-.react-flow__controls-button {
+.schema-canvas .react-flow__controls-button {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
   border: 0;
   border-bottom: 1px solid var(--border);
-  color: #7a8e9c;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 5px;
+}
+.schema-canvas .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+.schema-canvas .react-flow__controls-button:hover {
+  background: var(--hover);
+}
+.schema-canvas .react-flow__controls-button svg {
+  fill: currentColor;
+}
+.schema-canvas .react-flow__minimap {
+  border: 0;
+  border-radius: 4px;
+  margin: 8px;
+  box-shadow: 0 0 0 1px var(--border);
+  overflow: hidden;
   background: var(--panel);
 }
-.react-flow__minimap {
-  height: 75px;
-  width: 115px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+.schema-canvas .react-flow__minimap svg {
+  display: block;
 }
 .react-flow__attribution {
   font-size: 7px;
@@ -1020,14 +1085,13 @@ body.is-resizing iframe {
   fill: var(--editor);
 }
 .canvas-note {
-  position: absolute;
-  left: 50px;
-  bottom: 12px;
-  max-width: 60%;
+  flex: none;
+  padding: 5px 8px;
+  border-top: 1px solid var(--border);
   background: var(--editor);
-  font-size: 9px;
+  font-size: 10px;
+  line-height: 16px;
   color: var(--muted);
-  padding: 5px;
 }
 .schema-selection {
   height: 30px;
@@ -2430,5 +2494,26 @@ select {
   }
   .palette-hint {
     font-size: 9px;
+  }
+}
+
+:root {
+  --board-grid: #ced9e2;
+  --board-edge: #a3b2be;
+  --board-minimap-node: #b9d0e2;
+  --board-minimap-mask: #edf3f7b8;
+}
+:root[data-theme="dark"] {
+  --board-grid: #3c4854;
+  --board-edge: #73879a;
+  --board-minimap-node: #637e96;
+  --board-minimap-mask: #1d252dc7;
+}
+.schema-tab {
+  container-type: inline-size;
+}
+@container (max-width: 420px) {
+  .schema-tab > .tool-toolbar > span {
+    display: none;
   }
 }

@@ -9,8 +9,10 @@ import {
   type NodeProps,
   Position,
   ReactFlow,
+  type ReactFlowInstance,
 } from "@xyflow/react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "./icon.js";
 import type { Board, Table } from "./types";
 import "@xyflow/react/dist/style.css";
 
@@ -20,7 +22,9 @@ const TableNode = memo(function TableNode({ data }: NodeProps<TableNodeType>) {
   return (
     <article className={`table-node ${data.selectedTable === table.id ? "is-selected" : ""}`}>
       <header>
-        <span className="table-icon">▦</span>
+        <span className="table-icon">
+          <Icon name="schema" />
+        </span>
         <div>
           <small>{table.namespace || "default"}</small>
           <strong>{table.name}</strong>
@@ -56,7 +60,10 @@ function initialPositions(board: Board): Map<string, { x: number; y: number }> {
       neighbors.get(edge.target)!.push(edge.source);
     }
   }
-  let componentY = 0;
+  let componentX = 0,
+    componentY = 0,
+    rowHeight = 0;
+  const rowWidth = Math.max(730, Math.min(2920, Math.ceil(Math.sqrt(board.tables.length)) * 365));
   for (const table of board.tables) {
     if (visited.has(table.id)) continue;
     const queue: [string, number][] = [[table.id, 0]];
@@ -70,17 +77,24 @@ function initialPositions(board: Board): Map<string, { x: number; y: number }> {
       layers.set(depth, layer);
       for (const next of neighbors.get(id) ?? []) if (!visited.has(next)) queue.push([next, depth + 1]);
     }
-    let bottom = componentY;
+    const width = Math.max(...layers.keys(), 0) * 365 + 285;
+    if (componentX && componentX + width > rowWidth) {
+      componentX = 0;
+      componentY += rowHeight + 50;
+      rowHeight = 0;
+    }
+    let height = 0;
     for (const [depth, ids] of layers) {
-      let y = componentY;
+      let y = 0;
       for (const id of ids) {
-        const item = board.tables.find((t) => t.id === id)!;
-        result.set(id, { x: depth * 365, y });
+        const item = board.tables.find((table) => table.id === id)!;
+        result.set(id, { x: componentX + depth * 365, y: componentY + y });
         y += 118 + item.columns.length * 30;
       }
-      bottom = Math.max(bottom, y);
+      height = Math.max(height, y);
     }
-    componentY = bottom + 50;
+    rowHeight = Math.max(rowHeight, height);
+    componentX += width + 80;
   }
   return result;
 }
@@ -99,6 +113,19 @@ export function SchemaBoard({
   identity: string;
 }) {
   const [focus, setFocus] = useState(false);
+  const [flow, setFlow] = useState<ReactFlowInstance<TableNodeType> | null>(null);
+  const viewport = useRef<HTMLDivElement>(null);
+  const [overview, setOverview] = useState(true);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      const rect = element.getBoundingClientRect();
+      setOverview(rect.width >= 260 && rect.height >= 180);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const [nodes, setNodes] = useState<TableNodeType[]>([]);
   const visible = useMemo(() => {
     const matching = board.tables.filter((table) =>
@@ -146,7 +173,7 @@ export function SchemaBoard({
           type: "smoothstep",
           animated: false,
           style: {
-            stroke: selected === edge.source || selected === edge.target ? "#5c876b" : "#acb8a5",
+            stroke: selected === edge.source || selected === edge.target ? "var(--accent)" : "var(--board-edge)",
             strokeWidth: 1.5,
           },
           label: i === 0 ? edge.name : undefined,
@@ -166,6 +193,24 @@ export function SchemaBoard({
       /* Storage may be disabled. */
     }
   }, [nodes, storageKey]);
+  const visibleKey = visible.map((table) => table.id).join("\0");
+  useEffect(() => {
+    if (!flow || !visibleKey) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        void flow.fitView({ padding: 0.18, maxZoom: 1, duration: 0 });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [flow, visibleKey]);
+  const notes = [
+    ...(!board.capturedRelationships ? ["Relationships were not captured in this snapshot."] : []),
+    ...(board.tables.length > 100 ? ["Showing up to 100 relations. Search or focus a relation to explore more."] : []),
+  ];
   return (
     <div className="schema-canvas">
       <div className="canvas-toolbar">
@@ -176,6 +221,7 @@ export function SchemaBoard({
           <button
             type="button"
             className={focus ? "active" : ""}
+            aria-pressed={focus}
             onClick={() => setFocus((value) => !value)}
             disabled={!selected}
           >
@@ -184,9 +230,16 @@ export function SchemaBoard({
           <button
             type="button"
             onClick={() => {
-              localStorage.removeItem(storageKey);
+              try {
+                localStorage.removeItem(storageKey);
+              } catch {
+                /* Display storage may be disabled. */
+              }
               setNodes((current) =>
                 current.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position })),
+              );
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => void flow?.fitView({ padding: 0.18, maxZoom: 1, duration: 180 })),
               );
             }}
           >
@@ -194,34 +247,43 @@ export function SchemaBoard({
           </button>
         </div>
       </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={changed}
-        onNodeClick={(_, node) => onSelect(node.id)}
-        onNodeDragStop={saveLayout}
-        fitView
-        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-        minZoom={0.15}
-        maxZoom={1.5}
-        nodesConnectable={false}
-        deleteKeyCode={null}
-        onlyRenderVisibleElements
-        proOptions={{ hideAttribution: false }}
-      >
-        <Background color="#d9dfd5" gap={22} size={1} />
-        <Controls showInteractive={false} />
-        <MiniMap nodeColor="#e1e9dd" maskColor="rgba(248,250,246,.6)" pannable zoomable />
-      </ReactFlow>
-      {!board.capturedRelationships ? (
-        <div className="canvas-note">
-          Relationships were not captured in this snapshot. No edges have been inferred.
-        </div>
-      ) : null}
-      {board.tables.length > 100 ? (
-        <div className="canvas-note">Showing a bounded neighborhood. Search or focus a relation to explore more.</div>
-      ) : null}
+      <div className="canvas-viewport" ref={viewport}>
+        <ReactFlow
+          onInit={setFlow}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={changed}
+          onNodeClick={(_, node) => onSelect(node.id)}
+          onNodeDragStop={saveLayout}
+          fitView
+          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+          minZoom={0.04}
+          maxZoom={1.5}
+          nodesConnectable={false}
+          deleteKeyCode={null}
+          onlyRenderVisibleElements
+          proOptions={{ hideAttribution: false }}
+        >
+          <Background color="var(--board-grid)" gap={22} size={1} />
+          <Controls showInteractive={false} position="bottom-left" fitViewOptions={{ padding: 0.18, maxZoom: 1 }} />
+          {overview ? (
+            <MiniMap
+              ariaLabel="Schema overview"
+              position="top-right"
+              style={{ width: 128, height: 88 }}
+              nodeColor="var(--board-minimap-node)"
+              nodeStrokeColor="var(--board-edge)"
+              bgColor="var(--panel)"
+              maskColor="var(--board-minimap-mask)"
+              maskStrokeColor="var(--accent)"
+              pannable
+              zoomable
+            />
+          ) : null}
+        </ReactFlow>
+      </div>
+      {notes.length ? <div className="canvas-note">{notes.join(" ")}</div> : null}
     </div>
   );
 }
