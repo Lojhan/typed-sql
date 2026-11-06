@@ -85,8 +85,40 @@ try {
     }),
   );
   await writeFile(
+    join(root, "explorer-targets.json"),
+    JSON.stringify({
+      schemas: commerceNamespaces,
+      database,
+      replayDatabase,
+      databaseUrl: connection(database),
+      replayUrl: connection(replayDatabase),
+    }),
+    { mode: 0o600 },
+  );
+  await writeFile(
     join(root, "typed-sql.config.mjs"),
-    `import{defineConfig}from'@typed-sql/core';import{defineMigrations}from'@typed-sql/migrations';import{postgres,typePolicy}from'@typed-sql/postgres';import{pg}from'@typed-sql/postgres/pg';import{createPgMigrationTarget}from'@typed-sql/postgres/migrations';import{createPgPlaygroundTarget}from'@typed-sql/playground/pg';const schemas=${JSON.stringify(commerceNamespaces)};const connectionString=()=>${JSON.stringify(connection(database))};export default defineConfig({dialect:postgres({typePolicy}),typePolicy,schema:{file:'schema.json',provider:pg({connectionString,typePolicy,schemas})},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground','migrations'],writeRoots:['playground'],targets:{local:{classification:'development',expected:{database:${JSON.stringify(database)}},connect:()=>createPgPlaygroundTarget({connectionString,typePolicy,schemas})}}},migrations:defineMigrations({directory:'migrations',replayTarget:'replay',targets:{local:createPgMigrationTarget({connectionString,namespaces:schemas,typePolicy,captureDetails:true,expected:{database:${JSON.stringify(database)}},classification:'development'}),replay:createPgMigrationTarget({connectionString:()=>${JSON.stringify(connection(replayDatabase))},namespaces:schemas,typePolicy,captureDetails:true,expected:{database:${JSON.stringify(replayDatabase)}},classification:'test',disposable:true})},policy:{drift:'block',unknownEvidence:'block',managedNamespaces:schemas}})});\n`,
+    `
+import {readFileSync} from 'node:fs';
+import {defineConfig} from '@typed-sql/core';
+import {defineMigrations} from '@typed-sql/migrations';
+import {postgres,typePolicy} from '@typed-sql/postgres';
+import {pg} from '@typed-sql/postgres/pg';
+import {createPgMigrationTarget} from '@typed-sql/postgres/migrations';
+import {createPgPlaygroundTarget} from '@typed-sql/playground/pg';
+const fixture = JSON.parse(readFileSync(new URL('./explorer-targets.json', import.meta.url), 'utf8'));
+const schemas = fixture.schemas;
+const connectionString = () => fixture.databaseUrl;
+export default defineConfig({
+ dialect:postgres({typePolicy}),typePolicy,
+ schema:{file:'schema.json',provider:pg({connectionString,typePolicy,schemas})},
+ outDir:'generated',projects:['tsconfig.json'],
+ playground:{readRoots:['playground','migrations'],writeRoots:['playground'],targets:{local:{classification:'development',expected:{database:fixture.database},connect:()=>createPgPlaygroundTarget({connectionString,typePolicy,schemas})}}},
+ migrations:defineMigrations({directory:'migrations',replayTarget:'replay',targets:{
+  local:createPgMigrationTarget({connectionString,namespaces:schemas,typePolicy,captureDetails:true,expected:{database:fixture.database},classification:'development'}),
+  replay:createPgMigrationTarget({connectionString:()=>fixture.replayUrl,namespaces:schemas,typePolicy,captureDetails:true,expected:{database:fixture.replayDatabase},classification:'test',disposable:true})
+ },policy:{drift:'block',unknownEvidence:'block',managedNamespaces:schemas}})
+});
+`,
   );
   await writeCommerceMigrations(join(root, "migrations"), { includePending: false });
   const setup = await fixture.node(
