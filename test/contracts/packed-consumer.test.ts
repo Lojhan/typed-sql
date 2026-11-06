@@ -490,6 +490,7 @@ await describe("packed public packages", async () => {
         import { duckdb } from "@typed-sql/duckdb";
         import "@typed-sql/duckdb/node-api";
         import "@typed-sql/duckdb/runtime";
+        import "@typed-sql/duckdb/browser";
         import { createNodeSqliteDatabase, loadNodeSqlite } from "@typed-sql/sqlite/node-sqlite";
         import { buildQueryManifest, compileSource, parseQueryManifest, serializeQueryManifest } from "@typed-sql/compiler";
         import { assertGrammarConformance, GRAMMAR_CONFORMANCE_VERSION } from "@typed-sql/conformance";
@@ -509,6 +510,7 @@ await describe("packed public packages", async () => {
         }
         if (postgres().id !== "postgres") throw new Error("dialect import failed");
         if (mysql().id !== "mysql") throw new Error("MySQL dialect import failed");
+        if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
         if (sqlserver().id !== "sqlserver" || duckdb().id !== "duckdb") throw new Error("native grammar import failed");
         try { await loadSqlServerOdbcDriver(); throw new Error("Koffi was installed transitively"); }

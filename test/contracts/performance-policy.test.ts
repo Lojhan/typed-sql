@@ -147,6 +147,7 @@ await describe("performance regression policy", async () => {
       "parser.astBytesPerParse",
       "parser.pathologicalTokens",
       "parser.sqlserverLargeQuery",
+      "parser.duckdbLargeQuery",
       "parser.toolkitTokens",
       "schema.canonicalization",
       "core.fragmentListRender",
