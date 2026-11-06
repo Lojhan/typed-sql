@@ -57,7 +57,7 @@ await describe("PostgreSQL concat", async () => {
     strict.equal(result.parameters[0]?.tsType, "unknown");
     strict.equal(result.parameters[0]?.databaseType, undefined);
     const diagnostic = result.diagnostics.find(({ code }) => code === "TSQ202");
-    strict.ok(diagnostic);
+    if (!diagnostic) throw new Error("Expected an unknown CONCAT parameter diagnostic");
     strict.equal(sql.slice(diagnostic.range.start, diagnostic.range.end), "$1");
     strict.equal(diagnostic.range.column, sql.indexOf("$1") + 1);
     strict.ok(resolve("SELECT concat(missing) FROM users").diagnostics.some(({ code }) => code === "TSQ101"));
