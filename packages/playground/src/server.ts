@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeSource } from "@typed-sql/compiler";
 import { loadConfig } from "@typed-sql/config";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { AgentWorkspaceToolServer } from "./agent-tools.js";
 import { AgentRoutes } from "./agents.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
@@ -147,6 +148,18 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   const token = randomBytes(32).toString("base64url");
   const assets = await assetDirectory();
   let origin = "";
+  const workspaceTools = new AgentWorkspaceToolServer({
+    files,
+    trusted: () => manager.trusted,
+    origin: () => origin,
+    dialect: loaded.config.dialect,
+    typePolicy: loaded.config.typePolicy,
+    schema: () => schema,
+    schemaSource: () => schemaSource,
+    ...(selected ? { target: selected } : {}),
+    explorer: () => explorer.get(),
+    runs: manager,
+  });
   const withTarget = async (fn: (target: PlaygroundTarget) => Promise<void>) => {
     if (!selected) throw new WorkspaceError("OFFLINE", "Configure a target and relaunch with --target to connect");
     let service: PlaygroundTarget | undefined;
@@ -218,6 +231,10 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
         response.end(bytes);
         return;
       }
+      if (url.pathname === "/api/agent-tools") {
+        await workspaceTools.handle(request, response, url, await payload(request));
+        return;
+      }
       const supplied = request.headers["x-typed-sql-session"];
       if (
         typeof supplied !== "string" ||
@@ -228,7 +245,12 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (url.pathname === "/api/agents" || url.pathname.startsWith("/api/agents/")) {
         const method = ["/api/agents", "/api/agents/conversation"].includes(url.pathname) ? "GET" : "POST";
         if (request.method !== method) throw new WorkspaceError("METHOD", "Method not allowed", 405);
-        agents ??= new AgentRoutes({ files, trusted: () => manager.trusted });
+        agents ??= new AgentRoutes({
+          files,
+          trusted: () => manager.trusted,
+          workspaceTools,
+          sqlModule: loaded.config.dialect.sqlModule,
+        });
         const result = await agents.handle(url, request.method === "POST" ? await payload(request) : undefined);
         if (result === undefined) throw new WorkspaceError("NOT_FOUND", "Not found", 404);
         json(response, result);
@@ -479,6 +501,9 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           if (!manager.trusted) {
             await editor?.close();
             editor = undefined;
+            await agents?.close();
+            agents = undefined;
+            await workspaceTools.close();
           }
           json(response, { trusted: manager.trusted });
           return;
@@ -603,6 +628,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       await editor?.close();
       await formatter.close();
       await agents?.close();
+      await workspaceTools.close();
       await manager.close();
       server.closeAllConnections();
       await new Promise<void>((resolvePromise, reject) =>

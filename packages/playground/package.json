@@ -44,15 +44,18 @@
     "prepack": "node scripts/build-ui.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@typed-sql/build": "workspace:*",
     "@typed-sql/compiler": "workspace:*",
     "@typed-sql/config": "workspace:*",
     "@typed-sql/core": "workspace:*",
+    "@typed-sql/migrations": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "acorn": "^8.15.0",
     "esbuild": "0.28.2",
     "tsx": "4.23.15",
-    "@typed-sql/migrations": "workspace:*"
+    "zod": "4.6.7"
   },
   "peerDependencies": {
     "@typed-sql/postgres": ">=2.5.0 <3",

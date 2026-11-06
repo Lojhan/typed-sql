@@ -31,6 +31,15 @@ await describe("local agent host integration", async () => {
         strict.equal((await post("trust", { enable: true })).status, 200);
         strict.equal((await post("agents/configure", { profile })).status, 200);
         const listing = await (await get("agents")).json();
+        strict.equal(listing.workspaceToolsAvailable, true);
+        for (const headers of [{ "x-typed-sql-session": host.token }, { Authorization: `Bearer ${host.token}` }]) {
+          const denied = await fetch(`${host.origin}/api/agent-tools`, {
+            method: "POST",
+            headers: { ...headers, "content-type": "application/json", accept: "application/json,text/event-stream" },
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+          });
+          strict.equal(denied.status, 403, "Browser session capability is not an MCP turn capability");
+        }
         strict.equal(listing.profiles[0].name, "Local test");
         strict.equal(listing.profiles[0].args, undefined);
         const created = await post("agents/new", { profileId: "local" });
