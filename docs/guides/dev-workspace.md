@@ -125,6 +125,14 @@ Explicit query execution can add PostgreSQL diagnostics with SQLSTATE evidence. 
 
 The board displays captured foreign keys, including composite and cross-schema keys. It never infers relationships from column names. Search relations/columns, focus neighbors, drag cards and reset the layout. Layout positions stay in local browser storage, outside the compiler snapshot. The schema list and inspector provide keyboard-accessible relation/column/constraint information.
 
+The project sidebar includes **Files**, **Database** and **Migrations**. Expand a database namespace to browse tables, views, columns, enums, indexes and constraints captured by the schema provider. Relationship links follow captured foreign keys and type references, including self references and composite keys. Select an object to open its definition and history in a regular workspace tab; these tabs can be split and resized alongside query files.
+
+The migration list combines local migration metadata with the selected target's recorded history. Applied, pending, reverted, interrupted and unverified states remain distinct. Opening the list does not execute TypeScript migration modules, apply SQL or create a migration ledger. The PostgreSQL playground adapter reads the existing ledger on its own selected connection; an absent ledger, missing permissions or an adapter without history support shows an unavailable state.
+
+Object history uses recorded before/after catalog evidence, including changes to a table's columns, indexes and constraints. A rename can appear as a removal and addition; the workspace does not infer an identity that the evidence cannot establish. Reconciliation, baseline adoption, rolled-back attempts and uncertain outcomes retain their recorded meaning. Current local files are not treated as proof of SQL previously executed.
+
+Detailed structural history requires the migration adapter's optional `captureDetails: true` setting when those migrations run. It records safe structural properties such as column types and enum labels alongside definition fingerprints. Existing fingerprint-only records still identify additions, removals and definition changes, but cannot reconstruct older definitions. Capturing details later does not retroactively fill those gaps. See [migration configuration](./migrations.md) for the migration target and history settings.
+
 Select a table and choose **New SQL query** or **New TS query** in its contextual actions. The workspace creates a grammar-qualified query under the configured query folder, chooses a nonconflicting filename and opens the actual file. TypeScript templates include a server-side `db.ts` helper:
 
 ```ts
