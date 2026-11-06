@@ -32,6 +32,9 @@
       "path": "./packages/sqlserver"
     },
     {
+      "path": "./packages/duckdb"
+    },
+    {
       "path": "./packages/compiler"
     },
     {

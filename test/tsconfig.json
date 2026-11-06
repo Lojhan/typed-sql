@@ -8,6 +8,7 @@
     "../packages/*/test/**/*.test.ts",
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",
+    "../packages/*/test/environment.ts",
     "contracts/**/*.test.ts",
     "fuzz/**/*.ts",
     "grammar/**/*.ts",
@@ -50,6 +51,9 @@
     },
     {
       "path": "../packages/sqlserver"
+    },
+    {
+      "path": "../packages/duckdb"
     },
     {
       "path": "../packages/compiler"

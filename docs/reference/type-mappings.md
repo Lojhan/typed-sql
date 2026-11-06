@@ -171,6 +171,31 @@ remains escaped text inside a constructor unless promoted by `JSON_QUERY`; a dir
 constructor retains its object or array shape. Unknown conditional fragment provenance remains
 conservative. See [SQL Server policies and transport limits](../dialects/sqlserver.md).
 
+## DuckDB
+
+| Native type | Default TypeScript type | Runtime value |
+| --- | --- | --- |
+| Small signed/unsigned integers, `FLOAT`, `DOUBLE` | `number` | Finite JavaScript number under the shared safe-integral policy |
+| `BIGINT`, `UBIGINT`, `HUGEINT`, `UHUGEINT`, `BIGNUM` | `bigint` | Exact signed or unsigned integer |
+| `DECIMAL` | `string` | Precision and scale preserved |
+| `BOOLEAN` | `boolean` | JavaScript boolean |
+| `VARCHAR`, `UUID`, `BIT` | `string` | Native text |
+| `BLOB` | `Uint8Array` | Independently owned bytes |
+| Date, time and timestamp types | `string` | Precision and infinity values retained where supported |
+| `INTERVAL` | `{ readonly months: number; readonly days: number; readonly micros: bigint }` | Separate calendar and microsecond components |
+| `JSON` | `string` | JSON text; parsed modes are explicit |
+| `ENUM` | Literal string union | Validated catalog label |
+| `LIST` | Readonly array | Recursive element decoding |
+| `ARRAY` | Readonly tuple | Fixed length and recursive element decoding |
+| `STRUCT`, `TUPLE` | Object or readonly tuple | Native field names and positions retained |
+| `MAP` | Readonly array of key/value tuples | Structural keys retained without JavaScript object-key coercion |
+| `UNION` | Tagged union | Active member retained even when its payload is NULL |
+
+Nested SQL NULL values remain separate from an outer NULL container. MAP keys reject NULL and
+structural duplicates. The shared number policy rejects integer-valued numbers outside the safe
+integer range, even when the database type is floating point. See
+[DuckDB native types and exact version pairs](../dialects/duckdb.md).
+
 ## Nullability, aggregates, and drift
 
 Nullability is applied after scalar mapping. Outer joins add `null` to columns from the nullable relation. `COUNT` follows the dialect's bigint policy, while decimal-producing aggregates follow the numeric or decimal policy.

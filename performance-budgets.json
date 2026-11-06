@@ -25,6 +25,7 @@
     "compiler.structuralLimit": { "p50": 5, "p95": 10, "p99": 20 },
     "conformance.v2StaticCorpus": { "p50": 15, "p95": 30, "p99": 50 },
     "parser.sqlserverLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
+    "parser.duckdbLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
     "parser.ownedLargeQuery": { "p50": 12, "p95": 30, "p99": 50 },
     "parser.pathologicalTokens": { "p50": 15, "p95": 35, "p99": 60 },
     "schema.canonicalization": { "p50": 15, "p95": 35, "p99": 60 },
@@ -40,6 +41,7 @@
   },
   "throughput": {
     "grammar.sqlserverAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
+    "grammar.duckdbAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
     "grammar.sqliteAnalysis": { "minimumOperationsPerSecond": 500, "maximumBatchP95Milliseconds": 40 },
     "core.composeAndRender": { "minimumOperationsPerSecond": 250000 },
     "core.fragmentListRender": { "minimumOperationsPerSecond": 10000, "minimumJoinRatio": 0.7 },

@@ -20,6 +20,8 @@ import {
   runStaticConformanceProbe,
 } from "../packages/conformance/dist/packages/conformance/src/v2/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
+import { duckDBServerEvidence, duckdb } from "../packages/duckdb/dist/packages/duckdb/src/index.js";
+import { parseDuckDBStatement } from "../packages/duckdb/dist/packages/duckdb/src/parser/parser.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
 import { parseStatement as parseMysqlStatement } from "../packages/mysql/dist/packages/mysql/src/parser/index.js";
 import {
@@ -207,47 +209,76 @@ await latency("parser.pathologicalTokens", () => {
 // Each new grammar owns separate gates so a fast parser cannot hide another's regression.
 for (const [id, factory, parse, parserMetric] of [
   ["sqlserver", sqlserver, parseSqlServerStatement, "parser.sqlserverLargeQuery"],
+  ["duckdb", duckdb, parseDuckDBStatement, "parser.duckdbLargeQuery"],
 ]) {
   await latency(parserMetric, () => {
     assert.equal(parse(parserSource).kind, "select");
     assert.equal(parse(pathologicalParserSource).kind, "select");
   });
   const grammar = factory();
-  const schema = grammar.validateSnapshot({
-    formatVersion: 1,
-    dialect: "sqlserver",
-    server: sqlServerServerEvidence("17.0.5035.5", {
-      compatibilityLevel: 170,
-      collation: "SQL_Latin1_General_CP1_CI_AS",
-      defaultSchema: "dbo",
-      quotedIdentifier: true,
-      ansiWarnings: true,
-      arithAbort: true,
-      concatNullYieldsNull: true,
-      dateFirst: 7,
-      dateFormat: "mdy",
-      language: "us_english",
-      engineEdition: 3,
-    }),
-    tables: {
-      users: {
-        schema: "dbo",
-        name: "users",
-        columns: {
-          id: { name: "id", databaseType: "int", tsType: "number", nullable: false },
-          name: { name: "name", databaseType: "nvarchar(320)", tsType: "string", nullable: false },
-          age: { name: "age", databaseType: "int", tsType: "number", nullable: true },
+  const schema = grammar.validateSnapshot(
+    id === "sqlserver"
+      ? {
+          formatVersion: 1,
+          dialect: "sqlserver",
+          server: sqlServerServerEvidence("17.0.5035.5", {
+            compatibilityLevel: 170,
+            collation: "SQL_Latin1_General_CP1_CI_AS",
+            defaultSchema: "dbo",
+            quotedIdentifier: true,
+            ansiWarnings: true,
+            arithAbort: true,
+            concatNullYieldsNull: true,
+            dateFirst: 7,
+            dateFormat: "mdy",
+            language: "us_english",
+            engineEdition: 3,
+          }),
+          tables: {
+            users: {
+              schema: "dbo",
+              name: "users",
+              columns: {
+                id: { name: "id", databaseType: "int", tsType: "number", nullable: false },
+                name: { name: "name", databaseType: "nvarchar(320)", tsType: "string", nullable: false },
+                age: { name: "age", databaseType: "int", tsType: "number", nullable: true },
+              },
+            },
+          },
+        }
+      : {
+          formatVersion: 1,
+          dialect: "duckdb",
+          server: duckDBServerEvidence("2.0.0", [], {
+            currentCatalog: "memory",
+            currentSchema: "main",
+            TimeZone: "UTC",
+            Calendar: "gregorian",
+            integer_division: false,
+            preserve_identifier_case: "preserve_case",
+          }),
+          tables: {
+            users: {
+              schema: "main",
+              name: "users",
+              columns: {
+                id: { name: "id", databaseType: "INTEGER", tsType: "number", nullable: false },
+                name: { name: "name", databaseType: "VARCHAR", tsType: "string", nullable: false },
+                age: { name: "age", databaseType: "INTEGER", tsType: "number", nullable: true },
+              },
+            },
+          },
         },
-      },
-    },
-  });
-  const marker = "@__typed_sql_1";
+  );
+  const marker = id === "sqlserver" ? "@__typed_sql_1" : "$1";
   const queries = [
     `SELECT id, name FROM users WHERE id=${marker}`,
     "SELECT a.id, b.age FROM users a LEFT JOIN users b ON a.id=b.id",
     "WITH selected AS (SELECT id,name FROM users) SELECT id,name FROM selected",
     "SELECT id FROM users UNION ALL SELECT id FROM users",
-    `UPDATE users SET name='Ada' OUTPUT inserted.id WHERE id=${marker}`,
+    id === "sqlserver"
+      ? `UPDATE users SET name='Ada' OUTPUT inserted.id WHERE id=${marker}`
+      : `UPDATE users SET name='Ada' WHERE id=${marker} RETURNING id`,
   ];
   const measured = await measureLatency({
     warmups: 5,

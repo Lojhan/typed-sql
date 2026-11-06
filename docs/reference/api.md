@@ -144,7 +144,7 @@ Cardinality failures throw `QueryCardinalityError` with code `TSQL_CARDINALITY`,
 
 ### Prepared query factories
 
-PostgreSQL, MySQL, SQLite, and SQL Server adapters expose:
+PostgreSQL, MySQL, SQLite, SQL Server, and DuckDB adapters expose:
 
 ```ts
 database.prepare(name, (...arguments) => query)
@@ -158,7 +158,7 @@ The same prepared-state registry is available to transaction scopes created by t
 
 ### Ordered batches
 
-PostgreSQL, MySQL, SQLite, and SQL Server database and transaction adapters expose:
+PostgreSQL, MySQL, SQLite, SQL Server, and DuckDB database and transaction adapters expose:
 
 ```ts
 database.batch(queries)
@@ -171,7 +171,7 @@ An empty batch returns without leasing a connection. A non-empty batch executes 
 | Adapter | Root batch behavior |
 | --- | --- |
 | PostgreSQL, MySQL, built-in SQLite | Autocommit; earlier successful statements remain committed after a later failure |
-| SQL Server | One transaction; a failure rolls back the batch |
+| SQL Server, DuckDB | One transaction; a failure rolls back the batch |
 | D1, libSQL, SQLite Wasm | The adapter's atomic batch contract |
 
 Calling `batch()` inside `database.transaction()` reuses the surrounding transaction. Database rules such as MySQL DDL implicit commits still apply. Sequential batching does not imply one network round trip.
@@ -267,6 +267,17 @@ and types can be reexported from core by a third-party grammar; generated applic
 them through the selected grammar. First-party grammar `/query` entrypoints provide this contract.
 Missing runtime support
 reports `TSQ016`. Runtime selection compares rendered structure without parsing SQL in core.
+
+`QueryValuePlan` describes ordered parameters and result columns under one grammar and type-policy
+hash. A descriptor's `RuntimeValueType` supports scalar values, nullable array elements, fixed array
+lengths, required object fields, and positional tuples. Each `RuntimeValueField` carries its own
+`type` and SQL `nullable` flag; a nullable field is still required to be present. Native containers
+remain distinct from JSON document shapes.
+
+The optional `databaseType` is opaque grammar-owned binding metadata. Core preserves and bounds it;
+the selected grammar validates it before choosing a native codec or rendering a physical parameter
+conversion. Applications cannot use this metadata as trusted SQL. Invalid shapes, accessors,
+inherited fields, cycles, and over-budget descriptors are rejected before execution.
 
 Each `CompiledQuery` includes:
 

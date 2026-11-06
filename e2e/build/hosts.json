@@ -35,5 +35,6 @@
   "typescript-framework": "npm:typescript@6.0.3",
   "playwright": "1.64.1",
   "@sqlite.org/sqlite-wasm": "3.54.1-build1",
+  "@duckdb/node-api": "2.0.0-r.1",
   "koffi": "3.3.7"
 }

@@ -15,6 +15,7 @@
     "@typed-sql/mysql",
     "@typed-sql/sqlite",
     "@typed-sql/sqlserver",
+    "@typed-sql/duckdb",
     "@typed-sql/cli",
     "@typed-sql/adapters",
     "@typed-sql/build"
@@ -32,6 +33,7 @@
       "@typed-sql/mysql",
       "@typed-sql/sqlite",
       "@typed-sql/sqlserver",
+      "@typed-sql/duckdb",
       "@typed-sql/cli",
       "@typed-sql/adapters",
       "@typed-sql/build"
