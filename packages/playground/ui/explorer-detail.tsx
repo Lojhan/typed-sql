@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { evidenceText, type InspectionTarget, objectPresence, propertyChanges } from "./explorer-model";
-import type { ExplorerCatalog, ExplorerEvent, ExplorerObject } from "./explorer-types";
+import type { ExplorerCatalog, ExplorerEvent, ExplorerObject, ExplorerValue } from "./explorer-types";
 import { Icon } from "./icon";
 
 function Properties({ values }: { values: Record<string, string | undefined> }) {
@@ -17,6 +17,18 @@ function Properties({ values }: { values: Record<string, string | undefined> }) 
     </dl>
   );
 }
+function displayEnvelope(value: ExplorerValue | undefined): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.formatVersion === 1 &&
+    typeof value.kind === "string" &&
+    value.properties !== null &&
+    typeof value.properties === "object" &&
+    !Array.isArray(value.properties)
+  );
+}
 function EventChanges({
   event,
   onOpen,
@@ -26,7 +38,14 @@ function EventChanges({
   onOpen: (target: InspectionTarget) => void;
   catalog: ExplorerCatalog;
 }) {
-  const changes = event.details === "captured" ? propertyChanges(event.before, event.after) : [];
+  const changes =
+    event.details === "captured"
+      ? propertyChanges(event.before, event.after).filter(
+          (change) =>
+            !(displayEnvelope(event.before) || displayEnvelope(event.after)) ||
+            (change.path !== "/formatVersion" && change.path !== "/kind"),
+        )
+      : [];
   const object = event.objectId ? catalog.schema.objects.find((object) => object.id === event.objectId) : undefined;
   return (
     <>
@@ -58,7 +77,19 @@ function EventChanges({
               {changes.map((change) => (
                 <tr key={change.path} className={`property-${change.change}`}>
                   <th scope="row">
-                    <code>{change.path}</code>
+                    <span>
+                      {change.path
+                        .replace(/^\/properties\//u, "")
+                        .replace(/^\//u, "")
+                        .split("/")
+                        .map((part) =>
+                          part
+                            .replaceAll("~1", "/")
+                            .replaceAll("~0", "~")
+                            .replace(/([a-z])([A-Z])/gu, "$1 $2"),
+                        )
+                        .join(" › ")}
+                    </span>
                     <small>{change.change}</small>
                   </th>
                   <td>
