@@ -227,6 +227,8 @@ pnpm exec typed-sql migrate status --target local
 pnpm exec typed-sql migrate drift --target local
 ```
 
+Captured evidence also records persistent database encoding, default collation/ctype, locale provider, ICU or builtin locale/rules and collation version where available. The target and replay database must agree on this versioned environment evidence. Database names and transient session settings are excluded, so changing a session timezone is not recorded as a permanent schema change. Missing or incompatible required evidence blocks execution.
+
 Native migration drift compares the live schema to the independent expected migration head. The top-level `typed-sql drift` compares the application snapshot to live introspection. Regenerating that application snapshot cannot clear unexpected migration drift. Added columns, tables and indexes block just as removals and changes do; unknown catalog coverage also blocks.
 
 Remove an unintended manual change through separately reviewed SQL, or capture its exact intended effect in a new ordinary migration. Declare local reconciliation intent using qualified catalog keys:

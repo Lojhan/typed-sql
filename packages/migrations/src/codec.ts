@@ -170,6 +170,19 @@ export function parseCatalog(value: unknown): CatalogEvidence {
   )
     throw new MigrationError("MIGRATION_CATALOG_INVALID", "Catalog evidence is invalid.", 3);
   object(c.objects, "Catalog objects");
+  if (c.environment !== undefined) {
+    const environment = object(c.environment, "Catalog environment");
+    if (
+      environment.formatVersion !== 1 ||
+      Object.keys(environment).some((key) => !["formatVersion", "settings"].includes(key))
+    )
+      throw new MigrationError(
+        "MIGRATION_CATALOG_INVALID",
+        "Unsupported or malformed catalog environment evidence.",
+        3,
+      );
+    object(environment.settings, "Catalog environment settings");
+  }
   canonical(c);
   return c as unknown as CatalogEvidence;
 }

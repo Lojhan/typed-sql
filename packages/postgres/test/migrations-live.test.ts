@@ -24,6 +24,31 @@ const target = createPgMigrationTarget({
 try {
   await admin.query(`create schema "${schema}"`);
   await describe("live PostgreSQL migration session", async () => {
+    await it("captures actual persistent database defaults independently of transient session SET", async () => {
+      const session = await target.connect();
+      try {
+        const before = await session.capture();
+        const actual = (
+          await admin.query(
+            "select pg_encoding_to_char(encoding) as encoding,datcollate as collation,datctype as ctype from pg_database where datname=current_database()",
+          )
+        ).rows[0]!;
+        strict.equal(before.environment?.formatVersion, 1);
+        strict.equal(before.environment?.settings.encoding, actual.encoding);
+        strict.equal(before.environment?.settings.collation, actual.collation);
+        strict.equal(before.environment?.settings.ctype, actual.ctype);
+        strict.equal(typeof before.environment?.settings.provider, "string");
+        await session.lock(1000);
+        await session.begin();
+        await session.execute({ text: "set local timezone = 'Pacific/Honolulu'", values: [] });
+        strict.deepEqual((await session.capture()).environment, before.environment);
+        await session.rollback();
+      } finally {
+        await session.rollback();
+        await session.unlock();
+        await session.close();
+      }
+    });
     await it("captures uncommitted DDL and rolls SQL and history back together", async () => {
       const session = await target.connect();
       try {

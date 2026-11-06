@@ -8,6 +8,7 @@ import {
   type CatalogEvidence,
   captureChecks,
   captureMigration,
+  catalogChanges,
   checks,
   createPlan,
   defineMigration,
@@ -275,6 +276,47 @@ await describe("migration plans, history and drift", async () => {
 });
 
 await describe("migration recovery and immutable evidence", async () => {
+  await it("rejects encoding/locale differences and malformed or missing environment evidence", () => {
+    const expected: CatalogEvidence = {
+      ...initial,
+      environment: { formatVersion: 1, settings: { encoding: "UTF8", locale: "C" } },
+    };
+    for (const settings of [
+      { encoding: "LATIN1", locale: "C" },
+      { encoding: "UTF8", locale: "sv_SE.UTF-8" },
+    ])
+      strict.throws(
+        () => catalogChanges(expected, { ...initial, environment: { formatVersion: 1, settings } }),
+        (error: unknown) => error instanceof MigrationError && error.code === "MIGRATION_ENVIRONMENT",
+      );
+    strict.throws(() => catalogChanges(expected, initial), /environment evidence is missing/);
+    strict.throws(
+      () => catalogChanges(expected, { ...expected, environment: { formatVersion: 2, settings: {} } as never }),
+      /environment evidence/,
+    );
+  });
+  await it("rejects incompatible replay database defaults before executing its SQL", async () => {
+    const f = await fixture();
+    try {
+      f.local.state.catalog = {
+        ...initial,
+        environment: { formatVersion: 1, settings: { encoding: "UTF8", locale: "C" } },
+      };
+      f.scratch.state.catalog = {
+        ...initial,
+        environment: { formatVersion: 1, settings: { encoding: "UTF8", locale: "sv_SE.UTF-8" } },
+      };
+      await f.add("001_accounts", "create accounts");
+      await strict.rejects(
+        createPlan(f.options),
+        (error: unknown) => error instanceof MigrationError && error.code === "MIGRATION_ENVIRONMENT",
+      );
+      strict.equal(f.scratch.state.executed.length, 0);
+      strict.equal(f.local.state.executed.length, 0);
+    } finally {
+      await f.close();
+    }
+  });
   await it("optionally blocks a stale compiler snapshot without weakening independent history drift", async () => {
     const f = await fixture();
     try {

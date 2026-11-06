@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { SqlRenderer } from "@typed-sql/core";
-import { digest, emptyHistory, MigrationError, parsePlan } from "./codec.js";
+import { digest, emptyHistory, MigrationError, parseCatalog, parsePlan } from "./codec.js";
 import { captureChecks } from "./definition.js";
 import { inventoryFiles, loadInventory, verifyInputFiles } from "./inventory.js";
 import type {
@@ -32,6 +32,7 @@ export function assertTarget(actual: TargetIdentity, target: MigrationTarget): v
     );
 }
 export function assertCatalog(catalog: CatalogEvidence): void {
+  parseCatalog(catalog);
   if (catalog.coverage !== "complete")
     throw new MigrationError(
       "MIGRATION_COVERAGE",
@@ -44,6 +45,18 @@ export function catalogChanges(
 ): readonly { kind: string; object: string }[] {
   assertCatalog(expected);
   assertCatalog(actual);
+  if (expected.environment !== undefined || actual.environment !== undefined) {
+    if (
+      expected.environment === undefined ||
+      actual.environment === undefined ||
+      digest(expected.environment) !== digest(actual.environment)
+    )
+      throw new MigrationError(
+        "MIGRATION_ENVIRONMENT",
+        "Persistent database default-environment evidence is missing or differs from expected replay/history; compare encoding, collation and locale settings before migration.",
+        3,
+      );
+  }
   if (
     expected.dialect !== actual.dialect ||
     expected.serverMajor !== actual.serverMajor ||

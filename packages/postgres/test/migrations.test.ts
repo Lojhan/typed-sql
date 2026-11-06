@@ -16,6 +16,15 @@ class FakeClient extends EventEmitter {
   history: unknown = emptyHistory();
   failure: RegExp | undefined;
   version = "180000";
+  environment: Record<string, unknown> = {
+    encoding: "UTF8",
+    collation: "C",
+    ctype: "C",
+    provider: "c",
+    locale: null,
+    rules: null,
+    collationVersion: null,
+  };
   scope: readonly Record<string, unknown>[] = [{ name: "public", usable: true }];
   catalog: readonly Record<string, unknown>[] = [
     { kind: "namespace", names: ["public"], definition: { name: "public" } },
@@ -27,6 +36,7 @@ class FakeClient extends EventEmitter {
     let rows: readonly Record<string, unknown>[] = [];
     if (text.includes("as database,")) rows = [{ database: "test", address: "127.0.0.1", port: 5432 }];
     else if (text.includes("server_version_num")) rows = [{ version: this.version }];
+    else if (text.includes("as environment from pg_catalog.pg_database")) rows = [{ environment: this.environment }];
     else if (text.includes("as name, pg_catalog.has_schema_privilege")) rows = this.scope;
     else if (text.includes("with namespaces as")) rows = this.catalog;
     else if (text.includes("to_regclass")) rows = [{ present: this.ledger ? "typed_sql.migration_history" : null }];

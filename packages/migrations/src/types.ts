@@ -58,6 +58,8 @@ export interface CatalogEvidence {
   readonly namespaces: readonly string[];
   readonly objects: Readonly<Record<string, JsonValue>>;
   readonly coverage: "complete" | "unknown";
+  /** Adapter-owned persistent database defaults; excludes target names and transient session state. */
+  readonly environment?: { readonly formatVersion: 1; readonly settings: Readonly<Record<string, JsonValue>> };
 }
 export interface TargetIdentity {
   readonly database: string;

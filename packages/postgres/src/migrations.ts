@@ -414,6 +414,31 @@ class PgMigrationSession implements MigrationSession {
   }
 
   async capture(): Promise<CatalogEvidence> {
+    const environmentResult = await this.#query<{ environment: Record<string, JsonValue> }>(`
+      select pg_catalog.jsonb_build_object(
+        'encoding',pg_catalog.pg_encoding_to_char(d.encoding),
+        'collation',d.datcollate,'ctype',d.datctype,
+        'provider',coalesce(pg_catalog.to_jsonb(d)->>'datlocprovider','c'),
+        'locale',coalesce(pg_catalog.to_jsonb(d)->>'datlocale',pg_catalog.to_jsonb(d)->>'daticulocale'),
+        'rules',pg_catalog.to_jsonb(d)->>'daticurules',
+        'collationVersion',pg_catalog.to_jsonb(d)->>'datcollversion'
+      ) as environment from pg_catalog.pg_database d where d.datname=pg_catalog.current_database()
+    `);
+    const settings = environmentResult.rows[0]?.environment;
+    if (
+      !settings ||
+      typeof settings !== "object" ||
+      Array.isArray(settings) ||
+      typeof settings.encoding !== "string" ||
+      typeof settings.collation !== "string" ||
+      typeof settings.ctype !== "string" ||
+      typeof settings.provider !== "string"
+    )
+      throw new MigrationError(
+        "MIGRATION_ENVIRONMENT",
+        "Cannot establish persistent database default environment evidence.",
+        3,
+      );
     const version = await this.#query<{ version: string }>(
       "select pg_catalog.current_setting('server_version_num') as version",
     );
@@ -443,6 +468,7 @@ class PgMigrationSession implements MigrationSession {
       namespaces: this.#namespaces,
       objects,
       coverage: complete ? "complete" : "unknown",
+      environment: { formatVersion: 1, settings },
     };
   }
 
