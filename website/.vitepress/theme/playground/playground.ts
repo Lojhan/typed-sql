@@ -7,6 +7,7 @@ import type {
   TableSnapshot,
   TypeSnapshot,
 } from "../../../../packages/schema/src/model.js";
+import { parseSqlServerNativeType } from "../../../../packages/sqlserver/src/browser.js";
 import {
   browserDialectRuntime,
   type PlaygroundDialect,
@@ -63,6 +64,7 @@ interface PendingColumn {
   readonly nullable: boolean;
   readonly hasDefault: boolean;
   readonly identity?: boolean;
+  readonly collation?: string;
   readonly primaryKey: boolean;
   readonly position: number;
   readonly sourceStart: number;
@@ -243,18 +245,20 @@ function balancedGroupLength(source: string): number | undefined {
 function columnAttributes(
   source: string,
   dialect: PlaygroundDialect,
-): { nullable: boolean; hasDefault: boolean; primaryKey: boolean; identity?: boolean } | undefined {
+): { nullable: boolean; hasDefault: boolean; primaryKey: boolean; identity?: boolean; collation?: string } | undefined {
   let remaining = source.trim();
   let nullable = true;
   let explicitNullability: boolean | undefined;
   let hasDefault = false;
   let primaryKey = false;
   let identity = false;
+  let collation: string | undefined;
   while (remaining) {
     const nullability = /^(NOT\s+NULL|NULL)\b/iu.exec(remaining);
     if (nullability) {
       const next = /^NULL$/iu.test(nullability[1]!);
-      if ((explicitNullability !== undefined && explicitNullability !== next) || (primaryKey && next)) return undefined;
+      if ((explicitNullability !== undefined && explicitNullability !== next) || ((primaryKey || identity) && next))
+        return undefined;
       nullable = next;
       explicitNullability = next;
       remaining = remaining.slice(nullability[0].length).trim();
@@ -267,15 +271,19 @@ function columnAttributes(
         primaryKey = true;
         nullable = false;
       }
-      if (/^AUTO_INCREMENT$/iu.test(simple[0])) hasDefault = true;
+      if (/^AUTO_INCREMENT$/iu.test(simple[0])) {
+        if (dialect === "sqlserver" || dialect === "duckdb") return undefined;
+        hasDefault = true;
+      }
       remaining = remaining.slice(simple[0].length).trim();
       continue;
     }
     const sqlServerIdentity =
       dialect === "sqlserver" ? /^IDENTITY\s*(?:\(\s*[+-]?\d+\s*,\s*[+-]?\d+\s*\))?/iu.exec(remaining) : undefined;
     if (sqlServerIdentity) {
-      if (identity) return undefined;
+      if (identity || hasDefault || explicitNullability === true) return undefined;
       identity = true;
+      nullable = false;
       hasDefault = true;
       remaining = remaining.slice(sqlServerIdentity[0].length).trim();
       continue;
@@ -297,6 +305,7 @@ function columnAttributes(
     }
     const generated = /^GENERATED\s+(?:ALWAYS|BY\s+DEFAULT)\s+AS\s+IDENTITY\b/iu.exec(remaining);
     if (generated) {
+      if (dialect === "sqlserver" || dialect === "duckdb") return undefined;
       hasDefault = true;
       remaining = remaining.slice(generated[0].length).trim();
       continue;
@@ -328,6 +337,12 @@ function columnAttributes(
     }
     const collate = /^COLLATE\s+([A-Za-z_][\w$]*|"(?:[^"]|"")+"|`(?:[^`]|``)+`)/iu.exec(remaining);
     if (collate) {
+      if (collation !== undefined) return undefined;
+      const name = collate[1]!;
+      if (dialect === "sqlserver" && !/^[A-Za-z][A-Za-z0-9_]{0,127}$/u.test(name)) return undefined;
+      const parts = identifierParts(name);
+      if (parts?.length !== 1) return undefined;
+      collation = parts[0]!;
       remaining = remaining.slice(collate[0].length).trim();
       continue;
     }
@@ -351,7 +366,13 @@ function columnAttributes(
     }
     return undefined;
   }
-  return { nullable, hasDefault, primaryKey, ...(identity ? { identity: true } : {}) };
+  return {
+    nullable,
+    hasDefault,
+    primaryKey,
+    ...(identity ? { identity: true } : {}),
+    ...(collation ? { collation } : {}),
+  };
 }
 
 function columnTypeLength(source: string): number | undefined {
@@ -431,6 +452,23 @@ function parseColumn(part: SourcePart, position: number, dialect: PlaygroundDial
   const databaseType = typeLength === undefined ? undefined : definition.slice(0, typeLength).trim();
   if (!databaseType) return undefined;
   const attributes = columnAttributes(definition.slice(typeLength), dialect);
+  if (dialect === "sqlserver" && attributes?.identity) {
+    const native = parseSqlServerNativeType(databaseType);
+    if (
+      !native ||
+      !(
+        ["tinyint", "smallint", "int", "bigint"].includes(native.name) ||
+        (native.name === "decimal" && native.scale === 0)
+      )
+    )
+      return undefined;
+  }
+  if (
+    dialect === "sqlserver" &&
+    attributes?.collation &&
+    !/^(?:n?(?:var)?char\s*(?:\(|$)|n?text$)/iu.test(databaseType)
+  )
+    return undefined;
   return attributes
     ? { name: identifier.parts[0]!, databaseType, ...attributes, position, sourceStart: part.start }
     : undefined;
@@ -678,10 +716,20 @@ export function parsePlaygroundSchema(
               ),
               nullable: column.nullable,
               nullabilitySource: "declared",
-              default: column.hasDefault ? "present" : "none",
+              default: dialect === "sqlserver" && column.identity ? "none" : column.hasDefault ? "present" : "none",
+              ...(column.collation
+                ? {
+                    collation:
+                      dialect === "sqlserver" && column.collation.toUpperCase() === "DATABASE_DEFAULT"
+                        ? String(server.settings.collation)
+                        : column.collation,
+                  }
+                : {}),
               generated: "none",
               identity: column.identity
-                ? "by-default"
+                ? dialect === "sqlserver"
+                  ? "always"
+                  : "by-default"
                 : column.primaryKey && dialect === "sqlite" && column.databaseType.toUpperCase() === "INTEGER"
                   ? "by-default"
                   : "none",
@@ -689,8 +737,8 @@ export function parsePlaygroundSchema(
                 column.primaryKey && dialect === "sqlite" && column.databaseType.toUpperCase() === "INTEGER"
                   ? "rowid"
                   : "normal",
-              insertable: true,
-              updatable: true,
+              insertable: !(dialect === "sqlserver" && column.identity),
+              updatable: !(dialect === "sqlserver" && column.identity),
             },
           ]),
         ),
