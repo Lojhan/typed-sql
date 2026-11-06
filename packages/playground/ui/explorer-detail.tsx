@@ -1,7 +1,8 @@
 import { useId, useState } from "react";
-import { evidenceText, type InspectionTarget, objectPresence, propertyChanges } from "./explorer-model";
-import type { ExplorerCatalog, ExplorerEvent, ExplorerObject, ExplorerValue } from "./explorer-types";
+import { evidenceText, type InspectionTarget, objectLabel, objectPresence, propertyChanges } from "./explorer-model";
+import type { ExplorerCatalog, ExplorerEvent, ExplorerValue } from "./explorer-types";
 import { Icon } from "./icon";
+import { ObjectDefinition } from "./object-definition";
 
 function Properties({ values }: { values: Record<string, string | undefined> }) {
   return (
@@ -53,9 +54,9 @@ function EventChanges({
         <button
           type="button"
           className="inspection-link"
-          onClick={() => onOpen({ kind: "object", id: object.id, label: object.name })}
+          onClick={() => onOpen({ kind: "object", id: object.id, label: objectLabel(object) })}
         >
-          Inspect {object.name} <Icon name="schema" />
+          Inspect {objectLabel(object)} <Icon name="schema" />
         </button>
       ) : null}
       {event.details !== "captured" ? (
@@ -260,17 +261,6 @@ export function ExplorerDetail({
   const parent = object?.parentId
     ? catalog?.schema.objects.find((candidate) => candidate.id === object.parentId)
     : undefined;
-  const related = object
-    ? (catalog?.schema.links
-        .filter((link) => link.kind !== "contains" && (link.source === object.id || link.target === object.id))
-        .map((link) => ({
-          link,
-          object: catalog.schema.objects.find(
-            (candidate) => candidate.id === (link.source === object.id ? link.target : link.source),
-          ),
-        }))
-        .filter((item): item is { link: typeof item.link; object: ExplorerObject } => !!item.object) ?? [])
-    : [];
   const events = object?.history ?? migration?.attempts ?? [];
   const presence = objectPresence(object);
   const historical = presence === "removed";
@@ -306,16 +296,16 @@ export function ExplorerDetail({
       ) : (
         <>
           <div className="inspection-title">
-            <h2>{object?.name ?? migration?.id}</h2>
+            <h2>{object ? objectLabel(object) : migration?.id}</h2>
             {migration ? <span className={`migration-status ${migration.status}`}>{migration.status}</span> : null}
             {presence ? <span className="migration-status reverted">{historical ? "Removed" : "History"}</span> : null}
             {object && parent ? (
               <button
                 type="button"
                 className="inspection-link"
-                onClick={() => onOpen({ kind: "object", id: parent.id, label: parent.name })}
+                onClick={() => onOpen({ kind: "object", id: parent.id, label: objectLabel(parent) })}
               >
-                {parent.name}
+                {objectLabel(parent)}
               </button>
             ) : null}
           </div>
@@ -404,16 +394,6 @@ export function ExplorerDetail({
               </>
             ) : object ? (
               <>
-                <Properties
-                  values={{
-                    Kind: object.kind,
-                    Namespace: object.namespace || "Not specified",
-                    Source: catalog?.schema.source,
-                    "Captured at": catalog?.schema.capturedAt,
-                    "Schema hash": catalog?.schema.schemaHash,
-                    Coverage: catalog?.schema.coverage,
-                  }}
-                />
                 {historical ? (
                   <p className="inspection-note">
                     This object is absent from the current captured schema. History retains its recorded migration
@@ -426,27 +406,22 @@ export function ExplorerDetail({
                     schema.
                   </p>
                 ) : null}
-                <h3>Captured definition</h3>
-                <pre className="inspection-definition">{evidenceText(object.details)}</pre>
-                {related.length ? (
-                  <>
-                    <h3>Related objects</h3>
-                    <ul className="inspection-related">
-                      {related.map(({ link, object }) => (
-                        <li key={link.id}>
-                          <button
-                            type="button"
-                            onClick={() => onOpen({ kind: "object", id: object.id, label: object.name })}
-                          >
-                            <Icon name="relationship" />
-                            <span>{object.name}</span>
-                            <small>{link.label ?? link.kind}</small>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : null}
+                <ObjectDefinition object={object} catalog={catalog!} onOpen={onOpen} />
+                <details className="definition-secondary">
+                  <summary>Capture information</summary>
+                  <Properties
+                    values={{
+                      Source: catalog?.schema.source,
+                      "Captured at": catalog?.schema.capturedAt,
+                      "Schema hash": catalog?.schema.schemaHash,
+                      Coverage: catalog?.schema.coverage,
+                    }}
+                  />
+                </details>
+                <details className="definition-secondary definition-raw">
+                  <summary>Raw captured definition</summary>
+                  <pre className="inspection-definition">{evidenceText(object.details)}</pre>
+                </details>
               </>
             ) : migration ? (
               <>

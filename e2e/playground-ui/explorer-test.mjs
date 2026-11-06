@@ -165,6 +165,23 @@ export default defineConfig({
     await palette.waitFor({ state: "detached" });
   }
   await page.getByRole("tree", { name: "Database objects" }).waitFor();
+  const headings = page.locator(".project-sidebar .tree-heading");
+  const sidebarBox = await page.locator(".project-sidebar").boundingBox();
+  for (const heading of await headings.all()) {
+    const label = await heading.locator(".explorer-section-toggle > span").first().boundingBox();
+    assert.ok(label.x - sidebarBox.x >= 20 && label.x - sidebarBox.x <= 30);
+    await heading.hover();
+    const colors = await heading.evaluate((node) => ({
+      row: getComputedStyle(node).backgroundColor,
+      hover: getComputedStyle(document.documentElement).getPropertyValue("--hover").trim(),
+      left: node.getBoundingClientRect().left,
+      right: node.getBoundingClientRect().right,
+    }));
+    assert.notEqual(colors.row, "rgba(0, 0, 0, 0)");
+    assert.equal(colors.left, sidebarBox.x);
+    assert.equal(colors.right, sidebarBox.x + sidebarBox.width);
+  }
+  check("all sidebar headings align at the left and hover backgrounds fill their full width including controls");
   const initialMigrations = page.getByRole("navigation", { name: "Project migrations", exact: true });
   await initialMigrations.locator(".migration-status.unverified").first().waitFor();
   assert.equal(await initialMigrations.locator(".migration-status.pending").count(), 0);
@@ -192,6 +209,80 @@ export default defineConfig({
     .map((object) => object.name);
   for (const namespace of commerceNamespaces) assert.ok(capturedNamespaces.includes(namespace));
   await writeFile(join(artifacts, "explorer-response.json"), JSON.stringify(explorer, null, 2));
+  await tree.getByRole("treeitem", { name: "Unqualified objects namespace", exact: true }).click();
+  const unqualified = page.getByRole("region", { name: "Database object details", exact: true });
+  await unqualified.getByRole("heading", { name: "Unqualified objects", exact: true }).waitFor();
+  await unqualified.getByRole("button", { name: "bigint", exact: true }).click();
+  await unqualified.getByRole("heading", { name: "bigint", exact: true }).waitFor();
+  await unqualified.getByRole("button", { name: "Unqualified objects", exact: true }).click();
+  await unqualified.getByRole("heading", { name: "Unqualified objects", exact: true }).waitFor();
+  check("unqualified namespace and type links open valid inspection tabs without changing captured identities");
+  await invoke(">Open schema", "Open schema");
+  await page.getByRole("textbox", { name: "Search schema", exact: true }).fill("public.accounts");
+  await page.waitForFunction(() => {
+    const cards = document.querySelectorAll(".table-node");
+    const card = cards[0];
+    return cards.length === 1 && Math.abs(card.getBoundingClientRect().width - card.offsetWidth) < 1;
+  });
+  await page.evaluate(() => {
+    window.__boardEvents = [];
+    let firstNode, firstTarget;
+    for (const type of ["pointerdown", "pointerup", "click", "dblclick"])
+      document.addEventListener(
+        type,
+        (event) => {
+          const node = event.target instanceof Element ? event.target.closest(".react-flow__node") : null;
+          if (!node && !firstNode) return;
+          const box = node?.getBoundingClientRect();
+          const live = document.querySelector(".react-flow__node");
+          const liveBox = live?.getBoundingClientRect();
+          if (!firstNode) {
+            firstNode = node;
+            firstTarget = event.target;
+          }
+          window.__boardEvents.push({
+            type,
+            detail: event.detail,
+            time: performance.now(),
+            x: event.clientX,
+            y: event.clientY,
+            target: event.target.tagName,
+            text: event.target.textContent?.slice(0, 80),
+            node: node?.dataset.id,
+            firstNodeConnected: firstNode?.isConnected,
+            firstTargetConnected: firstTarget?.isConnected,
+            liveSameNode: live === firstNode,
+            liveSameTarget: live?.querySelector("strong") === firstTarget,
+            liveBox: liveBox
+              ? { left: liveBox.left, top: liveBox.top, width: liveBox.width, height: liveBox.height }
+              : null,
+            sameNode: node === firstNode,
+            sameTarget: event.target === firstTarget,
+            box: box ? { left: box.left, top: box.top, width: box.width, height: box.height } : null,
+          });
+        },
+        true,
+      );
+  });
+  await page
+    .locator(".table-node")
+    .filter({ has: page.locator("header strong", { hasText: /^accounts$/u }) })
+    .locator("header strong")
+    .dblclick();
+  const boardEvents = await page.evaluate(() => window.__boardEvents);
+  assert.ok(boardEvents.some((event) => event.type === "dblclick" && event.detail === 2));
+  assert.ok(
+    boardEvents.every(
+      (event) => event.firstNodeConnected && event.firstTargetConnected && event.liveSameNode && event.liveSameTarget,
+    ),
+    "Selection retains node DOM identity through direct double-click",
+  );
+  await writeFile(join(artifacts, "board-events.json"), JSON.stringify(boardEvents, null, 2));
+  await page
+    .getByRole("region", { name: "Database object details", exact: true })
+    .getByRole("heading", { name: "accounts", exact: true })
+    .waitFor();
+  check("double-clicking a schema board relation opens its exact structured object detail tab");
   await tree.getByRole("treeitem", { name: "public namespace", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   const publicNamespace = tree.getByRole("treeitem", { name: "public namespace", exact: true });
@@ -202,6 +293,117 @@ export default defineConfig({
   await accounts.waitFor();
   await accounts.click();
   const objectDetails = page.getByRole("region", { name: "Database object details", exact: true });
+  await objectDetails.getByRole("heading", { name: "accounts", exact: true }).waitFor();
+  const columnTable = objectDetails.getByRole("table", { name: "Columns", exact: true });
+  assert.equal(await columnTable.getByRole("row").count(), 5);
+  assert.match(await columnTable.textContent(), /contact_email/u);
+  assert.doesNotMatch(await columnTable.textContent(), /\bemail\b/u);
+  assert.match(
+    await columnTable
+      .getByRole("row")
+      .filter({ has: page.getByRole("button", { name: "id", exact: true }) })
+      .textContent(),
+    /bigint.*Not null.*Primary key/su,
+  );
+  assert.match(
+    await columnTable
+      .getByRole("row")
+      .filter({ has: page.getByRole("button", { name: "contact_email", exact: true }) })
+      .textContent(),
+    /text.*Nullable/su,
+  );
+  assert.equal(await objectDetails.locator(".definition-raw").getAttribute("open"), null);
+  assert.equal(
+    await objectDetails
+      .locator(".definition-secondary")
+      .filter({ has: page.locator("summary", { hasText: /^Capture information$/u }) })
+      .getAttribute("open"),
+    null,
+  );
+  const incoming = objectDetails.getByRole("region", { name: "Incoming relationships", exact: true });
+  assert.match(await incoming.textContent(), /public.orders/u);
+  assert.match(await incoming.textContent(), /\(account_id\)/u);
+  assert.match(await incoming.textContent(), /\(id\)/u);
+  check(
+    "relation detail presents current ordered columns, nullability, key membership and exact incoming foreign keys with raw data collapsed",
+  );
+  for (const mode of ["light", "dark"]) {
+    await invoke(`>Theme: ${mode[0].toUpperCase() + mode.slice(1)}`, `Theme: ${mode[0].toUpperCase() + mode.slice(1)}`);
+    await shot(columnTable, `structured-columns-${mode}`, 1040, 260);
+    await shot(incoming.locator("li").first(), `structured-relationship-${mode}`, 700, 180);
+    await page.setViewportSize({ width: 600, height: 900 });
+    await page.waitForFunction(() => document.querySelector(".inspection-panel")?.clientWidth <= 360);
+    const content = await objectDetails
+      .locator(".inspection-content")
+      .evaluate((node) => ({ width: node.clientWidth, scroll: node.scrollWidth }));
+    assert.equal(content.scroll, content.width);
+    await shot(objectDetails, `structured-narrow-${mode}`, 360, 320);
+    const tableScroll = objectDetails.getByRole("region", { name: "Columns table scroll area", exact: true });
+    await tableScroll.focus();
+    await tableScroll.press("ArrowRight");
+    await page.waitForFunction(() => document.querySelector(".definition-table-scroll").scrollLeft > 0);
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+  check(
+    "structured definitions retain readable light/dark rows and keyboard-scrollable tables inside an actual narrow pane",
+  );
+  await objectDetails
+    .getByRole("region", { name: "Indexes", exact: true })
+    .getByRole("button", { name: "accounts_email_key", exact: true })
+    .click();
+  await objectDetails.getByRole("heading", { name: "accounts_email_key", exact: true }).waitFor();
+  assert.match(
+    await objectDetails.getByRole("region", { name: "Index", exact: true }).textContent(),
+    /Expression \(definition not captured\)/u,
+  );
+  await accounts.click();
+  await objectDetails.getByRole("heading", { name: "accounts", exact: true }).waitFor();
+  await objectDetails
+    .getByRole("region", { name: "Constraints", exact: true })
+    .getByRole("button", { name: "accounts_pkey", exact: true })
+    .click();
+  await objectDetails.getByRole("heading", { name: "accounts_pkey", exact: true }).waitFor();
+  assert.match(
+    await objectDetails.getByRole("region", { name: "Constraint", exact: true }).textContent(),
+    /primary-key/u,
+  );
+  check("structured index and constraint rows open existing inspection tabs without fabricating expression text");
+  await invoke(">Inspect sales.line_adjustments (table)", "Inspect sales.line_adjustments (table)");
+  await objectDetails.getByRole("heading", { name: "line_adjustments", exact: true }).waitFor();
+  const outgoing = objectDetails.getByRole("region", { name: "Outgoing relationships", exact: true });
+  assert.match(await outgoing.textContent(), /\(order_id, line_no\)/u);
+  assert.match(await outgoing.textContent(), /sales.order_lines/u);
+  const composite = explorer.schema.objects.find(
+    (object) => object.kind === "relationship" && object.namespace === "sales" && object.details.columns?.length === 2,
+  );
+  assert.ok(composite);
+  await outgoing.getByRole("button", { name: composite.name, exact: true }).click();
+  await objectDetails.getByRole("heading", { name: composite.name, exact: true }).waitFor();
+  assert.match(
+    await objectDetails.getByRole("region", { name: "Foreign key", exact: true }).textContent(),
+    /order_id, line_no/u,
+  );
+  check("composite outgoing relationship inspection preserves ordered source and target columns");
+  await invoke(">Open schema", "Open schema");
+  await page.getByRole("textbox", { name: "Search schema", exact: true }).fill("analytics.order_totals");
+  await page.waitForFunction(() => {
+    const cards = document.querySelectorAll(".table-node");
+    const card = cards[0];
+    return cards.length === 1 && Math.abs(card.getBoundingClientRect().width - card.offsetWidth) < 1;
+  });
+  await page
+    .locator(".table-node")
+    .filter({ has: page.locator("header strong", { hasText: /^order_totals$/u }) })
+    .locator("header strong")
+    .dblclick();
+  await objectDetails.getByRole("heading", { name: "order_totals", exact: true }).waitFor();
+  assert.equal(await objectDetails.getByRole("table", { name: "Columns", exact: true }).getByRole("row").count(), 4);
+  assert.match(
+    await objectDetails.getByRole("region", { name: "View dependencies", exact: true }).textContent(),
+    /not captured/u,
+  );
+  check("double-clicked views expose captured columns and explicitly unavailable view dependencies");
+  await accounts.click();
   await objectDetails.getByRole("heading", { name: "accounts", exact: true }).waitFor();
   await accounts.press("ArrowRight");
   const columns = tree.getByRole("treeitem", { name: "Columns group", exact: true });
@@ -229,6 +431,13 @@ export default defineConfig({
     `Inspect ${enumObject.namespace}.${enumObject.name} (enum)`,
   );
   await objectDetails.getByRole("heading", { name: "payment_status", exact: true }).waitFor();
+  assert.deepEqual(await objectDetails.locator(".definition-enum-labels li code").allTextContents(), [
+    "pending",
+    "settled",
+    "failed",
+    "refunded",
+  ]);
+  check("enum definitions present captured labels in their database order");
   await objectDetails.getByRole("tab", { name: /History/u }).click();
   await objectDetails.locator(".property-diff").first().waitFor();
   assert.match(await objectDetails.textContent(), /refunded/u);
