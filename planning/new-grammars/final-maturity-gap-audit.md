@@ -255,3 +255,29 @@ No further unfulfilled implementation deliverable was established by this indepe
 requirements pass. The remaining items are concrete completion receipts and MR review/integration,
 not proposals to expand SQL syntax, add generic contracts, or force unrelated vendor capabilities.
 The objective remains unproven until those final gates finish successfully.
+
+### Subsequent receipts at 72d66b1
+
+The source-equivalent SQL native artifacts are downloaded under primary
+`artifacts/sqlserver/final-18d/`. Independent parsing confirms adapter cases 39/80/153/204 for
+majors 14/15/16/17, zero failed entries, and successful owned database cleanup on all four. Catalog
+profiles are exactly `[140]`, `[140,150]`, `[140,150,160]`, `[140,150,160,170]`, with 5/10/15/20
+passing cases and zero profile failures. All four installed-service summaries show two cached
+verification replays, zero cached SDK imports, no verification skips, and the one explicit
+`repeated-fragment-cardinality` plan skip. That skip is an honest unavailable plan specialization,
+not a hidden verification failure.
+
+The corrected full run `/tmp/typed-sql-final-reviewable-verify.log` now passes all package suites,
+all **45/45** repository contracts, full build and production docs build at clean `72d66b1`.
+Production package source is unchanged from the native-qualified head. Later commits correct the
+contract assertion and scope a SQL documentation example's `types` command to application SQL
+rather than setup DDL.
+
+However, that run **fails the existing performance gate**: `editor.editStorm` p50 **11.19 ms**
+exceeds its **10 ms** budget (`performance-gate.mjs:904`, Node24.10.0/darwin-arm64/Apple M3 Pro,
+default budget profile17). This replaces the earlier merely pending performance receipt with an
+actual measured gate failure. It does not by itself establish a persistent source regression, but
+requires investigation or a valid fresh passing measurement; do not raise or bypass the budget to
+turn the failure green. Full `pnpm verify` is still not a passing receipt. Package MR CI and the
+final combined packaged five-grammar integration receipts/review remain outstanding until their
+actual completion is recorded.
