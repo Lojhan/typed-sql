@@ -611,6 +611,9 @@ importers:
         specifier: 4.23.15
         version: 4.23.15
     devDependencies:
+      '@codemirror/autocomplete':
+        specifier: 6.20.3
+        version: 6.20.3
       '@codemirror/commands':
         specifier: ^6.8.1
         version: 6.11.1
@@ -623,6 +626,9 @@ importers:
       '@codemirror/language':
         specifier: ^6.11.3
         version: 6.13.1
+      '@codemirror/lint':
+        specifier: 6.9.7
+        version: 6.9.7
       '@codemirror/search':
         specifier: 6.7.2
         version: 6.7.2
@@ -650,6 +656,9 @@ importers:
       pg-cursor:
         specifier: 2.22.1
         version: 2.22.1(pg@8.23.1)
+      prettier:
+        specifier: 3.9.10
+        version: 3.9.10
       react:
         specifier: ^19.2.0
         version: 19.3.1
@@ -5525,6 +5534,11 @@ packages:
     peerDependenciesMeta:
       preact-render-to-string:
         optional: true
+
+  prettier@3.9.10:
+    resolution: {integrity: sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   pretty-format@30.5.1:
     resolution: {integrity: sha512-byhRAPguVKMQIj4kjJwJ5lAskVhfuiSdiYl/aLTWpgkGEmic2jYhJh1yE9ih8Ox44Xg9ccCT11/S6QrzSJuNrg==}
@@ -10677,6 +10691,8 @@ snapshots:
   postgres@3.4.9: {}
 
   preact@10.29.8: {}
+
+  prettier@3.9.10: {}
 
   pretty-format@30.5.1:
     dependencies:

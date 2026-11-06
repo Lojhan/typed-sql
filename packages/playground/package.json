@@ -70,10 +70,12 @@
     }
   },
   "devDependencies": {
+    "@codemirror/autocomplete": "6.20.3",
     "@codemirror/commands": "^6.8.1",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/lang-sql": "^6.10.0",
     "@codemirror/language": "^6.11.3",
+    "@codemirror/lint": "6.9.7",
     "@codemirror/search": "6.7.2",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.6",
@@ -83,6 +85,7 @@
     "@types/react-dom": "^19.2.0",
     "@xyflow/react": "^12.11.1",
     "pg-cursor": "2.22.1",
+    "prettier": "3.9.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }
