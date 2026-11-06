@@ -145,6 +145,7 @@ export function SchemaBoard({
   }, [board, search, selected, focus]);
   const layout = useMemo(() => initialPositions({ ...board, tables: visible }), [board, visible]);
   const storageKey = `typed-sql-board-v1:${identity}`;
+  const priorStorageKey = useRef(storageKey);
   useEffect(() => {
     let saved: Record<string, { x: number; y: number }> = {};
     try {
@@ -152,14 +153,21 @@ export function SchemaBoard({
     } catch {
       /* Invalid local display state never affects schema. */
     }
-    setNodes(
-      visible.map((table) => ({
-        id: table.id,
-        type: "table",
-        position: saved[table.id] ?? layout.get(table.id) ?? { x: 0, y: 0 },
-        data: { table, selectedTable: selected },
-      })),
-    );
+    const preserve = priorStorageKey.current === storageKey;
+    priorStorageKey.current = storageKey;
+    setNodes((current) => {
+      const existing = new Map((preserve ? current : []).map((node) => [node.id, node]));
+      return visible.map((table) => {
+        const previous = existing.get(table.id);
+        return {
+          ...previous,
+          id: table.id,
+          type: "table",
+          position: previous?.position ?? saved[table.id] ?? layout.get(table.id) ?? { x: 0, y: 0 },
+          data: { table, selectedTable: selected },
+        };
+      });
+    });
   }, [visible, layout, selected, storageKey]);
   const edges = useMemo(() => {
     const ids = new Set(visible.map((t) => t.id));
