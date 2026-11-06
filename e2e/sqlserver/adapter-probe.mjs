@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -22,10 +23,14 @@ const dsn = (database) =>
   `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=${database};UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
 const evidence = { formatVersion: 1, major, cases: [] };
 const qualificationFailures = [];
+const createdDatabases = [];
+const databaseSuffix = randomBytes(6).toString("hex");
+const databaseName = (level) => `typed_sql_adapter_${level}_${databaseSuffix}`;
 const output = resolve(`../../artifacts/sqlserver/adapter-${major}.json`);
 const generated = await mkdtemp(new URL(".adapter-generated-", import.meta.url));
 const grammar = sqlserver();
 let sequence = 0;
+let cleanupFailure;
 async function compile(schema, source) {
   const result = compileSqlFile({ dialect: grammar, schema, source });
   assert.deepEqual(result.diagnostics, [], `SQL compilation: ${source}`);
@@ -51,15 +56,16 @@ try {
   const admin = await native.promises.open({ conn_str: dsn("master"), conn_timeout: 10 });
   try {
     for (const level of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
-      const database = `typed_sql_adapter_${level}`;
+      const database = databaseName(level);
       await admin.promises.query(`CREATE DATABASE [${database}] COLLATE SQL_Latin1_General_CP1_CI_AS`);
+      createdDatabases.push(database);
       await admin.promises.query(`ALTER DATABASE [${database}] SET COMPATIBILITY_LEVEL=${level}`);
     }
   } finally {
     await admin.promises.close();
   }
   for (const level of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
-    const db = await createSqlServerOdbcDatabase({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+    const db = await createSqlServerOdbcDatabase({ connectionString: dsn(databaseName(level)) });
     try {
       await check(`${level}: factory and provider`, async () => {
         assert.equal(db.serverEvidence.version, process.env.TYPED_SQL_SQLSERVER_BUILD);
@@ -75,7 +81,7 @@ try {
       await check(`${level}: native late errors and multiple rowsets`, async () => {
         for (const mode of ["buffered", "streamed"])
           for (const ending of ["THROW 51111,N'qualification late error',1", "SELECT 2 AS value"]) {
-            const connection = await connectSqlServerOdbc({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+            const connection = await connectSqlServerOdbc({ connectionString: dsn(databaseName(level)) });
             let stream;
             try {
               const text = `SELECT 1 AS value; ${ending}`;
@@ -129,7 +135,7 @@ try {
         const pool = {
           async acquire() {
             const connection = await createSqlServerOdbcDatabase({
-              connectionString: dsn(`typed_sql_adapter_${level}`),
+              connectionString: dsn(databaseName(level)),
             });
             return {
               all: (text, values) => connection.queryable.all(text, values),
@@ -177,7 +183,7 @@ try {
           assert.equal(actual.value, input);
         }
         const compatibility = await createSqlServerMsnodesqlv8Database({
-          connectionString: dsn(`typed_sql_adapter_${level}`),
+          connectionString: dsn(databaseName(level)),
         });
         try {
           const unsupported = await compile(schema, "SELECT CAST('x' AS varchar(max)) AS value");
@@ -340,7 +346,7 @@ try {
           }
         });
       await check(`${level}: independent native prepared zero termination`, async () => {
-        const connection = await native.promises.open({ conn_str: dsn(`typed_sql_adapter_${level}`) });
+        const connection = await native.promises.open({ conn_str: dsn(databaseName(level)) });
         const cases = [];
         try {
           for (const type of ["nvarchar(40)", "nvarchar(max)", "varbinary(max)"]) {
@@ -490,7 +496,7 @@ try {
       });
       await check(`${level}: native cancellation, deadline and settled cleanup`, async () => {
         for (const mode of ["abort", "deadline", "prepared-abort", "pre-abort"]) {
-          const connection = await connectSqlServerOdbc({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+          const connection = await connectSqlServerOdbc({ connectionString: dsn(databaseName(level)) });
           let prepared;
           let timer;
           try {
@@ -577,7 +583,12 @@ try {
             try {
               await promisify(execFile)(
                 process.execPath,
-                [fileURLToPath(new URL("varchar-fidelity.mjs", import.meta.url)), String(level), encoding],
+                [
+                  fileURLToPath(new URL("varchar-fidelity.mjs", import.meta.url)),
+                  String(level),
+                  encoding,
+                  databaseName(level),
+                ],
                 { timeout: 45000, maxBuffer: 65536 },
               );
             } catch (error) {
@@ -609,8 +620,35 @@ try {
   }
   assert.deepEqual(qualificationFailures, [], "Native qualification has unresolved metadata disagreements");
 } finally {
+  if (createdDatabases.length) {
+    let admin;
+    try {
+      admin = await native.promises.open({ conn_str: dsn("master"), conn_timeout: 10 });
+      for (const database of createdDatabases) {
+        // Only names generated and successfully created by this invocation can reach cleanup.
+        assert.match(database, /^typed_sql_adapter_(140|150|160|170)_[a-f\d]{12}$/u);
+        await admin.promises.query(
+          `ALTER DATABASE [${database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${database}]`,
+        );
+        const rows = await admin.promises.query(`SELECT DB_ID(N'${database}') AS database_id`);
+        assert.equal(rows.first[0].database_id, null);
+      }
+      evidence.cleanup = { status: "pass", databases: createdDatabases };
+    } catch (error) {
+      cleanupFailure = error;
+      evidence.cleanup = { status: "fail", error: String(error).replaceAll(password, "[redacted]") };
+    } finally {
+      try {
+        await admin?.promises.close();
+      } catch (error) {
+        cleanupFailure ??= error;
+        evidence.cleanup = { status: "fail", error: String(error).replaceAll(password, "[redacted]") };
+      }
+    }
+  }
   await mkdir(resolve(output, ".."), { recursive: true });
   await writeFile(output, JSON.stringify(evidence, null, 2));
   await rm(generated, { recursive: true, force: true });
 }
+if (cleanupFailure) throw cleanupFailure;
 console.log(JSON.stringify({ major, passed: evidence.cases.length }));
