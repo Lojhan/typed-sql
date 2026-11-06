@@ -3,6 +3,7 @@ import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import { sqlserver } from "../src/index.js";
 import { createSqlServerOdbcConnection, createSqlServerOdbcDatabase, sqlServerOdbcField } from "../src/odbc.js";
+import { sqlServerOdbcAliasQuery } from "../src/odbc-aliases.js";
 import type { OdbcColumn, OdbcCommand, OdbcReply } from "../src/odbc-protocol.js";
 import { sqlServerCatalogQueries } from "../src/provider.js";
 import { createSqlServerDatabase } from "../src/runtime.js";
@@ -23,6 +24,7 @@ function fixture() {
   const state = directPortFixture();
   let nextHandle = 1,
     starts = 0;
+  let aliasRows: readonly Record<string, string | number>[] = [];
   const id = column("id");
   let app: AppHandler = (command) => {
     if (command.kind === "prepare") return { handle: nextHandle++, result: { rows: [], columns: [id] } };
@@ -41,6 +43,14 @@ function fixture() {
       reply = {
         result: { columns: names.map((name) => column(name, "nvarchar", 128, -9)), rows: [Object.values(serverRow)] },
       };
+    } else if ("text" in command && command.text === sqlServerOdbcAliasQuery) {
+      const names = Object.keys(aliasRows[0] ?? {});
+      reply = {
+        result: {
+          columns: names.map((name) => column(name, "nvarchar", 128, -9)),
+          rows: aliasRows.map((row) => names.map((name) => String(row[name]))),
+        },
+      };
     } else if ("text" in command && command.text === sqlServerCatalogQueries.options)
       reply = {
         result: {
@@ -54,6 +64,12 @@ function fixture() {
   return {
     ...state,
     connection: createSqlServerOdbcConnection(state.transport),
+    get aliasRows() {
+      return aliasRows;
+    },
+    set aliasRows(rows: readonly Record<string, string | number>[]) {
+      aliasRows = rows;
+    },
     get app(): AppHandler {
       return app;
     },
@@ -148,6 +164,65 @@ await describe("SQL Server direct adapter protocol composition", async () => {
     const before = state.data.messages.length;
     await strict.rejects(db.all(query(new Uint8Array(9))), /length/);
     strict.equal(state.data.messages.length, before);
+    await db.close();
+    await state.connection.close!();
+  });
+  await it("attests alias families on each idle physical lease and frees unsupported prepared metadata", async () => {
+    const state = fixture();
+    state.aliasRows = [
+      { alias_schema: "dbo", alias_name: "catalog_alias", base_name: "bigint", max_length: 8, precision: 19, scale: 0 },
+    ];
+    state.app = (command) =>
+      command.kind === "prepare"
+        ? { handle: 1, result: { rows: [], columns: [column("id", "catalog_alias")] } }
+        : { result: { rows: [["1"]], columns: [column("id", "catalog_alias")] } };
+    const db = createSqlServerDatabase({ connection: state.connection, serverEvidence });
+    strict.deepEqual(await db.all(query), [{ id: 1n }]);
+    const original = state.data.handler;
+    const cancellation = new AbortController();
+    state.data.handler = (message) => {
+      const command = message as OdbcCommand;
+      if (command.kind === "execute" && command.text === sqlServerOdbcAliasQuery) cancellation.abort();
+      original(message);
+    };
+    await strict.rejects(db.all(query, { signal: cancellation.signal }), /cancel/i);
+    state.data.handler = original;
+    strict.deepEqual(await db.all(query), [{ id: 1n }]);
+    state.data.handler = (message) => {
+      const command = message as OdbcCommand;
+      if (command.kind === "execute" && command.text === sqlServerCatalogQueries.server)
+        queueMicrotask(() =>
+          state.data.emit("message", {
+            id: command.id,
+            error: { message: "metadata unavailable", stage: "execute", reusable: true },
+          }),
+        );
+      else original(message);
+    };
+    await strict.rejects(state.connection.readServerEvidence!(), /metadata unavailable/);
+    state.data.handler = original;
+    await strict.rejects(state.connection.execute("SELECT raw alias"), /Unsupported/);
+    state.aliasRows = [];
+    await strict.rejects(db.all(query), /Unsupported/);
+    strict.ok(state.data.messages.some((value) => (value as OdbcCommand).kind === "freePrepared"));
+    state.transport.cursor = 42;
+    await strict.rejects(state.connection.readServerEvidence!(), /idle/);
+    state.transport.cursor = undefined;
+    await db.close();
+    await state.connection.close!();
+  });
+  await it("quarantines native preparation when rejected alias metadata cannot be freed", async () => {
+    const state = fixture();
+    state.app = (command) =>
+      command.kind === "prepare"
+        ? { handle: 1, result: { rows: [], columns: [column("id", "hidden_alias")] } }
+        : command.kind === "freePrepared"
+          ? { error: { message: "nativefreefailed", stage: "free-statement", reusable: false } }
+          : {};
+    const db = createSqlServerDatabase({ connection: state.connection, serverEvidence });
+    await strict.rejects(db.all(query), /Unsupported/);
+    strict.equal(state.transport.reusable, false);
+    await strict.rejects(db.all(query), /quarantined/);
     await db.close();
     await state.connection.close!();
   });

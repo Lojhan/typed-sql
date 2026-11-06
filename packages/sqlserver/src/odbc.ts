@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { requireSqlServerNativeType } from "./native-types.js";
+import {
+  type OdbcAliasRegistry,
+  sqlServerOdbcAlias,
+  sqlServerOdbcAliasQuery,
+  sqlServerOdbcAliasRegistry,
+} from "./odbc-aliases.js";
 import { requireSqlServerKoffi } from "./odbc-native.js";
 import {
   type OdbcBoundValue,
@@ -51,7 +57,9 @@ export async function loadSqlServerOdbcDriver(importer?: () => Promise<unknown>)
   const application = createRequire(resolve(process.cwd(), "package.json"));
   return requireSqlServerKoffi(importer ? await importer() : application("koffi"));
 }
-export function sqlServerOdbcField(column: OdbcColumn): SqlServerField {
+export function sqlServerOdbcField(column: OdbcColumn, aliases: OdbcAliasRegistry = new Map()): SqlServerField {
+  const alias = sqlServerOdbcAlias(column, aliases);
+  if (alias) column = { ...column, typeName: alias.baseName };
   // SQLGetTypeInfo represents IDENTITY as a type attribute; it is not part of the value's SQL target.
   // Only normalize the exact qualified spelling when the independently reported ODBC code agrees.
   const identity = /^(bigint|int|smallint|tinyint|decimal|numeric) identity$/iu.exec(column.typeName);
@@ -81,6 +89,8 @@ export function sqlServerOdbcField(column: OdbcColumn): SqlServerField {
   else if (["time", "datetime2", "datetimeoffset"].includes(name))
     text = requireSqlServerNativeType(`${name}(${column.scale})`).text;
   const target = requireSqlServerNativeType(text);
+  if (alias && target.text !== alias.databaseType)
+    throw new TypeError("SQL Server alias dimensions disagree with verified native catalog metadata");
   return {
     name: column.name,
     databaseType: text,
@@ -117,8 +127,8 @@ function bindings(values: readonly unknown[], maximum: number): readonly OdbcBou
     return result;
   });
 }
-function rows(result: OdbcResult): SqlServerExecutionResult {
-  const fields = result.columns.map(sqlServerOdbcField);
+function rows(result: OdbcResult, aliases: OdbcAliasRegistry): SqlServerExecutionResult {
+  const fields = result.columns.map((column) => sqlServerOdbcField(column, aliases));
   return {
     fields,
     resultSets: fields.length ? 1 : 0,
@@ -165,11 +175,16 @@ export async function connectSqlServerOdbc(options: SqlServerOdbcOptions): Promi
 /** Internal protocol composition seam; public entrypoints expose only the factory. */
 export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport): SqlServerConnectionLike {
   let observedVersion: string | undefined;
+  let aliases: OdbcAliasRegistry = new Map();
+  const field = (column: OdbcColumn) => sqlServerOdbcField(column, aliases);
   const connection: SqlServerConnectionLike = {
     executionCapabilities: { cancellation: true, deadlines: true },
     validatePreparedMetadata: true,
     preparedControls: true,
     async readServerEvidence(controls = {}) {
+      if (transport.busy || transport.cursor !== undefined)
+        throw new Error("SQL Server alias attestation requires an idle native connection");
+      aliases = new Map();
       const evidence = (
         await readSqlServerServerEvidence({
           async all<Row extends Record<string, unknown>>(text: string) {
@@ -178,6 +193,15 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
         })
       ).server;
       observedVersion = evidence.versionKey;
+      // Initial owned connections may still need the authorized canonical SET preset.
+      // Invalid/changed sessions never expose an old database's alias registry.
+      try {
+        assertSqlServerRuntimeEvidence(evidence);
+      } catch {
+        return evidence;
+      }
+      const catalog = await connection.execute(sqlServerOdbcAliasQuery, [], controls);
+      aliases = sqlServerOdbcAliasRegistry(catalog.rows);
       return evidence;
     },
     async execute(text, values = [], controls = {}) {
@@ -185,15 +209,26 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
         { kind: "execute", text, values: bindings(values, transport.options.maximumResultBytes) },
         controls,
       );
-      return rows(result.result!);
+      return rows(result.result!, aliases);
     },
     async prepare(text, controls = {}) {
       const reply = await transport.request({ kind: "prepare", text }, controls),
         handle = reply.handle!;
       let closed = false,
         running = false;
+      let fields: readonly SqlServerField[] | undefined;
+      try {
+        fields = reply.result?.columns.map(field);
+      } catch (error) {
+        try {
+          await transport.request({ kind: "freePrepared", handle });
+        } catch {
+          transport.reusable = false;
+        }
+        throw error;
+      }
       const prepared: SqlServerNativePrepared = {
-        ...(reply.result ? { fields: reply.result.columns.map(sqlServerOdbcField) } : {}),
+        ...(fields ? { fields } : {}),
         async execute(values, controls = {}) {
           if (closed || running) throw new Error("Native ODBC prepared handle is closed or busy");
           running = true;
@@ -205,6 +240,7 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
                   controls,
                 )
               ).result!,
+              aliases,
             );
           } finally {
             running = false;
@@ -238,7 +274,7 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
           if (prepared.result)
             validateSqlServerResultFields(
               streamOptions.valuePlan,
-              prepared.result.columns.map(sqlServerOdbcField),
+              prepared.result.columns.map(field),
               observedVersion === "17",
             );
         }
@@ -250,7 +286,7 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
         const reply = await active;
         handle = reply.handle!;
         transport.cursor = handle;
-        return reply.result!.columns.map(sqlServerOdbcField);
+        return reply.result!.columns.map(field);
       })();
       const stream: SqlServerProtocolStream = {
         fields: opening,
@@ -272,7 +308,7 @@ export function createSqlServerOdbcConnection(transport: SqlServerOdbcTransport)
                 handle,
               );
               const reply = await active;
-              queue = rows(reply.result!).rows;
+              queue = rows(reply.result!, aliases).rows;
               queueIndex = 0;
               if (reply.done) ended = true;
             }

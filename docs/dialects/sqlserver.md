@@ -64,6 +64,11 @@ require finite values and reject integer-valued numbers outside JavaScript's saf
 including very large floating values. CLR, spatial,
 `sql_variant` and otherwise unproven types remain `unknown`.
 
+Native alias types use underlying type facts captured from the same attested database session.
+The adapter rejects hidden or ambiguous unqualified alias names and metadata whose native family
+or dimensions disagree with those facts. An alias name that shadows a native type name can also
+make otherwise ambiguous metadata reject conservatively.
+
 Decimal validation preserves precision and scale without passing through `number`.
 `datetime2`, `time` and `datetimeoffset` strings retain up to seven fractional digits.
 `datetimeoffset` results represent the same instant in UTC; the original offset is not retained.
