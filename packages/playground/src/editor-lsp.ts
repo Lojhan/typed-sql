@@ -33,6 +33,9 @@ export class EditorLspClient {
     this.child.on("exit", () => this.fail("Language server stopped"));
     this.child.stdin.on("error", () => this.fail("Language server input closed"));
   }
+  get isAlive(): boolean {
+    return !this.closed;
+  }
   private send(value: unknown): void {
     if (this.closed) throw new WorkspaceError("EDITOR_SERVER", "Language server is unavailable", 503);
     const body = Buffer.from(JSON.stringify(value));

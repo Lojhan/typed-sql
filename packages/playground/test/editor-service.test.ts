@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -7,13 +7,14 @@ import { EditorLspClient } from "../src/editor-lsp.js";
 import { EditorRoutes } from "../src/editor-service.js";
 import { WorkspaceFiles } from "../src/files.js";
 
-const fake = `let buffer=Buffer.alloc(0);let text='';let uri='';const send=v=>{const b=Buffer.from(JSON.stringify({jsonrpc:'2.0',...v}));process.stdout.write('Content-Length: '+b.length+'\\r\\n\\r\\n');process.stdout.write(b)};
+const fake = `import {writeFileSync} from 'node:fs';let schemaChanges=0;let buffer=Buffer.alloc(0);let text='';let uri='';const send=v=>{const b=Buffer.from(JSON.stringify({jsonrpc:'2.0',...v}));process.stdout.write('Content-Length: '+b.length+'\\r\\n\\r\\n');process.stdout.write(b)};
 process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);while(true){let i=buffer.indexOf('\\r\\n\\r\\n');if(i<0)return;let n=Number(/Content-Length: (\\d+)/.exec(buffer.subarray(0,i).toString())[1]);if(buffer.length<i+4+n)return;let v=JSON.parse(buffer.subarray(i+4,i+4+n));buffer=buffer.subarray(i+4+n);
 if(v.method==='initialize')send({id:v.id,result:{serverInfo:{name:'fixture'},capabilities:{hoverProvider:true}}});
 else if(v.method==='textDocument/didOpen'){text=v.params.textDocument.text;uri=v.params.textDocument.uri}
 else if(v.method==='textDocument/didChange')text=v.params.contentChanges[0].text;
 else if(v.method==='textDocument/diagnostic')send({id:v.id,result:{kind:'full',items:[]}});
-else if(v.method==='textDocument/hover')setTimeout(()=>send({id:v.id,result:{contents:text}}),text.includes('slow')?100:0);
+else if(v.method==='workspace/didChangeWatchedFiles')schemaChanges++;
+else if(v.method==='textDocument/hover'){if(text==='schema-slow')writeFileSync(process.cwd()+'/hover-started','1');setTimeout(()=>{send({id:v.id,result:{contents:text,schemaChanges}});if(text==='crash')setTimeout(()=>process.exit(0),10)},text.includes('slow')?100:0);}
 else if(v.method==='textDocument/definition')send({id:v.id,result:[{uri:process.env.EDITOR_TEST_DEFINITION,range:{start:{line:0,character:0},end:{line:0,character:2}}}]});
 else if(v.method==='malformed')process.stdout.write('garbage'.repeat(2000));
 else if(v.method==='overflow')process.stdout.write('Content-Length: 99999999\\r\\n\\r\\n');
@@ -68,6 +69,61 @@ await describe("optional local editor companion", async () => {
       strict.equal(((await fresh) as { result: { contents: string } }).result.contents, "fresh");
       await files.save(file.file, "changed", file.revision);
       await strict.rejects(routes.handle({ ...file, method: "diagnostics" }, true), /Source changed/u);
+    }));
+  await it("hashes schema bytes before and after work despite equal size and preserved mtime", async () =>
+    fixture(async (routes, files, root) => {
+      const request = {
+        ...(await files.read("playground/query.ts")),
+        method: "hover",
+        position: { line: 0, character: 0 },
+      };
+      const before = (await routes.handle(request, true)) as { projectSnapshotHash: string };
+      const schema = join(root, "schema.json");
+      const original = await stat(schema);
+      await writeFile(schema, "[]");
+      await utimes(schema, original.atime, original.mtime);
+      const after = (await routes.handle(request, true)) as {
+        projectSnapshotHash: string;
+        result: { schemaChanges: number };
+      };
+      strict.notEqual(after.projectSnapshotHash, before.projectSnapshotHash);
+      strict.equal(after.result.schemaChanges, 1);
+      const slow = routes.handle({ ...request, source: "schema-slow" }, true);
+      const rejected = strict.rejects(slow, /Schema changed/u);
+      const deadline = Date.now() + 3000;
+      while (
+        !(await stat(join(root, "hover-started")).then(
+          () => true,
+          () => false,
+        ))
+      ) {
+        if (Date.now() > deadline) throw new Error("Companion did not begin hover");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      await writeFile(schema, "{}");
+      await utimes(schema, original.atime, original.mtime);
+      await rejected;
+    }));
+  await it("reports companion death and restarts with fresh document overlays after cooldown", async () =>
+    fixture(async (routes, files) => {
+      const request = {
+        ...(await files.read("playground/query.ts")),
+        method: "hover",
+        position: { line: 0, character: 0 },
+      };
+      await routes.handle({ ...request, source: "crash" }, true);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const failed = (await routes.handle(request, true)) as { status: { state: string } };
+      strict.equal(failed.status.state, "failed");
+      const cooling = (await routes.handle(request, true)) as { status: { state: string } };
+      strict.equal(cooling.status.state, "failed");
+      await new Promise((resolve) => setTimeout(resolve, 1050));
+      const recovered = (await routes.handle({ ...request, source: "recovered overlay" }, true)) as {
+        status: { state: string };
+        result: { contents: string };
+      };
+      strict.equal(recovered.status.state, "ready");
+      strict.equal(recovered.result.contents, "recovered overlay");
     }));
   await it("returns honest unavailable status without a project-local package", async () =>
     fixture(async (_routes, files, root) => {
@@ -177,11 +233,14 @@ await it("uses the real pinned companion for native TypeScript and original SQL 
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
   const temporary = await mkdtemp(join(root, "test/fixtures/success/.editor-proof-"));
   const files = new WorkspaceFiles(root, ["test/fixtures/success"], [relative(root, temporary)]);
+  const schemaPath = join(temporary, "snapshot.json");
+  const schemaSource = await readFile(join(root, "test/fixtures/success/schema.json"), "utf8");
+  await writeFile(schemaPath, schemaSource);
   const routes = new EditorRoutes({
     files,
     configFile: join(root, "e2e/postgres/typed-sql.config.ts"),
     projectFile: join(root, "test/fixtures/success/tsconfig.json"),
-    schemaFile: join(root, "test/fixtures/success/schema.json"),
+    schemaFile: schemaPath,
     companionFile: join(root, "packages/language-server/dist/packages/language-server/src/server.js"),
     timeoutMs: 30_000,
   });
@@ -246,6 +305,18 @@ await it("uses the real pinned companion for native TypeScript and original SQL 
       true,
     )) as { result: { token: string }[] };
     strict.ok(definition.result[0]?.token);
+    const schemaTime = await stat(schemaPath);
+    await writeFile(schemaPath, schemaSource.replace('"name": { "name": "name"', '"nope": { "name": "nope"'));
+    await utimes(schemaPath, schemaTime.atime, schemaTime.mtime);
+    const refreshed = (await routes.handle({ ...sql, method: "diagnostics" }, true)) as {
+      diagnostics: { code: string }[];
+    };
+    strict.ok(
+      refreshed.diagnostics.some((item) => item.code === "TSQ101"),
+      JSON.stringify(refreshed),
+    );
+    await writeFile(schemaPath, schemaSource);
+    await utimes(schemaPath, schemaTime.atime, schemaTime.mtime);
     const source = "SELECT '😀' AS emoji,\r\n  missing FROM users";
     const invalid = (await routes.handle({ ...sql, source, method: "diagnostics" }, true)) as {
       diagnostics: { code: string; range: unknown }[];

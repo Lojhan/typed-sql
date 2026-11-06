@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { lstat, open, realpath, stat } from "node:fs/promises";
+import { lstat, open, realpath } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { EditorLspClient } from "./editor-lsp.js";
@@ -95,10 +95,24 @@ export class EditorRoutes {
   private stopped = false;
   private retryAt = 0;
   private pendingRequests = 0;
+  private retryFailure = false;
   constructor(private readonly options: EditorRoutesOptions) {}
   private async start(): Promise<Record<string, unknown> | undefined> {
     if (this.stopped) throw new WorkspaceError("EDITOR_CLOSED", "Editor service is closed", 503);
-    if (this.starting === undefined && Date.now() < this.retryAt) return undefined;
+    if (this.client !== undefined && !this.client.isAlive) {
+      await this.client.close();
+      this.client = undefined;
+      this.starting = undefined;
+      this.initialization = undefined;
+      this.documents.clear();
+      this.retryFailure = true;
+      this.retryAt = Date.now() + 1000;
+      throw new WorkspaceError("EDITOR_SERVER", "Language server stopped; retry after it restarts", 503);
+    }
+    if (this.starting === undefined && Date.now() < this.retryAt) {
+      if (this.retryFailure) throw new WorkspaceError("EDITOR_SERVER", "Language server is restarting", 503);
+      return undefined;
+    }
     this.starting ??= (async () => {
       let entry = this.options.companionFile;
       if (entry === undefined) {
@@ -142,6 +156,7 @@ export class EditorRoutes {
       if (this.stopped) throw new WorkspaceError("EDITOR_CLOSED", "Editor service is closed", 503);
       this.initialization = object(initialized) ? initialized : {};
       this.client.notify("initialized", {});
+      this.retryFailure = false;
       return this.initialization;
     })();
     try {
@@ -157,6 +172,7 @@ export class EditorRoutes {
       this.starting = undefined;
       this.documents.clear();
       this.retryAt = Date.now() + 1000;
+      this.retryFailure = true;
       throw error;
     }
   }
@@ -196,15 +212,8 @@ export class EditorRoutes {
         };
         await assertCurrent();
         const identity = this.options.identity?.();
-        const schema = await stat(this.options.schemaFile);
-        const stamp = `${schema.mtimeMs}:${schema.size}`;
-        if (this.schemaStamp !== undefined && stamp !== this.schemaStamp) {
-          this.client?.notify("workspace/didChangeWatchedFiles", {
-            changes: [{ uri: pathToFileURL(this.options.schemaFile).href, type: 2 }],
-          });
-        }
-        this.schemaStamp = stamp;
-        const base = { file, revision, uri, sourceHash, schemaIdentity: identity };
+        const stamp = contentHash(await boundedRead(await realpath(this.options.schemaFile), 16 * 1024 * 1024));
+        const base = { file, revision, uri, sourceHash, schemaIdentity: identity, projectSnapshotHash: stamp };
         let initialization: Record<string, unknown> | undefined;
         try {
           initialization = await this.start();
@@ -234,6 +243,12 @@ export class EditorRoutes {
             },
           };
         const client = this.client!;
+        if (this.schemaStamp !== undefined && stamp !== this.schemaStamp) {
+          client.notify("workspace/didChangeWatchedFiles", {
+            changes: [{ uri: pathToFileURL(this.options.schemaFile).href, type: 2 }],
+          });
+        }
+        this.schemaStamp = stamp;
         let document = this.documents.get(file);
         if (document === undefined) {
           if (this.documents.size >= 64) {
@@ -288,11 +303,8 @@ export class EditorRoutes {
             body.method === "completionResolve" ? body.item : params,
           );
         await assertCurrent();
-        const now = await stat(this.options.schemaFile);
-        if (
-          `${now.mtimeMs}:${now.size}` !== stamp ||
-          JSON.stringify(this.options.identity?.()) !== JSON.stringify(identity)
-        )
+        const now = contentHash(await boundedRead(await realpath(this.options.schemaFile), 16 * 1024 * 1024));
+        if (now !== stamp || JSON.stringify(this.options.identity?.()) !== JSON.stringify(identity))
           throw new WorkspaceError("EDITOR_STALE", "Schema changed; request fresh editor information", 409);
         if (body.method === "definition") result = await this.definitionLocations(result);
         return {
