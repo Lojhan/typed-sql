@@ -48,7 +48,7 @@
     "editor:artifacts:smoke": "node scripts/assert-editor-artifacts.mjs",
     "editor:zed:fixtures": "node test/editor-hub/prepare-zed.mjs",
     "editor:zed:build": "node scripts/build-zed-artifact.mjs",
-    "test:pack": "poku test/contracts/packed-consumer.test.ts --reporter=compact --enforce",
+    "test:pack": "poku test/contracts/packed-consumer.test.ts test/contracts/packed-native-editors.test.ts --reporter=compact --enforce",
     "test:soundness": "poku packages/sqlserver/test/maturity-soundness.test.ts packages/duckdb/test/soundness.test.ts packages/postgres/test/soundness.test.ts packages/mysql/test/soundness.test.ts packages/sqlite/test/soundness.test.ts packages/compiler/test/soundness.test.ts packages/cli/test/soundness.test.ts packages/ts-bridge/test/soundness.test.ts packages/language-server/test/soundness.test.ts --reporter=compact --enforce",
     "performance": "pnpm build && pnpm performance:gate",
     "performance:gate": "node --expose-gc scripts/performance-gate.mjs",
