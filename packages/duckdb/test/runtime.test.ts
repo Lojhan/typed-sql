@@ -491,7 +491,7 @@ for (const mode of ["query", "stream"] as const) {
           calls.push("health");
           if (first) {
             first = false;
-            let result;
+            let result: Awaited<ReturnType<typeof connection.run>> | undefined;
             try {
               result = await connection.run("SELECT sum(i) FROM range(1000000000000) AS t(i)");
               await result.getRows();
