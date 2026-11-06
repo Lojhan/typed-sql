@@ -24,6 +24,49 @@ const target = createPgMigrationTarget({
 try {
   await admin.query(`create schema "${schema}"`);
   await describe("live PostgreSQL migration session", async () => {
+    await it("captures opt-in index, foreign-key, enum and column structure without private SQL", async () => {
+      await admin.query(`create type "${schema}".details_state as enum ('pending','complete');
+        create table "${schema}".details_parent(id integer primary key);
+        create table "${schema}".details_child(id integer, parent_id integer references "${schema}".details_parent(id), name text default 'PRIVATE_DEFAULT');
+        create unique index details_index on "${schema}".details_child(id) include(name) where name <> 'PRIVATE_PREDICATE'`);
+      const plain = await target.connect(),
+        detailed = await createPgMigrationTarget({
+          connectionString: connectionString!,
+          namespaces: [schema],
+          historyNamespace,
+          classification: "test",
+          expected: { database },
+          captureDetails: true,
+        }).connect();
+      try {
+        const before = await plain.capture(),
+          after = await detailed.capture();
+        strict.deepEqual(before.objects, after.objects);
+        strict.equal(before.details, undefined);
+        strict.ok(!JSON.stringify(after).includes("PRIVATE_"));
+        const detail = (kind: string, ...names: string[]) =>
+          after.details?.[migrationCatalogKey(kind, schema, ...names)] as { properties: Record<string, unknown> };
+        strict.equal(detail("column", "details_child", "name").properties.hasDefault, true);
+        strict.deepEqual(detail("type", "details_state").properties.enum, ["pending", "complete"]);
+        const index = detail("index", "details_child", "details_index").properties;
+        strict.equal(index.method, "btree");
+        strict.equal(index.unique, true);
+        strict.deepEqual(index.keyColumns, ["id"]);
+        strict.deepEqual(index.includedColumns, ["name"]);
+        strict.equal(index.expressionPresent, false);
+        strict.equal(index.predicatePresent, true);
+        const foreign = detail("constraint", "details_child", "details_child_parent_id_fkey").properties;
+        strict.deepEqual(foreign.columns, ["parent_id"]);
+        strict.deepEqual(foreign.referencedRelation, [schema, "details_parent"]);
+        strict.deepEqual(foreign.referencedColumns, ["id"]);
+      } finally {
+        await plain.close();
+        await detailed.close();
+        await admin.query(
+          `drop table "${schema}".details_child, "${schema}".details_parent; drop type "${schema}".details_state`,
+        );
+      }
+    });
     await it("normalizes deparsed defaults without changing caller settings or hiding preceding DDL", async () => {
       const session = await target.connect();
       try {

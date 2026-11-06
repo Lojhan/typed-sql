@@ -22,6 +22,8 @@ import type { PostgresTypePolicy } from "./type-policy.js";
 export interface PgMigrationTargetOptions {
   readonly connectionString: string | (() => string | Promise<string>);
   readonly namespaces?: readonly string[];
+  /** Persist safe structural display evidence for future history; excludes SQL bodies and default literals. */
+  readonly captureDetails?: boolean;
   readonly typePolicy?: PostgresTypePolicy;
   readonly historyNamespace?: string;
   readonly expected: MigrationTarget["expected"];
@@ -37,6 +39,97 @@ interface CatalogRow extends Record<string, unknown> {
   readonly names: string[];
   readonly definition: JsonValue;
 }
+
+// Strict allowlists intentionally omit SQL text, bodies, defaults, options and session configuration.
+// The original definition alone remains the drift fingerprint input.
+function catalogDetails(row: CatalogRow): JsonValue | undefined {
+  if (row.definition === null || typeof row.definition !== "object" || Array.isArray(row.definition)) return undefined;
+  const definition = row.definition as Readonly<Record<string, JsonValue>>;
+  const fields: Readonly<Record<string, readonly string[]>> = {
+    namespace: ["name"],
+    relation: ["kind", "persistence", "rowSecurity", "forceRowSecurity", "replicaIdentity", "parents"],
+    column: ["position", "type", "notNull", "identity", "generated", "collation"],
+    index: [
+      "valid",
+      "ready",
+      "replicaIdentity",
+      "clustered",
+      "method",
+      "unique",
+      "keyColumns",
+      "includedColumns",
+      "expressionPresent",
+      "predicatePresent",
+    ],
+    constraint: [
+      "kind",
+      "validated",
+      "deferrable",
+      "initiallyDeferred",
+      "columns",
+      "referencedRelation",
+      "referencedColumns",
+    ],
+    sequence: ["type", "increment", "min", "max", "cache", "cycle", "ownedBy"],
+    routine: ["kind", "result", "language", "volatility", "strict", "securityDefiner", "parallel"],
+    type: ["kind", "base", "notNull", "enum", "attributes"],
+  };
+  const selected = fields[row.kind];
+  if (selected === undefined) return undefined;
+  const properties: Record<string, JsonValue> = {};
+  for (const key of selected) {
+    const value = definition[key];
+    if (value !== undefined) properties[key] = value;
+  }
+  if (row.kind === "column") properties.hasDefault = definition.default != null;
+  if (row.kind === "relation") {
+    const kinds: Readonly<Record<string, string>> = {
+      r: "table",
+      p: "partitioned-table",
+      v: "view",
+      m: "materialized-view",
+      f: "foreign-table",
+    };
+    const kind = definition.kind;
+    if (typeof kind === "string") properties.kind = kinds[kind] ?? "unknown";
+  }
+  return { formatVersion: 1, kind: row.kind, properties };
+}
+
+// Additional display-only facts never enter the longstanding hashed catalog definition.
+const catalogDetailsSql = `/* typed_sql_catalog_details */
+select 'index'::text as kind,array[n.nspname,c.relname,ic.relname]::text[] as names,
+  pg_catalog.jsonb_build_object(
+    'method',am.amname,'unique',i.indisunique,'valid',i.indisvalid,'ready',i.indisready,
+    'replicaIdentity',i.indisreplident,'clustered',i.indisclustered,
+    'keyColumns',(select pg_catalog.jsonb_agg(a.attname order by k.position)
+      from pg_catalog.unnest(i.indkey) with ordinality k(attnum,position)
+      left join pg_catalog.pg_attribute a on a.attrelid=c.oid and a.attnum=k.attnum where k.position<=i.indnkeyatts),
+    'includedColumns',(select pg_catalog.jsonb_agg(a.attname order by k.position)
+      from pg_catalog.unnest(i.indkey) with ordinality k(attnum,position)
+      join pg_catalog.pg_attribute a on a.attrelid=c.oid and a.attnum=k.attnum where k.position>i.indnkeyatts),
+    'expressionPresent',i.indexprs is not null,'predicatePresent',i.indpred is not null) as definition
+from pg_catalog.pg_index i join pg_catalog.pg_class c on c.oid=i.indrelid
+join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+join pg_catalog.pg_class ic on ic.oid=i.indexrelid join pg_catalog.pg_am am on am.oid=ic.relam
+where n.nspname=any($1::text[])
+union all
+select 'constraint',array[n.nspname,c.relname,k.conname],
+  pg_catalog.jsonb_build_object('kind',k.contype,'validated',k.convalidated,
+    'deferrable',k.condeferrable,'initiallyDeferred',k.condeferred,
+    'columns',(select pg_catalog.jsonb_agg(a.attname order by x.position)
+      from pg_catalog.unnest(k.conkey) with ordinality x(attnum,position)
+      join pg_catalog.pg_attribute a on a.attrelid=c.oid and a.attnum=x.attnum),
+    'referencedRelation',case when k.confrelid<>0 then pg_catalog.jsonb_build_array(rn.nspname,r.relname) end,
+    'referencedColumns',(select pg_catalog.jsonb_agg(a.attname order by x.position)
+      from pg_catalog.unnest(k.confkey) with ordinality x(attnum,position)
+      join pg_catalog.pg_attribute a on a.attrelid=k.confrelid and a.attnum=x.attnum))
+from pg_catalog.pg_constraint k join pg_catalog.pg_class c on c.oid=k.conrelid
+join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+left join pg_catalog.pg_class r on r.oid=k.confrelid
+left join pg_catalog.pg_namespace rn on rn.oid=r.relnamespace
+where n.nspname=any($1::text[])
+order by kind,names`;
 
 interface NamespaceRow extends Record<string, unknown> {
   readonly name: string;
@@ -248,6 +341,8 @@ export function createPgMigrationTarget(options: PgMigrationTargetOptions): Migr
     throw new TypeError("Migration targets require an expected database identity.");
   if (options.disposable !== undefined && typeof options.disposable !== "boolean")
     throw new TypeError("Migration disposable capability must be boolean.");
+  if (options.captureDetails !== undefined && typeof options.captureDetails !== "boolean")
+    throw new TypeError("Migration captureDetails must be boolean.");
   const namespaces = [...new Set(options.namespaces ?? ["public"])].sort();
   if (namespaces.length === 0) throw new TypeError("Migration targets require at least one managed namespace.");
   namespaces.forEach(quoteIdentifier);
@@ -307,7 +402,14 @@ export function createPgMigrationTarget(options: PgMigrationTargetOptions): Migr
             [...namespaces.map(quoteIdentifier), "pg_catalog"].join(","),
           ],
         );
-        return new PgMigrationSession(client, pool, namespaces, historyNamespace, options.typePolicy);
+        return new PgMigrationSession(
+          client,
+          pool,
+          namespaces,
+          historyNamespace,
+          options.typePolicy,
+          options.captureDetails === true,
+        );
       } catch (error) {
         client.release(true);
         await pool.end();
@@ -324,6 +426,7 @@ class PgMigrationSession implements MigrationSession {
   readonly #historyNamespace: string;
   readonly #ledger: string;
   readonly #typePolicy: PostgresTypePolicy | undefined;
+  readonly #captureDetails: boolean;
   #lockKey: string | undefined;
   #closed = false;
   #locked = false;
@@ -339,7 +442,9 @@ class PgMigrationSession implements MigrationSession {
     namespaces: readonly string[],
     historyNamespace: string,
     typePolicy?: PostgresTypePolicy,
+    captureDetails = false,
   ) {
+    this.#captureDetails = captureDetails;
     this.#typePolicy = typePolicy;
     this.#client = client;
     this.#pool = pool;
@@ -498,10 +603,25 @@ class PgMigrationSession implements MigrationSession {
     );
     let complete = scope.rows.length === this.#namespaces.length && scope.rows.every((row) => row.usable);
     const objects: Record<string, JsonValue> = {};
+    const details: Record<string, JsonValue> = {};
     if (complete) {
       const result = await this.#query<CatalogRow>(catalogSql, [this.#namespaces]);
-      for (const row of result.rows)
-        objects[migrationCatalogKey(row.kind, ...row.names)] = { definitionHash: definitionHash(row.definition) };
+      for (const row of result.rows) {
+        const key = migrationCatalogKey(row.kind, ...row.names);
+        objects[key] = { definitionHash: definitionHash(row.definition) };
+        if (this.#captureDetails) {
+          const detail = catalogDetails(row);
+          if (detail !== undefined) details[key] = detail;
+        }
+      }
+      if (this.#captureDetails) {
+        const display = await this.#query<CatalogRow>(catalogDetailsSql, [this.#namespaces]);
+        for (const row of display.rows) {
+          const key = migrationCatalogKey(row.kind, ...row.names);
+          const detail = catalogDetails(row);
+          if (Object.hasOwn(objects, key) && detail !== undefined) details[key] = detail;
+        }
+      }
       if (result.rows.filter((row) => row.kind === "namespace").length !== this.#namespaces.length) complete = false;
       if (result.rows.some((row) => row.kind === "unsupported")) complete = false;
     }
@@ -511,6 +631,7 @@ class PgMigrationSession implements MigrationSession {
       serverMajor: major,
       namespaces: this.#namespaces,
       objects,
+      ...(this.#captureDetails ? { details } : {}),
       coverage: complete ? "complete" : "unknown",
       environment: { formatVersion: 1, settings },
     };

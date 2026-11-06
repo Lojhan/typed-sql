@@ -57,6 +57,8 @@ export interface CatalogEvidence {
   readonly serverMajor: string;
   readonly namespaces: readonly string[];
   readonly objects: Readonly<Record<string, JsonValue>>;
+  /** Optional adapter-owned historical display evidence; never authoritative drift fingerprints. */
+  readonly details?: Readonly<Record<string, JsonValue>>;
   readonly coverage: "complete" | "unknown";
   /** Adapter-owned persistent database defaults; excludes target names and transient session state. */
   readonly environment?: { readonly formatVersion: 1; readonly settings: Readonly<Record<string, JsonValue>> };

@@ -169,7 +169,19 @@ export function parseCatalog(value: unknown): CatalogEvidence {
     !["complete", "unknown"].includes(String(c.coverage))
   )
     throw new MigrationError("MIGRATION_CATALOG_INVALID", "Catalog evidence is invalid.", 3);
-  object(c.objects, "Catalog objects");
+  const objects = object(c.objects, "Catalog objects");
+  if (c.details !== undefined) {
+    const details = object(c.details, "Catalog details");
+    for (const [key, detail] of Object.entries(details)) {
+      if (!Object.hasOwn(objects, key))
+        throw new MigrationError(
+          "MIGRATION_CATALOG_INVALID",
+          "Catalog details must refer to captured catalog objects.",
+          3,
+        );
+      jsonValue(detail);
+    }
+  }
   if (c.environment !== undefined) {
     const environment = object(c.environment, "Catalog environment");
     if (
