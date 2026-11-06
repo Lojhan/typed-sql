@@ -1,8 +1,7 @@
 {
-  "channel": "stable",
-  "series": "2.4.0",
-  "npmTag": "latest",
-  "sourceCandidate": "2.4.0-rc.0",
+  "channel": "rc",
+  "series": "2.5.0",
+  "npmTag": "next",
   "packages": [
     "@typed-sql/core",
     "@typed-sql/opentelemetry",
@@ -18,7 +17,9 @@
     "@typed-sql/duckdb",
     "@typed-sql/cli",
     "@typed-sql/adapters",
-    "@typed-sql/build"
+    "@typed-sql/build",
+    "@typed-sql/ts-bridge",
+    "@typed-sql/language-server"
   ],
   "packagePolicy": {
     "stable": [

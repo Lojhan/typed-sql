@@ -1,5 +1,18 @@
 # @typed-sql/adapters
 
+## 2.5.0-rc.0
+
+### Minor Changes
+
+- ab5e6d9: Add an explicit SQLite Wasm OO1 adapter with lossless INTEGER storage, compiled value-plan decoding, atomic batches and scoped asynchronous transactions. Preserve application ownership of the driver and storage VFS, finalize prepared statements, reject multiple SQL statements before execution, and expose a queryable for SQLite schema introspection.
+
+### Patch Changes
+
+- Updated dependencies [1b90678]
+- Updated dependencies [81c8c46]
+- Updated dependencies [a0c17a6]
+  - @typed-sql/core@2.5.0-rc.0
+
 ## 2.4.0
 
 ### Patch Changes

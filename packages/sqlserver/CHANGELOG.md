@@ -1,1 +1,16 @@
 # @typed-sql/sqlserver
+
+## 2.5.0-rc.0
+
+### Minor Changes
+
+- 89d17ab: Add an independently owned SQL Server grammar with catalog evidence, explicit type policies and application-owned native execution.
+
+### Patch Changes
+
+- Updated dependencies [1b90678]
+- Updated dependencies [81c8c46]
+- Updated dependencies [0147b7a]
+- Updated dependencies [a0c17a6]
+  - @typed-sql/core@2.5.0-rc.0
+  - @typed-sql/schema@2.5.0-rc.0
