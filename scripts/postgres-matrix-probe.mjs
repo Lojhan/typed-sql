@@ -10,6 +10,9 @@ import {
   typePolicy,
 } from "../packages/postgres/dist/packages/postgres/src/index.js";
 import { createPgDatabase } from "../packages/postgres/dist/packages/postgres/src/pg.js";
+import { collectLive } from "./language-audit/inventory.mjs";
+import { reviewLiveBaseline } from "./language-audit/live-baseline.mjs";
+import { enrichRecognition, preparePostgres } from "./language-audit/native.mjs";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -200,6 +203,22 @@ try {
 
   const support = postgresVersionSupport(actualVersion, options.channel);
   results.push(result("server.support-policy", support === options.channel || support === "supported", support));
+  const languageInventory = await collectLive("postgres", async (sql) => (await pool.query(sql)).rows, {
+    version: actualVersion,
+  });
+  const nativeClient = await pool.connect();
+  let languageRecognition;
+  try {
+    languageRecognition = await enrichRecognition(
+      languageInventory,
+      (sql) => preparePostgres(nativeClient, sql),
+      snapshot.server,
+    );
+  } finally {
+    nativeClient.release();
+  }
+  const languageReview = await reviewLiveBaseline(languageInventory);
+  results.push(result("language.inventory-reviewed", languageReview.status === "match", languageReview));
   artifact = {
     formatVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -216,6 +235,8 @@ try {
       runtimeVersion: process.version,
     },
     evidence: {
+      languageInventory,
+      languageRecognition,
       settings: {
         searchPath: settings.search_path,
         standardConformingStrings: settings.standard_conforming_strings,

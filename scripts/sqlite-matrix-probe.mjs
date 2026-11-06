@@ -3,6 +3,9 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { collectLive } from "./language-audit/inventory.mjs";
+import { reviewLiveBaseline } from "./language-audit/live-baseline.mjs";
+import { enrichRecognition } from "./language-audit/native.mjs";
 
 const options = Object.create(null);
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -38,6 +41,8 @@ function cli(sql) {
     timeout: 10_000,
   });
   if (result.error !== undefined) throw result.error;
+  if (result.signal || result.status === null || (result.status !== 0 && result.status !== 1))
+    throw new Error("SQLite CLI terminated unexpectedly");
   if (result.status !== 0) throw new Error("sqlite3 CLI rejected the probe");
   const output = result.stdout.trim();
   return output.length === 0 ? [] : JSON.parse(output);
@@ -319,6 +324,31 @@ const support =
     : compareVersion(parsedVersion, maximum) > 0
       ? "newer-than-tested"
       : "supported";
+const languageInventory = await collectLive("sqlite", async (sql) => execute(sql), {
+  version: libraryVersion,
+  compileOptions,
+  adapter: options.adapter,
+});
+const languageRecognition = await enrichRecognition(
+  languageInventory,
+  async (sql) => {
+    try {
+      if (options.adapter === "node") nodeDatabase.prepare(sql);
+      else execute(`EXPLAIN ${sql}`);
+      return { accepted: true };
+    } catch (error) {
+      if (error.code !== "ERR_SQLITE_ERROR" && error.message !== "sqlite3 CLI rejected the probe") throw error;
+      return { accepted: false, reason: "native preparation rejected" };
+    }
+  },
+  { product: "sqlite", version: libraryVersion, versionKey: libraryVersion, features: compileOptions, settings: {} },
+);
+const languageReview = await reviewLiveBaseline(languageInventory);
+results.push({
+  id: "language.inventory-reviewed",
+  status: languageReview.status === "match" ? "pass" : "fail",
+  review: languageReview,
+});
 const artifact = {
   formatVersion: 1,
   generatedAt: new Date().toISOString(),
@@ -332,6 +362,8 @@ const artifact = {
     support,
   },
   evidence: {
+    languageInventory,
+    languageRecognition,
     compileOptions,
     featureLedger: {
       formatVersion: ledger.formatVersion,

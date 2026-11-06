@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/sqlserver-qualification.yml'
       - 'scripts/install-sqlserver-odbc.sh'
+      - 'scripts/language-audit/**'
+      - 'test/fixtures/language-audit/**'
       - 'e2e/sqlserver/**'
       - 'packages/sqlserver/**'
       - 'packages/core/**'
