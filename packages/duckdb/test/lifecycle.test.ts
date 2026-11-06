@@ -1,8 +1,9 @@
-import { sql, withQueryValuePlan } from "@typed-sql/core";
+import { QueryCancelledError, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { it, strict } from "poku";
 import { createDuckDBDatabase, type DuckDBNativeResult } from "../src/runtime.js";
 import { defaultDuckDBTypePolicy } from "../src/type-policy.js";
+import { fixtureEvidence } from "./helpers/evidence.js";
 
 const makeQuery = () =>
   withQueryValuePlan(sql<{ value: number }>`SELECT 1 AS value`, {
@@ -414,3 +415,199 @@ await it("quarantines shared state when native appender finalization fails befor
   await first.close();
   await sibling.close();
 });
+
+for (const mode of ["query", "stream"] as const) {
+  await it(`dispatches no ${mode} health or native work for pre-aborted and expired controls`, async () => {
+    const calls: string[] = [];
+    const database = createDuckDBDatabase({
+      connection: {
+        libraryVersion: "2.0.0",
+        async readServerEvidence() {
+          calls.push("health");
+          return fixtureEvidence("2.0.0");
+        },
+        async prepare() {
+          calls.push("prepare");
+          throw new Error("must not dispatch");
+        },
+        interrupt() {
+          calls.push("interrupt");
+        },
+      },
+    });
+    const named = database.prepare("preabort", () => query)();
+    const abort = new AbortController();
+    abort.abort("already cancelled");
+    for (const controls of [{ signal: abort.signal }, { deadline: Date.now() - 1 }]) {
+      if (mode === "query")
+        await strict.rejects(database.all(named, controls), (error) => error instanceof QueryCancelledError);
+      else {
+        const stream = database.stream(named, controls);
+        await strict.rejects(stream.next(), (error) => error instanceof QueryCancelledError);
+        await stream.close();
+      }
+    }
+    strict.deepEqual(calls, []);
+    await database.close();
+  });
+
+  await it(`interrupts ${mode} health on deadline, drains it before lease reuse, and skips preparation`, async () => {
+    const entered = Promise.withResolvers<void>(),
+      interrupted = Promise.withResolvers<void>(),
+      health = Promise.withResolvers<void>(),
+      calls: string[] = [];
+    let first = true;
+    const database = createDuckDBDatabase({
+      connection: {
+        libraryVersion: "2.0.0",
+        async readServerEvidence() {
+          calls.push("health");
+          if (first) {
+            first = false;
+            entered.resolve();
+            try {
+              await health.promise;
+            } finally {
+              calls.push("health closed");
+            }
+          }
+          return fixtureEvidence("2.0.0");
+        },
+        async prepare() {
+          calls.push("prepare");
+          return {
+            async execute() {
+              calls.push("execute");
+              return {
+                columns: [{ name: "value", type: { kind: "scalar" as const, name: "INTEGER" } }],
+                async readAll() {
+                  return [[1]];
+                },
+                close() {
+                  calls.push("result closed");
+                },
+              };
+            },
+            close() {
+              calls.push("statement closed");
+            },
+          };
+        },
+        interrupt() {
+          calls.push("interrupt");
+          interrupted.resolve();
+        },
+      },
+    });
+    const stream = mode === "stream" ? database.stream(query, { deadline: Date.now() + 30 }) : undefined;
+    const cancelled = stream ? stream.next() : database.all(query, { deadline: Date.now() + 30 });
+    let settled = false;
+    const rejection = strict
+      .rejects(cancelled, (error) => error instanceof QueryCancelledError && error.reason === "deadline")
+      .then(() => {
+        settled = true;
+      });
+    await entered.promise;
+    await interrupted.promise;
+    const next = database.all(query);
+    await Promise.resolve();
+    strict.equal(settled, false, "Cancellation must await the health operation's settlement");
+    strict.deepEqual(calls, ["health", "interrupt"], "The cancelled lease must not prepare or admit queued work");
+    health.resolve();
+    await rejection;
+    strict.deepEqual(await next, [{ value: 1 }]);
+    strict.deepEqual(calls, [
+      "health",
+      "interrupt",
+      "health closed",
+      "health",
+      "prepare",
+      "execute",
+      "result closed",
+      "statement closed",
+    ]);
+    await stream?.close();
+    await database.close();
+  });
+
+  await it(`quarantines ${mode} health after an uncertain interrupt failure`, async () => {
+    const entered = Promise.withResolvers<void>(),
+      health = Promise.withResolvers<void>();
+    const abort = new AbortController();
+    let preparations = 0;
+    const database = createDuckDBDatabase({
+      connection: {
+        libraryVersion: "2.0.0",
+        async readServerEvidence() {
+          entered.resolve();
+          await health.promise;
+          return fixtureEvidence("2.0.0");
+        },
+        async prepare() {
+          preparations++;
+          throw new Error("must not prepare");
+        },
+        interrupt() {
+          throw new Error("native interrupt failed");
+        },
+      },
+    });
+    const stream = mode === "stream" ? database.stream(query, { signal: abort.signal }) : undefined;
+    const cancelled = stream ? stream.next() : database.all(query, { signal: abort.signal });
+    const rejection = strict.rejects(cancelled, /cancelled/u);
+    await entered.promise;
+    abort.abort();
+    health.resolve();
+    await rejection;
+    strict.equal(preparations, 0);
+    await strict.rejects(database.all(query), /unusable after failed cleanup/u);
+    await stream?.close();
+    await database.close();
+  });
+
+  await it(`closes ${mode} resources returned after cancellation wins native execution`, async () => {
+    const executing = Promise.withResolvers<void>(),
+      finished = Promise.withResolvers<void>();
+    const calls: string[] = [],
+      abort = new AbortController();
+    const database = createDuckDBDatabase({
+      connection: {
+        libraryVersion: "2.0.0",
+        async prepare() {
+          return {
+            async execute() {
+              executing.resolve();
+              await finished.promise;
+              return {
+                columns: [{ name: "value", type: { kind: "scalar" as const, name: "INTEGER" } }],
+                async readAll() {
+                  calls.push("read");
+                  return [[1]];
+                },
+                close() {
+                  calls.push("result closed");
+                },
+              };
+            },
+            close() {
+              calls.push("statement closed");
+            },
+          };
+        },
+        interrupt() {
+          calls.push("interrupt");
+        },
+      },
+    });
+    const stream = mode === "stream" ? database.stream(query, { signal: abort.signal }) : undefined;
+    const cancelled = stream ? stream.next() : database.all(query, { signal: abort.signal });
+    const rejection = strict.rejects(cancelled, /cancelled/u);
+    await executing.promise;
+    abort.abort();
+    finished.resolve();
+    await rejection;
+    strict.deepEqual(calls, ["interrupt", "result closed", "statement closed"]);
+    await stream?.close();
+    await database.close();
+  });
+}
