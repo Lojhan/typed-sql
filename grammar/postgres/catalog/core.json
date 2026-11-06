@@ -886,6 +886,7 @@
       "result": "boolean-aggregate",
       "introduced": 14
     },
+    { "name": "concat", "routines": ["CONCAT"], "result": "concat", "introduced": 14 },
     { "name": "coalesce", "routines": ["COALESCE"], "result": "coalesce", "introduced": 14 },
     { "name": "count", "routines": ["COUNT"], "result": "count", "introduced": 14 },
     {

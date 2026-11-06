@@ -1374,6 +1374,13 @@ export default Object.freeze({
       ]
     },
     {
+      "name": "concat",
+      "result": "concat",
+      "routines": [
+        "CONCAT"
+      ]
+    },
+    {
       "name": "count",
       "result": "count",
       "routines": [
@@ -2046,5 +2053,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:979ba53945f85dd626205d8e00d12628f0f77ee552e6ac47156b3deebbdbadbb"
+  "revision": "sha256:7e88a695e8d757dad84ce8c80d344cf775882ea0ed8aabe61fe46d23c4c42ce3"
 }) as unknown as PostgresCoreCatalog;

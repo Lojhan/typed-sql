@@ -3882,6 +3882,40 @@ class Resolver {
       return { tsType: "string", nullable: false, databaseType: "text" };
     }
     const routineRule = postgresCatalogRoutineRule(name, this.#schema);
+    if (routineRule === "concat" && this.#isBuiltinCall(expression)) {
+      if (
+        expression.arguments.length === 0 ||
+        expression.variadic ||
+        expression.distinct ||
+        expression.argumentNames?.some((argument) => argument !== undefined) ||
+        expression.over !== undefined ||
+        expression.filter !== undefined ||
+        aggregateOrder.length > 0 ||
+        withinOrder.length > 0
+      ) {
+        this.#diagnostic(
+          "TSQ227",
+          "CONCAT requires one or more ordinary positional arguments; VARIADIC and aggregate syntax are not supported",
+          expression.range,
+        );
+        return { tsType: "unknown", nullable: true };
+      }
+      for (const [index, argument] of expression.arguments.entries()) {
+        // PostgreSQL's polymorphic any does not provide an inferred parameter type.
+        // Untyped SQL string and NULL literals are accepted by concat itself.
+        if (argument.kind === "literal" && (argument.value === null || typeof argument.value === "string")) continue;
+        if (resolved[index]?.databaseType === undefined) {
+          this.#diagnostic(
+            "TSQ202",
+            "CONCAT requires a known input type",
+            argument.range,
+            "Cast unresolved arguments to their PostgreSQL types.",
+          );
+          return { tsType: "unknown", nullable: true };
+        }
+      }
+      return this.#databaseType("text", false);
+    }
     const aggregate = this.#isAggregateCall(expression);
     const windowOnly =
       routineRule === "bigint-window" ||
@@ -3949,7 +3983,7 @@ class Resolver {
     if ((expression.orderBy?.length ?? 0) > 0 && !aggregate) {
       this.#diagnostic("TSQ223", "Argument ORDER BY is only valid for aggregate functions", expression.range);
     }
-    const builtinJson = shapedJsonFunctions.has(name) && this.#isBuiltinJsonCall(expression);
+    const builtinJson = shapedJsonFunctions.has(name) && this.#isBuiltinCall(expression);
     if (builtinJson && (name === "JSON_BUILD_OBJECT" || name === "JSONB_BUILD_OBJECT")) {
       const databaseType = name.startsWith("JSONB") ? "jsonb" : "json";
       if (expression.variadic || expression.argumentNames?.some((argument) => argument !== undefined))
@@ -4320,7 +4354,7 @@ class Resolver {
     return { tsType: "unknown", nullable: true };
   }
 
-  #isBuiltinJsonCall(expression: CallExpression): boolean {
+  #isBuiltinCall(expression: CallExpression): boolean {
     const name = sqlName(expression.name);
     if (name !== name.toLowerCase()) return false;
     const schema = expression.schema === undefined ? undefined : sqlName(expression.schema);

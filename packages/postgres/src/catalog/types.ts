@@ -36,6 +36,7 @@ export type PostgresRoutineResultRule =
   | "bigint-window"
   | "boolean-aggregate"
   | "coalesce"
+  | "concat"
   | "count"
   | "double-window"
   | "extrema"
