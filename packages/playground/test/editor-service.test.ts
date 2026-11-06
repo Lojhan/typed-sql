@@ -86,6 +86,35 @@ await describe("optional local editor companion", async () => {
         await routes.close();
       }
     }));
+  await it("discovers a newly installed local companion after the unavailable cooldown", async () =>
+    fixture(async (_routes, files, root) => {
+      const routes = new EditorRoutes({
+        files,
+        configFile: join(root, "config.ts"),
+        schemaFile: join(root, "schema.json"),
+      });
+      const request = {
+        ...(await files.read("playground/query.ts")),
+        method: "hover",
+        position: { line: 0, character: 0 },
+      };
+      try {
+        const absent = (await routes.handle(request, true)) as { status: { state: string } };
+        strict.equal(absent.status.state, "unavailable");
+        const installed = join(root, "node_modules/@typed-sql/language-server");
+        await mkdir(installed, { recursive: true });
+        await writeFile(
+          join(installed, "package.json"),
+          JSON.stringify({ name: "@typed-sql/language-server", bin: { "typed-sql-language-server": "./server.mjs" } }),
+        );
+        await writeFile(join(installed, "server.mjs"), fake);
+        await new Promise((resolve) => setTimeout(resolve, 1050));
+        const ready = (await routes.handle(request, true)) as { status: { state: string } };
+        strict.equal(ready.status.state, "ready");
+      } finally {
+        await routes.close();
+      }
+    }));
   await it("only opens a tokenized authorized definition and keeps it read-only", async () =>
     fixture(async (routes, files, root) => {
       process.env.EDITOR_TEST_DEFINITION = pathToFileURL(join(root, "schema.json")).href;
@@ -202,6 +231,16 @@ await it("uses the real pinned companion for native TypeScript and original SQL 
       result: unknown;
     };
     strict.match(JSON.stringify(hover.result), /number/u);
+    const schemaCompletions = (await routes.handle(
+      { ...sql, method: "completion", position: { line: 0, character: 7 } },
+      true,
+    )) as { result: { items: { label: string }[] } };
+    const schemaItem = schemaCompletions.result.items.find((item) => item.label === "id");
+    strict.ok(schemaItem);
+    const schemaResolved = (await routes.handle({ ...sql, method: "completionResolve", item: schemaItem }, true)) as {
+      result: unknown;
+    };
+    strict.deepEqual(schemaResolved.result, schemaItem);
     const definition = (await routes.handle(
       { ...sql, method: "definition", position: { line: 0, character: 23 } },
       true,

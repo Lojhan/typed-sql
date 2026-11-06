@@ -805,6 +805,14 @@ async function forwardRequest(method: string, rawParams: unknown, token: Cancell
   if (restored.expired === true)
     throw new ResponseError(LSP_CONTENT_MODIFIED, "Resolve context expired; request fresh items");
   const params = restored.item;
+  // Schema completions are already complete and have no native resolve payload.
+  if (
+    method === "completionItem/resolve" &&
+    restored.context === undefined &&
+    isObject(params) &&
+    params.data === undefined
+  )
+    return params;
   const uri = restored.context?.uri ?? documentUri(params);
   if (uri !== undefined) await waitForDocument(uri, token);
   // Failed schema analysis must remain visible to pull clients as a diagnostic,
