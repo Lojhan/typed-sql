@@ -13,6 +13,7 @@ import { parse } from "acorn";
 import { build, transform } from "esbuild";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits } from "./contracts.js";
+import { databaseDiagnostic, type RunDatabaseDiagnostic } from "./database-diagnostics.js";
 import { contentHash, WorkspaceError, type WorkspaceFiles } from "./files.js";
 import { analyzeSql, bindSql } from "./sql.js";
 import { decodeValue, type WireValue } from "./values.js";
@@ -49,6 +50,7 @@ export interface RunRecord {
   finishedAt?: string;
   status: "checking" | "running" | "cancelling" | "succeeded" | "failed" | "cancelled" | "outcome-unknown";
   results: Extract<WorkerEvent, { type: "result" }>[];
+  diagnostics: RunDatabaseDiagnostic[];
   logs: string;
   error?: { readonly code: string; readonly message: string };
 }
@@ -168,6 +170,7 @@ export class RunManager {
       ),
       status: "checking",
       results: [],
+      diagnostics: [],
       logs: "",
     };
     this.records.set(record.id, record);
@@ -329,6 +332,7 @@ export class RunManager {
       );
     const captured = new Map<string, string>();
     let sql: string | undefined;
+    let sqlOffsets: readonly number[] | undefined;
     let boundValues = request.values;
     if (request.mode === "sql") {
       if (!request.file.endsWith(".sql")) throw new WorkspaceError("RUN_MODE", "SQL mode requires a SQL file");
@@ -346,6 +350,7 @@ export class RunManager {
         );
       // compileSqlFile normalizes the selected grammar's placeholders and preserves bindings.
       sql = compiled.query.query.sql;
+      sqlOffsets = compiled.query.query.sqlOffsetMap;
       boundValues = bindSql(sqlAnalysis, request.values ?? []);
       captured.set(await this.files.path(request.file), source.source);
     } else {
@@ -648,6 +653,17 @@ export class RunManager {
         } else if (event.type === "error") {
           workerError = true;
           record.error = { code: event.code, message: event.message };
+          if (event.database)
+            record.diagnostics.push(
+              databaseDiagnostic(event.database, {
+                file: record.file,
+                sourceRevision: record.sourceRevision,
+                mode: request.mode,
+                source: source.source,
+                ...(sql === undefined ? {} : { sql }),
+                ...(sqlOffsets === undefined ? {} : { offsets: sqlOffsets }),
+              }),
+            );
         } else if (event.type === "done") completed = true;
       });
       const payload: WorkerRequest = {

@@ -1,4 +1,5 @@
 import type { PlaygroundLimits } from "./contracts.js";
+import { type DatabaseErrorEvidence, validateDatabaseEvidence } from "./database-diagnostics.js";
 import type { ResultPaging } from "./result-store.js";
 import { decodeValue, type WireValue } from "./values.js";
 
@@ -28,7 +29,12 @@ export type WorkerEvent =
       readonly target?: unknown;
     }
   | { readonly type: "cursor-wait" | "cursor-fetch"; readonly id: string }
-  | { readonly type: "error"; readonly message: string; readonly code: string }
+  | {
+      readonly type: "error";
+      readonly message: string;
+      readonly code: string;
+      readonly database?: DatabaseErrorEvidence;
+    }
   | { readonly type: "local-error"; readonly message: string }
   | { readonly type: "done" };
 
@@ -52,7 +58,12 @@ export function validateWorkerEvent(value: unknown, maximumBytes: number): Worke
     typeof event.message === "string" &&
     event.message.length <= 100_000
   )
-    return { type: "error", code: event.code, message: event.message };
+    return {
+      type: "error",
+      code: event.code,
+      message: event.message,
+      ...(event.database === undefined ? {} : { database: validateDatabaseEvidence(event.database) }),
+    };
   if (event.type === "local-error" && typeof event.message === "string" && event.message.length <= 100_000)
     return { type: "local-error", message: event.message };
   if (

@@ -12,6 +12,7 @@ import {
 } from "@typed-sql/postgres/runtime";
 import type { FieldDef, Pool, PoolClient } from "pg";
 import type { PlaygroundQueryRequest, PlaygroundQueryResult, PlaygroundTarget } from "./contracts.js";
+import { connectionSqlState, postgresPosition } from "./database-diagnostics.js";
 
 export interface PgPlaygroundOptions {
   readonly connectionString: string | (() => string | Promise<string>);
@@ -25,13 +26,19 @@ export class PlaygroundPgError extends Error {
   readonly code: string;
   readonly sqlState: string | undefined;
   readonly outcomeUnknown: boolean;
+  readonly position: number | undefined;
 
-  constructor(code: string, message: string, options: { sqlState?: string; outcomeUnknown?: boolean } = {}) {
+  constructor(
+    code: string,
+    message: string,
+    options: { sqlState?: string; outcomeUnknown?: boolean; position?: number } = {},
+  ) {
     super(message);
     this.name = "PlaygroundPgError";
     this.code = code;
     this.sqlState = options.sqlState;
     this.outcomeUnknown = options.outcomeUnknown ?? false;
+    this.position = postgresPosition(options.position);
   }
 }
 
@@ -274,7 +281,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
         const batch = await new Promise<unknown[][]>((resolve, reject) => {
           cursor.read(count, (error, resultRows, result) => {
             if (error !== null) {
-              reject(error);
+              reject(normalize(error, limits.readOnly, true));
               return;
             }
             metadata = result ?? metadata;
@@ -491,7 +498,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     }
   }
 
-  function normalize(error: unknown, readOnly: boolean): Error {
+  function normalize(error: unknown, readOnly: boolean, statementPosition = false): Error {
     if (error instanceof PlaygroundPgCancellationError || error instanceof PlaygroundPgError) return error;
     if (error instanceof QueryCancelledError) return new PlaygroundPgCancellationError(error.reason, false);
     const state = sqlState(error);
@@ -503,6 +510,15 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
         : "PostgreSQL execution failed; inspect the SQL and target permissions",
       {
         ...(state === undefined ? {} : { sqlState: state }),
+        ...(statementPosition &&
+        state !== undefined &&
+        !connectionSqlState(state) &&
+        error &&
+        typeof error === "object" &&
+        "position" in error &&
+        postgresPosition(error.position) !== undefined
+          ? { position: postgresPosition(error.position)! }
+          : {}),
         outcomeUnknown:
           !readOnly && (state === undefined || state.startsWith("08") || ["57P01", "57P02", "57P03"].includes(state)),
       },

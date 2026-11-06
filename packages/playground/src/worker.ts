@@ -5,6 +5,7 @@ import { loadConfig } from "@typed-sql/config";
 import type { Database } from "@typed-sql/core";
 import { register } from "tsx/esm/api";
 import type { PlaygroundTarget } from "./contracts.js";
+import { databaseErrorEvidence, databaseMessage } from "./database-diagnostics.js";
 import { contentHash, WorkspaceError } from "./files.js";
 import { ResultSpool } from "./result-store.js";
 import { installRunRuntime } from "./runtime.js";
@@ -264,6 +265,7 @@ async function run(request: WorkerRequest): Promise<void> {
   } catch (error) {
     send({ type: "local-error", message: error instanceof Error ? (error.stack ?? error.message) : String(error) });
     const managed = error instanceof Error && error.name === "PlaygroundPgError";
+    const database = databaseErrorEvidence(error);
     const cancellation = error instanceof Error && "code" in error && error.code === "TSQL_CANCELLED";
     const confirmedCancel = cancellation && "confirmed" in error && error.confirmed === true;
     const outcomeUnknown =
@@ -273,14 +275,17 @@ async function run(request: WorkerRequest): Promise<void> {
       ? confirmedCancel
         ? "The database confirmed cancellation of the managed operation. Earlier or private effects are not undone."
         : "The managed operation stopped without confirmed database cancellation. Inspect the target before retrying."
-      : error instanceof WorkspaceError || managed
-        ? (error as Error).message
-        : "Project execution failed. Inspect the local terminal for details.";
+      : database
+        ? databaseMessage(database.sqlState)
+        : error instanceof WorkspaceError || managed
+          ? (error as Error).message
+          : "Project execution failed. Inspect the local terminal for details.";
     await new Promise<void>((resolve) => {
       if (process.connected)
         process.send?.(
           {
             type: "error",
+            ...(database === undefined ? {} : { database }),
             message,
             code: outcomeUnknown
               ? "OUTCOME_UNKNOWN"
