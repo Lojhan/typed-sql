@@ -10,6 +10,7 @@ import {
   type LanguageDiagnostic,
   type LanguageLocation,
   type LanguageRange,
+  mergeDocumentDiagnostics,
   offsetAt,
 } from "./editor-language-model.js";
 import { WorkspaceFileTree } from "./file-tree";
@@ -609,16 +610,7 @@ function App() {
     const latest = state?.runs.find((run) => run.file === doc.file);
     if (doc.source === doc.saved && latest?.sourceRevision === doc.revision)
       result.push(...(latest.diagnostics ?? []).filter((problem) => problem.sourceRevision === doc.revision));
-    const seen = new Set<string>();
-    return result.filter((problem) => {
-      const message = problem.message.startsWith(`${problem.code}: `)
-        ? problem.message.slice(problem.code.length + 2)
-        : problem.message;
-      const key = `${problem.code}:${problem.range?.line}:${problem.range?.column}:${message}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    return mergeDocumentDiagnostics(result);
   };
   const bottom = (item: Pane, doc: Document) => {
     if (item.bottom === "results") {
@@ -667,10 +659,7 @@ function App() {
         <div className="problems-list">
           {problemsFor(doc).length ? (
             problemsFor(doc).map((problem) => (
-              <div
-                className={problem.severity}
-                key={`${problem.code}:${problem.range?.line}:${problem.range?.column}:${problem.message}`}
-              >
+              <div className={problem.severity} key={JSON.stringify(problem)}>
                 <code>{problem.code}</code>
                 <span>{problem.message}</span>
                 <small>

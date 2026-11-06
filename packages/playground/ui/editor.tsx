@@ -166,7 +166,11 @@ export function Editor({
             file.endsWith(".sql")
               ? sql()
               : javascript({ typescript: /\.(?:[cm]?ts|tsx)$/u.test(file), jsx: /\.[jt]sx$/u.test(file) }),
-            EditorView.contentAttributes.of({ "aria-label": "Query source editor", spellcheck: "false" }),
+            EditorView.contentAttributes.of({
+              "aria-label": "Query source editor",
+              spellcheck: "false",
+              tabindex: "0",
+            }),
             keymap.of([
               {
                 key: "Mod-s",

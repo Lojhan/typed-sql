@@ -118,6 +118,10 @@ ${ts}`;
   await writeFile(join(root, "playground/helper.ts"), "export const user = { name: 'Ada' };\n");
   await writeFile(join(root, "playground/query.sql"), sql);
   await writeFile(join(root, "playground/fix.sql"), "select nam from public.accounts;\n");
+  await writeFile(
+    join(root, "playground/unknown-function.sql"),
+    "select WORKSPACE_UNKNOWN_FUNCTION('test') as value;\n",
+  );
   await writeFile(join(root, "playground/bad.ts"), "export const age: number = 'wrong';\n");
   await writeFile(join(root, "playground/bad.sql"), "select '😀' as emoji,\r\n  missing from public.accounts;\n");
   await writeFile(
@@ -344,6 +348,13 @@ ${ts}`;
   assert.equal(await editor.textContent(), readOnlyText);
   await shot(page.locator(".document-editor"), "schema-definition-readonly");
   check("SQL definitions open captured schema evidence as a selected read-only source view");
+  await page.keyboard.press("F12");
+  await page
+    .locator(".editor-language-status")
+    .getByText(/read-only definition/u)
+    .waitFor();
+  assert.doesNotMatch(await page.locator(".editor-language-status").textContent(), /Enable trusted/u);
+  check("read-only definition actions explain inspection-only availability without asking for already-granted trust");
   await invoke("playground/bad.ts");
   await page.locator(".cm-lintRange-error").first().waitFor();
   await page.getByRole("tab", { name: /^Problems(?:\s+\d+)?$/u }).click();
@@ -370,6 +381,53 @@ ${ts}`;
     0,
     "Opening a CRLF file must not make it dirty merely because CodeMirror normalizes display text",
   );
+  const hostUnknown = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/analyze") &&
+      response.request().postDataJSON()?.file === "playground/unknown-function.sql",
+  );
+  const nativeUnknown = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/editor") &&
+      response.request().postDataJSON()?.file === "playground/unknown-function.sql" &&
+      response.request().postDataJSON()?.method === "diagnostics",
+  );
+  await invoke("playground/unknown-function.sql");
+  const hostEvidence = await (await hostUnknown).json();
+  const nativeEvidence = await (await nativeUnknown).json();
+  assert.ok(hostEvidence.diagnostics.some((item) => item.code === "TSQ202"));
+  assert.ok(nativeEvidence.diagnostics.some((item) => item.code === "TSQ202"));
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const unknownFunctionPoint = await point(0, "WORKSPACE_UNKNOWN_FUNCTION");
+  await page.mouse.move(2, 2);
+  await page.mouse.move(unknownFunctionPoint.x, unknownFunctionPoint.y);
+  const lintTooltip = page.locator(".cm-tooltip-lint");
+  await lintTooltip.waitFor();
+  const diagnosticText = await lintTooltip.textContent();
+  assert.equal(
+    diagnosticText.match(/Unknown function/gu)?.length,
+    1,
+    "A single compiler finding is shown once in the lint hover",
+  );
+  assert.equal(
+    diagnosticText.match(/TSQ202/gu)?.length,
+    1,
+    "The code is presented once instead of repeated message/source prefixes",
+  );
+  await shot(lintTooltip, "sql-diagnostic-deduplicated");
+  await page.mouse.move(2, 2);
+  await page.getByRole("tab", { name: /^Problems(?:\s+\d+)?$/u }).click();
+  assert.equal(
+    await page
+      .locator(".problems-list > div")
+      .filter({ has: page.getByText("TSQ202", { exact: true }) })
+      .count(),
+    1,
+  );
+  check("host and native TSQ202 diagnostics merge into one inline hover and one Problems entry", {
+    hostMessage: hostEvidence.diagnostics.find((item) => item.code === "TSQ202").message,
+    nativeMessage: nativeEvidence.diagnostics.find((item) => item.code === "TSQ202").message,
+  });
   await invoke("playground/fix.sql");
   await page.locator(".cm-lintRange-error").first().waitFor();
   await editor.press("Home");

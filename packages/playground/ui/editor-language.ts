@@ -32,6 +32,7 @@ import {
   type LanguageEdit,
   type LanguageLocation,
   type LanguageRange,
+  mergeDocumentDiagnostics,
   offsets,
   positionAt,
   textChanges,
@@ -46,6 +47,7 @@ export interface EditorDiagnostic {
   range: { line: number; column: number; start?: number; end?: number };
   source?: string;
   origin?: string;
+  engine?: string;
   sourceRevision?: string;
 }
 export interface LanguageSettings {
@@ -59,6 +61,12 @@ export interface LanguageSettings {
   onFormat?: () => void;
   onLanguageStatus?: (message: string) => void;
   onDiagnostics?: (source: string, diagnostics: readonly LanguageDiagnostic[]) => void;
+}
+interface InlineDiagnostic extends Diagnostic {
+  code: string;
+  origin: string;
+  engine?: string;
+  sourceRevision?: string;
 }
 interface LanguageResponse {
   file: string;
@@ -246,11 +254,18 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       explicit = false,
     ): Promise<LanguageResponse | undefined> {
       const current = settings();
+      if (current.readOnly) {
+        if (explicit)
+          this.status(
+            "This read-only definition is an inspection view. Open a project file to use editor language actions.",
+          );
+        return undefined;
+      }
       if (!current.enabled) {
         if (explicit) this.status("Enable trusted project execution to start the project's editor language server.");
         return undefined;
       }
-      if (current.readOnly || !current.revision || (this.unavailable && !explicit)) return undefined;
+      if (!current.revision || (this.unavailable && !explicit)) return undefined;
       const source = this.view.state.doc.toString();
       const revision = current.revision;
       const workingCopies = canonicalWorkingCopies(current.workingCopies, current.file);
@@ -321,8 +336,8 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.requests.delete(controller);
       }
     }
-    private fallback(source: string, sourceHash: string): Diagnostic[] {
-      const result: Diagnostic[] = [];
+    private fallback(source: string, sourceHash: string): InlineDiagnostic[] {
+      const result: InlineDiagnostic[] = [];
       for (const item of settings().diagnostics) {
         if (item.sourceRevision && item.sourceRevision !== sourceHash) continue;
         const range =
@@ -340,6 +355,10 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           result.push({
             ...range,
             message: item.message,
+            code: item.code,
+            origin: item.origin ?? "analysis",
+            ...(item.engine ? { engine: item.engine } : {}),
+            ...(item.sourceRevision ? { sourceRevision: item.sourceRevision } : {}),
             severity: item.severity === "warning" ? "warning" : item.severity === "info" ? "info" : "error",
             source: item.source ?? `${item.origin === "database" ? "database" : "typed-sql"} ${item.code}`,
           });
@@ -352,7 +371,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       const context = workingKey();
       const response = await this.request("diagnostics");
       if (this.disposed || this.view.state.doc.toString() !== source || workingKey() !== context) return;
-      const diagnostics: Diagnostic[] = response
+      const diagnostics: InlineDiagnostic[] = response
         ? (response.diagnostics ?? []).flatMap((item) => {
             const range = offsets(source, item.range);
             return range && typeof item.message === "string"
@@ -368,6 +387,8 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
                             ? ("hint" as const)
                             : ("error" as const),
                     message: item.message,
+                    code: String(item.code ?? ""),
+                    origin: "language-server",
                     source: [item.source, item.code].filter((value) => value !== undefined).join(" ") || "typed-sql",
                   },
                 ]
@@ -376,14 +397,12 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         : [];
       const displayedHash = await hash(source);
       if (this.disposed || this.view.state.doc.toString() !== source || workingKey() !== context) return;
-      for (const fallback of this.fallback(source, displayedHash))
-        if (
-          !diagnostics.some(
-            (item) => item.message === fallback.message && item.from <= fallback.from && item.to >= fallback.from,
-          )
-        )
-          diagnostics.push(fallback);
-      this.view.dispatch(setDiagnostics(this.view.state, diagnostics));
+      this.view.dispatch(
+        setDiagnostics(
+          this.view.state,
+          mergeDocumentDiagnostics([...diagnostics, ...this.fallback(source, displayedHash)]),
+        ),
+      );
     }
     async hover(pos: number, explicit = false): Promise<{ contents: unknown; from: number; to: number } | undefined> {
       const source = this.view.state.doc.toString();

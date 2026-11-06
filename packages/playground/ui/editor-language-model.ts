@@ -151,3 +151,73 @@ export function canonicalWorkingCopies(copies: readonly WorkingCopy[], currentFi
     .map(({ file, source, revision }) => ({ file, source, revision }))
     .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
 }
+
+export interface DocumentDiagnostic {
+  code?: string | number;
+  message: string;
+  severity?: string | number;
+  origin?: string;
+  source?: string;
+  engine?: string;
+  sourceRevision?: string;
+  from?: number;
+  to?: number;
+  range?: { line?: number; column?: number; start?: number; end?: number };
+}
+function diagnosticProducer(diagnostic: DocumentDiagnostic): string {
+  if (diagnostic.origin === "database") return `database:${diagnostic.engine ?? ""}:${diagnostic.source ?? ""}`;
+  const transport = !diagnostic.origin || ["analysis", "language-server", "typed-sql"].includes(diagnostic.origin);
+  if (transport) {
+    const source = diagnostic.source;
+    if (!source || source === "typed-sql" || source === `typed-sql ${diagnostic.code}`) return "typed-sql";
+    if (source === "ts" || source === "typescript") return "typescript";
+  }
+  return `${diagnostic.origin ?? ""}:${diagnostic.source ?? ""}`;
+}
+function diagnosticStart(diagnostic: DocumentDiagnostic): string | undefined {
+  if (Number.isInteger(diagnostic.range?.line) && Number.isInteger(diagnostic.range?.column))
+    return `line:${diagnostic.range!.line}:${diagnostic.range!.column}`;
+  const start = diagnostic.from ?? diagnostic.range?.start;
+  return Number.isInteger(start) && start! >= 0 ? `offset:${start}` : undefined;
+}
+function diagnosticWidth(diagnostic: DocumentDiagnostic): number {
+  const start = diagnostic.from ?? diagnostic.range?.start;
+  const end = diagnostic.to ?? diagnostic.range?.end;
+  return typeof start === "number" && typeof end === "number" ? Math.max(0, end - start) : 0;
+}
+/** Merge transports for one document; retain distinct producers, codes, severities and occurrences. */
+export function mergeDocumentDiagnostics<T extends DocumentDiagnostic>(diagnostics: readonly T[]): T[] {
+  const result: T[] = [];
+  const seen = new Map<string, number>();
+  for (const diagnostic of diagnostics) {
+    const code = diagnostic.code === undefined ? "" : String(diagnostic.code);
+    let message = diagnostic.message;
+    const prefix = `${code}:`;
+    if (code && message.startsWith(prefix)) message = message.slice(prefix.length).trimStart();
+    const value = message === diagnostic.message ? diagnostic : { ...diagnostic, message };
+    const start = diagnosticStart(diagnostic);
+    // Unlocated or unclassified findings cannot be proven to be the same occurrence.
+    if (!start || !code) {
+      result.push(value);
+      continue;
+    }
+    const producer = diagnosticProducer(diagnostic);
+    const key = JSON.stringify([
+      producer,
+      code,
+      diagnostic.severity,
+      start,
+      message,
+      producer === "typed-sql" || producer === "typescript" ? "" : (diagnostic.sourceRevision ?? ""),
+    ]);
+    const previous = seen.get(key);
+    if (previous === undefined) {
+      seen.set(key, result.length);
+      result.push(value);
+    } else if (diagnosticWidth(value) > diagnosticWidth(result[previous]!)) {
+      // A language-server span can enrich a host's point diagnostic without adding a second finding.
+      result[previous] = { ...result[previous]!, ...value };
+    }
+  }
+  return result;
+}

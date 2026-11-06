@@ -2,7 +2,9 @@ import { describe, it, strict } from "poku";
 import {
   canonicalWorkingCopies,
   completionItems,
+  type DocumentDiagnostic,
   displayDocumentation,
+  mergeDocumentDiagnostics,
   offsetAt,
   offsets,
   positionAt,
@@ -41,6 +43,73 @@ await describe("editor language protocol source mapping", async () => {
         edits[0]!,
       ]),
       undefined,
+    );
+  });
+  await it("merges host and language-server copies of one typed-sql finding without losing the full span", () => {
+    const host = {
+      code: "TSQ202",
+      message: "TSQ202: Unknown function CONCAT",
+      severity: "error",
+      range: { line: 1, column: 8 },
+    };
+    const language = {
+      code: "TSQ202",
+      message: "Unknown function CONCAT",
+      severity: "error",
+      source: "typed-sql",
+      origin: "language-server",
+      range: { line: 1, column: 8, start: 7, end: 13 },
+    };
+    const merged = mergeDocumentDiagnostics<DocumentDiagnostic>([host, language]);
+    strict.equal(merged.length, 1);
+    strict.equal(merged[0]?.message, "Unknown function CONCAT");
+    strict.deepEqual(merged[0]?.range, language.range);
+    strict.equal(merged[0]?.origin, "language-server");
+    strict.equal(host.message, "TSQ202: Unknown function CONCAT", "Original transport evidence remains unchanged");
+    strict.equal(
+      mergeDocumentDiagnostics([
+        {
+          code: language.code,
+          message: language.message,
+          severity: language.severity,
+          origin: language.origin,
+          source: language.source,
+          from: 7,
+          to: 13,
+        },
+        { code: host.code, message: host.message, severity: host.severity, from: 7, to: 7, source: "typed-sql TSQ202" },
+      ]).length,
+      1,
+    );
+  });
+  await it("preserves different codes, occurrences, severities, messages and diagnostic producers", () => {
+    const host = {
+      code: "TSQ202",
+      message: "TSQ202: Unknown function CONCAT",
+      severity: "error",
+      range: { line: 1, column: 8 },
+    };
+    const values = [
+      host,
+      { ...host, code: "TSQ203", message: "Unknown function CONCAT" },
+      { ...host, range: { line: 1, column: 20 } },
+      { ...host, severity: "warning" },
+      { ...host, message: "Unknown function OTHER" },
+      { ...host, origin: "database", engine: "postgres", sourceRevision: "capture-a" },
+      { ...host, origin: "database", engine: "postgres", sourceRevision: "capture-b" },
+      { ...host, origin: "custom-provider", source: "typed-sql" },
+      { ...host, origin: "language-server", source: "other-linter" },
+    ];
+    strict.equal(mergeDocumentDiagnostics(values).length, values.length);
+    const unlocated = { code: host.code, message: host.message, severity: host.severity };
+    strict.equal(
+      mergeDocumentDiagnostics([unlocated, unlocated]).length,
+      2,
+      "Unlocated findings cannot be proven to be the same occurrence",
+    );
+    strict.equal(
+      mergeDocumentDiagnostics([{ ...host, message: "TSQ2020: distinct content" }])[0]?.message,
+      "TSQ2020: distinct content",
     );
   });
   await it("canonicalizes only other dirty buffers with a deterministic transport identity", () => {
