@@ -38,9 +38,10 @@
     "./pg": "./dist/packages/playground/src/pg.js"
   },
   "scripts": {
-    "test": "poku test --reporter=compact --enforce",
+    "test": "node scripts/build-ui.mjs && poku test --reporter=compact --enforce",
     "build:ui": "node scripts/build-ui.mjs",
-    "typecheck:ui": "tsc --project tsconfig.ui.json --pretty false"
+    "typecheck:ui": "tsc --project tsconfig.ui.json --pretty false",
+    "prepack": "node scripts/build-ui.mjs"
   },
   "dependencies": {
     "@typed-sql/build": "workspace:*",

@@ -64,5 +64,4 @@ export interface PlaygroundOptions {
   readonly project?: string;
   readonly target?: string;
   readonly port?: number;
-  readonly open?: boolean;
 }

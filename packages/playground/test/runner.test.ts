@@ -253,3 +253,87 @@ await describe("SQL imports and bounded worker lifetime", async () => {
       }
     }));
 });
+
+await describe("source identity and error evidence", async () => {
+  await it("maps transformed inline SQL back to the original canonical source file", async () =>
+    fixture(async (directory) => {
+      const source =
+        "import {sql} from '@typed-sql/postgres';\nexport async function run(){\n  const query=sql`select id from public.accounts where id=${42}`;\n  return {stack:new Error('mapped source').stack,queryType:typeof query,flags:process.execArgv};\n}\n";
+      await writeFile(join(directory, "playground/mapped.ts"), source);
+      const manager = new RunManager(
+        await loadConfig({ file: join(directory, "typed-sql.config.mjs") }),
+        new WorkspaceFiles(directory, ["playground"], ["playground"]),
+        limits,
+        "local",
+        join(directory, "tsconfig.json"),
+      );
+      manager.trusted = true;
+      try {
+        const run = manager.start({
+          requestId: "mapped-source-identity",
+          file: "playground/mapped.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        const result = await settled(manager, run.id);
+        strict.equal(result.status, "succeeded", JSON.stringify(result));
+        const { decodeValue } = await import("../src/values.js");
+        const value = decodeValue(result.results[0]!.value) as { stack: string; flags: string[] };
+        const { realpath } = await import("node:fs/promises");
+        strict.ok(value.stack.includes(`${await realpath(directory)}/playground/mapped.ts:4:`), value.stack);
+        strict.ok(value.flags.includes("--max-old-space-size=256"));
+      } finally {
+        await manager.close();
+      }
+    }));
+  await it("rejects changed config before execution and refuses dangling managed work", async () =>
+    fixture(async (directory) => {
+      const configFile = join(directory, "typed-sql.config.mjs");
+      const { readFile } = await import("node:fs/promises");
+      const originalConfig = await readFile(configFile, "utf8");
+      await writeFile(
+        configFile,
+        originalConfig
+          .replace(
+            "query:async()=>({rows:",
+            "query:async()=>{await new Promise(resolve=>setTimeout(resolve,500));return {rows:",
+          )
+          .replace("rows:[{id:42,name:null}]}),end:", "rows:[{id:42,name:null}]};},end:"),
+      );
+      const source =
+        "import {sql} from '@typed-sql/postgres';import {databaseForRun} from '@typed-sql/playground/runtime';\nexport async function run(){void databaseForRun().all(sql`select id, name from public.accounts`);return [];}";
+      await writeFile(join(directory, "playground/dangling.ts"), source);
+      const manager = new RunManager(
+        await loadConfig({ file: configFile }),
+        new WorkspaceFiles(directory, ["playground"], ["playground"]),
+        limits,
+        "local",
+        join(directory, "tsconfig.json"),
+      );
+      manager.trusted = true;
+      try {
+        const run = manager.start({
+          requestId: "dangling-managed-work",
+          file: "playground/dangling.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        const result = await settled(manager, run.id);
+        strict.equal(result.status, "failed", JSON.stringify(result));
+        strict.match(result.error?.message ?? "", /unawaited/);
+        await writeFile(
+          configFile,
+          `${await readFile(configFile, "utf8")}\n// configuration changed after host launch\n`,
+        );
+        const changed = manager.start({
+          requestId: "changed-project-config",
+          file: "playground/dangling.ts",
+          revision: contentHash(source),
+          mode: "export",
+        });
+        strict.equal((await settled(manager, changed.id)).error?.code, "CONFIG_CHANGED");
+      } finally {
+        await manager.close();
+      }
+    }));
+});

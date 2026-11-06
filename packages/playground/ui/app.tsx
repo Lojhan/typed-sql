@@ -34,6 +34,7 @@ function App() {
   const [source, setSource] = useState("");
   const [savedSource, setSavedSource] = useState("");
   const [revision, setRevision] = useState<string | null>(null);
+  const [fileWritable, setFileWritable] = useState(true);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [mode, setMode] = useState<"export" | "file" | "sql">("export");
   const [exportName, setExportName] = useState("run");
@@ -124,7 +125,9 @@ function App() {
   const openFile = async (path: string) => {
     if (dirty && !confirm("Discard unsaved edits and open another file?")) return;
     const selectedGeneration = ++selectionGeneration.current;
-    const next = await api<{ file: string; source: string; revision: string }>("file", { file: path });
+    const next = await api<{ file: string; source: string; revision: string; writable: boolean }>("file", {
+      file: path,
+    });
     if (selectionGeneration.current !== selectedGeneration) return;
     generation.current++;
     setAnalysis(null);
@@ -132,12 +135,18 @@ function App() {
     setSource(next.source);
     setSavedSource(next.source);
     setRevision(next.revision);
+    setFileWritable(next.writable);
     setMode(path.endsWith(".sql") ? "sql" : "export");
     setParameters({});
     setView("editor");
   };
   const save = async () => {
     if (!file) return null;
+    if (!dirty && revision) return revision;
+    if (!fileWritable)
+      throw new Error(
+        "This file is outside the configured write roots. Use Save as in your scratch directory before running edited code.",
+      );
     const saved = await api<{ revision: string }>("save", { file, source, revision });
     setRevision(saved.revision);
     setSavedSource(source);
@@ -431,6 +440,24 @@ function App() {
                         }}
                       >
                         Save as
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!file || !fileWritable || busy}
+                        onClick={() => {
+                          const to = prompt("Rename to project-relative path", file);
+                          if (to && to !== file)
+                            void action(async () => {
+                              const saved = await save();
+                              if (!saved) return;
+                              await api("move", { file, to, revision: saved });
+                              setSavedSource(source);
+                              await refresh();
+                              await openFile(to);
+                            });
+                        }}
+                      >
+                        Rename
                       </button>
                       {file.endsWith(".sql") ? (
                         <button

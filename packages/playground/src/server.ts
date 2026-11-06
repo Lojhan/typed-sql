@@ -247,9 +247,18 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (request.method !== "POST") throw new WorkspaceError("METHOD", "Method not allowed", 405);
       const body = await payload(request);
       switch (url.pathname) {
-        case "/api/file":
-          json(response, await files.read(text(body.file, "file")));
+        case "/api/file": {
+          const file = text(body.file, "file");
+          const contents = await files.read(file);
+          let writable = true;
+          try {
+            await files.path(file, true);
+          } catch {
+            writable = false;
+          }
+          json(response, { ...contents, writable });
           return;
+        }
         case "/api/save":
           json(
             response,
