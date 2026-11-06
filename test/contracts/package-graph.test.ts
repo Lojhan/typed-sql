@@ -32,13 +32,18 @@ const forbiddenDrivers = new Set([
   "@libsql/client",
   "@neondatabase/serverless",
   "postgres",
+  "mssql",
+  "tedious",
+  "msnodesqlv8",
+  "koffi",
   "@duckdb/node-api",
   "@duckdb/node-bindings",
   "@duckdb/duckdb-wasm",
   "duckdb",
+  "@sqlite.org/sqlite-wasm",
 ]);
 function isDatabaseDriver(name: string): boolean {
-  return forbiddenDrivers.has(name) || name.startsWith("@duckdb/node-bindings-");
+  return forbiddenDrivers.has(name) || name.startsWith("@duckdb/node-bindings-") || name.startsWith("@koromix/koffi-");
 }
 const publicPackages = [
   "build",
@@ -56,6 +61,7 @@ const publicPackages = [
   "ts-bridge",
   "language-server",
   "sqlite",
+  "sqlserver",
   "duckdb",
 ] as const;
 const stablePackages = [
@@ -69,6 +75,7 @@ const stablePackages = [
   "postgres",
   "mysql",
   "sqlite",
+  "sqlserver",
   "duckdb",
   "cli",
   "adapters",
@@ -107,6 +114,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite", "./query"],
+  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser"],
   duckdb: [".", "./query", "./runtime", "./node-api", "./browser"],
 };
 
@@ -144,6 +152,7 @@ await describe("public package graph", async () => {
       "postgres",
       "mysql",
       "sqlite",
+      "sqlserver",
       "duckdb",
     ]) {
       const packageManifest = await manifest(packageName);
@@ -218,7 +227,7 @@ await describe("public package graph", async () => {
 
   await it("keeps the public conformance kit and example grammar implementation-neutral", async () => {
     const conformance = await source("conformance");
-    strict.ok(!/\b(?:postgres(?:ql)?|mysql2?|sqlite|duckdb)\b/iu.test(conformance));
+    strict.ok(!/\b(?:postgres(?:ql)?|mysql2?|sqlite|sqlserver|duckdb)\b/iu.test(conformance));
     strict.deepStrictEqual(Object.keys((await manifest("conformance")).dependencies ?? {}).sort(), [
       "@typed-sql/compiler",
       "@typed-sql/core",
@@ -249,7 +258,7 @@ await describe("public package graph", async () => {
     const forbiddenSource = [
       {
         label: "first-party dialect name",
-        pattern: /\b(?:postgres(?:ql)?|mysql2?|duckdb)\b/iu,
+        pattern: /\b(?:postgres(?:ql)?|mysql2?|sqlserver|mssql|duckdb|tedious|msnodesqlv8)\b/iu,
       },
       { label: "dialect-specific RETURNING", pattern: /\bRETURNING\b/u },
       { label: "dialect-specific DISTINCT ON", pattern: /\bDISTINCT\s+ON\b/u },
@@ -267,6 +276,7 @@ await describe("public package graph", async () => {
         strict.ok(
           dependency !== "@typed-sql/postgres" &&
             dependency !== "@typed-sql/mysql" &&
+            dependency !== "@typed-sql/sqlserver" &&
             dependency !== "@typed-sql/duckdb" &&
             !isDatabaseDriver(dependency),
           `${packageName} depends on dialect or driver ${dependency}`,

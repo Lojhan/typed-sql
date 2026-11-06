@@ -1,0 +1,56 @@
+{
+  "name": "@typed-sql/sqlserver",
+  "version": "2.4.0",
+  "description": "SQL Server grammar, catalog introspection, lossless type policies, and application-owned native execution for typed-sql.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/sqlserver"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "test": "poku test --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
+    "test:soundness": "poku test/maturity-soundness.test.ts --reporter=compact --enforce",
+    "coverage": "pnpm test"
+  },
+  "exports": {
+    ".": "./dist/packages/sqlserver/src/index.js",
+    "./query": "./dist/packages/sqlserver/src/query.js",
+    "./runtime": "./dist/packages/sqlserver/src/runtime-entry.js",
+    "./odbc": "./dist/packages/sqlserver/src/odbc-entry.js",
+    "./msnodesqlv8": "./dist/packages/sqlserver/src/msnodesqlv8.js",
+    "./browser": "./dist/packages/sqlserver/src/browser.js"
+  },
+  "dependencies": {
+    "@typed-sql/ast": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@typed-sql/conformance": "workspace:*"
+  }
+}

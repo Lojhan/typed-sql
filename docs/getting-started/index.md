@@ -1,6 +1,6 @@
 ---
 title: Get started
-description: Choose PostgreSQL, MySQL, SQLite, or DuckDB and follow the shortest path from schema evidence to a checked, executed query.
+description: Choose PostgreSQL, MySQL, SQLite, SQL Server, or DuckDB and follow the shortest path from schema evidence to a checked, executed query.
 pageType: landing
 ---
 
@@ -38,6 +38,12 @@ connection, pool, migration, and lifecycle ownership.
     <h3>SQLite</h3>
     <p><code>@typed-sql/sqlite</code> with Node's built-in driver. The quickstart creates a local file and needs no server.</p>
     <a href="./sqlite">Open the SQLite quickstart <span aria-hidden="true">→</span></a>
+  </article>
+  <article class="ts-dialect-card">
+    <StatusBadge status="stable" />
+    <h3>SQL Server</h3>
+    <p><code>@typed-sql/sqlserver</code> with application-owned <code>koffi</code>, unixODBC and Microsoft ODBC Driver 18 on Linux x64.</p>
+    <a href="./sqlserver">Open the SQL Server quickstart <span aria-hidden="true">→</span></a>
   </article>
   <article class="ts-dialect-card">
     <StatusBadge status="stable" />

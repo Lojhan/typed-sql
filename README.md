@@ -158,6 +158,7 @@ Grammars own SQL analysis; drivers are optional, explicit application dependenci
 | `@typed-sql/postgres` | PostgreSQL 14–18 | `@typed-sql/postgres/pg` | `pg` 8.23.1 |
 | `@typed-sql/mysql` | MySQL 8.4 and 9.7 LTS | `@typed-sql/mysql/mysql2` | `mysql2` 3.24.6 |
 | `@typed-sql/sqlite` | SQLite 3.39.0–3.54.1 | `@typed-sql/sqlite/node-sqlite` | `node:sqlite`: Node 22.13.0 and current 22, 24, 26 lines |
+| `@typed-sql/sqlserver` | SQL Server 2017–2025; compatibility levels 140–170 | `@typed-sql/sqlserver/odbc` | `koffi` 3.3.7, Microsoft ODBC 18, Linux x64 |
 | `@typed-sql/duckdb` | DuckDB 1.5.6 and 2.0.0 | `@typed-sql/duckdb/node-api` | `@duckdb/node-api` 1.5.6-r.2 and 2.0.0-r.1 |
 
 Additional execution adapters accept application-owned clients:
@@ -185,7 +186,8 @@ canaries, runtime versions, and compiler requirements. Feature coverage varies b
 
 The [SQLite quickstart](./docs/getting-started/sqlite.md) creates a local database and takes a query
 through checking and execution without a server. Existing applications can start with the
-[PostgreSQL](./docs/getting-started/postgresql.md), [MySQL](./docs/getting-started/mysql.md), or [DuckDB](./docs/getting-started/duckdb.md) quickstart.
+[PostgreSQL](./docs/getting-started/postgresql.md), [MySQL](./docs/getting-started/mysql.md),
+[SQL Server](./docs/getting-started/sqlserver.md), or [DuckDB](./docs/getting-started/duckdb.md) quickstart.
 
 ```sh
 pnpm exec typed-sql generate

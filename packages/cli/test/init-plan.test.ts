@@ -23,7 +23,7 @@ async function fixture(run: (root: string, boundary: string) => Promise<void>) {
 await describe("nonexecuting init planner", async () => {
   await it("is deterministic, never writes, and does not invent a schema", async () => {
     await fixture(async (root) => {
-      for (const grammar of ["postgres", "mysql", "sqlite", "duckdb"]) {
+      for (const grammar of ["postgres", "mysql", "sqlite", "sqlserver", "duckdb"]) {
         const plan = await planInit({ cwd: root, grammar, editor: "vscode", "dry-run": "true" }, "2.1.0");
         strict.deepEqual(await planInit({ cwd: root, grammar, editor: "vscode", "dry-run": "true" }, "2.1.0"), plan);
         strict.equal(plan.packageManager, "npm");

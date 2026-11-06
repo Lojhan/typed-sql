@@ -9,6 +9,7 @@ const grammars = {
   postgres: { package: "@typed-sql/postgres", factory: "postgres" },
   mysql: { package: "@typed-sql/mysql", factory: "mysql" },
   sqlite: { package: "@typed-sql/sqlite", factory: "sqlite" },
+  sqlserver: { package: "@typed-sql/sqlserver", factory: "sqlserver" },
   duckdb: { package: "@typed-sql/duckdb", factory: "duckdb" },
 } as const;
 const managers = ["npm", "pnpm", "yarn", "bun"] as const;

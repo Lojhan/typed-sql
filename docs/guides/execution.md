@@ -188,7 +188,7 @@ const [accounts, orders] = await database.batch([accountQuery, orderQuery]);
 
 A root batch executes sequentially on one connection and stops at the first failure. PostgreSQL,
 MySQL, and built-in SQLite root batches use autocommit, so earlier successful statements remain
-committed. DuckDB root batches wrap the queries in one transaction and roll back on
+committed. SQL Server and DuckDB root batches wrap the queries in one transaction and roll back on
 failure. Portable D1, libSQL, and SQLite Wasm adapters have their own atomic batch contract. Batching
 does not imply a single network round trip.
 

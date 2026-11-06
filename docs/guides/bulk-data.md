@@ -19,7 +19,7 @@ failure semantics.
 | `database.batch()` | Multiple sequential statements on one connection | Heterogeneous commands or per-command results; atomicity follows the selected adapter's contract |
 | Native bulk capability | PostgreSQL COPY, MySQL LOAD DATA, or DuckDB vector appender | Large or streaming ingestion where bounded memory and protocol throughput matter |
 
-DuckDB root batches are atomic. PostgreSQL, MySQL and built-in SQLite root
+SQL Server and DuckDB root batches are atomic. PostgreSQL, MySQL and built-in SQLite root
 batches require an enclosing transaction when all statements must commit together. A scoped
 batch participates in its existing transaction. See [batch execution contracts](./execution.md#execute-an-ordered-batch).
 

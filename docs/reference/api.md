@@ -144,7 +144,7 @@ Cardinality failures throw `QueryCardinalityError` with code `TSQL_CARDINALITY`,
 
 ### Prepared query factories
 
-PostgreSQL, MySQL, SQLite, and DuckDB adapters expose:
+PostgreSQL, MySQL, SQLite, SQL Server, and DuckDB adapters expose:
 
 ```ts
 database.prepare(name, (...arguments) => query)
@@ -158,7 +158,7 @@ The same prepared-state registry is available to transaction scopes created by t
 
 ### Ordered batches
 
-PostgreSQL, MySQL, SQLite, and DuckDB database and transaction adapters expose:
+PostgreSQL, MySQL, SQLite, SQL Server, and DuckDB database and transaction adapters expose:
 
 ```ts
 database.batch(queries)
@@ -171,7 +171,7 @@ An empty batch returns without leasing a connection. A non-empty batch executes 
 | Adapter | Root batch behavior |
 | --- | --- |
 | PostgreSQL, MySQL, built-in SQLite | Autocommit; earlier successful statements remain committed after a later failure |
-| DuckDB | One transaction; a failure rolls back the batch |
+| SQL Server, DuckDB | One transaction; a failure rolls back the batch |
 | D1, libSQL, SQLite Wasm | The adapter's atomic batch contract |
 
 Calling `batch()` inside `database.transaction()` reuses the surrounding transaction. Database rules such as MySQL DDL implicit commits still apply. Sequential batching does not imply one network round trip.

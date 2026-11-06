@@ -439,6 +439,7 @@ await describe("public documentation", async () => {
       ["@typed-sql/mysql", "docs/dialects/mysql.md"],
       ["@typed-sql/sqlite", "docs/dialects/sqlite.md"],
       ["@typed-sql/duckdb", "docs/dialects/duckdb.md"],
+      ["@typed-sql/sqlserver", "docs/dialects/sqlserver.md"],
     ] as const) {
       const packageDirectory = packageName.slice("@typed-sql/".length);
       const packageJson = JSON.parse(await text(`packages/${packageDirectory}/package.json`)) as {
