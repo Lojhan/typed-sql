@@ -20,8 +20,8 @@ contract split.
 | Installed CLI, runtime and browser workflows | Packed real databases, build integrations and both genuine DuckDB SDK profiles pass, including SDK-free offline commands, deliberate online schema generation, SQL-file/inline builds, services and native execution. |
 | Packaged editors | Packaged editor artifacts, macOS/Windows SDK-platform jobs and PR distribution pass, including five-grammar LSP assertions. Splitting the packed tests retains the assertions and existing timeout limits. |
 | Native SQL Server qualification | [Run 42145504368](https://github.com/Lojhan/typed-sql/actions/runs/42145504368) succeeds at the same checked head on all four pinned engine builds (majors 14–17), including the triangular ten compatibility rows, public adapter, catalog, packed workers/CLI and cleanup probes. |
-| Performance | The clean CI receipt uses Node 22.13.1/Linux x64, budget version17 and the existing `githubActions` profile. Editor edit-storm p50 is 9.169 ms against that profile's unchanged 15 ms limit; SQL Server/DuckDB analysis measures about 4,448/5,291 queries per second. The separate clean local `08c46ef` full verify used Node24.10.0/macOS arm64 and the default profile: edit-storm p50 4.49 ms against 10 ms. These are distinct contexts. |
-| Code scanning | [CodeQL alert 36](https://github.com/Lojhan/typed-sql/security/code-scanning/36) has `most_recent_instance.state = fixed`; its recorded fixed instance is `6aacfdfc54241c27d6c6c00f5b0199db371a89f3`. |
+| Performance | The clean CI receipt uses Node 22.13.1/Linux x64, budget version 17 and the existing `githubActions` profile. Editor edit-storm p50 is 9.169 ms against that profile's unchanged 15 ms limit; SQL Server/DuckDB analysis measures about 4,448/5,291 queries per second. The separate clean local `08c46ef` full verify used Node 24.10.0/macOS arm64 and the default profile: edit-storm p50 4.49 ms against 10 ms. These are distinct contexts. |
+| Code scanning | Checks pass at `8bc32aa`, whose same-file-handle correction is followed by [CodeQL alert 36](https://github.com/Lojhan/typed-sql/security/code-scanning/36) having `most_recent_instance.state = fixed`. The API's instance commit identifies the prior detection, not the fix commit. |
 
 A separate local macOS arm64 investigation observes an intermittent preview CLI-watch missed-event/
 watch-cycle race with the unchanged pre-integration `packages/ts-bridge` tree and pinned official
@@ -302,7 +302,7 @@ contract assertion and scope a SQL documentation example's `types` command to ap
 rather than setup DDL.
 
 However, that run **fails the existing performance gate**: `editor.editStorm` p50 **11.19 ms**
-exceeds its **10 ms** budget (`performance-gate.mjs:904`, Node24.10.0/darwin-arm64/Apple M3 Pro,
+exceeds its **10 ms** budget (`performance-gate.mjs:904`, Node 24.10.0/darwin-arm64/Apple M3 Pro,
 default budget profile17). This replaces the earlier merely pending performance receipt with an
 actual measured gate failure. It does not by itself establish a persistent source regression, but
 requires investigation or a valid fresh passing measurement; do not raise or bypass the budget to
