@@ -185,6 +185,18 @@ await describe("optional local editor companion", async () => {
         };
         strict.equal(read.source, "{}");
         strict.equal(read.readOnly, true);
+        await writeFile(join(root, "schema.json"), "[]");
+        await strict.rejects(
+          routes.handle({ method: "readDefinition", token: result.result[0]?.token }, true),
+          (error: unknown) => {
+            return (
+              error instanceof Error &&
+              "status" in error &&
+              error.status === 409 &&
+              /fresh definition/u.test(error.message)
+            );
+          },
+        );
         await strict.rejects(
           routes.handle({ method: "readDefinition", token: "not-authorized" }, true),
           /fresh definition/u,

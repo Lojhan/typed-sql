@@ -90,7 +90,7 @@ export class EditorRoutes {
   private readonly documents = new Map<string, { hash: string; version: number }>();
   private readonly latest = new Map<string, string>();
   private readonly queues = new Map<string, Promise<unknown>>();
-  private readonly definitions = new Map<string, { path: string; uri: string; file: string }>();
+  private readonly definitions = new Map<string, { path: string; uri: string; file: string; revision: string }>();
   private schemaStamp: string | undefined;
   private stopped = false;
   private retryAt = 0;
@@ -375,7 +375,8 @@ export class EditorRoutes {
       if (target === undefined) continue;
       const token = randomUUID();
       if (this.definitions.size >= 128) this.definitions.delete(this.definitions.keys().next().value!);
-      this.definitions.set(token, { ...target, uri });
+      const revision = contentHash(await boundedRead(target.path));
+      this.definitions.set(token, { ...target, uri, revision });
       locations.push({
         ...value,
         uri,
@@ -392,7 +393,16 @@ export class EditorRoutes {
     if (target === undefined || (await this.authorizedDefinition(target.uri))?.path !== target.path)
       throw new WorkspaceError("EDITOR_DEFINITION", "Request a fresh definition before opening this document", 403);
     const source = await boundedRead(target.path);
-    return { file: target.file, uri: target.uri, source, revision: contentHash(source), readOnly: true };
+    const revision = contentHash(source);
+    if (revision !== target.revision) {
+      this.definitions.delete(token as string);
+      throw new WorkspaceError(
+        "EDITOR_STALE",
+        "Definition changed; request a fresh definition before opening this document",
+        409,
+      );
+    }
+    return { file: target.file, uri: target.uri, source, revision, readOnly: true };
   }
   async close(): Promise<void> {
     this.stopped = true;
