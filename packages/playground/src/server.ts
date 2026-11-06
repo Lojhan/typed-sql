@@ -226,9 +226,9 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       }
       if (request.method === "GET" && url.pathname === "/api/state") {
         const schemaHash = calculateSchemaHash(schema);
-        const inventory = await files.list();
+        const { files: inventory, folders } = await files.inventory();
         const runList = manager.list();
-        const etag = `"${contentHash(JSON.stringify({ schemaHash, inventory, connection, trusted: manager.trusted, runs: runList.map((run) => [run.id, run.status, run.results.map((result) => result.paging ?? null), run.logs.length, run.error, run.finishedAt]) }))}"`;
+        const etag = `"${contentHash(JSON.stringify({ schemaHash, inventory, folders, connection, trusted: manager.trusted, runs: runList.map((run) => [run.id, run.status, run.results.map((result) => result.paging ?? null), run.logs.length, run.error, run.finishedAt]) }))}"`;
         response.setHeader("ETag", etag);
         if (request.headers["if-none-match"] === etag) {
           response.writeHead(304);
@@ -259,6 +259,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           executionSchemaStale: manager.schema !== undefined,
           ...(url.searchParams.get("catalog") === schemaHash ? {} : { board: schemaBoard(schema) }),
           files: inventory,
+          folders,
           scratchDirectory: scratch,
           grammar: loaded.config.dialect.id,
           limits,
@@ -274,6 +275,9 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (request.method !== "POST") throw new WorkspaceError("METHOD", "Method not allowed", 405);
       const body = await payload(request);
       switch (url.pathname) {
+        case "/api/folder":
+          json(response, await files.createFolder(text(body.folder, "folder")), 201);
+          return;
         case "/api/results/close":
           json(response, manager.closeResult(text(body.run, "run"), text(body.result, "result")));
           return;

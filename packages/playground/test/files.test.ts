@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
@@ -70,6 +70,45 @@ try {
       const linked = new WorkspaceFiles(root, ["linked"], ["playground"]);
       await strict.rejects(() => linked.list(), /Symlinks/);
       strict.equal(await readFile(join(outside, "secret.ts"), "utf8"), "export const secret = 1;");
+    });
+
+    await it("creates real empty and nested directories with atomic duplicate conflicts", async () => {
+      const nested = await files.createFolder("playground/reports/empty");
+      strict.equal(nested.folder, "playground/reports/empty");
+      strict.equal((await stat(join(root, nested.folder))).isDirectory(), true);
+      strict.deepEqual(await readdir(join(root, nested.folder)), [], "folders do not contain marker files");
+      const second = new WorkspaceFiles(root, ["src", "playground"], ["playground"]);
+      const concurrent = await Promise.allSettled([
+        files.createFolder("playground/concurrent-folder"),
+        second.createFolder("playground/concurrent-folder"),
+      ]);
+      strict.equal(concurrent.filter((item) => item.status === "fulfilled").length, 1);
+      const failure = concurrent.find((item) => item.status === "rejected");
+      strict.ok(
+        failure?.status === "rejected" && failure.reason.code === "FOLDER_CONFLICT" && failure.reason.status === 409,
+      );
+      await strict.rejects(() => files.createFolder("playground/new.sql"), /already exists/);
+      await strict.rejects(() => files.createFolder("playground/new.sql/nested"), /ordinary file/);
+      const folders = await second.listFolders();
+      strict.ok(folders.includes("playground"));
+      strict.ok(folders.includes("playground/reports/empty"));
+      strict.ok(!(await files.list()).includes("playground/reports/empty"), "file inventory stays files-only");
+      const saved = await files.save("playground/reports/empty/query.sql", "select 42", null);
+      strict.equal((await files.read(saved.file)).source, "select 42");
+    });
+
+    await it("confines folder creation and refuses symlink directories", async () => {
+      await strict.rejects(() => files.createFolder("src/new"), /outside/);
+      await strict.rejects(() => files.createFolder("../escaped"), /project-relative/);
+      await strict.rejects(() => files.createFolder(join(outside, "absolute")), /project-relative/);
+      await strict.rejects(() => files.createFolder("playground/.git/hidden"), /project-relative/);
+      await strict.rejects(() => files.createFolder("playground/node_modules/hidden"), /project-relative/);
+      await symlink(outside, join(root, "playground/linked-directory"));
+      await strict.rejects(() => files.createFolder("playground/linked-directory/escaped"), /Symlinks/);
+      strict.ok(!(await files.listFolders()).includes("playground/linked-directory"));
+      const linked = new WorkspaceFiles(root, ["linked"], ["linked"]);
+      await strict.rejects(() => linked.createFolder("linked/escaped"), /Symlinks/);
+      await strict.rejects(() => linked.listFolders(), /Symlinks/);
     });
 
     await it("lists ordinary permitted files and enforces the read size limit", async () => {

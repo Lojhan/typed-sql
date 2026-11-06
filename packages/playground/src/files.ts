@@ -41,7 +41,7 @@ export class WorkspaceFiles {
         throw new WorkspaceError("ROOT", "Workspace roots must remain inside the project");
     }
   }
-  async path(file: string, write = false): Promise<string> {
+  private async scopedPath(file: string, write = false): Promise<string> {
     if (
       !file ||
       file.includes("\0") ||
@@ -53,10 +53,39 @@ export class WorkspaceFiles {
     const roots = write ? this.writeRoots : [...this.readRoots, ...this.writeRoots];
     if (!inside(this.root, path) || !roots.some((root) => inside(resolve(this.root, root), path)))
       throw new WorkspaceError("PATH", "File is outside the configured workspace roots", 403);
-    if (!/\.(?:[cm]?ts|tsx|sql)$/u.test(path))
-      throw new WorkspaceError("EXTENSION", "Only TypeScript and SQL files can be edited");
     await this.assertPathTree(path);
     return path;
+  }
+  async path(file: string, write = false): Promise<string> {
+    const path = await this.scopedPath(file, write);
+    if (!/\.(?:[cm]?ts|tsx|sql)$/u.test(path))
+      throw new WorkspaceError("EXTENSION", "Only TypeScript and SQL files can be edited");
+    return path;
+  }
+  /** Creates an ordinary repository directory, including missing parents, without replacing anything. */
+  async createFolder(folder: string): Promise<{ folder: string }> {
+    const path = await this.scopedPath(folder, true);
+    return this.locked([path], async () => {
+      await this.scopedPath(folder, true);
+      let current = this.root;
+      const parts = relative(this.root, path).split(sep).filter(Boolean);
+      for (const [index, part] of parts.entries()) {
+        current = join(current, part);
+        await this.assertPathTree(current);
+        try {
+          // The final mkdir is deliberately non-recursive: one concurrent creator wins atomically.
+          await mkdir(current, { mode: 0o700 });
+        } catch (error) {
+          if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+          await this.assertPathTree(current);
+          if (index === parts.length - 1 || !(await lstat(current)).isDirectory())
+            throw new WorkspaceError("FOLDER_CONFLICT", "A file or folder already exists at this path", 409);
+        }
+        await this.assertPathTree(current);
+      }
+      if (!parts.length) throw new WorkspaceError("FOLDER_CONFLICT", "The project folder already exists", 409);
+      return { folder: relative(this.root, path).split(sep).join("/") };
+    });
   }
   private async assertPathTree(path: string): Promise<void> {
     let cursor = path;
@@ -69,6 +98,8 @@ export class WorkspaceFiles {
         if (!inside(await realpath(this.root), actual))
           throw new WorkspaceError("PATH", "File escapes the project", 403);
       } catch (error) {
+        if (error instanceof Error && "code" in error && error.code === "ENOTDIR")
+          throw new WorkspaceError("FOLDER_CONFLICT", "A parent path is an ordinary file, not a folder", 409);
         if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
       }
       if (cursor === this.root) break;
@@ -192,9 +223,13 @@ export class WorkspaceFiles {
       return target;
     });
   }
-  async list() {
-    const result: string[] = [];
+  async inventory(): Promise<{ files: string[]; folders: string[] }> {
+    const result = new Set<string>();
+    const folders = new Set<string>();
+    const visited = new Set<string>();
     const visit = async (directory: string) => {
+      if (visited.has(directory)) return;
+      visited.add(directory);
       await this.assertPathTree(directory);
       let entries: Dirent[];
       try {
@@ -203,17 +238,25 @@ export class WorkspaceFiles {
         if (error instanceof Error && "code" in error && error.code === "ENOENT") return;
         throw error;
       }
+      folders.add(relative(this.root, directory).split(sep).join("/") || ".");
+      if (folders.size > 5000)
+        throw new WorkspaceError("FOLDER_LIMIT", "More than 5,000 workspace folders; narrow readRoots");
       for (const entry of entries) {
-        if (result.length >= 5000)
+        if (result.size >= 5000)
           throw new WorkspaceError("FILE_LIMIT", "More than 5,000 workspace files; narrow readRoots");
         if (entry.isSymbolicLink() || hidden.has(entry.name)) continue;
         const path = join(directory, entry.name);
         if (entry.isDirectory()) await visit(path);
-        else if (/\.(?:[cm]?ts|tsx|sql)$/u.test(entry.name))
-          result.push(relative(this.root, path).split(sep).join("/"));
+        else if (/\.(?:[cm]?ts|tsx|sql)$/u.test(entry.name)) result.add(relative(this.root, path).split(sep).join("/"));
       }
     };
     for (const root of new Set([...this.readRoots, ...this.writeRoots])) await visit(resolve(this.root, root));
-    return [...new Set(result)].sort();
+    return { files: [...result].sort(), folders: [...folders].sort() };
+  }
+  async list(): Promise<string[]> {
+    return (await this.inventory()).files;
+  }
+  async listFolders(): Promise<string[]> {
+    return (await this.inventory()).folders;
   }
 }
