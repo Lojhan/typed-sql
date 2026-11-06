@@ -2,29 +2,37 @@
 
 ## Current acceptance status
 
-DuckDB [#269](https://github.com/Lojhan/typed-sql/pull/269) and SQL Server
-[#270](https://github.com/Lojhan/typed-sql/pull/270) are merged after independent review and green
-exact-head checks. The shared playground/editor/conformance integration remains in draft
-[#265](https://github.com/Lojhan/typed-sql/pull/265).
+The SQL Server and DuckDB delivery is merged: DuckDB [#269](https://github.com/Lojhan/typed-sql/pull/269)
+(`1e7c465`), SQL Server [#270](https://github.com/Lojhan/typed-sql/pull/270) (`89d17ab`), and shared
+playground/editor/conformance integration [#265](https://github.com/Lojhan/typed-sql/pull/265)
+(`b9c9076`). Required qualification passes for the final reviewed source. This records delivery
+acceptance, not npm publication.
 
-The complete local `pnpm verify` command passes at clean `08c46ef`: all package suites, all 45
-repository contracts, production build, documentation build and unchanged performance gates.
-The editor edit-storm median is 4.49 ms against its 10 ms limit. Native run
-[42141658178](https://github.com/Lojhan/typed-sql/actions/runs/42141658178) passes all four SQL Server
-engine jobs at that same source head. The earlier isolated performance rerun also passes; the
-11.19 ms historical failure below is retained as an observation, not an unresolved source regression.
+The checked head is `8bc32aabbde820a497cf49e234c4f9f55a7c0daf`. Its tree, the CI synthetic merge
+`c4b380fb83a87865dab2f577f1815de79e10cf65`, and merged main `b9c90769d761864ccf4138a76756e844922e5d1a`
+all have tree `8f9e1306ab9b7be1e4ae17b4adfc3b4e1ab86305`. Thus the final receipts cover the merged
+product tree, including the playground identity/collation correction and bounded packed-editor
+contract split.
 
-Later shared review found lost identity and collation facts in custom playground DDL. Fix
-`0e8dadb` (integrated as `7ff78ab`) passes typecheck, seven focused contracts, and independent
-review/rerun. Fresh shared integration qualification remains required after this correction.
-The older `08c46ef` GitHub source-quality job separately exceeded the existing 120-second
-packed-consumer test-file limit while running expanded five-grammar LSP assertions. Those checks
-are being split into bounded files without raising the limit or removing assertions.
+| Acceptance area | Final receipt |
+|---|---|
+| Repository verification | [CI 42145504615](https://github.com/Lojhan/typed-sql/actions/runs/42145504615) succeeds: package tests and coverage, all 46 repository contract files, production build, documentation build and performance gates. Required PR jobs pass; scheduled/non-PR jobs skipped by the workflow are not counted as executed. |
+| Installed CLI, runtime and browser workflows | Packed real databases, build integrations and both genuine DuckDB SDK profiles pass, including SDK-free offline commands, deliberate online schema generation, SQL-file/inline builds, services and native execution. |
+| Packaged editors | Packaged editor artifacts, macOS/Windows SDK-platform jobs and PR distribution pass, including five-grammar LSP assertions. Splitting the packed tests retains the assertions and existing timeout limits. |
+| Native SQL Server qualification | [Run 42145504368](https://github.com/Lojhan/typed-sql/actions/runs/42145504368) succeeds at the same checked head on all four pinned engine builds (majors 14–17), including the triangular ten compatibility rows, public adapter, catalog, packed workers/CLI and cleanup probes. |
+| Performance | The clean CI receipt uses Node 22.13.1/Linux x64, budget version 17 and the existing `githubActions` profile. Editor edit-storm p50 is 9.169 ms against that profile's unchanged 15 ms limit; SQL Server/DuckDB analysis measures about 4,448/5,291 queries per second. The separate clean local `08c46ef` full verify used Node 24.10.0/macOS arm64 and the default profile: edit-storm p50 4.49 ms against 10 ms. These are distinct contexts. |
+| Code scanning | Checks pass at `8bc32aa`, whose same-file-handle correction is followed by [CodeQL alert 36](https://github.com/Lojhan/typed-sql/security/code-scanning/36) having `most_recent_instance.state = fixed`. The API's instance commit identifies the prior detection, not the fix commit. |
 
-The dated sections below retain the study and counterexample history. Their older pending-work
-classifications are superseded by this status and subsequent receipts. All source reviews identify
-their checkout and commit; native CI is inspected through its exact-head results and downloaded
-artifacts rather than inferred from macOS source tests.
+A separate local macOS arm64 investigation observes an intermittent preview CLI-watch missed-event/
+watch-cycle race with the unchanged pre-integration `packages/ts-bridge` tree and pinned official
+SDK. Private note `4776283` (`planning/preview-watch-readiness.md` on the SQL agent's investigation
+branch) records the traces and unsuccessful synchronization candidate. The original stage timeout
+is retained; no timeout override or vendor patch is qualified. Final CI passes, but that does not
+establish universally reliable local watch behavior or resolve the separate investigation.
+
+All dated records below are historical checkout-specific evidence and counterexamples. Their
+pending-work, draft-MR and failing-run descriptions are superseded by this final status; they are
+retained to explain the decisions, not as current acceptance blockers.
 
 ## Acceptance basis
 
@@ -294,7 +302,7 @@ contract assertion and scope a SQL documentation example's `types` command to ap
 rather than setup DDL.
 
 However, that run **fails the existing performance gate**: `editor.editStorm` p50 **11.19 ms**
-exceeds its **10 ms** budget (`performance-gate.mjs:904`, Node24.10.0/darwin-arm64/Apple M3 Pro,
+exceeds its **10 ms** budget (`performance-gate.mjs:904`, Node 24.10.0/darwin-arm64/Apple M3 Pro,
 default budget profile17). This replaces the earlier merely pending performance receipt with an
 actual measured gate failure. It does not by itself establish a persistent source regression, but
 requires investigation or a valid fresh passing measurement; do not raise or bypass the budget to
