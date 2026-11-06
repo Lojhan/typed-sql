@@ -471,6 +471,9 @@ importers:
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../core
+      '@typed-sql/migrations':
+        specifier: workspace:*
+        version: link:../migrations
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
@@ -556,6 +559,15 @@ importers:
         specifier: 1.0.16
         version: 1.0.16
 
+  packages/migrations:
+    dependencies:
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+
   packages/mysql:
     dependencies:
       '@typed-sql/ast':
@@ -589,6 +601,9 @@ importers:
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../core
+      '@typed-sql/migrations':
+        specifier: workspace:*
+        version: link:../migrations
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema

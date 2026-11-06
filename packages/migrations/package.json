@@ -1,0 +1,45 @@
+{
+  "name": "@typed-sql/migrations",
+  "version": "2.5.0-rc.0",
+  "description": "Driver-neutral migration lifecycle, immutable plans, drift checks and recovery for typed-sql.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/migrations"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": "./dist/packages/migrations/src/index.js"
+  },
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce"
+  },
+  "dependencies": {
+    "@typed-sql/core": "workspace:*",
+    "tsx": "4.23.15"
+  }
+}

@@ -44,6 +44,7 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "jsonc-parser": "3.3.1",
-    "proper-lockfile": "4.1.2"
+    "proper-lockfile": "4.1.2",
+    "@typed-sql/migrations": "workspace:*"
   }
 }
