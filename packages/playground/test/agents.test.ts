@@ -19,13 +19,20 @@ for await(const line of createInterface({input:process.stdin})){
   if(process.argv[2]==='malformed'){process.stdout.write('invalid JSON\\n');continue;}
   if(process.argv[2]==='overflow'){process.stdout.write('x'.repeat(2200000));continue;}
   if(process.argv[2]==='stall')continue;
+  if(process.argv[2]==='crash'){process.exit(3);}
+  if(process.argv[2]==='nul'){update('invalid'+String.fromCharCode(0));response(prompt,{stopReason:'end_turn'});continue;}
+  if(process.argv[2].startsWith('stop-')){update('Partial reply');response(prompt,{stopReason:process.argv[2].slice(5)});continue;}
+  if(process.argv[2]==='permission'){send({jsonrpc:'2.0',id:writeId,method:'session/request_permission',params:{sessionId:session,options:[{optionId:'allow',kind:'allow_once',name:'Allow'},{optionId:'deny',kind:'reject_once',name:'Reject'}]}});continue;}
+  if(process.argv[2]==='read'){send({jsonrpc:'2.0',id:writeId,method:'fs/read_text_file',params:{sessionId:session,path:process.cwd()+'/playground/source.sql',line:2,limit:1}});continue;}
+  if(process.argv[2]==='requests'){for(let i=0;i<20;i++)send({jsonrpc:'2.0',id:writeId+i,method:'fs/write_text_file',params:{sessionId:session,path:process.cwd()+'/playground/agent-tool.sql',content:'select 1;'}});continue;}
+  if(process.argv[2]==='context'){update(message.params.prompt[0].text);response(prompt,{stopReason:'end_turn'});continue;}
   if(process.argv[2]==='texttool'){update(String.fromCharCode(96).repeat(3)+'typed-sql-tool'+String.fromCharCode(10)+JSON.stringify({file:'playground/from-text.sql',source:'select 42;'} )+String.fromCharCode(10)+String.fromCharCode(96).repeat(3));response(prompt,{stopReason:'end_turn'});continue;}
   update('I can inspect your selected context. ');
   if(process.argv[2]==='tool')send({jsonrpc:'2.0',id:writeId,method:'fs/write_text_file',params:{sessionId:session,path:process.cwd()+'/playground/agent-tool.sql',content:'select id from public.accounts;\\n'}});
   else if(process.argv[2]==='escape')send({jsonrpc:'2.0',id:writeId,method:'fs/write_text_file',params:{sessionId:session,path:process.cwd()+'/../outside.sql',content:'select 1'}});
   else{update('Ready.');response(prompt,{stopReason:'end_turn'});}
  }
- else if(message.id===writeId){update(message.error?'Proposal rejected.':'Tool saved for explicit execution.');response(prompt,{stopReason:'end_turn'});}
+ else if(message.id===writeId){if(process.argv[2]==='read'||process.argv[2]==='permission')update(JSON.stringify(message.result));else update(message.error?'Proposal rejected.':'Tool saved for explicit execution.');response(prompt,{stopReason:'end_turn'});}
 }
 `;
 const api = (agents: AgentRoutes, route: string, body?: Record<string, unknown>) =>
@@ -221,4 +228,169 @@ await describe("local ACP agents and reviewed repository tools", async () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+  for (const reason of ["cancelled", "refusal", "max_tokens", "max_turn_requests", "invalid"])
+    await it(`preserves ACP stop reason ${reason} instead of reporting success`, async () =>
+      fixture(async (_root, agents) => {
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Please continue" });
+        const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+        strict.equal(done.status, reason === "cancelled" ? "cancelled" : "failed");
+        if (reason !== "invalid") strict.equal(done.stopReason, reason);
+        else strict.match(done.error!, /stop reason/u);
+      }, `stop-${reason}`));
+  await it("rejects native permission once without granting it or cancelling the whole session", async () =>
+    fixture(async (_root, agents) => {
+      const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+      await api(agents, "/prompt", { conversationId: created.id, message: "Request permission" });
+      const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+      strict.equal(done.status, "idle");
+      strict.match(done.messages[1]!.text, /"outcome":"selected"/u);
+      strict.match(done.messages[1]!.text, /"optionId":"deny"/u);
+    }, "permission"));
+  await it("honors ACP one-based line ranges without exposing other lines", async () =>
+    fixture(async (_root, agents, files) => {
+      await files.save("playground/source.sql", "first\r\nsecond\r\nthird\r\n", null);
+      const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+      await api(agents, "/prompt", { conversationId: created.id, message: "Read the selected line" });
+      const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+      strict.equal(done.messages[1]!.text, JSON.stringify({ content: "second\r\n" }));
+    }, "read"));
+  await it("reserves one prompt per conversation after asynchronous context validation", async () =>
+    fixture(async (_root, agents, files) => {
+      const source = await files.save("playground/source.sql", "select 1;", null);
+      const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+      const request = {
+        conversationId: created.id,
+        message: "Wait",
+        context: { source: { ...source, source: "select 1;" } },
+      };
+      const outcomes = await Promise.allSettled([api(agents, "/prompt", request), api(agents, "/prompt", request)]);
+      strict.equal(outcomes.filter((value) => value.status === "fulfilled").length, 1);
+      strict.equal(outcomes.filter((value) => value.status === "rejected").length, 1);
+      const current = (await api(agents, `/conversation?id=${created.id}`)) as AgentConversation;
+      strict.equal(current.messages.length, 1);
+      await api(agents, "/cancel", { conversationId: created.id });
+    }, "stall"));
+  await it("enforces the two-turn limit during pending process startup", async () =>
+    fixture(async (_root, agents) => {
+      const conversations: AgentConversation[] = [];
+      for (let i = 0; i < 3; i++)
+        conversations.push((await api(agents, "/new", { profileId: "local" })) as AgentConversation);
+      const outcomes = await Promise.allSettled(
+        conversations.map((conversation) =>
+          api(agents, "/prompt", { conversationId: conversation.id, message: "Wait" }),
+        ),
+      );
+      strict.equal(outcomes.filter((value) => value.status === "fulfilled").length, 2);
+      strict.equal(outcomes.filter((value) => value.status === "rejected").length, 1);
+      for (const conversation of conversations) await api(agents, "/cancel", { conversationId: conversation.id });
+    }, "stall"));
+  for (const mode of ["crash", "requests", "nul"])
+    await it(`fails closed for ${mode} and settles turn cleanup`, async () =>
+      fixture(async (_root, agents) => {
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Try" });
+        const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+        strict.equal(done.status, "failed");
+        strict.ok(done.proposals.every((proposal) => proposal.status !== "pending"));
+      }, mode));
+  await it("does not create an orphan approval if cancelled during an asynchronous file request", async () =>
+    fixture(async (_root, agents, files) => {
+      const originalRead = files.read.bind(files);
+      let entered!: () => void;
+      let finish!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      files.read = async (file) => {
+        if (file === "playground/agent-tool.sql") {
+          entered();
+          await gate;
+        }
+        return originalRead(file);
+      };
+      try {
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Propose" });
+        await started;
+        await api(agents, "/cancel", { conversationId: created.id });
+        finish();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        const done = (await api(agents, `/conversation?id=${created.id}`)) as AgentConversation;
+        strict.equal(done.status, "cancelled");
+        strict.ok(done.proposals.every((proposal) => proposal.status !== "pending"));
+      } finally {
+        finish();
+        files.read = originalRead;
+      }
+    }, "tool"));
+  await it("shares only selected context and rejects oversized schema/result attachments", async () =>
+    fixture(async (_root, agents, files) => {
+      const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+      const source = await files.save("playground/source.sql", "select 7;", null);
+      await strict.rejects(
+        api(agents, "/prompt", {
+          conversationId: created.id,
+          message: "Explain",
+          context: { result: { value: "x".repeat(256 * 1024) } },
+        }),
+        /smaller context/u,
+      );
+      await api(agents, "/prompt", {
+        conversationId: created.id,
+        message: "Explain",
+        context: { source: { ...source, source: "select 7;" }, result: { rows: [[7]] } },
+      });
+      const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+      strict.match(done.messages[1]!.text, /select 7/u);
+      strict.match(done.messages[1]!.text, /"rows":\[\[7\]\]/u);
+      strict.ok(!done.messages[1]!.text.includes('"schema":'));
+    }, "context"));
+  await it("keeps an accepted proposal decision atomic against a simultaneous rejection", async () =>
+    fixture(async (_root, agents, files) => {
+      const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+      await api(agents, "/prompt", { conversationId: created.id, message: "Create" });
+      const pending = await waitFor(agents, created.id, (value) => value.proposals.length === 1);
+      const originalSave = files.save.bind(files);
+      let started!: () => void;
+      let finish!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      files.save = async (file, source, revision) => {
+        started();
+        await gate;
+        return originalSave(file, source, revision);
+      };
+      try {
+        const accepting = api(agents, "/proposal", {
+          conversationId: created.id,
+          proposalId: pending.proposals[0]!.id,
+          action: "accept",
+        });
+        await entered;
+        await strict.rejects(
+          api(agents, "/proposal", {
+            conversationId: created.id,
+            proposalId: pending.proposals[0]!.id,
+            action: "reject",
+          }),
+          /no longer pending/u,
+        );
+        finish();
+        await accepting;
+        const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+        strict.equal(done.proposals[0]!.status, "accepted");
+        strict.equal((await files.read("playground/agent-tool.sql")).source, "select id from public.accounts;\n");
+      } finally {
+        finish();
+        files.save = originalSave;
+      }
+    }, "tool"));
 });
