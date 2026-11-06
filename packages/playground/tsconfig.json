@@ -22,6 +22,9 @@
     },
     {
       "path": "../postgres"
+    },
+    {
+      "path": "../migrations"
     }
   ]
 }

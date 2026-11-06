@@ -51,7 +51,8 @@
     "@typed-sql/schema": "workspace:*",
     "acorn": "^8.15.0",
     "esbuild": "0.28.2",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "@typed-sql/migrations": "workspace:*"
   },
   "peerDependencies": {
     "@typed-sql/postgres": ">=2.5.0 <3",

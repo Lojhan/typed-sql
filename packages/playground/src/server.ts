@@ -10,6 +10,7 @@ import { AgentRoutes } from "./agents.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
 import { EditorRoutes } from "./editor-service.js";
+import { ExplorerService } from "./explorer.js";
 import { contentHash, WorkspaceError, WorkspaceFiles } from "./files.js";
 import { WorkspaceFormatter } from "./formatter.js";
 import { callableExports, RunManager, type RunRequest } from "./runner.js";
@@ -126,6 +127,20 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   };
   const formatter = new WorkspaceFormatter(files);
   const manager = new RunManager(loaded, files, limits, options.target, project);
+  const migrationsConfig = loaded.config.migrations;
+  const migrationDirectory =
+    migrationsConfig &&
+    typeof migrationsConfig === "object" &&
+    "directory" in migrationsConfig &&
+    typeof migrationsConfig.directory === "string"
+      ? migrationsConfig.directory
+      : undefined;
+  const explorer = new ExplorerService({
+    root: loaded.directory,
+    renderer: loaded.config.dialect,
+    ...(migrationDirectory === undefined ? {} : { directory: migrationDirectory }),
+    snapshot: () => ({ schema, source: schemaSource, capturedAt }),
+  });
   let agents: AgentRoutes | undefined;
   let editor: EditorRoutes | undefined;
   manager.expectedSchemaHash = savedSchemaHash;
@@ -228,6 +243,10 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
         );
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/explorer") {
+        json(response, await explorer.get());
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/api/state") {
         const schemaHash = calculateSchemaHash(schema);
         const { files: inventory, folders } = await files.inventory();
@@ -279,6 +298,23 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (request.method !== "POST") throw new WorkspaceError("METHOD", "Method not allowed", 405);
       const body = await payload(request);
       switch (url.pathname) {
+        case "/api/explorer/refresh":
+          if (manager.list().some((run) => ["checking", "running", "cancelling"].includes(run.status)))
+            throw new WorkspaceError("RUN_ACTIVE", "Wait for active execution before refreshing schema", 409);
+          await withTarget(async (target) => {
+            if (target.snapshot) {
+              schema = loaded.config.dialect.validateSnapshot(await target.snapshot());
+              capturedAt = new Date().toISOString();
+              schemaSource = "live";
+              manager.schema = calculateSchemaHash(schema) === savedSchemaHash ? undefined : schema;
+            }
+            await explorer.refresh(
+              target,
+              selected?.expected?.database ?? (connection.identity as { database?: string } | undefined)?.database,
+            );
+          });
+          json(response, await explorer.get());
+          return;
         case "/api/editor":
           editor ??= new EditorRoutes({
             files,
@@ -448,7 +484,12 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           return;
         }
         case "/api/connect":
-          await withTarget(async () => undefined);
+          await withTarget(async (target) => {
+            await explorer.refresh(
+              target,
+              selected?.expected?.database ?? (connection.identity as { database?: string } | undefined)?.database,
+            );
+          });
           json(response, connection);
           return;
         case "/api/refresh":
@@ -461,6 +502,10 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
             capturedAt = new Date().toISOString();
             schemaSource = "live";
             manager.schema = calculateSchemaHash(schema) === savedSchemaHash ? undefined : schema;
+            await explorer.refresh(
+              target,
+              selected?.expected?.database ?? (connection.identity as { database?: string } | undefined)?.database,
+            );
           });
           json(response, { schemaHash: calculateSchemaHash(schema), capturedAt });
           return;

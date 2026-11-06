@@ -14,11 +14,14 @@ import {
 import type { FieldDef, Pool, PoolClient } from "pg";
 import type { PlaygroundQueryRequest, PlaygroundQueryResult, PlaygroundTarget } from "./contracts.js";
 import { connectionSqlState, postgresPosition } from "./database-diagnostics.js";
+import { historyNamespace, observePostgresMigrations } from "./pg-explorer.js";
 
 export interface PgPlaygroundOptions {
   readonly connectionString: string | (() => string | Promise<string>);
   readonly typePolicy?: PostgresTypePolicy;
   readonly schemas?: readonly string[];
+  /** Must match the explicitly configured migration ledger namespace. No ledger is created by the playground. */
+  readonly historyNamespace?: string;
   readonly decimal?: (value: string) => unknown;
 }
 
@@ -211,6 +214,7 @@ async function closeCursor(cursor: NativeCursor, client: PoolClient, disposed: (
 
 /** Explicit adapter: importing the main playground entry does not load either driver. */
 export function createPgPlaygroundTarget(options: PgPlaygroundOptions): PlaygroundTarget {
+  const ledgerNamespace = historyNamespace(options.historyNamespace);
   const policy = options.typePolicy ?? defaultPostgresTypePolicy;
   let resources:
     | Promise<{
@@ -736,6 +740,14 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
           };
         },
       });
+    },
+    async migrationHistory() {
+      const { pool } = await load();
+      try {
+        return await observePostgresMigrations(pool, ledgerNamespace);
+      } catch (error) {
+        throw normalize(error, true);
+      }
     },
     async snapshot() {
       const { pool } = await load();

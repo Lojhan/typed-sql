@@ -52,6 +52,8 @@ export interface PlaygroundTarget {
     readonly maxResultBytes?: number;
   }): Promise<Database>;
   snapshot?(): Promise<SchemaSnapshot>;
+  /** Read-only persisted migration evidence from this exact target, without bootstrap or migration execution. */
+  migrationHistory?(): Promise<import("./explorer-types.js").PlaygroundMigrationObservation>;
   close(): Promise<void>;
 }
 
