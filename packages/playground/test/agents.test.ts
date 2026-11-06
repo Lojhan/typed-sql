@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { type AgentConversation, AgentRoutes } from "../src/agents.js";
+import { type AgentConversation, AgentRoutes, agentConfigurationDirectory } from "../src/agents.js";
 import { WorkspaceFiles } from "../src/files.js";
 
 const bridge = `import {createInterface} from 'node:readline';
@@ -90,6 +90,7 @@ await describe("local ACP agents and reviewed repository tools", async () => {
       const done = await waitFor(agents, created.id, (value) => value.status !== "running");
       strict.equal(done.status, "idle");
       strict.equal(done.messages[1]?.text, "I can inspect your selected context. Ready.");
+      await agents.close();
       const reopened = new AgentRoutes({ files, trusted: () => true, configDirectory: join(root, "user-config") });
       try {
         strict.deepEqual(await api(reopened, `/conversation?id=${created.id}`), done);
