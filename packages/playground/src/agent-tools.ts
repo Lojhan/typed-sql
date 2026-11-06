@@ -42,7 +42,7 @@ export interface WorkspaceToolsOptions {
   readonly runs: Pick<RunManager, "list" | "page">;
 }
 const maximum = 64 * 1024;
-const offset = z.number().int().min(0).max(5000).default(0);
+const offset = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0);
 const limit = z.number().int().min(1).max(50).default(20);
 const file = z.string().min(1).max(4096);
 const sql = z

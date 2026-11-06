@@ -16,6 +16,8 @@ interface ToolResult {
   isError?: boolean;
   structuredContent: {
     source: string;
+    offset: number;
+    nextOffset: number | null;
     items: readonly { id: string }[];
     object: { kind: string };
     state: string;
@@ -283,6 +285,11 @@ await describe("scoped workspace MCP tools", async () => {
       const schema = await f.call("typed_sql_get_schema", { limit: 1 });
       strict.equal(schema.structuredContent.source, "saved");
       strict.equal(schema.structuredContent.items[0]?.id, "accounts");
+      const laterPage = await f.call("typed_sql_get_schema", { offset: 5001, limit: 1 });
+      strict.equal(laterPage.structuredContent.offset, 5001);
+      strict.deepEqual(laterPage.structuredContent.items, []);
+      strict.equal(laterPage.structuredContent.nextOffset, null);
+      strict.ok(Buffer.byteLength(JSON.stringify(laterPage)) < 64 * 1024);
       strict.equal((await f.call("typed_sql_get_object", { id: "accounts" })).structuredContent.object.kind, "table");
       const migrations = await f.call("typed_sql_list_migrations");
       strict.equal(migrations.structuredContent.state, "ready");
