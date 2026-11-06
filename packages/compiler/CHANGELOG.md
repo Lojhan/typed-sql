@@ -1,5 +1,31 @@
 # @typed-sql/compiler
 
+## 2.5.0-rc.0
+
+### Minor Changes
+
+- 1b90678: Validate native nested objects, tuples and fixed-length arrays with independent child nullability. Preserve bounded grammar-owned physical type metadata in executable query plans for exact typed bindings, including NULL and empty values.
+- a0c17a6: Include imported SQL assets in query manifests, live verification, plan capture and migration compatibility reports. Discover literal SQL imports from configured TypeScript projects and reject stale or missing sources.
+  
+  Support named SQL-file parameter objects and repeated or reordered numbered bindings. Preserve grammar-owned lexical rules, original diagnostic spans, bound-value safety and fail-closed checks for mixed styles, gaps and incompatible repeated arguments.
+  
+  Add explicit scalar column and domain brands through `withSchemaBrands`, `Brand` and `brandValue`. Preserve nominal identities through projections and column-context parameters while retaining primitive runtime conversion and verification contracts.
+  
+  Escape HTML delimiters and JavaScript line separators in generated SQL-module data literals, preserving original SQL and metadata at runtime.
+
+### Patch Changes
+
+- 81c8c46: Allow grammar-owned live verifiers to compare physical database types even when their JavaScript types match. Missing or unavailable native evidence cannot produce a verified proof.
+  
+  Bind cached verification proofs to the optional native-type comparison capability. Verifiers requiring physical comparison reject older coarse proofs until native verification runs again.
+- 669c1b8: Keep SQL module type dependencies present when SQL is invalid, reducing directory watch churn during quick corrections in the experimental native TypeScript watcher. Invalid queries continue to report diagnostics and resolve to `never`.
+- Updated dependencies [1b90678]
+- Updated dependencies [81c8c46]
+- Updated dependencies [0147b7a]
+- Updated dependencies [a0c17a6]
+  - @typed-sql/core@2.5.0-rc.0
+  - @typed-sql/schema@2.5.0-rc.0
+
 ## 2.4.0
 
 ### Minor Changes

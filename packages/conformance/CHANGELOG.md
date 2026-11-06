@@ -1,5 +1,17 @@
 # @typed-sql/conformance
 
+## 2.5.0-rc.0
+
+### Patch Changes
+
+- 0e2418e: Compare the public ordered parameter contract without treating grammar-owned names or runtime codec metadata as extra expected fields. Native database types, indices, nullability and TypeScript types remain part of verification.
+- Updated dependencies [1b90678]
+- Updated dependencies [81c8c46]
+- Updated dependencies [a0c17a6]
+- Updated dependencies [669c1b8]
+  - @typed-sql/core@2.5.0-rc.0
+  - @typed-sql/compiler@2.5.0-rc.0
+
 ## 2.4.0
 
 ### Patch Changes

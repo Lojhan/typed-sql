@@ -1,5 +1,18 @@
 # @typed-sql/language-server
 
+## 2.5.0-rc.0
+
+### Patch Changes
+
+- Updated dependencies [1b90678]
+- Updated dependencies [81c8c46]
+- Updated dependencies [0147b7a]
+- Updated dependencies [a0c17a6]
+  - @typed-sql/core@2.5.0-rc.0
+  - @typed-sql/schema@2.5.0-rc.0
+  - @typed-sql/ts-bridge@2.5.0-rc.0
+  - @typed-sql/config@2.5.0-rc.0
+
 ## 2.4.0-rc.0
 
 ### Patch Changes

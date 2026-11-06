@@ -1,5 +1,31 @@
 # @typed-sql/cli
 
+## 2.5.0-rc.0
+
+### Minor Changes
+
+- 1e7c465: Recognize DuckDB in the nonexecuting project initialization planner.
+- a0c17a6: Include imported SQL assets in query manifests, live verification, plan capture and migration compatibility reports. Discover literal SQL imports from configured TypeScript projects and reject stale or missing sources.
+  
+  Support named SQL-file parameter objects and repeated or reordered numbered bindings. Preserve grammar-owned lexical rules, original diagnostic spans, bound-value safety and fail-closed checks for mixed styles, gaps and incompatible repeated arguments.
+  
+  Add explicit scalar column and domain brands through `withSchemaBrands`, `Brand` and `brandValue`. Preserve nominal identities through projections and column-context parameters while retaining primitive runtime conversion and verification contracts.
+  
+  Escape HTML delimiters and JavaScript line separators in generated SQL-module data literals, preserving original SQL and metadata at runtime.
+- 89d17ab: Recognize SQL Server in the nonexecuting project initialization planner.
+
+### Patch Changes
+
+- Updated dependencies [1b90678]
+- Updated dependencies [81c8c46]
+- Updated dependencies [0147b7a]
+- Updated dependencies [a0c17a6]
+- Updated dependencies [669c1b8]
+  - @typed-sql/core@2.5.0-rc.0
+  - @typed-sql/compiler@2.5.0-rc.0
+  - @typed-sql/schema@2.5.0-rc.0
+  - @typed-sql/config@2.5.0-rc.0
+
 ## 2.4.0
 
 ### Patch Changes
