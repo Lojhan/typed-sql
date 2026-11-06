@@ -1,3 +1,4 @@
+import { MigrationError } from "@typed-sql/migrations";
 import { tokenize } from "./parser/tokenizer.js";
 import type { SourceRange, Token } from "./parser/types.js";
 
@@ -6,12 +7,11 @@ export interface PostgresMigrationStatement {
   readonly range: SourceRange;
 }
 
-export class PostgresMigrationScriptError extends Error {
-  readonly code = "POSTGRES_MIGRATION_SCRIPT";
+export class PostgresMigrationScriptError extends MigrationError {
   readonly range: SourceRange;
 
   constructor(message: string, range: SourceRange) {
-    super(message);
+    super("POSTGRES_MIGRATION_SCRIPT", message);
     this.name = "PostgresMigrationScriptError";
     this.range = range;
   }

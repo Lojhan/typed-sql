@@ -130,7 +130,7 @@ SQL-in-TS is declarative: `up` and `down` are ordered operations, not callbacks 
 
 ## Add global and migration-local checks
 
-Use `checks.noRows`, `checks.assertBoolean`, `checks.objectExists`, `checks.objectAbsent`, or `checks.schemaMatches`. Every check has an ID and an optional actionable message. A data assertion is encoded separately from values and uses adapter-owned bounded assertion semantics.
+Use `checks.noRows`, `checks.assertBoolean`, `checks.objectExists`, `checks.objectAbsent`, `checks.schemaMatches`, or `checks.applicationSnapshotCurrent`. Every check has an ID and an optional actionable message. A data assertion is encoded separately from values and uses adapter-owned bounded assertion semantics.
 
 ```ts
 import { checks, defineMigration } from '@typed-sql/migrations';
@@ -155,6 +155,26 @@ Project `migrations.checks` and local checks add together. Conflicting IDs are e
 Phases are `beforeBatch`, `beforeUp`, `afterUp`, `beforeDown`, `afterDown` and `afterBatch`. Starting-schema freshness runs before the batch, not against the original snapshot after every intentional change. Checks depending on earlier pending migrations remain deferred during planning and run at their execution phase. Transactional postcondition failures roll back SQL and applied history together. Nontransactional failures can leave effects and require inspection.
 
 The migration lock serializes runners, not application traffic. A passing data observation can become false while another application writes. Use native constraints, isolation, or coordinated locks for correctness. Checks inside a writable DDL transaction are trusted SQL; classifying SELECT does not prove absence of side effects.
+
+For an additional application-snapshot freshness gate, compute the canonical hash of the selected compiler input in configuration and add a project `beforeBatch` check:
+
+```ts
+import { readFile } from 'node:fs/promises';
+import { calculateSchemaHash, parseSchemaSnapshot } from '@typed-sql/schema';
+import { checks } from '@typed-sql/migrations';
+
+const appSnapshot = parseSchemaSnapshot(JSON.parse(
+  await readFile(new URL('./generated/db/schema.json', import.meta.url), 'utf8'),
+));
+const freshness = checks.applicationSnapshotCurrent({
+  id: 'application-snapshot-current',
+  schemaHash: calculateSchemaHash(appSnapshot),
+  message: 'Refresh the compiler snapshot after known migrations before starting another batch.',
+});
+// Inside defineMigrations: checks: { beforeBatch: [freshness] }
+```
+
+This optional check captures the compiler schema on the same pinned connection using the adapter's type policy and blocks stale/missing/unsupported evidence. Enable it after greenfield generation; native migration execution otherwise needs no compiler artifacts. It supplements independent migration-head drift rather than replacing it, so refreshing an application snapshot still cannot bless manual DDL. Use it at batch start, not after each intentional schema change.
 
 ## Put static policy in JSON
 

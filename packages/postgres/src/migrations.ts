@@ -12,6 +12,7 @@ import {
   parseHistory,
   type TargetIdentity,
 } from "@typed-sql/migrations";
+import { calculateSchemaHash } from "@typed-sql/schema";
 import type { Pool, PoolClient } from "pg";
 import { postgresMigrationStatements, validatePostgresReconciliation } from "./migration-script.js";
 import { loadPgDriver } from "./pg.js";
@@ -270,7 +271,25 @@ export function createPgMigrationTarget(options: PgMigrationTargetOptions): Migr
       }
       if (typeof connectionString !== "string" || connectionString.length === 0)
         throw new TypeError("Set a connection string for the selected migration target.");
-      const driver = await loadPgDriver(options.driverImporter);
+      let driver: typeof import("pg");
+      try {
+        driver = await loadPgDriver(options.driverImporter);
+      } catch (error) {
+        const cause = error instanceof Error && "cause" in error ? error.cause : error;
+        if (typeof cause === "object" && cause !== null && "code" in cause && cause.code === "ERR_MODULE_NOT_FOUND")
+          throw new MigrationError(
+            "MIGRATION_DRIVER_REQUIRED",
+            "Install the application-owned PostgreSQL driver with: pnpm add pg",
+            2,
+          );
+        throw driverFailure(error);
+      }
+      if (typeof driver.Pool !== "function")
+        throw new MigrationError(
+          "MIGRATION_DRIVER_INTERFACE",
+          "The configured pg driver must export a Pool constructor.",
+          2,
+        );
       const pool = new driver.Pool({ connectionString, max: 1, connectionTimeoutMillis: 10_000 });
       let client: PoolClient;
       try {
@@ -389,6 +408,9 @@ class PgMigrationSession implements MigrationSession {
       ...(this.#typePolicy === undefined ? {} : { typePolicy: this.#typePolicy }),
     });
     return provider.introspect({});
+  }
+  async snapshotHash(): Promise<string> {
+    return calculateSchemaHash(await this.snapshot());
   }
 
   async capture(): Promise<CatalogEvidence> {
@@ -524,6 +546,11 @@ class PgMigrationSession implements MigrationSession {
   validate(statements: readonly MigrationStatement[], _transaction: "required" | "none"): void {
     for (const statement of statements) {
       const parsed = postgresMigrationStatements(statement.text);
+      if (!parsed.length)
+        throw new MigrationError(
+          "MIGRATION_EMPTY_SQL",
+          "Migration operations cannot contain only whitespace or comments. Write the intended SQL before planning.",
+        );
       if (statement.values.length > 0 && parsed.length !== 1)
         throw new MigrationError(
           "MIGRATION_SCRIPT_PARAMETERS",

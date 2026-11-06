@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { emptyHistory } from "@typed-sql/migrations";
+import { emptyHistory, MigrationError } from "@typed-sql/migrations";
 import { describe, it, strict } from "poku";
 import { createPgMigrationTarget, migrationCatalogKey, type PgMigrationTargetOptions } from "../src/migrations.js";
 
@@ -70,6 +70,22 @@ function fixture(overrides: Partial<PgMigrationTargetOptions> = {}) {
 }
 
 await describe("PostgreSQL migration adapter without an installed driver", async () => {
+  await it("reports missing drivers with an actionable installation command", async () => {
+    const error = Object.assign(new Error("PRIVATE filesystem path"), { code: "ERR_MODULE_NOT_FOUND" });
+    const { target } = fixture({
+      driverImporter: async () => {
+        throw error;
+      },
+    });
+    await strict.rejects(
+      target.connect(),
+      (failure: unknown) =>
+        failure instanceof MigrationError &&
+        failure.code === "MIGRATION_DRIVER_REQUIRED" &&
+        failure.message.includes("pnpm add pg") &&
+        !failure.message.includes("PRIVATE"),
+    );
+  });
   await it("validates explicit target configuration and unambiguous identities", () => {
     strict.notStrictEqual(migrationCatalogKey("column", "a.b", "c"), migrationCatalogKey("column", "a", "b.c"));
     const base = { connectionString: "x", classification: "test" as const, expected: { database: "test" } };

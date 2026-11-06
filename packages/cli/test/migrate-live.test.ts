@@ -53,7 +53,7 @@ try {
       await writeFile(join(root, directory, "migration.json"), JSON.stringify(manifest));
       await writeFile(join(root, directory, "up.sql"), `create table "${schema}".accounts(id integer primary key)`);
       await writeFile(join(root, directory, "down.sql"), `drop table "${schema}".accounts`);
-      const plan = await run(["plan", "--target", "local", "--out", ".typed-sql/migrations/up.json"]);
+      const plan = await run(["plan", "--target", "local", "--out=.typed-sql/migrations/up=review.json"]);
       strict.ok(plan.hash);
       const capture = await run([
         "verify",
@@ -112,7 +112,7 @@ try {
       ]);
       strict.equal(verified.kind, "typed-sql-migration-verification");
       strict.ok(verified.compatibility);
-      const result = await run(["apply", "--target", "local", "--plan", ".typed-sql/migrations/up.json"]);
+      const result = await run(["apply", "--target", "local", "--plan=.typed-sql/migrations/up=review.json"]);
       strict.equal(result.state, "applied");
       strict.equal((await run(["status", "--target", "local"])).driftState, "current");
       await target.query(`alter table "${schema}".accounts add column manual_column integer`);

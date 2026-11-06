@@ -275,6 +275,39 @@ await describe("migration plans, history and drift", async () => {
 });
 
 await describe("migration recovery and immutable evidence", async () => {
+  await it("optionally blocks a stale compiler snapshot without weakening independent history drift", async () => {
+    const f = await fixture();
+    try {
+      const target: MigrationTarget = {
+        ...f.local.target,
+        async connect() {
+          return {
+            ...(await f.local.target.connect()),
+            async snapshotHash() {
+              return digest(f.local.state.catalog);
+            },
+          };
+        },
+      };
+      const config: MigrationsConfig = {
+        ...f.config,
+        targets: { ...f.config.targets, local: target },
+        checks: {
+          beforeBatch: [checks.applicationSnapshotCurrent({ id: "app-snapshot", schemaHash: digest(initial) })],
+        },
+      };
+      await f.add("001_accounts", "create accounts");
+      await applyPlan({ ...f.options, config, plan: await createPlan({ ...f.options, config }) });
+      await f.add("002_status", "create status");
+      await strict.rejects(
+        applyPlan({ ...f.options, config, plan: await createPlan({ ...f.options, config }) }),
+        /app-snapshot/,
+      );
+      strict.equal(f.local.state.history.applied.length, 1);
+    } finally {
+      await f.close();
+    }
+  });
   await it("honors local batch policies, returns advisory findings and records committed afterBatch failure honestly", async () => {
     const f = await fixture();
     try {

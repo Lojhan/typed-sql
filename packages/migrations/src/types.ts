@@ -10,7 +10,14 @@ export interface MigrationStatement {
 export type MigrationSql = string | Query<unknown> | MigrationStatement;
 export interface MigrationCheck {
   readonly id: string;
-  readonly kind: "noRows" | "boolean" | "schemaMatches" | "objectExists" | "objectAbsent";
+  readonly kind:
+    | "noRows"
+    | "boolean"
+    | "schemaMatches"
+    | "objectExists"
+    | "objectAbsent"
+    | "applicationSnapshotCurrent";
+  readonly schemaHash?: string;
   readonly message?: string;
   readonly query?: MigrationSql;
   readonly expected?: CatalogEvidence;
@@ -91,6 +98,7 @@ export interface MigrationSession {
   identity(): Promise<TargetIdentity>;
   capture(): Promise<CatalogEvidence>;
   snapshot?(): Promise<SchemaSnapshot>;
+  snapshotHash?(): Promise<string>;
   history(): Promise<MigrationHistory>;
   lock(timeoutMs: number): Promise<void>;
   unlock(): Promise<void>;

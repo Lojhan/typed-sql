@@ -17,6 +17,9 @@ export function defineMigrations<const T extends MigrationsConfig>(config: T): T
   return config;
 }
 export const checks = Object.freeze({
+  applicationSnapshotCurrent: (
+    options: Omit<MigrationCheck, "kind"> & { readonly schemaHash: string },
+  ): MigrationCheck => ({ ...options, kind: "applicationSnapshotCurrent" }),
   noRows: (options: Omit<MigrationCheck, "kind"> & { readonly query: MigrationSql }): MigrationCheck => ({
     ...options,
     kind: "noRows",
@@ -61,7 +64,11 @@ export function captureChecks(input: MigrationDefinition["checks"], renderer: Sq
       if (!check || typeof check.id !== "string" || !check.id || ids.has(check.id))
         throw new MigrationError("MIGRATION_CHECK", "Checks require unique stable IDs within each phase.");
       ids.add(check.id);
-      if (!["noRows", "boolean", "schemaMatches", "objectExists", "objectAbsent"].includes(check.kind))
+      if (
+        !["noRows", "boolean", "schemaMatches", "objectExists", "objectAbsent", "applicationSnapshotCurrent"].includes(
+          check.kind,
+        )
+      )
         throw new MigrationError("MIGRATION_CHECK", "Unsupported migration check kind.");
       const { query, ...rest } = check;
       return { ...rest, ...(query === undefined ? {} : { query: captureStatement(query, renderer) }) };

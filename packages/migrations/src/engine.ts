@@ -166,7 +166,14 @@ export async function runChecks(
   for (const check of effectiveChecks(global, local, phase)) {
     let passed = false;
     try {
-      if (check.kind === "noRows" || check.kind === "boolean") {
+      if (check.kind === "applicationSnapshotCurrent") {
+        if (!session.snapshotHash || !check.schemaHash)
+          throw new MigrationError(
+            "MIGRATION_APPLICATION_SNAPSHOT",
+            "Adapter cannot establish application snapshot freshness.",
+          );
+        passed = (await session.snapshotHash()) === check.schemaHash;
+      } else if (check.kind === "noRows" || check.kind === "boolean") {
         if (check.query === undefined) throw new MigrationError("MIGRATION_CHECK", "Data checks require captured SQL.");
         passed = await session.check(check.query, check.kind);
       } else {

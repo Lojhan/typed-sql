@@ -186,12 +186,14 @@ export function validateCapturedChecks(value: unknown): void {
       const c = object(value, "Check");
       if (
         Object.keys(c).some(
-          (key) => !["id", "kind", "message", "query", "expected", "object", "severity"].includes(key),
+          (key) => !["id", "kind", "message", "query", "expected", "object", "severity", "schemaHash"].includes(key),
         ) ||
         typeof c.id !== "string" ||
         !c.id ||
         ids.has(c.id) ||
-        !["noRows", "boolean", "schemaMatches", "objectExists", "objectAbsent"].includes(String(c.kind)) ||
+        !["noRows", "boolean", "schemaMatches", "objectExists", "objectAbsent", "applicationSnapshotCurrent"].includes(
+          String(c.kind),
+        ) ||
         (c.severity !== undefined && !["error", "warning"].includes(String(c.severity))) ||
         (c.message !== undefined && typeof c.message !== "string")
       )
@@ -202,6 +204,9 @@ export function validateCapturedChecks(value: unknown): void {
         if (typeof query.text !== "string" || !query.text.trim() || !Array.isArray(query.values))
           throw new MigrationError("MIGRATION_CHECK", "Data checks require parameterized captured SQL.");
         canonical(query.values);
+      } else if (c.kind === "applicationSnapshotCurrent") {
+        if (!validHash(c.schemaHash))
+          throw new MigrationError("MIGRATION_CHECK", "Application snapshot checks require a canonical schema hash.");
       } else if (c.kind === "schemaMatches") parseCatalog(c.expected);
       else if (typeof c.object !== "string" || !c.object)
         throw new MigrationError("MIGRATION_CHECK", "Object checks require an exact qualified catalog key.");
