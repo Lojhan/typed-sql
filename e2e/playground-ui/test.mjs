@@ -302,8 +302,16 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     );
   await page.waitForFunction(() => {
     const n = document.querySelector('nav[aria-label="Project files"]');
-    return n.scrollHeight > n.clientHeight;
+    return (
+      n.querySelectorAll('button[title^="playground/scroll-fixture-"]').length === 55 &&
+      n.scrollHeight - n.clientHeight > 380
+    );
   });
+  // Inventory insertion and focus restoration can anchor the shorter Files section near its bottom.
+  // Establish a fresh starting position after every seeded row has reached the actual tree.
+  await tree.evaluate((element) => element.scrollTo({ top: 0, behavior: "instant" }));
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.waitForFunction(() => document.querySelector('nav[aria-label="Project files"]').scrollTop === 0);
   const before = await tree.evaluate((e) => ({ offset: e.offsetWidth, client: e.clientWidth, top: e.scrollTop }));
   const box = await tree.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
