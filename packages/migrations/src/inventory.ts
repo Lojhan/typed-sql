@@ -1,6 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { lstat, mkdir, mkdtemp, open, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
+import {
+  type FileHandle,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { SqlRenderer } from "@typed-sql/core";
@@ -13,7 +24,7 @@ const limit = 2 * 1024 * 1024;
 async function readBounded(file: string): Promise<string> {
   const invalid = () =>
     new MigrationError("MIGRATION_FILE", "Migration inputs must be regular files no larger than 2 MiB.");
-  let handle;
+  let handle: FileHandle;
   try {
     handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (error) {
