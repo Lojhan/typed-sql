@@ -307,6 +307,83 @@
         }
       }
     },
+    "sha256:188d86eaf2a11ef5425e1990785084d10b3dc00aaf737392585a3f8bbdc62238": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "15.0.4500.2",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 140,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:3907be827078868bb304fae9cce6975819a00cb98590c56cfbe943a132c00954",
+          "count": 143,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:a243e9d184aee0afb9dd9d40a0a54d3414cbb9e7b11fc16bc949e1b4586b4ca0",
+          "count": 34,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:711977ae9fd1ee578a26d1de4db99ef3c53088b3b798802e2e441467c3e755d4",
+          "count": 5508,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:a7632528d60e10dbc6e990a9fcb2ab54a549bc0f841e1bfd3893fad5fec9e2a1",
+          "count": 86,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:a6c2c7d630ac0e9f0dd0a8c0e7b21522e6071049d260c09b484ee30a71df90d1",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1505,
+          "native-valid-grammar-diagnostic": 136,
+          "native-valid-grammar-unknown": 18,
+          "native-valid-recognition-only": 62
+        }
+      }
+    },
     "sha256:214c3656678161933579274025a5871b85a95877f47165aa1ac7c18f36ef30c5": {
       "dialect": "postgres",
       "target": {
@@ -375,6 +452,83 @@
           "native-valid-grammar-diagnostic": 2198,
           "native-valid-grammar-unknown": 8,
           "native-valid-recognition-only": 85
+        }
+      }
+    },
+    "sha256:27325648d97390dde949c11d0b6b7877487ecb19cbda101bdff5687a2c54bb25": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "16.0.4305.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 160,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:80596eba439cace0a21df2aa9b11cf19633dd0b235b0f41a334d221cc422547d",
+          "count": 149,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:a243e9d184aee0afb9dd9d40a0a54d3414cbb9e7b11fc16bc949e1b4586b4ca0",
+          "count": 34,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:711977ae9fd1ee578a26d1de4db99ef3c53088b3b798802e2e441467c3e755d4",
+          "count": 5508,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:126f7a118ee4645b7fd5709c2605bccda4891d375e365b8f67e8b390fe47d175",
+          "count": 97,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:df6f0c8ad1514286269304c61db9b7d15ffcf6083a3aba09bebcb2f99ed88898",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1556,
+          "native-valid-grammar-diagnostic": 139,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 70
         }
       }
     },
@@ -517,6 +671,160 @@
           "native-valid-grammar-diagnostic": 2233,
           "native-valid-grammar-unknown": 8,
           "native-valid-recognition-only": 85
+        }
+      }
+    },
+    "sha256:40c30f999c961dd88b57b75f1211e3226d8127615deea37e66402e3823010124": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "17.0.5035.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 150,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Enterprise Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:31d7ad8b39badc0107d2551616458a3ddb73dd9a4c53998579647406a2bb0399",
+          "count": 151,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:96efc48b206ba8d16b311465c83e183e80210befd2d3142b5a82956addb8b7b8",
+          "count": 36,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:097ea5cf42ffa0d92c7d4e00aac8ab5766d86292874fe5101cf5f336a9c528e5",
+          "count": 5540,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:df4e1e30bac3586fa20954d778068b3b055650c732b1ee3c4c54153d82ea7a8c",
+          "count": 107,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:49974a4769291150bdc4d3678e77a7afefe5ae82036e5ccf01374fac5102c88d",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1651,
+          "native-valid-grammar-diagnostic": 165,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 71
+        }
+      }
+    },
+    "sha256:43da58d66d3704fe12d47ab276d1f1fd6806ee4f6fd021dfa33aec65bc263796": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "14.0.3560.2",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 140,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:d889b02f2d74129957ef91ed0b5a2bb2e68e8d8bd3cb1af78aaa91337f79949b",
+          "count": 136,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:a243e9d184aee0afb9dd9d40a0a54d3414cbb9e7b11fc16bc949e1b4586b4ca0",
+          "count": 34,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:e3331948484cdef690a6589df1f1af365de1e40ef2010cd63018ac39cec74604",
+          "count": 3955,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:4489e8b5309aa54e43adcdfc046b9e95c53d6ad3ebbb1a173a3aaf6955082009",
+          "count": 77,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:a31162408a13350662bd3e63a8c4690d257134b365068afe461ead1cc41c6e67",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1500,
+          "native-valid-grammar-diagnostic": 134,
+          "native-valid-grammar-unknown": 18,
+          "native-valid-recognition-only": 62
         }
       }
     },
@@ -878,6 +1186,160 @@
         }
       }
     },
+    "sha256:6c090643da72144e95b8d36ccbec8fe7debe98650a1c7d9d2f731b0ad7e1b53b": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "16.0.4305.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 140,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:80596eba439cace0a21df2aa9b11cf19633dd0b235b0f41a334d221cc422547d",
+          "count": 149,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:a243e9d184aee0afb9dd9d40a0a54d3414cbb9e7b11fc16bc949e1b4586b4ca0",
+          "count": 34,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:711977ae9fd1ee578a26d1de4db99ef3c53088b3b798802e2e441467c3e755d4",
+          "count": 5508,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:126f7a118ee4645b7fd5709c2605bccda4891d375e365b8f67e8b390fe47d175",
+          "count": 97,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:df6f0c8ad1514286269304c61db9b7d15ffcf6083a3aba09bebcb2f99ed88898",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1556,
+          "native-valid-grammar-diagnostic": 139,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 70
+        }
+      }
+    },
+    "sha256:70c2dde6c1ba52dcb891893a9d307dec67047003f8e92d307095fdf5b3876e4b": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "17.0.5035.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 140,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Enterprise Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:31d7ad8b39badc0107d2551616458a3ddb73dd9a4c53998579647406a2bb0399",
+          "count": 151,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:96efc48b206ba8d16b311465c83e183e80210befd2d3142b5a82956addb8b7b8",
+          "count": 36,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:097ea5cf42ffa0d92c7d4e00aac8ab5766d86292874fe5101cf5f336a9c528e5",
+          "count": 5540,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:df4e1e30bac3586fa20954d778068b3b055650c732b1ee3c4c54153d82ea7a8c",
+          "count": 107,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:49974a4769291150bdc4d3678e77a7afefe5ae82036e5ccf01374fac5102c88d",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1651,
+          "native-valid-grammar-diagnostic": 165,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 71
+        }
+      }
+    },
     "sha256:781b2fa0a469106f7d7db9ccf596a7d7f10d42aace45c3d7df97a8225ee1c876": {
       "dialect": "mysql",
       "target": {
@@ -1228,6 +1690,83 @@
           "native-valid-grammar-diagnostic": 66,
           "native-valid-grammar-unknown": 30,
           "native-valid-recognition-only": 159
+        }
+      }
+    },
+    "sha256:8abc45b28ed62ed03c37f067b636591cbf8bd1f6684899965e6cc531053cae74": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "16.0.4305.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 150,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:80596eba439cace0a21df2aa9b11cf19633dd0b235b0f41a334d221cc422547d",
+          "count": 149,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:a243e9d184aee0afb9dd9d40a0a54d3414cbb9e7b11fc16bc949e1b4586b4ca0",
+          "count": 34,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:711977ae9fd1ee578a26d1de4db99ef3c53088b3b798802e2e441467c3e755d4",
+          "count": 5508,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:126f7a118ee4645b7fd5709c2605bccda4891d375e365b8f67e8b390fe47d175",
+          "count": 97,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:df6f0c8ad1514286269304c61db9b7d15ffcf6083a3aba09bebcb2f99ed88898",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1556,
+          "native-valid-grammar-diagnostic": 139,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 70
         }
       }
     },
@@ -1623,6 +2162,83 @@
         }
       }
     },
+    "sha256:9b5d5ef8d9d33120a93a2a281350c8811a1d6d499a87cf25c6e43b35b65a3414": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "17.0.5035.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 160,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Enterprise Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:31d7ad8b39badc0107d2551616458a3ddb73dd9a4c53998579647406a2bb0399",
+          "count": 151,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:96efc48b206ba8d16b311465c83e183e80210befd2d3142b5a82956addb8b7b8",
+          "count": 36,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:097ea5cf42ffa0d92c7d4e00aac8ab5766d86292874fe5101cf5f336a9c528e5",
+          "count": 5540,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:df4e1e30bac3586fa20954d778068b3b055650c732b1ee3c4c54153d82ea7a8c",
+          "count": 107,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:49974a4769291150bdc4d3678e77a7afefe5ae82036e5ccf01374fac5102c88d",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1651,
+          "native-valid-grammar-diagnostic": 165,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 71
+        }
+      }
+    },
     "sha256:a4c7cb753a01044153b981b0aee57525aea905705daa169a33510d96b980758d": {
       "dialect": "sqlite",
       "target": {
@@ -1723,6 +2339,83 @@
           "native-valid-grammar-diagnostic": 113,
           "native-valid-grammar-unknown": 37,
           "native-valid-recognition-only": 213
+        }
+      }
+    },
+    "sha256:b0c136002250760b501574f0870626335296a3f4a108c2b57ec63e77118e7506": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "15.0.4500.2",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 150,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:3907be827078868bb304fae9cce6975819a00cb98590c56cfbe943a132c00954",
+          "count": 143,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:a243e9d184aee0afb9dd9d40a0a54d3414cbb9e7b11fc16bc949e1b4586b4ca0",
+          "count": 34,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:711977ae9fd1ee578a26d1de4db99ef3c53088b3b798802e2e441467c3e755d4",
+          "count": 5508,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:a7632528d60e10dbc6e990a9fcb2ab54a549bc0f841e1bfd3893fad5fec9e2a1",
+          "count": 86,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:a6c2c7d630ac0e9f0dd0a8c0e7b21522e6071049d260c09b484ee30a71df90d1",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1505,
+          "native-valid-grammar-diagnostic": 136,
+          "native-valid-grammar-unknown": 18,
+          "native-valid-recognition-only": 62
         }
       }
     },
@@ -2297,6 +2990,83 @@
           "native-valid-grammar-diagnostic": 119,
           "native-valid-grammar-unknown": 37,
           "native-valid-recognition-only": 213
+        }
+      }
+    },
+    "sha256:fc5ba3c5afc7decd74bd1638031870387e829da1d501910448903d27c83c817b": {
+      "dialect": "sqlserver",
+      "target": {
+        "version": "17.0.5035.5",
+        "settings": {
+          "ansiWarnings": true,
+          "arithAbort": true,
+          "collation": "SQL_Latin1_General_CP1_CI_AS",
+          "compatibilityLevel": 170,
+          "concatNullOn": true,
+          "dateFirst": 7,
+          "dateFormat": "mdy",
+          "defaultSchema": "dbo",
+          "edition": "Enterprise Developer Edition (64-bit)",
+          "engineEdition": 3,
+          "language": "us_english",
+          "quotedIdentifier": true
+        }
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:31d7ad8b39badc0107d2551616458a3ddb73dd9a4c53998579647406a2bb0399",
+          "count": 151,
+          "scope": "system-objects-only"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:96efc48b206ba8d16b311465c83e183e80210befd2d3142b5a82956addb8b7b8",
+          "count": 36,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:097ea5cf42ffa0d92c7d4e00aac8ab5766d86292874fe5101cf5f336a9c528e5",
+          "count": 5540,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:df4e1e30bac3586fa20954d778068b3b055650c732b1ee3c4c54153d82ea7a8c",
+          "count": 107,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:54cd3fc66c33b2a4f8959b9902b07253eba0edac744df4b79ff38896ff996e83",
+        "counts": {
+          "native-invocation-unverified": 33,
+          "native-rejected-generated-invocation": 1651,
+          "native-valid-grammar-diagnostic": 158,
+          "native-valid-grammar-unknown": 28,
+          "native-valid-recognition-only": 78
         }
       }
     }

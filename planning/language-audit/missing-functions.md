@@ -247,23 +247,32 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 | postgres | 17.11 (Debian 17.11-1.pgdg12+2) | 2151 | 8 | 83 |
 | sqlite | 3.47.2 / node | 50 | 30 | 174 |
 | sqlite | 3.53.4 / darwin-arm64 | 119 | 37 | 213 |
+| sqlserver | 15.0.4500.2 / compatibility 140 | 136 | 18 | 62 |
 | postgres | 18.6 (Debian 18.6-1.pgdg12+2) | 2198 | 8 | 85 |
+| sqlserver | 16.0.4305.5 / compatibility 160 | 139 | 28 | 70 |
 | postgres | 15.19 (Debian 15.19-1.pgdg12+2) | 2109 | 8 | 82 |
 | postgres | 19beta3 (Debian 19~beta3-1.pgdg12+1) | 2233 | 8 | 85 |
+| sqlserver | 17.0.5035.5 / compatibility 150 | 165 | 28 | 71 |
+| sqlserver | 14.0.3560.2 / compatibility 140 | 134 | 18 | 62 |
 | duckdb | 1.5.6 / darwin-arm64 | 219 | 7 | 1887 |
 | duckdb | 2.0.0 / darwin-arm64 | 205 | 11 | 2102 |
 | sqlite | 3.54.0 / node | 119 | 37 | 213 |
 | postgres | 14.24 (Debian 14.24-1.pgdg12+2) | 2090 | 8 | 82 |
+| sqlserver | 16.0.4305.5 / compatibility 140 | 139 | 28 | 70 |
+| sqlserver | 17.0.5035.5 / compatibility 140 | 165 | 28 | 71 |
 | mysql | 26.7.0 / default | 417 | 44 | 91 |
 | sqlite | 3.53.4 / node | 119 | 37 | 213 |
 | postgres | 18.6 (Homebrew) | 2198 | 8 | 85 |
 | sqlite | 3.39.0 / cli | 66 | 30 | 159 |
+| sqlserver | 16.0.4305.5 / compatibility 150 | 139 | 28 | 70 |
 | mysql | 8.4.11 / default | 415 | 44 | 88 |
 | duckdb | 1.5.6 / linux-x64 | 219 | 7 | 1887 |
 | mysql | 9.7.2 / lexical | 417 | 44 | 91 |
 | postgres | 16.15 (Debian 16.15-1.pgdg12+2) | 2131 | 8 | 83 |
 | sqlite | 3.54.1 / cli | 124 | 37 | 213 |
+| sqlserver | 17.0.5035.5 / compatibility 160 | 165 | 28 | 71 |
 | sqlite | 3.53.4 / cli | 113 | 37 | 213 |
+| sqlserver | 15.0.4500.2 / compatibility 150 | 136 | 18 | 62 |
 | sqlite | 3.53.4 / node | 119 | 37 | 209 |
 | sqlite | 3.53.4 / linux-x64 | 119 | 37 | 213 |
 | mysql | 8.4.11 / numeric | 415 | 44 | 88 |
@@ -271,6 +280,7 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 | duckdb | 2.0.0 / linux-x64 | 205 | 11 | 2102 |
 | mysql | 9.7.2 / default | 417 | 44 | 91 |
 | sqlite | 3.53.4 / node | 119 | 37 | 213 |
+| sqlserver | 17.0.5035.5 / compatibility 170 | 158 | 28 | 78 |
 
 ### mysql 8.4.11 / lexical
 
@@ -312,6 +322,16 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 
 `coalesce`, `first_value`, `if`, `ifnull`, `iif`, `lag`, `last_value`, `lead`, `likely`, `max`, `min`, `nth_value`, `nullif`, `unlikely`.
 
+### sqlserver 15.0.4500.2 / compatibility 140
+
+**native-valid-grammar-diagnostic** (102 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `upper`, `user_id`, `user_name`, `xact_state`.
+
+**native-valid-grammar-unknown** (14 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `isnull`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
+
 ### postgres 18.6 (Debian 18.6-1.pgdg12+2)
 
 **native-valid-grammar-diagnostic** (1727 names):
@@ -321,6 +341,16 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 **native-valid-grammar-unknown** (8 names):
 
 `json_array_elements`, `jsonb_array_elements`, `jsonb_path_query`, `jsonb_path_query_array`, `jsonb_path_query_array_tz`, `jsonb_path_query_first`, `jsonb_path_query_first_tz`, `jsonb_path_query_tz`.
+
+### sqlserver 16.0.4305.5 / compatibility 160
+
+**native-valid-grammar-diagnostic** (103 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `upper`, `user_id`, `user_name`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
 
 ### postgres 15.19 (Debian 15.19-1.pgdg12+2)
 
@@ -341,6 +371,26 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 **native-valid-grammar-unknown** (8 names):
 
 `json_array_elements`, `jsonb_array_elements`, `jsonb_path_query`, `jsonb_path_query_array`, `jsonb_path_query_array_tz`, `jsonb_path_query_first`, `jsonb_path_query_first_tz`, `jsonb_path_query_tz`.
+
+### sqlserver 17.0.5035.5 / compatibility 150
+
+**native-valid-grammar-diagnostic** (116 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `edit_distance`, `edit_distance_similarity`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `jaro_winkler_distance`, `jaro_winkler_similarity`, `json_objectagg`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `regexp_count`, `regexp_instr`, `regexp_replace`, `regexp_substr`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `unistr`, `upper`, `user_id`, `user_name`, `vector_distance`, `vector_norm`, `vector_normalize`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
+
+### sqlserver 14.0.3560.2 / compatibility 140
+
+**native-valid-grammar-diagnostic** (100 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `upper`, `user_id`, `user_name`, `xact_state`.
+
+**native-valid-grammar-unknown** (14 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `isnull`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
 
 ### duckdb 1.5.6 / darwin-arm64
 
@@ -382,6 +432,26 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 
 `json_array_elements`, `jsonb_array_elements`, `jsonb_path_query`, `jsonb_path_query_array`, `jsonb_path_query_array_tz`, `jsonb_path_query_first`, `jsonb_path_query_first_tz`, `jsonb_path_query_tz`.
 
+### sqlserver 16.0.4305.5 / compatibility 140
+
+**native-valid-grammar-diagnostic** (103 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `upper`, `user_id`, `user_name`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
+
+### sqlserver 17.0.5035.5 / compatibility 140
+
+**native-valid-grammar-diagnostic** (116 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `edit_distance`, `edit_distance_similarity`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `jaro_winkler_distance`, `jaro_winkler_similarity`, `json_objectagg`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `regexp_count`, `regexp_instr`, `regexp_replace`, `regexp_substr`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `unistr`, `upper`, `user_id`, `user_name`, `vector_distance`, `vector_norm`, `vector_normalize`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
+
 ### mysql 26.7.0 / default
 
 **native-valid-grammar-diagnostic** (268 names):
@@ -421,6 +491,16 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 **native-valid-grammar-unknown** (13 names):
 
 `coalesce`, `first_value`, `ifnull`, `iif`, `lag`, `last_value`, `lead`, `likely`, `max`, `min`, `nth_value`, `nullif`, `unlikely`.
+
+### sqlserver 16.0.4305.5 / compatibility 150
+
+**native-valid-grammar-diagnostic** (103 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `upper`, `user_id`, `user_name`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
 
 ### mysql 8.4.11 / default
 
@@ -472,6 +552,16 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 
 `coalesce`, `first_value`, `if`, `ifnull`, `iif`, `lag`, `last_value`, `lead`, `likely`, `max`, `min`, `nth_value`, `nullif`, `unlikely`.
 
+### sqlserver 17.0.5035.5 / compatibility 160
+
+**native-valid-grammar-diagnostic** (116 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `edit_distance`, `edit_distance_similarity`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `jaro_winkler_distance`, `jaro_winkler_similarity`, `json_objectagg`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `regexp_count`, `regexp_instr`, `regexp_replace`, `regexp_substr`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `unistr`, `upper`, `user_id`, `user_name`, `vector_distance`, `vector_norm`, `vector_normalize`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
+
 ### sqlite 3.53.4 / cli
 
 **native-valid-grammar-diagnostic** (64 names):
@@ -481,6 +571,16 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 **native-valid-grammar-unknown** (14 names):
 
 `coalesce`, `first_value`, `if`, `ifnull`, `iif`, `lag`, `last_value`, `lead`, `likely`, `max`, `min`, `nth_value`, `nullif`, `unlikely`.
+
+### sqlserver 15.0.4500.2 / compatibility 150
+
+**native-valid-grammar-diagnostic** (102 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `upper`, `user_id`, `user_name`, `xact_state`.
+
+**native-valid-grammar-unknown** (14 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `isnull`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
 
 ### sqlite 3.53.4 / node
 
@@ -551,6 +651,16 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 **native-valid-grammar-unknown** (14 names):
 
 `coalesce`, `first_value`, `if`, `ifnull`, `iif`, `lag`, `last_value`, `lead`, `likely`, `max`, `min`, `nth_value`, `nullif`, `unlikely`.
+
+### sqlserver 17.0.5035.5 / compatibility 170
+
+**native-valid-grammar-diagnostic** (114 names):
+
+`app_name`, `assemblyproperty`, `col_name`, `columns_updated`, `concat`, `concat_ws`, `connectionproperty`, `context_info`, `current_request_id`, `current_timezone`, `current_timezone_id`, `current_transaction_id`, `cursor_status`, `database_principal_id`, `db_name`, `edge_id_from_parts`, `edit_distance`, `edit_distance_similarity`, `error_line`, `error_message`, `error_number`, `error_procedure`, `error_severity`, `error_state`, `eventdata`, `file_id`, `file_idex`, `file_name`, `filegroup_id`, `filegroup_name`, `filegroupproperty`, `fileproperty`, `filepropertyex`, `fn_EnumCurrentPrincipals`, `fn_cdc_get_max_lsn`, `fn_helpcollations`, `fn_servershareddrives`, `fn_sqlagent_subsystems`, `fn_virtualservernodes`, `formatmessage`, `fulltextcatalogproperty`, `fulltextserviceproperty`, `get_filestream_transaction_context`, `getansinull`, `graph_id_from_edge_id`, `graph_id_from_node_id`, `grouping_id`, `has_dbaccess`, `has_perms_by_name`, `host_id`, `host_name`, `ident_incr`, `ident_seed`, `index_col`, `indexkey_property`, `indexproperty`, `is_member`, `is_rolemember`, `is_srvrolemember`, `jaro_winkler_distance`, `jaro_winkler_similarity`, `json_objectagg`, `left`, `loginproperty`, `lower`, `ltrim`, `min_active_rowversion`, `node_id_from_parts`, `object_definition`, `object_id_from_edge_id`, `object_id_from_node_id`, `object_name`, `object_schema_name`, `original_db_name`, `original_login`, `parsename`, `permissions`, `publishingservername`, `pwdcompare`, `pwdencrypt`, `regexp_replace`, `regexp_substr`, `replace`, `replicate`, `reverse`, `right`, `rowcount_big`, `rtrim`, `schema_name`, `sessionproperty`, `smalldatetimefromparts`, `space`, `stats_date`, `str`, `stuff`, `suser_id`, `suser_name`, `suser_sid`, `suser_sname`, `textvalid`, `translate`, `trigger_nestlevel`, `trim`, `type_id`, `type_name`, `typeproperty`, `unistr`, `upper`, `user_id`, `user_name`, `vector_distance`, `vector_norm`, `vector_normalize`, `xact_state`.
+
+**native-valid-grammar-unknown** (16 names):
+
+`abs`, `ceiling`, `choose`, `databasepropertyex`, `degrees`, `floor`, `greatest`, `isnull`, `least`, `objectpropertyex`, `power`, `radians`, `round`, `serverproperty`, `sign`, `sql_variant_property`.
 
 ## Remaining verification
 
