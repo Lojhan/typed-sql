@@ -158,8 +158,16 @@ evidence and session affinity, otherwise fail closed.
 
 Exact transport design is a critical dependency, not deferred polish:
 
-- Direct `msnodesqlv8` >=6.2.2 exposes exact numeric-string output. The `mssql/msnodesqlv8` wrapper
-  converts these strings back to numbers and cannot serve as the exact path.
+- Native qualification supersedes the initial direct `msnodesqlv8` transport choice. The default
+  exact adapter uses application-owned Koffi 3.3.7 with Microsoft ODBC 18 and unixODBC on qualified
+  Linux x64 hosts. Dedicated data/control workers preserve explicit text/binary lengths and native
+  cancellation. See [the direct ODBC study](./direct-odbc-study.md) and the dated native receipts in
+  [the acceptance audit](./final-maturity-gap-audit.md).
+- Explicit `/msnodesqlv8` compatibility remains available with its qualified 6.2.2 behavior and
+  rejects unsupported VARCHAR(MAX)/TEXT/NTEXT plans before dispatch. Real native probes found
+  long-text, embedded-NUL and prepared-path corruption; numeric-string support alone does not
+  establish an exact general transport. The `mssql/msnodesqlv8` wrapper additionally converts exact
+  numeric strings to numbers and is not an advertised execution adapter.
 - A default exact decimal policy must preserve numeric text/coefficient precision; never call
   `String` on a value that a driver already rounded.
 - Decimal and high-precision temporal inputs require bound text plus grammar-owned, validated native
@@ -176,8 +184,9 @@ Exact transport design is a critical dependency, not deferred polish:
 - Temporal policy may deliberately normalize datetimeoffset to a canonical UTC instant, preserving
   100ns precision, rather than promising the original source offset. Prove SDK nanosecond-delta
   handling, UTC mode, year boundaries, negative epochs, scales and input round trips.
-- A separate `mssql`/Tedious compatibility adapter can expose only its demonstrated policies and must
-  reject incompatible exact plans before dispatch; it cannot inherit the exact ODBC claims.
+- Any future `mssql`/Tedious adapter needs its own demonstrated policies and predispatch gates;
+  it cannot inherit exact ODBC claims. This delivery qualifies the direct ODBC default and explicit
+  direct `msnodesqlv8` compatibility path, not an unimplemented wrapper adapter.
 
 Expose ownership-aware buffered/prepared/transaction/atomic-batch/stream APIs and cancellation only
 when cleanup is demonstrated. Requests and pending operations share a lease; escaped scopes and
@@ -255,7 +264,7 @@ forbidden-driver contracts and performance budgets remain green.
 | N2 | Proven neutral lexical profile additions, if used | P0 | Public synthetic grammar, lexical/source-span/fuzz/performance regressions |
 | S1 | SQL Server grammar/provider/policies/catalog/codecs and static inference | R0, N1/N2 as needed | Full representative query+DML/OUTPUT conformance, version/settings and snapshot tests |
 | D1 | DuckDB grammar/provider/policies/catalog/codecs and static inference | N1/N2 as needed | Nested/analytical query+DML conformance, version/settings and snapshot tests |
-| S2 | Exact ODBC runtime; separately honest mssql compatibility path | S1 | Pinned x86-64 server precision/lifecycle/controls/prepared/stream/transaction tests |
+| S2 | Exact ODBC runtime; separately qualified direct msnodesqlv8 compatibility path | S1 | Pinned x86-64 server precision/lifecycle/controls/prepared/stream/transaction tests |
 | D2 | Native Neo runtime and capabilities | D1 | Real native engine matrix, typed NULL/nested/precision/error/file-lock/stream tests |
 | S3/D3 | CLI/build/packed/editor/playground/docs/release integration | S2/D2 | Actual packed apps, browser grammar bundles, editor artifacts and canonical doc checks |
 | Q | Cross-reviewed full maturity qualification | All | pnpm verify, soundness, pack, coverage, performance and complete live matrices |
