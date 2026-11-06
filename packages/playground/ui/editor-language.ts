@@ -11,7 +11,7 @@ import {
 import { redo, redoDepth, selectAll, undo, undoDepth } from "@codemirror/commands";
 import { type Diagnostic, lintGutter, lintKeymap, setDiagnostics } from "@codemirror/lint";
 import { openSearchPanel } from "@codemirror/search";
-import { EditorSelection, type Extension, StateEffect } from "@codemirror/state";
+import { EditorSelection, type Extension, StateEffect, StateField } from "@codemirror/state";
 import {
   activateHover,
   closeHoverTooltips,
@@ -24,6 +24,7 @@ import {
 } from "@codemirror/view";
 import { token } from "./api.js";
 import {
+  canonicalWorkingCopies,
   completionItems,
   displayDocumentation,
   type LanguageCompletion,
@@ -34,9 +35,10 @@ import {
   offsets,
   positionAt,
   textChanges,
+  type WorkingCopy,
 } from "./editor-language-model.js";
 
-export type { LanguageDiagnostic, LanguageLocation, LanguageRange } from "./editor-language-model.js";
+export type { LanguageDiagnostic, LanguageLocation, LanguageRange, WorkingCopy } from "./editor-language-model.js";
 export interface EditorDiagnostic {
   code: string;
   message: string;
@@ -52,6 +54,7 @@ export interface LanguageSettings {
   readOnly: boolean;
   enabled: boolean;
   diagnostics: readonly EditorDiagnostic[];
+  workingCopies: readonly WorkingCopy[];
   onNavigate?: (location: LanguageLocation) => void;
   onFormat?: () => void;
   onLanguageStatus?: (message: string) => void;
@@ -62,6 +65,7 @@ interface LanguageResponse {
   uri?: string;
   revision: string;
   sourceHash: string;
+  workingCopyHash: string;
   version: number;
   result: unknown;
   diagnostics: LanguageDiagnostic[];
@@ -85,7 +89,10 @@ interface CodeAction {
   };
   command?: unknown;
 }
-type LanguageRefresh = Pick<LanguageSettings, "revision" | "enabled"> & { diagnosticsKey: string };
+type LanguageRefresh = Pick<LanguageSettings, "revision" | "enabled"> & {
+  diagnosticsKey: string;
+  workingCopyKey: string;
+};
 const refresh = StateEffect.define<LanguageRefresh>();
 export const refreshEditorLanguage = (settings: LanguageRefresh) => refresh.of(settings);
 let dismissOpenMenu: (() => void) | undefined;
@@ -141,6 +148,14 @@ async function hash(source: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 export function languageExtensions(settings: () => LanguageSettings): Extension {
+  const workingKey = () => JSON.stringify(canonicalWorkingCopies(settings().workingCopies, settings().file));
+  const epoch = StateField.define<string>({
+    create: () => `${settings().revision}:${settings().enabled}:${workingKey()}`,
+    update: (current, transaction) => {
+      const effect = transaction.effects.find((effect) => effect.is(refresh));
+      return effect ? `${effect.value.revision}:${effect.value.enabled}:${effect.value.workingCopyKey}` : current;
+    },
+  });
   class LanguageView {
     private timer: ReturnType<typeof setTimeout> | undefined;
     private readonly requests = new Set<AbortController>();
@@ -148,6 +163,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     private unavailable = false;
     private lastRevision = "";
     private lastEnabled = false;
+    private lastWorkingKey = workingKey();
     private closeMenu: (() => void) | undefined;
     private serverDiagnostics: LanguageDiagnostic[] = [];
     private publishedSource = "";
@@ -179,6 +195,20 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     update(update: ViewUpdate) {
       const revision = settings().revision;
       const enabled = settings().enabled;
+      const context = workingKey();
+      if (context !== this.lastWorkingKey) {
+        this.lastWorkingKey = context;
+        this.unavailable = false;
+        this.serverDiagnostics = [];
+        this.publish(this.view.state.doc.toString(), []);
+        this.closeMenu?.();
+        for (const request of this.requests) request.abort();
+        queueMicrotask(() => {
+          if (this.disposed) return;
+          closeCompletion(this.view);
+          this.view.dispatch({ effects: closeHoverTooltips });
+        });
+      }
       if (revision !== this.lastRevision || enabled !== this.lastEnabled) {
         this.lastRevision = revision;
         this.lastEnabled = enabled;
@@ -202,8 +232,13 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       this.requests.clear();
       languageCommands.delete(this.view);
     }
-    private current(source: string, revision: string) {
-      return !this.disposed && this.view.state.doc.toString() === source && settings().revision === revision;
+    private current(source: string, revision: string, context = workingKey()) {
+      return (
+        !this.disposed &&
+        this.view.state.doc.toString() === source &&
+        settings().revision === revision &&
+        workingKey() === context
+      );
     }
     async request(
       method: string,
@@ -218,6 +253,14 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       if (current.readOnly || !current.revision || (this.unavailable && !explicit)) return undefined;
       const source = this.view.state.doc.toString();
       const revision = current.revision;
+      const workingCopies = canonicalWorkingCopies(current.workingCopies, current.file);
+      const context = JSON.stringify(workingCopies);
+      const body = JSON.stringify({ method, file: current.file, source, revision, workingCopies, ...extra });
+      if (new TextEncoder().encode(body).byteLength > 1024 * 1024) {
+        this.publish(source, []);
+        this.status("Editor context exceeds 1 MiB. Save some working files before requesting more editor information.");
+        return undefined;
+      }
       const controller = new AbortController();
       this.requests.add(controller);
       let timedOut = false;
@@ -229,11 +272,11 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         const response = await fetch("/api/editor", {
           method: "POST",
           headers: { "x-typed-sql-session": token, "content-type": "application/json" },
-          body: JSON.stringify({ method, file: current.file, source, revision, ...extra }),
+          body,
           signal: controller.signal,
         });
         const result = await response.json();
-        if (!this.current(source, revision)) return undefined;
+        if (!this.current(source, revision, context)) return undefined;
         if (!response.ok) {
           this.unavailable = response.status === 403 || response.status === 404 || response.status === 503;
           this.publish(source, []);
@@ -249,7 +292,8 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           value.file !== current.file ||
           value.revision !== revision ||
           value.sourceHash !== (await hash(source)) ||
-          !this.current(source, revision)
+          value.workingCopyHash !== (await hash(context)) ||
+          !this.current(source, revision, context)
         )
           return undefined;
         this.unavailable = value.status.state !== "ready";
@@ -263,7 +307,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.status("");
         return value;
       } catch (error) {
-        if (explicit && this.current(source, revision) && (!controller.signal.aborted || timedOut))
+        if (explicit && this.current(source, revision, context) && (!controller.signal.aborted || timedOut))
           this.status(
             timedOut
               ? "The editor language server did not respond within 15 seconds. Retry after it starts."
@@ -305,8 +349,9 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     async diagnostics() {
       if (this.disposed) return;
       const source = this.view.state.doc.toString();
+      const context = workingKey();
       const response = await this.request("diagnostics");
-      if (this.disposed || this.view.state.doc.toString() !== source) return;
+      if (this.disposed || this.view.state.doc.toString() !== source || workingKey() !== context) return;
       const diagnostics: Diagnostic[] = response
         ? (response.diagnostics ?? []).flatMap((item) => {
             const range = offsets(source, item.range);
@@ -330,7 +375,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           })
         : [];
       const displayedHash = await hash(source);
-      if (this.disposed || this.view.state.doc.toString() !== source) return;
+      if (this.disposed || this.view.state.doc.toString() !== source || workingKey() !== context) return;
       for (const fallback of this.fallback(source, displayedHash))
         if (
           !diagnostics.some(
@@ -386,6 +431,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     }
     async completions(context: CompletionContext): Promise<CompletionResult | null> {
       const source = context.state.doc.toString();
+      const projectContext = workingKey();
       const word = context.matchBefore(/[\p{L}\p{N}_$]*$/u);
       if (!context.explicit && !word?.text && !/[.\s]$/u.test(source.slice(0, context.pos))) return null;
       const response = await this.request(
@@ -415,7 +461,8 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
                 : item;
             return documentation(data.documentation ?? data.detail ?? "");
           },
-          apply: (view, completion, from, to) => void this.applyCompletion(item, source, view, completion, from, to),
+          apply: (view, completion, from, to) =>
+            void this.applyCompletion(item, source, projectContext, view, completion, from, to),
         }),
       );
       return { from: word?.from ?? context.pos, to: context.pos, options, filter: true };
@@ -423,13 +470,15 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     private async applyCompletion(
       item: LanguageCompletion,
       source: string,
+      context: string,
       view: EditorView,
       completion: Completion,
       from: number,
       to: number,
     ) {
+      if (workingKey() !== context) return;
       const response = await this.request("completionResolve", { item });
-      if (this.disposed || view.state.doc.toString() !== source) return;
+      if (this.disposed || view.state.doc.toString() !== source || workingKey() !== context) return;
       const value =
         response?.result && typeof response.result === "object"
           ? ({ ...item, ...response.result } as LanguageCompletion)
@@ -470,6 +519,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     }
     async actions(pos: number) {
       const source = this.view.state.doc.toString();
+      const context = workingKey();
       const position = positionAt(source, pos);
       const response = await this.request(
         "codeAction",
@@ -498,7 +548,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
               ? "This action requires an unsupported language-server command."
               : undefined),
           run: () => {
-            if (this.view.state.doc.toString() !== source || !response.uri) return;
+            if (this.view.state.doc.toString() !== source || workingKey() !== context || !response.uri) return;
             const byUri = new Map(Object.entries(action.edit?.changes ?? {}));
             for (const change of action.edit?.documentChanges ?? []) {
               if (
@@ -720,6 +770,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
   }
   const plugin = ViewPlugin.fromClass(LanguageView);
   return [
+    epoch,
     plugin,
     lintGutter(),
     autocompletion({
@@ -762,7 +813,11 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           ? { pos: value.from, end: value.to, above: true, create: () => ({ dom: documentation(value.contents) }) }
           : null;
       },
-      { hoverTime: 450, hideOnChange: true },
+      {
+        hoverTime: 450,
+        hideOnChange: true,
+        hideOn: (transaction) => transaction.startState.field(epoch) !== transaction.state.field(epoch),
+      },
     ),
     EditorView.domEventHandlers({
       contextmenu: (event, view) => view.plugin(plugin)?.context(event) ?? false,

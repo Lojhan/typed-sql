@@ -1,5 +1,6 @@
 import { describe, it, strict } from "poku";
 import {
+  canonicalWorkingCopies,
   completionItems,
   displayDocumentation,
   offsetAt,
@@ -40,6 +41,22 @@ await describe("editor language protocol source mapping", async () => {
         edits[0]!,
       ]),
       undefined,
+    );
+  });
+  await it("canonicalizes only other dirty buffers with a deterministic transport identity", () => {
+    const withPrivateState = { file: "z.ts", source: "z", revision: "2", privateNote: "never transport" };
+    strict.equal(
+      JSON.stringify(
+        canonicalWorkingCopies(
+          [
+            withPrivateState,
+            { file: "current.ts", source: "current", revision: "0" },
+            { file: "a.ts", source: "😀\r\n", revision: "1" },
+          ],
+          "current.ts",
+        ),
+      ),
+      '[{"file":"a.ts","source":"😀\\r\\n","revision":"1"},{"file":"z.ts","source":"z","revision":"2"}]',
     );
   });
   await it("honors LSP completion-list default edit ranges and rejects non-items", () => {

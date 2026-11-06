@@ -138,3 +138,16 @@ export function completionItems(result: unknown): LanguageCompletion[] {
       };
     });
 }
+
+export interface WorkingCopy {
+  file: string;
+  source: string;
+  revision: string;
+}
+/** Canonical ordering/key order shared with the host context identity. Current source is sent separately. */
+export function canonicalWorkingCopies(copies: readonly WorkingCopy[], currentFile: string): WorkingCopy[] {
+  return copies
+    .filter((copy) => copy.file !== currentFile)
+    .map(({ file, source, revision }) => ({ file, source, revision }))
+    .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+}

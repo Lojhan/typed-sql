@@ -365,6 +365,11 @@ ${ts}`;
     .waitFor();
   await shot(page.locator(".document-editor"), "sql-inline-error-unicode");
   check("SQL diagnostics retain original UTF-16 token ranges after Unicode and normalized CRLF");
+  assert.equal(
+    await page.locator('.pane-tab button[title="playground/bad.sql"] .dirty-mark').count(),
+    0,
+    "Opening a CRLF file must not make it dirty merely because CodeMirror normalizes display text",
+  );
   await invoke("playground/fix.sql");
   await page.locator(".cm-lintRange-error").first().waitFor();
   await editor.press("Home");
@@ -417,6 +422,73 @@ ${ts}`;
     .waitFor();
   await shot(page.locator(".document-editor"), "javascript-inline-error");
   check("checkJs/JSDoc JavaScript errors appear inline and in Problems before Run");
+  await invoke("playground/helper.ts");
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.insertText("export const user = { name: 123 };\n");
+  await invoke("playground/query.ts");
+  const userName = await point(3, "name");
+  await page.mouse.move(2, 2);
+  await page.mouse.move(userName.x, userName.y);
+  await hover.waitFor();
+  await page.waitForFunction(() => document.querySelector(".cm-tooltip-hover")?.textContent.includes("number"));
+  assert.equal(await readFile(join(root, "playground/helper.ts"), "utf8"), "export const user = { name: 'Ada' };\n");
+  check("switching immediately after editing an imported helper uses its unsaved working copy");
+  await page.mouse.move(2, 2);
+  await invoke("playground/helper.ts");
+  await page.keyboard.press("ControlOrMeta+w");
+  const unsaved = page.getByRole("dialog", { name: "Unsaved changes", exact: true });
+  await unsaved.getByRole("button", { name: "Discard", exact: true }).click();
+  await unsaved.waitFor({ state: "detached" });
+  await invoke("playground/query.ts");
+  const revertedName = await point(3, "name");
+  await page.mouse.move(revertedName.x, revertedName.y);
+  await hover.waitFor();
+  await page.waitForFunction(() => document.querySelector(".cm-tooltip-hover")?.textContent.includes("string"));
+  check("discarding an imported helper resets its language-server overlay to saved disk content");
+  await page.mouse.move(2, 2);
+  await invoke(">Split editor right", "Split editor right");
+  await invoke("playground/helper.ts");
+  const leftPane = page.locator(".editor-pane").first();
+  const rightEditor = page.locator(".editor-pane").nth(1).getByRole("textbox", { name: "Query source editor" });
+  const heldHover = Promise.withResolvers();
+  const releaseHover = Promise.withResolvers();
+  const fulfilledHover = Promise.withResolvers();
+  let held = false;
+  await page.route("**/api/editor", async (route) => {
+    const body = route.request().postDataJSON();
+    if (!held && body.method === "hover" && body.file === "playground/query.ts") {
+      held = true;
+      const response = await route.fetch();
+      assert.match(JSON.stringify((await response.json()).result), /string/u);
+      heldHover.resolve();
+      await releaseHover.promise;
+      await route.fulfill({ response }).catch(() => {});
+      fulfilledHover.resolve();
+    } else await route.continue();
+  });
+  const leftName = await point(3, "name");
+  await page.mouse.move(leftName.x, leftName.y);
+  await heldHover.promise;
+  await rightEditor.press("ControlOrMeta+a");
+  await page.keyboard.insertText("export const user = { name: true };\n");
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+  releaseHover.resolve();
+  await fulfilledHover.promise;
+  await page.unroute("**/api/editor");
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.ok(
+    (await leftPane.locator(".cm-tooltip-hover").allTextContents()).every((text) => !/name:\s*string/u.test(text)),
+    "The held old string hover must not replace a current boolean hover after an imported working copy changes",
+  );
+  await page.mouse.move(2, 2);
+  await page.mouse.move(leftName.x, leftName.y);
+  await leftPane.locator(".cm-tooltip-hover").waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector(".editor-pane .cm-tooltip-hover")?.textContent.includes("boolean"),
+  );
+  check(
+    "late hover responses are rejected when an imported working copy changes while the current source stays unchanged",
+  );
   assert.deepEqual(evidence.errors, [], "Browser has no runtime exceptions");
   assert.equal(
     await readFile(join(root, "playground/query.sql"), "utf8"),

@@ -22,11 +22,18 @@ import {
   languageExtensions,
   refreshEditorLanguage,
   runEditorLanguageCommand,
+  type WorkingCopy,
 } from "./editor-language.js";
-import { offsets } from "./editor-language-model.js";
+import { canonicalWorkingCopies, offsets } from "./editor-language-model.js";
 import "./editor-language.css";
 
-export type { EditorDiagnostic, LanguageDiagnostic, LanguageLocation, LanguageRange } from "./editor-language.js";
+export type {
+  EditorDiagnostic,
+  LanguageDiagnostic,
+  LanguageLocation,
+  LanguageRange,
+  WorkingCopy,
+} from "./editor-language.js";
 
 const syntaxColors: Record<string, string> = {
   "#404740": "var(--muted)",
@@ -78,6 +85,7 @@ export function Editor({
   languageEnabled = true,
   reveal,
   diagnostics = [],
+  workingCopies = [],
   onNavigate,
   onFormat,
   onLanguageStatus,
@@ -95,6 +103,7 @@ export function Editor({
   languageEnabled?: boolean;
   reveal?: LanguageRange;
   diagnostics?: readonly EditorDiagnostic[];
+  workingCopies?: readonly WorkingCopy[];
   onNavigate?: (location: LanguageLocation) => void;
   onFormat?: () => void;
   onLanguageStatus?: (message: string) => void;
@@ -110,6 +119,7 @@ export function Editor({
     readOnly,
     enabled: languageEnabled,
     diagnostics,
+    workingCopies,
     onChange,
     onSave,
     onRun,
@@ -258,8 +268,9 @@ export function Editor({
   }, [file, session]);
   useEffect(() => {
     const current = view.current;
-    if (current && current.state.doc.toString() !== source)
-      current.dispatch({ changes: { from: 0, to: current.state.doc.length, insert: source } });
+    const normalized = source.replace(/\r\n?/gu, "\n");
+    if (current && current.state.doc.toString() !== normalized)
+      current.dispatch({ changes: { from: 0, to: current.state.doc.length, insert: normalized } });
   }, [source]);
   useEffect(() => {
     const current = activeEditors.get(session);
@@ -272,11 +283,12 @@ export function Editor({
       });
   }, [readOnly, session]);
   const diagnosticsKey = JSON.stringify(diagnostics);
+  const workingCopyKey = JSON.stringify(canonicalWorkingCopies(workingCopies, file));
   useEffect(() => {
-    activeEditors
-      .get(session)
-      ?.dispatch({ effects: refreshEditorLanguage({ revision, diagnosticsKey, enabled: languageEnabled }) });
-  }, [revision, diagnosticsKey, languageEnabled, session]);
+    activeEditors.get(session)?.dispatch({
+      effects: refreshEditorLanguage({ revision, diagnosticsKey, workingCopyKey, enabled: languageEnabled }),
+    });
+  }, [revision, diagnosticsKey, workingCopyKey, languageEnabled, session]);
   useEffect(() => {
     if (active) activeEditors.get(session)?.focus();
   }, [active, session]);
