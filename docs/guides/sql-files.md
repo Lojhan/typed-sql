@@ -76,6 +76,11 @@ pnpm exec tsc --runExternalCode --watch
 An emit-enabled mapper project reports an error. The native watch process observes the schema,
 typed-sql configuration, and its imported local configuration modules.
 
+The experimental native TypeScript watcher can miss rapid edits on macOS while it changes
+directory subscriptions. SQL declarations retain their type dependencies across SQL errors to
+reduce that churn. If watch diagnostics appear stale, run `tsc --runExternalCode` without
+`--watch` to check the current files.
+
 Try **SQL parameter bindings** in the [playground](../playground.md), or follow the
 [SQL files and application identities tutorial](../examples/sql-files-and-identities.md) for a
 provider configuration, branded query arguments, and deployment artifacts.

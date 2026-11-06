@@ -70,9 +70,13 @@ export function compileSqlFile(options: CompileSqlFileOptions): CompileSqlFileRe
     dialect.runtimeSqlModule,
   );
   const type = failed ? "never" : `${args} => Query<${row}, ${executableParameters}>`;
+  // Keep the declaration dependency graph stable across SQL errors. In the native
+  // preview watcher, dropping these imports tears down directory watches after
+  // diagnostics are printed, opening a window in which a quick correction is lost.
+  const runtimeModule = dialect.runtimeSqlModule === undefined ? undefined : codeLiteral(dialect.runtimeSqlModule);
   const text = failed
-    ? "declare const query: never; export default query;"
-    : `import type { Query, QueryValuePlan } from ${codeLiteral(dialect.runtimeSqlModule)};\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
+    ? `${runtimeModule === undefined ? "" : `import type {} from ${runtimeModule};\n`}declare const query: never; export default query;`
+    : `import type { Query, QueryValuePlan } from ${runtimeModule};\nexport declare const valuePlan: QueryValuePlan;\ndeclare const query: ${type};\nexport default query;\n`;
   const runtime = failed
     ? `export default undefined;\nthrow new SyntaxError(${codeLiteral(
         diagnostics

@@ -13,6 +13,25 @@ const schema = dialect.validateSnapshot(
 );
 
 await describe("stable SQL module compiler", async () => {
+  await it("retains grammar type dependencies when SQL becomes invalid while failing closed", () => {
+    for (const grammar of [postgres(), mysql(), sqlite()]) {
+      const snapshot = grammar.validateSnapshot({ dialect: grammar.id, tables: {} });
+      const valid = compileSqlFile({ dialect: grammar, schema: snapshot, source: "SELECT 1 AS value" });
+      const invalid = compileSqlFile({ dialect: grammar, schema: snapshot, source: "SELECT missing FROM absent" });
+      strict.deepStrictEqual(valid.diagnostics, []);
+      strict.ok(invalid.diagnostics.length > 0);
+      strict.match(invalid.text, /declare const query: never/u);
+      strict.match(invalid.text, /^import type \{\} from /u);
+      strict.match(invalid.runtime, /throw new SyntaxError/u);
+      // Type-only dependencies remain present in both compiler inputs, without
+      // introducing a runtime driver import or a callable invalid query.
+      for (const result of [valid, invalid]) {
+        strict.ok(result.text.includes(`from ${JSON.stringify(grammar.runtimeSqlModule)}`));
+        strict.match(result.text, /^import type /u);
+      }
+    }
+  });
+
   await it("uses grammar-owned placeholder scanning and ordered parameter inference across grammars", () => {
     for (const grammar of [postgres(), mysql(), sqlite()]) {
       const snapshot = grammar.validateSnapshot({

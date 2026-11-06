@@ -1,11 +1,12 @@
-import { execFile as callback, spawn } from "node:child_process";
+import { execFile as callback } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { describe, it, strict, waitForExpectedResult } from "poku";
+import { describe, it, strict } from "poku";
 import { assertSqlFileConsumer, prepareSqlFileConsumer } from "../../../test/helpers/sql-file-consumer.js";
 import { typescriptPreviewCliPath } from "../src/native-lsp.js";
+import { compilerWatch } from "./helpers/compiler-watch.js";
 
 const execFile = promisify(callback);
 
@@ -64,6 +65,10 @@ await describe("official SQL content mapper", async () => {
       const directory = await prepareSqlFileConsumer(consumer);
       const schemaFile = join(directory, "schema.json");
       const schema = JSON.parse(await readFile(schemaFile, "utf8"));
+      const tsconfigFile = join(directory, "tsconfig.json");
+      const tsconfig = JSON.parse(await readFile(tsconfigFile, "utf8"));
+      tsconfig.compilerOptions.noUnusedLocals = true;
+      await writeFile(tsconfigFile, JSON.stringify(tsconfig));
       await writeFile(
         join(directory, "policy.mjs"),
         'import { typePolicy } from "@typed-sql/postgres"; export const policy = { ...typePolicy, bigint: "bigint" };',
@@ -74,56 +79,66 @@ await describe("official SQL content mapper", async () => {
       );
       await writeFile(join(directory, "find.sql"), "SELECT id, name FROM users WHERE id = $1 AND name <> $2");
       await writeFile(join(directory, "main.ts"), "import find from './find.sql'; find(7, 'Ada');");
-      // Use the exact binary selected by the installed official CLI wrapper. Older
-      // supported Node releases use execFileSync rather than execve in that wrapper,
-      // which prevents terminating the watch child through the wrapper process.
-      const { default: getExePath } = await import(
-        pathToFileURL(resolve(dirname(typescriptPreviewCliPath()), "../lib/getExePath.js")).href
-      );
-      const child = spawn(
-        getExePath(),
-        ["-p", directory, "--runExternalCode", "--watch", "--preserveWatchOutput", "--pretty", "false"],
-        { cwd: directory, stdio: ["ignore", "pipe", "pipe"] },
-      );
-      let output = "";
-      child.stdout.on("data", (data) => {
-        output += String(data);
-      });
-      child.stderr.on("data", (data) => {
-        output += String(data);
-      });
-      const waitFor = async (pattern: RegExp) =>
-        waitForExpectedResult(() => pattern.test(output), true, { timeout: 20_000, interval: 50 });
+      const watch = await compilerWatch(directory, true);
       try {
-        await waitFor(/Found 0 errors/u);
-        output = "";
-        delete schema.tables.users.columns.name;
-        await writeFile(schemaFile, JSON.stringify(schema));
-        await waitFor(/TSQ101/u);
-        output = "";
-        schema.tables.users.columns.name = { name: "name", databaseType: "text", tsType: "string", nullable: false };
-        schema.tables.users.columns.id.databaseType = "bigint";
-        schema.tables.users.columns.id.tsType = "bigint";
-        await writeFile(schemaFile, JSON.stringify(schema));
-        await waitFor(/not assignable to parameter of type 'bigint'/u);
-        output = "";
-        await writeFile(
-          join(directory, "policy.mjs"),
-          'import { typePolicy } from "@typed-sql/postgres"; export const policy = { ...typePolicy, bigint: "number" };',
-        );
-        await waitFor(/Found 0 errors/u);
+        await watch.ready();
+        for (let round = 0; round < 3; round++) {
+          await watch.change(
+            `remove schema column (${round})`,
+            async () => {
+              delete schema.tables.users.columns.name;
+              await writeFile(schemaFile, JSON.stringify(schema));
+            },
+            2,
+            /TSQ101/u,
+          );
+          await watch.change(
+            `restore column and change native type (${round})`,
+            async () => {
+              schema.tables.users.columns.name = {
+                name: "name",
+                databaseType: "text",
+                tsType: "string",
+                nullable: false,
+              };
+              schema.tables.users.columns.id.databaseType = "bigint";
+              schema.tables.users.columns.id.tsType = "bigint";
+              await writeFile(schemaFile, JSON.stringify(schema));
+            },
+            1,
+            /not assignable to parameter of type 'bigint'/u,
+          );
+          await watch.change(
+            `change imported type policy (${round})`,
+            () =>
+              writeFile(
+                join(directory, "policy.mjs"),
+                'import { typePolicy } from "@typed-sql/postgres"; export const policy = { ...typePolicy, bigint: "number" };',
+              ),
+            0,
+          );
+          await watch.change(
+            `restore imported type policy (${round})`,
+            () =>
+              writeFile(
+                join(directory, "policy.mjs"),
+                'import { typePolicy } from "@typed-sql/postgres"; export const policy = { ...typePolicy, bigint: "bigint" };',
+              ),
+            1,
+            /not assignable to parameter of type 'bigint'/u,
+          );
+          await watch.change(
+            `restore integer schema (${round})`,
+            async () => {
+              schema.tables.users.columns.id.databaseType = "integer";
+              schema.tables.users.columns.id.tsType = "number";
+              await writeFile(schemaFile, JSON.stringify(schema));
+            },
+            0,
+          );
+        }
       } finally {
-        await new Promise<void>((resolveClose, reject) => {
-          const timeout = setTimeout(() => {
-            child.kill("SIGKILL");
-            reject(new Error("Compiler watch process did not close"));
-          }, 5_000);
-          child.once("close", () => {
-            clearTimeout(timeout);
-            resolveClose();
-          });
-          child.kill();
-        });
+        await watch.close();
       }
     });
   });
