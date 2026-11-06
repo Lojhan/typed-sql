@@ -299,7 +299,7 @@ export function ResultPanel({
     if (!captured.data) return;
     if (format === "json")
       download(
-        "query-page.json",
+        "query-loaded-rows.json",
         JSON.stringify(
           data
             ? { columns: data.columns, rows: data.rows.map((row) => row.map(jsonValue)) }
@@ -312,7 +312,7 @@ export function ResultPanel({
     else if (data) {
       const csvEscape = (value: string) => `"${value.replaceAll('"', '""')}"`;
       download(
-        "query-page.csv",
+        "query-loaded-rows.csv",
         [
           data.columns.map(csvEscape).join(","),
           ...data.rows.map((row) => row.map((value) => csvEscape(valueText(value))).join(",")),
@@ -333,6 +333,9 @@ export function ResultPanel({
               <span className={`status-dot ${run.status}`} />
               <span className="run-label" title={`${run.file} · ${run.sourceRevision}`}>
                 {run.file.split("/").at(-1)}
+              </span>
+              <span className="provenance" title={`${run.target ?? "unverified target"} · ${run.sourceRevision}`}>
+                {run.sourceRevision.slice(0, 8)} · {run.target ?? "unverified"}
               </span>
               <span className="muted">{milliseconds(totalTime(run))}</span>
               {stale ? (
@@ -396,9 +399,9 @@ export function ResultPanel({
         <>
           <div className="result-filter">
             <input
-              aria-label="Filter current result page"
+              aria-label="Filter loaded result rows"
               value={filter}
-              placeholder="Filter this page"
+              placeholder="Filter loaded rows"
               onChange={(event) => setFilter(event.target.value)}
             />
             <span>
