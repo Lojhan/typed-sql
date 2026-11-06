@@ -153,7 +153,27 @@ async function fixture(
         ],
         links: [],
       },
-      migrations: { state: "unconfigured", entries: [] },
+      migrations: {
+        state: "ready",
+        entries: Array.from({ length: 13 }, (_, index) => ({
+          id: `migration-${index}`,
+          status: "applied" as const,
+          files: [`migrations/${index}.ts`],
+          attempts: [
+            {
+              migrationId: `migration-${index}`,
+              attemptId: `attempt-${index}`,
+              direction: "up" as const,
+              origin: "executed" as const,
+              state: "applied",
+              change: "changed" as const,
+              evidence: "captured" as const,
+              before: { large: "FULL_CATALOG_PAYLOAD".repeat(5000) },
+              changes: [],
+            },
+          ],
+        })),
+      },
     }),
     runs: {
       list: () => [captured],
@@ -258,7 +278,10 @@ await describe("scoped workspace MCP tools", async () => {
       strict.equal(schema.structuredContent.source, "saved");
       strict.equal(schema.structuredContent.items[0]?.id, "accounts");
       strict.equal((await f.call("typed_sql_get_object", { id: "accounts" })).structuredContent.object.kind, "table");
-      strict.equal((await f.call("typed_sql_list_migrations")).structuredContent.state, "unconfigured");
+      const migrations = await f.call("typed_sql_list_migrations");
+      strict.equal(migrations.structuredContent.state, "ready");
+      strict.equal(migrations.structuredContent.items.length, 13);
+      strict.ok(!JSON.stringify(migrations).includes("FULL_CATALOG_PAYLOAD"));
       strict.deepEqual((await f.call("typed_sql_list_files")).structuredContent.items, ["playground/query.sql"]);
       const read = await f.call("typed_sql_read_file", { file: "playground/query.sql", line: 1, limit: 1 });
       strict.equal(read.structuredContent.source, "select 1 as id;");

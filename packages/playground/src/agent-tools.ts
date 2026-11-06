@@ -243,7 +243,7 @@ export class AgentWorkspaceToolServer {
     register(
       "typed_sql_get_object",
       "Read one captured schema object's definition, relationships and historical evidence. Use an id returned by get_schema.",
-      { id: z.string().max(4096) },
+      { id: z.string().max(4096), historyOffset: offset, historyLimit: limit, linkOffset: offset },
       async (input) => {
         const data = await this.options.explorer(),
           object = data.schema.objects.find((item) => item.id === input.id);
@@ -251,8 +251,20 @@ export class AgentWorkspaceToolServer {
         return {
           schemaHash: data.schema.schemaHash,
           source: data.schema.source,
-          object,
-          links: data.schema.links.filter((link) => link.source === input.id || link.target === input.id),
+          object: {
+            ...object,
+            history: object.history.slice(input.historyOffset, input.historyOffset + input.historyLimit),
+          },
+          historyPagination: page(
+            object.history.map(({ attemptId }) => attemptId),
+            input.historyOffset,
+            input.historyLimit,
+          ),
+          links: page(
+            data.schema.links.filter((link) => link.source === input.id || link.target === input.id),
+            input.linkOffset,
+            50,
+          ),
         };
       },
     );
@@ -265,7 +277,31 @@ export class AgentWorkspaceToolServer {
         return {
           state: data.migrations.state,
           message: data.migrations.message,
-          ...page(data.migrations.entries, input.offset, input.limit),
+          ...page(
+            data.migrations.entries.map(({ attempts, ...migration }) => {
+              const last = attempts.at(-1);
+              return {
+                ...migration,
+                attemptCount: attempts.length,
+                ...(last
+                  ? {
+                      latestAttempt: {
+                        attemptId: last.attemptId,
+                        direction: last.direction,
+                        state: last.state,
+                        origin: last.origin,
+                        evidence: last.evidence,
+                        startedAt: last.startedAt,
+                        finishedAt: last.finishedAt,
+                        changeCount: last.changes?.length ?? 0,
+                      },
+                    }
+                  : {}),
+              };
+            }),
+            input.offset,
+            input.limit,
+          ),
         };
       },
     );
