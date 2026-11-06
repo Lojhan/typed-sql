@@ -70,12 +70,16 @@ export function GlobalScrollbars() {
         setMetrics(null);
         return;
       }
+      const overflow = getComputedStyle(element);
       const metric = (axis: Axis): Metric => {
         const viewport = axis === "x" ? element.clientWidth : element.clientHeight,
           total = axis === "x" ? element.scrollWidth : element.scrollHeight,
           position = axis === "x" ? element.scrollLeft : element.scrollTop;
         const track = Math.max(0, (axis === "x" ? right - left : bottom - top) - 4),
-          max = Math.max(0, total - viewport),
+          max =
+            /auto|scroll/.test(axis === "x" ? overflow.overflowX : overflow.overflowY) && total - viewport > 1
+              ? total - viewport
+              : 0,
           size = Math.min(track, Math.max(24, total ? (viewport / total) * track : track));
         return { max, track, size, position, offset: max ? (Math.max(0, position) / max) * (track - size) : 0 };
       };
