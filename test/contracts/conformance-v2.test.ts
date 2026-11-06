@@ -127,7 +127,11 @@ await describe("conformance v2 repository integration", async () => {
     const sql = await readFile(join(workspace, "e2e/sqlserver/adapter-probe.mjs"), "utf8");
     strict.ok(sql.includes("process.env.TYPED_SQL_SQLSERVER_BUILD"));
     strict.ok(sql.includes("await writeFile(output, JSON.stringify(evidence"));
-    strict.ok(sql.includes('finally {\n  await mkdir(resolve(output, "..")'));
+    const finalizationStart = sql.lastIndexOf("\n} finally {");
+    strict.ok(finalizationStart >= 0, "Native adapter evidence needs an outer failure finalizer");
+    const finalization = sql.slice(finalizationStart).split("\n}\n")[0]!;
+    strict.ok(finalization.includes('await mkdir(resolve(output, "..")'));
+    strict.ok(finalization.includes("await writeFile(output, JSON.stringify(evidence"));
     const duck = await readFile(join(workspace, "e2e/duckdb/test.mjs"), "utf8");
     for (const sdk of ["1.5.6-r.2", "2.0.0-r.1"]) strict.ok(duck.includes(sdk));
     strict.ok(duck.includes("-failure.log"));
