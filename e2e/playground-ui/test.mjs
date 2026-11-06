@@ -50,9 +50,10 @@ async function bounded(locator, viewport) {
 try {
   evidence.sourceHead = (await command(process.cwd(), "git", ["rev-parse", "HEAD"])).output.trim();
   fixture = await consumer(
-    ["playwright", "typescript", "@types/node"],
+    ["playwright", "typescript", "@types/node", "@biomejs/biome"],
     ["@typed-sql/playground", "@typed-sql/postgres"],
   );
+  await mkdir(join(fixture.directory, ".git"));
   const root = await fixture.project("workspace-ui");
   const source = `select id, name from public.accounts;\n${Array.from({ length: 160 }, (_, i) => `-- editor scroll fixture line ${i}: ${"long source ".repeat(12)}`).join("\n")}\n`;
   await mkdir(join(root, "playground"), { recursive: true });
@@ -82,6 +83,16 @@ const b=[[1,'Alicea'],[2,'Béatrice'],[3,'Review 3a'],[4,'Review 4']];
 export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{visual:{classification:'test',expected:{database:'visual-fixture'},connect:()=>({identity:async()=>identity,query:async({text})=>({columns:[{name:'id',databaseType:'integer'},{name:text.includes('name_alias')?'name_alias':'name',databaseType:'text'}],rows:text.includes('name_alias')?b:a,truncated:false,command:'SELECT'}),database:async()=>{throw Error('Visual fixture only executes raw SQL')},close:async()=>{}})}}}};\n`,
   );
   await writeFile(join(root, "playground/selection.sql"), source);
+  const unformatted = 'export function formatExample(){return {name:"workspace",enabled:true}}\n';
+  await writeFile(join(root, "playground/format.ts"), unformatted);
+  await writeFile(join(root, "playground/close-format.ts"), unformatted);
+  await writeFile(
+    join(root, "biome.json"),
+    JSON.stringify({
+      formatter: { indentStyle: "space", indentWidth: 4 },
+      javascript: { formatter: { quoteStyle: "single", semicolons: "asNeeded" } },
+    }),
+  );
   await writeFile(join(root, "playground/compare-a.sql"), "select id,name from public.accounts order by id;\n");
   await writeFile(
     join(root, "playground/compare-b.sql"),
@@ -727,6 +738,97 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   await invoke(">Connect to target", "Connect to target");
   await footer.getByRole("button", { name: "Refresh schema", exact: true }).waitFor();
   check("command palette opens Agent/Compare/Schema, creates real paths and dispatches theme/connection actions");
+  await invoke("playground/format.ts", "playground/format.ts");
+  const fileMenu = page.locator(".file-menu");
+  const fileActions = page.getByText("⋯", { exact: true });
+  await fileActions.click();
+  await page.locator(".file-menu[open]").waitFor();
+  await editor.click();
+  assert.equal(await fileMenu.getAttribute("open"), null, "Clicking outside file actions closes them");
+  await fileActions.click();
+  await page.keyboard.press("Escape");
+  assert.equal(await fileMenu.getAttribute("open"), null, "Escape closes file actions");
+  await fileActions.click();
+  await fileMenu.getByRole("button", { name: "Format file", exact: true }).click();
+  const trustDialog = page.getByRole("dialog", { name: "Enable project execution", exact: true });
+  await trustDialog.waitFor();
+  assert.equal(await fileMenu.getAttribute("open"), null, "Choosing a menu action closes the menu");
+  assert.equal(await readFile(join(root, "playground/format.ts"), "utf8"), unformatted);
+  await trustDialog.getByRole("button", { name: "Enable for this session", exact: true }).click();
+  await trustDialog.waitFor({ state: "detached" });
+  const formattedResponse = page.waitForResponse((response) => response.url().endsWith("/api/format"));
+  await invoke(">Format active file", "Format active file");
+  assert.equal((await formattedResponse).status(), 200);
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("'workspace'"));
+  assert.equal(
+    await readFile(join(root, "playground/format.ts"), "utf8"),
+    unformatted,
+    "Format does not save the buffer",
+  );
+  const formatSave = page.waitForResponse((response) => response.url().endsWith("/api/save"));
+  await editor.press("ControlOrMeta+s");
+  await formatSave;
+  assert.equal(
+    await readFile(join(root, "playground/format.ts"), "utf8"),
+    "export function formatExample() {\n    return { name: 'workspace', enabled: true }\n}\n",
+    "Actual installed Biome uses this repo's four-space, single-quote and semicolon configuration",
+  );
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.insertText(unformatted);
+  const shortcutFormat = page.waitForResponse((response) => response.url().endsWith("/api/format"));
+  await page.keyboard.press("Alt+Shift+f");
+  assert.equal((await shortcutFormat).status(), 200);
+  await page.waitForFunction(() => document.querySelector(".cm-content")?.textContent.includes("'workspace'"));
+  check("file actions dismiss correctly and actual repo-configured Biome formats buffers through palette and shortcut");
+  const holdFormat = async () => {
+    const started = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    await page.route("**/api/format", async (route) => {
+      started.resolve();
+      await release.promise;
+      await route.continue();
+    });
+    const response = page.waitForResponse((value) => value.url().endsWith("/api/format"));
+    void response.catch(() => {});
+    const request = page.waitForRequest((value) => value.url().endsWith("/api/format"));
+    await page.keyboard.press("Alt+Shift+f");
+    await request;
+    await started.promise;
+    return async () => {
+      release.resolve();
+      assert.equal((await response).status(), 200);
+      await page.unroute("**/api/format");
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    };
+  };
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.insertText(unformatted);
+  const releaseEditedFormat = await holdFormat();
+  await editor.press("ControlOrMeta+End");
+  await editor.pressSequentially("// keep-new-edit");
+  await releaseEditedFormat();
+  assert.ok((await editor.textContent()).includes("keep-new-edit"));
+  assert.ok(
+    (await editor.textContent()).includes('name:"workspace"'),
+    "Late formatting cannot replace the newer buffer",
+  );
+  await page.getByRole("alert").getByRole("button").click();
+  check("format completion preserves edits made while the formatter is pending");
+  await invoke("playground/close-format.ts", "playground/close-format.ts");
+  await page.locator('.document-path[title="playground/close-format.ts"]').waitFor();
+  await editor.waitFor();
+  const releaseClosedFormat = await holdFormat();
+  await page.keyboard.press("ControlOrMeta+w");
+  await page.locator('button[role="tab"][title="playground/close-format.ts"]').waitFor({ state: "detached" });
+  await releaseClosedFormat();
+  await invoke("playground/close-format.ts", "playground/close-format.ts");
+  await page.locator('.document-path[title="playground/close-format.ts"]').waitFor();
+  assert.ok(
+    (await editor.textContent()).includes('name:"workspace"'),
+    "A closed file cannot acquire a hidden formatted buffer",
+  );
+  assert.equal(await readFile(join(root, "playground/close-format.ts"), "utf8"), unformatted);
+  check("closing a tab during formatting leaves no hidden dirty result");
   await invoke("playground/selection.sql", "playground/selection.sql");
   await page.setViewportSize({ width: 560, height: 800 });
   await invoke(">Find in active file", "Find in active file");

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { matchCommand } from "./command-model.js";
 import { Icon, type IconName } from "./icon.js";
 import { Modal } from "./modal.js";
@@ -59,8 +60,8 @@ export function CommandPalette({
   const choose = (index: number) => {
     const item = items[index];
     if (!item) return;
-    onClose();
-    requestAnimationFrame(item.run);
+    flushSync(onClose);
+    item.run();
   };
   return (
     <Modal label="Command palette" className="command-palette" onClose={onClose} dismissOnBackdrop>

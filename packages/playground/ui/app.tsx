@@ -63,6 +63,7 @@ function App() {
     [lastFile, setLastFile] = useState(""),
     [compareA, setCompareA] = useState<string | undefined>();
   const stateRef = useRef<State | null>(null),
+    activePaneRef = useRef(activePane),
     closingRef = useRef(closing),
     documentsRef = useRef(documents),
     layoutRef = useRef(layout),
@@ -73,6 +74,7 @@ function App() {
     analysisTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
     storageKey = useRef("");
   documentsRef.current = documents;
+  activePaneRef.current = activePane;
   closingRef.current = closing;
   layoutRef.current = layout;
   const dirty = useMemo(
@@ -261,6 +263,36 @@ function App() {
     },
     [load],
   );
+  const formatFile = async (file: string) => {
+    const doc = documentsRef.current[file];
+    if (!doc?.writable) throw new Error("Format requires a file inside writeRoots.");
+    if (stateRef.current?.classification === "production")
+      throw new Error("Repository formatters are disabled on production-classified targets.");
+    if (!stateRef.current?.trusted) {
+      setTrust(true);
+      return;
+    }
+    const result = await api<{ source: string; formatter: string; config: string }>("format", {
+      file,
+      source: doc.source,
+      revision: doc.revision,
+    });
+    if (documentsRef.current[file]?.source !== doc.source || documentsRef.current[file]?.revision !== doc.revision)
+      throw new Error("File changed while formatting. Your current edits are preserved; format again.");
+    if (!panes(layoutRef.current).some((item) => item.tabs.includes(file))) return;
+    setDocuments((current) => {
+      const latest = current[file];
+      if (
+        !latest ||
+        latest.source !== doc.source ||
+        latest.revision !== doc.revision ||
+        !panes(layoutRef.current).some((item) => item.tabs.includes(file))
+      )
+        return current;
+      return { ...current, [file]: { ...latest, source: result.source } };
+    });
+    setNotice(`Formatted with ${result.formatter} · ${result.config}`);
+  };
   const save = async (file: string) => {
     const doc = documentsRef.current[file];
     if (!doc) return null;
@@ -347,7 +379,8 @@ function App() {
   };
   const closeTab = (paneId: string, tab: string, discard = false, bypass = false) => {
     const other = panes(layoutRef.current).filter((item) => item.id !== paneId && item.tabs.includes(tab)).length;
-    if (!discard && !bypass && dirty.has(tab) && !other) {
+    const doc = documentsRef.current[tab];
+    if (!discard && !bypass && doc && doc.source !== doc.saved && !other) {
       setClosing({ paneId, tab });
       return;
     }
@@ -360,11 +393,18 @@ function App() {
   };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing) return;
+      const formatting = event.shiftKey && event.altKey && event.code === "KeyF" && !event.metaKey && !event.ctrlKey;
+      if (!(event.metaKey || event.ctrlKey || formatting) || (event.altKey && !formatting) || event.isComposing) return;
       const name = event.key.toLowerCase();
       let command: (() => void) | undefined;
       const dialog = Array.from(document.querySelectorAll('[role="dialog"]')).at(-1);
-      if ((!event.shiftKey && name === "k") || (event.shiftKey && name === "p")) {
+      const currentPane =
+        panes(layoutRef.current).find((item) => item.id === activePaneRef.current) ?? panes(layoutRef.current)[0]!;
+      if (formatting)
+        command = () => {
+          if (!dialog && !isTool(currentPane.active) && !busy) void action(() => formatFile(currentPane.active));
+        };
+      else if ((!event.shiftKey && name === "k") || (event.shiftKey && name === "p")) {
         command = () => {
           if (!dialog || dialog.getAttribute("aria-label") === "Command palette") setPalette((value) => !value);
         };
@@ -374,11 +414,12 @@ function App() {
         };
       else if (event.code === "Backslash")
         command = () => {
-          if (!dialog && panes(layoutRef.current).length < 8) split(focused.id, event.shiftKey ? "bottom" : "right");
+          if (!dialog && panes(layoutRef.current).length < 8)
+            split(currentPane.id, event.shiftKey ? "bottom" : "right");
         };
       else if (!event.shiftKey && name === "w")
         command = () => {
-          if (!dialog && focused.active) closeTab(focused.id, focused.active);
+          if (!dialog && currentPane.active) closeTab(currentPane.id, currentPane.active);
         };
       if (!command) return;
       event.preventDefault();
@@ -389,6 +430,36 @@ function App() {
     document.addEventListener("keydown", key, true);
     return () => document.removeEventListener("keydown", key, true);
   });
+  useEffect(() => {
+    const dismiss = (event: PointerEvent | KeyboardEvent) => {
+      const isEscape = event instanceof KeyboardEvent && event.key === "Escape";
+      if (event instanceof KeyboardEvent && !isEscape) return;
+      if (isEscape && document.querySelector('[role="dialog"]')) return;
+      let closed = false;
+      for (const menu of document.querySelectorAll<HTMLDetailsElement>(".file-menu[open]")) {
+        if (!isEscape && event.target instanceof Node && menu.contains(event.target)) continue;
+        menu.open = false;
+        if (isEscape) menu.querySelector("summary")?.focus();
+        closed = true;
+      }
+      if (isEscape && closed) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    const choose = (event: MouseEvent) => {
+      if (event.target instanceof Element)
+        event.target.closest<HTMLButtonElement>(".file-menu button")?.closest("details")?.removeAttribute("open");
+    };
+    document.addEventListener("click", choose);
+    document.addEventListener("pointerdown", dismiss, true);
+    document.addEventListener("keydown", dismiss, true);
+    return () => {
+      document.removeEventListener("click", choose);
+      document.removeEventListener("pointerdown", dismiss, true);
+      document.removeEventListener("keydown", dismiss, true);
+    };
+  }, []);
   const changeFile = async (file: string) => {
     if (dirty.has(file)) {
       setError(`${file} changed outside this editor. Unsaved buffer preserved; save a copy or reload explicitly.`);
@@ -701,6 +772,14 @@ function App() {
           <details className="file-menu">
             <summary aria-label="File actions">⋯</summary>
             <div>
+              <button
+                type="button"
+                disabled={busy || !doc.writable || state.classification === "production"}
+                onClick={() => void action(() => formatFile(doc.file))}
+                title="Format file (Shift+Alt+F)"
+              >
+                Format file
+              </button>
               {(["copy", "rename", "reload", ...(doc.file.endsWith(".sql") ? ["types"] : [])] as const).map((kind) => (
                 <button
                   type="button"
@@ -927,6 +1006,14 @@ function App() {
           void action(async () => {
             await save(activeDoc.file);
           }),
+      });
+    if (activeDoc.writable && !busy && state.classification !== "production")
+      commands.push({
+        id: "format",
+        label: "Format active file",
+        icon: "file-ts",
+        shortcut: "Shift+Alt+F",
+        run: () => void action(() => formatFile(activeDoc.file)),
       });
     if (activeDoc.writable)
       commands.push({
@@ -1157,8 +1244,8 @@ function App() {
         <Modal className="create-dialog" label="Enable project execution" onClose={() => setTrust(false)}>
           <h3>Enable trusted project execution?</h3>
           <p>
-            Project files and local agents can access your files, environment, network and private database clients.
-            Managed read-only controls do not restrict those private clients.
+            Project files, repository formatters and local agents can access your files, environment, network and
+            private database clients. Managed read-only controls do not restrict those private clients.
           </p>
           <div className="dialog-actions">
             <button type="button" onClick={() => setTrust(false)}>

@@ -1,4 +1,5 @@
 {
+  "@biomejs/biome": "2.6.3",
   "poku": "4.5.0",
   "tsx": "4.23.15",
   "typescript": "7.0.2",

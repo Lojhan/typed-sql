@@ -97,6 +97,10 @@ Press `Cmd/Ctrl+K`, or use the command icon in the bottom bar, to search file pa
 
 Use `Cmd/Ctrl+B` to show or hide the file tree, `Cmd/Ctrl+\\` to split right and `Cmd/Ctrl+Shift+\\` to split below. `Cmd/Ctrl+W` closes the active workspace tab and asks how to handle unsaved edits. `Cmd/Ctrl+Shift+P` also opens the command palette. Escape or clicking outside dismisses the palette and restores the previous focus. Workspace layout shortcuts are inactive while a dialog is open.
 
+Choose **Format file** in the file-actions menu, **Format active file** in the palette, or press `Shift+Alt+F`. Formatting detects the nearest Biome or Prettier configuration and uses that formatter's project-installed package. It honors the repository's settings, including indentation and supported formatter plugins. The formatted source stays in the editor buffer until you save; Undo can restore it. If you edit while formatting runs, the newer buffer is preserved.
+
+Repository formatters and executable configuration/plugins run locally with your user permissions, so enable trusted project execution for the session first. Nothing is installed automatically. Missing configuration, missing packages, ignored files and unsupported file types produce diagnostics. SQL formatting requires actual support in the installed formatter, such as a configured Prettier SQL plugin; the workspace does not guess a SQL layout or execute queries to format them.
+
 ## Explore and create a query
 
 The board displays captured foreign keys, including composite and cross-schema keys. It never infers relationships from column names. Search relations/columns, focus neighbors, drag cards and reset the layout. Layout positions stay in local browser storage, outside the compiler snapshot. The schema list and inspector provide keyboard-accessible relation/column/constraint information.
