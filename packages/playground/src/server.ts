@@ -9,6 +9,7 @@ import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema"
 import { AgentRoutes } from "./agents.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
+import { EditorRoutes } from "./editor-service.js";
 import { contentHash, WorkspaceError, WorkspaceFiles } from "./files.js";
 import { WorkspaceFormatter } from "./formatter.js";
 import { callableExports, RunManager, type RunRequest } from "./runner.js";
@@ -126,6 +127,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   const formatter = new WorkspaceFormatter(files);
   const manager = new RunManager(loaded, files, limits, options.target, project);
   let agents: AgentRoutes | undefined;
+  let editor: EditorRoutes | undefined;
   manager.expectedSchemaHash = savedSchemaHash;
   const token = randomBytes(32).toString("base64url");
   const assets = await assetDirectory();
@@ -277,6 +279,16 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (request.method !== "POST") throw new WorkspaceError("METHOD", "Method not allowed", 405);
       const body = await payload(request);
       switch (url.pathname) {
+        case "/api/editor":
+          editor ??= new EditorRoutes({
+            files,
+            configFile: loaded.file,
+            projectFile: project,
+            schemaFile: resolve(loaded.directory, loaded.config.schema.file),
+            identity: () => ({ savedSchemaHash, liveSchemaHash: calculateSchemaHash(schema) }),
+          });
+          json(response, await editor.handle(body, manager.trusted));
+          return;
         case "/api/format":
           json(
             response,
@@ -354,11 +366,39 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
               { formatVersion: 1, source: { id: await files.path(file), text: source } },
               { dialect: loaded.config.dialect, schema, typePolicy: loaded.config.typePolicy },
             );
+            let exports: readonly string[] = [];
+            const diagnostics = [...analysis.diagnostics];
+            try {
+              exports = await callableExports(source, file);
+            } catch (error) {
+              if (!error || typeof error !== "object" || !("errors" in error) || !Array.isArray(error.errors))
+                throw error;
+              for (const item of error.errors.slice(0, 100)) {
+                if (!item || typeof item.text !== "string" || !item.location) continue;
+                const line = Math.max(1, Number(item.location.line) || 1);
+                const lines = source.split("\n");
+                const prefix = lines.slice(0, line - 1).join("\n");
+                const text = lines[line - 1] ?? "";
+                const byteColumn = Math.max(0, Number(item.location.column) || 0);
+                const column = Buffer.from(text).subarray(0, byteColumn).toString("utf8").length;
+                const start = Math.min(source.length, prefix.length + (line > 1 ? 1 : 0) + column);
+                const length = Buffer.from(text)
+                  .subarray(byteColumn, byteColumn + Math.max(1, Number(item.location.length) || 1))
+                  .toString("utf8").length;
+                diagnostics.push({
+                  code: "TS_SYNTAX",
+                  severity: "error",
+                  message: item.text,
+                  range: { start, end: Math.min(source.length, start + Math.max(1, length)), line, column: column + 1 },
+                });
+              }
+              if (!diagnostics.length) throw error;
+            }
             json(response, {
               revision: contentHash(source),
-              diagnostics: analysis.diagnostics,
+              diagnostics,
               queries: analysis.queries,
-              exports: await callableExports(source),
+              exports,
             });
           }
           return;
@@ -400,6 +440,10 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
           if (body.enable !== true && body.enable !== false)
             throw new WorkspaceError("REQUEST", "enable must be a boolean");
           manager.trusted = body.enable;
+          if (!manager.trusted) {
+            await editor?.close();
+            editor = undefined;
+          }
           json(response, { trusted: manager.trusted });
           return;
         }
@@ -511,6 +555,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     token,
     url: `${origin}/#session=${token}`,
     close: async () => {
+      await editor?.close();
       await formatter.close();
       await agents?.close();
       await manager.close();

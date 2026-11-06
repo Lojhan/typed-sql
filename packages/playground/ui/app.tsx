@@ -5,7 +5,13 @@ import { api, token } from "./api";
 import { SchemaBoard } from "./board";
 import { CommandPalette, type PaletteCommand } from "./command-palette.js";
 import { ComparePanel } from "./compare";
-import { Editor, findInEditor } from "./editor";
+import { Editor, editorLanguageCommand, findInEditor } from "./editor";
+import {
+  type LanguageDiagnostic,
+  type LanguageLocation,
+  type LanguageRange,
+  offsetAt,
+} from "./editor-language-model.js";
 import { WorkspaceFileTree } from "./file-tree";
 import { Icon } from "./icon";
 import {
@@ -42,6 +48,18 @@ interface Document {
   exportName: string;
   readOnly: boolean;
   parameters: Record<number, { value: string; null: boolean }>;
+  definition?: boolean;
+  languageSource?: string;
+  languageDiagnostics?: readonly LanguageDiagnostic[];
+}
+interface WorkspaceProblem {
+  code: string;
+  message: string;
+  severity: string;
+  range?: { line: number; column: number; start?: number; end?: number };
+  sourceRevision?: string;
+  origin?: string;
+  source?: string;
 }
 function App() {
   const [theme, setTheme] = useTheme();
@@ -61,6 +79,7 @@ function App() {
     [closing, setClosing] = useState<{ paneId: string; tab: string } | null>(null),
     [selectedTable, setSelectedTable] = useState<string | null>(null),
     [lastFile, setLastFile] = useState(""),
+    [navigation, setNavigation] = useState<{ paneId: string; file: string; range: LanguageRange } | null>(null),
     [compareA, setCompareA] = useState<string | undefined>();
   const stateRef = useRef<State | null>(null),
     activePaneRef = useRef(activePane),
@@ -84,6 +103,13 @@ function App() {
           .filter((doc) => doc.source !== doc.saved)
           .map((doc) => doc.file),
       ),
+    [documents],
+  );
+  const workingCopies = useMemo(
+    () =>
+      Object.values(documents)
+        .filter((doc) => !doc.definition && doc.source !== doc.saved)
+        .map(({ file, source, revision }) => ({ file, source, revision })),
     [documents],
   );
   const focused = panes(layout).find((item) => item.id === activePane) ?? panes(layout)[0]!;
@@ -199,6 +225,7 @@ function App() {
   }, [dirty]);
   useEffect(() => {
     for (const doc of Object.values(documents)) {
+      if (doc.definition) continue;
       if (analysisSources.current.get(doc.file) === doc.source) continue;
       analysisSources.current.set(doc.file, doc.source);
       const previous = analysisTimers.current.get(doc.file);
@@ -251,7 +278,17 @@ function App() {
     [],
   );
   const edit = (file: string, patch: Partial<Document>) =>
-    setDocuments((current) => (current[file] ? { ...current, [file]: { ...current[file]!, ...patch } } : current));
+    setDocuments((current) => {
+      const previous = current[file];
+      if (!previous) return current;
+      const next = { ...previous, ...patch };
+      if (patch.source !== undefined && patch.source !== previous.source) {
+        delete next.analysis;
+        delete next.languageDiagnostics;
+        delete next.languageSource;
+      }
+      return { ...current, [file]: next };
+    });
   const openTab = useCallback(
     (paneId: string, tab: string) => {
       setLayout((current) => open(current, paneId, tab));
@@ -289,9 +326,43 @@ function App() {
         !panes(layoutRef.current).some((item) => item.tabs.includes(file))
       )
         return current;
-      return { ...current, [file]: { ...latest, source: result.source } };
+      const next = { ...latest, source: result.source };
+      if (latest.source !== result.source) delete next.analysis;
+      return { ...current, [file]: next };
     });
     setNotice(`Formatted with ${result.formatter} · ${result.config}`);
+  };
+  const navigate = async (paneId: string, location: LanguageLocation) => {
+    if (location.file && stateRef.current?.files.includes(location.file)) {
+      await load(location.file);
+      openTab(paneId, location.file);
+      setNavigation({ paneId, file: location.file, range: location.range });
+      return;
+    }
+    if (!location.token) throw new Error("This definition is outside the available project files.");
+    const target = await api<{ file: string; source: string; revision: string }>("editor", {
+      method: "readDefinition",
+      token: location.token,
+    });
+    const file = `[definition] ${target.file}`;
+    setDocuments((current) => ({
+      ...current,
+      [file]: {
+        file,
+        source: target.source,
+        saved: target.source,
+        revision: target.revision,
+        writable: false,
+        mode: "file",
+        exportName: "run",
+        readOnly: true,
+        parameters: {},
+        definition: true,
+      },
+    }));
+    setLayout((current) => open(current, paneId, file));
+    setActivePane(paneId);
+    setNavigation({ paneId, file, range: location.range });
   };
   const save = async (file: string) => {
     const doc = documentsRef.current[file];
@@ -513,6 +584,42 @@ function App() {
     await refresh();
     openTab(focused.id, path);
   };
+  const problemsFor = (doc: Document): WorkspaceProblem[] => {
+    const normalized = doc.source.replaceAll("\r\n", "\n");
+    const language = doc.languageSource === normalized ? (doc.languageDiagnostics ?? []) : [];
+    const result: WorkspaceProblem[] = [...(doc.analysis?.diagnostics ?? [])];
+    for (const diagnostic of language) {
+      const start = offsetAt(normalized, diagnostic.range.start);
+      const end = offsetAt(normalized, diagnostic.range.end);
+      if (start === undefined || end === undefined) continue;
+      result.push({
+        code: String(diagnostic.code ?? diagnostic.source ?? "Editor"),
+        message: diagnostic.message,
+        severity:
+          diagnostic.severity === 2
+            ? "warning"
+            : diagnostic.severity === 3 || diagnostic.severity === 4
+              ? "info"
+              : "error",
+        origin: "language-server",
+        source: diagnostic.source ?? "Editor",
+        range: { line: diagnostic.range.start.line + 1, column: diagnostic.range.start.character + 1, start, end },
+      });
+    }
+    const latest = state?.runs.find((run) => run.file === doc.file);
+    if (doc.source === doc.saved && latest?.sourceRevision === doc.revision)
+      result.push(...(latest.diagnostics ?? []).filter((problem) => problem.sourceRevision === doc.revision));
+    const seen = new Set<string>();
+    return result.filter((problem) => {
+      const message = problem.message.startsWith(`${problem.code}: `)
+        ? problem.message.slice(problem.code.length + 2)
+        : problem.message;
+      const key = `${problem.code}:${problem.range?.line}:${problem.range?.column}:${message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
   const bottom = (item: Pane, doc: Document) => {
     if (item.bottom === "results") {
       const run = state!.runs.find((run) => run.id === item.runId) ?? state!.runs.find((run) => run.file === doc.file);
@@ -558,21 +665,21 @@ function App() {
     if (item.bottom === "problems")
       return (
         <div className="problems-list">
-          {doc.analysis?.diagnostics.length ? (
-            doc.analysis.diagnostics.map((problem) => (
+          {problemsFor(doc).length ? (
+            problemsFor(doc).map((problem) => (
               <div
                 className={problem.severity}
-                key={`${problem.code}:${problem.range.line}:${problem.range.column}:${problem.message}`}
+                key={`${problem.code}:${problem.range?.line}:${problem.range?.column}:${problem.message}`}
               >
                 <code>{problem.code}</code>
                 <span>{problem.message}</span>
                 <small>
-                  {problem.range.line}:{problem.range.column}
+                  {problem.range ? `${problem.range.line}:${problem.range.column}` : (problem.source ?? problem.origin)}
                 </small>
               </div>
             ))
           ) : (
-            <div className="quiet-empty">No SQL diagnostics. TypeScript is checked on Run.</div>
+            <div className="quiet-empty">No compiler, editor or database diagnostics for this file.</div>
           )}
         </div>
       );
@@ -721,6 +828,31 @@ function App() {
     const doc = documents[item.active];
     if (!doc)
       return <div className="quiet-empty">{item.active ? "Opening file…" : "Open a file from the project tree."}</div>;
+    if (doc.definition)
+      return (
+        <div className="document-workspace">
+          <div className="document-toolbar">
+            <span className="document-path" title={doc.file}>
+              {doc.file}
+            </span>
+            <span>Read-only definition</span>
+          </div>
+          <div className="document-editor" style={{ flex: "1 1 0" }}>
+            <Editor
+              session={`${state.project.name}:${item.id}:${doc.file}`}
+              file={doc.file}
+              source={doc.source}
+              revision={doc.revision}
+              readOnly
+              active={item.id === focused.id}
+              {...(navigation?.paneId === item.id && navigation.file === doc.file ? { reveal: navigation.range } : {})}
+              onChange={() => {}}
+              onSave={() => {}}
+              onRun={() => {}}
+            />
+          </div>
+        </div>
+      );
     const active = state.runs.find((run) => ["checking", "running", "cancelling"].includes(run.status));
     return (
       <div className="document-workspace">
@@ -829,6 +961,31 @@ function App() {
             session={`${state.project.name}:${item.id}:${doc.file}`}
             file={doc.file}
             source={doc.source}
+            revision={doc.revision}
+            languageEnabled={state.trusted}
+            workingCopies={workingCopies}
+            active={item.id === focused.id}
+            diagnostics={problemsFor(doc).flatMap((problem) =>
+              problem.range && problem.origin !== "language-server" ? [{ ...problem, range: problem.range }] : [],
+            )}
+            {...(navigation?.paneId === item.id && navigation.file === doc.file ? { reveal: navigation.range } : {})}
+            onNavigate={(location) => void action(() => navigate(item.id, location))}
+            onFormat={() => void action(() => formatFile(doc.file))}
+            onDiagnostics={(source, diagnostics) =>
+              setDocuments((current) => {
+                const latest = current[doc.file];
+                if (!latest || latest.source.replaceAll("\r\n", "\n") !== source) return current;
+                if (
+                  latest.languageSource === source &&
+                  JSON.stringify(latest.languageDiagnostics) === JSON.stringify(diagnostics)
+                )
+                  return current;
+                return {
+                  ...current,
+                  [doc.file]: { ...latest, languageSource: source, languageDiagnostics: diagnostics },
+                };
+              })
+            }
             onChange={(source) => edit(doc.file, { source })}
             onSave={() =>
               void action(async () => {
@@ -864,9 +1021,7 @@ function App() {
                 }
               >
                 {tab[0]!.toUpperCase() + tab.slice(1)}
-                {tab === "problems" && doc.analysis?.diagnostics.length ? (
-                  <span>{doc.analysis.diagnostics.length}</span>
-                ) : null}
+                {tab === "problems" && problemsFor(doc).length ? <span>{problemsFor(doc).length}</span> : null}
               </button>
             ))}
             {item.bottom === "results" ? (
@@ -903,8 +1058,9 @@ function App() {
         <span>{error || "Opening workspace…"}</span>
       </main>
     );
-  const problems = Object.values(documents).reduce((sum, doc) => sum + (doc.analysis?.diagnostics.length ?? 0), 0);
-  const activeDoc = !isTool(focused.active) ? documents[focused.active] : undefined;
+  const problems = Object.values(documents).reduce((sum, doc) => sum + problemsFor(doc).length, 0);
+  const activeDoc =
+    !isTool(focused.active) && !documents[focused.active]?.definition ? documents[focused.active] : undefined;
   const connect = () =>
     void action(async () => {
       await api(state.connection.state === "connected" ? "refresh" : "connect", {});
@@ -973,6 +1129,19 @@ function App() {
       run: () => closeTab(focused.id, focused.active),
     });
   if (activeDoc) {
+    for (const [command, label, shortcut] of [
+      ["completion", "Trigger suggestions", "Ctrl+Space / ⌘Space"],
+      ["hover", "Show hover information", ""],
+      ["definition", "Go to definition", "F12"],
+      ["codeAction", "Quick fixes and code actions", "⌘. / Ctrl+."],
+    ] as const)
+      commands.push({
+        id: `editor-${command}`,
+        label,
+        shortcut,
+        icon: "file-ts",
+        run: () => editorLanguageCommand(`${state.project.name}:${focused.id}:${activeDoc.file}`, command),
+      });
     commands.push(
       {
         id: "find",

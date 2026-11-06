@@ -75,6 +75,18 @@ await describe("local playground protocol and project files", async () => {
           await post("analyze", { file: "playground/new.ts", source: "export async function run(){return [];}" })
         ).json();
         strict.deepEqual(analyzed.exports, ["run"]);
+        for (const source of ["export async function run() { return profile.", "const label = '😀'; const thing = ;"]) {
+          const response = await post("analyze", { file: "playground/new.ts", source });
+          strict.equal(response.status, 200, "Incomplete TypeScript is a source diagnostic, not a host/config failure");
+          const result = await response.json();
+          strict.deepEqual(result.exports, []);
+          const syntax = result.diagnostics.find((item: { code: string }) => item.code === "TS_SYNTAX");
+          strict.ok(syntax);
+          strict.equal(syntax.severity, "error");
+          strict.ok(syntax.range.start <= source.length && syntax.range.end <= source.length);
+          if (source.includes("😀"))
+            strict.equal(syntax.range.start, source.lastIndexOf(";"), "Positions use UTF-16, not UTF-8 byte columns");
+        }
         strict.equal(
           (
             await post("run", {

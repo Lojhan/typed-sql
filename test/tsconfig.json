@@ -11,6 +11,7 @@
     "../packages/*/test/environment.ts",
     "../packages/playground/ui/layout.ts",
     "../packages/playground/ui/command-model.ts",
+    "../packages/playground/ui/editor-language-model.ts",
     "../packages/playground/ui/result-model.ts",
     "../packages/playground/ui/types.ts",
     "contracts/**/*.test.ts",

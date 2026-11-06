@@ -101,6 +101,26 @@ Choose **Format file** in the file-actions menu, **Format active file** in the p
 
 Repository formatters and executable configuration/plugins run locally with your user permissions, so enable trusted project execution for the session first. Nothing is installed automatically. Missing configuration, missing packages, ignored files and unsupported file types produce diagnostics. SQL formatting requires actual support in the installed formatter, such as a configured Prettier SQL plugin; the workspace does not guess a SQL layout or execute queries to format them.
 
+## Editor intelligence
+
+Install the optional [language server](./editors.md) in the project to enable TypeScript and SQL editor intelligence:
+
+```sh
+pnpm add -D @typed-sql/language-server
+```
+
+Enable trusted project execution for the session. The host starts the installed companion locally over stdio; it does not install a server, start one before trust, or send source to a hosted service. The companion owns the pinned TypeScript editor backend and typed-sql semantics. Its experimental integration stays separate from the stable workspace and compiler packages. The editor reports missing or unavailable capabilities explicitly.
+
+Hover shows available type/query information. Suggestions appear while typing; `Ctrl+Space` or `Cmd+Space` requests them explicitly. `F12` and Cmd/Ctrl-click navigate to a definition. Right-click or `Shift+F10` opens editor actions, including navigation, suggestions, quick fixes, search and formatting. The command palette exposes the same language actions. Definition targets outside the editable roots open as bounded read-only documents, limited to the configured schema snapshot or verified installed dependency declarations.
+
+Imports use the selected project's TypeScript resolution rules: a runtime `./db.js` specifier can navigate to `db.ts`, with the corresponding `.mjs`/`.mts` and `.cjs`/`.cts` behavior. JavaScript and JSX editing respects project `allowJs` and `checkJs` settings. ESM JavaScript queries use the same checked execution modes when the project permits them; CommonJS execution remains unsupported.
+
+Unsaved working copies participate in analysis across tabs. Editing a helper and switching immediately to an importing query uses the helper's current buffer; discarding restores the disk version. Responses carry source, working-copy and snapshot identities so old suggestions, tooltips and fixes cannot overwrite newer context. Oversized working-copy contexts produce a diagnostic rather than silently analyzing an incomplete set.
+
+Compiler and language-server errors appear inline and in **Problems**. Suggestions, hover, navigation and diagnostics use the current source overlay and project snapshot; they do not run queries. Quick fixes apply supported text edits to the current buffer after source checks, leaving saving explicit. The workspace does not automatically execute language-server commands or silently apply edits to unrelated files.
+
+Explicit query execution can add PostgreSQL diagnostics with SQLSTATE evidence. A raw SQL error receives an inline range only when the executed query identity, compiler offset map and captured source prove its location. New edits or a newer run invalidate older markers. Errors without a proven location remain in the run/Problems view; TypeScript results and connection failures never receive guessed SQL spans. Inline database messages use fixed descriptions rather than copying server details that may contain values or SQL.
+
 ## Explore and create a query
 
 The board displays captured foreign keys, including composite and cross-schema keys. It never infers relationships from column names. Search relations/columns, focus neighbors, drag cards and reset the layout. Layout positions stay in local browser storage, outside the compiler snapshot. The schema list and inspector provide keyboard-accessible relation/column/constraint information.

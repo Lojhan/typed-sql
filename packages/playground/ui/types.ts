@@ -39,6 +39,16 @@ export type Value =
   | { kind: "array"; items: Value[] }
   | { kind: "object"; entries: [string, Value][] };
 export interface Run {
+  diagnostics?: {
+    origin: "database";
+    engine: "postgres";
+    code: string;
+    severity: "error";
+    message: string;
+    file: string;
+    sourceRevision: string;
+    range?: { start: number; end: number; line: number; column: number };
+  }[];
   id: string;
   file: string;
   sourceRevision: string;
