@@ -132,3 +132,25 @@ Defaults are 500 rows/result, 5 MiB result payload/run, 1 MiB console output/run
 Cancel asks the adapter to stop, then closes/terminates the worker if necessary. The UI distinguishes confirmed cancellation from **outcome unknown**. It never retries a write automatically. A stopped local process does not prove the database rolled back. Shutdown closes owned workers, cursors, pools and the listener.
 
 Only display layout and file references are persisted automatically. Rows, bindings, results and credentials are not uploaded or saved as workspace history.
+
+## Local agents and reviewed query tools
+
+Open **Agent** to configure an existing local [ACP v1 stdio agent](https://agentclientprotocol.com/protocol/v1/initialization). Give the profile a name, an executable and a JSON array of arguments. Use an agent's documented ACP adapter command; an ordinary terminal chat command is not necessarily an ACP server. The host starts that executable directly, without a shell, only when you send a prompt after trusting the project. Complete the agent's own installation and login in a terminal first. Profiles do not install agents or initiate authentication automatically.
+
+Profiles live in the user's `agents.json`, under `$XDG_CONFIG_HOME/typed-sql/playground` or `~/.config/typed-sql/playground`. The file uses private permissions and is shared across projects. Command arguments remain on the host and are omitted from browser responses. Do not put credentials in command arguments; let the agent use its own local login or environment. This local process runs with your host permissions and can use a remote model according to its own configuration; ACP is an integration protocol, not a process sandbox.
+
+Choose the source, schema or result context to attach before sending. Source context must match the saved file revision. Attachments are limited to 256 KiB. The client forwards only those selected attachments plus the conversation transcript; it does not automatically collect the database or project directory. Agents with their own filesystem tools may access additional host files under their own permissions. Review an agent's configuration before sharing sensitive data.
+
+Assistant text streams into the conversation. The workspace persists messages and proposals in private, project-scoped user storage. A fresh ACP session receives the saved transcript each turn; this does not rely on agent-specific session loading. Stop cancels the turn and terminates the owned process group. Turns have a two-minute deadline, bounded output and at most two concurrent local processes. Authentication, malformed-protocol and process failures appear as failed turns rather than fabricated responses.
+
+An agent can author reusable SQL or TypeScript tools through ACP's `fs/write_text_file` request. The workspace displays the complete existing/proposed source and requires **Accept** or **Reject**. Accept writes a real repository file inside the configured `writeRoots`, checked against the original revision. A stale proposal cannot overwrite an externally changed file. Reject, cancellation and restart leave pending changes unapplied. Files belong to the project and can be committed and shared like any other query file; agent profiles and conversation storage remain local to the user.
+
+For agents that do not use client filesystem methods, a text response can include a fenced `typed-sql-tool` JSON block. The workspace turns it into the same reviewable file proposal:
+
+````text
+```typed-sql-tool
+{"file":"playground/find-account.sql","source":"select id from public.accounts where id = $1;\n"}
+```
+````
+
+Saving a proposed tool never executes it. Open the saved file in the editor, inspect its typed contract, and use the usual Run action and managed read-only/write controls. The client supplies no terminal capability and declines general agent permission requests. These controls govern the workspace's mediated file and query actions; they cannot restrict a trusted executable's independent operating-system access.
