@@ -126,3 +126,32 @@ neutral regressions, soundness, real tarballs and worker paths, browser/editor h
 four-build/ten-compat matrix including pending AS OF/alias changes, Duck two-version full packed
 workflows, canonical docs, performance and release/distribution contracts. Do not accept stale
 pre-repair native receipts for altered physical SQL or metadata normalization.
+
+## Integration receipt update: 95478f3
+
+- Full `pnpm verify` attempt on the integrated source passed all package suites, including
+  SQL Server strict coverage (96.35% lines, 90.89% branches), and 44/45 repository contract
+  files. The sole failure was a broken bulk-data execution link. Commit `95478f3` fixes the
+  link and the full documentation contract then passes. This is not recorded as an
+  uninterrupted green `pnpm verify` run.
+- The subsequent production `pnpm build`, canonical `pnpm docs:build` (27.02 seconds),
+  nine-file `pnpm test:soundness`, and `pnpm performance:gate` pass. Performance evidence
+  identifies clean head `95478f3`, budget version 17: SQL analysis ~8,997 queries/second,
+  parser p95 4.66 ms; Duck analysis ~11,134 queries/second, parser p95 3.53 ms. No budget
+  was relaxed. SQL AS OF lowering `465a85e` is included in those build/soundness checks.
+- Native run [42136571758](https://github.com/Lojhan/typed-sql/actions/runs/42136571758)
+  provides 40 raw temporal parameter probes across four engines and ten compatibility
+  combinations. Bare bound parameters agree with literal execution at the exact current
+  period boundary and 100 ns before it under both MDY and DMY. The typed AS OF renderer
+  still failed in that run; `465a85e` uses only AST-attested datetime2(7) temporal
+  occurrences and preserves explicit conversion in other contexts.
+- The same run exposes an alias result metadata defect (`catalog_alias` cannot yet be
+  normalized) before the rowversion concurrency stage. No rowversion success is inferred
+  from absent evidence. The packed first-use failure is setup DDL being discovered as a
+  query; `526af59` moves that exact DDL outside query discovery and passes a real SDK-free
+  installed replay, while preserving configured native setup.
+- Native run [42137635548](https://github.com/Lojhan/typed-sql/actions/runs/42137635548)
+  tests the AS OF and first-use repairs at `f1ae218`. It is in progress at this receipt
+  update; alias attestation and final coherent-head qualification remain incomplete.
+- Public parameter projection is isolated as [PR #268](https://github.com/Lojhan/typed-sql/pull/268),
+  with local typecheck and full conformance tests passing. CI remains the merge gate.
