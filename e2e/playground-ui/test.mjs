@@ -558,6 +558,30 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     "Escape restores editor focus",
   );
   check("Cmd/Ctrl-K opens files, overrides editor keymaps and supports keyboard navigation/escape");
+  await page.keyboard.press("ControlOrMeta+Shift+p");
+  await paletteDialog.waitFor();
+  await paletteInput.evaluate((element) => element.blur());
+  await page.keyboard.press("Escape");
+  await paletteDialog.waitFor({ state: "detached" });
+  await page.keyboard.press("ControlOrMeta+k");
+  await paletteDialog.waitFor();
+  await page.locator(".modal-backdrop").click({ position: { x: 5, y: 5 } });
+  await paletteDialog.waitFor({ state: "detached" });
+  check("palette dismisses with Escape after focus leaves its input and with an outside click");
+  const sidebar = page.locator(".project-sidebar");
+  await editor.click();
+  await page.keyboard.press("ControlOrMeta+b");
+  await sidebar.waitFor({ state: "detached" });
+  await page.keyboard.press("ControlOrMeta+b");
+  await sidebar.waitFor();
+  const paneCount = await page.locator(".editor-pane").count();
+  for (const shortcut of ["ControlOrMeta+Backslash", "ControlOrMeta+Shift+Backslash"]) {
+    await page.keyboard.press(shortcut);
+    await page.waitForFunction((count) => document.querySelectorAll(".editor-pane").length === count + 1, paneCount);
+    await page.keyboard.press("ControlOrMeta+w");
+    await page.waitForFunction((count) => document.querySelectorAll(".editor-pane").length === count, paneCount);
+  }
+  check("workspace shortcuts toggle tree, split right/down and close the active workspace tab");
   await invoke(">Find in active file", "Find in active file");
   const find = page.getByRole("textbox", { name: "Find", exact: true });
   await find.waitFor();

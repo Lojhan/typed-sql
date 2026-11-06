@@ -6,11 +6,13 @@ export function Modal({
   className,
   onClose,
   children,
+  dismissOnBackdrop = false,
 }: {
   label: string;
   className: string;
   onClose: () => void;
   children: ReactNode;
+  dismissOnBackdrop?: boolean;
 }) {
   const element = useRef<HTMLElement>(null);
   const close = useRef(onClose);
@@ -27,8 +29,10 @@ export function Modal({
       );
     (dialog.querySelector<HTMLElement>("input:not(:disabled)") ?? controls()[0] ?? dialog).focus();
     const key = (event: KeyboardEvent) => {
+      if (Array.from(document.querySelectorAll('[role="dialog"]')).at(-1) !== dialog) return;
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         close.current();
         return;
       }
@@ -49,14 +53,19 @@ export function Modal({
         first.focus();
       }
     };
-    dialog.addEventListener("keydown", key);
+    document.addEventListener("keydown", key, true);
     return () => {
-      dialog.removeEventListener("keydown", key);
+      document.removeEventListener("keydown", key, true);
       if (previous?.isConnected) previous.focus();
     };
   }, []);
   return (
-    <div className="modal-backdrop">
+    <div
+      className="modal-backdrop"
+      onPointerDown={(event) => {
+        if (dismissOnBackdrop && event.target === event.currentTarget) close.current();
+      }}
+    >
       <section className={className} ref={element} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
         {children}
       </section>

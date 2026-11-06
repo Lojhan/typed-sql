@@ -63,7 +63,7 @@ export function CommandPalette({
     requestAnimationFrame(item.run);
   };
   return (
-    <Modal label="Command palette" className="command-palette" onClose={onClose}>
+    <Modal label="Command palette" className="command-palette" onClose={onClose} dismissOnBackdrop>
       <div className="palette-search">
         <Icon name="search" />
         <input

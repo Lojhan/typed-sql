@@ -71,17 +71,6 @@ function App() {
     analysisSources = useRef(new Map<string, string>()),
     analysisTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
     storageKey = useRef("");
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        event.stopPropagation();
-        setPalette((value) => !value);
-      }
-    };
-    document.addEventListener("keydown", key, true);
-    return () => document.removeEventListener("keydown", key, true);
-  }, []);
   documentsRef.current = documents;
   layoutRef.current = layout;
   const dirty = useMemo(
@@ -367,6 +356,27 @@ function App() {
     });
     if (discard) edit(tab, { source: documentsRef.current[tab]?.saved ?? "" });
   };
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing || event.repeat) return;
+      const name = event.key.toLowerCase();
+      let command: (() => void) | undefined;
+      if ((!event.shiftKey && name === "k") || (event.shiftKey && name === "p"))
+        command = () => setPalette((value) => !value);
+      else if (!document.querySelector('[role="dialog"]')) {
+        if (!event.shiftKey && name === "b") command = () => setSidebarVisible((value) => !value);
+        if (event.code === "Backslash" && panes(layoutRef.current).length < 8)
+          command = () => split(focused.id, event.shiftKey ? "bottom" : "right");
+        if (!event.shiftKey && name === "w" && focused.active) command = () => closeTab(focused.id, focused.active);
+      }
+      if (!command) return;
+      event.preventDefault();
+      event.stopPropagation();
+      command();
+    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  });
   const changeFile = async (file: string) => {
     if (dirty.has(file)) {
       setError(`${file} changed outside this editor. Unsaved buffer preserved; save a copy or reload explicitly.`);
@@ -823,6 +833,7 @@ function App() {
       id: "tree",
       label: sidebarVisible ? "Hide file tree" : "Show file tree",
       icon: "sidebar",
+      shortcut: "⌘B / Ctrl+B",
       run: () => setSidebarVisible((value) => !value),
     },
     ...(["system", "light", "dark"] as const).map((value) => ({
@@ -859,6 +870,7 @@ function App() {
         id: `split-${edge}`,
         label: `Split editor ${edge}`,
         icon: "split",
+        shortcut: edge === "right" ? "⌘\\ / Ctrl+\\" : edge === "bottom" ? "⌘⇧\\ / Ctrl+Shift+\\" : "",
         run: () => split(focused.id, edge),
       });
   if (focused.active)
@@ -866,6 +878,7 @@ function App() {
       id: "close",
       label: "Close active tab",
       icon: "close",
+      shortcut: "⌘W / Ctrl+W",
       run: () => closeTab(focused.id, focused.active),
     });
   if (activeDoc) {
@@ -1027,7 +1040,8 @@ function App() {
             type="button"
             className="status-icon"
             aria-label="Toggle project tree"
-            title="Toggle project tree"
+            aria-keyshortcuts="Meta+B Control+B"
+            title="Toggle project tree (⌘B / Ctrl+B)"
             onClick={() => setSidebarVisible((value) => !value)}
           >
             <Icon name="sidebar" />

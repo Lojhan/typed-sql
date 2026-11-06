@@ -95,6 +95,8 @@ Press `Cmd/Ctrl+K`, or use the command icon in the bottom bar, to search file pa
 
 **Find in active file** opens the editor's search panel. It searches the actual document with next/previous matches, case sensitivity and regular expressions. `Cmd/Ctrl+F` also opens it while the editor has focus. File lookup lives in the palette, so the file tree has no separate filter input. Search and navigation do not execute queries.
 
+Use `Cmd/Ctrl+B` to show or hide the file tree, `Cmd/Ctrl+\\` to split right and `Cmd/Ctrl+Shift+\\` to split below. `Cmd/Ctrl+W` closes the active workspace tab and asks how to handle unsaved edits. `Cmd/Ctrl+Shift+P` also opens the command palette. Escape or clicking outside dismisses the palette and restores the previous focus. Workspace layout shortcuts are inactive while a dialog is open.
+
 ## Explore and create a query
 
 The board displays captured foreign keys, including composite and cross-schema keys. It never infers relationships from column names. Search relations/columns, focus neighbors, drag cards and reset the layout. Layout positions stay in local browser storage, outside the compiler snapshot. The schema list and inspector provide keyboard-accessible relation/column/constraint information.
