@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/browser");
 await mkdir(artifacts, { recursive: true });
+await rm(join(artifacts, "failure.png"), { force: true });
 const evidence = { node: process.version, cases: [], errors: [], screenshots: [] };
 let fixture, host, browser, page;
 const check = (name, details = {}) => {
@@ -72,14 +73,23 @@ try {
   );
   await writeFile(
     join(root, "typed-sql.config.mjs"),
-    "import {postgres} from '@typed-sql/postgres';export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground']}};\n",
+    `import {postgres} from '@typed-sql/postgres';
+const identity={database:'visual-fixture',server:'explicit fake UI fixture',adapter:'fake-ui',readOnly:true};
+const a=[[1,'Alice'],[2,'Béatrice'],[3,'Review 3'],[4,'Review 4']];
+const b=[[1,'Alicea'],[2,'Béatrice'],[3,'Review 3a'],[4,'Review 4']];
+export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{visual:{classification:'test',expected:{database:'visual-fixture'},connect:()=>({identity:async()=>identity,query:async({text})=>({columns:[{name:'id',databaseType:'integer'},{name:text.includes('name_alias')?'name_alias':'name',databaseType:'text'}],rows:text.includes('name_alias')?b:a,truncated:false,command:'SELECT'}),database:async()=>{throw Error('Visual fixture only executes raw SQL')},close:async()=>{}})}}}};\n`,
   );
   await writeFile(join(root, "playground/selection.sql"), source);
+  await writeFile(join(root, "playground/compare-a.sql"), "select id,name from public.accounts order by id;\n");
+  await writeFile(
+    join(root, "playground/compare-b.sql"),
+    "select id,name as name_alias from public.accounts order by id;\n",
+  );
   for (let i = 0; i < 8; i++)
     await writeFile(join(root, `playground/query-${i}-long-tab-name.sql`), "select id from public.accounts;\n");
   await writeFile(
     join(root, "workspace-host.mjs"),
-    `import {startPlayground} from '@typed-sql/playground';const host=await startPlayground({config:'typed-sql.config.mjs',port:Number(process.env.PORT)});console.log('WORKSPACE_UI '+host.url);process.on('SIGTERM',()=>void host.close().then(()=>process.exit(0)));`,
+    `import {startPlayground} from '@typed-sql/playground';const host=await startPlayground({config:'typed-sql.config.mjs',target:'visual',port:Number(process.env.PORT)});console.log('WORKSPACE_UI '+host.url);process.on('SIGTERM',()=>void host.close().then(()=>process.exit(0)));`,
   );
   host = await server(root, ["workspace-host.mjs"], { XDG_CONFIG_HOME: join(root, "private-xdg") });
   const response = await host.fetch("/");
@@ -352,6 +362,150 @@ try {
   );
   await screenshot(header, "narrow-header-700");
   check("700px toolbar controls remain visible and pointer-reachable");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const capture = async (file) => {
+    await tree.locator(`[title="${file}"]`).click();
+    await page.getByRole("button", { name: "Run", exact: true }).click();
+    let run;
+    const deadline = Date.now() + 30_000;
+    do {
+      run = await page.evaluate(async (file) => {
+        const response = await fetch("/api/state", {
+          headers: { "x-typed-sql-session": sessionStorage.getItem("typed-sql-session") },
+        });
+        const state = await response.json();
+        return state.runs.find((item) => item.file === file && item.finishedAt) || null;
+      }, file);
+      if (run) break;
+      await page.waitForTimeout(30);
+    } while (Date.now() < deadline);
+    assert.ok(run, "SQL capture must complete before the browser assertion deadline");
+    assert.equal(run.status, "succeeded", JSON.stringify(run));
+    return run;
+  };
+  const capturedA = await capture("playground/compare-a.sql");
+  const capturedB = await capture("playground/compare-b.sql");
+  await header.getByRole("button", { name: "Compare", exact: true }).click();
+  await page.getByRole("combobox", { name: "Run A", exact: true }).selectOption(capturedA.id);
+  await page.getByRole("combobox", { name: "Run B", exact: true }).selectOption(capturedB.id);
+  await page.getByText("2 matching rows", { exact: true }).waitFor();
+  await page.getByText("Column names differ", { exact: true }).waitFor();
+  await page.getByText("Column types match", { exact: true }).waitFor();
+  const tables = page.locator(".comparison-grids table");
+  assert.equal(await tables.count(), 2);
+  const assertOrdered = async () => {
+    for (const table of await tables.all()) {
+      assert.equal(await table.locator("th.column-mismatch").count(), 1, "Alias differences are header metadata only");
+      const marked = await table.locator("tbody tr").evaluateAll((rows) =>
+        rows.map((row) => ({
+          whole: row.classList.contains("diff-row"),
+          cells: [...row.querySelectorAll("td")].map((cell) => cell.classList.contains("diff-cell")),
+        })),
+      );
+      assert.deepEqual(
+        marked,
+        [
+          { whole: false, cells: [false, false, true] },
+          { whole: false, cells: [false, false, false] },
+          { whole: false, cells: [false, false, true] },
+          { whole: false, cells: [false, false, false] },
+        ],
+        "Only changed name cells are highlighted; matching aliases/IDs and equal rows stay neutral",
+      );
+    }
+  };
+  await assertOrdered();
+  const paint = (button) =>
+    button.evaluate((element) => {
+      const rgba = (color) => {
+        const n = color.match(/[\d.]+/g)?.map(Number) || [];
+        return [n[0] || 0, n[1] || 0, n[2] || 0, n[3] ?? 1];
+      };
+      const layers = [];
+      for (let node = element; node; node = node.parentElement) {
+        const color = rgba(getComputedStyle(node).backgroundColor);
+        layers.push(color);
+        if (color[3] === 1) break;
+      }
+      let background = [255, 255, 255];
+      for (const color of layers.reverse())
+        background = background.map((v, i) => color[i] * color[3] + v * (1 - color[3]));
+      const foreground = rgba(getComputedStyle(element).color).slice(0, 3);
+      const luminance = (color) =>
+        color
+          .map((v) => {
+            const c = v / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          })
+          .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const a = luminance(foreground),
+        b = luminance(background);
+      return { foreground, background, contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+    });
+  for (const mode of ["light", "dark"]) {
+    await theme.selectOption(mode);
+    await page.mouse.move(600, 20);
+    for (const [index, table] of (await tables.all()).entries()) {
+      for (const neutral of [
+        ...(await table.locator("tbody tr td:nth-child(2) button").all()),
+        table.getByRole("button", { name: "Béatrice", exact: true }),
+        table.getByRole("button", { name: "Review 4", exact: true }),
+      ]) {
+        const color = await paint(neutral);
+        assert.ok(
+          color.background[0] <= color.background[2] + 10,
+          `${mode} equal rows and all IDs stay neutral instead of receiving warm difference paint`,
+        );
+      }
+      const equal = table.getByRole("button", { name: "Béatrice", exact: true });
+      await equal.hover();
+      const neutralPaint = await paint(equal);
+      assert.ok(
+        neutralPaint.contrast >= 4.5,
+        `${mode} matching-row hover must remain readable: ${JSON.stringify(neutralPaint)}`,
+      );
+      const changed = table.getByRole("button", { name: index === 0 ? "Alice" : "Alicea", exact: true });
+      await changed.hover();
+      const changedPaint = await paint(changed);
+      assert.ok(
+        changedPaint.contrast >= 4.5,
+        `${mode} changed-cell hover must remain readable: ${JSON.stringify(changedPaint)}`,
+      );
+      assert.ok(
+        changedPaint.background[0] > changedPaint.background[2] + 10,
+        "Changed cells retain their warm difference paint on hover",
+      );
+      if (mode === "dark")
+        assert.ok(Math.max(...changedPaint.background) < 130, "Dark hover never paints a white cell");
+      await screenshot(
+        page.locator(".comparison-grids > div").nth(index),
+        `compare-ordered-${mode}-${index === 0 ? "a" : "b"}`,
+      );
+      check(`Compare ${mode} side ${index === 0 ? "A" : "B"} preserves readable neutral/difference hover`, {
+        neutralPaint,
+        changedPaint,
+      });
+    }
+    await assertOrdered();
+  }
+  await page.getByRole("combobox", { name: "Row comparison mode" }).selectOption("multiset");
+  await page.getByText("2 matching rows", { exact: true }).waitFor();
+  for (const table of await tables.all()) {
+    const rows = await table
+      .locator("tbody tr")
+      .evaluateAll((items) => items.map((row) => row.classList.contains("diff-row")));
+    assert.deepEqual(
+      rows,
+      [true, false, true, false],
+      "Unordered mode only highlights genuinely unmatched rows despite alias differences",
+    );
+    assert.equal(await table.locator("td.diff-cell").count(), 0);
+  }
+  check("real captured Compare separates aliases from ordered cell changes and unordered unmatched rows", {
+    target: "explicit fake UI fixture, real SQL worker captures",
+    left: capturedA.id,
+    right: capturedB.id,
+  });
   assert.deepEqual(evidence.errors, [], "The real browser must have no runtime exceptions");
 } catch (error) {
   evidence.failure = error.stack ?? String(error);
