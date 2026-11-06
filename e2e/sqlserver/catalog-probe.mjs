@@ -236,18 +236,45 @@ async function aliases(db, report) {
   assert.deepEqual(first.version_value, version.native_bytes);
   report.rowversionConcurrency = { id: "11", originalVersion: Array.from(first.version_value) };
   try {
+    const described = await db.queryable.all("EXEC sys.sp_describe_undeclared_parameters @tsql=?", [
+      "SELECT id FROM dbo.catalog_columns WHERE version_value=@__typed_sql_1",
+    ]);
+    report.rowversionConcurrency.nativeSuggestedParameters = described;
+    assert.equal(described.length, 1);
+    const suggested = described[0];
+    assert.equal(suggested.name, "@__typed_sql_1");
+    assert.ok([165, 173, 189].includes(integer(suggested.suggested_system_type_id)));
+    assert.equal(integer(suggested.suggested_max_length), 8);
+    assert.match(
+      String(suggested.suggested_system_type_name).toLowerCase().replaceAll(/\s/gu, ""),
+      /^(?:timestamp|rowversion|binary\(8\)|varbinary\(8\))$/u,
+    );
+    // Native ROWVERSION/TIMESTAMP is generated column identity. Its non-null
+    // eight-byte binary representation is bindable as BINARY(8), without making
+    // ROWVERSION an assignable SQL declaration or changing the output column type.
+    const assertVersionInput = (parameter) => {
+      assert.match(parameter.databaseType, /^(?:binary|varbinary)\(8\)$/u);
+      assert.equal(parameter.type, "bytes");
+      assert.equal(parameter.nullable, false);
+    };
     const selectVersion = await compiled(
       snapshot,
       "SELECT id,amount,version_value FROM dbo.catalog_columns WHERE id=:id AND version_value=:expectedVersion",
     );
     report.rowversionConcurrency.selectParameters = selectVersion.plan.parameters;
+    const selectOutput = selectVersion.plan.columns.find((column) => column.name === "version_value");
+    assert.ok(selectOutput);
+    assert.equal(selectOutput.databaseType, "rowversion");
+    assert.equal(selectOutput.type, "bytes");
+    assert.equal(selectOutput.nullable, false);
+    assert.equal(selectVersion.plan.parameters.length, 2);
     assert.deepEqual(
-      selectVersion.plan.parameters.map((parameter) => [parameter.databaseType, parameter.type, parameter.nullable]),
-      [
-        ["bigint", "bigint", false],
-        ["rowversion", "bytes", false],
-      ],
+      selectVersion.plan.parameters
+        .slice(0, 1)
+        .map((parameter) => [parameter.databaseType, parameter.type, parameter.nullable]),
+      [["bigint", "bigint", false]],
     );
+    assertVersionInput(selectVersion.plan.parameters[1]);
     const oldVersion = Uint8Array.from(first.version_value);
     const selected = await db.one(selectVersion.factory({ id: 11n, expectedVersion: oldVersion }));
     assert.equal(selected.id, 11n);
@@ -259,14 +286,22 @@ async function aliases(db, report) {
       "UPDATE dbo.catalog_columns SET amount=:amount OUTPUT inserted.id,inserted.amount,inserted.version_value WHERE id=:id AND version_value=:expectedVersion",
     );
     report.rowversionConcurrency.updateParameters = updateVersion.plan.parameters;
+    const updateOutput = updateVersion.plan.columns.find((column) => column.name === "version_value");
+    assert.ok(updateOutput);
+    assert.equal(updateOutput.databaseType, "rowversion");
+    assert.equal(updateOutput.type, "bytes");
+    assert.equal(updateOutput.nullable, false);
+    assert.equal(updateVersion.plan.parameters.length, 3);
     assert.deepEqual(
-      updateVersion.plan.parameters.map((parameter) => [parameter.databaseType, parameter.type, parameter.nullable]),
+      updateVersion.plan.parameters
+        .slice(0, 2)
+        .map((parameter) => [parameter.databaseType, parameter.type, parameter.nullable]),
       [
         ["decimal(38,10)", "string", false],
         ["bigint", "bigint", false],
-        ["rowversion", "bytes", false],
       ],
     );
+    assertVersionInput(updateVersion.plan.parameters[2]);
     const nextAmount = "42.0000000000";
     const updated = await db.one(updateVersion.factory({ amount: nextAmount, id: 11n, expectedVersion: oldVersion }));
     assert.equal(updated.id, 11n);
@@ -280,6 +315,17 @@ async function aliases(db, report) {
     report.rowversionConcurrency.staleRows = stale.length;
     assert.deepEqual(stale, []);
     assert.deepEqual(await db.all(selectVersion.factory({ id: 11n, expectedVersion: oldVersion })), []);
+    const oversized = Uint8Array.from([...updated.version_value, 0]);
+    await assert.rejects(
+      () => db.all(updateVersion.factory({ amount: "44.0000000000", id: 11n, expectedVersion: oversized })),
+      (error) => {
+        report.rowversionConcurrency.oversizedRejection = { name: error.name, error: redact(error), code: error.code };
+        assert.ok(error instanceof RangeError, "Oversized token fails local binary binding before native SQL");
+        assert.notEqual(error.code, "TSQL_ODBC_NATIVE");
+        assert.match(error.message, /binary parameter exceeds its native length/u);
+        return true;
+      },
+    );
     const current = await db.one(selectVersion.factory({ id: 11n, expectedVersion: updated.version_value }));
     assert.equal(current.id, 11n);
     assert.equal(current.amount, nextAmount, "Stale optimistic update must not change the row");
