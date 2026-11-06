@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { type FileHandle, mkdir, mkdtemp, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -6,6 +6,17 @@ import { describe, it, strict } from "poku";
 import { EditorLspClient } from "../src/editor-lsp.js";
 import { EditorRoutes } from "../src/editor-service.js";
 import { WorkspaceFiles } from "../src/files.js";
+
+async function overwrite(handle: FileHandle, source: string): Promise<void> {
+  const buffer = Buffer.from(source);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const { bytesWritten } = await handle.write(buffer, offset, buffer.length - offset, offset);
+    if (bytesWritten === 0) throw new Error("Snapshot fixture write did not advance");
+    offset += bytesWritten;
+  }
+  await handle.truncate(buffer.length);
+}
 
 const fake = `import {writeFileSync} from 'node:fs';let schemaChanges=0;let languageId='';let buffer=Buffer.alloc(0);let text='';let uri='';const send=v=>{const b=Buffer.from(JSON.stringify({jsonrpc:'2.0',...v}));process.stdout.write('Content-Length: '+b.length+'\\r\\n\\r\\n');process.stdout.write(b)};
 process.stdin.on('data',chunk=>{buffer=Buffer.concat([buffer,chunk]);while(true){let i=buffer.indexOf('\\r\\n\\r\\n');if(i<0)return;let n=Number(/Content-Length: (\\d+)/.exec(buffer.subarray(0,i).toString())[1]);if(buffer.length<i+4+n)return;let v=JSON.parse(buffer.subarray(i+4,i+4+n));buffer=buffer.subarray(i+4+n);
@@ -132,30 +143,35 @@ await describe("optional local editor companion", async () => {
       };
       const before = (await routes.handle(request, true)) as { projectSnapshotHash: string };
       const schema = join(root, "schema.json");
-      const original = await stat(schema);
-      await writeFile(schema, "[]");
-      await utimes(schema, original.atime, original.mtime);
-      const after = (await routes.handle(request, true)) as {
-        projectSnapshotHash: string;
-        result: { schemaChanges: number };
-      };
-      strict.notEqual(after.projectSnapshotHash, before.projectSnapshotHash);
-      strict.equal(after.result.schemaChanges, 1);
-      const slow = routes.handle({ ...request, source: "schema-slow" }, true);
-      const rejected = strict.rejects(slow, /Schema changed/u);
-      const deadline = Date.now() + 3000;
-      while (
-        !(await stat(join(root, "hover-started")).then(
-          () => true,
-          () => false,
-        ))
-      ) {
-        if (Date.now() > deadline) throw new Error("Companion did not begin hover");
-        await new Promise((resolve) => setTimeout(resolve, 10));
+      const snapshot = await open(schema, "r+");
+      try {
+        const original = await snapshot.stat();
+        await overwrite(snapshot, "[]");
+        await snapshot.utimes(original.atime, original.mtime);
+        const after = (await routes.handle(request, true)) as {
+          projectSnapshotHash: string;
+          result: { schemaChanges: number };
+        };
+        strict.notEqual(after.projectSnapshotHash, before.projectSnapshotHash);
+        strict.equal(after.result.schemaChanges, 1);
+        const slow = routes.handle({ ...request, source: "schema-slow" }, true);
+        const rejected = strict.rejects(slow, /Schema changed/u);
+        const deadline = Date.now() + 3000;
+        while (
+          !(await stat(join(root, "hover-started")).then(
+            () => true,
+            () => false,
+          ))
+        ) {
+          if (Date.now() > deadline) throw new Error("Companion did not begin hover");
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        await overwrite(snapshot, "{}");
+        await snapshot.utimes(original.atime, original.mtime);
+        await rejected;
+      } finally {
+        await snapshot.close();
       }
-      await writeFile(schema, "{}");
-      await utimes(schema, original.atime, original.mtime);
-      await rejected;
     }));
   await it("reports companion death and restarts with fresh document overlays after cooldown", async () =>
     fixture(async (routes, files) => {
@@ -370,18 +386,23 @@ await it("uses the real pinned companion for native TypeScript and original SQL 
       true,
     )) as { result: { token: string }[] };
     strict.ok(definition.result[0]?.token);
-    const schemaTime = await stat(schemaPath);
-    await writeFile(schemaPath, schemaSource.replace('"name": { "name": "name"', '"nope": { "name": "nope"'));
-    await utimes(schemaPath, schemaTime.atime, schemaTime.mtime);
-    const refreshed = (await routes.handle({ ...sql, method: "diagnostics" }, true)) as {
-      diagnostics: { code: string }[];
-    };
-    strict.ok(
-      refreshed.diagnostics.some((item) => item.code === "TSQ101"),
-      JSON.stringify(refreshed),
-    );
-    await writeFile(schemaPath, schemaSource);
-    await utimes(schemaPath, schemaTime.atime, schemaTime.mtime);
+    const snapshot = await open(schemaPath, "r+");
+    try {
+      const schemaTime = await snapshot.stat();
+      await overwrite(snapshot, schemaSource.replace('"name": { "name": "name"', '"nope": { "name": "nope"'));
+      await snapshot.utimes(schemaTime.atime, schemaTime.mtime);
+      const refreshed = (await routes.handle({ ...sql, method: "diagnostics" }, true)) as {
+        diagnostics: { code: string }[];
+      };
+      strict.ok(
+        refreshed.diagnostics.some((item) => item.code === "TSQ101"),
+        JSON.stringify(refreshed),
+      );
+      await overwrite(snapshot, schemaSource);
+      await snapshot.utimes(schemaTime.atime, schemaTime.mtime);
+    } finally {
+      await snapshot.close();
+    }
     const source = "SELECT '😀' AS emoji,\r\n  missing FROM users";
     const invalid = (await routes.handle({ ...sql, source, method: "diagnostics" }, true)) as {
       diagnostics: { code: string; range: unknown }[];

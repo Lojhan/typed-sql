@@ -9,13 +9,15 @@ import { contentHash, WorkspaceError, type WorkspaceFiles } from "./files.js";
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const inside = (root: string, path: string) => path === root || path.startsWith(root + sep);
 async function boundedRead(path: string, limit = 2 * 1024 * 1024): Promise<string> {
-  const canonical = await realpath(path);
-  if (canonical !== resolve(path)) throw new WorkspaceError("EDITOR_PATH", "Definition path changed", 409);
-  const before = await lstat(path);
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
+    const canonical = await realpath(path);
+    if (canonical !== resolve(path)) throw new WorkspaceError("EDITOR_PATH", "Definition path changed", 409);
     const info = await handle.stat();
-    if (info.dev !== before.dev || info.ino !== before.ino || !info.isFile() || info.size > limit)
+    const current = await lstat(canonical);
+    if (info.dev !== current.dev || info.ino !== current.ino)
+      throw new WorkspaceError("EDITOR_PATH", "Definition path changed", 409);
+    if (!info.isFile() || info.size > limit)
       throw new WorkspaceError("EDITOR_LIMIT", "Definition document exceeds its limit");
     const chunks: Buffer[] = [];
     let total = 0;
