@@ -636,3 +636,26 @@ await describe("public documentation", async () => {
     strict.strictEqual(count, 14, "the documented live-example inventory changed without updating its contract");
   });
 });
+
+await describe("native migration documentation", async () => {
+  await it("keeps execution, drift, reconciliation and fresh replay discoverable", async () => {
+    strict.ok(publicDocumentationPages.some(({ file }) => file === "docs/guides/migrations.md"));
+    const page = await text("docs/guides/migrations.md");
+    for (const contract of [
+      "migrate plan",
+      "migrate apply",
+      "migrate reconcile",
+      "migrate baseline",
+      "migrate revert",
+      "migrate resolve",
+      "policyFile",
+      "beforeBatch",
+      "empty database",
+    ]) {
+      strict.ok(page.includes(contract), `migration guide is missing ${contract}`);
+    }
+    const compatibility = await text("docs/guides/migration-compatibility.md");
+    strict.ok(compatibility.includes("./migrations.md"));
+    strict.ok(compatibility.includes("The analyzer is offline and grammar-neutral"));
+  });
+});

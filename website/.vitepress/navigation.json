@@ -262,6 +262,12 @@
           "pageType": "how-to"
         },
         {
+          "text": "Manage database migrations",
+          "link": "/guides/migrations",
+          "file": "docs/guides/migrations.md",
+          "pageType": "how-to"
+        },
+        {
           "text": "Check migration compatibility",
           "link": "/guides/migration-compatibility",
           "file": "docs/guides/migration-compatibility.md",

@@ -75,6 +75,9 @@
     },
     {
       "path": "../examples/synthetic-grammar"
+    },
+    {
+      "path": "../packages/migrations"
     }
   ]
 }

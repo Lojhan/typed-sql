@@ -2,6 +2,18 @@ import { readFile } from "node:fs/promises";
 import { describe, it, strict } from "poku";
 import type { SelectLockingClause, SqlAstContext, SqlAstVisitor } from "../../packages/ast/src/index.js";
 import * as astApi from "../../packages/ast/src/index.js";
+import type {
+  MigrationDefinition,
+  MigrationPlan,
+  MigrationSession,
+  MigrationsConfig,
+} from "../../packages/migrations/src/index.js";
+import * as migrationsApi from "../../packages/migrations/src/index.js";
+import * as pgMigrationsApi from "../../packages/postgres/src/migrations.js";
+
+type ReferencedMigrationContracts = MigrationDefinition | MigrationsConfig | MigrationPlan | MigrationSession;
+void (undefined as unknown as ReferencedMigrationContracts);
+
 import * as astToolkitApi from "../../packages/ast/src/toolkit/index.js";
 import type {
   BuildDiagnostic,
@@ -760,6 +772,42 @@ void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
+  migrations: [
+    "MigrationError",
+    "applyPlan",
+    "assertCatalog",
+    "assertTarget",
+    "baselinePlan",
+    "canonical",
+    "captureChecks",
+    "captureMigration",
+    "captureStatement",
+    "catalogChanges",
+    "checks",
+    "createMigration",
+    "createPlan",
+    "defineMigration",
+    "defineMigrations",
+    "digest",
+    "effectiveChecks",
+    "emptyHistory",
+    "ensureDirectory",
+    "hashBytes",
+    "inspectMigrations",
+    "inventoryFiles",
+    "loadInventory",
+    "migrationPlanReport",
+    "parseCatalog",
+    "parseHistory",
+    "parsePlan",
+    "replayEvidence",
+    "resolveAttempt",
+    "runChecks",
+    "safePath",
+    "validateHistory",
+    "verifyCapturedFiles",
+  ],
+  pgMigrations: ["createPgMigrationTarget", "migrationCatalogKey"],
   sqlserver: [
     "SQLSERVER_CAPABILITIES",
     "SQLSERVER_DIALECT_VERSION",
@@ -1310,6 +1358,8 @@ await describe("stable public API", async () => {
   });
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
+      migrations: Object.keys(migrationsApi).sort(),
+      pgMigrations: Object.keys(pgMigrationsApi).sort(),
       sqlserver: Object.keys(sqlserverApi).sort(),
       sqlServerQuery: Object.keys(sqlServerQueryApi).sort(),
       sqlServerRuntime: Object.keys(sqlServerRuntimeApi).sort(),
