@@ -1,4 +1,5 @@
 import { type DragEvent, type ReactNode, useRef, useState } from "react";
+import { Icon } from "./icon";
 import { type Edge, FILE_MIME, isTool, type Layout, type Pane, title } from "./layout";
 export function Resize({
   axis,
@@ -150,17 +151,19 @@ export function PaneLayout(props: Props) {
                 title={isTool(tab) ? title(tab) : tab}
                 onClick={() => props.onOpen(node.id, tab)}
               >
-                <span className={`file-badge ${tab.endsWith(".sql") ? "sql" : isTool(tab) ? "tool" : "ts"}`}>
-                  {tab === "@schema"
-                    ? "⌘"
-                    : tab === "@compare"
-                      ? "⇄"
-                      : tab === "@agent"
-                        ? "✦"
-                        : tab.endsWith(".sql")
-                          ? "SQL"
-                          : "TS"}
-                </span>
+                <Icon
+                  name={
+                    tab === "@schema"
+                      ? "schema"
+                      : tab === "@compare"
+                        ? "compare"
+                        : tab === "@agent"
+                          ? "agent"
+                          : tab.endsWith(".sql")
+                            ? "file-sql"
+                            : "file-ts"
+                  }
+                />
                 {title(tab)}
                 {props.dirty.has(tab) ? <span className="dirty-mark">●</span> : null}
               </button>
@@ -170,7 +173,7 @@ export function PaneLayout(props: Props) {
                 aria-label={`Close ${title(tab)}`}
                 onClick={() => props.onClose(node.id, tab)}
               >
-                ×
+                <Icon name="close" />
               </button>
             </div>
           ))}
@@ -183,7 +186,7 @@ export function PaneLayout(props: Props) {
             aria-label="Split editor"
             onClick={() => setMenu((value) => !value)}
           >
-            ◫
+            <Icon name="split" />
           </button>
           {menu ? (
             <div className="split-menu" role="menu">

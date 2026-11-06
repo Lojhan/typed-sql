@@ -85,6 +85,7 @@ export interface State {
   executionSchemaStale: boolean;
   board: Board;
   files: string[];
+  folders?: string[];
   scratchDirectory: string;
   grammar: string;
   limits: { maxRows?: number; pageSize?: number; maxSpoolBytes?: number; cursorIdleMs?: number; timeoutMs: number };

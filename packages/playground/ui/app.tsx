@@ -5,13 +5,13 @@ import { api, token } from "./api";
 import { SchemaBoard } from "./board";
 import { ComparePanel } from "./compare";
 import { Editor } from "./editor";
+import { WorkspaceFileTree } from "./file-tree";
+import { Icon } from "./icon";
 import {
   changePane,
   close,
   drop,
   type Edge,
-  FILE_MIME,
-  fileTree,
   isTool,
   type Layout,
   open,
@@ -19,13 +19,13 @@ import {
   pane,
   panes,
   ratio,
-  type TreeNode,
   title,
   validLayout,
 } from "./layout";
 import { Modal } from "./modal";
 import { PaneLayout, Resize } from "./panes";
 import { ResultPanel } from "./results";
+import { ThemeSelect } from "./theme";
 import type { Analysis, State, Value } from "./types";
 import "./style.css";
 
@@ -41,52 +41,6 @@ interface Document {
   readOnly: boolean;
   parameters: Record<number, { value: string; null: boolean }>;
 }
-function Tree({
-  nodes,
-  selected,
-  onOpen,
-  query,
-}: {
-  nodes: TreeNode[];
-  selected: string;
-  onOpen: (file: string) => void;
-  query: string;
-}) {
-  return (
-    <ul className="file-tree">
-      {nodes.map((node) => (
-        <li key={node.path}>
-          {node.file ? (
-            <button
-              type="button"
-              className={selected === node.path ? "selected" : ""}
-              title={node.path}
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData(FILE_MIME, JSON.stringify({ tab: node.path }));
-                event.dataTransfer.effectAllowed = "copy";
-              }}
-              onClick={() => onOpen(node.path)}
-            >
-              <span className={`file-badge ${node.path.endsWith(".sql") ? "sql" : "ts"}`}>
-                {node.path.endsWith(".sql") ? "SQL" : "TS"}
-              </span>
-              <span>{node.name}</span>
-            </button>
-          ) : (
-            <details open={query ? true : undefined}>
-              <summary>
-                <span className="folder-glyph">▱</span>
-                {node.name}
-              </summary>
-              <Tree nodes={node.children} selected={selected} onOpen={onOpen} query={query} />
-            </details>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
 function App() {
   const [state, setState] = useState<State | null>(null),
     [documents, setDocuments] = useState<Record<string, Document>>({}),
@@ -94,13 +48,11 @@ function App() {
     [activePane, setActivePane] = useState(""),
     [sidebar, setSidebar] = useState(238),
     [sidebarVisible, setSidebarVisible] = useState(true),
-    [search, setSearch] = useState(""),
     [schemaSearch, setSchemaSearch] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [trust, setTrust] = useState(false),
-    [create, setCreate] = useState<{ path: string; table: string } | null>(null),
     [closing, setClosing] = useState<{ paneId: string; tab: string } | null>(null),
     [selectedTable, setSelectedTable] = useState<string | null>(null),
     [lastFile, setLastFile] = useState(""),
@@ -452,20 +404,6 @@ function App() {
     await refresh();
     openTab(focused.id, path);
   };
-  const newFile = async () => {
-    if (!create || !state) return;
-    if (create.table) await api("create-query", { table: create.table, file: create.path });
-    else
-      await api("save", {
-        file: create.path,
-        source: create.path.endsWith(".sql") ? "select 1;\n" : "export async function run() {\n  return [];\n}\n",
-        revision: null,
-      });
-    const path = create.path;
-    setCreate(null);
-    await refresh();
-    openTab(focused.id, path);
-  };
   const bottom = (item: Pane, doc: Document) => {
     if (item.bottom === "results") {
       const run = state!.runs.find((run) => run.id === item.runId) ?? state!.runs.find((run) => run.file === doc.file);
@@ -742,7 +680,7 @@ function App() {
               onClick={() => void action(() => run(doc.file))}
               title="Run (⌘Enter)"
             >
-              ▷ Run
+              <Icon name="play" /> Run
             </button>
           )}
         </div>
@@ -825,10 +763,6 @@ function App() {
         <span>{error || "Opening workspace…"}</span>
       </main>
     );
-  const inventory = state.files.filter(
-    (file) => !/\.d\.[cm]?ts$/u.test(file) && file.toLowerCase().includes(search.toLowerCase()),
-  );
-  const tree = fileTree(inventory);
   const problems = Object.values(documents).reduce((sum, doc) => sum + (doc.analysis?.diagnostics.length ?? 0), 0);
   return (
     <div className="app-shell">
@@ -839,7 +773,7 @@ function App() {
           onClick={() => setSidebarVisible((value) => !value)}
           title="Toggle project tree"
         >
-          ◫
+          <Icon name="sidebar" />
         </button>
         <strong>{state.project.name}</strong>
         <span className="toolbar-divider" />
@@ -848,23 +782,24 @@ function App() {
           className={focused.active === "@schema" ? "selected" : ""}
           onClick={() => openTab(focused.id, "@schema")}
         >
-          ⌘ Schema
+          <Icon name="schema" /> Schema
         </button>
         <button
           type="button"
           className={focused.active === "@compare" ? "selected" : ""}
           onClick={() => openTab(focused.id, "@compare")}
         >
-          ⇄ Compare
+          <Icon name="compare" /> Compare
         </button>
         <button
           type="button"
           className={focused.active === "@agent" ? "selected" : ""}
           onClick={() => openTab(focused.id, "@agent")}
         >
-          ✦ Agent
+          <Icon name="agent" /> Agent
         </button>
         <div className="connection-controls">
+          <ThemeSelect />
           <span className={`status-dot ${state.connection.state === "connected" ? "succeeded" : ""}`} />
           <span>{state.connection.identity?.database ?? state.target ?? "Offline"}</span>
           <span className="muted">{state.grammar}</span>
@@ -878,7 +813,7 @@ function App() {
               })
             }
           >
-            {state.connection.state === "connected" ? "↻" : "Connect"}
+            {state.connection.state === "connected" ? <Icon name="refresh" /> : "Connect"}
           </button>
         </div>
       </header>
@@ -886,7 +821,7 @@ function App() {
         <div className="workspace-banner error" role="alert">
           <span>{error}</span>
           <button type="button" onClick={() => setError("")}>
-            ×
+            <Icon name="close" />
           </button>
         </div>
       ) : null}
@@ -894,7 +829,7 @@ function App() {
         <div className="workspace-banner" role="status">
           <span>{notice}</span>
           <button type="button" onClick={() => setNotice("")}>
-            ×
+            <Icon name="close" />
           </button>
         </div>
       ) : null}
@@ -907,27 +842,20 @@ function App() {
         {sidebarVisible ? (
           <>
             <aside className="project-sidebar" style={{ width: sidebar }}>
-              <div className="tree-heading">
-                <span>PROJECT</span>
-                <button
-                  type="button"
-                  onClick={() => setCreate({ path: `${state.scratchDirectory}/query.ts`, table: selectedTable ?? "" })}
-                >
-                  New…
-                </button>
-              </div>
-              <input
-                className="tree-search"
-                aria-label="Filter project files"
-                placeholder="Filter files"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+              <WorkspaceFileTree
+                files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
+                folders={state.folders ?? []}
+                project={state.project.name}
+                selected={focusedFile}
+                scratch={state.scratchDirectory}
+                onOpen={(file) => openTab(focused.id, file)}
+                onCreate={async (path, folder) => {
+                  if (folder) await api("folder", { folder: path });
+                  else await api("save", { file: path, source: "", revision: null });
+                  await refresh();
+                  if (!folder) openTab(focused.id, path);
+                }}
               />
-              <div className="project-root">▱ {state.project.name}</div>
-              <nav aria-label="Project files">
-                <Tree nodes={tree} selected={focusedFile} query={search} onOpen={(file) => openTab(focused.id, file)} />
-              </nav>
-              <div className="tree-footer">{state.scratchDirectory}/ · on disk</div>
             </aside>
             <Resize
               axis="horizontal"
@@ -971,35 +899,6 @@ function App() {
           {state.trusted ? "trusted project execution" : "project execution disabled"}
         </span>
       </footer>
-      {create ? (
-        <Modal className="create-dialog" label="Create project file" onClose={() => setCreate(null)}>
-          <h3>New file</h3>
-          <label>
-            Path
-            <input value={create.path} onChange={(event) => setCreate({ ...create, path: event.target.value })} />
-          </label>
-          <label>
-            Template
-            <select value={create.table} onChange={(event) => setCreate({ ...create, table: event.target.value })}>
-              <option value="">Blank file</option>
-              {state.board.tables.map((table) => (
-                <option key={table.id} value={table.id}>
-                  Query {table.namespace ? `${table.namespace}.` : ""}
-                  {table.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="dialog-actions">
-            <button type="button" onClick={() => setCreate(null)}>
-              Cancel
-            </button>
-            <button type="button" className="primary-button" disabled={busy} onClick={() => void action(newFile)}>
-              Create
-            </button>
-          </div>
-        </Modal>
-      ) : null}
       {trust ? (
         <Modal className="create-dialog" label="Enable project execution" onClose={() => setTrust(false)}>
           <h3>Enable trusted project execution?</h3>

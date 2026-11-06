@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
+import { Icon } from "./icon";
 import { Modal } from "./modal";
 import { type Grid, jsonValue, milliseconds, resultGrid, totalTime, valueText } from "./result-model";
 import type { Run, Value } from "./types";
@@ -467,7 +468,11 @@ export function ResultPanel({
             >
               ‹
             </button>
-            <span>Page {page + 1}</span>
+            <span>
+              {windowPages.length > 1
+                ? `Pages ${firstPage + 1}–${(windowPages.at(-1)?.page ?? firstPage) + 1}`
+                : `Page ${(windowPages.at(-1)?.page ?? firstPage) + 1}`}
+            </span>
             <button
               type="button"
               disabled={captured.loading || (!next && !(result.paging && !complete && run.status === "running"))}
@@ -484,7 +489,7 @@ export function ResultPanel({
           <header>
             <strong>Value</strong>
             <button type="button" onClick={() => setInspect(undefined)}>
-              ×
+              <Icon name="close" />
             </button>
           </header>
           <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>

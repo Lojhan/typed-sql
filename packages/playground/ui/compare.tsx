@@ -158,7 +158,7 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           <span>B</span>
           <span>B − A</span>
         </div>
-        {metric("End-to-end", left ? totalTime(left) : null, right ? totalTime(right) : null)}
+        {metric("Wall time (incl. wait)", left ? totalTime(left) : null, right ? totalTime(right) : null)}
         {metric("Check", left?.timings?.checkMs, right?.timings?.checkMs)}
         {metric("Build", left?.timings?.buildMs, right?.timings?.buildMs)}
         {metric("Query + fetch (active)", left?.timings?.fetchMs, right?.timings?.fetchMs)}

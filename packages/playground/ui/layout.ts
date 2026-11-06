@@ -166,16 +166,16 @@ export interface TreeNode {
   children: TreeNode[];
   file: boolean;
 }
-export function fileTree(files: readonly string[]): TreeNode[] {
+export function fileTree(files: readonly string[], folders: readonly string[] = []): TreeNode[] {
   const root: TreeNode = { name: "", path: "", children: [], file: false };
-  for (const path of [...files].sort()) {
+  for (const path of [...folders, ...files].sort()) {
     let current = root;
     const parts = path.split("/");
     for (const [position, name] of parts.entries()) {
       const childPath = parts.slice(0, position + 1).join("/");
       let child = current.children.find((item) => item.name === name);
       if (!child) {
-        child = { name, path: childPath, children: [], file: position === parts.length - 1 };
+        child = { name, path: childPath, children: [], file: position === parts.length - 1 && !folders.includes(path) };
         current.children.push(child);
       }
       current = child;

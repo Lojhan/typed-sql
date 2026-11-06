@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { Icon } from "./icon";
 import type { State, Value } from "./types";
 
 interface Profile {
@@ -279,7 +280,7 @@ export function AgentPanel({
       <div className="agent-messages" role="log" aria-label="Agent conversation">
         {!conversation?.messages.length ? (
           <div className="agent-empty">
-            <span>✦</span>
+            <Icon name="agent" />
             <strong>{profile ? "Start a conversation" : "Choose a local ACP agent"}</strong>
             <p>
               {profile

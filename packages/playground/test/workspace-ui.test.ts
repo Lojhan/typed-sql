@@ -31,6 +31,9 @@ await describe("workspace layout and captured result comparison", async () => {
     const tree = fileTree(["playground/deep/q.sql", "src/a.ts", "playground/q.ts"]);
     strict.equal(tree[0]?.name, "playground");
     strict.equal(tree[0]?.children?.[0]?.name, "deep");
+    const empty = fileTree(["playground/nested/query.sql"], ["playground/empty", "playground/nested"]);
+    strict.equal(empty[0]?.children.find((node) => node.name === "empty")?.file, false);
+    strict.deepEqual(empty[0]?.children.find((node) => node.name === "empty")?.children, []);
   });
   await it("preserves duplicate multiplicity and tagged bigint identity", () => {
     const a: Grid = {
