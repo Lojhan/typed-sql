@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { explorerTree, inspectionTab, inspectionTarget, propertyChanges } from "../ui/explorer-model.js";
+import { explorerTree, inspectionTab, inspectionTarget, objectLabel, propertyChanges } from "../ui/explorer-model.js";
 import type { ExplorerObject } from "../ui/explorer-types.js";
 import { close, drop, isTool, open, pane, panes, title, validLayout } from "../ui/layout.js";
 
@@ -14,6 +14,15 @@ const object = (id: string, kind: string, name: string, parentId?: string): Expl
   historyState: "unknown",
 });
 await describe("workspace evidence inspection navigation", async () => {
+  await it("keeps an unqualified namespace navigable without inventing a captured schema name", () => {
+    const namespace = { ...object("opaque-unqualified-id", "namespace", ""), namespace: "" };
+    const node = explorerTree([namespace])[0];
+    strict.equal(node?.label, "Unqualified objects");
+    strict.equal(namespace.name, "");
+    strict.equal(namespace.namespace, "");
+    const target = { kind: "object" as const, id: namespace.id, label: objectLabel(namespace) };
+    strict.deepEqual(inspectionTarget(inspectionTab(target)), target);
+  });
   await it("preserves opaque schema and migration identities through split, close and persisted layout", () => {
     const target = { kind: "object" as const, id: '["billing","payment/~state"]', label: "payment/~state 😀" };
     const tab = inspectionTab(target);

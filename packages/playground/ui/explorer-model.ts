@@ -39,6 +39,9 @@ export interface ExplorerNode {
   object?: ExplorerObject;
   children: ExplorerNode[];
 }
+export function objectLabel(object: Pick<ExplorerObject, "name" | "kind">): string {
+  return object.name || (object.kind === "namespace" ? "Unqualified objects" : "Unnamed object");
+}
 const groupName = (kind: string) =>
   ({
     column: "Columns",
@@ -74,7 +77,7 @@ export function explorerTree(objects: readonly ExplorerObject[]): ExplorerNode[]
           .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
           .map((object) => ({
             id: object.id,
-            label: object.name,
+            label: objectLabel(object),
             kind: object.kind,
             object,
             children: rows(object.id, new Set([...ancestors, object.id])),

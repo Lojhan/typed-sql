@@ -16,7 +16,7 @@ import {
 } from "./editor-language-model.js";
 import { ExplorerSidebar, useExplorerCatalog } from "./explorer";
 import { ExplorerDetail } from "./explorer-detail";
-import { inspectionTab, inspectionTarget } from "./explorer-model";
+import { inspectionTab, inspectionTarget, objectLabel } from "./explorer-model";
 import { WorkspaceFileTree } from "./file-tree";
 import { Icon } from "./icon";
 import {
@@ -1111,9 +1111,9 @@ function App() {
     },
     ...(explorer.catalog?.schema.objects.map((object) => ({
       id: `inspect-object:${object.id}`,
-      label: `Inspect ${object.namespace ? `${object.namespace}.` : ""}${object.name} (${object.kind})`,
+      label: `Inspect ${object.namespace ? `${object.namespace}.` : ""}${objectLabel(object)} (${object.kind})`,
       icon: "schema" as const,
-      run: () => openTab(focused.id, inspectionTab({ kind: "object", id: object.id, label: object.name })),
+      run: () => openTab(focused.id, inspectionTab({ kind: "object", id: object.id, label: objectLabel(object) })),
     })) ?? []),
     ...(explorer.catalog?.migrations.entries.map((migration) => ({
       id: `inspect-migration:${migration.id}`,
