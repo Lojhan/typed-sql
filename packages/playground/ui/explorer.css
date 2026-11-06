@@ -22,18 +22,19 @@
   flex: none;
   height: 30px;
   min-height: 30px;
-  padding: 0 6px;
-  gap: 4px;
+  padding: 0;
+  gap: 0;
   border-bottom: 1px solid var(--border);
 }
 .tree-heading .explorer-section-toggle {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 5px;
   min-width: 0;
   flex: 1;
   height: 100%;
-  padding: 0 2px;
+  padding: 0 8px;
   text-align: left;
   font-size: 11px;
   letter-spacing: 0.2px;
@@ -47,9 +48,16 @@
 .explorer-section-toggle[aria-expanded="false"] > .icon-chevron {
   transform: rotate(0);
 }
-.explorer-section-toggle:hover,
-.explorer-refresh:hover {
+.project-sidebar .tree-heading:hover,
+.project-sidebar .tree-heading:focus-within {
   background: var(--hover);
+}
+.tree-heading .explorer-section-toggle:hover,
+.tree-heading .explorer-refresh:hover {
+  background: transparent;
+}
+.project-sidebar .tree-actions {
+  margin-right: 4px;
 }
 .tree-heading .explorer-refresh {
   display: grid;
@@ -483,3 +491,47 @@
 .explorer-row.history .explorer-name {
   font-style: italic;
 }
+
+/* Structured object inspection stays independent of sidebar/header geometry. */
+.definition-section {min-width:0;margin:0 0 22px;}
+.inspection-content .definition-section > h3 {display:flex;align-items:center;gap:8px;margin:0 0 9px;font-size:12px;font-weight:500;}
+.definition-section > h3 > span {font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.definition-link {padding:0;min-width:0;text-align:left;font-size:11px;line-height:1.5;color:var(--accent);overflow-wrap:anywhere;white-space:normal;}
+.definition-link:hover {text-decoration:underline;}
+.definition-table-scroll {max-width:100%;overflow:auto;border:1px solid var(--border);border-radius:3px;}
+.definition-table {width:100%;min-width:520px;border-collapse:collapse;font-size:11px;}
+.definition-table caption {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+.definition-table th,.definition-table td {padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;}
+.definition-table tr:last-child th,.definition-table tr:last-child td {border-bottom:0;}
+.definition-table thead th {color:var(--muted);background:var(--panel);font-size:10px;font-weight:400;white-space:nowrap;border-bottom:1px solid var(--border);}
+.definition-table tbody th {font-weight:400;}
+.definition-table tbody tr:hover {background:var(--hover);}
+.definition-table code {font-size:10px;white-space:normal;overflow-wrap:anywhere;}
+.definition-table small {display:block;font-size:10px;color:var(--muted);}
+.definition-key {display:inline-block;padding:0 4px;margin:0 3px 3px 0;border:1px solid var(--border);border-radius:3px;font-size:9px;white-space:nowrap;}
+.definition-facts {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:12px 24px;margin:0;}
+.definition-facts > div {min-width:0;}
+.definition-facts dt {color:var(--muted);font-size:10px;}
+.definition-facts dd {font-size:12px;margin:2px 0 0;overflow-wrap:anywhere;white-space:pre-wrap;}
+.definition-relationships,.definition-object-list {list-style:none;padding:0;margin:0;}
+.definition-relationships > li {padding:10px 12px;border:1px solid var(--border);border-radius:3px;margin-bottom:8px;}
+.definition-relationship-heading {display:flex;align-items:center;gap:6px;margin-bottom:7px;min-width:0;}
+.definition-relationship-heading > .editor-icon {flex:none;color:var(--muted);}
+.definition-reference {display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;}
+.definition-reference > span {min-width:0;}
+.definition-reference code {display:block;font-size:10px;white-space:normal;overflow-wrap:anywhere;}
+.definition-reference small {display:block;color:var(--muted);font-size:10px;}
+.definition-object-list > li {display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 8px;border-bottom:1px solid var(--border);}
+.definition-object-list > li:hover {background:var(--hover);}
+.definition-object-list small {color:var(--muted);font-size:10px;text-align:right;flex:none;}
+.definition-enum-labels {margin:0;padding:0;list-style:none;counter-reset:enum-label;max-width:520px;border:1px solid var(--border);border-radius:3px;}
+.definition-enum-labels li {display:flex;gap:14px;padding:7px 10px;border-bottom:1px solid var(--border);counter-increment:enum-label;}
+.definition-enum-labels li:last-child {border-bottom:0;}
+.definition-enum-labels li::before {content:counter(enum-label);color:var(--muted);font-size:10px;min-width:14px;text-align:right;}
+.definition-enum-labels code {font-size:11px;overflow-wrap:anywhere;}
+.definition-secondary {margin:16px 0 0;border-top:1px solid var(--border);padding-top:9px;}
+.definition-secondary > summary {color:var(--muted);font-size:11px;cursor:pointer;padding:3px 0;}
+.definition-secondary > summary:hover {color:var(--text);}
+.definition-secondary > summary > span {margin-left:5px;font-size:10px;}
+.definition-secondary[open] > summary {margin-bottom:10px;}
+.definition-raw .inspection-definition {max-height:340px;}

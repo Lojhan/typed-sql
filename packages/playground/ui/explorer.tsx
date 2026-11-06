@@ -18,6 +18,7 @@ export function useExplorerCatalog(identity: string) {
   const [error, setError] = useState("");
   const serial = useRef(0);
   const refreshing = useRef(false);
+  const activeRefresh = useRef<Promise<ExplorerCatalog | undefined> | null>(null);
   const load = useCallback(async (refresh = false) => {
     if (!refresh && refreshing.current) return;
     if (refresh) refreshing.current = true;
@@ -27,6 +28,7 @@ export function useExplorerCatalog(identity: string) {
     try {
       const next = await api<ExplorerCatalog>(refresh ? "explorer/refresh" : "explorer", refresh ? {} : undefined);
       if (serial.current === request) setCatalog(next);
+      return next;
     } catch (error) {
       if (serial.current === request) setError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -46,7 +48,19 @@ export function useExplorerCatalog(identity: string) {
     },
     [],
   );
-  return { catalog, loading, error, refresh: () => void load(true) };
+  return {
+    catalog,
+    loading,
+    error,
+    refresh: () => {
+      const request = load(true);
+      activeRefresh.current = request;
+      void request.finally(() => {
+        if (activeRefresh.current === request) activeRefresh.current = null;
+      });
+    },
+    getCatalog: (force = false) => activeRefresh.current ?? (catalog && !force ? Promise.resolve(catalog) : load()),
+  };
 }
 export function objectIcon(kind: string): IconName {
   const icons: Record<string, IconName> = {

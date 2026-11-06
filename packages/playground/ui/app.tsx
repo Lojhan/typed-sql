@@ -778,6 +778,19 @@ function App() {
             board={state.board}
             selected={selectedTable}
             onSelect={setSelectedTable}
+            onOpenTable={(tableId) =>
+              void action(async () => {
+                const table = state.board.tables.find((table) => table.id === tableId);
+                if (!table) return;
+                const catalog = await explorer.getCatalog(explorer.catalog?.schema.schemaHash !== state.schemaHash);
+                const object = catalog?.schema.objects.find(
+                  (object) =>
+                    object.namespace === table.namespace && object.name === table.name && object.kind === table.kind,
+                );
+                if (!object) throw new Error("The table is not available in the current database explorer.");
+                openTab(item.id, inspectionTab({ kind: "object", id: object.id, label: object.name }));
+              })
+            }
             search={schemaSearch}
             identity={`${state.project.name}:${state.target ?? "offline"}`}
           />

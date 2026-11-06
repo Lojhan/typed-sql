@@ -103,12 +103,14 @@ export function SchemaBoard({
   board,
   selected,
   onSelect,
+  onOpenTable,
   search,
   identity,
 }: {
   board: Board;
   selected: string | null;
   onSelect: (id: string) => void;
+  onOpenTable: (id: string) => void;
   search: string;
   identity: string;
 }) {
@@ -255,6 +257,8 @@ export function SchemaBoard({
           nodeTypes={nodeTypes}
           onNodesChange={changed}
           onNodeClick={(_, node) => onSelect(node.id)}
+          onNodeDoubleClick={(_, node) => onOpenTable(node.id)}
+          zoomOnDoubleClick={false}
           onNodeDragStop={saveLayout}
           fitView
           fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
