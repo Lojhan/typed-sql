@@ -2069,3 +2069,80 @@ select {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+/* Native tracks never reserve layout space, including macOS Always-show mode. */
+:root * {
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+}
+:root ::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.global-scrollbars {
+  position: fixed;
+  z-index: 150;
+  pointer-events: none;
+  overflow: hidden;
+}
+.scroll-overlay-rail {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+.scroll-overlay-rail.x {
+  left: 2px;
+  bottom: 0;
+  height: 8px;
+  right: 2px;
+}
+.scroll-overlay-rail.y {
+  top: 2px;
+  right: 0;
+  width: 8px;
+  bottom: 2px;
+}
+.scroll-overlay-thumb {
+  position: absolute;
+  border-radius: 4px;
+  background: var(--muted);
+}
+.scroll-overlay-rail.x .scroll-overlay-thumb {
+  top: 2px;
+  height: 4px;
+}
+.scroll-overlay-rail.y .scroll-overlay-thumb {
+  left: 2px;
+  width: 4px;
+}
+.global-scrollbars.is-visible .scroll-overlay-rail,
+.scroll-overlay-rail:focus-visible {
+  opacity: 0.8;
+  pointer-events: auto;
+}
+.scroll-overlay-rail:focus-visible .scroll-overlay-thumb {
+  background: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-overlay-rail {
+    transition: none;
+  }
+}
+.schema-selection {
+  min-height: 34px;
+  flex: none;
+  gap: 10px;
+}
+.schema-selection > span {
+  flex: 1;
+  min-width: 0;
+}
+.schema-selection > button {
+  font-size: 11px;
+  min-height: 26px;
+  flex: none;
+}

@@ -25,6 +25,7 @@ import {
 import { Modal } from "./modal";
 import { PaneLayout, Resize } from "./panes";
 import { ResultPanel } from "./results";
+import { GlobalScrollbars } from "./scrollbars";
 import { ThemeSelect } from "./theme";
 import type { Analysis, State, Value } from "./types";
 import "./style.css";
@@ -562,6 +563,29 @@ function App() {
                   ?.columns.map((column) => `${column.name}: ${column.databaseType}`)
                   .join(" · ")}
               </span>
+              {(["sql", "ts"] as const).map((extension) => (
+                <button
+                  key={extension}
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void action(async () => {
+                      const table = state.board.tables.find((value) => value.id === selectedTable);
+                      if (!table) return;
+                      const base = table.name.replace(/[^a-zA-Z0-9_-]/gu, "_") || "query";
+                      let ordinal = 1;
+                      let file = `${state.scratchDirectory}/${base}.${extension}`;
+                      while (state.files.includes(file) || documentsRef.current[file])
+                        file = `${state.scratchDirectory}/${base}-${++ordinal}.${extension}`;
+                      await api("create-query", { table: table.id, file });
+                      await refresh();
+                      openTab(item.id, file);
+                    })
+                  }
+                >
+                  New {extension.toUpperCase()} query
+                </button>
+              ))}
             </div>
           ) : null}
         </div>
@@ -766,6 +790,7 @@ function App() {
   const problems = Object.values(documents).reduce((sum, doc) => sum + (doc.analysis?.diagnostics.length ?? 0), 0);
   return (
     <div className="app-shell">
+      <GlobalScrollbars />
       <header className="workspace-toolbar">
         <button
           type="button"
