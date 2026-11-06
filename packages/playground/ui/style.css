@@ -1854,29 +1854,8 @@ select {
 :root[data-theme="dark"] .cm-cursor {
   border-left-color: var(--text);
 }
-:root[data-theme="dark"] .cm-selectionBackground {
-  background: #3b536c;
-}
 :root[data-theme="dark"] .cm-activeLineGutter {
   background: var(--hover);
-}
-:root[data-theme="dark"] .cm-editor .ͼb {
-  color: #8cbdea;
-}
-:root[data-theme="dark"] .cm-editor .ͼc {
-  color: #d0a6e9;
-}
-:root[data-theme="dark"] .cm-editor .ͼd {
-  color: #b9d68b;
-}
-:root[data-theme="dark"] .cm-editor .ͼe {
-  color: #e6c087;
-}
-:root[data-theme="dark"] .cm-editor .ͼf {
-  color: #9ccacc;
-}
-:root[data-theme="dark"] .cm-editor .ͼg {
-  color: #e0ad9b;
 }
 :root[data-theme="dark"] .modal,
 :root[data-theme="dark"] .modal-dialog,
@@ -2007,4 +1986,86 @@ select {
   .workspace-toolbar .connection-controls {
     overflow: hidden;
   }
+}
+:root {
+  --editor-active-line: #5887b314;
+  --editor-selection: #bfd7f0;
+  --editor-selection-inactive: #d8e1eb;
+  --syntax-keyword: #78519b;
+  --syntax-atom: #2a619a;
+  --syntax-literal: #287359;
+  --syntax-string: #984c35;
+  --syntax-definition: #28689d;
+  --syntax-type: #267d78;
+  --syntax-comment: #748491;
+}
+:root[data-theme="dark"] {
+  --editor-active-line: #8db1d214;
+  --editor-selection: #3c5772;
+  --editor-selection-inactive: #354452;
+  --syntax-keyword: #c9a7e8;
+  --syntax-atom: #90c5ee;
+  --syntax-literal: #a4d294;
+  --syntax-string: #e8ba91;
+  --syntax-definition: #91c9f5;
+  --syntax-type: #83cfc1;
+  --syntax-comment: #95a4b0;
+}
+.project-sidebar nav {
+  padding: 0;
+}
+.file-tree .file-tree {
+  padding-left: 0;
+}
+.file-tree .tree-row {
+  border-radius: 0;
+}
+.file-tree .tree-row:hover {
+  background: var(--hover);
+}
+.file-tree .tree-row.selected {
+  background: var(--selected);
+  color: var(--accent);
+}
+.file-tree .tree-row.selected-folder {
+  background: var(--hover);
+  color: var(--text);
+}
+.pane-tab {
+  position: relative;
+  border-top: 0;
+}
+.pane-tab:hover {
+  background: var(--hover);
+}
+.pane-tab.selected,
+.pane-tab.selected:hover {
+  background: var(--panel);
+}
+.pane-tab.selected::before {
+  position: absolute;
+  content: "";
+  height: 2px;
+  background: var(--accent);
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.pane-tab > button,
+.pane-tab > button:hover,
+.pane-tab > button:focus-visible {
+  background: transparent;
+  border: 0;
+  outline: none;
+  border-radius: 0;
+  height: 100%;
+}
+.pane-tab .tab-close {
+  height: 100%;
+  width: 26px;
+}
+.pane-tab:has(button:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }

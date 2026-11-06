@@ -1,10 +1,39 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
 import { sql } from "@codemirror/lang-sql";
-import { bracketMatching, defaultHighlightStyle, foldGutter, syntaxHighlighting } from "@codemirror/language";
+import {
+  bracketMatching,
+  defaultHighlightStyle,
+  foldGutter,
+  HighlightStyle,
+  syntaxHighlighting,
+} from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef } from "react";
+
+const syntaxColors: Record<string, string> = {
+  "#404740": "var(--muted)",
+  "#708": "var(--syntax-keyword)",
+  "#219": "var(--syntax-atom)",
+  "#164": "var(--syntax-literal)",
+  "#a11": "var(--syntax-string)",
+  "#e40": "var(--syntax-string)",
+  "#00f": "var(--syntax-definition)",
+  "#30a": "var(--syntax-definition)",
+  "#085": "var(--syntax-type)",
+  "#167": "var(--syntax-type)",
+  "#256": "var(--text)",
+  "#00c": "var(--syntax-definition)",
+  "#940": "var(--syntax-comment)",
+  "#f00": "var(--danger)",
+};
+const workspaceHighlightStyle = HighlightStyle.define(
+  defaultHighlightStyle.specs.map((spec) => ({
+    ...spec,
+    ...(spec.color ? { color: syntaxColors[String(spec.color)] ?? spec.color } : {}),
+  })),
+);
 
 const sessions = new Map<string, { state: EditorState; scroll: number }>();
 const sessionCallbacks = new Map<
@@ -49,7 +78,7 @@ export function Editor({
             history(),
             bracketMatching(),
             foldGutter(),
-            syntaxHighlighting(defaultHighlightStyle),
+            syntaxHighlighting(workspaceHighlightStyle),
             file.endsWith(".sql") ? sql() : javascript({ typescript: true }),
             EditorView.contentAttributes.of({ "aria-label": "Query source editor", spellcheck: "false" }),
             keymap.of([
@@ -75,20 +104,31 @@ export function Editor({
               if (update.docChanged) sessionCallbacks.get(session)?.onChange(update.state.doc.toString());
             }),
             EditorView.theme({
-              "&": { height: "100%", fontSize: "13px" },
+              "&": {
+                height: "100%",
+                fontSize: "13px",
+                overflow: "hidden",
+                color: "var(--text)",
+                backgroundColor: "var(--editor)",
+              },
               ".cm-scroller": {
                 overflow: "auto",
                 fontFamily: "'SFMono-Regular', Consolas, monospace",
                 lineHeight: "1.8",
               },
-              ".cm-content": { padding: "20px 0" },
               ".cm-line": { padding: "0 24px" },
               ".cm-gutters": {
                 backgroundColor: "var(--bg)",
                 borderRight: "1px solid var(--border)",
                 color: "var(--muted)",
               },
-              ".cm-activeLine": { backgroundColor: "var(--hover)" },
+              ".cm-activeLine": { backgroundColor: "var(--editor-active-line)" },
+              ".cm-selectionBackground": { backgroundColor: "var(--editor-selection-inactive)" },
+              ".cm-content ::selection, .cm-content::selection": { color: "inherit" },
+              "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
+                backgroundColor: "var(--editor-selection)",
+              },
+              ".cm-content": { padding: "20px 0", caretColor: "var(--text)" },
               "&.cm-focused": { outline: "none" },
             }),
           ],

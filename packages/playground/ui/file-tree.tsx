@@ -81,10 +81,10 @@ export function WorkspaceFileTree({
     files.filter((path) => path.toLowerCase().includes(filter.toLowerCase())),
     allFolders.filter((path) => !filter || path.toLowerCase().includes(filter.toLowerCase())),
   );
-  const editor = (where: string) =>
+  const editor = (where: string, depth: number) =>
     draft?.parent === where ? (
       <li className="tree-draft" key="draft">
-        <div className="tree-row">
+        <div className="tree-row" style={{ paddingLeft: 8 + depth * 14 }}>
           <span />
           <Icon name={draft.folder ? "folder" : draft.name.endsWith(".sql") ? "file-sql" : "file-ts"} />
           <input
@@ -119,15 +119,16 @@ export function WorkspaceFileTree({
         ) : null}
       </li>
     ) : null;
-  const rows = (nodes: TreeNode[], where: string) => (
+  const rows = (nodes: TreeNode[], where: string, depth = 0) => (
     <ul className="file-tree">
-      {editor(where)}
+      {editor(where, depth)}
       {nodes.map((node) => (
         <li key={node.path}>
           {node.file ? (
             <button
               type="button"
               className={`tree-row ${selected === node.path ? "selected" : ""}`}
+              style={{ paddingLeft: 8 + depth * 14 }}
               title={node.path}
               aria-current={selected === node.path ? "page" : undefined}
               draggable
@@ -141,6 +142,7 @@ export function WorkspaceFileTree({
               }}
               onContextMenu={(event) => {
                 event.preventDefault();
+                event.stopPropagation();
                 setParent(where);
                 setMenu({ x: event.clientX, y: event.clientY, parent: where });
               }}
@@ -154,10 +156,12 @@ export function WorkspaceFileTree({
               {/* biome-ignore lint/a11y/noStaticElementInteractions: native summary supports keyboard activation and context menu. */}
               <summary
                 className={`tree-row ${parent === node.path ? "selected-folder" : ""}`}
+                style={{ paddingLeft: 8 + depth * 14 }}
                 title={node.path}
                 onClick={() => setParent(node.path)}
                 onContextMenu={(event) => {
                   event.preventDefault();
+                  event.stopPropagation();
                   setParent(node.path);
                   setMenu({ x: event.clientX, y: event.clientY, parent: node.path });
                 }}
@@ -166,7 +170,7 @@ export function WorkspaceFileTree({
                 <Icon name="folder" />
                 <span className="tree-name">{node.name}</span>
               </summary>
-              {rows(node.children, node.path)}
+              {rows(node.children, node.path, depth + 1)}
             </details>
           )}
         </li>
@@ -203,7 +207,22 @@ export function WorkspaceFileTree({
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
       />
-      <nav aria-label="Project files">{rows(tree, "")}</nav>
+      <nav
+        aria-label="Project files"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu({ x: event.clientX, y: event.clientY, parent });
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) {
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenu({ x: rect.left + 16, y: rect.top + 16, parent });
+          }
+        }}
+      >
+        {rows(tree, "")}
+      </nav>
       {menu ? (
         <div
           className="tree-menu"
