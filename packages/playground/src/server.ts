@@ -10,6 +10,7 @@ import { AgentRoutes } from "./agents.js";
 import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
 import { contentHash, WorkspaceError, WorkspaceFiles } from "./files.js";
+import { WorkspaceFormatter } from "./formatter.js";
 import { callableExports, RunManager, type RunRequest } from "./runner.js";
 import { schemaBoard } from "./schema.js";
 import { analyzeSql } from "./sql.js";
@@ -122,6 +123,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
   let connection: { identity?: unknown; state: string; message?: string } = {
     state: selected ? "configured" : "offline",
   };
+  const formatter = new WorkspaceFormatter(files);
   const manager = new RunManager(loaded, files, limits, options.target, project);
   let agents: AgentRoutes | undefined;
   manager.expectedSchemaHash = savedSchemaHash;
@@ -275,6 +277,19 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
       if (request.method !== "POST") throw new WorkspaceError("METHOD", "Method not allowed", 405);
       const body = await payload(request);
       switch (url.pathname) {
+        case "/api/format":
+          json(
+            response,
+            await formatter.format(
+              {
+                file: text(body.file, "file"),
+                source: text(body.source, "source"),
+                revision: text(body.revision, "revision"),
+              },
+              manager.trusted,
+            ),
+          );
+          return;
         case "/api/folder":
           json(response, await files.createFolder(text(body.folder, "folder")), 201);
           return;
@@ -496,6 +511,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     token,
     url: `${origin}/#session=${token}`,
     close: async () => {
+      await formatter.close();
       await agents?.close();
       await manager.close();
       server.closeAllConnections();
