@@ -73,7 +73,7 @@ await describe("SQL Server data worker statement and retained-memory protocol", 
   });
   await it("accepts only proven successful legacy binding notices without tolerating truncation or errors", () => {
     // Vendor severity10 messages15511..15516 describe successful default/rule binding only.
-    for (const message of [15511, 15512, 15513, 15514, 15515, 15516]) {
+    for (const message of [5060, 15511, 15512, 15513, 15514, 15515, 15516]) {
       const state = nativeApiFixture();
       state.session.open();
       state.setDiagnostic("01000", message);
@@ -90,6 +90,8 @@ await describe("SQL Server data worker statement and retained-memory protocol", 
     }
     for (const [stateCode, message, rc] of [
       ["01004", 15512, 1],
+      ["01004", 5060, 1],
+      ["01000", 5060, -1],
       ["01000", 15517, 1],
       ["01000", 50000, 1],
       ["01000", 15512, -1],
