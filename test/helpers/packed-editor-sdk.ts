@@ -1,6 +1,6 @@
 import { execFile as callback } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -28,12 +28,17 @@ async function outputHash(workspace: string): Promise<string | undefined> {
   try {
     for (const file of paths) {
       const path = join(workspace, file);
-      const info = await stat(path);
-      if (!info.isFile() || info.size === 0) return undefined;
-      hash
-        .update(file)
-        .update(String(info.mode))
-        .update(await readFile(path));
+      const handle = await open(path, "r");
+      try {
+        const info = await handle.stat();
+        if (!info.isFile() || info.size === 0) return undefined;
+        hash
+          .update(file)
+          .update(String(info.mode))
+          .update(await handle.readFile());
+      } finally {
+        await handle.close();
+      }
     }
     return hash.digest("hex");
   } catch (error) {
