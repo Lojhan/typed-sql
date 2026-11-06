@@ -64,7 +64,7 @@ await it("keeps JavaScript SQL overlays checked and maps diagnostics to original
       }[];
     };
     const mismatch = diagnostics.items.find((item) => item.code === 2345);
-    strict.ok(mismatch, JSON.stringify(diagnostics));
+    if (!mismatch) throw new Error(`Expected parameter diagnostic: ${JSON.stringify(diagnostics)}`);
     strict.equal(mismatch.range.start.line, 1);
     strict.ok(
       mismatch.range.start.character >= positionAt(wrong, wrong.indexOf('"wrong"')).character,
