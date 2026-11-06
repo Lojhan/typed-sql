@@ -11,6 +11,7 @@ import {
   type LanguageLocation,
   type LanguageRange,
   mergeDocumentDiagnostics,
+  normalizeEditorSource,
   offsetAt,
 } from "./editor-language-model.js";
 import { WorkspaceFileTree } from "./file-tree";
@@ -586,7 +587,7 @@ function App() {
     openTab(focused.id, path);
   };
   const problemsFor = (doc: Document): WorkspaceProblem[] => {
-    const normalized = doc.source.replaceAll("\r\n", "\n");
+    const normalized = normalizeEditorSource(doc.source);
     const language = doc.languageSource === normalized ? (doc.languageDiagnostics ?? []) : [];
     const result: WorkspaceProblem[] = [...(doc.analysis?.diagnostics ?? [])];
     for (const diagnostic of language) {
@@ -955,7 +956,9 @@ function App() {
             workingCopies={workingCopies}
             active={item.id === focused.id}
             diagnostics={problemsFor(doc).flatMap((problem) =>
-              problem.range && problem.origin !== "language-server" ? [{ ...problem, range: problem.range }] : [],
+              problem.range && problem.origin !== "language-server"
+                ? [{ ...problem, range: problem.range, sourceText: doc.source }]
+                : [],
             )}
             {...(navigation?.paneId === item.id && navigation.file === doc.file ? { reveal: navigation.range } : {})}
             onNavigate={(location) => void action(() => navigate(item.id, location))}
@@ -963,7 +966,7 @@ function App() {
             onDiagnostics={(source, diagnostics) =>
               setDocuments((current) => {
                 const latest = current[doc.file];
-                if (!latest || latest.source.replaceAll("\r\n", "\n") !== source) return current;
+                if (!latest || normalizeEditorSource(latest.source) !== source) return current;
                 if (
                   latest.languageSource === source &&
                   JSON.stringify(latest.languageDiagnostics) === JSON.stringify(diagnostics)
