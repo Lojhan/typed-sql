@@ -602,6 +602,75 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   await invoke(">Connect to target", "Connect to target");
   await footer.getByRole("button", { name: "Refresh schema", exact: true }).waitFor();
   check("command palette opens Agent/Compare/Schema, creates real paths and dispatches theme/connection actions");
+  await invoke("playground/selection.sql", "playground/selection.sql");
+  await page.setViewportSize({ width: 560, height: 800 });
+  await invoke(">Find in active file", "Find in active file");
+  await find.waitFor();
+  await find.press("ControlOrMeta+a");
+  await find.pressSequentially("public.accounts");
+  await find.press("Enter");
+  const narrowEditor = page.locator(".cm-editor");
+  const narrowPanel = page.locator(".cm-search");
+  const paneBox = await narrowEditor.boundingBox();
+  const panelBox = await narrowPanel.boundingBox();
+  assert.ok(
+    paneBox && paneBox.width >= 280 && paneBox.width <= 360,
+    `Real viewport/sidebar geometry must produce a ~320px editor: ${JSON.stringify(paneBox)}`,
+  );
+  assert.ok(panelBox && panelBox.height > 60 && panelBox.height <= 240, "Find wraps into a compact multi-line panel");
+  const controls = await narrowPanel.locator("input,button,label").evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        name: element.getAttribute("aria-label") || element.getAttribute("name") || element.textContent,
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+      };
+    }),
+  );
+  for (const control of controls) {
+    assert.ok(
+      control.left >= paneBox.x - 1 && control.right <= paneBox.x + paneBox.width + 1,
+      `Find control escapes its narrow editor horizontally: ${JSON.stringify(control)}`,
+    );
+    assert.ok(
+      control.top >= panelBox.y - 1 && control.bottom <= panelBox.y + panelBox.height + 1,
+      `Find control escapes its wrapped panel: ${JSON.stringify(control)}`,
+    );
+  }
+  const nextFind = narrowPanel.getByRole("button", { name: "next", exact: true });
+  const closeFind = narrowPanel.getByRole("button", { name: "close", exact: true });
+  for (const control of [find, nextFind, closeFind]) await bounded(control, { width: 560, height: 800 });
+  await screenshot(narrowPanel, "find-wrapped-320");
+  const narrowScroll = page.locator(".cm-scroller");
+  const narrowScrollBox = await narrowScroll.boundingBox();
+  await page.mouse.move(narrowScrollBox.x + narrowScrollBox.width / 2, narrowScrollBox.y + narrowScrollBox.height / 2);
+  await page.mouse.wheel(0, 450);
+  await page.waitForFunction(() => document.querySelector(".cm-scroller").scrollTop > 0);
+  const narrowScrollStyle = await narrowScroll.evaluate((e) => ({
+    gutter: e.offsetWidth - e.clientWidth,
+    native: getComputedStyle(e).scrollbarWidth,
+    webkit: getComputedStyle(e, "::-webkit-scrollbar").display,
+  }));
+  assert.ok(
+    narrowScrollStyle.gutter <= 2 && (narrowScrollStyle.native === "none" || narrowScrollStyle.webkit === "none"),
+    "Narrow editor scrolls without a visible or space-reserving native scrollbar",
+  );
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.global-scrollbars [role="scrollbar"]')].every(
+      (e) => Number(getComputedStyle(e).opacity) < 0.05,
+    ),
+  );
+  await closeFind.click();
+  await narrowPanel.waitFor({ state: "detached" });
+  check("Find wraps all controls inside a real ~320px editor with reachable query/next/close and hidden editor rails", {
+    pane: paneBox,
+    panel: panelBox,
+    controls,
+    scroll: narrowScrollStyle,
+  });
   assert.deepEqual(evidence.errors, [], "The real browser must have no runtime exceptions");
 } catch (error) {
   evidence.failure = error.stack ?? String(error);
