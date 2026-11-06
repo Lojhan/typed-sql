@@ -23,6 +23,7 @@ export type WorkerEvent =
       readonly value: WireValue;
       readonly truncated: boolean;
       readonly paging?: ResultPaging;
+      readonly timings?: { readonly fetchMs: number };
       readonly provenance: "managed" | "unverified";
       readonly target?: unknown;
     }
@@ -62,6 +63,11 @@ export function validateWorkerEvent(value: unknown, maximumBytes: number): Worke
     ["managed", "unverified"].includes(String(event.provenance)) &&
     Object.hasOwn(event, "value")
   ) {
+    if (event.timings !== undefined) {
+      const timings = event.timings as { fetchMs: number };
+      if (!timings || !Number.isFinite(timings.fetchMs) || timings.fetchMs < 0)
+        throw new TypeError("Invalid result timings");
+    }
     if (event.paging !== undefined) {
       const p = event.paging as ResultPaging;
       if (

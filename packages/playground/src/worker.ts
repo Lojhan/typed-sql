@@ -149,6 +149,7 @@ async function run(request: WorkerRequest): Promise<void> {
         resultBudget,
       );
       let limited = false;
+      let fetchMs: number | undefined;
       const publish = (complete: boolean) =>
         send({
           type: "result",
@@ -156,6 +157,7 @@ async function run(request: WorkerRequest): Promise<void> {
           value: spool.first!,
           truncated: limited,
           paging: spool.metadata(complete),
+          ...(fetchMs === undefined ? {} : { timings: { fetchMs } }),
           provenance: "managed",
           ...(identity ? { target: identity } : {}),
         });
@@ -219,6 +221,7 @@ async function run(request: WorkerRequest): Promise<void> {
       // Command metadata is authoritative only after execution and commit have completed.
       const first = decodeValue(spool.first!) as Record<string, unknown>;
       spool.finalizeFirst({ ...result, rows: first.rows });
+      fetchMs = result.timings?.activeMs;
       limited ||= result.truncated;
       publish(!limited);
     } else {

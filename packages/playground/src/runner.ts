@@ -41,7 +41,7 @@ export interface RunRecord {
     buildMs: number | null;
     workerMs: number | null;
     databaseMs: null;
-    fetchMs: null;
+    fetchMs: number | null;
     totalMs: number | null;
   };
   schemaHash: string | null;
@@ -634,6 +634,7 @@ export class RunManager {
         } else if (event.type === "local-error") {
           process.stderr.write(`Playground worker: ${event.message}\n`);
         } else if (event.type === "result") {
+          if (event.timings) record.timings.fetchMs = event.timings.fetchMs;
           const index = record.results.findIndex((existing) => event.paging && existing.paging?.id === event.paging.id);
           if (index >= 0) record.results[index] = event;
           else if (record.results.length < 10) record.results.push(event);

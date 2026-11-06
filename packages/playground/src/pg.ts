@@ -510,6 +510,8 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     let session: Awaited<ReturnType<typeof lease>> | undefined;
     let finished = false;
     let consumerError: unknown;
+    const started = performance.now();
+    let consumerWaitMs = 0;
     try {
       validateStatement(request.text, request.readOnly);
       session = await lease(request, request.onRows !== undefined);
@@ -523,6 +525,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
           session!.disposed,
           request.onRows
             ? async (batch) => {
+                const consumerStarted = performance.now();
                 session!.pauseDeadline();
                 let aborted: (() => void) | undefined;
                 const idleTimer = setTimeout(() => session!.abort(), request.cursorIdleMs ?? 30_000);
@@ -540,6 +543,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
                   consumerError = error;
                   throw error;
                 } finally {
+                  consumerWaitMs += performance.now() - consumerStarted;
                   clearTimeout(idleTimer);
                   if (aborted) session!.signal.removeEventListener("abort", aborted);
                   session!.resumeDeadline();
@@ -551,7 +555,10 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
       session.assertActive();
       finished = true;
       await session.finish(true);
-      return result;
+      return {
+        ...result,
+        timings: { activeMs: Math.max(0, performance.now() - started - consumerWaitMs), consumerWaitMs },
+      };
     } catch (error) {
       const rolledBack = session !== undefined && !finished ? await session.finish(false).catch(() => false) : false;
       const reason =

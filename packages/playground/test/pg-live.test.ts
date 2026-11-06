@@ -96,6 +96,8 @@ try {
       strict.deepEqual(result.rows, [], "streamed result does not accumulate rows in adapter memory");
       strict.equal(result.truncated, false);
       strict.equal(result.affectedRows, undefined, "SELECT count is not affected rows");
+      strict.ok((result.timings?.consumerWaitMs ?? 0) >= 250, "query timing records excluded demand wait");
+      strict.ok((result.timings?.activeMs ?? -1) >= 0);
     });
 
     await it("closes an idle cursor on cancellation and releases its connection for another query", async () => {

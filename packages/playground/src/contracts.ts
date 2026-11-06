@@ -32,6 +32,8 @@ export interface PlaygroundQueryResult {
   readonly truncated: boolean;
   readonly command?: string;
   readonly affectedRows?: number;
+  /** Client-observed query/lease time; excludes awaited consumer demand, not pure server execution. */
+  readonly timings?: { readonly activeMs: number; readonly consumerWaitMs: number };
 }
 
 /** An explicit, lazy, server-side service. Main package imports no driver. */

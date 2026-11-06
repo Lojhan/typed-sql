@@ -92,6 +92,12 @@ try {
               Array.from({ length: 1203 }, (_, i) => i + 1),
             );
             strict.equal(run.results[0]?.paging?.complete, true);
+            strict.ok(typeof run.timings.fetchMs === "number");
+            strict.ok(
+              run.timings.fetchMs! < run.timings.workerMs!,
+              "active query/fetch excludes worker setup and demand idle",
+            );
+            strict.equal(run.timings.databaseMs, null, "client timing never claims pure server duration");
             const closed = start("demand-paging-close");
             await until(() => closed.results.length > 0 || closed.finishedAt !== undefined);
             manager.closeResult(closed.id, closed.results[0]!.paging!.id);
