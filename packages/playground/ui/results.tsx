@@ -254,21 +254,21 @@ export function ResultPanel({
   const result = run?.results[index];
   const captured = useResultPage(run, index, page);
   const [windowPages, setWindowPages] = useState<{ page: number; grid: Grid }[]>([]);
+  const pageValue = captured.data?.value;
+  const pageHasValue = captured.data?.hasPage !== false;
+  const pageGrid = useMemo(
+    () => (pageValue !== undefined && pageHasValue ? resultGrid(pageValue) : null),
+    [pageValue, pageHasValue],
+  );
   useEffect(() => {
-    setWindowPages([]);
-  }, []);
-  useEffect(() => {
-    if (!captured.data || captured.data.hasPage === false) return;
-    const grid = resultGrid(captured.data.value);
-    if (!grid) return;
+    if (!pageGrid) return;
     setWindowPages((previous) => {
-      if (previous.some((item) => item.page === page && item.grid === grid)) return previous;
-      const selected = [...previous.filter((item) => item.page !== page), { page, grid }].sort(
-        (a, b) => a.page - b.page,
-      );
-      return selected.slice(-5);
+      if (previous.some((item) => item.page === page && item.grid === pageGrid)) return previous;
+      return [...previous.filter((item) => item.page !== page), { page, grid: pageGrid }]
+        .sort((a, b) => a.page - b.page)
+        .slice(-5);
     });
-  }, [captured.data?.value, captured.data?.hasPage, page, captured.data]);
+  }, [pageGrid, page]);
   const data = useMemo(
     () =>
       windowPages.length
@@ -282,12 +282,6 @@ export function ResultPanel({
   useEffect(() => {
     if (!captured.loading) scrollDemand.current = false;
   }, [captured.loading]);
-  useEffect(() => {
-    setIndex(0);
-    setPage(0);
-    setLog(false);
-    setFilter("");
-  }, []);
   const stale =
     run &&
     (run.file !== file ||
@@ -350,6 +344,8 @@ export function ResultPanel({
                   onChange={(event) => {
                     setIndex(Number(event.target.value));
                     setPage(0);
+                    setWindowPages([]);
+                    setLocalError("");
                   }}
                 >
                   {run.results.map((item, ordinal) => (

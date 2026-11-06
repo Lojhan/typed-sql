@@ -471,6 +471,7 @@ function App() {
       const run = state!.runs.find((run) => run.id === item.runId) ?? state!.runs.find((run) => run.file === doc.file);
       return (
         <ResultPanel
+          key={run?.id ?? "unexecuted"}
           run={run}
           file={doc.file}
           revision={doc.revision}
