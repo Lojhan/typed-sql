@@ -539,6 +539,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   };
   await invoke("playground/selection.sql", "playground/selection.sql");
   await editor.waitFor();
+  const fileToolbarHeight = (await page.locator(".document-toolbar").boundingBox()).height;
   await editor.click();
   await page.keyboard.press("ControlOrMeta+k");
   await paletteDialog.waitFor();
@@ -582,6 +583,63 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     await page.waitForFunction((count) => document.querySelectorAll(".editor-pane").length === count, paneCount);
   }
   check("workspace shortcuts toggle tree, split right/down and close the active workspace tab");
+  await editor.click();
+  await editor.press("ControlOrMeta+End");
+  await editor.pressSequentially(" ");
+  await page.keyboard.press("ControlOrMeta+w");
+  const unsavedDialog = page.getByRole("dialog", { name: "Unsaved changes", exact: true });
+  await unsavedDialog.waitFor();
+  for (const shortcut of ["ControlOrMeta+k", "ControlOrMeta+Shift+p"]) {
+    await page.keyboard.press(shortcut);
+    assert.equal(await paletteDialog.count(), 0, "A pending dialog must not acquire a hidden command palette");
+    assert.ok(await unsavedDialog.evaluate((element) => element.contains(document.activeElement)));
+  }
+  const modifier = process.platform === "darwin" ? "Meta" : "Control";
+  await page.keyboard.down(modifier);
+  await page.keyboard.down("w");
+  await page.keyboard.down("w");
+  await page.keyboard.up("w");
+  await page.keyboard.up(modifier);
+  assert.equal(page.isClosed(), false, "Repeated close shortcuts must never fall through to browser-tab closure");
+  await unsavedDialog.waitFor();
+  await page.keyboard.press("Escape");
+  await unsavedDialog.waitFor({ state: "detached" });
+  await editor.click();
+  await editor.press("ControlOrMeta+z");
+  check("closing a dirty tab preserves its edits and blocks hidden palette shortcuts behind the save dialog");
+  const saveStarted = Promise.withResolvers();
+  const releaseSave = Promise.withResolvers();
+  await page.route("**/api/save", async (route) => {
+    saveStarted.resolve();
+    await releaseSave.promise;
+    await route.continue();
+  });
+  await editor.press("ControlOrMeta+End");
+  await editor.pressSequentially(" ");
+  await page.keyboard.press("ControlOrMeta+w");
+  await unsavedDialog.getByRole("button", { name: "Save and close", exact: true }).click();
+  await saveStarted.promise;
+  await page.keyboard.press("Escape");
+  await unsavedDialog.waitFor({ state: "detached" });
+  await editor.click();
+  await editor.pressSequentially("pending-save-edit");
+  const savedResponse = page.waitForResponse((response) => response.url().endsWith("/api/save"));
+  releaseSave.resolve();
+  await savedResponse;
+  await page.unroute("**/api/save");
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await editor.waitFor();
+  assert.ok(
+    (await editor.textContent()).includes("pending-save-edit"),
+    "The newer unsaved edit survives completion of the old save",
+  );
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.insertText(source);
+  const restoredResponse = page.waitForResponse((response) => response.url().endsWith("/api/save"));
+  await editor.press("ControlOrMeta+s");
+  await restoredResponse;
+  assert.equal(await readFile(join(root, "playground/selection.sql"), "utf8"), source);
+  check("dismissing a pending save-and-close never closes a newer unsaved buffer");
   await invoke(">Find in active file", "Find in active file");
   const find = page.getByRole("textbox", { name: "Find", exact: true });
   await find.waitFor();
@@ -621,6 +679,49 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   await page.getByRole("combobox", { name: "Run A", exact: true }).waitFor();
   await invoke(">Open schema", "Open schema");
   await page.locator(".schema-canvas").waitFor();
+  const schemaToolbarHeight = (await page.locator(".schema-tab .tool-toolbar").boundingBox()).height;
+  assert.equal(schemaToolbarHeight, fileToolbarHeight, "Schema and file toolbars share the same exact height");
+  const minimap = page.locator(".react-flow__minimap");
+  const minimapBox = await minimap.boundingBox();
+  const minimapSvgBox = await minimap.locator("svg").boundingBox();
+  assert.ok(minimapBox && minimapSvgBox, "Minimap and its SVG must be visible");
+  assert.ok(
+    minimapSvgBox.width <= minimapBox.width && minimapSvgBox.height <= minimapBox.height,
+    "Minimap SVG must fit its container instead of being clipped to a smaller CSS box",
+  );
+  for (const mode of ["light", "dark"]) {
+    await chooseTheme(mode);
+    await screenshot(page.locator(".schema-tab .tool-toolbar"), `schema-toolbar-${mode}`);
+    await screenshot(page.locator(".canvas-toolbar > div"), `schema-actions-${mode}`);
+    await screenshot(minimap, `schema-minimap-${mode}`);
+  }
+  check("schema toolbar matches file height and minimap SVG fits its actual panel", {
+    fileToolbarHeight,
+    schemaToolbarHeight,
+    minimap: minimapBox,
+    svg: minimapSvgBox,
+  });
+  const boardViewport = page.viewportSize();
+  await page.setViewportSize({ width: 560, height: 800 });
+  const canvasTools = page.locator(".canvas-toolbar");
+  const toolBox = await canvasTools.boundingBox();
+  const canvasBox = await page.locator(".canvas-viewport").boundingBox();
+  assert.ok(toolBox.y + toolBox.height <= canvasBox.y + 1, "Board actions occupy their own space above the canvas");
+  const boardButtons = await canvasTools.getByRole("button").all();
+  const buttonBoxes = [];
+  for (const button of boardButtons) {
+    const box = await button.boundingBox();
+    assert.ok(box.x >= toolBox.x && box.x + box.width <= toolBox.x + toolBox.width + 1);
+    buttonBoxes.push(box);
+  }
+  assert.ok(
+    buttonBoxes[0].x + buttonBoxes[0].width <= buttonBoxes[1].x ||
+      buttonBoxes[0].y + buttonBoxes[0].height <= buttonBoxes[1].y,
+    "Narrow schema actions must wrap rather than overlap",
+  );
+  await screenshot(canvasTools, "schema-actions-narrow");
+  await page.setViewportSize(boardViewport);
+  check("narrow schema actions wrap without overlapping one another or the canvas");
   await invoke(">Theme: Light", "Theme: Light");
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
   await invoke(">Connect to target", "Connect to target");

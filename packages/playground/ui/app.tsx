@@ -63,6 +63,7 @@ function App() {
     [lastFile, setLastFile] = useState(""),
     [compareA, setCompareA] = useState<string | undefined>();
   const stateRef = useRef<State | null>(null),
+    closingRef = useRef(closing),
     documentsRef = useRef(documents),
     layoutRef = useRef(layout),
     initialized = useRef(false),
@@ -72,6 +73,7 @@ function App() {
     analysisTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
     storageKey = useRef("");
   documentsRef.current = documents;
+  closingRef.current = closing;
   layoutRef.current = layout;
   const dirty = useMemo(
     () =>
@@ -358,20 +360,30 @@ function App() {
   };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing || event.repeat) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing) return;
       const name = event.key.toLowerCase();
       let command: (() => void) | undefined;
-      if ((!event.shiftKey && name === "k") || (event.shiftKey && name === "p"))
-        command = () => setPalette((value) => !value);
-      else if (!document.querySelector('[role="dialog"]')) {
-        if (!event.shiftKey && name === "b") command = () => setSidebarVisible((value) => !value);
-        if (event.code === "Backslash" && panes(layoutRef.current).length < 8)
-          command = () => split(focused.id, event.shiftKey ? "bottom" : "right");
-        if (!event.shiftKey && name === "w" && focused.active) command = () => closeTab(focused.id, focused.active);
-      }
+      const dialog = Array.from(document.querySelectorAll('[role="dialog"]')).at(-1);
+      if ((!event.shiftKey && name === "k") || (event.shiftKey && name === "p")) {
+        command = () => {
+          if (!dialog || dialog.getAttribute("aria-label") === "Command palette") setPalette((value) => !value);
+        };
+      } else if (!event.shiftKey && name === "b")
+        command = () => {
+          if (!dialog) setSidebarVisible((value) => !value);
+        };
+      else if (event.code === "Backslash")
+        command = () => {
+          if (!dialog && panes(layoutRef.current).length < 8) split(focused.id, event.shiftKey ? "bottom" : "right");
+        };
+      else if (!event.shiftKey && name === "w")
+        command = () => {
+          if (!dialog && focused.active) closeTab(focused.id, focused.active);
+        };
       if (!command) return;
       event.preventDefault();
       event.stopPropagation();
+      if (event.repeat) return;
       command();
     };
     document.addEventListener("keydown", key, true);
@@ -1188,10 +1200,19 @@ function App() {
             <button
               type="button"
               className="primary-button"
+              disabled={busy}
               onClick={() =>
                 void action(async () => {
-                  await save(closing.tab);
-                  closeTab(closing.paneId, closing.tab, false, true);
+                  const pending = closing;
+                  const source = documentsRef.current[pending.tab]?.source;
+                  const revision = await save(pending.tab);
+                  if (
+                    closingRef.current !== pending ||
+                    !revision ||
+                    documentsRef.current[pending.tab]?.source !== source
+                  )
+                    return;
+                  closeTab(pending.paneId, pending.tab, false, true);
                   setClosing(null);
                 })
               }
