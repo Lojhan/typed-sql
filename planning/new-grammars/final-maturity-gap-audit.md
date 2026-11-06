@@ -155,3 +155,18 @@ pre-repair native receipts for altered physical SQL or metadata normalization.
   update; alias attestation and final coherent-head qualification remain incomplete.
 - Public parameter projection is isolated as [PR #268](https://github.com/Lojhan/typed-sql/pull/268),
   with local typecheck and full conformance tests passing. CI remains the merge gate.
+
+### Native rerun result: f1ae218
+
+Run [42137635548](https://github.com/Lojhan/typed-sql/actions/runs/42137635548) is terminal.
+All four core adapter stages pass. Compiled AS OF catalog counterexamples clear on all
+ten compatibility rows; alias result metadata remains the only catalog case failing before
+rowversion. The complete packed first-use stage passes on SQL Server 2017/2019/2022.
+SQL Server 2025 completes its online/offline/build/execution and installed live/cached
+verification/plan assertions, with explicit `repeated-fragment-cardinality` plan skip, then
+fails disposable cleanup on successful informational native 5060/SQLSTATE 01000 records.
+The downloaded `first-use-17-native-services-summary.log` records two cached replays with
+zero SDK imports; verification skips are empty. This is evidence of those phases, not an
+end-to-end green 2025 packed stage. Microsoft lists 5060 as severity 10 rollback progress
+in its [5000–5999 error catalog](https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-5000-to-5999).
+A narrow successful-notice fix and independently asserted completed cleanup remain required.
