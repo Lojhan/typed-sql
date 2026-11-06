@@ -6,6 +6,7 @@ import { describe, it, strict } from "poku";
 import {
   createMigration,
   ensureDirectory,
+  inventoryFiles,
   loadInventory,
   MigrationError,
   safePath,
@@ -18,6 +19,31 @@ const renderer = {
   quoteIdentifier: (value: string) => `"${value.replaceAll('"', '""')}"`,
 };
 await describe("migration inventory and trusted TS capture", async () => {
+  await it("bounds migration reads and refuses symlink inputs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "migration-inputs-"));
+    const outside = await mkdtemp(join(tmpdir(), "migration-inputs-outside-"));
+    try {
+      await mkdir(join(root, "migrations"));
+      const input = join(root, "migrations", "input.sql");
+      await writeFile(input, " ".repeat(2 * 1024 * 1024));
+      strict.equal(Object.keys(await inventoryFiles(root, "migrations")).length, 1);
+      await writeFile(input, " ".repeat(2 * 1024 * 1024 + 1));
+      await strict.rejects(
+        inventoryFiles(root, "migrations"),
+        (error: unknown) => error instanceof MigrationError && error.code === "MIGRATION_FILE",
+      );
+      await rm(input);
+      await writeFile(join(outside, "secret.sql"), "select 'outside';");
+      await symlink(join(outside, "secret.sql"), input);
+      await strict.rejects(
+        inventoryFiles(root, "migrations"),
+        (error: unknown) => error instanceof MigrationError && error.code === "MIGRATION_PATH",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
   await it("uses checked-in templates and selected grammar without exposing partial SQL scaffolds", async () => {
     const root = await mkdtemp(join(tmpdir(), "migration-templates-"));
     try {

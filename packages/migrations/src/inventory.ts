@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, mkdtemp, open, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { SqlRenderer } from "@typed-sql/core";
@@ -10,10 +11,32 @@ import type { CapturedMigration, MigrationDefinition } from "./types.js";
 
 const limit = 2 * 1024 * 1024;
 async function readBounded(file: string): Promise<string> {
-  const info = await lstat(file);
-  if (info.isSymbolicLink() || !info.isFile() || info.size > limit)
-    throw new MigrationError("MIGRATION_FILE", "Migration inputs must be regular files no larger than 2 MiB.");
-  return readFile(file, "utf8");
+  const invalid = () =>
+    new MigrationError("MIGRATION_FILE", "Migration inputs must be regular files no larger than 2 MiB.");
+  let handle;
+  try {
+    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ELOOP") throw invalid();
+    throw error;
+  }
+  try {
+    // Inspect and read the same descriptor: replacing the path cannot redirect the read.
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > limit) throw invalid();
+    // Bound the read itself as well: the opened file can grow after fstat.
+    const bytes = Buffer.alloc(limit + 1);
+    let length = 0;
+    while (length < bytes.length) {
+      const read = await handle.read(bytes, length, bytes.length - length, null);
+      if (read.bytesRead === 0) break;
+      length += read.bytesRead;
+    }
+    if (length > limit) throw invalid();
+    return bytes.toString("utf8", 0, length);
+  } finally {
+    await handle.close();
+  }
 }
 export async function safePath(root: string, path: string): Promise<string> {
   const resolved = resolve(root, path);
