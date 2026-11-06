@@ -512,7 +512,7 @@ function protocolDiagnostics(diagnostics: readonly unknown[]): readonly unknown[
 
 async function combinedDiagnostics(state: DocumentState): Promise<readonly unknown[]> {
   return protocolDiagnostics([
-    ...(nativeDiagnostics.get(state.original.uri) ?? []),
+    ...(state.original.uri.endsWith(".sql") ? [] : (nativeDiagnostics.get(state.original.uri) ?? [])),
     ...(await state.service.diagnostics(state.original)),
   ]);
 }
@@ -702,6 +702,7 @@ client.onRequest("textDocument/hover", async (rawParams, token) => {
     ensureStateCurrent(state);
     if (hover !== undefined) return hover;
   }
+  if (state?.original.uri.endsWith(".sql")) return null;
   const result = await nativeRequest("textDocument/hover", mapProtocolValue(params, "source-to-virtual", state), token);
   ensureStateCurrent(state);
   return mapProtocolValue(result, "virtual-to-source", state);
@@ -718,6 +719,7 @@ client.onRequest("textDocument/completion", async (rawParams, token) => {
     ensureStateCurrent(state);
     if (items.length > 0) return { isIncomplete: false, items };
   }
+  if (state?.original.uri.endsWith(".sql")) return { isIncomplete: false, items: [] };
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest("textDocument/completion", mapped, token);
   ensureStateCurrent(state);
@@ -735,6 +737,7 @@ client.onRequest("textDocument/definition", async (rawParams, token) => {
     ensureStateCurrent(state);
     if (definition !== undefined) return definition;
   }
+  if (state?.original.uri.endsWith(".sql")) return null;
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest("textDocument/definition", mapped, token);
   ensureStateCurrent(state);
@@ -754,7 +757,9 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
       ? []
       : await state.service.codeActions(state.original, diagnostics, token);
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  const native = await nativeRequest("textDocument/codeAction", mapped, token);
+  const native = state?.original.uri.endsWith(".sql")
+    ? []
+    : await nativeRequest("textDocument/codeAction", mapped, token);
   ensureStateCurrent(state);
   const nativeActions = Array.isArray(native)
     ? (wrapResolveResults(
@@ -815,6 +820,10 @@ async function forwardRequest(method: string, rawParams: unknown, token: Cancell
     method === "textDocument/semanticTokens/range"
   ) {
     return semanticTokens(method, params, state, token);
+  }
+  if (state?.original.uri.endsWith(".sql")) {
+    if (method === "textDocument/diagnostic") return { kind: "full", items: await combinedDiagnostics(state) };
+    return null;
   }
   const mappedParams = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest(method, mappedParams, token);
