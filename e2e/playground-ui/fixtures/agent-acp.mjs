@@ -79,7 +79,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       });
       globalThis.pendingProposal = {
         file,
-        source: `select 42 as reviewed_value;\n-- ${"long-proposed-source".repeat(200)}\n`,
+        source: `select ${latest.startsWith("accept dirty race") ? 126 : 42} as reviewed_value;\n-- ${"long-proposed-source".repeat(200)}\n`,
       };
     }
   } else if (message.id === 100) {

@@ -161,22 +161,34 @@ function App() {
   const load = useCallback(async (file: string, reload = false) => {
     if (isTool(file) || (!reload && documentsRef.current[file])) return;
     if (loading.current.has(file)) return loading.current.get(file);
+    const initial = documentsRef.current[file];
     const pending = (async () => {
       const next = await api<{ file: string; source: string; revision: string; writable: boolean }>("file", { file });
-      setDocuments((current) => ({
-        ...current,
-        [file]: {
-          file,
-          source: next.source,
-          saved: next.source,
-          revision: next.revision,
-          writable: next.writable,
-          mode: file.endsWith(".sql") ? "sql" : "export",
-          exportName: "run",
-          readOnly: true,
-          parameters: {},
-        },
-      }));
+      setDocuments((current) => {
+        const latest = current[file];
+        if (
+          latest &&
+          (!initial ||
+            latest.source !== initial.source ||
+            latest.saved !== initial.saved ||
+            latest.revision !== initial.revision)
+        )
+          return current;
+        return {
+          ...current,
+          [file]: {
+            file,
+            source: next.source,
+            saved: next.source,
+            revision: next.revision,
+            writable: next.writable,
+            mode: file.endsWith(".sql") ? "sql" : "export",
+            exportName: "run",
+            readOnly: true,
+            parameters: {},
+          },
+        };
+      });
     })();
     loading.current.set(file, pending);
     try {
@@ -541,7 +553,8 @@ function App() {
     };
   }, []);
   const changeFile = async (file: string) => {
-    if (dirty.has(file)) {
+    const document = documentsRef.current[file];
+    if (document && document.source !== document.saved) {
       setError(`${file} changed outside this editor. Unsaved buffer preserved; save a copy or reload explicitly.`);
       return;
     }

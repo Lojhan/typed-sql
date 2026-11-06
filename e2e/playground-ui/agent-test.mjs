@@ -241,7 +241,56 @@ try {
   await accepted.getByRole("button", { name: "Review diff", exact: true }).click();
   assert.match(await accepted.locator(".proposal-diff").textContent(), /original_value/u);
   assert.equal(await readFile(join(root, "playground/existing.sql"), "utf8"), original);
+  let releaseFileReload, markFileReload, markReloadDelivered;
+  const heldFileReload = new Promise((resolve) => {
+    releaseFileReload = resolve;
+  });
+  const fileReloadStarted = new Promise((resolve) => {
+    markFileReload = resolve;
+  });
+  const fileReloadDelivered = new Promise((resolve) => {
+    markReloadDelivered = resolve;
+  });
+  await page.route("**/api/file", async (route) => {
+    if (route.request().postDataJSON()?.file !== "playground/existing.sql") {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    markFileReload();
+    await heldFileReload;
+    await route.fulfill({ response });
+    markReloadDelivered();
+  });
   await accepted.getByRole("button", { name: "Apply reviewed change", exact: true }).click();
+  await page.locator(".agent-proposal.accepted").waitFor();
+  await fileReloadStarted;
+  await invoke("playground/existing.sql");
+  const editing = page.getByRole("textbox", { name: "Query source editor", exact: true });
+  await editing.waitFor();
+  await editing.press("ControlOrMeta+End");
+  await editing.pressSequentially("-- unsaved while file reload waits");
+  await page.locator('.pane-tab button[title="playground/existing.sql"] .dirty-mark').waitFor();
+  releaseFileReload();
+  await fileReloadDelivered;
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.match(await page.locator(".cm-content").textContent(), /original_value.*unsaved while file reload waits/su);
+  assert.equal(await page.locator('.pane-tab button[title="playground/existing.sql"] .dirty-mark').count(), 1);
+  assert.match(await readFile(join(root, "playground/existing.sql"), "utf8"), /^select 42 as reviewed_value;/u);
+  await page.unroute("**/api/file");
+  check("an accepted-file reload cannot replace editor changes typed after its file request started");
+  page.once("dialog", (dialog) => void dialog.accept());
+  const explicitlyReloaded = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/file") && response.request().postDataJSON()?.file === "playground/existing.sql",
+  );
+  await invoke(">Reload active file from disk", "Reload active file from disk");
+  await explicitlyReloaded;
+  await page.waitForFunction(() =>
+    document.querySelector(".cm-content")?.textContent.startsWith("select 42 as reviewed_value;"),
+  );
+  assert.equal(await page.locator('.pane-tab button[title="playground/existing.sql"] .dirty-mark').count(), 0);
+  await invoke(">Open agent", "Open agent");
   await page.locator(".agent-proposal.accepted").waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
   assert.match(await readFile(join(root, "playground/existing.sql"), "utf8"), /^select 42 as reviewed_value;/u);
@@ -280,6 +329,68 @@ try {
   assert.equal(await conversations.inputValue(), acceptedId);
   await page.unroute("**/api/agents/conversation?*");
   check("late conversation responses cannot replace a newer selected conversation");
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
+  await composer.fill("accept dirty race");
+  await page.getByRole("button", { name: "Send ↑", exact: true }).click();
+  const dirtyRaceProposal = page.locator(".agent-proposal.pending");
+  await dirtyRaceProposal.waitFor();
+  await dirtyRaceProposal.getByRole("button", { name: "Review diff", exact: true }).click();
+  let releaseDecision, markDecision, markDecisionDelivered;
+  const heldDecision = new Promise((resolve) => {
+    releaseDecision = resolve;
+  });
+  const decisionStarted = new Promise((resolve) => {
+    markDecision = resolve;
+  });
+  const decisionDelivered = new Promise((resolve) => {
+    markDecisionDelivered = resolve;
+  });
+  await page.route("**/api/agents/proposal", async (route) => {
+    const response = await route.fetch();
+    markDecision();
+    await heldDecision;
+    await route.fulfill({ response });
+    markDecisionDelivered();
+  });
+  let unwantedReloads = 0;
+  const countReloads = (request) => {
+    if (request.url().endsWith("/api/file") && request.postDataJSON()?.file === "playground/existing.sql")
+      unwantedReloads++;
+  };
+  page.on("request", countReloads);
+  await dirtyRaceProposal.getByRole("button", { name: "Apply reviewed change", exact: true }).click();
+  await decisionStarted;
+  assert.match(await readFile(join(root, "playground/existing.sql"), "utf8"), /^select 126 as reviewed_value;/u);
+  await invoke("playground/existing.sql");
+  await editing.waitFor();
+  await editing.press("ControlOrMeta+End");
+  await editing.pressSequentially("-- unsaved before agent acceptance returns");
+  await page.locator('.pane-tab button[title="playground/existing.sql"] .dirty-mark').waitFor();
+  releaseDecision();
+  await decisionDelivered;
+  await page.getByRole("alert").filter({ hasText: "Unsaved buffer preserved" }).waitFor();
+  assert.match(await page.locator(".cm-content").textContent(), /select 42.*unsaved before agent acceptance returns/su);
+  assert.equal(unwantedReloads, 0, "The unmounted Agent callback checks the current buffer before requesting a reload");
+  page.off("request", countReloads);
+  await page.unroute("**/api/agents/proposal");
+  check(
+    "agent acceptance finishing after tab navigation preserves newly dirty text instead of using a stale clean-buffer closure",
+  );
+  page.once("dialog", (dialog) => void dialog.accept());
+  const reloadAccepted = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/file") && response.request().postDataJSON()?.file === "playground/existing.sql",
+  );
+  await invoke(">Reload active file from disk", "Reload active file from disk");
+  await reloadAccepted;
+  await page.waitForFunction(() =>
+    document.querySelector(".cm-content")?.textContent.startsWith("select 126 as reviewed_value;"),
+  );
+  await invoke(">Open agent", "Open agent");
+  await page.locator(".agent-proposal.accepted").waitFor();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
+
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("cancel proposal");
@@ -342,7 +453,7 @@ try {
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-  assert.equal(trace.filter((entry) => entry.action === "prompt").length, 4);
+  assert.equal(trace.filter((entry) => entry.action === "prompt").length, 5);
   assert.ok(trace.some((entry) => entry.action === "read" && entry.success));
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
