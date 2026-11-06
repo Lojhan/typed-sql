@@ -23,6 +23,7 @@ interface ToolResult {
     runs: unknown[];
     diagnostics: unknown[];
     executed: boolean;
+    error: { code: string; sqlState?: string };
     value: WireValue;
     proposal: { status: string };
   };
@@ -39,6 +40,8 @@ async function fixture(
       closed: number;
       database: string;
       fail: boolean;
+      errorCode: string;
+      sqlState: string;
       wait: boolean;
       proposals: unknown[];
     };
@@ -57,6 +60,8 @@ async function fixture(
       closed: 0,
       database: "expected",
       fail: false,
+      errorCode: "",
+      sqlState: "",
       wait: false,
       proposals: [] as unknown[],
     },
@@ -70,7 +75,8 @@ async function fixture(
         await new Promise<void>((_, reject) =>
           input.signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }),
         );
-      if (state.fail) throw new Error("PRIVATE password=secret");
+      if (state.fail)
+        throw Object.assign(new Error("PRIVATE password=secret"), { code: state.errorCode, sqlState: state.sqlState });
       return { columns: [{ name: "id", databaseType: "int8" }], rows: [[42n]], truncated: false };
     },
     close: async () => {
@@ -343,6 +349,14 @@ await describe("scoped workspace MCP tools", async () => {
       strict.equal(error.isError, true);
       strict.ok(!JSON.stringify(error).includes("PRIVATE"));
       strict.equal(f.state.closed, 3);
+      f.state.errorCode = "TSQL_PLAYGROUND_READ_ONLY";
+      const adapterBlocked = await f.call("typed_sql_query_readonly", { sql: "select 1 as value" });
+      strict.equal(adapterBlocked.structuredContent.error.code, "READ_ONLY");
+      strict.ok(!JSON.stringify(adapterBlocked).includes("25006"));
+      f.state.sqlState = "25006";
+      const databaseBlocked = await f.call("typed_sql_query_readonly", { sql: "select 1 as value" });
+      strict.equal(databaseBlocked.structuredContent.error.sqlState, "25006");
+      strict.ok(!JSON.stringify(databaseBlocked).includes("PRIVATE"));
     }));
   await it("proposes only reviewable source and revokes tokens on idle, cancellation and trust loss", async () =>
     fixture(async (f) => {

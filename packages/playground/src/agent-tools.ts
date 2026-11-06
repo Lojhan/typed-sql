@@ -204,6 +204,49 @@ export class AgentWorkspaceToolServer {
             return response;
           } catch (error) {
             await Promise.resolve(turn.onToolCall?.({ id, name, state: "failed" })).catch(() => {});
+            const candidate = error && typeof error === "object" ? error : undefined;
+            const code = candidate && "code" in candidate ? candidate.code : undefined;
+            const state = candidate && "sqlState" in candidate ? candidate.sqlState : undefined;
+            const sqlState = typeof state === "string" && /^[A-Z0-9]{5}$/u.test(state) ? state : undefined;
+            if (code === "TSQL_PLAYGROUND_READ_ONLY" || sqlState === "25006") {
+              const message =
+                sqlState === "25006"
+                  ? "The database rejected a write in the enforced read-only transaction (SQLSTATE 25006). Propose file changes for human review instead."
+                  : "The managed adapter blocked write execution. Agent query tools only allow database-enforced read-only queries; propose file changes for human review instead.";
+              return {
+                isError: true,
+                content: [{ type: "text" as const, text: message }],
+                structuredContent: {
+                  error: {
+                    code: "READ_ONLY",
+                    enforcement: sqlState === "25006" ? "database" : "adapter",
+                    ...(sqlState ? { sqlState } : {}),
+                  },
+                },
+              };
+            }
+            if (sqlState)
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: "text" as const,
+                    text: `Database rejected the query (SQLSTATE ${sqlState}). Check the SQL, parameter types and target schema.`,
+                  },
+                ],
+                structuredContent: { error: { code: "DATABASE", sqlState } },
+              };
+            if (code === "TSQL_PLAYGROUND_SQL_MODE")
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: "text" as const,
+                    text: "Agent queries do not allow transaction, session or COPY commands. Use one checked read-only statement.",
+                  },
+                ],
+                structuredContent: { error: { code: "SQL_MODE" } },
+              };
             const message =
               error instanceof WorkspaceError
                 ? error.message
