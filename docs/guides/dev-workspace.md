@@ -83,13 +83,17 @@ PostgreSQL/pg is the connected adapter. Other grammars can use a saved snapshot 
 
 The file tree shows actual files inside the repository, grouped by directory. The default writable query folder is `playground/`; change `scratchDirectory` and `writeRoots` to select another repository folder. Save, Save As and Rename operate on disk, so query files survive host and browser restarts and can be edited externally, committed and shared. Browser storage retains layout, open tabs and cursors rather than becoming the source of truth for file contents. Use a consistent `--port` to restore browser layout across host launches; repository files persist regardless of the port or browser. Unsaved buffers need an explicit save.
 
+Use the file and folder buttons in **Files**, or right-click a folder or blank tree space. Creation starts an inline name field in the selected directory: Enter creates the actual file/folder, while Escape or leaving the field cancels. Empty folders remain visible and survive host restarts. Duplicate names produce a conflict instead of replacing existing work.
+
 Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
+
+The color selector offers **System**, **Light** and **Dark**. System follows OS changes; an explicit preference stays in browser storage. Scrollbars float over non-editor scroll areas and fade after interaction, without reserving container space. The editor remains scrollable with no visible scrollbar.
 
 ## Explore and create a query
 
 The board displays captured foreign keys, including composite and cross-schema keys. It never infers relationships from column names. Search relations/columns, focus neighbors, drag cards and reset the layout. Layout positions stay in local browser storage, outside the compiler snapshot. The schema list and inspector provide keyboard-accessible relation/column/constraint information.
 
-Choose a table and **Create query from table**. Preview the path, then create an ordinary `.ts` or `.sql` file under an allowed write root. TypeScript templates include a server-side `db.ts` helper:
+Select a table and choose **New SQL query** or **New TS query** in its contextual actions. The workspace creates a grammar-qualified query under the configured query folder, chooses a nonconflicting filename and opens the actual file. TypeScript templates include a server-side `db.ts` helper:
 
 ```ts
 import { databaseForRun } from '@typed-sql/playground/runtime';

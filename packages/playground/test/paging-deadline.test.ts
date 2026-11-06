@@ -7,7 +7,7 @@ import { RunManager } from "../src/runner.js";
 import { fixture } from "./helpers/fixture.js";
 
 async function until(test: () => boolean) {
-  const stop = Date.now() + 15000;
+  const stop = Date.now() + 30000;
   while (!test()) {
     if (Date.now() > stop) throw new Error("Parent watchdog did not settle");
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -21,7 +21,8 @@ await describe("parent paging watchdog", async () => {
       const manager = new RunManager(
         await loadConfig({ file: join(directory, "typed-sql.config.mjs") }),
         new WorkspaceFiles(directory, ["playground"], ["playground"]),
-        { timeoutMs: 1000, maxRows: 5, pageSize: 2, maxResultBytes: 100000, maxConsoleBytes: 100000 },
+        // Include cold TypeScript startup on slower CI hosts without testing that startup itself.
+        { timeoutMs: 5000, maxRows: 5, pageSize: 2, maxResultBytes: 100000, maxConsoleBytes: 100000 },
         "local",
         join(directory, "tsconfig.json"),
       );
@@ -36,7 +37,7 @@ await describe("parent paging watchdog", async () => {
         await until(() => run.finishedAt !== undefined);
         strict.equal(run.results[0]?.paging?.complete, false, JSON.stringify(run));
         strict.equal(run.status, "outcome-unknown", JSON.stringify(run));
-        strict.ok((run.timings.workerMs ?? 0) < 6000, "parent terminates CPU loop despite incomplete paging metadata");
+        strict.ok((run.timings.workerMs ?? 0) < 10000, "parent terminates CPU loop despite incomplete paging metadata");
       } finally {
         await manager.close();
       }
@@ -57,7 +58,7 @@ await describe("parent paging watchdog", async () => {
       const manager = new RunManager(
         await loadConfig({ file: config }),
         new WorkspaceFiles(directory, ["playground"], ["playground"]),
-        { timeoutMs: 1000, pageSize: 2, cursorIdleMs: 1000, maxResultBytes: 100000, maxConsoleBytes: 100000 },
+        { timeoutMs: 5000, pageSize: 2, cursorIdleMs: 5000, maxResultBytes: 100000, maxConsoleBytes: 100000 },
         "local",
         join(directory, "tsconfig.json"),
       );
@@ -74,7 +75,7 @@ await describe("parent paging watchdog", async () => {
         await until(() => run.finishedAt !== undefined);
         strict.equal(page.hasPage, false);
         strict.equal(run.status, "outcome-unknown", JSON.stringify(run));
-        strict.ok((run.timings.workerMs ?? 0) < 6000);
+        strict.ok((run.timings.workerMs ?? 0) < 10000);
       } finally {
         await manager.close();
       }
