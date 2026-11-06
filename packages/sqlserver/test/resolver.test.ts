@@ -186,6 +186,60 @@ await describe("SQL Server native inference", async () => {
       );
   });
 
+  await it("uses bindable binary targets only for rowversion comparison inputs", () => {
+    const schema = {
+      formatVersion: 1,
+      dialect: "sqlserver",
+      server,
+      tables: {
+        versions: {
+          schema: "dbo",
+          name: "versions",
+          columns: {
+            id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+            rv: { name: "rv", databaseType: "rowversion", tsType: "Uint8Array", nullable: false },
+          },
+        },
+      },
+    } as const;
+    for (const predicate of [
+      "rv=@__typed_sql_1",
+      "@__typed_sql_1=rv",
+      "rv IN (@__typed_sql_1)",
+      "@__typed_sql_1 IN (rv)",
+      "rv BETWEEN @__typed_sql_1 AND @__typed_sql_2",
+      "@__typed_sql_1 BETWEEN rv AND rv",
+    ]) {
+      const result = grammar.analyze(`SELECT rv FROM dbo.versions WHERE ${predicate}`, schema);
+      strict.deepEqual(result.diagnostics, [], predicate);
+      strict.equal(result.columns[0]?.databaseType, "rowversion");
+      for (const parameter of result.parameters) {
+        strict.equal(parameter.databaseType, "binary(8)");
+        strict.equal(parameter.tsType, "Uint8Array");
+        strict.equal(parameter.nullable, false);
+      }
+    }
+    const update = grammar.analyze(
+      "UPDATE dbo.versions SET id=1 OUTPUT inserted.rv AS rv WHERE rv=@__typed_sql_1",
+      schema,
+    );
+    strict.deepEqual(update.diagnostics, []);
+    strict.equal(update.parameters[0]?.databaseType, "binary(8)");
+    strict.equal(update.columns[0]?.databaseType, "rowversion");
+    for (const source of [
+      "UPDATE dbo.versions SET rv=@__typed_sql_1",
+      "INSERT INTO dbo.versions(rv) VALUES(@__typed_sql_1)",
+      "UPDATE dbo.versions SET id=1 OUTPUT inserted.rv INTO dbo.versions(rv)",
+    ]) {
+      const result = grammar.analyze(source, schema);
+      strict.ok(
+        result.diagnostics.some((value) => value.code === "TSQ203"),
+        source,
+      );
+    }
+    strict.deepEqual(grammar.analyze("INSERT INTO dbo.versions VALUES(1)", schema).diagnostics, []);
+  });
+
   await it("preserves possible native NULLs from nonnullable builtin arguments", () => {
     for (const expression of [
       "CHAR(999)",

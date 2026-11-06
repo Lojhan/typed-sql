@@ -1,6 +1,7 @@
 import { sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
+import { sqlserver } from "../src/index.js";
 import { createSqlServerOdbcConnection, createSqlServerOdbcDatabase, sqlServerOdbcField } from "../src/odbc.js";
 import type { OdbcColumn, OdbcCommand, OdbcReply } from "../src/odbc-protocol.js";
 import { sqlServerCatalogQueries } from "../src/provider.js";
@@ -94,6 +95,61 @@ await describe("SQL Server direct adapter protocol composition", async () => {
       await strict.rejects(createSqlServerOdbcDatabase({ ...base, ...options }));
     strict.equal(credentials, 0);
     strict.equal(imports, 0);
+  });
+  await it("dispatches rowversion comparison bytes through the inferred binary target while rejecting oversize before SQL", async () => {
+    const token = Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 1]);
+    const analysis = sqlserver().analyze(
+      "UPDATE dbo.versions SET id=id OUTPUT inserted.rv AS rv WHERE rv=@__typed_sql_1",
+      {
+        formatVersion: 1,
+        dialect: "sqlserver",
+        server: serverEvidence,
+        tables: {
+          versions: {
+            schema: "dbo",
+            name: "versions",
+            columns: {
+              id: { name: "id", databaseType: "bigint", tsType: "bigint", nullable: false },
+              rv: { name: "rv", databaseType: "rowversion", tsType: "Uint8Array", nullable: false },
+            },
+          },
+        },
+      },
+    );
+    strict.deepEqual(analysis.diagnostics, []);
+    const query = (value: Uint8Array) =>
+      withQueryValuePlan(
+        sql<{ rv: Uint8Array }>`UPDATE dbo.versions SET id=id OUTPUT inserted.rv AS rv WHERE rv=${value}`,
+        {
+          dialect: "sqlserver",
+          typePolicyHash: hash,
+          columns: [{ name: "rv", databaseType: analysis.columns[0]!.databaseType!, type: "bytes", nullable: false }],
+          parameters: [
+            { index: 1, databaseType: analysis.parameters[0]!.databaseType!, type: "bytes", nullable: false },
+          ],
+        },
+      );
+    const state = fixture();
+    state.app = (command) =>
+      command.kind === "prepare"
+        ? { handle: 1, result: { rows: [], columns: [column("rv", "timestamp", 8, -2)] } }
+        : { result: { rows: [[token]], columns: [column("rv", "timestamp", 8, -2)] } };
+    const db = createSqlServerDatabase({ connection: state.connection, serverEvidence });
+    strict.deepEqual(await db.all(query(token)), [{ rv: token }]);
+    const prepare = state.data.messages.find((message) => (message as OdbcCommand).kind === "prepare") as Extract<
+      OdbcCommand,
+      { kind: "prepare" }
+    >;
+    strict.ok(prepare.text.includes("CONVERT(binary(8), ?, 2)"));
+    const execute = state.data.messages.find(
+      (message) => (message as OdbcCommand).kind === "preparedExecute",
+    ) as Extract<OdbcCommand, { kind: "preparedExecute" }>;
+    strict.deepEqual(execute.values, ["0000000000000001"]);
+    const before = state.data.messages.length;
+    await strict.rejects(db.all(query(new Uint8Array(9))), /length/);
+    strict.equal(state.data.messages.length, before);
+    await db.close();
+    await state.connection.close!();
   });
   await it("normalizes exact identity type attributes only with matching independent numeric metadata", () => {
     for (const [name, code, size] of [
