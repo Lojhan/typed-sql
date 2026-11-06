@@ -18,7 +18,8 @@
     "@typed-sql/duckdb",
     "@typed-sql/cli",
     "@typed-sql/adapters",
-    "@typed-sql/build"
+    "@typed-sql/build",
+    "@typed-sql/playground"
   ],
   "packagePolicy": {
     "stable": [
@@ -36,8 +37,12 @@
       "@typed-sql/duckdb",
       "@typed-sql/cli",
       "@typed-sql/adapters",
-      "@typed-sql/build"
+      "@typed-sql/build",
+      "@typed-sql/playground"
     ],
-    "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
+    "experimental": [
+      "@typed-sql/ts-bridge",
+      "@typed-sql/language-server"
+    ]
   }
 }

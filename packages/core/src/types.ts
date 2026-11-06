@@ -385,6 +385,30 @@ export interface QueryPlanBudgetPolicy {
   readonly queries?: Readonly<Record<string, QueryPlanBudget>>;
 }
 
+/** Local development host configuration; connection factories are resolved lazily by the optional host. */
+export interface PlaygroundConfiguration {
+  readonly projects?: readonly string[];
+  readonly readRoots?: readonly string[];
+  readonly writeRoots?: readonly string[];
+  readonly scratchDirectory?: string;
+  readonly targets?: Readonly<
+    Record<
+      string,
+      {
+        readonly classification: "development" | "test" | "production";
+        readonly expected?: { readonly database: string };
+        readonly connect: () => unknown | Promise<unknown>;
+      }
+    >
+  >;
+  readonly limits?: {
+    readonly timeoutMs?: number;
+    readonly maxRows?: number;
+    readonly maxResultBytes?: number;
+    readonly maxConsoleBytes?: number;
+  };
+}
+
 export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: {
@@ -393,6 +417,7 @@ export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot
   };
   readonly outDir: string;
   readonly projects?: readonly string[];
+  readonly playground?: PlaygroundConfiguration;
   readonly typePolicy?: Policy;
   readonly compiler?: {
     readonly maxStructuralVariants?: number;

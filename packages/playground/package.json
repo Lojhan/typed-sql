@@ -1,0 +1,88 @@
+{
+  "name": "@typed-sql/playground",
+  "version": "2.5.0-rc.0",
+  "description": "Local schema exploration and live TypeScript/SQL development workspace.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/playground"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "dist/ui/**",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./dist/packages/playground/src/index.js",
+    "./runtime": "./dist/packages/playground/src/runtime.js",
+    "./pg": "./dist/packages/playground/src/pg.js"
+  },
+  "scripts": {
+    "test": "poku test --reporter=compact --enforce",
+    "build:ui": "node scripts/build-ui.mjs",
+    "typecheck:ui": "tsc --project tsconfig.ui.json --pretty false"
+  },
+  "dependencies": {
+    "@typed-sql/build": "workspace:*",
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/config": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*",
+    "esbuild": "0.28.2",
+    "@xyflow/react": "^12.11.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.11.3",
+    "jsonc-parser": "3.3.1",
+    "acorn": "^8.15.0",
+    "tsx": "4.23.15"
+  },
+  "peerDependencies": {
+    "pg": ">=8 <9",
+    "pg-cursor": ">=2 <3",
+    "@typed-sql/postgres": ">=2.5.0-rc.0 <3"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "pg-cursor": {
+      "optional": true
+    },
+    "@typed-sql/postgres": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "pg-cursor": "2.22.1",
+    "@typed-sql/postgres": "workspace:*"
+  }
+}

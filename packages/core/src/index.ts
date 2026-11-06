@@ -250,6 +250,7 @@ export type {
   LiveQueryVerificationRequest,
   LiveQueryVerificationServer,
   LiveQueryVerifier,
+  PlaygroundConfiguration,
   QueryPlanBudget,
   QueryPlanBudgetPolicy,
   QueryPlanCaptureRequest,

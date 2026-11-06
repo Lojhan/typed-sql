@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../schema"
+    },
+    {
+      "path": "../config"
+    },
+    {
+      "path": "../compiler"
+    },
+    {
+      "path": "../build"
+    },
+    {
+      "path": "../postgres"
+    }
+  ]
+}

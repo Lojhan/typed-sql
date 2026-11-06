@@ -636,3 +636,15 @@ await describe("public documentation", async () => {
     strict.strictEqual(count, 14, "the documented live-example inventory changed without updating its contract");
   });
 });
+
+await describe("local development workspace documentation", async () => {
+  await it("publishes the optional host guide with explicit adapter and execution boundaries", async () => {
+    strict.ok(publicDocumentationPages.some((page) => page.file === "docs/guides/dev-workspace.md"));
+    const guide = await text("docs/guides/dev-workspace.md");
+    strict.match(guide, /@typed-sql\/playground\/pg/u);
+    strict.match(guide, /typed-sql playground/u);
+    strict.match(guide, /database target not verified/u);
+    strict.match(guide, /outcome unknown/u);
+    strict.match(guide, /snapshot/u);
+  });
+});
