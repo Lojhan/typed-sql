@@ -58,3 +58,71 @@ grammars own their parsers, so an unused shared parser extension is not a prereq
 No additional generic lexer, codec callback system, driver coupling in grammar roots, or broader
 SQL feature promise is proposed. This audit identifies acceptance evidence still needed; it does
 not declare the objective complete.
+
+## Source review update at 9262ad0
+
+Primary checkout now includes `81c8c46` (PR #267 on main), so the earlier #267 merge/SARIF
+permission item is closed. The earlier SQL first-use **implementation** gap is also closed:
+`e2e/sqlserver/first-use.mjs` and `project/` replay installed CLI generation, declarations, check,
+manifest, strict tsc, SQL-file/inline esbuild, deliberate bigint interpolation rejection, SDK-free
+offline configuration, and actual execution. `c666c4e` adds installed live verification and structured
+value-free SHOWPLAN, two cached-verification replays with zero SDK imports, native comparison proof
+flag and preserved source entries. These committed assertions still require their native execution
+receipt; this update does not claim a CI result it did not inspect.
+
+At this cutoff, scalar-expression `FOR SYSTEM_TIME AS OF` syntax is rejected, and a native bare
+100ns precision probe is committed (`bc12b48`). The intended occurrence-specific bare binding and
+alias physical-metadata repair have not yet landed in this checkout. Their review remains pending,
+not implicitly approved by the presence of that probe. Required review points are: direct parameter
+AST sites only; temporal-table/version evidence; ordinal/range association through comments,
+normalization, repeated fragments and logical argument reuse; scalar occurrences of the same
+argument keep CONVERT; no renderer-global native-cast removal; prepared identity includes the final
+physical SQL and targets; unavailable alias identity/facets fail closed rather than guessing.
+
+The existing synchronous generic service factories with the S3 fresh-owned-session pool satisfy
+reviewed service/lazy-config requirements. PG/MySQL/Duck driver convenience wrappers are ergonomic
+precedent, not an additional mandated `/odbc` export. No convenience API is proposed as a blocking
+requirement.
+
+## Minimal coherent product MR split
+
+The already merged neutral structural plans, portable schema leaf and strict verification contract
+are prerequisites, not changes to duplicate in a new package MR. Split from current main by final
+file content, not by cherry-picking the exploratory aggregate history. A practical minimal stack is:
+
+1. **SQL Server package and qualification.** Own `packages/sqlserver/**`,
+   `.changeset/sqlserver-grammar.md`, `examples/sqlserver/**`, `e2e/sqlserver/**`, and
+   `.github/workflows/sqlserver-qualification.yml`. Include SQL-only registration hunks in root
+   project references, lockfile/package scripts, release manifest, CLI init/tests, package graph,
+   public API and packed-consumer inventories, plus SQL parser/analysis performance measurements.
+   Include canonical SQL dialect/quickstart/example pages and their required sidebar/docs-contract
+   registration so package README links resolve. Retain the independent native corpus, direct FFI
+   probes and first-use project with this package; they are its acceptance evidence.
+2. **DuckDB package and qualification, stacked on the SQL registration base.** Own
+   `packages/duckdb/**`, `.changeset/duckdb-grammar.md`, `e2e/duckdb/**`,
+   `e2e/build/test/duckdb.test.mjs`, its native CI shard/artifact upload, and equivalent Duck-only
+   project/manifest/CLI/package-contract/performance registration hunks. Include the three canonical
+   Duck pages plus their navigation/contracts. Keep pinned SDK aliases in development/test-only
+   dependency and lockfile hunks; do not introduce a production SDK dependency.
+3. **Shared five-grammar product integration.** Own the playground/components and shared commerce
+   schema, editor-hub/packaged host fixtures, browser public-tarball tests and host registry,
+   five-grammar feature ledger and generated grammar matrix, conformance scripts/native runner and
+   tests, common README/compatibility/type-mapping/execution/bulk docs, and remaining shared docs/
+   navigation contracts. Include the conformance public-parameter projection with its own Changeset
+   here, or merge it as a separate small neutral prerequisite if independent review is preferable.
+   CLI user-visible registration Changeset may be shared here only if its actual CLI changes are
+   also here; otherwise split the Changeset alongside package-specific CLI hunks.
+
+Shared files need semantic hunks, not exclusive ownership by one MR: extracting each whole global
+file from the aggregate would register an absent second package or leave contracts inconsistent.
+Each package MR must build/typecheck/test and satisfy its own honest distribution contracts before
+merge. The final integration MR supplies the full collective browser/editor/ledger acceptance; a
+package MR merge is not a declaration that the entire user objective is complete. Keep the draft
+aggregate as a review aid until the split stack reproduces its final tree, then retarget or close it
+explicitly rather than merging the same product changes twice.
+
+The remaining cross-stack gate is final coherent-source qualification: package 95/90 coverage,
+neutral regressions, soundness, real tarballs and worker paths, browser/editor hosts, native SQL
+four-build/ten-compat matrix including pending AS OF/alias changes, Duck two-version full packed
+workflows, canonical docs, performance and release/distribution contracts. Do not accept stale
+pre-repair native receipts for altered physical SQL or metadata normalization.
