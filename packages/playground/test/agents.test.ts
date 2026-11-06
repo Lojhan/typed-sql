@@ -1,24 +1,30 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, strict } from "poku";
-import { type AgentConversation, AgentRoutes, agentConfigurationDirectory } from "../src/agents.js";
+import {
+  type AgentConversation,
+  AgentRoutes,
+  type AgentWorkspaceTools,
+  agentConfigurationDirectory,
+} from "../src/agents.js";
 import { WorkspaceFiles } from "../src/files.js";
 
 const bridge = `import {createInterface} from 'node:readline';
-let session='session-1';let prompt;let writeId=100;
+let session='session-1';let prompt;let writeId=100;let mcpCount=0;
 const send=value=>process.stdout.write(JSON.stringify(value)+'\\n');
 const response=(id,result)=>send({jsonrpc:'2.0',id,result});
 const update=text=>send({jsonrpc:'2.0',method:'session/update',params:{sessionId:session,update:{sessionUpdate:'agent_message_chunk',content:{type:'text',text}}}});
 for await(const line of createInterface({input:process.stdin})){
  const message=JSON.parse(line);
  if(message.method==='initialize')response(message.id,{protocolVersion:1});
- else if(message.method==='session/new')response(message.id,{sessionId:session});
+ else if(message.method==='session/new'){mcpCount=message.params.mcpServers.length;response(message.id,{sessionId:session});}
  else if(message.method==='session/prompt'){
   prompt=message.id;
   if(process.argv[2]==='malformed'){process.stdout.write('invalid JSON\\n');continue;}
   if(process.argv[2]==='overflow'){process.stdout.write('x'.repeat(2200000));continue;}
   if(process.argv[2]==='stall')continue;
+  if(process.argv[2]==='mcp'){update(JSON.stringify({servers:mcpCount,prompt:message.params.prompt[0].text}));response(prompt,{stopReason:'end_turn'});continue;}
   if(process.argv[2]==='crash'){process.exit(3);}
   if(process.argv[2]==='nul'){update('invalid'+String.fromCharCode(0));response(prompt,{stopReason:'end_turn'});continue;}
   if(process.argv[2].startsWith('stop-')){update('Partial reply');response(prompt,{stopReason:process.argv[2].slice(5)});continue;}
@@ -49,6 +55,7 @@ async function waitFor(agents: AgentRoutes, id: string, condition: (value: Agent
 async function fixture(
   action: (root: string, agents: AgentRoutes, files: WorkspaceFiles) => Promise<void>,
   mode = "normal",
+  options: { workspaceTools?: AgentWorkspaceTools; timeoutMs?: number } = {},
 ) {
   const root = await mkdtemp(join(tmpdir(), "typed-sql-agents-"));
   await mkdir(join(root, "playground"));
@@ -58,7 +65,9 @@ async function fixture(
     files,
     trusted: () => true,
     configDirectory: join(root, "user-config"),
-    timeoutMs: 4000,
+    timeoutMs: options.timeoutMs ?? 4000,
+    sqlModule: "@typed-sql/postgres",
+    ...(options.workspaceTools === undefined ? {} : { workspaceTools: options.workspaceTools }),
   });
   try {
     await api(agents, "/configure", {
@@ -188,7 +197,16 @@ await describe("local ACP agents and reviewed repository tools", async () => {
     fixture(async (root, agents, files) => {
       const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
       await api(agents, "/prompt", { conversationId: created.id, message: "Create a query tool" });
-      await waitFor(agents, created.id, (value) => value.proposals.length === 1);
+      const pending = await waitFor(agents, created.id, (value) => value.proposals.length === 1);
+      const storage = join(root, "user-config", "conversations");
+      const deadline = Date.now() + 8000;
+      for (;;) {
+        const documents = await readdir(storage);
+        const source = documents[0] ? await readFile(join(storage, documents[0]), "utf8") : "";
+        if (source.includes(pending.proposals[0]!.id)) break;
+        if (Date.now() >= deadline) throw new Error("Pending proposal was not durably persisted");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
       const reopened = new AgentRoutes({ files, trusted: () => true, configDirectory: join(root, "user-config") });
       try {
         const restored = (await api(reopened, `/conversation?id=${created.id}`)) as AgentConversation;
@@ -393,4 +411,186 @@ await describe("local ACP agents and reviewed repository tools", async () => {
         files.save = originalSave;
       }
     }, "tool"));
+  await it("keeps workspace tools opt-in and rejects unsupported enablement before a turn starts", async () =>
+    fixture(async (_root, agents) => {
+      const listing = (await api(agents, "")) as { workspaceToolsAvailable: boolean };
+      strict.equal(listing.workspaceToolsAvailable, false);
+      const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+      await strict.rejects(
+        api(agents, "/prompt", { conversationId: created.id, message: "Tools", workspaceTools: true }),
+        /does not expose/u,
+      );
+      const unchanged = (await api(agents, `/conversation?id=${created.id}`)) as AgentConversation;
+      strict.equal(unchanged.messages.length, 0);
+    }));
+  await it("scopes explicit MCP tools to one turn, persists safe tool evidence and leaves file proposals reviewable", async () => {
+    let opens = 0;
+    let closes = 0;
+    let signal: AbortSignal | undefined;
+    const tools: AgentWorkspaceTools = {
+      open: async (options) => {
+        opens++;
+        signal = options.signal;
+        const running = {
+          id: "call-1",
+          name: "workspace_schema",
+          state: "running" as const,
+          args: "secret-argument",
+          output: "secret-result",
+        };
+        await options.onToolCall?.(running);
+        await options.onToolCall?.({ id: "call-1", name: "workspace_schema", state: "completed" });
+        await options.propose({
+          file: "playground/from-mcp.sql",
+          source: "select 42;",
+          revision: null,
+          description: "Reviewed MCP tool",
+        });
+        return {
+          mcpServers: [
+            {
+              type: "http",
+              name: "typed-sql",
+              url: "http://127.0.0.1:1/api/agent-tools",
+              headers: [{ name: "Authorization", value: "Bearer private-tool-cap" }],
+            },
+          ],
+          close: async () => {
+            closes++;
+          },
+        };
+      },
+    };
+    await fixture(
+      async (root, agents, files) => {
+        const listing = (await api(agents, "")) as { workspaceToolsAvailable: boolean };
+        strict.equal(listing.workspaceToolsAvailable, true);
+        const disabled = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: disabled.id, message: "No tools" });
+        await waitFor(agents, disabled.id, (value) => value.status !== "running");
+        strict.equal(opens, 0);
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Inspect", workspaceTools: true });
+        const done = await waitFor(agents, created.id, (value) => value.status !== "running");
+        strict.equal(done.status, "idle");
+        strict.equal(opens, 1);
+        strict.equal(signal?.aborted, true);
+        strict.equal(done.toolCalls?.[0]?.name, "workspace_schema");
+        strict.equal(done.toolCalls?.[0]?.state, "completed");
+        strict.equal(done.proposals[0]?.status, "pending");
+        await strict.rejects(files.read("playground/from-mcp.sql"), { code: "ENOENT" });
+        strict.match(done.messages[1]!.text, /"servers":1/u);
+        strict.match(done.messages[1]!.text, /databaseForRun\(\)\.all/u);
+        strict.ok(!JSON.stringify(done).includes("private-tool-cap"));
+        strict.ok(!JSON.stringify(done).includes("secret-argument"));
+        strict.ok(!JSON.stringify(done).includes("secret-result"));
+        await agents.close();
+        strict.equal(closes, 1);
+        const reopened = new AgentRoutes({ files, trusted: () => true, configDirectory: join(root, "user-config") });
+        try {
+          const restored = (await api(reopened, `/conversation?id=${created.id}`)) as AgentConversation;
+          strict.equal(restored.toolCalls?.[0]?.state, "completed");
+          strict.equal(restored.proposals[0]?.status, "pending");
+          await api(reopened, "/proposal", {
+            conversationId: created.id,
+            proposalId: restored.proposals[0]!.id,
+            action: "accept",
+          });
+          strict.equal((await files.read("playground/from-mcp.sql")).source, "select 42;");
+        } finally {
+          await reopened.close();
+        }
+      },
+      "mcp",
+      { workspaceTools: tools },
+    );
+  });
+  await it("revokes scoped tools on cancellation and rejects stale proposal revisions", async () => {
+    let opened!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let scope: Parameters<AgentWorkspaceTools["open"]>[0] | undefined;
+    let closes = 0;
+    const tools: AgentWorkspaceTools = {
+      open: async (options) => {
+        scope = options;
+        opened();
+        return {
+          mcpServers: [],
+          close: async () => {
+            closes++;
+          },
+        };
+      },
+    };
+    await fixture(
+      async (_root, agents, files) => {
+        const existing = await files.save("playground/source.sql", "select 1;", null);
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Wait", workspaceTools: true });
+        await ready;
+        await strict.rejects(
+          scope!.propose({ file: existing.file, source: "select 2;", revision: null }),
+          /changed since/u,
+        );
+        const proposal = await scope!.propose({
+          file: existing.file,
+          source: "select 2;",
+          revision: existing.revision,
+        });
+        strict.equal(proposal.status, "pending");
+        await scope!.onToolCall?.({ id: "pending-1", name: "workspace_query", state: "running" });
+        await api(agents, "/cancel", { conversationId: created.id });
+        strict.equal(scope!.signal.aborted, true);
+        await strict.rejects(
+          scope!.propose({ file: "playground/late.sql", source: "select 1;", revision: null }),
+          /no longer active/u,
+        );
+        const done = (await api(agents, `/conversation?id=${created.id}`)) as AgentConversation;
+        strict.equal(done.proposals[0]?.status, "rejected");
+        strict.equal(done.toolCalls?.[0]?.state, "failed");
+        strict.equal((await files.read(existing.file)).source, "select 1;");
+        await agents.close();
+        strict.equal(closes, 1);
+      },
+      "stall",
+      { workspaceTools: tools },
+    );
+  });
+  await it("does not hang cancellation while an optional tool lease is still opening", async () => {
+    let opened!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    let finish!: (value: Awaited<ReturnType<AgentWorkspaceTools["open"]>>) => void;
+    let closed = 0;
+    const tools: AgentWorkspaceTools = {
+      open: async () => {
+        opened();
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+    };
+    await fixture(
+      async (_root, agents) => {
+        const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+        await api(agents, "/prompt", { conversationId: created.id, message: "Wait", workspaceTools: true });
+        await entered;
+        await api(agents, "/cancel", { conversationId: created.id });
+        await agents.close();
+        finish({
+          mcpServers: [],
+          close: async () => {
+            closed++;
+          },
+        });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        strict.equal(closed, 1);
+      },
+      "stall",
+      { workspaceTools: tools },
+    );
+  });
 });
