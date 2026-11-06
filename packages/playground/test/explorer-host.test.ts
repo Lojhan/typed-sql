@@ -47,7 +47,7 @@ await describe("read-only workspace explorer protocol", async () => {
       await writeFile(
         join(directory, "typed-sql.config.mjs"),
         `
-import {appendFile} from 'node:fs/promises';
+import {appendFile,readFile} from 'node:fs/promises';
 import {postgres} from '@typed-sql/postgres';
 export default {
  dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],
@@ -58,7 +58,7 @@ export default {
    query:async()=>{throw new Error('Explorer must not execute queries')},
    database:async()=>{throw new Error('Explorer must not execute project code')},
    migrationHistory:async()=>{await appendFile(${JSON.stringify(calls)},'history\\n');return {
-    state:'ready',database:'test',history:${JSON.stringify(history)},
+    state:'ready',database:(await readFile(${JSON.stringify(calls)},'utf8')).includes('wrong-target')?'other':'test',history:${JSON.stringify(history)},
     objects:[{key:'accounts',kind:'relation',namespace:'public',name:'accounts'}]
    }},close:async()=>{await appendFile(${JSON.stringify(calls)},'close\\n')}
   }}
@@ -106,6 +106,13 @@ export default {
         strict.equal(again.status, 200);
         strict.equal(await readFile(calls, "utf8"), "connect\nhistory\nclose\n");
         strict.equal((await (await fetch(`${host.origin}/api/state`, { headers })).json()).trusted, false);
+        await writeFile(calls, "wrong-target\n");
+        const mismatched = await fetch(`${host.origin}/api/explorer/refresh`, { method: "POST", headers, body: "{}" });
+        strict.equal(mismatched.status, 200);
+        const rejected = await mismatched.json();
+        strict.equal(rejected.migrations.state, "failed");
+        strict.ok(!rejected.migrations.entries.some((entry: { id: string }) => entry.id === "001_initial"));
+        strict.match(await readFile(calls, "utf8"), /^wrong-target\nconnect\nhistory\nclose\n$/);
       } finally {
         await host.close();
       }
