@@ -4,10 +4,12 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import native from "msnodesqlv8";
 
-const [levelText, encoding] = process.argv.slice(2);
+const [levelText, encoding, database] = process.argv.slice(2);
 const level = Number(levelText);
 assert.ok([140, 150, 160, 170].includes(level));
 assert.ok(["legacy", "utf8"].includes(encoding));
+assert.match(database, /^typed_sql_adapter_(140|150|160|170)_[a-f\d]{12}$/u);
+assert.ok(database.startsWith(`typed_sql_adapter_${level}_`));
 const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;
 assert.ok(password && !/[;{}]/u.test(password));
 const major = Number(process.env.TYPED_SQL_SQLSERVER_MAJOR);
@@ -15,7 +17,7 @@ const output = resolve(`../../artifacts/sqlserver/varchar-${major}-${level}-${en
 const report = { major, level, encoding, cases: [] };
 mkdirSync(dirname(output), { recursive: true });
 const save = () => writeFileSync(output, JSON.stringify(report, null, 2));
-const dsn = `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=typed_sql_adapter_${level};UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
+const dsn = `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=${database};UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
 const connection = await native.promises.open({ conn_str: dsn });
 const digest = (value) => createHash("sha256").update(value, "utf16le").digest("hex");
 try {
