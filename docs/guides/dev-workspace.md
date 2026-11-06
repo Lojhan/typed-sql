@@ -81,7 +81,7 @@ PostgreSQL/pg is the connected adapter. Other grammars can use a saved snapshot 
 
 ## Files and split views
 
-The file tree shows actual files inside the repository, grouped by directory. The default writable query folder is `playground/`; change `scratchDirectory` and `writeRoots` to select another repository folder. Save, Save As and Rename operate on disk, so query files survive host and browser restarts and can be edited externally, committed and shared. Browser storage retains layout, open tabs and cursors rather than becoming the source of truth for file contents. Unsaved buffers need an explicit save.
+The file tree shows actual files inside the repository, grouped by directory. The default writable query folder is `playground/`; change `scratchDirectory` and `writeRoots` to select another repository folder. Save, Save As and Rename operate on disk, so query files survive host and browser restarts and can be edited externally, committed and shared. Browser storage retains layout, open tabs and cursors rather than becoming the source of truth for file contents. Use a consistent `--port` to restore browser layout across host launches; repository files persist regardless of the port or browser. Unsaved buffers need an explicit save.
 
 Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
 
@@ -152,6 +152,8 @@ Compare ordered rows or unordered multisets; duplicate counts and tagged bigint/
 ## Local agents and reviewed query tools
 
 Open **Agent** to configure an existing local [ACP v1 stdio agent](https://agentclientprotocol.com/protocol/v1/initialization). Give the profile a name, an executable and a JSON array of arguments. Use an agent's documented ACP adapter command; an ordinary terminal chat command is not necessarily an ACP server. The host starts that executable directly, without a shell, only when you send a prompt after trusting the project. Complete the agent's own installation and login in a terminal first. Profiles do not install agents or initiate authentication automatically.
+
+For an installed [OpenCode ACP server](https://dev.opencode.ai/docs/acp/), use executable `opencode` with arguments `["acp"]`. An absolute executable path works when the host does not inherit your terminal PATH. Choosing a preset fills the form; saving or prompting remains explicit.
 
 Profiles live in the user's `agents.json`, under `$XDG_CONFIG_HOME/typed-sql/playground` or `~/.config/typed-sql/playground`. The file uses private permissions and is shared across projects. Command arguments remain on the host and are omitted from browser responses. Do not put credentials in command arguments; let the agent use its own local login or environment. This local process runs with your host permissions and can use a remote model according to its own configuration; ACP is an integration protocol, not a process sandbox.
 

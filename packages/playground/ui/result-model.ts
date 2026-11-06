@@ -1,4 +1,4 @@
-import type { Run, Value } from "./types";
+import type { Run, Value } from "./types.js";
 export interface Grid {
   columns: string[];
   rows: Value[][];
