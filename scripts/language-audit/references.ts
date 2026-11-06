@@ -12,7 +12,7 @@ import { signatureFacts } from "./signatures.mjs";
 export const directory = resolve(dirname(fileURLToPath(import.meta.url)), "../../test/fixtures/language-audit");
 export const textContent = (html: string): string =>
   html
-    .replace(/<[^>]*>/gu, "")
+    .replace(/<[^>]*(?:>|$)/gu, "")
     .replace(/&(?:nbsp|#160);/gu, " ")
     .replace(/&amp;/gu, "&")
     .trim();

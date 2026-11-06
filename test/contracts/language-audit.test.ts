@@ -15,7 +15,12 @@ import {
 import { compactFindings, expandFindings, reviewLive } from "../../scripts/language-audit/live-baseline.mjs";
 import { prepareMySql } from "../../scripts/language-audit/native.mjs";
 import { recognitionQueries, recognizeLive } from "../../scripts/language-audit/recognition.js";
-import { extractFunctions, extractMicrosoftToc, loadReferences } from "../../scripts/language-audit/references.js";
+import {
+  extractFunctions,
+  extractMicrosoftToc,
+  loadReferences,
+  textContent,
+} from "../../scripts/language-audit/references.js";
 import { renderReport } from "../../scripts/language-audit/report.js";
 import { signatureFacts } from "../../scripts/language-audit/signatures.mjs";
 
@@ -37,6 +42,13 @@ await describe("independent upstream language auditing", async () => {
           );
       }
     }
+  });
+
+  await it("discards complete and incomplete tags when extracting reference text", () => {
+    strict.equal(textContent(" <b>function_name</b>&nbsp;&amp;&#160;argument "), "function_name & argument");
+    strict.equal(textContent("function_name<script"), "function_name");
+    strict.equal(textContent("function_name<scr<script>ipt>"), "function_nameipt>");
+    strict.equal(textContent("<script"), "");
   });
 
   await it("extracts upstream names without consulting typed-sql's function list", () => {
