@@ -194,3 +194,64 @@ Final verification remains open.
 Independent cross-review additionally found contradictory built-in-spelled ODBC metadata could
 bypass alias-registry checks, and Duck health/prepare work could run before cancellation controls.
 Both are required correctness repairs before package approval, even if current PR CI is green.
+## Final requirement audit: production source 18d1e6a
+
+Independently inspected primary `18d1e6a` and the finalizer-contract-only correction `2194bb3`.
+Both package source trees are byte-identical to their reviewable draft MRs: DuckDB #269 at
+`bf07749` and SQL Server #270 at `82e86cf` (`git diff --name-only` for each package is empty).
+The SQL E2E private CATALOG link intentionally differs in its package split; it is not runtime drift.
+This section supersedes the remaining-work classifications at the older cutoffs above.
+
+### Requirements now closed in source and relevant executed evidence
+
+| Deliverable | Final evidence and disposition |
+|---|---|
+| P0/R0 design and exact transport | Independent design reviews and permanent direct ODBC probes remain committed. Default Koffi counted transport supersedes the disproven initial msnodesqlv8 exact path. The restricted compatibility adapter is explicitly separate. No dependency from grammar roots to drivers was introduced. |
+| N1 shared native contracts and strict verification | Merged neutral descriptor, compiler propagation, portable snapshot leaf and native-comparison/cache-proof changes remain prerequisites. Their hostile/budget/old-core/precision regressions pass in the final primary package run. N2 is not required because both grammars use their own lexers/parsers. |
+| S1/D1 complete representative native grammars | Own grammar ASTs/resolvers/catalogs, engine/setting evidence, query/DML/type families, ordered parameters, diagnostics and UTF-16 ranges are implemented and covered. The final ledger intentionally keeps unsupported and uncertain vendor forms honest. No explicit requested type family is being replaced by a scaffold. |
+| S2 exact native SQL runtime | Alias registry refresh/reset, ambiguity handling and independent ODBC family/facet checks are implemented. The previously reproduced empty-registry `bigint` spelling versus DECIMAL code disagreement now rejects (`54435ea`). AS OF uses only AST-attested datetime2(7) physical occurrences; mixed scalar uses retain CONVERT, context caches differ and typed 100ns/date-format boundary probes are permanent. Late error/additional-rowset draining, result withholding, reuse/quarantine and execution controls are committed. |
+| D2 native Duck runtime | Reviewed `9516237`/`bf07749` fixes include controlled health/preparation, checks between all private native health reads, lease-scoped validated-stream interruption, retained late result ownership, and controlled root/scoped appender transaction/mutation stages with terminal rollback. Independent source review passed. Genuine 1.5.6/2.0.0 tests prove heavy native health deadline interruption, settlement and reuse. New deterministic regressions prove pre-abort zero dispatch, queued-stream isolation and stage-by-stage appender cancellation. |
+| Package coverage | Primary final verification log shows SQL Server 96.48% statements/lines, 96.23% functions, 91.10% branches; DuckDB 98.70% statements/lines, 97.73% functions, 90.81% branches. These are full declared source gates without new exclusions, and are evidence in addition to behavioral/native tests. |
+| S3/D3 installed product workflows | SQL and Duck installed CLI, snapshot/provider, generated SQL declarations, inline/SQL-file esbuild, named/mapped/conditional queries, native execution and lazy verifier/plan workflows exist. Duck's two packed SDK profiles both passed again after the controls repair, including independent write-lock and SDK-free offline builds plus deliberate online generation. SQL first-use and cached-live-proof/value-free-plan assertions are now part of the successful final native shard. No missing SQL tutorial implementation remains. |
+| Browser/editor/brands | Five-grammar playground uses owned browser parsers and real schema/settings controls. Packaged browser tests exclude Node/SDK imports. Packaged LSP/editor and native UI contracts are present. The all-five `PLAYGROUND_DIALECTS` loop in `playground-sql-assets.test.ts` explicitly checks branded row IDs, branded parameters, SQL imports, inline templates and adapter-result hovers; brand support is not inferred merely from an untested resolver branch. |
+| Documentation/distribution/release | Canonical pages, navigation, absolute package README links, driver/grammar matrices, honest exact-version windows, native policy bounds, atomic batch differences, appender docs, manifest/Changesets and tarball/public-API/forbidden-driver contracts are implemented. Shared numeric policy still rejects unsafe integral numbers; binary floating wire fidelity does not change that policy. No missing convenience `/odbc` service factory is imposed as additional scope. |
+| Reviewable MRs | Package-specific draft #269 and #270 now exist independently of the remaining shared integration #265. Their coherent registration hunks contain no absent peer package. Final merge order/conflict resolution must preserve the reviewed combined tree and package source parity. |
+
+### Final native receipt independently checked
+
+GitHub Actions run [42140265299](https://github.com/Lojhan/typed-sql/actions/runs/42140265299)
+completed **success** at the exact production commit `18d1e6a1496d34d0dfc255f6cb699ff736d41025`.
+All four jobs `native-transport (14)`, `(15)`, `(16)` and `(17)` completed success. The committed
+workflow runs the transport/FFI/public adapter, isolated packed workers/first use, actual catalog/
+permission/temporal probes and public CLI conformance route, with failure artifacts retained.
+The adapter/catalog corpora exercise the explicit triangular ten engine/compatibility rows;
+packed first use is a representative per-build workflow, not a claim of every tutorial × every
+compatibility-level cross-product.
+
+Earlier runs 42139196799 and 42139944569 remain diagnostic history: production stages and public CLI
+routes passed separately but each had a fixture-ownership/collision failure. They are not substituted
+for a green complete run. The latest all-four receipt closes that gap.
+
+### Still required before an overall completion or merge claim
+
+1. **Complete final repository verification.** `/tmp/typed-sql-final-coherent-verify.log` reached and
+   passed every package suite, preview watch/LSP and 44/45 repository contracts, then failed only
+   `conformance-v2.test.ts:130`: a literal `finally {`/immediate-mkdir substring no longer matched
+   nested native cleanup. Actual artifact persistence remained inside outer finally. Root corrected
+   the assertion in `2194bb3` to prove both directory creation and evidence writing remain inside
+   that finalizer, and reports the focused full conformance contract plus Biome pass. This is not a
+   complete `pnpm verify` pass: the aborted run did not reach its final build/docs/performance suffix.
+   Retain a completed corrected verification receipt rather than describing the prior run as green.
+2. **Finish exact-head MR checks and review.** Read-only status inspection found #269 at `bf07749`
+   and #270 at `82e86cf`, both open drafts. Source-quality, real packed databases and packaged editor
+   jobs were still in progress; several scheduled/non-PR jobs were intentionally skipped. Neither
+   an in-progress check nor a normal non-PR skip is a source failure, but neither proves final
+   completion. CI and maintainer review still decide readiness; review the shared integration too.
+3. **Preserve evidence through merging the split.** Do not reintroduce stale package files or lose
+   shared CLI/release/docs/ledger registrations while resolving overlapping global-file hunks. If
+   production source changes after the native-qualified head, assess and rerun affected gates.
+
+No further unfulfilled implementation deliverable was established by this independent final
+requirements pass. The remaining items are concrete completion receipts and MR review/integration,
+not proposals to expand SQL syntax, add generic contracts, or force unrelated vendor capabilities.
+The objective remains unproven until those final gates finish successfully.
