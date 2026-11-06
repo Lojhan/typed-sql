@@ -279,6 +279,37 @@ try {
       strict.deepEqual(await db.all(sql`select 42 as value`), [{ value: 42 }]);
     });
 
+    await it("reports the full affected count after a multi-page RETURNING command", async () => {
+      await run("create table playground_adapter_test.paged_returning(id integer not null)", { readOnly: false });
+      try {
+        await run("insert into playground_adapter_test.paged_returning select generate_series(1,1203)", {
+          readOnly: false,
+        });
+        let seen = 0;
+        const result = await target.query({
+          text: "update playground_adapter_test.paged_returning set id=id returning id",
+          values: [],
+          readOnly: false,
+          maxRows: Number.MAX_SAFE_INTEGER,
+          pageSize: 137,
+          timeoutMs: 3000,
+          signal: new AbortController().signal,
+          onRows: async (batch) => {
+            seen += batch.rows.length;
+          },
+        });
+        strict.equal(seen, 1203);
+        strict.equal(result.command, "UPDATE");
+        strict.equal(
+          result.affectedRows,
+          1203,
+          "CommandComplete portal final-batch count must not replace the full affected count",
+        );
+      } finally {
+        await run("drop table playground_adapter_test.paged_returning", { readOnly: false });
+      }
+    });
+
     await it("supports the configured string policy without global parser mutations", async () => {
       const strings = createPgPlaygroundTarget({
         connectionString: connectionString!,

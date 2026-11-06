@@ -266,6 +266,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     const rows: unknown[][] = [];
     let bytes = 0;
     let delivered = 0;
+    let observedRows = 0;
     let truncated = false;
     try {
       while (!truncated) {
@@ -280,6 +281,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
             resolve(resultRows);
           });
         });
+        observedRows += batch.length;
         if (onRows) {
           // The consumer controls demand; PostgreSQL does not fetch the next batch until it resolves.
           const size = batch.reduce((total, row) => total + rowBytes(row), 0);
@@ -325,9 +327,14 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
       rows,
       truncated,
       ...(metadata?.command ? { command: metadata.command } : {}),
-      ...(metadata?.rowCount === null || metadata?.rowCount === undefined || metadata.command === "SELECT"
+      ...(metadata?.rowCount === null || metadata?.rowCount === undefined || metadata.command === "SELECT" || truncated
         ? {}
-        : { affectedRows: metadata.rowCount }),
+        : {
+            affectedRows:
+              metadata.fields.length > 0 && ["INSERT", "UPDATE", "DELETE", "MERGE"].includes(metadata.command ?? "")
+                ? observedRows
+                : metadata.rowCount,
+          }),
     };
   }
 
