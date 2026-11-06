@@ -14,6 +14,9 @@ import {
   normalizeEditorSource,
   offsetAt,
 } from "./editor-language-model.js";
+import { ExplorerSidebar, useExplorerCatalog } from "./explorer";
+import { ExplorerDetail } from "./explorer-detail";
+import { inspectionTab, inspectionTarget } from "./explorer-model";
 import { WorkspaceFileTree } from "./file-tree";
 import { Icon } from "./icon";
 import {
@@ -73,6 +76,7 @@ function App() {
     [sidebarVisible, setSidebarVisible] = useState(true),
     [schemaSearch, setSchemaSearch] = useState(""),
     [palette, setPalette] = useState(false),
+    [explorerFocus, setExplorerFocus] = useState<{ section: "database" | "migrations"; id: string }>(),
     [treeCreation, setTreeCreation] = useState<{ id: string; folder: boolean } | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -83,6 +87,9 @@ function App() {
     [lastFile, setLastFile] = useState(""),
     [navigation, setNavigation] = useState<{ paneId: string; file: string; range: LanguageRange } | null>(null),
     [compareA, setCompareA] = useState<string | undefined>();
+  const explorer = useExplorerCatalog(
+    state ? `${state.schemaHash}:${state.trusted}:${state.target}:${state.connection.state}` : "",
+  );
   const stateRef = useRef<State | null>(null),
     activePaneRef = useRef(activePane),
     closingRef = useRef(closing),
@@ -726,6 +733,21 @@ function App() {
   };
   const renderPane = (item: Pane) => {
     if (!state) return null;
+    const inspection = inspectionTarget(item.active);
+    if (inspection)
+      return (
+        <ExplorerDetail
+          key={item.active}
+          target={inspection}
+          catalog={explorer.catalog}
+          loading={explorer.loading}
+          error={explorer.error}
+          onRefresh={explorer.refresh}
+          files={state.files}
+          onOpen={(target) => openTab(item.id, inspectionTab(target))}
+          onOpenFile={(file) => openTab(item.id, file)}
+        />
+      );
     if (item.active === "@schema")
       return (
         <div className="schema-tab">
@@ -1062,7 +1084,30 @@ function App() {
     setSidebarVisible(true);
     setTreeCreation({ id: crypto.randomUUID(), folder });
   };
+  const focusExplorer = (section: "database" | "migrations") => {
+    setSidebarVisible(true);
+    setExplorerFocus({ section, id: crypto.randomUUID() });
+  };
   const commands: PaletteCommand[] = [
+    { id: "focus-database", label: "Focus database explorer", icon: "database", run: () => focusExplorer("database") },
+    {
+      id: "focus-migrations",
+      label: "Focus migrations explorer",
+      icon: "migration",
+      run: () => focusExplorer("migrations"),
+    },
+    ...(explorer.catalog?.schema.objects.map((object) => ({
+      id: `inspect-object:${object.id}`,
+      label: `Inspect ${object.namespace ? `${object.namespace}.` : ""}${object.name} (${object.kind})`,
+      icon: "schema" as const,
+      run: () => openTab(focused.id, inspectionTab({ kind: "object", id: object.id, label: object.name })),
+    })) ?? []),
+    ...(explorer.catalog?.migrations.entries.map((migration) => ({
+      id: `inspect-migration:${migration.id}`,
+      label: `Inspect migration ${migration.id}`,
+      icon: "migration" as const,
+      run: () => openTab(focused.id, inspectionTab({ kind: "migration", id: migration.id, label: migration.id })),
+    })) ?? []),
     { id: "open-schema", label: "Open schema", icon: "schema", run: () => openTab(focused.id, "@schema") },
     { id: "open-compare", label: "Open compare", icon: "compare", run: () => openTab(focused.id, "@compare") },
     { id: "open-agent", label: "Open agent", icon: "agent", run: () => openTab(focused.id, "@agent") },
@@ -1246,20 +1291,31 @@ function App() {
         {sidebarVisible ? (
           <>
             <aside className="project-sidebar" style={{ width: sidebar }}>
-              <WorkspaceFileTree
-                files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
-                folders={state.folders ?? []}
-                project={state.project.name}
-                selected={focusedFile}
-                scratch={state.scratchDirectory}
-                creation={treeCreation}
-                onOpen={(file) => openTab(focused.id, file)}
-                onCreate={async (path, folder) => {
-                  if (folder) await api("folder", { folder: path });
-                  else await api("save", { file: path, source: "", revision: null });
-                  await refresh();
-                  if (!folder) openTab(focused.id, path);
-                }}
+              <section className="explorer-section files-section" aria-label="File explorer">
+                <WorkspaceFileTree
+                  files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
+                  folders={state.folders ?? []}
+                  project={state.project.name}
+                  selected={focusedFile}
+                  scratch={state.scratchDirectory}
+                  creation={treeCreation}
+                  onOpen={(file) => openTab(focused.id, file)}
+                  onCreate={async (path, folder) => {
+                    if (folder) await api("folder", { folder: path });
+                    else await api("save", { file: path, source: "", revision: null });
+                    await refresh();
+                    if (!folder) openTab(focused.id, path);
+                  }}
+                />
+              </section>
+              <ExplorerSidebar
+                focusRequest={explorerFocus}
+                catalog={explorer.catalog}
+                loading={explorer.loading}
+                error={explorer.error}
+                selected={inspectionTarget(focused.active)}
+                onOpen={(target) => openTab(focused.id, inspectionTab(target))}
+                onRefresh={explorer.refresh}
               />
             </aside>
             <Resize

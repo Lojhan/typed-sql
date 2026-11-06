@@ -27,6 +27,7 @@ export function WorkspaceFileTree({
   onCreate: (path: string, folder: boolean) => Promise<void>;
   creation?: { id: string; folder: boolean } | null;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   const [parent, setParent] = useState(scratch),
     [draft, setDraft] = useState<Draft | null>(null),
     [menu, setMenu] = useState<{ x: number; y: number; parent: string } | null>(null),
@@ -36,6 +37,7 @@ export function WorkspaceFileTree({
   useEffect(() => {
     if (!creation || seenCreation.current === creation.id) return;
     seenCreation.current = creation.id;
+    setCollapsed(false);
     setDraft({ parent, folder: creation.folder, name: creation.folder ? "" : "query.ts", error: "" });
     setMenu(null);
   }, [creation, parent]);
@@ -61,6 +63,7 @@ export function WorkspaceFileTree({
     };
   }, [menu]);
   const begin = (folder: boolean, where = parent) => {
+    setCollapsed(false);
     setParent(where);
     setDraft({ parent: where, folder, name: folder ? "" : "query.ts", error: "" });
     setMenu(null);
@@ -185,7 +188,19 @@ export function WorkspaceFileTree({
   return (
     <>
       <div className="tree-heading">
-        <span>Files</span>
+        <button
+          type="button"
+          className="explorer-section-toggle"
+          aria-expanded={!collapsed}
+          aria-controls="workspace-project-files"
+          onClick={() => {
+            setCollapsed((value) => !value);
+            setMenu(null);
+          }}
+        >
+          <Icon name="chevron" />
+          <span>Files</span>
+        </button>
         <div className="tree-actions">
           <button
             type="button"
@@ -206,6 +221,8 @@ export function WorkspaceFileTree({
         </div>
       </div>
       <nav
+        id="workspace-project-files"
+        hidden={collapsed}
         aria-label="Project files"
         onContextMenu={(event) => {
           event.preventDefault();

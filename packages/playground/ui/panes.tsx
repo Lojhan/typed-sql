@@ -1,4 +1,5 @@
 import { type DragEvent, type ReactNode, useRef, useState } from "react";
+import { inspectionTarget } from "./explorer-model";
 import { fileIcon, Icon } from "./icon";
 import { type Edge, FILE_MIME, isTool, type Layout, type Pane, title } from "./layout";
 export function Resize({
@@ -153,13 +154,17 @@ export function PaneLayout(props: Props) {
               >
                 <Icon
                   name={
-                    tab === "@schema"
-                      ? "schema"
-                      : tab === "@compare"
-                        ? "compare"
-                        : tab === "@agent"
-                          ? "agent"
-                          : fileIcon(tab)
+                    inspectionTarget(tab)?.kind === "migration"
+                      ? "migration"
+                      : inspectionTarget(tab)?.kind === "object"
+                        ? "database"
+                        : tab === "@schema"
+                          ? "schema"
+                          : tab === "@compare"
+                            ? "compare"
+                            : tab === "@agent"
+                              ? "agent"
+                              : fileIcon(tab)
                   }
                 />
                 {title(tab)}

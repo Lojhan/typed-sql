@@ -1,6 +1,8 @@
+import { type InspectionTab, inspectionTarget } from "./explorer-model.js";
+
 /** Framework-neutral counterpart of the docs playground's recursive editor layout. */
 export type Edge = "center" | "left" | "right" | "top" | "bottom";
-export type ToolTab = "@schema" | "@compare" | "@agent";
+export type ToolTab = "@schema" | "@compare" | "@agent" | InspectionTab;
 export interface Pane {
   kind: "pane";
   id: string;
@@ -20,13 +22,16 @@ export interface Split {
 }
 export type Layout = Pane | Split;
 export const FILE_MIME = "application/x-typed-sql-file";
-export const toolTabs: Readonly<Record<ToolTab, string>> = {
+export const toolTabs: Readonly<Record<Exclude<ToolTab, InspectionTab>, string>> = {
   "@schema": "Schema",
   "@compare": "Compare",
   "@agent": "Agent",
 };
-export const isTool = (tab: string): tab is ToolTab => Object.hasOwn(toolTabs, tab);
-export const title = (tab: string) => (isTool(tab) ? toolTabs[tab] : (tab.split("/").at(-1) ?? tab));
+export const isTool = (tab: string): tab is ToolTab =>
+  Object.hasOwn(toolTabs, tab) || inspectionTarget(tab) !== undefined;
+export const title = (tab: string) =>
+  inspectionTarget(tab)?.label ??
+  (Object.hasOwn(toolTabs, tab) ? toolTabs[tab as keyof typeof toolTabs] : (tab.split("/").at(-1) ?? tab));
 const id = () => crypto.randomUUID();
 export function pane(tab = "@schema"): Pane {
   return { kind: "pane", id: id(), active: tab, tabs: tab ? [tab] : [], bottom: "results", bottomRatio: 0.36 };

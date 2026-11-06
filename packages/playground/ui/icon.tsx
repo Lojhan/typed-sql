@@ -1,4 +1,13 @@
 export type IconName =
+  | "database"
+  | "table"
+  | "column"
+  | "enum"
+  | "index"
+  | "constraint"
+  | "relationship"
+  | "migration"
+  | "history"
   | "folder"
   | "file-ts"
   | "file-js"
@@ -34,6 +43,15 @@ export function fileIcon(file: string): IconName {
 /** Same 16px geometry as the documentation editor's EditorIcon. */
 export function Icon({ name }: { name: IconName }) {
   const paths: Partial<Record<IconName, string>> = {
+    database: "M2 4c0-3 12-3 12 0v8c0 3-12 3-12 0V4Zm0 0c0 3 12 3 12 0M2 8c0 3 12 3 12 0",
+    table: "M2 2h12v12H2zM2 6h12M6 6v8",
+    column: "M2 2h12v12H2zM6 2v12M10 2v12",
+    enum: "M3 4h1M7 4h6M3 8h1M7 8h6M3 12h1M7 12h6",
+    index: "M2 3h12M2 8h8M2 13h5M12 7v7m-3-3 3 3 3-3",
+    constraint: "M5 7V4a3 3 0 0 1 6 0v3M3 7h10v7H3zM8 10v2",
+    relationship: "M1 2h5v4H1zM10 10h5v4h-5zM3.5 6v6H10M12.5 10V4H6",
+    migration: "M3 2h7l3 3v9H3zM9 2v4h4M5 10h6m-2-2 2 2-2 2",
+    history: "M2 4v4h4M2 8a6 6 0 1 1 2 4M8 4v4l3 2",
     folder: "M1.5 4a1 1 0 0 1 1-1h3l1.5 1.5h6.5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V4Z",
     chevron: "m6 4 4 4-4 4",
     "new-file": "M9.5 1.5H3v13h10V5L9.5 1.5ZM9 1.5v4h4M8 8v4M6 10h4",
