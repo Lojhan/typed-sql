@@ -98,8 +98,16 @@ try {
             await until(() => closed.finishedAt !== undefined);
             strict.equal(closed.status, "cancelled", JSON.stringify(closed));
             strict.equal(closed.results[0]?.paging?.complete, false);
-            const retained = (await manager.page(closed.id, closed.results[0]!.paging!.id, 0)) as { hasPage: boolean };
+            const retained = (await manager.page(closed.id, closed.results[0]!.paging!.id, 0)) as {
+              hasPage: boolean;
+              nextPage: number | null;
+            };
             strict.equal(retained.hasPage, true);
+            strict.equal(
+              retained.nextPage,
+              null,
+              "closed cursors retain evidence without advertising unavailable pages",
+            );
             const expired = start("demand-paging-idle");
             await until(() => expired.results.length > 0 || expired.finishedAt !== undefined);
             await until(() => expired.finishedAt !== undefined);

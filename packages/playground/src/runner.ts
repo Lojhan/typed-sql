@@ -261,7 +261,11 @@ export class RunManager {
       value,
       hasPage: true,
       page,
-      nextPage: page + 1 < paging.pageCount || !paging.complete ? page + 1 : null,
+      nextPage:
+        page + 1 < paging.pageCount ||
+        (!paging.complete && this.active?.record === record && record.status === "running")
+          ? page + 1
+          : null,
       ...paging,
     };
   }
