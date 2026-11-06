@@ -2,7 +2,8 @@
 
 `../first-use.mjs` copies this application into an independently installed tarball
 consumer. It uses the exact commerce schema from
-`examples/sqlserver/schema/001-schema.sql`; `setup.mjs` runs it through the public
+`examples/sqlserver/schema/001-schema.sql`; the controller keeps that DDL outside the application query-discovery root, and
+`setup.mjs` reads it from the parent directory through the public
 ODBC database factory so filtered-index session settings match introspection and
 execution.
 

@@ -16,9 +16,12 @@ const offlineCommands = [
   ["pnpm", ["exec", "tsc", "--noEmit"]],
   [process.execPath, ["build.mjs"]],
 ];
-async function prepare(project) {
+export async function prepareFirstUseProject(project) {
   await cp(join(directory, "project"), project, { recursive: true });
-  await cp(resolve(directory, "../../examples/sqlserver/schema/001-schema.sql"), join(project, "schema.sql"));
+  await cp(
+    resolve(directory, "../../examples/sqlserver/schema/001-schema.sql"),
+    join(project, "../first-use-commerce-schema.sql"),
+  );
 }
 export async function replayOffline(fixture, project, environment) {
   let transcript = "";
@@ -163,7 +166,7 @@ export async function firstUse(fixture) {
   const redact = (value) => (password ? String(value).replaceAll(password, "[redacted]") : String(value));
   const save = (name, text) => writeFile(join(artifacts, `${prefix}-${name}.log`), redact(text));
   await mkdir(artifacts, { recursive: true });
-  await prepare(project);
+  await prepareFirstUseProject(project);
   let cleanupFailure;
   try {
     const setup = await fixture.command(project, process.execPath, ["setup.mjs", "create"], { env: environment });
@@ -196,7 +199,7 @@ export async function firstUse(fixture) {
     try {
       await assert.rejects(stat(join(noDriver.directory, "node_modules/koffi")), (error) => error.code === "ENOENT");
       const offline = join(noDriver.directory, "first-use");
-      await prepare(offline);
+      await prepareFirstUseProject(offline);
       await mkdir(join(offline, "generated/db"), { recursive: true });
       await writeFile(join(offline, "generated/db/schema.json"), schema);
       await save("offline-no-sdk", await replayOffline(noDriver, offline, environment));

@@ -14,7 +14,9 @@ try {
     try {
       // The public factory establishes canonical SET options, including ARITHABORT
       // required by the exact tutorial fixture's filtered index.
-      await database.queryable.all(await readFile("schema.sql", "utf8"));
+      await database.queryable.all(
+        await readFile(new URL("../first-use-commerce-schema.sql", import.meta.url), "utf8"),
+      );
       const tables = await database.queryable.all("SELECT name FROM sys.tables ORDER BY name");
       assert.deepEqual(
         tables.map((row) => row.name),
