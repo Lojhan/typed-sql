@@ -48,7 +48,7 @@ export async function recognizeLive(
   dialect: string,
   version: string,
   rows: DiscoveredFunction[],
-  prepare: (sql: string) => Promise<{ accepted: boolean; reason?: string }>,
+  prepare: (sql: string) => Promise<{ accepted: boolean; reason?: string; metadata?: unknown }>,
   server?: DialectServerEvidence,
 ) {
   const grammar = grammarFor(
@@ -69,6 +69,7 @@ export async function recognizeLive(
     columns?: readonly ResolvedColumn[];
     parameters?: readonly ResolvedParameter[];
     reason?: string;
+    nativeMetadata?: unknown;
   }[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
@@ -124,6 +125,7 @@ export async function recognizeLive(
             : "native-valid-recognition-only",
         diagnostics,
         diagnosticDetails: result.diagnostics,
+        nativeMetadata: native.metadata ?? { status: "unavailable" },
         columns: result.columns,
         parameters: result.parameters,
       });

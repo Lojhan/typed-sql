@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { expandFindings } from "./live-baseline.mjs";
 import { directory } from "./references.js";
 
 type Report = {
@@ -9,12 +10,19 @@ type Report = {
 };
 type NativeFinding = {
   dialect: string;
-  target: { version: string; modeProfile?: string; adapter?: string; settings?: { compatibilityLevel?: number } };
+  target: {
+    version: string;
+    modeProfile?: string;
+    adapter?: string;
+    platform?: string;
+    arch?: string;
+    settings?: { compatibilityLevel?: number };
+  };
   counts: Record<string, number>;
   observations: { name: string; status: string }[];
 };
 const context = (target: NativeFinding["target"]) =>
-  `${target.version}${target.modeProfile ? ` / ${target.modeProfile}` : ""}${target.adapter ? ` / ${target.adapter}` : ""}${target.settings?.compatibilityLevel ? ` / compatibility ${target.settings.compatibilityLevel}` : ""}`;
+  `${target.version}${target.modeProfile ? ` / ${target.modeProfile}` : ""}${target.adapter ? ` / ${target.adapter}` : ""}${target.platform ? ` / ${target.platform}-${target.arch}` : ""}${target.settings?.compatibilityLevel ? ` / compatibility ${target.settings.compatibilityLevel}` : ""}`;
 
 export async function renderReport(check = false) {
   const { reports }: { reports: Report[] } = JSON.parse(await readFile(resolve(directory, "baseline.json"), "utf8"));
@@ -100,9 +108,9 @@ export async function renderReport(check = false) {
         lines.push(`Targets ${versions}:`, "", `${names.map((name) => `\`${name}\``).join(", ")}.`, "");
     }
   }
-  const native: { targets: Record<string, NativeFinding> } = JSON.parse(
-    await readFile(resolve(directory, "native-findings.json"), "utf8"),
-  );
+  const native = expandFindings(JSON.parse(await readFile(resolve(directory, "native-findings.json"), "utf8"))) as {
+    targets: Record<string, NativeFinding>;
+  };
   lines.push(
     "## Native preparation confirms analysis differences",
     "",

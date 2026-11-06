@@ -10,6 +10,8 @@ on:
       - 'e2e/sqlserver/**'
       - 'packages/sqlserver/**'
       - 'packages/core/**'
+      - 'packages/schema/**'
+      - 'packages/ast/**'
       - 'packages/compiler/**'
       - 'pnpm-lock.yaml'
   workflow_dispatch:

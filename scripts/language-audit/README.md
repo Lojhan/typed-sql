@@ -33,6 +33,31 @@ reference inventory rather than an assertion that every name exists in every sup
 DuckDB snapshots come from each exact engine in a separate process to avoid native symbol sharing.
 The SQLite live fixture records its exact source ID; refresh it with the live command below.
 
+## Inputs for generated mappings
+
+Each function row carries a versioned `signature` object for future catalog generation, alongside
+the original engine fields. It preserves overload identity, parameter order/names/native types,
+input/output modes, named options, variadic element types, default-expression evidence, return
+types/columns, aliases, macro definitions, strictness and volatility where the upstream source
+exposes them. The capture envelope supplies the exact version and provenance. `null` and knowledge
+markers represent unavailable facts; a name-only reference entry never fabricates a signature.
+
+PostgreSQL retains its complete argument/type/mode arrays and native default SQL list. SQL Server
+retains parameter and return-column metadata; TSQL default metadata is incomplete, and CLR default
+values retain their base type and converted binary representation. DuckDB retains positional and
+named parameters plus macro definitions. SQLite exposes arity/encoding/flags, with dynamic argument
+and result types. MySQL's public built-in reference does not expose complete formal signatures.
+Preparation evidence also retains native result descriptors where available: MySQL wire fields,
+SQL Server result-set descriptions, DuckDB logical types, and SQLite column metadata. These
+describe the generated invocation, not a universal signature for every possible argument value.
+
+The intended generation flow is captured facts → grammar-owned policy → generated catalogs.
+Coercions, polymorphism, nullability, special syntax, decoding and availability between observed
+versions remain explicit policy. In particular, PostgreSQL strictness does not establish that a
+function always returns non-NULL for non-NULL arguments. A generator must retain `unknown` or a
+diagnostic when facts/policy are insufficient. Fresh native discovery continues to audit generated
+catalogs; it must not derive expected coverage from the generated mappings themselves.
+
 ## Live discovery
 
 ```sh
@@ -74,6 +99,14 @@ coverage, signatures, names or metadata produce a nonzero exit and a full diff a
 mode without `--baseline` produces evidence; it does **not** claim that inventory drift passed.
 New CI/OS/version captures need review before becoming baselines; collation inventories can
 legitimately differ across operating systems.
+
+DuckDB table/pragma positional `colN` parameters retain their positions; named options are
+paired with their types and sorted by name. Their upstream map iteration order is not part of
+the SQL signature (see the [upstream metadata implementation](https://github.com/duckdb/duckdb/blob/v1.5.6/src/function/table/system/duckdb_functions.cpp)).
+MySQL uses its public [HELP interface](https://dev.mysql.com/doc/refman/8.4/en/help.html) and
+`SHOW GLOBAL VARIABLES`; it does not require direct reads of privileged help tables or save
+arbitrary variable values. Disposable SQL Server database names are excluded from review keys;
+compatibility levels, collations and other semantic settings remain part of the context.
 
 The database matrix probes enforce the compact reviewed live index in
 `test/fixtures/language-audit/live-baselines.json`. An unknown engine/context or any changed

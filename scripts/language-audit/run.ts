@@ -182,8 +182,18 @@ async function connect(dialect: string, selected = option("--version")) {
     const [row] = await query("SELECT sqlite_version() AS version, sqlite_source_id() AS source_id");
     const prepare = async (sql: string) => {
       try {
-        db.prepare(sql);
-        return { accepted: true };
+        const statement = db.prepare(sql);
+        return {
+          accepted: true,
+          metadata: {
+            status: "native preparation metadata for this invocation; SQLite types may be dynamic",
+            columns:
+              typeof statement.columns === "function"
+                ? statement.columns().map((column) => ({ name: column.name, nativeType: column.type, nullable: null }))
+                : null,
+            parameterCount: 0,
+          },
+        };
       } catch (error) {
         if ((error as { code?: string }).code !== "ERR_SQLITE_ERROR") throw error;
         return { accepted: false, reason: "ERR_SQLITE_ERROR" };
@@ -191,7 +201,7 @@ async function connect(dialect: string, selected = option("--version")) {
     };
     const features = (await query("PRAGMA compile_options")).map((item) => String(item.name));
     return {
-      target: row,
+      target: { ...row, platform: process.platform, arch: process.arch, runtime: process.version },
       query,
       prepare,
       server: {
@@ -208,7 +218,9 @@ async function connect(dialect: string, selected = option("--version")) {
     const version = selected ?? "2.0.0";
     if (!liveDuckDBTargets.includes(version as "1.5.6" | "2.0.0")) throw new Error(`Unknown DuckDB target ${version}`);
     const require = createRequire(resolve("packages/duckdb/package.json"));
-    const sdk = require(version === "1.5.6" ? "duckdb-node-15" : "@duckdb/node-api");
+    const sdkName = version === "1.5.6" ? "duckdb-node-15" : "@duckdb/node-api";
+    const sdk = require(sdkName);
+    const sdkVersion = require(`${sdkName}/package.json`).version;
     const instance = await sdk.DuckDBInstance.create();
     const db = await instance.connect();
     const query = async (sql: string): Promise<Record<string, unknown>[]> =>
@@ -224,14 +236,41 @@ async function connect(dialect: string, selected = option("--version")) {
       ).map((item) => [String(item.name), String(item.value)]),
     );
     return {
-      target: { version: actual, sdk: sdk.version() },
+      target: {
+        version: actual,
+        sdk: sdkVersion,
+        platform: process.platform,
+        arch: process.arch,
+        runtime: process.version,
+      },
       query,
       server: duckDBServerEvidence(actual, [], settings),
       prepare: async (sql: string) => {
         try {
           const statement = await db.prepare(sql);
-          statement.destroySync();
-          return { accepted: true };
+          try {
+            const columns = Array.from({ length: statement.columnCount }, (_, index) => {
+              let nativeType: string | null = null;
+              let typeKnowledge = "native preparation";
+              try {
+                nativeType = statement.columnType(index).toString();
+              } catch (error) {
+                if (!/^Unexpected type id: \d+$/u.test(String((error as Error).message))) throw error;
+                typeKnowledge = `driver descriptor unavailable: ${String((error as Error).message)}`;
+              }
+              return { name: statement.columnName(index), nativeType, typeKnowledge, nullable: null };
+            });
+            return {
+              accepted: true,
+              metadata: {
+                status: "native preparation metadata for this invocation",
+                columns,
+                parameterCount: statement.parameterCount,
+              },
+            };
+          } finally {
+            statement.destroySync();
+          }
         } catch (error) {
           const message = String((error as Error).message);
           if (

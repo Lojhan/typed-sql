@@ -9,16 +9,43 @@ export async function preparePostgres(client, sql) {
     return { accepted: false, reason: error.code };
   }
   await client.query("DEALLOCATE typed_sql_language_audit");
-  return { accepted: true };
+  return {
+    accepted: true,
+    metadata: {
+      status: "catalog-signature-preserved; result description unavailable through SQL PREPARE",
+      parameterCount: 0,
+      columns: null,
+    },
+  };
 }
 
 export async function prepareMySql(client, sql) {
   try {
     const statement = await client.prepare(sql);
+    const columns = statement.statement?.columns;
+    const metadata = Array.isArray(columns)
+      ? {
+          status: "native preparation metadata for this invocation",
+          columns: columns.map((column) => ({
+            name: column.name,
+            engineType: column.columnType,
+            flags: column.flags,
+            characterSet: column.characterSet,
+            columnLength: column.columnLength,
+            decimals: column.decimals,
+          })),
+          parameterCount: statement.statement.parameters?.length ?? null,
+        }
+      : { status: "unavailable in this driver interface", columns: null };
     await statement.close();
-    return { accepted: true };
+    return { accepted: true, metadata };
   } catch (error) {
-    if (!error.errno || error.fatal || error.errno >= 2000 || [1044, 1045, 1142, 1227].includes(error.errno))
+    if (
+      !error.code?.startsWith("ER_") ||
+      error.fatal ||
+      /^(08|40)/u.test(error.sqlState ?? "") ||
+      [1037, 1038, 1040, 1041, 1053, 1205, 1213, 1317].includes(error.errno)
+    )
       throw error;
     return { accepted: false, reason: error.code ?? String(error.errno) };
   }
@@ -27,11 +54,30 @@ export async function prepareMySql(client, sql) {
 export async function describeSqlServer(client, sql) {
   try {
     const rows = await client.all(
-      `SELECT error_number FROM sys.dm_exec_describe_first_result_set(N'${sql.replaceAll("'", "''")}',NULL,0)`,
+      `SELECT error_number,column_ordinal,name,system_type_name,system_type_id,user_type_schema,user_type_name,is_nullable,max_length,precision,scale,collation_name FROM sys.dm_exec_describe_first_result_set(N'${sql.replaceAll("'", "''")}',NULL,0)`,
     );
     return {
       accepted: rows.length > 0 && rows.every((row) => row.error_number == null),
       reason: rows.find((row) => row.error_number != null)?.error_number?.toString() ?? "metadata unavailable",
+      metadata: {
+        status: "native result description for this invocation",
+        columns: rows
+          .filter((row) => row.error_number == null)
+          .map((row) => ({
+            ordinal: row.column_ordinal,
+            name: row.name,
+            nativeType: row.system_type_name,
+            engineType: row.system_type_id,
+            userTypeSchema: row.user_type_schema,
+            userTypeName: row.user_type_name,
+            nullable: row.is_nullable,
+            maxLength: row.max_length,
+            precision: row.precision,
+            scale: row.scale,
+            collation: row.collation_name,
+          })),
+        parameterCount: 0,
+      },
     };
   } catch (error) {
     if (

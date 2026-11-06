@@ -1,4 +1,7 @@
-import { createHash } from "node:crypto";
+import { canonical, hash } from "./hash.mjs";
+import { signatureFacts } from "./signatures.mjs";
+
+export { hash } from "./hash.mjs";
 
 export const CATEGORIES = Object.freeze([
   "functions",
@@ -12,23 +15,13 @@ export const CATEGORIES = Object.freeze([
   "syntax",
 ]);
 export const DIALECTS = Object.freeze(["postgres", "mysql", "sqlite", "sqlserver", "duckdb"]);
-const canonical = (value) =>
-  typeof value === "bigint"
-    ? value.toString()
-    : Array.isArray(value)
-      ? value.map(canonical)
-      : value && typeof value === "object"
-        ? Object.fromEntries(
-            Object.keys(value)
-              .sort()
-              .map((key) => [key, canonical(value[key])]),
-          )
-        : value;
 const compare = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
-export const hash = (value) =>
-  `sha256:${createHash("sha256")
-    .update(JSON.stringify(canonical(value)))
-    .digest("hex")}`;
+
+export function reviewTarget(input) {
+  if (input.dialect !== "sqlserver" || !input.target.settings) return input.target;
+  const { databaseName: _disposableDatabaseName, ...settings } = input.target.settings;
+  return { ...input.target, settings };
+}
 
 // One signature/observation per line keeps generated evidence reviewable.
 export function serialize(value, indent = 0) {
@@ -39,6 +32,7 @@ export function serialize(value, indent = 0) {
       item === null ||
       typeof item !== "object" ||
       typeof item.sql === "string" ||
+      Boolean(item.signature) ||
       (Array.isArray(item)
         ? item.every((entry) => entry === null || typeof entry !== "object")
         : Object.values(item).every(
@@ -50,6 +44,7 @@ export function serialize(value, indent = 0) {
     return `[\n${value.map((item) => `${padding}  ${flat(item) ? JSON.stringify(item) : serialize(item, indent + 2)}`).join(",\n")}\n${padding}]`;
   }
   if (value && typeof value === "object") {
+    if (typeof value.sql === "string" || value.signature) return JSON.stringify(value);
     const entries = Object.entries(value);
     if (!entries.length) return "{}";
     return `{\n${entries.map(([key, item]) => `${padding}  ${JSON.stringify(key)}: ${serialize(item, indent + 2)}`).join(",\n")}\n${padding}}`;
@@ -81,7 +76,12 @@ export const QUERIES = {
       pg_get_function_identity_arguments(p.oid) AS arguments, pg_get_function_result(p.oid) AS result,
       ARRAY(SELECT format_type(t,NULL) FROM unnest(p.proargtypes) t) AS argument_types,
       rt.typtype AS result_type_kind, p.proretset AS returns_set,
-      p.pronargdefaults AS defaults, p.provariadic <> 0 AS variadic, p.proisstrict AS strict
+      n.nspname||'.'||p.proname||'('||oidvectortypes(p.proargtypes)||')' AS identity,
+      p.proargnames AS parameter_names, p.proargmodes::text[] AS parameter_modes, p.pronargs AS input_count,
+      ARRAY(SELECT format_type(t,NULL) FROM unnest(COALESCE(p.proallargtypes,p.proargtypes::oid[])) t) AS all_argument_types,
+      p.pronargdefaults AS defaults, pg_get_expr(p.proargdefaults,0) AS default_expressions_sql,
+      p.provariadic <> 0 AS variadic, CASE WHEN p.provariadic=0 THEN NULL ELSE format_type(p.provariadic,NULL) END AS variadic_type,
+      p.proisstrict AS strict, p.provolatile AS volatility, p.proparallel AS parallel
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_type rt ON rt.oid=p.prorettype WHERE n.nspname='pg_catalog'`,
     keywords: "SELECT word AS name, catcode AS category, catdesc AS description FROM pg_get_keywords()",
     types: `SELECT t.typname AS name, t.typtype AS kind, t.typcategory AS category
@@ -99,13 +99,9 @@ export const QUERIES = {
     keywords: "SELECT WORD AS name, RESERVED AS reserved FROM information_schema.KEYWORDS",
     collations: `SELECT COLLATION_NAME AS name, CHARACTER_SET_NAME AS character_set,
       IS_DEFAULT AS is_default, SORTLEN AS sort_length FROM information_schema.COLLATIONS`,
-    settings: "SELECT VARIABLE_NAME AS name FROM performance_schema.global_variables",
-    types: `WITH RECURSIVE categories AS (
-      SELECT help_category_id FROM mysql.help_category WHERE name='Data Types'
-      UNION ALL SELECT c.help_category_id FROM mysql.help_category c JOIN categories p ON c.parent_category_id=p.help_category_id)
-      SELECT t.name FROM mysql.help_topic t JOIN categories c ON c.help_category_id=t.help_category_id`,
-    syntax:
-      "SELECT t.name, c.name AS category FROM mysql.help_topic t JOIN mysql.help_category c ON c.help_category_id=t.help_category_id",
+    settings: "SHOW GLOBAL VARIABLES",
+    types: "HELP 'Data Types'",
+    syntax: "HELP '%'",
   },
   sqlite: {
     functions: "SELECT name, builtin, type AS kind, enc AS encoding, narg AS arity, flags FROM pragma_function_list",
@@ -114,15 +110,26 @@ export const QUERIES = {
   },
   sqlserver: {
     functions: `SELECT o.name, SCHEMA_NAME(o.schema_id) AS namespace, o.type AS kind,
-      (SELECT COUNT(*) FROM sys.parameters p WHERE p.object_id=o.object_id AND p.parameter_id>0) AS arity
+      (SELECT COUNT(*) FROM sys.parameters p WHERE p.object_id=o.object_id AND p.parameter_id>0) AS arity,
+      OBJECTPROPERTY(o.object_id,'IsDeterministic') AS deterministic,
+      (SELECT p.parameter_id AS position, p.name, t.name AS type_name, SCHEMA_NAME(t.schema_id) AS type_schema,
+        p.max_length, p.precision, p.scale, p.is_output, p.is_nullable, p.is_readonly, p.has_default_value,
+        CONVERT(nvarchar(128),SQL_VARIANT_PROPERTY(p.default_value,'BaseType')) AS default_value_type,
+        CONVERT(varchar(max),CONVERT(varbinary(max),p.default_value),2) AS default_value_binary_hex
+        FROM sys.parameters p LEFT JOIN sys.types t ON t.user_type_id=p.user_type_id WHERE p.object_id=o.object_id
+        ORDER BY p.parameter_id FOR JSON PATH, INCLUDE_NULL_VALUES) AS parameters_json,
+      (SELECT c.column_id AS position, c.name, t.name AS type_name, SCHEMA_NAME(t.schema_id) AS type_schema,
+        c.max_length, c.precision, c.scale, c.is_nullable FROM sys.columns c LEFT JOIN sys.types t ON t.user_type_id=c.user_type_id
+        WHERE c.object_id=o.object_id ORDER BY c.column_id FOR JSON PATH, INCLUDE_NULL_VALUES) AS return_columns_json
       FROM sys.system_objects o WHERE o.type IN ('FN','IF','TF','FS','FT','AF')`,
     types: "SELECT name, system_type_id, max_length, precision, scale FROM sys.types WHERE is_user_defined=0",
     collations: "SELECT name FROM sys.fn_helpcollations()",
-    settings: "SELECT name, minimum, maximum, is_dynamic, is_advanced FROM sys.configurations",
+    settings:
+      "SELECT name, CONVERT(bigint,minimum) AS minimum, CONVERT(bigint,maximum) AS maximum, is_dynamic, is_advanced FROM sys.configurations",
   },
   duckdb: {
-    functions: `SELECT function_name AS name, function_type AS kind, parameter_types AS arguments,
-      return_type AS result, varargs, stability, has_side_effects AS side_effects, internal
+    functions: `SELECT function_name AS name, function_type AS kind, parameter_types AS arguments, parameters AS parameter_names,
+      return_type AS result, varargs, stability, has_side_effects AS side_effects, internal, schema_name, alias_of, macro_definition
       FROM duckdb_functions() WHERE database_name='system'`,
     keywords: "SELECT keyword_name AS name, keyword_category AS category FROM duckdb_keywords()",
     types: "SELECT type_name AS name, logical_type, type_category AS category FROM duckdb_types() WHERE internal",
@@ -159,7 +166,19 @@ export async function collectLive(dialect, query, target) {
     const sql = QUERIES[dialect][category];
     categories[category] = sql
       ? inventory(
-          await query(sql),
+          (await query(sql)).map((row) => {
+            if (category === "functions") {
+              const native = dialect === "duckdb" ? canonicalDuckFunction(row) : row;
+              return { ...native, signature: signatureFacts(dialect, native) };
+            }
+            if (dialect === "mysql" && category === "settings") return { name: row.Variable_name };
+            if (dialect === "mysql" && ["types", "syntax"].includes(category))
+              return {
+                name: row.name,
+                ...(row.is_it_category === undefined ? {} : { is_category: row.is_it_category }),
+              };
+            return row;
+          }),
           sql,
           dialect === "sqlserver" && category === "functions"
             ? "system-objects-only"
@@ -205,12 +224,43 @@ export async function collectLive(dialect, query, target) {
   return { formatVersion: 1, dialect, target, categories };
 }
 
+// Named table/pragma options come from an unordered map; their order is not positional SQL.
+// Preserve positional colN slots and fingerprint every named option's name/type association.
+export function canonicalDuckFunction(row) {
+  if (!["table", "pragma"].includes(row.kind)) return row;
+  if (!Array.isArray(row.parameter_names) || row.parameter_names.length !== row.arguments?.length)
+    throw new Error(`Incomplete DuckDB parameter metadata: ${row.name}`);
+  const positional = [],
+    named = [];
+  for (let index = 0; index < row.parameter_names.length; index++) {
+    const name = row.parameter_names[index],
+      type = row.arguments[index];
+    if (/^col\d+$/u.test(name)) positional.push([name, type]);
+    else named.push([name, type]);
+  }
+  positional.sort(([a], [b]) => Number(a.slice(3)) - Number(b.slice(3)));
+  named.sort(([a], [b]) => compare(a, b));
+  return {
+    ...row,
+    arguments: positional.map(([, type]) => type),
+    parameter_names: positional.map(([name]) => name),
+    named_arguments: Object.fromEntries(named),
+  };
+}
+
 export function diffInventory(previous, next) {
   if (previous.dialect !== next.dialect || previous.target.version !== next.target.version)
     throw new Error("Inventory targets must match exactly");
   const changes = [];
-  if (hash(previous.target) !== hash(next.target))
+  if (hash(reviewTarget(previous)) !== hash(reviewTarget(next)))
     changes.push({ category: "target", kind: "context-changed", before: previous.target, after: next.target });
+  if (hash(previous.recognition ?? null) !== hash(next.recognition ?? null))
+    changes.push({
+      category: "recognition",
+      kind: "behavior-changed",
+      before: previous.recognition ?? null,
+      after: next.recognition ?? null,
+    });
   for (const category of CATEGORIES) {
     const left = previous.categories[category],
       right = next.categories[category];
@@ -220,6 +270,8 @@ export function diffInventory(previous, next) {
     if (left.status === "unavailable" && right.status === "unavailable" && left.reason !== right.reason)
       changes.push({ category, kind: "limitation-changed", before: left.reason, after: right.reason });
     if (left.status === "observed" && right.status === "observed") {
+      if (left.scope !== right.scope || hash(left.unprobeableTypes ?? []) !== hash(right.unprobeableTypes ?? []))
+        changes.push({ category, kind: "coverage-changed", before: left.scope, after: right.scope });
       const a = new Set(left.rows.map((row) => JSON.stringify(row)));
       const b = new Set(right.rows.map((row) => JSON.stringify(row)));
       for (const value of b) if (!a.has(value)) changes.push({ category, kind: "added", value: JSON.parse(value) });

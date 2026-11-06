@@ -7,6 +7,7 @@ import { POSTGRES_SUPPORT_POLICY } from "../../packages/postgres/src/support.js"
 import { SQLITE_LANGUAGE_SUPPORT } from "../../packages/sqlite/src/support.js";
 import { SQLSERVER_LANGUAGE_SUPPORT } from "../../packages/sqlserver/src/support.js";
 import { hash, inventory, serialize } from "./inventory.mjs";
+import { signatureFacts } from "./signatures.mjs";
 
 export const directory = resolve(dirname(fileURLToPath(import.meta.url)), "../../test/fixtures/language-audit");
 export const textContent = (html: string): string =>
@@ -225,7 +226,14 @@ export async function refreshReferences() {
           ? "Unversioned upstream reference; availability must be checked against each live SQLite build."
           : "Versioned upstream reference; documentation presence alone does not prove engine availability or semantics.",
       sources: sources.sort((a, b) => a.url.localeCompare(b.url)),
-      categories: { functions: inventory(distinct, "official-reference", "documented-functions"), ...extra },
+      categories: {
+        functions: inventory(
+          distinct.map((row) => ({ ...row, signature: signatureFacts(dialect, row) })),
+          "official-reference",
+          "documented-functions",
+        ),
+        ...extra,
+      },
     };
     await writeFile(resolve(directory, `${dialect}-${version}.json`), `${serialize(result)}\n`);
     console.log(`${dialect} ${version}: ${distinct.length} documented function names`);

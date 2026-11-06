@@ -333,9 +333,25 @@ const languageRecognition = await enrichRecognition(
   languageInventory,
   async (sql) => {
     try {
-      if (options.adapter === "node") nodeDatabase.prepare(sql);
-      else execute(`EXPLAIN ${sql}`);
-      return { accepted: true };
+      let columns = null;
+      if (options.adapter === "node") {
+        const statement = nodeDatabase.prepare(sql);
+        if (typeof statement.columns === "function")
+          columns = statement
+            .columns()
+            .map((column) => ({ name: column.name, nativeType: column.type, nullable: null }));
+      } else execute(`EXPLAIN ${sql}`);
+      return {
+        accepted: true,
+        metadata: {
+          status:
+            options.adapter === "node"
+              ? "native preparation metadata for this invocation; SQLite types may be dynamic"
+              : "CLI EXPLAIN acceptance only",
+          columns,
+          parameterCount: 0,
+        },
+      };
     } catch (error) {
       if (error.code !== "ERR_SQLITE_ERROR" && error.message !== "sqlite3 CLI rejected the probe") throw error;
       return { accepted: false, reason: "native preparation rejected" };

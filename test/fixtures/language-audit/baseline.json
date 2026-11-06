@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "fingerprint": "sha256:4ce24ae43d94db4984879121dc363380ef197f771391414d46a20ac945feb9e3",
+  "fingerprint": "sha256:bf9b4143dd584b367bac53aee1c8f6aac1c165c59fe5cebde5522b93d803b209",
   "reports": [
     {
       "dialect": "postgres",
@@ -10,7 +10,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:f7cc84003e23a0019a78db5ca1cfa161fbc43f4f9d4fc9fa0f0e561b3fb71636",
+          "fingerprint": "sha256:aba1dc85d0244d1c0ec6f00d9624566d34b8796677beefbd30aeca68611fdbb8",
           "count": 611,
           "observations": [
             {"name":"abbrev","status":"unknown-function-observed"},
@@ -1754,7 +1754,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:35a8831cbfef85822d0cea8e76e6c19b0a399004379cd769ec80583922107023",
+          "fingerprint": "sha256:7ef6b1cec4b91f1150da8c65fe6f609da0c23cafd07bf056593d42c9c930d16d",
           "count": 622,
           "observations": [
             {"name":"abbrev","status":"unknown-function-observed"},
@@ -3515,7 +3515,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:5e254e8ce0b6ce3a97e36a6bdf7a8eabfb67b9f799baf190c972fd1fa955aa1a",
+          "fingerprint": "sha256:5b4f5ffde8ac591e85659ee0128af3e9370b8357de26f57d12235861b247d98a",
           "count": 647,
           "observations": [
             {"name":"abbrev","status":"unknown-function-observed"},
@@ -5311,7 +5311,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:5538f4ef1dd77c037ef61e71bc9e5228d611d093726f61060bbf189e75ca6f4f",
+          "fingerprint": "sha256:f98926885374ae9364793532aa3a11dc05520cd88e3ecef8c07ba91aea87c8d2",
           "count": 671,
           "observations": [
             {"name":"abbrev","status":"unknown-function-observed"},
@@ -7133,7 +7133,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:fef7837b5b408d6e701dc0c3386da6ee365af13ac6af15fa3b4fb498754297f6",
+          "fingerprint": "sha256:7b845eb47c94ad95a78d00a046434480994c8de16f7fd7c096f4ad33c625c9a3",
           "count": 689,
           "observations": [
             {"name":"abbrev","status":"unknown-function-observed"},
@@ -8974,7 +8974,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:aeef6eedd1d85fae8640f5b0e29f75b58e13b4f57f36d900e54ea070cb1e6b6e",
+          "fingerprint": "sha256:1e3ae527b7d83db8b50121c71583949eafdaa25bf271937c7a9f8048a77562a1",
           "count": 699,
           "observations": [
             {"name":"abbrev","status":"unknown-function-observed"},
@@ -10830,7 +10830,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:156b32e62bedfa366e21b94d9d9456bcba421b0b13850cf6bd682d051f5ebb19",
+          "fingerprint": "sha256:37daaf38ed0f3437e55697c972a8332a0bf656c952d9f4c369d2b9da77eb21c3",
           "count": 429,
           "observations": [
             {"name":"abs","status":"declared-semantics-unverified"},
@@ -11306,7 +11306,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:e618fa3ea7079dc4923a44eb0d866cda33f7d64b74df54f28f33ae7ba60052ca",
+          "fingerprint": "sha256:f7628fcea387b02c23cb633a11e9df6644b25388f69c6cb2045ab33f5aabf09b",
           "count": 432,
           "observations": [
             {"name":"abs","status":"declared-semantics-unverified"},
@@ -11785,7 +11785,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:c05dd542a19376eded88b4e46097ce184e397ecf4f40ff3ec82349e6a011e9f5",
+          "fingerprint": "sha256:faa3efd445101cedb1f5dc0e22273b4efde960a8366d13641f64d2b1fba6c549",
           "count": 431,
           "observations": [
             {"name":"abs","status":"declared-semantics-unverified"},
@@ -12263,7 +12263,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:cd2c0effd63e85741d5a48ce305c68097c500d858f11a5aeb0a5079888ad2874",
+          "fingerprint": "sha256:318a246229b8f6c313e257ad5e8f7dafa0c30781ffbec5a046da2046f41e64ce",
           "count": 139,
           "observations": [
             {"name":"abs","status":"declared-semantics-unverified"},
@@ -12642,7 +12642,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:569dd7329fe70950d2c3588f1c2eddbd82c24289b2901314e01dca469887a60f",
+          "fingerprint": "sha256:6ae654922dbe4b9ae789fbd78bcf082f83b0f8de736492deb78595e228dab132",
           "count": 296,
           "observations": [
             {"name":"@@connections","status":"special-syntax-unverified"},
@@ -13374,7 +13374,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:7e8475665f34bb4fb5d1e84d5dc4ef17e02f811743857c782110ceff1a48c6b9",
+          "fingerprint": "sha256:4b45748a79e31120556b702c8b1a6fcf0b664d88adaec94744df73ab7fa2e3e8",
           "count": 296,
           "observations": [
             {"name":"@@connections","status":"special-syntax-unverified"},
@@ -14109,7 +14109,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:71e729b0530497c711de2bd47af74a589b03c60bcb2315f6004f53ddc9c3ed89",
+          "fingerprint": "sha256:204ea7dadbb86944c8cb5c1513ff38e70aec3b15285cc8b314f929d69cf74245",
           "count": 307,
           "observations": [
             {"name":"@@connections","status":"special-syntax-unverified"},
@@ -14856,7 +14856,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:b07ebd101f26c464a4a87b545184eb2b3c1ae5630af625c5c848c0f295ac4b1e",
+          "fingerprint": "sha256:26e4e0d1c7a0628493946af7ec1d158337bdfcc8aae221aeb2e6d05f116a8a09",
           "count": 327,
           "observations": [
             {"name":"@@connections","status":"special-syntax-unverified"},
@@ -15629,12 +15629,15 @@
       "dialect": "duckdb",
       "target": {
         "version": "1.5.6",
-        "sdk": "v1.5.6"
+        "sdk": "1.5.6-r.2",
+        "platform": "darwin",
+        "arch": "arm64",
+        "runtime": "v24.22.2"
       },
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:3f3490a695ec2c127666ede1354dcab85fbd79e8a9bddeab09e0be0d2971cfc6",
+          "fingerprint": "sha256:7fe805d3a74bd690e89692e327f3d1d509d084ccd47fe71ff75643102a45e0d4",
           "count": 2945,
           "observations": [
             {"name":"!__postfix","status":"special-syntax-unverified"},
@@ -22745,12 +22748,15 @@
       "dialect": "duckdb",
       "target": {
         "version": "2.0.0",
-        "sdk": "v2.0.0"
+        "sdk": "2.0.0-r.1",
+        "platform": "darwin",
+        "arch": "arm64",
+        "runtime": "v24.22.2"
       },
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:4db121f73bdce12911d03656a80658f7d562d5f58cac2fff70f354c2184d0223",
+          "fingerprint": "sha256:addc8c0d6411ee499698ffb9e922b513b1c5958cbe17dd93d83d3dedd8bd4d09",
           "count": 3235,
           "observations": [
             {"name":"!=","status":"special-syntax-unverified"},
@@ -30713,12 +30719,15 @@
       "dialect": "sqlite",
       "target": {
         "version": "3.53.4",
-        "source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc"
+        "source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+        "platform": "darwin",
+        "arch": "arm64",
+        "runtime": "v24.22.2"
       },
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:93e30693ef04f1751881ab420b1967d4502177fc744dda89efa356f4fadd874a",
+          "fingerprint": "sha256:f12470edbbb60a3aa1bcce3a476ff5081911805627366ac141d23b31a532d0cd",
           "count": 196,
           "observations": [
             {"name":"->","status":"special-syntax-unverified"},
