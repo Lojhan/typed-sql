@@ -35,6 +35,16 @@ export class PlaygroundPgError extends Error {
   }
 }
 
+export class PlaygroundPgCancellationError extends QueryCancelledError {
+  readonly confirmed: boolean;
+  readonly outcomeUnknown: boolean;
+  constructor(reason: "signal" | "deadline", confirmed: boolean) {
+    super(reason);
+    this.confirmed = confirmed;
+    this.outcomeUnknown = !confirmed;
+  }
+}
+
 interface CursorResult {
   readonly fields: readonly FieldDef[];
   readonly command: string | null;
@@ -283,10 +293,12 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
 
   async function lease(limits: RunOptions): Promise<{
     client: PoolClient;
-    finish: (commit: boolean) => Promise<void>;
+    finish: (commit: boolean) => Promise<boolean>;
     assertActive: () => void;
     disposed: () => boolean;
     abort: () => void;
+    cancellationReason: () => "signal" | "deadline" | undefined;
+    run: <T>(operation: () => Promise<T>) => Promise<T>;
   }> {
     validateLimits(limits);
     if (limits.signal.aborted) throw new QueryCancelledError("signal");
@@ -295,8 +307,17 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     active.add(controller);
     let deadlineExpired = false;
     let client: PoolClient | undefined;
+    let fatalError: unknown;
+    const onClientError = (error: Error) => {
+      fatalError = error;
+    };
+    const onClientEnd = () => {
+      fatalError ??= new Error("The PostgreSQL connection ended");
+    };
     let cancelOperation: Promise<void> | undefined;
     let released = false;
+    let executing = 0;
+    let cancellationFallback: ReturnType<typeof setTimeout> | undefined;
     const abort = () => controller.abort();
     limits.signal.addEventListener("abort", abort, { once: true });
     const timer = setTimeout(() => {
@@ -308,18 +329,30 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     const cancel = () => {
       if (pid === undefined || released || client === undefined) return;
       const leased = client;
+      const hadInFlightQuery = executing > 0;
       cancelOperation = (async () => {
+        let acknowledged = false;
         try {
           const response = await control.query<{ cancelled: boolean }>("select pg_cancel_backend($1) as cancelled", [
             pid,
           ]);
           if (response.rows[0]?.cancelled !== true) throw new Error("Cancellation not confirmed");
+          acknowledged = true;
         } catch {
           // No server cancellation acknowledgement: drop this connection rather than reuse it.
         } finally {
-          if (!released) {
+          if (!released && (!acknowledged || !hadInFlightQuery)) {
             released = true;
             leased.release(true);
+          } else if (!released) {
+            // Give the query error and explicit ROLLBACK a bounded opportunity to settle.
+            cancellationFallback = setTimeout(() => {
+              if (!released) {
+                released = true;
+                leased.release(true);
+              }
+            }, 1500);
+            cancellationFallback.unref();
           }
         }
       })();
@@ -327,15 +360,20 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     controller.signal.addEventListener("abort", cancel, { once: true });
     const cleanup = () => {
       clearTimeout(timer);
+      if (cancellationFallback !== undefined) clearTimeout(cancellationFallback);
       limits.signal.removeEventListener("abort", abort);
       controller.signal.removeEventListener("abort", cancel);
       active.delete(controller);
+      client?.removeListener("error", onClientError);
+      client?.removeListener("end", onClientEnd);
     };
     const assertActive = () => {
       if (controller.signal.aborted) throw new QueryCancelledError(deadlineExpired ? "deadline" : "signal");
     };
     try {
       client = await pool.connect();
+      client.on("error", onClientError);
+      client.on("end", onClientEnd);
       assertActive();
       const identity = await client.query<{ pid: number }>("select pg_backend_pid() as pid");
       pid = identity.rows[0]!.pid;
@@ -350,8 +388,17 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
       return {
         client: leased,
         assertActive,
-        disposed: () => released,
+        disposed: () => released || fatalError !== undefined,
         abort: () => controller.abort(),
+        cancellationReason: () => (controller.signal.aborted ? (deadlineExpired ? "deadline" : "signal") : undefined),
+        async run<T>(operation: () => Promise<T>): Promise<T> {
+          executing++;
+          try {
+            return await operation();
+          } finally {
+            executing--;
+          }
+        },
         async finish(commit) {
           let reusable = false;
           try {
@@ -361,6 +408,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
               await leased.query(commit ? "COMMIT" : "ROLLBACK");
               reusable = true;
             }
+            return !commit && reusable;
           } finally {
             if (cancelOperation !== undefined) await cancelOperation;
             if (!released) {
@@ -383,9 +431,10 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
   }
 
   function normalize(error: unknown, readOnly: boolean): Error {
-    if (error instanceof QueryCancelledError || error instanceof PlaygroundPgError) return error;
+    if (error instanceof PlaygroundPgCancellationError || error instanceof PlaygroundPgError) return error;
+    if (error instanceof QueryCancelledError) return new PlaygroundPgCancellationError(error.reason, false);
     const state = sqlState(error);
-    if (state === "57014") return new QueryCancelledError("deadline");
+    if (state === "57014") return new PlaygroundPgCancellationError("deadline", false);
     return new PlaygroundPgError(
       state === "25006" ? "TSQL_PLAYGROUND_READ_ONLY" : "TSQL_PLAYGROUND_PG",
       state === "25006"
@@ -393,7 +442,8 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
         : "PostgreSQL execution failed; inspect the SQL and target permissions",
       {
         ...(state === undefined ? {} : { sqlState: state }),
-        outcomeUnknown: !readOnly && (state === undefined || state.startsWith("08")),
+        outcomeUnknown:
+          !readOnly && (state === undefined || state.startsWith("08") || ["57P01", "57P02", "57P03"].includes(state)),
       },
     );
   }
@@ -408,14 +458,24 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     try {
       validateStatement(request.text, request.readOnly);
       session = await lease(request);
-      const result = await fetch(session.client, request.text, request.values, request, parsers, session.disposed);
+      const result = await session.run(() =>
+        fetch(session!.client, request.text, request.values, request, parsers, session!.disposed),
+      );
       session.assertActive();
       finished = true;
       await session.finish(true);
       return result;
     } catch (error) {
-      if (session !== undefined && !finished) await session.finish(false).catch(() => undefined);
-      if (request.signal.aborted) throw new QueryCancelledError("signal");
+      const rolledBack = session !== undefined && !finished ? await session.finish(false).catch(() => false) : false;
+      const reason =
+        session?.cancellationReason() ??
+        (request.signal.aborted ? "signal" : sqlState(error) === "57014" ? "deadline" : undefined);
+      if (reason !== undefined || error instanceof QueryCancelledError) {
+        throw new PlaygroundPgCancellationError(
+          reason ?? (error as QueryCancelledError).reason,
+          session === undefined || rolledBack,
+        );
+      }
       throw normalize(error, request.readOnly);
     }
   }
@@ -492,13 +552,15 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
                   }
                   throw new PlaygroundPgError("TSQL_PLAYGROUND_TRANSACTION", "Unsupported managed transaction control");
                 }
-                const result = await fetch(
-                  session.client,
-                  config.text,
-                  config.values ?? [],
-                  limits,
-                  config.types ?? parsers,
-                  session.disposed,
+                const result = await session.run(() =>
+                  fetch(
+                    session.client,
+                    config.text,
+                    config.values ?? [],
+                    limits,
+                    config.types ?? parsers,
+                    session.disposed,
+                  ),
                 );
                 session.assertActive();
                 if (!begun) {
@@ -507,7 +569,9 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
                 }
                 return toObjectRows(result, !begun && !limits.readOnly);
               };
-              const running = pending.then(operation);
+              const running = pending.then(operation).catch((error) => {
+                throw normalize(error, limits.readOnly);
+              });
               pending = running.then(
                 () => undefined,
                 () => undefined,
@@ -525,10 +589,27 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
         },
         async end() {},
       };
-      return createPostgresDatabase({
+      const database = createPostgresDatabase({
         pool,
         typePolicy: policy,
         ...(options.decimal === undefined ? {} : { decimal: options.decimal }),
+      });
+      // Per-call controls can reject before native cleanup confirms rollback.
+      return new Proxy(database, {
+        get(object, property) {
+          const value: unknown = Reflect.get(object, property, object);
+          if (typeof value !== "function") return value;
+          return (...args: unknown[]) => {
+            const result: unknown = Reflect.apply(value, object, args);
+            if (!(result instanceof Promise)) return result;
+            return result.catch((error: unknown) => {
+              if (error instanceof QueryCancelledError && !(error instanceof PlaygroundPgCancellationError)) {
+                throw new PlaygroundPgCancellationError(error.reason, false);
+              }
+              throw error;
+            });
+          };
+        },
       });
     },
     async snapshot() {

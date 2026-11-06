@@ -12,6 +12,8 @@ export function packedConsumerOverrides(
 ): Record<string, string> {
   return {
     ...dependencies,
+    esbuild: `link:${join(workspace, "packages", "build", "node_modules", "esbuild")}`,
+    acorn: `link:${join(workspace, "packages", "playground", "node_modules", "acorn")}`,
     tsx: `link:${join(workspace, "node_modules", "tsx")}`,
     "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
     "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,

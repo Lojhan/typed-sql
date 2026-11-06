@@ -1,5 +1,5 @@
 import { describe, it, strict } from "poku";
-import { createPgPlaygroundTarget } from "../src/pg.js";
+import { createPgPlaygroundTarget, PlaygroundPgCancellationError } from "../src/pg.js";
 
 await describe("explicit PostgreSQL playground adapter", async () => {
   await it("is lazy and validates limits without opening a database", async () => {
@@ -82,7 +82,7 @@ await describe("explicit PostgreSQL playground adapter", async () => {
           timeoutMs: 1000,
           signal: controller.signal,
         }),
-      /cancelled/,
+      (error: unknown) => error instanceof PlaygroundPgCancellationError && error.confirmed && !error.outcomeUnknown,
     );
     strict.equal(connections, 0);
     await target.close();

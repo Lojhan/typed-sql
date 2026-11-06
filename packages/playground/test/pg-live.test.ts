@@ -1,6 +1,6 @@
 import { sql } from "@typed-sql/postgres";
 import { describe, it, skip, strict } from "poku";
-import { createPgPlaygroundTarget } from "../src/pg.js";
+import { createPgPlaygroundTarget, PlaygroundPgCancellationError, PlaygroundPgError } from "../src/pg.js";
 
 const connectionString = process.env.TYPED_SQL_PLAYGROUND_PG_URL;
 if (connectionString === undefined) skip("Set TYPED_SQL_PLAYGROUND_PG_URL for real PostgreSQL adapter verification");
@@ -93,11 +93,37 @@ try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 100);
       try {
-        await strict.rejects(() => run("select pg_sleep(10)", { signal: controller.signal }), /cancelled/);
+        await strict.rejects(
+          () => run("select pg_sleep(10)", { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof PlaygroundPgCancellationError && error.confirmed && !error.outcomeUnknown,
+        );
       } finally {
         clearTimeout(timer);
       }
       strict.deepEqual((await run("select 42 as answer")).rows, [[42]]);
+    });
+
+    await it("reports uncertain writes after backend loss and never reuses the lost connection", async () => {
+      await strict.rejects(
+        () => run("select pg_terminate_backend(pg_backend_pid())", { readOnly: false }),
+        (error: unknown) => error instanceof PlaygroundPgError && error.outcomeUnknown,
+      );
+      strict.deepEqual((await run("select 73 as answer")).rows, [[73]]);
+      const database = await target.database({
+        readOnly: false,
+        maxRows: 10,
+        timeoutMs: 3000,
+        signal: new AbortController().signal,
+      });
+      await strict.rejects(
+        () =>
+          database.transaction(async (tx) => {
+            await tx.all(sql`select pg_terminate_backend(pg_backend_pid())`);
+          }),
+        (error: unknown) => error instanceof PlaygroundPgError && error.outcomeUnknown,
+      );
+      strict.deepEqual(await database.all(sql`select 74 as answer`), [{ answer: 74 }]);
     });
 
     await it("preserves application runtime codecs and rolls transactions back", async () => {
@@ -147,7 +173,11 @@ try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 100);
       try {
-        await strict.rejects(() => db.all(sql`select pg_sleep(10)`, { signal: controller.signal }), /cancelled/);
+        await strict.rejects(
+          () => db.all(sql`select pg_sleep(10)`, { signal: controller.signal }),
+          (error: unknown) =>
+            error instanceof PlaygroundPgCancellationError && !error.confirmed && error.outcomeUnknown,
+        );
       } finally {
         clearTimeout(timer);
       }
