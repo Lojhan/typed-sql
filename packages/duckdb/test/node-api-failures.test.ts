@@ -238,3 +238,37 @@ await it("cleans up vector appenders on metadata faults and rejects unsafe chunk
   });
   await strict.rejects(unsupported.createAppender!("stage"), /vector appender/u);
 });
+
+await it("stops private native health reads between statements when controls expire", async () => {
+  for (const stopAfter of [0, 1, 2, 3]) {
+    const abort = new AbortController();
+    let reads = 0,
+      closes = 0;
+    class Connection {
+      async run() {
+        reads++;
+        return {
+          async getRows() {
+            if (reads === stopAfter) abort.abort();
+            return reads === 1 ? [["v2.0.0", "memory", "main"]] : [["integer_division", "false"]];
+          },
+          closeSync() {
+            closes++;
+          },
+        };
+      }
+    }
+    const connection = adaptDuckDBConnection(new Connection(), { ...sdk, DuckDBConnection: Connection });
+    if (stopAfter === 0) abort.abort();
+    await strict.rejects(connection.readServerEvidence!({ signal: abort.signal }), /cancelled/u);
+    strict.equal(reads, stopAfter);
+    strict.equal(closes, stopAfter, "Every completed health result must close before cancellation exits");
+  }
+  class NeverRun {
+    async run() {
+      throw new Error("must not dispatch expired health read");
+    }
+  }
+  const connection = adaptDuckDBConnection(new NeverRun(), { ...sdk, DuckDBConnection: NeverRun });
+  await strict.rejects(connection.readServerEvidence!({ deadline: Date.now() - 1 }), /deadline expired/u);
+});

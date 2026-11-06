@@ -85,7 +85,7 @@ export interface DuckDBNativeAppender {
 export interface DuckDBConnectionLike {
   readonly identity?: object;
   readonly libraryVersion: string;
-  readServerEvidence?(): Promise<DialectServerEvidence>;
+  readServerEvidence?(options?: ExecutionOptions): Promise<DialectServerEvidence>;
   prepare(text: string): Promise<DuckDBNativeStatement>;
   createAppender?(table: string): Promise<DuckDBNativeAppender>;
   interrupt?(): void;
@@ -336,12 +336,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
   let expectedEvidence = options.compatibilitySnapshot?.server;
   if (options.compatibilitySnapshot && (!expectedEvidence || options.compatibilitySnapshot.dialect !== "duckdb"))
     throw new TypeError("DuckDB compatibility snapshot requires DuckDB server evidence");
-  const verifyConnection = async () => {
+  const verifyConnection = async (controls: ExecutionOptions = {}) => {
     if (!connection.readServerEvidence) {
       if (expectedEvidence) throw new TypeError("DuckDB adapter cannot prove runtime server/settings compatibility");
       return;
     }
-    const actual = await connection.readServerEvidence();
+    const actual = await connection.readServerEvidence(controls);
     assertDuckDBSemanticEvidence(actual);
     if (expectedEvidence) {
       const differences = duckDBEvidenceDifferences(expectedEvidence, actual);
@@ -412,7 +412,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         runControlledExecution(
           controls,
           async () => {
-            await verifyConnection();
+            await verifyConnection(controls);
             assertControlsActive(controls);
             handle = await prepared(statement);
             verifyParameters(handle.statement, statement.bindings);
@@ -450,12 +450,15 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       }
     }
   };
-  const control = async (text: string) => {
+  const control = async (text: string, controls: ExecutionOptions = {}) => {
+    assertControlsActive(controls);
     const statement = await connection.prepare(text);
     let result: DuckDBNativeResult | undefined;
     let failed = true;
     try {
+      assertControlsActive(controls);
       result = await statement.execute([]);
+      assertControlsActive(controls);
       await result.readAll();
       failed = false;
     } finally {
@@ -472,9 +475,11 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     if (controls.batchSize !== undefined && (!Number.isSafeInteger(controls.batchSize) || controls.batchSize < 1))
       throw new RangeError("Stream batchSize must be a positive safe integer");
     if (scope && !scope.open) throw new Error("DuckDB transaction scope has completed");
+    let ownsLease = false;
     const generator = (async function* () {
       if (scope && !scope.open) throw new Error("DuckDB transaction scope has completed");
       const release = await acquire(scope);
+      ownsLease = true;
       let handle: Awaited<ReturnType<typeof prepared>> | undefined, result: DuckDBNativeResult | undefined;
       let failed = false;
       try {
@@ -482,7 +487,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         await runControlledExecution(
           controls,
           async () => {
-            await verifyConnection();
+            await verifyConnection(controls);
             assertControlsActive(controls);
             handle = await prepared(statement);
             verifyParameters(handle.statement, statement.bindings);
@@ -518,6 +523,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
         try {
           await cleanup(result, handle?.owned ? handle.statement : undefined, failed);
         } finally {
+          ownsLease = false;
           release();
         }
       }
@@ -562,7 +568,15 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     const tracked: QueryStream<Row> = {
       ...validated,
       next() {
-        return track(scope, () => runControlledExecution(controls, () => validated.next(), interrupt));
+        return track(scope, () =>
+          runControlledExecution(
+            controls,
+            () => validated.next(),
+            () => {
+              if (ownsLease) interrupt();
+            },
+          ),
+        );
       },
       [Symbol.asyncIterator]() {
         return this;
@@ -579,7 +593,12 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     scope?.streams.add(exposed as QueryStream<unknown>);
     return exposed;
   };
-  const transaction = async <T>(scope: Scope | undefined, callback: (local: Scope) => Promise<T>): Promise<T> => {
+  const transaction = async <T>(
+    scope: Scope | undefined,
+    callback: (local: Scope) => Promise<T>,
+    controls: ExecutionOptions = {},
+  ): Promise<T> => {
+    assertControlsActive(controls);
     if (scope) throw new TypeError("DuckDB nested transactions are not supported");
     ensure();
     const release = await current.queue.acquire(),
@@ -597,9 +616,17 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     try {
       ensure();
       current.transaction = owner;
-      await verifyConnection();
-      begun = true;
-      await control("BEGIN TRANSACTION");
+      await runControlledExecution(
+        controls,
+        async () => {
+          await verifyConnection(controls);
+          assertControlsActive(controls);
+          begun = true;
+          await control("BEGIN TRANSACTION", controls);
+          assertControlsActive(controls);
+        },
+        interrupt,
+      );
       const value = await callback(local);
       const unfinished = local.pending.size > 0 || local.activeStreams.size > 0;
       local.open = false;
@@ -607,7 +634,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       await Promise.allSettled([...local.pending]);
       if (local.failures.length) throw local.failures[0];
       if (unfinished) throw new Error("DuckDB transaction callback returned with unfinished operations or streams");
-      await control("COMMIT");
+      await runControlledExecution(controls, () => control("COMMIT", controls), interrupt);
       begun = false;
       return value;
     } catch (error) {
@@ -660,6 +687,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       transfer(target, initial, chunks, controls) {
         assertExecutionCapabilities(capabilities, controls);
         return track(scope, async () => {
+          assertControlsActive(controls);
           const append = async (local: Scope) => {
             const release = await acquire(local);
             let appender: DuckDBNativeAppender | undefined;
@@ -680,12 +708,13 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
             const selected = target.columns.map(duckdbRenderer.quoteIdentifier).join(", ");
             try {
               ensure(local);
-              await verifyConnection();
               if (!connection.createAppender)
                 throw new TypeError("DuckDB connection has no native appender capability");
               await runControlledExecution(
                 controls,
                 async () => {
+                  await verifyConnection(controls);
+                  assertControlsActive(controls);
                   let native: DuckDBNativeStatement | undefined;
                   try {
                     native = await connection.prepare(initial.text);
@@ -693,7 +722,11 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
                   } finally {
                     await cleanup(undefined, native, false);
                   }
-                  await control(`CREATE TEMP TABLE ${quotedStage} AS SELECT ${selected} FROM ${table} LIMIT 0`);
+                  await control(
+                    `CREATE TEMP TABLE ${quotedStage} AS SELECT ${selected} FROM ${table} LIMIT 0`,
+                    controls,
+                  );
+                  assertControlsActive(controls);
                   appender = await connection.createAppender!(staging);
                   if (
                     appender.columns.length !== initial.bindings.length ||
@@ -702,10 +735,13 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
                     )
                   )
                     throw new TypeError("DuckDB appender native column metadata differs from compiled targets");
-                  for await (const rows of chunks) await appender.append(rows);
+                  for await (const rows of chunks) {
+                    assertControlsActive(controls);
+                    await appender.append(rows);
+                  }
                   await closeAppender();
-                  await control(`INSERT INTO ${table} (${selected}) SELECT ${selected} FROM ${quotedStage}`);
-                  await control(`DROP TABLE ${quotedStage}`);
+                  await control(`INSERT INTO ${table} (${selected}) SELECT ${selected} FROM ${quotedStage}`, controls);
+                  await control(`DROP TABLE ${quotedStage}`, controls);
                 },
                 interrupt,
               );
@@ -716,7 +752,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
               release();
             }
           };
-          return scope ? append(scope) : transaction(undefined, append);
+          return scope ? append(scope) : transaction(undefined, append, controls);
         });
       },
     });
