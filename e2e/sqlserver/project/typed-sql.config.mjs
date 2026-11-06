@@ -28,6 +28,11 @@ export default defineConfig({
   outDir: "generated/db",
   projects: ["tsconfig.json"],
   typePolicy,
-  verification: { live: createSqlServerLiveVerifier({ pool, typePolicy }) },
-  plans: { live: createSqlServerPlanInspector({ pool }) },
+  manifest: { outFile: ".typed-sql/queries.json" },
+  verification: { live: createSqlServerLiveVerifier({ pool, typePolicy }), proofFile: ".typed-sql/verification.json" },
+  plans: {
+    live: createSqlServerPlanInspector({ pool }),
+    artifactFile: ".typed-sql/plans.json",
+    reportFile: ".typed-sql/plan-review.json",
+  },
 });

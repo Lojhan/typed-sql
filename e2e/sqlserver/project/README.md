@@ -24,3 +24,12 @@ Only names generated with the `typed_sql_first_use_` prefix and a validated rand
 hex suffix can be created or dropped. Credentials arrive through environment
 variables and are redacted from artifacts. Native replay requires the Linux x64
 qualification environment; a local offline replay alone is not native evidence.
+
+The installed CLI also generates a fresh manifest, runs `verify --live`, validates
+`nativeTypeComparison: true` and a verified named SQL asset, then checks the same
+cached proof twice with zero SDK imports and unchanged proof bytes. Native
+`explain` must capture a structured plan for that asset in `value-free` mode,
+without sample fingerprints. Mapped-query skips retain explicit reasons; native
+metadata mismatches and capture errors fail the replay. Provider, manual service,
+live CLI and plan CLI import audits are separate phases, with no assumed cache
+connection count. Per-phase redacted artifacts retain proof and plan evidence.
