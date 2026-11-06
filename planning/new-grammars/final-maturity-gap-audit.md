@@ -170,3 +170,27 @@ zero SDK imports; verification skips are empty. This is evidence of those phases
 end-to-end green 2025 packed stage. Microsoft lists 5060 as severity 10 rollback progress
 in its [5000–5999 error catalog](https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-5000-to-5999).
 A narrow successful-notice fix and independently asserted completed cleanup remain required.
+
+### Native alias/rowversion and compiled boundary receipts: 8028e92
+
+Run [42138505866](https://github.com/Lojhan/typed-sql/actions/runs/42138505866) has completed.
+Every engine passes its adapter and full packed first-use stages, including independently
+confirmed database cleanup on SQL Server 2025. Across ten compatibility rows, downloaded
+catalog artifacts prove alias decoding and rowversion optimistic concurrency: update changes
+the eight-byte token, stale update returns zero rows, and oversized input rejects before SQL.
+There are 120 compiled temporal boundary/mixed-context probes: 80 MDY positive executions and
+40 expected DMY attestation rejections, with no unexpected probe errors.
+The only remaining catalog failures occur later on successful informational unbinding message
+15520. `d01acff` explicitly admits only documented successful 15519–15524 notices, retaining
+15517/15518 rejection, SQL_ERROR rejection, and truncation/unknown-record checks. Native rerun
+is required after that repair and the independent native-family fallback repair.
+
+The next full local `pnpm verify` attempt passed package suites through the new SQL coverage
+gate, then timed out at the existing preview compiler watch test (20 seconds, config dependency
+refresh). Its unchanged focused SQL-file suite subsequently passes in 3.84 seconds. This is
+recorded as a failed full attempt plus a successful focused recheck, not a full green receipt.
+Final verification remains open.
+
+Independent cross-review additionally found contradictory built-in-spelled ODBC metadata could
+bypass alias-registry checks, and Duck health/prepare work could run before cancellation controls.
+Both are required correctness repairs before package approval, even if current PR CI is green.
