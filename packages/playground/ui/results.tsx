@@ -1,70 +1,230 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "./api";
 import { Modal } from "./modal";
+import { type Grid, jsonValue, milliseconds, resultGrid, totalTime, valueText } from "./result-model";
 import type { Run, Value } from "./types";
 
-function object(value: Value): Map<string, Value> | null {
-  return value && typeof value === "object" && value.kind === "object" ? new Map(value.entries) : null;
+export { valueText } from "./result-model";
+export interface ResultPage {
+  value: Value;
+  hasPage?: boolean;
+  page: number;
+  nextPage: number | null;
+  complete: boolean;
+  rowCount: number;
 }
-export function valueText(value: Value): string {
-  if (value === null) return "NULL";
-  if (typeof value !== "object") return String(value);
-  if (value.kind === "undefined") return "undefined";
-  if (value.kind === "array") return `[${value.items.map(valueText).join(", ")}]`;
-  if (value.kind === "object")
-    return `{ ${value.entries.map(([key, item]) => `${key}: ${valueText(item)}`).join(", ")} }`;
-  if (value.kind === "bigint") return `${value.value}n`;
-  return value.value;
+const pageCache = new Map<string, ResultPage>();
+const requests = new Map<string, Promise<ResultPage>>();
+function fetchPage(identity: string, route: string) {
+  const existing = requests.get(identity);
+  if (existing) return existing;
+  const request = api<ResultPage>(route)
+    .then((value) => {
+      pageCache.set(identity, value);
+      while (pageCache.size > 24) pageCache.delete(pageCache.keys().next().value!);
+      return value;
+    })
+    .finally(() => requests.delete(identity));
+  requests.set(identity, request);
+  return request;
 }
-function grid(
-  value: Value,
-): { columns: string[]; rows: Value[][]; truncated: boolean; command?: string; affectedRows?: number } | null {
-  const data = object(value);
-  const columns = data?.get("columns");
-  const rows = data?.get("rows");
-  if (
-    columns &&
-    typeof columns === "object" &&
-    columns.kind === "array" &&
-    rows &&
-    typeof rows === "object" &&
-    rows.kind === "array"
-  )
-    return {
-      columns: columns.items.map((c, i) => {
-        const name = object(c)?.get("name");
-        return typeof name === "string" ? name : `column ${i + 1}`;
-      }),
-      rows: rows.items.map((row) => (row && typeof row === "object" && row.kind === "array" ? row.items : [])),
-      truncated: data?.get("truncated") === true,
-      ...(typeof data?.get("command") === "string" ? { command: data.get("command") as string } : {}),
-      ...(typeof data?.get("affectedRows") === "number" ? { affectedRows: data.get("affectedRows") as number } : {}),
+export function useResultPage(run: Run | undefined, resultIndex: number, page: number) {
+  const result = run?.results[resultIndex];
+  const [state, setState] = useState<{ identity: string; data?: ResultPage; error?: string; loading: boolean }>({
+    identity: "",
+    loading: false,
+  });
+
+  const identity = `${run?.id ?? ""}:${result?.paging?.id ?? resultIndex}:${page}`;
+  useEffect(() => {
+    if (!run || !result) {
+      setState({ identity, loading: false });
+      return;
+    }
+    if (page === 0) {
+      setState({
+        identity,
+        loading: false,
+        data: {
+          value: result.value,
+          page: 0,
+          nextPage:
+            result.paging && !result.paging.complete ? 1 : result.paging && result.paging.pageCount > 1 ? 1 : null,
+          complete: result.paging?.complete ?? !result.truncated,
+          rowCount: result.paging?.rowCount ?? resultGrid(result.value)?.rows.length ?? 0,
+        },
+      });
+      return;
+    }
+    if (!result.paging) {
+      setState({ identity, loading: false, error: "This result has no additional captured pages." });
+      return;
+    }
+    if (result.paging.complete && page >= result.paging.pageCount) {
+      setState({
+        identity,
+        loading: false,
+        data: {
+          value: { kind: "array", items: [] },
+          hasPage: false,
+          page,
+          nextPage: null,
+          complete: true,
+          rowCount: result.paging.rowCount,
+        },
+      });
+      return;
+    }
+    const previous = pageCache.get(identity);
+    if (previous) {
+      setState({ identity, loading: false, data: previous });
+      return;
+    }
+    let cancelled = false;
+    setState({ identity, loading: true });
+    void fetchPage(
+      identity,
+      `results?run=${encodeURIComponent(run.id)}&result=${encodeURIComponent(result.paging.id)}&page=${page}`,
+    ).then(
+      (data) => {
+        if (cancelled) return;
+
+        setState({ identity, loading: false, data });
+      },
+      (error) => {
+        if (!cancelled) setState({ identity, loading: false, error: error.message });
+      },
+    );
+    return () => {
+      cancelled = true;
     };
-  if (value && typeof value === "object" && value.kind === "array" && value.items.every((row) => object(row))) {
-    const names = [...new Set(value.items.flatMap((row) => [...object(row)!.keys()]))];
-    return {
-      columns: names,
-      rows: value.items.map((row) =>
-        names.map((key) => (object(row)!.has(key) ? object(row)!.get(key)! : { kind: "undefined" })),
-      ),
-      truncated: false,
-    };
-  }
-  return null;
+  }, [identity, page, run, result]);
+  const active = state.identity === identity ? state : { identity, loading: true };
+  if (!active.data || !result?.paging) return active;
+  const complete = result.paging.complete || active.data.complete;
+  const rowCount = Math.max(result.paging.rowCount, active.data.rowCount);
+  return {
+    ...active,
+    data: {
+      ...active.data,
+      complete,
+      rowCount,
+      nextPage:
+        active.data.hasPage === false
+          ? null
+          : page + 1 < result.paging.pageCount || (!complete && run?.status === "running")
+            ? page + 1
+            : null,
+    },
+  };
 }
-function jsonValue(value: Value): unknown {
-  if (!value || typeof value !== "object") return value;
-  if (value.kind === "array") return value.items.map(jsonValue);
-  if (value.kind === "object") return Object.fromEntries(value.entries.map(([key, item]) => [key, jsonValue(item)]));
-  if (value.kind === "date") return value.value;
-  if (value.kind === "undefined") return { $type: "undefined" };
-  return { $type: value.kind, value: value.value };
+export function ResultGrid({
+  data,
+  offset = 0,
+  different,
+  filter = "",
+  sort = null,
+  onInspect,
+  onEnd,
+}: {
+  data: Grid;
+  offset?: number;
+  different?: ReadonlySet<number> | undefined;
+  filter?: string;
+  sort?: { column: number; descending: boolean } | null;
+  onInspect?: (value: Value) => void;
+  onEnd?: () => void;
+}) {
+  const [scroll, setScroll] = useState(0);
+  const scroller = useRef<HTMLDivElement>(null);
+  const previousOffset = useRef(offset);
+  useEffect(() => {
+    const delta = offset - previousOffset.current;
+    if (scroller.current && delta > 0)
+      scroller.current.scrollTop = Math.max(0, scroller.current.scrollTop - delta * 30);
+    previousOffset.current = offset;
+  }, [offset]);
+  const models = useMemo(() => data.rows.map((row, index) => ({ row, index, key: `row-${index}` })), [data]);
+  const rows = useMemo(() => {
+    let selected = models.filter(
+      ({ row }) => !filter || row.some((value) => valueText(value).toLowerCase().includes(filter.toLowerCase())),
+    );
+    if (sort)
+      selected = selected.toSorted(
+        (a, b) =>
+          valueText(a.row[sort.column] ?? null).localeCompare(valueText(b.row[sort.column] ?? null), undefined, {
+            numeric: true,
+          }) * (sort.descending ? -1 : 1),
+      );
+    return selected;
+  }, [models, filter, sort]);
+  const columns = useMemo(() => data.columns.map((name, index) => ({ name, index, key: `column-${index}` })), [data]);
+  const start = Math.max(0, Math.floor(scroll / 30) - 5),
+    end = Math.min(rows.length, start + 35);
+  return (
+    <div
+      className="grid-scroll"
+      ref={scroller}
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        setScroll(element.scrollTop);
+        if (element.scrollHeight - element.scrollTop - element.clientHeight < 160) onEnd?.();
+      }}
+    >
+      <table className="data-grid">
+        <thead>
+          <tr>
+            <th className="row-number">#</th>
+            {columns.map((column) => (
+              <th key={column.key} title={column.name}>
+                {column.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {start > 0 ? (
+            <tr style={{ height: start * 30 }}>
+              <td colSpan={columns.length + 1} />
+            </tr>
+          ) : null}
+          {rows.slice(start, end).map(({ row, index, key }) => (
+            <tr className={different?.has(index) ? "diff-row" : ""} key={key}>
+              <td className="row-number">{offset + index + 1}</td>
+              {columns.map((column) => {
+                const value = column.index < row.length ? row[column.index]! : { kind: "undefined" as const };
+                return (
+                  <td key={column.key}>
+                    <button
+                      type="button"
+                      className={`cell ${value === null ? "null" : ""}`}
+                      title={valueText(value)}
+                      onClick={() => onInspect?.(value)}
+                    >
+                      {valueText(value).slice(0, 180)}
+                    </button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          {end < rows.length ? (
+            <tr style={{ height: (rows.length - end) * 30 }}>
+              <td colSpan={columns.length + 1} />
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+      {!rows.length ? <div className="quiet-empty">No rows.</div> : null}
+    </div>
+  );
 }
-function download(name: string, content: string, mime: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: mime }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
+function download(name: string, text: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function ResultPanel({
@@ -74,6 +234,7 @@ export function ResultPanel({
   dirty,
   schemaHash,
   typePolicyHash,
+  onCompare,
 }: {
   run: Run | undefined;
   file: string;
@@ -81,254 +242,255 @@ export function ResultPanel({
   dirty: boolean;
   schemaHash: string;
   typePolicyHash: string;
+  onCompare?: (id: string) => void;
 }) {
-  const [tab, setTab] = useState("0");
-  const [filter, setFilter] = useState("");
-  const [sort, setSort] = useState<{ column: number; descending: boolean } | null>(null);
-  const [scroll, setScroll] = useState(0);
-  const [inspect, setInspect] = useState<Value | undefined>();
-  const result = run?.results[Number(tab)];
-  const data = useMemo(() => (result ? grid(result.value) : null), [result]);
-  const rows = useMemo(() => {
-    let selected = (data?.rows ?? []).filter(
-      (row) => !filter || row.some((value) => valueText(value).toLowerCase().includes(filter.toLowerCase())),
-    );
-    if (sort)
-      selected = selected.toSorted(
-        (a, b) =>
-          valueText(a[sort.column] ?? null).localeCompare(valueText(b[sort.column] ?? null), undefined, {
-            numeric: true,
-          }) * (sort.descending ? -1 : 1),
+  const [index, setIndex] = useState(0),
+    [page, setPage] = useState(0),
+    [filter, setFilter] = useState(""),
+    [log, setLog] = useState(false),
+    [inspect, setInspect] = useState<Value | undefined>(),
+    [localError, setLocalError] = useState("");
+  const scrollDemand = useRef(false);
+  const result = run?.results[index];
+  const captured = useResultPage(run, index, page);
+  const [windowPages, setWindowPages] = useState<{ page: number; grid: Grid }[]>([]);
+  useEffect(() => {
+    setWindowPages([]);
+  }, []);
+  useEffect(() => {
+    if (!captured.data || captured.data.hasPage === false) return;
+    const grid = resultGrid(captured.data.value);
+    if (!grid) return;
+    setWindowPages((previous) => {
+      if (previous.some((item) => item.page === page && item.grid === grid)) return previous;
+      const selected = [...previous.filter((item) => item.page !== page), { page, grid }].sort(
+        (a, b) => a.page - b.page,
       );
-    return selected;
-  }, [data, filter, sort]);
-  const columnModels = useMemo(
-    () => data?.columns.map((name, ordinal) => ({ name, ordinal, key: `column-${ordinal}` })) ?? [],
-    [data],
+      return selected.slice(-5);
+    });
+  }, [captured.data?.value, captured.data?.hasPage, page, captured.data]);
+  const data = useMemo(
+    () =>
+      windowPages.length
+        ? { ...windowPages[0]!.grid, rows: windowPages.flatMap((item) => item.grid.rows) }
+        : captured.data
+          ? resultGrid(captured.data.value)
+          : null,
+    [windowPages, captured.data?.value, captured.data],
   );
-  const rowKeys = useMemo(() => new Map(data?.rows.map((row, ordinal) => [row, `row-${ordinal}`]) ?? []), [data]);
-  const resultModels =
-    run?.results.map((item, ordinal) => ({ ...item, ordinal, key: `${run.id}:result-${ordinal}` })) ?? [];
+  const firstPage = windowPages[0]?.page ?? page;
+  useEffect(() => {
+    if (!captured.loading) scrollDemand.current = false;
+  }, [captured.loading]);
+  useEffect(() => {
+    setIndex(0);
+    setPage(0);
+    setLog(false);
+    setFilter("");
+  }, []);
   const stale =
-    !!run &&
+    run &&
     (run.file !== file ||
       run.sourceRevision !== revision ||
       dirty ||
       run.schemaHash !== schemaHash ||
       run.typePolicyHash !== typePolicyHash);
-  const start = Math.max(0, Math.floor(scroll / 34) - 4);
-  const end = Math.min(rows.length, start + 28);
-  const exportRows = (format: "json" | "csv") => {
-    if (!result) return;
+  const exportPage = (format: "json" | "csv") => {
+    if (!captured.data) return;
     if (format === "json")
       download(
-        "query-result.json",
+        "query-page.json",
         JSON.stringify(
-          data ? { columns: data.columns, rows: rows.map((row) => row.map(jsonValue)) } : jsonValue(result.value),
+          data
+            ? { columns: data.columns, rows: data.rows.map((row) => row.map(jsonValue)) }
+            : jsonValue(captured.data.value),
           null,
           2,
         ),
         "application/json",
       );
     else if (data) {
-      const cell = (value: string) => `"${value.replaceAll('"', '""')}"`;
+      const csvEscape = (value: string) => `"${value.replaceAll('"', '""')}"`;
       download(
-        "query-result.csv",
+        "query-page.csv",
         [
-          data.columns.map(cell).join(","),
-          ...rows.map((row) => row.map((value) => cell(valueText(value))).join(",")),
+          data.columns.map(csvEscape).join(","),
+          ...data.rows.map((row) => row.map((value) => csvEscape(valueText(value))).join(",")),
         ].join("\r\n"),
         "text/csv",
       );
     }
   };
+  const complete = captured.data?.complete ?? result?.paging?.complete ?? false;
+  const total = captured.data?.rowCount ?? result?.paging?.rowCount ?? data?.rows.length ?? 0;
+  const next = captured.data?.nextPage !== null && captured.data?.nextPage !== undefined;
   return (
-    <section className="result-panel" aria-label="Execution results">
-      {run ? (
-        <div className="result-source">
-          <span>
-            <strong>{run.file}</strong> · {run.mode} · source {run.sourceRevision.slice(0, 12)} · schema{" "}
-            {run.schemaHash?.slice(0, 10) ?? "unchecked"}
-          </span>
-          <span className={stale ? "stale-result" : ""}>
-            {stale
-              ? "Earlier source/schema result — run the current file to refresh"
-              : "Matches saved source and schema"}
-          </span>
+    <section className="result-panel" aria-label="Query results">
+      <div className="result-controls">
+        <div className="result-control-left">
+          {run ? (
+            <>
+              <span className={`status-dot ${run.status}`} />
+              <span className="run-label" title={`${run.file} · ${run.sourceRevision}`}>
+                {run.file.split("/").at(-1)}
+              </span>
+              <span className="muted">{milliseconds(totalTime(run))}</span>
+              {stale ? (
+                <span className="stale-label" title="Result belongs to an earlier source or schema">
+                  stale
+                </span>
+              ) : null}
+              {run.results.length > 1 ? (
+                <select
+                  aria-label="Result set"
+                  value={index}
+                  onChange={(event) => {
+                    setIndex(Number(event.target.value));
+                    setPage(0);
+                  }}
+                >
+                  {run.results.map((item, ordinal) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: emission ordinal is immutable captured result identity.
+                    <option key={`${item.name}:${ordinal}`} value={ordinal}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </>
+          ) : (
+            <span className="muted">No execution</span>
+          )}
         </div>
-      ) : null}
-      <div className="result-tabs">
-        <div>
-          {resultModels.map((item) => (
-            <button
-              type="button"
-              className={tab === String(item.ordinal) ? "active" : ""}
-              key={item.key}
-              onClick={() => {
-                setTab(String(item.ordinal));
-                setScroll(0);
-              }}
-            >
-              {item.name}
-              <span>{grid(item.value)?.rows.length ?? "·"}</span>
+        <div className="result-control-right">
+          <button type="button" className={log ? "selected" : ""} onClick={() => setLog((value) => !value)}>
+            Log
+          </button>
+          {run && onCompare ? (
+            <button type="button" onClick={() => onCompare(run.id)}>
+              Compare
             </button>
-          ))}
-          <button type="button" className={tab === "log" ? "active" : ""} onClick={() => setTab("log")}>
-            Run log
+          ) : null}
+          <button type="button" disabled={!captured.data} onClick={() => exportPage("json")}>
+            JSON
+          </button>
+          <button type="button" disabled={!data} onClick={() => exportPage("csv")}>
+            CSV
           </button>
         </div>
-        <span className={`run-status ${run?.status ?? ""}`}>{run?.status ?? "Ready to run"}</span>
       </div>
-      {!run ? (
-        <div className="empty-results">
-          <span className="large-symbol">↳</span>
-          <strong>Your data, next to your code.</strong>
-          <p>
-            Save a query and run it to inspect live results.
-            <br />
-            Static types stay visible before you connect.
-          </p>
-        </div>
-      ) : tab === "log" ? (
-        <div className="log-pane">
-          <small>
-            {run.file} · {run.mode} · {run.sourceRevision.slice(0, 12)}
-          </small>
-          <pre>{run.logs || "No console output."}</pre>
-          {run.error ? (
-            <pre className="error-detail">
+      {log ? (
+        <div className="run-log">
+          <pre>{run?.logs || "No console output."}</pre>
+          {run?.error ? (
+            <pre className="error-text">
               {run.error.code}: {run.error.message}
             </pre>
           ) : null}
         </div>
-      ) : result ? (
+      ) : captured.loading && !data ? (
+        <div className="quiet-empty">Fetching page…</div>
+      ) : captured.error || localError ? (
+        <div className="error-empty">{captured.error || localError}</div>
+      ) : data ? (
         <>
-          <div className="result-tools">
-            <div>
-              <b>{rows.length}</b> fetched rows{" "}
-              {data?.command ? (
-                <span>
-                  · {data.command}
-                  {data.affectedRows === undefined ? "" : ` · ${data.affectedRows} affected`}
-                </span>
-              ) : null}{" "}
-              <span>
-                · {result.provenance === "managed" ? "managed target verified" : "database target not verified"}
-              </span>
-              {data?.truncated || result.truncated ? <b className="warning"> · Truncated</b> : null}
-            </div>
-            <div>
-              <input
-                aria-label="Filter fetched rows"
-                placeholder="Filter fetched rows…"
-                value={filter}
-                onChange={(event) => {
-                  setFilter(event.target.value);
-                  setScroll(0);
-                }}
-              />
-              <button type="button" onClick={() => exportRows("json")}>
-                JSON ↓
-              </button>
-              <button type="button" disabled={!data} onClick={() => exportRows("csv")}>
-                CSV ↓
-              </button>
-            </div>
+          <div className="result-filter">
+            <input
+              aria-label="Filter current result page"
+              value={filter}
+              placeholder="Filter this page"
+              onChange={(event) => setFilter(event.target.value)}
+            />
+            <span>
+              {data.command ?? result?.name}
+              {data.affectedRows === undefined ? "" : ` · ${data.affectedRows} affected`}
+              {result?.truncated ? " · truncated" : ""}
+            </span>
           </div>
-          {data ? (
-            <div className="grid-scroll" onScroll={(event) => setScroll(event.currentTarget.scrollTop)}>
-              <table className="data-grid">
-                <thead>
-                  <tr>
-                    <th className="row-number">#</th>
-                    {columnModels.map((column) => (
-                      <th key={column.key}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSort((current) => ({
-                              column: column.ordinal,
-                              descending: current?.column === column.ordinal ? !current.descending : false,
-                            }))
-                          }
-                        >
-                          {column.name} {sort?.column === column.ordinal ? (sort.descending ? "↓" : "↑") : "↕"}
-                        </button>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {start > 0 ? (
-                    <tr style={{ height: start * 34 }}>
-                      <td colSpan={data.columns.length + 1} />
-                    </tr>
-                  ) : null}
-                  {rows.slice(start, end).map((row, index) => (
-                    <tr key={rowKeys.get(row)}>
-                      <td className="row-number">{start + index + 1}</td>
-                      {columnModels.map((column) => {
-                        const value =
-                          column.ordinal < row.length ? row[column.ordinal]! : { kind: "undefined" as const };
-                        return (
-                          <td key={column.key}>
-                            <button
-                              type="button"
-                              className={`cell ${value === null ? "null" : ""}`}
-                              onClick={() => setInspect(value)}
-                              onDoubleClick={() => void navigator.clipboard.writeText(valueText(value))}
-                              title="Inspect value; double-click to copy"
-                            >
-                              {valueText(value).slice(0, 180)}
-                            </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                  {end < rows.length ? (
-                    <tr style={{ height: (rows.length - end) * 34 }}>
-                      <td colSpan={data.columns.length + 1} />
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-              {!rows.length ? <div className="no-rows">Query returned no rows.</div> : null}
-            </div>
-          ) : (
-            <pre className="structured-result">{JSON.stringify(jsonValue(result.value), null, 2)}</pre>
-          )}
+          <ResultGrid
+            data={data}
+            offset={firstPage * (result?.paging?.pageSize ?? data.rows.length)}
+            onEnd={() => {
+              if (!captured.loading && next && !scrollDemand.current) {
+                scrollDemand.current = true;
+                setPage((value) => value + 1);
+              }
+            }}
+            filter={filter}
+            onInspect={setInspect}
+          />
         </>
+      ) : captured.data ? (
+        <pre className="structured-result">{JSON.stringify(jsonValue(captured.data.value), null, 2)}</pre>
       ) : (
-        <div className="empty-results">
-          <strong>
-            {run.status === "checking"
-              ? "Checking your project…"
-              : run.status === "running"
-                ? "Running on your selected target…"
-                : run.error
-                  ? "Run needs attention"
-                  : "No result sets emitted"}
-          </strong>
-          <p>{run.error?.message ?? "Use the Run log for console output and completion details."}</p>
-          {run.error ? (
-            <button type="button" onClick={() => setTab("log")}>
-              Open run log
-            </button>
-          ) : null}
+        <div className="quiet-empty">
+          {run?.error ? (
+            <span className="error-text">{run.error.message}</span>
+          ) : run && ["checking", "running", "cancelling"].includes(run.status) ? (
+            `${run.status}…`
+          ) : (
+            "No result set."
+          )}
         </div>
       )}
+      {run && result && !log ? (
+        <div className="result-pager">
+          <span>
+            {data?.rows.length
+              ? `${firstPage * (result.paging?.pageSize ?? data.rows.length) + 1}–${firstPage * (result.paging?.pageSize ?? data.rows.length) + data.rows.length}`
+              : "0"}{" "}
+            of {complete ? "" : "≥"}
+            {total}
+            {!complete ? " · partial capture" : ""}
+            <span className="provenance"> · {result.provenance === "managed" ? "managed" : "target unverified"}</span>
+          </span>
+          <div>
+            {result.paging && !complete && run.status === "running" ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void api("results/close", { run: run.id, result: result.paging!.id }).catch((error) =>
+                    setLocalError(error.message),
+                  )
+                }
+              >
+                Close cursor
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={firstPage === 0 || captured.loading}
+              onClick={() => {
+                setWindowPages([]);
+                setPage(Math.max(0, firstPage - 1));
+              }}
+              aria-label="Previous result page"
+            >
+              ‹
+            </button>
+            <span>Page {page + 1}</span>
+            <button
+              type="button"
+              disabled={captured.loading || (!next && !(result.paging && !complete && run.status === "running"))}
+              onClick={() => setPage((value) => value + 1)}
+              aria-label="Next result page"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      ) : null}
       {inspect !== undefined ? (
         <Modal className="value-dialog" label="Inspect value" onClose={() => setInspect(undefined)}>
           <header>
-            <strong>Value inspector</strong>
+            <strong>Value</strong>
             <button type="button" onClick={() => setInspect(undefined)}>
-              Close
+              ×
             </button>
           </header>
           <pre>{JSON.stringify(jsonValue(inspect), null, 2)}</pre>
           <button type="button" onClick={() => void navigator.clipboard.writeText(valueText(inspect))}>
-            Copy value
+            Copy
           </button>
         </Modal>
       ) : null}

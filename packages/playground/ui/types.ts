@@ -48,8 +48,26 @@ export interface Run {
   schemaHash: string | null;
   typePolicyHash: string;
   finishedAt?: string;
+  timings?: {
+    checkMs?: number | null;
+    buildMs?: number | null;
+    workerMs?: number | null;
+    databaseMs?: number | null;
+    commandMs?: number | null;
+    fetchMs?: number | null;
+    totalMs?: number | null;
+  };
+  parameterFingerprint?: string;
+  parameterCount?: number;
   status: string;
-  results: { type: "result"; name: string; value: Value; truncated: boolean; provenance: string }[];
+  results: {
+    type: "result";
+    name: string;
+    value: Value;
+    truncated: boolean;
+    provenance: string;
+    paging?: { id: string; rowCount: number; pageCount: number; pageSize: number; complete: boolean; source: string };
+  }[];
   logs: string;
   error?: { code: string; message: string };
 }
@@ -69,7 +87,7 @@ export interface State {
   files: string[];
   scratchDirectory: string;
   grammar: string;
-  limits: { maxRows: number; timeoutMs: number };
+  limits: { maxRows?: number; pageSize?: number; maxSpoolBytes?: number; cursorIdleMs?: number; timeoutMs: number };
   runs: Run[];
 }
 export interface Analysis {
