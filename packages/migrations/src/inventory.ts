@@ -35,8 +35,8 @@ async function readBounded(file: string): Promise<string> {
     // Inspect and read the same descriptor: replacing the path cannot redirect the read.
     const info = await handle.stat();
     if (!info.isFile() || info.size > limit) throw invalid();
-    // Bound the read itself as well: the opened file can grow after fstat.
-    const bytes = Buffer.alloc(limit + 1);
+    // Allocate for the observed size, with one probe byte to detect concurrent growth.
+    const bytes = Buffer.alloc(info.size + 1);
     let length = 0;
     while (length < bytes.length) {
       const read = await handle.read(bytes, length, bytes.length - length, null);
@@ -44,6 +44,11 @@ async function readBounded(file: string): Promise<string> {
       length += read.bytesRead;
     }
     if (length > limit) throw invalid();
+    if (length !== info.size)
+      throw new MigrationError(
+        "MIGRATION_FILE_CHANGED",
+        "Migration input changed while reading. Retry with stable files.",
+      );
     return bytes.toString("utf8", 0, length);
   } finally {
     await handle.close();
