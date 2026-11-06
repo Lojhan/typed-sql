@@ -5,7 +5,7 @@ import { fixtureEvidence } from "./helpers/evidence.js";
 const sdk =
   process.env.TYPED_SQL_DUCKDB_SDK === "15" ? await import("duckdb-node-15") : await import("@duckdb/node-api");
 
-import { type Query, sql, withQueryValuePlan } from "@typed-sql/core";
+import { type Query, QueryCancelledError, sql, withQueryValuePlan } from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { describe, it, strict } from "poku";
 import { duckdb, typePolicy } from "../src/index.js";
@@ -476,3 +476,57 @@ await it("preserves native prepared cache identity through attached result valid
     instance.closeSync();
   }
 });
+
+for (const mode of ["query", "stream"] as const) {
+  await it(`interrupts real ${sdk.version()} ${mode} health work on deadline and safely reuses the connection`, async () => {
+    const instance = await sdk.DuckDBInstance.create(),
+      connection = await instance.connect();
+    const adapted = adaptDuckDBConnection(connection, sdk),
+      calls: string[] = [];
+    let first = true;
+    const database = createDuckDBDatabase({
+      connection: {
+        ...adapted,
+        async readServerEvidence() {
+          calls.push("health");
+          if (first) {
+            first = false;
+            let result;
+            try {
+              result = await connection.run("SELECT sum(i) FROM range(1000000000000) AS t(i)");
+              await result.getRows();
+            } finally {
+              result?.closeSync();
+              calls.push("health settled");
+            }
+          }
+          return fixtureEvidence(sdk.version().slice(1));
+        },
+        async prepare(text) {
+          calls.push("prepare");
+          return adapted.prepare(text);
+        },
+        interrupt() {
+          calls.push("interrupt");
+          adapted.interrupt!();
+        },
+      },
+    });
+    const statement = compiled<{ value: number }>("SELECT 1 AS value", [], sdk.version().slice(1));
+    const stream = mode === "stream" ? database.stream(statement, { deadline: Date.now() + 50 }) : undefined;
+    try {
+      await strict.rejects(
+        stream ? stream.next() : database.all(statement, { deadline: Date.now() + 50 }),
+        (error) => error instanceof QueryCancelledError && error.reason === "deadline",
+      );
+      strict.deepEqual(calls, ["health", "interrupt", "health settled"]);
+      strict.deepEqual(await database.all(statement), [{ value: 1 }]);
+      strict.deepEqual(calls, ["health", "interrupt", "health settled", "health", "prepare"]);
+    } finally {
+      await stream?.close();
+      await database.close();
+      connection.closeSync();
+      instance.closeSync();
+    }
+  });
+}

@@ -348,6 +348,19 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       if (differences.length) throw new TypeError(`DuckDB runtime evidence differs (${differences.join(", ")})`);
     } else expectedEvidence = actual;
   };
+  const assertControlsActive = (controls: ExecutionOptions) => {
+    if (controls.signal?.aborted) throw new QueryCancelledError("signal", { cause: controls.signal.reason });
+    const due = executionDeadline(controls);
+    if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
+  };
+  const interrupt = () => {
+    try {
+      connection.interrupt?.();
+    } catch (error) {
+      current.broken = true;
+      throw error;
+    }
+  };
   const fingerprint = (query: Query<unknown>) =>
     `sha256:${createHash("sha256")
       .update(`duckdb\0${DUCKDB_DIALECT_VERSION}\0${renderQuery(query, duckdbRenderer).text}`)
@@ -395,25 +408,25 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     });
     try {
       ensure(scope);
-      await verifyConnection();
       const run = () =>
         runControlledExecution(
           controls,
           async () => {
+            await verifyConnection();
+            assertControlsActive(controls);
             handle = await prepared(statement);
             verifyParameters(handle.statement, statement.bindings);
             if (handle.statement.columns && statement.plan.columns.length)
               columns({ columns: handle.statement.columns }, statement.plan);
-            if (controls.signal?.aborted) throw new QueryCancelledError("signal");
-            const due = executionDeadline(controls);
-            if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
+            assertControlsActive(controls);
             result = await handle.statement.execute(statement.bindings);
+            assertControlsActive(controls);
             columns(result, statement.plan);
             const rows = decode(await result.readAll(), result.columns),
               decoded = decodeQueryResultRows(statement.query, rows, profile);
             return (await validateQueryResultRows(statement.query, decoded, "duckdb-native")) as readonly Row[];
           },
-          () => connection.interrupt?.(),
+          interrupt,
         );
       const rows = await (observation ? observation.run(run) : run());
       if (cardinality === "one" && rows.length !== 1) throw new QueryCardinalityError("one", rows.length);
@@ -466,33 +479,34 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
       let failed = false;
       try {
         ensure(scope);
-        await verifyConnection();
-        handle = await prepared(statement);
-        verifyParameters(handle.statement, statement.bindings);
-        if (handle.statement.columns && statement.plan.columns.length)
-          columns({ columns: handle.statement.columns }, statement.plan);
-        result = await runControlledExecution(
+        await runControlledExecution(
           controls,
-          () => handle!.statement.execute(statement.bindings, true),
-          () => connection.interrupt?.(),
+          async () => {
+            await verifyConnection();
+            assertControlsActive(controls);
+            handle = await prepared(statement);
+            verifyParameters(handle.statement, statement.bindings);
+            if (handle.statement.columns && statement.plan.columns.length)
+              columns({ columns: handle.statement.columns }, statement.plan);
+            assertControlsActive(controls);
+            // Retain late native results even when cancellation wins, so finally closes them.
+            result = await handle.statement.execute(statement.bindings, true);
+          },
+          interrupt,
         );
-        columns(result, statement.plan);
-        const chunks = result.chunks?.();
+        columns(result!, statement.plan);
+        const chunks = result!.chunks?.();
         if (!chunks) throw new TypeError("DuckDB driver does not expose native streaming chunks");
         const iterator = chunks[Symbol.asyncIterator]();
         for (;;) {
-          const step = await runControlledExecution(
-            controls,
-            () => iterator.next(),
-            () => connection.interrupt?.(),
-          );
+          const step = await runControlledExecution(controls, () => iterator.next(), interrupt);
           if (step.done) break;
           const chunk = step.value;
           for (const raw of chunk) {
             if (controls.signal?.aborted) throw new QueryCancelledError("signal");
             const due = executionDeadline(controls);
             if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
-            const decoded = decodeQueryResultRows(statement.query, decode([raw], result.columns), profile);
+            const decoded = decodeQueryResultRows(statement.query, decode([raw], result!.columns), profile);
             yield decoded[0] as Row;
           }
         }
@@ -548,13 +562,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
     const tracked: QueryStream<Row> = {
       ...validated,
       next() {
-        return track(scope, () =>
-          runControlledExecution(
-            controls,
-            () => validated.next(),
-            () => connection.interrupt?.(),
-          ),
-        );
+        return track(scope, () => runControlledExecution(controls, () => validated.next(), interrupt));
       },
       [Symbol.asyncIterator]() {
         return this;
@@ -699,7 +707,7 @@ export function createDuckDBDatabase(options: DuckDBDatabaseOptions): DuckDBData
                   await control(`INSERT INTO ${table} (${selected}) SELECT ${selected} FROM ${quotedStage}`);
                   await control(`DROP TABLE ${quotedStage}`);
                 },
-                () => connection.interrupt?.(),
+                interrupt,
               );
             } finally {
               await closeAppender().catch(() => undefined);
