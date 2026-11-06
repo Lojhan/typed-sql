@@ -54,6 +54,28 @@ await describe("SQL Server attested native alias metadata", async () => {
       /ambiguous/,
     );
   });
+  await it("rejects builtin-looking names whose independent wire family or fixed dimensions disagree", () => {
+    for (const column of [
+      { typeName: "bigint", type: 3, size: 20, scale: 0 },
+      { typeName: "bigint", type: -5, size: 18, scale: 0 },
+      { typeName: "bigint", type: -5, size: 19, scale: 1 },
+      { typeName: "int", type: -9, size: 10, scale: 0 },
+      { typeName: "varchar", type: -5, size: 19, scale: 0 },
+      { typeName: "timestamp", type: -2, size: 9, scale: 0 },
+      { typeName: "timestamp", type: -2, size: 8, scale: 1 },
+    ])
+      strict.throws(
+        () => sqlServerOdbcField({ name: "value", nullable: false, ...column }, new Map()),
+        /ODBC family|dimensions/,
+      );
+    strict.equal(
+      sqlServerOdbcField(
+        { name: "value", nullable: false, typeName: "bigint", type: -5, size: 19, scale: 0 },
+        new Map(),
+      ).databaseType,
+      "bigint",
+    );
+  });
   await it("rejects invisible, malformed or unbounded alias evidence", () => {
     strict.throws(() => sqlServerOdbcAliasRegistry(Array.from({ length: 10001 }, () => row)), /bound/);
     for (const patch of [

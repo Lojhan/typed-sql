@@ -102,3 +102,14 @@ export function sqlServerOdbcAlias(column: OdbcColumn, registry: OdbcAliasRegist
     throw new TypeError("SQL Server alias dimensions disagree with verified native catalog metadata");
   return alias;
 }
+
+/** The wire code is independent evidence even when a hidden alias resembles a builtin name. */
+export function assertSqlServerOdbcFamily(column: OdbcColumn, name: string): void {
+  if (!codes[name]?.includes(column.type))
+    throw new TypeError("SQL Server native type name disagrees with its independently reported ODBC family");
+  const dimensions = fixedNumeric[name];
+  if (dimensions && (column.size !== dimensions[0] || column.scale !== dimensions[1]))
+    throw new TypeError("SQL Server fixed numeric metadata disagrees with its native dimensions");
+  if (name === "rowversion" && (column.size !== 8 || column.scale !== 0))
+    throw new TypeError("SQL Server rowversion metadata disagrees with its native dimensions");
+}

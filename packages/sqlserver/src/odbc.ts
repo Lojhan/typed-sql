@@ -4,6 +4,7 @@ import type { SchemaProvider, SchemaSnapshotV2 } from "@typed-sql/schema";
 import { assertSqlServerRuntimeEvidence } from "./capabilities.js";
 import { requireSqlServerNativeType } from "./native-types.js";
 import {
+  assertSqlServerOdbcFamily,
   type OdbcAliasRegistry,
   sqlServerOdbcAlias,
   sqlServerOdbcAliasQuery,
@@ -89,6 +90,7 @@ export function sqlServerOdbcField(column: OdbcColumn, aliases: OdbcAliasRegistr
   else if (["time", "datetime2", "datetimeoffset"].includes(name))
     text = requireSqlServerNativeType(`${name}(${column.scale})`).text;
   const target = requireSqlServerNativeType(text);
+  assertSqlServerOdbcFamily(column, target.name);
   if (alias && target.text !== alias.databaseType)
     throw new TypeError("SQL Server alias dimensions disagree with verified native catalog metadata");
   return {
