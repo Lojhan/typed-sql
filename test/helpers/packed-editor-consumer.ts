@@ -46,9 +46,14 @@ export async function createPackedNativeEditorConsumer(
     const packages = new Map<string, Manifest>();
     for (const entry of await readdir(join(workspace, "packages"), { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const manifest = JSON.parse(
-        await readFile(join(workspace, "packages", entry.name, "package.json"), "utf8"),
-      ) as Manifest;
+      const source = await readFile(join(workspace, "packages", entry.name, "package.json"), "utf8").catch(
+        (error: unknown) => {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+          throw error;
+        },
+      );
+      if (source === undefined) continue;
+      const manifest = JSON.parse(source) as Manifest;
       packages.set(manifest.name, manifest);
     }
     const dependencies: Record<string, string> = {};
