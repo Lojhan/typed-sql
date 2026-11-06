@@ -915,6 +915,20 @@ const owned = new Set();
 try {
   admin = await createSqlServerOdbcDatabase({ connectionString: dsn("master") });
   assert.equal(admin.serverEvidence.version, build);
+  const { collectLive } = await import("../../scripts/language-audit/inventory.mjs");
+  const { enrichRecognition, describeSqlServer } = await import("../../scripts/language-audit/native.mjs");
+  evidence.languageInventory = await collectLive("sqlserver", (sql) => admin.queryable.all(sql), {
+    version: build,
+    settings: admin.serverEvidence.settings,
+  });
+  evidence.languageRecognition = await enrichRecognition(
+    evidence.languageInventory,
+    (sql) => describeSqlServer(admin.queryable, sql),
+    admin.serverEvidence,
+  );
+  const { reviewLiveBaseline } = await import("../../scripts/language-audit/live-baseline.mjs");
+  evidence.languageReview = await reviewLiveBaseline(evidence.languageInventory);
+  if (evidence.languageReview.status !== "match") failures.push("language inventory requires review");
   for (const compatibilityLevel of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
     const database = `typed_sql_catalog_${major}_${compatibilityLevel}_${randomUUID().replaceAll("-", "").slice(0, 10)}`;
     const profile = { compatibilityLevel, database, cases: [] };
@@ -924,6 +938,18 @@ try {
     await admin.queryable.all(`ALTER DATABASE ${quote(database)} SET COMPATIBILITY_LEVEL=${compatibilityLevel}`);
     const db = await createSqlServerOdbcDatabase({ connectionString: dsn(database) });
     try {
+      profile.languageInventory = await collectLive("sqlserver", (sql) => db.queryable.all(sql), {
+        version: build,
+        settings: db.serverEvidence.settings,
+      });
+      profile.languageRecognition = await enrichRecognition(
+        profile.languageInventory,
+        (sql) => describeSqlServer(db.queryable, sql),
+        db.serverEvidence,
+      );
+      profile.languageReview = await reviewLiveBaseline(profile.languageInventory);
+      if (profile.languageReview.status !== "match")
+        failures.push(`${compatibilityLevel}: language inventory requires review`);
       const native = (
         await db.queryable.all(
           "SELECT CONVERT(nvarchar(128),SERVERPROPERTY('ProductVersion')) AS version,d.compatibility_level,DB_NAME() AS database_name FROM sys.databases d WHERE d.database_id=DB_ID()",

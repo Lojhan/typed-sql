@@ -1,10 +1,13 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "allowJs": true,
     "noEmit": true,
     "rootDir": ".."
   },
   "include": [
+    "../scripts/language-audit/**/*.ts",
+    "../scripts/language-audit/**/*.mjs",
     "../packages/*/test/**/*.test.ts",
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",

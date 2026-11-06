@@ -16,6 +16,7 @@
       "!!**/target",
       "!!**/coverage",
       "!!artifacts",
+      "!!test/fixtures/language-audit",
       "!!packages/postgres/src/catalog/generated",
       "!!e2e/*/generated",
       "!!examples/**/generated"
