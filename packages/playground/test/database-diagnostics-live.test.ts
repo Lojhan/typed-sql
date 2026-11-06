@@ -26,6 +26,7 @@ await describe("real PostgreSQL source diagnostics", async () => {
         (error: unknown) =>
           error instanceof PlaygroundPgError &&
           error.sqlState === "22P02" &&
+          error.queryHash === contentHash(text) &&
           error.position === Array.from(text.slice(0, text.indexOf("'bad'"))).length + 1 &&
           !error.message.includes("bad"),
       );

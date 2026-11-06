@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 /** Safe database metadata contains no SQL, parameters, server messages or connection information. */
 export interface DatabaseErrorEvidence {
   readonly engine: "postgres";
   readonly sqlState: string;
   /** PostgreSQL's external query position: one-based Unicode characters, not bytes/UTF-16 units. */
   readonly position?: number;
+  readonly queryHash?: string;
 }
 export interface RunDatabaseDiagnostic {
   readonly origin: "database";
@@ -35,9 +37,15 @@ export function validateDatabaseEvidence(value: unknown): DatabaseErrorEvidence 
     (typeof evidence.position !== "number" || postgresPosition(evidence.position) === undefined)
   )
     throw new TypeError("Invalid database position evidence");
+  if (
+    evidence.queryHash !== undefined &&
+    (typeof evidence.queryHash !== "string" || !/^[a-f0-9]{64}$/u.test(evidence.queryHash))
+  )
+    throw new TypeError("Invalid database query identity evidence");
   return {
     engine: "postgres",
     sqlState: evidence.sqlState,
+    ...(evidence.queryHash === undefined ? {} : { queryHash: evidence.queryHash as string }),
     ...(evidence.position === undefined ? {} : { position: evidence.position as number }),
   };
 }
@@ -56,6 +64,9 @@ export function databaseErrorEvidence(error: unknown): DatabaseErrorEvidence | u
   return {
     engine: "postgres",
     sqlState: error.sqlState,
+    ...("queryHash" in error && typeof error.queryHash === "string" && /^[a-f0-9]{64}$/u.test(error.queryHash)
+      ? { queryHash: error.queryHash }
+      : {}),
     ...(position === undefined || connectionSqlState(error.sqlState) ? {} : { position }),
   };
 }
@@ -103,6 +114,7 @@ export function databaseDiagnostic(
   )
     return diagnostic;
   const { sql, source, offsets } = capture;
+  if (evidence.queryHash !== createHash("sha256").update(sql).digest("hex")) return diagnostic;
   if (
     offsets.length !== sql.length ||
     !offsets.every(

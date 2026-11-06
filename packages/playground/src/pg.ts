@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { type Database, QueryCancelledError } from "@typed-sql/core";
 import { defaultPostgresTypePolicy, type PostgresTypePolicy } from "@typed-sql/postgres";
 import { pg } from "@typed-sql/postgres/pg";
@@ -27,11 +28,12 @@ export class PlaygroundPgError extends Error {
   readonly sqlState: string | undefined;
   readonly outcomeUnknown: boolean;
   readonly position: number | undefined;
+  readonly queryHash: string | undefined;
 
   constructor(
     code: string,
     message: string,
-    options: { sqlState?: string; outcomeUnknown?: boolean; position?: number } = {},
+    options: { sqlState?: string; outcomeUnknown?: boolean; position?: number; queryHash?: string } = {},
   ) {
     super(message);
     this.name = "PlaygroundPgError";
@@ -39,6 +41,7 @@ export class PlaygroundPgError extends Error {
     this.sqlState = options.sqlState;
     this.outcomeUnknown = options.outcomeUnknown ?? false;
     this.position = postgresPosition(options.position);
+    this.queryHash = options.queryHash && /^[a-f0-9]{64}$/u.test(options.queryHash) ? options.queryHash : undefined;
   }
 }
 
@@ -281,7 +284,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
         const batch = await new Promise<unknown[][]>((resolve, reject) => {
           cursor.read(count, (error, resultRows, result) => {
             if (error !== null) {
-              reject(normalize(error, limits.readOnly, true));
+              reject(normalize(error, limits.readOnly, text));
               return;
             }
             metadata = result ?? metadata;
@@ -498,7 +501,7 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
     }
   }
 
-  function normalize(error: unknown, readOnly: boolean, statementPosition = false): Error {
+  function normalize(error: unknown, readOnly: boolean, statementText?: string): Error {
     if (error instanceof PlaygroundPgCancellationError || error instanceof PlaygroundPgError) return error;
     if (error instanceof QueryCancelledError) return new PlaygroundPgCancellationError(error.reason, false);
     const state = sqlState(error);
@@ -510,7 +513,10 @@ export function createPgPlaygroundTarget(options: PgPlaygroundOptions): Playgrou
         : "PostgreSQL execution failed; inspect the SQL and target permissions",
       {
         ...(state === undefined ? {} : { sqlState: state }),
-        ...(statementPosition &&
+        ...(statementText !== undefined && state !== undefined && !connectionSqlState(state)
+          ? { queryHash: createHash("sha256").update(statementText).digest("hex") }
+          : {}),
+        ...(statementText !== undefined &&
         state !== undefined &&
         !connectionSqlState(state) &&
         error &&

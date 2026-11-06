@@ -19,7 +19,7 @@ await describe("source-bound database diagnostics", async () => {
     strict.notEqual(query.sql, source);
     const position = Array.from(query.sql.slice(0, query.sql.lastIndexOf("id=1"))).length + 1;
     const diagnostic = databaseDiagnostic(
-      { engine: "postgres", sqlState: "42703", position },
+      { engine: "postgres", sqlState: "42703", position, queryHash: contentHash(query.sql) },
       {
         file: "playground/query.sql",
         sourceRevision: contentHash(source),
@@ -45,24 +45,44 @@ await describe("source-bound database diagnostics", async () => {
     strict.equal(databaseDiagnostic({ engine: "postgres", sqlState: "42601" }, capture).range, undefined);
     strict.equal(
       databaseDiagnostic(
-        { engine: "postgres", sqlState: "42601", position: 2 },
+        { engine: "postgres", sqlState: "42601", queryHash: contentHash(source), position: 2 },
         { ...capture, mode: "file", file: "q.ts" },
       ).range,
       undefined,
     );
-    strict.equal(databaseDiagnostic({ engine: "postgres", sqlState: "42601", position: 99 }, capture).range, undefined);
     strict.equal(
-      databaseDiagnostic({ engine: "postgres", sqlState: "42601", position: 2 }, { ...capture, offsets: [0] }).range,
+      databaseDiagnostic(
+        { engine: "postgres", sqlState: "42601", queryHash: contentHash(source), position: 99 },
+        capture,
+      ).range,
       undefined,
     );
     strict.equal(
-      databaseDiagnostic({ engine: "postgres", sqlState: "42601", position: source.length + 1 }, capture).range?.start,
+      databaseDiagnostic(
+        { engine: "postgres", sqlState: "42601", queryHash: contentHash(source), position: 2 },
+        { ...capture, offsets: [0] },
+      ).range,
+      undefined,
+    );
+    strict.equal(
+      databaseDiagnostic(
+        { engine: "postgres", sqlState: "42601", queryHash: contentHash(source), position: source.length + 1 },
+        capture,
+      ).range?.start,
       source.length,
+    );
+    strict.equal(databaseDiagnostic({ engine: "postgres", sqlState: "42601", position: 2 }, capture).range, undefined);
+    strict.equal(
+      databaseDiagnostic(
+        { engine: "postgres", sqlState: "42601", position: 2, queryHash: contentHash("rewritten SQL") },
+        capture,
+      ).range,
+      undefined,
     );
     const emoji = "😀";
     strict.deepEqual(
       databaseDiagnostic(
-        { engine: "postgres", sqlState: "42601", position: 1 },
+        { engine: "postgres", sqlState: "42601", queryHash: contentHash(emoji), position: 1 },
         { ...capture, source: emoji, sql: emoji, offsets: [0, 1] },
       ).range,
       { start: 0, end: 2, line: 1, column: 1 },
@@ -101,6 +121,7 @@ await describe("source-bound database diagnostics", async () => {
       { engine: "postgres", sqlState: "private" },
       { engine: "postgres", sqlState: "42601", position: -1 },
       { engine: "postgres", sqlState: "42601", position: "4" },
+      { engine: "postgres", sqlState: "42601", queryHash: "private" },
     ])
       strict.throws(() => validateWorkerEvent({ ...event, database }, 1000), /database/iu);
   });
@@ -112,7 +133,7 @@ await describe("source-bound database diagnostics", async () => {
         config,
         original.replace(
           "query:async request=>({columns:[{name:'id'}],rows:[[request.values[0]??42]],truncated:false})",
-          `query:async request=>{const error=new Error('private driver detail');error.name='PlaygroundPgError';error.sqlState='42703';error.position=Array.from(request.text.slice(0,request.text.lastIndexOf('id=1'))).length+1;throw error}`,
+          `query:async request=>{const error=new Error('private driver detail');error.name='PlaygroundPgError';error.sqlState='42703';error.queryHash=(await import('node:crypto')).createHash('sha256').update(request.text).digest('hex');error.position=Array.from(request.text.slice(0,request.text.lastIndexOf('id=1'))).length+1;throw error}`,
         ),
       );
       const source = "-- 😀\nselect id from public.accounts where id=:accountId and id=1";
