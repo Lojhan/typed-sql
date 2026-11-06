@@ -30,6 +30,8 @@ import { parseStatement as parsePostgresStatement } from "../packages/postgres/d
 import { calculateSchemaHash, canonicalizeSchemaValue } from "../packages/schema/dist/packages/schema/src/index.js";
 import { sqlite } from "../packages/sqlite/dist/packages/sqlite/src/index.js";
 import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
+import { sqlServerServerEvidence, sqlserver } from "../packages/sqlserver/dist/packages/sqlserver/src/index.js";
+import { parseStatement as parseSqlServerStatement } from "../packages/sqlserver/dist/packages/sqlserver/src/parser/index.js";
 import {
   capturePerformanceContext,
   createPerformanceArtifact,
@@ -201,6 +203,75 @@ await latency("parser.pathologicalTokens", () => {
   assert.equal(parseMysqlStatement(pathologicalParserSource).kind, "select");
   assert.equal(parseSqliteStatement(pathologicalParserSource).kind, "select");
 });
+
+// Each new grammar owns separate gates so a fast parser cannot hide another's regression.
+for (const [id, factory, parse, parserMetric] of [
+  ["sqlserver", sqlserver, parseSqlServerStatement, "parser.sqlserverLargeQuery"],
+]) {
+  await latency(parserMetric, () => {
+    assert.equal(parse(parserSource).kind, "select");
+    assert.equal(parse(pathologicalParserSource).kind, "select");
+  });
+  const grammar = factory();
+  const schema = grammar.validateSnapshot({
+    formatVersion: 1,
+    dialect: "sqlserver",
+    server: sqlServerServerEvidence("17.0.5035.5", {
+      compatibilityLevel: 170,
+      collation: "SQL_Latin1_General_CP1_CI_AS",
+      defaultSchema: "dbo",
+      quotedIdentifier: true,
+      ansiWarnings: true,
+      arithAbort: true,
+      concatNullYieldsNull: true,
+      dateFirst: 7,
+      dateFormat: "mdy",
+      language: "us_english",
+      engineEdition: 3,
+    }),
+    tables: {
+      users: {
+        schema: "dbo",
+        name: "users",
+        columns: {
+          id: { name: "id", databaseType: "int", tsType: "number", nullable: false },
+          name: { name: "name", databaseType: "nvarchar(320)", tsType: "string", nullable: false },
+          age: { name: "age", databaseType: "int", tsType: "number", nullable: true },
+        },
+      },
+    },
+  });
+  const marker = "@__typed_sql_1";
+  const queries = [
+    `SELECT id, name FROM users WHERE id=${marker}`,
+    "SELECT a.id, b.age FROM users a LEFT JOIN users b ON a.id=b.id",
+    "WITH selected AS (SELECT id,name FROM users) SELECT id,name FROM selected",
+    "SELECT id FROM users UNION ALL SELECT id FROM users",
+    `UPDATE users SET name='Ada' OUTPUT inserted.id WHERE id=${marker}`,
+  ];
+  const measured = await measureLatency({
+    warmups: 5,
+    samples: 30,
+    operation() {
+      for (const query of queries) {
+        const analysis = grammar.analyze(query, schema);
+        assert.deepEqual(analysis.diagnostics, []);
+        assert.ok(analysis.columns.length > 0);
+      }
+    },
+  });
+  const budget = budgets.throughput[`grammar.${id}Analysis`];
+  const medianQueriesPerSecond = (queries.length * 1000) / measured.p50;
+  results[`grammar.${id}Analysis`] = {
+    unit: "ms",
+    queryCount: queries.length,
+    medianQueriesPerSecond,
+    ...measured,
+    budget,
+  };
+  assert.ok(medianQueriesPerSecond >= budget.minimumOperationsPerSecond, `${id} analysis throughput regression`);
+  assert.ok(measured.p95 < budget.maximumBatchP95Milliseconds, `${id} analysis tail latency regression`);
+}
 
 const sqliteDialect = sqlite();
 const sqliteSnapshot = sqliteDialect.validateSnapshot({

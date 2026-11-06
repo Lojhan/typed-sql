@@ -256,6 +256,12 @@ import * as schemaSnapshotApi from "../../packages/schema/src/snapshot.js";
 import * as sqliteApi from "../../packages/sqlite/src/index.js";
 import * as nodeSqliteApi from "../../packages/sqlite/src/node-sqlite.js";
 import * as sqliteRuntimeApi from "../../packages/sqlite/src/runtime.js";
+import * as sqlServerBrowserApi from "../../packages/sqlserver/src/browser.js";
+import * as sqlserverApi from "../../packages/sqlserver/src/index.js";
+import * as sqlServerMsnodesqlv8Api from "../../packages/sqlserver/src/msnodesqlv8.js";
+import * as sqlServerOdbcApi from "../../packages/sqlserver/src/odbc-entry.js";
+import * as sqlServerQueryApi from "../../packages/sqlserver/src/query.js";
+import * as sqlServerRuntimeApi from "../../packages/sqlserver/src/runtime-entry.js";
 import * as tsBridgeApi from "../../packages/ts-bridge/src/index.js";
 import * as nativeLspApi from "../../packages/ts-bridge/src/native-lsp.js";
 import * as nativePreviewApi from "../../packages/ts-bridge/src/native-preview.js";
@@ -749,6 +755,77 @@ void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
+  sqlserver: [
+    "SQLSERVER_CAPABILITIES",
+    "SQLSERVER_DIALECT_VERSION",
+    "SQLSERVER_LANGUAGE_SUPPORT",
+    "SqlServerSchemaProvider",
+    "assertSqlServerServerEvidence",
+    "defaultSqlServerTypePolicy",
+    "introspectSqlServer",
+    "mapSqlServerType",
+    "normalizeSqlServerValue",
+    "parseSqlServerNativeType",
+    "parseSqlServerSchemaSnapshot",
+    "parseSqlServerVersion",
+    "requireSqlServerNativeType",
+    "resolveSqlServerCapabilities",
+    "sql",
+    "sqlServerCatalogQueries",
+    "sqlServerRenderer",
+    "sqlServerRuntimeValueType",
+    "sqlServerServerEvidence",
+    "sqlServerVersionSupport",
+    "sqlserver",
+    "typePolicy",
+    "validateSqlServerDecimal",
+    "validateSqlServerTypePolicy",
+  ],
+  sqlServerQuery: [
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "normalizeSqlServerValue",
+    "renderer",
+    "sql",
+    "sqlServerRenderer",
+    "sqlServerRuntimeValueType",
+    "withQueryValuePlan",
+  ],
+  sqlServerRuntime: ["createSqlServerDatabase", "createSqlServerLiveVerifier", "createSqlServerPlanInspector"],
+  sqlServerOdbc: ["connectSqlServerOdbc", "createSqlServerOdbcDatabase", "loadSqlServerOdbcDriver", "sqlServerOdbc"],
+  sqlServerMsnodesqlv8: [
+    "adaptSqlServerMsnodesqlv8Connection",
+    "adaptSqlServerOdbcConnection",
+    "createSqlServerMsnodesqlv8Database",
+    "createSqlServerOdbcDatabase",
+    "loadSqlServerMsnodesqlv8Driver",
+    "loadSqlServerOdbcDriver",
+    "sqlServerMsnodesqlv8",
+    "sqlServerOdbc",
+  ],
+  sqlServerBrowser: [
+    "SQLSERVER_CAPABILITIES",
+    "SQLSERVER_DIALECT_VERSION",
+    "SQLSERVER_LANGUAGE_SUPPORT",
+    "assertSqlServerServerEvidence",
+    "defaultSqlServerTypePolicy",
+    "mapSqlServerType",
+    "normalizeSqlServerValue",
+    "parseSqlServerNativeType",
+    "parseSqlServerSchemaSnapshot",
+    "parseSqlServerVersion",
+    "requireSqlServerNativeType",
+    "resolveSqlServerCapabilities",
+    "sql",
+    "sqlServerRenderer",
+    "sqlServerRuntimeValueType",
+    "sqlServerServerEvidence",
+    "sqlServerVersionSupport",
+    "sqlserver",
+    "typePolicy",
+    "validateSqlServerDecimal",
+    "validateSqlServerTypePolicy",
+  ],
   build: ["BuildError", "BuildSession", "generateSqlTypes", "loadBuildProject"],
   ast: [
     "DEFAULT_MAX_PARSE_DEPTH",
@@ -1160,6 +1237,12 @@ await describe("stable public API", async () => {
   });
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
+      sqlserver: Object.keys(sqlserverApi).sort(),
+      sqlServerQuery: Object.keys(sqlServerQueryApi).sort(),
+      sqlServerRuntime: Object.keys(sqlServerRuntimeApi).sort(),
+      sqlServerOdbc: Object.keys(sqlServerOdbcApi).sort(),
+      sqlServerMsnodesqlv8: Object.keys(sqlServerMsnodesqlv8Api).sort(),
+      sqlServerBrowser: Object.keys(sqlServerBrowserApi).sort(),
       build: Object.keys(buildApi).sort(),
       ast: Object.keys(astApi).sort(),
       astToolkit: Object.keys(astToolkitApi).sort(),

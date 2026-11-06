@@ -1,0 +1,616 @@
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
+import { compileSqlFile } from "@typed-sql/compiler";
+import { SqlServerSchemaProvider, sqlserver } from "@typed-sql/sqlserver";
+import { createSqlServerMsnodesqlv8Database } from "@typed-sql/sqlserver/msnodesqlv8";
+import { connectSqlServerOdbc, createSqlServerOdbcDatabase } from "@typed-sql/sqlserver/odbc";
+import { sql } from "@typed-sql/sqlserver/query";
+import { createSqlServerLiveVerifier, createSqlServerPlanInspector } from "@typed-sql/sqlserver/runtime";
+import native from "msnodesqlv8";
+import { DDL, MATURITY_CASES } from "../../packages/sqlserver/test/helpers/maturity-corpus.ts";
+
+const password = process.env.TYPED_SQL_SQLSERVER_PASSWORD;
+assert.ok(password && !/[;{}]/u.test(password), "Disposable password without DSN delimiters required");
+const major = Number(process.env.TYPED_SQL_SQLSERVER_MAJOR);
+assert.ok([14, 15, 16, 17].includes(major));
+assert.equal(process.arch, "x64", "Native SQL Server evidence requires x86-64");
+const dsn = (database) =>
+  `Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1,1433;Database=${database};UID=sa;PWD=${password};Encrypt=yes;TrustServerCertificate=yes;`;
+const evidence = { formatVersion: 1, major, cases: [] };
+const qualificationFailures = [];
+const output = resolve(`../../artifacts/sqlserver/adapter-${major}.json`);
+const generated = await mkdtemp(new URL(".adapter-generated-", import.meta.url));
+const grammar = sqlserver();
+let sequence = 0;
+async function compile(schema, source) {
+  const result = compileSqlFile({ dialect: grammar, schema, source });
+  assert.deepEqual(result.diagnostics, [], `SQL compilation: ${source}`);
+  const path = resolve(generated, `${sequence++}.mjs`);
+  await writeFile(path, result.runtime);
+  return (await import(pathToFileURL(path).href)).default;
+}
+async function check(name, operation, { continueOnFailure = false } = {}) {
+  const started = Date.now();
+  try {
+    await operation();
+    evidence.cases.push({ name, status: "pass", durationMs: Date.now() - started });
+  } catch (error) {
+    evidence.cases.push({ name, status: "fail", error: String(error).replaceAll(password, "[redacted]") });
+    if (continueOnFailure) qualificationFailures.push(name);
+    else throw error;
+  }
+}
+
+try {
+  // Every session is opened against its final database. Changing USE after capturing
+  // evidence would invalidate the runtime's database/compatibility attestation.
+  const admin = await native.promises.open({ conn_str: dsn("master"), conn_timeout: 10 });
+  try {
+    for (const level of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
+      const database = `typed_sql_adapter_${level}`;
+      await admin.promises.query(`CREATE DATABASE [${database}] COLLATE SQL_Latin1_General_CP1_CI_AS`);
+      await admin.promises.query(`ALTER DATABASE [${database}] SET COMPATIBILITY_LEVEL=${level}`);
+    }
+  } finally {
+    await admin.promises.close();
+  }
+  for (const level of [140, 150, 160, 170].filter((level) => level <= major * 10)) {
+    const db = await createSqlServerOdbcDatabase({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+    try {
+      await check(`${level}: factory and provider`, async () => {
+        assert.equal(db.serverEvidence.version, process.env.TYPED_SQL_SQLSERVER_BUILD);
+        await db.queryable.all(
+          "CREATE TABLE dbo.adapter_values (id bigint NOT NULL PRIMARY KEY, amount decimal(38,10) NOT NULL, label nvarchar(max) NOT NULL, active bit NOT NULL, bytes varbinary(max) NOT NULL, happened datetime2(7) NOT NULL)",
+        );
+        for (const statement of DDL) await db.queryable.all(statement);
+        await db.queryable.all(
+          "INSERT INTO dbo.widgets(id,code,quantity,tiny,amount,adjustment,document,active) VALUES (1,N'sample',-7,1,-1.23,0.001,N'{}',0)",
+        );
+      });
+      const schema = await new SqlServerSchemaProvider({ client: db.queryable, includeSchemas: ["dbo"] }).introspect();
+      await check(`${level}: native late errors and multiple rowsets`, async () => {
+        for (const mode of ["buffered", "streamed"])
+          for (const ending of ["THROW 51111,N'qualification late error',1", "SELECT 2 AS value"]) {
+            const connection = await connectSqlServerOdbc({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+            let stream;
+            try {
+              const text = `SELECT 1 AS value; ${ending}`;
+              let yielded = 0;
+              if (mode === "buffered") await assert.rejects(connection.execute(text));
+              else {
+                stream = connection.stream(text, [], { batchSize: 1 });
+                let rejected = false;
+                while (true) {
+                  let next;
+                  try {
+                    next = await stream.next();
+                  } catch {
+                    rejected = true;
+                    break;
+                  }
+                  if (next.done) break;
+                  yielded++;
+                  assert.equal(Number(next.value.value), 1);
+                  assert.ok(yielded <= 1, "a second rowset must never be exposed");
+                }
+                assert.equal(rejected, true, "late native failure must not become successful stream completion");
+                await stream.close();
+                stream = undefined;
+              }
+              let recovery = "reused";
+              try {
+                const result = await connection.execute("SELECT 7 AS value");
+                assert.equal(Number(result.rows[0].value), 7);
+              } catch (error) {
+                assert.match(String(error), /closed or quarantined/u);
+                recovery = "quarantined";
+              }
+              evidence.cases.push({
+                name: `${level}: ${mode} ${ending.startsWith("THROW") ? "late error" : "multiple rowsets"}`,
+                status: "pass",
+                yielded,
+                recovery,
+              });
+            } finally {
+              try {
+                if (stream) await stream.close();
+              } finally {
+                await connection.close();
+              }
+            }
+          }
+      });
+      await writeFile(resolve(generated, `schema-${level}.json`), JSON.stringify(schema, null, 2));
+      await check(`${level}: native verification and SHOWPLAN services`, async () => {
+        const pool = {
+          async acquire() {
+            const connection = await createSqlServerOdbcDatabase({
+              connectionString: dsn(`typed_sql_adapter_${level}`),
+            });
+            return {
+              all: (text, values) => connection.queryable.all(text, values),
+              release: () => connection.close(),
+              discard: () => connection.close(),
+            };
+          },
+        };
+        const verifier = createSqlServerLiveVerifier({ pool });
+        const inspector = createSqlServerPlanInspector({ pool });
+        try {
+          const request = {
+            fingerprint: `sha256:${"a".repeat(64)}`,
+            operation: "read",
+            sql: "SELECT amount FROM dbo.widgets WHERE id=@__typed_sql_1",
+          };
+          const described = await verifier.verify(request);
+          assert.equal(described.columns[0].databaseType, "decimal(12,2)");
+          assert.equal(described.parameters[0].databaseType, "bigint");
+          assert.equal(
+            verifier.compareDatabaseTypes("decimal(12,4)", described.columns[0].databaseType, "column"),
+            "different",
+          );
+          const environment = await inspector.environment();
+          assert.match(environment.statisticsFingerprint, /^sha256:[a-f\d]{64}$/u);
+          const plan = await inspector.capture({ ...request, parameterCount: 1 });
+          assert.ok(plan.nodes.length > 0);
+          evidence.cases.push({ name: `${level}: native services evidence`, status: "evidence", described, plan });
+        } finally {
+          await verifier.close();
+          await inspector.close();
+        }
+      });
+      await check(`${level}: exact default VARCHAR MAX and guarded compatibility adapter`, async () => {
+        for (const input of ["", "x\0", "é\0".repeat(20000), "\0".repeat(40000)]) {
+          const [actual] = await db.queryable.all("SELECT CONVERT(varchar(max),?) AS value", [input]);
+          assert.equal(actual.value, input);
+        }
+        if (major >= 15) {
+          const input = "😀漢字é\0".repeat(10000);
+          const [actual] = await db.queryable.all(
+            "SELECT CONVERT(varchar(max),? COLLATE Latin1_General_100_CI_AS_SC_UTF8) AS value",
+            [input],
+          );
+          assert.equal(actual.value, input);
+        }
+        const compatibility = await createSqlServerMsnodesqlv8Database({
+          connectionString: dsn(`typed_sql_adapter_${level}`),
+        });
+        try {
+          const unsupported = await compile(schema, "SELECT CAST('x' AS varchar(max)) AS value");
+          await assert.rejects(compatibility.one(unsupported()), /VARCHAR|varchar|unsupported|exact|fidelity/iu);
+        } finally {
+          await compatibility.close();
+        }
+      });
+      const insert = await compile(
+        schema,
+        "INSERT INTO dbo.adapter_values (id,amount,label,active,bytes,happened) OUTPUT inserted.id,inserted.amount,inserted.label,inserted.active,inserted.bytes,inserted.happened VALUES (:id,:amount,:label,:active,:bytes,:happened)",
+      );
+      const find = await compile(
+        schema,
+        "SELECT id,amount,label,active,bytes,happened FROM dbo.adapter_values WHERE id=:id OR id=:id",
+      );
+      const all = await compile(schema, "SELECT id FROM dbo.adapter_values ORDER BY id");
+      const qualifyCorpus = async () => {
+        const cases = [];
+        const normalize = (type) =>
+          String(type)
+            .toLowerCase()
+            .replace(/\s+collate\s+.+$/u, "")
+            .replace(/\s+/gu, "")
+            .replace(/^float\(53\)$/u, "float");
+        const stringCases = [
+          "LOWER(code)",
+          "UPPER(code)",
+          "LTRIM(code)",
+          "RTRIM(code)",
+          "TRIM(code)",
+          "LEFT(code,2)",
+          "RIGHT(code,2)",
+          "SUBSTRING(code,1,2)",
+          "REVERSE(code)",
+          "REPLACE(code,N's',N'xx')",
+          "TRANSLATE(code,N'sa',N'xy')",
+          "STUFF(code,1,1,N'x')",
+          "REPLICATE(code,2)",
+          "CHAR(65)",
+          "NCHAR(65)",
+          "SPACE(2)",
+          "QUOTENAME(code)",
+          "SOUNDEX(code)",
+          "FORMAT(quantity,N'N2',N'en-US')",
+          "STR(quantity)",
+          "CONCAT(code,N'x')",
+          "CONCAT(code,document)",
+          "CONCAT_WS(N',',code,N'x')",
+          "LOWER(document)",
+          "REPLACE(document,N's',N'x')",
+          "REPLICATE(document,2)",
+          "LEN(document)",
+          "DATALENGTH(document)",
+          "CHARINDEX(N's',document)",
+          "PATINDEX(N'%s%',document)",
+        ].map((expression) => ({
+          id: `native-string:${expression}`,
+          sql: `SELECT ${expression} AS value FROM dbo.widgets`,
+        }));
+        const dynamicStringCases = [
+          "LEFT(code,@__typed_sql_1)",
+          "RIGHT(code,@__typed_sql_1)",
+          "SUBSTRING(code,@__typed_sql_1,@__typed_sql_2)",
+          "REPLICATE(code,@__typed_sql_1)",
+          "SPACE(@__typed_sql_1)",
+          "STR(quantity,@__typed_sql_1,@__typed_sql_2)",
+        ].map((expression) => ({
+          id: `native-dynamic-string:${expression}`,
+          sql: `SELECT ${expression} AS value FROM dbo.widgets`,
+          declarations: "@__typed_sql_1 int,@__typed_sql_2 int",
+        }));
+        for (const test of [...MATURITY_CASES, ...stringCases, ...dynamicStringCases]) {
+          const analysis = grammar.analyze(test.sql, schema);
+          const diagnostics = analysis.diagnostics.filter((item) => item.severity === "error");
+          let metadata, failure;
+          try {
+            metadata = await db.queryable.all(
+              "SELECT name,system_type_name,is_nullable,error_number,error_message FROM sys.dm_exec_describe_first_result_set(?,?,0) WHERE is_hidden=0 OR error_number IS NOT NULL ORDER BY column_ordinal",
+              [test.sql, test.declarations ?? null],
+            );
+            const error = metadata.find((row) => row.error_number !== null && row.error_number !== undefined);
+            if (error) failure = String(error.error_message);
+          } catch (error) {
+            failure = String(error).replaceAll(password, "[redacted]");
+          }
+          const expected = analysis.columns.map((column) => ({
+            name: column.name,
+            type: normalize(column.databaseType),
+          }));
+          const actual = metadata?.map((column) => ({ name: column.name, type: normalize(column.system_type_name) }));
+          const exact = failure
+            ? diagnostics.length > 0
+            : diagnostics.length === 0 && JSON.stringify(expected) === JSON.stringify(actual);
+          cases.push({ id: test.id, exact, expected, actual, diagnostics, ...(failure ? { failure } : {}), metadata });
+        }
+        evidence.cases.push({ name: `${level}: independent vendor corpus`, status: "evidence", cases });
+        assert.deepEqual(
+          cases.filter((item) => !item.exact).map(({ metadata: _metadata, ...item }) => item),
+          [],
+          "Native describe and static inference disagree",
+        );
+      };
+      if (major >= 16)
+        await check(`${level}: native JSON serialization and fragment provenance`, async () => {
+          const cases = [
+            ["JSON_OBJECT('amount':amount,'id':id,'flag':active)", { amount: -1.23, id: 1, flag: false }],
+            ["JSON_OBJECT('nested':JSON_OBJECT('id':id),'text':document)", { nested: { id: 1 }, text: "{}" }],
+            ["JSON_OBJECT('nested':JSON_QUERY(document))", { nested: {} }],
+            ["JSON_ARRAY(CAST(amount AS money),CAST(amount AS smallmoney))", [-1.23, -1.23]],
+            ["JSON_OBJECT('smallMoney':CAST(amount AS smallmoney))", { smallMoney: -1.23 }],
+            [
+              "JSON_OBJECT('bytes':CAST(0x00FF AS varbinary(2)),'time':CAST('12:34:56.1234567' AS time(7)),'date':CAST('2026-01-01' AS date))",
+              { bytes: "AP8=", time: "12:34:56.1234567", date: "2026-01-01" },
+            ],
+          ];
+          for (const [expression, expected] of cases) {
+            const source = `SELECT ${expression} AS value FROM dbo.widgets`;
+            const raw = await db.queryable.all(source);
+            evidence.cases.push({
+              name: `${level}: native JSON ${expression}`,
+              status: "evidence",
+              raw,
+              analysis: grammar.analyze(source, schema).columns,
+            });
+            assert.deepEqual(JSON.parse(raw[0].value), expected, expression);
+            const factory = await compile(schema, source);
+            assert.deepEqual(JSON.parse((await db.one(factory())).value), expected, expression);
+          }
+          const moneySource = "SELECT JSON_OBJECT('money':CAST(amount AS money)) AS value FROM dbo.widgets";
+          evidence.cases.push({
+            name: `${level}: native JSON money`,
+            status: "evidence",
+            raw: await db.queryable.all(moneySource),
+            analysis: grammar.analyze(moneySource, schema).columns,
+          });
+          const money = await compile(schema, moneySource);
+          const value = JSON.parse((await db.one(money())).value).money;
+          assert.equal(typeof value, "number");
+          assert.equal(value, -1.23);
+          const provenance = [];
+          for (const expression of [
+            "CASE WHEN active=0 THEN JSON_OBJECT('id':id) ELSE JSON_OBJECT('amount':amount) END",
+            "COALESCE(JSON_OBJECT('id':id),JSON_OBJECT('amount':amount))",
+          ]) {
+            const source = `SELECT JSON_OBJECT('nested':${expression}) AS value FROM dbo.widgets`;
+            evidence.cases.push({
+              name: `${level}: native JSON conditional ${expression}`,
+              status: "evidence",
+              raw: await db.queryable.all(source),
+              analysis: grammar.analyze(source, schema).columns,
+            });
+            const factory = await compile(schema, source);
+            provenance.push({ expression, value: JSON.parse((await db.one(factory())).value) });
+          }
+          evidence.cases.push({ name: `${level}: conditional JSON provenance`, status: "evidence", cases: provenance });
+          if (major >= 17) {
+            const factory = await compile(schema, `SELECT CAST(N'{"id":1}' AS json) AS value`);
+            assert.deepEqual(JSON.parse((await db.one(factory())).value), { id: 1 });
+          }
+        });
+      await check(`${level}: independent native prepared zero termination`, async () => {
+        const connection = await native.promises.open({ conn_str: dsn(`typed_sql_adapter_${level}`) });
+        const cases = [];
+        try {
+          for (const type of ["nvarchar(40)", "nvarchar(max)", "varbinary(max)"]) {
+            const binary = type.startsWith("varbinary");
+            const statement = await new Promise((resolve, reject) =>
+              connection.prepare(
+                { query_str: `SELECT CONVERT(${type},?) AS value`, numeric_string: true },
+                (error, value) => (error ? reject(error) : resolve(value)),
+              ),
+            );
+            try {
+              for (const input of [
+                "",
+                "x\0",
+                "x\0\0",
+                "\0",
+                "x\0y",
+                ...(type === "nvarchar(max)"
+                  ? ["😀漢字é\0".repeat(2000), "😀漢字é\0".repeat(10000), "\0".repeat(40000)]
+                  : []),
+              ]) {
+                const value = binary ? Buffer.from(input) : input;
+                const binding = binary ? native.VarBinary(value) : native.NVarChar(value);
+                const raw = await connection.promises.query(
+                  { query_str: `SELECT CONVERT(${type},?) AS value`, numeric_string: true },
+                  [binding],
+                );
+                const rawValue = raw.first[0].value;
+                const result = (await statement.promises.query([binding])).first[0].value;
+                cases.push({
+                  type,
+                  inputLength: value.length,
+                  rawLength: rawValue?.length ?? null,
+                  rawExact: binary ? rawValue instanceof Uint8Array && value.equals(rawValue) : rawValue === value,
+                  outputLength: result?.length ?? null,
+                  preparedExact: binary ? result instanceof Uint8Array && value.equals(result) : result === value,
+                  inputTail: binary ? Array.from(value.subarray(-8)) : input.slice(-8),
+                  outputTail: result === null ? null : binary ? Array.from(result.subarray(-8)) : result.slice(-8),
+                });
+              }
+            } finally {
+              await statement.promises.free();
+            }
+          }
+        } finally {
+          await connection.promises.close();
+        }
+        evidence.cases.push({
+          name: `${level}: raw native prepared string/binary fidelity`,
+          status: "evidence",
+          cases,
+        });
+      });
+      await check(`${level}: independent native numeric promotion evidence`, async () => {
+        const promotions = [];
+        for (const fn of ["ABS", "CEILING", "FLOOR", "POWER", "SIGN", "DEGREES", "RADIANS"]) {
+          for (const type of ["decimal(12,2)", "int", "smallint", "money", "bit", "real"]) {
+            const expression = `${fn}(CAST(1 AS ${type})${fn === "POWER" ? ",2" : ""})`;
+            try {
+              const [metadata] = await db.queryable.all(
+                `SELECT CONVERT(nvarchar(128),SQL_VARIANT_PROPERTY(${expression},'BaseType')) AS type,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Precision')) AS precision,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Scale')) AS scale`,
+              );
+              promotions.push({ fn, input: type, ...metadata });
+            } catch (error) {
+              promotions.push({ fn, input: type, rejected: String(error).replaceAll(password, "[redacted]") });
+            }
+          }
+          const expression = `${fn}(amount${fn === "POWER" ? ",2" : ""})`;
+          const [metadata] = await db.queryable.all(
+            `SELECT CONVERT(nvarchar(128),SQL_VARIANT_PROPERTY(${expression},'BaseType')) AS type,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Precision')) AS precision,CONVERT(int,SQL_VARIANT_PROPERTY(${expression},'Scale')) AS scale FROM dbo.widgets`,
+          );
+          promotions.push({ fn, input: "nonconstant table decimal(12,2)", ...metadata });
+        }
+        evidence.cases.push({ name: `${level}: numeric metadata`, status: "evidence", promotions });
+      });
+      // Keep qualifying the runtime after a metadata disagreement, then fail the
+      // overall gate. A failing oracle must never hide later transport evidence.
+      await check(`${level}: vendor corpus native result metadata`, qualifyCorpus, { continueOnFailure: true });
+      await check(`${level}: native builtin NULL contracts and dynamic dimension evidence`, async () => {
+        for (const expression of [
+          "CHAR(999)",
+          "NCHAR(-1)",
+          "SPACE(-1)",
+          "STUFF(code,0,1,N'x')",
+          "QUOTENAME(REPLICATE(N'x',129))",
+          "FORMAT(1,N'Q')",
+          "STR(quantity,0)",
+          "CONCAT_WS(CAST(NULL AS nvarchar(1)),code,N'x')",
+        ]) {
+          const source = `SELECT ${expression} AS value FROM dbo.widgets`;
+          const analysis = grammar.analyze(source, schema);
+          const raw = await db.queryable.all(source);
+          evidence.cases.push({ name: `${level}: native NULL ${expression}`, status: "evidence", raw, analysis });
+          if (raw[0]?.value === null && !analysis.diagnostics.some((item) => item.severity === "error"))
+            assert.equal(analysis.columns[0]?.nullable, true, `${expression} returns SQL NULL for nonnullable inputs`);
+        }
+        const cases = [];
+        for (const expression of [
+          "LEFT(code,@__typed_sql_1)",
+          "RIGHT(code,@__typed_sql_1)",
+          "SUBSTRING(code,@__typed_sql_1,@__typed_sql_2)",
+          "REPLICATE(code,@__typed_sql_1)",
+          "SPACE(@__typed_sql_1)",
+          "STR(quantity,@__typed_sql_1,@__typed_sql_2)",
+          "LEFT(document,2)",
+          "RIGHT(document,2)",
+          "SUBSTRING(document,1,2)",
+          "LOWER(CAST(code AS char(12)))",
+          "LOWER(CAST(code AS varchar(12)))",
+          "REPLICATE(CAST(code AS char(12)),2)",
+          "REPLICATE(CAST(code AS varchar(12)),2)",
+        ]) {
+          const source = `SELECT ${expression} AS value FROM dbo.widgets`;
+          const metadata = await db.queryable.all(
+            "SELECT name,system_type_name,is_nullable,error_number,error_message FROM sys.dm_exec_describe_first_result_set(?,?,0) ORDER BY column_ordinal",
+            [source, "@__typed_sql_1 int,@__typed_sql_2 int"],
+          );
+          cases.push({ expression, metadata, analysis: grammar.analyze(source, schema) });
+        }
+        evidence.cases.push({ name: `${level}: native dynamic string dimensions`, status: "evidence", cases });
+      });
+      await check(`${level}: compiled named string dimensions`, async () => {
+        for (const [expression, values, expected] of [
+          ["LEFT(code,:length)", { length: 2 }, "sa"],
+          ["RIGHT(code,:length)", { length: 2 }, "le"],
+          ["SUBSTRING(code,:start,:length)", { start: 2, length: 3 }, "amp"],
+          ["REPLICATE(code,:count)", { count: 2 }, "samplesample"],
+          ["SPACE(:count)", { count: 2 }, "  "],
+          ["SPACE(:count)", { count: null }, null],
+          ["STR(quantity,:length,:digits)", { length: 12, digits: 2 }, "       -7.00"],
+        ]) {
+          const factory = await compile(schema, `SELECT ${expression} AS value FROM dbo.widgets`);
+          assert.equal((await db.one(factory(values))).value, expected, expression);
+        }
+      });
+      const row = {
+        id: 9223372036854775807n,
+        amount: "1234567890123456789012345678.1234567890",
+        label: "😀漢字é\0".repeat(2000),
+        active: false,
+        bytes: Uint8Array.from([0, 255, 128, 1]),
+        happened: "1969-12-31T23:59:59.9999999",
+      };
+      await check(`${level}: compiled named INSERT OUTPUT and repeated SELECT`, async () => {
+        assert.deepEqual(await db.one(insert(row)), row);
+        assert.deepEqual(await db.one(find({ id: row.id })), row);
+      });
+      await check(`${level}: native cancellation, deadline and settled cleanup`, async () => {
+        for (const mode of ["abort", "deadline", "prepared-abort", "pre-abort"]) {
+          const connection = await connectSqlServerOdbc({ connectionString: dsn(`typed_sql_adapter_${level}`) });
+          let prepared;
+          let timer;
+          try {
+            const controller = new AbortController();
+            const text = "WAITFOR DELAY '00:00:10'; SELECT 1 AS value";
+            if (mode === "prepared-abort") prepared = await connection.prepare(text);
+            if (mode === "pre-abort") controller.abort();
+            else if (mode !== "deadline") timer = setTimeout(() => controller.abort(), 100);
+            const controls = mode === "deadline" ? { deadline: Date.now() + 100 } : { signal: controller.signal };
+            const started = Date.now();
+            await assert.rejects(prepared ? prepared.execute([], controls) : connection.execute(text, [], controls));
+            assert.ok(Date.now() - started < 4000, `${mode} must interrupt the ten-second native call`);
+            evidence.cases.push({
+              name: `${level}: ${mode} native cancellation`,
+              status: "pass",
+              durationMs: Date.now() - started,
+            });
+          } finally {
+            clearTimeout(timer);
+            try {
+              if (prepared) await prepared.close();
+            } finally {
+              await connection.close();
+            }
+          }
+        }
+      });
+      await check(`${level}: native prepared statement`, async () => {
+        const prepared = db.prepare(`find-${level}`, find);
+        assert.deepEqual(await db.one(prepared({ id: row.id })), row);
+        assert.deepEqual(await db.one(prepared({ id: row.id })), row);
+        await db.unprepare(`find-${level}`);
+      });
+      await check(`${level}: empty binary and large NUL text stay exact`, async () => {
+        const value = { ...row, id: 6n, label: "\0".repeat(40000), bytes: new Uint8Array() };
+        assert.deepEqual(await db.one(insert(value)), value);
+        const prepared = db.prepare(`nul-${level}`, find);
+        assert.deepEqual(await db.one(prepared({ id: 6n })), value);
+        await db.unprepare(`nul-${level}`);
+        await db.queryable.all("DELETE FROM dbo.adapter_values WHERE id=6");
+      });
+      await check(`${level}: atomic root batch and transaction rollback`, async () => {
+        const value = { ...row, id: 2n, label: "rollback" };
+        await assert.rejects(db.batch([insert(value), insert(value)]));
+        assert.equal(await db.maybeOne(find({ id: 2n })), undefined);
+        await assert.rejects(
+          db.transaction(async (scope) => {
+            await scope.one(insert({ ...row, id: 3n }));
+            throw new Error("intentional rollback");
+          }),
+          /intentional rollback/u,
+        );
+        assert.equal(await db.maybeOne(find({ id: 3n })), undefined);
+      });
+      await check(`${level}: lazy stream early close and recovery`, async () => {
+        await db.one(insert({ ...row, id: 4n, label: "stream" }));
+        const stream = db.stream(all());
+        for await (const value of stream) {
+          assert.equal(value.id, 4n);
+          break;
+        }
+        assert.deepEqual(await db.all(all()), [{ id: 4n }, { id: row.id }]);
+      });
+      await check(`${level}: attached result validator`, async () => {
+        let calls = 0;
+        const validator = {
+          "~standard": {
+            version: 1,
+            vendor: "native-adapter-probe",
+            validate(value) {
+              calls++;
+              return { value };
+            },
+          },
+        };
+        assert.deepEqual(await db.one(sql.validateResult(find({ id: row.id }), validator)), row);
+        assert.equal(calls, 1);
+      });
+      await check(
+        `${level}: isolated VARCHAR conversion fidelity`,
+        async () => {
+          for (const encoding of major >= 15 ? ["legacy", "utf8"] : ["legacy"]) {
+            let failure;
+            try {
+              await promisify(execFile)(
+                process.execPath,
+                [fileURLToPath(new URL("varchar-fidelity.mjs", import.meta.url)), String(level), encoding],
+                { timeout: 45000, maxBuffer: 65536 },
+              );
+            } catch (error) {
+              failure = {
+                message: String(error).replaceAll(password, "[redacted]"),
+                signal: error.signal,
+                code: error.code,
+              };
+            }
+            const path = resolve(`../../artifacts/sqlserver/varchar-${major}-${level}-${encoding}.json`);
+            const report = JSON.parse(await readFile(path, "utf8"));
+            evidence.cases.push({
+              name: `${level}: VARCHAR ${encoding}`,
+              status: "evidence",
+              ...report,
+              ...(failure ? { failure } : {}),
+            });
+            // Negative control for the explicit compatibility SDK. Its known
+            // corruption is why the public default uses counted direct ODBC.
+            // The typed compatibility guard and exact default are asserted above.
+            assert.ok(report.cases.length > 0, "Compatibility counterexample must leave evidence");
+          }
+        },
+        { continueOnFailure: true },
+      );
+    } finally {
+      await db.close();
+    }
+  }
+  assert.deepEqual(qualificationFailures, [], "Native qualification has unresolved metadata disagreements");
+} finally {
+  await mkdir(resolve(output, ".."), { recursive: true });
+  await writeFile(output, JSON.stringify(evidence, null, 2));
+  await rm(generated, { recursive: true, force: true });
+}
+console.log(JSON.stringify({ major, passed: evidence.cases.length }));

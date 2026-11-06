@@ -1,7 +1,7 @@
 ---
 title: Database type mappings
 pageType: reference
-description: PostgreSQL, MySQL, and SQLite mappings from catalog types through inferred TypeScript types to runtime driver values.
+description: SQL grammar mappings from catalog types through inferred TypeScript types to runtime driver values.
 ---
 
 # Database type mappings
@@ -150,6 +150,26 @@ same policy must be passed to the dialect, provider, and adapter.
 SQLite's historical primary-key nullability exception is preserved: an ordinary non-STRICT rowid
 table can report nullable non-rowid primary-key columns. Exact rowid aliases, STRICT primary keys,
 and `WITHOUT ROWID` primary keys remain non-null.
+
+## SQL Server
+
+| Native type | Default TypeScript type | Runtime value |
+| --- | --- | --- |
+| `tinyint`, `smallint`, `int`, `real`, `float` | `number` | Finite JavaScript number under the shared safe-integral policy |
+| `bigint` | `bigint` | Exact signed 64-bit integer |
+| `decimal`, `numeric`, `money`, `smallmoney` | `string` | Exact decimal text |
+| `bit` | `boolean` | JavaScript boolean |
+| Character types and XML | `string` | Counted text, including embedded and trailing NUL |
+| `binary`, `varbinary`, `rowversion` | `Uint8Array` | Independently owned bytes; empty remains distinct from SQL NULL |
+| Date and time types | `string` | Native precision, including seven fractional digits where supported |
+| JSON | `string` | JSON text; explicit parsed policy uses the proven JSON shape |
+| CLR, spatial, `sql_variant`, unqualified types | `unknown` | Unsupported typed transports fail before execution |
+
+Scalar money and decimal policies do not dictate JSON serialization: `JSON_OBJECT` and
+`JSON_ARRAY` emit native numeric values as JSON numbers, including money. Stored character JSON
+remains escaped text inside a constructor unless promoted by `JSON_QUERY`; a directly nested
+constructor retains its object or array shape. Unknown conditional fragment provenance remains
+conservative. See [SQL Server policies and transport limits](../dialects/sqlserver.md).
 
 ## Nullability, aggregates, and drift
 

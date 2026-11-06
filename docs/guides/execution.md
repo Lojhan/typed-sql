@@ -186,7 +186,11 @@ const [accounts, orders] = await database.batch([accountQuery, orderQuery]);
 
 `accounts` and `orders` retain their respective inferred row arrays. Prepared queries remain ordinary `Query` values and can appear in the same batch. Passing an empty tuple returns immediately without acquiring a connection.
 
-A root batch is sequential and non-atomic. It performs one driver execution per query on the same connection, stops at the first failure, and does not claim a single network round trip. Successfully completed statements are not rolled back when a later statement fails.
+A root batch executes sequentially on one connection and stops at the first failure. PostgreSQL,
+MySQL, and built-in SQLite root batches use autocommit, so earlier successful statements remain
+committed. SQL Server root batches wrap the queries in one transaction and roll back on
+failure. Portable D1, libSQL, and SQLite Wasm adapters have their own atomic batch contract. Batching
+does not imply a single network round trip.
 
 Use an explicit transaction when atomicity is required and supported by the statements and database:
 

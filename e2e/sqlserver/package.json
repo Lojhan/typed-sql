@@ -4,9 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "qualify:transport": "node transport-probe.mjs"
+    "qualify:transport": "node transport-probe.mjs",
+    "qualify:adapter": "node --import tsx adapter-probe.mjs",
+    "qualify:packed": "node --import tsx packed-probe.mjs",
+    "qualify:catalog": "node catalog-probe.mjs"
   },
   "devDependencies": {
-    "msnodesqlv8": "6.2.2"
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/sqlserver": "workspace:*",
+    "koffi": "3.3.7",
+    "msnodesqlv8": "6.2.2",
+    "tsx": "4.23.15"
   }
 }

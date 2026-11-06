@@ -74,6 +74,35 @@ jobs:
           TYPED_SQL_SQLSERVER_IMAGE: ${{ matrix.image }}
           TYPED_SQL_ODBC_VERSION: 18.7.1.1-1
           TYPED_SQL_SQLSERVER_ARTIFACT: ${{ github.workspace }}/artifacts/sqlserver/transport-${{ matrix.major }}.json
+      - name: Build public SQL Server and compiler entrypoints
+        id: build
+        run: pnpm typecheck
+      - name: Qualify exact direct ODBC FFI prototype
+        working-directory: e2e/sqlserver
+        run: |
+          mkdir -p ../../artifacts/sqlserver
+          node --expose-gc ffi-transport-probe.mjs > "../../artifacts/sqlserver/ffi-${TYPED_SQL_SQLSERVER_MAJOR}.json"
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+      - name: Check application-owned native SDK types
+        run: pnpm exec tsc --ignoreConfig --strict --noEmit --module NodeNext --moduleResolution NodeNext --target ES2024 --skipLibCheck e2e/sqlserver/type-proof.ts
+      - name: Qualify the public native adapter and introspection provider
+        run: pnpm --filter @typed-sql/e2e-sqlserver qualify:adapter
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+          TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
+      - name: Qualify isolated tarballs and native worker artifacts
+        if: always() && steps.build.outcome == 'success'
+        run: pnpm --filter @typed-sql/e2e-sqlserver qualify:packed
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+          TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
+      - name: Qualify actual catalogs, permissions and temporal writes
+        if: always() && steps.build.outcome == 'success'
+        run: pnpm --filter @typed-sql/e2e-sqlserver qualify:catalog
+        env:
+          TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
+          TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

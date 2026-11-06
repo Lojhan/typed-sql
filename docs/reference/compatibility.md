@@ -49,6 +49,9 @@ The report excludes setting values, schema expressions, source text, credentials
 | `mysql2` | Application-owned driver loaded by `@typed-sql/mysql/mysql2` | `mysql2` 3.24.6 |
 | SQLite | SQLite 3.39.0–3.54.1 grammar and PRAGMA catalog provider; unknown newer libraries are conservative | Source-built SQLite 3.39.0 and 3.54.1, every supported Node line's bundled library, with exact 3.54.1 release coverage |
 | `node:sqlite` | Built-in adapter loaded by `@typed-sql/sqlite/node-sqlite`; Node 22.13+, 24, and 26 | Node 22.13.0 and current Node 22, 24, and 26 lines |
+| [SQL Server](../dialects/sqlserver.md) | Boxed engine majors 14–17, with each engine's supported compatibility levels 140–170 | 14.0.3560.2, 15.0.4500.2, 16.0.4305.5 and 17.0.5035.5; ten engine/compatibility combinations |
+| `koffi` | Application-owned direct ODBC bridge loaded by `@typed-sql/sqlserver/odbc`; exact 3.3.7 on Linux x64 | Counted value transport with ODBC 18.7.1.1 and unixODBC 2.3.12 |
+| `msnodesqlv8` | Explicit `@typed-sql/sqlserver/msnodesqlv8` compatibility adapter; restricted text result families | 6.2.2 with ODBC 18.7.1.1 and unixODBC 2.3.12 on native Linux x64 |
 
 Driver configurations that change decoded value shapes can violate static types. The adapters own or reject those settings as documented in [Database type mappings](./type-mappings.md).
 
@@ -56,7 +59,7 @@ Driver configurations that change decoded value shapes can violate static types.
 
 | Surface | Status |
 | --- | --- |
-| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `cli`, `adapters`, `build` | Stable package contract |
+| `core`, `opentelemetry`, `ast`, `schema`, `config`, `compiler`, `conformance`, `postgres`, `mysql`, `sqlite`, `sqlserver`, `cli`, `adapters`, `build` | Stable package contract |
 | `ts-bridge`, `language-server` | Experimental while their preview contracts are exercised |
 | VS Code and Zed integrations | Experimental distribution |
 

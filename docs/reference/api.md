@@ -144,7 +144,7 @@ Cardinality failures throw `QueryCardinalityError` with code `TSQL_CARDINALITY`,
 
 ### Prepared query factories
 
-PostgreSQL, MySQL, and SQLite adapters expose:
+PostgreSQL, MySQL, SQLite, and SQL Server adapters expose:
 
 ```ts
 database.prepare(name, (...arguments) => query)
@@ -158,7 +158,7 @@ The same prepared-state registry is available to transaction scopes created by t
 
 ### Ordered batches
 
-PostgreSQL, MySQL, and SQLite database and transaction adapters expose:
+PostgreSQL, MySQL, SQLite, and SQL Server database and transaction adapters expose:
 
 ```ts
 database.batch(queries)
@@ -166,7 +166,15 @@ database.batch(queries)
 
 The input is a readonly query tuple or homogeneous query array. `QueryResults<Queries>` maps every query to its `readonly Row[]` result while preserving tuple order. Non-query values are rejected by the parameter type.
 
-An empty batch returns without leasing a connection. A non-empty root batch leases one connection and executes each query sequentially, stopping at the first failure. It is neither atomic nor a one-round-trip protocol. Calling `batch()` inside `database.transaction()` reuses the transaction connection, so transactional statements follow the surrounding transaction's commit or rollback. Database rules such as MySQL DDL implicit commits still apply.
+An empty batch returns without leasing a connection. A non-empty batch executes queries sequentially on one connection and stops at the first failure. Atomicity depends on the adapter:
+
+| Adapter | Root batch behavior |
+| --- | --- |
+| PostgreSQL, MySQL, built-in SQLite | Autocommit; earlier successful statements remain committed after a later failure |
+| SQL Server | One transaction; a failure rolls back the batch |
+| D1, libSQL, SQLite Wasm | The adapter's atomic batch contract |
+
+Calling `batch()` inside `database.transaction()` reuses the surrounding transaction. Database rules such as MySQL DDL implicit commits still apply. Sequential batching does not imply one network round trip.
 
 Transaction batches are scoped operations. Callers must await them before the callback returns, and adapters reject competing connection work while a batch is active.
 

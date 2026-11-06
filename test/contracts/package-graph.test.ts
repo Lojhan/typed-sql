@@ -32,7 +32,15 @@ const forbiddenDrivers = new Set([
   "@libsql/client",
   "@neondatabase/serverless",
   "postgres",
+  "mssql",
+  "tedious",
+  "msnodesqlv8",
+  "koffi",
+  "@sqlite.org/sqlite-wasm",
 ]);
+function isDatabaseDriver(name: string): boolean {
+  return forbiddenDrivers.has(name) || name.startsWith("@koromix/koffi-");
+}
 const publicPackages = [
   "build",
   "adapters",
@@ -49,6 +57,7 @@ const publicPackages = [
   "ts-bridge",
   "language-server",
   "sqlite",
+  "sqlserver",
 ] as const;
 const stablePackages = [
   "core",
@@ -61,6 +70,7 @@ const stablePackages = [
   "postgres",
   "mysql",
   "sqlite",
+  "sqlserver",
   "cli",
   "adapters",
   "build",
@@ -98,6 +108,7 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   "ts-bridge": [".", "./native-lsp", "./native-preview", "./sql-register", "./vite"],
   "language-server": ["."],
   sqlite: [".", "./runtime", "./node-sqlite", "./query"],
+  sqlserver: [".", "./query", "./runtime", "./odbc", "./msnodesqlv8", "./browser"],
 };
 
 async function manifest(packageName: string, parent = "packages"): Promise<PackageManifest> {
@@ -134,11 +145,12 @@ await describe("public package graph", async () => {
       "postgres",
       "mysql",
       "sqlite",
+      "sqlserver",
     ]) {
       const packageManifest = await manifest(packageName);
       for (const field of [packageManifest.dependencies, packageManifest.optionalDependencies]) {
         for (const dependency of Object.keys(field ?? {})) {
-          strict.ok(!forbiddenDrivers.has(dependency), `${packageManifest.name} must not install ${dependency}`);
+          strict.ok(!isDatabaseDriver(dependency), `${packageManifest.name} must not install ${dependency}`);
         }
       }
     }
@@ -207,7 +219,7 @@ await describe("public package graph", async () => {
 
   await it("keeps the public conformance kit and example grammar implementation-neutral", async () => {
     const conformance = await source("conformance");
-    strict.ok(!/\b(?:postgres(?:ql)?|mysql2?|sqlite)\b/iu.test(conformance));
+    strict.ok(!/\b(?:postgres(?:ql)?|mysql2?|sqlite|sqlserver)\b/iu.test(conformance));
     strict.deepStrictEqual(Object.keys((await manifest("conformance")).dependencies ?? {}).sort(), [
       "@typed-sql/compiler",
       "@typed-sql/core",
@@ -236,7 +248,10 @@ await describe("public package graph", async () => {
   await it("keeps every neutral package free of dialect, driver, and SQL-feature decisions", async () => {
     const neutralPackages = ["build", "core", "compiler", "conformance", "config", "schema"] as const;
     const forbiddenSource = [
-      { label: "first-party dialect name", pattern: /\b(?:postgres(?:ql)?|mysql2?)\b/iu },
+      {
+        label: "first-party dialect name",
+        pattern: /\b(?:postgres(?:ql)?|mysql2?|sqlserver|mssql|tedious|msnodesqlv8)\b/iu,
+      },
       { label: "dialect-specific RETURNING", pattern: /\bRETURNING\b/u },
       { label: "dialect-specific DISTINCT ON", pattern: /\bDISTINCT\s+ON\b/u },
       { label: "dialect-specific FULL JOIN", pattern: /\bFULL\s+JOIN\b/u },
@@ -253,7 +268,8 @@ await describe("public package graph", async () => {
         strict.ok(
           dependency !== "@typed-sql/postgres" &&
             dependency !== "@typed-sql/mysql" &&
-            !forbiddenDrivers.has(dependency),
+            dependency !== "@typed-sql/sqlserver" &&
+            !isDatabaseDriver(dependency),
           `${packageName} depends on dialect or driver ${dependency}`,
         );
       }
