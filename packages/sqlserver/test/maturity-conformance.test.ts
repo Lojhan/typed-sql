@@ -166,21 +166,18 @@ await describe("SQL Server vendor-backed conformance-v2 maturity corpus", async 
               tsType: "bigint",
               nullable: false,
               databaseType: "bigint",
-              ...{ name: "id", runtimeType: "bigint" },
             },
             {
               index: 2,
               tsType: "bigint",
               nullable: false,
               databaseType: "bigint",
-              ...{ name: "parent_id", runtimeType: "bigint" },
             },
             {
               index: 3,
               tsType: "string",
               nullable: false,
               databaseType: "decimal(12,2)",
-              ...{ name: "amount", runtimeType: "string" },
             },
           ],
           diagnostics: [],
@@ -188,6 +185,10 @@ await describe("SQL Server vendor-backed conformance-v2 maturity corpus", async 
         },
       ],
     });
+    strict.deepEqual(
+      grammar.analyze(source, snapshot).parameters.map((parameter) => parameter.runtimeType),
+      ["bigint", "bigint", "string"],
+    );
     const report = runStaticConformanceProbe(probe, target, {
       dialect: grammar,
       snapshot,
