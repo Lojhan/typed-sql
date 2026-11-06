@@ -202,6 +202,38 @@ const environment: ConformanceEnvironment = Object.freeze({
 });
 
 await describe("conformance v2", async () => {
+  await it("compares the public ordered parameter contract while allowing grammar metadata", () => {
+    for (const change of ["none", "databaseType", "index", "nullable", "tsType", "tuple-order"] as const) {
+      const base = exactProbe();
+      const expected = base.expected[0]!;
+      const second = { index: 2, tsType: "string", nullable: true, databaseType: "text" };
+      const probe =
+        change === "tuple-order"
+          ? exactProbe({ expected: [{ ...expected, parameters: [...expected.parameters!, second] }] })
+          : base;
+      const context = {
+        ...dialect,
+        analyze() {
+          const analysis = dialect.analyze(source, snapshot);
+          const first = {
+            ...analysis.parameters[0]!,
+            name: "value",
+            runtimeType: "bigint" as const,
+            ...(change === "databaseType" ? { databaseType: "int4" } : {}),
+            ...(change === "index" ? { index: 2 } : {}),
+            ...(change === "nullable" ? { nullable: true } : {}),
+            ...(change === "tsType" ? { tsType: "string" } : {}),
+          };
+          return { ...analysis, parameters: change === "tuple-order" ? [second, first] : [first] };
+        },
+      };
+      const report = runStaticConformanceProbe(probe, target, { dialect: context, snapshot, renderer });
+      const resolved = report.layers.find((entry) => entry.layer === "resolve")!;
+      strict.equal(resolved.status, change === "none" ? "pass" : "fail");
+      if (change !== "none")
+        strict.ok(resolved.differences?.some((difference) => difference.path === "resolve.parameters"));
+    }
+  });
   await it("validates permanent probes, selectors, and immutable suites", () => {
     const probe = exactProbe();
     const suite = defineConformanceSuite({ version: CONFORMANCE_VERSION, name: "synthetic", probes: [probe] });
