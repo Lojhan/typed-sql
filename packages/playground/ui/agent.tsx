@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { Icon } from "./icon";
 import type { State, Value } from "./types";
+import "./agent.css";
 
 interface Profile {
   id: string;
@@ -25,8 +26,27 @@ interface Conversation {
     description: string;
   }[];
   error?: string;
+  toolCalls?: {
+    id: string;
+    name: string;
+    state: "running" | "completed" | "failed";
+    createdAt: string;
+    updatedAt: string;
+  }[];
 }
+const toolLabels: Record<string, string> = {
+  typed_sql_get_schema: "Get schema",
+  typed_sql_get_object: "Inspect object",
+  typed_sql_list_migrations: "List migrations",
+  typed_sql_list_files: "List files",
+  typed_sql_read_file: "Read file",
+  typed_sql_analyze_sql: "Analyze SQL",
+  typed_sql_query_readonly: "Query read only",
+  typed_sql_get_result: "Get captured result",
+  typed_sql_propose_file: "Propose file",
+};
 interface Agents {
+  workspaceToolsAvailable?: boolean;
   profiles: Profile[];
   conversations: { id: string; title: string; profileId: string; updatedAt: string }[];
   configurationPath: string;
@@ -58,30 +78,103 @@ export function AgentPanel({
     [includeSource, setIncludeSource] = useState(true),
     [includeSchema, setIncludeSchema] = useState(false),
     [includeResult, setIncludeResult] = useState(false),
+    [workspaceTools, setWorkspaceTools] = useState(false),
     [review, setReview] = useState<string | null>(null);
   const [resultRun, setResultRun] = useState("");
+  useEffect(() => {
+    if (!state.trusted || !agents?.workspaceToolsAvailable) setWorkspaceTools(false);
+  }, [state.trusted, agents?.workspaceToolsAvailable]);
   const selectedRun = state.runs.find((run) => run.id === resultRun);
   const result = selectedRun?.results[0]?.value;
   const end = useRef<HTMLDivElement>(null);
+  const selectionKey = `typed-sql-agent-selection-v1:${state.project.name}:${state.project.config}:${state.target ?? "offline"}`;
+  const selectionVersion = useRef(0);
+  const mounted = useRef(true);
+  const trusted = useRef(state.trusted);
+  trusted.current = state.trusted;
+  const currentConversation = useRef(conversation?.id ?? "");
+  currentConversation.current = conversation?.id ?? "";
+  const persistSelection = useCallback(
+    (profileId: string, conversationId = "") => {
+      try {
+        localStorage.setItem(selectionKey, JSON.stringify({ profileId, conversationId }));
+      } catch {
+        /* Browser storage can be disabled. */
+      }
+    },
+    [selectionKey],
+  );
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      selectionVersion.current++;
+    };
+  }, []);
   const refresh = useCallback(async () => {
     const next = await api<Agents>("agents");
-    setAgents(next);
-    setProfile((current) => current || next.profiles[0]?.id || "");
+    if (mounted.current) setAgents(next);
+    return next;
   }, []);
   useEffect(() => {
-    void refresh().catch((error) => setError(error.message));
-  }, [refresh]);
+    const request = ++selectionVersion.current;
+    setConversation(null);
+    void (async () => {
+      const next = await refresh();
+      if (!mounted.current || selectionVersion.current !== request) return;
+      let saved: { profileId?: unknown; conversationId?: unknown } | null = null;
+      try {
+        saved = JSON.parse(localStorage.getItem(selectionKey) ?? "null");
+      } catch {
+        /* Ignore invalid browser state. */
+      }
+      const selectedProfile =
+        next.profiles.find((item) => item.id === saved?.profileId)?.id ?? next.profiles[0]?.id ?? "";
+      const selectedConversation = next.conversations.find(
+        (item) => item.id === saved?.conversationId && item.profileId === selectedProfile,
+      );
+      setProfile(selectedProfile);
+      persistSelection(selectedProfile, selectedConversation?.id);
+      if (state.trusted && selectedConversation) {
+        const restored = await api<Conversation>(
+          `agents/conversation?id=${encodeURIComponent(selectedConversation.id)}`,
+        );
+        if (
+          mounted.current &&
+          trusted.current &&
+          selectionVersion.current === request &&
+          restored.id === selectedConversation.id &&
+          restored.profileId === selectedProfile
+        )
+          setConversation(restored);
+      }
+    })().catch((error) => {
+      if (mounted.current && selectionVersion.current === request) setError(error.message);
+    });
+    return () => {
+      selectionVersion.current++;
+    };
+  }, [state.trusted, selectionKey, persistSelection, refresh]);
   useEffect(() => {
-    if (conversation?.status !== "running") return;
+    if (!state.trusted || conversation?.status !== "running") return;
     let cancelled = false;
+    const id = conversation.id,
+      request = selectionVersion.current;
     const interval = setInterval(
       () =>
-        void api<Conversation>(`agents/conversation?id=${encodeURIComponent(conversation.id)}`).then(
+        void api<Conversation>(`agents/conversation?id=${encodeURIComponent(id)}`).then(
           (next) => {
-            if (!cancelled) setConversation(next);
+            if (
+              !cancelled &&
+              mounted.current &&
+              trusted.current &&
+              selectionVersion.current === request &&
+              currentConversation.current === id
+            )
+              setConversation(next);
           },
           (error) => {
-            if (!cancelled) setError(error.message);
+            if (!cancelled && mounted.current && selectionVersion.current === request) setError(error.message);
           },
         ),
       700,
@@ -90,27 +183,45 @@ export function AgentPanel({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [conversation?.id, conversation?.status, conversation]);
+  }, [conversation?.id, conversation?.status, state.trusted]);
   const lastMessage = conversation?.messages.at(-1)?.text;
+  const activity = [
+    ...(conversation?.toolCalls?.map((call) => `${call.id}:${call.state}`) ?? []),
+    ...(conversation?.proposals.map((proposal) => `${proposal.id}:${proposal.status}`) ?? []),
+  ].join("|");
   useEffect(() => {
-    if (lastMessage) end.current?.scrollIntoView({ block: "nearest" });
-  }, [lastMessage]);
+    if (lastMessage || activity) end.current?.scrollIntoView({ block: "nearest" });
+  }, [lastMessage, activity]);
+  const pendingActions = useRef(0);
   const perform = async (fn: () => Promise<void>) => {
+    pendingActions.current++;
     setBusy(true);
     setError("");
+    let request = selectionVersion.current;
     try {
-      await fn();
+      const task = fn();
+      request = selectionVersion.current;
+      await task;
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      if (mounted.current && selectionVersion.current === request)
+        setError(error instanceof Error ? error.message : String(error));
     } finally {
-      setBusy(false);
+      pendingActions.current--;
+      if (mounted.current) setBusy(pendingActions.current > 0);
     }
   };
   const create = async () => {
+    if (!state.trusted) {
+      onTrust();
+      return;
+    }
+    const request = ++selectionVersion.current;
     const next = await api<Conversation>("agents/new", { profileId: profile });
+    if (!mounted.current || selectionVersion.current !== request) return;
     setConversation(next);
+    persistSelection(profile, next.id);
     await refresh();
-    return next;
+    if (mounted.current && selectionVersion.current === request) return next;
   };
   const send = async () => {
     if (!message.trim()) return;
@@ -119,6 +230,9 @@ export function AgentPanel({
       return;
     }
     const active = conversation && conversation.profileId === profile ? conversation : await create();
+    if (!active) return;
+    const request = selectionVersion.current;
+    const submittedMessage = message;
     const context = {
       ...(includeSource && source?.revision ? { source } : {}),
       ...(includeSchema ? { schema: state.board } : {}),
@@ -137,8 +251,16 @@ export function AgentPanel({
           }
         : {}),
     };
-    setConversation(await api<Conversation>("agents/prompt", { conversationId: active.id, message, context }));
-    setMessage("");
+    const next = await api<Conversation>("agents/prompt", {
+      conversationId: active.id,
+      message: submittedMessage,
+      context,
+      ...(workspaceTools && agents?.workspaceToolsAvailable ? { workspaceTools: true } : {}),
+    });
+    if (mounted.current && trusted.current && selectionVersion.current === request) {
+      setConversation(next);
+      setMessage((current) => (current === submittedMessage ? "" : current));
+    }
   };
   const saveProfile = async () => {
     if (!state.trusted) {
@@ -153,19 +275,27 @@ export function AgentPanel({
         .toLowerCase()
         .replace(/[^a-z0-9_-]+/g, "-")
         .replace(/^-|-$/g, "") || "local";
+    const request = ++selectionVersion.current;
     await api("agents/configure", { profile: { id, name, command, args: parsed } });
     await refresh();
-    setProfile(id);
-    setConfigure(false);
+    if (mounted.current && selectionVersion.current === request) {
+      setProfile(id);
+      setConversation(null);
+      persistSelection(id);
+      setConfigure(false);
+    }
   };
   const decide = async (proposalId: string, action: "accept" | "reject") => {
     if (!conversation) return;
     const proposal = conversation.proposals.find((item) => item.id === proposalId);
-    setConversation(
-      await api<Conversation>("agents/proposal", { conversationId: conversation.id, proposalId, action }),
-    );
+    const id = conversation.id,
+      request = selectionVersion.current;
+    const next = await api<Conversation>("agents/proposal", { conversationId: id, proposalId, action });
+    if (mounted.current && selectionVersion.current === request && currentConversation.current === id) {
+      setConversation(next);
+      setReview(null);
+    }
     if (action === "accept" && proposal) onChanged(proposal.file);
-    setReview(null);
   };
   return (
     <section className="agent-workspace">
@@ -174,8 +304,11 @@ export function AgentPanel({
           aria-label="Agent profile"
           value={profile}
           onChange={(event) => {
+            selectionVersion.current++;
             setProfile(event.target.value);
             setConversation(null);
+            setReview(null);
+            persistSelection(event.target.value);
           }}
         >
           <option value="">Select local agent</option>
@@ -190,13 +323,26 @@ export function AgentPanel({
           value={conversation?.id ?? ""}
           onChange={(event) => {
             const id = event.target.value;
-            if (!id) {
-              setConversation(null);
+            const request = ++selectionVersion.current;
+            persistSelection(profile, id);
+            setConversation(null);
+            setReview(null);
+            if (!id) return;
+            if (!state.trusted) {
+              onTrust();
               return;
             }
-            void perform(async () =>
-              setConversation(await api<Conversation>(`agents/conversation?id=${encodeURIComponent(id)}`)),
-            );
+            void perform(async () => {
+              const next = await api<Conversation>(`agents/conversation?id=${encodeURIComponent(id)}`);
+              if (
+                mounted.current &&
+                trusted.current &&
+                selectionVersion.current === request &&
+                next.profileId === profile &&
+                next.id === id
+              )
+                setConversation(next);
+            });
           }}
         >
           <option value="">New conversation</option>
@@ -204,7 +350,7 @@ export function AgentPanel({
             .filter((item) => item.profileId === profile)
             .map((item) => (
               <option key={item.id} value={item.id}>
-                {item.title}
+                {item.id === conversation?.id ? conversation.title : item.title}
               </option>
             ))}
         </select>
@@ -240,9 +386,14 @@ export function AgentPanel({
           <label>
             Preset
             <select
+              aria-label="Agent preset"
               defaultValue="custom"
               onChange={(event) => {
-                if (event.target.value === "opencode") {
+                if (event.target.value === "codex") {
+                  setName("Codex");
+                  setCommand("codex-acp");
+                  setArgs("[]");
+                } else if (event.target.value === "opencode") {
                   setName("OpenCode");
                   setCommand("opencode");
                   setArgs('["acp"]');
@@ -250,16 +401,18 @@ export function AgentPanel({
               }}
             >
               <option value="custom">Custom ACP process</option>
+              <option value="codex">Codex</option>
               <option value="opencode">OpenCode</option>
             </select>
           </label>
           <label>
             Name
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
+            <input aria-label="Agent name" value={name} onChange={(event) => setName(event.target.value)} required />
           </label>
           <label>
             Executable
             <input
+              aria-label="Agent executable"
               value={command}
               placeholder="Local ACP-compatible executable"
               onChange={(event) => setCommand(event.target.value)}
@@ -268,7 +421,12 @@ export function AgentPanel({
           </label>
           <label>
             Arguments
-            <textarea rows={2} value={args} onChange={(event) => setArgs(event.target.value)} />
+            <textarea
+              aria-label="Agent arguments"
+              rows={2}
+              value={args}
+              onChange={(event) => setArgs(event.target.value)}
+            />
           </label>
           <div className="config-footer">
             <span>Starts a trusted local process. Configured globally for your account.</span>
@@ -300,6 +458,19 @@ export function AgentPanel({
             </article>
           ))
         )}
+        {conversation?.toolCalls?.map((call) => (
+          <div
+            className={`agent-tool-call ${call.state}`}
+            role="status"
+            aria-label={`Workspace tool: ${toolLabels[call.name] ?? call.name}`}
+            key={call.id}
+          >
+            <Icon name={call.state === "completed" ? "check" : call.state === "failed" ? "warning" : "play"} />
+            <span>{toolLabels[call.name] ?? call.name}</span>
+            <small>{call.state === "running" ? "Running" : call.state === "completed" ? "Completed" : "Failed"}</small>
+            <time>{new Date(call.createdAt).toLocaleTimeString()}</time>
+          </div>
+        ))}
         {conversation?.proposals.map((proposal) => (
           <section className={`agent-proposal ${proposal.status}`} key={proposal.id}>
             <header>
@@ -344,11 +515,11 @@ export function AgentPanel({
                     Apply reviewed change
                   </button>
                 </>
-              ) : (
+              ) : proposal.status === "accepted" || proposal.before !== null ? (
                 <button type="button" onClick={() => onOpen(proposal.file)}>
                   Open file
                 </button>
-              )}
+              ) : null}
             </div>
           </section>
         ))}
@@ -371,6 +542,23 @@ export function AgentPanel({
               onChange={(event) => setIncludeSource(event.target.checked)}
             />
             {source ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}` : "Active file"}
+          </label>
+          <label
+            title={
+              !agents?.workspaceToolsAvailable
+                ? "Workspace tools are unavailable from this host."
+                : !state.trusted
+                  ? "Enable trusted project execution to use workspace tools."
+                  : "Allow scoped file, schema and migration inspection, bounded read-only database queries, and reviewed file proposals."
+            }
+          >
+            <input
+              type="checkbox"
+              checked={workspaceTools}
+              disabled={!agents?.workspaceToolsAvailable || !state.trusted}
+              onChange={(event) => setWorkspaceTools(event.target.checked)}
+            />
+            Workspace tools
           </label>
           <label>
             <input
@@ -405,6 +593,12 @@ export function AgentPanel({
           </select>
           <span>{conversation?.status === "running" ? "Agent is working…" : profile ? "ACP · local process" : ""}</span>
         </div>
+        {workspaceTools && agents?.workspaceToolsAvailable ? (
+          <p className="agent-tools-scope">
+            Tools can inspect scoped files, schema and migration history, run bounded read-only queries, and propose
+            reviewed file changes.
+          </p>
+        ) : null}
         <textarea
           aria-label="Message local agent"
           value={message}
@@ -424,9 +618,13 @@ export function AgentPanel({
             <button
               type="button"
               onClick={() =>
-                void perform(async () =>
-                  setConversation(await api<Conversation>("agents/cancel", { conversationId: conversation.id })),
-                )
+                void perform(async () => {
+                  const id = conversation.id,
+                    request = ++selectionVersion.current;
+                  const next = await api<Conversation>("agents/cancel", { conversationId: id });
+                  if (mounted.current && selectionVersion.current === request && currentConversation.current === id)
+                    setConversation(next);
+                })
               }
             >
               Stop

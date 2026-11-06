@@ -1,0 +1,39 @@
+.agent-tools-scope {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.agent-tool-call {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  margin: 0 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 11px;
+  min-width: 0;
+}
+.agent-tool-call > .editor-icon {
+  flex: none;
+  color: var(--muted);
+  width: 13px;
+  height: 13px;
+}
+.agent-tool-call > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.agent-tool-call small,
+.agent-tool-call time {
+  flex: none;
+  font-size: 10px;
+  color: var(--muted);
+}
+.agent-tool-call.failed small {
+  color: var(--danger);
+}
