@@ -1,9 +1,10 @@
 # SQL Server and DuckDB implementation plan
 
 Internal engineering plan for #253 and #254. Research date: 2026-11-05.
-Status: cross-reviewed and ready for staged implementation. The review record below resolves
-planning objections. Native transport and complete product qualification are implementation gates,
-not public support claims established by this plan.
+Status: delivered and merged. The [final acceptance record](./final-maturity-gap-audit.md#current-acceptance-status)
+links the exact source, CI, native and code-scanning receipts. This plan retains the approved
+requirements and original staged design; its prospective wording is not an outstanding-work list.
+Delivery acceptance does not assert release publication.
 
 ## Outcome
 
@@ -257,6 +258,18 @@ results. Keep native platforms separate. Public supported-version claims require
 to pass, including settings and negative future-version cases. Packed tests use actual npm tarballs,
 no workspace source symlinks. Existing PG/MySQL/SQLite suites, coverage thresholds, browser graph,
 forbidden-driver contracts and performance budgets remain green.
+
+## Merged delivery mapping
+
+| Plan stage | Merged delivery |
+|---|---|
+| P0 | [#262](https://github.com/Lojhan/typed-sql/pull/262): independently reviewed studies, ownership decisions and maturity requirements. |
+| R0 | [#263](https://github.com/Lojhan/typed-sql/pull/263): initial native transport qualification; [#270](https://github.com/Lojhan/typed-sql/pull/270): final counted direct ODBC transport and permanent qualification after native counterexamples rejected the original general-transport assumption. |
+| N1 | [#264](https://github.com/Lojhan/typed-sql/pull/264): native structural descriptors and physical targets. Supporting neutral contracts are [#266](https://github.com/Lojhan/typed-sql/pull/266) (portable snapshots), [#267](https://github.com/Lojhan/typed-sql/pull/267) (strict native verification/cache identity), and [#268](https://github.com/Lojhan/typed-sql/pull/268) (public conformance parameters). N2 was unnecessary because both grammars own their parsers. |
+| S1/S2 and package S3 | [#270](https://github.com/Lojhan/typed-sql/pull/270): SQL Server grammar, catalog, policies, exact execution, services, installed CLI workflows and package documentation. |
+| D1/D2 and package D3 | [#269](https://github.com/Lojhan/typed-sql/pull/269): DuckDB grammar, catalog, nested values, native execution/appender/services, both SDK workflows and package documentation. |
+| Shared S3/D3 | [#265](https://github.com/Lojhan/typed-sql/pull/265): five-grammar playground, packaged editors, conformance ledger/runner, shared documentation and distribution contracts. |
+| Q | Required [CI 42145504615](https://github.com/Lojhan/typed-sql/actions/runs/42145504615) and [native qualification 42145504368](https://github.com/Lojhan/typed-sql/actions/runs/42145504368) pass for the tree merged by #265. Context, limits and the separate local preview-watch observation are recorded in the [final acceptance status](./final-maturity-gap-audit.md#current-acceptance-status). |
 
 ## MR sequence and validation
 
