@@ -58,8 +58,8 @@ export class WorkspaceFiles {
   }
   async path(file: string, write = false): Promise<string> {
     const path = await this.scopedPath(file, write);
-    if (!/\.(?:[cm]?ts|tsx|sql)$/u.test(path))
-      throw new WorkspaceError("EXTENSION", "Only TypeScript and SQL files can be edited");
+    if (!/\.(?:[cm]?[jt]s|[jt]sx|sql)$/u.test(path))
+      throw new WorkspaceError("EXTENSION", "Only TypeScript, JavaScript and SQL files can be edited");
     return path;
   }
   /** Creates an ordinary repository directory, including missing parents, without replacing anything. */
@@ -247,7 +247,8 @@ export class WorkspaceFiles {
         if (entry.isSymbolicLink() || hidden.has(entry.name)) continue;
         const path = join(directory, entry.name);
         if (entry.isDirectory()) await visit(path);
-        else if (/\.(?:[cm]?ts|tsx|sql)$/u.test(entry.name)) result.add(relative(this.root, path).split(sep).join("/"));
+        else if (/\.(?:[cm]?[jt]s|[jt]sx|sql)$/u.test(entry.name))
+          result.add(relative(this.root, path).split(sep).join("/"));
       }
     };
     for (const root of new Set([...this.readRoots, ...this.writeRoots])) await visit(resolve(this.root, root));

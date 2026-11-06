@@ -56,8 +56,15 @@ export interface RunRecord {
 }
 
 /** Static export discovery operates on transpiled syntax, never importing the project file. */
-export async function callableExports(source: string): Promise<readonly string[]> {
-  const js = await transform(source, { loader: "ts", format: "esm", target: "es2022" });
+function sourceLoader(file: string): "ts" | "tsx" | "js" | "jsx" {
+  if (file.endsWith(".tsx")) return "tsx";
+  if (file.endsWith(".jsx")) return "jsx";
+  if (/\.[cm]?js$/u.test(file)) return "js";
+  if (/\.[cm]?ts$/u.test(file)) return "ts";
+  throw new WorkspaceError("EXTENSION", "Select a TypeScript or JavaScript source file");
+}
+export async function callableExports(source: string, file = "query.ts"): Promise<readonly string[]> {
+  const js = await transform(source, { loader: sourceLoader(file), format: "esm", target: "es2022" });
   const program = parse(js.code, { ecmaVersion: "latest", sourceType: "module" });
   const functions = new Set<string>();
   const exports: [string, string][] = [];
@@ -354,8 +361,17 @@ export class RunManager {
       boundValues = bindSql(sqlAnalysis, request.values ?? []);
       captured.set(await this.files.path(request.file), source.source);
     } else {
-      if (!/\.[cm]?ts$/u.test(request.file)) throw new WorkspaceError("RUN_MODE", "Select a TypeScript file");
-      if (request.mode === "export" && !(await callableExports(source.source)).includes(request.exportName ?? "run"))
+      if (/\.c(?:ts|js)$/u.test(request.file))
+        throw new WorkspaceError(
+          "RUN_MODE",
+          "CommonJS files can be edited, but Run requires an ESM TypeScript or JavaScript entry",
+        );
+      if (!/\.(?:mts|ts|tsx|mjs|js|jsx)$/u.test(request.file))
+        throw new WorkspaceError("RUN_MODE", "Select an ESM TypeScript or JavaScript file");
+      if (
+        request.mode === "export" &&
+        !(await callableExports(source.source, request.file)).includes(request.exportName ?? "run")
+      )
         throw new WorkspaceError("EXPORT", "Select a statically declared zero-argument exported function");
       const reachable = await listProjectSourceFiles({
         project: this.project,
@@ -464,13 +480,7 @@ export class RunManager {
                   const parsed = parse(
                     (
                       await transform(original, {
-                        loader: args.path.endsWith(".sql")
-                          ? "text"
-                          : args.path.endsWith(".tsx")
-                            ? "tsx"
-                            : /\.[cm]?js$/u.test(args.path)
-                              ? "js"
-                              : "ts",
+                        loader: args.path.endsWith(".sql") ? "text" : sourceLoader(args.path),
                         format: "esm",
                       })
                     ).code,
@@ -505,15 +515,13 @@ export class RunManager {
                     contents: transformed
                       ? `${transformed.code}\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(transformed.map)).toString("base64")}`
                       : original,
-                    loader:
-                      transformed?.language ??
-                      (args.path.endsWith(".sql")
+                    loader: transformed
+                      ? args.path.endsWith(".jsx")
+                        ? "tsx"
+                        : transformed.language
+                      : args.path.endsWith(".sql")
                         ? "js"
-                        : args.path.endsWith(".tsx")
-                          ? "tsx"
-                          : /\.[cm]?js$/u.test(args.path)
-                            ? "js"
-                            : "ts"),
+                        : sourceLoader(args.path),
                     resolveDir: dirname(args.path),
                   };
                 });
