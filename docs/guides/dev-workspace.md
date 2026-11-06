@@ -63,7 +63,7 @@ export default defineConfig({
         connect: () => createPgPlaygroundTarget({ connectionString, schemas: ['public'], typePolicy }),
       },
     },
-    limits: { timeoutMs: 30_000, maxRows: 500, maxResultBytes: 5 * 1024 * 1024 },
+    limits: { timeoutMs: 30_000, pageSize: 200, cursorIdleMs: 30_000 },
   },
 });
 ```
@@ -78,6 +78,12 @@ pnpm exec typed-sql playground --target local
 **Connect database** verifies the observed database identity against the expected name. **Refresh schema** captures the live catalog for exploration and analysis. If it differs from the saved compiler snapshot, execution is blocked until you regenerate the contract and restart. Refresh never silently rewrites application artifacts.
 
 PostgreSQL/pg is the connected adapter. Other grammars can use a saved snapshot for offline exploration; their presence does not imply live execution support. Missing drivers, permissions or connectivity leave saved files and offline schema exploration available.
+
+## Files and split views
+
+The file tree shows actual files inside the repository, grouped by directory. The default writable query folder is `playground/`; change `scratchDirectory` and `writeRoots` to select another repository folder. Save, Save As and Rename operate on disk, so query files survive host and browser restarts and can be edited externally, committed and shared. Browser storage retains layout, open tabs and cursors rather than becoming the source of truth for file contents. Unsaved buffers need an explicit save.
+
+Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
 
 ## Explore and create a query
 
@@ -125,13 +131,23 @@ The child process has a bounded heap and deadline for lifecycle control; it is n
 
 Results retain their source revision, target context, start/end time and terminal status. Raw SQL uses ordered column metadata, preserving duplicate labels and empty-result columns. Typed values distinguish NULL/missing, bigint, date/time, bytes and structured values. Returned object rows cannot reconstruct duplicate labels already collapsed by a private driver.
 
-The grid virtualizes rows and offers cell inspection/copy, fetched-subset filtering/sorting, and JSON/CSV export. Export uses the captured fetched result; it never reruns the query. JSON uses tagged values for bigint, bytes, missing and nonfinite numbers to preserve their meaning. CSV is a display-oriented export.
+The grid renders a virtual window and fetches bounded result pages as you scroll. Cell inspection, filtering and JSON/CSV export operate on the current captured page; they never silently fetch all rows or rerun the query. JSON uses tagged values for bigint, bytes, missing and nonfinite numbers to preserve their meaning. CSV is a display-oriented export.
 
-Defaults are 500 rows/result, 5 MiB result payload/run, 1 MiB console output/run, a 30-second deadline, one active run, and ten retained in-memory runs. Duplicate request IDs never replay an accepted operation; expired results produce an explicit diagnostic. Restart after 10,000 unique session runs. PostgreSQL cursors bound managed fetch without appending SQL LIMIT clauses. Typed application-style `.all()` rejects truncated results instead of pretending they are complete. Limits on displayed TS output do not bound workload performed by a private driver.
+There is no default total row cutoff. Defaults are 200 rows/page, 5 MiB/page, a 512 MiB private disk capture quota per result, 1 MiB console output/run, a 30-second active operation deadline, one active run and ten retained runs. Configure `pageSize`, `maxResultBytes`, `maxSpoolBytes`, `cursorIdleMs` and `timeoutMs` under `playground.limits`; an explicit `maxRows` is an optional total cap. Quota failures and configured caps retain incomplete evidence rather than claiming a complete result.
+
+Read-only raw PostgreSQL results use a pinned cursor: the first page arrives before all rows are fetched, and scrolling requests subsequent pages without modifying SQL or re-executing it. Already captured pages remain available for backscroll and comparison. The cursor expires after 30 seconds without demand by default; **Close cursor**, cancellation and shutdown release it. Row counts remain lower bounds until exhaustion. Writes drain their result and confirm transaction completion before success; they do not leave an uncommitted write waiting for scrolling.
+
+Typed application-style `.all()` materializes its result inside the worker before display paging. Paging its output does not make that API a streaming query, and worker memory bounds still apply. Private drivers retain their own execution and fetch behavior. Duplicate request IDs never replay an accepted operation; expired results produce an explicit diagnostic. Restart after 10,000 unique session runs.
 
 Cancel asks the adapter to stop, then closes/terminates the worker if necessary. The UI distinguishes confirmed cancellation from **outcome unknown**. It never retries a write automatically. A stopped local process does not prove the database rolled back. Shutdown closes owned workers, cursors, pools and the listener.
 
-Only display layout and file references are persisted automatically. Rows, bindings, results and credentials are not uploaded or saved as workspace history.
+Query files persist in the repository. Layout and open-file references persist in the browser. Captured result pages use private temporary disk storage for the current host session and are removed on eviction or shutdown; they are not committed as workspace history. Nothing is uploaded by the workspace itself. Agent conversations use the separate opt-in local storage described below.
+
+## Compare captured queries
+
+Choose two captured runs in **Compare** to inspect their results and measurements side by side. Each side retains its source revision, target, schema and type-policy identity, parameter fingerprint and terminal status. Timing fields show measurements where available; end-to-end elapsed time includes checking and worker startup, and is not a server execution benchmark. Cursor waiting time is not a claim about database performance.
+
+Compare ordered rows or unordered multisets; duplicate counts and tagged bigint/NULL/missing values remain distinct. Page comparisons describe the selected captured pages, not full-query equivalence. Partial captures and different source/schema/target contexts remain visible. Comparison does not execute either query, retry writes or run `EXPLAIN ANALYZE` automatically.
 
 ## Local agents and reviewed query tools
 
