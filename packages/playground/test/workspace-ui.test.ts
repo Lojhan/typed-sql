@@ -1,6 +1,6 @@
 import { describe, it, strict } from "poku";
-import { close, drop, fileTree, pane, panes, validLayout } from "./layout";
-import { compareGrids, type Grid } from "./result-model";
+import { close, drop, fileTree, pane, panes, validLayout } from "../ui/layout";
+import { compareGrids, type Grid } from "../ui/result-model";
 
 await describe("workspace layout and captured result comparison", async () => {
   await it("copies file views in every split direction and collapses empty groups", () => {
