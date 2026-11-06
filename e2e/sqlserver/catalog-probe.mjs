@@ -234,6 +234,68 @@ async function aliases(db, report) {
   )[0];
   assert.deepEqual(version.version_value, version.native_bytes);
   assert.deepEqual(first.version_value, version.native_bytes);
+  report.rowversionConcurrency = { id: "11", originalVersion: Array.from(first.version_value) };
+  try {
+    const selectVersion = await compiled(
+      snapshot,
+      "SELECT id,amount,version_value FROM dbo.catalog_columns WHERE id=:id AND version_value=:expectedVersion",
+    );
+    report.rowversionConcurrency.selectParameters = selectVersion.plan.parameters;
+    assert.deepEqual(
+      selectVersion.plan.parameters.map((parameter) => [parameter.databaseType, parameter.type, parameter.nullable]),
+      [
+        ["bigint", "bigint", false],
+        ["rowversion", "bytes", false],
+      ],
+    );
+    const oldVersion = Uint8Array.from(first.version_value);
+    const selected = await db.one(selectVersion.factory({ id: 11n, expectedVersion: oldVersion }));
+    assert.equal(selected.id, 11n);
+    assert.equal(selected.amount, amount);
+    assert.ok(selected.version_value instanceof Uint8Array && selected.version_value.length === 8);
+    assert.deepEqual(selected.version_value, oldVersion);
+    const updateVersion = await compiled(
+      snapshot,
+      "UPDATE dbo.catalog_columns SET amount=:amount OUTPUT inserted.id,inserted.amount,inserted.version_value WHERE id=:id AND version_value=:expectedVersion",
+    );
+    report.rowversionConcurrency.updateParameters = updateVersion.plan.parameters;
+    assert.deepEqual(
+      updateVersion.plan.parameters.map((parameter) => [parameter.databaseType, parameter.type, parameter.nullable]),
+      [
+        ["decimal(38,10)", "string", false],
+        ["bigint", "bigint", false],
+        ["rowversion", "bytes", false],
+      ],
+    );
+    const nextAmount = "42.0000000000";
+    const updated = await db.one(updateVersion.factory({ amount: nextAmount, id: 11n, expectedVersion: oldVersion }));
+    assert.equal(updated.id, 11n);
+    assert.equal(updated.amount, nextAmount);
+    assert.ok(updated.version_value instanceof Uint8Array && updated.version_value.length === 8);
+    assert.notDeepEqual(updated.version_value, oldVersion);
+    report.rowversionConcurrency.newVersion = Array.from(updated.version_value);
+    const stale = await db.all(
+      updateVersion.factory({ amount: "43.0000000000", id: 11n, expectedVersion: oldVersion }),
+    );
+    report.rowversionConcurrency.staleRows = stale.length;
+    assert.deepEqual(stale, []);
+    assert.deepEqual(await db.all(selectVersion.factory({ id: 11n, expectedVersion: oldVersion })), []);
+    const current = await db.one(selectVersion.factory({ id: 11n, expectedVersion: updated.version_value }));
+    assert.equal(current.id, 11n);
+    assert.equal(current.amount, nextAmount, "Stale optimistic update must not change the row");
+    assert.ok(current.version_value instanceof Uint8Array && current.version_value.length === 8);
+    assert.deepEqual(current.version_value, updated.version_value);
+  } catch (error) {
+    // Preserve the independently qualified alias/default/rule cases even if native
+    // rowversion predicate binding exposes an input inference or encoding defect.
+    report.counterexamples ??= [];
+    report.counterexamples.push({
+      name: "compiled rowversion optimistic concurrency",
+      error: redact(error),
+      diagnostics: error?.diagnostics,
+    });
+    failures.push(`${report.compatibilityLevel}: compiled rowversion optimistic concurrency`);
+  }
   const bound = await compiled(
     snapshot,
     "INSERT INTO dbo.catalog_columns(inherited_value,nullable_override) OUTPUT inserted.inherited_value,inserted.nullable_override VALUES(:value,:nullable)",
