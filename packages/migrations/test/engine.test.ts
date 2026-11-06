@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { describe, it, strict } from "poku";
 import {
   applyPlan,
+  baselinePlan,
   type CatalogEvidence,
+  captureChecks,
   captureMigration,
   checks,
   createPlan,
@@ -19,6 +21,7 @@ import {
   type MigrationTarget,
   parseHistory,
   parsePlan,
+  resolveAttempt,
 } from "../src/index.js";
 
 const renderer = { placeholder: (i: number) => `$${i}`, quoteIdentifier: (s: string) => `"${s}"` };
@@ -268,5 +271,142 @@ await describe("migration plans, history and drift", async () => {
     } finally {
       await f.close();
     }
+  });
+});
+
+await describe("migration recovery and immutable evidence", async () => {
+  await it("honors local batch policies, returns advisory findings and records committed afterBatch failure honestly", async () => {
+    const f = await fixture();
+    try {
+      await f.add("001_accounts", "create accounts", undefined, {
+        checks: { beforeBatch: [checks.noRows({ id: "global-admission", query: "fail" })] },
+      });
+      await strict.rejects(applyPlan({ ...f.options, plan: await createPlan(f.options) }), /global-admission/);
+      strict.equal(f.local.state.executed.length, 0);
+      const file = join(f.root, "migrations", "001_accounts", "migration.json");
+      const metadata = {
+        formatVersion: 1,
+        id: "001_accounts",
+        up: "up.sql",
+        checks: { beforeUp: [checks.noRows({ id: "advisory", query: "fail", severity: "warning" })] },
+      };
+      await writeFile(file, JSON.stringify(metadata));
+      const result = await applyPlan({ ...f.options, plan: await createPlan(f.options) });
+      strict.ok(result.findings.some((f) => f.id === "advisory" && f.status === "failed" && f.severity === "warning"));
+      strict.match(result.history.applied[0]!.appliedAt!, /^\d{4}-/);
+      strict.ok(result.history.attempts[0]!.durationMs! >= 0);
+      await f.add("002_status", "create status", undefined, {
+        checks: { afterBatch: [checks.noRows({ id: "post-admission", query: "fail" })] },
+      });
+      await strict.rejects(
+        applyPlan({ ...f.options, plan: await createPlan(f.options) }),
+        (error: unknown) =>
+          error instanceof MigrationError &&
+          error.code === "MIGRATION_AFTER_BATCH" &&
+          error.message.includes("committed"),
+      );
+      strict.equal(f.local.state.history.applied.length, 2);
+      strict.equal((await inspectMigrations(f.options)).driftState, "current");
+    } finally {
+      await f.close();
+    }
+  });
+  await it("keeps successful source immutable after reversing a migration", async () => {
+    const f = await fixture();
+    try {
+      await f.add("001_accounts", "create accounts", "drop accounts");
+      await applyPlan({ ...f.options, plan: await createPlan(f.options) });
+      await applyPlan({ ...f.options, plan: await createPlan({ ...f.options, direction: "down", to: "empty" }) });
+      await writeFile(join(f.root, "migrations", "001_accounts", "up.sql"), "create other");
+      await strict.rejects(createPlan(f.options), /Historical migration/);
+    } finally {
+      await f.close();
+    }
+  });
+  await it("revalidates source after waiting for the database lock", async () => {
+    const f = await fixture();
+    try {
+      await f.add("001_accounts", "create accounts");
+      const plan = await createPlan(f.options);
+      const target: MigrationTarget = {
+        ...f.local.target,
+        async connect() {
+          const session = await f.local.target.connect();
+          return {
+            ...session,
+            async lock() {
+              await writeFile(join(f.root, "migrations", "001_accounts", "up.sql"), "create changed");
+            },
+          };
+        },
+      };
+      const config = { ...f.config, targets: { ...f.config.targets, local: target } };
+      await strict.rejects(applyPlan({ ...f.options, config, plan }), /changed after review/);
+      strict.equal(f.local.state.executed.length, 0);
+    } finally {
+      await f.close();
+    }
+  });
+  await it("shows unresolved status evidence and resolves only inspected absence against the retained pre-state", async () => {
+    const f = await fixture();
+    try {
+      await f.add("001_accounts", "create accounts", undefined, { transaction: "none" });
+      const plan = await createPlan(f.options);
+      f.local.state.fail = "create accounts";
+      await strict.rejects(
+        applyPlan({ ...f.options, plan }),
+        (error: unknown) => error instanceof MigrationError && error.code === "MIGRATION_OUTCOME_UNKNOWN",
+      );
+      const status = await inspectMigrations(f.options);
+      strict.ok(status.diagnostics.some((d) => d.code === "MIGRATION_OUTCOME_UNKNOWN"));
+      strict.equal(status.resolutionEvidence.length, 1);
+      const evidence = status.resolutionEvidence[0]!;
+      await strict.rejects(
+        resolveAttempt({
+          config: f.config,
+          target: "local",
+          evidence,
+          action: "confirm-not-applied",
+          reason: "Inspected",
+        }),
+        /inspection of complete effects/,
+      );
+      await resolveAttempt({
+        config: f.config,
+        target: "local",
+        evidence: { ...evidence, effectsVerified: true },
+        action: "confirm-not-applied",
+        reason: "Inspected absence of effects",
+      });
+      strict.equal((await inspectMigrations(f.options)).diagnostics.length, 0);
+      strict.equal(f.local.state.history.applied.length, 0);
+    } finally {
+      await f.close();
+    }
+  });
+  await it("baselines an exact independently replayed prefix without executing it on the existing target", async () => {
+    const f = await fixture();
+    try {
+      await f.add("001_accounts", "create accounts");
+      f.local.state.catalog = { ...initial, objects: { accounts: { definition: "accounts" } } };
+      const plan = await createPlan({ ...f.options, reconcile: true });
+      await baselinePlan({ ...f.options, plan, reason: "Reviewed existing schema" });
+      strict.equal(f.local.state.executed.length, 0);
+      strict.equal(f.local.state.history.applied[0]?.origin, "baseline");
+      strict.equal((await createPlan(f.options)).migrations.length, 0);
+    } finally {
+      await f.close();
+    }
+  });
+  await it("rejects malformed severities and missing check evidence rather than bypassing them", async () => {
+    strict.throws(
+      () =>
+        captureChecks(
+          { beforeUp: [{ id: "must-block", kind: "noRows", query: "pass", severity: "ignore" } as never] },
+          renderer,
+        ),
+      /severity/,
+    );
+    strict.throws(() => captureChecks({ beforeUp: [{ id: "missing-query", kind: "noRows" }] }, renderer), /object/);
   });
 });

@@ -10,11 +10,13 @@ import { loadPgDriver } from "../src/pg.js";
 
 const targetUrl = process.env.TYPED_SQL_MIGRATION_TEST_URL;
 const scratchUrl = process.env.TYPED_SQL_MIGRATION_SCRATCH_URL;
-if (targetUrl === undefined || scratchUrl === undefined)
-  skip("Set separate disposable migration target and scratch PostgreSQL URLs for engine integration.");
+const freshUrl = process.env.TYPED_SQL_MIGRATION_FRESH_URL;
+if (targetUrl === undefined || scratchUrl === undefined || freshUrl === undefined)
+  skip("Set separate disposable migration target, scratch and fresh PostgreSQL URLs for engine integration.");
 const { Pool } = await loadPgDriver();
 const targetPool = new Pool({ connectionString: targetUrl });
 const scratchPool = new Pool({ connectionString: scratchUrl });
+const freshPool = new Pool({ connectionString: freshUrl });
 const suffix = randomUUID().replaceAll("-", "");
 const namespace = `engine_${suffix}`;
 const historyNamespace = `history_${suffix}`;
@@ -37,9 +39,17 @@ const scratch = createPgMigrationTarget({
   classification: "test",
   disposable: true,
 });
+const freshDatabase = (await freshPool.query<{ name: string }>("select current_database() as name")).rows[0]!.name;
+const fresh = createPgMigrationTarget({
+  connectionString: freshUrl!,
+  namespaces: [namespace],
+  historyNamespace,
+  expected: { database: freshDatabase },
+  classification: "test",
+});
 const config: MigrationsConfig = {
   directory: "migrations",
-  targets: { test: target, scratch },
+  targets: { test: target, scratch, fresh },
   replayTarget: "scratch",
 };
 const renderer = postgres();
@@ -63,6 +73,7 @@ async function migration(
 try {
   await targetPool.query(`create schema "${namespace}"`);
   await scratchPool.query(`create schema "${namespace}"`);
+  await freshPool.query(`create schema "${namespace}"`);
   await mkdir(join(root, "migrations"));
   await describe("live migration engine workflows", async () => {
     await it("bootstraps greenfield and independently replays expected history", async () => {
@@ -92,7 +103,7 @@ try {
     });
 
     await it("blocks manual additive drift even after application snapshot refresh", async () => {
-      await targetPool.query(`alter table "${namespace}".accounts add column status text not null default 'active'`);
+      await targetPool.query(`alter table "${namespace}".accounts add column status text`);
       const observed = await inspectMigrations({ root, config, renderer, target: "test" });
       strict.ok(
         observed.drift.some(
@@ -101,7 +112,7 @@ try {
       );
       await migration(
         "002-status",
-        `alter table "${namespace}".accounts add column status text not null default 'active'`,
+        `alter table "${namespace}".accounts add column status text`,
         `alter table "${namespace}".accounts drop column status`,
         {
           reconciliation: {
@@ -132,11 +143,11 @@ try {
         reason: "Reviewed manual status column",
       });
       strict.strictEqual(result.history.applied[1]?.origin, "reconciled");
-      const scratchPlan = await createPlan({ root, config, renderer, target: "scratch" });
+      const scratchPlan = await createPlan({ root, config, renderer, target: "fresh" });
       strict.strictEqual(scratchPlan.migrations.length, 2);
-      await applyPlan({ root, config, renderer, target: "scratch", plan: scratchPlan });
+      await applyPlan({ root, config, renderer, target: "fresh", plan: scratchPlan });
       const mainSession = await target.connect();
-      const freshSession = await scratch.connect();
+      const freshSession = await fresh.connect();
       try {
         strict.deepStrictEqual(catalogChanges(await mainSession.capture(), await freshSession.capture()), []);
       } finally {
@@ -164,7 +175,7 @@ try {
 
     await it("rolls a failed transactional postcondition back and preserves earlier completed steps", async () => {
       await scratchPool.query(
-        `drop schema "${namespace}" cascade; drop schema "${historyNamespace}" cascade; create schema "${namespace}"`,
+        `drop schema "${namespace}" cascade; drop schema if exists "${historyNamespace}" cascade; create schema "${namespace}"`,
       );
       await migration(
         "003-postcondition",
@@ -221,7 +232,7 @@ try {
     });
   });
 } finally {
-  for (const pool of [targetPool, scratchPool]) {
+  for (const pool of [targetPool, scratchPool, freshPool]) {
     await pool.query(`drop schema if exists "${namespace}" cascade`);
     await pool.query(`drop schema if exists "${historyNamespace}" cascade`);
     await pool.end();

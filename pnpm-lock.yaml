@@ -601,9 +601,6 @@ importers:
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../core
-      '@typed-sql/migrations':
-        specifier: workspace:*
-        version: link:../migrations
       '@typed-sql/schema':
         specifier: workspace:*
         version: link:../schema
@@ -614,6 +611,9 @@ importers:
       '@typed-sql/conformance':
         specifier: workspace:*
         version: link:../conformance
+      '@typed-sql/migrations':
+        specifier: workspace:*
+        version: link:../migrations
 
   packages/schema:
     dependencies:

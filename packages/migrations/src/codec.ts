@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import type { CatalogEvidence, JsonValue, MigrationHistory, MigrationPlan } from "./types.js";
+import type { CatalogEvidence, CheckFinding, JsonValue, MigrationHistory, MigrationPlan } from "./types.js";
 
 export class MigrationError extends Error {
   constructor(
     readonly code: string,
     message: string,
     readonly exitCode = 1,
+    readonly findings?: readonly CheckFinding[],
   ) {
     super(message);
     this.name = "MigrationError";
@@ -18,7 +19,7 @@ export function canonical(value: unknown): string {
   if (typeof value === "object" && value !== null && Object.getPrototypeOf(value) === Object.prototype) {
     return `{${Object.entries(value)
       .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
       .join(",")}}`;
   }
@@ -54,6 +55,8 @@ export function parsePlan(value: unknown): MigrationPlan {
   )
     throw new MigrationError("MIGRATION_PLAN_INVALID", "Invalid or modified migration plan.", 3);
   const target = object(record.target, "Plan target");
+  if (record.boundary !== null && typeof record.boundary !== "string")
+    throw new MigrationError("MIGRATION_PLAN_INVALID", "Plan boundary must be a migration ID or null.", 3);
   if (
     ["database", "server", "dialect"].some((key) => typeof target[key] !== "string") ||
     !["up", "down"].includes(String(record.direction)) ||
@@ -67,6 +70,8 @@ export function parsePlan(value: unknown): MigrationPlan {
   for (const expected of Object.values(object(record.expected, "Plan expected schemas"))) parseCatalog(expected);
   for (const migration of record.migrations) {
     const m = object(migration, "Captured migration");
+    const expected = object(record.expected, "Plan expected schemas");
+    if (typeof m.id === "string") parseCatalog(expected[m.id]);
     validateCapturedChecks(m.checks);
     if (
       typeof m.id !== "string" ||
@@ -112,6 +117,18 @@ export function parseHistory(value: unknown): MigrationHistory {
     )
       throw new MigrationError("MIGRATION_HISTORY_INVALID", "Invalid or duplicate migration attempt.", 3);
     attempts.add(a.id);
+    for (const field of ["startedAt", "finishedAt"])
+      if (a[field] !== undefined && (typeof a[field] !== "string" || !Number.isFinite(Date.parse(a[field] as string))))
+        throw new MigrationError("MIGRATION_HISTORY_INVALID", "Invalid migration attempt timestamp.", 3);
+    if (
+      a.durationMs !== undefined &&
+      (typeof a.durationMs !== "number" || !Number.isFinite(a.durationMs) || a.durationMs < 0)
+    )
+      throw new MigrationError("MIGRATION_HISTORY_INVALID", "Invalid migration duration.", 3);
+    if (a.resolution !== undefined && !["confirm-applied", "confirm-not-applied"].includes(String(a.resolution)))
+      throw new MigrationError("MIGRATION_HISTORY_INVALID", "Invalid resolution state.", 3);
+    if (a.beforeCatalog !== undefined) parseCatalog(a.beforeCatalog);
+    if (a.expectedCatalog !== undefined) parseCatalog(a.expectedCatalog);
   }
   const applied = new Set<string>();
   for (const entry of record.applied) {
@@ -127,6 +144,13 @@ export function parseHistory(value: unknown): MigrationHistory {
     )
       throw new MigrationError("MIGRATION_HISTORY_INVALID", "Invalid applied migration identity.", 3);
     applied.add(a.id);
+    if (a.appliedAt !== undefined && (typeof a.appliedAt !== "string" || !Number.isFinite(Date.parse(a.appliedAt))))
+      throw new MigrationError("MIGRATION_HISTORY_INVALID", "Invalid application timestamp.", 3);
+    const linked = record.attempts.find((entry) => object(entry, "Attempt link").id === a.attemptId) as
+      | Record<string, unknown>
+      | undefined;
+    if (linked?.migrationId !== a.id || linked.hash !== a.hash || linked.direction !== "up")
+      throw new MigrationError("MIGRATION_HISTORY_INVALID", "Applied migration does not match its durable attempt.", 3);
     parseCatalog(a.catalog);
   }
   return record as unknown as MigrationHistory;

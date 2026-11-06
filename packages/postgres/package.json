@@ -48,10 +48,18 @@
     "@typed-sql/ast": "workspace:*",
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
-    "@types/pg": "8.23.1",
-    "@typed-sql/migrations": "workspace:*"
+    "@types/pg": "8.23.1"
   },
   "devDependencies": {
-    "@typed-sql/conformance": "workspace:*"
+    "@typed-sql/conformance": "workspace:*",
+    "@typed-sql/migrations": "workspace:*"
+  },
+  "peerDependencies": {
+    "@typed-sql/migrations": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@typed-sql/migrations": {
+      "optional": true
+    }
   }
 }

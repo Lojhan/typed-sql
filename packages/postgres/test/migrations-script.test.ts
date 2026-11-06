@@ -69,8 +69,8 @@ select "name;quoted" from public.messages;`;
     for (const source of [
       "create table public.accounts(id integer primary key, name text not null, enabled boolean default true, unique(name))",
       "create unique index accounts_name on public.accounts(name desc nulls last) include(id)",
-      "alter table public.accounts add column status text not null default 'active'",
-      "alter table public.accounts add column score numeric(10,2) default -1",
+      "alter table public.accounts add column status text",
+      "alter table public.accounts add column score numeric(10,2)",
     ])
       validatePostgresReconciliation(source);
     for (const source of [
@@ -81,6 +81,8 @@ select "name;quoted" from public.messages;`;
       "create index accounts_expr on public.accounts(lower(name))",
       "create index accounts_partial on public.accounts(name) where enabled",
       "alter table public.accounts add column status text default effectful()",
+      "alter table public.accounts add column status text not null default 'active'",
+      "alter table public.accounts add column score numeric(10,2) default -1",
       "alter table public.accounts add column created timestamptz default current_timestamp",
       "alter table public.accounts add column value public.custom_type",
       "alter table public.accounts add column value text generated always as (effectful()) stored",

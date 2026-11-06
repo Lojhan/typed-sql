@@ -3,7 +3,14 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, strict } from "poku";
-import { ensureDirectory, loadInventory, MigrationError, safePath, verifyCapturedFiles } from "../src/index.js";
+import {
+  createMigration,
+  ensureDirectory,
+  loadInventory,
+  MigrationError,
+  safePath,
+  verifyCapturedFiles,
+} from "../src/index.js";
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const renderer = {
@@ -11,6 +18,39 @@ const renderer = {
   quoteIdentifier: (value: string) => `"${value.replaceAll('"', '""')}"`,
 };
 await describe("migration inventory and trusted TS capture", async () => {
+  await it("uses checked-in templates and selected grammar without exposing partial SQL scaffolds", async () => {
+    const root = await mkdtemp(join(tmpdir(), "migration-templates-"));
+    try {
+      await mkdir(join(root, "migrations"));
+      await mkdir(join(root, "templates"));
+      await writeFile(join(root, "templates", "up.sql"), "-- {{name}} {{id}}\ncreate table accounts(id integer);");
+      await writeFile(join(root, "templates", "down.sql"), "drop table accounts;");
+      await writeFile(
+        join(root, "templates", "migration.json"),
+        '{"description":"Team template","transaction":"required"}',
+      );
+      const file = await createMigration(root, "migrations", "create-accounts", "sql", undefined, "templates");
+      const fs = await import("node:fs/promises");
+      strict.match(await fs.readFile(join(root, file, "up.sql"), "utf8"), /-- create-accounts/);
+      strict.equal(
+        JSON.parse(await fs.readFile(join(root, file, "migration.json"), "utf8")).description,
+        "Team template",
+      );
+      strict.equal(
+        (await fs.readdir(join(root, "migrations"))).some((name) => name.startsWith(".new-")),
+        false,
+      );
+      const ts = await createMigration(root, "migrations", "other-grammar", "ts", "@example/grammar");
+      strict.match(await fs.readFile(join(root, ts), "utf8"), /from "@example\/grammar"/);
+      await writeFile(join(root, "templates", "migration.json"), '{"up":"../escape.sql"}');
+      await strict.rejects(
+        createMigration(root, "migrations", "invalid-template", "sql", undefined, "templates"),
+        /generated/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   await it("captures SQL-in-TS without an after-schema and detects imported helper changes", async () => {
     const root = await mkdtemp(join(tmpdir(), "migration-ts with spaces-"));
     try {

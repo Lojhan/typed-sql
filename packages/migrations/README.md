@@ -2,6 +2,8 @@
 
 Driver-neutral SQL/TypeScript migration lifecycle, immutable execution plans, blocking drift checks and inspected recovery.
 
+This package follows the stable package contract track. Database execution capabilities are qualified independently by each explicit adapter.
+
 ```sh
 pnpm add -D @typed-sql/migrations @typed-sql/cli
 ```

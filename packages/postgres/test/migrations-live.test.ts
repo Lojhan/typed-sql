@@ -218,6 +218,18 @@ try {
         await session.close();
       }
     });
+
+    await it("blocks unsupported managed catalog objects instead of silently declaring equality", async () => {
+      await admin.query(`create statistics "${schema}".manual_statistics on id,name from "${schema}".accounts`);
+      const session = await target.connect();
+      try {
+        const evidence = await session.capture();
+        strict.strictEqual(evidence.coverage, "unknown");
+        strict.ok(Object.keys(evidence.objects).some((key) => key.includes("extended-statistics")));
+      } finally {
+        await session.close();
+      }
+    });
   });
 } finally {
   await admin.query(`drop schema if exists "${schema}" cascade`);

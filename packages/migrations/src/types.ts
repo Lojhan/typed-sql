@@ -1,4 +1,4 @@
-import type { Query } from "@typed-sql/core";
+import type { Query, SchemaSnapshot } from "@typed-sql/core";
 
 export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 export type MigrationDirection = "up" | "down";
@@ -58,6 +58,7 @@ export interface TargetIdentity {
   readonly dialect: string;
 }
 export interface AppliedMigration {
+  readonly appliedAt?: string;
   readonly id: string;
   readonly hash: string;
   readonly catalog: CatalogEvidence;
@@ -66,6 +67,9 @@ export interface AppliedMigration {
   readonly origin: "executed" | "reconciled" | "baseline";
 }
 export interface MigrationAttempt {
+  readonly startedAt?: string;
+  readonly finishedAt?: string;
+  readonly durationMs?: number;
   readonly id: string;
   readonly migrationId: string;
   readonly hash: string;
@@ -86,6 +90,7 @@ export interface MigrationHistory {
 export interface MigrationSession {
   identity(): Promise<TargetIdentity>;
   capture(): Promise<CatalogEvidence>;
+  snapshot?(): Promise<SchemaSnapshot>;
   history(): Promise<MigrationHistory>;
   lock(timeoutMs: number): Promise<void>;
   unlock(): Promise<void>;
@@ -108,6 +113,8 @@ export interface MigrationTarget {
 }
 export interface MigrationsConfig {
   readonly directory: string;
+  readonly defaultFormat?: "sql" | "ts";
+  readonly templateDirectory?: string;
   readonly policyFile?: string;
   readonly targets: Readonly<Record<string, MigrationTarget>>;
   readonly replayTarget?: string;
@@ -132,12 +139,14 @@ export interface MigrationPlan {
   readonly policyHash: string;
   readonly direction: MigrationDirection;
   readonly migrations: readonly CapturedMigration[];
+  readonly boundary: string | null;
   readonly checks: CapturedChecks;
   readonly expected: Readonly<Record<string, CatalogEvidence>>;
   readonly starting: CatalogEvidence;
   readonly hash: string;
 }
 export interface CheckFinding {
+  readonly migrationId?: string;
   readonly id: string;
   readonly phase: CheckPhase;
   readonly status: "passed" | "failed" | "unknown";

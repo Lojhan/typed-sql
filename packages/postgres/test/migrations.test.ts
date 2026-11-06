@@ -77,6 +77,8 @@ await describe("PostgreSQL migration adapter without an installed driver", async
     strict.throws(() => createPgMigrationTarget({ ...base, namespaces: ["typed_sql"] }), /separate/);
     strict.throws(() => createPgMigrationTarget({ ...base, namespaces: ["x\0y"] }), /NUL/);
     strict.throws(() => createPgMigrationTarget({ ...base, historyNamespace: "" }), /nonempty/);
+    strict.throws(() => createPgMigrationTarget({ ...base, historyNamespace: "x".repeat(64) }), /63 UTF-8 bytes/);
+    strict.throws(() => createPgMigrationTarget({ ...base, namespaces: ["é".repeat(32)] }), /63 UTF-8 bytes/);
     strict.throws(() => createPgMigrationTarget({ ...base, statementTimeoutMs: 0 }), /positive/);
     strict.throws(() => createPgMigrationTarget({ ...base, lockTimeoutMs: Number.POSITIVE_INFINITY }), /positive/);
     strict.throws(() => createPgMigrationTarget({ ...base, expected: { database: "" } }), /expected database/);
@@ -167,6 +169,34 @@ await describe("PostgreSQL migration adapter without an installed driver", async
     } finally {
       await session.close();
     }
+  });
+
+  await it("isolates assertion errors with savepoints and discards failed cleanup connections", async () => {
+    const { client, target } = fixture();
+    const session = await target.connect();
+    try {
+      await session.lock(20);
+      await session.begin();
+      strict.equal(await session.check({ text: "select true as ok", values: [] }, "boolean"), true);
+      strict.equal(await session.check({ text: "select 1 where false", values: [] }, "noRows"), true);
+      client.failure = /select \* from/;
+      await strict.rejects(session.check({ text: "select true as ok", values: [] }, "boolean"), /SQLSTATE/);
+      strict.ok(client.queries.includes("rollback to savepoint typed_sql_assertion"));
+      client.failure = undefined;
+      await session.execute({ text: "select 1", values: [] });
+      await session.rollback();
+    } finally {
+      await session.close();
+    }
+
+    const failed = fixture();
+    const lost = await failed.target.connect();
+    await lost.lock(20);
+    await lost.begin();
+    failed.client.failure = /select \* from|rollback to savepoint/;
+    await strict.rejects(lost.check({ text: "select true as ok", values: [] }, "boolean"), /SQLSTATE/);
+    await strict.rejects(lost.close(), /SQLSTATE/);
+    strict.equal(failed.client.released, true);
   });
 
   await it("bounds lock waits and preserves cleanup through connection/SQL errors", async () => {

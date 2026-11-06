@@ -60,7 +60,7 @@ export function catalogChanges(
     else if (digest(expected.objects[key]) !== digest(actual.objects[key]))
       changes.push({ kind: "changed", object: key });
   }
-  return changes.sort((a, b) => a.object.localeCompare(b.object));
+  return changes.sort((a, b) => (a.object < b.object ? -1 : a.object > b.object ? 1 : 0));
 }
 function requireEqual(expected: CatalogEvidence, actual: CatalogEvidence): void {
   const changes = catalogChanges(expected, actual);
@@ -144,6 +144,18 @@ export function effectiveChecks(
   }
   return [...byId.values()];
 }
+export function batchCheckPolicy(global: CapturedChecks, migrations: readonly CapturedMigration[]): CapturedChecks {
+  return {
+    beforeBatch: migrations.reduce(
+      (checks, migration) => effectiveChecks({ beforeBatch: checks }, migration.checks, "beforeBatch"),
+      global.beforeBatch ?? [],
+    ),
+    afterBatch: migrations.reduce(
+      (checks, migration) => effectiveChecks({ afterBatch: checks }, migration.checks, "afterBatch"),
+      global.afterBatch ?? [],
+    ),
+  };
+}
 export async function runChecks(
   session: MigrationSession,
   global: CapturedChecks,
@@ -193,6 +205,8 @@ export async function runChecks(
     throw new MigrationError(
       "MIGRATION_CHECK_BLOCKED",
       `Migration checks blocked execution: ${blocked.map((f) => `${f.id} (${f.status}): ${f.message}`).join("; ")}`,
+      1,
+      findings,
     );
   return findings;
 }
@@ -200,6 +214,9 @@ export async function runChecks(
 export async function replayEvidence(
   target: MigrationTarget,
   migrations: readonly CapturedMigration[],
+  protectedTarget?: TargetIdentity,
+  environment?: CatalogEvidence,
+  observe?: (session: MigrationSession, migrationId: string | null) => Promise<void>,
 ): Promise<{ starting: CatalogEvidence; expected: Readonly<Record<string, CatalogEvidence>> }> {
   if (!target.disposable || target.classification === "production")
     throw new MigrationError(
@@ -209,7 +226,15 @@ export async function replayEvidence(
   const session = await target.connect();
   let transaction = false;
   try {
-    assertTarget(await session.identity(), target);
+    const identity = await session.identity();
+    assertTarget(identity, target);
+    // Distinct database names remain unambiguous even through socket/proxy/address aliases.
+    if (protectedTarget !== undefined && identity.database === protectedTarget.database)
+      throw new MigrationError(
+        "MIGRATION_REPLAY_IDENTITY",
+        "Replay requires a different database name from the application target; aliases or a disposable flag cannot authorize replay on the live database.",
+        3,
+      );
     await session.lock(10000);
     const starting = await session.capture();
     assertCatalog(starting);
@@ -221,14 +246,17 @@ export async function replayEvidence(
         "MIGRATION_REPLAY_NOT_EMPTY",
         "Replay target must have an empty managed schema and no applied history. No reset is performed.",
       );
+    if (environment !== undefined) requireEqual(emptyCatalog(environment), starting);
     transaction = migrations.every((m) => m.transaction === "required");
     if (transaction) await session.begin();
+    await observe?.(session, null);
     const expected: Record<string, CatalogEvidence> = {};
     for (const migration of migrations) {
       session.validate(migration.up, migration.transaction);
       for (const statement of migration.up) await session.execute(statement);
       expected[migration.id] = await session.capture();
       assertCatalog(expected[migration.id]!);
+      await observe?.(session, migration.id);
     }
     if (transaction) {
       await session.rollback();
@@ -306,6 +334,8 @@ export async function createPlan(options: PlanOptions): Promise<MigrationPlan> {
       const evidence = await replayEvidence(
         replay,
         inventory.migrations.filter((m) => m.id <= selected.at(-1)!.id),
+        identity,
+        catalog,
       );
       starting = history.applied.length ? evidence.expected[history.applied.at(-1)!.id]! : evidence.starting;
       if (starting === undefined)
@@ -330,6 +360,7 @@ export async function createPlan(options: PlanOptions): Promise<MigrationPlan> {
       inputs: inventory.inputs,
       policyHash: digest({ policy: config.policy ?? {}, checks: global }),
       direction,
+      boundary: options.to ?? null,
       migrations: selected,
       checks: global,
       expected,
@@ -345,7 +376,11 @@ function replaceAttempt(history: MigrationHistory, attempt: MigrationAttempt): M
 }
 export async function applyPlan(
   options: Omit<PlanOptions, "direction" | "to"> & { readonly plan: MigrationPlan; readonly reason?: string },
-): Promise<{ readonly applied: readonly string[]; readonly history: MigrationHistory }> {
+): Promise<{
+  readonly applied: readonly string[];
+  readonly history: MigrationHistory;
+  readonly findings: readonly CheckFinding[];
+}> {
   const plan = parsePlan(options.plan),
     target = options.config.targets[options.target];
   if (!target) throw new MigrationError("MIGRATION_TARGET", "Select a configured target.", 2);
@@ -371,6 +406,8 @@ export async function applyPlan(
       throw new MigrationError("MIGRATION_TARGET", "Plan belongs to a different target.", 3);
     await session.lock(options.config.policy?.lockTimeoutMs ?? 10000);
     await verifyInputs();
+    for (const migration of plan.migrations)
+      session.validate(plan.direction === "up" ? migration.up : (migration.down ?? []), migration.transaction);
     let history = await session.history();
     if (digest(history) !== plan.historyHash || digest(await session.capture()) !== plan.catalogHash)
       throw new MigrationError(
@@ -403,11 +440,13 @@ export async function applyPlan(
           3,
         );
     } else requireEqual(plan.starting, await session.capture());
-    await runChecks(session, plan.checks, {}, "beforeBatch");
+    const batchChecks = batchCheckPolicy(plan.checks, plan.migrations);
+    const findings: CheckFinding[] = [...(await runChecks(session, batchChecks, {}, "beforeBatch"))];
     await session.bootstrap();
     const completed: string[] = [];
     for (const migration of plan.migrations) {
       const attempt: MigrationAttempt = {
+        startedAt: new Date().toISOString(),
         id: randomUUID(),
         migrationId: migration.id,
         hash: migration.hash,
@@ -429,14 +468,26 @@ export async function applyPlan(
         const before = plan.direction === "up" ? "beforeUp" : "beforeDown",
           after = plan.direction === "up" ? "afterUp" : "afterDown";
         // Reconciliation verifies the complete post-state instead of replaying beforeUp assumptions.
-        if (!options.reconcile) await runChecks(session, plan.checks, migration.checks, before);
+        if (!options.reconcile)
+          findings.push(
+            ...(await runChecks(session, plan.checks, migration.checks, before)).map((f) => ({
+              ...f,
+              migrationId: migration.id,
+            })),
+          );
         if (!options.reconcile)
           for (const statement of plan.direction === "up" ? migration.up : migration.down!)
             await session.execute(statement);
-        await runChecks(session, plan.checks, migration.checks, after);
+        findings.push(
+          ...(await runChecks(session, plan.checks, migration.checks, after)).map((f) => ({
+            ...f,
+            migrationId: migration.id,
+          })),
+        );
         const actual = await session.capture();
         requireEqual(plan.expected[migration.id]!, actual);
         const applied: AppliedMigration = {
+          appliedAt: new Date().toISOString(),
           id: migration.id,
           hash: migration.hash,
           catalog: plan.expected[migration.id]!,
@@ -452,7 +503,12 @@ export async function applyPlan(
                 ? [...history.applied, applied]
                 : history.applied.filter((a) => a.id !== migration.id),
           },
-          { ...attempt, state: "applied" },
+          {
+            ...attempt,
+            state: "applied",
+            finishedAt: new Date().toISOString(),
+            durationMs: Math.max(0, Date.now() - Date.parse(attempt.startedAt!)),
+          },
         );
         await session.saveHistory(history);
         if (inTransaction) {
@@ -482,6 +538,8 @@ export async function applyPlan(
         history = replaceAttempt(persisted ?? beforeAttempt, {
           ...attempt,
           state,
+          finishedAt: new Date().toISOString(),
+          durationMs: Math.max(0, Date.now() - Date.parse(attempt.startedAt!)),
           code: error instanceof MigrationError ? error.code : "MIGRATION_SQL_FAILED",
         });
         await session.saveHistory(history).catch(() => undefined);
@@ -491,15 +549,30 @@ export async function applyPlan(
             `Migration ${migration.id} may have committed effects. Inspect attempt ${attempt.id}; automatic retry is blocked.`,
             4,
           );
-        if (error instanceof MigrationError) throw error;
+        if (error instanceof MigrationError)
+          throw new MigrationError(
+            error.code,
+            `${error.message}${completed.length ? ` Previously committed migrations: ${completed.join(", ")}.` : ""}`,
+            error.exitCode,
+            [...findings, ...(error.findings ?? [])],
+          );
         throw new MigrationError(
           "MIGRATION_SQL_FAILED",
           `Migration ${migration.id} failed and its transaction rolled back. Inspect the migration SQL and retry with a new plan.`,
         );
       }
     }
-    await runChecks(session, plan.checks, {}, "afterBatch");
-    return { applied: completed, history };
+    try {
+      findings.push(...(await runChecks(session, batchChecks, {}, "afterBatch")));
+    } catch (error) {
+      throw new MigrationError(
+        "MIGRATION_AFTER_BATCH",
+        `Migration SQL committed for ${completed.join(", ")}; afterBatch checks failed: ${error instanceof MigrationError ? error.message : "required evidence unavailable"}`,
+        1,
+        [...findings, ...(error instanceof MigrationError ? (error.findings ?? []) : [])],
+      );
+    }
+    return { applied: completed, history, findings };
   } finally {
     if (inTransaction) await session.rollback().catch(() => undefined);
     await session.unlock().catch(() => undefined);
@@ -511,6 +584,12 @@ export async function inspectMigrations(options: PlanOptions): Promise<{
   history: MigrationHistory;
   pending: readonly string[];
   drift: readonly { kind: string; object: string }[];
+  diagnostics: readonly { code: string; message: string }[];
+  driftState: "current" | "drifted" | "unknown";
+  historyHash: string;
+  catalogHash: string;
+  targetHash: string;
+  resolutionEvidence: readonly Record<string, unknown>[];
 }> {
   const inventory = await loadInventory(options.root, options.config.directory, options.renderer);
   const target = options.config.targets[options.target];
@@ -520,13 +599,49 @@ export async function inspectMigrations(options: PlanOptions): Promise<{
     const identity = await session.identity();
     assertTarget(identity, target);
     const history = await session.history();
-    validateHistory(history, inventory.migrations);
+    const diagnostics: { code: string; message: string }[] = [];
+    try {
+      validateHistory(history, inventory.migrations);
+    } catch (error) {
+      if (error instanceof MigrationError) diagnostics.push({ code: error.code, message: error.message });
+      else throw error;
+    }
     const live = await session.capture();
+    let drift: readonly { kind: string; object: string }[] = [];
+    let driftState: "current" | "drifted" | "unknown" = "unknown";
+    try {
+      drift = catalogChanges(expectedHead(history, live), live);
+      driftState = drift.length ? "drifted" : "current";
+    } catch (error) {
+      if (error instanceof MigrationError) diagnostics.push({ code: error.code, message: error.message });
+      else throw error;
+    }
+    const historyHash = digest(history),
+      catalogHash = digest(live),
+      targetHash = digest(identity);
     return {
       identity,
       history,
       pending: inventory.migrations.filter((m) => !history.applied.some((a) => a.id === m.id)).map((m) => m.id),
-      drift: catalogChanges(expectedHead(history, live), live),
+      drift,
+      diagnostics,
+      driftState,
+      historyHash,
+      catalogHash,
+      targetHash,
+      resolutionEvidence: history.attempts
+        .filter(
+          (a) => ["running", "unknown"].includes(a.state) && !history.applied.some((entry) => entry.attemptId === a.id),
+        )
+        .map((a) => ({
+          attemptId: a.id,
+          migrationId: a.migrationId,
+          hash: a.hash,
+          historyHash,
+          catalogHash,
+          targetHash,
+          effectsVerified: false,
+        })),
     };
   } finally {
     await session.close();
@@ -539,6 +654,10 @@ export function migrationPlanReport(plan: MigrationPlan): unknown {
     hash: plan.hash,
     target: plan.target,
     direction: plan.direction,
+    boundary: plan.boundary,
+    checks: Object.entries(plan.checks).flatMap(([phase, checks]) =>
+      checks.map((c) => ({ id: c.id, phase, scope: "project", status: "deferred" })),
+    ),
     migrations: plan.migrations.map((m) => ({
       id: m.id,
       hash: m.hash,

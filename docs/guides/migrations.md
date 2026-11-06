@@ -69,7 +69,7 @@ export default defineConfig({
 });
 ```
 
-Target construction is lazy: importing config does not load `pg` or open the target. `expected.database` must match the observed database. Use `expected.server` when server identity is also required. Keep the ledger namespace separate from managed application namespaces; the adapter defaults to `typed_sql` for history and `public` for managed catalog capture.
+Target construction is lazy: importing config does not load `pg` or open the target. `expected.database` must match the observed database. Use `expected.server` when server identity is also required. The replay database must have a different observed database name from the application target; this conservative rule prevents socket/proxy/address aliases from replaying SQL on the live database. Keep the ledger namespace separate from managed application namespaces; the adapter defaults to `typed_sql` for history and `public` for managed catalog capture.
 
 ## Start with an empty database
 
@@ -124,6 +124,8 @@ Transactional replay rolls its scratch changes back, leaving the replay database
 
 Assets stay inside their migration directory. Files and user-owned helper imports are immutable after a successful application, including after reversal. Missing files, changed hashes, duplicate IDs and unapplied predecessors block execution. Make a new migration rather than editing deployed history.
 
+Set `migrations.defaultFormat` to `sql` or `ts`. A checked-in `migrations.templateDirectory` can supply `migration.ts`, `up.sql`, `down.sql` and `migration.json`; absent template files use the built-in defaults. Text placeholders are `{{id}}`, `{{name}}` and `{{sqlModule}}` (a JSON-quoted grammar package name). Template metadata can set description, transaction mode, checks, irreversibility and reconciliation intent; the runner generates IDs and asset paths. SQL scaffolds become discoverable atomically after all files are written. A malformed template fails without publishing a partial migration directory.
+
 SQL-in-TS is declarative: `up` and `down` are ordered operations, not callbacks receiving a live executor. The loader captures operations and source dependencies into a plan; apply does not reevaluate migration modules. Module loading is trusted local code, not a sandbox. Static imports are supported; migration TS cannot read `process.env` or use dynamic imports. Connection configuration belongs outside migration modules. Parameters support finite JSON scalar/array/object values only where the driver accepts them; unsupported runtime values fail before execution.
 
 ## Add global and migration-local checks
@@ -175,7 +177,28 @@ Keep connections in `typed-sql.config.ts`. Global static policy can live in a JS
 }
 ```
 
-The CLI reads `typedSql` metadata independently; it is not a `compilerOptions` field. Inherited paths resolve from their declaring tsconfig. Conflicting project policies, cycles, unknown policy fields and attempts to disable blocking are rejected. Select one inline policy or one policy file. Use `--project` for an explicit project selection. The repository verifies this metadata through TypeScript 7 configuration discovery.
+The CLI reads `typedSql` metadata independently; it is not a `compilerOptions` field. Inherited paths resolve from their declaring tsconfig. Conflicting project policies, cycles, unknown policy fields and attempts to disable blocking are rejected. Select one inline policy or one policy file. Use `--project` for an explicit project selection. The repository verifies this metadata through TypeScript 7 configuration discovery. `beforeBatch` and `afterBatch` checks declared on selected migrations compose with project batch checks once at their batch boundary; no local phase is silently ignored. Apply and baseline reports retain advisory findings. New history entries include client UTC timestamps and elapsed execution time.
+
+## Verify both application revisions
+
+`migrate verify` executes only on an explicitly disposable empty replay target. First capture compiler snapshots at an explicit historical boundary and the proposed final migration:
+
+```sh
+pnpm exec typed-sql migrate verify --target replay --before-through 001_initial_schema --capture-dir .typed-sql/review
+```
+
+Use `--before-through empty` for the initial schema. Capture mode reports `compatibility: not-evaluated`; replay success alone is not an application compatibility assessment. It writes `before.schema.json` and `after.schema.json` without overwriting an existing capture. For a custom type policy, pass the same `typePolicy` to each PostgreSQL migration target so pinned introspection matches application inference and decoding.
+
+Build the candidate application's manifest against the captured after snapshot, and retain the older application's manifest from its own revision against the corresponding before snapshot. Do not compile the current source twice and label one output as the old application.
+
+```sh
+pnpm exec typed-sql manifest --schema .typed-sql/review/after.schema.json --out .typed-sql/review/after.queries.json
+pnpm exec typed-sql migrate verify --target replay --before-through 001_initial_schema \
+  --before .typed-sql/review/before.schema.json --before-manifest artifacts/old-app.queries.json \
+  --after .typed-sql/review/after.schema.json --after-manifest .typed-sql/review/after.queries.json
+```
+
+The full verification replays again and checks that both supplied snapshots match their declared replay boundaries. It then runs the existing compatibility analyzer with all four artifacts, evaluates both rolling-deployment directions, and writes a redacted report binding migration IDs/hashes, source inventory, snapshot hashes and manifest hashes. `--fail-on none|warning|error` controls the exit policy without suppressing findings. Unknown dependencies remain unknown. A server/schema mismatch cannot be cleared by supplying a freshly introspected snapshot of an unrelated target.
 
 ## Inspect drift and reconcile manual DDL
 
@@ -211,7 +234,7 @@ pnpm exec typed-sql migrate reconcile apply --target local --plan .typed-sql/mig
 
 Independent replay must produce exactly the complete current managed schema, and the declared object keys must cover exactly its changes. Reconciliation records an explicit already-satisfied origin without rerunning DDL. On a clean database, the same migration executes normally. Partial effects, unrelated drift and changed evidence block adoption.
 
-Schema-only reconciliation accepts a narrow adapter-validated DDL subset: simple table creation, simple column addition and ordinary column indexes. It rejects DML, CTAS, function defaults and unsupported expressions; schema equality cannot prove historical data changes. DDL event triggers can have external effects, so adoption does not establish historical data equivalence. Long-running row backfills are separate work.
+Schema-only reconciliation accepts a narrow adapter-validated DDL subset: simple table creation, column addition without a default and ordinary column indexes. It rejects DML, CTAS, ADD COLUMN defaults, function defaults and unsupported expressions; schema equality cannot prove historical data changes. Adding a column and later setting its default can leave different existing row values from adding it with that default in one statement. DDL event triggers can have external effects, so adoption does not establish historical data equivalence. Long-running row backfills are separate work.
 
 ## Baseline an existing database
 
@@ -232,7 +255,7 @@ pnpm exec typed-sql migrate revert --target local --to 001_initial_schema --plan
 
 Down operates on the contiguous applied suffix in reverse order. A missing down blocks reversal; no down runs automatically after an up failure. Compensation cannot restore deleted data. Original successful hashes remain immutable through later reapplication.
 
-For unknown outcomes, inspect actual effects before `migrate resolve`. Resolution evidence binds `attemptId`, `migrationId`, `hash`, `historyHash`, `catalogHash`, `targetHash` and explicit `effectsVerified: true`. The runner compares the live catalog to the immutable before/expected catalog retained with the attempt; the operator attests to data effects separately. `confirm-applied` requires complete effects; `confirm-not-applied` requires absent or fully reversed effects. Neither action executes repair SQL or retries work.
+For unknown outcomes, inspect actual effects before `migrate resolve`. `migrate status --json` includes blocked-state diagnostics and a `resolutionEvidence` template for each uncertain attempt. Save the selected template and set `effectsVerified: true` only after inspection. Resolution evidence binds `attemptId`, `migrationId`, `hash`, `historyHash`, `catalogHash`, `targetHash` and explicit `effectsVerified: true`. The runner compares the live catalog to the immutable before/expected catalog retained with the attempt; the operator attests to data effects separately. `confirm-applied` requires complete effects; `confirm-not-applied` requires absent or fully reversed effects. Neither action executes repair SQL or retries work.
 
 ```sh
 pnpm exec typed-sql migrate resolve --target local --evidence inspection.json --action confirm-not-applied --reason 'Inspected and reversed partial effects'

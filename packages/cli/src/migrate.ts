@@ -16,13 +16,16 @@ import {
   resolveAttempt,
   safePath,
 } from "@typed-sql/migrations";
+import { writeMigrationOutput } from "./migration-output.js";
 import { loadMigrationPolicy } from "./migration-policy.js";
+import { verifyMigrationCompatibility } from "./migration-verify.js";
 
 const usage = `Usage: typed-sql migrate <command> [options]
 
 Commands:
   init [--apply]                   Preview/create the migration directory
   new <name> [--format sql|ts]      Create an immutable migration entry
+  verify --before-through <id|empty> Replay and verify both application revisions
   status | validate | drift        Inspect history and blocking schema drift
   plan [--out plan.json]           Replay independently and capture reviewed operations
   apply [--plan plan.json]         Apply pending up operations under the database lock
@@ -62,6 +65,13 @@ function parse(args: readonly string[]): {
     "attempt",
     "direction",
     "project",
+    "before",
+    "after",
+    "before-manifest",
+    "after-manifest",
+    "before-through",
+    "capture-dir",
+    "fail-on",
   ]);
   for (let index = 1; index < args.length; index++) {
     const arg = args[index]!;
@@ -71,7 +81,9 @@ function parse(args: readonly string[]): {
       else throw new MigrationError("MIGRATION_USAGE", `Unexpected argument ${arg}.`, 2);
       continue;
     }
-    const [key, inline] = arg.slice(2).split("=", 2);
+    const equals = arg.indexOf("=");
+    const key = arg.slice(2, equals === -1 ? undefined : equals);
+    const inline = equals === -1 ? undefined : arg.slice(equals + 1);
     if (!key || (!boolean.has(key) && !values.has(key)))
       throw new MigrationError("MIGRATION_USAGE", `Unknown migration option ${arg}.`, 2);
     if (key in flags) throw new MigrationError("MIGRATION_USAGE", `Duplicate migration option --${key}.`, 2);
@@ -103,6 +115,11 @@ function configValue(value: unknown): MigrationsConfig {
       2,
     );
   const config = value as MigrationsConfig;
+  if (
+    (config.defaultFormat !== undefined && !["sql", "ts"].includes(config.defaultFormat)) ||
+    (config.templateDirectory !== undefined && typeof config.templateDirectory !== "string")
+  )
+    throw new MigrationError("MIGRATION_CONFIG", "Invalid migration defaultFormat or templateDirectory.", 2);
   for (const target of Object.values(config.targets))
     if (
       !target ||
@@ -132,6 +149,10 @@ async function writePlan(root: string, path: string, plan: MigrationPlan): Promi
   return file;
 }
 export async function runMigrationCli(args: readonly string[]): Promise<void> {
+  if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
+    process.stdout.write(usage);
+    return;
+  }
   let json = args.includes("--json");
   try {
     const { command, subcommand, positional, flags } = parse(args);
@@ -153,9 +174,38 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
         "reconcile",
         "baseline",
         "resolve",
+        "verify",
       ].includes(command)
     )
       throw new MigrationError("MIGRATION_USAGE", `Unknown migration command ${command}.`, 2);
+    const common = ["config", "target", "json", "help", "project"];
+    const specific: Readonly<Record<string, readonly string[]>> = {
+      init: ["apply"],
+      new: ["format"],
+      status: [],
+      validate: [],
+      drift: [],
+      plan: ["to", "out", "direction"],
+      apply: ["plan", "to", "yes"],
+      revert: ["plan", "to", "yes"],
+      reconcile: subcommand === "plan" ? ["to", "out"] : ["plan", "reason", "yes"],
+      baseline: ["through", "evidence", "reason", "yes"],
+      resolve: ["id", "attempt", "evidence", "action", "reason", "yes"],
+      verify: [
+        "before",
+        "after",
+        "before-manifest",
+        "after-manifest",
+        "before-through",
+        "to",
+        "out",
+        "fail-on",
+        "capture-dir",
+      ],
+    };
+    for (const flag of Object.keys(flags))
+      if (!common.includes(flag) && !specific[command]!.includes(flag))
+        throw new MigrationError("MIGRATION_USAGE", `--${flag} is not supported by migrate ${command}.`, 2);
     const loaded = await loadConfig({ ...(flags.config === undefined ? {} : { file: flags.config }) });
     const root = loaded.directory;
     if (command === "init") {
@@ -168,8 +218,15 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
           : "migrations";
       const path = resolve(root, directory);
       if (flags.apply !== undefined) await ensureDirectory(root, path);
-      process.stdout.write(
-        `${JSON.stringify({ formatVersion: 1, command: "init", state: flags.apply === undefined ? "preview" : "created", directory, next: "Configure explicit migration targets and replayTarget using defineMigrations; then migrate new <name>." }, null, 2)}\n`,
+      writeMigrationOutput(
+        {
+          formatVersion: 1,
+          command: "init",
+          state: flags.apply === undefined ? "preview" : "created",
+          directory,
+          next: "Configure explicit migration targets and replayTarget using defineMigrations; then migrate new <name>.",
+        },
+        json,
       );
       return;
     }
@@ -182,7 +239,7 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
     if (command === "new") {
       if (flags.target !== undefined) {
         const status = await inspectMigrations({ root, config, renderer: loaded.config.dialect, target: flags.target });
-        if (status.drift.length)
+        if (status.drift.length || status.diagnostics.length || status.driftState === "unknown")
           throw new MigrationError(
             "MIGRATION_DRIFT",
             "Schema drift blocks connected migration authoring. Reconcile or remove the manual change first.",
@@ -192,9 +249,23 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
       if (!positional) throw new MigrationError("MIGRATION_USAGE", "migrate new requires a name.", 2);
       if (flags.format !== undefined && !["sql", "ts"].includes(flags.format))
         throw new MigrationError("MIGRATION_USAGE", "--format must be sql or ts.", 2);
-      const file = await createMigration(root, config.directory, positional, flags.format as "sql" | "ts" | undefined);
-      process.stdout.write(
-        `${JSON.stringify({ formatVersion: 1, state: "created", file, verification: "offline-unverified", next: "Run migrate plan --target <alias> before applying." }, null, 2)}\n`,
+      const file = await createMigration(
+        root,
+        config.directory,
+        positional,
+        (flags.format ?? config.defaultFormat) as "sql" | "ts" | undefined,
+        loaded.config.dialect.sqlModule,
+        config.templateDirectory,
+      );
+      writeMigrationOutput(
+        {
+          formatVersion: 1,
+          state: "created",
+          file,
+          verification: "offline-unverified",
+          next: "Run migrate plan --target <alias> before applying.",
+        },
+        json,
       );
       return;
     }
@@ -210,11 +281,16 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
       target,
       ...(flags.to === undefined ? {} : { to: flags.to }),
     };
-    const write = (value: unknown) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    const write = (value: unknown) => writeMigrationOutput(value, json);
+    if (command === "verify") {
+      write(await verifyMigrationCompatibility({ loaded, migrations: config, target, flags }));
+      return;
+    }
     if (["status", "validate", "drift"].includes(command)) {
       const status = await inspectMigrations(options);
       write({ formatVersion: 1, kind: "typed-sql-migration-status", ...status });
-      if (command !== "status" && status.drift.length) process.exitCode = 1;
+      if (command !== "status" && (status.drift.length || status.diagnostics.length || status.driftState === "unknown"))
+        process.exitCode = 1;
       return;
     }
     if (command === "plan" || (command === "reconcile" && subcommand === "plan")) {
@@ -243,6 +319,10 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
           2,
         );
       const plan = flags.plan === undefined ? await createPlan(options) : await readPlan(root, flags.plan);
+      if (command === "apply" && plan.direction !== "up")
+        throw new MigrationError("MIGRATION_DIRECTION", "Use migrate revert for a down plan.", 2);
+      if (flags.to !== undefined && plan.boundary !== flags.to)
+        throw new MigrationError("MIGRATION_BOUNDARY", "Reviewed plan does not match the requested --to boundary.", 3);
       if (command === "revert" && plan.direction !== "down")
         throw new MigrationError("MIGRATION_REVERT", "Revert requires a down-direction plan.", 2);
       const result = await applyPlan({
@@ -254,6 +334,7 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
         formatVersion: 1,
         state: "applied",
         migrations: result.applied,
+        findings: result.findings,
         next: "Run typed-sql generate and typed-sql check; database execution and generation are separate outcomes.",
       });
       return;
@@ -268,7 +349,7 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
       const plan = await readPlan(root, flags.evidence);
       if (plan.migrations.at(-1)?.id !== flags.through)
         throw new MigrationError("MIGRATION_BASELINE", "Evidence does not match the requested baseline prefix.", 3);
-      const history = await baselinePlan({
+      const result = await baselinePlan({
         root,
         config,
         target,
@@ -276,7 +357,12 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
         reason: flags.reason,
         renderer: loaded.config.dialect,
       });
-      write({ formatVersion: 1, state: "baselined", migrations: history.applied.map((m) => m.id) });
+      write({
+        formatVersion: 1,
+        state: "baselined",
+        migrations: result.history.applied.map((m) => m.id),
+        findings: result.findings,
+      });
       return;
     }
     if (command === "resolve") {
@@ -316,9 +402,14 @@ export async function runMigrationCli(args: readonly string[]): Promise<void> {
           );
     if (json)
       process.stdout.write(
-        `${JSON.stringify({ formatVersion: 1, state: "blocked", code: failure.code, message: failure.message })}\n`,
+        `${JSON.stringify({ formatVersion: 1, state: "blocked", code: failure.code, message: failure.message, ...(failure.findings === undefined ? {} : { findings: failure.findings }) })}\n`,
       );
-    else process.stderr.write(`${failure.code}: ${failure.message}\n`);
+    else {
+      process.stderr.write(`${failure.code}: ${failure.message}\n`);
+      for (const finding of failure.findings ?? [])
+        if (finding.severity === "warning" && finding.status !== "passed")
+          process.stderr.write(`warning ${finding.id} (${finding.status}): ${finding.message}\n`);
+    }
     process.exitCode = failure.exitCode;
   }
 }

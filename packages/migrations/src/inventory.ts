@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { SqlRenderer } from "@typed-sql/core";
@@ -60,13 +60,14 @@ export async function inventoryFiles(root: string, directory: string): Promise<R
   if (!dir.startsWith(resolve(root) + sep))
     throw new MigrationError("MIGRATION_PATH", "Migration directory must be inside the configuration directory.");
   const output: Record<string, string> = {};
+  let fileCount = 0;
   async function visit(path: string): Promise<void> {
     for (const entry of await readdir(path, { withFileTypes: true })) {
       if (entry.name.startsWith(".")) continue;
       const file = await safePath(root, join(path, entry.name));
       if (entry.isDirectory()) await visit(file);
       else if (/\.(?:json|sql|[cm]?ts)$/u.test(entry.name)) {
-        if (Object.keys(output).length >= 10000)
+        if (fileCount++ >= 10000)
           throw new MigrationError("MIGRATION_LIMIT", "Migration inventory exceeds 10,000 files.");
         output[relative(root, file)] = hashBytes(await readBounded(file));
       }
@@ -182,7 +183,7 @@ export async function loadInventory(
       migrations.push(captured);
     }
   }
-  migrations.sort((a, b) => a.id.localeCompare(b.id));
+  migrations.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   if (new Set(migrations.map((m) => m.id)).size !== migrations.length)
     throw new MigrationError("MIGRATION_DUPLICATE", "Duplicate migration ID in inventory.", 3);
   if (digest(await inventoryFiles(root, directory)) !== digest(all))
@@ -231,28 +232,67 @@ export async function createMigration(
   directory: string,
   name: string,
   format: "sql" | "ts" = "sql",
+  sqlModule?: string,
+  templateDirectory?: string,
 ): Promise<string> {
   if (!/^[a-z][a-z0-9-]{0,79}$/u.test(name))
     throw new MigrationError("MIGRATION_NAME", "Use a lowercase migration name with letters, numbers and hyphens.");
   const id = `${new Date().toISOString().replaceAll(/[-:.]/gu, "")}_${randomBytes(3).toString("hex")}_${name}`;
   const base = resolve(root, directory);
   await safePath(root, base);
+  const template = async (filename: string): Promise<string | undefined> => {
+    if (templateDirectory === undefined) return undefined;
+    const dir = await safePath(root, templateDirectory);
+    try {
+      return (await readBounded(await safePath(dir, filename)))
+        .replaceAll("{{id}}", id)
+        .replaceAll("{{name}}", name)
+        .replaceAll("{{sqlModule}}", JSON.stringify(sqlModule ?? ""));
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
+      throw error;
+    }
+  };
   if (format === "ts") {
+    if (sqlModule === undefined || !/^(?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)*$/iu.test(sqlModule))
+      throw new MigrationError("MIGRATION_SQL_MODULE", "TypeScript authoring requires the selected grammar sqlModule.");
     const file = join(base, `${id}.migration.ts`);
     await writeFile(
       file,
-      `import { sql } from '@typed-sql/postgres';\nimport { defineMigration } from '@typed-sql/migrations';\n\nexport default defineMigration({\n  id: '${id}',\n  transaction: 'required',\n  up: [sql\`-- Write reviewed SQL here\`],\n  irreversibleReason: 'Declare a down operation or describe why this migration is irreversible.',\n});\n`,
+      (await template("migration.ts")) ??
+        `import { sql } from ${JSON.stringify(sqlModule)};\nimport { defineMigration } from '@typed-sql/migrations';\n\nexport default defineMigration({\n  id: '${id}',\n  transaction: 'required',\n  up: [sql\`-- Write reviewed SQL here\`],\n  irreversibleReason: 'Declare a down operation or describe why this migration is irreversible.',\n});\n`,
       { flag: "wx" },
     );
     return relative(root, file);
   }
-  const dir = join(base, id);
-  await mkdir(dir);
-  await writeFile(
-    join(dir, "migration.json"),
-    `${JSON.stringify({ formatVersion: 1, id, transaction: "required", up: "up.sql", irreversibleReason: "Declare a down operation or explain irreversibility." }, null, 2)}\n`,
-    { flag: "wx" },
-  );
-  await writeFile(join(dir, "up.sql"), "-- Write reviewed SQL here\n", { flag: "wx" });
+  const up = (await template("up.sql")) ?? "-- Write reviewed SQL here\n",
+    down = await template("down.sql");
+  const metadataSource = await template("migration.json");
+  const metadata =
+    metadataSource === undefined ? {} : object(JSON.parse(metadataSource), "Migration template metadata");
+  if (
+    Object.keys(metadata).some(
+      (key) => !["description", "transaction", "checks", "irreversibleReason", "reconciliation"].includes(key),
+    )
+  )
+    throw new MigrationError(
+      "MIGRATION_TEMPLATE",
+      "Template metadata may define description, transaction, checks, irreversibility and reconciliation only; IDs and asset paths are generated.",
+    );
+  const dir = join(base, id),
+    staging = await mkdtemp(join(base, ".new-"));
+  try {
+    await writeFile(
+      join(staging, "migration.json"),
+      `${JSON.stringify({ transaction: "required", irreversibleReason: "Declare a down operation or explain irreversibility.", ...metadata, formatVersion: 1, id, up: "up.sql", ...(down === undefined ? {} : { down: "down.sql" }) }, null, 2)}\n`,
+      { flag: "wx" },
+    );
+    await writeFile(join(staging, "up.sql"), up, { flag: "wx" });
+    if (down !== undefined) await writeFile(join(staging, "down.sql"), down, { flag: "wx" });
+    await rename(staging, dir);
+  } catch (error) {
+    await rm(staging, { recursive: true, force: true });
+    throw error;
+  }
   return relative(root, dir);
 }

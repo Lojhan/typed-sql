@@ -15,10 +15,13 @@ import {
 import type { Pool, PoolClient } from "pg";
 import { postgresMigrationStatements, validatePostgresReconciliation } from "./migration-script.js";
 import { loadPgDriver } from "./pg.js";
+import { PostgresSchemaProvider } from "./provider.js";
+import type { PostgresTypePolicy } from "./type-policy.js";
 
 export interface PgMigrationTargetOptions {
   readonly connectionString: string | (() => string | Promise<string>);
   readonly namespaces?: readonly string[];
+  readonly typePolicy?: PostgresTypePolicy;
   readonly historyNamespace?: string;
   readonly expected: MigrationTarget["expected"];
   readonly classification: MigrationTarget["classification"];
@@ -47,6 +50,10 @@ export function migrationCatalogKey(kind: string, ...identifiers: readonly strin
 function quoteIdentifier(value: string): string {
   if (value.length === 0 || value.includes("\0"))
     throw new TypeError("Migration identifiers must be nonempty and contain no NUL bytes.");
+  if (Buffer.byteLength(value) > 63)
+    throw new TypeError(
+      "PostgreSQL migration namespace identifiers must not exceed 63 UTF-8 bytes; implicit truncation would invalidate lock identity.",
+    );
   return `"${value.replaceAll('"', '""')}"`;
 }
 
@@ -200,6 +207,33 @@ with namespaces as (
     pg_catalog.jsonb_build_object('server',s.srvname,'options',f.ftoptions)
   from pg_catalog.pg_foreign_table f join pg_catalog.pg_class c on c.oid=f.ftrelid
   join namespaces n on n.oid=c.relnamespace join pg_catalog.pg_foreign_server s on s.oid=f.ftserver
+  union all
+  select 'unsupported',array[n.nspname,'operator',o.oprname], '{}'::jsonb
+  from pg_catalog.pg_operator o join namespaces n on n.oid=o.oprnamespace
+  union all
+  select 'unsupported',array[n.nspname,'operator-class',o.opcname], '{}'::jsonb
+  from pg_catalog.pg_opclass o join namespaces n on n.oid=o.opcnamespace
+  union all
+  select 'unsupported',array[n.nspname,'operator-family',o.opfname], '{}'::jsonb
+  from pg_catalog.pg_opfamily o join namespaces n on n.oid=o.opfnamespace
+  union all
+  select 'unsupported',array[n.nspname,'conversion',o.conname], '{}'::jsonb
+  from pg_catalog.pg_conversion o join namespaces n on n.oid=o.connamespace
+  union all
+  select 'unsupported',array[n.nspname,'text-search-config',o.cfgname], '{}'::jsonb
+  from pg_catalog.pg_ts_config o join namespaces n on n.oid=o.cfgnamespace
+  union all
+  select 'unsupported',array[n.nspname,'text-search-dictionary',o.dictname], '{}'::jsonb
+  from pg_catalog.pg_ts_dict o join namespaces n on n.oid=o.dictnamespace
+  union all
+  select 'unsupported',array[n.nspname,'text-search-parser',o.prsname], '{}'::jsonb
+  from pg_catalog.pg_ts_parser o join namespaces n on n.oid=o.prsnamespace
+  union all
+  select 'unsupported',array[n.nspname,'text-search-template',o.tmplname], '{}'::jsonb
+  from pg_catalog.pg_ts_template o join namespaces n on n.oid=o.tmplnamespace
+  union all
+  select 'unsupported',array[n.nspname,'extended-statistics',o.stxname], '{}'::jsonb
+  from pg_catalog.pg_statistic_ext o join namespaces n on n.oid=o.stxnamespace
 ) select kind,names,definition from catalog order by kind,names`;
 
 function definitionHash(value: JsonValue): string {
@@ -254,7 +288,7 @@ export function createPgMigrationTarget(options: PgMigrationTargetOptions): Migr
             [...namespaces.map(quoteIdentifier), "pg_catalog"].join(","),
           ],
         );
-        return new PgMigrationSession(client, pool, namespaces, historyNamespace);
+        return new PgMigrationSession(client, pool, namespaces, historyNamespace, options.typePolicy);
       } catch (error) {
         client.release(true);
         await pool.end();
@@ -270,6 +304,7 @@ class PgMigrationSession implements MigrationSession {
   readonly #namespaces: readonly string[];
   readonly #historyNamespace: string;
   readonly #ledger: string;
+  readonly #typePolicy: PostgresTypePolicy | undefined;
   #lockKey: string | undefined;
   #closed = false;
   #locked = false;
@@ -279,7 +314,14 @@ class PgMigrationSession implements MigrationSession {
     this.#fatal = error;
   };
 
-  constructor(client: PoolClient, pool: Pool, namespaces: readonly string[], historyNamespace: string) {
+  constructor(
+    client: PoolClient,
+    pool: Pool,
+    namespaces: readonly string[],
+    historyNamespace: string,
+    typePolicy?: PostgresTypePolicy,
+  ) {
+    this.#typePolicy = typePolicy;
     this.#client = client;
     this.#pool = pool;
     this.#namespaces = namespaces;
@@ -336,6 +378,18 @@ class PgMigrationSession implements MigrationSession {
       throw new MigrationError("MIGRATION_IDENTITY", "The migration target did not return an identity.", 3);
     return { dialect: "postgres", database: row.database, server: `${row.address ?? "unix"}:${row.port ?? "local"}` };
   }
+  async snapshot() {
+    await this.#verifyLock();
+    const provider = new PostgresSchemaProvider({
+      client: {
+        query: <Row extends Record<string, unknown>>(text: string, values?: readonly unknown[]) =>
+          this.#query<Row>(text, values),
+      },
+      includeSchemas: this.#namespaces,
+      ...(this.#typePolicy === undefined ? {} : { typePolicy: this.#typePolicy }),
+    });
+    return provider.introspect({});
+  }
 
   async capture(): Promise<CatalogEvidence> {
     const version = await this.#query<{ version: string }>(
@@ -358,6 +412,7 @@ class PgMigrationSession implements MigrationSession {
       for (const row of result.rows)
         objects[migrationCatalogKey(row.kind, ...row.names)] = { definitionHash: definitionHash(row.definition) };
       if (result.rows.filter((row) => row.kind === "namespace").length !== this.#namespaces.length) complete = false;
+      if (result.rows.some((row) => row.kind === "unsupported")) complete = false;
     }
     return {
       formatVersion: 1,
@@ -505,22 +560,42 @@ class PgMigrationSession implements MigrationSession {
     const statements = postgresMigrationStatements(statement.text);
     if (statements.length !== 1 || !/^\s*select\b/iu.test(statements[0]!.text))
       throw new MigrationError("MIGRATION_CHECK_QUERY", "Migration data assertions require one SELECT statement.");
-    const source = statements[0]!.text.trim().replace(/;$/u, "");
-    if (kind === "noRows") {
-      const result = await this.#query<{ ok: boolean }>(`select not exists (${source}\n) as ok`, statement.values);
-      return result.rows[0]?.ok === true;
+    const evaluate = async (): Promise<boolean> => {
+      const source = statements[0]!.text.trim().replace(/;$/u, "");
+      if (kind === "noRows") {
+        const result = await this.#query<{ ok: boolean }>(`select not exists (${source}\n) as ok`, statement.values);
+        return result.rows[0]?.ok === true;
+      }
+      const result = await this.#query(`select * from (${source}\n) as "__typed_sql_check" limit 2`, statement.values);
+      if (
+        result.rows.length !== 1 ||
+        result.fields.length !== 1 ||
+        typeof result.rows[0]![result.fields[0]!.name] !== "boolean"
+      )
+        throw new MigrationError(
+          "MIGRATION_CHECK_RESULT",
+          "A boolean migration assertion must return exactly one non-null boolean value.",
+        );
+      return result.rows[0]![result.fields[0]!.name] === true;
+    };
+    if (!this.#transaction) return evaluate();
+    // A warning-level assertion may fail without aborting the surrounding migration.
+    // Required failures still reach the engine, which rolls back the complete migration.
+    await this.#query("savepoint typed_sql_assertion");
+    try {
+      const result = await evaluate();
+      await this.#query("release savepoint typed_sql_assertion");
+      return result;
+    } catch (error) {
+      try {
+        await this.#query("rollback to savepoint typed_sql_assertion");
+        await this.#query("release savepoint typed_sql_assertion");
+      } catch {
+        // A lost connection/transaction is never made reusable by pretending cleanup succeeded.
+        this.#fatal = error;
+      }
+      throw error;
     }
-    const result = await this.#query(`select * from (${source}\n) as "__typed_sql_check" limit 2`, statement.values);
-    if (
-      result.rows.length !== 1 ||
-      result.fields.length !== 1 ||
-      typeof result.rows[0]![result.fields[0]!.name] !== "boolean"
-    )
-      throw new MigrationError(
-        "MIGRATION_CHECK_RESULT",
-        "A boolean migration assertion must return exactly one non-null boolean value.",
-      );
-    return result.rows[0]![result.fields[0]!.name] === true;
   }
 
   async saveHistory(history: MigrationHistory): Promise<void> {

@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { SqlRenderer } from "@typed-sql/core";
 import { digest, MigrationError, object, parsePlan } from "./codec.js";
 import { captureChecks } from "./definition.js";
-import { assertTarget, catalogChanges, runChecks } from "./engine.js";
+import { assertTarget, batchCheckPolicy, catalogChanges, runChecks } from "./engine.js";
 import { inventoryFiles, verifyInputFiles } from "./inventory.js";
-import type { AppliedMigration, MigrationHistory, MigrationPlan, MigrationsConfig } from "./types.js";
+import type { AppliedMigration, CheckFinding, MigrationHistory, MigrationPlan, MigrationsConfig } from "./types.js";
 
 export async function baselinePlan(options: {
   readonly root: string;
@@ -13,7 +13,7 @@ export async function baselinePlan(options: {
   readonly plan: MigrationPlan;
   readonly reason: string;
   readonly renderer: SqlRenderer;
-}): Promise<MigrationHistory> {
+}): Promise<{ readonly history: MigrationHistory; readonly findings: readonly CheckFinding[] }> {
   const target = options.config.targets[options.target];
   if (!target || !options.reason.trim())
     throw new MigrationError("MIGRATION_BASELINE", "Baseline requires a target and operator reason.");
@@ -65,15 +65,19 @@ export async function baselinePlan(options: {
         "Live schema does not match independently replayed baseline.",
         3,
       );
-    await runChecks(session, plan.checks, {}, "beforeBatch");
-    await runChecks(session, plan.checks, plan.migrations.at(-1)!.checks, "afterUp");
+    const batchChecks = batchCheckPolicy(plan.checks, plan.migrations);
+    const findings: CheckFinding[] = [
+      ...(await runChecks(session, batchChecks, {}, "beforeBatch")),
+      ...(await runChecks(session, plan.checks, plan.migrations.at(-1)!.checks, "afterUp")),
+    ];
     await session.bootstrap();
     await session.begin();
+    let next: MigrationHistory = history;
     try {
-      let next: MigrationHistory = history;
       for (const migration of plan.migrations) {
         const attemptId = randomUUID();
         const applied: AppliedMigration = {
+          appliedAt: new Date().toISOString(),
           id: migration.id,
           hash: migration.hash,
           catalog: plan.expected[migration.id]!,
@@ -92,6 +96,9 @@ export async function baselinePlan(options: {
               hash: migration.hash,
               direction: "up",
               state: "applied",
+              startedAt: new Date().toISOString(),
+              finishedAt: new Date().toISOString(),
+              durationMs: 0,
               reason: options.reason,
             },
           ],
@@ -99,7 +106,6 @@ export async function baselinePlan(options: {
       }
       await session.saveHistory(next);
       await session.commit();
-      return next;
     } catch {
       await session.rollback().catch(() => undefined);
       throw new MigrationError(
@@ -108,6 +114,15 @@ export async function baselinePlan(options: {
         4,
       );
     }
+    try {
+      findings.push(...(await runChecks(session, batchChecks, {}, "afterBatch")));
+    } catch (error) {
+      throw new MigrationError(
+        "MIGRATION_AFTER_BATCH",
+        `Baseline recorded; afterBatch checks failed: ${error instanceof MigrationError ? error.message : "required evidence unavailable"}`,
+      );
+    }
+    return { history: next, findings };
   } finally {
     await session.unlock().catch(() => undefined);
     await session.close();
@@ -122,6 +137,8 @@ export async function resolveAttempt(options: {
   readonly reason: string;
 }): Promise<MigrationHistory> {
   const evidence = object(options.evidence, "Resolution evidence");
+  if (!["confirm-applied", "confirm-not-applied"].includes(options.action))
+    throw new MigrationError("MIGRATION_RESOLUTION", "Unsupported resolution action.", 2);
   if (
     !options.reason.trim() ||
     typeof evidence.attemptId !== "string" ||
@@ -178,27 +195,53 @@ export async function resolveAttempt(options: {
     const next: MigrationHistory = {
       ...history,
       applied:
-        options.action === "confirm-applied"
-          ? [
-              ...history.applied,
-              {
-                id: attempt.migrationId,
-                hash: attempt.hash,
-                catalog: expected,
-                direction: attempt.direction,
-                attemptId: attempt.id,
-                origin: "reconciled",
-              },
-            ]
-          : history.applied,
+        options.action === "confirm-applied" && attempt.direction === "down"
+          ? history.applied.filter((a) => a.id !== attempt.migrationId)
+          : options.action === "confirm-applied"
+            ? [
+                ...history.applied,
+                {
+                  id: attempt.migrationId,
+                  hash: attempt.hash,
+                  catalog: expected,
+                  direction: attempt.direction,
+                  attemptId: attempt.id,
+                  origin: "reconciled",
+                  appliedAt: new Date().toISOString(),
+                },
+              ]
+            : history.applied,
       attempts: history.attempts.map((a) =>
-        a.id === attempt.id ? { ...a, state: "resolved", resolution: options.action, reason: options.reason } : a,
+        a.id === attempt.id
+          ? {
+              ...a,
+              state: "resolved",
+              resolution: options.action,
+              reason: options.reason,
+              finishedAt: new Date().toISOString(),
+              ...(a.startedAt === undefined ? {} : { durationMs: Math.max(0, Date.now() - Date.parse(a.startedAt)) }),
+            }
+          : a,
       ),
     };
-    if (options.action === "confirm-applied" && attempt.direction === "down")
+    if (
+      options.action === "confirm-applied" &&
+      attempt.direction === "down" &&
+      history.applied.at(-1)?.id !== attempt.migrationId
+    )
       throw new MigrationError(
         "MIGRATION_RESOLUTION_DOWN",
-        "Down outcome requires a reviewed direction-specific recovery plan; cannot append an up identity.",
+        "Down resolution must match the current contiguous applied suffix.",
+      );
+    if (
+      options.action === "confirm-applied" &&
+      attempt.direction === "up" &&
+      history.applied.some((a) => a.id >= attempt.migrationId)
+    )
+      throw new MigrationError(
+        "MIGRATION_RESOLUTION_STATE",
+        "Up resolution cannot duplicate or reorder successful history.",
+        3,
       );
     await session.begin();
     try {

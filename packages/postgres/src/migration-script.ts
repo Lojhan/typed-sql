@@ -88,7 +88,7 @@ export function postgresMigrationStatements(source: string): readonly PostgresMi
 export function validatePostgresReconciliation(source: string): void {
   const fail = (): never => {
     throw new PostgresMigrationScriptError(
-      "Schema-only reconciliation supports simple CREATE TABLE, CREATE INDEX, or ALTER TABLE ADD COLUMN statements with built-in types and literal defaults. Data transformations, computed expressions and unsupported DDL require separate inspection/proof.",
+      "Schema-only reconciliation supports simple CREATE TABLE with built-in types and literal defaults, CREATE INDEX, or ALTER TABLE ADD COLUMN without a default. Data transformations, computed expressions and unsupported DDL require separate inspection/proof.",
       { start: 0, end: source.length, line: 1, column: 1 },
     );
   };
@@ -126,7 +126,7 @@ export function validatePostgresReconciliation(source: string): void {
         fail();
       cursor += 1;
     };
-    const column = (): void => {
+    const column = (allowDefault = true): void => {
       identifier();
       const type = peek();
       if (
@@ -181,8 +181,10 @@ export function validatePostgresReconciliation(source: string): void {
         if (consume("NOT")) require("NULL");
         else if (consume("NULL")) {
           /* Explicit nullable column. */
-        } else if (consume("DEFAULT")) literal();
-        else if (consume("PRIMARY")) require("KEY");
+        } else if (consume("DEFAULT")) {
+          if (!allowDefault) fail();
+          literal();
+        } else if (consume("PRIMARY")) require("KEY");
         else if (consume("UNIQUE")) {
           /* Built-in scalar uniqueness. */
         } else break;
@@ -193,7 +195,7 @@ export function validatePostgresReconciliation(source: string): void {
       qualified();
       require("ADD");
       consume("COLUMN");
-      column();
+      column(false);
     } else if (consume("CREATE")) {
       if (consume("TABLE")) {
         qualified();
