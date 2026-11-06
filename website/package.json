@@ -24,7 +24,9 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/mysql": "workspace:*",
     "@typed-sql/postgres": "workspace:*",
-    "@typed-sql/sqlite": "workspace:*"
+    "@typed-sql/sqlite": "workspace:*",
+    "@typed-sql/sqlserver": "workspace:*",
+    "@typed-sql/duckdb": "workspace:*"
   },
   "devDependencies": {
     "vite": "6.4.5",

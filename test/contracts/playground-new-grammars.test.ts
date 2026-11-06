@@ -1,0 +1,319 @@
+import { describe, it, strict } from "poku";
+import {
+  DEFAULT_NATIVE_ENVIRONMENTS,
+  ENVIRONMENT_FILE,
+  environmentSource,
+} from "../../website/.vitepress/theme/playground/environment-model.js";
+import { nativeCommerceFiles } from "../../website/.vitepress/theme/playground/native-commerce-example.js";
+import { DEFAULT_SCHEMAS, parsePlaygroundSchema } from "../../website/.vitepress/theme/playground/playground.js";
+import { workspaceEnvironment } from "../../website/.vitepress/theme/playground/workspace-environment.js";
+import {
+  defaultPlaygroundState,
+  restorePlaygroundState,
+} from "../../website/.vitepress/theme/playground/workspace-storage.js";
+import { createTestWorkspace } from "../helpers/playground-workspace.js";
+
+await describe("native SQL Server and DuckDB playgrounds", async () => {
+  const service = createTestWorkspace();
+  try {
+    for (const dialect of ["sqlserver", "duckdb"] as const) {
+      await it(`${dialect} opens a checked native commerce workspace and reports original-source errors`, () => {
+        const files = nativeCommerceFiles(dialect);
+        const result = service.analyze(dialect, files);
+        strict.deepEqual(result.problems, []);
+        strict.equal(result.queries.length, 9);
+        for (const query of result.queries) {
+          strict.doesNotMatch(query.rowType, /\bany\b/u);
+          strict.doesNotMatch(query.parameterType, /\bany\b/u);
+        }
+        strict.ok(result.hovers["app.ts"]!.some((hover) => hover.content.includes("bigint")));
+        const broken = { ...files, "app.ts": files["app.ts"].replace("accountById(42n)", 'accountById("42")') };
+        const invalid = service
+          .analyze(dialect, broken)
+          .problems.find((problem) => problem.file === "app.ts" && problem.code === "TS2345");
+        strict.ok(invalid);
+        strict.ok(broken["app.ts"].slice(invalid!.from, invalid!.to).includes('"42"'));
+      });
+      await it(`${dialect} preserves actual native adapter batch tuples and transaction results`, () => {
+        const files = nativeCommerceFiles(dialect);
+        const result = service.analyze(dialect, files);
+        strict.deepEqual(result.problems, []);
+        const batch = result.hovers["workflows/batch.ts"]!.find(
+          ({ from }) => from === files["workflows/batch.ts"]!.indexOf("loadDashboard"),
+        );
+        strict.ok(batch);
+        strict.match(batch!.content, /accounts: readonly/u);
+        strict.match(batch!.content, /products: readonly/u);
+        strict.match(batch!.content, /orders: readonly/u);
+        strict.doesNotMatch(batch!.content, /\b(?:any|unknown)\b/u);
+        const transaction = result.hovers["workflows/checkout.ts"]!.find(
+          ({ from }) => from === files["workflows/checkout.ts"]!.indexOf("importCatalog"),
+        );
+        strict.ok(transaction);
+        strict.match(transaction!.content, /products: readonly/u);
+        strict.match(transaction!.content, /audit: \{/u);
+        strict.doesNotMatch(transaction!.content, /\b(?:any|unknown)\b/u);
+      });
+      await it(`${dialect} completes inferred row members through the editor worker`, () => {
+        const files = nativeCommerceFiles(dialect);
+        files["app.ts"] += "\nconst first = null as unknown as Account; first.";
+        service.analyze(dialect, files);
+        const entries = service.interact({
+          kind: "completions",
+          file: "app.ts",
+          position: files["app.ts"].length,
+        }) as readonly { name: string }[];
+        strict.ok(entries.some(({ name }) => name === "email"));
+        strict.ok(entries.some(({ name }) => name === "id"));
+      });
+      await it(`${dialect} restores custom work without changing existing three-grammar saves`, () => {
+        const old = {
+          version: 2,
+          dialect: "postgres",
+          workspaces: { postgres: { files: { "app.ts": "export const own = 1;" }, example: "custom" } },
+        };
+        const restored = restorePlaygroundState(old);
+        strict.deepEqual(restored.workspaces.postgres.files, old.workspaces.postgres.files);
+        strict.deepEqual(restored.workspaces[dialect].files, defaultPlaygroundState().workspaces[dialect].files);
+        const files = { ...restored.workspaces[dialect].files, "notes.ts": "export const own = 1;" };
+        const custom = restorePlaygroundState({
+          version: 2,
+          dialect,
+          workspaces: { [dialect]: { files, example: "commerce" } },
+        });
+        strict.equal(custom.dialect, dialect);
+        strict.equal(custom.workspaces[dialect].example, "custom");
+        strict.deepEqual(custom.workspaces[dialect].files, files);
+      });
+    }
+    await it("shows exact native nested shapes, independent NULLs and finite ARRAY length", () => {
+      const result = service.analyze("duckdb", nativeCommerceFiles("duckdb"));
+      const row = result.queries.find((query) => query.binding === "productAnalytics")!.rowType;
+      for (const fragment of [
+        'readonly "weight": string | null',
+        'readonly "tags": readonly (string | null)[] | null',
+        "readonly [string, string | null]",
+        "readonly [number | null, number | null, number | null]",
+        'readonly tag: "warehouse"',
+        "readonly value: number | null",
+        '"rank": bigint',
+      ])
+        strict.ok(row.includes(fragment), fragment);
+      strict.match(
+        result.queries.find((query) => query.binding === "orderDocument")!.rowType,
+        /readonly "customer": \{ readonly "email": string \| null/u,
+      );
+      const sqlserver = service.analyze("sqlserver", nativeCommerceFiles("sqlserver"));
+      strict.equal(
+        sqlserver.queries.find((query) => query.binding === "topProducts")!.rowType,
+        '{ "id": bigint; "sku": string; "weight": string | null; }',
+      );
+      strict.ok(sqlserver.queries.find((query) => query.binding === "insertPair")!.sql.includes("OUTPUT inserted"));
+    });
+    await it("uses SQL Server collation evidence and DuckDB ASCII folding for schema identities", () => {
+      const tables = "CREATE TABLE Users(id bigint); CREATE TABLE users(id bigint);";
+      const sensitive = parsePlaygroundSchema("sqlserver", tables, false, {
+        ...DEFAULT_NATIVE_ENVIRONMENTS.sqlserver,
+        settings: { ...DEFAULT_NATIVE_ENVIRONMENTS.sqlserver.settings, collation: "Latin1_General_100_CS_AS" },
+      });
+      strict.deepEqual(sensitive.diagnostics, []);
+      strict.ok(parsePlaygroundSchema("sqlserver", tables).diagnostics.some((problem) => problem.code === "PLAY207"));
+      strict.ok(parsePlaygroundSchema("duckdb", tables).diagnostics.some((problem) => problem.code === "PLAY207"));
+      const unicode = parsePlaygroundSchema("duckdb", 'CREATE TABLE "Å"(id BIGINT); CREATE TABLE "å"(id BIGINT);');
+      strict.deepEqual(unicode.diagnostics, []);
+      const multipart = service.analyze("duckdb", {
+        "schema/tables.sql":
+          "CREATE TABLE a.main.users(id BIGINT NOT NULL); CREATE TABLE b.main.users(id VARCHAR NOT NULL);",
+        "query.sql": "SELECT id FROM a.main.users;",
+      });
+      strict.deepEqual(multipart.problems, []);
+      strict.equal(multipart.queries[0]!.rowType, '{ "id": bigint; }');
+    });
+    await it("preserves SQL Server IDENTITY nonwritability while typing generated OUTPUT values", () => {
+      const ddl = "CREATE TABLE dbo.items(id bigint IDENTITY(1,1),label nvarchar(20) NOT NULL);";
+      const schema = parsePlaygroundSchema("sqlserver", ddl);
+      strict.deepEqual(schema.diagnostics, []);
+      const relation = Object.values(schema.snapshot!.relations)[0]!;
+      strict.equal(relation.columns.id!.identity, "always");
+      strict.equal(relation.columns.id!.nullable, false);
+      strict.equal(relation.columns.id!.default, "none");
+      strict.equal(relation.columns.id!.insertable, false);
+      strict.equal(relation.columns.id!.updatable, false);
+      strict.equal(relation.columns.label!.insertable, true);
+      for (const query of [
+        "INSERT INTO dbo.items(id,label) OUTPUT inserted.id VALUES(1,N'x');",
+        "UPDATE dbo.items SET id=2 OUTPUT inserted.id;",
+      ]) {
+        const result = service.analyze("sqlserver", { "schema/tables.sql": ddl, "query.sql": query });
+        strict.ok(
+          result.problems.some((problem) => problem.code === "TSQ203"),
+          query,
+        );
+        strict.ok(!result.queries.some((item) => item.rowType.includes('"id": bigint')), query);
+      }
+      for (const query of [
+        "INSERT INTO dbo.items(label) OUTPUT inserted.id VALUES(N'x');",
+        "INSERT INTO dbo.items OUTPUT inserted.id VALUES(N'x');",
+      ]) {
+        const result = service.analyze("sqlserver", { "schema/tables.sql": ddl, "query.sql": query });
+        strict.deepEqual(result.problems, [], query);
+        strict.equal(result.queries[0]?.rowType, '{ "id": bigint; }');
+      }
+      for (const [type, expected] of [
+        ["tinyint", "number"],
+        ["smallint", "number"],
+        ["int", "number"],
+        ["bigint", "bigint"],
+        ["decimal(12,0)", "string"],
+        ["numeric(20,0)", "string"],
+      ]) {
+        const result = service.analyze("sqlserver", {
+          "schema/tables.sql": `CREATE TABLE dbo.items(id ${type} IDENTITY,label nvarchar(20) NOT NULL);`,
+          "query.sql": "INSERT INTO dbo.items OUTPUT inserted.id VALUES(N'x');",
+        });
+        strict.deepEqual(result.problems, [], type);
+        strict.equal(result.queries[0]?.rowType, `{ "id": ${expected}; }`, type);
+      }
+      for (const definition of [
+        "id bigint IDENTITY NULL",
+        "id bigint NULL IDENTITY",
+        "id bigint IDENTITY IDENTITY",
+        "id nvarchar(10) IDENTITY",
+        "id decimal(12,2) IDENTITY",
+        "id real IDENTITY",
+        "id bigint DEFAULT 1 IDENTITY",
+        "id bigint IDENTITY DEFAULT 1",
+      ])
+        strict.ok(
+          parsePlaygroundSchema("sqlserver", `CREATE TABLE t(${definition});`).diagnostics.some(
+            (problem) => problem.code === "PLAY006",
+          ),
+        );
+    });
+    await it("declines unqualified auto-generation modifiers in new-grammar schemas", () => {
+      for (const dialect of ["sqlserver", "duckdb"] as const) {
+        for (const definition of [
+          "id bigint AUTO_INCREMENT",
+          "id bigint GENERATED ALWAYS AS IDENTITY",
+          "id bigint GENERATED BY DEFAULT AS IDENTITY",
+        ]) {
+          const result = parsePlaygroundSchema(dialect, `CREATE TABLE t(${definition});`);
+          strict.ok(
+            result.diagnostics.some((problem) => problem.code === "PLAY006"),
+            `${dialect}: ${definition}`,
+          );
+          strict.equal(result.snapshot, undefined);
+        }
+      }
+    });
+    await it("retains column COLLATE evidence and rejects conflicts instead of defaulting both operands", () => {
+      const ddl =
+        "CREATE TABLE dbo.items(a nvarchar(10) COLLATE Latin1_General_100_CI_AS,b nvarchar(10) COLLATE Latin1_General_100_CS_AS);";
+      const schema = parsePlaygroundSchema("sqlserver", ddl);
+      strict.deepEqual(schema.diagnostics, []);
+      const relation = Object.values(schema.snapshot!.relations)[0]!;
+      strict.equal(relation.columns.a!.collation, "Latin1_General_100_CI_AS");
+      strict.equal(relation.columns.b!.collation, "Latin1_General_100_CS_AS");
+      const result = service.analyze("sqlserver", {
+        "schema/tables.sql": ddl,
+        "query.sql": "SELECT CASE WHEN a=b THEN 1 ELSE 0 END AS value FROM dbo.items;",
+      });
+      strict.ok(result.problems.some((problem) => problem.code === "TSQ201"));
+      strict.ok(!result.queries.some((item) => item.rowType.includes('"value": number')));
+      const same = service.analyze("sqlserver", {
+        "schema/tables.sql": ddl.replace("Latin1_General_100_CS_AS", "Latin1_General_100_CI_AS"),
+        "query.sql": "SELECT CASE WHEN a=b THEN 1 ELSE 0 END AS value FROM dbo.items;",
+      });
+      strict.deepEqual(same.problems, []);
+      strict.equal(same.queries[0]?.rowType, '{ "value": number; }');
+      const defaulted = parsePlaygroundSchema(
+        "sqlserver",
+        "CREATE TABLE items(a varchar(8) COLLATE DATABASE_DEFAULT);",
+      );
+      strict.equal(
+        Object.values(defaulted.snapshot!.relations)[0]!.columns.a!.collation,
+        DEFAULT_NATIVE_ENVIRONMENTS.sqlserver.settings.collation,
+      );
+      for (const definition of [
+        "a int COLLATE Latin1_General_100_CI_AS",
+        "a nvarchar(10) COLLATE Latin1_General_100_CI_AS COLLATE Latin1_General_100_CS_AS",
+        "a nvarchar(10) COLLATE `Latin1_General_100_CI_AS`",
+      ])
+        strict.ok(
+          parsePlaygroundSchema("sqlserver", `CREATE TABLE t(${definition});`).diagnostics.some(
+            (problem) => problem.code === "PLAY006",
+          ),
+        );
+      for (const dialect of ["postgres", "mysql", "sqlite", "duckdb"] as const)
+        strict.deepEqual(parsePlaygroundSchema(dialect, DEFAULT_SCHEMAS[dialect]).diagnostics, [], dialect);
+    });
+    await it("does not fill missing critical settings in an edited DuckDB environment", () => {
+      const files = nativeCommerceFiles("duckdb");
+      const { integer_division: _removed, ...settings } = DEFAULT_NATIVE_ENVIRONMENTS.duckdb.settings;
+      const result = service.analyze("duckdb", {
+        ...files,
+        [ENVIRONMENT_FILE]: environmentSource({ version: "2.0.0", settings }),
+      });
+      strict.ok(result.problems.some((problem) => problem.code === "TSQ402"));
+      strict.equal(result.queries.length, 0);
+    });
+    await it("contains invalid native type errors in schema diagnostics and preserves PostgreSQL folding", () => {
+      for (const source of ["CREATE TABLE broken (id STRUCT(a));", "CREATE TABLE broken (id DECIMAL(3, 9));"]) {
+        const result = parsePlaygroundSchema("duckdb", source);
+        strict.ok(result.diagnostics.some(({ code }) => code === "PLAY006"));
+        strict.equal(result.snapshot, undefined);
+      }
+      const result = parsePlaygroundSchema(
+        "postgres",
+        'CREATE TABLE PUBLIC.Users (ID bigint); CREATE TABLE "Users" ("ID" bigint);',
+      );
+      strict.deepEqual(result.diagnostics, []);
+      strict.equal(result.snapshot!.relations["public.users"]!.columns.id!.name, "id");
+      strict.equal(result.snapshot!.relations.Users!.columns.ID!.name, "ID");
+    });
+    await it("never executes settings expressions and does not guess support for unknown engines", () => {
+      strict.deepEqual(
+        workspaceEnvironment({
+          [ENVIRONMENT_FILE]: environmentSource({ version: "1.5.6", settings: { TimeZone: "UTC" } }),
+        }),
+        { version: "1.5.6", settings: { TimeZone: "UTC" } },
+      );
+      for (const value of [
+        "process.env.VERSION",
+        "{ ...external }",
+        "{ version: getVersion() }",
+        '{ version: "2.0.0", settings: { TimeZone: (() => "UTC")() } }',
+        '{ version: "2.0.0", version: "1.5.6" }',
+      ]) {
+        const files = {
+          "schema/tables.sql": DEFAULT_SCHEMAS.duckdb,
+          [ENVIRONMENT_FILE]: `export const environment = ${value};`,
+          "query.sql": "SELECT id FROM users;",
+        };
+        const result = service.analyze("duckdb", files);
+        strict.equal(result.queries.length, 0);
+        strict.ok(result.problems.some((problem) => problem.code === "PLAY209" && problem.file === ENVIRONMENT_FILE));
+      }
+      const unknown = service.analyze("duckdb", {
+        "schema/tables.sql": DEFAULT_SCHEMAS.duckdb,
+        [ENVIRONMENT_FILE]: environmentSource({ version: "2.1.0" }),
+        "query.sql": "SELECT id FROM users;",
+      });
+      strict.ok(unknown.problems.some((problem) => problem.code === "TSQ402"));
+      strict.ok(!unknown.queries.some((query) => query.rowType.includes('"id": bigint')));
+    });
+    await it("preserves bracket identifiers and astral source positions in T-SQL files", () => {
+      const source = "-- 😀\nSELECT missing FROM [sales].[Order;History] WHERE [id] = @id;";
+      const result = service.analyze("sqlserver", {
+        "schema/tables.sql": "CREATE TABLE [sales].[Order;History]([id] bigint NOT NULL);",
+        "query.sql": source,
+      });
+      const problem = result.problems.find((problem) => problem.code === "TSQ101");
+      strict.ok(problem);
+      strict.equal(source.slice(problem!.from, problem!.to), "missing");
+      strict.equal(problem!.line, 2);
+    });
+  } finally {
+    service.dispose();
+  }
+});

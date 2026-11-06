@@ -76,7 +76,7 @@ await describe("playground TypeScript workspace", async () => {
         strict.strictEqual(standalone.parameterType, "readonly [bigint]");
         const summary = result.queries.find(({ file }) => file === "queries/summary.ts")!;
         strict.match(summary.rowType, /"label": string/u);
-        if (dialect !== "sqlite") strict.match(summary.rowType, /string \| null/u);
+        if (dialect === "postgres" || dialect === "mysql") strict.match(summary.rowType, /string \| null/u);
         files["app.ts"] = files["app.ts"].replace("42n", '"42"');
         const invalid = workspace.analyze(dialect, files);
         strict.ok(invalid.problems.some(({ file, message }) => file === "app.ts" && /string.*bigint/u.test(message)));

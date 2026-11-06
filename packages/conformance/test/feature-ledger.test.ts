@@ -48,20 +48,38 @@ await describe("grammar feature ledger", async () => {
     const source = await readFile(new URL("../../../grammar/features/ledger.json", import.meta.url), "utf8");
     const ledger = parseGrammarFeatureLedger(JSON.parse(source) as unknown);
     strict.strictEqual(ledger.formatVersion, FEATURE_LEDGER_FORMAT_VERSION);
-    strict.deepStrictEqual(Object.keys(ledger.dialects), ["mysql", "postgres", "sqlite"]);
+    strict.deepStrictEqual(Object.keys(ledger.dialects), ["duckdb", "mysql", "postgres", "sqlite", "sqlserver"]);
     strict.deepStrictEqual(
-      ledger.entries.flatMap(({ capability }) => (capability === undefined ? [] : [capability])),
+      ledger.entries.flatMap(({ capability }) => (capability === undefined ? [] : [capability])).sort(),
       [
         "aggregateFilter",
+        "apply",
         "arrays",
+        "backtickIdentifiers",
+        "ctes",
         "distinctOn",
         "fullJoins",
+        "json",
         "lockingReads",
-        "setOperations",
+        "maps",
+        "modifyingCtes",
+        "nanosecondTimestampTZ",
+        "nativeJson",
+        "output",
+        "pagination",
         "recursiveCtes",
-        "strictTables",
         "returning",
-      ],
+        "setOperations",
+        "strictTables",
+        "structs",
+        "syntax",
+        "top",
+        "unions",
+        "unnest",
+        "variant",
+        "windowQualify",
+        "windows",
+      ].sort(),
     );
     strict.strictEqual(featureSupport(ledger, "statement.dml.returning", "sqlite")?.introduced, "3.35.0");
     strict.strictEqual(featureSupport(ledger, "statement.dml.returning", "mysql")?.level, "unsupported");

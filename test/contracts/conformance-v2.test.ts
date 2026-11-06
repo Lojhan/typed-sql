@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { parseGrammarFeatureLedger } from "../../packages/conformance/src/index.js";
 import {
@@ -9,6 +11,7 @@ import {
   defineConformanceSuite,
 } from "../../packages/conformance/src/v2/index.js";
 
+const execute = promisify(execFile);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 await describe("conformance v2 repository integration", async () => {
@@ -56,6 +59,86 @@ await describe("conformance v2 repository integration", async () => {
     }
   });
 
+  await it("executes filtered native static corpora through published entrypoints", async () => {
+    const help = await execute(process.execPath, ["scripts/conformance-v2.mjs", "--help"], { cwd: workspace });
+    for (const grammar of ["sqlserver", "duckdb"]) strict.ok(help.stdout.includes(grammar));
+    for (const [grammar, probe] of [
+      ["sqlserver", "sqlserver.maturity.integer-division"],
+      ["duckdb", "duckdb.native.struct"],
+      ["sqlserver", "sqlserver.parameters.ordered"],
+      ["duckdb", "duckdb.parameters.ordered"],
+      ["sqlserver", "sqlserver.diagnostics.utf16"],
+      ["duckdb", "duckdb.diagnostics.utf16"],
+    ] as const) {
+      const child = await execute(process.execPath, ["--import", "tsx", "scripts/native-conformance-v2.ts", grammar], {
+        cwd: workspace,
+        env: { ...process.env, TYPED_SQL_CONFORMANCE_PROBE: probe, TYPED_SQL_CONFORMANCE_FIXTURE_GROUP: "native" },
+      });
+      strict.match(child.stdout, /static maintainer corpus: 1 passed, 0 failed/u);
+      const report = JSON.parse(
+        await readFile(join(workspace, "artifacts/conformance", `${grammar}-static.json`), "utf8"),
+      ) as {
+        environment: { capabilities: { staticMaintainerCorpus: boolean; publishedEntrypoints: boolean } };
+        results: { probeId: string; layers: { layer: string; status: string }[] }[];
+      };
+      strict.deepEqual(report.environment.capabilities, { staticMaintainerCorpus: true, publishedEntrypoints: true });
+      strict.equal(report.results.length, 1);
+      strict.equal(report.results[0]?.probeId, probe);
+      const required = probe.includes(".diagnostics.")
+        ? ["resolve"]
+        : probe.includes(".parameters.")
+          ? ["resolve", "compile", "render"]
+          : ["resolve", "compile"];
+      for (const layer of required)
+        strict.equal(report.results[0]?.layers.find((entry) => entry.layer === layer)?.status, "pass");
+      strict.ok(!JSON.stringify(report).includes('"tsType":"any"'));
+    }
+  });
+  await it("rejects unqualified native live targets before build or database dispatch", async () => {
+    for (const [grammar, version, pattern] of [
+      ["sqlserver", "17", /matching TYPED_SQL_SQLSERVER_MAJOR/u],
+      ["duckdb", "1.4.0", /exact engine 1.5.6 or 2.0.0/u],
+    ] as const) {
+      await strict.rejects(
+        execute(process.execPath, ["scripts/conformance-v2.mjs", "--grammar", grammar, "--database-version", version], {
+          cwd: workspace,
+          env: {
+            ...process.env,
+            TYPED_SQL_SQLSERVER_MAJOR: "",
+            TYPED_SQL_SQLSERVER_BUILD: "",
+            TYPED_SQL_SQLSERVER_PASSWORD: "",
+          },
+        }),
+        (error: unknown) => {
+          const failure = error as { stderr?: string; stdout?: string };
+          return pattern.test(failure.stderr ?? "") && !(failure.stdout ?? "").includes("build");
+        },
+      );
+    }
+  });
+  await it("retains the committed SQL Server and DuckDB native qualification artifact shards", async () => {
+    const sqlWorkflow = await readFile(join(workspace, ".github/workflows/sqlserver-qualification.yml"), "utf8");
+    const ci = await readFile(join(workspace, ".github/workflows/ci.yml"), "utf8");
+    strict.ok(sqlWorkflow.includes("qualify:adapter"));
+    strict.ok(sqlWorkflow.includes("path: artifacts/sqlserver"));
+    strict.ok(sqlWorkflow.includes("retention-days: 14"));
+    strict.ok(ci.includes("duckdb-packed-"));
+    strict.ok(ci.includes("path: artifacts/duckdb/packed"));
+    const sql = await readFile(join(workspace, "e2e/sqlserver/adapter-probe.mjs"), "utf8");
+    strict.ok(sql.includes("process.env.TYPED_SQL_SQLSERVER_BUILD"));
+    strict.ok(sql.includes("await writeFile(output, JSON.stringify(evidence"));
+    const finalizationStart = sql.lastIndexOf("\n} finally {");
+    strict.ok(finalizationStart >= 0, "Native adapter evidence needs an outer failure finalizer");
+    const finalization = sql.slice(finalizationStart).split("\n}\n")[0]!;
+    strict.ok(finalization.includes('await mkdir(resolve(output, "..")'));
+    strict.ok(finalization.includes("await writeFile(output, JSON.stringify(evidence"));
+    const duck = await readFile(join(workspace, "e2e/duckdb/test.mjs"), "utf8");
+    for (const sdk of ["1.5.6-r.2", "2.0.0-r.1"]) strict.ok(duck.includes(sdk));
+    strict.ok(duck.includes("-failure.log"));
+    const runner = await readFile(join(workspace, "scripts/conformance-v2.mjs"), "utf8");
+    for (const branch of ["sqlserver-live-", "duckdb-live-", "adapter-probe.mjs", "ledger-capabilities"])
+      strict.ok(runner.includes(branch));
+  });
   await it("retains redacted reports and failure reproductions from every live shard", async () => {
     const workflow = await readFile(join(workspace, ".github", "workflows", "ci.yml"), "utf8");
     for (const grammar of ["postgres", "mysql", "sqlite"]) {

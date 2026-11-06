@@ -178,4 +178,109 @@ CREATE TABLE audit_events (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) STRICT;
 `,
+  sqlserver: `CREATE TABLE users (
+  id bigint IDENTITY(1,1) PRIMARY KEY,
+  email nvarchar(255) NOT NULL UNIQUE,
+  display_name nvarchar(255) NOT NULL DEFAULT N'',
+  status nvarchar(20) NOT NULL DEFAULT N'active' CHECK (status IN ('active', 'suspended')),
+  profile nvarchar(max) NOT NULL DEFAULT N'{}' CHECK (ISJSON(profile) = 1),
+  created_at datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME()
+);
+CREATE TABLE teams (
+  id bigint IDENTITY(1,1) PRIMARY KEY,
+  name nvarchar(255) NOT NULL,
+  slug nvarchar(255) NOT NULL UNIQUE
+);
+CREATE TABLE memberships (
+  user_id bigint NOT NULL REFERENCES users(id),
+  team_id bigint NOT NULL REFERENCES teams(id),
+  role nvarchar(20) NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+  PRIMARY KEY (user_id, team_id)
+);
+CREATE TABLE products (
+  id bigint PRIMARY KEY,
+  sku nvarchar(255) NOT NULL UNIQUE,
+  title nvarchar(255) NOT NULL,
+  price_cents int NOT NULL,
+  active bit NOT NULL,
+  metadata nvarchar(max),
+  weight decimal(18,6)
+);
+CREATE TABLE orders (
+  id bigint IDENTITY(1,1) PRIMARY KEY,
+  user_id bigint NOT NULL REFERENCES users(id),
+  status nvarchar(20) NOT NULL CHECK (status IN ('draft', 'paid', 'shipped', 'cancelled')),
+  total_cents int NOT NULL,
+  created_at datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
+  shipped_at datetime2(7)
+);
+CREATE TABLE order_items (
+  order_id bigint NOT NULL REFERENCES orders(id),
+  product_id bigint NOT NULL REFERENCES products(id),
+  quantity int NOT NULL,
+  unit_price_cents int NOT NULL,
+  PRIMARY KEY (order_id, product_id)
+);
+CREATE TABLE audit_events (
+  id bigint PRIMARY KEY,
+  user_id bigint REFERENCES users(id),
+  event_name nvarchar(255) NOT NULL,
+  payload nvarchar(max) NOT NULL CHECK (ISJSON(payload) = 1),
+  created_at datetime2(7) NOT NULL DEFAULT SYSUTCDATETIME()
+);
+`,
+  duckdb: `CREATE TABLE users (
+  id BIGINT PRIMARY KEY,
+  email VARCHAR NOT NULL UNIQUE,
+  display_name VARCHAR NOT NULL DEFAULT '',
+  status ENUM('active', 'suspended') NOT NULL DEFAULT 'active',
+  profile JSON NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE teams (
+  id BIGINT PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  slug VARCHAR NOT NULL UNIQUE
+);
+CREATE TABLE memberships (
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  team_id BIGINT NOT NULL REFERENCES teams(id),
+  role ENUM('owner', 'admin', 'member') NOT NULL,
+  PRIMARY KEY (user_id, team_id)
+);
+CREATE TABLE products (
+  id BIGINT PRIMARY KEY,
+  sku VARCHAR NOT NULL UNIQUE,
+  title VARCHAR NOT NULL,
+  price_cents INTEGER NOT NULL,
+  active BOOLEAN NOT NULL,
+  metadata JSON,
+  details STRUCT(weight DECIMAL(12,3), tags VARCHAR[], origin STRUCT(country VARCHAR, code INTEGER)),
+  prices MAP(VARCHAR, DECIMAL(18,2)),
+  dimensions DOUBLE[3],
+  fulfillment UNION(warehouse INTEGER, external VARCHAR)
+);
+CREATE TABLE orders (
+  id BIGINT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  status ENUM('draft', 'paid', 'shipped', 'cancelled') NOT NULL,
+  total_cents INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  shipped_at TIMESTAMPTZ
+);
+CREATE TABLE order_items (
+  order_id BIGINT NOT NULL REFERENCES orders(id),
+  product_id BIGINT NOT NULL REFERENCES products(id),
+  quantity INTEGER NOT NULL,
+  unit_price_cents INTEGER NOT NULL,
+  PRIMARY KEY (order_id, product_id)
+);
+CREATE TABLE audit_events (
+  id BIGINT PRIMARY KEY,
+  user_id BIGINT REFERENCES users(id),
+  event_name VARCHAR NOT NULL,
+  payload JSON NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+`,
 } as const;

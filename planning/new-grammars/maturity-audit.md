@@ -60,3 +60,27 @@ SDK probes run locally and independently of the inference implementation.
   claiming that capability; neutral core cannot repair values already lost in a driver.
 - Dynamic PIVOT/external-file schemas, arbitrary procedural batches, unknown UDTs and extensions
   need explicit schema evidence or conservative diagnostics rather than fabricated result types.
+
+## Integration evidence update
+
+The neutral native value plans and initial transport prerequisite are merged. Both grammar
+packages are integrated in draft PR #265; the draft does not establish product maturity.
+DuckDB now includes both pinned SDK profiles, runtime-owned and standalone lazy verification
+services, and an atomic vector appender. Packed end-to-end CLI replay is still being extended.
+
+Native SQL Server qualification uncovered genuine trailing-NUL and large VARCHAR corruption
+in msnodesqlv8 6.2.2, including raw VARCHAR(MAX) results. That SDK remains an explicit restricted
+compatibility adapter. The default /odbc implementation uses application-owned Koffi 3.3.7,
+unixODBC and Microsoft ODBC Driver 18 with explicit lengths. A synchronous transport prototype
+passed large text, binary, exact numeric, temporal and prepared-rebind cases on all four native
+engine builds (run 42117721443); the public worker implementation has separate outstanding
+cancellation, memory-budget and resource-lifetime review findings. Prototype success does not
+qualify production lifecycle behavior. The same workflow's old public adapter stage failed, so
+the overall run is not green.
+
+The integration now includes strict 95% line/function/statement and 90% branch package gates,
+portable schema validation, packed browser analyses for both grammars, SQL Server native type
+comparison in the compiler, and proof-cache invalidation for strict verifiers. Final native
+worker, catalog, editor, performance, tutorial, packed distribution and full repository gates
+remain required before merge. No coverage exclusions or weakened native-value assertions
+substitute for those gates.

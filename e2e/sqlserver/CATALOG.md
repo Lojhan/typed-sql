@@ -42,6 +42,7 @@ hashed. It never writes credentials or makes a restricted snapshot a completenes
 object denials, omitted owner-visible relations and unavailable definitions are explicit limitations;
 no per-visible-object check can establish the absence of entirely invisible securables.
 
-Microsoft documents the
+The [catalog audit](../../planning/new-grammars/sqlserver-catalog-audit.md) records the modeled facts
+and unresolved visibility policy. Microsoft documents the
 [alias binding/unbinding behavior](https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-unbindefault-transact-sql?view=sql-server-ver17)
 and [rule unbinding behavior](https://learn.microsoft.com/en-us/sql/relational-databases/system-stored-procedures/sp-unbindrule-transact-sql?view=sql-server-ver17).

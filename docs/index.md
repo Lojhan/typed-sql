@@ -180,6 +180,12 @@ repository.
     <p>T-SQL grammar, native catalog evidence and an optional counted ODBC adapter for Linux x64.</p>
     <a href="./dialects/sqlserver">SQL Server support <span aria-hidden="true">→</span></a>
   </article>
+  <article class="ts-dialect-card">
+    <StatusBadge status="stable" />
+    <h3>DuckDB</h3>
+    <p>Versioned analytical SQL, nested native types and an optional adapter for an application-owned Node SDK.</p>
+    <a href="./dialects/duckdb">DuckDB support <span aria-hidden="true">→</span></a>
+  </article>
 </DialectCards>
 
 [Compare supported and exactly tested versions](./reference/compatibility.md) or inspect the
@@ -224,7 +230,7 @@ composable control rather than a prerequisite for the first query.
 <template #stable-title>Compiler and database path</template>
 <template #stable-description>
 
-Core contracts, schema/configuration, compiler, CLI, PostgreSQL, MySQL, SQLite, SQL Server, conformance, and
+Core contracts, schema/configuration, compiler, CLI, PostgreSQL, MySQL, SQLite, SQL Server, DuckDB, conformance, and
 OpenTelemetry integration follow the stable package contract.
 
 </template>

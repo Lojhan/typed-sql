@@ -18,11 +18,14 @@ for (const [path, source] of Object.entries(core)) declarations[`/core/${path.sp
 for (const [path, source] of Object.entries(libraries))
   declarations[`/lib/${path.split("/").pop()}`] = source as string;
 // Load the shipped driver-neutral type contracts, without importing runtime JS or a driver.
-const grammarRuntime = import.meta.glob("../../../../packages/{postgres,mysql,sqlite}/dist/packages/*/src/*.d.ts", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+const grammarRuntime = import.meta.glob(
+  "../../../../packages/{postgres,mysql,sqlite,sqlserver,duckdb}/dist/packages/*/src/*.d.ts",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+);
 for (const [path, source] of Object.entries(grammarRuntime))
   declarations[`/${path.split("/packages/")[1]!.split("/")[0]}/${path.split("/").pop()}`] = source as string;
 const workspace = createSemanticWorkspace(declarations);

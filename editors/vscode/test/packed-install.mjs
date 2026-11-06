@@ -29,6 +29,8 @@ export async function installPackedServer(root, run) {
     "postgres",
     "mysql",
     "sqlite",
+    "sqlserver",
+    "duckdb",
     "ts-bridge",
     "language-server",
   ].map((name) => `packages/${name}`);

@@ -316,7 +316,11 @@ exports.run = async () => {
     save();
   } else {
     assert.ok(vscode.extensions.getExtension("vscode.typescript-language-features"));
-    assert.ok(vscode.extensions.getExtension("TypeScriptTeam.native-preview")?.isActive);
+    const native = vscode.extensions.getExtension("TypeScriptTeam.native-preview");
+    assert.ok(native);
+    // onLanguage activation can still be in flight when the host test starts.
+    await native.activate();
+    assert.equal(native.isActive, true);
     await runExtendedScenario(
       spec,
       host,

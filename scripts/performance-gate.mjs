@@ -20,7 +20,7 @@ import {
   runStaticConformanceProbe,
 } from "../packages/conformance/dist/packages/conformance/src/v2/index.js";
 import { renderQuery, sql } from "../packages/core/dist/packages/core/src/index.js";
-import { duckDBServerEvidence, duckdb } from "../packages/duckdb/dist/packages/duckdb/src/index.js";
+import { duckdb } from "../packages/duckdb/dist/packages/duckdb/src/index.js";
 import { parseDuckDBStatement } from "../packages/duckdb/dist/packages/duckdb/src/parser/parser.js";
 import { TypedSqlLanguageService } from "../packages/language-server/dist/packages/language-server/src/index.js";
 import { parseStatement as parseMysqlStatement } from "../packages/mysql/dist/packages/mysql/src/parser/index.js";
@@ -32,8 +32,9 @@ import { parseStatement as parsePostgresStatement } from "../packages/postgres/d
 import { calculateSchemaHash, canonicalizeSchemaValue } from "../packages/schema/dist/packages/schema/src/index.js";
 import { sqlite } from "../packages/sqlite/dist/packages/sqlite/src/index.js";
 import { parseStatement as parseSqliteStatement } from "../packages/sqlite/dist/packages/sqlite/src/parser/index.js";
-import { sqlServerServerEvidence, sqlserver } from "../packages/sqlserver/dist/packages/sqlserver/src/index.js";
+import { sqlserver } from "../packages/sqlserver/dist/packages/sqlserver/src/index.js";
 import { parseStatement as parseSqlServerStatement } from "../packages/sqlserver/dist/packages/sqlserver/src/parser/index.js";
+import { grammarCases } from "../test/editor-hub/cases.mjs";
 import {
   capturePerformanceContext,
   createPerformanceArtifact,
@@ -216,60 +217,7 @@ for (const [id, factory, parse, parserMetric] of [
     assert.equal(parse(pathologicalParserSource).kind, "select");
   });
   const grammar = factory();
-  const schema = grammar.validateSnapshot(
-    id === "sqlserver"
-      ? {
-          formatVersion: 1,
-          dialect: "sqlserver",
-          server: sqlServerServerEvidence("17.0.5035.5", {
-            compatibilityLevel: 170,
-            collation: "SQL_Latin1_General_CP1_CI_AS",
-            defaultSchema: "dbo",
-            quotedIdentifier: true,
-            ansiWarnings: true,
-            arithAbort: true,
-            concatNullYieldsNull: true,
-            dateFirst: 7,
-            dateFormat: "mdy",
-            language: "us_english",
-            engineEdition: 3,
-          }),
-          tables: {
-            users: {
-              schema: "dbo",
-              name: "users",
-              columns: {
-                id: { name: "id", databaseType: "int", tsType: "number", nullable: false },
-                name: { name: "name", databaseType: "nvarchar(320)", tsType: "string", nullable: false },
-                age: { name: "age", databaseType: "int", tsType: "number", nullable: true },
-              },
-            },
-          },
-        }
-      : {
-          formatVersion: 1,
-          dialect: "duckdb",
-          server: duckDBServerEvidence("2.0.0", [], {
-            currentCatalog: "memory",
-            currentSchema: "main",
-            TimeZone: "UTC",
-            Calendar: "gregorian",
-            integer_division: false,
-            preserve_identifier_case: "preserve_case",
-          }),
-          tables: {
-            users: {
-              schema: "main",
-              name: "users",
-              columns: {
-                id: { name: "id", databaseType: "INTEGER", tsType: "number", nullable: false },
-                name: { name: "name", databaseType: "VARCHAR", tsType: "string", nullable: false },
-                age: { name: "age", databaseType: "INTEGER", tsType: "number", nullable: true },
-              },
-            },
-          },
-        },
-  );
+  const schema = grammar.validateSnapshot(grammarCases.find((spec) => spec.id === id).schema);
   const marker = id === "sqlserver" ? "@__typed_sql_1" : "$1";
   const queries = [
     `SELECT id, name FROM users WHERE id=${marker}`,

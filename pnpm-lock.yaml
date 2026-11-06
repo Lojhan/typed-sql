@@ -707,6 +707,9 @@ importers:
       '@typed-sql/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@typed-sql/duckdb':
+        specifier: workspace:*
+        version: link:../packages/duckdb
       '@typed-sql/mysql':
         specifier: workspace:*
         version: link:../packages/mysql
@@ -716,6 +719,9 @@ importers:
       '@typed-sql/sqlite':
         specifier: workspace:*
         version: link:../packages/sqlite
+      '@typed-sql/sqlserver':
+        specifier: workspace:*
+        version: link:../packages/sqlserver
     devDependencies:
       vite:
         specifier: 6.4.5

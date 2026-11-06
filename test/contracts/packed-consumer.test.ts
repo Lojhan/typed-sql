@@ -8,8 +8,10 @@ import { promisify } from "node:util";
 import { describe, it, strict } from "poku";
 import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
+import { packedConsumerOverrides } from "../helpers/packed-editor-consumer.js";
+import { assertPackedEditorProject } from "../helpers/packed-editor-project.js";
+import { ensurePackedEditorSdk } from "../helpers/packed-editor-sdk.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
-import { ProtocolClient, positionAt } from "../helpers/protocol-client.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
 
 const execFile = promisify(execFileCallback);
@@ -51,140 +53,6 @@ const declarationCheckedPackages = new Set([
   "duckdb",
 ]);
 
-async function writeEditorProject(
-  consumer: string,
-  dialect: "mysql" | "postgres" | "sqlite",
-): Promise<{ readonly directory: string; readonly queryFile: string; readonly source: string }> {
-  const directory = join(consumer, `editor-${dialect}`);
-  const queryFile = join(directory, "query.ts");
-  const sqlModule = `@typed-sql/${dialect}`;
-  const mappedList =
-    dialect === "postgres"
-      ? `
-    import type { QueryParameters } from "@typed-sql/core";
-    type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
-    declare const accounts: readonly { id: bigint; email: string }[];
-    const mappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
-      (account) => sql.fragment\`(\${account.id}, \${account.email})\`,
-    )} RETURNING id, email\`;
-    const mappedRow: Equal<QueryRow<typeof mappedQuery>, { id: bigint; email: string }> = true;
-    const mappedParameters: Equal<QueryParameters<typeof mappedQuery>, readonly (bigint | string)[]> = true;
-    const jsonQuery = sql\`SELECT jsonb_build_object('id', id, 'email', email) AS document FROM users\`;
-    const jsonRow: Equal<QueryRow<typeof jsonQuery>, { document: { id: number; email: string } }> = true;
-    const invalidMappedQuery = sql\`INSERT INTO users (id, email) VALUES \${accounts.map(
-      (account) => sql.fragment\`(\${account.email}, \${account.id})\`,
-    )} RETURNING id\`;
-    void [mappedQuery, mappedRow, mappedParameters, jsonQuery, jsonRow, invalidMappedQuery];
-  `
-      : "";
-  const source = `
-    import { sql } from "${sqlModule}";
-    import type { QueryRow } from "@typed-sql/core";
-
-    declare const includeStatus: boolean;
-    declare function execute<Query>(query: Query): Promise<readonly QueryRow<Query>[]>;
-    const simpleQuery = sql\`SELECT account.id, account.email FROM users AS account\`;
-    const rows = await execute(simpleQuery);
-    type Actual = (typeof rows)[number];
-    const cteQuery = sql\`
-      WITH selected_accounts AS (
-        SELECT account.id, account.status FROM users AS account
-      )
-      SELECT selected_accounts.id, selected_accounts.status FROM selected_accounts
-    \`;
-    const conditionalQuery = sql\`
-      SELECT account.id
-        \${includeStatus ? sql.fragment\`, account.status\` : sql.empty}
-      FROM users AS account
-    \`;
-    const invalidParameter = sql\`SELECT account.id FROM users AS account WHERE account.id = \${"wrong"}\`;
-    void [simpleQuery, rows, cteQuery, conditionalQuery, invalidParameter];
-    ${mappedList}
-  `;
-  await mkdir(directory);
-  await writeFile(
-    join(directory, "typed-sql.config.ts"),
-    `
-      import { defineConfig } from "@typed-sql/core";
-      import { ${dialect}, typePolicy } from "${sqlModule}";
-      const dialect = ${dialect}({ typePolicy });
-      export default defineConfig({
-        dialect,
-        schema: { file: "schema.json" },
-        outDir: "generated",
-        projects: ["tsconfig.json"],
-        typePolicy,
-      });
-    `,
-  );
-  await writeFile(
-    join(directory, "tsconfig.json"),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          module: "NodeNext",
-          moduleResolution: "NodeNext",
-          strict: true,
-          target: "ES2024",
-        },
-        include: ["query.ts"],
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  await writeFile(
-    join(directory, "schema.json"),
-    dialect === "sqlite"
-      ? `${JSON.stringify(
-          {
-            formatVersion: 1,
-            dialect: "sqlite",
-            dialectVersion: "1.0.0",
-            tables: {
-              users: {
-                schema: "main",
-                name: "users",
-                kind: "table",
-                strict: true,
-                withoutRowid: false,
-                indexes: [],
-                foreignKeys: [],
-                columns: {
-                  id: { name: "id", databaseType: "INTEGER", tsType: "bigint", nullable: false },
-                  email: { name: "email", databaseType: "TEXT", tsType: "string", nullable: false },
-                  status: { name: "status", databaseType: "TEXT", tsType: "string", nullable: false },
-                },
-              },
-            },
-          },
-          null,
-          2,
-        )}\n`
-      : await readFile(join(workspace, "e2e", dialect, "schema", "catalog.snapshot.json"), "utf8"),
-  );
-  await writeFile(queryFile, source);
-  return { directory, queryFile, source };
-}
-
-async function initializeEditor(client: ProtocolClient, directory: string): Promise<void> {
-  await client.request("initialize", {
-    processId: process.pid,
-    rootUri: pathToFileURL(directory).href,
-    workspaceFolders: [{ uri: pathToFileURL(directory).href, name: "packed-consumer" }],
-    capabilities: {},
-  });
-  client.notify("initialized", {});
-}
-
-async function hoverText(client: ProtocolClient, queryFile: string, source: string, binding: string): Promise<string> {
-  const hover = await client.request("textDocument/hover", {
-    textDocument: { uri: pathToFileURL(queryFile).href },
-    position: positionAt(source, source.indexOf(binding)),
-  });
-  return JSON.stringify(hover);
-}
-
 await describe("packed public packages", async () => {
   await it("installs every tarball in isolation without a database driver", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "typed-sql-packed-"));
@@ -197,10 +65,7 @@ await describe("packed public packages", async () => {
     try {
       // Contracts also run before the release build on a clean checkout.
       // Pack the same six SDK executables that publication will ship.
-      await execFile(process.execPath, [join(workspace, "scripts/build-editor-sdk.mjs"), "--all"], {
-        cwd: workspace,
-        timeout: 180_000,
-      });
+      await ensurePackedEditorSdk(workspace);
       const dependencies: Record<string, string> = {};
       for (const directory of publicPackages) {
         const packageManifest = JSON.parse(
@@ -395,21 +260,7 @@ await describe("packed public packages", async () => {
               typescript: `link:${join(workspace, "node_modules", "typescript")}`,
             },
             pnpm: {
-              overrides: {
-                ...dependencies,
-                tsx: `link:${join(workspace, "node_modules", "tsx")}`,
-                "@types/node": `link:${join(workspace, "node_modules", "@types", "node")}`,
-                "@types/pg": `link:${join(workspace, "node_modules", "@types", "pg")}`,
-                "magic-string": `link:${join(workspace, "packages", "build", "node_modules", "magic-string")}`,
-                "@jridgewell/remapping": `link:${join(workspace, "packages", "build", "node_modules", "@jridgewell", "remapping")}`,
-                picomatch: `link:${join(workspace, "packages", "build", "node_modules", "picomatch")}`,
-                "jsonc-parser": `link:${join(workspace, "packages", "cli", "node_modules", "jsonc-parser")}`,
-                "proper-lockfile": `link:${join(workspace, "packages", "cli", "node_modules", "proper-lockfile")}`,
-                "@typed-sql/typescript-preview": `link:${join(workspace, "packages", "ts-bridge", "node_modules", "@typed-sql", "typescript-preview")}`,
-                "vscode-jsonrpc": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-jsonrpc")}`,
-                "vscode-languageserver": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver")}`,
-                "vscode-languageserver-textdocument": `link:${join(workspace, "packages", "language-server", "node_modules", "vscode-languageserver-textdocument")}`,
-              },
+              overrides: packedConsumerOverrides(workspace, dependencies),
             },
           },
           null,
@@ -453,9 +304,9 @@ await describe("packed public packages", async () => {
         import { sqlite, sql as sqliteSql, typePolicy as sqliteTypePolicy } from "@typed-sql/sqlite";
         import { sqliteRenderer } from "@typed-sql/sqlite/runtime";
         import { sqlserver } from "@typed-sql/sqlserver";
-        import "@typed-sql/sqlserver/odbc";
-        import "@typed-sql/sqlserver/msnodesqlv8";
+        import { loadSqlServerOdbcDriver } from "@typed-sql/sqlserver/odbc";
         import "@typed-sql/sqlserver/runtime";
+        import "@typed-sql/sqlserver/msnodesqlv8";
         import "@typed-sql/sqlserver/browser";
         import { duckdb } from "@typed-sql/duckdb";
         import "@typed-sql/duckdb/node-api";
@@ -474,7 +325,7 @@ await describe("packed public packages", async () => {
         import "@typed-sql/language-server";
 
         const require = createRequire(import.meta.url);
-        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "mssql", "tedious", "msnodesqlv8", "koffi", "@duckdb/node-api", "@duckdb/node-bindings"]) {
+        for (const driver of ["pg", "mysql2", "@libsql/client", "@neondatabase/serverless", "postgres", "mssql", "tedious", "koffi", "msnodesqlv8", "@duckdb/node-api", "@duckdb/node-bindings"]) {
           try { require.resolve(driver); throw new Error(driver + " was installed transitively"); }
           catch (error) { if (error.message === driver + " was installed transitively") throw error; }
         }
@@ -483,6 +334,10 @@ await describe("packed public packages", async () => {
         if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
         if (duckdb().id !== "duckdb" || duckdb().sqlModule !== "@typed-sql/duckdb") throw new Error("DuckDB public grammar contract failed");
         if (sqlite().id !== "sqlite") throw new Error("SQLite dialect import failed");
+        if (sqlserver().id !== "sqlserver" || sqlserver().sqlModule !== "@typed-sql/sqlserver") throw new Error("SQL Server public grammar contract failed");
+        if (sqlserver().id !== "sqlserver" || duckdb().id !== "duckdb") throw new Error("native grammar import failed");
+        try { await loadSqlServerOdbcDriver(); throw new Error("Koffi was installed transitively"); }
+        catch (error) { if (!/koffi/i.test(String(error.message)) || error.message === "Koffi was installed transitively") throw error; }
         if (postgres().sqlModule !== "@typed-sql/postgres") throw new Error("PostgreSQL sqlModule contract failed");
         if (mysql().sqlModule !== "@typed-sql/mysql") throw new Error("MySQL sqlModule contract failed");
         if (sqlite().sqlModule !== "@typed-sql/sqlite") throw new Error("SQLite sqlModule contract failed");
@@ -598,8 +453,6 @@ await describe("packed public packages", async () => {
       );
       await execFile(process.execPath, [join(consumer, "verify.mjs")], { cwd: consumer, env: isolatedEnvironment });
 
-      const languageServer = join(consumer, "node_modules", ".bin", "typed-sql-language-server");
-      const typedSql = join(consumer, "node_modules", ".bin", "typed-sql");
       const sdk = join(
         consumer,
         "node_modules",
@@ -635,142 +488,7 @@ await describe("packed public packages", async () => {
         ).href,
       });
       for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
-        const project = await writeEditorProject(consumer, dialect);
-        const manifestRun = await execFile(typedSql, ["manifest"], {
-          cwd: project.directory,
-          env: isolatedEnvironment,
-        });
-        strict.ok(
-          manifestRun.stdout.includes(`Generated ${dialect === "postgres" ? 7 : 4} queries (0 unresolved`),
-          manifestRun.stdout,
-        );
-        const manifestSource = await readFile(join(project.directory, ".typed-sql", "queries.json"), "utf8");
-        strict.ok(!manifestSource.includes(project.directory));
-        strict.strictEqual(
-          (JSON.parse(manifestSource) as { readonly queries: readonly unknown[] }).queries.length,
-          dialect === "postgres" ? 7 : 4,
-        );
-        const uri = pathToFileURL(project.queryFile).href;
-        const client = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);
-        try {
-          await initializeEditor(client, project.directory);
-          const diagnosticsReady = client.notification(
-            "textDocument/publishDiagnostics",
-            (params) => (params as { readonly uri?: string }).uri === uri,
-          );
-          client.notify("textDocument/didOpen", {
-            textDocument: { uri, languageId: "typescript", version: 1, text: project.source },
-          });
-          await diagnosticsReady;
-          const diagnostics = (await client.request("textDocument/diagnostic", {
-            textDocument: { uri },
-          })) as {
-            readonly items?: readonly {
-              readonly code?: number | string;
-              readonly severity?: number;
-              readonly message?: string;
-              readonly range: { readonly start: { readonly line: number } };
-            }[];
-          };
-          strict.ok(
-            diagnostics.items?.some((diagnostic) =>
-              /not assignable to parameter of type/u.test(diagnostic.message ?? ""),
-            ),
-            `${dialect} must report the bad interpolation through TypeScript: ${JSON.stringify(diagnostics.items)}`,
-          );
-
-          const simple = await hoverText(client, project.queryFile, project.source, "simpleQuery");
-          strict.ok(simple.includes("id: bigint"), simple);
-          strict.ok(simple.includes("email: string"), simple);
-          strict.ok(!simple.includes("unknown"), simple);
-          const rows = await hoverText(client, project.queryFile, project.source, "rows");
-          strict.ok(rows.includes("readonly"), rows);
-          strict.ok(rows.includes("id: bigint"), rows);
-          strict.ok(rows.includes("email: string"), rows);
-          strict.ok(!rows.includes("unknown"), rows);
-          const actual = await hoverText(client, project.queryFile, project.source, "Actual");
-          strict.ok(actual.includes("id: bigint"), actual);
-          strict.ok(actual.includes("email: string"), actual);
-          strict.ok(!actual.includes("unknown"), actual);
-          const cte = await hoverText(client, project.queryFile, project.source, "cteQuery");
-          strict.ok(cte.includes("id: bigint"), cte);
-          strict.ok(
-            dialect === "sqlite"
-              ? cte.includes("status: string")
-              : cte.includes('status: \\"active\\" | \\"suspended\\"'),
-            cte,
-          );
-          const conditional = await hoverText(client, project.queryFile, project.source, "conditionalQuery");
-          strict.ok(conditional.includes("id: bigint"), conditional);
-          strict.ok(conditional.includes("status"), conditional);
-
-          if (dialect === "postgres") {
-            const callbackLine = positionAt(project.source, project.source.lastIndexOf("${account.email}")).line;
-            strict.ok(
-              diagnostics.items?.some(
-                (diagnostic) =>
-                  diagnostic.range.start.line === callbackLine && /not assignable/u.test(diagnostic.message ?? ""),
-              ),
-              `swapped mapped-list callback must fail through packed declarations: ${JSON.stringify(diagnostics.items)}`,
-            );
-            strict.deepStrictEqual(
-              diagnostics.items
-                ?.filter((diagnostic) => diagnostic.severity === 1)
-                .map((diagnostic) => diagnostic.range.start.line)
-                .sort((a, b) => a - b),
-              [positionAt(project.source, project.source.indexOf("const invalidParameter")).line, callbackLine],
-              "Only the two intentional parameter errors may fail; mapped row and parameter types must match exactly",
-            );
-            const schemaFile = join(project.directory, "schema.json");
-            const schema = JSON.parse(await readFile(schemaFile, "utf8")) as {
-              tables: { users: { columns: { email: { nullable: boolean } } } };
-            };
-            schema.tables.users.columns.email.nullable = true;
-            await writeFile(schemaFile, `${JSON.stringify(schema, null, 2)}\n`);
-            const reloaded = client.notification(
-              "textDocument/publishDiagnostics",
-              (params) => (params as { readonly uri?: string }).uri === uri,
-            );
-            client.notify("workspace/didChangeWatchedFiles", {
-              changes: [{ uri: pathToFileURL(schemaFile).href, type: 2 }],
-            });
-            await reloaded;
-            const changed = await hoverText(client, project.queryFile, project.source, "simpleQuery");
-            const reloadDiagnostics = await client.request("textDocument/diagnostic", {
-              textDocument: { uri },
-            });
-            strict.ok(
-              changed.includes("email: string | null"),
-              `${changed}\nReload diagnostics: ${JSON.stringify(reloadDiagnostics)}`,
-            );
-            strict.ok(changed.includes("id: bigint"), changed);
-
-            const reconfigured = client.notification(
-              "textDocument/publishDiagnostics",
-              (params) => (params as { readonly uri?: string }).uri === uri,
-            );
-            client.notify("workspace/didChangeConfiguration", { settings: {} });
-            await reconfigured;
-            const afterConfiguration = await hoverText(client, project.queryFile, project.source, "simpleQuery");
-            strict.ok(afterConfiguration.includes("email: string | null"), afterConfiguration);
-          }
-        } finally {
-          await client.close();
-        }
-
-        if (dialect === "postgres") {
-          const restarted = new ProtocolClient(languageServer, ["--stdio"], project.directory, isolatedEnvironment);
-          try {
-            await initializeEditor(restarted, project.directory);
-            restarted.notify("textDocument/didOpen", {
-              textDocument: { uri, languageId: "typescript", version: 1, text: project.source },
-            });
-            const hover = await hoverText(restarted, project.queryFile, project.source, "simpleQuery");
-            strict.ok(hover.includes("email: string | null"), hover);
-          } finally {
-            await restarted.close();
-          }
-        }
+        await assertPackedEditorProject(consumer, dialect, isolatedEnvironment);
       }
     } finally {
       await rm(temporary, { recursive: true, force: true });

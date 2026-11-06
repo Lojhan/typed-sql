@@ -25,13 +25,15 @@ await describe("SQL-file bindings and application identities in the playground",
         const positional = result.queries.find(({ binding }) => binding === "accountByPosition")!;
         strict.strictEqual(
           positional.parameterType,
-          dialect === "postgres" ? "readonly [string, bigint, bigint]" : "readonly [string, bigint]",
+          dialect === "postgres" || dialect === "duckdb"
+            ? "readonly [string, bigint, bigint]"
+            : "readonly [string, bigint]",
         );
         const mixed = {
           ...files,
           "queries/orders.sql": files["queries/orders.sql"]!.replace(
-            "OR user_id = :userId",
-            `OR user_id = ${dialect === "postgres" ? "$1" : "?"}`,
+            `OR user_id = ${dialect === "duckdb" ? "$" : dialect === "sqlserver" ? "@" : ":"}userId`,
+            `OR user_id = ${dialect === "postgres" || dialect === "duckdb" ? "$1" : "?"}`,
           ),
         };
         strict.ok(
