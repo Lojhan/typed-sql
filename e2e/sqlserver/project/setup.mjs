@@ -30,6 +30,9 @@ try {
     await admin.queryable.all(
       `IF DB_ID(N'${name}') IS NOT NULL BEGIN ALTER DATABASE [${name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${name}]; END`,
     );
+    const dropped = await admin.queryable.all(`SELECT DB_ID(N'${name}') AS owned_database_id`);
+    assert.equal(dropped.length, 1);
+    assert.equal(dropped[0].owned_database_id, null, "Independent admin catalog confirms owned database was dropped");
   }
 } finally {
   await admin.close();

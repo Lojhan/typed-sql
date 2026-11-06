@@ -616,6 +616,83 @@ async function temporal(db, report) {
     snapshot,
     "SELECT id,status,valid_from,valid_to FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF :instant WHERE id=:id",
   );
+  const mixed = await compiled(
+    snapshot,
+    "SELECT id,status,CAST(:instant AS datetime2(7)) AS scalar_instant FROM dbo.catalog_temporal FOR SYSTEM_TIME AS OF :instant WHERE id=:id",
+  );
+  assert.equal(mixed.plan.parameters.length, 3);
+  assert.deepEqual(
+    mixed.plan.parameters.slice(0, 2).map((parameter) => [parameter.databaseType, parameter.type]),
+    [
+      ["datetime2(7)", "string"],
+      ["datetime2(7)", "string"],
+    ],
+  );
+  report.typedTemporalBoundary = {
+    probes: [],
+    compilerSql: selected.query.query.sql,
+    mixedCompilerSql: mixed.query.query.sql,
+  };
+  const typedBoundary = async (dateFormat, stage) => {
+    assert.equal(await actualDateFormat(), dateFormat);
+    for (const [instant, status] of [
+      [currentBoundary, "changed"],
+      [immediatelyBefore, "new😀"],
+    ]) {
+      for (const [kind, statement] of [
+        ["temporal", selected],
+        ["mixed-scalar-and-temporal", mixed],
+      ]) {
+        const observed = { dateFormat, stage, kind, instant, expectedStatus: status };
+        report.typedTemporalBoundary.probes.push(observed);
+        try {
+          if (dateFormat === "dmy") {
+            // DMY is qualified only by the raw oracle. Typed execution explicitly
+            // reattests canonical MDY and must refuse this intentional drift.
+            await assert.rejects(
+              () => db.all(statement.factory({ instant, id: 1n })),
+              (error) => {
+                observed.rejection = { name: error.name, error: redact(error), code: error.code };
+                assert.ok(error instanceof TypeError);
+                assert.notEqual(error.code, "TSQL_ODBC_NATIVE");
+                assert.match(error.message, /DATEFORMAT mdy/u);
+                return true;
+              },
+            );
+          } else {
+            observed.rows = await db.all(statement.factory({ instant, id: 1n }));
+            assert.equal(observed.rows.length, 1);
+            assert.equal(observed.rows[0].id, 1n);
+            assert.equal(observed.rows[0].status, status);
+            if (kind === "mixed-scalar-and-temporal") assert.equal(observed.rows[0].scalar_instant, instant);
+          }
+        } catch (error) {
+          observed.error = redact(error);
+          observed.diagnostics = error?.diagnostics;
+          report.counterexamples ??= [];
+          report.counterexamples.push({
+            name: "compiled temporal boundary",
+            dateFormat,
+            stage,
+            kind,
+            instant,
+            error: redact(error),
+            diagnostics: error?.diagnostics,
+          });
+          failures.push(`${report.compatibilityLevel}: typed AS OF boundary ${dateFormat} ${stage} ${kind} ${instant}`);
+        }
+      }
+    }
+  };
+  await typedBoundary("mdy", "canonical");
+  try {
+    await q("SET DATEFORMAT dmy");
+    await typedBoundary("dmy", "attestation-rejection");
+  } finally {
+    await q("SET DATEFORMAT mdy");
+    assert.equal(await actualDateFormat(), baselineDateFormat);
+  }
+  await typedBoundary("mdy", "restored");
   // This exercises the original grammar context through native parameter lowering,
   // rather than treating prepare/describe metadata as proof that AS OF executes.
   try {
