@@ -383,11 +383,14 @@ export class WorkspaceFormatter {
           return;
         }
         const details = Buffer.concat(diagnostics).toString("utf8");
-        if (formatter === "biome" && /not formatted[\s\S]*?(?:ignored|disabled)/iu.test(details)) {
+        const firstLine = details.split(/\r?\n/u, 1)[0] ?? "";
+        const disabled = firstLine === "The content was not formatted because the formatter is currently disabled.";
+        const ignored = /^The content was not formatted because the path .+ is ignored\.$/u.test(firstLine);
+        if (formatter === "biome" && (disabled || ignored)) {
           reject(
             new WorkspaceError(
-              /ignored/iu.test(details) ? "FORMATTER_IGNORED" : "FORMATTER_DISABLED",
-              /ignored/iu.test(details)
+              ignored ? "FORMATTER_IGNORED" : "FORMATTER_DISABLED",
+              ignored
                 ? "Biome ignores this file under the repository configuration"
                 : "The repository Biome configuration disables formatting for this file",
             ),

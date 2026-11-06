@@ -199,10 +199,10 @@ await describe("repository formatter execution", async () => {
       );
       await writeFile(
         join(packageRoot, "cli.cjs"),
-        `const fs=require('node:fs');let source='';process.stdin.on('data',data=>source+=data);process.stdin.on('end',()=>{const file=process.argv.find(value=>value.startsWith('--stdin-file-path=')).slice('--stdin-file-path='.length);if(file.endsWith('slow.ts'))setTimeout(()=>process.stdout.write(source),5000);else if(file.endsWith('huge.ts'))process.stdout.write('x'.repeat(600000));else if(file.endsWith('empty.ts')){}else if(file.endsWith('external.ts')){fs.writeFileSync(file,'external edit');process.stdout.write(source);}else if(file.endsWith('config.ts')){const config=process.argv.find(value=>value.startsWith('--config-path=')).slice('--config-path='.length);fs.writeFileSync(config,'{"formatter":{"enabled":false}}');process.stdout.write(source);}else process.stdout.write(source);});`,
+        `const fs=require('node:fs');let source='';process.stdin.on('data',data=>source+=data);process.stdin.on('end',()=>{const file=process.argv.find(value=>value.startsWith('--stdin-file-path=')).slice('--stdin-file-path='.length);if(file.endsWith('slow.ts'))setTimeout(()=>process.stdout.write(source),5000);else if(file.endsWith('huge.ts'))process.stdout.write('x'.repeat(600000));else if(file.endsWith('empty.ts')){}else if(file.endsWith('external.ts')){fs.writeFileSync(file,'external edit');process.stdout.write(source);}else if(file.endsWith('config.ts')){const config=process.argv.find(value=>value.startsWith('--config-path=')).slice('--config-path='.length);fs.writeFileSync(config,'{"formatter":{"enabled":false}}');process.stdout.write(source);}else if(file.endsWith('diagnostic.ts')){process.stderr.write('Syntax problem\\nnot formatted source says disabled\\n');process.exitCode=1;}else process.stdout.write(source);});`,
       );
       await writeFile(join(directory, "biome.json"), "{}");
-      for (const name of ["empty.ts", "huge.ts", "external.ts", "config.ts", "slow.ts"])
+      for (const name of ["empty.ts", "huge.ts", "external.ts", "config.ts", "diagnostic.ts", "slow.ts"])
         await writeFile(join(directory, "playground", name), "const x=1;");
       const files = new WorkspaceFiles(directory, ["playground"], ["playground"]),
         formatter = new WorkspaceFormatter(files, 250);
@@ -213,6 +213,7 @@ await describe("repository formatter execution", async () => {
       });
       try {
         await strict.rejects(formatter.format(await request("empty.ts"), true), code("FORMATTER_EMPTY"));
+        await strict.rejects(formatter.format(await request("diagnostic.ts"), true), code("FORMATTER_FAILED"));
         await strict.rejects(formatter.format(await request("huge.ts"), true), code("FORMATTER_OUTPUT"));
         await strict.rejects(formatter.format(await request("external.ts"), true), code("FILE_CONFLICT"));
         await strict.rejects(formatter.format(await request("config.ts"), true), code("FORMATTER_CONFIG_CHANGED"));
