@@ -611,3 +611,67 @@ for (const mode of ["query", "stream"] as const) {
     await database.close();
   });
 }
+
+for (const validated of [false, true]) {
+  await it(`does not interrupt another lease when a ${validated ? "validated" : "plain"} queued stream is cancelled`, async () => {
+    const entered = Promise.withResolvers<void>(),
+      finish = Promise.withResolvers<void>();
+    const calls: string[] = [],
+      abort = new AbortController();
+    const database = createDuckDBDatabase({
+      connection: {
+        libraryVersion: "2.0.0",
+        async prepare() {
+          calls.push("prepare");
+          return {
+            async execute() {
+              calls.push("execute");
+              entered.resolve();
+              await finish.promise;
+              return {
+                columns: [{ name: "value", type: { kind: "scalar" as const, name: "INTEGER" } }],
+                async readAll() {
+                  return [[1]];
+                },
+                close() {
+                  calls.push("result closed");
+                },
+              };
+            },
+            close() {
+              calls.push("statement closed");
+            },
+          };
+        },
+        interrupt() {
+          calls.push("interrupt");
+        },
+      },
+    });
+    const active = database.all(query);
+    await entered.promise;
+    const schema: import("@typed-sql/core").StandardSchemaV1<{ value: number }, { value: number }> = {
+      "~standard": {
+        version: 1 as const,
+        vendor: "lease-test",
+        validate(value: unknown) {
+          if (value && typeof value === "object" && "value" in value && typeof value.value === "number")
+            return { value: { value: value.value } };
+          return { issues: [{ message: "number required" }] };
+        },
+      },
+    };
+    const selected = validated ? sql.validateResult(query, schema) : query;
+    const stream = database.stream(selected, { signal: abort.signal });
+    const rejection = strict.rejects(stream.next(), /cancelled/u);
+    await Promise.resolve();
+    abort.abort();
+    strict.deepEqual(calls, ["prepare", "execute"]);
+    finish.resolve();
+    strict.deepEqual(await active, [{ value: 1 }]);
+    await rejection;
+    strict.deepEqual(calls, ["prepare", "execute", "result closed", "statement closed"]);
+    await stream.close();
+    await database.close();
+  });
+}

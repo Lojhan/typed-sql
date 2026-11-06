@@ -1,5 +1,11 @@
 import type * as NativeSDK from "@duckdb/node-api";
-import type { LiveQueryVerifier, QueryPlanInspector } from "@typed-sql/core";
+import {
+  type ExecutionOptions,
+  executionDeadline,
+  type LiveQueryVerifier,
+  QueryCancelledError,
+  type QueryPlanInspector,
+} from "@typed-sql/core";
 import { calculateTypePolicyHash } from "@typed-sql/schema";
 import { type DuckDBType, formatDuckDBType } from "./native-types.js";
 import { DuckDBSchemaProvider, type DuckDBSchemaProviderOptions } from "./provider.js";
@@ -367,12 +373,21 @@ export function adaptDuckDBConnection(connection: unknown, importedSDK: DuckDBSD
         throw error;
       }
     },
-    async readServerEvidence() {
+    async readServerEvidence(controls: ExecutionOptions = {}) {
       assertUsable();
+      const active = () => {
+        if (controls.signal?.aborted) throw new QueryCancelledError("signal", { cause: controls.signal.reason });
+        const due = executionDeadline(controls);
+        if (due !== undefined && due <= Date.now()) throw new QueryCancelledError("deadline");
+      };
       const read = async (text: string) => {
+        active();
         const result = await connection.run(text);
         try {
-          return await result.getRows();
+          active();
+          const rows = await result.getRows();
+          active();
+          return rows;
         } finally {
           retireNative(() => result.closeSync());
         }
