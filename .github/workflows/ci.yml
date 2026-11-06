@@ -82,7 +82,7 @@ jobs:
       matrix:
         include:
           - group: bundlers
-            tests: test/bundlers.test.mjs test/watch.test.mjs test/types.test.mjs test/schema-snapshot.test.mjs
+            tests: test/bundlers.test.mjs test/watch.test.mjs test/types.test.mjs test/duckdb-browser.test.mjs test/schema-snapshot.test.mjs
           - group: runners
             tests: test/runners.test.mjs
           - group: next
@@ -93,6 +93,8 @@ jobs:
             tests: test/workers.test.mjs
           - group: sqlite-wasm
             tests: test/sqlite-wasm.test.mjs
+          - group: duckdb
+            tests: test/duckdb.test.mjs
           - group: bun
             tests: test/bun.test.mjs
     steps:
@@ -121,6 +123,14 @@ jobs:
         with:
           name: sqlite-wasm-browser-${{ github.run_attempt }}
           path: artifacts/sqlite-wasm/browser
+          if-no-files-found: error
+          retention-days: 14
+
+      - if: always() && matrix.group == 'duckdb'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: duckdb-packed-${{ github.run_attempt }}
+          path: artifacts/duckdb/packed
           if-no-files-found: error
           retention-days: 14
 

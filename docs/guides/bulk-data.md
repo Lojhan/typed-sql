@@ -16,8 +16,12 @@ failure semantics.
 | Form | Database work | Use it for |
 | --- | --- | --- |
 | Direct fragment list | One parameterized statement | A bounded, known non-empty set that should use one statement's result and failure semantics |
-| `database.batch()` | Multiple sequential statements on one connection | Heterogeneous commands or per-command results; wrap it in a transaction when the statements must be atomic |
-| Native bulk capability | PostgreSQL COPY or MySQL LOAD DATA | Large or streaming ingestion where bounded memory and protocol throughput matter |
+| `database.batch()` | Multiple sequential statements on one connection | Heterogeneous commands or per-command results; atomicity follows the selected adapter's contract |
+| Native bulk capability | PostgreSQL COPY, MySQL LOAD DATA, or DuckDB vector appender | Large or streaming ingestion where bounded memory and protocol throughput matter |
+
+DuckDB root batches are atomic. PostgreSQL, MySQL and built-in SQLite root
+batches require an enclosing transaction when all statements must commit together. A scoped
+batch participates in its existing transaction. See [batch execution contracts](./execution.md#execute-an-ordered-batch).
 
 For a direct multi-row statement, map every row to `sql.fragment` and interpolate the resulting
 array without `sql.join()`. This does not silently become a batch or native bulk transfer. See

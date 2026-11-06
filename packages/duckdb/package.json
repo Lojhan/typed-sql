@@ -1,0 +1,59 @@
+{
+  "name": "@typed-sql/duckdb",
+  "version": "2.4.0",
+  "description": "DuckDB grammar, schema introspection, exact type policies, and explicit application-owned native integration for typed-sql.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/duckdb"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "exports": {
+    ".": "./dist/packages/duckdb/src/index.js",
+    "./query": "./dist/packages/duckdb/src/query.js",
+    "./runtime": "./dist/packages/duckdb/src/runtime.js",
+    "./node-api": "./dist/packages/duckdb/src/node-api.js",
+    "./browser": "./dist/packages/duckdb/src/browser.js"
+  },
+  "scripts": {
+    "test": "poku test --sequential --coverage=@pokujs/c8 --coverageConfig=.c8rc.json --reporter=compact --enforce",
+    "test:soundness": "poku test/soundness.test.ts --reporter=compact --enforce",
+    "catalog:check": "node scripts/generate-catalog.mjs --check && node scripts/generate-common-types.mjs --check",
+    "typecheck:test": "tsc -p tsconfig.test.json",
+    "coverage": "pnpm test"
+  },
+  "dependencies": {
+    "@typed-sql/ast": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@typed-sql/conformance": "workspace:*",
+    "@duckdb/node-api": "2.0.0-r.1",
+    "duckdb-node-15": "npm:@duckdb/node-api@1.5.6-r.2"
+  }
+}

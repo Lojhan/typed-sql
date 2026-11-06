@@ -49,6 +49,9 @@
       "path": "../packages/sqlite"
     },
     {
+      "path": "../packages/duckdb"
+    },
+    {
       "path": "../packages/compiler"
     },
     {

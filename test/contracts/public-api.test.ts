@@ -219,6 +219,11 @@ import type {
   TypedSqlConfig,
 } from "../../packages/core/src/index.js";
 import * as coreApi from "../../packages/core/src/index.js";
+import * as duckdbBrowserApi from "../../packages/duckdb/src/browser.js";
+import * as duckdbApi from "../../packages/duckdb/src/index.js";
+import * as duckdbNodeApiApi from "../../packages/duckdb/src/node-api.js";
+import * as duckdbQueryApi from "../../packages/duckdb/src/query.js";
+import * as duckdbRuntimeApi from "../../packages/duckdb/src/runtime.js";
 import * as languageServerApi from "../../packages/language-server/src/index.js";
 import type {
   MySqlBulkCapability,
@@ -749,6 +754,74 @@ void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
+  duckdb: [
+    "DUCKDB_CAPABILITIES",
+    "DUCKDB_DIALECT_VERSION",
+    "DUCKDB_SUPPORT_POLICY",
+    "DuckDBSchemaProvider",
+    "DuckDBValueError",
+    "decodeDuckDBValue",
+    "defaultDuckDBTypePolicy",
+    "duckDBAsciiFold",
+    "duckDBBuiltinCatalog",
+    "duckDBBuiltinSignatures",
+    "duckDBRuntimeType",
+    "duckDBServerEvidence",
+    "duckDBTypeScript",
+    "duckDBVersionSupport",
+    "duckdb",
+    "formatDuckDBType",
+    "mapDuckDBType",
+    "parseDuckDBSchemaSnapshot",
+    "parseDuckDBType",
+    "resolveDuckDBCapabilities",
+    "sql",
+    "typePolicy",
+    "validateDuckDBTypePolicy",
+  ],
+  duckdbQuery: [
+    "defineQueryValuePlan",
+    "defineQueryValuePlanSelector",
+    "duckdbRenderer",
+    "renderer",
+    "sql",
+    "withQueryValuePlan",
+  ],
+  duckdbRuntime: ["createDuckDBDatabase", "duckdbAppender"],
+  duckdbNodeApi: [
+    "DuckDBAdapterError",
+    "adaptDuckDBConnection",
+    "createNodeDuckDBDatabase",
+    "createNodeDuckDBLiveVerifier",
+    "createNodeDuckDBPlanInspector",
+    "duckDBTypeFromSDK",
+    "nodeDuckDB",
+  ],
+  duckdbBrowser: [
+    "DUCKDB_CAPABILITIES",
+    "DUCKDB_DIALECT_VERSION",
+    "DUCKDB_SUPPORT_POLICY",
+    "DuckDBValueError",
+    "decodeDuckDBValue",
+    "defaultDuckDBTypePolicy",
+    "duckDBAsciiFold",
+    "duckDBBuiltinCatalog",
+    "duckDBBuiltinSignatures",
+    "duckDBRuntimeType",
+    "duckDBServerEvidence",
+    "duckDBTypeScript",
+    "duckDBVersionSupport",
+    "duckdb",
+    "formatDuckDBType",
+    "mapDuckDBType",
+    "parseDuckDBSchemaSnapshot",
+    "parseDuckDBType",
+    "resolveDuckDBCapabilities",
+    "sql",
+    "typePolicy",
+    "validateDuckDBTypePolicy",
+  ],
+
   build: ["BuildError", "BuildSession", "generateSqlTypes", "loadBuildProject"],
   ast: [
     "DEFAULT_MAX_PARSE_DEPTH",
@@ -1160,6 +1233,12 @@ await describe("stable public API", async () => {
   });
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
+      duckdb: Object.keys(duckdbApi).sort(),
+      duckdbQuery: Object.keys(duckdbQueryApi).sort(),
+      duckdbRuntime: Object.keys(duckdbRuntimeApi).sort(),
+      duckdbNodeApi: Object.keys(duckdbNodeApiApi).sort(),
+      duckdbBrowser: Object.keys(duckdbBrowserApi).sort(),
+
       build: Object.keys(buildApi).sort(),
       ast: Object.keys(astApi).sort(),
       astToolkit: Object.keys(astToolkitApi).sort(),
