@@ -14,7 +14,15 @@ export type IconName =
   | "play"
   | "split"
   | "more"
-  | "sun";
+  | "sun"
+  | "moon"
+  | "system"
+  | "command"
+  | "connection"
+  | "search"
+  | "check"
+  | "warning"
+  | "lock";
 /** Same 16px geometry as the documentation editor's EditorIcon. */
 export function Icon({ name }: { name: IconName }) {
   const paths: Partial<Record<IconName, string>> = {
@@ -31,6 +39,15 @@ export function Icon({ name }: { name: IconName }) {
     play: "m5 2.5 8 5.5-8 5.5Z",
     split: "M2 2h12v12H2zM8 2v12",
     more: "M3 8h.01M8 8h.01M13 8h.01",
+    moon: "M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8Z",
+    system: "M1.5 2.5h13v9h-13zM5 14h6M8 11.5V14",
+    command:
+      "M5 5V2.5a1.5 1.5 0 1 0-1.5 1.5H12a1.5 1.5 0 1 0-1.5-1.5V12a1.5 1.5 0 1 0 1.5-1.5H3.5A1.5 1.5 0 1 0 5 12V5Z",
+    connection: "M5 1.5v4M11 1.5v4M3 5.5h10M4 5.5v3a4 4 0 0 0 8 0v-3M8 12.5v2",
+    search: "M11 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1 3 4 4",
+    check: "m3 8 3 3 7-7",
+    warning: "m8 2 6.5 12h-13L8 2Zm0 4v4M8 12h.01",
+    lock: "M4 7h8v7H4zM5.5 7V4a2.5 2.5 0 0 1 5 0v3",
     sun: "M8 1v1M8 14v1M1 8h1M14 8h1M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1",
   };
   return (

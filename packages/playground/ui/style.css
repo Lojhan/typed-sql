@@ -2184,3 +2184,248 @@ select {
   white-space: normal;
   line-height: 1.5;
 }
+/* The workspace has no top application header. Shared tools live in the status bar. */
+.workspace-status {
+  height: 30px;
+  min-height: 30px;
+  flex: none;
+  padding: 0 5px;
+  font-size: 11px;
+}
+.status-actions {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 2px;
+  min-width: 0;
+}
+.workspace-status .status-icon {
+  width: 28px;
+  height: 26px;
+  min-height: 26px;
+  padding: 5px;
+  border-radius: 3px;
+  color: var(--muted);
+}
+.workspace-status .status-icon:hover,
+.workspace-status .status-icon[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--hover);
+}
+.status-icon.trusted {
+  color: var(--sql);
+}
+.status-connection {
+  position: relative;
+}
+.status-connection .status-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  right: 3px;
+  bottom: 3px;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.status-diagnostics {
+  height: 26px;
+  padding: 3px 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.status-diagnostics > span {
+  white-space: nowrap;
+}
+.status-theme {
+  position: relative;
+  height: 26px;
+}
+.status-menu {
+  position: absolute;
+  bottom: 32px;
+  right: 0;
+  width: 145px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 0 8px 25px #0003;
+  z-index: 110;
+}
+.status-menu > button {
+  width: 100%;
+  height: 30px;
+  justify-content: flex-start;
+  padding: 4px 8px;
+}
+.status-menu > button > span {
+  flex: 1;
+  text-align: left;
+}
+.command-palette {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(560px, calc(100dvh - 80px));
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 15px 70px #0004;
+  overflow: hidden;
+  align-self: flex-start;
+  margin-top: min(15vh, 120px);
+}
+.palette-search {
+  height: 50px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.palette-search > .editor-icon {
+  color: var(--muted);
+}
+.palette-search input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  padding: 0;
+  font-size: 14px;
+}
+.palette-search kbd,
+.palette-options kbd {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.palette-options {
+  overflow: auto;
+  min-height: 0;
+  padding: 4px;
+}
+.palette-group {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 10px 10px 5px;
+}
+.palette-options button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 34px;
+  padding: 6px 10px;
+  gap: 10px;
+  font-size: 12px;
+}
+.palette-options button > span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-options button .editor-icon {
+  color: var(--muted);
+}
+.palette-options button.selected {
+  background: var(--selected);
+  color: var(--text);
+}
+.palette-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  flex: none;
+}
+.cm-editor .cm-panels {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+.cm-editor .cm-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 7px;
+  align-items: center;
+  padding: 8px 30px 8px 8px;
+  font:
+    11px / 1.5 Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  position: relative;
+}
+.cm-editor .cm-search > br {
+  display: none;
+}
+.cm-editor .cm-search input.cm-textfield {
+  background: var(--editor);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  height: 26px;
+  min-height: 26px;
+  width: 140px;
+  max-width: 100%;
+  padding: 3px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  font-family: inherit;
+}
+.cm-editor .cm-search .cm-button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  height: 26px;
+  min-height: 26px;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 18px;
+  font-family: inherit;
+}
+.cm-editor .cm-search .cm-button:hover {
+  background: var(--hover);
+}
+.cm-editor .cm-search label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  white-space: nowrap;
+}
+.cm-editor .cm-search input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+.cm-editor .cm-search button[name="close"] {
+  top: 5px;
+  right: 4px;
+  width: 22px;
+  height: 24px;
+  color: var(--muted);
+}
+.cm-editor .cm-searchMatch {
+  background: var(--editor-selection-inactive);
+  outline: 1px solid var(--accent);
+}
+.cm-editor .cm-searchMatch-selected {
+  background: var(--editor-selection);
+}
+@media (max-width: 600px) {
+  .status-diagnostics > span {
+    display: none;
+  }
+  .palette-hint {
+    font-size: 9px;
+  }
+}

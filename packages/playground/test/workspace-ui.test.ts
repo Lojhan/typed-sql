@@ -1,4 +1,5 @@
 import { describe, it, strict } from "poku";
+import { matchCommand } from "../ui/command-model.js";
 import { close, drop, fileTree, pane, panes, validLayout } from "../ui/layout.js";
 import { compareGrids, type Grid } from "../ui/result-model.js";
 
@@ -96,5 +97,13 @@ await describe("workspace layout and captured result comparison", async () => {
     strict.equal(multiset.leftOnly.size, 0);
     const missing = compareGrids(a, { ...b, rows: b.rows.slice(0, 3) }, "ordered");
     strict.deepEqual([...missing.leftOnly], [3]);
+  });
+  await it("finds fuzzy file paths and commands without accepting missing characters", () => {
+    strict.equal(typeof matchCommand("playground/account-list.sql", "accsql"), "number");
+    strict.equal(typeof matchCommand("Open agent", "opag"), "number");
+    strict.equal(matchCommand("playground/account-list.sql", "xyz"), null);
+    strict.ok(matchCommand("find", "find")! < matchCommand("file inside nested directory", "find")!);
+    strict.equal(matchCommand("Open schema", ""), 0);
+    strict.equal(matchCommand("Open schema", "OPEN SCHEMA"), matchCommand("Open schema", "open schema"));
   });
 });

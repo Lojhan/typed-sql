@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { AgentPanel } from "./agent";
 import { api, token } from "./api";
 import { SchemaBoard } from "./board";
+import { CommandPalette, type PaletteCommand } from "./command-palette.js";
 import { ComparePanel } from "./compare";
-import { Editor } from "./editor";
+import { Editor, findInEditor } from "./editor";
 import { WorkspaceFileTree } from "./file-tree";
 import { Icon } from "./icon";
 import {
@@ -26,7 +27,7 @@ import { Modal } from "./modal";
 import { PaneLayout, Resize } from "./panes";
 import { ResultPanel } from "./results";
 import { GlobalScrollbars } from "./scrollbars";
-import { ThemeSelect } from "./theme";
+import { ThemeMenu, useTheme } from "./theme";
 import type { Analysis, State, Value } from "./types";
 import "./style.css";
 
@@ -43,6 +44,7 @@ interface Document {
   parameters: Record<number, { value: string; null: boolean }>;
 }
 function App() {
+  const [theme, setTheme] = useTheme();
   const [state, setState] = useState<State | null>(null),
     [documents, setDocuments] = useState<Record<string, Document>>({}),
     [layout, setLayout] = useState<Layout>(() => pane("@schema")),
@@ -50,6 +52,8 @@ function App() {
     [sidebar, setSidebar] = useState(238),
     [sidebarVisible, setSidebarVisible] = useState(true),
     [schemaSearch, setSchemaSearch] = useState(""),
+    [palette, setPalette] = useState(false),
+    [treeCreation, setTreeCreation] = useState<{ id: string; folder: boolean } | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
@@ -67,6 +71,17 @@ function App() {
     analysisSources = useRef(new Map<string, string>()),
     analysisTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
     storageKey = useRef("");
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        event.stopPropagation();
+        setPalette((value) => !value);
+      }
+    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, []);
   documentsRef.current = documents;
   layoutRef.current = layout;
   const dirty = useMemo(
@@ -788,60 +803,151 @@ function App() {
       </main>
     );
   const problems = Object.values(documents).reduce((sum, doc) => sum + (doc.analysis?.diagnostics.length ?? 0), 0);
+  const activeDoc = !isTool(focused.active) ? documents[focused.active] : undefined;
+  const connect = () =>
+    void action(async () => {
+      await api(state.connection.state === "connected" ? "refresh" : "connect", {});
+      await refresh();
+    });
+  const createEntry = (folder: boolean) => {
+    setSidebarVisible(true);
+    setTreeCreation({ id: crypto.randomUUID(), folder });
+  };
+  const commands: PaletteCommand[] = [
+    { id: "open-schema", label: "Open schema", icon: "schema", run: () => openTab(focused.id, "@schema") },
+    { id: "open-compare", label: "Open compare", icon: "compare", run: () => openTab(focused.id, "@compare") },
+    { id: "open-agent", label: "Open agent", icon: "agent", run: () => openTab(focused.id, "@agent") },
+    { id: "new-file", label: "New file", icon: "new-file", run: () => createEntry(false) },
+    { id: "new-folder", label: "New folder", icon: "new-folder", run: () => createEntry(true) },
+    {
+      id: "tree",
+      label: sidebarVisible ? "Hide file tree" : "Show file tree",
+      icon: "sidebar",
+      run: () => setSidebarVisible((value) => !value),
+    },
+    ...(["system", "light", "dark"] as const).map((value) => ({
+      id: `theme-${value}`,
+      label: `Theme: ${value[0]!.toUpperCase() + value.slice(1)}`,
+      icon: (value === "system" ? "system" : value === "dark" ? "moon" : "sun") as "system" | "moon" | "sun",
+      run: () => setTheme(value),
+    })),
+  ];
+  if (state.target)
+    commands.push({
+      id: "connect",
+      label: state.connection.state === "connected" ? "Refresh schema" : "Connect to target",
+      icon: "connection",
+      run: connect,
+    });
+  if (state.classification !== "production")
+    commands.push({
+      id: "trust",
+      label: state.trusted ? "Disable trusted project execution" : "Enable trusted project execution",
+      icon: "lock",
+      run: () => {
+        if (state.trusted)
+          void action(async () => {
+            await api("trust", { enable: false });
+            await refresh();
+          });
+        else setTrust(true);
+      },
+    });
+  if (panes(layout).length < 8)
+    for (const edge of ["left", "right", "top", "bottom"] as const)
+      commands.push({
+        id: `split-${edge}`,
+        label: `Split editor ${edge}`,
+        icon: "split",
+        run: () => split(focused.id, edge),
+      });
+  if (focused.active)
+    commands.push({
+      id: "close",
+      label: "Close active tab",
+      icon: "close",
+      run: () => closeTab(focused.id, focused.active),
+    });
+  if (activeDoc) {
+    commands.push(
+      {
+        id: "find",
+        label: "Find in active file",
+        icon: "search",
+        shortcut: "⌘F / Ctrl+F",
+        run: () => {
+          findInEditor(`${state.project.name}:${focused.id}:${activeDoc.file}`);
+        },
+      },
+      {
+        id: "reload",
+        label: "Reload active file from disk",
+        icon: "refresh",
+        run: () => void action(() => fileAction(activeDoc.file, "reload")),
+      },
+      {
+        id: "copy",
+        label: "Save active file as…",
+        icon: "new-file",
+        run: () => void action(() => fileAction(activeDoc.file, "copy")),
+      },
+    );
+    if (activeDoc.writable && activeDoc.source !== activeDoc.saved)
+      commands.push({
+        id: "save",
+        label: "Save active file",
+        icon: "check",
+        shortcut: "⌘S / Ctrl+S",
+        run: () =>
+          void action(async () => {
+            await save(activeDoc.file);
+          }),
+      });
+    if (activeDoc.writable)
+      commands.push({
+        id: "rename",
+        label: "Rename active file…",
+        icon: "file-ts",
+        run: () => void action(() => fileAction(activeDoc.file, "rename")),
+      });
+    if (activeDoc.file.endsWith(".sql"))
+      commands.push({
+        id: "sql-types",
+        label: "Generate SQL declarations",
+        icon: "file-ts",
+        run: () => void action(() => fileAction(activeDoc.file, "types")),
+      });
+    if (state.target && !busy && !(state.classification === "production" && activeDoc.mode !== "sql"))
+      commands.push({
+        id: "run",
+        label: "Run active file",
+        icon: "play",
+        shortcut: "⌘Enter / Ctrl+Enter",
+        run: () => void action(() => run(activeDoc.file)),
+      });
+    for (const bottom of ["results", "types", "bindings", "problems"] as const)
+      commands.push({
+        id: `show-${bottom}`,
+        label: `Show ${bottom}`,
+        icon: bottom === "problems" ? "warning" : "file-ts",
+        run: () => setLayout((current) => changePane(current, focused.id, (value) => ({ ...value, bottom }))),
+      });
+  }
+  const running = state.runs.find((value) => value.status === "running" || value.status === "checking");
+  if (running)
+    commands.push({
+      id: "cancel",
+      label: "Cancel active run",
+      icon: "close",
+      run: () =>
+        void action(async () => {
+          await api("cancel", { id: running.id });
+          await refresh();
+        }),
+    });
   return (
     <div className="app-shell">
       <GlobalScrollbars />
-      <header className="workspace-toolbar">
-        <button
-          type="button"
-          className="project-toggle"
-          onClick={() => setSidebarVisible((value) => !value)}
-          title="Toggle project tree"
-        >
-          <Icon name="sidebar" />
-        </button>
-        <strong>{state.project.name}</strong>
-        <span className="toolbar-divider" />
-        <button
-          type="button"
-          className={focused.active === "@schema" ? "selected" : ""}
-          onClick={() => openTab(focused.id, "@schema")}
-        >
-          <Icon name="schema" /> Schema
-        </button>
-        <button
-          type="button"
-          className={focused.active === "@compare" ? "selected" : ""}
-          onClick={() => openTab(focused.id, "@compare")}
-        >
-          <Icon name="compare" /> Compare
-        </button>
-        <button
-          type="button"
-          className={focused.active === "@agent" ? "selected" : ""}
-          onClick={() => openTab(focused.id, "@agent")}
-        >
-          <Icon name="agent" /> Agent
-        </button>
-        <div className="connection-controls">
-          <ThemeSelect />
-          <span className={`status-dot ${state.connection.state === "connected" ? "succeeded" : ""}`} />
-          <span>{state.connection.identity?.database ?? state.target ?? "Offline"}</span>
-          <span className="muted">{state.grammar}</span>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void action(async () => {
-                await api(state.connection.state === "connected" ? "refresh" : "connect", {});
-                await refresh();
-              })
-            }
-          >
-            {state.connection.state === "connected" ? <Icon name="refresh" /> : "Connect"}
-          </button>
-        </div>
-      </header>
       {error ? (
         <div className="workspace-banner error" role="alert">
           <span>{error}</span>
@@ -873,6 +979,7 @@ function App() {
                 project={state.project.name}
                 selected={focusedFile}
                 scratch={state.scratchDirectory}
+                creation={treeCreation}
                 onOpen={(file) => openTab(focused.id, file)}
                 onCreate={async (path, folder) => {
                   if (folder) await api("folder", { folder: path });
@@ -915,15 +1022,111 @@ function App() {
         </main>
       </div>
       <footer className="workspace-status">
-        <span>
-          {problems ? `${problems} SQL diagnostics` : "✓ SQL analysis"}
-          {dirty.size ? ` · ${dirty.size} unsaved` : ""}
-        </span>
-        <span>
-          {state.connection.state} · {state.schemaSource} schema ·{" "}
-          {state.trusted ? "trusted project execution" : "project execution disabled"}
-        </span>
+        <div className="status-actions">
+          <button
+            type="button"
+            className="status-icon"
+            aria-label="Toggle project tree"
+            title="Toggle project tree"
+            onClick={() => setSidebarVisible((value) => !value)}
+          >
+            <Icon name="sidebar" />
+          </button>
+          <button
+            type="button"
+            className="status-icon"
+            aria-label="Command palette"
+            title="Command palette (⌘K / Ctrl+K)"
+            onClick={() => setPalette(true)}
+          >
+            <Icon name="command" />
+          </button>
+          <button
+            type="button"
+            className="status-diagnostics"
+            aria-label="Show SQL diagnostics"
+            title={`${problems} SQL diagnostics${dirty.size ? ` · ${dirty.size} unsaved files` : ""}`}
+            onClick={() => {
+              if (activeDoc)
+                setLayout((current) => changePane(current, focused.id, (value) => ({ ...value, bottom: "problems" })));
+              else setPalette(true);
+            }}
+          >
+            <Icon name={problems ? "warning" : "check"} />
+            {problems || ""}
+            {dirty.size ? <span> · {dirty.size} unsaved</span> : null}
+          </button>
+        </div>
+        <div className="status-actions">
+          {state.target ? (
+            <button
+              type="button"
+              className="status-icon status-connection"
+              disabled={busy}
+              aria-label={state.connection.state === "connected" ? "Refresh schema" : "Connect to target"}
+              title={`${state.connection.state} · ${state.connection.identity?.database ?? state.target} · ${state.grammar} · ${state.schemaSource} schema`}
+              onClick={connect}
+            >
+              <span className={`status-dot ${state.connection.state === "connected" ? "succeeded" : ""}`} />
+              <Icon name="connection" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="status-icon"
+            aria-label="Schema"
+            title="Open schema"
+            onClick={() => openTab(focused.id, "@schema")}
+          >
+            <Icon name="schema" />
+          </button>
+          <button
+            type="button"
+            className="status-icon"
+            aria-label="Compare"
+            title="Open compare"
+            onClick={() => openTab(focused.id, "@compare")}
+          >
+            <Icon name="compare" />
+          </button>
+          <button
+            type="button"
+            className="status-icon"
+            aria-label="Agent"
+            title="Open agent"
+            onClick={() => openTab(focused.id, "@agent")}
+          >
+            <Icon name="agent" />
+          </button>
+          {state.classification !== "production" ? (
+            <button
+              type="button"
+              className={`status-icon ${state.trusted ? "trusted" : ""}`}
+              aria-label={state.trusted ? "Disable trusted project execution" : "Enable trusted project execution"}
+              title={state.trusted ? "Trusted project execution enabled" : "Project execution disabled"}
+              onClick={() => {
+                if (state.trusted)
+                  void action(async () => {
+                    await api("trust", { enable: false });
+                    await refresh();
+                  });
+                else setTrust(true);
+              }}
+            >
+              <Icon name="lock" />
+            </button>
+          ) : null}
+          <ThemeMenu theme={theme} onChange={setTheme} />
+        </div>
       </footer>
+      {palette ? (
+        <CommandPalette
+          files={state.files.filter((file) => !/\.d\.[cm]?ts$/u.test(file))}
+          commands={commands}
+          onFile={(file) => openTab(focused.id, file)}
+          onClose={() => setPalette(false)}
+        />
+      ) : null}
       {trust ? (
         <Modal className="create-dialog" label="Enable project execution" onClose={() => setTrust(false)}>
           <h3>Enable trusted project execution?</h3>

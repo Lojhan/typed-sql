@@ -16,6 +16,7 @@ export function WorkspaceFileTree({
   scratch,
   onOpen,
   onCreate,
+  creation,
 }: {
   files: string[];
   folders: string[];
@@ -24,13 +25,20 @@ export function WorkspaceFileTree({
   scratch: string;
   onOpen: (path: string) => void;
   onCreate: (path: string, folder: boolean) => Promise<void>;
+  creation?: { id: string; folder: boolean } | null;
 }) {
   const [parent, setParent] = useState(scratch),
     [draft, setDraft] = useState<Draft | null>(null),
-    [filter, setFilter] = useState(""),
     [menu, setMenu] = useState<{ x: number; y: number; parent: string } | null>(null),
     [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const seenCreation = useRef("");
+  useEffect(() => {
+    if (!creation || seenCreation.current === creation.id) return;
+    seenCreation.current = creation.id;
+    setDraft({ parent, folder: creation.folder, name: creation.folder ? "" : "query.ts", error: "" });
+    setMenu(null);
+  }, [creation, parent]);
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const editIdentity = draft ? `${draft.parent}:${draft.folder}` : "";
@@ -77,10 +85,7 @@ export function WorkspaceFileTree({
     }
   };
   const allFolders = [...new Set([...folders, ...(draft?.parent ? [draft.parent] : [])])];
-  const tree = fileTree(
-    files.filter((path) => path.toLowerCase().includes(filter.toLowerCase())),
-    allFolders.filter((path) => !filter || path.toLowerCase().includes(filter.toLowerCase())),
-  );
+  const tree = fileTree(files, allFolders);
   const editor = (where: string, depth: number) =>
     draft?.parent === where ? (
       <li className="tree-draft" key="draft">
@@ -200,13 +205,6 @@ export function WorkspaceFileTree({
           </button>
         </div>
       </div>
-      <input
-        className="tree-search"
-        aria-label="Filter project files"
-        placeholder="Filter files"
-        value={filter}
-        onChange={(event) => setFilter(event.target.value)}
-      />
       <nav
         aria-label="Project files"
         onContextMenu={(event) => {

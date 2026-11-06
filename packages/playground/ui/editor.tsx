@@ -8,6 +8,7 @@ import {
   HighlightStyle,
   syntaxHighlighting,
 } from "@codemirror/language";
+import { openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import { EditorState } from "@codemirror/state";
 import { drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers } from "@codemirror/view";
 import { useEffect, useRef } from "react";
@@ -35,6 +36,11 @@ const workspaceHighlightStyle = HighlightStyle.define(
   })),
 );
 
+const activeEditors = new Map<string, EditorView>();
+export function findInEditor(session: string) {
+  const view = activeEditors.get(session);
+  return view ? openSearchPanel(view) : false;
+}
 const sessions = new Map<string, { state: EditorState; scroll: number }>();
 const sessionCallbacks = new Map<
   string,
@@ -76,6 +82,7 @@ export function Editor({
             highlightActiveLine(),
             drawSelection(),
             history(),
+            search({ top: true }),
             bracketMatching(),
             foldGutter(),
             syntaxHighlighting(workspaceHighlightStyle),
@@ -96,6 +103,7 @@ export function Editor({
                   return true;
                 },
               },
+              ...searchKeymap,
               ...defaultKeymap,
               ...historyKeymap,
               indentWithTab,
@@ -113,6 +121,8 @@ export function Editor({
               },
               ".cm-scroller": {
                 overflow: "auto",
+                minHeight: "0",
+                flex: "1 1 0",
                 fontFamily: "'SFMono-Regular', Consolas, monospace",
                 lineHeight: "1.8",
               },
@@ -122,6 +132,17 @@ export function Editor({
                 borderRight: "1px solid var(--border)",
                 color: "var(--muted)",
               },
+              ".cm-panels": {
+                backgroundColor: "var(--bg)",
+                color: "var(--text)",
+                borderColor: "var(--border)",
+                flexShrink: "0",
+              },
+              ".cm-searchMatch": {
+                backgroundColor: "var(--editor-selection-inactive)",
+                outline: "1px solid var(--accent)",
+              },
+              ".cm-searchMatch-selected": { backgroundColor: "var(--editor-selection)" },
               ".cm-activeLine": { backgroundColor: "var(--editor-active-line)" },
               ".cm-selectionBackground": { backgroundColor: "var(--editor-selection-inactive)" },
               ".cm-content ::selection, .cm-content::selection": { color: "inherit" },
@@ -135,6 +156,7 @@ export function Editor({
         }),
     });
     view.current = current;
+    activeEditors.set(session, current);
     if (saved) current.scrollDOM.scrollTop = saved.scroll;
     else {
       try {
@@ -147,6 +169,7 @@ export function Editor({
     observer.observe(element.current);
     return () => {
       observer.disconnect();
+      activeEditors.delete(session);
       sessions.set(session, { state: current.state, scroll: current.scrollDOM.scrollTop });
       while (sessions.size > 32) {
         const oldest = sessions.keys().next().value!;
