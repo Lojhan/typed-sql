@@ -72,11 +72,15 @@ export function ResultPanel({
   file,
   revision,
   dirty,
+  schemaHash,
+  typePolicyHash,
 }: {
   run: Run | undefined;
   file: string;
   revision: string | null;
   dirty: boolean;
+  schemaHash: string;
+  typePolicyHash: string;
 }) {
   const [tab, setTab] = useState("0");
   const [filter, setFilter] = useState("");
@@ -105,6 +109,13 @@ export function ResultPanel({
   const rowKeys = useMemo(() => new Map(data?.rows.map((row, ordinal) => [row, `row-${ordinal}`]) ?? []), [data]);
   const resultModels =
     run?.results.map((item, ordinal) => ({ ...item, ordinal, key: `${run.id}:result-${ordinal}` })) ?? [];
+  const stale =
+    !!run &&
+    (run.file !== file ||
+      run.sourceRevision !== revision ||
+      dirty ||
+      run.schemaHash !== schemaHash ||
+      run.typePolicyHash !== typePolicyHash);
   const start = Math.max(0, Math.floor(scroll / 34) - 4);
   const end = Math.min(rows.length, start + 28);
   const exportRows = (format: "json" | "csv") => {
@@ -136,12 +147,13 @@ export function ResultPanel({
       {run ? (
         <div className="result-source">
           <span>
-            <strong>{run.file}</strong> · {run.mode} · source {run.sourceRevision.slice(0, 12)}
+            <strong>{run.file}</strong> · {run.mode} · source {run.sourceRevision.slice(0, 12)} · schema{" "}
+            {run.schemaHash?.slice(0, 10) ?? "unchecked"}
           </span>
-          <span className={run.file !== file || run.sourceRevision !== revision || dirty ? "stale-result" : ""}>
-            {run.file !== file || run.sourceRevision !== revision || dirty
-              ? "Earlier source result — run the current file to refresh"
-              : "Matches saved source"}
+          <span className={stale ? "stale-result" : ""}>
+            {stale
+              ? "Earlier source/schema result — run the current file to refresh"
+              : "Matches saved source and schema"}
           </span>
         </div>
       ) : null}

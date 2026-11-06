@@ -960,7 +960,7 @@ kbd {
   margin: 20px 0;
   font-size: 11px;
 }
-.parameter-input > span:first-child {
+.parameter-input > label:first-child {
   display: flex;
   justify-content: space-between;
 }
@@ -1431,4 +1431,14 @@ kbd {
 }
 .result-source .stale-result {
   color: #b38e58;
+}
+
+.result-source > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-source > span:last-child {
+  max-width: 55%;
 }

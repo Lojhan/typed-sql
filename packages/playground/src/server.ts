@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeSource } from "@typed-sql/compiler";
 import { loadConfig } from "@typed-sql/config";
 import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
+import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits, PlaygroundOptions, PlaygroundTarget } from "./contracts.js";
 import { contentHash, WorkspaceError, WorkspaceFiles } from "./files.js";
 import { callableExports, RunManager, type RunRequest } from "./runner.js";
@@ -77,6 +78,7 @@ export async function startPlayground(options: PlaygroundOptions = {}): Promise<
     file: await realpath(discovered.file),
   };
   const settings = loaded.config.playground;
+  validatePlaygroundConfiguration(settings);
   const scratch = settings?.scratchDirectory ?? "playground";
   const files = new WorkspaceFiles(
     loaded.directory,

@@ -175,7 +175,7 @@ function App() {
           values.push(null);
           continue;
         }
-        if (input?.value === undefined || input.value === "") throw new Error(`Enter a value for parameter ${index}`);
+        if (input?.value === undefined) throw new Error(`Enter a value for parameter ${index}`);
         if (expected?.tsType === "number") {
           const value = Number(input.value);
           if (!Number.isFinite(value)) throw new Error(`Parameter ${index} must be a finite number`);
@@ -671,11 +671,12 @@ function App() {
                       const index = offset + 1;
                       const param = analysis.queries[0]?.parameters?.find((p) => p.index === index);
                       return (
-                        <label className="parameter-input" key={index}>
-                          <span>
+                        <div className="parameter-input" key={index}>
+                          <label htmlFor={`parameter-${index}`}>
                             {param?.name ?? `$${index}`} <code>{param?.tsType ?? "unknown"}</code>
-                          </span>
+                          </label>
                           <input
+                            id={`parameter-${index}`}
                             aria-label={`Parameter ${index}`}
                             disabled={parameters[index]?.null}
                             value={parameters[index]?.value ?? ""}
@@ -687,7 +688,7 @@ function App() {
                               }))
                             }
                           />
-                          <span className="null-toggle">
+                          <label className="null-toggle">
                             <input
                               type="checkbox"
                               checked={parameters[index]?.null ?? false}
@@ -699,8 +700,18 @@ function App() {
                               }
                             />
                             NULL
-                          </span>
-                        </label>
+                          </label>
+                          {param?.tsType === "string" ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setParameters((current) => ({ ...current, [index]: { value: "", null: false } }))
+                              }
+                            >
+                              Use empty string
+                            </button>
+                          ) : null}
+                        </div>
                       );
                     })
                   )}
@@ -765,6 +776,8 @@ function App() {
               file={file}
               revision={revision}
               dirty={dirty}
+              schemaHash={state.schemaHash}
+              typePolicyHash={state.typePolicyHash}
             />
           ) : (
             <div className="schema-footer">

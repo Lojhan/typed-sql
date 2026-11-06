@@ -8,9 +8,10 @@ import { BuildSession } from "@typed-sql/build";
 import { checkFile, compileSqlFile, listProjectSourceFiles } from "@typed-sql/compiler";
 import type { LoadedConfig } from "@typed-sql/config";
 import type { SchemaSnapshot } from "@typed-sql/core";
-import { calculateSchemaHash } from "@typed-sql/schema";
+import { calculateSchemaHash, calculateTypePolicyHash } from "@typed-sql/schema";
 import { parse } from "acorn";
 import { build, transform } from "esbuild";
+import { validatePlaygroundConfiguration } from "./configuration.js";
 import type { PlaygroundLimits } from "./contracts.js";
 import { contentHash, WorkspaceError, type WorkspaceFiles } from "./files.js";
 import { analyzeSql, bindSql } from "./sql.js";
@@ -33,6 +34,8 @@ export interface RunRecord {
   readonly mode: string;
   readonly target: string | null;
   readonly startedAt: string;
+  schemaHash: string | null;
+  readonly typePolicyHash: string;
   finishedAt?: string;
   status: "checking" | "running" | "cancelling" | "succeeded" | "failed" | "cancelled" | "outcome-unknown";
   results: Extract<WorkerEvent, { type: "result" }>[];
@@ -78,7 +81,7 @@ export async function callableExports(source: string): Promise<readonly string[]
 
 export class RunManager {
   readonly records = new Map<string, RunRecord>();
-  private readonly requests = new Map<string, { fingerprint: string; record: RunRecord }>();
+  private readonly requests = new Map<string, { fingerprint: string; recordId: string }>();
   private active: { record: RunRecord; controller: AbortController; child?: ChildProcess } | undefined;
   trusted = false;
   schema: SchemaSnapshot | undefined;
@@ -91,6 +94,7 @@ export class RunManager {
     readonly target: string | undefined,
     readonly project: string,
   ) {
+    validatePlaygroundConfiguration(loaded.config.playground);
     this.configurationFiles = Promise.all(
       (loaded.dependencies ?? [loaded.file]).map(async (path) => ({
         path,
@@ -109,8 +113,21 @@ export class RunManager {
     if (previous) {
       if (previous.fingerprint !== fingerprint)
         throw new WorkspaceError("REQUEST_CONFLICT", "Run ID was already used for different source", 409);
-      return previous.record;
+      const retained = this.records.get(previous.recordId);
+      if (!retained)
+        throw new WorkspaceError(
+          "RUN_EXPIRED",
+          "This request already executed, but its result has expired from memory. It will not be replayed.",
+          409,
+        );
+      return retained;
     }
+    if (this.requests.size >= 10_000)
+      throw new WorkspaceError(
+        "SESSION_LIMIT",
+        "This session reached 10,000 unique runs. Restart the workspace to continue; old request IDs remain non-replayable.",
+        409,
+      );
     if (this.active) throw new WorkspaceError("RUN_ACTIVE", "Cancel or wait for the active run", 409);
     if (request.mode !== "sql" && !this.trusted)
       throw new WorkspaceError(
@@ -130,14 +147,17 @@ export class RunManager {
       mode: request.mode,
       target: this.target ?? null,
       startedAt: new Date().toISOString(),
+      schemaHash: this.expectedSchemaHash ?? null,
+      typePolicyHash: calculateTypePolicyHash(
+        this.loaded.config.typePolicy ?? this.loaded.config.dialect.defaultTypePolicy,
+      ),
       status: "checking",
       results: [],
       logs: "",
     };
     this.records.set(record.id, record);
-    this.requests.set(request.requestId, { fingerprint, record });
+    this.requests.set(request.requestId, { fingerprint, recordId: record.id });
     while (this.records.size > 10) this.records.delete(this.records.keys().next().value!);
-    while (this.requests.size > 100) this.requests.delete(this.requests.keys().next().value!);
     const active = { record, controller: new AbortController() };
     this.active = active;
     void this.execute(request, active)
@@ -204,6 +224,7 @@ export class RunManager {
     }
     const session = new BuildSession({ cwd: this.loaded.directory, config: this.loaded.file });
     const project = await session.project();
+    record.schemaHash = calculateSchemaHash(project.snapshot);
     if (this.expectedSchemaHash !== undefined && calculateSchemaHash(project.snapshot) !== this.expectedSchemaHash)
       throw new WorkspaceError(
         "SCHEMA_CHANGED",
@@ -329,7 +350,12 @@ export class RunManager {
             {
               name: "playground-capture",
               setup(builder) {
-                builder.onLoad({ filter: /\.(?:sql|[cm]?tsx?|js)$/ }, async (args) => {
+                builder.onLoad({ filter: /.*/, namespace: "file" }, async (args) => {
+                  if (!/\.(?:sql|[cm]?[jt]sx?)$/u.test(args.path))
+                    throw new WorkspaceError(
+                      "MODULE_GRAPH",
+                      "Local non-code assets (including JSON) are not supported in captured runs. Use static TypeScript/ESM data modules.",
+                    );
                   if (/\.c(?:ts|js)$/u.test(args.path))
                     throw new WorkspaceError(
                       "MODULE_GRAPH",
@@ -343,7 +369,7 @@ export class RunManager {
                           ? "text"
                           : args.path.endsWith(".tsx")
                             ? "tsx"
-                            : args.path.endsWith(".js")
+                            : /\.[cm]?js$/u.test(args.path)
                               ? "js"
                               : "ts",
                         format: "esm",
@@ -386,7 +412,7 @@ export class RunManager {
                         ? "js"
                         : args.path.endsWith(".tsx")
                           ? "tsx"
-                          : args.path.endsWith(".js")
+                          : /\.[cm]?js$/u.test(args.path)
                             ? "js"
                             : "ts"),
                     resolveDir: dirname(args.path),
@@ -395,6 +421,18 @@ export class RunManager {
               },
             },
           ],
+        }).catch((error: unknown) => {
+          if (error && typeof error === "object" && "errors" in error && Array.isArray(error.errors)) {
+            for (const diagnostic of error.errors)
+              if (
+                diagnostic &&
+                typeof diagnostic === "object" &&
+                "detail" in diagnostic &&
+                diagnostic.detail instanceof WorkspaceError
+              )
+                throw diagnostic.detail;
+          }
+          throw error;
         });
         if (built.warnings.length)
           throw new WorkspaceError("MODULE_GRAPH", built.warnings.map((w) => w.text).join("\n"));
@@ -516,13 +554,18 @@ export class RunManager {
         child.once("exit", () => resolvePromise());
       });
       clearTimeout(deadline);
-      record.status = controller.signal.aborted
-        ? record.error?.code === "CANCELLED"
-          ? "cancelled"
-          : "outcome-unknown"
-        : completed && !workerError
-          ? "succeeded"
-          : "failed";
+      record.status =
+        record.error?.code === "OUTCOME_UNKNOWN"
+          ? "outcome-unknown"
+          : record.error?.code === "CANCELLED"
+            ? request.mode === "sql"
+              ? "cancelled"
+              : "outcome-unknown"
+            : controller.signal.aborted
+              ? "outcome-unknown"
+              : completed && !workerError
+                ? "succeeded"
+                : "failed";
       if (record.status === "failed" && !record.error)
         record.error = { code: "WORKER_EXIT", message: "Worker exited before confirming completion" };
     } finally {

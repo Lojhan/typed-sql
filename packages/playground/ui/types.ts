@@ -45,6 +45,8 @@ export interface Run {
   mode: string;
   target: string | null;
   startedAt: string;
+  schemaHash: string | null;
+  typePolicyHash: string;
   finishedAt?: string;
   status: string;
   results: { type: "result"; name: string; value: Value; truncated: boolean; provenance: string }[];

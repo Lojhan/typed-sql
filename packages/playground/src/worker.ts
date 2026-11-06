@@ -168,18 +168,33 @@ async function run(request: WorkerRequest): Promise<void> {
   } catch (error) {
     send({ type: "local-error", message: error instanceof Error ? (error.stack ?? error.message) : String(error) });
     const managed = error instanceof Error && error.name === "PlaygroundPgError";
-    const message =
-      error instanceof WorkspaceError || managed
+    const cancellation = error instanceof Error && "code" in error && error.code === "TSQL_CANCELLED";
+    const confirmedCancel = cancellation && "confirmed" in error && error.confirmed === true;
+    const outcomeUnknown =
+      (error instanceof Error && "outcomeUnknown" in error && error.outcomeUnknown === true) ||
+      (cancellation && !confirmedCancel);
+    const message = cancellation
+      ? confirmedCancel
+        ? "The database confirmed cancellation of the managed operation. Earlier or private effects are not undone."
+        : "The managed operation stopped without confirmed database cancellation. Inspect the target before retrying."
+      : error instanceof WorkspaceError || managed
         ? (error as Error).message
         : "Project execution failed. Inspect the local terminal for details.";
-    const confirmedCancel = error instanceof Error && "code" in error && error.code === "TSQL_CANCELLED";
     await new Promise<void>((resolve) => {
       if (process.connected)
         process.send?.(
           {
             type: "error",
             message,
-            code: confirmedCancel ? "CANCELLED" : controller.signal.aborted ? "OUTCOME_UNKNOWN" : "EXECUTION",
+            code: outcomeUnknown
+              ? "OUTCOME_UNKNOWN"
+              : confirmedCancel
+                ? "CANCELLED"
+                : controller.signal.aborted
+                  ? "OUTCOME_UNKNOWN"
+                  : error instanceof WorkspaceError
+                    ? error.code
+                    : "EXECUTION",
           },
           () => resolve(),
         );

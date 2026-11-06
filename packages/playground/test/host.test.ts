@@ -166,3 +166,21 @@ await describe("SQL declaration and read-only file workflows", async () => {
       }
     }));
 });
+
+await describe("untyped configuration validation", async () => {
+  await it("rejects malformed target policy before any lazy connection factory is called", async () =>
+    fixture(async (directory) => {
+      const config = join(directory, "typed-sql.config.mjs");
+      await writeFile(
+        config,
+        (await readFile(config, "utf8"))
+          .replace("classification:'development'", "classification:'prod'")
+          .replace("connect:()=>({", 'connect:()=>{throw new Error("factory must not execute");return ({')
+          .replace("close:async()=>{}})}}}};", "close:async()=>{}});}}}}};"),
+      );
+      await strict.rejects(
+        startPlayground({ config, target: "local" }),
+        /classification must be development, test, or production/,
+      );
+    }));
+});
