@@ -29,8 +29,9 @@ const order = await database.one(orderById({ orderId: 9001n }));
 
 Native `@name` markers are also supported by the SQL-file frontend. For positional arguments,
 use `?` markers; each physical occurrence has an ordered tuple slot. Generate SQL-file
-declarations with `typed-sql-build types` and enable `allowArbitraryExtensions` in your TypeScript
-configuration. See [SQL files](../guides/sql-files.md).
+declarations with `typed-sql-build types --include 'src/**/*.sql'` and enable
+`allowArbitraryExtensions` in your TypeScript configuration. Scoping discovery to `src` keeps
+the quickstart's setup-only `schema.sql` out of query compilation. See [SQL files](../guides/sql-files.md).
 
 ## Correlated APPLY and pagination
 
