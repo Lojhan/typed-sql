@@ -1,10 +1,30 @@
 # Independent maturity acceptance audit
 
-Audit cutoff: primary repository `/Users/viniciuslojhan/Development/OSS/typed-sql`, commit
-`560e3a6`. This is a requirement/evidence review, not a claim that final qualification or merge is
-complete. Source observations below were made against that primary checkout, not an older agent
-worktree. Native CI run results explicitly marked reported were supplied by the integration owner;
-this audit did not rerun Linux SQL Server from macOS.
+## Current acceptance status
+
+DuckDB [#269](https://github.com/Lojhan/typed-sql/pull/269) and SQL Server
+[#270](https://github.com/Lojhan/typed-sql/pull/270) are merged after independent review and green
+exact-head checks. The shared playground/editor/conformance integration remains in draft
+[#265](https://github.com/Lojhan/typed-sql/pull/265).
+
+The complete local `pnpm verify` command passes at clean `08c46ef`: all package suites, all 45
+repository contracts, production build, documentation build and unchanged performance gates.
+The editor edit-storm median is 4.49 ms against its 10 ms limit. Native run
+[42141658178](https://github.com/Lojhan/typed-sql/actions/runs/42141658178) passes all four SQL Server
+engine jobs at that same source head. The earlier isolated performance rerun also passes; the
+11.19 ms historical failure below is retained as an observation, not an unresolved source regression.
+
+Later shared review found lost identity and collation facts in custom playground DDL. Fix
+`0e8dadb` (integrated as `7ff78ab`) passes typecheck, seven focused contracts, and independent
+review/rerun. Fresh shared integration qualification remains required after this correction.
+The older `08c46ef` GitHub source-quality job separately exceeded the existing 120-second
+packed-consumer test-file limit while running expanded five-grammar LSP assertions. Those checks
+are being split into bounded files without raising the limit or removing assertions.
+
+The dated sections below retain the study and counterexample history. Their older pending-work
+classifications are superseded by this status and subsequent receipts. All source reviews identify
+their checkout and commit; native CI is inspected through its exact-head results and downloaded
+artifacts rather than inferred from macOS source tests.
 
 ## Acceptance basis
 
