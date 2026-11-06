@@ -151,7 +151,7 @@ Query files persist in the repository. Layout and open-file references persist i
 
 Choose two captured runs in **Compare** to inspect their results and measurements side by side. Each side retains its source revision, target, schema and type-policy identity, parameter fingerprint and terminal status. Timing fields show measurements where available; end-to-end elapsed time includes checking and worker startup, and is not a server execution benchmark. Cursor waiting time is not a claim about database performance.
 
-Compare ordered rows or unordered multisets; duplicate counts and tagged bigint/NULL/missing values remain distinct. Page comparisons describe the selected captured pages, not full-query equivalence. Partial captures and different source/schema/target contexts remain visible. Comparison does not execute either query, retry writes or run `EXPLAIN ANALYZE` automatically.
+Values align by column position. Column-name and type metadata differences are reported separately from value differences, so a changed alias does not color every matching row. Ordered comparison highlights changed cells and missing rows; unordered multiset comparison highlights unmatched rows while preserving duplicate counts. Tagged bigint/NULL/missing values remain distinct. Page comparisons describe the selected captured pages, not full-query equivalence. Partial captures and different source/schema/target contexts remain visible. Comparison does not execute either query, retry writes or run `EXPLAIN ANALYZE` automatically.
 
 ## Local agents and reviewed query tools
 
