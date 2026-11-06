@@ -21,7 +21,7 @@ failure semantics.
 
 SQL Server and DuckDB root batches are atomic. PostgreSQL, MySQL and built-in SQLite root
 batches require an enclosing transaction when all statements must commit together. A scoped
-batch participates in its existing transaction. See [batch execution contracts](../reference/execution.md).
+batch participates in its existing transaction. See [batch execution contracts](./execution.md#execute-an-ordered-batch).
 
 For a direct multi-row statement, map every row to `sql.fragment` and interpolate the resulting
 array without `sql.join()`. This does not silently become a batch or native bulk transfer. See
