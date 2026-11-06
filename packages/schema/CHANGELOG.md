@@ -1,5 +1,13 @@
 # @typed-sql/schema
 
+## 2.5.0
+
+Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.
+
+### Patch Changes
+
+- @typed-sql/core@2.5.0
+
 ## 2.5.0-rc.0
 
 ### Minor Changes

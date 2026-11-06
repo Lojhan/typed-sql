@@ -1,5 +1,11 @@
 # @typed-sql/ast
 
+## 2.5.0
+
+Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.
+
+No changes in this release.
+
 ## 2.5.0-rc.0
 
 ### Patch Changes
