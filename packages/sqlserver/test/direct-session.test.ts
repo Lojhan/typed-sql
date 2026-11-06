@@ -72,8 +72,8 @@ await describe("SQL Server data worker statement and retained-memory protocol", 
     strict.equal(state.calls.filter((call) => call.name === "SQLDisconnect").length, 1);
   });
   await it("accepts only proven successful legacy binding notices without tolerating truncation or errors", () => {
-    // Vendor severity10 messages15511..15516 describe successful default/rule binding only.
-    for (const message of [5060, 15511, 15512, 15513, 15514, 15515, 15516]) {
+    // Vendor severity10 messages15511..15516 and15519..15524 describe successful binding/unbinding.
+    for (const message of [5060, 15511, 15512, 15513, 15514, 15515, 15516, 15519, 15520, 15521, 15522, 15523, 15524]) {
       const state = nativeApiFixture();
       state.session.open();
       state.setDiagnostic("01000", message);
@@ -93,6 +93,9 @@ await describe("SQL Server data worker statement and retained-memory protocol", 
       ["01004", 5060, 1],
       ["01000", 5060, -1],
       ["01000", 15517, 1],
+      ["01000", 15518, 1],
+      ["01004", 15520, 1],
+      ["01000", 15520, -1],
       ["01000", 50000, 1],
       ["01000", 15512, -1],
     ] as const) {

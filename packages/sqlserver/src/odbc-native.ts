@@ -11,10 +11,12 @@ import {
   ODBC_STATE as S,
 } from "./odbc-protocol.js";
 
-// Microsoft severity 10 binding notices and the 5060 rollback progress notice; SQLSTATE remains qualified.
+// Microsoft severity 10 binding/unbinding notices and the 5060 rollback progress notice; SQLSTATE remains qualified.
 // https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-15000-to-15999
 // https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-5000-to-5999
-export const ODBC_STATEMENT_NOTICES = Object.freeze([5060, 5701, 5703, 8153, 15511, 15512, 15513, 15514, 15515, 15516]);
+export const ODBC_STATEMENT_NOTICES = Object.freeze([
+  5060, 5701, 5703, 8153, 15511, 15512, 15513, 15514, 15515, 15516, 15519, 15520, 15521, 15522, 15523, 15524,
+]);
 
 interface NativeLibrary {
   func(name: string, result: string, arguments_: readonly unknown[]): unknown;
