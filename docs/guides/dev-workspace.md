@@ -87,7 +87,13 @@ Use the file and folder buttons in **Files**, or right-click a folder or blank t
 
 Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
 
-The color selector offers **System**, **Light** and **Dark**. System follows OS changes; an explicit preference stays in browser storage. Scrollbars float over non-editor scroll areas and fade after interaction, without reserving container space. The editor remains scrollable with no visible scrollbar.
+Compact bottom-bar icons provide theme, connection, schema, comparison and agent controls without a global header. The theme icon offers **System**, **Light** and **Dark**. System follows OS changes; an explicit preference stays in browser storage. Scrollbars float over non-editor scroll areas and fade after interaction, without reserving container space. The editor remains scrollable with no visible scrollbar.
+
+## Commands and file search
+
+Press `Cmd/Ctrl+K`, or use the command icon in the bottom bar, to search file paths and available workspace actions. Use the arrow keys and Enter to select, and Escape to return to the previous focus. The palette opens files, Schema, Compare and Agent; creates files/folders; splits editor groups; changes theme; connects or refreshes a target; and exposes relevant save, rename, execution, cancellation and inspection actions.
+
+**Find in active file** opens the editor's search panel. It searches the actual document with next/previous matches, case sensitivity and regular expressions. `Cmd/Ctrl+F` also opens it while the editor has focus. File lookup lives in the palette, so the file tree has no separate filter input. Search and navigation do not execute queries.
 
 ## Explore and create a query
 
