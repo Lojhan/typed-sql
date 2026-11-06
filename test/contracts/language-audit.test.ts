@@ -299,6 +299,10 @@ await describe("independent upstream language auditing", async () => {
     });
     strict.equal(sqlserver.parameters![0]!.hasDefault, null);
     strict.equal(sqlserver.result.nativeType, "int");
+    strict.equal(
+      signatureFacts("sqlserver", { name: "hidden_system_routine", parameters_json: null }).parameters,
+      null,
+    );
     strict.throws(
       () => signatureFacts("sqlserver", { name: "vendor_function", parameters_json: "{}" }),
       /Invalid SQL Server/u,

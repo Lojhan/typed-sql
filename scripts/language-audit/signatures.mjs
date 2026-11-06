@@ -56,9 +56,10 @@ export function signatureFacts(dialect, row) {
         variadic: false,
         hasDefault: null,
       });
-  } else if (dialect === "sqlserver" && row.parameters_json !== undefined) {
+  } else if (dialect === "sqlserver" && row.parameters_json != null) {
     const native = typeof row.parameters_json === "string" ? JSON.parse(row.parameters_json) : row.parameters_json;
-    if (!Array.isArray(native)) throw new Error(`Invalid SQL Server parameter facts: ${row.name}`);
+    if (!Array.isArray(native))
+      throw new Error(`Invalid SQL Server parameter facts: ${row.name}: ${JSON.stringify(native).slice(0, 160)}`);
     parameters = native
       .filter((parameter) => Number(parameter.position) !== 0)
       .map((parameter) => ({
@@ -71,7 +72,7 @@ export function signatureFacts(dialect, row) {
       }));
     resultMetadata = native.find((parameter) => Number(parameter.position) === 0) ?? null;
     result = resultMetadata?.type_name ?? null;
-    if (row.return_columns_json !== undefined) {
+    if (row.return_columns_json != null) {
       resultColumns =
         typeof row.return_columns_json === "string" ? JSON.parse(row.return_columns_json) : row.return_columns_json;
       if (!Array.isArray(resultColumns)) throw new Error(`Invalid SQL Server return-column facts: ${row.name}`);

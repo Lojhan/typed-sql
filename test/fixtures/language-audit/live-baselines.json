@@ -1,6 +1,71 @@
 {
   "formatVersion": 1,
   "targets": {
+    "sha256:05d9b8058688cfec2cf9071879b17832c518c25ec4597059946f8f33c09df257": {
+      "dialect": "mysql",
+      "target": {
+        "version": "8.4.11",
+        "modeProfile": "lexical"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:ff12177b163a92bf0b855926cfd0e0c20c1e8325c50821b7e59b60338c25142e",
+          "count": 734,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:e2b41e9410ec99da5a0366d77dd0d63f634cdeac37f9bfada6a94aef1fe3a451",
+          "count": 35,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:678bbc9b0be080220246db7cb81414e43c3cac6df17e6a95eedd5a485dec36d2",
+          "count": 623,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:d54dcf689d2797fe56dd7477cb7682385d41a2d82b752b0e156ec7adf43074b4",
+          "count": 748,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:2b371e369e88e85907233850ad3fc0430e2468ac3f394f897df185ee6bcd5677",
+        "counts": {
+          "native-rejected-generated-invocation": 2027,
+          "native-valid-grammar-diagnostic": 415,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 88
+        }
+      }
+    },
     "sha256:0b0bab560435c1a5c7bcf9351c86fcc4f70c8ea91774b9b7ea71b2d549dc8967": {
       "dialect": "postgres",
       "target": {
@@ -9,7 +74,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:6fbea83e38af950d0151f83ad84ebe09e9f49960976258a55ede62fd3241a237",
+          "fingerprint": "sha256:37f622e51849a3ff03dd0d095890025f65d807c430b7d08f3f74a4397e16fcde",
           "count": 3319,
           "scope": "engine"
         },
@@ -62,7 +127,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:d025f66dc46309c64fc229ba4da623522c4490be98390567554f4bc64932c985",
+        "fingerprint": "sha256:979b80f7f969efa388edf1caa93e8c7a77eaf46bc62d85e9baa30e307220ac18",
         "counts": {
           "native-invocation-unverified": 589,
           "native-rejected-generated-invocation": 488,
@@ -122,7 +187,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:6a8b345928a51b07d9eb79ccf58c5e461b2c6e2e39e649f2b4827624d364f45a",
+          "fingerprint": "sha256:3282d58aaeb24a365502e64f2d0fe10f9c6826bd7e53438ed4ed8554e003fe86",
           "count": 127,
           "scope": "engine"
         },
@@ -165,7 +230,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:c15bb4a2e7fdc70341dc2d695130126b92f23513046f60f69cfcce551b5a40fd",
+        "fingerprint": "sha256:ceadafeec9b23441ab801c2c803b2d5762bdc79026bb964e5852e3772e787867",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 11,
@@ -250,7 +315,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:eb91be837580e0c7d6654e71ec0269973a93e55a737419abc7ee4090d630c55e",
+          "fingerprint": "sha256:788ea79213519553173dcc4a174d7569e3b021b2c2fdb67330ba4fa0b3a49eb8",
           "count": 3402,
           "scope": "engine"
         },
@@ -303,7 +368,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:053f09309c2b09c541260029cf8e05deb33247b0dcdcd8a58da4e04fab2bbb3b",
+        "fingerprint": "sha256:e00137b2f4e325ad4eae4e944d978ab632061ecd06d26bbb386bb81a29666bad",
         "counts": {
           "native-invocation-unverified": 623,
           "native-rejected-generated-invocation": 488,
@@ -321,7 +386,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:df15e2554e306c4c506e6199dd28b459c3fbb07f5c2af8c2bb73a76a17875893",
+          "fingerprint": "sha256:e66388b72d0806a921883a96494932931d39962a1140d52ca7302c75a4132ab6",
           "count": 3233,
           "scope": "engine"
         },
@@ -374,7 +439,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:91c441ef394b0872ad55cf1d86f521b6b243c7fb53a6a8c7723e85ee5b130d3c",
+        "fingerprint": "sha256:59ffe76a0754a2b7724d398dd6b39880c4496cd391902225c3c39b59a895019e",
         "counts": {
           "native-invocation-unverified": 551,
           "native-rejected-generated-invocation": 483,
@@ -392,7 +457,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:991b0269467648a6ab4626564f259beed93564fc5bab9aab93a1aea9baa2143c",
+          "fingerprint": "sha256:1d54527c2eda49a515b8ba50493ffccd79af115ad8944f55bc236f24d7336a33",
           "count": 3426,
           "scope": "engine"
         },
@@ -445,7 +510,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:e80150a9894d8066fd9a9f2a8343b10b6461d7ccb26817751d8050cad3162a37",
+        "fingerprint": "sha256:df6c8c4896441182682a2b0993c132ca8f2f7d30ccd673ddbfb6f5e8a4fa20c7",
         "counts": {
           "native-invocation-unverified": 640,
           "native-rejected-generated-invocation": 460,
@@ -689,7 +754,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:87d8d80e8fd9dcb58b6919fec87d986816b2ca63a104a1a2038e24785c76366f",
+          "fingerprint": "sha256:1300488e77f55968aec6213841cd341b82cfeae076d5b49412ba51e9a7009d15",
           "count": 196,
           "scope": "engine"
         },
@@ -732,7 +797,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:473f0b0540aa9f5dc8c75aef688bc1220a09d7a85af7ae8203d9a87b67054bc9",
+        "fingerprint": "sha256:7cca063171385fd0075bed248a970f764cf7dcf9d32b24e8d8bb123e2fdddccf",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -750,7 +815,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:61f0a749dc96fb78f86751738538e6fa6d3aa2cea2c8ad3288400b1001682c44",
+          "fingerprint": "sha256:5731ce88284c1c522fde8e689fc5a5a6652c84d15d95db45fe85e71f8e1e3726",
           "count": 3191,
           "scope": "engine"
         },
@@ -803,13 +868,78 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:ba5a2df8250bb648487b9da68a1e98356483683d3a4ccb9a423897da4c621426",
+        "fingerprint": "sha256:dc171cd951aa22e2af8f1a10fcf60beae4296c170006c54ec71750f4318a616e",
         "counts": {
           "native-invocation-unverified": 528,
           "native-rejected-generated-invocation": 483,
           "native-valid-grammar-diagnostic": 2090,
           "native-valid-grammar-unknown": 8,
           "native-valid-recognition-only": 82
+        }
+      }
+    },
+    "sha256:781b2fa0a469106f7d7db9ccf596a7d7f10d42aace45c3d7df97a8225ee1c876": {
+      "dialect": "mysql",
+      "target": {
+        "version": "26.7.0",
+        "modeProfile": "default"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:49232bb7e8d50781969ca4427a3921c6f59013a34e1bd7c91005ed87939e79c1",
+          "count": 763,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:dac86d76afc999ee1409cb4e084ef47a2c43df386f8a15749e1e36a75dde8f71",
+          "count": 36,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:bea0b8d73f22002daa2172102ce6c7ae4ba2f653e2642116dc67c48a67ac81de",
+          "count": 644,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:cc3473373d8c372a0404d5573e0332d4e45dce350901994559eab19053b9060b",
+          "count": 753,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:b3435a8b5dd2dea8813658987a665a3f55da4908aac8a9ceffab32baa1389bef",
+        "counts": {
+          "native-rejected-generated-invocation": 2034,
+          "native-valid-grammar-diagnostic": 417,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 91
         }
       }
     },
@@ -874,7 +1004,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:a25fa9752913566e3d9c9dfeb7e871d72af4c37b80615bcf48cfc3f5607cfdb4",
+          "fingerprint": "sha256:c47476bbd842315cc1dd6a405d36f35142f915cdc1e39922524654968a6a67ae",
           "count": 196,
           "scope": "engine"
         },
@@ -917,7 +1047,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:a4112f9a89ec5b819a92e54d0fe484116afa3cef9e38f8e07424b9b852ef4389",
+        "fingerprint": "sha256:d3c1880b112566a268d588ee801ead15cc25788a1385ad4db02724b05c66bc9f",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -1048,7 +1178,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:b7a119d9ad3b94a58b7da4831718c01ef849f33b270a376186433115319e6977",
+          "fingerprint": "sha256:351cd219cb8a12aa2322deb9cb35925e8fc4a9fe050c99a9189106616946d2d4",
           "count": 165,
           "scope": "engine"
         },
@@ -1091,13 +1221,230 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:552601121904737f7e4dbcc66b7a66aee1d8a88a28155291c98c9a5d7e0f89c3",
+        "fingerprint": "sha256:9978c10f7060e2518d4fb75e1025555a35c92c666f9908e3423705c8d91e026d",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 8,
           "native-valid-grammar-diagnostic": 66,
           "native-valid-grammar-unknown": 30,
           "native-valid-recognition-only": 159
+        }
+      }
+    },
+    "sha256:91613a41f6a63405d11159463ff9af5e4e2de00e79a0489c72a0f06b8cd65ea8": {
+      "dialect": "mysql",
+      "target": {
+        "version": "8.4.11",
+        "modeProfile": "default"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:ff12177b163a92bf0b855926cfd0e0c20c1e8325c50821b7e59b60338c25142e",
+          "count": 734,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:e2b41e9410ec99da5a0366d77dd0d63f634cdeac37f9bfada6a94aef1fe3a451",
+          "count": 35,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:678bbc9b0be080220246db7cb81414e43c3cac6df17e6a95eedd5a485dec36d2",
+          "count": 623,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:d54dcf689d2797fe56dd7477cb7682385d41a2d82b752b0e156ec7adf43074b4",
+          "count": 748,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:2b371e369e88e85907233850ad3fc0430e2468ac3f394f897df185ee6bcd5677",
+        "counts": {
+          "native-rejected-generated-invocation": 2027,
+          "native-valid-grammar-diagnostic": 415,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 88
+        }
+      }
+    },
+    "sha256:91d94cc150ffac103cc4afe86878e1345c485d7c476195ec5128d2bba8e5dfd2": {
+      "dialect": "duckdb",
+      "target": {
+        "version": "1.5.6",
+        "sdk": "1.5.6-r.2",
+        "platform": "linux",
+        "arch": "x64",
+        "runtime": "v24.22.2"
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:7fe805d3a74bd690e89692e327f3d1d509d084ccd47fe71ff75643102a45e0d4",
+          "count": 2945,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:83a9765363caedc9a4bf8827d0771136673ce87455af5109c5f219c9c8e27e4f",
+          "count": 489,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:5e3fa4fb9f480a8621151497bc1ee1184d7c082d8c9a4ccec4f5b965b4b18f1d",
+          "count": 82,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "observed",
+          "fingerprint": "sha256:ec9944f960149103f6f395094b35ae6c123dc48d0c0e00f8dce1c67078a01e5d",
+          "count": 221,
+          "scope": "engine"
+        },
+        "casts": {
+          "status": "observed",
+          "fingerprint": "sha256:f4709e5a207716dfc23d99fa30b435d22f497ec4ddcd08c9678b319530c745c4",
+          "count": 5184,
+          "scope": "implicit-only; explicit and contextual casts unverified",
+          "unprobeableTypes": [
+            "array",
+            "enum",
+            "list",
+            "map",
+            "row",
+            "struct",
+            "time with time zone",
+            "timestamp with time zone",
+            "type",
+            "union"
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:f66c0bf0d783079d5f2db4c2dd061e2e802c5a02ac959534a1caa87c11ee8cd1",
+          "count": 133,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:5a2f403c008568fd47f5f7bf6001a00b8730d68baed042efa131cc73060ba665",
+          "count": 159,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:d5617c1957e7580fe17385f6606476b4cc737b5475b9706601b6d46fbb0a5681",
+          "count": 30,
+          "scope": "engine"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:e7adc3b419f26d9ab04c2179f136bf041979a1ad4e6fa6c5279b21c2101fbb26",
+        "counts": {
+          "native-invocation-unverified": 342,
+          "native-rejected-generated-invocation": 486,
+          "native-valid-grammar-diagnostic": 219,
+          "native-valid-grammar-unknown": 7,
+          "native-valid-recognition-only": 1887
+        }
+      }
+    },
+    "sha256:925464321e179c9d462a8f09f9c3a3665824bffffcef0c5bb6487b11974046d5": {
+      "dialect": "mysql",
+      "target": {
+        "version": "9.7.2",
+        "modeProfile": "lexical"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:79ccec382491899eda66a40cefb2441fc68717c1a76096311ff52fd2ffa29b4b",
+          "count": 760,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:dac86d76afc999ee1409cb4e084ef47a2c43df386f8a15749e1e36a75dde8f71",
+          "count": 36,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:659194f10ed61b48f86a8705e45b2ed48e52696eab685f657f6a305dc07b2213",
+          "count": 631,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:cc3473373d8c372a0404d5573e0332d4e45dce350901994559eab19053b9060b",
+          "count": 753,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:b00737761a7fe7d947ef845ed7632fb797f4dd16f58f50bc027bcccb84c194ac",
+        "counts": {
+          "native-rejected-generated-invocation": 2040,
+          "native-valid-grammar-diagnostic": 417,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 91
         }
       }
     },
@@ -1109,7 +1456,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:06efb43996e9f0ecb4e623cc56fec9b7fb95a304f02e0ea29da8eaff059d4b90",
+          "fingerprint": "sha256:f48ebea3c7b1671686938c4d003b83f4635d00487502f722e56070a78deb6faa",
           "count": 3286,
           "scope": "engine"
         },
@@ -1162,7 +1509,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:7b7ab33d7d88a0083a694c93ad58dd3cf204232c751059f0278cfab92b7f541c",
+        "fingerprint": "sha256:d38c2e40a9e629466f53d1627e9a89525d509b511ddb1a92b66f8e4c109be325",
         "counts": {
           "native-invocation-unverified": 576,
           "native-rejected-generated-invocation": 488,
@@ -1223,7 +1570,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:7f8a09fee9db8a52a9ffacae4d0b119751eb28541b5c779f2f7380317e739723",
+          "fingerprint": "sha256:fa717a3cca7b740dfa37103aee3734b822bf557e511b5fb07aec5b3f152fc087",
           "count": 221,
           "scope": "engine"
         },
@@ -1266,7 +1613,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:db71d1c8485cd4f8f36d3010c35a20c2fc402003b26e72d56ce326b75263b0df",
+        "fingerprint": "sha256:90278ffabe28572ff0046eb283845daa3c5aceeb45f9317482e1930d4d9454f6",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -1326,7 +1673,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:2f330c50738089af299d29189fc73b08b1be23d4468d6d79604a885d9631a305",
+          "fingerprint": "sha256:b23bc8368c4b917f2c7965bab6f2188271aa426cb544b900a9c1a4cc7220ca0d",
           "count": 215,
           "scope": "engine"
         },
@@ -1369,7 +1716,7 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:990666151b9b29bec437073da582f3e0daecc8687d40ae28af57d106fddc29ab",
+        "fingerprint": "sha256:6c1f7d4cc1cf06d3d95209a705f969073a67d0bbac381ad3215b092368cd45e9",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
@@ -1439,7 +1786,7 @@
       "categories": {
         "functions": {
           "status": "observed",
-          "fingerprint": "sha256:e57da631f02131919b19d69fd063da77d3d0ec4e377cd67930044ee44c71e00c",
+          "fingerprint": "sha256:4f01254b7f3d73181bdda12e12e2910812b8d113662d4e8460b2b140e64ed5f0",
           "count": 192,
           "scope": "engine"
         },
@@ -1482,13 +1829,360 @@
       },
       "recognition": {
         "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
-        "fingerprint": "sha256:0e5a296fa77302f7d4f28906a4b169b6e209cc1e1dd5c97e9242cf102f819ac6",
+        "fingerprint": "sha256:4747fa8bcf8461933496fa09f21ee435c9a5a01cd87fa1480416b309da93a021",
         "counts": {
           "native-invocation-unverified": 2,
           "native-rejected-generated-invocation": 15,
           "native-valid-grammar-diagnostic": 119,
           "native-valid-grammar-unknown": 37,
           "native-valid-recognition-only": 209
+        }
+      }
+    },
+    "sha256:be5410dd7dcc9349e0b5e5daf12ece34e4e8d379ea20d16e4d206aecc77f1e43": {
+      "dialect": "sqlite",
+      "target": {
+        "version": "3.53.4",
+        "source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+        "platform": "linux",
+        "arch": "x64",
+        "runtime": "v24.22.2"
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:f12470edbbb60a3aa1bcce3a476ff5081911805627366ac141d23b31a532d0cd",
+          "count": 196,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "unavailable",
+          "reason": "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:055fa295f632ed2fa40e721e8c3d8aa20ea8c83ca8d60cb36900c2ddbc5f7579",
+          "count": 3,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:979919372c1d8f2d30837562404f4d5c235d9aa4dcccea20caa4a604fa376b9b",
+          "count": 66,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:db37c03d731e4fd88bd1b2cb855b647e9d9d2bd620edca1ddfce549d902e8e6a",
+          "count": 50,
+          "scope": "compile-options"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:815c44d0024a0bcbee824584de5772dc98a84ddf261c7b900759a1a35d935523",
+        "counts": {
+          "native-invocation-unverified": 2,
+          "native-rejected-generated-invocation": 15,
+          "native-valid-grammar-diagnostic": 119,
+          "native-valid-grammar-unknown": 37,
+          "native-valid-recognition-only": 213
+        }
+      }
+    },
+    "sha256:ce5fd3aef1bd5dd3e2b7fc5f6c156b65dd579eebb596229bee41f59f9a5daf4e": {
+      "dialect": "mysql",
+      "target": {
+        "version": "8.4.11",
+        "modeProfile": "numeric"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:ff12177b163a92bf0b855926cfd0e0c20c1e8325c50821b7e59b60338c25142e",
+          "count": 734,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:e2b41e9410ec99da5a0366d77dd0d63f634cdeac37f9bfada6a94aef1fe3a451",
+          "count": 35,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:678bbc9b0be080220246db7cb81414e43c3cac6df17e6a95eedd5a485dec36d2",
+          "count": 623,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:d54dcf689d2797fe56dd7477cb7682385d41a2d82b752b0e156ec7adf43074b4",
+          "count": 748,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:2b371e369e88e85907233850ad3fc0430e2468ac3f394f897df185ee6bcd5677",
+        "counts": {
+          "native-rejected-generated-invocation": 2027,
+          "native-valid-grammar-diagnostic": 415,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 88
+        }
+      }
+    },
+    "sha256:d3a7e60b739d64954ac27665499c4203f39526eaedcc43acc81f60b1fbb77a17": {
+      "dialect": "mysql",
+      "target": {
+        "version": "9.7.2",
+        "modeProfile": "numeric"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:79ccec382491899eda66a40cefb2441fc68717c1a76096311ff52fd2ffa29b4b",
+          "count": 760,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:dac86d76afc999ee1409cb4e084ef47a2c43df386f8a15749e1e36a75dde8f71",
+          "count": 36,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:659194f10ed61b48f86a8705e45b2ed48e52696eab685f657f6a305dc07b2213",
+          "count": 631,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:cc3473373d8c372a0404d5573e0332d4e45dce350901994559eab19053b9060b",
+          "count": 753,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:b00737761a7fe7d947ef845ed7632fb797f4dd16f58f50bc027bcccb84c194ac",
+        "counts": {
+          "native-rejected-generated-invocation": 2040,
+          "native-valid-grammar-diagnostic": 417,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 91
+        }
+      }
+    },
+    "sha256:e21d7749171a5b1028b015b10392468eef1507ba486b5b8e1603618338920e63": {
+      "dialect": "duckdb",
+      "target": {
+        "version": "2.0.0",
+        "sdk": "2.0.0-r.1",
+        "platform": "linux",
+        "arch": "x64",
+        "runtime": "v24.22.2"
+      },
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:51c3ed004395e8ec9170f451964d3117f422c901082f4c6c756675baec9a05bb",
+          "count": 3235,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:729635b1ec72c8b4495f69130ca5d72c8de50d309f50cdb37cacf43223bd2769",
+          "count": 508,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:eff946b3459b21e368a744a80b4e4226285622d9cd1e76c545ac2a6d9ae08ac1",
+          "count": 84,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "observed",
+          "fingerprint": "sha256:e3a6a8b081e2c0fac930f0a330f11e09fc0d298da0908a9c7da3c4c01ed1e0b3",
+          "count": 227,
+          "scope": "engine"
+        },
+        "casts": {
+          "status": "observed",
+          "fingerprint": "sha256:37df719a18454a42e8264d36e30e73f8529f6656b5f2a001013399c693c162c9",
+          "count": 5776,
+          "scope": "implicit-only; explicit and contextual casts unverified",
+          "unprobeableTypes": [
+            "array",
+            "enum",
+            "list",
+            "map",
+            "time with time zone",
+            "timestamp with time zone",
+            "type",
+            "union"
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:00051af5d00726ea409641ca9e14b8ed42d77b74f0a5dd643fe5ce516d8574d1",
+          "count": 144,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:c83c597bc2210a1b1e9bb1d47c55475e0639d0161a033d7e58184d7001f63609",
+          "count": 167,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:d5617c1957e7580fe17385f6606476b4cc737b5475b9706601b6d46fbb0a5681",
+          "count": 30,
+          "scope": "engine"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:41dd7fc6a3d7128dda50e1a2d6f373f409eabb9299f0b744fcfe14a18cbab532",
+        "counts": {
+          "native-invocation-unverified": 357,
+          "native-rejected-generated-invocation": 493,
+          "native-valid-grammar-diagnostic": 205,
+          "native-valid-grammar-unknown": 11,
+          "native-valid-recognition-only": 2102
+        }
+      }
+    },
+    "sha256:e42d81e9731e29df8a7d47ac1cb5b5a752e8e2fb0c492ac7432ddb1df2268b4e": {
+      "dialect": "mysql",
+      "target": {
+        "version": "9.7.2",
+        "modeProfile": "default"
+      },
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reason": "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:79ccec382491899eda66a40cefb2441fc68717c1a76096311ff52fd2ffa29b4b",
+          "count": 760,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:dac86d76afc999ee1409cb4e084ef47a2c43df386f8a15749e1e36a75dde8f71",
+          "count": 36,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:a98f085a449729dd75d41db4a7ac4aa54b58d981af9aeb43e949ba7085a87350",
+          "count": 286,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:659194f10ed61b48f86a8705e45b2ed48e52696eab685f657f6a305dc07b2213",
+          "count": 631,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reason": "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+        },
+        "syntax": {
+          "status": "observed",
+          "fingerprint": "sha256:cc3473373d8c372a0404d5573e0332d4e45dce350901994559eab19053b9060b",
+          "count": 753,
+          "scope": "vendor-help-topics; documentation is not complete SQL grammar enumeration"
+        }
+      },
+      "recognition": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:b00737761a7fe7d947ef845ed7632fb797f4dd16f58f50bc027bcccb84c194ac",
+        "counts": {
+          "native-rejected-generated-invocation": 2040,
+          "native-valid-grammar-diagnostic": 417,
+          "native-valid-grammar-unknown": 44,
+          "native-valid-recognition-only": 91
         }
       }
     },
