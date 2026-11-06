@@ -474,7 +474,7 @@ export class AgentRoutes {
           throw new WorkspaceError("AGENT_STORAGE", "Start a new conversation after 200 workspace tool calls");
         if (input.workspaceTools === true && this.options.workspaceTools === undefined)
           throw new WorkspaceError("AGENT_CAPABILITY", "This workspace does not expose agent tools", 409);
-        if (conversation.status === "running")
+        if (conversation.status === "running" || this.active.has(conversation.id))
           throw new WorkspaceError("AGENT_BUSY", "Wait for or stop the current agent turn", 409);
         if (this.active.size >= 2)
           throw new WorkspaceError("AGENT_BUSY", "At most two agent turns can run at once", 409);
@@ -489,10 +489,13 @@ export class AgentRoutes {
         const context = await this.context(input.context);
         this.requireTrust();
         // Context reads yield. Reserve the conversation and startup slot atomically afterward.
-        if (this.conversations.get(conversation.id)?.status === "running")
+        if (this.conversations.get(conversation.id)?.status === "running" || this.active.has(conversation.id))
           throw new WorkspaceError("AGENT_BUSY", "Wait for or stop the current agent turn", 409);
-        if ([...this.conversations.values()].filter((item) => item.status === "running").length >= 2)
-          throw new WorkspaceError("AGENT_BUSY", "At most two agent turns can run at once", 409);
+        const reserved = new Set([
+          ...this.active.keys(),
+          ...[...this.conversations.values()].filter((item) => item.status === "running").map((item) => item.id),
+        ]);
+        if (reserved.size >= 2) throw new WorkspaceError("AGENT_BUSY", "At most two agent turns can run at once", 409);
         conversation.title = conversation.messages.length ? conversation.title : message.slice(0, 80);
         conversation.messages.push({ id: randomUUID(), role: "user", text: message, createdAt: now() });
         conversation.status = "running";
@@ -837,7 +840,6 @@ export class AgentRoutes {
         /* Scoped tools are revoked by the aborted signal even if cleanup fails. */
       }
       connection?.close();
-      this.active.delete(conversation.id);
       for (const proposal of conversation.proposals) {
         if (proposal.status === "pending" && this.approvals.has(proposal.id)) {
           proposal.status = "rejected";
@@ -852,6 +854,7 @@ export class AgentRoutes {
         conversation.status = "failed";
         conversation.error = "Agent conversation could not be persisted; the previous saved transcript is preserved";
       }
+      if (this.active.get(conversation.id)?.connection === connection) this.active.delete(conversation.id);
     }
   }
   private async propose(

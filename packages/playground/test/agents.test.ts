@@ -593,4 +593,104 @@ await describe("local ACP agents and reviewed repository tools", async () => {
       { workspaceTools: tools },
     );
   });
+  await it("keeps a conversation reserved until its prior tool lease and persistence finish closing", async () => {
+    let closing!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      closing = resolve;
+    });
+    let finish!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let opens = 0;
+    const tools: AgentWorkspaceTools = {
+      open: async () => {
+        opens++;
+        return {
+          mcpServers: [],
+          close: async () => {
+            closing();
+            await gate;
+          },
+        };
+      },
+    };
+    await fixture(
+      async (_root, agents) => {
+        try {
+          const created = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+          await api(agents, "/prompt", { conversationId: created.id, message: "First", workspaceTools: true });
+          await entered;
+          const closedModel = (await api(agents, `/conversation?id=${created.id}`)) as AgentConversation;
+          strict.equal(closedModel.status, "idle");
+          await strict.rejects(
+            api(agents, "/prompt", { conversationId: created.id, message: "Too early", workspaceTools: true }),
+            /current agent turn/u,
+          );
+          strict.equal(opens, 1);
+          finish();
+          // Once close completes, the reservation is released and a new turn can start safely.
+          const deadline = Date.now() + 8000;
+          for (;;) {
+            try {
+              await api(agents, "/prompt", { conversationId: created.id, message: "Second", workspaceTools: true });
+              break;
+            } catch (error) {
+              if (!(error instanceof Error) || !error.message.includes("current agent turn") || Date.now() > deadline)
+                throw error;
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          }
+          await waitFor(agents, created.id, (value) => value.status !== "running");
+          strict.equal(opens, 2);
+        } finally {
+          finish();
+        }
+      },
+      "normal",
+      { workspaceTools: tools },
+    );
+  });
+  await it("counts a cancelled-but-closing lease against the two-turn resource limit", async () => {
+    let closing!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      closing = resolve;
+    });
+    let finish!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const tools: AgentWorkspaceTools = {
+      open: async () => ({
+        mcpServers: [],
+        close: async () => {
+          closing();
+          await gate;
+        },
+      }),
+    };
+    await fixture(
+      async (_root, agents) => {
+        try {
+          const first = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+          await api(agents, "/prompt", { conversationId: first.id, message: "First", workspaceTools: true });
+          await entered;
+          await api(agents, "/cancel", { conversationId: first.id });
+          const second = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+          const third = (await api(agents, "/new", { profileId: "local" })) as AgentConversation;
+          const attempts = await Promise.allSettled([
+            api(agents, "/prompt", { conversationId: second.id, message: "Second" }),
+            api(agents, "/prompt", { conversationId: third.id, message: "Third" }),
+          ]);
+          strict.equal(attempts.filter((item) => item.status === "fulfilled").length, 1);
+          strict.equal(attempts.filter((item) => item.status === "rejected").length, 1);
+          finish();
+        } finally {
+          finish();
+        }
+      },
+      "normal",
+      { workspaceTools: tools },
+    );
+  });
 });
