@@ -49,16 +49,6 @@
     "@typed-sql/core": "workspace:*",
     "@typed-sql/schema": "workspace:*",
     "esbuild": "0.28.2",
-    "@xyflow/react": "^12.11.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.38.6",
-    "@codemirror/commands": "^6.8.1",
-    "@codemirror/lang-javascript": "^6.2.4",
-    "@codemirror/lang-sql": "^6.10.0",
-    "@codemirror/language": "^6.11.3",
-    "jsonc-parser": "3.3.1",
     "acorn": "^8.15.0",
     "tsx": "4.23.15"
   },
@@ -83,6 +73,15 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "pg-cursor": "2.22.1",
-    "@typed-sql/postgres": "workspace:*"
+    "@typed-sql/postgres": "workspace:*",
+    "@xyflow/react": "^12.11.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.11.3"
   }
 }

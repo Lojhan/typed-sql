@@ -583,6 +583,34 @@ importers:
 
   packages/playground:
     dependencies:
+      '@typed-sql/build':
+        specifier: workspace:*
+        version: link:../build
+      '@typed-sql/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@typed-sql/config':
+        specifier: workspace:*
+        version: link:../config
+      '@typed-sql/core':
+        specifier: workspace:*
+        version: link:../core
+      '@typed-sql/schema':
+        specifier: workspace:*
+        version: link:../schema
+      acorn:
+        specifier: ^8.15.0
+        version: 8.18.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      pg:
+        specifier: '>=8 <9'
+        version: 8.23.1
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+    devDependencies:
       '@codemirror/commands':
         specifier: ^6.8.1
         version: 6.11.1
@@ -601,46 +629,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.38.6
         version: 6.43.15
-      '@typed-sql/build':
-        specifier: workspace:*
-        version: link:../build
-      '@typed-sql/compiler':
-        specifier: workspace:*
-        version: link:../compiler
-      '@typed-sql/config':
-        specifier: workspace:*
-        version: link:../config
-      '@typed-sql/core':
-        specifier: workspace:*
-        version: link:../core
-      '@typed-sql/schema':
-        specifier: workspace:*
-        version: link:../schema
-      '@xyflow/react':
-        specifier: ^12.11.1
-        version: 12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      acorn:
-        specifier: ^8.15.0
-        version: 8.18.0
-      esbuild:
-        specifier: 0.28.2
-        version: 0.28.2
-      jsonc-parser:
-        specifier: 3.3.1
-        version: 3.3.1
-      pg:
-        specifier: '>=8 <9'
-        version: 8.23.1
-      react:
-        specifier: ^19.2.0
-        version: 19.3.1
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.3.1(react@19.3.1)
-      tsx:
-        specifier: 4.23.15
-        version: 4.23.15
-    devDependencies:
       '@typed-sql/postgres':
         specifier: workspace:*
         version: link:../postgres
@@ -653,9 +641,18 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.0
         version: 19.3.0(@types/react@19.3.0)
+      '@xyflow/react':
+        specifier: ^12.11.1
+        version: 12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       pg-cursor:
         specifier: 2.22.1
         version: 2.22.1(pg@8.23.1)
+      react:
+        specifier: ^19.2.0
+        version: 19.3.1
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.3.1(react@19.3.1)
 
   packages/postgres:
     dependencies:
