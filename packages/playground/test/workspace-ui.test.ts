@@ -51,6 +51,50 @@ await describe("workspace layout and captured result comparison", async () => {
     const a: Grid = { columns: ["value"], rows: [[null]], truncated: false };
     strict.equal(compareGrids(a, { ...a, rows: [[{ kind: "undefined" }]] }, "ordered").changedCells, 1);
     strict.equal(compareGrids(a, { ...a, rows: [[]] }, "ordered").changedCells, 1);
-    strict.equal(compareGrids(a, { ...a, columns: ["renamed"] }, "multiset").equal, 0);
+    strict.equal(compareGrids(a, { ...a, columns: ["renamed"] }, "multiset").equal, 1);
+  });
+  await it("separates alias/type metadata from positional values and marks only changed cells", () => {
+    const a: Grid = {
+      columns: ["id", "name"],
+      columnTypes: ["oid:20", "oid:25"],
+      rows: [
+        [1, "Alice"],
+        [2, "Béatrice"],
+        [3, "Review account 3"],
+        [4, "Review account 4"],
+      ],
+      truncated: false,
+    };
+    const b: Grid = {
+      ...a,
+      columns: ["account_id", "display_name"],
+      columnTypes: ["oid:23", "oid:25"],
+      rows: [
+        [1, "Alicea"],
+        [2, "Béatrice"],
+        [3, "Review account 3a"],
+        [4, "Review account 4"],
+      ],
+    };
+    const diff = compareGrids(a, b, "ordered");
+    strict.equal(diff.sameColumns, false);
+    strict.equal(diff.typeComparison, "different");
+    strict.equal(diff.equal, 2);
+    strict.equal(diff.changedCells, 2);
+    strict.deepEqual([...(diff.leftCells.get(0) ?? [])], [1]);
+    strict.deepEqual([...(diff.rightCells.get(2) ?? [])], [1]);
+    strict.equal(diff.leftCells.has(1), false);
+    strict.equal(diff.leftCells.has(3), false);
+    strict.equal(diff.leftOnly.size, 0);
+    strict.equal(diff.rightOnly.size, 0);
+    const aliasOnly = compareGrids(a, { ...a, columns: b.columns }, "ordered");
+    strict.equal(aliasOnly.equal, 4);
+    strict.equal(aliasOnly.changedCells, 0);
+    strict.equal(aliasOnly.leftDifferent.size, 0);
+    const multiset = compareGrids(a, { ...a, columns: b.columns, rows: a.rows.toReversed() }, "multiset");
+    strict.equal(multiset.equal, 4);
+    strict.equal(multiset.leftOnly.size, 0);
+    const missing = compareGrids(a, { ...b, rows: b.rows.slice(0, 3) }, "ordered");
+    strict.deepEqual([...missing.leftOnly], [3]);
   });
 });

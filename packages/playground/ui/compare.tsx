@@ -175,6 +175,14 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
             <span className={difference.sameColumns ? "" : "warning-text"}>
               {difference.sameColumns ? "Column names match" : "Column names differ"}
             </span>
+            <span>Values by column position</span>
+            <span>
+              {difference.typeComparison === "unknown"
+                ? "Column types unavailable"
+                : difference.typeComparison === "match"
+                  ? "Column types match"
+                  : "Column types differ"}
+            </span>
             <span>{difference.equal} matching rows</span>
             <span>{difference.leftDifferent.size} A-only / changed</span>
             <span>{difference.rightDifferent.size} B-only / changed</span>
@@ -192,7 +200,9 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           ) : leftGrid ? (
             <ResultGrid
               data={leftGrid}
-              different={difference?.leftDifferent}
+              different={difference?.leftOnly}
+              changedCells={difference?.leftCells}
+              columnDifferences={difference?.columnDifferences}
               offset={page * (left?.results[leftResult]?.paging?.pageSize ?? 200)}
             />
           ) : (
@@ -207,7 +217,9 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
           ) : rightGrid ? (
             <ResultGrid
               data={rightGrid}
-              different={difference?.rightDifferent}
+              different={difference?.rightOnly}
+              changedCells={difference?.rightCells}
+              columnDifferences={difference?.columnDifferences}
               offset={page * (right?.results[rightResult]?.paging?.pageSize ?? 200)}
             />
           ) : (
@@ -216,7 +228,12 @@ export function ComparePanel({ runs, initialA }: { runs: Run[]; initialA?: strin
         </div>
       </div>
       <div className="comparison-footer">
-        <span>Highlighted rows differ within the loaded pages.</span>
+        <span>
+          {mode === "ordered"
+            ? "Highlighted cells changed; highlighted whole rows are missing from the other result."
+            : "Highlighted rows are unmatched, including duplicate counts."}{" "}
+          Loaded pages only.
+        </span>
         <div>
           <button
             type="button"

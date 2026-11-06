@@ -1,6 +1,7 @@
 import type { Run, Value } from "./types.js";
 export interface Grid {
   columns: string[];
+  columnTypes?: (string | null)[];
   rows: Value[][];
   truncated: boolean;
   command?: string;
@@ -33,6 +34,10 @@ export function resultGrid(value: Value): Grid | null {
       columns: columns.items.map((column, index) => {
         const name = object(column)?.get("name");
         return typeof name === "string" ? name : `column ${index + 1}`;
+      }),
+      columnTypes: columns.items.map((column) => {
+        const value = object(column)?.get("databaseType");
+        return typeof value === "string" ? value : null;
       }),
       rows: rows.items.map((row) => (row && typeof row === "object" && row.kind === "array" ? row.items : [])),
       truncated: data?.get("truncated") === true,
@@ -75,49 +80,101 @@ export function canonical(value: Value): string {
           : item;
   return JSON.stringify(normalize(value));
 }
+/** Values align by ordinal; aliases and driver metadata are separate evidence. */
 export function compareGrids(left: Grid, right: Grid, mode: "ordered" | "multiset") {
   const sameColumns = JSON.stringify(left.columns) === JSON.stringify(right.columns);
+  const knownTypes =
+    !!left.columnTypes &&
+    !!right.columnTypes &&
+    left.columnTypes.every((type) => type !== null) &&
+    right.columnTypes.every((type) => type !== null);
+  const typeComparison = knownTypes
+    ? JSON.stringify(left.columnTypes) === JSON.stringify(right.columnTypes)
+      ? "match"
+      : "different"
+    : "unknown";
+  const columnDifferences = new Set<number>();
+  for (let index = 0; index < Math.max(left.columns.length, right.columns.length); index++)
+    if (
+      left.columns[index] !== right.columns[index] ||
+      (knownTypes && left.columnTypes?.[index] !== right.columnTypes?.[index])
+    )
+      columnDifferences.add(index);
   const leftDifferent = new Set<number>(),
     rightDifferent = new Set<number>();
+  const leftOnly = new Set<number>(),
+    rightOnly = new Set<number>();
+  const leftCells = new Map<number, Set<number>>(),
+    rightCells = new Map<number, Set<number>>();
   let equal = 0,
     changedCells = 0;
-  const key = (row: Value[]) => row.map(canonical).join("\u0000");
+  const key = (row: Value[]) => JSON.stringify(row.map(canonical));
   if (mode === "ordered") {
     for (let row = 0; row < Math.max(left.rows.length, right.rows.length); row++) {
       const a = left.rows[row],
         b = right.rows[row];
-      if (a && b && sameColumns && key(a) === key(b)) {
+      if (a && b && key(a) === key(b)) {
         equal++;
         continue;
       }
       if (a) leftDifferent.add(row);
       if (b) rightDifferent.add(row);
-      if (a && b)
-        for (let column = 0; column < Math.max(a.length, b.length); column++)
-          if (
-            canonical(column < a.length ? a[column]! : { kind: "undefined" }) !==
-            canonical(column < b.length ? b[column]! : { kind: "undefined" })
-          )
-            changedCells++;
+      if (!a) {
+        rightOnly.add(row);
+        continue;
+      }
+      if (!b) {
+        leftOnly.add(row);
+        continue;
+      }
+      const aCells = new Set<number>(),
+        bCells = new Set<number>();
+      for (let column = 0; column < Math.max(a.length, b.length); column++) {
+        if (column < a.length && column < b.length && canonical(a[column]!) === canonical(b[column]!)) continue;
+        changedCells++;
+        if (column < a.length) aCells.add(column);
+        if (column < b.length) bCells.add(column);
+      }
+      leftCells.set(row, aCells);
+      rightCells.set(row, bCells);
     }
   } else {
     const remaining = new Map<string, number[]>();
     right.rows.forEach((row, index) => {
-      const identity = key(row);
-      const indices = remaining.get(identity) ?? [];
+      const identity = key(row),
+        indices = remaining.get(identity) ?? [];
       indices.push(index);
       remaining.set(identity, indices);
     });
     left.rows.forEach((row, index) => {
-      const candidates = sameColumns ? remaining.get(key(row)) : undefined;
+      const candidates = remaining.get(key(row));
       if (candidates?.length) {
         candidates.pop();
         equal++;
-      } else leftDifferent.add(index);
+      } else {
+        leftDifferent.add(index);
+        leftOnly.add(index);
+      }
     });
-    for (const indices of remaining.values()) for (const index of indices) rightDifferent.add(index);
+    for (const indices of remaining.values())
+      for (const index of indices) {
+        rightDifferent.add(index);
+        rightOnly.add(index);
+      }
   }
-  return { sameColumns, equal, changedCells, leftDifferent, rightDifferent };
+  return {
+    sameColumns,
+    typeComparison,
+    columnDifferences,
+    equal,
+    changedCells,
+    leftDifferent,
+    rightDifferent,
+    leftOnly,
+    rightOnly,
+    leftCells,
+    rightCells,
+  };
 }
 export function totalTime(run: Run): number | null {
   const recorded = run.timings?.totalMs;

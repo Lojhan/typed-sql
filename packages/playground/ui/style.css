@@ -795,11 +795,22 @@ body.is-resizing iframe {
   color: var(--muted);
   font-style: italic;
 }
-.data-grid .diff-row td {
+.data-grid tr:hover td {
+  background: var(--grid-hover);
+}
+.data-grid .diff-row td,
+.data-grid td.diff-cell {
   background: var(--diff);
 }
-.data-grid tr:hover td {
-  background: #edf4f9;
+.data-grid .diff-row:hover td,
+.data-grid tr:hover td.diff-cell {
+  background: var(--diff-hover);
+}
+.data-grid .cell:hover {
+  background: transparent;
+}
+.data-grid th.column-mismatch {
+  box-shadow: inset 0 -2px var(--warning);
 }
 .result-pager {
   height: 27px;
@@ -2145,4 +2156,31 @@ select {
   font-size: 11px;
   min-height: 26px;
   flex: none;
+}
+
+:root {
+  --grid-hover: #edf3f8;
+  --diff: #fff2dd;
+  --diff-hover: #f5e4c5;
+}
+:root[data-theme="dark"] {
+  --grid-hover: #2c3742;
+  --diff: #453b2b;
+  --diff-hover: #52452f;
+}
+.comparison-summary {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 32px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.comparison-footer {
+  height: auto;
+  min-height: 30px;
+  gap: 10px;
+}
+.comparison-footer > span {
+  white-space: normal;
+  line-height: 1.5;
 }

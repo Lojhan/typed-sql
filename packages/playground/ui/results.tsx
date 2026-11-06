@@ -123,6 +123,8 @@ export function ResultGrid({
   data,
   offset = 0,
   different,
+  changedCells,
+  columnDifferences,
   filter = "",
   sort = null,
   onInspect,
@@ -131,6 +133,8 @@ export function ResultGrid({
   data: Grid;
   offset?: number;
   different?: ReadonlySet<number> | undefined;
+  changedCells?: ReadonlyMap<number, ReadonlySet<number>> | undefined;
+  columnDifferences?: ReadonlySet<number> | undefined;
   filter?: string;
   sort?: { column: number; descending: boolean } | null;
   onInspect?: (value: Value) => void;
@@ -177,7 +181,11 @@ export function ResultGrid({
           <tr>
             <th className="row-number">#</th>
             {columns.map((column) => (
-              <th key={column.key} title={column.name}>
+              <th
+                key={column.key}
+                className={columnDifferences?.has(column.index) ? "column-mismatch" : ""}
+                title={`${column.name}${data.columnTypes?.[column.index] ? ` · ${data.columnTypes[column.index]}` : ""}`}
+              >
                 {column.name}
               </th>
             ))}
@@ -195,7 +203,7 @@ export function ResultGrid({
               {columns.map((column) => {
                 const value = column.index < row.length ? row[column.index]! : { kind: "undefined" as const };
                 return (
-                  <td key={column.key}>
+                  <td key={column.key} className={changedCells?.get(index)?.has(column.index) ? "diff-cell" : ""}>
                     <button
                       type="button"
                       className={`cell ${value === null ? "null" : ""}`}
