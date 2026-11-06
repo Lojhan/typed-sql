@@ -181,6 +181,10 @@ Exact transport design is a critical dependency, not deferred polish:
   Prove this on SELECT, DML/OUTPUT, repeated names and prepared queries without changing DISTINCT,
   ORDER BY or output projection semantics. Reject injected metadata, unrecognized targets and
   unsupported conversion contexts before dispatch.
+  `FOR SYSTEM_TIME AS OF` accepts a variable rather than a scalar CONVERT expression: only an
+  AST-attested datetime2(7) parameter occurrence uses a bare marker. Native boundary probes must
+  preserve 100 ns precision, and mixed scalar/temporal uses must retain distinct physical markers
+  and renderer cache context. Typed execution continues to require the canonical MDY session.
 - Temporal policy may deliberately normalize datetimeoffset to a canonical UTC instant, preserving
   100ns precision, rather than promising the original source offset. Prove SDK nanosecond-delta
   handling, UTC mode, year boundaries, negative epochs, scales and input round trips.
