@@ -413,6 +413,8 @@ export interface PlaygroundConfiguration {
 }
 
 export interface TypedSqlConfig<Snapshot extends SchemaSnapshot = SchemaSnapshot, Policy = unknown> {
+  /** Optional migration configuration, validated by @typed-sql/migrations without an implementation dependency. */
+  readonly migrations?: unknown;
   readonly dialect: DialectPlugin<Snapshot, Policy>;
   readonly schema: {
     readonly file: string;

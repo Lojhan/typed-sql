@@ -11,6 +11,7 @@
     "@typed-sql/config",
     "@typed-sql/compiler",
     "@typed-sql/conformance",
+    "@typed-sql/migrations",
     "@typed-sql/postgres",
     "@typed-sql/mysql",
     "@typed-sql/sqlite",
@@ -38,7 +39,8 @@
       "@typed-sql/cli",
       "@typed-sql/adapters",
       "@typed-sql/build",
-      "@typed-sql/playground"
+      "@typed-sql/playground",
+      "@typed-sql/migrations"
     ],
     "experimental": ["@typed-sql/ts-bridge", "@typed-sql/language-server"]
   }

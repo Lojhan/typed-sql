@@ -1,0 +1,73 @@
+name: Migration integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrations-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  migrations-postgres:
+    name: migrations (Node ${{ matrix.node }}, PostgreSQL 18)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22.13, 24.11.1]
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_PASSWORD: typed_sql_fixture
+          POSTGRES_DB: typed_sql_migrations_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d typed_sql_migrations_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TYPED_SQL_MIGRATION_TEST_URL: postgresql://postgres:typed_sql_fixture@127.0.0.1:5432/typed_sql_migrations_test
+      TYPED_SQL_MIGRATION_SCRATCH_URL: postgresql://postgres:typed_sql_fixture@127.0.0.1:5432/typed_sql_migrations_scratch
+      TYPED_SQL_MIGRATION_FRESH_URL: postgresql://postgres:typed_sql_fixture@127.0.0.1:5432/typed_sql_migrations_fresh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10.32.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Provision the isolated CI replay database
+        run: |
+          node --input-type=module <<'JS'
+          import { Pool } from 'pg';
+          const pool = new Pool({connectionString: process.env.TYPED_SQL_MIGRATION_TEST_URL});
+          try {
+            await pool.query('CREATE DATABASE typed_sql_migrations_scratch');
+            await pool.query('CREATE DATABASE typed_sql_migrations_fresh');
+          }
+          finally { await pool.end(); }
+          JS
+      - name: Build migration CLI and explicit PostgreSQL adapter
+        run: pnpm exec tsc -b packages/postgres packages/cli packages/conformance
+      - name: Verify lifecycle, policies, scripts and real-database outcomes
+        run: >-
+          pnpm exec poku
+          packages/migrations/test
+          packages/cli/test/migration*.test.ts
+          packages/cli/test/migrate*.test.ts
+          packages/postgres/test/migrations*.test.ts
+          packages/postgres/test/migration-*.test.ts
+          --reporter=compact --enforce

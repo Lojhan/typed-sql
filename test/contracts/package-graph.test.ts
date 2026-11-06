@@ -47,6 +47,7 @@ function isDatabaseDriver(name: string): boolean {
 }
 const publicPackages = [
   "playground",
+  "migrations",
   "build",
   "adapters",
   "ast",
@@ -82,6 +83,7 @@ const stablePackages = [
   "adapters",
   "build",
   "playground",
+  "migrations",
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
@@ -106,10 +108,11 @@ const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], read
   adapters: [".", "./d1", "./libsql", "./neon-http", "./neon-ws", "./postgres-js", "./sqlite-wasm"],
   ast: [".", "./toolkit"],
   core: ["."],
+  migrations: ["."],
   opentelemetry: ["."],
   config: ["."],
   schema: [".", "./snapshot"],
-  postgres: [".", "./runtime", "./pg", "./query"],
+  postgres: [".", "./runtime", "./pg", "./query", "./migrations"],
   mysql: [".", "./runtime", "./mysql2", "./query"],
   compiler: ["."],
   conformance: [".", "./v2"],
@@ -144,6 +147,7 @@ await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
     for (const packageName of [
       "playground",
+      "migrations",
       "build",
       "adapters",
       "core",
@@ -227,6 +231,20 @@ await describe("public package graph", async () => {
       "@typed-sql/core",
       "@typed-sql/schema",
     ]);
+  });
+
+  await it("keeps migration orchestration driver-free and independent of preview packages", async () => {
+    const packageManifest = await manifest("migrations");
+    strict.deepStrictEqual(Object.keys(packageManifest.dependencies ?? {}).sort(), ["@typed-sql/core", "tsx"]);
+    const migrationSource = await source("migrations");
+    for (const dependency of [
+      "@typed-sql/postgres",
+      "@typed-sql/mysql",
+      "@typed-sql/ts-bridge",
+      "@typed-sql/language-server",
+    ]) {
+      strict.ok(!migrationSource.includes(dependency), `neutral migrations must not import ${dependency}`);
+    }
   });
 
   await it("keeps the public conformance kit and example grammar implementation-neutral", async () => {

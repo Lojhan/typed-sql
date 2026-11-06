@@ -45,6 +45,7 @@ import {
   writeArtifactFiles,
 } from "@typed-sql/schema";
 import { runInit } from "./init.js";
+import { runMigrationCli } from "./migrate.js";
 import { runPlayground } from "./playground.js";
 
 interface ParsedArguments {
@@ -92,6 +93,7 @@ Usage:
 
 Commands:
   playground  Open the optional local schema and TS/SQL development workspace
+  migrate    Author, check, plan and execute explicit database migrations
   init       Plan setup; use --apply, --install, and --verify explicitly
   capabilities  Report versioned grammar support from the generated snapshot
   check      Infer SQL result types and verify them with TypeScript 7
@@ -363,6 +365,10 @@ async function loadVerificationCandidates(
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const version = await packageVersion();
+  if (args[0] === "migrate") {
+    await runMigrationCli(args.slice(1));
+    return;
+  }
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
     process.stdout.write(help(version));
     return;

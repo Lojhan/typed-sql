@@ -11,7 +11,7 @@ description: Compare schema and query artifacts to find source, runtime, and rol
 - Can the older application run against the newer database?
 - Can the newer application run against the older database?
 
-The analyzer is offline and grammar-neutral. It does not apply migrations, contact a database, or require a particular migration framework. Existing tools continue to own migration ordering, locks, rollback, and production execution.
+The analyzer is offline and grammar-neutral. It does not apply migrations, contact a database, or require a particular migration framework. Use [native migration control](./migrations.md) when typed-sql owns execution, or keep an external tool as the owner of migration ordering, locks, rollback, and production execution.
 
 Applications adopting compatibility artifacts from typed-sql v1 should first follow the
 [v1 upgrade guide](./upgrading-from-v1.md#adopt-compiler-and-ci-artifacts) so snapshots and manifests

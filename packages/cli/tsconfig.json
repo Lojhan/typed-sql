@@ -1,6 +1,24 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist" },
+  "compilerOptions": {
+    "outDir": "dist"
+  },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../core" }, { "path": "../compiler" }, { "path": "../config" }, { "path": "../schema" }]
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../compiler"
+    },
+    {
+      "path": "../config"
+    },
+    {
+      "path": "../schema"
+    },
+    {
+      "path": "../migrations"
+    }
+  ]
 }

@@ -15,6 +15,7 @@ description: PostgreSQL grammar coverage, catalog introspection, application-own
 - `@typed-sql/postgres` — `sql`, dialect factory, default type policy, analysis, type mapping, semantic routing, and transaction retry classification.
 - `@typed-sql/postgres/runtime` — driver-neutral rendering and codec utilities.
 - `@typed-sql/postgres/pg` — schema provider, executable database adapter, lazy live verifier, and structured-plan inspector for application-owned `pg`.
+- `@typed-sql/postgres/migrations` — lazy migration targets, pinned PostgreSQL catalog/history operations, script validation and qualified catalog keys; requires the application-owned `pg` driver and optional `@typed-sql/migrations` package.
 
 ## Supported versions
 
@@ -111,6 +112,20 @@ Neither path needs parameter values. Optional transient samples request a custom
 evidence excludes expressions and literals. See [Query plan governance](../guides/query-plan-governance.md).
 
 `createPostgresRoutedDatabase()` composes application-owned databases and parses runtime query shapes with the PostgreSQL grammar. Stable, non-locking reads may use a supplied replica. `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, writes, volatile functions, session state, and unknown statements use primary. `isPostgresRetryableTransactionError()` recognizes only transaction rollback SQLSTATE `40001` and deadlock SQLSTATE `40P01`. See [Route reads and retry transactions](../guides/routing-and-retries.md).
+
+## Migration execution
+
+`createPgMigrationTarget()` supplies the PostgreSQL execution service for the
+[migration CLI](../guides/migrations.md). It uses a pinned connection for advisory locking,
+transactional SQL, history and checks, and compares independently replayed schema evidence before
+new migrations. Manual additions block execution until explicitly reconciled; refreshing an
+application snapshot does not accept that drift. The guide covers fresh databases, global and
+migration-local checks, schema-only reconciliation, baseline adoption and inspected recovery.
+
+Migration catalog capture requires PostgreSQL 14 or newer; the repository's live migration suite
+exercises PostgreSQL 18.6. Choose an explicit expected database identity, a managed namespace scope
+and a separate empty replay database. The adapter never provisions or resets databases. Importing
+the default grammar does not load the migration package or a driver.
 
 ## Runtime behavior
 
