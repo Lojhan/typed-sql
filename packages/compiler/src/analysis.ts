@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_SOURCE_BYTES,
   DEFAULT_MAX_STRUCTURAL_VARIANTS,
 } from "./compiler.js";
+import { javascriptProjection } from "./javascript.js";
 import { insertionOffsets, sourceBindings } from "./source-mapping.js";
 
 export const SOURCE_ANALYSIS_FORMAT_VERSION = 1 as const;
@@ -211,24 +212,15 @@ export function analyzeSource<Snapshot extends SchemaSnapshot, Policy>(
     typePolicy: effectiveTypePolicy,
     ...compiler,
   };
-  const compilation = compileSource(compilationOptions);
+  const initial = compileSource(compilationOptions);
+  const compilation = /\.(?:[cm]?js|jsx)$/u.test(request.source.id)
+    ? javascriptProjection(request.source.text, initial, compiler.maxGeneratedDeclarationBytes)
+    : initial;
   cancelled(control);
   const insertions = Object.freeze(
-    [
-      ...compilation.queries.map(({ query, rowType, parameterType, structural, fragmentList }) => ({
-        position: query.insertionPosition,
-        length:
-          fragmentList === true
-            ? `.__typedRow<${rowType}>()`.length
-            : structural
-              ? rowType.length + parameterType.length + 14
-              : rowType.length + parameterType.length + 4,
-      })),
-      ...compilation.fragments.map(({ fragment, parameterType }) => ({
-        position: fragment.insertionPosition,
-        length: parameterType.length + 2,
-      })),
-    ].sort((left, right) => left.position - right.position),
+    compilation.insertions
+      .map((insertion) => ({ position: insertion.position, length: insertion.text.length }))
+      .sort((left, right) => left.position - right.position),
   );
   const shiftBefore = insertionOffsets(insertions);
   const bindings = sourceBindings(request.source.text);

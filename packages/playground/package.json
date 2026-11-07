@@ -1,0 +1,96 @@
+{
+  "name": "@typed-sql/playground",
+  "version": "2.5.0",
+  "description": "Local schema exploration and live TypeScript/SQL development workspace.",
+  "license": "MIT",
+  "author": "Lojhan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lojhan/typed-sql.git",
+    "directory": "packages/playground"
+  },
+  "homepage": "https://github.com/Lojhan/typed-sql#readme",
+  "bugs": {
+    "url": "https://github.com/Lojhan/typed-sql/issues"
+  },
+  "engines": {
+    "node": ">=22.11"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.map",
+    "dist/ui/**",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "typedSql": {
+    "releaseTrack": "stable"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./dist/packages/playground/src/index.js",
+    "./runtime": "./dist/packages/playground/src/runtime.js",
+    "./pg": "./dist/packages/playground/src/pg.js"
+  },
+  "scripts": {
+    "test": "node scripts/build-ui.mjs && poku test --reporter=compact --enforce",
+    "build:ui": "node scripts/build-ui.mjs",
+    "typecheck:ui": "tsc --project tsconfig.ui.json --pretty false",
+    "prepack": "node scripts/build-ui.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
+    "@typed-sql/build": "workspace:*",
+    "@typed-sql/compiler": "workspace:*",
+    "@typed-sql/config": "workspace:*",
+    "@typed-sql/core": "workspace:*",
+    "@typed-sql/migrations": "workspace:*",
+    "@typed-sql/schema": "workspace:*",
+    "acorn": "^8.15.0",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "zod": "4.6.7"
+  },
+  "peerDependencies": {
+    "@typed-sql/postgres": ">=2.5.0 <3",
+    "pg": ">=8 <9",
+    "pg-cursor": ">=2 <3"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "pg-cursor": {
+      "optional": true
+    },
+    "@typed-sql/postgres": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@codemirror/autocomplete": "6.20.3",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-javascript": "^6.2.4",
+    "@codemirror/lang-sql": "^6.10.0",
+    "@codemirror/language": "^6.11.3",
+    "@codemirror/lint": "6.9.7",
+    "@codemirror/search": "6.7.2",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.6",
+    "@typed-sql/postgres": "workspace:*",
+    "@types/pg": "8.23.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@xyflow/react": "^12.11.1",
+    "pg-cursor": "2.22.1",
+    "prettier": "3.9.10",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}

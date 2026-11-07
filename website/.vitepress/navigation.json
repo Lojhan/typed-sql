@@ -160,6 +160,12 @@
           "link": "/guides/sqlite-wasm",
           "file": "docs/guides/sqlite-wasm.md",
           "pageType": "how-to"
+        },
+        {
+          "text": "Local dev workspace",
+          "link": "/guides/dev-workspace",
+          "file": "docs/guides/dev-workspace.md",
+          "pageType": "how-to"
         }
       ]
     },

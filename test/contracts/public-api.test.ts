@@ -251,6 +251,9 @@ import type { MySqlDatabase, MySqlPreparedQueryFactory, MySqlTransaction } from 
 import * as mysqlRuntimeApi from "../../packages/mysql/src/runtime.js";
 import type { OpenTelemetryObserverOptions } from "../../packages/opentelemetry/src/index.js";
 import * as openTelemetryApi from "../../packages/opentelemetry/src/index.js";
+import * as playgroundApi from "../../packages/playground/src/index.js";
+import * as playgroundPgApi from "../../packages/playground/src/pg.js";
+import * as playgroundRuntimeApi from "../../packages/playground/src/runtime.js";
 import type {
   PostgresCopyCapability,
   PostgresCopyFromOptions,
@@ -772,6 +775,9 @@ void transactionBatchContract;
 void (undefined as unknown as ReferencedStableTypes);
 
 const expectedRuntimeExports = {
+  playground: ["decodeValue", "encodeValue", "startPlayground"],
+  playgroundPg: ["PlaygroundPgCancellationError", "PlaygroundPgError", "createPgPlaygroundTarget"],
+  playgroundRuntime: ["databaseForRun", "installRunRuntime", "show"],
   migrations: [
     "MigrationError",
     "applyPlan",
@@ -1358,6 +1364,9 @@ await describe("stable public API", async () => {
   });
   await it("freezes package-root and driver-adapter runtime exports", () => {
     const actual = {
+      playground: Object.keys(playgroundApi).sort(),
+      playgroundPg: Object.keys(playgroundPgApi).sort(),
+      playgroundRuntime: Object.keys(playgroundRuntimeApi).sort(),
       migrations: Object.keys(migrationsApi).sort(),
       pgMigrations: Object.keys(pgMigrationsApi).sort(),
       sqlserver: Object.keys(sqlserverApi).sort(),

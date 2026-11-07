@@ -71,6 +71,8 @@ export default defineConfig({
 
 Target construction is lazy: importing config does not load `pg` or open the target. `expected.database` must match the observed database. Use `expected.server` when server identity is also required. The replay database must have a different observed database name from the application target; this conservative rule prevents socket/proxy/address aliases from replaying SQL on the live database. Keep the ledger namespace separate from managed application namespaces; the adapter defaults to `typed_sql` for history and `public` for managed catalog capture.
 
+To retain structural descriptions for future history views, set `captureDetails: true` on the PostgreSQL migration target. The default retains fingerprints only. Detailed capture records column types, nullability and default presence; enum labels; relation kinds; index methods, uniqueness and key/included column names; and constraint column references. Expression indexes retain expression/predicate presence, without their SQL. It excludes routine bodies, default literals, view definitions and connection configuration. Names and enum labels are retained as schema metadata, so enable this only when that metadata belongs in your migration artifacts and ledger. These optional details support historical display; authoritative drift comparison continues to use the original object fingerprints. Older history remains fingerprint-only and cannot reconstruct missing definitions. Changing this option requires a new plan before apply because plans bind their captured evidence.
+
 ## Start with an empty database
 
 Provision an empty database and role with your infrastructure tooling, then:

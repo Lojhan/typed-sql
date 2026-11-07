@@ -29,6 +29,7 @@ class FakeClient extends EventEmitter {
   catalog: readonly Record<string, unknown>[] = [
     { kind: "namespace", names: ["public"], definition: { name: "public" } },
   ];
+  displayCatalog: readonly Record<string, unknown>[] = [];
   saved = true;
   async query(text: string, values: readonly unknown[] = []): Promise<Response> {
     this.queries.push(text);
@@ -39,6 +40,7 @@ class FakeClient extends EventEmitter {
     else if (text.includes("as environment from pg_catalog.pg_database")) rows = [{ environment: this.environment }];
     else if (text.includes("as name, pg_catalog.has_schema_privilege")) rows = this.scope;
     else if (text.includes("with namespaces as")) rows = this.catalog;
+    else if (text.includes("typed_sql_catalog_details")) rows = this.displayCatalog;
     else if (text.includes("to_regclass")) rows = [{ present: this.ledger ? "typed_sql.migration_history" : null }];
     else if (text.startsWith("select document")) rows = this.history === undefined ? [] : [{ document: this.history }];
     else if (text.includes("pg_try_advisory_lock")) rows = [{ acquired: this.available }];
@@ -291,5 +293,144 @@ await describe("PostgreSQL migration adapter without an installed driver", async
     await strict.rejects(lost.identity(), (error: unknown) => !String(error).includes("PRIVATE"));
     await lost.close();
     strict.strictEqual(fatal.client.released, true);
+  });
+});
+
+await describe("optional safe historical catalog capture", async () => {
+  await it("keeps default fingerprints private and captures only allowlisted structure when explicitly enabled", async () => {
+    const f = fixture(),
+      detailed = fixture({ captureDetails: true });
+    const rows = [
+      ...f.client.catalog,
+      {
+        kind: "relation",
+        names: ["public", "accounts"],
+        definition: {
+          kind: "r",
+          persistence: "p",
+          rowSecurity: false,
+          options: ["PRIVATE"],
+          view: "PRIVATE",
+          partitionBound: "PRIVATE",
+        },
+      },
+      {
+        kind: "column",
+        names: ["public", "accounts", "id"],
+        definition: {
+          position: 1,
+          type: "integer",
+          notNull: true,
+          identity: "",
+          generated: "",
+          collation: null,
+          default: "PRIVATE",
+        },
+      },
+      {
+        kind: "type",
+        names: ["public", "status"],
+        definition: {
+          kind: "e",
+          base: null,
+          notNull: false,
+          enum: ["open", "closed"],
+          default: "PRIVATE",
+          domainConstraints: ["PRIVATE"],
+        },
+      },
+      {
+        kind: "routine",
+        names: ["public", "secret", ""],
+        definition: {
+          kind: "f",
+          result: "text",
+          language: "sql",
+          arguments: "PRIVATE",
+          body: "PRIVATE",
+          definition: "PRIVATE",
+          config: ["PRIVATE"],
+        },
+      },
+      {
+        kind: "index",
+        names: ["public", "accounts", "by_id"],
+        definition: { definition: "PRIVATE", valid: true, ready: true },
+      },
+      {
+        kind: "constraint",
+        names: ["public", "accounts", "parent_fk"],
+        definition: { kind: "f", definition: "PRIVATE", validated: true },
+      },
+    ];
+    f.client.catalog = rows;
+    detailed.client.catalog = rows;
+    detailed.client.displayCatalog = [
+      {
+        kind: "index",
+        names: ["public", "accounts", "by_id"],
+        definition: {
+          method: "btree",
+          unique: true,
+          keyColumns: ["id"],
+          includedColumns: ["name"],
+          expressionPresent: false,
+          predicatePresent: true,
+          definition: "PRIVATE",
+        },
+      },
+      {
+        kind: "constraint",
+        names: ["public", "accounts", "parent_fk"],
+        definition: {
+          kind: "f",
+          columns: ["parent_id"],
+          referencedRelation: ["public", "parents"],
+          referencedColumns: ["id"],
+          definition: "PRIVATE",
+        },
+      },
+    ];
+    const plain = await f.target.connect(),
+      rich = await detailed.target.connect();
+    try {
+      const before = await plain.capture(),
+        after = await rich.capture();
+      strict.equal(before.details, undefined);
+      strict.ok(!f.client.queries.some((text) => text.includes("typed_sql_catalog_details")));
+      strict.deepEqual(before.objects, after.objects);
+      strict.ok(!JSON.stringify(after).includes("PRIVATE"));
+      strict.deepEqual(after.details?.[migrationCatalogKey("column", "public", "accounts", "id")], {
+        formatVersion: 1,
+        kind: "column",
+        properties: {
+          position: 1,
+          type: "integer",
+          notNull: true,
+          identity: "",
+          generated: "",
+          collation: null,
+          hasDefault: true,
+        },
+      });
+      strict.deepEqual(after.details?.[migrationCatalogKey("index", "public", "accounts", "by_id")], {
+        formatVersion: 1,
+        kind: "index",
+        properties: {
+          method: "btree",
+          unique: true,
+          keyColumns: ["id"],
+          includedColumns: ["name"],
+          expressionPresent: false,
+          predicatePresent: true,
+        },
+      });
+      strict.ok(JSON.stringify(after.details).includes('"kind":"table"'));
+      strict.ok(JSON.stringify(after.details).includes('"enum":["open","closed"]'));
+      strict.ok(JSON.stringify(after.details).includes('"referencedRelation":["public","parents"]'));
+    } finally {
+      await plain.close();
+      await rich.close();
+    }
   });
 });

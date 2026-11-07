@@ -46,6 +46,7 @@ function isDatabaseDriver(name: string): boolean {
   return forbiddenDrivers.has(name) || name.startsWith("@duckdb/node-bindings-") || name.startsWith("@koromix/koffi-");
 }
 const publicPackages = [
+  "playground",
   "migrations",
   "build",
   "adapters",
@@ -81,10 +82,12 @@ const stablePackages = [
   "cli",
   "adapters",
   "build",
+  "playground",
   "migrations",
 ] as const;
 const experimentalPackages = ["ts-bridge", "language-server"] as const;
 const expectedEntrypoints: Readonly<Record<(typeof publicPackages)[number], readonly string[]>> = {
+  playground: [".", "./runtime", "./pg"],
   build: [
     ".",
     "./vite",
@@ -143,6 +146,7 @@ async function source(packageName: string, parent = "packages"): Promise<string>
 await describe("public package graph", async () => {
   await it("keeps core, compiler, CLI, and dialect roots free of installed drivers", async () => {
     for (const packageName of [
+      "playground",
       "migrations",
       "build",
       "adapters",

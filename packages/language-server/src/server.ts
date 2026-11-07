@@ -32,6 +32,13 @@ import { ResolveContexts, resolveMethodFor } from "./resolve-context.js";
 import { projectSemanticTokens, SemanticTokenResults } from "./semantic-tokens.js";
 import { UriMap } from "./uri-map.js";
 
+function languageIdForFile(file: string): string {
+  if (file.endsWith(".sql")) return "sql";
+  if (file.endsWith(".jsx")) return "javascriptreact";
+  if (/\.[cm]?js$/u.test(file)) return "javascript";
+  return file.endsWith(".tsx") ? "typescriptreact" : "typescript";
+}
+
 interface Position {
   readonly line: number;
   readonly character: number;
@@ -512,7 +519,7 @@ function protocolDiagnostics(diagnostics: readonly unknown[]): readonly unknown[
 
 async function combinedDiagnostics(state: DocumentState): Promise<readonly unknown[]> {
   return protocolDiagnostics([
-    ...(nativeDiagnostics.get(state.original.uri) ?? []),
+    ...(state.original.uri.endsWith(".sql") ? [] : (nativeDiagnostics.get(state.original.uri) ?? [])),
     ...(await state.service.diagnostics(state.original)),
   ]);
 }
@@ -603,7 +610,7 @@ async function preloadWorkspaceDocuments(): Promise<void> {
       const uri = pathToFileURL(fileName).href;
       if (documents.has(uri) || virtualDocuments.has(uri)) continue;
       const text = await readFile(fileName, "utf8");
-      const original = TextDocument.create(uri, /\.tsx$/u.test(fileName) ? "typescriptreact" : "typescript", 0, text);
+      const original = TextDocument.create(uri, languageIdForFile(fileName), 0, text);
       const state = await createState(original);
       if (documents.has(uri) || virtualDocuments.has(uri)) continue;
       if (state.analysis?.queries.length === 0 || state.analysis === undefined) continue;
@@ -702,6 +709,7 @@ client.onRequest("textDocument/hover", async (rawParams, token) => {
     ensureStateCurrent(state);
     if (hover !== undefined) return hover;
   }
+  if (state?.original.uri.endsWith(".sql")) return null;
   const result = await nativeRequest("textDocument/hover", mapProtocolValue(params, "source-to-virtual", state), token);
   ensureStateCurrent(state);
   return mapProtocolValue(result, "virtual-to-source", state);
@@ -718,6 +726,7 @@ client.onRequest("textDocument/completion", async (rawParams, token) => {
     ensureStateCurrent(state);
     if (items.length > 0) return { isIncomplete: false, items };
   }
+  if (state?.original.uri.endsWith(".sql")) return { isIncomplete: false, items: [] };
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest("textDocument/completion", mapped, token);
   ensureStateCurrent(state);
@@ -735,6 +744,7 @@ client.onRequest("textDocument/definition", async (rawParams, token) => {
     ensureStateCurrent(state);
     if (definition !== undefined) return definition;
   }
+  if (state?.original.uri.endsWith(".sql")) return null;
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest("textDocument/definition", mapped, token);
   ensureStateCurrent(state);
@@ -754,7 +764,9 @@ client.onRequest("textDocument/codeAction", async (rawParams, token) => {
       ? []
       : await state.service.codeActions(state.original, diagnostics, token);
   const mapped = mapProtocolValue(params, "source-to-virtual", state);
-  const native = await nativeRequest("textDocument/codeAction", mapped, token);
+  const native = state?.original.uri.endsWith(".sql")
+    ? []
+    : await nativeRequest("textDocument/codeAction", mapped, token);
   ensureStateCurrent(state);
   const nativeActions = Array.isArray(native)
     ? (wrapResolveResults(
@@ -800,6 +812,14 @@ async function forwardRequest(method: string, rawParams: unknown, token: Cancell
   if (restored.expired === true)
     throw new ResponseError(LSP_CONTENT_MODIFIED, "Resolve context expired; request fresh items");
   const params = restored.item;
+  // Schema completions are already complete and have no native resolve payload.
+  if (
+    method === "completionItem/resolve" &&
+    restored.context === undefined &&
+    isObject(params) &&
+    params.data === undefined
+  )
+    return params;
   const uri = restored.context?.uri ?? documentUri(params);
   if (uri !== undefined) await waitForDocument(uri, token);
   // Failed schema analysis must remain visible to pull clients as a diagnostic,
@@ -815,6 +835,10 @@ async function forwardRequest(method: string, rawParams: unknown, token: Cancell
     method === "textDocument/semanticTokens/range"
   ) {
     return semanticTokens(method, params, state, token);
+  }
+  if (state?.original.uri.endsWith(".sql")) {
+    if (method === "textDocument/diagnostic") return { kind: "full", items: await combinedDiagnostics(state) };
+    return null;
   }
   const mappedParams = mapProtocolValue(params, "source-to-virtual", state);
   const result = await nativeRequest(method, mappedParams, token);
@@ -981,7 +1005,7 @@ client.onNotification("textDocument/didClose", (rawParams) => {
       const text = await readFile(fileName, "utf8");
       const original = TextDocument.create(
         params.textDocument.uri,
-        previous?.original.languageId ?? "typescript",
+        previous?.original.languageId ?? languageIdForFile(fileName),
         0,
         text,
       );

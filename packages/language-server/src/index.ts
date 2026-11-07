@@ -4,6 +4,7 @@ import { access, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { setTimeout as wait } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { compileSqlFile } from "@typed-sql/compiler";
 import { fromConfig, loadConfig } from "@typed-sql/config";
 import type { SchemaSnapshot, TableSnapshot } from "@typed-sql/core";
 import { loadSchemaSnapshot } from "@typed-sql/schema";
@@ -291,7 +292,8 @@ export class TypedSqlLanguageService {
   async diagnostics(document: TextDocument, token?: CancellationLike): Promise<readonly Diagnostic[]> {
     const result = await this.#documentAnalysis(document, token);
     if (result === undefined) return [];
-    return result.analysis.diagnostics.map(
+    const raw = document.uri.endsWith(".sql") ? await this.#sql(document, result) : undefined;
+    return (raw?.sourceDiagnostics ?? result.analysis.diagnostics).map(
       (item): Diagnostic => ({
         range: {
           start: document.positionAt(item.range.start),
@@ -311,6 +313,16 @@ export class TypedSqlLanguageService {
     );
   }
 
+  async #sql(document: TextDocument, result: DocumentAnalysis) {
+    const loaded = await this.#config();
+    return compileSqlFile({
+      source: document.getText(),
+      dialect: loaded.config.dialect,
+      schema: loaded.config.dialect.validateSnapshot(result.snapshot),
+      typePolicy: loaded.config.typePolicy ?? loaded.config.dialect.defaultTypePolicy,
+    });
+  }
+
   async analysis(document: TextDocument, token?: CancellationLike): Promise<BridgeAnalysis | undefined> {
     return (await this.#documentAnalysis(document, token))?.analysis;
   }
@@ -322,6 +334,16 @@ export class TypedSqlLanguageService {
     const result = await this.#documentAnalysis(document);
     if (result === undefined) return undefined;
     const offset = document.offsetAt(position);
+    if (document.uri.endsWith(".sql")) {
+      const raw = await this.#sql(document, result);
+      if (raw.query === undefined) return undefined;
+      return {
+        contents: {
+          kind: MarkupKind.Markdown,
+          value: `**typed-sql query (project snapshot)**\n\n\`\`\`typescript\nRows: ${raw.query.rowType}\nParameters: ${raw.query.parameterType}\n\`\`\``,
+        },
+      };
+    }
     const query = queryAtPosition(result.analysis, offset);
     if (query === undefined) return undefined;
     const inspections = await this.#nativeInspections(document, result);
@@ -362,15 +384,19 @@ export class TypedSqlLanguageService {
     if (result === undefined) return [];
     const offset = document.offsetAt(position);
     const query = queryAtPosition(result.analysis, offset);
-    if (query === undefined || !isStaticQueryPosition(query, offset)) return [];
+    if (!document.uri.endsWith(".sql") && (query === undefined || !isStaticQueryPosition(query, offset))) return [];
     cancelled(token);
     const source = document.getText();
-    const before = source.slice(query.sourceRange.start, offset);
+    const before = source.slice(query?.sourceRange.start ?? 0, offset);
     const qualifier = /([A-Za-z_$][A-Za-z0-9_$]*)\.[A-Za-z0-9_$]*$/u.exec(before)?.[1];
     const aliasTable =
       qualifier === undefined
         ? undefined
-        : this.#tableForAlias(source.slice(query.sourceRange.start, query.sourceRange.end), qualifier, result.snapshot);
+        : this.#tableForAlias(
+            source.slice(query?.sourceRange.start ?? 0, query?.sourceRange.end ?? source.length),
+            qualifier,
+            result.snapshot,
+          );
     const items: CompletionItem[] = [];
     const labels = new Set<string>();
     const add = (item: CompletionItem): void => {
@@ -422,7 +448,8 @@ export class TypedSqlLanguageService {
     if (result === undefined) return undefined;
     const offset = document.offsetAt(position);
     const query = queryAtPosition(result.analysis, offset);
-    if (query === undefined || !isStaticQueryPosition(query, offset)) return undefined;
+    if (!document.uri.endsWith(".sql") && (query === undefined || !isStaticQueryPosition(query, offset)))
+      return undefined;
     const word = this.#wordAt(document.getText(), offset);
     if (word === undefined) return undefined;
     cancelled(token);
@@ -554,7 +581,7 @@ export class TypedSqlLanguageService {
         const path = join(directory, entry.name);
         if (entry.isDirectory()) {
           if (!excluded.has(entry.name) && entry.name !== "generated") await visit(path);
-        } else if (entry.isFile() && (/\.tsx?$/u.test(entry.name) || /\.[cm]ts$/u.test(entry.name))) files.push(path);
+        } else if (entry.isFile() && /\.(?:[cm]?[jt]s|[jt]sx)$/u.test(entry.name)) files.push(path);
       }
     };
     for (const root of roots) await visit(root);

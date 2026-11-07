@@ -46,6 +46,7 @@ import {
 } from "@typed-sql/schema";
 import { runInit } from "./init.js";
 import { runMigrationCli } from "./migrate.js";
+import { runPlayground } from "./playground.js";
 
 interface ParsedArguments {
   readonly command?: string;
@@ -53,6 +54,7 @@ interface ParsedArguments {
 }
 
 const commands = new Set([
+  "playground",
   "init",
   "capabilities",
   "check",
@@ -90,6 +92,7 @@ Usage:
   typed-sql <command> [options]
 
 Commands:
+  playground  Open the optional local schema and TS/SQL development workspace
   migrate    Author, check, plan and execute explicit database migrations
   init       Plan setup; use --apply, --install, and --verify explicitly
   capabilities  Report versioned grammar support from the generated snapshot
@@ -130,6 +133,7 @@ function parseArguments(args: readonly string[]): ParsedArguments {
     const argument = args[index]!;
     if (!argument.startsWith("--")) throw new Error(`Unexpected argument ${argument}`);
     if (
+      argument === "--no-open" ||
       argument === "--show-types" ||
       argument === "--live" ||
       argument === "--json" ||
@@ -377,6 +381,10 @@ async function main(): Promise<void> {
   const parsed = parseArguments(args);
   if (parsed.command === undefined || !commands.has(parsed.command)) {
     throw new Error(`Unknown command ${parsed.command ?? "<none>"}. Run typed-sql --help for usage.`);
+  }
+  if (parsed.command === "playground") {
+    await runPlayground(parsed.options);
+    return;
   }
   if (parsed.command === "init") {
     process.stdout.write(`${JSON.stringify(await runInit(parsed.options, version), null, 2)}\n`);

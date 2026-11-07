@@ -18,6 +18,7 @@ const execFile = promisify(execFileCallback);
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { NODE_PATH: _workspaceNodePath, ...isolatedEnvironment } = process.env;
 const publicPackages = [
+  "playground",
   "migrations",
   "build",
   "adapters",
@@ -38,6 +39,7 @@ const publicPackages = [
   "duckdb",
 ] as const;
 const declarationCheckedPackages = new Set([
+  "playground",
   "migrations",
   "build",
   "adapters",
