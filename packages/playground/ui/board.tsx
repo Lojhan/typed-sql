@@ -14,6 +14,7 @@ import {
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bar, BarLabel, Button, ControlGroup } from "./components";
 import { Icon } from "./icon.js";
+import { ToolbarActions } from "./toolbar-actions";
 import type { Board, Table } from "./types";
 import "@xyflow/react/dist/style.css";
 
@@ -224,37 +225,39 @@ export function SchemaBoard({
   ];
   return (
     <div className="schema-canvas">
-      <Bar wrap className="canvas-toolbar">
+      <Bar className="canvas-toolbar">
         <BarLabel truncate>
           <b>{visible.length}</b> of {board.tables.length} relations
         </BarLabel>
-        <ControlGroup wrap>
-          <Button
-            className={focus ? "active" : ""}
-            aria-pressed={focus}
-            onClick={() => setFocus((value) => !value)}
-            disabled={!selected}
-          >
-            Focus neighbors
-          </Button>
-          <Button
-            onClick={() => {
-              try {
-                localStorage.removeItem(storageKey);
-              } catch {
-                /* Display storage may be disabled. */
-              }
-              setNodes((current) =>
-                current.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position })),
-              );
-              requestAnimationFrame(() =>
-                requestAnimationFrame(() => void flow?.fitView({ padding: 0.18, maxZoom: 1, duration: 180 })),
-              );
-            }}
-          >
-            Reset layout
-          </Button>
-        </ControlGroup>
+        <ToolbarActions label="Schema map actions" collapseBelow={440}>
+          <ControlGroup>
+            <Button
+              className={focus ? "active" : ""}
+              aria-pressed={focus}
+              onClick={() => setFocus((value) => !value)}
+              disabled={!selected}
+            >
+              Focus neighbors
+            </Button>
+            <Button
+              onClick={() => {
+                try {
+                  localStorage.removeItem(storageKey);
+                } catch {
+                  /* Display storage may be disabled. */
+                }
+                setNodes((current) =>
+                  current.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position })),
+                );
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() => void flow?.fitView({ padding: 0.18, maxZoom: 1, duration: 180 })),
+                );
+              }}
+            >
+              Reset layout
+            </Button>
+          </ControlGroup>
+        </ToolbarActions>
       </Bar>
       <div className="canvas-viewport" ref={viewport}>
         <ReactFlow

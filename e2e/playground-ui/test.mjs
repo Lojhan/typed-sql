@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
-import { componentContract } from "./fixtures/component-contracts.mjs";
+import { componentContract, revealToolbarActions } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/browser");
 await mkdir(artifacts, { recursive: true });
@@ -735,24 +735,25 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
   const boardViewport = page.viewportSize();
   await page.setViewportSize({ width: 560, height: 800 });
   const canvasTools = page.locator(".canvas-toolbar");
+  await revealToolbarActions(canvasTools, "Schema map actions");
   const toolBox = await canvasTools.boundingBox();
   const canvasBox = await page.locator(".canvas-viewport").boundingBox();
   assert.ok(toolBox.y + toolBox.height <= canvasBox.y + 1, "Board actions occupy their own space above the canvas");
-  const boardButtons = await canvasTools.getByRole("button").all();
-  const buttonBoxes = [];
-  for (const button of boardButtons) {
-    const box = await button.boundingBox();
-    assert.ok(box.x >= toolBox.x && box.x + box.width <= toolBox.x + toolBox.width + 1);
-    buttonBoxes.push(box);
-  }
-  assert.ok(
-    buttonBoxes[0].x + buttonBoxes[0].width <= buttonBoxes[1].x ||
-      buttonBoxes[0].y + buttonBoxes[0].height <= buttonBoxes[1].y,
-    "Narrow schema actions must wrap rather than overlap",
+  const barHeight = await canvasTools.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).getPropertyValue("--bar-height")),
   );
+  assert.equal(toolBox.height, barHeight, "Narrow schema actions stay on one row");
+  const menu = canvasTools.locator("[popover]");
+  await menu.waitFor({ state: "visible" });
+  const menuBox = await menu.boundingBox();
+  assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= 561);
+  await canvasTools.getByRole("button", { name: "Reset layout", exact: true }).waitFor();
   await screenshot(canvasTools, "schema-actions-narrow");
+  await screenshot(menu, "schema-actions-menu-narrow");
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "hidden" });
   await page.setViewportSize(boardViewport);
-  check("narrow schema actions wrap without overlapping one another or the canvas");
+  check("narrow schema actions group into a dismissible top-layer menu without wrapping or canvas overlap");
   await invoke(">Theme: Light", "Theme: Light");
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
   await invoke(">Connect to target", "Connect to target");

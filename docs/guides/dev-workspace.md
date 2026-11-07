@@ -87,6 +87,8 @@ Use the file and folder buttons in **Files**, or right-click a folder or blank t
 
 Open files as tabs and split a group left, right, above or below. Drag tabs between groups and resize the file tree, editor groups, inspector and results. The same file can be viewed in multiple groups with a shared edit buffer. Schema, Compare and Agent are workspace views alongside query tabs.
 
+In narrow panes, secondary toolbar controls move into labeled overflow menus instead of wrapping onto extra rows. Agent selectors and primary query actions stay visible; expand the corresponding action menu for configuration, exports or additional operations. Escape or clicking outside dismisses these menus.
+
 Compact bottom-bar icons provide theme, connection, schema, comparison and agent controls without a global header. The theme icon offers **System**, **Light** and **Dark**. System follows OS changes; an explicit preference stays in browser storage. Scrollbars float over non-editor scroll areas and fade after interaction, without reserving container space. The editor remains scrollable with no visible scrollbar.
 
 ## Commands and file search
@@ -211,7 +213,7 @@ Profiles live in the user's `agents.json`, under `$XDG_CONFIG_HOME/typed-sql/pla
 
 Choose the source, schema or result context to attach before sending. Source context must match the saved file revision. Attachments are limited to 256 KiB. The client forwards only those selected attachments plus the conversation transcript; it does not automatically collect the database or project directory. Agents with their own filesystem tools may access additional host files under their own permissions. Review an agent's configuration before sharing sensitive data.
 
-**Workspace tools** is a separate, optional permission. Enable it before a prompt to let the agent inspect scoped files, schema objects and migration history; analyze SQL; read captured results; run bounded read-only database queries; and propose file changes for review. It starts off and is not restored with the selected conversation. Tool names and running/completed/failed states appear in the conversation; progress records do not contain arguments or outputs. These tools do not execute TypeScript or apply migrations, and proposed files still require review before they are saved. The checkbox is unavailable when the host does not provide workspace tools.
+**Workspace tools** has three modes: **Ask before use** (the default), **Allow for this conversation**, and **Off**. Ask shows the tool name and arguments before an operation runs, with **Allow once**, **Allow for this conversation**, and **Deny**. The mode is saved after sending a prompt and restored with the conversation. All modes still require project trust; allowing tools never bypasses read-only query enforcement or file-change review. Tool activity is grouped per turn and collapsed by default. Expand it for statuses and result details. The controls are unavailable when the host does not provide workspace tools.
 
 Assistant text streams into the conversation. The workspace persists messages and proposals in private, project-scoped user storage. Switching tabs or reloading restores the selected profile and conversation after validating their IDs against the current project. Browser storage holds only those selection IDs; loading the transcript still requires project trust. A fresh ACP session receives the saved transcript each turn; this does not rely on agent-specific session loading. Stop cancels the turn and terminates the owned process group. Turns have a two-minute deadline, bounded output and at most two concurrent local processes. Authentication, malformed-protocol and process failures appear as failed turns rather than fabricated responses.
 
@@ -226,3 +228,59 @@ For agents that do not use client filesystem methods, a text response can includ
 ````
 
 Saving a proposed tool never executes it. Open the saved file in the editor, inspect its typed contract, and use the usual Run action and managed read-only/write controls. The client supplies no terminal capability and declines general agent permission requests. These controls govern the workspace's mediated file and query actions; they cannot restrict a trusted executable's independent operating-system access.
+
+
+## Interactive agent analyses
+
+Agent replies render Markdown headings, emphasis, lists, tables and highlighted SQL, TypeScript,
+JavaScript and JSON. Code blocks have a copy action. External images and executable HTML are not
+rendered. Messages, tool activity, file proposals and analyses share an ordered conversation timeline.
+Scrolling up keeps the conversation in place while new output arrives; longer histories load earlier
+activity on request.
+
+With **Workspace tools** enabled, ask for an interactive breakdown, trend or hierarchy. The agent uses
+`typed_sql_query_analysis` to capture checked, database-enforced read-only SQL, then
+`typed_sql_present` to publish a validated presentation referencing that capture. It can inspect more
+captured rows through `typed_sql_get_analysis_data`, without running SQL again. These tools remain
+scoped to the current conversation and turn. Rendering a card does not execute model-generated code.
+
+Analysis queries capture at most 1,000 rows with a 512 KiB structured-value budget and a five-second
+deadline. Population counts and distributions should be aggregated in SQL. Cards visibly distinguish
+complete query results from partial captures; a complete aggregate is distinct from a complete copy
+of its underlying table. Captures retain the source query, parameter values, target identity, schema
+and type-policy evidence, and timestamp in private project-scoped user storage.
+
+Supported views include metrics, tables, bar and stacked bar, line and area, scatter, histogram,
+pie and donut, sunburst and treemap, heatmap, funnel and Sankey. Metrics preserve exact integer and
+decimal arithmetic within bounded precision; unsupported numeric magnitudes remain inspectable in
+**Data** instead of being silently rounded into a chart. Metric views can include comparison deltas
+and a trend. Hierarchies require ordered dimensions and nonnegative additive measures. Sankey flows
+must be acyclic. Every chart has a data-table alternative.
+
+Cards compose views in a stack or responsive grid and use the same controls as the rest of the
+workspace. **Chart**, **Data** and **Query** expose the visualization, retained rows and source SQL.
+Tables support searching, sorting, column visibility and value inspection. **Open in workspace**
+creates a regular analysis tab that can split, resize and restore alongside query files.
+
+Generated controls support selections, multiple selections, search, numeric comparisons, dates and
+boolean switches. Captured-data filters reuse the saved rows. Controls marked **Runs query** bind
+existing SQL parameters and require **Apply filters**; they never concatenate input into SQL. Query
+refreshes check the target, observed server identity, schema and type policy. **Reset** restores the
+original parameters. A refreshed card labels the original explanation as referring to its initial
+capture. Agents can link chart selections to captured-data selection controls.
+
+**Export captured data** downloads filtered captured rows as CSV or lossless JSON. It does not fetch
+uncaptured database rows. Image exports support SVG and PNG. CSV exports protect spreadsheet formula
+cells; JSON retains the original tagged values.
+
+**Save analysis** writes a `.analysis.json` definition inside a configured project write root. The
+file contains its query, parameter values, control definitions and presentation, with no captured
+rows or connection credentials. Parameter values can themselves be sensitive; inspect the file
+before committing it. Reopening the file exposes **Run saved analysis**: opening a definition alone
+does not run SQL. Refreshing it creates a new private capture through the checked read-only path.
+Schema changes require reviewing and updating the saved definition. Definitions are editable in
+an external editor; their workspace view is an analysis launcher.
+
+Private analysis storage is bounded independently of the transcript. Filter refreshes release
+unreferenced intermediate captures. **Remove analysis** in an expanded analysis tab removes its
+private card and unshared captures after confirmation, while retaining project definitions.

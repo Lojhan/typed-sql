@@ -68,6 +68,7 @@ jobs:
           node --import tsx e2e/playground-ui/editor-test.mjs
           node --import tsx e2e/playground-ui/explorer-test.mjs
           node --import tsx e2e/playground-ui/agent-test.mjs
+          node --import tsx e2e/playground-ui/analysis-test.mjs
           node --import tsx e2e/playground-ui/interactions-test.mjs
       - name: Retain browser evidence and component screenshots
         if: always() && matrix.node == '24.11.1'

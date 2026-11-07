@@ -3,7 +3,7 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { command, consumer, server } from "../build/src/consumer.mjs";
-import { componentContract } from "./fixtures/component-contracts.mjs";
+import { componentContract, revealToolbarActions } from "./fixtures/component-contracts.mjs";
 
 const artifacts = resolve("artifacts/playground-ui/agent-browser");
 await rm(artifacts, { recursive: true, force: true });
@@ -119,6 +119,7 @@ try {
   await config.waitFor({ state: "detached" });
   assert.equal(await profile.inputValue(), "codex");
   check("Codex preset saves explicit codex-acp executable and empty arguments without starting a process");
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "Configure", exact: true }).click();
   await config.getByRole("combobox", { name: "Agent preset", exact: true }).selectOption("custom");
   await config.getByRole("textbox", { name: "Agent name", exact: true }).fill("Fixture ACP");
@@ -137,15 +138,18 @@ try {
   await invoke("playground/existing.sql");
   await page.getByRole("textbox", { name: "Query source editor", exact: true }).waitFor();
   await invoke(">Open agent", "Open agent");
+  const contextSettings = page.getByLabel("Context settings", { exact: true });
+  if (await contextSettings.isVisible()) await contextSettings.click();
   await page.getByRole("checkbox", { name: "Schema", exact: true }).check();
-  const workspaceTools = page.getByRole("checkbox", { name: "Workspace tools", exact: true });
-  assert.equal(await workspaceTools.isChecked(), false);
-  await workspaceTools.check();
+  if (await contextSettings.isVisible()) await contextSettings.click();
+  const workspaceTools = page.getByRole("combobox", { name: "Workspace tools", exact: true });
+  assert.equal(await workspaceTools.inputValue(), "ask");
+  await workspaceTools.selectOption("allow");
   const promptRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
   await composer.fill("stream response");
   await page.getByRole("button", { name: "Send ↑", exact: true }).click();
   const sent = (await promptRequest).postDataJSON();
-  assert.equal(sent.workspaceTools, true);
+  assert.equal(sent.toolMode, "allow");
   assert.equal(sent.context.source.file, "playground/existing.sql");
   assert.ok(sent.context.schema.tables.length);
   await messages.getByText(/Partial response from/u).waitFor();
@@ -156,6 +160,7 @@ try {
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
   const streamId = await conversations.inputValue();
   assert.ok(streamId);
+  await messages.locator(".agent-activity > summary").click();
   const toolCall = messages.getByRole("status", { name: "Workspace tool: Get schema", exact: true });
   await toolCall.waitFor();
   assert.match(await toolCall.textContent(), /Completed/u);
@@ -170,9 +175,9 @@ try {
   await messages.getByText(/Completed response/u).waitFor();
   assert.equal(await conversations.inputValue(), streamId);
   assert.equal(
-    await page.getByRole("checkbox", { name: "Workspace tools", exact: true }).isChecked(),
-    false,
-    "Tool permission is not silently restored with conversation IDs",
+    await page.getByRole("combobox", { name: "Workspace tools", exact: true }).inputValue(),
+    "allow",
+    "The explicitly granted tool setting is restored with the conversation",
   );
   await page.reload();
   await messages.getByText(/Completed response/u).waitFor();
@@ -186,6 +191,7 @@ try {
   check(
     "switching tabs and reloading restores selected conversation and messages while browser storage holds only IDs",
   );
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   const rejectedId = await conversations.inputValue();
@@ -232,6 +238,7 @@ try {
     "reviewed rejection leaves a new file absent and long proposal paths/code stay within narrow light/dark panels",
     geometry,
   );
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   const acceptedId = await conversations.inputValue();
@@ -330,6 +337,7 @@ try {
   assert.equal(await conversations.inputValue(), acceptedId);
   await page.unroute("**/api/agents/conversation?*");
   check("late conversation responses cannot replace a newer selected conversation");
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("accept dirty race");
@@ -392,6 +400,7 @@ try {
   await page.locator(".agent-proposal.accepted").waitFor();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
 
+  await revealToolbarActions(page, "Agent actions");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll(".agent-message").length === 0);
   await composer.fill("cancel proposal");
@@ -458,6 +467,47 @@ try {
   assert.ok(trace.some((entry) => entry.action === "read" && entry.success));
   evidence.components = await componentContract(page);
   check("shared component geometry is consistent across rendered controls and section headers");
+  await page.setViewportSize({ width: 720, height: 900 });
+  await contextSettings.waitFor();
+  const agentActions = page.getByLabel("Agent actions", { exact: true });
+  await agentActions.waitFor();
+  const headerGeometry = await page.locator(".agent-toolbar").evaluate((element) => ({
+    height: element.clientHeight,
+    expected: Number.parseFloat(getComputedStyle(element).getPropertyValue("--bar-height")),
+    overflow: element.scrollWidth > element.clientWidth + 1,
+  }));
+  assert.ok(headerGeometry.height <= headerGeometry.expected + 1);
+  assert.equal(headerGeometry.overflow, false);
+  await agentActions.click();
+  await page.getByRole("button", { name: "Configure", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("button", { name: "Configure", exact: true }).isVisible(), false);
+  await shot(page.locator(".agent-toolbar"), "agent-header-compact");
+  check("agent header keeps profile and conversation selectors on one row with a dismissible action group");
+  const composerGeometry = await page.evaluate(() => {
+    const messages = document.querySelector(".agent-messages"),
+      composer = document.querySelector(".agent-composer"),
+      row = composer.querySelector(".context-options");
+    return {
+      gutter: messages.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(messages).paddingLeft),
+      composer: composer.getBoundingClientRect().left,
+      height: row.getBoundingClientRect().height,
+      expected: Number.parseFloat(getComputedStyle(row).getPropertyValue("--bar-height")),
+      overflow: composer.scrollWidth > composer.clientWidth + 1,
+    };
+  });
+  assert.ok(Math.abs(composerGeometry.gutter - composerGeometry.composer) <= 1);
+  assert.ok(composerGeometry.height <= composerGeometry.expected + 1);
+  assert.equal(composerGeometry.overflow, false);
+  await contextSettings.click();
+  await page.getByRole("checkbox", { name: "Schema", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("checkbox", { name: "Schema", exact: true }).isVisible(), false);
+  await contextSettings.click();
+  await composer.click();
+  assert.equal(await page.getByRole("checkbox", { name: "Schema", exact: true }).isVisible(), false);
+  await shot(page.locator(".agent-composer"), "composer-compact");
+  check("composer and messages share gutters; narrow settings remain one row with a dismissible context menu");
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

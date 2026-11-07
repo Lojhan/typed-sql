@@ -1,9 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+await rm(resolve(root, "dist/ui"), { recursive: true, force: true });
 await mkdir(resolve(root, "dist/ui"), { recursive: true });
 await build({
   absWorkingDir: root,
@@ -15,7 +16,9 @@ await build({
   format: "esm",
   target: "es2022",
   jsx: "automatic",
-  outfile: "dist/ui/app.js",
+  outdir: "dist/ui",
+  splitting: true,
+  chunkNames: "chunks/[name]-[hash]",
   define: { "process.env.NODE_ENV": '"production"' },
   legalComments: "eof",
 });

@@ -1,0 +1,136 @@
+.toolbar-actions {
+  min-width: 0;
+  flex: none;
+}
+
+.toolbar-actions-content {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap);
+  min-width: 0;
+}
+.toolbar-actions:not(.is-overflow) > .toolbar-actions-content {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.toolbar-actions-content[popover]:not(:popover-open) {
+  display: none;
+}
+.toolbar-actions-content[popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  min-width: 190px;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: 55vh;
+  overflow: auto;
+  flex-direction: column;
+  align-items: stretch;
+}
+.result-pager > .ui-control-group {
+  flex: none;
+  white-space: nowrap;
+}
+.toolbar-actions.is-overflow .ui-control-group {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+.toolbar-actions.is-overflow .ui-button {
+  text-align: left;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+.toolbar-actions.is-overflow :is(.ui-select, .ui-field-label) {
+  width: 100%;
+  max-width: 100%;
+}
+.toolbar-actions.is-overflow .ui-field-label {
+  padding: 4px 8px;
+}
+.agent-workspace .agent-toolbar {
+  flex-wrap: nowrap;
+}
+.agent-toolbar > select:first-of-type {
+  flex: 0 1 120px;
+  width: 120px;
+  max-width: 160px;
+}
+.agent-toolbar > select:nth-of-type(2) {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  max-width: none;
+}
+.schema-canvas .canvas-toolbar,
+.comparison-workspace .comparison-summary {
+  flex-wrap: nowrap;
+}
+.comparison-summary > .ui-bar-label > span {
+  margin-right: 10px;
+}
+.comparison-footer > .ui-bar-label {
+  white-space: nowrap;
+}
+.comparison-footer > div {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--control-gap);
+  white-space: nowrap;
+}
+.result-control-left {
+  flex: 1;
+  overflow: hidden;
+}
+.result-control-left .run-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-pager > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-table-toolbar > input {
+  flex: 1;
+  width: 0;
+}
+.document-toolbar > .toolbar-actions .read-only {
+  display: inline-flex;
+}
+.schema-selection > .ui-bar-label {
+  white-space: nowrap;
+}
+.palette-hint {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.comparison-toolbar > select {
+  flex: 0 1 200px;
+  max-width: 65%;
+}
+.analysis-save-toolbar > input {
+  flex: 1;
+  width: 0;
+}
+.analysis-save-toolbar > button {
+  flex: none;
+}
+.ui-bar.palette-hint {
+  flex-wrap: nowrap;
+  height: var(--bar-height);
+}
+
+.toolbar-actions:not(.is-overflow) > button {
+  display: none;
+}

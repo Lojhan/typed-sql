@@ -13,6 +13,7 @@ export function packedConsumerOverrides(
   return {
     ...dependencies,
     esbuild: `link:${join(workspace, "packages", "build", "node_modules", "esbuild")}`,
+    "decimal.js": `link:${join(workspace, "packages", "playground", "node_modules", "decimal.js")}`,
     acorn: `link:${join(workspace, "packages", "playground", "node_modules", "acorn")}`,
     "@modelcontextprotocol/server": `link:${join(workspace, "packages", "playground", "node_modules", "@modelcontextprotocol", "server")}`,
     "@modelcontextprotocol/node": `link:${join(workspace, "packages", "playground", "node_modules", "@modelcontextprotocol", "node")}`,
