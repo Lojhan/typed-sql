@@ -108,7 +108,20 @@ never grammar-name branches. Engine and extension meanings belong to their contr
   also pass after the category-probe contract was made explicit. Native CI for the next pushed
   head is still required; the failed older run is not recorded as a pass.
 
+The semantic-facet checkpoint adds statically inferred and runtime-validated semantic facets across
+all nine inventory categories. Registered owners populate observed properties; unavailable facts
+remain unknown, including MySQL HELP type identities, explicit casts from negative implicit-cast
+observations, installation state and syntax productions. Case folding stays owner-controlled.
+All 55 contract files pass after the initial integration; final focused/type/quality checks also pass after
+the owner-controlled case-folding refinement. Runtime catalog outputs remain byte-identical.
+The compatibility emitters have not yet been migrated from native payloads to these typed facets.
+
+- Native lanes for SQL Server 14/15/16/17 and PostgreSQL 14/16/17/18 passed on
+  checkpoint `048d22ed` in CI run `42388317055`; migration run `42388316819` passed.
+  The full CI workflow is still running, so those results do not claim overall success.
+
 ## Requirements still open
+
 
 1. Complete independent native comparison for MySQL/SQLite, SQL Server live validation of the
    new comparison owner, modifier/identity regression witnesses across supported versions and

@@ -44,6 +44,15 @@ Parsing rejects invalid JSON carriers, malformed shapes, hash/reference disagree
 native row accounting, incomplete categories and orphaned data. These checks establish model
 integrity; they do not establish SQL behavior or support parity.
 
+Non-routine entities also carry a discriminated semantic facet. Owners populate captured keyword
+roles, native type categories/dimensions, operator operands/results/fixity, cast endpoints/contexts,
+collation properties, settings and extension versions. Missing properties stay explicit unknowns.
+Keyword case folding belongs to each owner. MySQL HELP topics do not establish canonical native
+type identities, and a negative DuckDB implicit-cast observation does not establish an explicit
+cast. Syntax topic names do not establish productions. The native payload remains loss-preserving.
+The compatibility emitters still consume native projections during migration; typed facets alone
+do not establish complete semantic generation or qualification.
+
 ## Offline generation
 
 `pnpm catalog:generate` uses the pure Node entrypoint in `scripts/catalog-generation/run.mjs`.

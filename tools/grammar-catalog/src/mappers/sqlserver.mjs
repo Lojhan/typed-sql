@@ -1,7 +1,9 @@
 import { identityFields, numericVersionBand } from "../registry.mjs";
+import { sqlserverEntityFacts } from "./facets/sqlserver.mjs";
 
 export const sqlServerMapper = Object.freeze({
   id: "sqlserver",
+  entityFacts: sqlserverEntityFacts,
   versionBand: numericVersionBand(1),
   reviewTarget(target) {
     if (!target.settings) return target;

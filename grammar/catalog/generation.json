@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:57cf5fe877ce8cd14d3bc9b56945ed9c43b059e4650bfa43df2fafd45d44b905",
+  "inputFingerprint": "sha256:336aba5db620d93055e3684edfc8978d8a8e2281dc599a37342f661a2f97d238",
   "model": {
     "formatVersion": 2,
-    "schemaDigest": "sha256:715a68c4842b8656dbc2f69fae1bd17cb8f6c601b972a0d182b6d1538bc341ba",
-    "normalizerDigest": "sha256:4901a19d783b2593d97bd913daac036768ad37aae0694707ad14d83689a02548",
+    "schemaDigest": "sha256:3abbb42bf7f464e5548582c446b178b96d1928f9734703c4621c22245e06113e",
+    "normalizerDigest": "sha256:353a2a3e252954ea6726ea1db866916206121192209fd7254c0cf770ed1236b8",
     "inputDigest": "sha256:41d158e1878afb0662add11ae082b93f9018d0ba4af9a384493fe28f7594f0c8",
     "profiles": 33,
     "entities": 26829,
@@ -41,7 +41,7 @@
   ],
   "outputDigestFormat": "utf8-bytes-sha256",
   "outputDigests": {
-    "grammar/catalog/format.schema.json": "sha256:af11b861c81d6c11c7a002b0d544843342ae95f1d9e91b54769e5648a38bf6c5",
+    "grammar/catalog/format.schema.json": "sha256:832259100d6f5c7f684f252abc5deddb7bf3fdf440236cd3e1cb0accab238e28",
     "packages/duckdb/src/catalog/generated/registry.ts": "sha256:9eafead6e13829b22c8be9f1999917bd6d8bf8bf6a37d2b843eb07bd7ef0db61",
     "packages/duckdb/src/catalog/generated/common-1.5.6.ts": "sha256:54e1912d1f405f8effe912612d284cc4a78c89eb0d2c65f82a8ea8ec168f8110",
     "packages/duckdb/src/catalog/generated/1.5.6.ts": "sha256:03813675955e3de37af3779ea990481fb5a111c9c2229c5a7d9601c3b0bcba0b",
@@ -69,7 +69,7 @@
     "packages/sqlserver/src/catalog/generated/types.ts": "sha256:1d6fcef8dcaeefc24e64d8c3a00eaec05e710ffb59393e336cb39904ac5a9f5c",
     "packages/sqlserver/src/catalog/generated/policy.ts": "sha256:bd065ab384934ac04640e0029b051520d920238d0510907725ecf1d6f6d6f102"
   },
-  "artifactFingerprint": "sha256:c5864ad186943294debfcc15a394449c728de0026b78746e60d4869595ae72e8",
+  "artifactFingerprint": "sha256:2fcc313688d65edc26fd536319035c6794c0a7713551e94f2bba2ec5c2faa7c8",
   "bands": [
     {
       "dialect": "duckdb",

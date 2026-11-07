@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
 import { hash } from "./canonical.mjs";
+import { facetKinds } from "./facets.mjs";
 
 /** @template {import('@sinclair/typebox').TProperties} T @param {T} fields @param {string} [id] */
 const object = (fields, id) =>
@@ -99,6 +100,56 @@ export const RoutineSchema = object(
   "CatalogRoutine",
 );
 
+const facetText = fact(text),
+  facetBoolean = fact(Type.Boolean()),
+  facetInteger = fact(Type.Integer());
+export const SemanticFacetSchema = Type.Union([
+  object({ kind: Type.Literal("unknown"), reason: text }),
+  object({ kind: Type.Literal("routine") }),
+  object({ kind: Type.Literal("keyword"), spelling: text, reserved: facetBoolean, nativeCategory: facetText }),
+  object({
+    kind: Type.Literal("type"),
+    canonical: Type.Ref(TypeExpressionSchema),
+    nativeKind: facetText,
+    category: facetText,
+    defined: facetBoolean,
+    preferred: facetBoolean,
+    dimensions: object({ maxLength: facetInteger, precision: facetInteger, scale: facetInteger }),
+  }),
+  object({
+    kind: Type.Literal("operator"),
+    operands: fact(Type.Array(Type.Ref(TypeExpressionSchema))),
+    result: Type.Ref(TypeExpressionSchema),
+    fixity: fact(enumeration(["prefix", "infix", "postfix"])),
+  }),
+  object({
+    kind: Type.Literal("cast"),
+    from: Type.Ref(TypeExpressionSchema),
+    to: Type.Ref(TypeExpressionSchema),
+    context: fact(enumeration(["implicit", "assignment", "explicit"])),
+    method: facetText,
+  }),
+  object({
+    kind: Type.Literal("collation"),
+    provider: facetText,
+    encoding: facetInteger,
+    characterSet: facetText,
+    isDefault: facetBoolean,
+  }),
+  object({
+    kind: Type.Literal("setting"),
+    valueType: facetText,
+    context: facetText,
+    scope: facetText,
+    enumValues: fact(Type.Array(Type.String())),
+    minimum: facetInteger,
+    maximum: facetInteger,
+    dynamic: facetBoolean,
+  }),
+  object({ kind: Type.Literal("extension"), defaultVersion: facetText, installed: facetBoolean }),
+  object({ kind: Type.Literal("syntax"), production: facetText }),
+]);
+
 export const EntitySchema = object(
   {
     grammar: text,
@@ -108,6 +159,7 @@ export const EntitySchema = object(
     identityKnowledge: text,
     availability: Type.Ref(AvailabilitySchema),
     native: jsonObject,
+    semantic: SemanticFacetSchema,
     routine: Type.Optional(Type.Ref(RoutineSchema)),
   },
   "CatalogEntity",
@@ -241,6 +293,8 @@ export function parseCatalog(value) {
         const entity = value.entities[entry.entity];
         if (!entity || entity.grammar !== profile.grammar || entity.category !== category)
           throw new TypeError(`Missing or incompatible catalog entity: ${entry.entity}`);
+        if (entity.semantic.kind !== (facetKinds[category] ?? "unknown"))
+          throw new TypeError(`Incompatible semantic facet: ${entity.name}`);
         if (entity.category === "functions" && !entity.routine)
           throw new TypeError(`Missing routine facts: ${entity.name}`);
         if (rawRows.has(entry.rawRow)) throw new TypeError(`Duplicate native row accounting: ${entry.rawRow}`);

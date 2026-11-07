@@ -1,4 +1,5 @@
 import { hash } from "./canonical.mjs";
+import { describeEntity } from "./facets.mjs";
 import { routineSignature } from "./routines.mjs";
 import { CATALOG_SCHEMA_DIGEST, parseCatalog } from "./schema.mjs";
 
@@ -140,6 +141,7 @@ export function createCatalog(captures, registry, options) {
           identityKnowledge: logical.knowledge,
           availability: { kind: "always" },
           native,
+          semantic: describeEntity(category, native.name, mapper.entityFacts?.(category, native)),
           ...(signature ? { routine: describeRoutine(signature, mapper) } : {}),
         };
         const entityId = hash(entity);

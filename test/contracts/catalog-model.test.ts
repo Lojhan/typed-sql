@@ -110,6 +110,18 @@ await describe("validated provenance-rich catalog model", async () => {
       Object.values(model.entities)[0]!.name = "forged";
     }, /digest differs/u);
     corrupt((model) => {
+      const old = Object.keys(model.entities)[0]!;
+      const entity = model.entities[old]!;
+      entity.semantic = { kind: "syntax", production: { status: "unknown", reason: "wrong category" } };
+      const replacement = hash(entity);
+      delete model.entities[old];
+      model.entities[replacement] = entity;
+      for (const profile of Object.values(model.profiles))
+        for (const category of Object.values(profile.categories))
+          if (category.status === "observed")
+            for (const entry of category.entries) if (entry.entity === old) entry.entity = replacement;
+    }, /Incompatible semantic facet/u);
+    corrupt((model) => {
       delete model.sources[Object.keys(model.sources)[0]!];
     }, /Missing catalog source/u);
     corrupt((model) => {

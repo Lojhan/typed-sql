@@ -1,7 +1,9 @@
 import { identityFields, numericVersionBand } from "../registry.mjs";
+import { postgresEntityFacts } from "./facets/postgres.mjs";
 
 export const postgresMapper = Object.freeze({
   id: "postgres",
+  entityFacts: postgresEntityFacts,
   versionBand: numericVersionBand(1),
   normalizeRow: (_category, row) => row,
   parameterMode: (mode) => ({ i: "input", o: "output", b: "inout", t: "output", v: "variadic" })[mode] ?? "unknown",

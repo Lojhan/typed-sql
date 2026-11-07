@@ -1,7 +1,9 @@
 import { identityFields, numericVersionBand } from "../registry.mjs";
+import { duckdbEntityFacts } from "./facets/duckdb.mjs";
 
 export const duckdbMapper = Object.freeze({
   id: "duckdb",
+  entityFacts: duckdbEntityFacts,
   routineEvidence(signature) {
     return signature.kind === "pragma"
       ? { returnsSet: { status: "unknown", reason: "PRAGMA invocation/result shape requires dedicated evidence" } }
