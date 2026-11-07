@@ -1110,7 +1110,9 @@
       "maximumArguments": 1,
       "kind": "scalar",
       "nullable": true,
-      "volatility": "stable"
+      "volatility": "stable",
+      "resultType": "smallint",
+      "intrinsicNullable": true
     },
     {
       "name": "COL_LENGTH",
@@ -1119,7 +1121,9 @@
       "maximumArguments": 2,
       "kind": "scalar",
       "nullable": true,
-      "volatility": "stable"
+      "volatility": "stable",
+      "resultType": "smallint",
+      "intrinsicNullable": true
     },
     {
       "name": "OBJECTPROPERTY",

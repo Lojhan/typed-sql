@@ -48,6 +48,8 @@ export interface SqlServerBuiltin {
   readonly maximumArguments: number;
   readonly kind: "scalar" | "aggregate" | "window" | "table";
   readonly rule: SqlServerBuiltinRule;
+  readonly resultType?: string;
+  readonly intrinsicNullable?: boolean;
   readonly nullable: boolean;
   readonly volatility: "immutable" | "stable" | "volatile";
   readonly since?: number;

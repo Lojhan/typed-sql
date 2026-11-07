@@ -106,6 +106,26 @@ export function postgresCasts(rows, types) {
   return result.sort((a, b) => `${a.source}>${a.target}`.localeCompare(`${b.source}>${b.target}`));
 }
 
+export function postgresTypes(rows, policies, categoryNames) {
+  return policies.map((policy) => {
+    const matches = rows.filter((row) => row.name === policy.name);
+    const candidates = matches.length ? matches : rows.filter((row) => row.canonical_name === policy.name);
+    if (candidates.length !== 1) throw new Error(`Missing or conflicting PostgreSQL type facts: ${policy.name}`);
+    const native = candidates[0];
+    const category = categoryNames[native.category];
+    if (native.defined !== true || typeof native.preferred !== "boolean" || !category || !native.canonical_name)
+      throw new Error(`Incomplete PostgreSQL type facts: ${policy.name}`);
+    return {
+      ...policy,
+      category,
+      preferred: native.preferred,
+      aliases: [...new Set([...policy.aliases, native.name, native.canonical_name])]
+        .filter((name) => name !== policy.name)
+        .sort(),
+    };
+  });
+}
+
 export function duckdbCombinations(facts, version, canonicalName) {
   if (facts.formatVersion !== 1 || facts.version !== version || !facts.inventoryFingerprint || !facts.source)
     throw new Error(`Missing native DuckDB combination provenance: ${version}`);

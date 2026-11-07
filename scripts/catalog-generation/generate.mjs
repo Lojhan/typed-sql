@@ -140,6 +140,15 @@ export async function generateCatalogs(corpus, options = {}) {
     }
     if (dialect === "sqlserver") {
       const entries = decodeFunctions(policy.functions, true);
+      for (const entry of entries) {
+        if (
+          entry.resultType !== undefined &&
+          !policy.types.some((type) => type.name === entry.resultType && type.form === "plain")
+        )
+          throw new Error(`Missing plain SQL Server result type policy: ${entry.name}`);
+        if (entry.intrinsicNullable !== undefined && typeof entry.intrinsicNullable !== "boolean")
+          throw new Error(`Invalid intrinsic nullability policy: ${entry.name}`);
+      }
       await emit("packages/sqlserver/src/catalog/generated/types.ts", sqlServerTypeSource(policy, groups, header));
       await emit(
         "packages/sqlserver/src/catalog/generated/policy.ts",

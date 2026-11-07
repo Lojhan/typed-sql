@@ -1809,14 +1809,14 @@ export default Object.freeze({
     },
     {
       "aliases": [],
-      "category": "network",
+      "category": "user",
       "mapping": "string",
       "name": "macaddr",
       "preferred": false
     },
     {
       "aliases": [],
-      "category": "network",
+      "category": "user",
       "mapping": "string",
       "name": "macaddr8",
       "preferred": false
@@ -1856,7 +1856,7 @@ export default Object.freeze({
       "category": "numeric",
       "mapping": "number",
       "name": "oid",
-      "preferred": false
+      "preferred": true
     },
     {
       "aliases": [],
@@ -1877,7 +1877,7 @@ export default Object.freeze({
       "category": "geometric",
       "mapping": "string",
       "name": "point",
-      "preferred": true
+      "preferred": false
     },
     {
       "aliases": [],
@@ -2106,5 +2106,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:80c184e5b68ddd8634919d808fb231fade564aa684045704f0e5e0462097819a"
+  "revision": "sha256:f4da1074fb3cba001bdd2845eb9be5f38c9ee4b63f45f7e3e77e16a521831a10"
 }) as unknown as PostgresCoreCatalog;

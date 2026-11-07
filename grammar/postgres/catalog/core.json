@@ -5,512 +5,384 @@
       "name": "bigint",
       "aliases": ["int8"],
       "mapping": "bigint",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "boolean",
       "aliases": ["bool"],
       "mapping": "boolean",
-      "category": "boolean",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "bytea",
       "aliases": [],
       "mapping": "bytes",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "date",
       "aliases": [],
       "mapping": "date",
-      "category": "datetime",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "double precision",
       "aliases": ["float8"],
       "mapping": "number",
-      "category": "numeric",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "integer",
       "aliases": ["int", "int4"],
       "mapping": "number",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "json",
       "aliases": [],
       "mapping": "json",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "jsonb",
       "aliases": [],
       "mapping": "json",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "numeric",
       "aliases": ["decimal"],
       "mapping": "numeric",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "real",
       "aliases": ["float4"],
       "mapping": "number",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "smallint",
       "aliases": ["int2"],
       "mapping": "number",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "text",
       "aliases": [],
       "mapping": "string",
-      "category": "string",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "varchar",
       "aliases": ["character varying"],
       "mapping": "string",
-      "category": "string",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "bpchar",
       "aliases": ["char", "character"],
       "mapping": "string",
-      "category": "string",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "uuid",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "timestamp",
       "aliases": ["timestamp without time zone"],
       "mapping": "date",
-      "category": "datetime",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "timestamptz",
       "aliases": ["timestamp with time zone"],
       "mapping": "date",
-      "category": "datetime",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "time",
       "aliases": ["time without time zone"],
       "mapping": "string",
-      "category": "datetime",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "timetz",
       "aliases": ["time with time zone"],
       "mapping": "string",
-      "category": "datetime",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "interval",
       "aliases": [],
       "mapping": "string",
-      "category": "timespan",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "bit",
       "aliases": [],
       "mapping": "string",
-      "category": "bit-string",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "varbit",
       "aliases": ["bit varying"],
       "mapping": "string",
-      "category": "bit-string",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "cidr",
       "aliases": [],
       "mapping": "string",
-      "category": "network",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "inet",
       "aliases": [],
       "mapping": "string",
-      "category": "network",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "macaddr",
       "aliases": [],
       "mapping": "string",
-      "category": "network",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "macaddr8",
       "aliases": [],
       "mapping": "string",
-      "category": "network",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "point",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": true,
       "introduced": 14
     },
     {
       "name": "line",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "lseg",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "box",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "path",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "polygon",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "circle",
       "aliases": [],
       "mapping": "string",
-      "category": "geometric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tsvector",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tsquery",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "xml",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "jsonpath",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "int4range",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "int8range",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "numrange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tsrange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tstzrange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "daterange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "int4multirange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "int8multirange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "nummultirange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tsmultirange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tstzmultirange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "datemultirange",
       "aliases": [],
       "mapping": "string",
-      "category": "range",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "money",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "oid",
       "aliases": [],
       "mapping": "number",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regclass",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regcollation",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regconfig",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regdictionary",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regnamespace",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regoper",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regoperator",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regproc",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regprocedure",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regrole",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "regtype",
       "aliases": [],
       "mapping": "string",
-      "category": "numeric",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "pg_lsn",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     },
     {
       "name": "tid",
       "aliases": [],
       "mapping": "string",
-      "category": "user",
-      "preferred": false,
       "introduced": 14
     }
   ],
@@ -789,5 +661,20 @@
       "result": "record",
       "introduced": 14
     }
-  ]
+  ],
+  "typeCategories": {
+    "A": "array",
+    "B": "boolean",
+    "C": "composite",
+    "D": "datetime",
+    "E": "enum",
+    "G": "geometric",
+    "I": "network",
+    "N": "numeric",
+    "R": "range",
+    "S": "string",
+    "T": "timespan",
+    "U": "user",
+    "V": "bit-string"
+  }
 }

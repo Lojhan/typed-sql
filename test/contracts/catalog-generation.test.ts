@@ -13,7 +13,12 @@ import {
   writeCorpus,
 } from "../../scripts/catalog-generation/corpus.mjs";
 import { decodeFunctions, generateCatalogs, validateParserPolicy } from "../../scripts/catalog-generation/generate.mjs";
-import { duckdbCombinations, groupCorpus, targetSeries } from "../../scripts/catalog-generation/model.mjs";
+import {
+  duckdbCombinations,
+  groupCorpus,
+  postgresTypes,
+  targetSeries,
+} from "../../scripts/catalog-generation/model.mjs";
 import { generationReport } from "../../scripts/catalog-generation/report.mjs";
 import { grammarFor } from "../../scripts/language-audit/audit.js";
 import { compareNativeDescription } from "../../scripts/language-audit/description.js";
@@ -133,6 +138,16 @@ await describe("reproducible native catalog generation", async () => {
       ["INT", "NEW_TYPE"],
     );
     strict.throws(() => extractSqliteStrictTypes("No type inventory", "https://example.test/strict"));
+  });
+
+  await it("derives PostgreSQL categories, preferences and native aliases without guessing missing facts", () => {
+    const policies = [{ name: "integer", aliases: ["int"], mapping: "number" }];
+    const facts = [{ name: "int4", canonical_name: "integer", category: "N", preferred: false, defined: true }];
+    const [type] = postgresTypes(facts, policies, { N: "numeric" });
+    strict.deepEqual(type, { ...policies[0], aliases: ["int", "int4"], category: "numeric", preferred: false });
+    strict.throws(() => postgresTypes([], policies, { N: "numeric" }), /Missing or conflicting/u);
+    strict.throws(() => postgresTypes([{ ...facts[0], defined: false }], policies, { N: "numeric" }), /Incomplete/u);
+    strict.throws(() => postgresTypes(facts, policies, {}), /Incomplete/u);
   });
 
   await it("compares concrete native identities and leaves missing descriptions or unknown analysis unverified", () => {

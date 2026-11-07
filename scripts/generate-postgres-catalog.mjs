@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readCorpus } from "./catalog-generation/corpus.mjs";
-import { groupCorpus, postgresCasts } from "./catalog-generation/model.mjs";
+import { groupCorpus, postgresCasts, postgresTypes } from "./catalog-generation/model.mjs";
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = join(workspace, "grammar", "postgres", "catalog", "core.json");
@@ -64,27 +64,8 @@ function validateEntries(entries, collection, names) {
     if (entry.removed !== undefined && (!Number.isSafeInteger(entry.removed) || entry.removed <= entry.introduced)) {
       throw new TypeError(`${entry.name} has invalid removed major`);
     }
-    if (collection === "types") {
-      if (
-        ![
-          "array",
-          "bit-string",
-          "boolean",
-          "composite",
-          "datetime",
-          "enum",
-          "geometric",
-          "network",
-          "numeric",
-          "range",
-          "string",
-          "timespan",
-          "user",
-        ].includes(entry.category)
-      )
-        throw new TypeError(`${entry.name} has invalid type category`);
-      if (typeof entry.preferred !== "boolean") throw new TypeError(`${entry.name} has invalid preferred flag`);
-    }
+    if (collection === "types" && (entry.category !== undefined || entry.preferred !== undefined))
+      throw new TypeError(`${entry.name} type categories and preferences must come from native facts`);
     const declaredMembers = names === "aliases" ? [entry.name, ...(entry.aliases ?? [])] : entry[names];
     if (!Array.isArray(declaredMembers)) throw new TypeError(`${collection}.${entry.name}.${names} must be an array`);
     for (const member of declaredMembers) {
@@ -116,20 +97,21 @@ function validateCasts(entries, types) {
 }
 
 function render(source, major) {
+  const nativeTypes = upstream.get(major)?.categories.types;
+  if (nativeTypes?.status !== "observed") throw new Error(`Missing native type evidence for PostgreSQL ${major}`);
+  const types = postgresTypes(
+    nativeTypes.rows,
+    source.types.filter((entry) => active(entry, major)).map(stripVersion),
+    source.typeCategories,
+  );
   const evidence = upstream.get(major)?.categories.casts;
   if (evidence?.status !== "observed") throw new Error(`Missing native cast evidence for PostgreSQL ${major}`);
-  const casts = postgresCasts(
-    evidence.rows,
-    source.types.filter((entry) => active(entry, major)),
-  );
+  const casts = postgresCasts(evidence.rows, types);
   validateCasts(casts, source.types);
   const selected = stable({
     formatVersion: 1,
     major,
-    types: source.types
-      .filter((entry) => active(entry, major))
-      .map((entry) => ({ ...stripVersion(entry), aliases: [...entry.aliases].sort() }))
-      .sort((left, right) => left.name.localeCompare(right.name)),
+    types: types.sort((left, right) => left.name.localeCompare(right.name)),
     casts,
     operators: source.operators
       .filter((entry) => active(entry, major))

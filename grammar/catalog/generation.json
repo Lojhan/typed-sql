@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:783b3dd7a10d8132fe75fba42cbbd83772be4b1444f1d3f772bf201923005d81",
+  "inputFingerprint": "sha256:be9780cc2c06c764810d040243c6e1ec6c0d1da1c3c419887a3e3beaf54f7924",
   "outputs": [
     "packages/duckdb/src/catalog/generated/1.5.6.ts",
     "packages/duckdb/src/catalog/generated/2.0.0.ts",

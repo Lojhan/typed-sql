@@ -40,6 +40,7 @@ bands instead of requiring handwritten imports whenever a version is added.
 Generation currently emits:
 
 - PostgreSQL native overloads, input/output modes, defaults, variadics and version membership;
+  type categories, preferred-type flags and native spellings also come from native catalogs;
   cast contexts/methods come directly from each engine catalog for policy-supported types.
 - DuckDB native signatures, implicit casts, scalar aliases and contextual common-type matrices. Missing macro types stay unknown; specialized
   macro patterns require explicit policy and preserve the original native facts.
