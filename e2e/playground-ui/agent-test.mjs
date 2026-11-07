@@ -137,7 +137,10 @@ try {
   await invoke("playground/existing.sql");
   await page.getByRole("textbox", { name: "Query source editor", exact: true }).waitFor();
   await invoke(">Open agent", "Open agent");
+  const contextSettings = page.getByLabel("Context settings", { exact: true });
+  if (await contextSettings.isVisible()) await contextSettings.click();
   await page.getByRole("checkbox", { name: "Schema", exact: true }).check();
+  if (await contextSettings.isVisible()) await contextSettings.click();
   const workspaceTools = page.getByRole("combobox", { name: "Workspace tools", exact: true });
   assert.equal(await workspaceTools.inputValue(), "ask");
   await workspaceTools.selectOption("allow");
@@ -459,6 +462,32 @@ try {
   assert.ok(trace.some((entry) => entry.action === "read" && entry.success));
   evidence.components = await componentContract(page);
   check("shared component geometry is consistent across rendered controls and section headers");
+  await page.setViewportSize({ width: 720, height: 900 });
+  await contextSettings.waitFor();
+  const composerGeometry = await page.evaluate(() => {
+    const messages = document.querySelector(".agent-messages"),
+      composer = document.querySelector(".agent-composer"),
+      row = composer.querySelector(".context-options");
+    return {
+      gutter: messages.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(messages).paddingLeft),
+      composer: composer.getBoundingClientRect().left,
+      height: row.getBoundingClientRect().height,
+      expected: Number.parseFloat(getComputedStyle(row).getPropertyValue("--bar-height")),
+      overflow: composer.scrollWidth > composer.clientWidth + 1,
+    };
+  });
+  assert.ok(Math.abs(composerGeometry.gutter - composerGeometry.composer) <= 1);
+  assert.ok(composerGeometry.height <= composerGeometry.expected + 1);
+  assert.equal(composerGeometry.overflow, false);
+  await contextSettings.click();
+  await page.getByRole("checkbox", { name: "Schema", exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("checkbox", { name: "Schema", exact: true }).isVisible(), false);
+  await contextSettings.click();
+  await composer.click();
+  assert.equal(await page.getByRole("checkbox", { name: "Schema", exact: true }).isVisible(), false);
+  await shot(page.locator(".agent-composer"), "composer-compact");
+  check("composer and messages share gutters; narrow settings remain one row with a dismissible context menu");
   assert.deepEqual(evidence.errors, []);
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

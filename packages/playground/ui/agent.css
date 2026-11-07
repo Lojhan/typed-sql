@@ -57,3 +57,95 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.agent-workspace {
+  --agent-gutter: 12px;
+  container-type: inline-size;
+}
+.agent-workspace .agent-messages {
+  padding-inline: var(--agent-gutter);
+}
+.agent-workspace .agent-composer {
+  margin-inline: var(--agent-gutter);
+  overflow: visible;
+}
+.agent-composer .context-options {
+  flex-wrap: nowrap;
+  height: var(--bar-height);
+  padding-block: 0;
+}
+.agent-composer .context-options > .ui-field-label {
+  max-width: none;
+  flex: 0 1 auto;
+}
+.agent-composer .context-options select {
+  width: auto;
+  max-width: 180px;
+}
+.agent-composer .context-options label {
+  white-space: nowrap;
+}
+.agent-context-fields {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap);
+  min-width: 0;
+}
+.agent-context-inline {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+.agent-context-inline > summary {
+  display: none;
+}
+.agent-context-menu {
+  position: relative;
+  flex: none;
+}
+.agent-context-menu > summary {
+  cursor: pointer;
+  white-space: nowrap;
+}
+.agent-context-menu > .agent-context-fields {
+  position: absolute;
+  top: auto;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
+  max-height: 50vh;
+  overflow: auto;
+}
+.agent-composer .agent-context-menu .ui-field-label {
+  max-width: none;
+  overflow: visible;
+}
+.agent-composer .agent-context-menu select {
+  max-width: 100%;
+  width: 100%;
+}
+.agent-process-status {
+  flex: 1;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+}
+@container (max-width: 600px) {
+  .agent-process-status {
+    display: none;
+  }
+}
+
+@container (max-width: 400px) {
+  .agent-composer .context-options > .ui-field-label {
+    flex: 1;
+  }
+  .agent-composer .context-options > .ui-field-label select {
+    max-width: 140px;
+  }
+}

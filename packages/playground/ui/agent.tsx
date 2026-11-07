@@ -119,6 +119,16 @@ export function AgentPanel({
   useEffect(() => {
     setToolMode(conversation?.id ? (conversation.toolMode ?? (conversation.workspaceTools ? "allow" : "off")) : "ask");
   }, [conversation?.id, conversation?.toolMode, conversation?.workspaceTools]);
+  const workspace = useRef<HTMLElement>(null);
+  const [compactComposer, setCompactComposer] = useState(true);
+  useEffect(() => {
+    if (!workspace.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setCompactComposer(entry.contentRect.width < 850);
+    });
+    observer.observe(workspace.current);
+    return () => observer.disconnect();
+  }, []);
   const selectedRun = state.runs.find((run) => run.id === resultRun);
   const result = selectedRun?.results[0]?.value;
   const end = useRef<HTMLDivElement>(null);
@@ -397,7 +407,7 @@ export function AgentPanel({
     if (action === "accept" && proposal) onChanged(proposal.file);
   };
   return (
-    <View className="agent-workspace">
+    <View className="agent-workspace" ref={workspace}>
       <Bar wrap className="agent-toolbar">
         <Select
           aria-label="Agent profile"
@@ -723,16 +733,7 @@ export function AgentPanel({
           void perform(send);
         }}
       >
-        <Bar wrap className="context-options">
-          <FieldLabel>
-            <Input
-              type="checkbox"
-              checked={includeSource}
-              disabled={!source?.revision}
-              onChange={(event) => setIncludeSource(event.target.checked)}
-            />
-            {source ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}` : "Active file"}
-          </FieldLabel>
+        <Bar className="context-options">
           <FieldLabel>
             Tools
             <Select
@@ -746,38 +747,62 @@ export function AgentPanel({
               <option value="off">Off</option>
             </Select>
           </FieldLabel>
-          <FieldLabel>
-            <Input
-              type="checkbox"
-              checked={includeSchema}
-              onChange={(event) => setIncludeSchema(event.target.checked)}
-            />
-            Schema
-          </FieldLabel>
-          <FieldLabel>
-            <Input
-              type="checkbox"
-              checked={includeResult}
-              disabled={result === undefined}
-              onChange={(event) => setIncludeResult(event.target.checked)}
-            />
-            Captured result
-          </FieldLabel>
-          <Select
-            aria-label="Agent captured result context"
-            value={resultRun}
-            onChange={(event) => setResultRun(event.target.value)}
+          <details
+            className={compactComposer ? "file-menu agent-context-menu" : "agent-context-inline"}
+            open={!compactComposer}
           >
-            <option value="">Select captured run</option>
-            {state.runs
-              .filter((run) => run.results.length)
-              .map((run) => (
-                <option key={run.id} value={run.id}>
-                  {run.file} · {run.sourceRevision.slice(0, 8)} · {run.target ?? "unverified"}
-                </option>
-              ))}
-          </Select>
-          <span>{conversation?.status === "running" ? "Agent is working…" : profile ? "ACP · local process" : ""}</span>
+            <summary className="ui-menu-trigger" aria-label="Context settings">
+              Context
+            </summary>
+            <div className={compactComposer ? "ui-menu agent-context-fields" : "agent-context-fields"}>
+              <FieldLabel>
+                <Input
+                  type="checkbox"
+                  checked={includeSource}
+                  disabled={!source?.revision}
+                  onChange={(event) => setIncludeSource(event.target.checked)}
+                />
+                {source
+                  ? `${source.file.split("/").at(-1)}${source.revision ? "" : " · save to attach"}`
+                  : "Active file"}
+              </FieldLabel>
+
+              <FieldLabel>
+                <Input
+                  type="checkbox"
+                  checked={includeSchema}
+                  onChange={(event) => setIncludeSchema(event.target.checked)}
+                />
+                Schema
+              </FieldLabel>
+              <FieldLabel>
+                <Input
+                  type="checkbox"
+                  checked={includeResult}
+                  disabled={result === undefined}
+                  onChange={(event) => setIncludeResult(event.target.checked)}
+                />
+                Captured result
+              </FieldLabel>
+              <Select
+                aria-label="Agent captured result context"
+                value={resultRun}
+                onChange={(event) => setResultRun(event.target.value)}
+              >
+                <option value="">Select captured run</option>
+                {state.runs
+                  .filter((run) => run.results.length)
+                  .map((run) => (
+                    <option key={run.id} value={run.id}>
+                      {run.file} · {run.sourceRevision.slice(0, 8)} · {run.target ?? "unverified"}
+                    </option>
+                  ))}
+              </Select>
+            </div>
+          </details>
+          <span className="agent-process-status">
+            {conversation?.status === "running" ? "Working…" : profile ? "ACP · local" : ""}
+          </span>
         </Bar>
         {workspaceTools && agents?.workspaceToolsAvailable ? (
           <p className="agent-tools-scope">
@@ -798,8 +823,10 @@ export function AgentPanel({
             }
           }}
         />
-        <Bar separator="none" wrap className="composer-actions">
-          <BarLabel>File changes require review. Queries run through the workspace controls.</BarLabel>
+        <Bar separator="none" className="composer-actions">
+          <BarLabel truncate title="File changes require review. Queries run through the workspace controls.">
+            File changes require review. Queries run through the workspace controls.
+          </BarLabel>
           {conversation?.status === "running" ? (
             <Button
               onClick={() =>
