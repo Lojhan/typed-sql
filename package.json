@@ -84,7 +84,8 @@
     "catalog:generate": "node scripts/catalog-generation/run.mjs generate",
     "catalog:check": "node scripts/catalog-generation/run.mjs check",
     "catalog:import": "node scripts/catalog-generation/run.mjs import",
-    "catalog:check-input": "node scripts/catalog-generation/run.mjs check-input"
+    "catalog:check-input": "node scripts/catalog-generation/run.mjs check-input",
+    "catalog:source": "node scripts/catalog-generation/sources.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

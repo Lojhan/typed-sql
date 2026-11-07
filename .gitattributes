@@ -4,3 +4,5 @@ grammar/duckdb/catalog/combinations-*.json linguist-generated=true
 grammar/catalog/generation.json linguist-generated=true
 grammar/catalog/format.schema.json linguist-generated=true
 planning/grammar-completeness/loc-baseline.json linguist-generated=true
+grammar/sqlite/facts/*.json linguist-generated=true
+planning/grammar-completeness/sqlite-keyword-coverage.json linguist-generated=true

@@ -152,6 +152,23 @@ Unexpected connection failures during derived probing now propagate; known unsup
 types/driver descriptors remain unprobeable evidence. Typecheck, quality and all 58 contract files pass locally.
 
 
+- Added SQLite vendor source locks for all five retained versions, with immutable Git/Fossil
+  revisions, per-file byte digests and the pinned license notice. The source adapter compiles
+  the vendor keyword table under explicit defines instead of regex-parsing C initializers.
+  Each default source profile exposes 147 enabled keywords; later tables additionally retain
+  disabled WITHIN. Current parser vocabulary contains 83 of those names; 64 are source-only
+  and 18 parser words are absent from the enabled vendor list. These are lexical counts, not
+  semantic support or reserved-word qualification.
+- Generation validates normalized facts and extractor pins and produces the complete vocabulary
+  comparison. Explicit refresh reuses old revision pins, verifies acquired bytes before compiling,
+  and discovers versions from retained captures/declared endpoints. Ordinary build needs neither
+  compiler nor network. Function source is locked but not yet extracted. Raw archive retention,
+  native build-condition reconciliation and other vendor adapters remain open.
+- All 59 contract files, typecheck and quality pass locally. Repeating the explicit SQLite
+  source refresh succeeds with the retained revision pins; final offline generation passes.
+- Pushed checkpoint `6ab73181` passed CI, migration integration and dev workspace integration.
+  These results do not qualify the subsequent vendor-source changes or complete the full goal.
+
 ## Requirements still open
 
 

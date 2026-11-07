@@ -1,0 +1,185 @@
+{
+  "formatVersion": 1,
+  "grammar": "sqlite",
+  "extractor": {
+    "id": "sqlite/vendor-keyword-table-v1",
+    "revision": "sha256:7af455788e8a47467204e4897c58bbef6b99d47f59247824c89c3c7acfba049d"
+  },
+  "sources": [
+    {
+      "version": "3.39.0",
+      "reference": "version-3.39.0",
+      "revision": "47d8c40ca522babfadf3f774d9869cf5f6a5896e",
+      "repository": "https://github.com/sqlite/sqlite",
+      "upstreamRevision": "14e166f40dbfa6e055543f8301525f2ca2e96a02a57269818b9e69e162e98918",
+      "files": {
+        "VERSION": {
+          "digest": "sha256:ea637c70b31469daf6aa7785c8a5d47d76b8003d8b96540f3d5f25719dd0a452",
+          "bytes": 7
+        },
+        "manifest.uuid": {
+          "digest": "sha256:211290cb4097c440db687bc0c278e553581d5a19a1837468cb72eb92ea0af9e9",
+          "bytes": 64
+        },
+        "LICENSE.md": {
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "tool/mkkeywordhash.c": {
+          "digest": "sha256:58b6c69316b3bd274f1a48406c20183b10452f98b590c88854017a7ad64c02e1",
+          "bytes": 26596
+        },
+        "src/func.c": {
+          "digest": "sha256:6bedb14208e3fcaa58170f9eac817661a1509b206f085b06d06ddc210e202b29",
+          "bytes": 75515
+        }
+      },
+      "license": {
+        "identifier": "LicenseRef-SQLite-Public-Domain",
+        "path": "LICENSE.md"
+      },
+      "defines": [],
+      "factsDigest": "sha256:5c03186b4b27444c41977f4de909e6780e66974c541aab4cd0c0f63ade5719e8"
+    },
+    {
+      "version": "3.47.2",
+      "reference": "version-3.47.2",
+      "revision": "262de1bebb0647eb6fa6a2b0434111c7d831a14d",
+      "repository": "https://github.com/sqlite/sqlite",
+      "upstreamRevision": "2aabe05e2e8cae4847a802ee2daddc1d7413d8fc560254d93ee3e72c14685b6c",
+      "files": {
+        "VERSION": {
+          "digest": "sha256:838d19398c494c46b46ffb22ba449d2e73728dd2b71f6bd17bc723b170b1659a",
+          "bytes": 7
+        },
+        "manifest.uuid": {
+          "digest": "sha256:eaccd75376fb48415eb5ad009e42e4e19e2ffdb3fa9dfe011ffc44276dc06b89",
+          "bytes": 65
+        },
+        "LICENSE.md": {
+          "digest": "sha256:9c6479123f32a1ed50d9a0af203dfe8972e65035b0cdeef436b5f8d0924517fe",
+          "bytes": 263
+        },
+        "tool/mkkeywordhash.c": {
+          "digest": "sha256:88e9a1412ae4c52b1fa662953a5c7b714404d01be41868dd3b5e602ffe1f40e5",
+          "bytes": 26768
+        },
+        "src/func.c": {
+          "digest": "sha256:bdb09e22b6acffdfaa41f18b0637dadcb5a74a45f59aaac3335f448192c6e06c",
+          "bytes": 88472
+        }
+      },
+      "license": {
+        "identifier": "LicenseRef-SQLite-Public-Domain",
+        "path": "LICENSE.md"
+      },
+      "defines": [],
+      "factsDigest": "sha256:97d1c76848025e5899b5dea40c43719444264795d9a887600ddc0091c9eb86a1"
+    },
+    {
+      "version": "3.53.4",
+      "reference": "version-3.53.4",
+      "revision": "b09c88c14082339b66c7b7158d609a771e64ca69",
+      "repository": "https://github.com/sqlite/sqlite",
+      "upstreamRevision": "bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+      "files": {
+        "VERSION": {
+          "digest": "sha256:632cf989f3b8c2925dc35a67d06535db480cb97d53f78c14bb159f3de4e9bb04",
+          "bytes": 7
+        },
+        "manifest.uuid": {
+          "digest": "sha256:c613b5f6581cba368618c41ccfc16e476f65efa963c9c7c9fc3b4519daea71d9",
+          "bytes": 65
+        },
+        "LICENSE.md": {
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "tool/mkkeywordhash.c": {
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/func.c": {
+          "digest": "sha256:4e07af88e78d099bbdb942906f5bd892c5ec030fa0a500c9fb7cfff190e0e731",
+          "bytes": 108282
+        }
+      },
+      "license": {
+        "identifier": "LicenseRef-SQLite-Public-Domain",
+        "path": "LICENSE.md"
+      },
+      "defines": [],
+      "factsDigest": "sha256:c51ab32b9061be925e30ba024c18afd68ce78e70a36ff7812c562337c7f3efee"
+    },
+    {
+      "version": "3.54.0",
+      "reference": "version-3.54.0",
+      "revision": "6932c59ee5c280599dfae9e7b431698a7cab9687",
+      "repository": "https://github.com/sqlite/sqlite",
+      "upstreamRevision": "be8d059e9a49089ab2dce5ed26dd87aaf598fdc5fbe0b107c0dd758464bcd5e3",
+      "files": {
+        "VERSION": {
+          "digest": "sha256:7f61124735d044fa39bd13799617c4f8682650997cd6dedc84bba569b5413edc",
+          "bytes": 7
+        },
+        "manifest.uuid": {
+          "digest": "sha256:e38e78e853e5ab981c822a5491dedf11113bae186999007b6a1bb635dafe42ab",
+          "bytes": 65
+        },
+        "LICENSE.md": {
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "tool/mkkeywordhash.c": {
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/func.c": {
+          "digest": "sha256:a0d9797563febf1da8b131d6e34107f0a50613811e78599d81639b048c4c28a9",
+          "bytes": 112224
+        }
+      },
+      "license": {
+        "identifier": "LicenseRef-SQLite-Public-Domain",
+        "path": "LICENSE.md"
+      },
+      "defines": [],
+      "factsDigest": "sha256:b95218bf8be4d86dd84710e34e9117ee8d2f851329608e391953955c2f3cf1fd"
+    },
+    {
+      "version": "3.54.1",
+      "reference": "version-3.54.1",
+      "revision": "57520227c95396ce39ba6ecaac8d475b78dd3964",
+      "repository": "https://github.com/sqlite/sqlite",
+      "upstreamRevision": "555e07ef33f69a0957d24d8e555b702464a131d6f1607f4c3c1e4551e8e6ca76",
+      "files": {
+        "VERSION": {
+          "digest": "sha256:ac00bc246f381662294505074279244edd1d23f6e18455d7820852e6c5c37d8d",
+          "bytes": 7
+        },
+        "manifest.uuid": {
+          "digest": "sha256:7b5efb6e3d4519a2412aaf3607f463191fab7e9251c49fdb799713fac2d79aa4",
+          "bytes": 65
+        },
+        "LICENSE.md": {
+          "digest": "sha256:ee6af51062b30d532991face5164136ae6f84e265ecf8abe89dc69dac45ca1e7",
+          "bytes": 3850
+        },
+        "tool/mkkeywordhash.c": {
+          "digest": "sha256:099f834d82274c1c4dd1a31fb7f2ad59cf1e71db30f5fd87772d2dfc70c35cae",
+          "bytes": 26768
+        },
+        "src/func.c": {
+          "digest": "sha256:a0d9797563febf1da8b131d6e34107f0a50613811e78599d81639b048c4c28a9",
+          "bytes": 112224
+        }
+      },
+      "license": {
+        "identifier": "LicenseRef-SQLite-Public-Domain",
+        "path": "LICENSE.md"
+      },
+      "defines": [],
+      "factsDigest": "sha256:28983bcf5060bd38eccd199805ee1610c2c67d9a7da9b4f4e7fdf7f44665632e"
+    }
+  ]
+}

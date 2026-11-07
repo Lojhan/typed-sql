@@ -20,6 +20,7 @@
       "!!grammar/catalog/upstream.json",
       "!!grammar/catalog/generation.json",
       "!!grammar/catalog/format.schema.json",
+      "!!planning/grammar-completeness/sqlite-keyword-coverage.json",
       "!!grammar/duckdb/catalog/combinations-*.json",
       "!!packages/postgres/src/catalog/generated",
       "!!packages/mysql/src/catalog/generated",
