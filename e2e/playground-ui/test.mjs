@@ -77,11 +77,20 @@ try {
   await writeFile(
     join(root, "typed-sql.config.mjs"),
     `import {postgres} from '@typed-sql/postgres';
+import {readFile} from 'node:fs/promises';
 const identity={database:'visual-fixture',server:'explicit fake UI fixture',adapter:'fake-ui',readOnly:true};
 const a=[[1,'Alice'],[2,'Béatrice'],[3,'Review 3'],[4,'Review 4']];
 const b=[[1,'Alicea'],[2,'Béatrice'],[3,'Review 3a'],[4,'Review 4']];
-export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{visual:{classification:'test',expected:{database:'visual-fixture'},connect:()=>({identity:async()=>identity,query:async({text})=>({columns:[{name:'id',databaseType:'integer'},{name:text.includes('name_alias')?'name_alias':'name',databaseType:'text'}],rows:text.includes('name_alias')?b:a,truncated:false,command:'SELECT'}),database:async()=>{throw Error('Visual fixture only executes raw SQL')},close:async()=>{}})}}}};\n`,
+export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated',projects:['tsconfig.json'],playground:{readRoots:['playground'],writeRoots:['playground'],targets:{visual:{classification:'test',expected:{database:'visual-fixture'},connect:()=>({identity:async()=>identity,snapshot:async()=>JSON.parse(await readFile('live-schema.json','utf8')),query:async({text})=>({columns:[{name:'id',databaseType:'integer'},{name:text.includes('name_alias')?'name_alias':'name',databaseType:'text'}],rows:text.includes('name_alias')?b:a,truncated:false,command:'SELECT'}),database:async()=>({}),close:async()=>{}})}}}};\n`,
   );
+  await writeFile(join(root, "live-schema.json"), await readFile(join(root, "schema.json")));
+  await writeFile(join(root, "playground/dependency.ts"), "export const value=1;\n");
+  await writeFile(
+    join(root, "playground/dependent.ts"),
+    "import {value} from './dependency.js';export function run(){return {value};}\n",
+  );
+  await writeFile(join(root, "playground/rename-source.sql"), "select id from public.accounts;\n");
+  await writeFile(join(root, "playground/epoch.sql"), "select id from public.accounts;\n");
   await writeFile(join(root, "playground/selection.sql"), source);
   const unformatted = 'export function formatExample(){return {name:"workspace",enabled:true}}\n';
   await writeFile(join(root, "playground/format.ts"), unformatted);
@@ -906,6 +915,137 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     controls,
     scroll: narrowScrollStyle,
   });
+  // Independent browser state keeps these checks free of deliberately dirty buffers from earlier cases.
+  const proofContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+  const proof = await proofContext.newPage();
+  try {
+    await proof.goto(url);
+    await proof.getByRole("navigation", { name: "Project files" }).waitFor();
+    const proofEditor = proof.getByRole("textbox", { name: "Query source editor" });
+    const choose = async (query, label = query) => {
+      await proof.keyboard.press("ControlOrMeta+k");
+      const dialog = proof.getByRole("dialog", { name: "Command palette", exact: true });
+      await dialog.getByRole("combobox", { name: "Search files and commands" }).fill(query);
+      await dialog
+        .getByRole("option")
+        .filter({ has: proof.getByText(label, { exact: true }) })
+        .click();
+      await dialog.waitFor({ state: "detached" });
+      if (!query.startsWith(">")) await proof.locator(`.document-path[title="${query}"]`).waitFor();
+    };
+    await choose("playground/dependency.ts");
+    await proofEditor.press("ControlOrMeta+a");
+    await proof.keyboard.insertText("export const value=2;\n");
+    await choose("playground/dependent.ts");
+    let runRequests = 0;
+    proof.on("request", (request) => {
+      if (request.method() === "POST" && request.url().endsWith("/api/run")) runRequests++;
+    });
+    await proof.getByRole("button", { name: "Run", exact: true }).click();
+    await proof.getByRole("alert").filter({ hasText: "playground/dependency.ts" }).waitFor();
+    assert.equal(runRequests, 0, "A dirty import blocks execution before submitting a saved-only build");
+    await choose("playground/selection.sql");
+    const rawRun = proof.waitForResponse((response) => response.url().endsWith("/api/run"));
+    await proof.getByRole("button", { name: "Run", exact: true }).click();
+    assert.equal((await rawRun).status(), 200, "Unrelated dirty modules do not block raw SQL");
+    const rawRecord = await (await rawRun).json();
+    await proof.waitForFunction(async (id) => {
+      const state = await (
+        await fetch("/api/state", { headers: { "x-typed-sql-session": sessionStorage.getItem("typed-sql-session") } })
+      ).json();
+      return state.runs.some((run) => run.id === id && run.finishedAt);
+    }, rawRecord.id);
+    await choose("playground/dependency.ts");
+    const helperSave = proof.waitForResponse((response) => response.url().endsWith("/api/save"));
+    await proofEditor.press("ControlOrMeta+s");
+    await helperSave;
+    await choose("playground/dependent.ts");
+    const moduleRun = proof.waitForResponse((response) => response.url().endsWith("/api/run"));
+    await proof.getByRole("button", { name: "Run", exact: true }).click();
+    const moduleResponse = await moduleRun;
+    assert.equal(moduleResponse.status(), 200);
+    const moduleRecord = await moduleResponse.json();
+    await proof.waitForFunction(async (id) => {
+      const state = await (
+        await fetch("/api/state", { headers: { "x-typed-sql-session": sessionStorage.getItem("typed-sql-session") } })
+      ).json();
+      const run = state.runs.find((run) => run.id === id);
+      return (
+        run?.status === "succeeded" &&
+        run.results.some((result) => JSON.stringify(result.value).includes('["value",2]'))
+      );
+    }, moduleRecord.id);
+    check(
+      "TS/JS runs name dirty source dependencies, while raw SQL runs independently and saved imports execute current values",
+    );
+
+    await choose("playground/rename-source.sql");
+    await proofEditor.press("ControlOrMeta+a");
+    await proof.keyboard.insertText("select name from public.accounts;\n");
+    proof.once("dialog", (dialog) => dialog.accept("playground/renamed.sql"));
+    await choose(">Rename active file…", "Rename active file…");
+    await proof.locator('.document-path[title="playground/renamed.sql"]').waitFor();
+    await proofEditor.press("ControlOrMeta+a");
+    await proof.keyboard.insertText("select id,name from public.accounts;\n");
+    const renamedSave = proof.waitForResponse((response) => response.url().endsWith("/api/save"));
+    await proofEditor.press("ControlOrMeta+s");
+    assert.equal((await renamedSave).status(), 200);
+    assert.equal(
+      await readFile(join(root, "playground/renamed.sql"), "utf8"),
+      "select id,name from public.accounts;\n",
+    );
+    await assert.rejects(readFile(join(root, "playground/rename-source.sql")));
+    check("renaming a dirty buffer retains the moved revision so subsequent edits save without self-conflict");
+
+    await choose("playground/epoch.sql");
+    await proof.getByRole("tab", { name: "Types", exact: true }).click();
+    await proof.locator(".contract-view pre").filter({ hasText: '"id": number' }).waitFor();
+    let readyOld;
+    const oldReady = new Promise((resolve) => {
+      readyOld = resolve;
+    });
+    let releaseOld;
+    const oldGate = new Promise((resolve) => {
+      releaseOld = resolve;
+    });
+    let held = false;
+    await proof.route("**/api/analyze", async (route) => {
+      if (route.request().postDataJSON().file !== "playground/epoch.sql" || held) return route.continue();
+      held = true;
+      const response = await route.fetch();
+      readyOld();
+      await oldGate;
+      await route.fulfill({ response });
+    });
+    await proofEditor.press("ControlOrMeta+End");
+    await proof.keyboard.insertText("-- unchanged query, new analysis request\n");
+    await Promise.race([
+      oldReady,
+      proof.waitForTimeout(40000).then(() => {
+        throw Error("Old schema analysis did not reach its response gate");
+      }),
+    ]);
+    const live = JSON.parse(await readFile(join(root, "live-schema.json"), "utf8"));
+    live.tables["public.accounts"].columns.id.databaseType = "text";
+    live.tables["public.accounts"].columns.id.tsType = "string";
+    await writeFile(join(root, "live-schema.json"), JSON.stringify(live));
+    const refreshed = proof.waitForResponse((response) => response.url().endsWith("/api/refresh"));
+    await proof.getByRole("button", { name: "Refresh schema", exact: true }).click();
+    assert.equal((await refreshed).status(), 200);
+    await proof.locator(".contract-view pre").filter({ hasText: '"id": string' }).waitFor();
+    const oldResponse = proof.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/analyze") && response.request().postDataJSON().file === "playground/epoch.sql",
+    );
+    releaseOld();
+    await oldResponse;
+    await proof.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.equal(await proof.locator(".contract-view pre").filter({ hasText: '"id": number' }).count(), 0);
+    await proof.locator(".contract-view pre").filter({ hasText: '"id": string' }).waitFor();
+    check("schema refresh reanalyzes unchanged SQL and rejects a delayed response from the previous schema generation");
+  } finally {
+    await proofContext.close();
+  }
   assert.deepEqual(evidence.errors, [], "The real browser must have no runtime exceptions");
 } catch (error) {
   evidence.failure = error.stack ?? String(error);

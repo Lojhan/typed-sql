@@ -113,6 +113,7 @@ export function Editor({
   reveal,
   diagnostics = [],
   workingCopies = [],
+  schemaEpoch = "",
   onNavigate,
   onFormat,
   onLanguageStatus,
@@ -131,6 +132,7 @@ export function Editor({
   reveal?: LanguageRange;
   diagnostics?: readonly EditorDiagnostic[];
   workingCopies?: readonly WorkingCopy[];
+  schemaEpoch?: string;
   onNavigate?: (location: LanguageLocation) => void;
   onFormat?: () => void;
   onLanguageStatus?: (message: string) => void;
@@ -147,6 +149,7 @@ export function Editor({
     enabled: languageEnabled,
     diagnostics,
     workingCopies,
+    schemaEpoch,
     onChange,
     onSave,
     onRun,
@@ -319,9 +322,15 @@ export function Editor({
   const workingCopyKey = JSON.stringify(canonicalWorkingCopies(workingCopies, file));
   useEffect(() => {
     activeEditors.get(session)?.dispatch({
-      effects: refreshEditorLanguage({ revision, diagnosticsKey, workingCopyKey, enabled: languageEnabled }),
+      effects: refreshEditorLanguage({
+        revision,
+        diagnosticsKey,
+        workingCopyKey,
+        schemaEpoch,
+        enabled: languageEnabled,
+      }),
     });
-  }, [revision, diagnosticsKey, workingCopyKey, languageEnabled, session]);
+  }, [revision, diagnosticsKey, workingCopyKey, schemaEpoch, languageEnabled, session]);
   useEffect(() => {
     if (active) activeEditors.get(session)?.focus();
   }, [active, session]);

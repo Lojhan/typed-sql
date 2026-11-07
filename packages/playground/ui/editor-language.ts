@@ -60,6 +60,7 @@ export interface LanguageSettings {
   enabled: boolean;
   diagnostics: readonly EditorDiagnostic[];
   workingCopies: readonly WorkingCopy[];
+  schemaEpoch: string;
   onNavigate?: (location: LanguageLocation) => void;
   onFormat?: () => void;
   onLanguageStatus?: (message: string) => void;
@@ -103,6 +104,7 @@ interface CodeAction {
 type LanguageRefresh = Pick<LanguageSettings, "revision" | "enabled"> & {
   diagnosticsKey: string;
   workingCopyKey: string;
+  schemaEpoch: string;
 };
 const refresh = StateEffect.define<LanguageRefresh>();
 export const refreshEditorLanguage = (settings: LanguageRefresh) => refresh.of(settings);
@@ -160,12 +162,16 @@ async function hash(source: string): Promise<string> {
 }
 export function languageExtensions(settings: () => LanguageSettings): Extension {
   const workingKey = () => JSON.stringify(canonicalWorkingCopies(settings().workingCopies, settings().file));
+  const scopeKey = () => `${settings().schemaEpoch}:${workingKey()}`;
   const epoch = StateField.define<{ context: string; generation: number }>({
-    create: () => ({ context: `${settings().revision}:${settings().enabled}:${workingKey()}`, generation: 0 }),
+    create: () => ({
+      context: `${settings().revision}:${settings().enabled}:${settings().schemaEpoch}:${workingKey()}`,
+      generation: 0,
+    }),
     update: (current, transaction) => {
       const effect = transaction.effects.find((effect) => effect.is(refresh));
       const context = effect
-        ? `${effect.value.revision}:${effect.value.enabled}:${effect.value.workingCopyKey}`
+        ? `${effect.value.revision}:${effect.value.enabled}:${effect.value.schemaEpoch}:${effect.value.workingCopyKey}`
         : current.context;
       return context !== current.context || changesEditorLineSeparator(transaction)
         ? { context, generation: current.generation + 1 }
@@ -179,14 +185,21 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     private unavailable = false;
     private lastRevision = "";
     private lastEnabled = false;
-    private lastWorkingKey = workingKey();
+    private lastWorkingKey = scopeKey();
     private closeMenu: (() => void) | undefined;
     private serverDiagnostics: LanguageDiagnostic[] = [];
     private publishedSource = "";
     private publishedDiagnostics = "";
+    private publishedEpoch = "";
     private publish(source: string, diagnostics: LanguageDiagnostic[]) {
       const encoded = JSON.stringify(diagnostics);
-      if (source === this.publishedSource && encoded === this.publishedDiagnostics) return;
+      if (
+        source === this.publishedSource &&
+        encoded === this.publishedDiagnostics &&
+        this.publishedEpoch === settings().schemaEpoch
+      )
+        return;
+      this.publishedEpoch = settings().schemaEpoch;
       this.publishedSource = source;
       this.publishedDiagnostics = encoded;
       settings().onDiagnostics?.(source, diagnostics);
@@ -211,7 +224,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     update(update: ViewUpdate) {
       const revision = settings().revision;
       const enabled = settings().enabled;
-      const context = workingKey();
+      const context = scopeKey();
       if (context !== this.lastWorkingKey) {
         this.lastWorkingKey = context;
         this.unavailable = false;
@@ -222,6 +235,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         queueMicrotask(() => {
           if (this.disposed) return;
           closeCompletion(this.view);
+          this.view.dispatch(setDiagnostics(this.view.state, []));
           this.view.dispatch({ effects: closeHoverTooltips });
         });
       }
@@ -256,12 +270,14 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       this.requests.clear();
       languageCommands.delete(this.view);
     }
-    private current(source: string, revision: string, context = workingKey()) {
+    private current(source: string, revision: string, context: string, schemaIdentity: string) {
       return (
         !this.disposed &&
+        settings().enabled &&
         serializeEditorDocument(this.view.state) === source &&
         settings().revision === revision &&
-        workingKey() === context
+        workingKey() === context &&
+        settings().schemaEpoch === schemaIdentity
       );
     }
     async request(
@@ -285,6 +301,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       const source = serializeEditorDocument(this.view.state);
       const rendered = this.view.state.doc.toString();
       const revision = current.revision;
+      const schemaIdentity = current.schemaEpoch;
       const workingCopies = canonicalWorkingCopies(current.workingCopies, current.file);
       const context = JSON.stringify(workingCopies);
       const body = JSON.stringify({ method, file: current.file, source, revision, workingCopies, ...extra });
@@ -308,7 +325,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           signal: controller.signal,
         });
         const result = await response.json();
-        if (!this.current(source, revision, context)) return undefined;
+        if (!this.current(source, revision, context, schemaIdentity)) return undefined;
         if (!response.ok) {
           this.unavailable = response.status === 403 || response.status === 404 || response.status === 503;
           this.publish(rendered, []);
@@ -325,7 +342,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
           value.revision !== revision ||
           value.sourceHash !== (await hash(source)) ||
           value.workingCopyHash !== (await hash(context)) ||
-          !this.current(source, revision, context)
+          !this.current(source, revision, context, schemaIdentity)
         )
           return undefined;
         this.unavailable = value.status.state !== "ready";
@@ -339,7 +356,11 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.status("");
         return value;
       } catch (error) {
-        if (explicit && this.current(source, revision, context) && (!controller.signal.aborted || timedOut))
+        if (
+          explicit &&
+          this.current(source, revision, context, schemaIdentity) &&
+          (!controller.signal.aborted || timedOut)
+        )
           this.status(
             timedOut
               ? "The editor language server did not respond within 15 seconds. Retry after it starts."
@@ -384,14 +405,14 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     async diagnostics() {
       if (this.disposed) return;
       const source = this.view.state.doc.toString();
-      const context = workingKey();
+      const context = scopeKey();
       const rawSource = serializeEditorDocument(this.view.state);
       const response = await this.request("diagnostics");
       if (
         this.disposed ||
         this.view.state.doc.toString() !== source ||
         serializeEditorDocument(this.view.state) !== rawSource ||
-        workingKey() !== context
+        scopeKey() !== context
       )
         return;
       const diagnostics: InlineDiagnostic[] = response
@@ -423,7 +444,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.disposed ||
         this.view.state.doc.toString() !== source ||
         serializeEditorDocument(this.view.state) !== rawSource ||
-        workingKey() !== context
+        scopeKey() !== context
       )
         return;
       const fallback = await this.fallback(source, displayedHash);
@@ -431,7 +452,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
         this.disposed ||
         this.view.state.doc.toString() !== source ||
         serializeEditorDocument(this.view.state) !== rawSource ||
-        workingKey() !== context
+        scopeKey() !== context
       )
         return;
       this.view.dispatch(setDiagnostics(this.view.state, mergeDocumentDiagnostics([...diagnostics, ...fallback])));
@@ -482,7 +503,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     }
     async completions(context: CompletionContext): Promise<CompletionResult | null> {
       const source = context.state.doc.toString();
-      const projectContext = workingKey();
+      const projectContext = scopeKey();
       const rawSource = serializeEditorDocument(context.state);
       const word = context.matchBefore(/[\p{L}\p{N}_$]*$/u);
       if (!context.explicit && !word?.text && !/[.\s]$/u.test(source.slice(0, context.pos))) return null;
@@ -535,13 +556,13 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
       from: number,
       to: number,
     ) {
-      if (workingKey() !== context || serializeEditorDocument(view.state) !== rawSource) return;
+      if (scopeKey() !== context || serializeEditorDocument(view.state) !== rawSource) return;
       const response = await this.request("completionResolve", { item });
       if (
         this.disposed ||
         view.state.doc.toString() !== source ||
         serializeEditorDocument(view.state) !== rawSource ||
-        workingKey() !== context
+        scopeKey() !== context
       )
         return;
       const value =
@@ -585,7 +606,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
     async actions(pos: number) {
       const source = this.view.state.doc.toString();
       const rawSource = serializeEditorDocument(this.view.state);
-      const context = workingKey();
+      const context = scopeKey();
       const position = positionAt(source, pos);
       const response = await this.request(
         "codeAction",
@@ -617,7 +638,7 @@ export function languageExtensions(settings: () => LanguageSettings): Extension 
             if (
               this.view.state.doc.toString() !== source ||
               serializeEditorDocument(this.view.state) !== rawSource ||
-              workingKey() !== context ||
+              scopeKey() !== context ||
               !response.uri
             )
               return;

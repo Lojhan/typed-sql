@@ -5,9 +5,17 @@ import { api, token } from "./api";
 import { SchemaBoard } from "./board";
 import { CommandPalette, type PaletteCommand } from "./command-palette.js";
 import { ComparePanel } from "./compare";
+import {
+  analysisKey,
+  clearDocumentAnalysis,
+  currentRunDocument,
+  type WorkspaceDocument as Document,
+  movedDocument,
+  pendingRunFiles,
+  schemaEpoch,
+} from "./document-state.js";
 import { Editor, editorLanguageCommand, findInEditor } from "./editor";
 import {
-  type LanguageDiagnostic,
   type LanguageLocation,
   type LanguageRange,
   mergeDocumentDiagnostics,
@@ -42,21 +50,6 @@ import { ThemeMenu, useTheme } from "./theme";
 import type { Analysis, State, Value } from "./types";
 import "./style.css";
 
-interface Document {
-  file: string;
-  source: string;
-  saved: string;
-  revision: string;
-  writable: boolean;
-  analysis?: Analysis;
-  mode: "sql" | "file" | "export";
-  exportName: string;
-  readOnly: boolean;
-  parameters: Record<number, { value: string; null: boolean }>;
-  definition?: boolean;
-  languageSource?: string;
-  languageDiagnostics?: readonly LanguageDiagnostic[];
-}
 interface WorkspaceProblem {
   code: string;
   message: string;
@@ -101,6 +94,7 @@ function App() {
     analysisSources = useRef(new Map<string, string>()),
     analysisTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>()),
     storageKey = useRef("");
+  const currentSchemaEpoch = schemaEpoch(state);
   documentsRef.current = documents;
   activePaneRef.current = activePane;
   closingRef.current = closing;
@@ -144,6 +138,10 @@ function App() {
       results: run.results ?? current?.runs.find((previous) => previous.id === run.id)?.results ?? [],
     }));
     stateRef.current = next;
+    if (schemaEpoch(current) !== schemaEpoch(next))
+      setDocuments((previous) =>
+        Object.fromEntries(Object.entries(previous).map(([file, doc]) => [file, clearDocumentAnalysis(doc)])),
+      );
     setState(next);
   }, []);
   const action = useCallback(async (task: () => Promise<void>) => {
@@ -245,10 +243,19 @@ function App() {
     return () => window.removeEventListener("beforeunload", stop);
   }, [dirty]);
   useEffect(() => {
+    if (!currentSchemaEpoch) return;
+    const epoch = currentSchemaEpoch;
+    for (const file of analysisSources.current.keys())
+      if (!documents[file]) {
+        analysisSources.current.delete(file);
+        clearTimeout(analysisTimers.current.get(file));
+        analysisTimers.current.delete(file);
+      }
     for (const doc of Object.values(documents)) {
       if (doc.definition) continue;
-      if (analysisSources.current.get(doc.file) === doc.source) continue;
-      analysisSources.current.set(doc.file, doc.source);
+      const identity = analysisKey(doc, epoch);
+      if (analysisSources.current.get(doc.file) === identity) continue;
+      analysisSources.current.set(doc.file, identity);
       const previous = analysisTimers.current.get(doc.file);
       if (previous) clearTimeout(previous);
       const source = doc.source;
@@ -259,13 +266,13 @@ function App() {
           void api<Analysis>("analyze", { file: doc.file, source }).then(
             (analysis) =>
               setDocuments((current) =>
-                current[doc.file]?.source === source
+                current[doc.file] && analysisKey(current[doc.file]!, schemaEpoch(stateRef.current)) === identity
                   ? { ...current, [doc.file]: { ...current[doc.file]!, analysis } }
                   : current,
               ),
             (error) =>
               setDocuments((current) =>
-                current[doc.file]?.source === source
+                current[doc.file] && analysisKey(current[doc.file]!, schemaEpoch(stateRef.current)) === identity
                   ? {
                       ...current,
                       [doc.file]: {
@@ -291,7 +298,7 @@ function App() {
         }, 300),
       );
     }
-  }, [documents]);
+  }, [documents, currentSchemaEpoch]);
   useEffect(
     () => () => {
       for (const timer of analysisTimers.current.values()) clearTimeout(timer);
@@ -406,10 +413,32 @@ function App() {
     }
     if (state.executionSchemaStale)
       throw new Error("Live schema differs from the compiler snapshot. Generate and restart before running.");
-    const revision = await save(file);
+    const epoch = schemaEpoch(stateRef.current);
+    const requireCurrent = () => {
+      if (
+        schemaEpoch(stateRef.current) !== epoch ||
+        !currentRunDocument(documentsRef.current[file], doc, revision ?? doc.revision)
+      )
+        throw new Error("Source or schema changed while preparing this run. Review the current file and run again.");
+      const pending = pendingRunFiles(documentsRef.current, file, doc.mode);
+      if (pending.length)
+        throw new Error(
+          `Save or discard unsaved source files before running this project module: ${pending.join(", ")}`,
+        );
+    };
+    let revision: string | null = doc.revision;
+    requireCurrent();
+    revision = await save(file);
     if (!revision) return;
+    requireCurrent();
     const analysis = await api<Analysis>("analyze", { file, source: doc.source });
-    edit(file, { analysis });
+    requireCurrent();
+    setDocuments((current) => {
+      const latest = current[file];
+      return schemaEpoch(stateRef.current) === epoch && currentRunDocument(latest, doc, revision!)
+        ? { ...current, [file]: { ...latest!, analysis } }
+        : current;
+    });
     if (analysis.diagnostics.some((item) => item.severity === "error"))
       throw new Error("Fix query diagnostics before running.");
     const values: Value[] = [];
@@ -440,6 +469,7 @@ function App() {
           values.push({ kind: "date", value: value.toISOString() });
         } else values.push(input.value);
       }
+    requireCurrent();
     await api("run", {
       requestId: crypto.randomUUID(),
       file,
@@ -585,11 +615,13 @@ function App() {
     if (!path || path === file) return;
     if (kind === "copy") await api("save", { file: path, source: doc.source, revision: null });
     else {
-      await api("move", { file, to: path, revision });
+      const moved = await api<{ revision: string }>("move", { file, to: path, revision });
       setDocuments((current) => {
+        const latest = current[file];
+        if (!latest) return current;
         const next = { ...current };
         delete next[file];
-        next[path] = { ...doc, file: path, saved: doc.source };
+        next[path] = movedDocument(latest, path, moved.revision, doc.source);
         return next;
       });
       setLayout((current) => {
@@ -608,7 +640,10 @@ function App() {
   };
   const problemsFor = (doc: Document): WorkspaceProblem[] => {
     const normalized = normalizeEditorSource(doc.source);
-    const language = doc.languageSource === normalized ? (doc.languageDiagnostics ?? []) : [];
+    const language =
+      doc.languageSource === normalized && doc.languageEpoch === schemaEpoch(stateRef.current)
+        ? (doc.languageDiagnostics ?? [])
+        : [];
     const result: WorkspaceProblem[] = [...(doc.analysis?.diagnostics ?? [])];
     for (const diagnostic of language) {
       const start = offsetAt(normalized, diagnostic.range.start);
@@ -1001,6 +1036,7 @@ function App() {
             source={doc.source}
             revision={doc.revision}
             languageEnabled={state.trusted}
+            schemaEpoch={schemaEpoch(state)}
             workingCopies={workingCopies}
             active={item.id === focused.id}
             diagnostics={problemsFor(doc).flatMap((problem) =>
@@ -1014,15 +1050,26 @@ function App() {
             onDiagnostics={(source, diagnostics) =>
               setDocuments((current) => {
                 const latest = current[doc.file];
-                if (!latest || normalizeEditorSource(latest.source) !== source) return current;
+                if (
+                  !latest ||
+                  normalizeEditorSource(latest.source) !== source ||
+                  schemaEpoch(stateRef.current) !== schemaEpoch(state)
+                )
+                  return current;
                 if (
                   latest.languageSource === source &&
+                  latest.languageEpoch === schemaEpoch(state) &&
                   JSON.stringify(latest.languageDiagnostics) === JSON.stringify(diagnostics)
                 )
                   return current;
                 return {
                   ...current,
-                  [doc.file]: { ...latest, languageSource: source, languageDiagnostics: diagnostics },
+                  [doc.file]: {
+                    ...latest,
+                    languageSource: source,
+                    languageEpoch: schemaEpoch(state),
+                    languageDiagnostics: diagnostics,
+                  },
                 };
               })
             }
