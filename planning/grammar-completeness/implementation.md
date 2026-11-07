@@ -131,6 +131,16 @@ checks cover required-fact removal and forged native payloads after grouping typ
   checkpoint `048d22ed` in CI run `42388317055`; migration run `42388316819` passed.
   The full CI workflow is still running, so those results do not claim overall success.
 
+- Capture provenance now binds complete normalized inventories/targets to declared tool-file byte
+  hashes, producer entrypoint, dependency-lock digest and Node runtime. Corpus persistence and
+  model normalization preserve the record; identified native extractors require their manifest.
+  Existing captures retain unknown evidence. Pinned contexts reject missing or changed pins.
+- All 57 contract files, typecheck and quality pass after initial integration, with final focused
+  provenance/model checks also passing. A live SQLite capture imported into a model with four
+  identified native sources and 65 recorded tool files; licensing remains unknown. Runtime
+  catalog bytes are unchanged. This does not complete vendor locks, archive retention or the
+  entire acquisition dependency closure.
+
 ## Requirements still open
 
 

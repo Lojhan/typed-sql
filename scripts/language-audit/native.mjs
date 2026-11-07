@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { attachNativeProvenance } from "./provenance.mjs";
 
 const postgresTypeNames = new WeakMap();
 
@@ -156,6 +157,7 @@ export function recognitionSummary(recognition) {
 }
 
 export async function enrichRecognition(input, prepare, server) {
+  await attachNativeProvenance(input);
   const { tsImport } = await import("tsx/esm/api");
   const { recognizeLive } = await tsImport("./recognition.ts", {
     parentURL: import.meta.url,

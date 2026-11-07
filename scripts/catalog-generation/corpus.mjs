@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { builtinMappers } from "../../tools/grammar-catalog/src/mappers/index.mjs";
+import { validateCaptureProvenance } from "../../tools/grammar-catalog/src/provenance/capture.mjs";
 import { CATEGORIES, hash, reviewTarget, serialize } from "../language-audit/inventory.mjs";
 import { summarizeLive } from "../language-audit/live-baseline.mjs";
 import { signatureFacts } from "../language-audit/signatures.mjs";
@@ -33,6 +34,8 @@ export function expandTarget(corpus, entry, registry = builtinMappers) {
     if (hash(rows) !== metadata.fingerprint) throw new Error(`Invalid captured inventory: ${category}`);
     categories[category] = { ...metadata, rows };
   }
+  if (entry.provenance)
+    validateCaptureProvenance(entry.provenance, { grammar: entry.dialect, target: entry.target, categories });
   return { ...entry, categories };
 }
 
@@ -56,6 +59,12 @@ export async function readCorpus(path = corpusPath, registry = builtinMappers) {
 /** Fresh matrix captures must also be inputs to the generated runtime catalogs. */
 export async function verifyCaptureInput(input, corpus, registry = builtinMappers) {
   summarizeLive(input, registry);
+  if (input.provenance)
+    validateCaptureProvenance(input.provenance, {
+      grammar: input.dialect,
+      target: reviewTarget(input, registry),
+      categories: input.categories,
+    });
   const source = corpus ?? (await readCorpus(corpusPath, registry));
   const key = hash({ dialect: input.dialect, target: reviewTarget(input, registry) });
   const entry = source.targets[key];
@@ -64,6 +73,7 @@ export async function verifyCaptureInput(input, corpus, registry = builtinMapper
     const { rows: _rows, ...metadata } = input.categories[name];
     return hash(metadata) !== hash(entry.categories[name]);
   });
+  if (entry.provenance && hash(entry.provenance) !== hash(input.provenance ?? null)) changed.push("provenance");
   return { status: changed.length ? "changed" : "match", key, changedCategories: changed };
 }
 
@@ -86,6 +96,14 @@ export async function addCapture(corpus, input, registry = builtinMappers) {
     corpus.inventories[metadata.fingerprint] = ids;
   }
   const entry = { dialect: input.dialect, target: reviewTarget(input, registry), categories };
+  if (input.provenance) {
+    validateCaptureProvenance(input.provenance, {
+      grammar: input.dialect,
+      target: entry.target,
+      categories: input.categories,
+    });
+    entry.provenance = input.provenance;
+  }
   corpus.targets[key] = entry;
   validateCorpus({ ...corpus, targets: { [key]: entry } }, registry);
 }

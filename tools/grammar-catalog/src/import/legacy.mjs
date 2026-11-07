@@ -10,7 +10,12 @@ export function importLegacyCorpus(corpus, registry, options) {
   const inputDigest = hash(corpus);
   const captures = Object.values(corpus.targets).map((entry) => {
     const capture = expandTarget(corpus, entry, registry);
-    return { grammar: capture.dialect, target: capture.target, categories: capture.categories };
+    return {
+      grammar: capture.dialect,
+      target: capture.target,
+      categories: capture.categories,
+      ...(capture.provenance ? { provenance: capture.provenance } : {}),
+    };
   });
   return createCatalog(captures, registry, {
     ...options,

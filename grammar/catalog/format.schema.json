@@ -2847,6 +2847,80 @@
             }
           ]
         },
+        "provenance": {
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "formatVersion",
+            "captureDigest",
+            "extractor"
+          ],
+          "properties": {
+            "formatVersion": {
+              "const": 1,
+              "type": "number"
+            },
+            "captureDigest": {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "extractor": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "revision",
+                "files",
+                "dependencyLock",
+                "runtime"
+              ],
+              "properties": {
+                "id": {
+                  "minLength": 1,
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "revision": {
+                  "pattern": "^sha256:[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                "files": {
+                  "minProperties": 1,
+                  "type": "object",
+                  "patternProperties": {
+                    "\\S": {
+                      "pattern": "^sha256:[a-f0-9]{64}$",
+                      "type": "string"
+                    }
+                  }
+                },
+                "dependencyLock": {
+                  "pattern": "^sha256:[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                "runtime": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "version"
+                  ],
+                  "properties": {
+                    "name": {
+                      "const": "node",
+                      "type": "string"
+                    },
+                    "version": {
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "native": {
           "type": "object",
           "patternProperties": {

@@ -112,6 +112,17 @@ await describe("validated provenance-rich catalog model", async () => {
       Object.values(model.entities)[0]!.name = "forged";
     }, /digest differs/u);
     corrupt((model) => {
+      const old = Object.keys(model.sources)[0]!;
+      const source = model.sources[old]!;
+      source.extractor = { status: "known", value: { id: "unbacked", revision: hash("unbacked") } };
+      const replacement = hash(source);
+      delete model.sources[old];
+      model.sources[replacement] = source;
+      for (const profile of Object.values(model.profiles))
+        for (const category of Object.values(profile.categories))
+          if (category.status === "observed" && category.source === old) category.source = replacement;
+    }, /lacks provenance/u);
+    corrupt((model) => {
       const old = Object.keys(model.entities)[0]!;
       const entity = model.entities[old]!;
       entity.semantic = { kind: "syntax", production: { status: "unknown", reason: "wrong category" } };

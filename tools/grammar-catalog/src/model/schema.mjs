@@ -1,7 +1,9 @@
 import { Type } from "@sinclair/typebox";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
+import { CaptureProvenanceSchema, parseCaptureProvenance } from "../provenance/capture.mjs";
 import { hash } from "./canonical.mjs";
 import { facetKinds } from "./facets.mjs";
+import { assertJson } from "./json.mjs";
 
 /** @template {import('@sinclair/typebox').TProperties} T @param {T} fields @param {string} [id] */
 const object = (fields, id) =>
@@ -175,6 +177,7 @@ export const SourceSchema = object(
     digestFormat: enumeration(["canonical-json-sha256", "bytes-sha256"]),
     extractor: fact(object({ id: text, revision: text })),
     license: fact(text),
+    provenance: Type.Optional(CaptureProvenanceSchema),
     native: jsonObject,
   },
   "CatalogSource",
@@ -232,28 +235,6 @@ export const CATALOG_SCHEMA_DOCUMENT = {
 export const CATALOG_SCHEMA_DIGEST = hash(CATALOG_SCHEMA_DOCUMENT);
 const checker = TypeCompiler.Compile(CatalogSchema, references);
 
-function assertJson(value, ancestors = new Set(), depth = 0) {
-  if (depth > 128) throw new TypeError("Catalog JSON exceeds the depth bound");
-  if (value === null || typeof value === "string" || typeof value === "boolean") return;
-  if (typeof value === "number" && Number.isFinite(value)) return;
-  if (typeof value !== "object") throw new TypeError("Catalog contains a non-JSON value");
-  if (ancestors.has(value)) throw new TypeError("Catalog contains a cyclic value");
-  if (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value)))
-    throw new TypeError("Catalog contains a non-JSON object");
-  const keys = Object.keys(value);
-  if (Array.isArray(value) && (keys.length !== value.length || keys.some((key, index) => key !== String(index))))
-    throw new TypeError("Catalog contains a sparse array or array properties");
-  if (Reflect.ownKeys(value).length !== keys.length + (Array.isArray(value) ? 1 : 0))
-    throw new TypeError("Catalog contains non-JSON properties");
-  ancestors.add(value);
-  for (const key of keys) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (!descriptor || !Object.hasOwn(descriptor, "value")) throw new TypeError("Catalog contains an accessor");
-    assertJson(descriptor.value, ancestors, depth + 1);
-  }
-  ancestors.delete(value);
-}
-
 /**
  * Validates shape AND content-addressed references. No engine names or inference policies.
  * @param {unknown} value
@@ -269,6 +250,19 @@ export function parseCatalog(value) {
   for (const [name, collection] of Object.entries({ sources: value.sources, entities: value.entities }))
     for (const [id, entry] of Object.entries(collection))
       if (hash(entry) !== id) throw new TypeError(`Catalog ${name} digest differs: ${id}`);
+  for (const source of Object.values(value.sources)) {
+    if (source.provenance) {
+      const provenance = parseCaptureProvenance(source.provenance);
+      if (
+        source.kind !== "native-capture" ||
+        source.extractor.status !== "known" ||
+        source.extractor.value.id !== provenance.extractor.id ||
+        source.extractor.value.revision !== provenance.extractor.revision
+      )
+        throw new TypeError("Catalog extractor evidence differs from native provenance");
+    } else if (source.kind === "native-capture" && source.extractor.status === "known")
+      throw new TypeError("Native extractor claim lacks provenance");
+  }
   const usedEntities = new Set(),
     usedSources = new Set();
   for (const [id, profile] of Object.entries(value.profiles)) {

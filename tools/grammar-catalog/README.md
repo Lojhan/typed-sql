@@ -55,6 +55,21 @@ directly. Other projections still consume native payloads during migration; type
 do not establish complete semantic generation or qualification. Required projection facts reject
 unknown values and unsupported type expressions instead of falling back to an opaque native row.
 
+## Native capture provenance
+
+Fresh audit captures include a schema-validated provenance record binding the normalized target
+and complete inventories to an extractor manifest. The manifest records byte digests for the
+inventory/normalizer tools and producer entrypoint, the dependency-lock digest and exact Node
+runtime. Import preserves this record; normalized sources expose it as typed provenance and
+identify the supplied extractor revision. Historical captures keep unknown extractor evidence.
+
+Recorded pins are enforced by input verification: a missing or different pin requires review.
+Capture/query/target changes invalidate the capture binding, and manifest changes invalidate its
+revision. The model rejects an identified native extractor without its supporting manifest.
+These records identify the declared acquisition tooling; they do not establish vendor licensing,
+pin every upstream source or retain source bytes. Immutable vendor source locks, complete producer
+dependency closure, durable acquisition archives and semantic qualification remain separate work.
+
 ## Offline generation
 
 `pnpm catalog:generate` uses the pure Node entrypoint in `scripts/catalog-generation/run.mjs`.

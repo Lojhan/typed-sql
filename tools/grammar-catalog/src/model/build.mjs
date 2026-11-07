@@ -1,3 +1,4 @@
+import { validateCaptureProvenance } from "../provenance/capture.mjs";
 import { hash } from "./canonical.mjs";
 import { describeEntity } from "./facets.mjs";
 import { routineSignature } from "./routines.mjs";
@@ -85,7 +86,7 @@ export function describeRoutine(signature, mapper) {
 
 /**
  * Build normalized facts without selecting engines or importing their implementations.
- * @param {readonly {grammar: string, target: Record<string, unknown>, categories: Record<string, unknown>}[]} captures
+ * @param {readonly {grammar: string, target: Record<string, unknown>, categories: Record<string, unknown>, provenance?: unknown}[]} captures
  * @param {ReturnType<typeof import('../registry.mjs').createMapperRegistry>} registry
  * @param {{requiredCategories: readonly string[], normalizerDigest: string, inputDigest: string, sourceLocation: string}} options
  */
@@ -96,6 +97,9 @@ export function createCatalog(captures, registry, options) {
   for (const capture of captures) {
     const mapper = registry.get(capture.grammar),
       target = mapper.reviewTarget?.(capture.target) ?? capture.target;
+    const provenance = capture.provenance
+      ? validateCaptureProvenance(capture.provenance, { ...capture, target })
+      : undefined;
     const id = hash({ grammar: capture.grammar, target });
     if (Object.hasOwn(profiles, id)) throw new TypeError(`Duplicate catalog profile: ${id}`);
     const categories = {};
@@ -118,8 +122,11 @@ export function createCatalog(captures, registry, options) {
         revision: typeof target.version === "string" ? known(target.version) : unknown("Engine version unavailable"),
         contentDigest: inventory.fingerprint,
         digestFormat: "canonical-json-sha256",
-        extractor: unknown("The original capture does not identify its extractor revision"),
+        extractor: provenance
+          ? known({ id: provenance.extractor.id, revision: provenance.extractor.revision })
+          : unknown("The original capture does not identify its extractor revision"),
         license: unknown("Capture does not declare upstream licensing metadata"),
+        ...(provenance ? { provenance } : {}),
         native: { ...metadata, grammar: capture.grammar, target },
       };
       const sourceId = hash(source);

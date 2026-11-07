@@ -10,6 +10,7 @@ import { duckDBNativeTypeText } from "./duckdb-description.mjs";
 import { collectLive, diffInventory, inventory, serialize } from "./inventory.mjs";
 import { acceptLiveBaseline, recordNativeFindings, reviewLiveBaseline } from "./live-baseline.mjs";
 import { describeSqlServer, prepareMySql, preparePostgres, recognitionSummary } from "./native.mjs";
+import { attachNativeProvenance } from "./provenance.mjs";
 import { recognizeLive } from "./recognition.js";
 import { directory, liveDuckDBTargets, refreshReferences } from "./references.js";
 import { renderReport } from "./report.js";
@@ -76,6 +77,7 @@ if (mode === "refresh") {
         "PRAGMA compile_options",
         "compile-options",
       );
+    await attachNativeProvenance(captured);
     await mkdir(dirname(resolve(output)), { recursive: true });
     await writeFile(output, `${serialize(captured)}\n`);
     await writeAudit([auditInventory(captured)], `${output}.audit.json`);
