@@ -204,8 +204,10 @@ export function commerceFiles(
     ]),
   );
   files["schema/tables.sql"] = COMMERCE_SCHEMAS[dialect];
-  if (dialect === "postgres")
+  if (dialect === "postgres") {
+    files["app.ts"] = files["app.ts"]!.replace("revenueByCustomer(10000)", "revenueByCustomer(10000n)");
     return files as WorkspaceFiles & Record<"queries/account.ts" | "app.ts" | "schema/tables.sql", string>;
+  }
   files["queries/revenue.sql"] = files["queries/revenue.sql"]!.replace("$1", "?");
   for (const path of ["queries/order-json.ts", "queries/catalog.ts"])
     files[path] = files[path]!.replaceAll("::text", "").replaceAll("::order_status", "");

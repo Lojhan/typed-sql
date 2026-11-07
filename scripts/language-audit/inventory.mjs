@@ -84,7 +84,8 @@ export const QUERIES = {
       p.proisstrict AS strict, p.provolatile AS volatility, p.proparallel AS parallel
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_type rt ON rt.oid=p.prorettype WHERE n.nspname='pg_catalog'`,
     keywords: "SELECT word AS name, catcode AS category, catdesc AS description FROM pg_get_keywords()",
-    types: `SELECT t.typname AS name, t.typtype AS kind, t.typcategory AS category
+    types: `SELECT t.typname AS name, format_type(t.oid,NULL) AS canonical_name,
+      t.typtype AS kind, t.typcategory AS category, t.typispreferred AS preferred, t.typisdefined AS defined
       FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='pg_catalog'`,
     operators: `SELECT o.oprname AS name, format_type(o.oprleft,NULL) AS left_type,
       format_type(o.oprright,NULL) AS right_type, format_type(o.oprresult,NULL) AS result
