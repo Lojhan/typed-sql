@@ -17,7 +17,7 @@ export const sqlserverAudit: AuditGrammar = {
       return `@${name.replace(/^@/u, "")} = ${value}`;
     },
     rejection: (reason) =>
-      /(?:^|,)[^:]*:(?:195|174|313|8144|102|156|201|137)(?:,|$)/u.test(reason) ? "binding" : "unclassified",
+      /(?:^|,)(?:[^:]*:)?(?:195|174|313|8144|102|156|201|137)(?=[:,]|$)/u.test(reason) ? "binding" : "unclassified",
     kind: () => "scalar",
   }),
 

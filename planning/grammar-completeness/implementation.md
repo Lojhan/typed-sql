@@ -336,6 +336,46 @@ Generated invocation and vendor-mode binding checkpoint:
   refreshes the generated schema, runtime modules, reports and manifest together. Fresh exact-head
   CI remains required, including packed-consumer timeout qualification. The PR remains a draft.
 
+Registered native connection and nullable-schema checkpoint:
+
+- The shared audit CLI no longer selects drivers, connection metadata, reference version bands
+  or embedded capture targets by grammar ID. Registered connection owners provide native
+  sessions and optional inventory completion; analysis owners provide reference bands. Native
+  SDK captures run in separate processes through registered target lists. Driver dependencies
+  remain outside grammar runtime packages.
+- Connection inheritance supports a graph contribution without changing shared orchestration.
+  Bound query/prepare/close methods preserve adapter receivers; missing engine versions close
+  the connection and fail. Inventory completion runs before provenance and cannot change the
+  captured engine identity. SQLite's existing compile-option augmentation belongs to its
+  connection owner; other SQLite matrix capture scopes remain unchanged.
+- Native rejection details are retained separately from stable protocol codes. Shape auditing
+  combines them for owner classification, while legacy recognition keeps stable codes.
+  PostgreSQL bare SQLSTATE and SQL Server bare native error codes now classify correctly.
+  Connection/probe contracts exercise inheritance, driver-message evidence and identity guards.
+  Neutrality contracts now include the CLI and connection registry.
+- A retained Linux capture exposed parameterized RANGE/GENERATE_SERIES claims that still relied
+  on unqualified 1.5 prepare metadata. Actual execution proves the same casted query returns
+  BIGINT for NULL bindings and TIMESTAMP/TIMESTAMPTZ for non-NULL bindings on 1.5.6; 2.0.0 keeps
+  declared timestamp schemas. Both versions have NULL/non-NULL execution regression witnesses.
+  The 1.5 resolver diagnoses nullable bindings when alternative native output shapes remain
+  possible without overload-cost evidence. One-argument BIGINT bindings remain inferable.
+- Four reviewed recognition contexts are updated in `connection-recognition-review.json`.
+  All nine native inventory summaries, native prepare fields and parameter tuples are unchanged.
+  Darwin comparison-record migrations account for prior independent-oracle changes. Six 1.5
+  output claims become explicit diagnostics, including conservative BIGINT cases whose native
+  overload costs are not yet generated. No new native type confidence is inferred from a replay.
+  Linux reanalysis uses only retained actual queries/descriptors from CI run 42402470237,
+  artifact 13586406017, rejects any new native query, and only permits formerly unverified
+  descriptions to become unknown. Fresh exact-head Linux CI remains required.
+- `e44023d7` completed 41 CI jobs successfully, including source-quality/full verify and packed
+  consumers. Seven jobs were skipped. Its only substantive failed job was the DuckDB 1.5 live
+  recognition-baseline review; the aggregate quality gate consequently failed. Both integration
+  workflows passed. This verifies the projection-test timeout fix on CI without raising limits.
+- Current local checks pass: 62 contract files after build completion, 42 DuckDB files with
+  coverage thresholds, typecheck, quality, build, docs build and unchanged performance budgets.
+  Fresh Darwin 1.5 and SQLite live captures match the reviewed baselines. The PR stays draft;
+  the full remaining requirements below are unchanged.
+
 ## Requirements still open
 
 

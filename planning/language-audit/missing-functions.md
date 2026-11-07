@@ -224,7 +224,7 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 | postgres | 19beta3 (Debian 19~beta3-1.pgdg12+1) | 758 | 60 | 3364 |
 | sqlserver | 17.0.5035.5 / compatibility 150 | 165 | 28 | 71 |
 | sqlserver | 14.0.3560.2 / compatibility 140 | 134 | 18 | 62 |
-| duckdb | 1.5.6 / darwin-arm64 | 255 | 6 | 1852 |
+| duckdb | 1.5.6 / darwin-arm64 | 261 | 6 | 1846 |
 | duckdb | 2.0.0 / darwin-arm64 | 202 | 11 | 2108 |
 | sqlite | 3.54.0 / node | 119 | 37 | 213 |
 | postgres | 14.24 (Debian 14.24-1.pgdg12+2) | 680 | 59 | 3206 |
@@ -236,7 +236,7 @@ Every differing invocation and its diagnostics are recorded in `test/fixtures/la
 | sqlite | 3.39.0 / cli | 66 | 30 | 159 |
 | sqlserver | 16.0.4305.5 / compatibility 150 | 139 | 28 | 70 |
 | mysql | 8.4.11 / default | 415 | 44 | 88 |
-| duckdb | 1.5.6 / linux-x64 | 255 | 6 | 1852 |
+| duckdb | 1.5.6 / linux-x64 | 261 | 6 | 1846 |
 | mysql | 9.7.2 / lexical | 417 | 44 | 91 |
 | postgres | 16.15 (Debian 16.15-1.pgdg12+2) | 691 | 60 | 3269 |
 | sqlite | 3.54.1 / cli | 124 | 37 | 213 |

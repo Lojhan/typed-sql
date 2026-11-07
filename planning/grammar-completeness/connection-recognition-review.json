@@ -1,0 +1,688 @@
+{
+  "formatVersion": 1,
+  "scope": "native inventories/preparation unchanged; independent-comparison record migration and conservative value-dependent-schema diagnostics",
+  "linuxNativeRun": "https://github.com/Lojhan/typed-sql/actions/runs/42402470237",
+  "linuxNativeArtifact": 13586406017,
+  "targets": [
+    {
+      "key": "sha256:4dfccadbd352e8344f84c3d34c12e1d8af2a8af24aed3e6a25c2e808fc1453e0",
+      "dialect": "duckdb",
+      "target": {
+        "version": "1.5.6",
+        "sdk": "1.5.6-r.2",
+        "platform": "darwin",
+        "arch": "arm64",
+        "runtime": "v24.22.2"
+      },
+      "qualification": "fresh native prepare and NULL/non-NULL execution witnesses on darwin-arm64",
+      "before": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:4a334e7a684db03988e1fb9d84e0dadab55ff1ff4bc11eeb0c01603f542ca9be",
+        "counts": {
+          "native-invocation-unverified": 342,
+          "native-rejected-generated-invocation": 486,
+          "native-valid-grammar-diagnostic": 255,
+          "native-valid-grammar-unknown": 6,
+          "native-valid-recognition-only": 1852
+        }
+      },
+      "after": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:e1ecaed44b882b449bd9336fff1b5952297bf6e4faa4c47976b21be7661198ec",
+        "counts": {
+          "native-invocation-unverified": 342,
+          "native-rejected-generated-invocation": 486,
+          "native-valid-grammar-diagnostic": 261,
+          "native-valid-grammar-unknown": 6,
+          "native-valid-recognition-only": 1846
+        }
+      },
+      "unchangedCategories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:7fe805d3a74bd690e89692e327f3d1d509d084ccd47fe71ff75643102a45e0d4",
+          "count": 2945,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:83a9765363caedc9a4bf8827d0771136673ce87455af5109c5f219c9c8e27e4f",
+          "count": 489,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:5e3fa4fb9f480a8621151497bc1ee1184d7c082d8c9a4ccec4f5b965b4b18f1d",
+          "count": 82,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "observed",
+          "fingerprint": "sha256:ec9944f960149103f6f395094b35ae6c123dc48d0c0e00f8dce1c67078a01e5d",
+          "count": 221,
+          "scope": "engine"
+        },
+        "casts": {
+          "status": "observed",
+          "fingerprint": "sha256:f4709e5a207716dfc23d99fa30b435d22f497ec4ddcd08c9678b319530c745c4",
+          "count": 5184,
+          "scope": "implicit-only; explicit and contextual casts unverified",
+          "unprobeableTypes": [
+            "array",
+            "enum",
+            "list",
+            "map",
+            "row",
+            "struct",
+            "time with time zone",
+            "timestamp with time zone",
+            "type",
+            "union"
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:f66c0bf0d783079d5f2db4c2dd061e2e802c5a02ac959534a1caa87c11ee8cd1",
+          "count": 133,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:5a2f403c008568fd47f5f7bf6001a00b8730d68baed042efa131cc73060ba665",
+          "count": 159,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:d5617c1957e7580fe17385f6606476b4cc737b5475b9706601b6d46fbb0a5681",
+          "count": 30,
+          "scope": "engine"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "changedFields": {
+        "nativeTypeComparison": 2113,
+        "status": 6,
+        "diagnostics": 6,
+        "diagnosticDetails": 6,
+        "columns": 6
+      },
+      "changedHostClaims": [
+        {
+          "sql": "SELECT * FROM generate_series(CAST($1 AS BIGINT), CAST($2 AS BIGINT), CAST($3 AS BIGINT))",
+          "before": [
+            {
+              "name": "generate_series",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM range(CAST($1 AS BIGINT), CAST($2 AS BIGINT), CAST($3 AS BIGINT))",
+          "before": [
+            {
+              "name": "range",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM generate_series(CAST($1 AS TIMESTAMP WITH TIME ZONE), CAST($2 AS TIMESTAMP WITH TIME ZONE), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "generate_series",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM range(CAST($1 AS TIMESTAMP WITH TIME ZONE), CAST($2 AS TIMESTAMP WITH TIME ZONE), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "range",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM generate_series(CAST($1 AS TIMESTAMP), CAST($2 AS TIMESTAMP), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "generate_series",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM range(CAST($1 AS TIMESTAMP), CAST($2 AS TIMESTAMP), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "range",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        }
+      ],
+      "previousRecognitionDigest": "sha256:70229e311b9668703776887608bde12cf892840b5656d71319874d7b9f528ca5",
+      "currentRecognitionDigest": "sha256:635dad9e0c50d0d039e0780fb84e403a47c6c8658ec244bec773e8407ccb9737",
+      "currentCaptureDigest": "sha256:bc7e86f410acb8385ba59bf1bdacbcc873705b3e1b0a5b76270526014e53b2d0"
+    },
+    {
+      "key": "sha256:56c96de56c540d5f8c230f89aaed1a4da82e5eed7d38527c1630a9a536a87ac2",
+      "dialect": "duckdb",
+      "target": {
+        "version": "2.0.0",
+        "sdk": "2.0.0-r.1",
+        "platform": "darwin",
+        "arch": "arm64",
+        "runtime": "v24.22.2"
+      },
+      "qualification": "fresh native preparation on darwin-arm64",
+      "before": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:70b76ad713e59a17a0a5b718b01929cb0fb0727c32a40d617d0f39bf14785e6e",
+        "counts": {
+          "native-invocation-unverified": 357,
+          "native-rejected-generated-invocation": 490,
+          "native-valid-grammar-diagnostic": 202,
+          "native-valid-grammar-unknown": 11,
+          "native-valid-recognition-only": 2108
+        }
+      },
+      "after": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:55be14f89436a62fc202b21fc518862123a546ab4e4c4985a5dffaeea82ed1dd",
+        "counts": {
+          "native-invocation-unverified": 357,
+          "native-rejected-generated-invocation": 490,
+          "native-valid-grammar-diagnostic": 202,
+          "native-valid-grammar-unknown": 11,
+          "native-valid-recognition-only": 2108
+        }
+      },
+      "unchangedCategories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:addc8c0d6411ee499698ffb9e922b513b1c5958cbe17dd93d83d3dedd8bd4d09",
+          "count": 3235,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:729635b1ec72c8b4495f69130ca5d72c8de50d309f50cdb37cacf43223bd2769",
+          "count": 508,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:eff946b3459b21e368a744a80b4e4226285622d9cd1e76c545ac2a6d9ae08ac1",
+          "count": 84,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "observed",
+          "fingerprint": "sha256:e3a6a8b081e2c0fac930f0a330f11e09fc0d298da0908a9c7da3c4c01ed1e0b3",
+          "count": 227,
+          "scope": "engine"
+        },
+        "casts": {
+          "status": "observed",
+          "fingerprint": "sha256:37df719a18454a42e8264d36e30e73f8529f6656b5f2a001013399c693c162c9",
+          "count": 5776,
+          "scope": "implicit-only; explicit and contextual casts unverified",
+          "unprobeableTypes": [
+            "array",
+            "enum",
+            "list",
+            "map",
+            "time with time zone",
+            "timestamp with time zone",
+            "type",
+            "union"
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:00051af5d00726ea409641ca9e14b8ed42d77b74f0a5dd643fe5ce516d8574d1",
+          "count": 144,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:c83c597bc2210a1b1e9bb1d47c55475e0639d0161a033d7e58184d7001f63609",
+          "count": 167,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:d5617c1957e7580fe17385f6606476b4cc737b5475b9706601b6d46fbb0a5681",
+          "count": 30,
+          "scope": "engine"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "changedFields": {
+        "nativeTypeComparison": 2321
+      },
+      "changedHostClaims": [],
+      "previousRecognitionDigest": "sha256:bed7f8204d397bee0b4f7c9e7dd3feddf430af3f57b0f4ca06708ce53c450a65",
+      "currentRecognitionDigest": "sha256:91b6abc461c54f21deb3cf5aae5d92c5cff3c1b0bc60813ece5c51b9f2733207",
+      "currentCaptureDigest": "sha256:b89d4a110f90fcc0cb08a03bb087ca338639c972b68bd50f6f91428f965edc3c"
+    },
+    {
+      "key": "sha256:0ea950762bee8ce0ae1301e1d1dd60b49b7ed072b1c7fad740ae35c5c8c40763",
+      "dialect": "sqlite",
+      "target": {
+        "version": "3.53.4",
+        "source_id": "2026-07-24 19:02:57 bf7c7f30031888f4e796e429ab3978879485813aaca6f641c7b33e4e09459bcc",
+        "platform": "darwin",
+        "arch": "arm64",
+        "runtime": "v24.22.2"
+      },
+      "qualification": "fresh native preparation on darwin-arm64",
+      "before": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:bdf8dacdf8ff819793bd71f73ec6bc4ca17d72bbfba067ab6f82d0ec702f8a95",
+        "counts": {
+          "native-invocation-unverified": 2,
+          "native-rejected-generated-invocation": 15,
+          "native-valid-grammar-diagnostic": 119,
+          "native-valid-grammar-unknown": 37,
+          "native-valid-recognition-only": 213
+        }
+      },
+      "after": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:15b95cccb7fef0fb283478a97865fe2126d08a5b34b16eb02482e10d0dc8712b",
+        "counts": {
+          "native-invocation-unverified": 2,
+          "native-rejected-generated-invocation": 15,
+          "native-valid-grammar-diagnostic": 119,
+          "native-valid-grammar-unknown": 37,
+          "native-valid-recognition-only": 213
+        }
+      },
+      "unchangedCategories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:3b621ea200c8b63b9c96568858cf1669c234e22c68b880a6ab140c5d2f6020c7",
+          "count": 196,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reason": "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+        },
+        "types": {
+          "status": "unavailable",
+          "reason": "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+        },
+        "operators": {
+          "status": "unavailable",
+          "reason": "No complete operator enumeration through SQL metadata; use the official operator reference."
+        },
+        "casts": {
+          "status": "unavailable",
+          "reason": "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:055fa295f632ed2fa40e721e8c3d8aa20ea8c83ca8d60cb36900c2ddbc5f7579",
+          "count": 3,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:187462235134472f3b64ce7193eed96a0269a6e5147ed4d5ea9a11591435f2b6",
+          "count": 67,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:8bc2bd35ae2dba1b2b07fa74dec2e2c0dd1f3b78ec04663de2710111e2589de7",
+          "count": 50,
+          "scope": "compile-options"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "changedFields": {
+        "nativeTypeComparison": 369
+      },
+      "changedHostClaims": [],
+      "previousRecognitionDigest": "sha256:77fec8eb3becb1c3cfd502255002f254c631f9dffc96cf266449cbfe7f32b628",
+      "currentRecognitionDigest": "sha256:d89e7d4575be45b72cc891a534756ab1caa569ec9e3a8a67f96c06aa2203e96b",
+      "currentCaptureDigest": "sha256:64d0e7dea772d28ff4aa8597720a764766836ad1e6d7c3651bb0793a433892df"
+    },
+    {
+      "key": "sha256:91d94cc150ffac103cc4afe86878e1345c485d7c476195ec5128d2bba8e5dfd2",
+      "dialect": "duckdb",
+      "target": {
+        "version": "1.5.6",
+        "sdk": "1.5.6-r.2",
+        "platform": "linux",
+        "arch": "x64",
+        "runtime": "v24.22.2"
+      },
+      "qualification": "current-host replay on retained Linux run 42402470237 artifact 13586406017; fresh CI required",
+      "before": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:73ef9e8a1462c3ba39d29a48bab965879a23026255ae40ac50982e523b1ec675",
+        "counts": {
+          "native-invocation-unverified": 342,
+          "native-rejected-generated-invocation": 486,
+          "native-valid-grammar-diagnostic": 255,
+          "native-valid-grammar-unknown": 6,
+          "native-valid-recognition-only": 1852
+        }
+      },
+      "after": {
+        "scope": "native prepare/describe versus grammar recognition; full result, nullability, parameters and decoding semantics remain unverified",
+        "fingerprint": "sha256:e1ecaed44b882b449bd9336fff1b5952297bf6e4faa4c47976b21be7661198ec",
+        "counts": {
+          "native-invocation-unverified": 342,
+          "native-rejected-generated-invocation": 486,
+          "native-valid-grammar-diagnostic": 261,
+          "native-valid-grammar-unknown": 6,
+          "native-valid-recognition-only": 1846
+        }
+      },
+      "unchangedCategories": {
+        "functions": {
+          "status": "observed",
+          "fingerprint": "sha256:7fe805d3a74bd690e89692e327f3d1d509d084ccd47fe71ff75643102a45e0d4",
+          "count": 2945,
+          "scope": "engine"
+        },
+        "keywords": {
+          "status": "observed",
+          "fingerprint": "sha256:83a9765363caedc9a4bf8827d0771136673ce87455af5109c5f219c9c8e27e4f",
+          "count": 489,
+          "scope": "engine"
+        },
+        "types": {
+          "status": "observed",
+          "fingerprint": "sha256:5e3fa4fb9f480a8621151497bc1ee1184d7c082d8c9a4ccec4f5b965b4b18f1d",
+          "count": 82,
+          "scope": "engine"
+        },
+        "operators": {
+          "status": "observed",
+          "fingerprint": "sha256:ec9944f960149103f6f395094b35ae6c123dc48d0c0e00f8dce1c67078a01e5d",
+          "count": 221,
+          "scope": "engine"
+        },
+        "casts": {
+          "status": "observed",
+          "fingerprint": "sha256:f4709e5a207716dfc23d99fa30b435d22f497ec4ddcd08c9678b319530c745c4",
+          "count": 5184,
+          "scope": "implicit-only; explicit and contextual casts unverified",
+          "unprobeableTypes": [
+            "array",
+            "enum",
+            "list",
+            "map",
+            "row",
+            "struct",
+            "time with time zone",
+            "timestamp with time zone",
+            "type",
+            "union"
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "fingerprint": "sha256:f66c0bf0d783079d5f2db4c2dd061e2e802c5a02ac959534a1caa87c11ee8cd1",
+          "count": 133,
+          "scope": "engine"
+        },
+        "settings": {
+          "status": "observed",
+          "fingerprint": "sha256:5a2f403c008568fd47f5f7bf6001a00b8730d68baed042efa131cc73060ba665",
+          "count": 159,
+          "scope": "engine"
+        },
+        "extensions": {
+          "status": "observed",
+          "fingerprint": "sha256:d5617c1957e7580fe17385f6606476b4cc737b5475b9706601b6d46fbb0a5681",
+          "count": 30,
+          "scope": "engine"
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reason": "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+        }
+      },
+      "changedFields": {
+        "status": 6,
+        "diagnostics": 6,
+        "diagnosticDetails": 6,
+        "nativeTypeComparison": 6,
+        "columns": 6
+      },
+      "changedHostClaims": [
+        {
+          "sql": "SELECT * FROM generate_series(CAST($1 AS BIGINT), CAST($2 AS BIGINT), CAST($3 AS BIGINT))",
+          "before": [
+            {
+              "name": "generate_series",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM range(CAST($1 AS BIGINT), CAST($2 AS BIGINT), CAST($3 AS BIGINT))",
+          "before": [
+            {
+              "name": "range",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM generate_series(CAST($1 AS TIMESTAMP WITH TIME ZONE), CAST($2 AS TIMESTAMP WITH TIME ZONE), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "generate_series",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM range(CAST($1 AS TIMESTAMP WITH TIME ZONE), CAST($2 AS TIMESTAMP WITH TIME ZONE), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "range",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM generate_series(CAST($1 AS TIMESTAMP), CAST($2 AS TIMESTAMP), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "generate_series",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        },
+        {
+          "sql": "SELECT * FROM range(CAST($1 AS TIMESTAMP), CAST($2 AS TIMESTAMP), CAST($3 AS INTERVAL))",
+          "before": [
+            {
+              "name": "range",
+              "tsType": "bigint",
+              "nullable": false,
+              "databaseType": "BIGINT",
+              "runtimeType": "bigint",
+              "range": {
+                "start": 7,
+                "end": 8,
+                "line": 1,
+                "column": 8
+              }
+            }
+          ],
+          "after": [],
+          "diagnostic": [
+            "TSQ401: Nullable table arguments can change the native result type; overload-cost evidence is unavailable"
+          ]
+        }
+      ],
+      "previousRecognitionDigest": "sha256:6bcfba9acffbb6073d72f8f177d43e5ec2fa9fee7bfa56026f86572a7534f506",
+      "currentRecognitionDigest": "sha256:635dad9e0c50d0d039e0780fb84e403a47c6c8658ec244bec773e8407ccb9737",
+      "currentCaptureDigest": "sha256:3120d05686fbe2d6e11fefbce370c2d041834589ea660b90d7ad59de6cb1c011"
+    }
+  ]
+}

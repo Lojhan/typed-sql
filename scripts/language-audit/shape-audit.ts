@@ -121,7 +121,7 @@ export async function auditInvocationShapes(
         analysis.columns.every((column) => column.tsType !== "unknown");
       const rejection: "binding" | "value" | "unclassified" | undefined = result.accepted
         ? undefined
-        : owner.invocationShapeSyntax.rejection(result.reason ?? "");
+        : owner.invocationShapeSyntax.rejection([result.reason, result.detail].filter(Boolean).join(": "));
       const unsound: boolean = !result.accepted && controlNative?.accepted === true && typed && rejection === "binding";
       const status = result.accepted
         ? typed

@@ -147,8 +147,27 @@ await describe("registered grammar auditing", async () => {
     strict.throws(() => recognitionQueries({ name: "anything" }, "unregistered"), /Unregistered/u);
   });
 
+  await it("classifies protocol rejection codes with and without native message details", () => {
+    const postgres = builtinAuditGrammars.get("postgres").invocationShapeSyntax!;
+    strict.equal(postgres.rejection("42883"), "binding");
+    strict.equal(postgres.rejection("42883: function does not exist"), "binding");
+    strict.equal(postgres.rejection("22P02"), "value");
+    strict.equal(postgres.rejection("42501"), "unclassified");
+    const sqlserver = builtinAuditGrammars.get("sqlserver").invocationShapeSyntax!;
+    for (const reason of ["195", "42000:195", "42000:195: unrecognized function"])
+      strict.equal(sqlserver.rejection(reason), "binding");
+    strict.equal(sqlserver.rejection("42000:229"), "unclassified");
+  });
+
   await it("keeps shared analysis and probe assembly free of grammar implementation imports and ID dispatch", async () => {
-    for (const file of ["audit.ts", "recognition.ts", "invocations.ts", "grammars/registry.ts"]) {
+    for (const file of [
+      "audit.ts",
+      "recognition.ts",
+      "invocations.ts",
+      "grammars/registry.ts",
+      "run.ts",
+      "connections/registry.ts",
+    ]) {
       const source = await readFile(new URL(`../../scripts/language-audit/${file}`, import.meta.url), "utf8");
       strict.doesNotMatch(source, /packages\/(?!core\/)/u, file);
       strict.doesNotMatch(source, /\b(?:dialect|grammar)\s*(?:===?|!==?)\s*["'][a-z]/u, file);

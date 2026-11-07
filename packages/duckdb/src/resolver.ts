@@ -1576,6 +1576,29 @@ export class DuckDBResolver {
           return [];
         }
         const values = args.map((arg) => this.infer(arg, scope));
+        if (
+          tableConstantNullTyping[this.snapshot.server?.versionKey ?? ""] === "untyped" &&
+          values.some((value) => value.nullable)
+        ) {
+          const possible = matchDuckDBBuiltin(
+            this.snapshot.server?.versionKey ?? "",
+            name,
+            values.map((value) => (value.nullable ? scalar("NULL") : value.type)),
+          ).filter((match) => match.signature[1] === "scalar" && match.result?.kind === "list");
+          const outputs = new Set(
+            possible.flatMap((match) =>
+              match.result?.kind === "list" ? [formatDuckDBType(match.result.element)] : [],
+            ),
+          );
+          if (outputs.size !== 1) {
+            this.error(
+              "Nullable table arguments can change the native result type; overload-cost evidence is unavailable",
+              relation.range,
+              "TSQ401",
+            );
+            return [];
+          }
+        }
         // These table functions share input overloads with their scalar LIST-returning forms.
         const matches = matchDuckDBBuiltin(
           this.snapshot.server?.versionKey ?? "",

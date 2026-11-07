@@ -16,7 +16,10 @@ export interface NativeDescription {
   parameterCount?: number | null;
 }
 
-export type NativePrepare = (sql: string) => Promise<{ accepted: boolean; reason?: string; metadata?: unknown }>;
+/** Stable codes identify rejections; details retain native messages for owner classification. */
+export type NativePrepare = (
+  sql: string,
+) => Promise<{ accepted: boolean; reason?: string; detail?: string; metadata?: unknown }>;
 export type DescriptionScope = "column" | "parameter";
 
 /** Owners interpret driver evidence; they must not import the grammar under test. */

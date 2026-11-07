@@ -110,6 +110,39 @@ await describe("generated native invocation shapes", async () => {
     strict.ok(rejected.entities[0]!.gaps.some((gap) => gap.startsWith("native-control-rejected:")));
     strict.equal(rejected.counts["native-rejected-host-typed"], undefined);
   });
+  await it("uses retained driver details to classify a rejection without replacing the stable error code", async () => {
+    const descriptions = registry.extend([
+      {
+        id: "vendor/details",
+        extends: "vendor/graph",
+        invocationShapeSyntax: {
+          ...base.invocationShapeSyntax!,
+          rejection: (reason) => (reason.includes("binding detail") ? "binding" : "unclassified"),
+        },
+      },
+    ]);
+    const mappings = mappers.extend([{ id: "vendor/details", extends: "vendor/graph" }]);
+    const report = await auditInvocationShapes(
+      "vendor/details",
+      "2",
+      [row],
+      async (sql) => ({
+        accepted: !sql.includes("typed_sql_audit_unknown"),
+        reason: "STABLE_CODE",
+        detail: "binding detail",
+      }),
+      undefined,
+      { registry: descriptions, mappers: mappings },
+    );
+    strict.equal(report.failures, 2);
+    strict.deepEqual(JSON.parse(serialize(report)), report);
+    strict.ok(
+      Object.values(report.observations).some((observation) => {
+        const native = (observation as { native?: { reason?: string; detail?: string } }).native;
+        return native?.reason === "STABLE_CODE" && native.detail === "binding detail";
+      }),
+    );
+  });
   await it("records unavailable parameter evidence and owner syntax without fabricating slots", async () => {
     const unknown = mappers.extend([
       { id: "vendor/no-formals", extends: "vendor/graph", routineFacts: () => ({ parameters: null }) },

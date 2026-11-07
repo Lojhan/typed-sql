@@ -26,9 +26,9 @@ export const postgresAudit: AuditGrammar = {
             : "scalar",
     dynamicType: (name) => /^(?:any[a-z]*|record|internal|cstring|void|trigger|event_trigger)$/iu.test(name),
     rejection: (reason) =>
-      /^(?:42883|42725|42601|42703|42P01|42804|42P18|42846):/u.test(reason)
+      /^(?:42883|42725|42601|42703|42P01|42804|42P18|42846)(?::|$)/u.test(reason)
         ? "binding"
-        : /^22[A-Z0-9]{3}:/u.test(reason)
+        : /^22[A-Z0-9]{3}(?::|$)/u.test(reason)
           ? "value"
           : "unclassified",
     variadicPrefix: "VARIADIC ",

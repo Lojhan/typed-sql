@@ -94,3 +94,55 @@ await it("retains every automatically discovered native binding/analysis regress
     instance.closeSync();
   }
 });
+
+await it("qualifies value-dependent table schemas with NULL and non-NULL parameter bindings", async () => {
+  const instance = await sdk.DuckDBInstance.create(),
+    connection = await instance.connect();
+  const grammar = duckdb(),
+    snapshot = { formatVersion: 1 as const, dialect: "duckdb" as const, server: fixtureEvidence(version), tables: {} };
+  try {
+    for (const name of ["range", "generate_series"])
+      for (const type of ["TIMESTAMP", "TIMESTAMP WITH TIME ZONE"]) {
+        const sql = `SELECT * FROM ${name}(CAST($1 AS ${type}),CAST($2 AS ${type}),CAST($3 AS INTERVAL))`;
+        const statement = await connection.prepare(sql);
+        try {
+          for (let index = 1; index <= 3; index++) statement.bindNull(index);
+          const empty = await statement.run();
+          strict.equal(
+            empty.columnTypeId(0),
+            legacy
+              ? sdk.DuckDBTypeId.BIGINT
+              : type === "TIMESTAMP"
+                ? sdk.DuckDBTypeId.TIMESTAMP
+                : sdk.DuckDBTypeId.TIMESTAMP_TZ,
+          );
+          statement.bindVarchar(1, "2020-01-01");
+          statement.bindVarchar(2, "2020-01-02");
+          statement.bindVarchar(3, "1 day");
+          const populated = await statement.run();
+          strict.equal(
+            populated.columnTypeId(0),
+            type === "TIMESTAMP" ? sdk.DuckDBTypeId.TIMESTAMP : sdk.DuckDBTypeId.TIMESTAMP_TZ,
+          );
+        } finally {
+          statement.destroySync();
+        }
+        const analysis = grammar.analyze(sql, snapshot);
+        strict.deepEqual(
+          analysis.parameters.map((parameter) => parameter.index),
+          [1, 2, 3],
+        );
+        if (legacy) {
+          strict.ok(analysis.diagnostics.some((diagnostic) => diagnostic.code === "TSQ401"));
+          strict.ok(analysis.columns.every((column) => column.tsType === "unknown"));
+        } else {
+          strict.deepEqual(analysis.diagnostics, []);
+          strict.equal(analysis.columns[0]?.databaseType, type === "TIMESTAMP" ? "TIMESTAMP" : "TIMESTAMPTZ");
+        }
+        strict.ok(analysis.columns.every((column) => column.tsType !== "any"));
+      }
+  } finally {
+    connection.closeSync();
+    instance.closeSync();
+  }
+});

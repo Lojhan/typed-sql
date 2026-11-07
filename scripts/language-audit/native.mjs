@@ -39,7 +39,7 @@ export async function preparePostgres(client, sql) {
     });
   } catch (error) {
     if (!/^(42|0A|22)/u.test(error.code ?? "") || error.code === "42501") throw error;
-    return { accepted: false, reason: error.code };
+    return { accepted: false, reason: error.code, detail: String(error.message) };
   }
   const names = postgresTypeNames.get(client) ?? new Map();
   postgresTypeNames.set(client, names);
@@ -104,7 +104,7 @@ export async function prepareMySql(client, sql) {
       [1037, 1038, 1040, 1041, 1053, 1205, 1213, 1317].includes(error.errno)
     )
       throw error;
-    return { accepted: false, reason: error.code ?? String(error.errno) };
+    return { accepted: false, reason: error.code ?? String(error.errno), detail: String(error.message) };
   }
 }
 
