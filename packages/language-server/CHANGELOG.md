@@ -1,5 +1,24 @@
 # @typed-sql/language-server
 
+## 2.6.0-rc.0
+
+### Minor Changes
+
+- 825eba3: Connect the trusted local workspace to an optional project-installed language server for TypeScript and SQL diagnostics, hover, completion, definitions, and reviewed quick fixes. Standalone SQL uses grammar analysis with original source positions. Definition documents remain bounded and read-only, and unsaved overlays never overwrite repository files.
+  
+  JavaScript and JSX use the project’s native JavaScript checking settings. Complete dirty working-copy contexts keep imported helpers current across editor tabs.
+
+### Patch Changes
+
+- Updated dependencies [4de04fc]
+- Updated dependencies [825eba3]
+- Updated dependencies [825eba3]
+  - @typed-sql/core@2.6.0-rc.0
+  - @typed-sql/compiler@2.6.0-rc.0
+  - @typed-sql/config@2.6.0-rc.0
+  - @typed-sql/schema@2.6.0-rc.0
+  - @typed-sql/ts-bridge@2.6.0-rc.0
+
 ## 2.5.0-rc.0
 
 ### Patch Changes

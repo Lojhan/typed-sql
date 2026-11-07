@@ -1,5 +1,11 @@
 # @typed-sql/ast
 
+## 2.6.0-rc.0
+
+### Patch Changes
+
+- Publish the coherent 2.6.0-rc.0 release-candidate train.
+
 ## 2.5.0
 
 Promote the qualified `2.5.0-rc.0` candidate to stable. See that entry below for the included features and fixes.
