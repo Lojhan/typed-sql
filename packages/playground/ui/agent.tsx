@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "./api";
 import {
   Bar,
@@ -121,8 +121,9 @@ export function AgentPanel({
   }, [conversation?.id, conversation?.toolMode, conversation?.workspaceTools]);
   const workspace = useRef<HTMLElement>(null);
   const [compactComposer, setCompactComposer] = useState(true);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!workspace.current) return;
+    setCompactComposer(workspace.current.clientWidth < 850);
     const observer = new ResizeObserver(([entry]) => {
       if (entry) setCompactComposer(entry.contentRect.width < 850);
     });
