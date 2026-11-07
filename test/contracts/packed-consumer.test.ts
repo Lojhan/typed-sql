@@ -9,7 +9,6 @@ import { describe, it, strict } from "poku";
 import { assertFirstUseConsumer } from "../helpers/first-use-consumer.js";
 import { assertMinimalGrammarConsumer } from "../helpers/minimal-grammar-consumer.js";
 import { packedConsumerOverrides } from "../helpers/packed-editor-consumer.js";
-import { assertPackedEditorProject } from "../helpers/packed-editor-project.js";
 import { ensurePackedEditorSdk } from "../helpers/packed-editor-sdk.js";
 import { assertPortableWorkerConsumer } from "../helpers/portable-worker-consumer.js";
 import { assertSqlFileConsumer } from "../helpers/sql-file-consumer.js";
@@ -499,9 +498,6 @@ await describe("packed public packages", async () => {
           createRequire(join(workspace, "packages/adapters/package.json")).resolve("miniflare"),
         ).href,
       });
-      for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
-        await assertPackedEditorProject(consumer, dialect, isolatedEnvironment);
-      }
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

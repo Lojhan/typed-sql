@@ -40,6 +40,7 @@ interface Manifest {
 export async function createPackedNativeEditorConsumer(
   workspace: string,
   env: NodeJS.ProcessEnv,
+  dialects: readonly string[] = ["sqlserver", "duckdb"],
 ): Promise<{ consumer: string; close(): Promise<void> }> {
   const temporary = await mkdtemp(join(tmpdir(), "typed-sql-packed-native-editors-"));
   const consumer = join(temporary, "consumer");
@@ -72,7 +73,11 @@ export async function createPackedNativeEditorConsumer(
         if (packages.has(dependency)) await pack(dependency);
       await execFile("pnpm", ["--silent", "--filter", name, "pack", "--out", archive], { cwd: workspace, env });
     };
-    for (const name of ["@typed-sql/cli", "@typed-sql/language-server", "@typed-sql/sqlserver", "@typed-sql/duckdb"])
+    for (const name of [
+      "@typed-sql/cli",
+      "@typed-sql/language-server",
+      ...dialects.map((dialect) => `@typed-sql/${dialect}`),
+    ])
       await pack(name);
     await writeFile(
       join(consumer, "package.json"),
