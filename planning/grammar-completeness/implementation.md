@@ -579,7 +579,9 @@ SQL Server parser-source checkpoint:
 - Focused contracts, typecheck and cached replay with fetch disabled pass. The local performance
   gate passes without a budget change. All 67 contract files and repository quality pass locally. CI for prior
   head `f051df8b` passed tests but failed editor schema-churn p99 at 131.81 ms against the 120 ms
-  GitHub Actions budget. Failed-job retry attempt 2 is running; the overrun is not waived.
+  GitHub Actions budget. Failed-job retry attempt 2 passed on the same head with the original
+  budget unchanged; the initial overrun remains recorded. The SQL Server checkpoint also builds
+  successfully locally. New-head CI is still required.
 - Signature/type rule sourcing, semantic action interpretation, builtin generation and independent
   native qualification remain open together with all full requirements below.
 
