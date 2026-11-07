@@ -1,7 +1,12 @@
 import { describe, it, strict } from "poku";
-import { viewSchema } from "../src/analysis-contract.js";
+import { type AnalysisDataset, type AnalysisView, viewSchema } from "../src/analysis-contract.js";
 import { metricComparison } from "../src/analysis-model.js";
-import { chartOption } from "../ui/analysis-chart-option.js";
+
+// This browser adapter is checked by tsconfig.ui.json. Load it at runtime so
+// the server test project does not absorb ECharts' browser-only declaration graph.
+const { chartOption } = (await import(new URL("../ui/analysis-chart-option.ts", import.meta.url).href)) as {
+  chartOption: (view: AnalysisView, rows: AnalysisDataset["rows"], dark: boolean) => Record<string, unknown>;
+};
 
 await describe("declarative chart adapters", async () => {
   for (const kind of [
