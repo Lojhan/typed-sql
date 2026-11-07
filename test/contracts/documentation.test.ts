@@ -645,7 +645,7 @@ await describe("local development workspace documentation", async () => {
     strict.match(tour, /CREATE TABLE sales\.line_adjustments/u);
     strict.match(tour, /COALESCE\(a\.amount, 0\)/u);
     const screenshots = [...tour.matchAll(/!\[[^\]]+\]\(\.\.\/assets\/workspace\/([^)]+)\)/gu)];
-    strict.equal(screenshots.length, 4);
+    strict.equal(screenshots.length, 7);
     for (const match of screenshots) {
       strict.ok((await stat(join(workspace, "docs/assets/workspace", match[1]!))).size > 0);
     }

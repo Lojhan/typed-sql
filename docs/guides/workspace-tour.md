@@ -1,6 +1,6 @@
 ---
 title: Workspace tour
-description: Follow a visual workflow from schema exploration and migration history to SQL results, query comparison and local agent charts.
+description: Explore schemas, trace migrations, compare queries, import customer data with typed batches, and build local agent charts.
 pageType: tutorial
 ---
 
@@ -105,6 +105,170 @@ Open **Compare** and select the runs as **Run A** and **Run B**. **Ordered rows*
 ![Split workspace comparing captured order totals of 22.00 and 20.00 beside an agent-generated stacked revenue chart.](../assets/workspace/compare-agent.png)
 
 Compare uses captured results and does not rerun either query. Check completeness and source/target context before drawing conclusions. For queries without a deterministic row order, use unordered multiset comparison. Timing includes different stages of local work; it is not a server execution benchmark. See [comparison semantics](./dev-workspace.md#compare-captured-queries).
+
+## Fetch customers and insert related batches
+
+A TypeScript query can combine an HTTP request with typed SQL and a transaction. This example imports five fictional customers from a small local Express service, then inserts their accounts and organization memberships in two multi-row statements. The input includes active, invited and suspended customers, different roles, and nullable email addresses.
+
+### Serve a local customer feed
+
+Install the application-owned example dependencies:
+
+```sh
+pnpm add -D express zod
+```
+
+Create `playground/customer-api.mjs`:
+
+```js
+import express from "express";
+
+const customers = [
+  { id: 910001, name: "Maya Patel", email: "maya.patel@example.test",
+    status: "active", organizationId: 1, role: "admin" },
+  { id: 910002, name: "Lucas Almeida", email: null,
+    status: "invited", organizationId: 2, role: "member" },
+  { id: 910003, name: "Sofia Rossi", email: "sofia.rossi@example.test",
+    status: "active", organizationId: 1, role: "viewer" },
+  { id: 910004, name: "Amina Okafor", email: null,
+    status: "suspended", organizationId: 2, role: "viewer" },
+  { id: 910005, name: "Kenji Tanaka", email: "kenji.tanaka@example.test",
+    status: "active", organizationId: 1, role: "member" },
+];
+
+const app = express();
+app.get("/customers", (_request, response) => response.json(customers));
+app.listen(4189, "127.0.0.1", () => {
+  console.log("Customer feed: http://127.0.0.1:4189/customers");
+});
+```
+
+Run this service in a separate terminal, outside the workspace query runner:
+
+```sh
+node playground/customer-api.mjs
+```
+
+The service binds to loopback and serves JSON at `http://127.0.0.1:4189/customers`. It performs no database writes. The names and `example.test` email addresses are synthetic.
+
+![A small Express service serving five customer records with realistic names, statuses, organization IDs, roles and nullable emails.](../assets/workspace/customer-api.png)
+
+### Validate the response and infer its type
+
+Create `playground/customers.ts`. The Zod schema trims names, validates email/null values and enum choices, and bounds the batch to 1–100 customers. Its inferred type stays aligned with runtime validation; an HTTP response is not trusted merely because a function declares a return type.
+
+```ts
+import { z } from "zod";
+
+const Customer = z.object({
+  id: z.number().int().positive(),
+  name: z.string().trim().min(1),
+  email: z.email().nullable(),
+  status: z.enum(["active", "invited", "suspended"]),
+  organizationId: z.number().int().positive(),
+  role: z.enum(["admin", "member", "viewer"]),
+});
+export type Customer = z.infer<typeof Customer>;
+
+export async function fetchCustomers(): Promise<Customer[]> {
+  const response = await fetch("http://127.0.0.1:4189/customers", {
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+  return z.array(Customer).min(1).max(100).parse(await response.json());
+}
+```
+
+### Insert accounts and memberships atomically
+
+The commerce project already contains the required relations. For the minimal development fixture in this tour, apply the following schema through your migration workflow and regenerate the saved schema. Include both `public` and `identity` in the snapshot provider's and workspace target's `schemas` lists.
+
+```sql
+CREATE SCHEMA identity;
+CREATE TYPE identity.account_status AS ENUM ('invited', 'active', 'suspended');
+CREATE TABLE public.accounts (
+  id bigint PRIMARY KEY,
+  display_name text NOT NULL,
+  status identity.account_status NOT NULL,
+  contact_email text
+);
+CREATE TABLE identity.organizations (
+  id bigint PRIMARY KEY,
+  name text NOT NULL
+);
+CREATE TABLE identity.memberships (
+  organization_id bigint NOT NULL REFERENCES identity.organizations(id),
+  account_id bigint NOT NULL REFERENCES public.accounts(id),
+  role text NOT NULL,
+  PRIMARY KEY (organization_id, account_id)
+);
+INSERT INTO identity.organizations VALUES (1, 'Northstar'), (2, 'Harbor Labs');
+```
+
+Create `playground/db.ts` to use the selected target's managed database:
+
+```ts
+import { databaseForRun } from "@typed-sql/playground/runtime";
+
+export const db = databaseForRun();
+```
+
+Then create `playground/import-customers.ts`:
+
+```ts
+import { sql } from "@typed-sql/postgres";
+import { show } from "@typed-sql/playground/runtime";
+import { db } from "./db.js";
+import { fetchCustomers } from "./customers.js";
+
+export async function run() {
+  const customers = await fetchCustomers();
+  const imported = await db.transaction(async (tx) => {
+    const accounts = await tx.all(sql`
+      INSERT INTO public.accounts (id, display_name, status, contact_email)
+      VALUES ${customers.map((c) => sql.fragment`
+        (${BigInt(c.id)}, ${c.name}, ${c.status}, ${c.email})
+      `)}
+      RETURNING id, display_name, status, contact_email
+    `);
+    const memberships = await tx.all(sql`
+      INSERT INTO identity.memberships (organization_id, account_id, role)
+      VALUES ${customers.map((c) => sql.fragment`
+        (${BigInt(c.organizationId)}, ${BigInt(c.id)}, ${c.role})
+      `)}
+      RETURNING organization_id, account_id, role
+    `);
+    return { accounts, memberships };
+  });
+  show("Customers", imported.accounts);
+  show("Organization access", imported.memberships);
+}
+```
+
+Each direct `Array.map` supplies a fixed SQL row shape; the renderer supplies commas and keeps ordinary values as parameters. Customer IDs become bigint, validated statuses match the database enum, and null emails remain SQL NULL. The second batch links every account to its organization through a composite key. The transaction commits both batches together or rolls them back together; named results are published after it completes.
+
+![A transactional TypeScript import beside its validated customer fetch helper, with realistic names, mixed statuses and nullable email values in the returned rows.](../assets/workspace/fetch-insert.png)
+
+Enable trusted project execution, select the **run** export, turn off **Read only** for the import file, and choose **Run**. Select **Customers** or **Organization access** in **Result set** to inspect both returned batches. **Types** shows the analyzed SQL contracts. The pictured run inserts five accounts and five memberships. Running the insert again against the same IDs produces a primary-key conflict; use a fresh fixture when repeating it.
+
+Mapped fragments create multi-row SQL statements. They do not imply a native bulk protocol such as PostgreSQL COPY. See [multi-row inserts](../examples/multi-row-insert.md) and [bulk data strategies](./bulk-data.md) for the different execution contracts.
+
+### Query the imported relationships
+
+Create `playground/imported-customers.sql` and run it with **Read only** enabled:
+
+```sql
+SELECT a.display_name, a.status, o.name AS organization, m.role
+FROM public.accounts a
+JOIN identity.memberships m ON m.account_id = a.id
+JOIN identity.organizations o ON o.id = m.organization_id
+WHERE a.id BETWEEN 910001 AND 910005
+ORDER BY a.id;
+```
+
+![The returned customer batch beside a managed SQL join showing the persisted customers, organization names and access roles.](../assets/workspace/insert-readback.png)
+
+The TypeScript result is labeled **target unverified** because arbitrary TypeScript return values do not prove their database origin. The separate managed SQL readback identifies the selected target. Trust also permits the TypeScript file's own network activity; managed SQL controls do not sandbox `fetch` or other project code. See [trusted project execution](./dev-workspace.md#managed-queries-and-trusted-project-code).
 
 ## Ask an agent for an interactive view
 
