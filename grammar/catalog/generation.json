@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:dc10e46559a9c96d2eb6380d0ba04448eea11a72a03cc3926d0693fddaf12e68",
+  "inputFingerprint": "sha256:5bb1fca42f6273db13b03f00522320cc81354654e97274ee31be48658537d921",
   "model": {
     "formatVersion": 2,
     "schemaDigest": "sha256:031e9b8d6e85bee77edaae2610b6d800825003be70ffb72ff23d660fd9efdf2b",
-    "normalizerDigest": "sha256:f0c173a3ad3a5dfb1815e95362d7c9687906e7d19efe60cf4f68ff5199bf0d50",
+    "normalizerDigest": "sha256:c5dd3a106371d55747bf6adfe2c03d9efd132a61562b0ef4fdee89039548a1de",
     "inputDigest": "sha256:c9866b5b675f65b76090b0de006b3857e90cb642d887c59663025af87049e14b",
     "profiles": 33,
     "entities": 26829,
@@ -39,6 +39,7 @@
     "packages/sqlserver/src/catalog/generated/policy.ts",
     "packages/sqlserver/src/catalog/generated/types.ts",
     "planning/grammar-completeness/duckdb-routine-projection.json",
+    "planning/grammar-completeness/mysql-source-coverage.json",
     "planning/grammar-completeness/postgres-source-coverage.json",
     "planning/grammar-completeness/sqlite-function-coverage.json",
     "planning/grammar-completeness/sqlite-keyword-coverage.json"
@@ -53,6 +54,7 @@
     "packages/duckdb/src/catalog/generated/2.0.0.ts": "sha256:a3c974abfcd81ac6c45e2838cea71f54cdefd45442276d041371a3f2fd51ffe8",
     "planning/grammar-completeness/duckdb-routine-projection.json": "sha256:a812c56b08e43d2ddf311668e07a5bcf1357632436299d737464e3011880a8d0",
     "packages/duckdb/src/catalog/generated/aliases.ts": "sha256:b1f92e08e256c4a41401fe03c9aa2f72ffb32e21ce55421c3757477a03b40f74",
+    "planning/grammar-completeness/mysql-source-coverage.json": "sha256:54c08fab9c6c1d6032821e42d84cdb3882c6c94812b04a0ac8f8f5d9a8baf50e",
     "packages/mysql/src/catalog/generated/8.4.ts": "sha256:dc89f5088f3f55a43f612a50d0ad2af38abc9dc1fd0b21de311d65e2a277a521",
     "packages/mysql/src/catalog/generated/9.7.ts": "sha256:ecbec2ef88a4ffa15a8768dd011591217b4d9739b31d947b7c321f0835552526",
     "packages/mysql/src/catalog/generated/26.7.ts": "sha256:0bbc4459b83aa27d40a9504688c529122eafff2155cbc8f53357e6a98836de0c",
@@ -77,7 +79,7 @@
     "packages/sqlserver/src/catalog/generated/types.ts": "sha256:1d6fcef8dcaeefc24e64d8c3a00eaec05e710ffb59393e336cb39904ac5a9f5c",
     "packages/sqlserver/src/catalog/generated/policy.ts": "sha256:bd065ab384934ac04640e0029b051520d920238d0510907725ecf1d6f6d6f102"
   },
-  "artifactFingerprint": "sha256:ae3c01caa1d61086a4bdc09de98d7c46cf67dc5afa19bcab01bae47164437165",
+  "artifactFingerprint": "sha256:dc2b5ba5a2a8dcd48f9c7908f8c67850a141ddc794de7408297c98c46a34e0cf",
   "bands": [
     {
       "dialect": "duckdb",

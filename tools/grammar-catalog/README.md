@@ -110,6 +110,16 @@ inventories, while full grammar productions, SQL bodies, configuration and addit
 profiles still need separate interpretation and qualification. Committed source text includes the
 upstream license notice.
 
+`pnpm catalog:source mysql` locks the full archives and selected registration/lexer/YACC inputs
+for every exact retained MySQL version. Explicit refresh requires Python 3.12 or newer; ordinary
+generation consumes committed facts with Node only. Keyword reservation follows the pinned vendor
+keyword-list generator and must match every retained native keyword inventory. Factory registrations
+and lexer-classified function names remain separate. Recognized factory macros supply partial
+argument-count ranges, parity and internal-call restrictions; specialized factories retain unknown
+arity, and preprocessor conditions are preserved without claiming build availability. Formal types,
+defaults, result types, nullability, special syntax and decoding require further qualification.
+Vendor license notices and immutable source/member digests are retained with these facts.
+
 The SQLite catalog refresh also locks the full vendor archive and builds its amalgamation in a
 fresh temporary directory. Archive members must agree with the separately pinned files before
 any vendor build step runs. The archive extractor rejects links, special files, duplicate paths

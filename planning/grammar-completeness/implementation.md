@@ -509,6 +509,33 @@ PostgreSQL installed-routine closure checkpoint:
   full CI run 42412683471; new-head CI remains required. The full remaining requirements below
   stay open.
 
+MySQL locked registration-source and deadline checkpoint:
+
+- Registered `catalog:source mysql` pins full official source archives, selected factory/lexer/YACC
+  inputs, license notices and extractor bytes for all three retained versions (8.4.11, 9.7.2,
+  26.7.0). Cached refresh reproduces source facts and locks byte-for-byte with fetch disabled.
+  Normal generation consumes committed facts through Node only.
+- Factory inventories retain 347 / 353 / 353 registrations. Standard macro interpretation supplies
+  291 / 297 / 297 partial arity bounds, odd/even constraints and internal-call flags. Every version
+  retains 56 specialized factories with unknown arity and two debug-conditional registrations;
+  preprocessor branches remain explicit, not assumed enabled. Lexer-classified function names
+  (35 / 36 / 36) and all symbols are separate inventories, not conflated with ordinary factories.
+- Keyword classification follows the pinned vendor keyword generator's lexer/YACC rule. All
+  734 / 760 / 763 names/reserved flags agree exactly across seven retained native contexts.
+  MySQL generation now rejects disagreement and emits complete source/gap accounting. Formal
+  parameter types/names, defaults, return types, conditional availability, special invocation
+  syntax, nullability and decoding remain unqualified; runtime policy mappings are unchanged.
+- Exact-head CI for `ae86866a` failed source-quality in DuckDB's stream-health deadline regression;
+  the aggregate gate failed consequently. An early timer could request cancellation before the
+  declared wall-clock deadline, allowing an adapter's subsequent clock check to see active controls.
+  Core now rechecks the clock on each timer callback. A deterministic fake-clock witness proves
+  one early cancellation before the fix and zero after; cancellation still occurs once at expiry.
+  Core and DuckDB focused regressions pass. This changes runtime behavior and includes a Changeset.
+- Full workspace `pnpm test` passes, including all 66 contract files, source/clean-room generation,
+  coverage gates, editor and packed consumers. Typecheck, quality and build pass locally.
+  Documentation build passes. The performance gate reached its final report after all budget
+  assertions passed. New-head CI remains required before promotion.
+
 ## Requirements still open
 
 
