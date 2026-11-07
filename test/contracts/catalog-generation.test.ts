@@ -20,6 +20,7 @@ import {
   targetSeries,
 } from "../../scripts/catalog-generation/model.mjs";
 import { generationReport } from "../../scripts/catalog-generation/report.mjs";
+import { sqlServerTypeSource } from "../../scripts/catalog-generation/sqlserver.mjs";
 import { grammarFor } from "../../scripts/language-audit/audit.js";
 import { compareNativeDescription } from "../../scripts/language-audit/description.js";
 import { collectLive, hash, inventory } from "../../scripts/language-audit/inventory.mjs";
@@ -148,6 +149,34 @@ await describe("reproducible native catalog generation", async () => {
     strict.throws(() => postgresTypes([], policies, { N: "numeric" }), /Missing or conflicting/u);
     strict.throws(() => postgresTypes([{ ...facts[0], defined: false }], policies, { N: "numeric" }), /Incomplete/u);
     strict.throws(() => postgresTypes(facts, policies, {}), /Incomplete/u);
+  });
+
+  await it("requires logical alias evidence instead of inferring aliases from shared physical storage", () => {
+    const policy = {
+      types: [{ name: "varbinary", form: "sized", mapping: "Uint8Array", byteWidth: 1 }],
+      typeAliases: {},
+      typeDefaults: { sized: { declaration: 1, cast: 30 } },
+    };
+    const groups = [
+      {
+        dialect: "sqlserver",
+        categories: {
+          types: {
+            rows: [
+              { name: "varbinary", system_type_id: 165, max_length: 8000, precision: 0, scale: 0 },
+              { name: "vector", system_type_id: 165, max_length: 8000, precision: 0, scale: 0 },
+            ],
+          },
+        },
+      },
+    ];
+    const source = sqlServerTypeSource(policy, groups, "");
+    strict.ok(source.includes("fixedTypeAliases: Readonly<Record<string, SqlServerNativeType>> = {}"));
+    strict.throws(() => sqlServerTypeSource({ ...policy, typeDefaults: {} }, groups, ""), /contextual/u);
+    strict.throws(
+      () => sqlServerTypeSource({ ...policy, systemAliases: { absent: "varbinary" } }, groups, ""),
+      /alias facts/u,
+    );
   });
 
   await it("compares concrete native identities and leaves missing descriptions or unknown analysis unverified", () => {

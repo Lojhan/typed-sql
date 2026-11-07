@@ -2,6 +2,7 @@ import { fixedTypeAliases, typeAliases, typeRules } from "./catalog/generated/ty
 import { validateSqlServerCollationName } from "./collation.js";
 
 export { integerBounds as SQLSERVER_INTEGER_BOUNDS } from "./catalog/generated/types.js";
+export type SqlServerTypeContext = "declaration" | "cast";
 /** Canonical allowlisted SQL Server system types. Unknown user/CLR types remain opaque. */
 export interface SqlServerNativeType {
   readonly name: string;
@@ -26,6 +27,7 @@ export interface SqlServerNativeTypeRule {
     | "json"
     | "unknown";
   readonly maximumLength?: number;
+  readonly defaultLengths?: Readonly<Record<SqlServerTypeContext, number>>;
   readonly maximumPrecision: number;
   readonly maximumScale: number;
   readonly allowsMax?: boolean;
@@ -33,11 +35,14 @@ export interface SqlServerNativeTypeRule {
   readonly byteWidth?: number;
   readonly nativeName?: string;
 }
-export function parseSqlServerNativeType(source: string): SqlServerNativeType | undefined {
+export function parseSqlServerNativeType(
+  source: string,
+  context: SqlServerTypeContext = "declaration",
+): SqlServerNativeType | undefined {
   if (source.length > 512) return undefined;
   const collated = /^(.*?)\s+COLLATE\s+([A-Za-z][A-Za-z0-9_]{0,127})$/iu.exec(source.trim());
   if (collated) {
-    const base = parseSqlServerNativeType(collated[1]!);
+    const base = parseSqlServerNativeType(collated[1]!, context);
     if (!base || base.collation || !["varchar", "char", "nvarchar", "nchar", "text", "ntext"].includes(base.name))
       return undefined;
     const collation = validateSqlServerCollationName(collated[2]!);
@@ -58,7 +63,8 @@ export function parseSqlServerNativeType(source: string): SqlServerNativeType | 
   if (rule.form === "plain") return first === undefined ? Object.freeze({ name, text: name }) : undefined;
   if (rule.form === "sized") {
     if (second !== undefined) return undefined;
-    const length = first === undefined ? 1 : first === "max" ? "max" : integer!;
+    const length = first === undefined ? rule.defaultLengths?.[context] : first === "max" ? "max" : integer!;
+    if (length === undefined) return undefined;
     if (length === "max" ? !rule.allowsMax : length < 1 || length > (rule.maximumLength ?? 0)) return undefined;
     return Object.freeze({ name, text: `${name}(${length})`, length });
   }
@@ -83,8 +89,11 @@ export function parseSqlServerNativeType(source: string): SqlServerNativeType | 
   }
   return undefined;
 }
-export function requireSqlServerNativeType(source: string): SqlServerNativeType {
-  const type = parseSqlServerNativeType(source);
+export function requireSqlServerNativeType(
+  source: string,
+  context: SqlServerTypeContext = "declaration",
+): SqlServerNativeType {
+  const type = parseSqlServerNativeType(source, context);
   if (!type) throw new TypeError(`Unsupported or invalid SQL Server native type: ${source.slice(0, 256)}`);
   return type;
 }

@@ -1685,5 +1685,14 @@
     "double precision": "float",
     "character varying": "varchar",
     "character": "char"
+  },
+  "systemAliases": {
+    "sysname": "nvarchar"
+  },
+  "typeDefaults": {
+    "sized": {
+      "declaration": 1,
+      "cast": 30
+    }
   }
 }

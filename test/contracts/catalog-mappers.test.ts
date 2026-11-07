@@ -1,0 +1,87 @@
+import { describe, it, strict } from "poku";
+import { readCorpus } from "../../scripts/catalog-generation/corpus.mjs";
+import { groupCorpus } from "../../scripts/catalog-generation/model.mjs";
+import { builtinMappers } from "../../tools/grammar-catalog/src/mappers/index.mjs";
+import { routineSignature } from "../../tools/grammar-catalog/src/model/routines.mjs";
+import { createMapperRegistry, numericVersionBand } from "../../tools/grammar-catalog/src/registry.mjs";
+
+const mapper = {
+  id: "synthetic",
+  versionBand: numericVersionBand(2),
+  normalizeRow: (_category: string, row: unknown) => row,
+  routineFacts: () => ({ parameters: [], result: "result_type", returnsSet: false }),
+};
+
+await describe("grammar-independent catalog mapper registrations", async () => {
+  await it("supports an external grammar and inherited graph contribution without modifying shared mechanics", () => {
+    const base = createMapperRegistry([mapper]);
+    const registry = base.extend([
+      {
+        id: "synthetic/graph",
+        extends: "synthetic",
+        routineFacts: () => ({
+          parameters: [
+            { name: "graph", inputPosition: 1, position: 1, nativeType: "graph", mode: "input", hasDefault: true },
+          ],
+          resultColumns: [{ name: "vertex", nativeType: "vertex", nullable: null }],
+          returnsSet: true,
+        }),
+      },
+    ]);
+    strict.deepEqual(base.ids, ["synthetic"]);
+    strict.deepEqual(registry.ids, ["synthetic", "synthetic/graph"]);
+    strict.equal(registry.get("synthetic/graph").versionBand("7.2.3"), "7.2");
+    const result = routineSignature(registry.get("synthetic/graph"), { name: "vertices", namespace: "graph" });
+    strict.equal(result.namespace, "graph");
+    strict.equal(result.parameters?.[0]?.name, "graph");
+    strict.equal(result.parameters?.[0]?.hasDefault, true);
+    strict.equal(result.result.returnsSet, true);
+    strict.deepEqual(result.result.columns, [{ name: "vertex", nativeType: "vertex", nullable: null }]);
+    strict.equal(result.result.nullable, null);
+    strict.equal(routineSignature(base.get("synthetic"), { name: "value" }).result.nativeType, "result_type");
+  });
+
+  await it("rejects unknown, duplicate, incomplete and cyclic mapper registrations", () => {
+    strict.throws(() => createMapperRegistry([mapper, mapper]), /Duplicate/u);
+    strict.throws(() => createMapperRegistry([{ id: "bad" }]), /Missing/u);
+    strict.throws(() => createMapperRegistry([{ id: "bad", extends: "absent" }]), /Unregistered/u);
+    strict.throws(
+      () =>
+        createMapperRegistry([
+          { id: "a", extends: "b" },
+          { id: "b", extends: "a" },
+        ]),
+      /Cyclic/u,
+    );
+    strict.throws(() => createMapperRegistry([mapper]).get("absent"), /Unregistered/u);
+    strict.throws(() => numericVersionBand(0), /width/u);
+    strict.throws(() => mapper.versionBand("7"), /version/u);
+    strict.equal(builtinMappers.get("postgres").versionBand("19beta3"), "19");
+  });
+
+  await it("normalizes SQLite wire integers without collapsing dynamic type knowledge", () => {
+    const sqlite = builtinMappers.get("sqlite");
+    const wire = { name: "abs", arity: "1", builtin: "1", flags: "2099200" };
+    const numeric = sqlite.normalizeRow("functions", wire);
+    strict.deepEqual(numeric, { name: "abs", arity: 1, builtin: 1, flags: 2099200 });
+    strict.equal(wire.arity, "1");
+    for (const arity of [null, true, "", "1junk", "1.5", Number.MAX_SAFE_INTEGER + 1])
+      strict.throws(() => sqlite.normalizeRow("functions", { ...wire, arity }), /integer/u);
+    const facts = routineSignature(sqlite, numeric);
+    strict.equal(facts.result.typeKnowledge, "dynamic-or-unavailable");
+    strict.equal(facts.parameters?.[0]?.nativeType, null);
+    strict.equal(facts.result.nullable, null);
+  });
+
+  await it("validates every retained legacy signature and recovers shared SQLite facts across wrappers", async () => {
+    const corpus = await readCorpus();
+    const group = groupCorpus(corpus).find((entry) => entry.dialect === "sqlite" && entry.version === "3.53.4");
+    strict.ok(group);
+    strict.equal(group.contexts.length, 4);
+    strict.ok(group.categories.functions.rows.length >= 140);
+    strict.ok(group.categories.functions.rows.some((row: { name: string }) => row.name === "abs"));
+    // Normalization changes the shared view, never the archived native capture.
+    const rows = Object.values(corpus.rows) as { name: string; arity?: unknown }[];
+    strict.ok(rows.some((row) => row.name === "abs" && typeof row.arity === "string"));
+  });
+});

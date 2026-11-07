@@ -1,25 +1,18 @@
+import { builtinMappers } from "../../tools/grammar-catalog/src/mappers/index.mjs";
+import { routineSignature } from "../../tools/grammar-catalog/src/model/routines.mjs";
 import { CATEGORIES, hash } from "../language-audit/inventory.mjs";
 import { expandTarget } from "./corpus.mjs";
 
-export function targetSeries(dialect, version) {
-  if (dialect === "postgres") {
-    const major = /^(\d+)(?:\.|beta|rc|\b)/u.exec(version)?.[1];
-    if (!major) throw new Error(`Invalid native version: ${version}`);
-    return major;
-  }
-  const parts = /^(\d+)\.(\d+)(?:\.(\d+))?/u.exec(version);
-  if (!parts) throw new Error(`Invalid native version: ${version}`);
-  if (dialect === "sqlserver") return parts[1];
-  if (dialect === "mysql") return `${parts[1]}.${parts[2]}`;
-  return `${parts[1]}.${parts[2]}.${parts[3]}`;
+export function targetSeries(dialect, version, registry = builtinMappers) {
+  return registry.get(dialect).versionBand(version);
 }
 
 // A semantic band uses only facts shared by all its captured builds/modes/profiles.
 // Individual contexts remain intact in the corpus; disagreement never selects an arbitrary row.
-export function groupCorpus(corpus) {
+export function groupCorpus(corpus, registry = builtinMappers) {
   const groups = new Map();
   for (const [id, entry] of Object.entries(corpus.targets)) {
-    const version = targetSeries(entry.dialect, entry.target.version);
+    const version = targetSeries(entry.dialect, entry.target.version, registry);
     const key = `${entry.dialect}/${version}`;
     const group = groups.get(key) ?? { dialect: entry.dialect, version, contexts: [], categories: {} };
     group.contexts.push({ id, capture: expandTarget(corpus, entry) });
@@ -36,12 +29,23 @@ export function groupCorpus(corpus) {
         };
         continue;
       }
-      const memberships = observed.map((entry) => new Set(entry.rows.map(hash)));
-      const rows = observed[0].rows.filter((row) => memberships.every((membership) => membership.has(hash(row))));
+      const mapper = registry.get(group.dialect);
+      const normalized = observed.map((entry) => [
+        ...new Map(
+          entry.rows.map((raw) => {
+            const row = mapper.normalizeRow(name, raw);
+            const value =
+              name === "functions" && row.signature ? { ...row, signature: routineSignature(mapper, row) } : row;
+            return [hash(value), value];
+          }),
+        ).values(),
+      ]);
+      const memberships = normalized.map((rows) => new Set(rows.map(hash)));
+      const rows = normalized[0].filter((row) => memberships.every((membership) => membership.has(hash(row))));
       group.categories[name] = {
         status: "observed",
         rows,
-        excludedContextRows: new Set(observed.flatMap((entry) => entry.rows.map(hash))).size - rows.length,
+        excludedContextRows: new Set(normalized.flatMap((rows) => rows.map(hash))).size - rows.length,
       };
     }
   }

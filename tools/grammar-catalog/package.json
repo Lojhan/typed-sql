@@ -1,0 +1,8 @@
+{
+  "name": "typed-sql-grammar-catalog",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.11"
+  }
+}
