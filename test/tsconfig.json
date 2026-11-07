@@ -16,6 +16,16 @@
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",
     "../packages/*/test/environment.ts",
+    "../packages/playground/ui/layout.ts",
+    "../packages/playground/ui/explorer-model.ts",
+    "../packages/playground/ui/object-definition-model.ts",
+    "../packages/playground/ui/explorer-types.ts",
+    "../packages/playground/ui/command-model.ts",
+    "../packages/playground/ui/editor-language-model.ts",
+    "../packages/playground/ui/editor-document.ts",
+    "../packages/playground/ui/document-state.ts",
+    "../packages/playground/ui/result-model.ts",
+    "../packages/playground/ui/types.ts",
     "contracts/**/*.test.ts",
     "fuzz/**/*.ts",
     "grammar/**/*.ts",
@@ -82,6 +92,9 @@
     },
     {
       "path": "../examples/synthetic-grammar"
+    },
+    {
+      "path": "../packages/playground"
     },
     {
       "path": "../packages/migrations"

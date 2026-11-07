@@ -72,6 +72,9 @@
     },
     {
       "path": "./test"
+    },
+    {
+      "path": "./packages/playground"
     }
   ]
 }

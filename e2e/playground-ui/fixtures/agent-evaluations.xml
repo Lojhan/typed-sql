@@ -1,0 +1,43 @@
+<evaluation>
+  <!-- Run against a fresh commerce fixture, after migrations 001–012 and before 013. -->
+  <qa_pair>
+    <question>Discover the order-to-invoice relationship and count orders that have line items but no invoice. Return only the count.</question>
+    <answer>20</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Inspect the billing relationships and count invoiced orders for which no payment record exists. Return only the count.</question>
+    <answer>10</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Find the organization that owns the largest number of sales orders using captured relationships and live read-only data. Return only its name.</question>
+    <answer>Northstar</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Discover the category, product, order-line and billing links. How many units of Studio-category products occur on invoiced orders with no payment record? Return only the number of units.</question>
+    <answer>10</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Find the payment status introduced by the migration that replaced the pending-payment index, then count payments currently using that status. Return only the count.</question>
+    <answer>0</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Inspect account column history and local migration source to identify the migration that introduced the current contact_email column by renaming its predecessor. Return only the migration ID.</question>
+    <answer>010_contact_and_shipping</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Compare current account columns with unapplied migration definitions. Which pending migration adds last-seen tracking? Return only the migration ID.</question>
+    <answer>013_account_last_seen</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Follow the line-adjustment relationship to its referenced order-line key. Which source columns are required, in captured key order? Return comma-separated column names without spaces.</question>
+    <answer>order_id,line_no</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Inspect the removed pending-payment index and the migration that replaced it. Which column is included, rather than a key column, in the replacement index? Return only that column name.</question>
+    <answer>amount</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Discover the account-membership and sales-order relationships. Count memberships belonging to accounts that have never placed an order. Return only the count.</question>
+    <answer>40</answer>
+  </qa_pair>
+</evaluation>

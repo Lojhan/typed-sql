@@ -1,0 +1,186 @@
+.editor-mount {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.editor-language-mount {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.editor-language-status {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  max-width: min(520px, calc(100% - 16px));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  z-index: 20;
+  box-shadow: 0 2px 8px #0002;
+}
+.editor-language-documentation {
+  max-width: min(620px, calc(100vw - 24px));
+  max-height: min(360px, 50vh);
+  overflow: auto;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--panel);
+  font:
+    12px / 1.6 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.editor-language-documentation pre {
+  margin: 0 0 6px;
+  font:
+    12px / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+:root[data-theme] .cm-tooltip {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 4px 18px #0003;
+}
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete {
+  max-width: min(620px, calc(100vw - 24px));
+}
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete > ul {
+  font:
+    12px / 1.6 "SFMono-Regular",
+    Consolas,
+    monospace;
+  max-height: min(280px, 40vh);
+}
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete > ul > li {
+  padding: 3px 8px;
+  color: var(--text);
+  background: var(--panel);
+}
+:root[data-theme] .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--selected);
+  color: var(--text);
+}
+:root[data-theme] .cm-completionDetail {
+  color: var(--muted);
+  margin-left: 12px;
+  font-size: 11px;
+}
+:root[data-theme] .cm-tooltip.cm-tooltip-lint {
+  max-width: min(620px, calc(100vw - 24px));
+  font:
+    12px / 1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+:root[data-theme] .cm-diagnostic {
+  padding: 6px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:root[data-theme] .cm-diagnosticSource {
+  color: var(--muted);
+}
+:root[data-theme] .cm-gutter.cm-gutter-lint,
+:root[data-theme] .cm-gutter.cm-foldGutter {
+  width: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+}
+:root[data-theme] .cm-gutter-lint .cm-gutterElement,
+:root[data-theme] .cm-foldGutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 20px;
+  padding: 0;
+}
+:root[data-theme] .cm-gutter-lint .cm-lint-marker {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+}
+:root[data-theme] .cm-gutter.cm-lineNumbers {
+  min-width: 36px;
+  flex-shrink: 0;
+}
+:root[data-theme] .cm-lineNumbers .cm-gutterElement {
+  box-sizing: border-box;
+  min-width: 36px;
+  padding: 0 7px 0 6px;
+  text-align: right;
+}
+.editor-fold-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 100%;
+  color: var(--muted);
+}
+.editor-fold-marker svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+:root[data-theme] .cm-foldGutter .cm-gutterElement:hover {
+  background: var(--hover);
+}
+:root[data-theme] .cm-lintRange-error {
+  text-decoration-color: var(--danger);
+}
+.editor-context-menu {
+  position: fixed;
+  z-index: 150;
+  max-width: min(620px, calc(100vw - 8px));
+  max-height: calc(100dvh - 8px);
+  overflow: auto;
+}
+.editor-context-menu > button {
+  justify-content: space-between;
+}
+.editor-context-menu > button:hover,
+.editor-context-menu > button:focus-visible {
+  background: var(--hover);
+}
+.editor-context-menu kbd {
+  flex: none;
+  color: var(--muted);
+  font-size: 10px;
+}
+.editor-context-menu button:disabled:hover {
+  background: transparent;
+}
+
+:root[data-theme="light"] {
+  --file-js: #84681c;
+}
+:root[data-theme="dark"] {
+  --file-js: #d6bd67;
+}
+:root[data-theme] .file-tree .icon-file-js,
+:root[data-theme] .pane-tab .icon-file-js,
+:root[data-theme] .palette-options .icon-file-js {
+  color: var(--file-js);
+}
+:root[data-theme] .icon-file-json {
+  color: var(--muted);
+}
