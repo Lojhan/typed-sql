@@ -1,6 +1,7 @@
 # Generated grammar catalogs and complete engine auditing
 
-Status: proposed implementation specification. No implementation is included in this change.
+Status: implementation in progress. Current evidence and remaining requirements are tracked in
+[the implementation ledger](./implementation.md).
 
 Baseline: `f9b7371581911b20fc46d74b82394d813edb4d0e`, measured on 2026-11-07.
 

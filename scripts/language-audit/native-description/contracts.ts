@@ -1,13 +1,13 @@
 export interface NativeTypeDescriptor {
   nativeType?: string | null;
-  engineType?: number;
+  engineType?: number | string;
   typeModifier?: number;
   nativeTypeStructure?: unknown;
   userTypeSchema?: string | null;
   userTypeName?: string | null;
-  maxLength?: number;
-  precision?: number;
-  scale?: number;
+  maxLength?: number | string;
+  precision?: number | string;
+  scale?: number | string;
 }
 
 export interface NativeDescription {

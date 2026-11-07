@@ -46,6 +46,15 @@ never grammar-name branches. Engine and extension meanings belong to their contr
   OIDs/typmods, DuckDB nested structure/branding and SQL Server logical names/dimensions/user type
   identities. Shared comparison has no grammar-name branches. Missing parameter descriptions now
   prevent a complete identity claim even when parameter counts match.
+- Registered audit adapters now own analysis construction, tokenization, version selection and
+  invocation planning. Shared audit/recognition code no longer imports grammar implementations
+  or selects behavior by engine name. Injected registries support new/inherited grammar IDs;
+  a graph contribution exercises inventory, parameterized native probes and independent comparison.
+- Reused neutral registry validation with explicit stage method contracts. Extension preserves
+  frozen registrations even if a caller mutates its original definition after registration.
+- SQL Server expected-type evidence validates numeric descriptor fields returned as decimal text.
+  Its independent owner recognizes Microsoft's documented DECIMAL/NUMERIC logical equivalence,
+  preserving precision, scale, logical names outside that equivalence and user type identity.
 
 ## Validation observed
 
@@ -82,6 +91,22 @@ never grammar-name branches. Engine and extension meanings belong to their contr
   mismatches remain in these runs; these numbers are not full semantic coverage. A preceding PG
   run exposed catalog-type identity versus SQL declaration defaults for BIT/CHARACTER; native
   Parse/Describe confirmed the mapper's qualified unmodified identities preserve typmod -1.
+- Compared old and registered invocation planners over all 29,018 retained native function rows:
+  generated query arrays are identical. Adapter contracts discover all retained contexts from
+  the validated model rather than maintaining a second grammar/version case list.
+- Comparator checkpoint CI `42386624346` produced review-only native audit failures. Reviewed all
+  33 CI contexts against the generation corpus: inventories, recognition counts and retained
+  grammar-gap behavior are unchanged. Only recognition evidence fingerprints changed. Replayed
+  retained SQL Server engine descriptions after strict wire decoding; 20 spelling/ID differences
+  were the documented NUMERIC/DECIMAL equivalence. No unapproved type differences remain.
+  SQL Server profiles have 62–78 complete logical identity comparisons in this replay. The updated
+  source still requires fresh current-head native CI; replay is not a substitute for that lane.
+- Updated those reviewed fingerprints and the existing local SQLite context after checking
+  unchanged inventories/counts/gaps. Actual native type disagreements remain non-baselinable.
+- Registered audit adapters and reviewed comparator evidence pass local typecheck, audit-script
+  typecheck, quality and all 54 repository contract files. Final focused adapter/comparator checks
+  also pass after the category-probe contract was made explicit. Native CI for the next pushed
+  head is still required; the failed older run is not recorded as a pass.
 
 ## Requirements still open
 

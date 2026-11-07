@@ -103,6 +103,15 @@ await describe("independent native type-description comparison", async () => {
       userTypeName: null,
     };
     const oracle = nativeDescriptionRegistry.create("sqlserver", async () => prepared(descriptor));
+    const wire = { ...descriptor, engineType: "165", maxLength: "12", precision: "0", scale: "0" };
+    strict.equal(
+      (await compareNativeDescription(metadata(wire), analyzed("varbinary(12)"), oracle)).status,
+      "native-identities-match",
+    );
+    strict.equal(
+      (await compareNativeDescription(metadata({ ...wire, maxLength: "" }), analyzed("varbinary(12)"), oracle)).status,
+      "unverified",
+    );
     const vector = { ...descriptor, nativeType: "vector(3)" };
     strict.equal(
       (await compareNativeDescription(metadata(vector), analyzed("varbinary(12)"), oracle)).status,
@@ -142,6 +151,39 @@ await describe("independent native type-description comparison", async () => {
       nativeTypeStructure: { child: { typeId: 17 }, typeId: 24 },
     };
     strict.equal((await compareNativeDescription(metadata(unbranded), analyzed("JSON[]"), oracle)).status, "mismatch");
+  });
+
+  await it("accepts documented SQL Server numeric/decimal equivalence while retaining precision and scale", async () => {
+    const numeric = {
+      engineType: "108",
+      nativeType: "numeric(38,0)",
+      maxLength: "17",
+      precision: "38",
+      scale: "0",
+      userTypeSchema: null,
+      userTypeName: null,
+    };
+    const decimal = { ...numeric, engineType: "106", nativeType: "decimal(38,0)" };
+    const oracle = nativeDescriptionRegistry.create("sqlserver", async () => prepared(decimal));
+    strict.equal(
+      (await compareNativeDescription(metadata(numeric), analyzed("decimal(38,0)"), oracle)).status,
+      "native-identities-match",
+    );
+    const scaled = { ...numeric, nativeType: "numeric(38,2)", scale: "2" };
+    strict.equal(
+      (await compareNativeDescription(metadata(scaled), analyzed("decimal(38,0)"), oracle)).status,
+      "mismatch",
+    );
+    strict.equal(
+      (
+        await compareNativeDescription(
+          metadata({ ...numeric, userTypeName: "custom" }),
+          analyzed("decimal(38,0)"),
+          oracle,
+        )
+      ).status,
+      "mismatch",
+    );
   });
 
   await it("leaves unavailable or rejected descriptions unverified and propagates infrastructure failures", async () => {

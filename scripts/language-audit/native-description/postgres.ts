@@ -10,7 +10,12 @@ export const postgresDescription: NativeDescriptionMapper = {
     return `SELECT CAST(NULL AS ${unmodified[type.trim().toLowerCase()] ?? type}) AS value`;
   },
   identity: (descriptor, scope) => {
-    if (!Number.isInteger(descriptor.engineType) || descriptor.engineType! <= 0) return undefined;
+    if (
+      typeof descriptor.engineType !== "number" ||
+      !Number.isInteger(descriptor.engineType) ||
+      descriptor.engineType <= 0
+    )
+      return undefined;
     // ParameterDescription supplies OIDs only; RowDescription also supplies atttypmod.
     // https://www.postgresql.org/docs/current/protocol-message-formats.html
     if (scope === "parameter") return JSON.stringify([descriptor.engineType]);
