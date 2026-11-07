@@ -1,5 +1,11 @@
 /** Explicit registrations keep the pipeline independent of grammar names and plugin lists. */
-export function createMapperRegistry(definitions) {
+export function createMapperRegistry(definitions, options = {}) {
+  const methods = Object.freeze([...(options.methods ?? ["versionBand", "routineFacts", "normalizeRow"])]);
+  if (
+    !methods.length ||
+    methods.some((method) => typeof method !== "string" || !/^[a-zA-Z][a-zA-Z0-9]*$/u.test(method))
+  )
+    throw new TypeError("Invalid catalog mapper method contract");
   const pending = new Map();
   for (const definition of definitions) {
     if (!definition || !/^[a-z][a-z0-9-]*(?:\/[a-z][a-z0-9-]*)*$/u.test(definition.id))
@@ -16,7 +22,7 @@ export function createMapperRegistry(definitions) {
     const next = new Set(ancestors).add(id);
     const parent = definition.extends === undefined ? {} : get(definition.extends, next);
     const mapper = Object.freeze({ ...parent, ...definition });
-    for (const method of ["versionBand", "routineFacts", "normalizeRow"])
+    for (const method of methods)
       if (typeof mapper[method] !== "function") throw new TypeError(`Missing catalog mapper ${id}.${method}`);
     resolved.set(id, mapper);
     return mapper;
@@ -25,7 +31,7 @@ export function createMapperRegistry(definitions) {
   return Object.freeze({
     ids: Object.freeze([...resolved.keys()].sort()),
     get: (id) => get(id),
-    extend: (contributions) => createMapperRegistry([...pending.values(), ...contributions]),
+    extend: (contributions) => createMapperRegistry([...pending.values(), ...contributions], { methods }),
   });
 }
 

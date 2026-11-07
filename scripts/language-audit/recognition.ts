@@ -6,58 +6,22 @@ import type {
 } from "../../packages/core/src/index.js";
 import { grammarFor } from "./audit.js";
 import { compareNativeDescription } from "./description.js";
+import { builtinAuditGrammars } from "./grammars/index.js";
+import type { AuditGrammarRegistry } from "./grammars/registry.js";
 import { hash } from "./inventory.mjs";
+import type { DiscoveredFunction } from "./invocations.js";
+import { callProbeQueries, neutralCallProbes } from "./invocations.js";
+import type { createNativeDescriptionRegistry } from "./native-description/index.js";
 import { nativeDescriptionRegistry } from "./native-description/index.js";
 
-export type DiscoveredFunction = {
-  name: string;
-  kind?: string;
-  arity?: number;
-  arguments?: unknown;
-  argument_types?: unknown;
-  result_type_kind?: string;
-  namespace?: string;
-  returns_set?: boolean;
-};
+export type { DiscoveredFunction } from "./invocations.js";
 
-export function recognitionQueries(row: DiscoveredFunction, dialect?: string) {
-  if (!/^[a-z_][a-z_0-9]*$/iu.test(row.name) || row.kind === "p" || row.result_type_kind === "p") return [];
-  const types = Array.isArray(row.argument_types)
-    ? row.argument_types
-    : Array.isArray(row.arguments)
-      ? row.arguments
-      : undefined;
-  if (types?.some((type) => typeof type !== "string" || !/^[a-z_0-9 "[\](),.]+$/iu.test(type))) return [];
-  const arity = Number(row.arity);
-  const counts = types ? [types.length] : Number.isSafeInteger(arity) && arity >= 0 ? [arity] : [0, 1, 2, 3, 4, 5];
-  return counts
-    .filter((count) => count <= 128)
-    .map((count) => {
-      let parameterIndex = 0;
-      const argumentsSql = types
-        ? types
-            .map(
-              (type) =>
-                `CAST(${/\[\]$/u.test(type) ? (dialect === "postgres" ? "ARRAY[]" : "[0.5]") : dialect === "duckdb" ? `$${++parameterIndex}` : "NULL"} AS ${type})`,
-            )
-            .join(", ")
-        : Array(count).fill("NULL").join(", ");
-      const namespace = row.namespace && /^[a-z_][a-z_0-9]*$/iu.test(row.namespace) ? `${row.namespace}.` : "";
-      const call = `${namespace}${row.name}(${argumentsSql})`;
-      if (["table", "table_macro", "IF", "TF", "FT"].includes(row.kind ?? "") || row.returns_set)
-        return `SELECT * FROM ${call}`;
-      return `SELECT ${call}${row.kind === "window" || row.kind === "w" ? " OVER ()" : ""} AS value`;
-    })
-    .flatMap((sql, index) => {
-      if (dialect !== "postgres" || !types?.length) return [sql];
-      const count = counts[index]!;
-      const namespace = row.namespace && /^[a-z_][a-z_0-9]*$/iu.test(row.namespace) ? `${row.namespace}.` : "";
-      const call = `${namespace}${row.name}(${Array.from({ length: count }, (_value, position) => `$${position + 1}`).join(", ")})`;
-      return [
-        sql,
-        row.returns_set ? `SELECT * FROM ${call}` : `SELECT ${call}${row.kind === "w" ? " OVER ()" : ""} AS value`,
-      ];
-    });
+export function recognitionQueries(
+  row: DiscoveredFunction,
+  dialect?: string,
+  registry: AuditGrammarRegistry = builtinAuditGrammars,
+) {
+  return dialect === undefined ? callProbeQueries(row, neutralCallProbes) : registry.get(dialect).planInvocations(row);
 }
 
 // The engine must accept a generated invocation before it can be evidence of a grammar gap.
@@ -68,16 +32,13 @@ export async function recognizeLive(
   rows: DiscoveredFunction[],
   prepare: (sql: string) => Promise<{ accepted: boolean; reason?: string; metadata?: unknown }>,
   server?: DialectServerEvidence,
+  options: {
+    registry?: AuditGrammarRegistry;
+    descriptions?: ReturnType<typeof createNativeDescriptionRegistry>;
+  } = {},
 ) {
-  const grammar = grammarFor(
-    dialect,
-    dialect === "mysql"
-      ? version.split(".").slice(0, 2).join(".")
-      : dialect === "postgres" || dialect === "sqlserver"
-        ? version.split(".")[0]!
-        : version,
-    server,
-  );
+  const registry = options.registry ?? builtinAuditGrammars;
+  const grammar = grammarFor(dialect, version, server, registry);
   const observations: {
     name: string;
     sql?: string;
@@ -90,10 +51,10 @@ export async function recognizeLive(
     nativeMetadata?: unknown;
     nativeTypeComparison?: Awaited<ReturnType<typeof compareNativeDescription>>;
   }[] = [];
-  const oracle = nativeDescriptionRegistry.create(dialect, prepare);
+  const oracle = (options.descriptions ?? nativeDescriptionRegistry).create(dialect, prepare);
   const seen = new Set<string>();
   for (const row of rows) {
-    const candidates = recognitionQueries(row, dialect);
+    const candidates = recognitionQueries(row, dialect, registry);
     if (!candidates.length) observations.push({ name: row.name, status: "native-invocation-unverified" });
     for (const sql of candidates) {
       if (seen.has(sql)) continue;

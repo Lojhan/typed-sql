@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
-  "inputFingerprint": "sha256:f7fb672a7ac3a68b250384dce37eea3bef5f044a2707cfaf78855c035aa847ae",
+  "inputFingerprint": "sha256:57cf5fe877ce8cd14d3bc9b56945ed9c43b059e4650bfa43df2fafd45d44b905",
   "model": {
     "formatVersion": 2,
     "schemaDigest": "sha256:715a68c4842b8656dbc2f69fae1bd17cb8f6c601b972a0d182b6d1538bc341ba",
-    "normalizerDigest": "sha256:5edc68e05f40fe0f999be9898ce3a6a1ceb8f6d60cef5c21a43f079bec0a6d7b",
+    "normalizerDigest": "sha256:4901a19d783b2593d97bd913daac036768ad37aae0694707ad14d83689a02548",
     "inputDigest": "sha256:41d158e1878afb0662add11ae082b93f9018d0ba4af9a384493fe28f7594f0c8",
     "profiles": 33,
     "entities": 26829,
@@ -69,7 +69,7 @@
     "packages/sqlserver/src/catalog/generated/types.ts": "sha256:1d6fcef8dcaeefc24e64d8c3a00eaec05e710ffb59393e336cb39904ac5a9f5c",
     "packages/sqlserver/src/catalog/generated/policy.ts": "sha256:bd065ab384934ac04640e0029b051520d920238d0510907725ecf1d6f6d6f102"
   },
-  "artifactFingerprint": "sha256:8b25fcdfa0ad105f748f873e63658befcff3a06bae11b9859f2e185e5b57b351",
+  "artifactFingerprint": "sha256:c5864ad186943294debfcc15a394449c728de0026b78746e60d4869595ae72e8",
   "bands": [
     {
       "dialect": "duckdb",
