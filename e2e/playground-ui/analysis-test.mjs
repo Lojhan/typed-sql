@@ -230,6 +230,7 @@ try {
   await page.reload();
   const toolsToggle = page.getByRole("combobox", { name: "Workspace tools", exact: true });
   await toolsToggle.waitFor();
+  await page.waitForFunction(() => document.querySelector('select[aria-label="Workspace tools"]')?.value === "allow");
   assert.equal(await toolsToggle.inputValue(), "allow");
   await page.getByRole("textbox", { name: "Message local agent", exact: true }).fill("show me a random chart");
   const followupRequest = page.waitForRequest((request) => request.url().endsWith("/api/agents/prompt"));
@@ -255,6 +256,7 @@ try {
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
   await page.reload();
   await toolsToggle.waitFor();
+  await page.waitForFunction(() => document.querySelector('select[aria-label="Workspace tools"]')?.value === "off");
   assert.equal(await toolsToggle.inputValue(), "off");
   check("explicitly disabling tools is sent and restored for the conversation");
 
@@ -272,9 +274,11 @@ try {
   await page.getByRole("button", { name: "Allow for this conversation", exact: true }).click();
   await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "detached" });
   assert.equal(await page.locator(".analysis-card").count(), beforeApproval + 1);
+  await page.waitForFunction(() => document.querySelector('select[aria-label="Workspace tools"]')?.value === "allow");
   assert.equal(await toolsToggle.inputValue(), "allow");
   await page.reload();
   await page.getByRole("textbox", { name: "Message local agent", exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('select[aria-label="Workspace tools"]')?.value === "allow");
   assert.equal(await toolsToggle.inputValue(), "allow");
   check("Ask pauses tool execution, Allow once covers one call, and conversation approval persists");
   await toolsToggle.selectOption("ask");
