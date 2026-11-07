@@ -427,6 +427,36 @@ Registered documentation-reference checkpoint:
 - Prior checkpoint `03025aaa` passed full CI run 42408681922 and both integration workflows.
   New reference-owner commit CI remains required.
 
+Pinned PostgreSQL bootstrap-source checkpoint:
+
+- Registered `catalog:source postgres` discovers all catalog data files from the immutable source
+  archives for the six exact retained versions (14.24, 15.19, 16.15, 17.11, 18.6, 19beta3).
+  Full archive/member/license bytes and extractor sources are locked. The pinned vendor
+  `Catalog.pm` expands header defaults and generated array-type rows; raw schema/row fields and
+  source locations are preserved. Explicit acquisition uses Python/Perl; normal generation uses
+  committed facts and Node only. An offline cached refresh with fetch disabled reproduces both
+  the lock and fact files byte-for-byte.
+- The shared source store contains 7,423 distinct catalog rows and 80 schemas, referenced by exact
+  version/location. Versions 14-18 expose 24 bootstrap data catalogs and 19beta3 exposes 25.
+  Procedure registration counts are 3,186 / 3,228 / 3,281 / 3,314 / 3,397 / 3,421 respectively.
+  This is source inventory coverage, not executable routine mapping or semantic qualification.
+- PostgreSQL generation validates the complete fact closure, extractor revision and source locks.
+  Source/native keyword names and categories agree exactly on all six contexts (457 / 460 / 471 /
+  491 / 494 / 511). A disagreement blocks generation. The generated
+  `postgres-source-coverage.json` accounts for all native keywords separately from parser words
+  and reports procedure/type name differences without upgrading them to overload parity.
+- Each native capture contains five additional procedure names: Snowball and PL/pgSQL handlers.
+  Native-only composite/system type names remain explicit. SQL installation scripts, parser
+  productions, configuration/platform rules, installed extension profiles and full semantic
+  projection remain unfinished; pinned archives retain inputs beyond the interpreted catalogs.
+  No existing runtime signatures or type policies are changed by this checkpoint.
+- New contracts cover exact target membership, raw variadic/strictness facts, native keyword
+  disagreement, unknown declaration formats, digest/version/closure corruption and orphaned
+  data. All 64 contract files pass, including clean-room generation and packed consumers.
+  Repository typecheck, quality and network-disabled cached source replay pass.
+- Prior reference-owner checkpoint `da17b810` passed full CI run 42409489345 and both integration
+  workflows. The source checkpoint requires its own exact-head CI before promotion.
+
 ## Requirements still open
 
 

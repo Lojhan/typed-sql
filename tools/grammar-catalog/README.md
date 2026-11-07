@@ -89,6 +89,21 @@ remain under ignored artifacts; durable retention and full native compile-profil
 are still required. Compiled registration facts carry arity and category evidence, with return
 semantics still unknown. Other vendor source owners remain to implement.
 
+`pnpm catalog:source postgres` acquires the exact PostgreSQL versions present in retained native
+captures. It locks the full immutable source archive, selected catalog/parser/SQL inputs and the
+PostgreSQL license. Explicit refresh requires Python 3.12 or newer and Perl with its standard
+`JSON::PP` module. Catalog data files are discovered from the archive and expanded by the pinned
+vendor `Catalog.pm`, including header defaults and generated array types. Content-addressed rows
+and schemas share unchanged data between versions; source line locations remain attached to each
+catalog entry. Generation validates the fact closure and lock without Python, Perl or network access.
+
+The PostgreSQL emitter compares source keyword names/categories with retained native inventories
+and rejects disagreement. Its generated source coverage report distinguishes that comparison from
+name-only procedure/type inventory comparisons. SQL installation scripts and grammar productions
+remain uninterpreted inputs; configuration, extension availability, full overload semantics and
+runtime decoding require separate extraction and qualification. Bootstrap catalogs alone do not
+establish complete engine coverage.
+
 The SQLite catalog refresh also locks the full vendor archive and builds its amalgamation in a
 fresh temporary directory. Archive members must agree with the separately pinned files before
 any vendor build step runs. The archive extractor rejects links, special files, duplicate paths

@@ -1,10 +1,28 @@
 import { commonEntities } from "../model/projection.mjs";
+import { checkLockedFacts } from "../provenance/source-lock.mjs";
+import { sourceCoverage } from "../sources/postgres/coverage.mjs";
+import {
+  extractorId,
+  extractorRevision,
+  validateSourceFacts,
+  validateSourceVersion,
+} from "../sources/postgres/facts.mjs";
 import { literal, ordered, parserVocabulary, rowsLiteral } from "./common.mjs";
 import { postgresSemanticSignature } from "./facts/postgres-semantic.mjs";
 import { generateCore } from "./postgres-core.mjs";
 
-export async function generateCatalog({ semanticGroups, input, emit, header }) {
+export async function generateCatalog({ groups, semanticGroups, input, emit, header }) {
   const policy = await input("policy", "grammar/postgres/catalog/policy.json");
+  const sourceFacts = await input("source-facts", "grammar/postgres/facts/catalog.json");
+  const sourceLock = await input("source-lock", "grammar/postgres/sources.lock.json");
+  validateSourceFacts(sourceFacts);
+  checkLockedFacts(sourceLock, sourceFacts, validateSourceVersion);
+  if (sourceLock.extractor.id !== extractorId || sourceLock.extractor.revision !== (await extractorRevision()))
+    throw new TypeError("PostgreSQL source extractor differs from lock; explicitly refresh vendor facts");
+  await emit(
+    "planning/grammar-completeness/postgres-source-coverage.json",
+    `${JSON.stringify(sourceCoverage(sourceFacts, groups, policy.parser.keywords), null, 2)}\n`,
+  );
   const core = await input("core", "grammar/postgres/catalog/core.json");
   const ledger = await input("versions", "grammar/features/ledger.json");
   await generateCore({ source: core, ledger, semanticGroups, emit, header });
