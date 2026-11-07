@@ -104,6 +104,9 @@
   flex: none;
 }
 .agent-context-menu > summary {
+  width: auto;
+  padding-inline: 8px;
+  border-color: var(--border);
   cursor: pointer;
   white-space: nowrap;
 }
