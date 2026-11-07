@@ -947,7 +947,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     await choose("playground/selection.sql");
     const rawRun = proof.waitForResponse((response) => response.url().endsWith("/api/run"));
     await proof.getByRole("button", { name: "Run", exact: true }).click();
-    assert.equal((await rawRun).status(), 200, "Unrelated dirty modules do not block raw SQL");
+    assert.equal((await rawRun).status(), 202, "Unrelated dirty modules do not block raw SQL");
     const rawRecord = await (await rawRun).json();
     await proof.waitForFunction(async (id) => {
       const state = await (
@@ -963,7 +963,7 @@ export default {dialect:postgres(),schema:{file:'schema.json'},outDir:'generated
     const moduleRun = proof.waitForResponse((response) => response.url().endsWith("/api/run"));
     await proof.getByRole("button", { name: "Run", exact: true }).click();
     const moduleResponse = await moduleRun;
-    assert.equal(moduleResponse.status(), 200);
+    assert.equal(moduleResponse.status(), 202);
     const moduleRecord = await moduleResponse.json();
     await proof.waitForFunction(async (id) => {
       const state = await (
