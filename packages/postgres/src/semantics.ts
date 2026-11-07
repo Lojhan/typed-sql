@@ -8,32 +8,9 @@ import {
   type SemanticEvidence,
 } from "@typed-sql/core";
 import type { SchemaSnapshot } from "@typed-sql/schema";
+import { syntaxVolatility } from "./catalog/generated/semantics.js";
+import { postgresNativeOverloads } from "./catalog/native.js";
 import { type CallExpression, type Statement, walkStatement } from "./parser/index.js";
-
-const builtinVolatility: Readonly<Record<string, QueryVolatility>> = Object.freeze({
-  ARRAY_AGG: "immutable",
-  AVG: "immutable",
-  BOOL_AND: "immutable",
-  BOOL_OR: "immutable",
-  COALESCE: "immutable",
-  COUNT: "immutable",
-  CURRVAL: "volatile",
-  EVERY: "immutable",
-  GREATEST: "immutable",
-  JSON_AGG: "immutable",
-  JSON_OBJECT_AGG: "immutable",
-  JSONB_AGG: "immutable",
-  JSONB_OBJECT_AGG: "immutable",
-  LEAST: "immutable",
-  MAX: "immutable",
-  MIN: "immutable",
-  NEXTVAL: "volatile",
-  NULLIF: "immutable",
-  RANDOM: "volatile",
-  SETVAL: "volatile",
-  STRING_AGG: "immutable",
-  SUM: "immutable",
-});
 
 function syntax(description: string, range: Statement["range"]): SemanticEvidence {
   return { kind: "syntax", description, range };
@@ -50,13 +27,34 @@ function key(dependency: QueryDependency): string {
   ].join("\0");
 }
 
-function functionVolatility(expression: CallExpression, index: ResolverSchemaIndex): QueryVolatility {
-  const builtin = builtinVolatility[expression.name.name.toUpperCase()];
+function functionVolatility(
+  expression: CallExpression,
+  index: ResolverSchemaIndex,
+  snapshot: SchemaSnapshot,
+): QueryVolatility {
+  const builtin = expression.name.quoted ? undefined : syntaxVolatility[expression.name.name.toUpperCase()];
   if (builtin !== undefined && expression.schema === undefined) return builtin;
   const routines = index.routineOverloads(expression.name.name, expression.arguments.length, expression.schema?.name);
-  if (routines.length === 1) return routines[0]!.volatility;
+  if (routines.length) return routines.length === 1 ? routines[0]!.volatility : "unknown";
   const candidates = index.functions(expression.name.name, expression.arguments.length, expression.schema?.name);
-  return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";
+  if (candidates.length) return candidates.length === 1 ? (candidates[0]!.volatility ?? "unknown") : "unknown";
+  const name = expression.name.quoted ? expression.name.name : expression.name.name.toLowerCase();
+  const namespace =
+    expression.schema === undefined
+      ? undefined
+      : expression.schema.quoted
+        ? expression.schema.name
+        : expression.schema.name.toLowerCase();
+  const native = postgresNativeOverloads(name, snapshot, namespace);
+  if (!native.length || native.some((signature) => !["i", "s", "v"].includes(signature.volatility ?? "")))
+    return "unknown";
+  // Joining the whole overload family is conservative when AST-only semantic analysis
+  // cannot choose an overload using resolved argument types.
+  return native.some((signature) => signature.volatility === "v")
+    ? "volatile"
+    : native.some((signature) => signature.volatility === "s")
+      ? "stable"
+      : "immutable";
 }
 
 export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaSnapshot): QuerySemantics {
@@ -144,7 +142,7 @@ export function analyzePostgresSemantics(statement: Statement, snapshot: SchemaS
           range: expression.range,
         };
         dependencies.set(key(dependency), dependency);
-        volatilities.push(functionVolatility(expression, index));
+        volatilities.push(functionVolatility(expression, index, snapshot));
       } else if (expression.kind === "array") capabilities.add("arrays");
       else if (expression.kind === "cast") capabilities.add("casts");
       else if (expression.kind === "subquery" || expression.kind === "exists") capabilities.add("subqueries");

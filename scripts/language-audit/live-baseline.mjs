@@ -41,6 +41,8 @@ export function summarizeLive(input) {
 export function reviewLive(input, baseline) {
   const summary = summarizeLive(input);
   const key = hash({ dialect: summary.dialect, target: summary.target });
+  if (input.recognition?.counts?.["native-valid-type-mismatch"] > 0)
+    return { status: "invalid-inference", key, reason: "Grammar and native type descriptions disagree", summary };
   const previous = baseline.targets[key];
   if (!previous)
     return { status: "review-required", key, reason: "No reviewed inventory for this exact engine/context", summary };
@@ -66,6 +68,8 @@ export async function reviewLiveBaseline(input) {
 export async function acceptLiveBaseline(input) {
   const baseline = JSON.parse(await readFile(path, "utf8"));
   const review = reviewLive(input, baseline);
+  if (review.status === "invalid-inference")
+    throw new Error("Native type disagreements cannot be accepted as a baseline");
   baseline.targets[review.key] = review.summary;
   baseline.targets = Object.fromEntries(
     Object.entries(baseline.targets).sort(([left], [right]) => left.localeCompare(right)),

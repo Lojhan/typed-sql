@@ -6,6 +6,7 @@ import { duckDBServerEvidence } from "../../packages/duckdb/src/support.js";
 import { mySqlServerEvidence } from "../../packages/mysql/src/capabilities.js";
 import { postgresServerEvidence } from "../../packages/postgres/src/capabilities.js";
 import { auditInventory, checkReferences, writeAudit } from "./audit.js";
+import { duckDBNativeTypeText } from "./duckdb-description.mjs";
 import { collectLive, diffInventory, inventory, serialize } from "./inventory.mjs";
 import { acceptLiveBaseline, recordNativeFindings, reviewLiveBaseline } from "./live-baseline.mjs";
 import { describeSqlServer, prepareMySql, preparePostgres, recognitionSummary } from "./native.mjs";
@@ -93,7 +94,7 @@ if (mode === "refresh") {
     await writeFile(output, `${serialize(complete)}\n`);
     const reviewed = await reviewLiveBaseline(complete);
     await writeFile(`${output}.review.json`, `${JSON.stringify(reviewed, null, 2)}\n`);
-    if (args.includes("--require-reviewed") && reviewed.status !== "match")
+    if (reviewed.status === "invalid-inference" || (args.includes("--require-reviewed") && reviewed.status !== "match"))
       throw new Error(`Live inventory requires review: ${output}.review.json`);
     const baseline = option("--baseline");
     if (baseline) {
@@ -251,14 +252,24 @@ async function connect(dialect: string, selected = option("--version")) {
           try {
             const columns = Array.from({ length: statement.columnCount }, (_, index) => {
               let nativeType: string | null = null;
+              let nativeTypeStructure: unknown = null;
               let typeKnowledge = "native preparation";
               try {
-                nativeType = statement.columnType(index).toString();
+                const descriptor = statement.columnType(index);
+                nativeType = duckDBNativeTypeText(descriptor, sdk.DuckDBTypeId);
+                nativeTypeStructure = descriptor.toJson();
               } catch (error) {
                 if (!/^Unexpected type id: \d+$/u.test(String((error as Error).message))) throw error;
                 typeKnowledge = `driver descriptor unavailable: ${String((error as Error).message)}`;
               }
-              return { name: statement.columnName(index), nativeType, typeKnowledge, nullable: null };
+              return {
+                name: statement.columnName(index),
+                engineType: statement.columnTypeId(index),
+                nativeType,
+                nativeTypeStructure,
+                typeKnowledge,
+                nullable: null,
+              };
             });
             return {
               accepted: true,

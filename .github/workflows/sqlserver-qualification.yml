@@ -1,19 +1,7 @@
 name: SQL Server qualification
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/sqlserver-qualification.yml'
-      - 'scripts/install-sqlserver-odbc.sh'
-      - 'scripts/language-audit/**'
-      - 'test/fixtures/language-audit/**'
-      - 'e2e/sqlserver/**'
-      - 'packages/sqlserver/**'
-      - 'packages/core/**'
-      - 'packages/schema/**'
-      - 'packages/ast/**'
-      - 'packages/compiler/**'
-      - 'pnpm-lock.yaml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -107,6 +95,10 @@ jobs:
         env:
           TYPED_SQL_SQLSERVER_MAJOR: ${{ matrix.major }}
           TYPED_SQL_SQLSERVER_BUILD: ${{ matrix.build }}
+      - name: Verify generated catalog inputs against every compatibility profile
+        env:
+          AUDIT_CAPTURE: artifacts/sqlserver/catalog-${{ matrix.major }}.json
+        run: pnpm catalog:check-input "$AUDIT_CAPTURE"
       - name: Qualify public conformance command routing
         if: always() && steps.build.outcome == 'success'
         run: pnpm conformance:v2 -- --grammar sqlserver --database-version "$TYPED_SQL_SQLSERVER_BUILD"

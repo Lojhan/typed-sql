@@ -8,6 +8,8 @@
   "include": [
     "../scripts/language-audit/**/*.ts",
     "../scripts/language-audit/**/*.mjs",
+    "../scripts/catalog-generation/**/*.ts",
+    "../scripts/catalog-generation/**/*.mjs",
     "../packages/*/test/**/*.test.ts",
     "../editors/vscode/test/**/*.test.ts",
     "../packages/*/test/helpers/**/*.ts",

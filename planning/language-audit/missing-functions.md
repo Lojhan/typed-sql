@@ -25,7 +25,7 @@ A number means the upstream inventory was observed. `—` means unavailable in t
 | mysql | 8.4 | 429 | — | — | — | — | — | — | — | — |
 | mysql | 9.7 | 432 | — | — | — | — | — | — | — | — |
 | mysql | 26.7 | 431 | — | — | — | — | — | — | — | — |
-| sqlite | reference-3.54.1 | 139 | 147 | — | — | — | — | — | — | 40 |
+| sqlite | reference-3.54.1 | 139 | 147 | 6 | — | — | — | — | — | 40 |
 | sqlserver | 14 | 296 | — | 41 | 112 | — | — | — | — | 343 |
 | sqlserver | 15 | 296 | — | 41 | 112 | — | — | — | — | 348 |
 | sqlserver | 16 | 307 | — | 41 | 112 | — | — | — | — | 349 |
@@ -42,61 +42,53 @@ Names below are generated from upstream inventories. Versions sharing a finding 
 
 | Target | Names observed | Unknown-function observations | Unverified invocations | Declared or typed recognition |
 | --- | ---: | ---: | ---: | ---: |
-| 14 | 611 | 539 | 8 | 64 |
-| 15 | 622 | 550 | 8 | 64 |
-| 16 | 647 | 571 | 9 | 67 |
-| 17 | 671 | 589 | 13 | 69 |
-| 18 | 689 | 607 | 13 | 69 |
-| 19 | 699 | 617 | 13 | 69 |
+| 14 | 611 | 27 | 185 | 399 |
+| 15 | 622 | 27 | 192 | 403 |
+| 16 | 647 | 27 | 205 | 415 |
+| 17 | 671 | 29 | 216 | 426 |
+| 18 | 689 | 29 | 223 | 437 |
+| 19 | 699 | 29 | 230 | 440 |
 
 **unknown-function-observed**
 
 Targets 14, 15, 16, 17, 18, 19:
 
-`abbrev`, `abs`, `acldefault`, `aclexplode`, `acos`, `acosd`, `acosh`, `age`, `any`, `area`, `array_append`, `array_cat`, `array_dims`, `array_fill`, `array_length`, `array_lower`, `array_ndims`, `array_position`, `array_positions`, `array_prepend`, `array_remove`, `array_replace`, `array_to_string`, `array_to_tsvector`, `array_upper`, `ascii`, `asin`, `asind`, `asinh`, `atan`, `atan2`, `atan2d`, `atand`, `atanh`, `bit_and`, `bit_count`, `bit_length`, `bit_or`, `bit_xor`, `bound_box`, `box`, `brin_desummarize_range`, `brin_summarize_new_values`, `brin_summarize_range`, `broadcast`, `btrim`, `cardinality`, `cbrt`, `ceil`, `ceiling`, `center`, `char_length`, `character_length`, `chr`, `circle`, `clock_timestamp`, `col_description`, `concat`, `concat_ws`, `convert`, `convert_from`, `convert_to`, `corr`, `cos`, `cosd`, `cosh`, `cot`, `cotd`, `covar_pop`, `covar_samp`, `current_catalog`, `current_database`, `current_date`, `current_query`, `current_role`, `current_schema`, `current_schemas`, `current_setting`, `current_time`, `current_timestamp`, `current_user`, `currval`, `cursor_to_xml`, `cursor_to_xmlschema`, `database_to_xml`, `database_to_xml_and_xmlschema`, `database_to_xmlschema`, `date_bin`, `date_part`, `date_trunc`, `decode`, `degrees`, `diagonal`, `diameter`, `div`, `encode`, `enum_first`, `enum_last`, `enum_range`, `exp`, `extract`, `factorial`, `family`, `floor`, `format`, `format_type`, `gcd`, `gen_random_uuid`, `get_bit`, `get_byte`, `get_current_ts_config`, `gin_clean_pending_list`, `has_any_column_privilege`, `has_column_privilege`, `has_database_privilege`, `has_foreign_data_wrapper_privilege`, `has_function_privilege`, `has_language_privilege`, `has_schema_privilege`, `has_sequence_privilege`, `has_server_privilege`, `has_table_privilege`, `has_tablespace_privilege`, `has_type_privilege`, `height`, `host`, `hostmask`, `ifnull`, `ilike`, `inet_client_addr`, `inet_client_port`, `inet_merge`, `inet_same_family`, `inet_server_addr`, `inet_server_port`, `initcap`, `isclosed`, `isempty`, `isfinite`, `isopen`, `json_array_length`, `json_object_keys`, `json_populate_record`, `json_strip_nulls`, `json_to_record`, `json_to_tsvector`, `json_typeof`, `jsonb_array_length`, `jsonb_object`, `jsonb_object_keys`, `jsonb_populate_record`, `jsonb_pretty`, `jsonb_set_lax`, `jsonb_strip_nulls`, `jsonb_to_record`, `jsonb_to_tsvector`, `jsonb_typeof`, `justify_days`, `justify_hours`, `justify_interval`, `lastval`, `lcm`, `left`, `length`, `like`, `line`, `ln`, `localtime`, `localtimestamp`, `log`, `log10`, `lower`, `lower_inc`, `lower_inf`, `lpad`, `lseg`, `ltrim`, `macaddr8_set7bit`, `make_date`, `make_interval`, `make_time`, `make_timestamp`, `make_timestamptz`, `makeaclitem`, `masklen`, `md5`, `min_scale`, `mod`, `multirange`, `mxid_age`, `netmask`, `network`, `nextval`, `normalize`, `now`, `npoints`, `num_nonnulls`, `num_nulls`, `numnode`, `nvl`, `obj_description`, `octet_length`, `overlay`, `parse_ident`, `path`, `pclose`, `pg_advisory_lock`, `pg_advisory_lock_shared`, `pg_advisory_unlock`, `pg_advisory_unlock_all`, `pg_advisory_unlock_shared`, `pg_advisory_xact_lock`, `pg_advisory_xact_lock_shared`, `pg_backend_pid`, `pg_blocking_pids`, `pg_cancel_backend`, `pg_client_encoding`, `pg_collation_actual_version`, `pg_collation_is_visible`, `pg_column_compression`, `pg_column_size`, `pg_conf_load_time`, `pg_control_checkpoint`, `pg_control_init`, `pg_control_recovery`, `pg_control_system`, `pg_conversion_is_visible`, `pg_copy_logical_replication_slot`, `pg_copy_physical_replication_slot`, `pg_create_logical_replication_slot`, `pg_create_physical_replication_slot`, `pg_create_restore_point`, `pg_current_logfile`, `pg_current_snapshot`, `pg_current_wal_flush_lsn`, `pg_current_wal_insert_lsn`, `pg_current_wal_lsn`, `pg_current_xact_id`, `pg_current_xact_id_if_assigned`, `pg_database_size`, `pg_describe_object`, `pg_drop_replication_slot`, `pg_event_trigger_ddl_commands`, `pg_event_trigger_dropped_objects`, `pg_event_trigger_table_rewrite_oid`, `pg_event_trigger_table_rewrite_reason`, `pg_export_snapshot`, `pg_filenode_relation`, `pg_function_is_visible`, `pg_get_catalog_foreign_keys`, `pg_get_constraintdef`, `pg_get_expr`, `pg_get_function_arguments`, `pg_get_function_identity_arguments`, `pg_get_function_result`, `pg_get_functiondef`, `pg_get_indexdef`, `pg_get_keywords`, `pg_get_multixact_members`, `pg_get_object_address`, `pg_get_owned_sequence`, `pg_get_partition_constraintdef`, `pg_get_ruledef`, `pg_get_serial_sequence`, `pg_get_statisticsobjdef`, `pg_get_triggerdef`, `pg_get_userbyid`, `pg_get_viewdef`, `pg_get_wal_replay_pause_state`, `pg_has_role`, `pg_identify_object`, `pg_identify_object_as_address`, `pg_import_system_collations`, `pg_index_column_has_property`, `pg_index_has_property`, `pg_indexam_has_property`, `pg_indexes_size`, `pg_is_in_recovery`, `pg_is_other_temp_schema`, `pg_is_wal_replay_paused`, `pg_jit_available`, `pg_last_committed_xact`, `pg_last_wal_receive_lsn`, `pg_last_wal_replay_lsn`, `pg_last_xact_replay_timestamp`, `pg_listening_channels`, `pg_log_backend_memory_contexts`, `pg_logical_emit_message`, `pg_logical_slot_get_binary_changes`, `pg_logical_slot_get_changes`, `pg_logical_slot_peek_binary_changes`, `pg_logical_slot_peek_changes`, `pg_ls_archive_statusdir`, `pg_ls_dir`, `pg_ls_logdir`, `pg_ls_tmpdir`, `pg_ls_waldir`, `pg_mcv_list_items`, `pg_my_temp_schema`, `pg_notification_queue_usage`, `pg_opclass_is_visible`, `pg_operator_is_visible`, `pg_opfamily_is_visible`, `pg_options_to_table`, `pg_partition_ancestors`, `pg_partition_root`, `pg_partition_tree`, `pg_postmaster_start_time`, `pg_promote`, `pg_read_binary_file`, `pg_read_file`, `pg_relation_filenode`, `pg_relation_filepath`, `pg_relation_size`, `pg_reload_conf`, `pg_replication_origin_advance`, `pg_replication_origin_create`, `pg_replication_origin_drop`, `pg_replication_origin_oid`, `pg_replication_origin_progress`, `pg_replication_origin_session_is_setup`, `pg_replication_origin_session_progress`, `pg_replication_origin_session_reset`, `pg_replication_origin_session_setup`, `pg_replication_origin_xact_reset`, `pg_replication_origin_xact_setup`, `pg_replication_slot_advance`, `pg_rotate_logfile`, `pg_safe_snapshot_blocking_pids`, `pg_size_bytes`, `pg_size_pretty`, `pg_sleep`, `pg_sleep_for`, `pg_sleep_until`, `pg_snapshot_xip`, `pg_snapshot_xmax`, `pg_snapshot_xmin`, `pg_stat_file`, `pg_statistics_obj_is_visible`, `pg_switch_wal`, `pg_table_is_visible`, `pg_table_size`, `pg_tablespace_databases`, `pg_tablespace_location`, `pg_tablespace_size`, `pg_terminate_backend`, `pg_total_relation_size`, `pg_trigger_depth`, `pg_try_advisory_lock`, `pg_try_advisory_lock_shared`, `pg_try_advisory_xact_lock`, `pg_try_advisory_xact_lock_shared`, `pg_ts_config_is_visible`, `pg_ts_dict_is_visible`, `pg_ts_parser_is_visible`, `pg_ts_template_is_visible`, `pg_type_is_visible`, `pg_typeof`, `pg_visible_in_snapshot`, `pg_wal_lsn_diff`, `pg_wal_replay_pause`, `pg_wal_replay_resume`, `pg_walfile_name`, `pg_walfile_name_offset`, `pg_xact_commit_timestamp`, `pg_xact_commit_timestamp_origin`, `pg_xact_status`, `phraseto_tsquery`, `pi`, `plainto_tsquery`, `point`, `polygon`, `popen`, `position`, `power`, `pqserverversion`, `query_to_xml`, `query_to_xml_and_xmlschema`, `query_to_xmlschema`, `querytree`, `quote_ident`, `quote_literal`, `quote_nullable`, `radians`, `radius`, `random`, `range_agg`, `range_intersect_agg`, `range_merge`, `regexp_match`, `regexp_matches`, `regexp_replace`, `regexp_split_to_array`, `regexp_split_to_table`, `regr_avgx`, `regr_avgy`, `regr_count`, `regr_intercept`, `regr_r2`, `regr_slope`, `regr_sxx`, `regr_sxy`, `regr_syy`, `repeat`, `replace`, `reverse`, `right`, `round`, `row_security_active`, `rpad`, `rtrim`, `scale`, `schema_to_xml`, `schema_to_xml_and_xmlschema`, `schema_to_xmlschema`, `session_user`, `set_bit`, `set_byte`, `set_config`, `set_masklen`, `setseed`, `setval`, `setweight`, `sha224`, `sha256`, `sha384`, `sha512`, `shobj_description`, `sign`, `sin`, `sind`, `sinh`, `slope`, `some`, `split_part`, `sprintf`, `sqrt`, `starts_with`, `statement_timestamp`, `stddev`, `stddev_pop`, `stddev_samp`, `string`, `string_to_array`, `string_to_table`, `strip`, `strpos`, `substr`, `substring`, `suppress_redundant_updates_trigger`, `switch`, `table_to_xml`, `table_to_xml_and_xmlschema`, `table_to_xmlschema`, `tan`, `tand`, `tanh`, `text`, `timeofday`, `timezone`, `to_ascii`, `to_char`, `to_date`, `to_hex`, `to_number`, `to_regclass`, `to_regcollation`, `to_regnamespace`, `to_regoper`, `to_regoperator`, `to_regproc`, `to_regprocedure`, `to_regrole`, `to_regtype`, `to_timestamp`, `to_tsquery`, `to_tsvector`, `transaction_timestamp`, `translate`, `trim`, `trim_array`, `trim_scale`, `trunc`, `ts_debug`, `ts_delete`, `ts_filter`, `ts_headline`, `ts_lexize`, `ts_parse`, `ts_rank`, `ts_rank_cd`, `ts_rewrite`, `ts_stat`, `ts_token_type`, `tsquery_phrase`, `tsvector_to_array`, `tsvector_update_trigger`, `tsvector_update_trigger_column`, `txid_current`, `txid_current_if_assigned`, `txid_current_snapshot`, `txid_snapshot_xip`, `txid_snapshot_xmax`, `txid_snapshot_xmin`, `txid_status`, `txid_visible_in_snapshot`, `unistr`, `upper`, `upper_inc`, `upper_inf`, `user`, `var_pop`, `var_samp`, `variance`, `version`, `websearch_to_tsquery`, `width`, `width_bucket`, `xml_is_well_formed`, `xml_is_well_formed_content`, `xml_is_well_formed_document`, `xmlagg`, `xmlcomment`, `xmlconcat`, `xmlelement`, `xmlexists`, `xmlforest`, `xmlparse`, `xmlpi`, `xmlroot`, `xmlserialize`, `xmltable`, `xpath`, `xpath_exists`.
-
-Targets 16, 17, 18, 19:
-
-`any_value`, `array_sample`, `array_shuffle`, `date_add`, `date_subtract`, `erf`, `erfc`, `json_agg_strict`, `json_object_agg_strict`, `json_object_agg_unique`, `json_object_agg_unique_strict`, `jsonb_agg_strict`, `jsonb_object_agg_strict`, `jsonb_object_agg_unique`, `jsonb_object_agg_unique_strict`, `pg_get_partkeydef`, `pg_input_error_info`, `pg_input_is_valid`, `pg_log_standby_snapshot`, `pg_split_walfile_name`, `random_normal`, `system_user`.
-
-Targets 18, 19:
-
-`array_reverse`, `array_sort`, `casefold`, `crc32`, `crc32c`, `gamma`, `has_largeobject_privilege`, `lgamma`, `pg_clear_attribute_stats`, `pg_clear_relation_stats`, `pg_get_acl`, `pg_get_loaded_modules`, `pg_ls_summariesdir`, `pg_numa_available`, `pg_restore_attribute_stats`, `pg_restore_relation_stats`, `uuidv4`, `uuidv7`.
-
-Targets 19:
-
-`error_on_null`, `multirange_minus_multi`, `pg_clear_extended_stats`, `pg_get_multixact_stats`, `pg_get_sequence_data`, `pg_restore_extended_stats`, `range_minus_multi`, `tid_block`, `tid_offset`, `to_regdatabase`.
-
-Targets 15, 16, 17, 18, 19:
-
-`has_parameter_privilege`, `pg_backup_start`, `pg_backup_stop`, `pg_char_to_encoding`, `pg_database_collation_actual_version`, `pg_encoding_to_char`, `pg_get_wal_resource_managers`, `pg_ls_logicalmapdir`, `pg_ls_logicalsnapdir`, `pg_ls_replslotdir`, `pg_settings_get_flags`, `regexp_count`, `regexp_instr`, `regexp_like`, `regexp_substr`.
+`any`, `current_catalog`, `current_date`, `current_role`, `current_time`, `current_timestamp`, `ifnull`, `ilike`, `localtime`, `localtimestamp`, `nvl`, `pg_get_owned_sequence`, `pqserverversion`, `some`, `sprintf`, `string`, `switch`, `trim`, `user`, `xmlconcat`, `xmlelement`, `xmlforest`, `xmlparse`, `xmlpi`, `xmlroot`, `xmlserialize`, `xmltable`.
 
 Targets 17, 18, 19:
 
-`icu_unicode_version`, `json_table`, `jsonb_populate_record_valid`, `merge_action`, `pg_available_wal_summaries`, `pg_basetype`, `pg_column_toast_chunk_id`, `pg_get_wal_summarizer_state`, `pg_sync_replication_slots`, `pg_wal_summary_contents`, `to_bin`, `to_oct`, `to_regtypemod`, `unicode_assigned`, `unicode_version`, `uuid_extract_timestamp`, `uuid_extract_version`, `xmltext`.
-
-Targets 14, 15:
-
-`json_object`.
-
-Targets 14:
-
-`pg_backup_start_time`, `pg_is_in_backup`, `pg_start_backup`, `pg_stop_backup`.
+`json_table`, `merge_action`.
 
 
 **invocation-unverified**
 
 Targets 14, 15, 16, 17, 18, 19:
 
-`array_to_json`, `json_extract_path`, `jsonb_extract_path`, `jsonb_insert`, `jsonb_set`, `row_to_json`, `to_json`, `to_jsonb`.
-
-Targets 17, 18, 19:
-
-`json`, `json_query`, `json_scalar`, `json_serialize`.
+`acldefault`, `aclexplode`, `area`, `array_dims`, `array_fill`, `array_length`, `array_lower`, `array_ndims`, `array_to_json`, `array_to_string`, `array_upper`, `bit_and`, `bit_count`, `bit_or`, `bit_xor`, `brin_desummarize_range`, `cardinality`, `center`, `convert`, `convert_from`, `convert_to`, `corr`, `covar_pop`, `covar_samp`, `current_database`, `current_schema`, `current_schemas`, `current_user`, `cursor_to_xml`, `cursor_to_xmlschema`, `date_part`, `enum_first`, `enum_last`, `enum_range`, `extract`, `gcd`, `get_bit`, `isempty`, `isfinite`, `json_extract_path`, `json_object_keys`, `json_populate_record`, `json_strip_nulls`, `json_to_record`, `jsonb_extract_path`, `jsonb_insert`, `jsonb_object`, `jsonb_object_keys`, `jsonb_populate_record`, `jsonb_set`, `jsonb_set_lax`, `jsonb_strip_nulls`, `jsonb_to_record`, `lcm`, `like`, `lower_inc`, `lower_inf`, `make_timestamp`, `make_timestamptz`, `makeaclitem`, `mod`, `multirange`, `mxid_age`, `npoints`, `pg_advisory_lock`, `pg_advisory_lock_shared`, `pg_advisory_unlock_all`, `pg_advisory_xact_lock`, `pg_advisory_xact_lock_shared`, `pg_client_encoding`, `pg_control_checkpoint`, `pg_control_init`, `pg_control_recovery`, `pg_control_system`, `pg_copy_logical_replication_slot`, `pg_copy_physical_replication_slot`, `pg_create_logical_replication_slot`, `pg_create_physical_replication_slot`, `pg_current_snapshot`, `pg_current_xact_id`, `pg_current_xact_id_if_assigned`, `pg_database_size`, `pg_drop_replication_slot`, `pg_event_trigger_ddl_commands`, `pg_event_trigger_dropped_objects`, `pg_get_catalog_foreign_keys`, `pg_get_expr`, `pg_get_keywords`, `pg_get_multixact_members`, `pg_get_object_address`, `pg_get_userbyid`, `pg_has_role`, `pg_identify_object`, `pg_identify_object_as_address`, `pg_last_committed_xact`, `pg_listening_channels`, `pg_logical_slot_get_binary_changes`, `pg_logical_slot_get_changes`, `pg_logical_slot_peek_binary_changes`, `pg_logical_slot_peek_changes`, `pg_ls_archive_statusdir`, `pg_ls_dir`, `pg_ls_logdir`, `pg_ls_tmpdir`, `pg_ls_waldir`, `pg_mcv_list_items`, `pg_options_to_table`, `pg_partition_ancestors`, `pg_partition_tree`, `pg_replication_origin_advance`, `pg_replication_origin_drop`, `pg_replication_origin_session_reset`, `pg_replication_origin_session_setup`, `pg_replication_origin_xact_reset`, `pg_replication_origin_xact_setup`, `pg_replication_slot_advance`, `pg_size_pretty`, `pg_sleep`, `pg_sleep_for`, `pg_sleep_until`, `pg_snapshot_xip`, `pg_snapshot_xmax`, `pg_snapshot_xmin`, `pg_stat_file`, `pg_tablespace_databases`, `pg_tablespace_size`, `pg_visible_in_snapshot`, `pg_wal_replay_pause`, `pg_wal_replay_resume`, `pg_walfile_name_offset`, `pg_xact_commit_timestamp`, `pg_xact_commit_timestamp_origin`, `pg_xact_status`, `range_agg`, `range_intersect_agg`, `range_merge`, `regexp_matches`, `regexp_split_to_table`, `regr_avgx`, `regr_avgy`, `regr_count`, `regr_intercept`, `regr_r2`, `regr_slope`, `regr_sxx`, `regr_sxy`, `regr_syy`, `row_to_json`, `schema_to_xml`, `schema_to_xml_and_xmlschema`, `schema_to_xmlschema`, `session_user`, `set_bit`, `setseed`, `setweight`, `shobj_description`, `stddev`, `stddev_pop`, `stddev_samp`, `string_to_table`, `suppress_redundant_updates_trigger`, `to_char`, `to_hex`, `to_json`, `to_jsonb`, `trim_array`, `ts_debug`, `ts_filter`, `ts_parse`, `ts_stat`, `ts_token_type`, `tsvector_update_trigger`, `tsvector_update_trigger_column`, `txid_current_snapshot`, `txid_snapshot_xip`, `txid_snapshot_xmax`, `txid_snapshot_xmin`, `txid_visible_in_snapshot`, `upper_inc`, `upper_inf`, `var_pop`, `var_samp`, `variance`, `xmlagg`.
 
 Targets 16, 17, 18, 19:
 
-`json_objectagg`.
+`any_value`, `array_sample`, `array_shuffle`, `json_agg_strict`, `json_object_agg_strict`, `json_object_agg_unique`, `json_object_agg_unique_strict`, `json_objectagg`, `jsonb_agg_strict`, `jsonb_object_agg_strict`, `jsonb_object_agg_unique`, `jsonb_object_agg_unique_strict`, `pg_input_error_info`, `pg_split_walfile_name`.
+
+Targets 18, 19:
+
+`array_reverse`, `array_sort`, `pg_clear_attribute_stats`, `pg_clear_relation_stats`, `pg_get_acl`, `pg_get_loaded_modules`, `pg_ls_summariesdir`.
+
+Targets 19:
+
+`error_on_null`, `multirange_minus_multi`, `pg_clear_extended_stats`, `pg_get_multixact_stats`, `pg_get_sequence_data`, `range_minus_multi`, `to_regdatabase`.
+
+Targets 17, 18, 19:
+
+`json`, `json_query`, `json_scalar`, `json_serialize`, `jsonb_populate_record_valid`, `pg_available_wal_summaries`, `pg_get_wal_summarizer_state`, `pg_sync_replication_slots`, `pg_wal_summary_contents`, `to_bin`, `to_oct`.
+
+Targets 14, 15:
+
+`json_object`.
+
+Targets 15, 16, 17, 18, 19:
+
+`pg_backup_stop`, `pg_char_to_encoding`, `pg_encoding_to_char`, `pg_get_wal_resource_managers`, `pg_ls_logicalmapdir`, `pg_ls_logicalsnapdir`, `pg_ls_replslotdir`.
 
 ### mysql
 
@@ -200,30 +192,8 @@ Targets 14, 15, 16, 17:
 
 | Target | Names observed | Unknown-function observations | Unverified invocations | Declared or typed recognition |
 | --- | ---: | ---: | ---: | ---: |
-| 1.5.6 | 942 | 236 | 29 | 677 |
-| 2.0.0 | 1162 | 247 | 37 | 878 |
-
-**unknown-function-observed**
-
-Targets 1.5.6, 2.0.0:
-
-`add_parquet_key`, `ago`, `array_append`, `array_pop_back`, `array_pop_front`, `array_prepend`, `array_push_back`, `array_push_front`, `array_reverse`, `array_to_string`, `array_to_string_comma_default`, `arrow_scan`, `arrow_scan_dumb`, `check_peg_parser`, `checkpoint`, `col_description`, `collations`, `copy_database`, `current_catalog`, `current_role`, `current_user`, `database_list`, `database_size`, `date_add`, `days_in_month`, `disable_checkpoint_on_shutdown`, `disable_logging`, `disable_object_cache`, `disable_optimizer`, `disable_print_progress_bar`, `disable_profile`, `disable_profiling`, `disable_progress_bar`, `disable_verification`, `disable_verify_parallelism`, `duckdb_approx_database_count`, `duckdb_columns`, `duckdb_connection_count`, `duckdb_constraints`, `duckdb_coordinate_systems`, `duckdb_databases`, `duckdb_dependencies`, `duckdb_extensions`, `duckdb_external_file_cache`, `duckdb_functions`, `duckdb_indexes`, `duckdb_keywords`, `duckdb_log_contexts`, `duckdb_logs`, `duckdb_logs_parsed`, `duckdb_memory`, `duckdb_optimizers`, `duckdb_prepared_statements`, `duckdb_profiling_settings`, `duckdb_schemas`, `duckdb_secret_types`, `duckdb_secrets`, `duckdb_sequences`, `duckdb_settings`, `duckdb_table_sample`, `duckdb_tables`, `duckdb_temporary_files`, `duckdb_types`, `duckdb_variables`, `duckdb_views`, `enable_checkpoint_on_shutdown`, `enable_logging`, `enable_object_cache`, `enable_optimizer`, `enable_print_progress_bar`, `enable_profile`, `enable_profiling`, `enable_progress_bar`, `enable_verification`, `extension_versions`, `fdiv`, `fmod`, `force_checkpoint`, `format_pg_type`, `format_type`, `functions`, `geomean`, `geometric_mean`, `get_block_size`, `glob`, `has_any_column_privilege`, `has_column_privilege`, `has_database_privilege`, `has_foreign_data_wrapper_privilege`, `has_function_privilege`, `has_language_privilege`, `has_schema_privilege`, `has_sequence_privilege`, `has_server_privilege`, `has_table_privilege`, `has_tablespace_privilege`, `histogram_values`, `icu_calendar_names`, `import_database`, `inet_client_addr`, `inet_client_port`, `inet_server_addr`, `inet_server_port`, `json_each`, `json_execute_serialized_sql`, `json_group_structure`, `json_tree`, `list_any_value`, `list_append`, `list_approx_count_distinct`, `list_avg`, `list_bit_and`, `list_bit_or`, `list_bit_xor`, `list_bool_and`, `list_bool_or`, `list_entropy`, `list_first`, `list_histogram`, `list_kurtosis`, `list_kurtosis_pop`, `list_last`, `list_mad`, `list_max`, `list_median`, `list_min`, `list_mode`, `list_prepend`, `list_product`, `list_reverse`, `list_sem`, `list_skewness`, `list_stddev_pop`, `list_stddev_samp`, `list_string_agg`, `list_sum`, `list_var_pop`, `list_var_samp`, `map_contains_entry`, `map_contains_value`, `map_to_pg_oid`, `md5_number_lower`, `md5_number_upper`, `metadata_info`, `obj_description`, `parquet_bloom_probe`, `parquet_file_metadata`, `parquet_full_metadata`, `parquet_kv_metadata`, `parquet_metadata`, `parquet_scan`, `parquet_schema`, `pg_collation_is_visible`, `pg_conf_load_time`, `pg_conversion_is_visible`, `pg_function_is_visible`, `pg_get_constraintdef`, `pg_get_expr`, `pg_get_viewdef`, `pg_has_role`, `pg_is_other_temp_schema`, `pg_my_temp_schema`, `pg_opclass_is_visible`, `pg_operator_is_visible`, `pg_opfamily_is_visible`, `pg_postmaster_start_time`, `pg_size_pretty`, `pg_sleep`, `pg_table_is_visible`, `pg_timezone_names`, `pg_ts_config_is_visible`, `pg_ts_dict_is_visible`, `pg_ts_parser_is_visible`, `pg_ts_template_is_visible`, `pg_type_is_visible`, `pg_typeof`, `platform`, `pragma_collations`, `pragma_database_size`, `pragma_metadata_info`, `pragma_platform`, `pragma_show`, `pragma_storage_info`, `pragma_table_info`, `pragma_user_agent`, `pragma_version`, `query`, `query_table`, `read_blob`, `read_csv`, `read_csv_auto`, `read_duckdb`, `read_json`, `read_json_auto`, `read_json_objects`, `read_json_objects_auto`, `read_ndjson`, `read_ndjson_auto`, `read_ndjson_objects`, `read_parquet`, `read_text`, `regexp_split_to_table`, `repeat_row`, `seq_scan`, `session_user`, `shobj_description`, `show`, `show_databases`, `show_tables`, `show_tables_expanded`, `sniff_csv`, `split_part`, `sql_auto_complete`, `storage_info`, `summary`, `table_info`, `test_all_types`, `test_vector_types`, `truncate_duckdb_logs`, `user`, `user_agent`, `verify_parallelism`, `wavg`, `weighted_avg`, `which_secret`.
-
-Targets 1.5.6:
-
-`all_profiling_output`, `disable_peg_parser`, `disable_verify_external`, `disable_verify_fetch_row`, `disable_verify_serializer`, `enable_peg_parser`, `round_even`, `roundbankers`, `verify_external`, `verify_fetch_row`, `verify_serializer`.
-
-Targets 2.0.0:
-
-`assert_true`, `create_external_resource`, `deregister_external_resource`, `destroy_external_resource`, `duckdb_available_metrics`, `duckdb_dialects`, `duckdb_eviction_queues`, `duckdb_extension_repositories`, `duckdb_external_resource_types`, `duckdb_external_resources`, `duckdb_grammar_extensions`, `duckdb_secret_type_parameters`, `duckdb_triggers`, `json_copy_strftime_if_date`, `json_copy_strftime_if_timestamp`, `read_single_csv_file`, `read_single_json_file`, `read_single_parquet_file`, `register_external_resource`, `register_external_resource_type`, `sql_tokenize`, `variant_group_array`.
-
-
-**invocation-unverified**
-
-Targets 1.5.6, 2.0.0:
-
-`unnest`.
-
+| 1.5.6 | 942 | 0 | 28 | 914 |
+| 2.0.0 | 1162 | 0 | 36 | 1126 |
 
 **special-syntax-unverified**
 

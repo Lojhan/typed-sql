@@ -174,7 +174,7 @@ export function matchDuckDBBuiltin(
     let score = 0,
       valid = true;
     for (let i = 0; i < args.length; i++) {
-      const source = signature[2][i] ?? signature[4];
+      const source = i < signature[2].length ? signature[2][i] : signature[4];
       if (!source) {
         valid = false;
         break;

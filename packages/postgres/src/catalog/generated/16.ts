@@ -124,6 +124,12 @@ export default Object.freeze({
       "target": "bigint"
     },
     {
+      "context": "implicit",
+      "method": "function",
+      "source": "bit",
+      "target": "bit"
+    },
+    {
       "context": "explicit",
       "method": "function",
       "source": "bit",
@@ -182,6 +188,12 @@ export default Object.freeze({
       "method": "function",
       "source": "box",
       "target": "polygon"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "bpchar",
+      "target": "bpchar"
     },
     {
       "context": "implicit",
@@ -448,6 +460,12 @@ export default Object.freeze({
       "target": "smallint"
     },
     {
+      "context": "implicit",
+      "method": "function",
+      "source": "interval",
+      "target": "interval"
+    },
+    {
       "context": "assignment",
       "method": "function",
       "source": "interval",
@@ -554,6 +572,12 @@ export default Object.freeze({
       "method": "function",
       "source": "numeric",
       "target": "money"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "numeric",
+      "target": "numeric"
     },
     {
       "context": "implicit",
@@ -1075,6 +1099,12 @@ export default Object.freeze({
       "context": "implicit",
       "method": "function",
       "source": "time",
+      "target": "time"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "time",
       "target": "timetz"
     },
     {
@@ -1088,6 +1118,12 @@ export default Object.freeze({
       "method": "function",
       "source": "timestamp",
       "target": "time"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "timestamp",
+      "target": "timestamp"
     },
     {
       "context": "implicit",
@@ -1114,6 +1150,12 @@ export default Object.freeze({
       "target": "timestamp"
     },
     {
+      "context": "implicit",
+      "method": "function",
+      "source": "timestamptz",
+      "target": "timestamptz"
+    },
+    {
       "context": "assignment",
       "method": "function",
       "source": "timestamptz",
@@ -1124,6 +1166,12 @@ export default Object.freeze({
       "method": "function",
       "source": "timetz",
       "target": "time"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "timetz",
+      "target": "timetz"
     },
     {
       "context": "explicit",
@@ -1145,6 +1193,12 @@ export default Object.freeze({
     },
     {
       "context": "implicit",
+      "method": "function",
+      "source": "varbit",
+      "target": "varbit"
+    },
+    {
+      "context": "implicit",
       "method": "binary",
       "source": "varchar",
       "target": "bpchar"
@@ -1160,6 +1214,12 @@ export default Object.freeze({
       "method": "binary",
       "source": "varchar",
       "target": "text"
+    },
+    {
+      "context": "implicit",
+      "method": "function",
+      "source": "varchar",
+      "target": "varchar"
     },
     {
       "context": "explicit",
@@ -2010,5 +2070,5 @@ export default Object.freeze({
       "preferred": false
     }
   ],
-  "revision": "sha256:de058666ef6c41fda2cee0b842c08b8d83a5631a20ef4a8baecd9a3d21d2ab18"
+  "revision": "sha256:ab11c95b2c38f2e1cdee9c4388c54cac8cc2b4f29c55ee13e3855d8c7541ad3e"
 }) as unknown as PostgresCoreCatalog;

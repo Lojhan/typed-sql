@@ -1,3 +1,5 @@
+import { nativeTypeAliases as aliases } from "./catalog/generated/aliases.js";
+
 /** DuckDB native logical types, independent of any driver's classes. */
 export type DuckDBType =
   | { readonly kind: "scalar"; readonly name: string; readonly precision?: number; readonly scale?: number }
@@ -12,41 +14,6 @@ export interface DuckDBTypeField {
   readonly type: DuckDBType;
 }
 export const duckDBAsciiFold = (value: string): string => value.replace(/[A-Z]/gu, (char) => char.toLowerCase());
-const aliases: Readonly<Record<string, string>> = Object.freeze({
-  BOOL: "BOOLEAN",
-  LOGICAL: "BOOLEAN",
-  INT1: "TINYINT",
-  INT2: "SMALLINT",
-  INT16: "SMALLINT",
-  SHORT: "SMALLINT",
-  INT: "INTEGER",
-  INT4: "INTEGER",
-  INT32: "INTEGER",
-  SIGNED: "INTEGER",
-  INT8: "BIGINT",
-  INT64: "BIGINT",
-  LONG: "BIGINT",
-  INT128: "HUGEINT",
-  UINT8: "UTINYINT",
-  UINT16: "USMALLINT",
-  UINT32: "UINTEGER",
-  UINT64: "UBIGINT",
-  UINT128: "UHUGEINT",
-  REAL: "FLOAT",
-  FLOAT4: "FLOAT",
-  FLOAT8: "DOUBLE",
-  NUMERIC: "DECIMAL",
-  STRING: "VARCHAR",
-  TEXT: "VARCHAR",
-  CHAR: "VARCHAR",
-  BPCHAR: "VARCHAR",
-  BINARY: "BLOB",
-  VARBINARY: "BLOB",
-  BYTEA: "BLOB",
-  BITSTRING: "BIT",
-  DATETIME: "TIMESTAMP",
-  VARINT: "BIGNUM",
-});
 interface TypeToken {
   readonly value: string;
   readonly quoted: boolean;

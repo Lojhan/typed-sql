@@ -1,0 +1,1186 @@
+{
+  "formatVersion": 1,
+  "inputFingerprint": "sha256:783b3dd7a10d8132fe75fba42cbbd83772be4b1444f1d3f772bf201923005d81",
+  "outputs": [
+    "packages/duckdb/src/catalog/generated/1.5.6.ts",
+    "packages/duckdb/src/catalog/generated/2.0.0.ts",
+    "packages/duckdb/src/catalog/generated/aliases.ts",
+    "packages/duckdb/src/catalog/generated/common-1.5.6.ts",
+    "packages/duckdb/src/catalog/generated/common-2.0.0.ts",
+    "packages/duckdb/src/catalog/generated/registry.ts",
+    "packages/mysql/src/parser/vocabulary.generated.ts",
+    "packages/postgres/src/catalog/generated/native.ts",
+    "packages/postgres/src/catalog/generated/semantics.ts",
+    "packages/postgres/src/parser/vocabulary.generated.ts",
+    "packages/sqlite/src/catalog/generated/policy.ts",
+    "packages/sqlite/src/catalog/generated/types.ts",
+    "packages/sqlite/src/parser/vocabulary.generated.ts",
+    "packages/sqlserver/src/catalog/generated/policy.ts",
+    "packages/sqlserver/src/catalog/generated/types.ts"
+  ],
+  "bands": [
+    {
+      "dialect": "duckdb",
+      "version": "1.5.6",
+      "contexts": [
+        "sha256:91d94cc150ffac103cc4afe86878e1345c485d7c476195ec5128d2bba8e5dfd2"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 2945,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 489,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 82,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 221,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 5184,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 133,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 159,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 30,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "duckdb",
+      "version": "2.0.0",
+      "contexts": [
+        "sha256:e21d7749171a5b1028b015b10392468eef1507ba486b5b8e1603618338920e63"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3235,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 508,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 84,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 227,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 5776,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 144,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 167,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 30,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "mysql",
+      "version": "8.4",
+      "contexts": [
+        "sha256:05d9b8058688cfec2cf9071879b17832c518c25ec4597059946f8f33c09df257",
+        "sha256:91613a41f6a63405d11159463ff9af5e4e2de00e79a0489c72a0f06b8cd65ea8",
+        "sha256:ce5fd3aef1bd5dd3e2b7fc5f6c156b65dd579eebb596229bee41f59f9a5daf4e"
+      ],
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+          ]
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 734,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 35,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 286,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 623,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "observed",
+          "commonFacts": 748,
+          "excludedContextFacts": 0
+        }
+      }
+    },
+    {
+      "dialect": "mysql",
+      "version": "9.7",
+      "contexts": [
+        "sha256:925464321e179c9d462a8f09f9c3a3665824bffffcef0c5bb6487b11974046d5",
+        "sha256:d3a7e60b739d64954ac27665499c4203f39526eaedcc43acc81f60b1fbb77a17",
+        "sha256:e42d81e9731e29df8a7d47ac1cb5b5a752e8e2fb0c492ac7432ddb1df2268b4e"
+      ],
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+          ]
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 760,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 36,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 286,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 631,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "observed",
+          "commonFacts": 753,
+          "excludedContextFacts": 0
+        }
+      }
+    },
+    {
+      "dialect": "mysql",
+      "version": "26.7",
+      "contexts": [
+        "sha256:781b2fa0a469106f7d7db9ccf596a7d7f10d42aace45c3d7df97a8225ee1c876"
+      ],
+      "categories": {
+        "functions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete native-function enumeration in this engine; use the independent official reference inventory. SQL Server system objects omit parser built-ins."
+          ]
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 763,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 36,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 286,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 644,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "observed",
+          "commonFacts": 753,
+          "excludedContextFacts": 0
+        }
+      }
+    },
+    {
+      "dialect": "postgres",
+      "version": "14",
+      "contexts": [
+        "sha256:6abd37d2d686f5e586c41313dbdeabdbcb7330a0edfba0574d5c2fc91a7c48f3"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3191,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 457,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 453,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 804,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 230,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 813,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 348,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 46,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "postgres",
+      "version": "15",
+      "contexts": [
+        "sha256:2b60551aba9e5b605007f4a6a74481e4eb7cda4b3bca477476e5f8cfcb47ce14"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3233,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 460,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 463,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 799,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 229,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 813,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 355,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 47,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "postgres",
+      "version": "16",
+      "contexts": [
+        "sha256:96bf91c109c512425b9a31a4508753d924d996a29f8182eb529f2264493b6a0c"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3286,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 471,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 465,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 799,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 229,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 814,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 364,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 47,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "postgres",
+      "version": "17",
+      "contexts": [
+        "sha256:0b0bab560435c1a5c7bcf9351c86fcc4f70c8ea91774b9b7ea71b2d549dc8967"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3319,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 491,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 469,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 799,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 229,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 815,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 380,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 45,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "postgres",
+      "version": "18",
+      "contexts": [
+        "sha256:214c3656678161933579274025a5871b85a95877f47165aa1ac7c18f36ef30c5"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3402,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 494,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 473,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 799,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 235,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 816,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 399,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 46,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "postgres",
+      "version": "19",
+      "contexts": [
+        "sha256:3945c254c410805ebaa8b0bfe54322b60ec70aa53d9a60f4de2ba5b7756f723f"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 3426,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "observed",
+          "commonFacts": 511,
+          "excludedContextFacts": 0
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 501,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "observed",
+          "commonFacts": 805,
+          "excludedContextFacts": 0
+        },
+        "casts": {
+          "status": "observed",
+          "commonFacts": 249,
+          "excludedContextFacts": 0
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 816,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 419,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "observed",
+          "commonFacts": 47,
+          "excludedContextFacts": 0
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlite",
+      "version": "3.39.0",
+      "contexts": [
+        "sha256:85d36ac1b7252d1479bbefbf779b227ed3832b70218b8b31d6954cff43d9628e"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 165,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+          ]
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 5,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 66,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlite",
+      "version": "3.47.2",
+      "contexts": [
+        "sha256:0b52328b966d0df2377b9eb694438def8cfaabb58a6f4a329ccfe69120fd3146"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 127,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+          ]
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 3,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 66,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlite",
+      "version": "3.53.4",
+      "contexts": [
+        "sha256:7c904325888bd773370d2fa24418dfb083b4340f08b2a42653bce3cac6a946f3",
+        "sha256:a4c7cb753a01044153b981b0aee57525aea905705daa169a33510d96b980758d",
+        "sha256:bdcda00d9e42b4bb5e739783e27f496190b7b35dbc7d70339764a5481fcae81b",
+        "sha256:be5410dd7dcc9349e0b5e5daf12ece34e4e8d379ea20d16e4d206aecc77f1e43"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 0,
+          "excludedContextFacts": 441
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+          ]
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 3,
+          "excludedContextFacts": 2
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 66,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlite",
+      "version": "3.54.0",
+      "contexts": [
+        "sha256:68dc5cc560c45c6357fbcc45cebbb7aada405af55ea87a7a70cff97e0c1029a0"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 196,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+          ]
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 3,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 66,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlite",
+      "version": "3.54.1",
+      "contexts": [
+        "sha256:99d22578abfbcdfe78320e70389583203dff21e6c4228014a2c3f0920aab01fa"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 221,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete named-type enumeration through SQL metadata. SQLite accepts arbitrary declared types and uses affinities; use the official type reference."
+          ]
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 5,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 66,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "14",
+      "contexts": [
+        "sha256:43da58d66d3704fe12d47ab276d1f1fd6806ee4f6fd021dfa33aec65bc263796"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 136,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 34,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 3955,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 77,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "15",
+      "contexts": [
+        "sha256:188d86eaf2a11ef5425e1990785084d10b3dc00aaf737392585a3f8bbdc62238",
+        "sha256:b0c136002250760b501574f0870626335296a3f4a108c2b57ec63e77118e7506"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 143,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 34,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 5508,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 86,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "16",
+      "contexts": [
+        "sha256:27325648d97390dde949c11d0b6b7877487ecb19cbda101bdff5687a2c54bb25",
+        "sha256:6c090643da72144e95b8d36ccbec8fe7debe98650a1c7d9d2f731b0ad7e1b53b",
+        "sha256:8abc45b28ed62ed03c37f067b636591cbf8bd1f6684899965e6cc531053cae74"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 149,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 34,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 5508,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 97,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "17",
+      "contexts": [
+        "sha256:40c30f999c961dd88b57b75f1211e3226d8127615deea37e66402e3823010124",
+        "sha256:70c2dde6c1ba52dcb891893a9d307dec67047003f8e92d307095fdf5b3876e4b",
+        "sha256:9b5d5ef8d9d33120a93a2a281350c8811a1d6d499a87cf25c6e43b35b65a3414",
+        "sha256:fc5ba3c5afc7decd74bd1638031870387e829da1d501910448903d27c83c817b"
+      ],
+      "categories": {
+        "functions": {
+          "status": "observed",
+          "commonFacts": 151,
+          "excludedContextFacts": 0
+        },
+        "keywords": {
+          "status": "unavailable",
+          "reasons": [
+            "No SQL metadata query enumerates keywords; use the official keyword reference (SQLite also exposes a C API)."
+          ]
+        },
+        "types": {
+          "status": "observed",
+          "commonFacts": 36,
+          "excludedContextFacts": 0
+        },
+        "operators": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete operator enumeration through SQL metadata; use the official operator reference."
+          ]
+        },
+        "casts": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete cast enumeration through SQL metadata; contextual coercions require generated behavioral probes."
+          ]
+        },
+        "collations": {
+          "status": "observed",
+          "commonFacts": 5540,
+          "excludedContextFacts": 0
+        },
+        "settings": {
+          "status": "observed",
+          "commonFacts": 107,
+          "excludedContextFacts": 0
+        },
+        "extensions": {
+          "status": "unavailable",
+          "reasons": [
+            "No complete extension enumeration through SQL metadata; installed functions are captured separately."
+          ]
+        },
+        "syntax": {
+          "status": "unavailable",
+          "reasons": [
+            "Catalogs cannot enumerate SQL productions. Official statement/reference inventories and behavioral conformance probes are required."
+          ]
+        }
+      }
+    }
+  ]
+}
