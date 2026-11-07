@@ -21,3 +21,9 @@ Source refresh is an explicit maintainer operation. First acquisition trusts the
 The SARIF command trace crosses the existing exact-hex revision guard before reaching SQLite’s fixed `configure` and probe paths. The outbound-file traces carry public revision selectors, not arbitrary local file contents. Download-to-file traces are the cache writes required by acquisition; filenames and roots come from adapter constants, validated revisions and the explicit workspace root.
 
 Existing source contracts reject altered acquisition bytes, inconsistent fact digests and changed extractor revisions. All 66 contract files passed at `4d4b62b2`; MySQL cached replay also reproduced source locks/facts with fetch disabled. This review does not qualify missing grammar semantics or close the implementation ledger’s remaining requirements.
+
+## SQL Server parser-source follow-up
+
+Reviewed SARIF analysis `2119544094` on `952cecae`. Alert [#59](https://github.com/Lojhan/typed-sql/security/code-scanning/59) carries only the source lock's public commit SHA into the fixed official `codeload.github.com/microsoft/SqlScriptDOM` URL. The exact 40-hex guard precedes URL/path construction; no local file payload or configurable outbound origin is involved.
+
+Alert [#60](https://github.com/Lojhan/typed-sql/security/code-scanning/60) is the corresponding intentional archive cache write. The destination is the configured acquisition root plus the validated revision and fixed `source.tar.gz` name. Existing archive/member pins are verified before interpretation. The extractor selects only requested regular members, rejecting traversal, Windows path separators/drives, duplicate entries and missing inputs. ScriptDOM C# actions are retained as opaque text, not executed. Both findings are false positives for this explicit acquisition boundary.
